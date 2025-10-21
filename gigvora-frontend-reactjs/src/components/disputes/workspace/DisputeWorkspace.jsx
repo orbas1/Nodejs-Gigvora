@@ -23,6 +23,7 @@ export default function DisputeWorkspace({ userId, overview }) {
   const [showComposer, setShowComposer] = useState(false);
   const [selectedDispute, setSelectedDispute] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [alert, setAlert] = useState(null);
 
   const cacheKey = useMemo(
     () => `disputes:${userId}:${filters.status || 'all'}:${filters.stage || 'all'}`,
@@ -60,13 +61,19 @@ export default function DisputeWorkspace({ userId, overview }) {
 
   const handleCreate = async (payload) => {
     setBusy(true);
+    setAlert(null);
     try {
       const response = await createUserDispute(userId, payload);
       const dispute = response?.dispute ?? null;
       await refresh({ force: true });
       if (dispute) {
         setSelectedDispute(dispute);
+        setAlert({ type: 'success', message: 'Dispute submitted for review.' });
+      } else {
+        setAlert({ type: 'success', message: 'Dispute submitted.' });
       }
+    } catch (error) {
+      setAlert({ type: 'error', message: error?.message ?? 'Unable to submit dispute.' });
     } finally {
       setBusy(false);
     }
@@ -75,6 +82,7 @@ export default function DisputeWorkspace({ userId, overview }) {
   const handleAppendEvent = async (payload) => {
     if (!selectedDispute) return;
     setBusy(true);
+    setAlert(null);
     try {
       const response = await postUserDisputeEvent(userId, selectedDispute.id, payload);
       const dispute = response?.dispute ?? null;
@@ -82,6 +90,9 @@ export default function DisputeWorkspace({ userId, overview }) {
       if (dispute) {
         setSelectedDispute(dispute);
       }
+      setAlert({ type: 'success', message: 'Update recorded successfully.' });
+    } catch (error) {
+      setAlert({ type: 'error', message: error?.message ?? 'Unable to post update.' });
     } finally {
       setBusy(false);
     }
@@ -119,6 +130,18 @@ export default function DisputeWorkspace({ userId, overview }) {
 
       <DisputeMetrics summary={summary} />
 
+      {alert ? (
+        <p
+          className={`rounded-3xl px-4 py-3 text-sm ${
+            alert.type === 'error'
+              ? 'border border-rose-200 bg-rose-50 text-rose-700'
+              : 'border border-emerald-200 bg-emerald-50 text-emerald-700'
+          }`}
+        >
+          {alert.message}
+        </p>
+      ) : null}
+
       <DisputeFilters filters={filters} metadata={metadata} onChange={setFilters} onReset={handleResetFilters} />
 
       {error ? (
@@ -138,12 +161,13 @@ export default function DisputeWorkspace({ userId, overview }) {
           {selectedDispute ? (
             <DisputeDetailDrawer
               open
-              inline
+              variant="inline"
               dispute={selectedDispute}
               metadata={metadata}
               busy={busy}
+              loading={busy && !selectedDispute?.events}
               onClose={() => setSelectedDispute(null)}
-              onSubmit={handleAppendEvent}
+              onAddEvent={(id, eventPayload) => handleAppendEvent(eventPayload)}
             />
           ) : (
             <div className="flex h-full min-h-[24rem] flex-col items-center justify-center gap-3 p-6 text-center text-sm text-slate-500">
