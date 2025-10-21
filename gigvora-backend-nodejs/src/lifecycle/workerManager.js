@@ -84,9 +84,10 @@ async function startProfileEngagement(logger) {
   }
 
   try {
+    const intervalMs = runtimeConfig?.workers?.profileEngagement?.intervalMs;
     startProfileEngagementWorker({
       logger,
-      intervalMs: runtimeConfig?.workers?.profileEngagement?.intervalMs,
+      intervalMs,
     });
     registerWorkerStop('profileEngagement', () => {
       stopProfileEngagementWorker();
@@ -96,10 +97,10 @@ async function startProfileEngagement(logger) {
       sampler: () => getProfileEngagementQueueSnapshot({}),
       ttlMs: 15_000,
       metadata: {
-        intervalMs: runtimeConfig?.workers?.profileEngagement?.intervalMs,
+        intervalMs,
       },
     });
-    markWorkerHealthy('profileEngagement');
+    markWorkerHealthy('profileEngagement', { intervalMs });
     return { started: true };
   } catch (error) {
     toLogger(logger).error?.({ err: error }, 'Failed to start profile engagement worker');
@@ -117,9 +118,10 @@ async function startNewsAggregation(logger) {
     return { started: false, reason: 'disabled' };
   }
   try {
+    const intervalMs = runtimeConfig?.workers?.newsAggregation?.intervalMs;
     await startNewsAggregationWorker({
       logger,
-      intervalMs: runtimeConfig?.workers?.newsAggregation?.intervalMs,
+      intervalMs,
     });
     registerWorkerStop('newsAggregation', async () => {
       await stopNewsAggregationWorker();
@@ -129,10 +131,10 @@ async function startNewsAggregation(logger) {
       sampler: async () => getNewsAggregationStatus(),
       ttlMs: 60_000,
       metadata: {
-        intervalMs: runtimeConfig?.workers?.newsAggregation?.intervalMs,
+        intervalMs,
       },
     });
-    markWorkerHealthy('newsAggregation');
+    markWorkerHealthy('newsAggregation', { intervalMs });
     return { started: true };
   } catch (error) {
     toLogger(logger).error?.({ err: error }, 'Failed to start news aggregation worker');
@@ -177,6 +179,7 @@ export async function stopBackgroundWorkers({ logger } = {}) {
     }
   }
   workerStops.clear();
+  workerTelemetry.clear();
 
   if (stopErrors.length > 0) {
     const aggregate = new AggregateError(stopErrors, 'One or more background workers failed to stop gracefully');
@@ -214,4 +217,9 @@ export async function collectWorkerTelemetry({ forceRefresh = false } = {}) {
     });
   }
   return snapshots;
+}
+
+export function resetWorkerManagerState() {
+  workerStops.clear();
+  workerTelemetry.clear();
 }
