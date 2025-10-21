@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { BanknotesIcon, ClipboardDocumentCheckIcon, CurrencyPoundIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { format } from 'date-fns';
@@ -39,6 +39,35 @@ const ACCENT_CLASSNAMES = {
   },
 };
 
+function formatForDateTimeInput(value) {
+  if (!value) return '';
+  try {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    const offset = date.getTimezoneOffset() * 60 * 1000;
+    return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+  } catch (error) {
+    console.warn('Unable to format date for input', error);
+    return '';
+  }
+}
+
+function normaliseDateTime(value) {
+  if (!value) return null;
+  try {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+    return date.toISOString();
+  } catch (error) {
+    console.warn('Unable to normalise date value', error);
+    return null;
+  }
+}
+
 function SummaryCard({ label, value, icon: Icon, accent }) {
   const classes = ACCENT_CLASSNAMES[accent] ?? ACCENT_CLASSNAMES.blue;
   return (
@@ -70,6 +99,23 @@ export default function MentorOrdersSection({ orders, summary, saving, onCreateO
 
   const list = orders ?? [];
 
+  useEffect(() => {
+    if (!editingOrderId) {
+      return;
+    }
+    const activeOrder = list.find((order) => order.id === editingOrderId);
+    if (!activeOrder) {
+      setEditingOrderId(null);
+      setFormState(DEFAULT_ORDER);
+      return;
+    }
+    setFormState({
+      ...DEFAULT_ORDER,
+      ...activeOrder,
+      orderedAt: formatForDateTimeInput(activeOrder.orderedAt),
+    });
+  }, [editingOrderId, list]);
+
   const formattedSummary = useMemo(() => {
     const total = summary?.revenue ?? list.reduce((acc, order) => acc + Number(order.amount ?? 0), 0);
     return {
@@ -89,7 +135,11 @@ export default function MentorOrdersSection({ orders, summary, saving, onCreateO
   const handleSubmit = async (event) => {
     event.preventDefault();
     setFeedback(null);
-    const payload = { ...formState };
+    const payload = {
+      ...formState,
+      amount: formState.amount === '' ? null : Number(formState.amount),
+      orderedAt: normaliseDateTime(formState.orderedAt),
+    };
     try {
       if (editingOrderId) {
         await onUpdateOrder?.(editingOrderId, payload);
@@ -108,7 +158,7 @@ export default function MentorOrdersSection({ orders, summary, saving, onCreateO
     setFormState({
       ...DEFAULT_ORDER,
       ...order,
-      orderedAt: order.orderedAt ? order.orderedAt.slice(0, 16) : '',
+      orderedAt: formatForDateTimeInput(order.orderedAt),
     });
   };
 

@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import {
   ArrowRightCircleIcon,
@@ -52,6 +52,17 @@ const DEFAULT_ATTACHMENT = {
   url: '',
   type: 'Document',
 };
+
+function normaliseWizardItem(item = {}) {
+  return {
+    ...DEFAULT_ITEM,
+    ...item,
+    deliverables: Array.isArray(item.deliverables)
+      ? item.deliverables.join('\n')
+      : item.deliverables ?? '',
+    attachments: item.attachments ?? [],
+  };
+}
 
 const WIZARD_STEPS = [
   {
@@ -125,6 +136,19 @@ export default function MentorCreationStudioWizardSection({
 
   const activeStep = WIZARD_STEPS[activeStepIndex];
 
+  useEffect(() => {
+    if (!editingItemId) {
+      return;
+    }
+    const activeItem = items?.find((item) => item.id === editingItemId);
+    if (!activeItem) {
+      setEditingItemId(null);
+      setWizardItem(DEFAULT_ITEM);
+      return;
+    }
+    setWizardItem(normaliseWizardItem(activeItem));
+  }, [editingItemId, items]);
+
   const handleNext = () => setActiveStepIndex((current) => Math.min(current + 1, WIZARD_STEPS.length - 1));
   const handleBack = () => setActiveStepIndex((current) => Math.max(current - 1, 0));
 
@@ -141,7 +165,13 @@ export default function MentorCreationStudioWizardSection({
     setFeedback(null);
     const payload = {
       ...wizardItem,
-      deliverables: typeof wizardItem.deliverables === 'string' ? wizardItem.deliverables : wizardItem.deliverables.join?.('\n') ?? '',
+      deliverables:
+        typeof wizardItem.deliverables === 'string'
+          ? wizardItem.deliverables
+              .split('\n')
+              .map((line) => line.trim())
+              .filter(Boolean)
+          : wizardItem.deliverables ?? [],
     };
     try {
       if (editingItemId) {
@@ -168,12 +198,7 @@ export default function MentorCreationStudioWizardSection({
 
   const handleEdit = (item) => {
     setEditingItemId(item.id);
-    setWizardItem({
-      ...DEFAULT_ITEM,
-      ...item,
-      deliverables: Array.isArray(item.deliverables) ? item.deliverables.join('\n') : item.deliverables ?? '',
-      attachments: item.attachments ?? [],
-    });
+    setWizardItem(normaliseWizardItem(item));
     setActiveStepIndex(0);
     setFeedback(null);
   };

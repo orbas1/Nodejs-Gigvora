@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import {
   ArrowPathIcon,
@@ -19,6 +19,25 @@ const DEFAULT_WIDGET = {
 };
 
 const TIMEFRAMES = ['Last 7 days', 'Last 30 days', 'Last quarter', 'Last 12 months'];
+
+function normaliseWidget(widget = {}) {
+  return {
+    name: widget.name ?? '',
+    value: widget.value ?? '',
+    goal: widget.goal ?? '',
+    unit: widget.unit ?? '',
+    timeframe: widget.timeframe ?? 'Last 30 days',
+    insight: widget.insight ?? '',
+  };
+}
+
+function toNumberOrNull(value) {
+  if (value === '' || value === null || value === undefined) {
+    return null;
+  }
+  const numberValue = Number(value);
+  return Number.isNaN(numberValue) ? null : numberValue;
+}
 
 function MetricCard({ widget, onEdit, onDelete }) {
   const progress = useMemo(() => {
@@ -102,6 +121,19 @@ export default function MentorMetricsSection({
   const [feedback, setFeedback] = useState(null);
   const [reportGenerating, setReportGenerating] = useState(false);
 
+  useEffect(() => {
+    if (!editingWidgetId) {
+      return;
+    }
+    const activeWidget = metrics?.find((widget) => widget.id === editingWidgetId);
+    if (!activeWidget) {
+      setEditingWidgetId(null);
+      setWidgetForm(DEFAULT_WIDGET);
+      return;
+    }
+    setWidgetForm(normaliseWidget(activeWidget));
+  }, [editingWidgetId, metrics]);
+
   const handleReset = () => {
     setWidgetForm(DEFAULT_WIDGET);
     setEditingWidgetId(null);
@@ -110,7 +142,11 @@ export default function MentorMetricsSection({
   const handleSubmit = async (event) => {
     event.preventDefault();
     setFeedback(null);
-    const payload = { ...widgetForm };
+    const payload = {
+      ...widgetForm,
+      value: toNumberOrNull(widgetForm.value),
+      goal: toNumberOrNull(widgetForm.goal),
+    };
     try {
       if (editingWidgetId) {
         await onUpdateWidget?.(editingWidgetId, payload);
@@ -126,14 +162,7 @@ export default function MentorMetricsSection({
 
   const handleEdit = (widget) => {
     setEditingWidgetId(widget.id);
-    setWidgetForm({
-      name: widget.name ?? '',
-      value: widget.value ?? '',
-      goal: widget.goal ?? '',
-      unit: widget.unit ?? '',
-      timeframe: widget.timeframe ?? 'Last 30 days',
-      insight: widget.insight ?? '',
-    });
+    setWidgetForm(normaliseWidget(widget));
   };
 
   const handleDelete = async (widget) => {

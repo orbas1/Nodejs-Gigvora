@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { ChartBarIcon, MegaphoneIcon, PowerIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { format } from 'date-fns';
@@ -24,6 +24,43 @@ const DEFAULT_CAMPAIGN = {
   audience: '',
 };
 
+function formatForDateInput(value) {
+  if (!value) return '';
+  try {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    const offset = date.getTimezoneOffset() * 60 * 1000;
+    return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+  } catch (error) {
+    console.warn('Unable to format campaign date for input', error);
+    return '';
+  }
+}
+
+function normaliseDate(value) {
+  if (!value) return null;
+  try {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+    return date.toISOString();
+  } catch (error) {
+    console.warn('Unable to normalise campaign date', error);
+    return null;
+  }
+}
+
+function toNumber(value) {
+  if (value === '' || value === null || value === undefined) {
+    return null;
+  }
+  const numberValue = Number(value);
+  return Number.isNaN(numberValue) ? null : numberValue;
+}
+
 export default function MentorAdsSection({ campaigns, insights, saving, onCreateCampaign, onUpdateCampaign, onDeleteCampaign, onToggleCampaign }) {
   const [formState, setFormState] = useState(DEFAULT_CAMPAIGN);
   const [editingCampaignId, setEditingCampaignId] = useState(null);
@@ -43,11 +80,37 @@ export default function MentorAdsSection({ campaigns, insights, saving, onCreate
     setEditingCampaignId(null);
   };
 
+  useEffect(() => {
+    if (!editingCampaignId) {
+      return;
+    }
+    const activeCampaign = list.find((campaign) => campaign.id === editingCampaignId);
+    if (!activeCampaign) {
+      setEditingCampaignId(null);
+      setFormState(DEFAULT_CAMPAIGN);
+      return;
+    }
+    setFormState({
+      ...DEFAULT_CAMPAIGN,
+      ...activeCampaign,
+      placements: (activeCampaign.placements ?? []).join(', '),
+      startDate: formatForDateInput(activeCampaign.startDate),
+      endDate: formatForDateInput(activeCampaign.endDate),
+    });
+  }, [editingCampaignId, list]);
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setFeedback(null);
     const payload = {
       ...formState,
+      budget: toNumber(formState.budget),
+      spend: toNumber(formState.spend),
+      impressions: toNumber(formState.impressions),
+      clicks: toNumber(formState.clicks),
+      conversions: toNumber(formState.conversions),
+      startDate: normaliseDate(formState.startDate),
+      endDate: normaliseDate(formState.endDate),
       placements: Array.isArray(formState.placements)
         ? formState.placements
         : String(formState.placements ?? '')
@@ -74,8 +137,8 @@ export default function MentorAdsSection({ campaigns, insights, saving, onCreate
       ...DEFAULT_CAMPAIGN,
       ...campaign,
       placements: (campaign.placements ?? []).join(', '),
-      startDate: campaign.startDate ? campaign.startDate.slice(0, 10) : '',
-      endDate: campaign.endDate ? campaign.endDate.slice(0, 10) : '',
+      startDate: formatForDateInput(campaign.startDate),
+      endDate: formatForDateInput(campaign.endDate),
     });
   };
 

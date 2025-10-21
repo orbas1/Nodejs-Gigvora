@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import {
   AdjustmentsHorizontalIcon,
@@ -13,15 +13,29 @@ import { formatDistanceToNow } from 'date-fns';
 const THEMES = ['Aurora', 'Solar', 'Midnight', 'Slate'];
 const LANGUAGES = ['en-GB', 'en-US', 'fr-FR', 'de-DE'];
 
+function normalisePreferences(preferences = {}) {
+  return {
+    ...preferences,
+    notifications: { ...(preferences.notifications ?? {}) },
+    aiAssistant: { ...(preferences.aiAssistant ?? {}) },
+    security: { ...(preferences.security ?? {}) },
+    api: { ...(preferences.api ?? {}) },
+  };
+}
+
 export default function MentorSystemPreferencesSection({
   preferences,
   saving,
   onSavePreferences,
   onRotateApiKey,
 }) {
-  const [formState, setFormState] = useState(preferences ?? {});
+  const [formState, setFormState] = useState(normalisePreferences(preferences ?? {}));
   const [feedback, setFeedback] = useState(null);
   const [rotating, setRotating] = useState(false);
+
+  useEffect(() => {
+    setFormState(normalisePreferences(preferences ?? {}));
+  }, [preferences]);
 
   const handleNotificationToggle = (field) => {
     setFormState((current) => ({

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { ArrowPathIcon, CheckCircleIcon, LinkIcon, PlayCircleIcon, PlusCircleIcon, SparklesIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { format } from 'date-fns';
@@ -24,6 +24,36 @@ const DEFAULT_ACTION = {
   status: 'Not started',
   priority: 'Medium',
 };
+
+function formatForDateTimeInput(value) {
+  if (!value) return '';
+  try {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    const offsetMs = date.getTimezoneOffset() * 60 * 1000;
+    const localDate = new Date(date.getTime() - offsetMs);
+    return localDate.toISOString().slice(0, 16);
+  } catch (error) {
+    console.warn('Failed to format date value for input', error);
+    return '';
+  }
+}
+
+function normaliseDateTimePayload(value) {
+  if (!value) return null;
+  try {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+    return date.toISOString();
+  } catch (error) {
+    console.warn('Failed to normalise date value', error);
+    return null;
+  }
+}
 
 function StatusBadge({ label }) {
   const badgeClass = useMemo(() => {
@@ -116,10 +146,47 @@ export default function MentorHubSection({
 
   const spotlight = useMemo(() => hub?.spotlight ?? {}, [hub]);
 
+  useEffect(() => {
+    setSpotlightForm(hub?.spotlight ?? {});
+  }, [hub?.spotlight]);
+
+  useEffect(() => {
+    if (!editingUpdateId) {
+      return;
+    }
+    const activeUpdate = updates.find((update) => update.id === editingUpdateId);
+    if (!activeUpdate) {
+      return;
+    }
+    setUpdateForm({
+      ...DEFAULT_UPDATE,
+      ...activeUpdate,
+      publishedAt: formatForDateTimeInput(activeUpdate.publishedAt),
+    });
+  }, [editingUpdateId, updates]);
+
+  useEffect(() => {
+    if (!editingActionId) {
+      return;
+    }
+    const activeAction = actions.find((action) => action.id === editingActionId);
+    if (!activeAction) {
+      return;
+    }
+    setActionForm({
+      ...DEFAULT_ACTION,
+      ...activeAction,
+      dueAt: formatForDateTimeInput(activeAction.dueAt),
+    });
+  }, [actions, editingActionId]);
+
   const handleSubmitUpdate = async (event) => {
     event.preventDefault();
     setFeedback(null);
-    const payload = { ...updateForm };
+    const payload = {
+      ...updateForm,
+      publishedAt: normaliseDateTimePayload(updateForm.publishedAt),
+    };
     try {
       if (editingUpdateId) {
         await onUpdateUpdate?.(editingUpdateId, payload);
@@ -137,7 +204,10 @@ export default function MentorHubSection({
   const handleSubmitAction = async (event) => {
     event.preventDefault();
     setFeedback(null);
-    const payload = { ...actionForm };
+    const payload = {
+      ...actionForm,
+      dueAt: normaliseDateTimePayload(actionForm.dueAt),
+    };
     try {
       if (editingActionId) {
         await onUpdateAction?.(editingActionId, payload);
@@ -320,7 +390,11 @@ export default function MentorHubSection({
                         type="button"
                         onClick={() => {
                           setEditingUpdateId(update.id);
-                          setUpdateForm({ ...DEFAULT_UPDATE, ...update });
+                          setUpdateForm({
+                            ...DEFAULT_UPDATE,
+                            ...update,
+                            publishedAt: formatForDateTimeInput(update.publishedAt),
+                          });
                         }}
                         className="text-xs font-semibold text-slate-500 hover:text-accent"
                       >
@@ -455,7 +529,11 @@ export default function MentorHubSection({
                         type="button"
                         onClick={() => {
                           setEditingActionId(action.id);
-                          setActionForm({ ...DEFAULT_ACTION, ...action });
+                          setActionForm({
+                            ...DEFAULT_ACTION,
+                            ...action,
+                            dueAt: formatForDateTimeInput(action.dueAt),
+                          });
                         }}
                         className="text-slate-500 hover:text-accent"
                       >

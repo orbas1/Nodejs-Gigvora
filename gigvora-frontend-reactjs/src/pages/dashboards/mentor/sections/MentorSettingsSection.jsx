@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import {
   BoltIcon,
@@ -18,6 +18,10 @@ export default function MentorSettingsSection({ settings, saving, onSaveSettings
   const [formState, setFormState] = useState(settings ?? {});
   const [attachmentForm, setAttachmentForm] = useState(DEFAULT_ATTACHMENT);
   const [feedback, setFeedback] = useState(null);
+
+  useEffect(() => {
+    setFormState(settings ?? {});
+  }, [settings]);
 
   const handleToggle = (field) => {
     setFormState((current) => ({ ...current, [field]: !current?.[field] }));
