@@ -6,7 +6,7 @@ import { fetchBlogPost } from '../services/blog.js';
 import BlogCard from '../components/blog/BlogCard.jsx';
 import { fetchBlogPosts } from '../services/blog.js';
 
-function formatDate(input) {
+export function formatDate(input) {
   if (!input) {
     return null;
   }

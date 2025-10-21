@@ -7,7 +7,7 @@ import { loginWithPassword, verifyTwoFactor, resendTwoFactor, loginWithGoogle } 
 import apiClient from '../services/apiClient.js';
 import SocialAuthButton, { SOCIAL_PROVIDERS } from '../components/SocialAuthButton.jsx';
 
-const DASHBOARD_ROUTES = {
+export const DASHBOARD_ROUTES = {
   admin: '/dashboard/admin',
   agency: '/dashboard/agency',
   company: '/dashboard/company',
@@ -17,7 +17,7 @@ const DASHBOARD_ROUTES = {
   user: '/feed',
 };
 
-function resolveLanding(session) {
+export function resolveLanding(session) {
   if (!session) {
     return '/feed';
   }
@@ -25,7 +25,7 @@ function resolveLanding(session) {
   return DASHBOARD_ROUTES[key] ?? '/feed';
 }
 
-function formatExpiry(timestamp) {
+export function formatExpiry(timestamp) {
   if (!timestamp) return null;
   try {
     const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;

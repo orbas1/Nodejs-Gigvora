@@ -87,7 +87,7 @@ const QUICK_REPLY_SUGGESTIONS = [
 ];
 const MAX_CONTENT_LENGTH = 2200;
 
-function resolveAuthor(post) {
+export function resolveAuthor(post) {
   const directAuthor = post?.author ?? {};
   const user = post?.User ?? post?.user ?? {};
   const profile = user?.Profile ?? user?.profile ?? {};
@@ -109,13 +109,13 @@ function resolveAuthor(post) {
   };
 }
 
-function resolvePostType(post) {
+export function resolvePostType(post) {
   const typeKey = (post?.type || post?.category || post?.opportunityType || 'update').toLowerCase();
   const meta = POST_TYPE_META[typeKey] ?? POST_TYPE_META.update;
   return { key: POST_TYPE_META[typeKey] ? typeKey : 'update', ...meta };
 }
 
-function extractMediaAttachments(post) {
+export function extractMediaAttachments(post) {
   const attachments = [];
   if (Array.isArray(post?.mediaAttachments)) {
     post.mediaAttachments
@@ -146,7 +146,7 @@ function extractMediaAttachments(post) {
   return attachments;
 }
 
-function normaliseFeedPost(post, fallbackSession) {
+export function normaliseFeedPost(post, fallbackSession) {
   if (!post || typeof post !== 'object') {
     return null;
   }

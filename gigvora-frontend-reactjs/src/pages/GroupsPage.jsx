@@ -27,16 +27,16 @@ import {
 import { resolveActorId } from '../utils/session.js';
 import { classNames } from '../utils/classNames.js';
 
-const COMMUNITY_MEMBERSHIPS = ['user', 'freelancer', 'agency', 'company', 'mentor', 'headhunter'];
+export const COMMUNITY_MEMBERSHIPS = ['user', 'freelancer', 'agency', 'company', 'mentor', 'headhunter'];
 
-const FOCUS_SEGMENTS = [
+export const FOCUS_SEGMENTS = [
   { id: 'all', label: 'All communities' },
   { id: 'future of work', label: 'Future of work' },
   { id: 'experience launchpad', label: 'Launchpad alumni' },
   { id: 'sustainability', label: 'Impact & volunteering' },
 ];
 
-const FALLBACK_DISCOVER_GROUPS = [
+export const FALLBACK_DISCOVER_GROUPS = [
   {
     id: 1,
     name: 'Future of Work Collective',
@@ -53,7 +53,7 @@ const FALLBACK_DISCOVER_GROUPS = [
   },
 ];
 
-function formatNumber(value) {
+export function formatNumber(value) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) {
     return value ?? '—';
@@ -64,7 +64,7 @@ function formatNumber(value) {
   return numeric.toString();
 }
 
-function getErrorMessage(error) {
+export function getErrorMessage(error) {
   if (!error) {
     return null;
   }
@@ -77,7 +77,7 @@ function getErrorMessage(error) {
   return 'We could not process that request. Please try again.';
 }
 
-function normaliseDiscoverResponse(response) {
+export function normaliseDiscoverResponse(response) {
   if (!response) {
     return { items: [], metadata: {} };
   }
