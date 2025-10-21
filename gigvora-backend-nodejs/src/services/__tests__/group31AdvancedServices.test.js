@@ -533,3 +533,392 @@ describe('pageSettingsService', () => {
     }
   });
 });
+
+describe('healthService readiness reporting', () => {
+  const modelsModuleUrl = new URL('../../models/index.js', import.meta.url);
+  const runtimeHealthModuleUrl = new URL('../../lifecycle/runtimeHealth.js', import.meta.url);
+  const dbLifecycleModuleUrl = new URL('../databaseLifecycleService.js', import.meta.url);
+  const workerModuleUrl = new URL('../../lifecycle/workerManager.js', import.meta.url);
+  const runtimeConfigModuleUrl = new URL('../../config/runtimeConfig.js', import.meta.url);
+
+  beforeEach(() => {
+    resetAll();
+  });
+
+  afterEach(() => {
+    resetAll();
+  });
+
+  it('verifies connectivity once and surfaces cached readiness metadata', async () => {
+    const authenticate = jest.fn(async () => {});
+    const markDependencyHealthy = jest.fn();
+
+    await jest.unstable_mockModule(modelsModuleUrl.pathname, () => ({
+      sequelize: {
+        authenticate,
+        getDialect: () => 'postgres',
+      },
+    }));
+
+    await jest.unstable_mockModule(runtimeHealthModuleUrl.pathname, () => ({
+      buildHealthReport: jest.fn(() => ({
+        status: 'ok',
+        timestamp: new Date('2024-01-01T00:00:00Z').toISOString(),
+        uptimeSeconds: 120,
+        http: { status: 'running' },
+      })),
+      getHealthState: jest.fn(() => ({
+        dependencies: {
+          redis: { status: 'ok', updatedAt: new Date('2024-01-01T00:05:00Z').toISOString() },
+        },
+        workers: {
+          aggregator: { status: 'ok', updatedAt: new Date('2024-01-01T00:04:00Z').toISOString() },
+        },
+        http: { status: 'running' },
+      })),
+      markDependencyHealthy,
+      markDependencyUnavailable: jest.fn(),
+    }));
+
+    await jest.unstable_mockModule(dbLifecycleModuleUrl.pathname, () => ({
+      getDatabasePoolSnapshot: jest.fn(() => ({ size: 12, idle: 3 })),
+    }));
+
+    await jest.unstable_mockModule(workerModuleUrl.pathname, () => ({
+      collectWorkerTelemetry: jest.fn(async () => [
+        {
+          name: 'aggregator',
+          metrics: { queueDepth: 2 },
+          metadata: { uptimeMinutes: 45 },
+          lastSampleAt: new Date('2024-01-01T00:04:00Z').toISOString(),
+        },
+      ]),
+    }));
+
+    await jest.unstable_mockModule(runtimeConfigModuleUrl.pathname, () => ({
+      getRuntimeConfig: jest.fn(() => ({ serviceName: 'gigvora-platform', env: 'test' })),
+    }));
+
+    const healthService = await import('../healthService.js');
+
+    await healthService.verifyDatabaseConnectivity();
+    await healthService.verifyDatabaseConnectivity();
+
+    expect(authenticate).toHaveBeenCalledTimes(1);
+    expect(markDependencyHealthy).toHaveBeenCalledWith(
+      'database',
+      expect.objectContaining({ vendor: 'postgres', latencyMs: expect.any(Number), pool: expect.any(Object) }),
+    );
+
+    const report = await healthService.getReadinessReport({ page: 1, perPage: 5 });
+    expect(report.database.status).toBe('ok');
+    expect(report.dependencies.nodes[0]).toMatchObject({ name: 'redis', status: 'ok' });
+    expect(report.workers.nodes[0]).toMatchObject({ name: 'aggregator', telemetry: { queueDepth: 2 } });
+    expect(report.httpStatus).toBe(200);
+  });
+});
+
+describe('notificationService queueing and listing', () => {
+  const modelsModuleUrl = new URL('../../models/index.js', import.meta.url);
+  const cacheModuleUrl = new URL('../../utils/cache.js', import.meta.url);
+  const originalFormatter = Intl.DateTimeFormat;
+
+  beforeEach(() => {
+    resetAll();
+  });
+
+  afterEach(() => {
+    resetAll();
+    Intl.DateTimeFormat = originalFormatter;
+  });
+
+  it('respects quiet hours and paginates notification listings', async () => {
+    const createdPayloads = [];
+    const preferenceRecord = {
+      emailEnabled: true,
+      pushEnabled: true,
+      smsEnabled: false,
+      inAppEnabled: true,
+      quietHoursStart: '22:00',
+      quietHoursEnd: '06:00',
+      metadata: { timezone: 'UTC' },
+    };
+
+    await jest.unstable_mockModule(modelsModuleUrl.pathname, () => ({
+      sequelize: {
+        transaction: jest.fn(async (handler) => handler({})),
+      },
+      NotificationPreference: {
+        findOne: jest.fn(async () => preferenceRecord),
+      },
+      Notification: {
+        create: jest.fn(async (payload) => {
+          createdPayloads.push(payload);
+          return {
+            toPublicObject: () => ({ id: 'notif_1', status: payload.status, title: payload.title }),
+          };
+        }),
+        findAndCountAll: jest.fn(async () => ({
+          rows: [
+            { toPublicObject: () => ({ id: 'notif_1', status: 'pending', title: 'Maintenance window' }) },
+            { toPublicObject: () => ({ id: 'notif_2', status: 'delivered', title: 'Daily digest' }) },
+          ],
+          count: 2,
+        })),
+      },
+      NOTIFICATION_CATEGORIES: ['system', 'marketing'],
+      NOTIFICATION_PRIORITIES: ['low', 'normal', 'high'],
+      NOTIFICATION_STATUSES: ['pending', 'delivered', 'dismissed', 'read'],
+      DIGEST_FREQUENCIES: ['immediate', 'daily'],
+    }));
+
+    await jest.unstable_mockModule(cacheModuleUrl.pathname, () => ({
+      appCache: {
+        remember: jest.fn((key, ttl, callback) => callback()),
+        flushByPrefix: jest.fn(),
+      },
+      buildCacheKey: (...parts) => parts.join(':'),
+    }));
+
+    Intl.DateTimeFormat = jest.fn(() => ({ format: () => '23:30' }));
+
+    const notificationService = await import('../notificationService.js');
+
+    const queued = await notificationService.queueNotification({
+      userId: 7001,
+      category: 'system',
+      priority: 'high',
+      type: 'platform_maintenance',
+      title: 'Maintenance starting soon',
+      body: 'Platform access will be read-only during the deployment window.',
+    });
+
+    expect(createdPayloads[0]).toMatchObject({
+      userId: 7001,
+      status: 'pending',
+      priority: 'high',
+    });
+    expect(queued).toEqual({ id: 'notif_1', status: 'pending', title: 'Maintenance starting soon' });
+
+    const listed = await notificationService.listNotifications(7001, { status: 'unread' }, { page: 1, pageSize: 10 });
+    expect(listed.data).toHaveLength(2);
+    expect(listed.pagination).toEqual({ page: 1, pageSize: 10, total: 2, totalPages: 1 });
+  });
+});
+
+describe('networkingService business cards', () => {
+  const modelsModuleUrl = new URL('../../models/index.js', import.meta.url);
+  const cacheModuleUrl = new URL('../../utils/cache.js', import.meta.url);
+
+  beforeEach(() => {
+    resetAll();
+  });
+
+  afterEach(() => {
+    resetAll();
+  });
+
+  it('enforces workspace access and normalises card payloads', async () => {
+    const createMock = jest.fn(async (payload) => ({
+      ...payload,
+      id: 'card_1',
+      toPublicObject: () => ({
+        id: 'card_1',
+        title: payload.title,
+        contactEmail: payload.contactEmail,
+        status: payload.status,
+      }),
+    }));
+
+    await jest.unstable_mockModule(modelsModuleUrl.pathname, () => ({
+      sequelize: {
+        transaction: jest.fn(async (handler) => handler({})),
+      },
+      NetworkingBusinessCard: {
+        create: createMock,
+        findByPk: jest.fn(),
+      },
+      ProviderWorkspace: {
+        findByPk: jest.fn(),
+      },
+      NetworkingSession: { findByPk: jest.fn() },
+      NetworkingSessionSignup: { count: jest.fn(), create: jest.fn(), findByPk: jest.fn(), findOne: jest.fn() },
+      NetworkingSessionRotation: { findAll: jest.fn(), bulkCreate: jest.fn() },
+      NETWORKING_SESSION_STATUSES: ['draft', 'scheduled', 'in_progress', 'completed', 'cancelled'],
+      NETWORKING_SESSION_ACCESS_TYPES: ['public', 'invite_only', 'workspace'],
+      NETWORKING_SESSION_VISIBILITIES: ['public', 'community', 'workspace'],
+      NETWORKING_SESSION_SIGNUP_STATUSES: ['registered', 'waitlisted', 'checked_in', 'completed', 'removed', 'no_show'],
+      NETWORKING_SESSION_SIGNUP_SOURCES: ['self', 'admin'],
+      NETWORKING_BUSINESS_CARD_STATUSES: ['draft', 'published'],
+      NETWORKING_ROTATION_STATUSES: ['scheduled', 'completed'],
+    }));
+
+    await jest.unstable_mockModule(cacheModuleUrl.pathname, () => ({
+      appCache: {
+        remember: jest.fn((key, ttl, callback) => callback()),
+        flushByPrefix: jest.fn(),
+      },
+      buildCacheKey: (...parts) => parts.join(':'),
+    }));
+
+    const networkingService = await import('../networkingService.js');
+
+    await expect(
+      networkingService.createNetworkingBusinessCard(
+        { title: 'Venture Catalyst', contactEmail: 'mentor@example.com', status: 'published' },
+        { ownerId: 99, companyId: 501, authorizedWorkspaceIds: [404] },
+      ),
+    ).rejects.toThrow('You do not have permission to manage this networking workspace.');
+
+    const created = await networkingService.createNetworkingBusinessCard(
+      {
+        title: 'Venture Catalyst',
+        contactEmail: 'mentor@example.com',
+        headline: 'Product mentor',
+        tags: ['Product', 'Growth'],
+        status: 'published',
+      },
+      { ownerId: 99, companyId: 501, authorizedWorkspaceIds: [501] },
+    );
+
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contactEmail: 'mentor@example.com',
+        tags: ['Product', 'Growth'],
+        status: 'published',
+      }),
+    );
+    expect(created).toEqual(
+      expect.objectContaining({ id: 'card_1', contactEmail: 'mentor@example.com', status: 'published' }),
+    );
+  });
+});
+
+describe('pageService invites', () => {
+  const modelsModuleUrl = new URL('../../models/index.js', import.meta.url);
+
+  beforeEach(() => {
+    resetAll();
+  });
+
+  afterEach(() => {
+    resetAll();
+    jest.restoreAllMocks();
+  });
+
+  it('creates page invites with normalised metadata and expiry', async () => {
+    const now = new Date('2024-01-01T00:00:00Z').getTime();
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(now);
+
+    const membershipMock = jest.fn(async (options) => {
+      if (options?.where?.userId) {
+        return { id: 7, role: 'owner' };
+      }
+      return null;
+    });
+
+    const createdInvite = {
+      id: 'invite_1',
+      pageId: 88,
+      email: 'new@company.com',
+      role: 'editor',
+      status: 'pending',
+      message: 'Join us',
+      invitedById: 42,
+      expiresAt: new Date(now + 14 * 24 * 60 * 60 * 1000),
+      metadata: null,
+      invitedBy: null,
+      reload: jest.fn(async function reload() {
+        this.invitedBy = {
+          id: 42,
+          firstName: 'Ada',
+          lastName: 'Lovelace',
+          email: 'ada@gigvora.com',
+          userType: 'admin',
+        };
+        return this;
+      }),
+      get: jest.fn(() => ({
+        id: 'invite_1',
+        pageId: 88,
+        email: 'new@company.com',
+        role: 'editor',
+        status: 'pending',
+        message: 'Join us',
+        invitedById: 42,
+        invitedBy: {
+          id: 42,
+          firstName: 'Ada',
+          lastName: 'Lovelace',
+          email: 'ada@gigvora.com',
+          userType: 'admin',
+        },
+        expiresAt: new Date(now + 14 * 24 * 60 * 60 * 1000),
+        metadata: null,
+        createdAt: new Date('2024-01-01T00:00:00Z'),
+        updatedAt: new Date('2024-01-01T00:00:00Z'),
+      })),
+    };
+
+    const createInviteMock = jest.fn(async (payload) => {
+      expect(payload.expiresAt.getTime()).toBe(now + 14 * 24 * 60 * 60 * 1000);
+      Object.assign(createdInvite, payload, { id: 'invite_1' });
+      return createdInvite;
+    });
+
+    await jest.unstable_mockModule(modelsModuleUrl.pathname, () => ({
+      sequelize: {
+        transaction: jest.fn(async (handler) => handler({})),
+      },
+      Page: { findByPk: jest.fn() },
+      PageMembership: { findOne: membershipMock },
+      PageInvite: {
+        findOne: jest.fn(async () => null),
+        create: createInviteMock,
+      },
+      PagePost: {},
+      User: {
+        findByPk: jest.fn(async () => ({
+          id: 42,
+          firstName: 'Ada',
+          lastName: 'Lovelace',
+          email: 'ada@gigvora.com',
+          userType: 'admin',
+        })),
+      },
+      sequelizeModule: { transaction: jest.fn() },
+      PAGE_VISIBILITIES: ['public', 'private'],
+      PAGE_MEMBER_ROLES: ['member', 'editor', 'admin', 'owner', 'moderator'],
+      PAGE_MEMBER_STATUSES: ['pending', 'active', 'suspended', 'invited'],
+      PAGE_POST_STATUSES: ['draft', 'published'],
+      PAGE_POST_VISIBILITIES: ['public', 'followers'],
+      COMMUNITY_INVITE_STATUSES: ['pending', 'accepted', 'declined'],
+    }));
+
+    const pageService = await import('../pageService.js');
+
+    try {
+      const invite = await pageService.createPageInvite(
+        88,
+        { email: 'NEW@Company.com', role: 'editor', message: 'Join us' },
+        { actorId: 42 },
+      );
+
+      expect(createInviteMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: 'new@company.com',
+          invitedById: 42,
+          status: 'pending',
+        }),
+        expect.any(Object),
+      );
+      expect(invite).toMatchObject({
+        email: 'new@company.com',
+        role: 'editor',
+        invitedBy: expect.objectContaining({ email: 'ada@gigvora.com' }),
+      });
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+});
