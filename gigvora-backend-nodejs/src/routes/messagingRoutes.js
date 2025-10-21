@@ -2,25 +2,103 @@ import { Router } from 'express';
 import * as messagingController from '../controllers/messagingController.js';
 import * as inboxController from '../controllers/inboxController.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import validateRequest from '../middleware/validateRequest.js';
+import { authenticateRequest } from '../middleware/authentication.js';
+import {
+  threadParamsSchema,
+  listThreadsQuerySchema,
+  createThreadBodySchema,
+  listMessagesQuerySchema,
+  createMessageBodySchema,
+  callSessionBodySchema,
+  threadStateBodySchema,
+  muteThreadBodySchema,
+  escalateThreadBodySchema,
+  assignSupportBodySchema,
+  supportStatusBodySchema,
+  threadSettingsBodySchema,
+  addParticipantsBodySchema,
+  participantParamsSchema,
+  threadDetailQuerySchema,
+} from '../validation/schemas/messagingSchemas.js';
 
 const router = Router();
 
-router.get('/threads', asyncHandler(messagingController.listInbox));
-router.post('/threads', asyncHandler(messagingController.createConversation));
-router.get('/threads/:threadId', asyncHandler(messagingController.openThread));
-router.get('/threads/:threadId/messages', asyncHandler(messagingController.listThreadMessages));
-router.post('/threads/:threadId/messages', asyncHandler(messagingController.postMessage));
-router.post('/threads/:threadId/calls', asyncHandler(messagingController.createCallSession));
-router.post('/threads/:threadId/read', asyncHandler(messagingController.acknowledgeThread));
-router.post('/threads/:threadId/state', asyncHandler(messagingController.changeThreadState));
-router.post('/threads/:threadId/mute', asyncHandler(messagingController.muteConversation));
-router.post('/threads/:threadId/escalate', asyncHandler(messagingController.escalateThread));
-router.post('/threads/:threadId/assign-support', asyncHandler(messagingController.assignSupport));
-router.post('/threads/:threadId/support-status', asyncHandler(messagingController.updateSupportStatus));
-router.post('/threads/:threadId/settings', asyncHandler(messagingController.updateThreadSettings));
-router.post('/threads/:threadId/participants', asyncHandler(messagingController.addParticipants));
+router.use(authenticateRequest());
+
+router.get(
+  '/threads',
+  validateRequest({ query: listThreadsQuerySchema }),
+  asyncHandler(messagingController.listInbox),
+);
+router.post(
+  '/threads',
+  validateRequest({ body: createThreadBodySchema }),
+  asyncHandler(messagingController.createConversation),
+);
+router.get(
+  '/threads/:threadId',
+  validateRequest({ params: threadParamsSchema, query: threadDetailQuerySchema }),
+  asyncHandler(messagingController.openThread),
+);
+router.get(
+  '/threads/:threadId/messages',
+  validateRequest({ params: threadParamsSchema, query: listMessagesQuerySchema }),
+  asyncHandler(messagingController.listThreadMessages),
+);
+router.post(
+  '/threads/:threadId/messages',
+  validateRequest({ params: threadParamsSchema, body: createMessageBodySchema }),
+  asyncHandler(messagingController.postMessage),
+);
+router.post(
+  '/threads/:threadId/calls',
+  validateRequest({ params: threadParamsSchema, body: callSessionBodySchema }),
+  asyncHandler(messagingController.createCallSession),
+);
+router.post(
+  '/threads/:threadId/read',
+  validateRequest({ params: threadParamsSchema }),
+  asyncHandler(messagingController.acknowledgeThread),
+);
+router.post(
+  '/threads/:threadId/state',
+  validateRequest({ params: threadParamsSchema, body: threadStateBodySchema }),
+  asyncHandler(messagingController.changeThreadState),
+);
+router.post(
+  '/threads/:threadId/mute',
+  validateRequest({ params: threadParamsSchema, body: muteThreadBodySchema }),
+  asyncHandler(messagingController.muteConversation),
+);
+router.post(
+  '/threads/:threadId/escalate',
+  validateRequest({ params: threadParamsSchema, body: escalateThreadBodySchema }),
+  asyncHandler(messagingController.escalateThread),
+);
+router.post(
+  '/threads/:threadId/assign-support',
+  validateRequest({ params: threadParamsSchema, body: assignSupportBodySchema }),
+  asyncHandler(messagingController.assignSupport),
+);
+router.post(
+  '/threads/:threadId/support-status',
+  validateRequest({ params: threadParamsSchema, body: supportStatusBodySchema }),
+  asyncHandler(messagingController.updateSupportStatus),
+);
+router.post(
+  '/threads/:threadId/settings',
+  validateRequest({ params: threadParamsSchema, body: threadSettingsBodySchema }),
+  asyncHandler(messagingController.updateThreadSettings),
+);
+router.post(
+  '/threads/:threadId/participants',
+  validateRequest({ params: threadParamsSchema, body: addParticipantsBodySchema }),
+  asyncHandler(messagingController.addParticipants),
+);
 router.delete(
   '/threads/:threadId/participants/:participantId',
+  validateRequest({ params: participantParamsSchema }),
   asyncHandler(messagingController.removeParticipant),
 );
 

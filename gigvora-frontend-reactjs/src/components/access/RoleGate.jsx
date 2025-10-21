@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { Link, Navigate, useLocation } from 'react-router-dom';
 import { useMemo } from 'react';
 import useRoleAccess from '../../hooks/useRoleAccess.js';
@@ -82,3 +83,9 @@ export default function RoleGate({ allowedRoles, children, featureName }) {
 
   return content;
 }
+
+RoleGate.propTypes = {
+  allowedRoles: PropTypes.arrayOf(PropTypes.string),
+  children: PropTypes.oneOfType([PropTypes.node, PropTypes.func]).isRequired,
+  featureName: PropTypes.string,
+};

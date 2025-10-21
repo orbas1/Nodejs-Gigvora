@@ -7,9 +7,16 @@ const DECISION_VISIBILITIES = ['internal', 'client', 'public'];
 const INSIGHT_TYPES = ['health', 'finance', 'engagement', 'risk', 'custom'];
 const INSIGHT_VISIBILITIES = ['internal', 'shared'];
 
+const resolveJsonType = (queryInterface, Sequelize) => {
+  const dialect = queryInterface.sequelize.getDialect();
+  return ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
+};
+
 module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.sequelize.transaction(async (transaction) => {
+      const jsonType = resolveJsonType(queryInterface, Sequelize);
+
       await queryInterface.createTable(
         'client_portals',
         {
@@ -19,12 +26,14 @@ module.exports = {
             allowNull: false,
             references: { model: 'projects', key: 'id' },
             onDelete: 'CASCADE',
+            onUpdate: 'CASCADE',
           },
           ownerId: {
             type: Sequelize.INTEGER,
             allowNull: true,
             references: { model: 'users', key: 'id' },
             onDelete: 'SET NULL',
+            onUpdate: 'CASCADE',
           },
           slug: { type: Sequelize.STRING(160), allowNull: false, unique: true },
           title: { type: Sequelize.STRING(255), allowNull: false },
@@ -32,8 +41,8 @@ module.exports = {
           status: { type: Sequelize.ENUM(...PORTAL_STATUSES), allowNull: false, defaultValue: 'draft' },
           brandColor: { type: Sequelize.STRING(12), allowNull: true },
           accentColor: { type: Sequelize.STRING(12), allowNull: true },
-          preferences: { type: Sequelize.JSONB ?? Sequelize.JSON, allowNull: true },
-          stakeholders: { type: Sequelize.JSONB ?? Sequelize.JSON, allowNull: true },
+          preferences: { type: jsonType, allowNull: true },
+          stakeholders: { type: jsonType, allowNull: true },
           createdAt: {
             allowNull: false,
             type: Sequelize.DATE,
@@ -83,7 +92,7 @@ module.exports = {
           },
           startDate: { type: Sequelize.DATE, allowNull: true },
           dueDate: { type: Sequelize.DATE, allowNull: true },
-          metadata: { type: Sequelize.JSONB ?? Sequelize.JSON, allowNull: true },
+          metadata: { type: jsonType, allowNull: true },
           createdAt: {
             allowNull: false,
             type: Sequelize.DATE,
@@ -138,7 +147,7 @@ module.exports = {
           valueCurrency: { type: Sequelize.STRING(6), allowNull: true },
           valueAmount: { type: Sequelize.DECIMAL(12, 2), allowNull: true },
           lastDecisionAt: { type: Sequelize.DATE, allowNull: true },
-          metadata: { type: Sequelize.JSONB ?? Sequelize.JSON, allowNull: true },
+          metadata: { type: jsonType, allowNull: true },
           createdAt: {
             allowNull: false,
             type: Sequelize.DATE,
@@ -189,7 +198,7 @@ module.exports = {
             allowNull: false,
             defaultValue: 'client',
           },
-          attachments: { type: Sequelize.JSONB ?? Sequelize.JSON, allowNull: true },
+          attachments: { type: jsonType, allowNull: true },
           createdAt: {
             allowNull: false,
             type: Sequelize.DATE,
@@ -230,7 +239,7 @@ module.exports = {
           },
           title: { type: Sequelize.STRING(255), allowNull: false },
           description: { type: Sequelize.TEXT, allowNull: true },
-          data: { type: Sequelize.JSONB ?? Sequelize.JSON, allowNull: true },
+          data: { type: jsonType, allowNull: true },
           visibility: {
             type: Sequelize.ENUM(...INSIGHT_VISIBILITIES),
             allowNull: false,
@@ -259,6 +268,13 @@ module.exports = {
           transaction,
         },
       );
+
+      await queryInterface.addConstraint('client_portals', {
+        type: 'unique',
+        fields: ['slug'],
+        name: 'client_portals_slug_unique',
+        transaction,
+      });
     });
   },
 
@@ -267,6 +283,14 @@ module.exports = {
     const isPostgres = ['postgres', 'postgresql'].includes(dialect);
 
     await queryInterface.sequelize.transaction(async (transaction) => {
+      await queryInterface.removeConstraint('client_portals', 'client_portals_slug_unique', { transaction });
+      await queryInterface.removeIndex('client_portal_insight_widgets', 'client_portal_insight_widgets_order_idx', { transaction });
+      await queryInterface.removeIndex('client_portal_decision_logs', 'client_portal_decision_logs_decided_idx', { transaction });
+      await queryInterface.removeIndex('client_portal_scope_items', 'client_portal_scope_items_status_idx', { transaction });
+      await queryInterface.removeIndex('client_portal_timeline_events', 'client_portal_timeline_events_status_idx', { transaction });
+      await queryInterface.removeIndex('client_portal_timeline_events', 'client_portal_timeline_events_due_idx', { transaction });
+      await queryInterface.removeIndex('client_portals', 'client_portals_project_status_idx', { transaction });
+
       await queryInterface.dropTable('client_portal_insight_widgets', { transaction });
       await queryInterface.dropTable('client_portal_decision_logs', { transaction });
       await queryInterface.dropTable('client_portal_scope_items', { transaction });

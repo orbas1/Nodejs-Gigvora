@@ -4,6 +4,10 @@ import { PlatformSetting } from '../src/models/platformSetting.js';
 import { markDependencyHealthy } from '../src/lifecycle/runtimeHealth.js';
 import { appCache } from '../src/utils/cache.js';
 
+if (typeof process.env.SKIP_SEQUELIZE_BOOTSTRAP === 'undefined') {
+  process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'true';
+}
+
 const REQUIRED_ENV_DEFAULTS = {
   STRIPE_PUBLISHABLE_KEY: 'pk_test_mocked',
   STRIPE_SECRET_KEY: 'sk_test_mocked',
@@ -140,6 +144,7 @@ async function primeTestState() {
 
 jest.setTimeout(30_000);
 const skipBootstrap = process.env.SKIP_SEQUELIZE_BOOTSTRAP === 'true';
+const mockSequelizeMode = process.env.MOCK_SEQUELIZE_MODE === 'true';
 
 if (skipHeavyBootstrap) {
   ensureEnvironmentDefaults();

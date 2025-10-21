@@ -626,7 +626,8 @@ export async function createPurchase(payload = {}, actorContext = {}) {
     purchaserId: purchaser.id,
     purchaserEmail: payload.purchaserEmail ?? purchaser.email ?? null,
     purchaserName:
-      payload.purchaserName ?? [purchaser.firstName, purchaser.lastName].filter(Boolean).join(' ').trim() || purchaser.email,
+      payload.purchaserName ??
+      ([purchaser.firstName, purchaser.lastName].filter(Boolean).join(' ').trim() || purchaser.email),
     status,
     amountCents,
     currency: parseCurrency(payload.currency ?? session.currency ?? 'USD'),

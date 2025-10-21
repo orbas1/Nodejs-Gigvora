@@ -5,98 +5,87 @@ import {
   updateAgencyCalendarEvent,
   deleteAgencyCalendarEvent,
 } from '../services/agencyCalendarService.js';
+import {
+  buildAgencyActorContext,
+  ensurePlainObject,
+  mergeDefined,
+  toOptionalString,
+  toRequiredString,
+} from '../utils/controllerUtils.js';
+import { resolveWorkspaceIdentifiersFromRequest } from '../utils/agencyWorkspaceAccess.js';
 
-function parseNumber(value) {
+function normaliseTypes(value) {
   if (value == null || value === '') {
     return undefined;
   }
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
+  const candidates = Array.isArray(value) ? value : `${value}`.split(',');
+  const results = [];
+  const seen = new Set();
+  for (const entry of candidates) {
+    const text = `${entry}`.trim();
+    if (!text) {
+      continue;
+    }
+    const key = text.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    results.push(key);
+  }
+  return results.length ? results : undefined;
 }
 
-function parseTypes(value) {
-  if (!value) {
-    return undefined;
-  }
-  if (Array.isArray(value)) {
-    return value;
-  }
-  return String(value)
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter(Boolean);
+function normaliseQuery(req) {
+  const identifiers = resolveWorkspaceIdentifiersFromRequest(req, {}, { required: true });
+  const types = normaliseTypes(req.query?.types);
+  const status = toOptionalString(req.query?.status, { fieldName: 'status', maxLength: 40, lowercase: true });
+  const from = toOptionalString(req.query?.from, { fieldName: 'from', maxLength: 40 });
+  const to = toOptionalString(req.query?.to, { fieldName: 'to', maxLength: 40 });
+  return mergeDefined(identifiers, { types, status, from, to });
 }
 
-function buildContext(req) {
-  return {
-    actorId: req.user?.id ?? null,
-    actorRole: req.user?.type ?? req.user?.roles?.[0] ?? null,
-  };
+function normaliseBody(req, body = {}) {
+  const payload = ensurePlainObject(body, 'body');
+  const identifiers = resolveWorkspaceIdentifiersFromRequest(req, payload, { required: true });
+  return mergeDefined(payload, identifiers);
 }
 
 export async function index(req, res) {
-  const { workspaceId, workspaceSlug, types, status, from, to } = req.query ?? {};
-
-  const payload = {
-    workspaceId: parseNumber(workspaceId),
-    workspaceSlug: workspaceSlug ?? undefined,
-    types: parseTypes(types),
-    status: status ?? undefined,
-    from: from ?? undefined,
-    to: to ?? undefined,
-  };
-
-  const result = await listAgencyCalendarEvents(payload, buildContext(req));
+  const actor = buildAgencyActorContext(req);
+  const payload = normaliseQuery(req);
+  const result = await listAgencyCalendarEvents(payload, actor);
   res.json(result);
 }
 
 export async function show(req, res) {
-  const { eventId } = req.params;
-  const { workspaceId, workspaceSlug } = req.query ?? {};
-
-  const result = await getAgencyCalendarEvent(
-    eventId,
-    {
-      workspaceId: parseNumber(workspaceId),
-      workspaceSlug: workspaceSlug ?? undefined,
-    },
-    buildContext(req),
-  );
-
+  const actor = buildAgencyActorContext(req);
+  const eventId = toRequiredString(req.params?.eventId, { fieldName: 'eventId', maxLength: 80 });
+  const payload = resolveWorkspaceIdentifiersFromRequest(req, {}, { required: true });
+  const result = await getAgencyCalendarEvent(eventId, payload, actor);
   res.json(result);
 }
 
 export async function store(req, res) {
-  const payload = {
-    ...req.body,
-    workspaceId: parseNumber(req.body?.workspaceId ?? req.query?.workspaceId) ?? undefined,
-    workspaceSlug: req.body?.workspaceSlug ?? req.query?.workspaceSlug ?? undefined,
-  };
-
-  const result = await createAgencyCalendarEvent(payload, buildContext(req));
+  const actor = buildAgencyActorContext(req);
+  const payload = normaliseBody(req, req.body ?? {});
+  const result = await createAgencyCalendarEvent(payload, actor);
   res.status(201).json(result);
 }
 
 export async function update(req, res) {
-  const { eventId } = req.params;
-  const payload = {
-    ...req.body,
-    workspaceId: parseNumber(req.body?.workspaceId ?? req.query?.workspaceId) ?? undefined,
-    workspaceSlug: req.body?.workspaceSlug ?? req.query?.workspaceSlug ?? undefined,
-  };
-
-  const result = await updateAgencyCalendarEvent(eventId, payload, buildContext(req));
+  const actor = buildAgencyActorContext(req);
+  const eventId = toRequiredString(req.params?.eventId, { fieldName: 'eventId', maxLength: 80 });
+  const payload = normaliseBody(req, req.body ?? {});
+  const result = await updateAgencyCalendarEvent(eventId, payload, actor);
   res.json(result);
 }
 
 export async function destroy(req, res) {
-  const { eventId } = req.params;
-  const payload = {
-    workspaceId: parseNumber(req.body?.workspaceId ?? req.query?.workspaceId) ?? undefined,
-    workspaceSlug: req.body?.workspaceSlug ?? req.query?.workspaceSlug ?? undefined,
-  };
-
-  const result = await deleteAgencyCalendarEvent(eventId, payload, buildContext(req));
+  const actor = buildAgencyActorContext(req);
+  const eventId = toRequiredString(req.params?.eventId, { fieldName: 'eventId', maxLength: 80 });
+  const payload = resolveWorkspaceIdentifiersFromRequest(req, req.body ?? {}, { required: true });
+  const result = await deleteAgencyCalendarEvent(eventId, payload, actor);
   res.json(result);
 }
 
@@ -107,4 +96,3 @@ export default {
   update,
   destroy,
 };
-

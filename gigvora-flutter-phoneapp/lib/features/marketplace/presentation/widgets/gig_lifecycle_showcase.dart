@@ -6,6 +6,8 @@ import '../../../theme/widgets.dart';
 class GigLifecycleShowcase extends ConsumerWidget {
   const GigLifecycleShowcase({super.key});
 
+  static const rootKey = Key('gig_lifecycle_showcase_root');
+
   static final _timelinePhases = [
     (
       title: 'Discovery & alignment',
@@ -93,6 +95,7 @@ class GigLifecycleShowcase extends ConsumerWidget {
     final colorScheme = theme.colorScheme;
 
     return Container(
+      key: rootKey,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(36),
         gradient: LinearGradient(

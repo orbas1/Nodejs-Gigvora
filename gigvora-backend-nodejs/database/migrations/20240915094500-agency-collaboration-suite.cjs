@@ -1,9 +1,11 @@
 'use strict';
 
+const { resolveJsonType, dropEnum } = require('../utils/migrationHelpers.cjs');
+
 module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.sequelize.transaction(async (transaction) => {
-      const jsonType = Sequelize.JSONB ?? Sequelize.JSON;
+      const jsonType = resolveJsonType(queryInterface, Sequelize);
 
       await queryInterface.createTable(
         'agency_collaborations',
@@ -347,16 +349,20 @@ module.exports = {
       await queryInterface.dropTable('agency_collaboration_invitations', { transaction });
       await queryInterface.dropTable('agency_collaborations', { transaction });
 
-      await queryInterface.sequelize.query("DROP TYPE IF EXISTS \"enum_agency_collaborations_status\"", { transaction });
-      await queryInterface.sequelize.query("DROP TYPE IF EXISTS \"enum_agency_collaborations_collaborationType\"", { transaction });
-      await queryInterface.sequelize.query("DROP TYPE IF EXISTS \"enum_agency_collaboration_invitations_status\"", { transaction });
-      await queryInterface.sequelize.query("DROP TYPE IF EXISTS \"enum_agency_collaboration_invitations_engagementType\"", { transaction });
-      await queryInterface.sequelize.query("DROP TYPE IF EXISTS \"enum_agency_rate_cards_status\"", { transaction });
-      await queryInterface.sequelize.query("DROP TYPE IF EXISTS \"enum_agency_rate_card_items_unitType\"", { transaction });
-      await queryInterface.sequelize.query("DROP TYPE IF EXISTS \"enum_agency_retainer_negotiations_status\"", { transaction });
-      await queryInterface.sequelize.query("DROP TYPE IF EXISTS \"enum_agency_retainer_negotiations_stage\"", { transaction });
-      await queryInterface.sequelize.query("DROP TYPE IF EXISTS \"enum_agency_retainer_events_actorType\"", { transaction });
-      await queryInterface.sequelize.query("DROP TYPE IF EXISTS \"enum_agency_retainer_events_eventType\"", { transaction });
+      const enumNames = [
+        'enum_agency_collaborations_status',
+        'enum_agency_collaborations_collaborationType',
+        'enum_agency_collaboration_invitations_status',
+        'enum_agency_collaboration_invitations_engagementType',
+        'enum_agency_rate_cards_status',
+        'enum_agency_rate_card_items_unitType',
+        'enum_agency_retainer_negotiations_status',
+        'enum_agency_retainer_negotiations_stage',
+        'enum_agency_retainer_events_actorType',
+        'enum_agency_retainer_events_eventType',
+      ];
+
+      await Promise.all(enumNames.map((enumName) => dropEnum(queryInterface, enumName, transaction)));
     });
   },
 };

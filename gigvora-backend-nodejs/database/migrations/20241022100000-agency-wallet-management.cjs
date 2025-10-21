@@ -17,6 +17,9 @@ module.exports = {
     await queryInterface.addColumn('wallet_accounts', 'workspaceId', {
       type: Sequelize.INTEGER,
       allowNull: true,
+      references: { model: 'provider_workspaces', key: 'id' },
+      onDelete: 'SET NULL',
+      onUpdate: 'CASCADE',
     });
 
     await queryInterface.addIndex('wallet_accounts', ['workspaceId'], {
@@ -25,7 +28,13 @@ module.exports = {
 
     await queryInterface.createTable('wallet_funding_sources', {
       id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
-      workspaceId: { type: Sequelize.INTEGER, allowNull: false },
+      workspaceId: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        references: { model: 'provider_workspaces', key: 'id' },
+        onDelete: 'CASCADE',
+        onUpdate: 'CASCADE',
+      },
       label: { type: Sequelize.STRING(160), allowNull: false },
       type: { type: Sequelize.STRING(40), allowNull: false },
       provider: { type: Sequelize.STRING(120), allowNull: true },
@@ -34,8 +43,20 @@ module.exports = {
       status: { type: Sequelize.STRING(40), allowNull: false, defaultValue: 'active' },
       isPrimary: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false },
       metadata: { type: jsonType, allowNull: false, defaultValue: {} },
-      createdById: { type: Sequelize.INTEGER, allowNull: true },
-      updatedById: { type: Sequelize.INTEGER, allowNull: true },
+      createdById: {
+        type: Sequelize.INTEGER,
+        allowNull: true,
+        references: { model: 'users', key: 'id' },
+        onDelete: 'SET NULL',
+        onUpdate: 'CASCADE',
+      },
+      updatedById: {
+        type: Sequelize.INTEGER,
+        allowNull: true,
+        references: { model: 'users', key: 'id' },
+        onDelete: 'SET NULL',
+        onUpdate: 'CASCADE',
+      },
       createdAt: {
         type: Sequelize.DATE,
         allowNull: false,
@@ -58,7 +79,14 @@ module.exports = {
 
     await queryInterface.createTable('wallet_operational_settings', {
       id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
-      workspaceId: { type: Sequelize.INTEGER, allowNull: false, unique: true },
+      workspaceId: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        unique: true,
+        references: { model: 'provider_workspaces', key: 'id' },
+        onDelete: 'CASCADE',
+        onUpdate: 'CASCADE',
+      },
       lowBalanceAlertThreshold: { type: Sequelize.DECIMAL(18, 2), allowNull: true },
       autoSweepEnabled: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false },
       autoSweepThreshold: { type: Sequelize.DECIMAL(18, 2), allowNull: true },
@@ -69,8 +97,20 @@ module.exports = {
       riskTier: { type: Sequelize.STRING(40), allowNull: true },
       complianceNotes: { type: Sequelize.STRING(500), allowNull: true },
       metadata: { type: jsonType, allowNull: false, defaultValue: {} },
-      createdById: { type: Sequelize.INTEGER, allowNull: true },
-      updatedById: { type: Sequelize.INTEGER, allowNull: true },
+      createdById: {
+        type: Sequelize.INTEGER,
+        allowNull: true,
+        references: { model: 'users', key: 'id' },
+        onDelete: 'SET NULL',
+        onUpdate: 'CASCADE',
+      },
+      updatedById: {
+        type: Sequelize.INTEGER,
+        allowNull: true,
+        references: { model: 'users', key: 'id' },
+        onDelete: 'SET NULL',
+        onUpdate: 'CASCADE',
+      },
       createdAt: {
         type: Sequelize.DATE,
         allowNull: false,
@@ -85,16 +125,40 @@ module.exports = {
 
     await queryInterface.createTable('wallet_transfer_rules', {
       id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
-      workspaceId: { type: Sequelize.INTEGER, allowNull: false },
+      workspaceId: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        references: { model: 'provider_workspaces', key: 'id' },
+        onDelete: 'CASCADE',
+        onUpdate: 'CASCADE',
+      },
       name: { type: Sequelize.STRING(160), allowNull: false },
       triggerType: { type: Sequelize.STRING(40), allowNull: false },
       thresholdAmount: { type: Sequelize.DECIMAL(18, 2), allowNull: true },
       scheduleCron: { type: Sequelize.STRING(120), allowNull: true },
-      destinationFundingSourceId: { type: Sequelize.INTEGER, allowNull: true },
+      destinationFundingSourceId: {
+        type: Sequelize.INTEGER,
+        allowNull: true,
+        references: { model: 'wallet_funding_sources', key: 'id' },
+        onDelete: 'SET NULL',
+        onUpdate: 'CASCADE',
+      },
       isActive: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: true },
       metadata: { type: jsonType, allowNull: false, defaultValue: {} },
-      createdById: { type: Sequelize.INTEGER, allowNull: true },
-      updatedById: { type: Sequelize.INTEGER, allowNull: true },
+      createdById: {
+        type: Sequelize.INTEGER,
+        allowNull: true,
+        references: { model: 'users', key: 'id' },
+        onDelete: 'SET NULL',
+        onUpdate: 'CASCADE',
+      },
+      updatedById: {
+        type: Sequelize.INTEGER,
+        allowNull: true,
+        references: { model: 'users', key: 'id' },
+        onDelete: 'SET NULL',
+        onUpdate: 'CASCADE',
+      },
       createdAt: {
         type: Sequelize.DATE,
         allowNull: false,
@@ -115,17 +179,57 @@ module.exports = {
       name: 'wallet_transfer_rules_active_idx',
     });
 
+    await queryInterface.addIndex('wallet_transfer_rules', ['destinationFundingSourceId'], {
+      name: 'wallet_transfer_rules_destination_idx',
+    });
+
     await queryInterface.createTable('wallet_payout_requests', {
       id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
-      workspaceId: { type: Sequelize.INTEGER, allowNull: false },
-      walletAccountId: { type: Sequelize.INTEGER, allowNull: false },
-      fundingSourceId: { type: Sequelize.INTEGER, allowNull: true },
+      workspaceId: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        references: { model: 'provider_workspaces', key: 'id' },
+        onDelete: 'CASCADE',
+        onUpdate: 'CASCADE',
+      },
+      walletAccountId: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        references: { model: 'wallet_accounts', key: 'id' },
+        onDelete: 'CASCADE',
+        onUpdate: 'CASCADE',
+      },
+      fundingSourceId: {
+        type: Sequelize.INTEGER,
+        allowNull: true,
+        references: { model: 'wallet_funding_sources', key: 'id' },
+        onDelete: 'SET NULL',
+        onUpdate: 'CASCADE',
+      },
       amount: { type: Sequelize.DECIMAL(18, 2), allowNull: false },
       currencyCode: { type: Sequelize.STRING(3), allowNull: false, defaultValue: 'USD' },
       status: { type: Sequelize.STRING(40), allowNull: false, defaultValue: 'pending_review' },
-      requestedById: { type: Sequelize.INTEGER, allowNull: false },
-      reviewedById: { type: Sequelize.INTEGER, allowNull: true },
-      processedById: { type: Sequelize.INTEGER, allowNull: true },
+      requestedById: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        references: { model: 'users', key: 'id' },
+        onDelete: 'CASCADE',
+        onUpdate: 'CASCADE',
+      },
+      reviewedById: {
+        type: Sequelize.INTEGER,
+        allowNull: true,
+        references: { model: 'users', key: 'id' },
+        onDelete: 'SET NULL',
+        onUpdate: 'CASCADE',
+      },
+      processedById: {
+        type: Sequelize.INTEGER,
+        allowNull: true,
+        references: { model: 'users', key: 'id' },
+        onDelete: 'SET NULL',
+        onUpdate: 'CASCADE',
+      },
       requestedAt: {
         type: Sequelize.DATE,
         allowNull: false,
@@ -158,14 +262,25 @@ module.exports = {
     await queryInterface.addIndex('wallet_payout_requests', ['walletAccountId'], {
       name: 'wallet_payout_requests_account_idx',
     });
+
+    await queryInterface.addIndex('wallet_payout_requests', ['fundingSourceId'], {
+      name: 'wallet_payout_requests_funding_idx',
+    });
+
+    await queryInterface.addIndex('wallet_payout_requests', ['requestedById'], {
+      name: 'wallet_payout_requests_requested_idx',
+    });
   },
 
   async down(queryInterface) {
+    await queryInterface.removeIndex('wallet_payout_requests', 'wallet_payout_requests_requested_idx');
+    await queryInterface.removeIndex('wallet_payout_requests', 'wallet_payout_requests_funding_idx');
     await queryInterface.removeIndex('wallet_payout_requests', 'wallet_payout_requests_account_idx');
     await queryInterface.removeIndex('wallet_payout_requests', 'wallet_payout_requests_status_idx');
     await queryInterface.removeIndex('wallet_payout_requests', 'wallet_payout_requests_workspace_idx');
     await queryInterface.dropTable('wallet_payout_requests');
 
+    await queryInterface.removeIndex('wallet_transfer_rules', 'wallet_transfer_rules_destination_idx');
     await queryInterface.removeIndex('wallet_transfer_rules', 'wallet_transfer_rules_active_idx');
     await queryInterface.removeIndex('wallet_transfer_rules', 'wallet_transfer_rules_workspace_idx');
     await queryInterface.dropTable('wallet_transfer_rules');

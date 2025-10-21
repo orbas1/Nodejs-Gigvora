@@ -5798,6 +5798,8 @@ export const WORKSPACE_ROLE_STATUSES = ['active', 'pending', 'inactive', 'offboa
 export const WORKSPACE_SUBMISSION_STATUSES = ['draft', 'submitted', 'in_review', 'approved', 'returned'];
 export const WORKSPACE_INVITE_STATUSES = ['pending', 'accepted', 'declined', 'expired'];
 export const WORKSPACE_HR_STATUSES = ['pending', 'active', 'on_leave', 'completed'];
+export const WORKSPACE_OBJECT_TYPES = ['asset', 'deliverable', 'dependency', 'risk', 'note'];
+export const WORKSPACE_OBJECT_STATUSES = ['draft', 'in_progress', 'blocked', 'completed', 'archived'];
 
 export const ProjectIntegration = sequelize.define(
   'ProjectIntegration',
@@ -6385,40 +6387,6 @@ ProjectWorkspaceBudgetLine.prototype.toPublicObject = function toPublicObject() 
   };
 };
 
-export const ProjectWorkspaceObject = sequelize.define(
-  'ProjectWorkspaceObject',
-  {
-    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
-    name: { type: DataTypes.STRING(255), allowNull: false },
-    type: { type: DataTypes.STRING(120), allowNull: false, defaultValue: 'artifact' },
-    status: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'draft' },
-    ownerName: { type: DataTypes.STRING(255), allowNull: true },
-    summary: { type: DataTypes.TEXT, allowNull: true },
-    dueAt: { type: DataTypes.DATE, allowNull: true },
-    tags: { type: jsonType, allowNull: true },
-    metadata: { type: jsonType, allowNull: true },
-  },
-  { tableName: 'project_workspace_objects' },
-);
-
-ProjectWorkspaceObject.prototype.toPublicObject = function toPublicObject() {
-  const plain = this.get({ plain: true });
-  return {
-    id: plain.id,
-    workspaceId: plain.workspaceId,
-    name: plain.name,
-    type: plain.type,
-    status: plain.status,
-    ownerName: plain.ownerName,
-    summary: plain.summary,
-    dueAt: plain.dueAt,
-    tags: Array.isArray(plain.tags) ? plain.tags : [],
-    metadata: plain.metadata ?? null,
-    createdAt: plain.createdAt,
-    updatedAt: plain.updatedAt,
-  };
-};
-
 export const ProjectWorkspaceTimelineEvent = sequelize.define(
   'ProjectWorkspaceTimelineEvent',
   {
@@ -6453,44 +6421,6 @@ ProjectWorkspaceTimelineEvent.prototype.toPublicObject = function toPublicObject
   };
 };
 
-export const ProjectWorkspaceMeeting = sequelize.define(
-  'ProjectWorkspaceMeeting',
-  {
-    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
-    title: { type: DataTypes.STRING(255), allowNull: false },
-    agenda: { type: DataTypes.TEXT, allowNull: true },
-    meetingType: { type: DataTypes.STRING(120), allowNull: false, defaultValue: 'sync' },
-    location: { type: DataTypes.STRING(255), allowNull: true },
-    startAt: { type: DataTypes.DATE, allowNull: false },
-    endAt: { type: DataTypes.DATE, allowNull: true },
-    hostName: { type: DataTypes.STRING(255), allowNull: true },
-    attendees: { type: jsonType, allowNull: true },
-    actionItems: { type: jsonType, allowNull: true },
-    resources: { type: jsonType, allowNull: true },
-  },
-  { tableName: 'project_workspace_meetings' },
-);
-
-ProjectWorkspaceMeeting.prototype.toPublicObject = function toPublicObject() {
-  const plain = this.get({ plain: true });
-  return {
-    id: plain.id,
-    workspaceId: plain.workspaceId,
-    title: plain.title,
-    agenda: plain.agenda,
-    meetingType: plain.meetingType,
-    location: plain.location,
-    startAt: plain.startAt,
-    endAt: plain.endAt,
-    hostName: plain.hostName,
-    attendees: Array.isArray(plain.attendees) ? plain.attendees : [],
-    actionItems: Array.isArray(plain.actionItems) ? plain.actionItems : [],
-    resources: Array.isArray(plain.resources) ? plain.resources : [],
-    createdAt: plain.createdAt,
-    updatedAt: plain.updatedAt,
-  };
-};
-
 export const ProjectWorkspaceCalendarEntry = sequelize.define(
   'ProjectWorkspaceCalendarEntry',
   {
@@ -6517,148 +6447,6 @@ ProjectWorkspaceCalendarEntry.prototype.toPublicObject = function toPublicObject
     eventType: plain.eventType,
     ownerName: plain.ownerName,
     visibility: plain.visibility,
-    metadata: plain.metadata ?? null,
-    createdAt: plain.createdAt,
-    updatedAt: plain.updatedAt,
-  };
-};
-
-export const ProjectWorkspaceRole = sequelize.define(
-  'ProjectWorkspaceRole',
-  {
-    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
-    roleName: { type: DataTypes.STRING(255), allowNull: false },
-    memberName: { type: DataTypes.STRING(255), allowNull: false },
-    responsibilities: { type: DataTypes.TEXT, allowNull: true },
-    permissions: { type: jsonType, allowNull: true },
-    contactEmail: { type: DataTypes.STRING(255), allowNull: true },
-    contactPhone: { type: DataTypes.STRING(40), allowNull: true },
-    avatarUrl: { type: DataTypes.STRING(500), allowNull: true },
-  },
-  { tableName: 'project_workspace_roles' },
-);
-
-ProjectWorkspaceRole.prototype.toPublicObject = function toPublicObject() {
-  const plain = this.get({ plain: true });
-  return {
-    id: plain.id,
-    workspaceId: plain.workspaceId,
-    roleName: plain.roleName,
-    memberName: plain.memberName,
-    responsibilities: plain.responsibilities,
-    permissions: Array.isArray(plain.permissions) ? plain.permissions : [],
-    contactEmail: plain.contactEmail,
-    contactPhone: plain.contactPhone,
-    avatarUrl: plain.avatarUrl,
-    createdAt: plain.createdAt,
-    updatedAt: plain.updatedAt,
-  };
-};
-
-export const ProjectWorkspaceSubmission = sequelize.define(
-  'ProjectWorkspaceSubmission',
-  {
-    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
-    title: { type: DataTypes.STRING(255), allowNull: false },
-    description: { type: DataTypes.TEXT, allowNull: true },
-    status: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'draft' },
-    submittedAt: { type: DataTypes.DATE, allowNull: true },
-    reviewerName: { type: DataTypes.STRING(255), allowNull: true },
-    decisionAt: { type: DataTypes.DATE, allowNull: true },
-    decisionNotes: { type: DataTypes.TEXT, allowNull: true },
-    attachments: { type: jsonType, allowNull: true },
-    ownerName: { type: DataTypes.STRING(255), allowNull: true },
-  },
-  { tableName: 'project_workspace_submissions' },
-);
-
-ProjectWorkspaceSubmission.prototype.toPublicObject = function toPublicObject() {
-  const plain = this.get({ plain: true });
-  return {
-    id: plain.id,
-    workspaceId: plain.workspaceId,
-    title: plain.title,
-    description: plain.description,
-    status: plain.status,
-    submittedAt: plain.submittedAt,
-    reviewerName: plain.reviewerName,
-    decisionAt: plain.decisionAt,
-    decisionNotes: plain.decisionNotes,
-    attachments: Array.isArray(plain.attachments) ? plain.attachments : [],
-    ownerName: plain.ownerName,
-    createdAt: plain.createdAt,
-    updatedAt: plain.updatedAt,
-  };
-};
-
-export const ProjectWorkspaceInvite = sequelize.define(
-  'ProjectWorkspaceInvite',
-  {
-    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
-    email: { type: DataTypes.STRING(255), allowNull: false },
-    roleName: { type: DataTypes.STRING(120), allowNull: false },
-    status: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'pending' },
-    invitedBy: { type: DataTypes.STRING(255), allowNull: true },
-    invitedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
-    expiresAt: { type: DataTypes.DATE, allowNull: true },
-    acceptedAt: { type: DataTypes.DATE, allowNull: true },
-    token: { type: DataTypes.STRING(255), allowNull: true },
-    metadata: { type: jsonType, allowNull: true },
-  },
-  { tableName: 'project_workspace_invites' },
-);
-
-ProjectWorkspaceInvite.prototype.toPublicObject = function toPublicObject() {
-  const plain = this.get({ plain: true });
-  return {
-    id: plain.id,
-    workspaceId: plain.workspaceId,
-    email: plain.email,
-    roleName: plain.roleName,
-    status: plain.status,
-    invitedBy: plain.invitedBy,
-    invitedAt: plain.invitedAt,
-    expiresAt: plain.expiresAt,
-    acceptedAt: plain.acceptedAt,
-    token: plain.token,
-    metadata: plain.metadata ?? null,
-    createdAt: plain.createdAt,
-    updatedAt: plain.updatedAt,
-  };
-};
-
-export const ProjectWorkspaceHrRecord = sequelize.define(
-  'ProjectWorkspaceHrRecord',
-  {
-    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
-    memberName: { type: DataTypes.STRING(255), allowNull: false },
-    roleName: { type: DataTypes.STRING(255), allowNull: false },
-    employmentType: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'contractor' },
-    hourlyRateCents: { type: DataTypes.INTEGER, allowNull: true },
-    capacityHours: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
-    utilizationPercent: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
-    status: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'active' },
-    managerName: { type: DataTypes.STRING(255), allowNull: true },
-    notes: { type: DataTypes.TEXT, allowNull: true },
-    metadata: { type: jsonType, allowNull: true },
-  },
-  { tableName: 'project_workspace_hr_records' },
-);
-
-ProjectWorkspaceHrRecord.prototype.toPublicObject = function toPublicObject() {
-  const plain = this.get({ plain: true });
-  return {
-    id: plain.id,
-    workspaceId: plain.workspaceId,
-    memberName: plain.memberName,
-    roleName: plain.roleName,
-    employmentType: plain.employmentType,
-    hourlyRateCents: plain.hourlyRateCents == null ? null : Number(plain.hourlyRateCents),
-    capacityHours: plain.capacityHours == null ? null : Number(plain.capacityHours),
-    utilizationPercent: plain.utilizationPercent == null ? null : Number(plain.utilizationPercent),
-    status: plain.status,
-    managerName: plain.managerName,
-    notes: plain.notes,
     metadata: plain.metadata ?? null,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
@@ -6870,11 +6658,16 @@ ProjectWorkspaceObject.prototype.toPublicObject = function toPublicObject() {
     id: plain.id,
     workspaceId: plain.workspaceId,
     name: plain.name,
-    objectType: plain.objectType,
-    status: plain.status,
+    label: plain.label ?? plain.name ?? null,
+    objectType: plain.objectType ?? plain.type ?? 'deliverable',
+    type: plain.objectType ?? plain.type ?? 'deliverable',
+    status: plain.status ?? null,
     ownerName: plain.ownerName ?? null,
-    description: plain.description ?? null,
-    dueAt: plain.dueAt,
+    description: plain.description ?? plain.summary ?? null,
+    summary: plain.summary ?? plain.description ?? null,
+    quantity: plain.quantity == null ? null : Number(plain.quantity),
+    unit: plain.unit ?? null,
+    dueAt: plain.dueAt ?? null,
     metadata: plain.metadata ?? null,
     tags: Array.isArray(plain.tags) ? plain.tags : [],
     createdAt: plain.createdAt,
@@ -7133,6 +6926,114 @@ ProjectWorkspaceHrRecord.prototype.toPublicObject = function toPublicObject() {
     startedAt: plain.startedAt,
     endedAt: plain.endedAt,
     notes: plain.notes ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ProjectWorkspaceTimeLog = sequelize.define(
+  'ProjectWorkspaceTimeLog',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    taskId: { type: DataTypes.INTEGER, allowNull: true },
+    memberName: { type: DataTypes.STRING(180), allowNull: false },
+    startedAt: { type: DataTypes.DATE, allowNull: false },
+    endedAt: { type: DataTypes.DATE, allowNull: true },
+    durationMinutes: { type: DataTypes.INTEGER, allowNull: true },
+    billable: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    rateCents: { type: DataTypes.INTEGER, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'project_workspace_time_logs' },
+);
+
+ProjectWorkspaceTimeLog.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    taskId: plain.taskId ?? null,
+    memberName: plain.memberName,
+    startedAt: plain.startedAt,
+    endedAt: plain.endedAt,
+    durationMinutes: plain.durationMinutes == null ? null : Number(plain.durationMinutes),
+    billable: Boolean(plain.billable),
+    rateCents: plain.rateCents == null ? null : Number(plain.rateCents),
+    notes: plain.notes ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ProjectWorkspaceTarget = sequelize.define(
+  'ProjectWorkspaceTarget',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(200), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    targetValue: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    currentValue: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    unit: { type: DataTypes.STRING(40), allowNull: true },
+    dueAt: { type: DataTypes.DATE, allowNull: true },
+    status: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'on_track' },
+    ownerName: { type: DataTypes.STRING(180), allowNull: true },
+    trend: { type: DataTypes.STRING(60), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'project_workspace_targets' },
+);
+
+ProjectWorkspaceTarget.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    name: plain.name,
+    description: plain.description ?? null,
+    targetValue: plain.targetValue == null ? null : Number(plain.targetValue),
+    currentValue: plain.currentValue == null ? null : Number(plain.currentValue),
+    unit: plain.unit ?? null,
+    dueAt: plain.dueAt,
+    status: plain.status,
+    ownerName: plain.ownerName ?? null,
+    trend: plain.trend ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ProjectWorkspaceObjective = sequelize.define(
+  'ProjectWorkspaceObjective',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(200), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    status: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'in_progress' },
+    ownerName: { type: DataTypes.STRING(180), allowNull: true },
+    dueAt: { type: DataTypes.DATE, allowNull: true },
+    progressPercent: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    keyResults: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'project_workspace_objectives' },
+);
+
+ProjectWorkspaceObjective.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    title: plain.title,
+    description: plain.description ?? null,
+    status: plain.status,
+    ownerName: plain.ownerName ?? null,
+    dueAt: plain.dueAt,
+    progressPercent: plain.progressPercent == null ? null : Number(plain.progressPercent),
+    keyResults: Array.isArray(plain.keyResults) ? plain.keyResults : [],
     metadata: plain.metadata ?? null,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
@@ -8295,55 +8196,6 @@ NetworkingSessionOrder.prototype.toPublicObject = function toPublicObject() {
 export const NetworkingConnection = sequelize.define(
   'NetworkingConnection',
   {
-    ownerId: { type: DataTypes.INTEGER, allowNull: false },
-    connectionUserId: { type: DataTypes.INTEGER, allowNull: true },
-    sessionId: { type: DataTypes.INTEGER, allowNull: true },
-    connectionName: { type: DataTypes.STRING(255), allowNull: false },
-    connectionEmail: { type: DataTypes.STRING(255), allowNull: true, validate: { isEmail: true } },
-    connectionHeadline: { type: DataTypes.STRING(255), allowNull: true },
-    connectionCompany: { type: DataTypes.STRING(255), allowNull: true },
-    followStatus: {
-      type: DataTypes.ENUM(...NETWORKING_CONNECTION_FOLLOW_STATUSES),
-      allowNull: false,
-      defaultValue: 'saved',
-      validate: { isIn: [NETWORKING_CONNECTION_FOLLOW_STATUSES] },
-    },
-    connectedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
-    lastContactedAt: { type: DataTypes.DATE, allowNull: true },
-    notes: { type: DataTypes.TEXT, allowNull: true },
-    tags: { type: jsonType, allowNull: true },
-    metadata: { type: jsonType, allowNull: true },
-  },
-  { tableName: 'networking_connections' },
-);
-
-NetworkingConnection.prototype.toPublicObject = function toPublicObject() {
-  const plain = this.get({ plain: true });
-  return {
-    id: plain.id,
-    ownerId: plain.ownerId,
-    connectionUserId: plain.connectionUserId,
-    sessionId: plain.sessionId,
-    connectionName: plain.connectionName,
-    connectionEmail: plain.connectionEmail,
-    connectionHeadline: plain.connectionHeadline,
-    connectionCompany: plain.connectionCompany,
-    followStatus: plain.followStatus,
-    connectedAt: plain.connectedAt,
-    lastContactedAt: plain.lastContactedAt,
-    notes: plain.notes,
-    tags: Array.isArray(plain.tags)
-      ? plain.tags
-      : plain.tags && typeof plain.tags === 'object'
-        ? Object.values(plain.tags)
-        : plain.tags
-          ? [plain.tags]
-          : [],
-    metadata: plain.metadata ?? {},
-);
-export const NetworkingConnection = sequelize.define(
-  'NetworkingConnection',
-  {
     sessionId: { type: DataTypes.INTEGER, allowNull: true },
     sourceSignupId: { type: DataTypes.INTEGER, allowNull: true },
     targetSignupId: { type: DataTypes.INTEGER, allowNull: true },
@@ -8389,50 +8241,19 @@ NetworkingConnection.prototype.toPublicObject = function toPublicObject() {
   return {
     id: plain.id,
     sessionId: plain.sessionId,
-    sourceSignupId: plain.sourceSignupId,
-    targetSignupId: plain.targetSignupId,
-    sourceParticipantId: plain.sourceParticipantId,
-    targetParticipantId: plain.targetParticipantId,
-    counterpartName: plain.counterpartName,
-    counterpartEmail: plain.counterpartEmail,
-    connectionType: plain.connectionType,
+    purchaserId: plain.purchaserId,
+    purchaserEmail: plain.purchaserEmail,
+    purchaserName: plain.purchaserName,
     status: plain.status,
-    notes: plain.notes,
-    firstInteractedAt: plain.firstInteractedAt,
-    followUpAt: plain.followUpAt,
+    amountCents: plain.amountCents == null ? 0 : Number(plain.amountCents),
+    currency: plain.currency,
+    purchasedAt: plain.purchasedAt,
+    reference: plain.reference,
     metadata: plain.metadata ?? {},
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
-    session: plain.session ?? null,
-    sourceParticipant: resolveParticipant(plain.sourceParticipant ?? null),
-    targetParticipant: resolveParticipant(plain.targetParticipant ?? null),
   };
 };
-
-export const Volunteering = sequelize.define(
-  'Volunteering',
-  {
-    title: { type: DataTypes.STRING(255), allowNull: false },
-    organization: { type: DataTypes.STRING(255), allowNull: false },
-    description: { type: DataTypes.TEXT, allowNull: false },
-    location: { type: DataTypes.STRING(255), allowNull: true },
-    geoLocation: { type: jsonType, allowNull: true },
-  },
-  { tableName: 'volunteering_roles' },
-);
-
-Volunteering.searchByTerm = async function searchByTerm(term) {
-  if (!term) return [];
-  const sanitizedTerm = term.trim();
-  if (!sanitizedTerm) return [];
-
-  return Volunteering.findAll({
-    where: { title: { [Op.iLike ?? Op.like]: `%${sanitizedTerm}%` } },
-    limit: 20,
-    order: [['title', 'ASC']],
-  });
-};
-
 export const VolunteerApplication = sequelize.define(
   'VolunteerApplication',
   {
@@ -8579,8 +8400,184 @@ VolunteerContract.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+
+export const NetworkingConnection = sequelize.define(
+  'NetworkingConnection',
+  {
+    ownerId: { type: DataTypes.INTEGER, allowNull: true },
+    connectionUserId: { type: DataTypes.INTEGER, allowNull: true },
+    sessionId: { type: DataTypes.INTEGER, allowNull: true },
+    connectionName: { type: DataTypes.STRING(255), allowNull: true },
+    connectionEmail: { type: DataTypes.STRING(255), allowNull: true, validate: { isEmail: true } },
+    connectionHeadline: { type: DataTypes.STRING(255), allowNull: true },
+    connectionCompany: { type: DataTypes.STRING(255), allowNull: true },
+    followStatus: {
+      type: DataTypes.ENUM(...NETWORKING_CONNECTION_FOLLOW_STATUSES),
+      allowNull: true,
+      defaultValue: 'saved',
+      validate: { isIn: [NETWORKING_CONNECTION_FOLLOW_STATUSES] },
+    },
+    connectedAt: { type: DataTypes.DATE, allowNull: true },
+    lastContactedAt: { type: DataTypes.DATE, allowNull: true },
+    sourceSignupId: { type: DataTypes.INTEGER, allowNull: true },
+    targetSignupId: { type: DataTypes.INTEGER, allowNull: true },
+    sourceParticipantId: { type: DataTypes.INTEGER, allowNull: true },
+    targetParticipantId: { type: DataTypes.INTEGER, allowNull: true },
+    counterpartName: { type: DataTypes.STRING(255), allowNull: true },
+    counterpartEmail: { type: DataTypes.STRING(255), allowNull: true, validate: { isEmail: true } },
+    connectionType: {
+      type: DataTypes.ENUM(...NETWORKING_CONNECTION_TYPES),
+      allowNull: true,
+      defaultValue: 'follow',
+      validate: { isIn: [NETWORKING_CONNECTION_TYPES] },
+    },
+    status: {
+      type: DataTypes.ENUM(...NETWORKING_CONNECTION_STATUSES),
+      allowNull: true,
+      defaultValue: 'new',
+      validate: { isIn: [NETWORKING_CONNECTION_STATUSES] },
+    },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    firstInteractedAt: { type: DataTypes.DATE, allowNull: true },
+    followUpAt: { type: DataTypes.DATE, allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'networking_connections' },
+);
+
+NetworkingConnection.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+
+  const resolveParticipant = (participant) => {
+    if (!participant) {
+      return null;
+    }
+    const name = participant.name
+      ? participant.name
+      : [participant.firstName, participant.lastName].filter(Boolean).join(' ').trim();
+    return {
+      id: participant.id ?? null,
+      name: name || participant.email || null,
+      email: participant.email ?? null,
+    };
+  };
+
+  const normalizeTags = (tags) => {
+    if (Array.isArray(tags)) {
+      return tags;
+    }
+    if (tags && typeof tags === 'object') {
+      return Object.values(tags);
+    }
+    return tags ? [tags] : [];
+  };
+
+  const base = {
+    id: plain.id,
+    ownerId: plain.ownerId ?? null,
+    connectionUserId: plain.connectionUserId ?? null,
+    sessionId: plain.sessionId ?? null,
+    connectionName: plain.connectionName ?? plain.counterpartName ?? null,
+    connectionEmail: plain.connectionEmail ?? plain.counterpartEmail ?? null,
+    connectionHeadline: plain.connectionHeadline ?? null,
+    connectionCompany: plain.connectionCompany ?? null,
+    followStatus: plain.followStatus ?? null,
+    connectionType: plain.connectionType ?? null,
+    status: plain.status ?? null,
+    connectedAt: plain.connectedAt ?? plain.firstInteractedAt ?? null,
+    lastContactedAt: plain.lastContactedAt ?? null,
+    firstInteractedAt: plain.firstInteractedAt ?? null,
+    followUpAt: plain.followUpAt ?? null,
+    notes: plain.notes ?? null,
+    tags: normalizeTags(plain.tags),
+    sourceSignupId: plain.sourceSignupId ?? null,
+    targetSignupId: plain.targetSignupId ?? null,
+    sourceParticipantId: plain.sourceParticipantId ?? null,
+    targetParticipantId: plain.targetParticipantId ?? null,
+    counterpartName: plain.counterpartName ?? null,
+    counterpartEmail: plain.counterpartEmail ?? null,
+    metadata: plain.metadata ?? {},
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+
+  if (plain.session) {
+    base.session = plain.session.toPublicObject ? plain.session.toPublicObject() : plain.session;
+  }
+  if (plain.contact) {
+    base.contact = resolveParticipant(plain.contact);
+  }
+  if (plain.sourceParticipant) {
+    base.sourceParticipant = resolveParticipant(plain.sourceParticipant);
+  }
+  if (plain.targetParticipant) {
+    base.targetParticipant = resolveParticipant(plain.targetParticipant);
+  }
+
+  return base;
+};
+
 export const Volunteering = sequelize.define(
   'Volunteering',
+  {
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    organization: { type: DataTypes.STRING(255), allowNull: false },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    description: { type: DataTypes.TEXT, allowNull: false },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    geoLocation: { type: jsonType, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...VOLUNTEER_ROLE_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [VOLUNTEER_ROLE_STATUSES] },
+    },
+    remoteType: { type: DataTypes.STRING(20), allowNull: true },
+    commitmentHours: { type: DataTypes.DECIMAL(6, 2), allowNull: true, validate: { min: 0 } },
+    applicationUrl: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+      validate: { isUrl: true },
+    },
+    applicationDeadline: { type: DataTypes.DATE, allowNull: true },
+    spots: { type: DataTypes.INTEGER, allowNull: true, validate: { min: 0 } },
+    skills: { type: jsonType, allowNull: true },
+    requirements: { type: jsonType, allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    imageUrl: { type: DataTypes.STRING(500), allowNull: true },
+    programId: { type: DataTypes.INTEGER, allowNull: true },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+    accessRoles: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'volunteering_roles',
+    indexes: [
+      { fields: ['programId'] },
+      { fields: ['status'] },
+      { fields: ['title'] },
+    ],
+  },
+);
+
+Volunteering.searchByTerm = async function searchByTerm(term, options = {}) {
+  if (!term) return [];
+  const sanitizedTerm = term.trim();
+  if (!sanitizedTerm) return [];
+
+  const status = options.status && VOLUNTEER_ROLE_STATUSES.includes(options.status) ? options.status : null;
+
+  return Volunteering.findAll({
+    where: {
+      ...(status ? { status } : {}),
+      title: { [Op.iLike ?? Op.like]: `%${sanitizedTerm}%` },
+    },
+    limit: 20,
+    order: [['title', 'ASC']],
+  });
+};
+
 export const VolunteerContractSpend = sequelize.define(
   'VolunteerContractSpend',
   {
@@ -8627,31 +8624,6 @@ VolunteerContractSpend.prototype.toPublicObject = function toPublicObject() {
 export const VolunteerContractReview = sequelize.define(
   'VolunteerContractReview',
   {
-    title: { type: DataTypes.STRING(255), allowNull: false },
-    organization: { type: DataTypes.STRING(255), allowNull: false },
-    summary: { type: DataTypes.TEXT, allowNull: true },
-    description: { type: DataTypes.TEXT, allowNull: false },
-    location: { type: DataTypes.STRING(255), allowNull: true },
-    geoLocation: { type: jsonType, allowNull: true },
-    status: {
-      type: DataTypes.ENUM(...VOLUNTEER_ROLE_STATUSES),
-      allowNull: false,
-      defaultValue: 'draft',
-      validate: { isIn: [VOLUNTEER_ROLE_STATUSES] },
-    },
-    remoteType: { type: DataTypes.STRING(20), allowNull: true },
-    commitmentHours: { type: DataTypes.DECIMAL(6, 2), allowNull: true },
-    applicationUrl: { type: DataTypes.STRING(500), allowNull: true },
-    applicationDeadline: { type: DataTypes.DATE, allowNull: true },
-    spots: { type: DataTypes.INTEGER, allowNull: true },
-    skills: { type: jsonType, allowNull: true },
-    requirements: { type: jsonType, allowNull: true },
-    tags: { type: jsonType, allowNull: true },
-    imageUrl: { type: DataTypes.STRING(500), allowNull: true },
-    programId: { type: DataTypes.INTEGER, allowNull: true },
-    publishedAt: { type: DataTypes.DATE, allowNull: true },
-    accessRoles: { type: jsonType, allowNull: true },
-    metadata: { type: jsonType, allowNull: true },
     contractId: { type: DataTypes.INTEGER, allowNull: false },
     reviewerId: { type: DataTypes.INTEGER, allowNull: false },
     rating: { type: DataTypes.INTEGER, allowNull: false, validate: { min: 1, max: 5 } },
@@ -8670,25 +8642,11 @@ export const VolunteerContractReview = sequelize.define(
     indexes: [
       { fields: ['contractId'] },
       { fields: ['reviewerId'] },
+      { fields: ['visibility'] },
     ],
   },
 );
 
-Volunteering.searchByTerm = async function searchByTerm(term, options = {}) {
-  if (!term) return [];
-  const sanitizedTerm = term.trim();
-  if (!sanitizedTerm) return [];
-
-  const status = options.status && VOLUNTEER_ROLE_STATUSES.includes(options.status) ? options.status : null;
-
-  return Volunteering.findAll({
-    where: {
-      ...(status ? { status } : {}),
-      title: { [Op.iLike ?? Op.like]: `%${sanitizedTerm}%` },
-    },
-    limit: 20,
-    order: [['title', 'ASC']],
-  });
 VolunteerContractReview.prototype.toPublicObject = function toPublicObject() {
   const plain = this.get({ plain: true });
   return {
@@ -9995,67 +9953,6 @@ JobApplicationFavourite.prototype.toPublicObject = function toPublicObject() {
     sourceUrl: plain.sourceUrl ?? null,
     notes: plain.notes ?? null,
     savedAt: plain.savedAt,
-    metadata: plain.metadata ?? null,
-    createdAt: plain.createdAt,
-    updatedAt: plain.updatedAt,
-  };
-};
-
-export const JobApplicationInterview = sequelize.define(
-  'JobApplicationInterview',
-  {
-    userId: { type: DataTypes.INTEGER, allowNull: false },
-    applicationId: { type: DataTypes.INTEGER, allowNull: false },
-    scheduledAt: { type: DataTypes.DATE, allowNull: false },
-    timezone: { type: DataTypes.STRING(120), allowNull: true },
-    type: {
-      type: DataTypes.ENUM(...JOB_INTERVIEW_TYPES),
-      allowNull: false,
-      defaultValue: 'phone',
-      validate: { isIn: [JOB_INTERVIEW_TYPES] },
-    },
-    status: {
-      type: DataTypes.ENUM(...JOB_INTERVIEW_STATUSES),
-      allowNull: false,
-      defaultValue: 'scheduled',
-      validate: { isIn: [JOB_INTERVIEW_STATUSES] },
-    },
-    interviewerName: { type: DataTypes.STRING(180), allowNull: true },
-    interviewerEmail: { type: DataTypes.STRING(255), allowNull: true, validate: { isEmail: true } },
-    location: { type: DataTypes.STRING(255), allowNull: true },
-    meetingUrl: { type: DataTypes.STRING(500), allowNull: true },
-    durationMinutes: { type: DataTypes.INTEGER, allowNull: true },
-    feedbackScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
-    notes: { type: DataTypes.TEXT, allowNull: true },
-    metadata: { type: jsonType, allowNull: true },
-  },
-  {
-    tableName: 'job_application_interviews',
-    indexes: [
-      { fields: ['userId'], name: 'job_application_interviews_user_idx' },
-      { fields: ['applicationId'], name: 'job_application_interviews_application_idx' },
-      { fields: ['scheduledAt'], name: 'job_application_interviews_schedule_idx' },
-    ],
-  },
-);
-
-JobApplicationInterview.prototype.toPublicObject = function toPublicObject() {
-  const plain = this.get({ plain: true });
-  return {
-    id: plain.id,
-    userId: plain.userId,
-    applicationId: plain.applicationId,
-    scheduledAt: plain.scheduledAt,
-    timezone: plain.timezone ?? null,
-    type: plain.type,
-    status: plain.status,
-    interviewerName: plain.interviewerName ?? null,
-    interviewerEmail: plain.interviewerEmail ?? null,
-    location: plain.location ?? null,
-    meetingUrl: plain.meetingUrl ?? null,
-    durationMinutes: plain.durationMinutes == null ? null : Number(plain.durationMinutes),
-    feedbackScore: plain.feedbackScore == null ? null : Number(plain.feedbackScore),
-    notes: plain.notes ?? null,
     metadata: plain.metadata ?? null,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
@@ -20282,30 +20179,12 @@ ProjectWorkspaceBudgetLine.belongsTo(ProjectWorkspace, {
   foreignKey: { name: 'workspaceId', allowNull: false },
   as: 'workspace',
 });
-ProjectWorkspace.hasMany(ProjectWorkspaceObject, {
-  foreignKey: { name: 'workspaceId', allowNull: false },
-  as: 'objects',
-  onDelete: 'CASCADE',
-});
-ProjectWorkspaceObject.belongsTo(ProjectWorkspace, {
-  foreignKey: { name: 'workspaceId', allowNull: false },
-  as: 'workspace',
-});
 ProjectWorkspace.hasMany(ProjectWorkspaceTimelineEvent, {
   foreignKey: { name: 'workspaceId', allowNull: false },
   as: 'timelineEvents',
   onDelete: 'CASCADE',
 });
 ProjectWorkspaceTimelineEvent.belongsTo(ProjectWorkspace, {
-  foreignKey: { name: 'workspaceId', allowNull: false },
-  as: 'workspace',
-});
-ProjectWorkspace.hasMany(ProjectWorkspaceMeeting, {
-  foreignKey: { name: 'workspaceId', allowNull: false },
-  as: 'meetings',
-  onDelete: 'CASCADE',
-});
-ProjectWorkspaceMeeting.belongsTo(ProjectWorkspace, {
   foreignKey: { name: 'workspaceId', allowNull: false },
   as: 'workspace',
 });
@@ -22965,12 +22844,10 @@ export default {
   ProjectWorkspaceBudget,
   ProjectWorkspaceObject,
   ProjectWorkspaceTimelineEntry,
-  ProjectWorkspaceMeeting,
   ProjectWorkspaceTimeline,
   ProjectWorkspaceTask,
   ProjectWorkspaceTaskAssignment,
   ProjectWorkspaceBudgetLine,
-  ProjectWorkspaceObject,
   ProjectWorkspaceTimelineEvent,
   ProjectWorkspaceMeeting,
   ProjectWorkspaceCalendarEntry,
@@ -23344,6 +23221,16 @@ domainRegistry.registerContext({
       /^Deliverable/.test(modelName),
   ],
   metadata: domainMetadata.marketplace,
+});
+
+domainRegistry.registerContext({
+  name: 'volunteering',
+  displayName: 'Volunteering & Social Impact',
+  description: 'Volunteer programmes, workspace placements, contract management, and spend oversight.',
+  include: [
+    (modelName) => /^Volunteering/.test(modelName) || /^Volunteer/.test(modelName),
+  ],
+  metadata: domainMetadata.volunteering,
 });
 
 domainRegistry.registerContext({

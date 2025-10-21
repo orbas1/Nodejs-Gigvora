@@ -16,6 +16,79 @@ import { ValidationError, AuthorizationError, NotFoundError } from '../utils/err
 
 const PIPELINE_OWNER_TYPES = new Set(['freelancer', 'agency', 'company']);
 
+function normaliseRole(value) {
+  if (value == null) {
+    return null;
+  }
+  const normalised = `${value}`.trim().toLowerCase();
+  return normalised.length > 0 ? normalised : null;
+}
+
+function mapOwnerType(candidate) {
+  const normalised = normaliseRole(candidate);
+  if (!normalised) {
+    return null;
+  }
+  if (PIPELINE_OWNER_TYPES.has(normalised)) {
+    return normalised;
+  }
+  if (normalised.includes('freelancer')) {
+    return 'freelancer';
+  }
+  if (normalised.includes('agency')) {
+    return 'agency';
+  }
+  if (normalised.includes('company')) {
+    return 'company';
+  }
+  return null;
+}
+
+function deriveOwnerTypeFromMemberships(user, ownerId) {
+  if (!user || !Array.isArray(user.memberships) || ownerId == null) {
+    return null;
+  }
+  const numericOwnerId = Number.parseInt(ownerId, 10);
+  if (!Number.isInteger(numericOwnerId)) {
+    return null;
+  }
+  for (const membership of user.memberships) {
+    const membershipWorkspaceId = Number.parseInt(membership?.workspaceId ?? membership?.workspace?.id, 10);
+    if (Number.isInteger(membershipWorkspaceId) && membershipWorkspaceId === numericOwnerId) {
+      const derived = mapOwnerType(membership?.workspace?.type ?? membership?.workspaceType);
+      if (derived) {
+        return derived;
+      }
+    }
+  }
+  return null;
+}
+
+function buildRoleSet(user) {
+  const roles = new Set();
+  if (!user) {
+    return roles;
+  }
+  const addRole = (value) => {
+    const normalised = normaliseRole(value);
+    if (normalised) {
+      roles.add(normalised);
+    }
+  };
+  if (Array.isArray(user.roles)) {
+    user.roles.forEach((role) => addRole(role));
+  }
+  addRole(user.userType);
+  addRole(user.type);
+  if (Array.isArray(user.memberships)) {
+    user.memberships.forEach((membership) => {
+      addRole(membership?.role);
+      addRole(membership?.workspace?.type ?? membership?.workspaceType);
+    });
+  }
+  return roles;
+}
+
 function resolveOwnerId(req) {
   const candidates = [
     req.body?.ownerId,
@@ -37,29 +110,40 @@ function resolveOwnerId(req) {
   return null;
 }
 
-function resolveOwnerType(req) {
+function resolveOwnerType(req, ownerId = null) {
   const candidates = [
     { value: req.body?.ownerType, strict: true },
     { value: req.query?.ownerType, strict: true },
     { value: req.params?.ownerType, strict: true },
-    { value: req.user?.type, strict: false },
   ];
 
+  const membershipDerivedType = deriveOwnerTypeFromMemberships(req.user, ownerId);
+  if (membershipDerivedType) {
+    candidates.push({ value: membershipDerivedType, strict: false });
+  }
+
+  const userCandidates = [req.user?.userType, req.user?.type];
+  userCandidates.forEach((candidate) => {
+    if (candidate != null) {
+      candidates.push({ value: candidate, strict: false });
+    }
+  });
+
+  if (Array.isArray(req.user?.roles)) {
+    req.user.roles.forEach((role) => {
+      candidates.push({ value: role, strict: false });
+    });
+  }
+
   for (const candidate of candidates) {
-    if (candidate.value == null) {
-      continue;
-    }
-    const normalized = String(candidate.value).toLowerCase().trim();
-    if (!normalized) {
-      continue;
-    }
-    if (!PIPELINE_OWNER_TYPES.has(normalized)) {
-      if (candidate.strict) {
+    const resolved = mapOwnerType(candidate.value);
+    if (!resolved) {
+      if (candidate.strict && candidate.value != null) {
         throw new ValidationError('Invalid pipeline owner type provided.');
       }
       continue;
     }
-    return normalized;
+    return resolved;
   }
 
   return 'freelancer';
@@ -69,7 +153,8 @@ async function ensureOwnerAccess(req, ownerId, ownerType) {
   if (!req.user) {
     return { workspace: null };
   }
-  const isAdmin = (req.user.roles ?? []).includes('admin') || req.user.type === 'admin';
+  const roleSet = buildRoleSet(req.user);
+  const isAdmin = roleSet.has('admin') || roleSet.has('platform_admin');
   if (ownerType === 'freelancer') {
     if (isAdmin) {
       return { workspace: null };
@@ -99,7 +184,7 @@ async function ensureOwnerAccess(req, ownerId, ownerType) {
     }
 
     const membershipCount = await ProviderWorkspaceMember.count({
-      where: { workspaceId: workspace.id, userId: req.user.id },
+      where: { workspaceId: workspace.id, userId: req.user.id, status: 'active' },
     });
 
     if (membershipCount === 0) {
@@ -117,7 +202,7 @@ export async function dashboard(req, res) {
   if (!ownerId) {
     throw new ValidationError('ownerId is required to load the pipeline dashboard.');
   }
-  const ownerType = resolveOwnerType(req);
+  const ownerType = resolveOwnerType(req, ownerId);
   await ensureOwnerAccess(req, ownerId, ownerType);
   const { view } = req.query ?? {};
   const result = await getFreelancerPipelineDashboard(ownerId, { view, ownerType });
@@ -129,7 +214,7 @@ export async function storeDeal(req, res) {
   if (!ownerId) {
     throw new ValidationError('ownerId is required to create a deal.');
   }
-  const ownerType = resolveOwnerType(req);
+  const ownerType = resolveOwnerType(req, ownerId);
   await ensureOwnerAccess(req, ownerId, ownerType);
   const payload = { ...(req.body ?? {}) };
   delete payload.ownerId;
@@ -143,7 +228,7 @@ export async function updateDeal(req, res) {
   if (!ownerId) {
     throw new ValidationError('ownerId is required to update a deal.');
   }
-  const ownerType = resolveOwnerType(req);
+  const ownerType = resolveOwnerType(req, ownerId);
   await ensureOwnerAccess(req, ownerId, ownerType);
   const { dealId } = req.params;
   const payload = { ...(req.body ?? {}) };
@@ -158,7 +243,7 @@ export async function storeProposal(req, res) {
   if (!ownerId) {
     throw new ValidationError('ownerId is required to create a proposal.');
   }
-  const ownerType = resolveOwnerType(req);
+  const ownerType = resolveOwnerType(req, ownerId);
   await ensureOwnerAccess(req, ownerId, ownerType);
   const payload = { ...(req.body ?? {}) };
   delete payload.ownerId;
@@ -172,7 +257,7 @@ export async function storeFollowUp(req, res) {
   if (!ownerId) {
     throw new ValidationError('ownerId is required to create a follow-up.');
   }
-  const ownerType = resolveOwnerType(req);
+  const ownerType = resolveOwnerType(req, ownerId);
   await ensureOwnerAccess(req, ownerId, ownerType);
   const payload = { ...(req.body ?? {}) };
   delete payload.ownerId;
@@ -186,7 +271,7 @@ export async function updateFollowUp(req, res) {
   if (!ownerId) {
     throw new ValidationError('ownerId is required to update a follow-up.');
   }
-  const ownerType = resolveOwnerType(req);
+  const ownerType = resolveOwnerType(req, ownerId);
   await ensureOwnerAccess(req, ownerId, ownerType);
   const { followUpId } = req.params;
   const payload = { ...(req.body ?? {}) };
@@ -201,7 +286,7 @@ export async function storeCampaign(req, res) {
   if (!ownerId) {
     throw new ValidationError('ownerId is required to create a campaign.');
   }
-  const ownerType = resolveOwnerType(req);
+  const ownerType = resolveOwnerType(req, ownerId);
   await ensureOwnerAccess(req, ownerId, ownerType);
   const payload = { ...(req.body ?? {}) };
   delete payload.ownerId;
@@ -215,7 +300,7 @@ export async function destroyDeal(req, res) {
   if (!ownerId) {
     throw new ValidationError('ownerId is required to delete a deal.');
   }
-  const ownerType = resolveOwnerType(req);
+  const ownerType = resolveOwnerType(req, ownerId);
   await ensureOwnerAccess(req, ownerId, ownerType);
   const { dealId } = req.params;
   await deletePipelineDeal(ownerId, dealId, { ownerType });
@@ -227,7 +312,7 @@ export async function destroyFollowUp(req, res) {
   if (!ownerId) {
     throw new ValidationError('ownerId is required to delete a follow-up.');
   }
-  const ownerType = resolveOwnerType(req);
+  const ownerType = resolveOwnerType(req, ownerId);
   await ensureOwnerAccess(req, ownerId, ownerType);
   const { followUpId } = req.params;
   await deletePipelineFollowUp(ownerId, followUpId, { ownerType });
@@ -239,7 +324,7 @@ export async function destroyProposal(req, res) {
   if (!ownerId) {
     throw new ValidationError('ownerId is required to delete a proposal.');
   }
-  const ownerType = resolveOwnerType(req);
+  const ownerType = resolveOwnerType(req, ownerId);
   await ensureOwnerAccess(req, ownerId, ownerType);
   const { proposalId } = req.params;
   await deletePipelineProposal(ownerId, proposalId, { ownerType });
@@ -251,7 +336,7 @@ export async function destroyCampaign(req, res) {
   if (!ownerId) {
     throw new ValidationError('ownerId is required to delete a campaign.');
   }
-  const ownerType = resolveOwnerType(req);
+  const ownerType = resolveOwnerType(req, ownerId);
   await ensureOwnerAccess(req, ownerId, ownerType);
   const { campaignId } = req.params;
   await deletePipelineCampaign(ownerId, campaignId, { ownerType });

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { ArrowPathIcon, ChatBubbleLeftRightIcon, PaperAirplaneIcon, PlusIcon } from '@heroicons/react/24/outline';
 import DataStatus from '../../DataStatus.jsx';
 import {
@@ -487,5 +488,13 @@ DashboardSupportPanel.defaultProps = {
   workspaceId: null,
   workspaceSlug: null,
   session: null,
+};
+
+DashboardSupportPanel.propTypes = {
+  workspaceId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  workspaceSlug: PropTypes.string,
+  session: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  }),
 };
 

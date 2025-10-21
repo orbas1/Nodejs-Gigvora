@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { Dialog, Transition } from '@headlessui/react';
 import ProjectGanttChart from './ProjectGanttChart.jsx';
 import ProjectAgencyDelegation from './ProjectAgencyDelegation.jsx';
@@ -374,6 +375,30 @@ function TaskFormFields({ value, errors = {}, onChange, disabled = false }) {
   );
 }
 
+TaskFormFields.propTypes = {
+  value: PropTypes.shape({
+    title: PropTypes.string.isRequired,
+    ownerName: PropTypes.string,
+    ownerType: PropTypes.string,
+    lane: PropTypes.string.isRequired,
+    status: PropTypes.string.isRequired,
+    riskLevel: PropTypes.string.isRequired,
+    startDate: PropTypes.string,
+    endDate: PropTypes.string,
+    progressPercent: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    workloadHours: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    notes: PropTypes.string,
+  }).isRequired,
+  errors: PropTypes.object,
+  onChange: PropTypes.func.isRequired,
+  disabled: PropTypes.bool,
+};
+
+TaskFormFields.defaultProps = {
+  errors: {},
+  disabled: false,
+};
+
 function StatusBadge({ status }) {
   const tone = {
     planned: 'bg-slate-100 text-slate-600',
@@ -386,6 +411,14 @@ function StatusBadge({ status }) {
   return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${tone}`}>{label}</span>;
 }
 
+StatusBadge.propTypes = {
+  status: PropTypes.string,
+};
+
+StatusBadge.defaultProps = {
+  status: 'planned',
+};
+
 function RiskBadge({ riskLevel }) {
   const tone = {
     low: 'bg-emerald-50 text-emerald-600',
@@ -396,6 +429,14 @@ function RiskBadge({ riskLevel }) {
   const label = riskOptions.find((option) => option.value === riskLevel)?.label ?? riskLevel;
   return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${tone}`}>{label} risk</span>;
 }
+
+RiskBadge.propTypes = {
+  riskLevel: PropTypes.string,
+};
+
+RiskBadge.defaultProps = {
+  riskLevel: 'low',
+};
 
 function TaskBoard({ tasks, onAdvanceStatus, onEditTask, busyTaskId, busyType }) {
   const grouped = useMemo(() => {
@@ -508,6 +549,36 @@ function TaskBoard({ tasks, onAdvanceStatus, onEditTask, busyTaskId, busyType })
     </div>
   );
 }
+
+TaskBoard.propTypes = {
+  tasks: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      title: PropTypes.string.isRequired,
+      ownerName: PropTypes.string,
+      ownerType: PropTypes.string,
+      lane: PropTypes.string,
+      status: PropTypes.string,
+      riskLevel: PropTypes.string,
+      startDate: PropTypes.string,
+      endDate: PropTypes.string,
+      workloadHours: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      progressPercent: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      notes: PropTypes.string,
+      projectName: PropTypes.string,
+      updatedAt: PropTypes.string,
+    })
+  ).isRequired,
+  onAdvanceStatus: PropTypes.func.isRequired,
+  onEditTask: PropTypes.func.isRequired,
+  busyTaskId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  busyType: PropTypes.string,
+};
+
+TaskBoard.defaultProps = {
+  busyTaskId: null,
+  busyType: null,
+};
 
 function TaskEditorDialog({ open, task, onClose, onSave, onDelete, busy }) {
   const [draft, setDraft] = useState(() => ({
@@ -629,6 +700,33 @@ function TaskEditorDialog({ open, task, onClose, onSave, onDelete, busy }) {
     </Transition.Root>
   );
 }
+
+TaskEditorDialog.propTypes = {
+  open: PropTypes.bool.isRequired,
+  task: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    title: PropTypes.string,
+    ownerName: PropTypes.string,
+    ownerType: PropTypes.string,
+    lane: PropTypes.string,
+    status: PropTypes.string,
+    riskLevel: PropTypes.string,
+    startDate: PropTypes.string,
+    endDate: PropTypes.string,
+    progressPercent: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    workloadHours: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    notes: PropTypes.string,
+  }),
+  onClose: PropTypes.func.isRequired,
+  onSave: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
+  busy: PropTypes.bool,
+};
+
+TaskEditorDialog.defaultProps = {
+  task: null,
+  busy: false,
+};
 
 export default function ProjectOperationsSection({ projectId }) {
   const [taskDraft, setTaskDraft] = useState({ ...DEFAULT_TASK });
@@ -979,3 +1077,7 @@ export default function ProjectOperationsSection({ projectId }) {
     </section>
   );
 }
+
+ProjectOperationsSection.propTypes = {
+  projectId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+};

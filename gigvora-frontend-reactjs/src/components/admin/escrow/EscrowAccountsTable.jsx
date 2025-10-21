@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { Dialog, Transition } from '@headlessui/react';
 import { PlusIcon } from '@heroicons/react/24/outline';
 
@@ -565,3 +566,48 @@ export default function EscrowAccountsTable({
     </section>
   );
 }
+
+EscrowAccountsTable.propTypes = {
+  accounts: PropTypes.shape({
+    items: PropTypes.arrayOf(
+      PropTypes.shape({
+        id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+        owner: PropTypes.shape({
+          firstName: PropTypes.string,
+          lastName: PropTypes.string,
+          email: PropTypes.string,
+        }),
+        provider: PropTypes.string,
+        currentBalance: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+        pendingReleaseTotal: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+        status: PropTypes.string,
+        lastReconciledAt: PropTypes.string,
+        currencyCode: PropTypes.string,
+      }),
+    ),
+    pagination: PropTypes.shape({
+      page: PropTypes.number,
+      totalPages: PropTypes.number,
+      totalItems: PropTypes.number,
+    }),
+  }),
+  filters: PropTypes.shape({
+    status: PropTypes.string,
+    provider: PropTypes.string,
+    search: PropTypes.string,
+    page: PropTypes.number,
+  }),
+  onFilterChange: PropTypes.func,
+  onCreateAccount: PropTypes.func,
+  onUpdateAccount: PropTypes.func,
+  currency: PropTypes.string,
+};
+
+EscrowAccountsTable.defaultProps = {
+  accounts: undefined,
+  filters: {},
+  onFilterChange: undefined,
+  onCreateAccount: undefined,
+  onUpdateAccount: undefined,
+  currency: 'USD',
+};

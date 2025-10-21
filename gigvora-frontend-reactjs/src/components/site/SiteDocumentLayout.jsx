@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import {
   ArrowDownTrayIcon,
   ArrowPathIcon,
@@ -488,3 +489,51 @@ export default function SiteDocumentLayout({
     </section>
   );
 }
+
+SiteDocumentLayout.propTypes = {
+  hero: PropTypes.shape({
+    eyebrow: PropTypes.string,
+    title: PropTypes.string,
+    description: PropTypes.string,
+    meta: PropTypes.oneOfType([PropTypes.string, PropTypes.arrayOf(PropTypes.string)]),
+    ctaLabel: PropTypes.string,
+    ctaUrl: PropTypes.string,
+  }),
+  sections: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      title: PropTypes.string.isRequired,
+      summary: PropTypes.string,
+      blocks: PropTypes.arrayOf(
+        PropTypes.shape({
+          type: PropTypes.oneOf(['text', 'list']),
+          text: PropTypes.string,
+          items: PropTypes.arrayOf(PropTypes.string),
+        })
+      ),
+    })
+  ),
+  metadata: PropTypes.shape({
+    documentCode: PropTypes.string,
+    summary: PropTypes.string,
+    heroSubtitle: PropTypes.string,
+    lastUpdated: PropTypes.string,
+    reviewedBy: PropTypes.string,
+  }),
+  loading: PropTypes.bool,
+  error: PropTypes.instanceOf(Error),
+  onRetry: PropTypes.func,
+  usingFallback: PropTypes.bool,
+  refresh: PropTypes.func,
+};
+
+SiteDocumentLayout.defaultProps = {
+  hero: null,
+  sections: [],
+  metadata: null,
+  loading: false,
+  error: null,
+  onRetry: undefined,
+  usingFallback: false,
+  refresh: undefined,
+};

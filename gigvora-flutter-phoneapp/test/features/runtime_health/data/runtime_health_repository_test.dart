@@ -133,4 +133,20 @@ void main() {
     expect(snapshot.metrics!.database?.vendor, 'mysql');
     expect(snapshot.metricsStale, isFalse);
   });
+
+  test('propagates non-authentication API exceptions to the caller', () async {
+    final repository = RuntimeHealthRepository(
+      TestApiClient(onGet: (path) async {
+        expect(path, '/api/admin/runtime/health');
+        throw ApiException(503, 'Upstream unavailable');
+      }),
+    );
+
+    await expectLater(
+      () => repository.fetch(authenticated: true),
+      throwsA(
+        isA<ApiException>().having((error) => error.statusCode, 'statusCode', 503),
+      ),
+    );
+  });
 }

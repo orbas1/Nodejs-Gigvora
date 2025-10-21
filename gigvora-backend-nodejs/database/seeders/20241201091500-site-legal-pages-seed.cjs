@@ -4,8 +4,17 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 const { QueryTypes } = require('sequelize');
 
-async function loadDocument(relativePath) {
-  const absolutePath = path.resolve(
+const DOCUMENT_FILES = [
+  'terms.js',
+  'privacy.js',
+  'refund.js',
+  'about.js',
+  'communityGuidelines.js',
+  'faq.js',
+];
+
+function resolveContentPath(relativePath) {
+  return path.resolve(
     __dirname,
     '..',
     '..',
@@ -16,63 +25,135 @@ async function loadDocument(relativePath) {
     'site',
     relativePath,
   );
+}
+
+async function loadDocument(relativePath) {
+  const absolutePath = resolveContentPath(relativePath);
   const moduleUrl = pathToFileURL(absolutePath).href;
   const imported = await import(moduleUrl);
+  if (!imported || typeof imported.default !== 'object') {
+    throw new Error(`Expected ${relativePath} to export a default object`);
+  }
   return imported.default;
 }
 
+function coerceString(value, fallback = '') {
+  if (value == null) {
+    return fallback;
+  }
+  const text = String(value).trim();
+  return text.length ? text : fallback;
+}
+
+function coerceNullableString(value) {
+  const text = coerceString(value, '');
+  return text.length ? text : null;
+}
+
+function coerceDate(value) {
+  if (!value) {
+    return null;
+  }
+  const candidate = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(candidate.getTime()) ? null : candidate;
+}
+
+function slugify(value) {
+  return coerceString(value, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 150);
+}
+
+function toStringArray(value) {
+  if (!value) {
+    return [];
+  }
+  const source = Array.isArray(value) ? value : [value];
+  const normalized = [];
+  source.forEach((item) => {
+    const text = coerceString(item, '');
+    if (text) {
+      normalized.push(text);
+    }
+  });
+  return normalized;
+}
+
+function normalizeRoles(value) {
+  const roles = toStringArray(value);
+  const seen = new Set();
+  roles.forEach((role) => {
+    const lowered = role.toLowerCase();
+    if (!seen.has(lowered)) {
+      seen.add(lowered);
+    }
+  });
+  return Array.from(seen);
+}
+
 function buildPagePayload(document) {
+  if (!document || typeof document !== 'object') {
+    throw new Error('Site document must be an object.');
+  }
+  const slugSource = document.slug || document.hero?.title || document.title;
+  const slug = slugify(slugSource);
+  if (!slug) {
+    throw new Error('Site document must define a slug or title.');
+  }
   const now = new Date();
-  const publishedAt = document.lastUpdated ? new Date(document.lastUpdated) : now;
-  const lastReviewedAt = document.lastReviewedAt
-    ? new Date(document.lastReviewedAt)
-    : document.lastUpdated
-    ? new Date(document.lastUpdated)
-    : null;
+  const publishedAt = coerceDate(document.publishedAt || document.lastUpdated) || now;
+  const lastReviewedAt =
+    coerceDate(document.lastReviewedAt) || coerceDate(document.lastUpdated) || null;
+  const summary = coerceString(document.summary, '');
+  const heroTitle = coerceString(document.hero?.title || document.title || slug, slug);
   return {
-    slug: document.slug,
-    title: document.hero?.title || document.title || document.slug,
-    summary: document.summary || '',
-    heroTitle: document.hero?.title || document.title || '',
-    heroSubtitle: document.hero?.description || '',
-    heroEyebrow: document.hero?.eyebrow || '',
-    heroMeta: document.hero?.meta || '',
-    heroImageUrl: document.hero?.imageUrl || null,
-    heroImageAlt: document.hero?.imageAlt || null,
-    ctaLabel: document.hero?.ctaLabel || null,
-    ctaUrl: document.hero?.ctaUrl || null,
-    layout: document.layout || 'standard',
-    body: document.body || '',
-    seoTitle: document.seo?.title || document.hero?.title || null,
-    seoDescription: document.seo?.description || document.summary || null,
-    seoKeywords: Array.isArray(document.seo?.keywords) ? document.seo.keywords : [],
-    contactEmail: document.contactEmail || 'support@gigvora.com',
-    contactPhone: document.contactPhone || null,
-    jurisdiction: document.jurisdiction || 'United Kingdom',
-    version: document.version || '1.0.0',
+    slug,
+    title: heroTitle,
+    summary,
+    heroTitle,
+    heroSubtitle: coerceString(document.hero?.description, ''),
+    heroEyebrow: coerceString(document.hero?.eyebrow, ''),
+    heroMeta: coerceString(document.hero?.meta, ''),
+    heroImageUrl: coerceNullableString(document.hero?.imageUrl),
+    heroImageAlt: coerceNullableString(document.hero?.imageAlt),
+    ctaLabel: coerceNullableString(document.hero?.ctaLabel),
+    ctaUrl: coerceNullableString(document.hero?.ctaUrl),
+    layout: coerceString(document.layout, 'standard'),
+    body: typeof document.body === 'string' ? document.body : '',
+    seoTitle: coerceNullableString(document.seo?.title || heroTitle),
+    seoDescription: coerceNullableString(document.seo?.description || summary),
+    seoKeywords: toStringArray(document.seo?.keywords),
+    contactEmail: coerceNullableString(document.contactEmail || 'support@gigvora.com'),
+    contactPhone: coerceNullableString(document.contactPhone),
+    jurisdiction: coerceString(document.jurisdiction, 'United Kingdom'),
+    version: coerceString(document.version, '1.0.0'),
     lastReviewedAt,
     status: 'published',
     publishedAt,
-    featureHighlights: Array.isArray(document.featureHighlights) ? document.featureHighlights : [],
-    allowedRoles: Array.isArray(document.allowedRoles) ? document.allowedRoles : [],
+    featureHighlights: toStringArray(document.featureHighlights),
+    allowedRoles: normalizeRoles(document.allowedRoles),
   };
+}
+
+async function loadAllDocuments() {
+  return Promise.all(DOCUMENT_FILES.map((file) => loadDocument(file)));
 }
 
 module.exports = {
   async up(queryInterface) {
     const transaction = await queryInterface.sequelize.transaction();
     try {
-      const documents = await Promise.all([
-        loadDocument('terms.js'),
-        loadDocument('privacy.js'),
-        loadDocument('refund.js'),
-        loadDocument('about.js'),
-        loadDocument('communityGuidelines.js'),
-        loadDocument('faq.js'),
-      ]);
-
+      const documents = await loadAllDocuments();
       const payloads = documents.map(buildPagePayload);
       const slugs = payloads.map((doc) => doc.slug);
+      const slugSet = new Set(slugs);
+      if (slugSet.size !== slugs.length) {
+        throw new Error('Duplicate slugs detected in site legal page payloads.');
+      }
 
       const existingRows = await queryInterface.sequelize.query(
         'SELECT id, slug FROM site_pages WHERE slug IN (:slugs)',
@@ -122,10 +203,12 @@ module.exports = {
   async down(queryInterface) {
     const transaction = await queryInterface.sequelize.transaction();
     try {
+      const documents = await loadAllDocuments();
+      const slugs = documents.map((document) => buildPagePayload(document).slug);
       await queryInterface.bulkDelete(
         'site_pages',
         {
-          slug: ['terms', 'privacy', 'refunds', 'about', 'community-guidelines', 'faq'],
+          slug: slugs,
         },
         { transaction },
       );
@@ -134,5 +217,14 @@ module.exports = {
       await transaction.rollback();
       throw error;
     }
+  },
+  __private__: {
+    DOCUMENT_FILES,
+    resolveContentPath,
+    loadDocument,
+    buildPagePayload,
+    slugify,
+    normalizeRoles,
+    toStringArray,
   },
 };

@@ -15,6 +15,25 @@ import {
   AcademicCapIcon,
 } from '@heroicons/react/24/outline';
 
+export const CREATOR_ROLE_SET = new Set(['user', 'freelancer', 'agency', 'company', 'mentor', 'headhunter', 'admin']);
+
+export function evaluateCreationAccess(session) {
+  const ownerId =
+    session?.id ??
+    session?.userId ??
+    session?.user?.id ??
+    (typeof session?.ownerId === 'number' || typeof session?.ownerId === 'string' ? session.ownerId : null);
+  const memberships = Array.isArray(session?.memberships) ? session.memberships : [];
+  const allowedRoles = memberships.filter((role) => CREATOR_ROLE_SET.has(role));
+  const hasAccess = Boolean(ownerId) && allowedRoles.length > 0;
+  return {
+    ownerId,
+    memberships,
+    allowedRoles,
+    hasAccess,
+  };
+}
+
 export const STATUS_OPTIONS = [
   { value: 'draft', label: 'Draft' },
   { value: 'review', label: 'Review' },

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import asyncHandler from '../utils/asyncHandler.js';
 import validateRequest from '../middleware/validateRequest.js';
 import * as adminTimelineController from '../controllers/adminTimelineController.js';
+import { requireAdmin } from '../middleware/authenticate.js';
 import {
   timelineListQuerySchema,
   createTimelineBodySchema,
@@ -13,6 +14,8 @@ import {
 } from '../validation/schemas/adminTimelineSchemas.js';
 
 const router = Router();
+
+router.use(requireAdmin);
 
 const timelineIdParamSchema = z
   .object({ timelineId: z.coerce.number().int().positive({ message: 'timelineId must be a positive integer.' }) })

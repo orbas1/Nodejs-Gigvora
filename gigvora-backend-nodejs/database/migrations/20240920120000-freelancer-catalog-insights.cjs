@@ -7,10 +7,15 @@ const CROSS_SELL_TABLE = 'freelancer_cross_sell_opportunities';
 const KEYWORDS_TABLE = 'freelancer_keyword_impressions';
 const MARGIN_TABLE = 'freelancer_margin_snapshots';
 
+const resolveJsonType = (queryInterface, Sequelize) => {
+  const dialect = queryInterface.sequelize.getDialect();
+  return ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
+};
+
 module.exports = {
   async up(queryInterface, Sequelize) {
-    const dialect = queryInterface.sequelize.getDialect();
-    const jsonType = ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
+    const jsonType = resolveJsonType(queryInterface, Sequelize);
+    const timestampDefault = Sequelize.literal('CURRENT_TIMESTAMP');
 
     await queryInterface.sequelize.transaction(async (transaction) => {
       await queryInterface.createTable(
@@ -22,6 +27,7 @@ module.exports = {
             allowNull: false,
             references: { model: 'users', key: 'id' },
             onDelete: 'CASCADE',
+            onUpdate: 'CASCADE',
           },
           name: { type: Sequelize.STRING(255), allowNull: false },
           description: { type: Sequelize.TEXT, allowNull: true },
@@ -29,21 +35,16 @@ module.exports = {
           currencyCode: { type: Sequelize.STRING(3), allowNull: false, defaultValue: 'USD' },
           isActive: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: true },
           metadata: { type: jsonType, allowNull: true },
-          createdAt: {
-            type: Sequelize.DATE,
-            allowNull: false,
-            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
-          },
-          updatedAt: {
-            type: Sequelize.DATE,
-            allowNull: false,
-            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
-          },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
         },
         { transaction },
       );
 
-      await queryInterface.addIndex(BUNDLES_TABLE, ['freelancerId'], { transaction });
+      await queryInterface.addIndex(BUNDLES_TABLE, ['freelancerId'], {
+        transaction,
+        name: 'freelancer_catalog_bundles_freelancer_idx',
+      });
 
       await queryInterface.createTable(
         METRICS_TABLE,
@@ -54,6 +55,7 @@ module.exports = {
             allowNull: false,
             references: { model: BUNDLES_TABLE, key: 'id' },
             onDelete: 'CASCADE',
+            onUpdate: 'CASCADE',
           },
           periodStart: { type: Sequelize.DATEONLY, allowNull: false },
           periodEnd: { type: Sequelize.DATEONLY, allowNull: false },
@@ -64,16 +66,8 @@ module.exports = {
           repeatClients: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
           attachRate: { type: Sequelize.DECIMAL(5, 2), allowNull: true },
           upsellRevenue: { type: Sequelize.DECIMAL(12, 2), allowNull: true },
-          createdAt: {
-            type: Sequelize.DATE,
-            allowNull: false,
-            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
-          },
-          updatedAt: {
-            type: Sequelize.DATE,
-            allowNull: false,
-            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
-          },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
         },
         { transaction },
       );
@@ -81,7 +75,7 @@ module.exports = {
       await queryInterface.addIndex(
         METRICS_TABLE,
         ['bundleId', 'periodStart', 'periodEnd'],
-        { transaction, unique: true },
+        { transaction, unique: true, name: 'freelancer_catalog_bundle_metrics_period_unique' },
       );
 
       await queryInterface.createTable(
@@ -93,6 +87,7 @@ module.exports = {
             allowNull: false,
             references: { model: 'users', key: 'id' },
             onDelete: 'CASCADE',
+            onUpdate: 'CASCADE',
           },
           clientName: { type: Sequelize.STRING(255), allowNull: false },
           clientCompany: { type: Sequelize.STRING(255), allowNull: true },
@@ -102,16 +97,8 @@ module.exports = {
           isRetainer: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false },
           retainerStartDate: { type: Sequelize.DATE, allowNull: true },
           notes: { type: Sequelize.TEXT, allowNull: true },
-          createdAt: {
-            type: Sequelize.DATE,
-            allowNull: false,
-            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
-          },
-          updatedAt: {
-            type: Sequelize.DATE,
-            allowNull: false,
-            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
-          },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
         },
         { transaction },
       );
@@ -119,7 +106,7 @@ module.exports = {
       await queryInterface.addIndex(
         REPEAT_CLIENTS_TABLE,
         ['freelancerId', 'clientName', 'clientCompany'],
-        { transaction, unique: true },
+        { transaction, unique: true, name: 'freelancer_repeat_clients_unique_client' },
       );
 
       await queryInterface.createTable(
@@ -131,18 +118,21 @@ module.exports = {
             allowNull: false,
             references: { model: 'users', key: 'id' },
             onDelete: 'CASCADE',
+            onUpdate: 'CASCADE',
           },
           fromBundleId: {
             type: Sequelize.INTEGER,
             allowNull: true,
             references: { model: BUNDLES_TABLE, key: 'id' },
             onDelete: 'SET NULL',
+            onUpdate: 'CASCADE',
           },
           toBundleId: {
             type: Sequelize.INTEGER,
             allowNull: true,
             references: { model: BUNDLES_TABLE, key: 'id' },
             onDelete: 'SET NULL',
+            onUpdate: 'CASCADE',
           },
           title: { type: Sequelize.STRING(255), allowNull: false },
           signal: { type: Sequelize.TEXT, allowNull: false },
@@ -151,21 +141,16 @@ module.exports = {
           expectedRevenue: { type: Sequelize.DECIMAL(12, 2), allowNull: true },
           confidence: { type: Sequelize.DECIMAL(5, 2), allowNull: true },
           priority: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 2 },
-          createdAt: {
-            type: Sequelize.DATE,
-            allowNull: false,
-            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
-          },
-          updatedAt: {
-            type: Sequelize.DATE,
-            allowNull: false,
-            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
-          },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
         },
         { transaction },
       );
 
-      await queryInterface.addIndex(CROSS_SELL_TABLE, ['freelancerId', 'priority'], { transaction });
+      await queryInterface.addIndex(CROSS_SELL_TABLE, ['freelancerId', 'priority'], {
+        transaction,
+        name: 'freelancer_cross_sell_freelancer_priority_idx',
+      });
 
       await queryInterface.createTable(
         KEYWORDS_TABLE,
@@ -176,6 +161,7 @@ module.exports = {
             allowNull: false,
             references: { model: 'users', key: 'id' },
             onDelete: 'CASCADE',
+            onUpdate: 'CASCADE',
           },
           keyword: { type: Sequelize.STRING(255), allowNull: false },
           region: { type: Sequelize.STRING(120), allowNull: true },
@@ -185,25 +171,20 @@ module.exports = {
           trendPercentage: { type: Sequelize.DECIMAL(6, 2), allowNull: true },
           capturedAt: { type: Sequelize.DATE, allowNull: false },
           metadata: { type: jsonType, allowNull: true },
-          createdAt: {
-            type: Sequelize.DATE,
-            allowNull: false,
-            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
-          },
-          updatedAt: {
-            type: Sequelize.DATE,
-            allowNull: false,
-            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
-          },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
         },
         { transaction },
       );
 
-      await queryInterface.addIndex(KEYWORDS_TABLE, ['freelancerId', 'keyword'], { transaction });
+      await queryInterface.addIndex(KEYWORDS_TABLE, ['freelancerId', 'keyword'], {
+        transaction,
+        name: 'freelancer_keyword_impressions_keyword_idx',
+      });
       await queryInterface.addIndex(
         KEYWORDS_TABLE,
         ['freelancerId', 'keyword', 'region', 'capturedAt'],
-        { transaction, unique: true },
+        { transaction, unique: true, name: 'freelancer_keyword_impressions_capture_unique' },
       );
 
       await queryInterface.createTable(
@@ -215,6 +196,7 @@ module.exports = {
             allowNull: false,
             references: { model: 'users', key: 'id' },
             onDelete: 'CASCADE',
+            onUpdate: 'CASCADE',
           },
           month: { type: Sequelize.DATEONLY, allowNull: false },
           revenue: { type: Sequelize.DECIMAL(12, 2), allowNull: false, defaultValue: 0 },
@@ -222,16 +204,8 @@ module.exports = {
           subcontractorCosts: { type: Sequelize.DECIMAL(12, 2), allowNull: false, defaultValue: 0 },
           fulfillmentCosts: { type: Sequelize.DECIMAL(12, 2), allowNull: false, defaultValue: 0 },
           notes: { type: Sequelize.TEXT, allowNull: true },
-          createdAt: {
-            type: Sequelize.DATE,
-            allowNull: false,
-            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
-          },
-          updatedAt: {
-            type: Sequelize.DATE,
-            allowNull: false,
-            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
-          },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
         },
         { transaction },
       );
@@ -239,7 +213,7 @@ module.exports = {
       await queryInterface.addIndex(
         MARGIN_TABLE,
         ['freelancerId', 'month'],
-        { transaction, unique: true },
+        { transaction, unique: true, name: 'freelancer_margin_snapshots_month_unique' },
       );
     });
   },

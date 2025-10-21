@@ -19,6 +19,15 @@ class MemberProfile {
   final String? name;
   final String? email;
   final String? userType;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      if (name != null) 'name': name,
+      if (email != null) 'email': email,
+      if (userType != null) 'userType': userType,
+    };
+  }
 }
 
 class GroupMember {
@@ -53,6 +62,18 @@ class GroupMember {
   final DateTime? joinedAt;
   final String? notes;
   final MemberProfile? profile;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'userId': userId,
+      'role': role,
+      'status': status,
+      if (joinedAt != null) 'joinedAt': joinedAt!.toIso8601String(),
+      if (notes != null) 'notes': notes,
+      if (profile != null) 'member': profile!.toJson(),
+    };
+  }
 }
 
 class GroupMetrics {
@@ -92,6 +113,18 @@ class GroupMetrics {
   final int suspendedMembers;
   final int acceptanceRate;
   final DateTime? lastMemberJoinedAt;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'totalMembers': totalMembers,
+      'activeMembers': activeMembers,
+      'pendingMembers': pendingMembers,
+      'suspendedMembers': suspendedMembers,
+      'acceptanceRate': acceptanceRate,
+      if (lastMemberJoinedAt != null)
+        'lastMemberJoinedAt': lastMemberJoinedAt!.toIso8601String(),
+    };
+  }
 }
 
 class GroupSummary {
@@ -145,4 +178,19 @@ class GroupSummary {
   final String? bannerImageUrl;
   final GroupMetrics metrics;
   final List<GroupMember> members;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'slug': slug,
+      'visibility': visibility,
+      'memberPolicy': memberPolicy,
+      'avatarColor': avatarColor,
+      if (description != null) 'description': description,
+      if (bannerImageUrl != null) 'bannerImageUrl': bannerImageUrl,
+      'metrics': metrics.toJson(),
+      'members': members.map((member) => member.toJson()).toList(growable: false),
+    };
+  }
 }

@@ -14,10 +14,23 @@ import {
   deletePagePost,
 } from '../services/pageService.js';
 import { ValidationError } from '../utils/errors.js';
+import { resolveRequestUserId } from '../utils/requestContext.js';
 
 function parseIntOrNull(value) {
   const parsed = Number.parseInt(value, 10);
   return Number.isNaN(parsed) ? null : parsed;
+}
+
+function resolveActorId(req, fallback) {
+  const resolved = resolveRequestUserId(req);
+  if (resolved) {
+    return resolved;
+  }
+  const candidate = parseIntOrNull(req.body?.actorId ?? req.query?.actorId);
+  if (candidate) {
+    return candidate;
+  }
+  return fallback ?? null;
 }
 
 export async function index(req, res) {
@@ -47,7 +60,8 @@ export async function store(req, res) {
   if (!userId) {
     throw new ValidationError('A valid user id is required.');
   }
-  const page = await createPage(req.body ?? {}, { actorId: userId });
+  const actorId = resolveActorId(req, userId);
+  const page = await createPage(req.body ?? {}, { actorId });
   res.status(201).json(page);
 }
 
@@ -57,7 +71,8 @@ export async function update(req, res) {
   if (!userId || !pageId) {
     throw new ValidationError('A valid user id and page id are required.');
   }
-  const page = await updatePage(pageId, req.body ?? {}, { actorId: userId });
+  const actorId = resolveActorId(req, userId);
+  const page = await updatePage(pageId, req.body ?? {}, { actorId });
   res.json(page);
 }
 
@@ -67,7 +82,7 @@ export async function memberships(req, res) {
   if (!userId || !pageId) {
     throw new ValidationError('A valid user id and page id are required.');
   }
-  const membershipList = await listPageMemberships(pageId, { actorId: userId });
+  const membershipList = await listPageMemberships(pageId, { actorId: resolveActorId(req, userId) });
   res.json({ memberships: membershipList });
 }
 
@@ -78,7 +93,9 @@ export async function updateMembership(req, res) {
   if (!userId || !pageId || !membershipId) {
     throw new ValidationError('A valid user id, page id, and membership id are required.');
   }
-  const membership = await updatePageMembership(pageId, membershipId, req.body ?? {}, { actorId: userId });
+  const membership = await updatePageMembership(pageId, membershipId, req.body ?? {}, {
+    actorId: resolveActorId(req, userId),
+  });
   res.json(membership);
 }
 
@@ -88,7 +105,7 @@ export async function invites(req, res) {
   if (!userId || !pageId) {
     throw new ValidationError('A valid user id and page id are required.');
   }
-  const invitesList = await listPageInvites(pageId, { actorId: userId });
+  const invitesList = await listPageInvites(pageId, { actorId: resolveActorId(req, userId) });
   res.json({ invites: invitesList });
 }
 
@@ -98,7 +115,7 @@ export async function createInvite(req, res) {
   if (!userId || !pageId) {
     throw new ValidationError('A valid user id and page id are required.');
   }
-  const invite = await createPageInvite(pageId, req.body ?? {}, { actorId: userId });
+  const invite = await createPageInvite(pageId, req.body ?? {}, { actorId: resolveActorId(req, userId) });
   res.status(201).json(invite);
 }
 
@@ -109,7 +126,7 @@ export async function removeInvite(req, res) {
   if (!userId || !pageId || !inviteId) {
     throw new ValidationError('A valid user id, page id, and invite id are required.');
   }
-  const result = await cancelPageInvite(pageId, inviteId, { actorId: userId });
+  const result = await cancelPageInvite(pageId, inviteId, { actorId: resolveActorId(req, userId) });
   res.json(result);
 }
 
@@ -120,7 +137,11 @@ export async function posts(req, res) {
     throw new ValidationError('A valid user id and page id are required.');
   }
   const { status, limit } = req.query ?? {};
-  const postsList = await listPagePosts(pageId, { actorId: userId, status, limit });
+  const postsList = await listPagePosts(pageId, {
+    actorId: resolveActorId(req, userId),
+    status,
+    limit,
+  });
   res.json({ posts: postsList });
 }
 
@@ -130,7 +151,7 @@ export async function createPost(req, res) {
   if (!userId || !pageId) {
     throw new ValidationError('A valid user id and page id are required.');
   }
-  const post = await createPagePost(pageId, req.body ?? {}, { actorId: userId });
+  const post = await createPagePost(pageId, req.body ?? {}, { actorId: resolveActorId(req, userId) });
   res.status(201).json(post);
 }
 
@@ -141,7 +162,7 @@ export async function updatePost(req, res) {
   if (!userId || !pageId || !postId) {
     throw new ValidationError('A valid user id, page id, and post id are required.');
   }
-  const post = await updatePagePost(pageId, postId, req.body ?? {}, { actorId: userId });
+  const post = await updatePagePost(pageId, postId, req.body ?? {}, { actorId: resolveActorId(req, userId) });
   res.json(post);
 }
 
@@ -152,7 +173,7 @@ export async function deletePost(req, res) {
   if (!userId || !pageId || !postId) {
     throw new ValidationError('A valid user id, page id, and post id are required.');
   }
-  const result = await deletePagePost(pageId, postId, { actorId: userId });
+  const result = await deletePagePost(pageId, postId, { actorId: resolveActorId(req, userId) });
   res.json(result);
 }
 

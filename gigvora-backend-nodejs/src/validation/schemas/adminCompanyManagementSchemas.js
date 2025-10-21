@@ -1,71 +1,133 @@
 import { z } from 'zod';
+import {
+  optionalNumber,
+  optionalStringArray,
+  optionalTrimmedString,
+  requiredEmail,
+  requiredTrimmedString,
+} from '../primitives.js';
 
-const statusEnum = z.enum(['invited', 'active', 'suspended', 'archived']);
+const COMPANY_STATUS_VALUES = ['invited', 'active', 'suspended', 'archived'];
+
+const optionalStatus = optionalTrimmedString({ max: 32 }).transform((value, ctx) => {
+  if (value == null) {
+    return undefined;
+  }
+  const normalised = value.trim().toLowerCase();
+  if (!COMPANY_STATUS_VALUES.includes(normalised)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'status must be invited, active, suspended, or archived.',
+      path: ['status'],
+    });
+    return z.NEVER;
+  }
+  return normalised;
+});
+
+const optionalUrl = ({ max = 2048 } = {}) =>
+  z
+    .union([
+      z.preprocess((value) => {
+        if (value == null || value === '') {
+          return undefined;
+        }
+        return `${value}`.trim();
+      }, z.string().url({ message: 'must be a valid URL.' }).max(max)),
+      z.undefined(),
+    ])
+    .transform((value) => value ?? undefined);
+
+const optionalNullableString = ({ max }) =>
+  z
+    .union([z.null(), optionalTrimmedString({ max })])
+    .transform((value) => (value === null ? null : value ?? undefined));
+
+const optionalNullableUrl = ({ max = 2048 } = {}) =>
+  z
+    .union([
+      z.null(),
+      z
+        .preprocess((value) => {
+          if (value == null || value === '') {
+            return undefined;
+          }
+          return `${value}`.trim();
+        }, z.string().url({ message: 'must be a valid URL.' }).max(max)),
+      z.undefined(),
+    ])
+    .transform((value) => (value === null ? null : value ?? undefined));
 
 const socialLinkSchema = z
   .object({
-    label: z.string().trim().min(1).max(120).optional(),
-    url: z.string().trim().min(1).max(500).optional(),
+    label: optionalTrimmedString({ max: 120 }).transform((value) => value ?? undefined),
+    url: optionalUrl({ max: 500 }),
   })
-  .partial()
+  .strip()
   .refine((value) => Boolean(value.label || value.url), {
-    message: 'Link label or URL is required.',
+    message: 'Provide a label or URL for the social link.',
   });
 
-const baseCompanySchema = z.object({
-  companyName: z.string().trim().min(2).max(255),
-  description: z.string().trim().max(6000).optional().nullable(),
-  website: z.string().url().max(255).optional().nullable(),
-  location: z.string().trim().max(255).optional().nullable(),
-  tagline: z.string().trim().max(255).optional().nullable(),
-  logoUrl: z.string().url().max(500).optional().nullable(),
-  bannerUrl: z.string().url().max(500).optional().nullable(),
-  contactEmail: z.string().email().max(255).optional().nullable(),
-  contactPhone: z.string().trim().max(60).optional().nullable(),
-  socialLinks: z.array(socialLinkSchema).max(10).optional(),
-  profileHeadline: z.string().trim().max(255).optional().nullable(),
-  profileMission: z.string().trim().max(4000).optional().nullable(),
-  timezone: z.string().trim().max(120).optional().nullable(),
-});
+const ownerDetailsSchema = z
+  .object({
+    ownerEmail: requiredEmail({ max: 255 }),
+    ownerFirstName: requiredTrimmedString({ max: 120 }),
+    ownerLastName: requiredTrimmedString({ max: 120 }),
+    ownerPhone: optionalTrimmedString({ max: 60 }).transform((value) => value ?? undefined),
+    password: requiredTrimmedString({ min: 12, max: 120 }),
+  })
+  .strip();
+
+const baseCompanySchema = z
+  .object({
+    companyName: requiredTrimmedString({ max: 255 }),
+    description: optionalNullableString({ max: 6000 }),
+    website: optionalNullableUrl({ max: 2048 }),
+    location: optionalNullableString({ max: 255 }),
+    tagline: optionalNullableString({ max: 255 }),
+    logoUrl: optionalNullableUrl({ max: 2048 }),
+    bannerUrl: optionalNullableUrl({ max: 2048 }),
+    contactEmail: optionalNullableString({ max: 255 }),
+    contactPhone: optionalNullableString({ max: 60 }),
+    socialLinks: z.array(socialLinkSchema).max(15).optional(),
+    profileHeadline: optionalNullableString({ max: 255 }),
+    profileMission: optionalNullableString({ max: 4000 }),
+    timezone: optionalNullableString({ max: 120 }),
+    memberships: optionalStringArray({ maxItemLength: 80 }).transform((values) => values ?? undefined),
+    primaryDashboard: optionalTrimmedString({ max: 60 }).transform((value) => value ?? undefined),
+    status: optionalStatus,
+  })
+  .strip();
 
 export const adminCompanyListQuerySchema = z
   .object({
-    search: z.string().min(1).max(200).optional(),
-    status: statusEnum.optional(),
-    sort: z.enum(['created_desc', 'created_asc', 'name_asc', 'name_desc']).optional(),
-    limit: z.coerce.number().int().min(1).max(100).optional(),
-    offset: z.coerce.number().int().min(0).optional(),
+    search: optionalTrimmedString({ max: 200 }).transform((value) => value ?? undefined),
+    status: optionalStatus,
+    sort: optionalTrimmedString({ max: 32 }).transform((value) => {
+      if (!value) {
+        return undefined;
+      }
+      const normalised = value.trim().toLowerCase();
+      const allowed = new Set(['created_desc', 'created_asc', 'name_asc', 'name_desc']);
+      return allowed.has(normalised) ? normalised : undefined;
+    }),
+    limit: optionalNumber({ min: 1, max: 100, integer: true }).transform((value) => value ?? 25),
+    offset: optionalNumber({ min: 0, integer: true }).transform((value) => value ?? 0),
   })
-  .partial();
+  .strip();
 
-export const adminCompanyCreateSchema = baseCompanySchema.merge(
-  z.object({
-    ownerEmail: z.string().email().max(255),
-    ownerFirstName: z.string().trim().min(1).max(120),
-    ownerLastName: z.string().trim().min(1).max(120),
-    ownerPhone: z.string().trim().max(60).optional().nullable(),
-    password: z.string().min(12).max(120),
-    status: statusEnum.optional(),
-  }),
-);
+export const adminCompanyCreateSchema = baseCompanySchema.merge(ownerDetailsSchema);
 
-export const adminCompanyUpdateSchema = baseCompanySchema.merge(
-  z
-    .object({
-      ownerEmail: z.string().email().max(255).optional(),
-      ownerFirstName: z.string().trim().min(1).max(120).optional(),
-      ownerLastName: z.string().trim().min(1).max(120).optional(),
-      ownerPhone: z.string().trim().max(60).optional().nullable(),
-      status: statusEnum.optional(),
-      memberships: z.array(z.string().trim().min(1).max(60)).optional(),
-      primaryDashboard: z.string().trim().max(60).optional(),
-    })
-    .partial(),
-);
+export const adminCompanyUpdateSchema = baseCompanySchema.partial().extend({
+  ownerEmail: optionalTrimmedString({ max: 255 }).transform((value) => value?.toLowerCase()),
+  ownerFirstName: optionalTrimmedString({ max: 120 }),
+  ownerLastName: optionalTrimmedString({ max: 120 }),
+  ownerPhone: optionalTrimmedString({ max: 60 }).transform((value) => value ?? undefined),
+  status: optionalStatus,
+}).strip();
 
 export default {
   adminCompanyListQuerySchema,
   adminCompanyCreateSchema,
   adminCompanyUpdateSchema,
 };
-

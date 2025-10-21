@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import TagInput from '../../TagInput.jsx';
 
 const FOLLOWER_POLICY_OPTIONS = [
@@ -467,3 +468,32 @@ export default function AgencyProfileEditForm({ overview, preferences, onSubmit,
     </form>
   );
 }
+
+AgencyProfileEditForm.propTypes = {
+  overview: PropTypes.shape({
+    name: PropTypes.string,
+    email: PropTypes.string,
+    headline: PropTypes.string,
+    bio: PropTypes.string,
+    missionStatement: PropTypes.string,
+    timezone: PropTypes.string,
+    location: PropTypes.string,
+    agencyProfile: PropTypes.object,
+  }),
+  preferences: PropTypes.shape({
+    brandColor: PropTypes.string,
+    bannerUrl: PropTypes.string,
+    followerPolicy: PropTypes.string,
+    connectionPolicy: PropTypes.string,
+    autoAcceptFollowers: PropTypes.bool,
+  }),
+  onSubmit: PropTypes.func,
+  saving: PropTypes.bool,
+};
+
+AgencyProfileEditForm.defaultProps = {
+  overview: undefined,
+  preferences: undefined,
+  onSubmit: undefined,
+  saving: false,
+};

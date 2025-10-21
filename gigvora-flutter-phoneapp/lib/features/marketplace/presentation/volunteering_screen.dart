@@ -11,6 +11,9 @@ class VolunteeringScreen extends ConsumerWidget {
   const VolunteeringScreen({super.key});
 
   static final Set<String> _allowedRoles = {'volunteer', 'mentor', 'admin'};
+  static const gateCardKey = Key('volunteering_gate_card');
+  static const requestAccessKey = Key('volunteering_request_access');
+  static const volunteerListKey = Key('volunteering_opportunity_list');
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -29,6 +32,7 @@ class VolunteeringScreen extends ConsumerWidget {
           padding: const EdgeInsets.all(16),
           children: [
             GigvoraCard(
+              key: gateCardKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -60,6 +64,7 @@ class VolunteeringScreen extends ConsumerWidget {
                       children: const [
                         Text(
                           'Request volunteer access via impact@gigvora.com so our safeguarding team can enable the workspace for you.',
+                          key: requestAccessKey,
                         ),
                       ],
                     ),
@@ -85,6 +90,7 @@ class VolunteeringScreen extends ConsumerWidget {
     }
 
     return OpportunityListScreen(
+      key: volunteerListKey,
       category: OpportunityCategory.volunteering,
       title: 'Volunteering',
       subtitle: 'Give back to the Gigvora community',

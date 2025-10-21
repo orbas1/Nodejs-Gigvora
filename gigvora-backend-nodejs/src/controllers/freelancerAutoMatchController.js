@@ -7,9 +7,36 @@ import {
 import { AuthorizationError, ValidationError } from '../utils/errors.js';
 
 function normalizeId(value) {
-  if (value == null) return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
+  if (value == null || value === '') return null;
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+  return parsed;
+}
+
+function normalizePage(value, { fallback = 1, max = 100 } = {}) {
+  const parsed = normalizeId(value) ?? Number.parseInt(value ?? '', 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+  return Math.min(parsed, max);
+}
+
+function normalizeStatuses(statuses) {
+  if (!statuses) {
+    return undefined;
+  }
+  const values = Array.isArray(statuses) ? statuses : `${statuses}`.split(',');
+  const allowed = new Set(['pending', 'accepted', 'declined', 'completed', 'expired', 'reassigned']);
+  const normalised = Array.from(
+    new Set(
+      values
+        .map((value) => `${value}`.trim().toLowerCase())
+        .filter((value) => allowed.has(value)),
+    ),
+  );
+  return normalised.length ? normalised : undefined;
 }
 
 function assertAccess(req, targetFreelancerId) {
@@ -58,16 +85,12 @@ export async function matches(req, res) {
   assertAccess(req, freelancerId);
 
   const { page, pageSize, statuses, includeHistorical } = req.query ?? {};
-  const parsedStatuses = Array.isArray(statuses)
-    ? statuses
-    : typeof statuses === 'string'
-    ? statuses.split(',').map((status) => status.trim())
-    : undefined;
+  const parsedStatuses = normalizeStatuses(statuses);
 
   const result = await listFreelancerMatches({
     freelancerId,
-    page: normalizeId(page) ?? Number(page) || 1,
-    pageSize: normalizeId(pageSize) ?? Number(pageSize) || 10,
+    page: normalizePage(page, { fallback: 1 }),
+    pageSize: normalizePage(pageSize, { fallback: 10, max: 50 }),
     statuses: parsedStatuses,
     includeHistorical: includeHistorical === 'true' || includeHistorical === true,
   });

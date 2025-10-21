@@ -1,3 +1,5 @@
+import PropTypes from 'prop-types';
+
 const numberFormatter = new Intl.NumberFormat('en-US');
 
 function formatNumber(value) {
@@ -67,3 +69,22 @@ export default function EscrowMetrics({ summary = {}, currency = 'USD' }) {
     </div>
   );
 }
+
+EscrowMetrics.propTypes = {
+  summary: PropTypes.shape({
+    grossVolume: PropTypes.number,
+    netVolume: PropTypes.number,
+    feeVolume: PropTypes.number,
+    currentBalance: PropTypes.number,
+    pendingReleaseTotal: PropTypes.number,
+    openDisputes: PropTypes.number,
+    outstandingTransactions: PropTypes.number,
+    averageReleaseHours: PropTypes.number,
+  }),
+  currency: PropTypes.string,
+};
+
+EscrowMetrics.defaultProps = {
+  summary: {},
+  currency: 'USD',
+};

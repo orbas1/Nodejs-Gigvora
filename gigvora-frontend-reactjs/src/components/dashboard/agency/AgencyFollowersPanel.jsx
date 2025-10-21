@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import PropTypes from 'prop-types';
 import UserAvatar from '../../UserAvatar.jsx';
 
 const STATUS_OPTIONS = [
@@ -185,3 +186,32 @@ export default function AgencyFollowersPanel({
     </section>
   );
 }
+
+AgencyFollowersPanel.propTypes = {
+  followers: PropTypes.shape({
+    items: PropTypes.array,
+    pagination: PropTypes.shape({
+      limit: PropTypes.number,
+      offset: PropTypes.number,
+      total: PropTypes.number,
+    }),
+  }),
+  loading: PropTypes.bool,
+  error: PropTypes.string,
+  onRefresh: PropTypes.func,
+  onPageChange: PropTypes.func,
+  onUpdateFollower: PropTypes.func,
+  onRemoveFollower: PropTypes.func,
+  pendingUpdates: PropTypes.object,
+};
+
+AgencyFollowersPanel.defaultProps = {
+  followers: undefined,
+  loading: false,
+  error: undefined,
+  onRefresh: undefined,
+  onPageChange: undefined,
+  onUpdateFollower: undefined,
+  onRemoveFollower: undefined,
+  pendingUpdates: undefined,
+};

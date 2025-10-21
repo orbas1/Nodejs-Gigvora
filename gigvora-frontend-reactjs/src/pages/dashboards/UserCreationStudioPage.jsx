@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import useSession from '../../hooks/useSession.js';
 import CreationStudioWorkspace from '../../components/creationStudio/CreationStudioWorkspace.jsx';
-import DataStatus from '../../components/DataStatus.jsx';
+import { evaluateCreationAccess } from '../../components/creationStudio/config.js';
 
 const menuSections = [
   {
@@ -28,12 +28,7 @@ export default function UserCreationStudioPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const userId = useMemo(() => {
-    if (!session) {
-      return null;
-    }
-    return session.userId ?? session.user?.id ?? session.id ?? null;
-  }, [session]);
+  const access = useMemo(() => evaluateCreationAccess(session), [session]);
 
   const startFresh = searchParams.get('create') === '1';
   const initialItemParam = searchParams.get('item');
@@ -56,8 +51,31 @@ export default function UserCreationStudioPage() {
     }
   };
 
-  if (!isAuthenticated || !userId) {
-    return <DataStatus status="error" message="Sign in to access the creation studio." />;
+  let bodyContent = (
+    <CreationStudioWorkspace
+      ownerId={access.ownerId}
+      hasAccess={access.hasAccess}
+      startFresh={startFresh}
+      initialItemId={initialItemId}
+    />
+  );
+
+  if (!isAuthenticated || !access.ownerId) {
+    bodyContent = (
+      <div className="rounded-3xl border border-slate-200 bg-white/80 p-8 text-center text-sm text-slate-600 shadow-sm">
+        <h2 className="text-lg font-semibold text-slate-900">Sign in required</h2>
+        <p className="mt-2 text-slate-600">Sign in with an eligible account to access the creation studio.</p>
+      </div>
+    );
+  } else if (!access.hasAccess) {
+    bodyContent = (
+      <div className="rounded-3xl border border-slate-200 bg-white/80 p-8 text-center text-sm text-slate-600 shadow-sm">
+        <h2 className="text-lg font-semibold text-slate-900">Creation studio unavailable</h2>
+        <p className="mt-2 text-slate-600">
+          Your account doesn&apos;t have creation studio access yet. Ask an administrator to enable creator permissions.
+        </p>
+      </div>
+    );
   }
 
   return (
@@ -69,13 +87,7 @@ export default function UserCreationStudioPage() {
       availableDashboards={[{ id: 'user', label: 'User', href: '/dashboard/user' }]}
       onMenuItemSelect={handleMenuSelect}
     >
-      <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <CreationStudioWorkspace
-          userId={userId}
-          startFresh={startFresh}
-          initialItemId={initialItemId}
-        />
-      </div>
+      <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">{bodyContent}</div>
     </DashboardLayout>
   );
 }

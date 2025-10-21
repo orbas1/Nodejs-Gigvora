@@ -13,13 +13,14 @@ import {
 import CreationStudioWizard from './CreationStudioWizard.jsx';
 import CreationStudioItemList from './CreationStudioItemList.jsx';
 
-export default function CreationStudioWorkspace({ userId, startFresh, initialItemId }) {
+export default function CreationStudioWorkspace({ ownerId, hasAccess, startFresh, initialItemId }) {
   const [selectedItemId, setSelectedItemId] = useState(initialItemId ?? null);
   const [wizardResetKey, setWizardResetKey] = useState(0);
   const [listOpen, setListOpen] = useState(false);
+  const canManage = Boolean(ownerId) && hasAccess;
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
+    if (typeof window === 'undefined' || !canManage) {
       return undefined;
     }
     const handleOpenArchive = () => setListOpen(true);
@@ -27,7 +28,7 @@ export default function CreationStudioWorkspace({ userId, startFresh, initialIte
     return () => {
       window.removeEventListener('creation-studio:open-archive', handleOpenArchive);
     };
-  }, []);
+  }, [canManage]);
 
   const {
     data,
@@ -35,10 +36,11 @@ export default function CreationStudioWorkspace({ userId, startFresh, initialIte
     error,
     refresh,
   } = useCachedResource(
-    `creation-studio:${userId}`,
-    ({ signal }) => fetchCreationWorkspace(userId, { signal }),
+    `creation-studio:${ownerId ?? 'guest'}`,
+    ({ signal }) => fetchCreationWorkspace(ownerId, { signal }),
     {
-      enabled: Boolean(userId),
+      enabled: canManage,
+      dependencies: [ownerId],
       ttl: 1000 * 30,
     },
   );
@@ -51,57 +53,72 @@ export default function CreationStudioWorkspace({ userId, startFresh, initialIte
   const activeItem = useMemo(() => items.find((item) => item.id === selectedItemId) ?? null, [items, selectedItemId]);
 
   useEffect(() => {
-    if (startFresh) {
+    if (startFresh && canManage) {
       setSelectedItemId(null);
       setWizardResetKey((key) => key + 1);
     }
-  }, [startFresh]);
+  }, [startFresh, canManage]);
 
   const handleDraftCreated = useCallback(
     async (payload) => {
-      const created = await createCreationItem(userId, payload);
+      if (!canManage) {
+        throw new Error('Creation studio access required to create drafts.');
+      }
+      const created = await createCreationItem(ownerId, payload);
       setSelectedItemId(created.id);
       await refresh({ force: true });
       return created;
     },
-    [userId, refresh],
+    [ownerId, refresh, canManage],
   );
 
   const handleDraftUpdated = useCallback(
     async (itemId, payload) => {
-      const updated = await updateCreationItem(userId, itemId, payload);
+      if (!canManage) {
+        throw new Error('Creation studio access required to update drafts.');
+      }
+      const updated = await updateCreationItem(ownerId, itemId, payload);
       await refresh();
       return updated;
     },
-    [userId, refresh],
+    [ownerId, refresh, canManage],
   );
 
   const handleStepSaved = useCallback(
     async (itemId, stepKey, payload) => {
-      const result = await saveCreationStep(userId, itemId, stepKey, payload);
+      if (!canManage) {
+        throw new Error('Creation studio access required to save progress.');
+      }
+      const result = await saveCreationStep(ownerId, itemId, stepKey, payload);
       return result;
     },
-    [userId],
+    [ownerId, canManage],
   );
 
   const handleShare = useCallback(
     async (itemId, payload) => {
-      const result = await shareCreationItem(userId, itemId, payload);
+      if (!canManage) {
+        throw new Error('Creation studio access required to share creations.');
+      }
+      const result = await shareCreationItem(ownerId, itemId, payload);
       await refresh({ force: true });
       return result;
     },
-    [userId, refresh],
+    [ownerId, refresh, canManage],
   );
 
   const handleArchive = useCallback(
     async (itemId) => {
-      await archiveCreationItem(userId, itemId);
+      if (!canManage) {
+        throw new Error('Creation studio access required to archive creations.');
+      }
+      await archiveCreationItem(ownerId, itemId);
       if (itemId === selectedItemId) {
         setSelectedItemId(null);
       }
       await refresh({ force: true });
     },
-    [userId, selectedItemId, refresh],
+    [ownerId, selectedItemId, refresh, canManage],
   );
 
   const handleSelectItem = useCallback((itemId) => {
@@ -113,10 +130,22 @@ export default function CreationStudioWorkspace({ userId, startFresh, initialIte
   const openList = useCallback(() => setListOpen(true), []);
   const closeList = useCallback(() => setListOpen(false), []);
 
-  if (!userId) {
+  if (!ownerId) {
     return (
       <div className="rounded-3xl border border-slate-200 bg-white/80 p-6 text-sm text-slate-600">
         Sign in to manage your creation studio.
+      </div>
+    );
+  }
+
+  if (!canManage) {
+    return (
+      <div className="rounded-3xl border border-slate-200 bg-white/80 p-8 text-center text-sm text-slate-600 shadow-sm">
+        <h2 className="text-lg font-semibold text-slate-900">Creation studio unavailable</h2>
+        <p className="mt-2 text-slate-600">
+          Your account doesn&apos;t have creation studio access yet. Ask an administrator to enable creator roles or join a
+          creator program.
+        </p>
       </div>
     );
   }
@@ -212,12 +241,15 @@ export default function CreationStudioWorkspace({ userId, startFresh, initialIte
 }
 
 CreationStudioWorkspace.propTypes = {
-  userId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  ownerId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  hasAccess: PropTypes.bool,
   startFresh: PropTypes.bool,
   initialItemId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
 };
 
 CreationStudioWorkspace.defaultProps = {
+  ownerId: null,
+  hasAccess: false,
   startFresh: false,
   initialItemId: null,
 };

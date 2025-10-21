@@ -1,32 +1,51 @@
-import { DataTypes } from 'sequelize';
+import { DataTypes, Op } from 'sequelize';
 import sequelize from './sequelizeClient.js';
 
 const dialect = sequelize.getDialect();
 const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB : DataTypes.JSON;
 
-const STATUSES = new Set(['draft', 'scheduled', 'active', 'resolved']);
-const SEVERITIES = new Set(['info', 'maintenance', 'incident', 'security']);
+export const RUNTIME_ANNOUNCEMENT_STATUSES = Object.freeze(['draft', 'scheduled', 'active', 'resolved']);
+export const RUNTIME_ANNOUNCEMENT_SEVERITIES = Object.freeze(['info', 'maintenance', 'incident', 'security']);
 
 export const RuntimeAnnouncement = sequelize.define(
   'RuntimeAnnouncement',
   {
     id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
-    slug: { type: DataTypes.STRING(140), allowNull: false, unique: true },
+    slug: {
+      type: DataTypes.STRING(140),
+      allowNull: false,
+      unique: true,
+      set(value) {
+        if (typeof value === 'string') {
+          this.setDataValue(
+            'slug',
+            value
+              .trim()
+              .toLowerCase()
+              .replace(/[^a-z0-9-_]+/g, '-'),
+          );
+        } else {
+          this.setDataValue('slug', value);
+        }
+      },
+    },
     title: { type: DataTypes.STRING(240), allowNull: false },
     message: { type: DataTypes.TEXT, allowNull: false },
     severity: {
       type: DataTypes.STRING(32),
       allowNull: false,
       validate: {
-        isIn: [Array.from(SEVERITIES)],
+        isIn: [RUNTIME_ANNOUNCEMENT_SEVERITIES],
       },
+      defaultValue: 'info',
     },
     status: {
       type: DataTypes.STRING(32),
       allowNull: false,
       validate: {
-        isIn: [Array.from(STATUSES)],
+        isIn: [RUNTIME_ANNOUNCEMENT_STATUSES],
       },
+      defaultValue: 'draft',
     },
     audiences: { type: jsonType, allowNull: false, defaultValue: [] },
     channels: { type: jsonType, allowNull: false, defaultValue: [] },
@@ -36,6 +55,9 @@ export const RuntimeAnnouncement = sequelize.define(
     createdBy: { type: DataTypes.STRING(120), allowNull: true },
     updatedBy: { type: DataTypes.STRING(120), allowNull: true },
     metadata: { type: jsonType, allowNull: false, defaultValue: {} },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+    resolvedAt: { type: DataTypes.DATE, allowNull: true },
+    lastBroadcastAt: { type: DataTypes.DATE, allowNull: true },
   },
   {
     tableName: 'runtime_announcements',
@@ -47,6 +69,16 @@ export const RuntimeAnnouncement = sequelize.define(
     ],
   },
 );
+
+function normaliseSlug(value) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-_]+/g, '-');
+}
 
 function normaliseAudienceList(raw = []) {
   if (!Array.isArray(raw)) {
@@ -73,6 +105,26 @@ function normaliseChannelList(raw = []) {
     ),
   );
 }
+
+RuntimeAnnouncement.addHook('beforeValidate', (announcement) => {
+  announcement.slug = normaliseSlug(announcement.slug);
+  announcement.audiences = normaliseAudienceList(announcement.audiences);
+  announcement.channels = normaliseChannelList(announcement.channels);
+
+  if (!RUNTIME_ANNOUNCEMENT_STATUSES.includes(announcement.status)) {
+    announcement.status = 'draft';
+  }
+  if (!RUNTIME_ANNOUNCEMENT_SEVERITIES.includes(announcement.severity)) {
+    announcement.severity = 'info';
+  }
+
+  if (announcement.status === 'active' && !announcement.publishedAt) {
+    announcement.publishedAt = new Date();
+  }
+  if (announcement.status === 'resolved' && !announcement.resolvedAt) {
+    announcement.resolvedAt = new Date();
+  }
+});
 
 RuntimeAnnouncement.prototype.targetsAudience = function targetsAudience(audience) {
   const targets = normaliseAudienceList(this.audiences);
@@ -146,12 +198,15 @@ RuntimeAnnouncement.prototype.toPublicObject = function toPublicObject() {
     metadata: plain.metadata ?? {},
     createdAt: plain.createdAt ? new Date(plain.createdAt).toISOString() : null,
     updatedAt: plain.updatedAt ? new Date(plain.updatedAt).toISOString() : null,
+    publishedAt: plain.publishedAt ? new Date(plain.publishedAt).toISOString() : null,
+    resolvedAt: plain.resolvedAt ? new Date(plain.resolvedAt).toISOString() : null,
+    lastBroadcastAt: plain.lastBroadcastAt ? new Date(plain.lastBroadcastAt).toISOString() : null,
   };
 };
 
 export function normaliseAnnouncementStatus(status) {
   const normalized = `${status}`.trim().toLowerCase();
-  if (STATUSES.has(normalized)) {
+  if (RUNTIME_ANNOUNCEMENT_STATUSES.includes(normalized)) {
     return normalized;
   }
   return 'draft';
@@ -159,10 +214,53 @@ export function normaliseAnnouncementStatus(status) {
 
 export function normaliseAnnouncementSeverity(severity) {
   const normalized = `${severity}`.trim().toLowerCase();
-  if (SEVERITIES.has(normalized)) {
+  if (RUNTIME_ANNOUNCEMENT_SEVERITIES.includes(normalized)) {
     return normalized;
   }
   return 'info';
 }
+
+RuntimeAnnouncement.fetchActiveAnnouncements = async function fetchActiveAnnouncements({ audience, channel } = {}) {
+  const now = new Date();
+  const where = {
+    status: { [Op.in]: ['active', 'scheduled'] },
+    [Op.and]: [
+      { [Op.or]: [{ startsAt: null }, { startsAt: { [Op.lte]: now } }] },
+      { [Op.or]: [{ endsAt: null }, { endsAt: { [Op.gte]: now } }] },
+    ],
+  };
+
+  const candidates = await RuntimeAnnouncement.findAll({ where, order: [['severity', 'DESC'], ['startsAt', 'ASC']] });
+
+  return candidates.filter((announcement) => {
+    const matchesAudience = announcement.targetsAudience(audience);
+    if (!matchesAudience) {
+      return false;
+    }
+    if (!channel) {
+      return true;
+    }
+    const channels = normaliseChannelList(announcement.channels);
+    return channels.length === 0 || channels.includes(channel.trim().toLowerCase());
+  });
+};
+
+RuntimeAnnouncement.prototype.markBroadcasted = async function markBroadcasted(at = new Date()) {
+  this.lastBroadcastAt = at instanceof Date ? at : new Date(at);
+  await this.save();
+  return this;
+};
+
+RuntimeAnnouncement.prototype.markResolved = async function markResolved(resolution = {}) {
+  this.status = 'resolved';
+  this.resolvedAt = resolution.resolvedAt instanceof Date ? resolution.resolvedAt : new Date();
+  this.updatedBy = resolution.updatedBy ?? this.updatedBy ?? null;
+  this.metadata = {
+    ...this.metadata,
+    resolutionSummary: resolution.summary ?? this.metadata?.resolutionSummary ?? null,
+  };
+  await this.save();
+  return this;
+};
 
 export default RuntimeAnnouncement;

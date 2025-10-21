@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { PaperAirplaneIcon, ChatBubbleBottomCenterTextIcon, XMarkIcon, LifebuoyIcon } from '@heroicons/react/24/outline';
 import useLocalCollection from '../../hooks/useLocalCollection.js';
 import randomId from '../../utils/randomId.js';
@@ -99,7 +100,7 @@ function MessageBubble({ message }) {
   );
 }
 
-export default function SupportLauncher() {
+export default function SupportLauncher({ replyDelayMs = 1200 }) {
   const { items: conversations, updateItem, createItem } = useLocalCollection('support-conversations-v1', {
     seed: SEED_CONVERSATIONS,
   });
@@ -160,7 +161,7 @@ export default function SupportLauncher() {
           },
         ],
       }));
-    }, 1200);
+    }, Math.max(0, replyDelayMs));
   };
 
   return (
@@ -276,6 +277,7 @@ export default function SupportLauncher() {
                     />
                     <button
                       type="submit"
+                      aria-label="Send message"
                       className="inline-flex items-center justify-center rounded-full bg-accent px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-accentDark"
                     >
                       <PaperAirplaneIcon className="h-4 w-4" />
@@ -299,3 +301,7 @@ export default function SupportLauncher() {
     </div>
   );
 }
+
+SupportLauncher.propTypes = {
+  replyDelayMs: PropTypes.number,
+};

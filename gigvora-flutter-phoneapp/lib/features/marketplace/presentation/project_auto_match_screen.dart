@@ -77,6 +77,7 @@ class ProjectAutoMatchScreen extends ConsumerWidget {
           children: [
             if (!isAuthenticated)
               _AccessCard(
+                key: const Key('project_auto_match_sign_in_card'),
                 title: 'Sign in required',
                 description:
                     'Use an authenticated operations role to view and regenerate auto-match queues.',
@@ -86,6 +87,7 @@ class ProjectAutoMatchScreen extends ConsumerWidget {
               )
             else if (!canAdminister)
               _AccessCard(
+                key: const Key('project_auto_match_membership_card'),
                 title: 'Operations access only',
                 description:
                     'Auto-match orchestration is limited to company, agency, or admin contexts. '
@@ -510,6 +512,7 @@ enum _AccessTone { sky, amber }
 
 class _AccessCard extends StatelessWidget {
   const _AccessCard({
+    super.key,
     required this.title,
     required this.description,
     required this.actionLabel,

@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { Dialog, Transition } from '@headlessui/react';
 import { ArrowPathIcon, CheckCircleIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { withDefaults, clonePreferences } from './defaults.js';
@@ -12,22 +13,25 @@ import SeoForm from './forms/SeoForm.jsx';
 import SocialForm from './forms/SocialForm.jsx';
 import WebsitePreferencesPreview from './WebsitePreferencesPreview.jsx';
 import { saveWebsitePreferences } from '../../services/websitePreferences.js';
+import websitePreferencesShape, { WEBSITE_SECTION_IDS } from './propTypes.js';
 
-const SECTION_CONFIG = [
-  { id: 'basics', label: 'Basics' },
-  { id: 'brand', label: 'Brand' },
-  { id: 'hero', label: 'Hero' },
-  { id: 'offers', label: 'Offers' },
-  { id: 'proof', label: 'Proof' },
-  { id: 'contact', label: 'Contact' },
-  { id: 'seo', label: 'Seo' },
-  { id: 'social', label: 'Social' },
-];
+const SECTION_LABELS = {
+  basics: 'Basics',
+  brand: 'Brand',
+  hero: 'Hero',
+  offers: 'Offers',
+  proof: 'Proof',
+  contact: 'Contact',
+  seo: 'Seo',
+  social: 'Social',
+};
+
+const SECTION_CONFIG = WEBSITE_SECTION_IDS.map((id) => ({ id, label: SECTION_LABELS[id] }));
 
 export default function WebsitePreferencesDesigner({
   open,
   initialPreferences,
-  initialSection = 'basics',
+  initialSection,
   userId,
   canEdit,
   onClose,
@@ -250,3 +254,21 @@ export default function WebsitePreferencesDesigner({
     </Transition.Root>
   );
 }
+
+WebsitePreferencesDesigner.propTypes = {
+  open: PropTypes.bool,
+  initialPreferences: websitePreferencesShape,
+  initialSection: PropTypes.oneOf(WEBSITE_SECTION_IDS),
+  userId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  canEdit: PropTypes.bool,
+  onClose: PropTypes.func.isRequired,
+  onSaved: PropTypes.func,
+};
+
+WebsitePreferencesDesigner.defaultProps = {
+  open: false,
+  initialPreferences: null,
+  initialSection: 'basics',
+  canEdit: false,
+  onSaved: undefined,
+};

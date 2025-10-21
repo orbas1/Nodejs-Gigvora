@@ -8,15 +8,11 @@ import 'package:gigvora_foundation/gigvora_foundation.dart';
 import '../../../core/providers.dart';
 import '../../../theme/widgets.dart';
 import '../../auth/application/session_controller.dart';
+import '../../auth/data/auth_repository.dart';
 import '../../auth/domain/auth_token_store.dart';
 import '../../auth/domain/session.dart';
 
-enum _AdminLoginStep { credentials, verify }
-
-
-import '../../../theme/widgets.dart';
-import '../../auth/application/session_controller.dart';
-import '../../auth/data/auth_repository.dart';
+enum _AdminLoginStep { credentials, verification }
 
 class AdminLoginScreen extends ConsumerStatefulWidget {
   const AdminLoginScreen({super.key});
@@ -32,23 +28,18 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
   final _codeController = TextEditingController();
 
   _AdminLoginStep _step = _AdminLoginStep.credentials;
+  TwoFactorChallenge? _challenge;
   bool _requestingCode = false;
   bool _verifyingCode = false;
-  int _resendSeconds = 0;
-  Timer? _cooldownTimer;
+  bool _resendingCode = false;
+  int _resendCountdown = 0;
+  Timer? _resendTimer;
   String? _error;
   String? _status;
 
   @override
   void dispose() {
-    _cooldownTimer?.cancel();
-  TwoFactorChallenge? _challenge;
-  bool _loading = false;
-  String? _error;
-  String? _info;
-
-  @override
-  void dispose() {
+    _resendTimer?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
     _codeController.dispose();
@@ -64,6 +55,8 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
           return 'We could not verify those credentials. Double-check the email and password.';
         case 403:
           return 'Your account does not have admin privileges. Contact the platform team for access.';
+        case 429:
+          return 'Too many attempts detected. Please wait a moment before trying again.';
         default:
           return error.message ?? 'Unexpected server response. Please try again.';
       }
@@ -71,25 +64,26 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
     return 'Something went wrong. Please try again.';
   }
 
-  void _startCooldown([int seconds = 60]) {
-    _cooldownTimer?.cancel();
-    setState(() {
-      _resendSeconds = seconds;
-    });
-    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) return;
+  void _startResendTimer([int seconds = 60]) {
+    _resendTimer?.cancel();
+    setState(() => _resendCountdown = seconds);
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
       setState(() {
-        if (_resendSeconds <= 1) {
-          _resendSeconds = 0;
+        if (_resendCountdown <= 1) {
+          _resendCountdown = 0;
           timer.cancel();
         } else {
-          _resendSeconds -= 1;
+          _resendCountdown -= 1;
         }
       });
     });
   }
 
-  Future<void> _requestCode() async {
+  Future<void> _submitCredentials() async {
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
@@ -101,38 +95,43 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
       _requestingCode = true;
     });
 
-    final apiClient = ref.read(apiClientProvider);
+    final repository = ref.read(authRepositoryProvider);
     final email = _normaliseEmail(_emailController.text);
 
     try {
-      await apiClient.post('/auth/admin/login', body: {
-        'email': email,
-        'password': _passwordController.text,
-      });
-
+      final result = await repository.login(email, _passwordController.text, admin: true);
       if (!mounted) return;
-      setState(() {
-        _step = _AdminLoginStep.verify;
+
+      if (result.requiresTwoFactor) {
+        _codeController.clear();
+        _challenge = result.challenge;
+        _step = _AdminLoginStep.verification;
         _status = 'Secure 2FA code sent to $email. It expires in 10 minutes.';
-      });
-      _startCooldown();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Verification code dispatched. Check your secure inbox.')),
-      );
+        _startResendTimer();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Verification code dispatched. Check your secure inbox.')),
+        );
+      } else if (result.session != null) {
+        await _completeLogin(result.session!);
+      } else {
+        setState(() => _error = 'Login response was incomplete. Please try again.');
+      }
     } on ApiException catch (error) {
       setState(() => _error = _errorMessage(error));
     } catch (error) {
       setState(() => _error = _errorMessage(error));
     } finally {
       if (mounted) {
-        setState(() {
-          _requestingCode = false;
-        });
+        setState(() => _requestingCode = false);
       }
     }
   }
 
   Future<void> _verifyCode() async {
+    if (_challenge == null) {
+      setState(() => _error = 'Request a secure code before verifying.');
+      return;
+    }
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
@@ -144,56 +143,103 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
       _verifyingCode = true;
     });
 
-    final apiClient = ref.read(apiClientProvider);
+    final repository = ref.read(authRepositoryProvider);
     final email = _normaliseEmail(_emailController.text);
 
     try {
-      final response = await apiClient.post('/auth/verify-2fa', body: {
-        'email': email,
-        'code': _codeController.text.trim(),
-      }) as Map<String, dynamic>?;
-
-      final accessToken = response?['accessToken'] as String?;
-      final refreshToken = response?['refreshToken'] as String?;
-      final user = response?['user'] as Map<String, dynamic>?;
-
-      if (user == null || (user['userType'] as String?)?.toLowerCase() != 'admin') {
-        throw ApiException(403, 'Admin access required.');
-      }
-      if (accessToken == null || refreshToken == null) {
-        throw ApiException(500, 'Authentication tokens were not returned by the server.');
-      }
-
-      await AuthTokenStore.persist(accessToken: accessToken, refreshToken: refreshToken);
-
-      final adminName = _deriveName(user);
-      final sessionController = ref.read(sessionControllerProvider.notifier);
-      sessionController.login(_buildAdminSession(adminName, email, user));
-
-      if (!mounted) return;
-      setState(() {
-        _status = 'Verification successful. Redirecting to the control tower…';
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Security checks cleared. Welcome back.')),
+      final session = await repository.verifyTwoFactor(
+        email: email,
+        code: _codeController.text.trim(),
+        tokenId: _challenge!.tokenId,
       );
-      GoRouter.of(context).go('/operations');
+      if (!mounted) return;
+      await _completeLogin(session);
     } on ApiException catch (error) {
       setState(() => _error = _errorMessage(error));
     } catch (error) {
       setState(() => _error = _errorMessage(error));
     } finally {
       if (mounted) {
-        setState(() {
-          _verifyingCode = false;
-        });
+        setState(() => _verifyingCode = false);
       }
     }
   }
 
-  UserSession _buildAdminSession(String name, String email, Map<String, dynamic> user) {
-    final location = user['location'] as String? ?? 'Global operations';
-    final dashboard = RoleDashboard(
+  Future<void> _resendCode() async {
+    if (_challenge == null || _resendCountdown > 0) {
+      return;
+    }
+    setState(() {
+      _error = null;
+      _status = null;
+      _resendingCode = true;
+    });
+    final repository = ref.read(authRepositoryProvider);
+    try {
+      final challenge = await repository.resendTwoFactor(_challenge!.tokenId);
+      if (!mounted) return;
+      _challenge = challenge;
+      _status = 'A new secure code was sent. It will expire shortly.';
+      _codeController.clear();
+      _startResendTimer();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('New verification code dispatched.')),
+      );
+    } on ApiException catch (error) {
+      setState(() => _error = _errorMessage(error));
+    } catch (error) {
+      setState(() => _error = _errorMessage(error));
+    } finally {
+      if (mounted) {
+        setState(() => _resendingCode = false);
+      }
+    }
+  }
+
+  Future<void> _completeLogin(AuthenticatedSession session) async {
+    final userSession = session.userSession;
+    final membershipSet = userSession.memberships
+        .map((role) => role.toLowerCase())
+        .toSet(growable: true);
+
+    if (!membershipSet.contains('admin')) {
+      throw ApiException(403, 'Admin role required.');
+    }
+
+    membershipSet.add('admin');
+
+    await AuthTokenStore.persist(
+      accessToken: session.accessToken,
+      refreshToken: session.refreshToken,
+    );
+
+    final dashboards = Map<String, RoleDashboard>.from(userSession.dashboards);
+    dashboards.putIfAbsent('admin', () => _buildAdminDashboard(userSession.name));
+
+    final adminSession = userSession.copyWith(
+      memberships: membershipSet.toList(growable: false),
+      activeMembership: 'admin',
+      dashboards: dashboards,
+      userType: 'admin',
+    );
+
+    ref.read(sessionControllerProvider.notifier).login(adminSession);
+
+    if (!mounted) return;
+    setState(() {
+      _status = 'Verification successful. Redirecting to the control tower…';
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Security checks cleared. Welcome back.')),
+    );
+
+    GoRouter.of(context).go('/operations');
+  }
+
+  RoleDashboard _buildAdminDashboard(String adminName) {
+    final name = adminName.isEmpty ? 'Admin' : adminName;
+    return RoleDashboard(
       role: 'admin',
       heroTitle: 'Admin control tower',
       heroSubtitle: 'Monitor marketplace health, finances, and trust in real time.',
@@ -225,42 +271,17 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
           icon: Icons.dashboard_customize_outlined,
         ),
       ],
-      actions: const [
+      actions: [
         DashboardAction(
-          label: 'Review overnight audit log',
-          description: 'Confirm no privileged changes occurred outside the change window.',
+          label: 'Welcome back, $name',
+          description: 'Review overnight audit logs and clear the priority queue.',
         ),
-        DashboardAction(
+        const DashboardAction(
           label: 'Run incident readiness drill',
           description: 'Validate warm-standby plans and cross-team communication ladders.',
         ),
       ],
     );
-
-    return UserSession(
-      name: name,
-      title: 'Chief Platform Administrator',
-      email: email,
-      location: location,
-      avatarSeed: name,
-      memberships: const ['admin'],
-      activeMembership: 'admin',
-      dashboards: {'admin': dashboard},
-      connections: 0,
-      followers: 0,
-      companies: const [],
-      agencies: const [],
-    );
-  }
-
-  String _deriveName(Map<String, dynamic> user) {
-    final first = user['firstName'] as String? ?? '';
-    final last = user['lastName'] as String? ?? '';
-    final combined = ('$first $last').trim();
-    if (combined.isNotEmpty) {
-      return combined;
-    }
-    return user['email'] as String? ?? 'Gigvora Admin';
   }
 
   String? _validateEmail(String? value) {
@@ -287,7 +308,8 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final canResend = _step == _AdminLoginStep.verify && _resendSeconds == 0 && !_requestingCode && !_verifyingCode;
+    final canResend =
+        _step == _AdminLoginStep.verification && _resendCountdown == 0 && !_resendingCode && !_verifyingCode;
 
     return GigvoraScaffold(
       title: 'Admin Console',
@@ -307,7 +329,10 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                     color: theme.colorScheme.errorContainer,
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Text(_error!, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onErrorContainer)),
+                  child: Text(
+                    _error!,
+                    style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onErrorContainer),
+                  ),
                 ),
               if (_status != null)
                 Container(
@@ -318,7 +343,10 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                     color: theme.colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Text(_status!, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onPrimaryContainer)),
+                  child: Text(
+                    _status!,
+                    style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onPrimaryContainer),
+                  ),
                 ),
               GigvoraCard(
                 child: Column(
@@ -344,7 +372,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                       ),
                       const SizedBox(height: 24),
                       FilledButton(
-                        onPressed: _requestingCode ? null : _requestCode,
+                        onPressed: _requestingCode ? null : _submitCredentials,
                         child: Text(_requestingCode ? 'Requesting secure code…' : 'Request secure 2FA code'),
                       ),
                       const SizedBox(height: 12),
@@ -373,9 +401,13 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                       ),
                       const SizedBox(height: 12),
                       TextButton(
-                        onPressed: canResend ? _requestCode : null,
+                        onPressed: canResend ? _resendCode : null,
                         child: Text(
-                          canResend ? 'Resend secure code' : 'Resend available in ${_resendSeconds}s',
+                          canResend
+                              ? 'Resend secure code'
+                              : _resendCountdown > 0
+                                  ? 'Resend available in ${_resendCountdown}s'
+                                  : 'Resend secure code',
                         ),
                       ),
                     ],
@@ -389,15 +421,15 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                   children: [
                     Text('Enterprise-grade safeguards', style: theme.textTheme.titleMedium),
                     const SizedBox(height: 12),
-                    _FeatureBullet(
+                    const _FeatureBullet(
                       icon: Icons.shield_moon_outlined,
                       text: 'Device fingerprinting, anomaly detection, and geo-fencing protect every admin session.',
                     ),
-                    _FeatureBullet(
+                    const _FeatureBullet(
                       icon: Icons.support_agent,
                       text: 'Operations, trust & safety, and finance telemetry are synchronised across web and mobile.',
                     ),
-                    _FeatureBullet(
+                    const _FeatureBullet(
                       icon: Icons.lock_clock,
                       text: 'Time-bound 2FA codes with tamper alerts keep the control tower launch-ready.',
                     ),
@@ -440,192 +472,6 @@ class _FeatureBullet extends StatelessWidget {
             ),
           ),
         ],
-  Future<void> _submit() async {
-    if (!(_formKey.currentState?.validate() ?? false)) {
-      return;
-    }
-    setState(() {
-      _loading = true;
-      _error = null;
-      _info = null;
-    });
-    try {
-      final repository = ref.read(authRepositoryProvider);
-      final result = await repository.login(
-        _emailController.text.trim(),
-        _passwordController.text,
-        admin: true,
-      );
-      if (result.requiresTwoFactor) {
-        setState(() {
-          _challenge = result.challenge;
-          _info = 'Verification code sent to ${result.challenge?.maskedDestination}.';
-        });
-        return;
-      }
-      if (result.session != null) {
-        ref.read(sessionControllerProvider.notifier).login(result.session!.userSession);
-        if (mounted) {
-          GoRouter.of(context).go('/dashboard/admin');
-        }
-      }
-    } catch (error) {
-      setState(() {
-        _error = error.toString();
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _verify() async {
-    if (_challenge == null) {
-      return;
-    }
-    if (!(_formKey.currentState?.validate() ?? false)) {
-      return;
-    }
-    setState(() {
-      _loading = true;
-      _error = null;
-      _info = null;
-    });
-    try {
-      final repository = ref.read(authRepositoryProvider);
-      final session = await repository.verifyTwoFactor(
-        email: _emailController.text.trim(),
-        code: _codeController.text.trim(),
-        tokenId: _challenge!.tokenId,
-      );
-      ref.read(sessionControllerProvider.notifier).login(session.userSession);
-      if (mounted) {
-        GoRouter.of(context).go('/dashboard/admin');
-      }
-    } catch (error) {
-      setState(() {
-        _error = error.toString();
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _resend() async {
-    if (_challenge == null) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-      _info = null;
-    });
-    try {
-      final repository = ref.read(authRepositoryProvider);
-      final challenge = await repository.resendTwoFactor(_challenge!.tokenId);
-      setState(() {
-        _challenge = challenge;
-        _codeController.clear();
-        _info = 'New verification code sent to ${challenge.maskedDestination}.';
-      });
-    } catch (error) {
-      setState(() {
-        _error = error.toString();
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-        });
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final waitingForCode = _challenge != null;
-    return GigvoraScaffold(
-      title: 'Admin Console',
-      subtitle: 'Restricted access',
-      body: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextFormField(
-              controller: _emailController,
-              decoration: const InputDecoration(labelText: 'Admin email'),
-              keyboardType: TextInputType.emailAddress,
-              validator: (value) => value != null && value.contains('@') ? null : 'Enter a valid email',
-            ),
-            const SizedBox(height: 16),
-            if (!waitingForCode)
-              TextFormField(
-                controller: _passwordController,
-                decoration: const InputDecoration(labelText: 'Password'),
-                obscureText: true,
-                validator: (value) => value != null && value.length >= 12 ? null : 'Minimum 12 characters',
-              ),
-            if (waitingForCode) ...[
-              TextFormField(
-                controller: _passwordController,
-                readOnly: true,
-                decoration: const InputDecoration(labelText: 'Password'),
-                obscureText: true,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _codeController,
-                decoration: const InputDecoration(labelText: 'Enter 6-digit 2FA code'),
-                keyboardType: TextInputType.number,
-                validator: (value) => value != null && value.trim().length == 6
-                    ? null
-                    : 'Enter the 6-digit code from your inbox',
-              ),
-            ],
-            const SizedBox(height: 24),
-            if (_error != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(
-                  _error!,
-                  style: const TextStyle(color: Color(0xFFB91C1C)),
-                ),
-              ),
-            if (_info != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(
-                  _info!,
-                  style: const TextStyle(color: Color(0xFF047857)),
-                ),
-              ),
-            FilledButton(
-              onPressed: _loading
-                  ? null
-                  : waitingForCode
-                      ? _verify
-                      : _submit,
-              child: Text(waitingForCode ? 'Verify & sign in' : 'Continue to 2FA'),
-            ),
-            const SizedBox(height: 12),
-            Text('Need help? Contact ops@gigvora.com', style: Theme.of(context).textTheme.bodySmall),
-            if (waitingForCode)
-              TextButton(
-                onPressed: _loading ? null : _resend,
-                child: const Text('Resend code'),
-              ),
-            if (_loading) ...[
-              const SizedBox(height: 16),
-              const Center(child: CircularProgressIndicator()),
-            ],
-          ],
-        ),
       ),
     );
   }

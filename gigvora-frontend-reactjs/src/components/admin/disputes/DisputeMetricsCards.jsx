@@ -62,11 +62,12 @@ export default function DisputeMetricsCards({ summary, onSelect }) {
             className={`flex h-full min-h-[150px] flex-col justify-between rounded-2xl border bg-white p-5 shadow-sm transition hover:shadow-md ${definition.tone}`}
             role="button"
             tabIndex={0}
+            aria-label={`View ${definition.title.toLowerCase()} disputes`}
             onClick={() => {
               onSelect?.(definition.key);
             }}
             onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
+              if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
                 event.preventDefault();
                 onSelect?.(definition.key);
               }

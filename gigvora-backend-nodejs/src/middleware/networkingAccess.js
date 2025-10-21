@@ -3,13 +3,38 @@ import { AuthorizationError } from '../utils/errors.js';
 const ALLOWED_WORKSPACE_TYPES = new Set(['company', 'agency']);
 const ALLOWED_ROLES = new Set(['owner', 'admin', 'manager']);
 
+function mergePermissions(user, auth) {
+  const userPermissions = Array.isArray(user?.permissions) ? user.permissions : [];
+  const authPermissions = Array.isArray(auth?.permissions)
+    ? auth.permissions
+    : Array.isArray(auth?.scopes)
+    ? auth.scopes
+    : [];
+
+  return new Set(
+    [...userPermissions, ...authPermissions].map((value) => `${value}`.trim().toLowerCase()).filter(Boolean),
+  );
+}
+
+function resolveWorkspaceId(value) {
+  const numeric = Number.parseInt(value, 10);
+  return Number.isInteger(numeric) ? numeric : null;
+}
+
 function normaliseWorkspaceIds(ids) {
   if (!Array.isArray(ids)) {
     return [];
   }
-  return ids
-    .map((value) => Number.parseInt(value?.workspaceId ?? value, 10))
-    .filter((value) => Number.isInteger(value));
+  const seen = new Set();
+  const normalised = [];
+  for (const value of ids) {
+    const resolved = resolveWorkspaceId(value?.workspaceId ?? value);
+    if (Number.isInteger(resolved) && !seen.has(resolved)) {
+      seen.add(resolved);
+      normalised.push(resolved);
+    }
+  }
+  return normalised;
 }
 
 export function requireNetworkingManager() {
@@ -28,9 +53,7 @@ export function requireNetworkingManager() {
       return workspaceType && ALLOWED_WORKSPACE_TYPES.has(workspaceType) && ALLOWED_ROLES.has(role);
     });
 
-    const permissionSet = new Set(
-      Array.isArray(user.permissions) ? user.permissions.map((value) => `${value}`.toLowerCase()) : [],
-    );
+    const permissionSet = mergePermissions(user, req.auth);
 
     const hasGlobalPermission =
       permissionSet.has('networking.manage') || permissionSet.has('networking.manage.any');
@@ -46,9 +69,15 @@ export function requireNetworkingManager() {
       ? normaliseWorkspaceIds(activeMemberships)
       : normaliseWorkspaceIds(allowedMemberships);
 
+    const companyWorkspaceId = resolveWorkspaceId(user?.companyId);
+    const defaultWorkspaceId =
+      (hasGlobalPermission && companyWorkspaceId != null
+        ? companyWorkspaceId
+        : permittedWorkspaceIds[0] ?? companyWorkspaceId ?? null);
+
     req.networkingAccess = {
       permittedWorkspaceIds,
-      defaultWorkspaceId: permittedWorkspaceIds[0] ?? user.companyId ?? null,
+      defaultWorkspaceId,
     };
 
     return next();

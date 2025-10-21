@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { useMemo, useState } from 'react';
 import WorkspaceModal from './WorkspaceModal.jsx';
 import WorkspaceGanttChart from './WorkspaceGanttChart.jsx';
@@ -70,19 +71,21 @@ export default function WorkspaceTasksTab({ tasks = [], onCreate, onUpdate, onDe
     if (!formState?.title) {
       return;
     }
+    const estimatedHours = Number.parseFloat(formState.estimatedHours);
+    const loggedHours = Number.parseFloat(formState.loggedHours);
     const payload = {
-      title: formState.title,
-      description: formState.description,
-      assigneeName: formState.assigneeName,
-      assigneeEmail: formState.assigneeEmail,
-      status: formState.status,
-      priority: formState.priority,
-      lane: formState.lane,
-      startDate: formState.startDate,
-      dueDate: formState.dueDate,
-      estimatedHours: formState.estimatedHours,
-      loggedHours: formState.loggedHours,
-      progressPercent: formState.progressPercent,
+      title: formState.title.trim(),
+      description: formState.description?.trim() || '',
+      assigneeName: formState.assigneeName?.trim() || '',
+      assigneeEmail: formState.assigneeEmail?.trim() || '',
+      status: STATUS_OPTIONS.includes(formState.status) ? formState.status : 'planned',
+      priority: PRIORITY_OPTIONS.includes(formState.priority) ? formState.priority : 'medium',
+      lane: formState.lane?.trim() || '',
+      startDate: formState.startDate || '',
+      dueDate: formState.dueDate || '',
+      estimatedHours: Number.isFinite(estimatedHours) ? estimatedHours : null,
+      loggedHours: Number.isFinite(loggedHours) ? loggedHours : null,
+      progressPercent: Math.min(Math.max(Number(formState.progressPercent ?? 0) || 0, 0), 100),
     };
     if (formState.id) {
       onUpdate?.(formState.id, payload);
@@ -186,7 +189,7 @@ export default function WorkspaceTasksTab({ tasks = [], onCreate, onUpdate, onDe
         size="lg"
       >
         {formState ? (
-          <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
+          <form noValidate className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
             <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
               Title
               <input
@@ -332,3 +335,33 @@ export default function WorkspaceTasksTab({ tasks = [], onCreate, onUpdate, onDe
     </div>
   );
 }
+
+WorkspaceTasksTab.propTypes = {
+  tasks: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      title: PropTypes.string,
+      description: PropTypes.string,
+      assigneeName: PropTypes.string,
+      assigneeEmail: PropTypes.string,
+      status: PropTypes.string,
+      priority: PropTypes.string,
+      lane: PropTypes.string,
+      startDate: PropTypes.string,
+      dueDate: PropTypes.string,
+      estimatedHours: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      loggedHours: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      progressPercent: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    }),
+  ),
+  onCreate: PropTypes.func,
+  onUpdate: PropTypes.func,
+  onDelete: PropTypes.func,
+};
+
+WorkspaceTasksTab.defaultProps = {
+  tasks: [],
+  onCreate: undefined,
+  onUpdate: undefined,
+  onDelete: undefined,
+};
