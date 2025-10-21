@@ -196,6 +196,89 @@ export const domainMetadata = {
       },
     },
   },
+  volunteering: {
+    ownerTeam: 'Community Operations',
+    dataSteward: 'Social Impact Programmes',
+    dataClassification: 'Confidential',
+    businessCriticality: 'Tier 1',
+    dataResidency: {
+      primaryRegion: 'us-east-1',
+      failoverRegion: 'eu-west-1',
+    },
+    defaultRetention: 'Volunteer engagement lifecycle + 3 years.',
+    regulatoryFrameworks: ['GDPR', 'SOC 2', 'CCPA'],
+    qualityChecks: [
+      {
+        name: 'Volunteer workspace reconciliation audit',
+        cadence: 'monthly',
+        owner: 'Community Operations',
+      },
+      {
+        name: 'Opportunity content moderation review',
+        cadence: 'weekly',
+        owner: 'Trust & Safety',
+      },
+      {
+        name: 'Contract spend attestation',
+        cadence: 'quarterly',
+        owner: 'Finance Operations',
+      },
+    ],
+    piiModels: {
+      VolunteeringPost: {
+        fields: ['title', 'summary', 'contactEmail', 'location'],
+        retention: 'Opportunity lifetime + 2 years',
+        justification: 'Volunteer roles require contact information and logistics for audit trails and support.',
+      },
+      VolunteeringApplication: {
+        fields: ['candidateName', 'candidateEmail', 'candidatePhone', 'resumeUrl', 'portfolioUrl'],
+        retention: 'Application lifetime + 3 years',
+        justification: 'Applicant details retained for onboarding, duty-of-care, and dispute resolution obligations.',
+      },
+      VolunteeringContract: {
+        fields: ['title', 'status', 'stipendAmount', 'currency', 'deliverables'],
+        retention: 'Contract lifetime + 7 years',
+        justification: 'Contract terms and stipend data required for legal compliance and financial controls.',
+      },
+      VolunteeringContractSpend: {
+        fields: ['amount', 'currency', 'category', 'description', 'receiptUrl'],
+        retention: 'Contract lifetime + 7 years',
+        justification: 'Spend records maintained for grant reporting, audits, and reimbursement validation.',
+      },
+      VolunteerApplication: {
+        fields: ['motivation', 'availabilityStart', 'availabilityHoursPerWeek'],
+        retention: 'Volunteer relationship + 3 years',
+        justification: 'Personal preferences retained to support repeat placements and safeguarding reviews.',
+      },
+      VolunteerContractReview: {
+        fields: ['summary', 'description', 'location', 'rating', 'feedback'],
+        retention: 'Review lifetime + 4 years',
+        justification: 'Feedback evidences programme impact and is used for continuous improvement and compliance.',
+      },
+    },
+    fieldDescriptions: {
+      VolunteeringPost: {
+        contactEmail: 'Designated coordinator email for applicants and programme escalation.',
+        applicationDeadline: 'Final submission date to be surfaced on candidate portals.',
+      },
+      VolunteeringApplication: {
+        resumeUrl: 'Secure file reference hosted in the compliance-controlled document vault.',
+        portfolioUrl: 'Optional creative portfolio link reviewed during screening.',
+      },
+      VolunteeringContract: {
+        deliverables: 'Structured deliverable plan outlining expectations agreed with the partner organisation.',
+      },
+      VolunteeringContractSpend: {
+        receiptUrl: 'Immutable document reference for expenses claimed against the volunteer contract.',
+      },
+      VolunteerApplication: {
+        motivation: 'Statement of intent supporting selection and safeguarding due diligence.',
+      },
+      VolunteerContractReview: {
+        visibility: 'Controls whether the review is internal-only, partner-facing, or public.',
+      },
+    },
+  },
   finance: {
     ownerTeam: 'Financial Operations',
     dataSteward: 'Controller Group',

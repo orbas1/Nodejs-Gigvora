@@ -1,8 +1,11 @@
 import express from 'express';
 import request from 'supertest';
+import jwt from 'jsonwebtoken';
 import messagingRoutes from '../src/routes/messagingRoutes.js';
 import errorHandler from '../src/middleware/errorHandler.js';
 import { createUser } from './helpers/factories.js';
+
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret';
 
 function createTestApp() {
   const app = express();
@@ -29,8 +32,19 @@ describe('messagingController HTTP flow', () => {
       const collaborator = await createUser({ email: 'http-collaborator@gigvora.test', userType: 'user' });
       const agent = await createUser({ email: 'http-agent@gigvora.test', userType: 'admin' });
 
+      const requesterToken = jwt.sign({ id: requester.id, roles: ['user'] }, process.env.JWT_SECRET, {
+        expiresIn: '1h',
+      });
+      const collaboratorToken = jwt.sign({ id: collaborator.id, roles: ['user'] }, process.env.JWT_SECRET, {
+        expiresIn: '1h',
+      });
+      const agentToken = jwt.sign({ id: agent.id, roles: ['admin'] }, process.env.JWT_SECRET, {
+        expiresIn: '1h',
+      });
+
       const createResponse = await request(app)
         .post('/api/messaging/threads')
+        .set('Authorization', `Bearer ${requesterToken}`)
         .send({
           userId: requester.id,
           subject: 'Escalation via HTTP',
@@ -52,6 +66,7 @@ describe('messagingController HTTP flow', () => {
 
       const messageResponse = await request(app)
         .post(`/api/messaging/threads/${threadId}/messages`)
+        .set('Authorization', `Bearer ${requesterToken}`)
         .send({
           userId: requester.id,
           messageType: 'text',
@@ -67,6 +82,7 @@ describe('messagingController HTTP flow', () => {
 
       const callResponse = await request(app)
         .post(`/api/messaging/threads/${threadId}/calls`)
+        .set('Authorization', `Bearer ${requesterToken}`)
         .send({
           userId: requester.id,
           callType: 'video',
@@ -81,6 +97,7 @@ describe('messagingController HTTP flow', () => {
 
       const joinResponse = await request(app)
         .post(`/api/messaging/threads/${threadId}/calls`)
+        .set('Authorization', `Bearer ${collaboratorToken}`)
         .send({
           userId: collaborator.id,
           callType: 'video',
@@ -93,6 +110,7 @@ describe('messagingController HTTP flow', () => {
 
       const messages = await request(app)
         .get(`/api/messaging/threads/${threadId}/messages`)
+        .set('Authorization', `Bearer ${requesterToken}`)
         .query({ pageSize: 10 })
         .expect(200);
 
@@ -101,6 +119,7 @@ describe('messagingController HTTP flow', () => {
 
       const escalationResponse = await request(app)
         .post(`/api/messaging/threads/${threadId}/escalate`)
+        .set('Authorization', `Bearer ${collaboratorToken}`)
         .send({
           userId: collaborator.id,
           reason: 'Payment stalled',
@@ -117,6 +136,7 @@ describe('messagingController HTTP flow', () => {
 
       const assignmentResponse = await request(app)
         .post(`/api/messaging/threads/${threadId}/assign-support`)
+        .set('Authorization', `Bearer ${collaboratorToken}`)
         .send({
           userId: collaborator.id,
           agentId: agent.id,
@@ -130,6 +150,7 @@ describe('messagingController HTTP flow', () => {
 
       const resolutionResponse = await request(app)
         .post(`/api/messaging/threads/${threadId}/support-status`)
+        .set('Authorization', `Bearer ${agentToken}`)
         .send({
           userId: agent.id,
           status: 'resolved',
@@ -144,11 +165,13 @@ describe('messagingController HTTP flow', () => {
 
       await request(app)
         .post(`/api/messaging/threads/${threadId}/read`)
+        .set('Authorization', `Bearer ${requesterToken}`)
         .send({ userId: requester.id })
         .expect(200, { success: true });
 
       const inboxResponse = await request(app)
         .get('/api/messaging/threads')
+        .set('Authorization', `Bearer ${requesterToken}`)
         .query({
           userId: requester.id,
           includeParticipants: true,
@@ -168,6 +191,7 @@ describe('messagingController HTTP flow', () => {
 
       const threadResponse = await request(app)
         .get(`/api/messaging/threads/${threadId}`)
+        .set('Authorization', `Bearer ${requesterToken}`)
         .query({ includeParticipants: true, includeSupport: true })
         .expect(200);
 

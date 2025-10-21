@@ -1,8 +1,13 @@
 import { Router } from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
+import { authenticateRequest, requireRoles } from '../middleware/authentication.js';
+import validateRequest from '../middleware/validateRequest.js';
+import companyCalendarRoutes from './companyCalendarRoutes.js';
 import companyController from '../controllers/companyController.js';
 import companyEscrowController from '../controllers/companyEscrowController.js';
-import validateRequest from '../middleware/validateRequest.js';
+import companyInboxController from '../controllers/companyInboxController.js';
+import companyPageController from '../controllers/companyPageController.js';
+import companyProfileController from '../controllers/companyProfileController.js';
 import {
   companyEscrowOverviewQuerySchema,
   companyEscrowAccountCreateSchema,
@@ -13,19 +18,12 @@ import {
   companyEscrowTransactionActionBodySchema,
   companyEscrowAutomationUpdateSchema,
 } from '../validation/schemas/companyEscrowSchemas.js';
-import companyPageController from '../controllers/companyPageController.js';
-import companyProfileController from '../controllers/companyProfileController.js';
-import { authenticate } from '../middleware/authenticate.js';
-import companyCalendarRoutes from './companyCalendarRoutes.js';
-import authenticate from '../middleware/authenticate.js';
-import companyInboxController from '../controllers/companyInboxController.js';
-import { authenticate } from '../middleware/authentication.js';
-import { requireMembership } from '../middleware/authorization.js';
 
 const router = Router();
+const COMPANY_ROLES = ['company', 'company_admin', 'workspace_admin', 'admin'];
 
-const companyMemberships = ['company', 'company_admin', 'workspace_admin'];
-router.use(authenticate({ roles: ['company', 'company_admin', 'admin'] }));
+router.use(authenticateRequest());
+router.use(requireRoles(...COMPANY_ROLES));
 
 router.get('/dashboard', asyncHandler(companyController.dashboard));
 router.get('/inbox/overview', asyncHandler(companyInboxController.overview));
@@ -46,107 +44,49 @@ router.patch('/dashboard/timeline/posts/:postId', asyncHandler(companyController
 router.post('/dashboard/timeline/posts/:postId/status', asyncHandler(companyController.changeTimelinePostStatus));
 router.delete('/dashboard/timeline/posts/:postId', asyncHandler(companyController.destroyTimelinePost));
 router.post('/dashboard/timeline/posts/:postId/metrics', asyncHandler(companyController.recordTimelineMetrics));
-router.put(
-  '/dashboard/overview',
-  authenticate(),
-  requireMembership(companyMemberships, { allowAdmin: true }),
-  asyncHandler(companyController.updateDashboardOverview),
-);
+router.put('/dashboard/overview', asyncHandler(companyController.updateDashboardOverview));
 
-router.get(
-  '/dashboard/pages',
-  authenticate(),
-  requireMembership(companyMemberships, { allowAdmin: true }),
-  asyncHandler(companyPageController.index),
-);
+router.get('/dashboard/pages', asyncHandler(companyPageController.index));
 
-router.post(
-  '/dashboard/pages',
-  authenticate(),
-  requireMembership(companyMemberships, { allowAdmin: true }),
-  asyncHandler(companyPageController.create),
-);
+router.post('/dashboard/pages', asyncHandler(companyPageController.create));
 
-router.get(
-  '/dashboard/pages/:pageId',
-  authenticate(),
-  requireMembership(companyMemberships, { allowAdmin: true }),
-  asyncHandler(companyPageController.show),
-);
+router.get('/dashboard/pages/:pageId', asyncHandler(companyPageController.show));
 
-router.put(
-  '/dashboard/pages/:pageId',
-  authenticate(),
-  requireMembership(companyMemberships, { allowAdmin: true }),
-  asyncHandler(companyPageController.update),
-);
+router.put('/dashboard/pages/:pageId', asyncHandler(companyPageController.update));
 
-router.put(
-  '/dashboard/pages/:pageId/sections',
-  authenticate(),
-  requireMembership(companyMemberships, { allowAdmin: true }),
-  asyncHandler(companyPageController.updateSections),
-);
+router.put('/dashboard/pages/:pageId/sections', asyncHandler(companyPageController.updateSections));
 
 router.put(
   '/dashboard/pages/:pageId/collaborators',
-  authenticate(),
-  requireMembership(companyMemberships, { allowAdmin: true }),
   asyncHandler(companyPageController.updateCollaborators),
 );
 
-router.post(
-  '/dashboard/pages/:pageId/publish',
-  authenticate(),
-  requireMembership(companyMemberships, { allowAdmin: true }),
-  asyncHandler(companyPageController.publish),
-);
+router.post('/dashboard/pages/:pageId/publish', asyncHandler(companyPageController.publish));
 
-router.post(
-  '/dashboard/pages/:pageId/archive',
-  authenticate(),
-  requireMembership(companyMemberships, { allowAdmin: true }),
-  asyncHandler(companyPageController.archive),
-);
+router.post('/dashboard/pages/:pageId/archive', asyncHandler(companyPageController.archive));
 
-router.delete(
-  '/dashboard/pages/:pageId',
-  authenticate(),
-  requireMembership(companyMemberships, { allowAdmin: true }),
-  asyncHandler(companyPageController.destroy),
-);
-  '/ai/auto-reply/overview',
-  authenticate({ roles: ['company', 'admin'] }),
-  asyncHandler(companyController.byokAutoReplyOverview),
-);
+router.delete('/dashboard/pages/:pageId', asyncHandler(companyPageController.destroy));
+
+router.get('/ai/auto-reply/overview', asyncHandler(companyController.byokAutoReplyOverview));
 router.put(
   '/ai/auto-reply/settings',
-  authenticate({ roles: ['company', 'admin'] }),
   asyncHandler(companyController.updateByokAutoReplySettings),
 );
 router.get(
   '/ai/auto-reply/templates',
-  authenticate({ roles: ['company', 'admin'] }),
   asyncHandler(companyController.listByokAutoReplyTemplates),
 );
-router.post(
-  '/ai/auto-reply/templates',
-  authenticate({ roles: ['company', 'admin'] }),
-  asyncHandler(companyController.createByokAutoReplyTemplate),
-);
+router.post('/ai/auto-reply/templates', asyncHandler(companyController.createByokAutoReplyTemplate));
 router.put(
   '/ai/auto-reply/templates/:templateId',
-  authenticate({ roles: ['company', 'admin'] }),
   asyncHandler(companyController.updateByokAutoReplyTemplate),
 );
 router.delete(
   '/ai/auto-reply/templates/:templateId',
-  authenticate({ roles: ['company', 'admin'] }),
   asyncHandler(companyController.deleteByokAutoReplyTemplate),
 );
 router.post(
   '/ai/auto-reply/test',
-  authenticate({ roles: ['company', 'admin'] }),
   asyncHandler(companyController.previewByokAutoReply),
 );
 

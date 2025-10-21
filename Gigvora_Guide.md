@@ -93,3 +93,34 @@ Together they deliver a unified experience for freelancers, agencies, recruiters
 - **How do I keep data safe?** Follow the docs in `gigvora-backend-nodejs/docs/` for governance rules, and rely on JWT + 2FA auth to protect sessions.【F:gigvora-backend-nodejs/README.md†L1-L63】【F:gigvora-backend-nodejs/README.md†L63-L86】
 
 Keep this guide handy as you explore or build on Gigvora. Whether you’re just getting started or shipping new features, the platform’s shared backend keeps the web and mobile apps in sync so you can focus on creating value.
+
+---
+
+## 5. Security, RBAC, and compliance guardrails
+
+- **Role-based access control (RBAC):** Every surface consumes the same role vocabulary (`calendar:view`, `calendar:manage`, `platform:admin`, etc.) enforced in the backend and calendar stub so sensitive actions always require explicit grants.【F:gigvora-backend-nodejs/.env.example†L44-L61】【F:calendar_stub/server.mjs†L210-L323】
+- **API hardening:** The Node.js API layers in JWT access, refresh tokens, session cookies, and request body limits while exposing Prometheus metrics behind a bearer token for operations teams.【F:gigvora-backend-nodejs/.env.example†L5-L43】
+- **CORS governance:** Allowed origins, methods, and headers are centrally defined to avoid cross-site attacks while still enabling web, mobile, and stub tooling to communicate over secure channels.【F:gigvora-backend-nodejs/.env.example†L30-L43】【F:calendar_stub/server.mjs†L46-L119】
+- **Secrets management:** Replace every placeholder in `.env.example` with tenant-specific secrets sourced from your vault (1Password, HashiCorp Vault, AWS Secrets Manager) before running in staging or production. Never commit real values to source control.【F:gigvora-backend-nodejs/.env.example†L1-L109】
+- **Compliance tooling:** The backend docs folder contains data governance policies, ER diagrams, and runbooks to help you meet SOC 2 / GDPR requirements before launch.【F:gigvora-backend-nodejs/docs/data-governance.md†L1-L120】【F:gigvora-backend-nodejs/docs/runbooks/runtime-incident.md†L1-L120】
+
+---
+
+## 6. Operational playbooks
+
+1. **Before releasing a new build**
+   - Run `melos run ci:verify` for Flutter, `npm test` for the backend, and `npm run lint` on both web and API to guarantee formatting and linting gates pass.【F:melos.yaml†L9-L22】【F:gigvora-backend-nodejs/package.json†L7-L31】
+   - Execute `codemagic.yaml`’s release workflow or replicate it locally to validate environment variables, formatting, analysis, tests, and release builds in one pipeline.【F:codemagic.yaml†L1-L86】
+   - Regenerate schema artefacts with `npm run schema:export` and publish ERD changes for review before merging.【F:gigvora-backend-nodejs/package.json†L23-L31】
+
+2. **Monitoring in production**
+   - Point Prometheus at `/metrics` with the bearer token configured in the environment file to track application and worker health.【F:gigvora-backend-nodejs/.env.example†L10-L23】
+   - Enable structured logging (Pino) and ship logs to your SIEM via the `LOG_LEVEL` and `TRUST_PROXY` toggles in `.env`.【F:gigvora-backend-nodejs/.env.example†L5-L23】
+   - Keep rate limiter thresholds tuned (`RATE_LIMITER_POINTS`, `RATE_LIMITER_DURATION_SECONDS`) to protect authentication surfaces from brute force attempts.【F:gigvora-backend-nodejs/.env.example†L24-L29】
+
+3. **Responding to incidents**
+   - Follow the runtime incident runbook for containment, communication, and root-cause analysis workflows.【F:gigvora-backend-nodejs/docs/runbooks/runtime-incident.md†L1-L120】
+   - Use the `databaseBackup.js` script to take consistent snapshots before running hotfix migrations, then verify them with `npm run db:verify`.【F:gigvora-backend-nodejs/package.json†L23-L31】
+   - Rotate JWT and API secrets immediately after an incident by updating the `.env`, restarting services, and issuing forced logouts via the admin console.【F:gigvora-backend-nodejs/.env.example†L15-L43】
+
+By treating RBAC, CORS, and operational hygiene as first-class citizens, the Gigvora experience stays production-ready and resilient as you scale feature work across teams.

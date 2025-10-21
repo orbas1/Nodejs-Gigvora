@@ -1,5 +1,7 @@
 'use strict';
 
+const { resolveJsonType, dropEnum } = require('../utils/migrationHelpers.cjs');
+
 const ENUMS = {
   playbookTrigger: 'enum_client_success_playbooks_triggerType',
   stepType: 'enum_client_success_steps_stepType',
@@ -14,41 +16,23 @@ const ENUMS = {
 module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.sequelize.transaction(async (transaction) => {
-      const isPostgres = ['postgres', 'postgresql'].includes(queryInterface.sequelize.getDialect());
-      const jsonType = isPostgres ? Sequelize.JSONB : Sequelize.JSON;
-      const tagsType = isPostgres ? Sequelize.ARRAY(Sequelize.STRING) : Sequelize.JSON;
-      await queryInterface.sequelize.query(
-        `DROP TYPE IF EXISTS "${ENUMS.playbookTrigger}";`,
-        { transaction },
-      );
-      await queryInterface.sequelize.query(
-        `DROP TYPE IF EXISTS "${ENUMS.stepType}";`,
-        { transaction },
-      );
-      await queryInterface.sequelize.query(
-        `DROP TYPE IF EXISTS "${ENUMS.stepChannel}";`,
-        { transaction },
-      );
-      await queryInterface.sequelize.query(
-        `DROP TYPE IF EXISTS "${ENUMS.enrollmentStatus}";`,
-        { transaction },
-      );
-      await queryInterface.sequelize.query(
-        `DROP TYPE IF EXISTS "${ENUMS.eventStatus}";`,
-        { transaction },
-      );
-      await queryInterface.sequelize.query(
-        `DROP TYPE IF EXISTS "${ENUMS.referralStatus}";`,
-        { transaction },
-      );
-      await queryInterface.sequelize.query(
-        `DROP TYPE IF EXISTS "${ENUMS.nudgeStatus}";`,
-        { transaction },
-      );
-      await queryInterface.sequelize.query(
-        `DROP TYPE IF EXISTS "${ENUMS.affiliateStatus}";`,
-        { transaction },
-      );
+      const jsonType = resolveJsonType(queryInterface, Sequelize);
+      const dialect = queryInterface.sequelize.getDialect();
+      const isPostgres = ['postgres', 'postgresql'].includes(dialect);
+      const tagsType = isPostgres ? Sequelize.ARRAY(Sequelize.STRING) : jsonType;
+
+      const enumsToReset = [
+        ENUMS.playbookTrigger,
+        ENUMS.stepType,
+        ENUMS.stepChannel,
+        ENUMS.enrollmentStatus,
+        ENUMS.eventStatus,
+        ENUMS.referralStatus,
+        ENUMS.nudgeStatus,
+        ENUMS.affiliateStatus,
+      ];
+
+      await Promise.all(enumsToReset.map((enumName) => dropEnum(queryInterface, enumName, transaction)));
 
       await queryInterface.createTable(
         'client_success_playbooks',
@@ -428,14 +412,18 @@ module.exports = {
       await queryInterface.dropTable('client_success_steps', { transaction });
       await queryInterface.dropTable('client_success_playbooks', { transaction });
 
-      await queryInterface.sequelize.query(`DROP TYPE IF EXISTS "${ENUMS.affiliateStatus}";`, { transaction });
-      await queryInterface.sequelize.query(`DROP TYPE IF EXISTS "${ENUMS.nudgeStatus}";`, { transaction });
-      await queryInterface.sequelize.query(`DROP TYPE IF EXISTS "${ENUMS.referralStatus}";`, { transaction });
-      await queryInterface.sequelize.query(`DROP TYPE IF EXISTS "${ENUMS.eventStatus}";`, { transaction });
-      await queryInterface.sequelize.query(`DROP TYPE IF EXISTS "${ENUMS.enrollmentStatus}";`, { transaction });
-      await queryInterface.sequelize.query(`DROP TYPE IF EXISTS "${ENUMS.stepChannel}";`, { transaction });
-      await queryInterface.sequelize.query(`DROP TYPE IF EXISTS "${ENUMS.stepType}";`, { transaction });
-      await queryInterface.sequelize.query(`DROP TYPE IF EXISTS "${ENUMS.playbookTrigger}";`, { transaction });
+      const enumsToDrop = [
+        ENUMS.affiliateStatus,
+        ENUMS.nudgeStatus,
+        ENUMS.referralStatus,
+        ENUMS.eventStatus,
+        ENUMS.enrollmentStatus,
+        ENUMS.stepChannel,
+        ENUMS.stepType,
+        ENUMS.playbookTrigger,
+      ];
+
+      await Promise.all(enumsToDrop.map((enumName) => dropEnum(queryInterface, enumName, transaction)));
     });
   },
 };

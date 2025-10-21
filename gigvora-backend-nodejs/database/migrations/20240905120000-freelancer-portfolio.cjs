@@ -359,12 +359,15 @@ module.exports = {
       await queryInterface.dropTable('freelancer_portfolio_items', { transaction });
       await queryInterface.dropTable('freelancer_portfolio_settings', { transaction });
 
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_freelancer_portfolio_items_visibility";', { transaction });
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_freelancer_portfolio_items_status";', { transaction });
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_freelancer_portfolio_assets_assetType";', { transaction });
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_freelancer_portfolio_settings_defaultVisibility";', {
-        transaction,
-      });
+      const dialect = queryInterface.sequelize.getDialect();
+      if (dialect === 'postgres' || dialect === 'postgresql') {
+        await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_freelancer_portfolio_items_visibility";', { transaction });
+        await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_freelancer_portfolio_items_status";', { transaction });
+        await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_freelancer_portfolio_assets_assetType";', { transaction });
+        await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_freelancer_portfolio_settings_defaultVisibility";', {
+          transaction,
+        });
+      }
     });
   },
 };

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
 import * as adminWalletController from '../controllers/adminWalletController.js';
 import validateRequest from '../middleware/validateRequest.js';
+import { requireAdmin } from '../middleware/authenticate.js';
 import {
   walletAccountListQuerySchema,
   walletAccountCreateSchema,
@@ -11,6 +12,8 @@ import {
 } from '../validation/schemas/adminSchemas.js';
 
 const router = Router({ mergeParams: true });
+
+router.use(requireAdmin);
 
 router.get(
   '/accounts',

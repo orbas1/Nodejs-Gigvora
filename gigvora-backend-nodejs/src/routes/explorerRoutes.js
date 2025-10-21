@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import asyncHandler from '../utils/asyncHandler.js';
+import { authenticateRequest, requireRoles } from '../middleware/authentication.js';
 import {
   createExplorerRecord,
   deleteExplorerRecord,
@@ -15,16 +17,29 @@ import {
 } from '../controllers/explorerEngagementController.js';
 
 const router = Router();
+const EXPLORER_ROLES = ['user', 'freelancer', 'agency', 'company', 'mentor', 'admin'];
 
-router.get('/:category', listExplorer);
-router.post('/:category', createExplorerRecord);
-router.get('/:category/:recordId/interactions', listExplorerInteractions);
-router.post('/:category/:recordId/interactions', createExplorerInteraction);
-router.get('/:category/:recordId/interactions/:interactionId', getExplorerInteraction);
-router.put('/:category/:recordId/interactions/:interactionId', updateExplorerInteraction);
-router.delete('/:category/:recordId/interactions/:interactionId', deleteExplorerInteraction);
-router.get('/:category/:recordId', getExplorerRecord);
-router.put('/:category/:recordId', updateExplorerRecord);
-router.delete('/:category/:recordId', deleteExplorerRecord);
+router.use(authenticateRequest());
+router.use(requireRoles(...EXPLORER_ROLES));
+
+router.get('/:category', asyncHandler(listExplorer));
+router.post('/:category', asyncHandler(createExplorerRecord));
+router.get('/:category/:recordId/interactions', asyncHandler(listExplorerInteractions));
+router.post('/:category/:recordId/interactions', asyncHandler(createExplorerInteraction));
+router.get(
+  '/:category/:recordId/interactions/:interactionId',
+  asyncHandler(getExplorerInteraction),
+);
+router.put(
+  '/:category/:recordId/interactions/:interactionId',
+  asyncHandler(updateExplorerInteraction),
+);
+router.delete(
+  '/:category/:recordId/interactions/:interactionId',
+  asyncHandler(deleteExplorerInteraction),
+);
+router.get('/:category/:recordId', asyncHandler(getExplorerRecord));
+router.put('/:category/:recordId', asyncHandler(updateExplorerRecord));
+router.delete('/:category/:recordId', asyncHandler(deleteExplorerRecord));
 
 export default router;

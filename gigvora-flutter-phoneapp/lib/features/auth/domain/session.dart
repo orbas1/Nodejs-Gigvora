@@ -20,42 +20,44 @@ class UserSession {
     this.userId,
     this.memberId,
     this.accountId,
-    required this.id,
+    this.profileId,
     required this.name,
     required this.title,
     required this.email,
     required this.location,
-    required this.profileId,
-    required this.memberships,
-    required this.activeMembership,
-    required this.dashboards,
-    required this.userType,
     this.avatarSeed,
+    required List<String> memberships,
+    required this.activeMembership,
+    required Map<String, RoleDashboard> dashboards,
+    this.userType = 'user',
     this.connections = 0,
     this.followers = 0,
-    this.companies = const <String>[],
-    this.agencies = const <String>[],
+    List<String> companies = const <String>[],
+    List<String> agencies = const <String>[],
     this.accessToken,
     this.refreshToken,
     this.tokenExpiresAt,
     this.twoFactorEnabled = true,
-  }) : assert(memberships.isNotEmpty, 'memberships cannot be empty');
+  })  : assert(memberships.isNotEmpty, 'memberships cannot be empty'),
+        memberships = List.unmodifiable(memberships.map((role) => role.toLowerCase())),
+        dashboards = Map.unmodifiable(dashboards),
+        companies = List.unmodifiable(companies),
+        agencies = List.unmodifiable(agencies);
 
-  final int id;
+  final int? id;
+  final int? userId;
+  final int? memberId;
+  final int? accountId;
+  final String? profileId;
   final String name;
   final String title;
   final String email;
   final String location;
   final String? avatarSeed;
-  final String profileId;
-  final int? id;
-  final int? userId;
-  final int? memberId;
-  final int? accountId;
-  final String userType;
   final List<String> memberships;
   final String activeMembership;
   final Map<String, RoleDashboard> dashboards;
+  final String userType;
   final int connections;
   final int followers;
   final List<String> companies;
@@ -76,7 +78,7 @@ class UserSession {
     'volunteer': 'Volunteer',
   };
 
-  RoleDashboard? dashboardFor(String role) => dashboards[role];
+  RoleDashboard? dashboardFor(String role) => dashboards[role.toLowerCase()];
 
   String roleLabel(String role) => roleLabels[role] ?? role;
 
@@ -92,60 +94,54 @@ class UserSession {
 
   UserSession copyWith({
     int? id,
-    String? activeMembership,
-    List<String>? memberships,
-    Map<String, RoleDashboard>? dashboards,
-    List<String>? companies,
-    List<String>? agencies,
+    int? userId,
+    int? memberId,
+    int? accountId,
+    String? profileId,
+    String? name,
     String? title,
     String? email,
     String? location,
     String? avatarSeed,
+    List<String>? memberships,
+    String? activeMembership,
+    Map<String, RoleDashboard>? dashboards,
     int? connections,
     int? followers,
-    int? id,
-    int? userId,
-    int? memberId,
-    int? accountId,
+    List<String>? companies,
+    List<String>? agencies,
+    String? userType,
     String? accessToken,
     String? refreshToken,
     DateTime? tokenExpiresAt,
     bool? twoFactorEnabled,
   }) {
     final nextMemberships = memberships ?? this.memberships;
-    final nextActive = activeMembership ?? this.activeMembership;
-    final activeExists = nextMemberships.contains(nextActive);
+    assert(nextMemberships.isNotEmpty, 'memberships cannot be empty');
+    final candidateActive = activeMembership ?? this.activeMembership;
+    final resolvedActive = nextMemberships.contains(candidateActive)
+        ? candidateActive
+        : nextMemberships.first;
+
     return UserSession(
       id: id ?? this.id,
       userId: userId ?? this.userId,
       memberId: memberId ?? this.memberId,
       accountId: accountId ?? this.accountId,
-      id: id,
-      name: name,
+      profileId: profileId ?? this.profileId,
+      name: name ?? this.name,
       title: title ?? this.title,
       email: email ?? this.email,
       location: location ?? this.location,
       avatarSeed: avatarSeed ?? this.avatarSeed,
       memberships: nextMemberships,
-      activeMembership: activeExists ? nextActive : nextMemberships.first,
+      activeMembership: resolvedActive,
       dashboards: dashboards ?? this.dashboards,
+      userType: userType ?? this.userType,
       connections: connections ?? this.connections,
       followers: followers ?? this.followers,
       companies: companies ?? this.companies,
       agencies: agencies ?? this.agencies,
-      title: title,
-      email: email,
-      location: location,
-      profileId: profileId,
-      userType: userType,
-      avatarSeed: avatarSeed,
-      memberships: nextMemberships,
-      activeMembership: activeExists ? nextActive : nextMemberships.first,
-      dashboards: dashboards ?? this.dashboards,
-      connections: connections,
-      followers: followers,
-      companies: companies,
-      agencies: agencies,
       accessToken: accessToken ?? this.accessToken,
       refreshToken: refreshToken ?? this.refreshToken,
       tokenExpiresAt: tokenExpiresAt ?? this.tokenExpiresAt,
@@ -154,575 +150,232 @@ class UserSession {
   }
 
   static UserSession demo() {
+    final dashboards = <String, RoleDashboard>{
+      'user': RoleDashboard(
+        role: 'user',
+        heroTitle: 'Career mission control',
+        heroSubtitle: 'Track interviews, documents, and collaborations in one secure cockpit.',
+        metrics: const [
+          DashboardMetric(label: 'Active applications', value: '12', trend: '▲ 3 this week'),
+          DashboardMetric(label: 'Upcoming interviews', value: '4', trend: 'Next: Tue 09:00'),
+          DashboardMetric(label: 'Documents ready', value: '18', trend: 'AI audit complete'),
+          DashboardMetric(label: 'Mentor touchpoints', value: '6', trend: 'Stay warm'),
+        ],
+        sections: const [
+          DashboardSection(
+            title: 'Pipeline automation',
+            subtitle: 'SLA-aware stages and nudges keep every opportunity on track.',
+            highlights: [
+              'All interview prep kits synced with tomorrow’s calendar.',
+              'Two follow-up nudges queued for recruiter responses.',
+              'Offer vault flagged a compensation review for Friday.',
+            ],
+            icon: Icons.track_changes,
+          ),
+          DashboardSection(
+            title: 'Document studio spotlight',
+            subtitle: 'Templates, transcripts, and brand hubs export-ready in seconds.',
+            highlights: [
+              'Portfolio hub features six hero projects with smart tags applied.',
+              'AI resume audit recommends sharpening the leadership narrative.',
+              'Purchased gig deliverables synced from escrow vault for recruiter export.',
+            ],
+            icon: Icons.description_outlined,
+          ),
+        ],
+        actions: const [
+          DashboardAction(
+            label: 'Review interview prep kit',
+            description: 'Talking points, scorecards, and recordings are queued for tomorrow’s panel.',
+          ),
+          DashboardAction(
+            label: 'Trigger follow-up queue',
+            description: 'Send personalised updates to recruiters awaiting responses.',
+          ),
+        ],
+      ),
+      'freelancer': RoleDashboard(
+        role: 'freelancer',
+        heroTitle: 'Freelancer mission control',
+        heroSubtitle: 'Operate gigs, growth, finance, and reputation with live telemetry.',
+        metrics: const [
+          DashboardMetric(label: 'Trustscore', value: '96 / 100', trend: '▲ 2.1 vs last month'),
+          DashboardMetric(label: 'Active jobs', value: '7', trend: '2 in kickoff'),
+          DashboardMetric(label: 'Gig orders', value: '11', trend: '3 awaiting QA'),
+          DashboardMetric(label: 'Client NPS', value: '4.9 / 5', trend: 'Fresh testimonials'),
+        ],
+        sections: const [
+          DashboardSection(
+            title: 'Mission overview',
+            subtitle: 'Revenue, trust, and client telemetry in a single cockpit.',
+            highlights: [
+              'Seven active jobs and eleven gig orders tracking within SLA.',
+              'Automation nudges keep renewal conversations warm.',
+              'No open disputes — reputation score holding steady.',
+            ],
+            icon: Icons.dashboard_customize,
+          ),
+          DashboardSection(
+            title: 'Finance & compliance',
+            subtitle: 'Cash flow, escrow exposure, and guardrails stay aligned.',
+            highlights: [
+              'Escrow exposure within limits after last night’s reconciliation.',
+              'Two retainers entering negotiation with pricing guidance ready.',
+              'Compliance locker verified — next audit in 12 days.',
+            ],
+            icon: Icons.account_balance,
+          ),
+        ],
+        actions: const [
+          DashboardAction(
+            label: 'Open gig delivery board',
+            description: 'Review sprint cadence and QA status across engagements.',
+          ),
+        ],
+      ),
+      'agency': RoleDashboard(
+        role: 'agency',
+        heroTitle: 'Agency growth hub',
+        heroSubtitle: 'Co-ordinate clients, recruiters, and marketing in one workspace.',
+        metrics: const [
+          DashboardMetric(label: 'Active retainers', value: '8', trend: '↑ Two onboarding'),
+          DashboardMetric(label: 'Pipeline health', value: '22 leads', trend: 'Priority intros queued'),
+          DashboardMetric(label: 'Team utilisation', value: '87%', trend: 'Balanced load'),
+          DashboardMetric(label: 'SLA adherence', value: '98%', trend: 'On target'),
+        ],
+        sections: const [
+          DashboardSection(
+            title: 'Client partnerships',
+            subtitle: 'Shared briefs, scorecards, and compliance signals stay aligned.',
+            highlights: [
+              'All enterprise MSAs verified with zero blockers.',
+              'Partner scorecards refreshed with 24h performance data.',
+              'Referral programmes synced to nurture sequences.',
+            ],
+            icon: Icons.groups_2_outlined,
+          ),
+          DashboardSection(
+            title: 'Delivery cadence',
+            subtitle: 'Sprint dashboards highlight risks before they escalate.',
+            highlights: [
+              'Ops board shows 18 tasks cleared across four engagements this week.',
+              'Automation studio keeping advocacy and referral programmes on track.',
+              'Signal centre confirms zero open incidents.',
+            ],
+            icon: Icons.assignment_turned_in,
+          ),
+        ],
+        actions: const [
+          DashboardAction(
+            label: 'Sync hiring partners',
+            description: 'Share priority briefs with headhunters and agencies.',
+          ),
+        ],
+      ),
+      'company': RoleDashboard(
+        role: 'company',
+        heroTitle: 'Talent acquisition hub',
+        heroSubtitle: 'Design roles, orchestrate interviews, and scale partnerships with confidence.',
+        metrics: const [
+          DashboardMetric(label: 'Open requisitions', value: '24', trend: '▲ 6 this week'),
+          DashboardMetric(label: 'Candidate NPS', value: '4.7 / 5', trend: '↗ 0.3 over 30d'),
+          DashboardMetric(label: 'Automation coverage', value: '82%', trend: 'Playbooks active'),
+          DashboardMetric(label: 'Diversity health', value: 'Green', trend: 'SLA stable'),
+        ],
+        sections: const [
+          DashboardSection(
+            title: 'Hiring pipeline intelligence',
+            subtitle: 'Signal-based analytics keep offers, interviews, and approvals in sync.',
+            highlights: [
+              'ATS and hiring manager sync automates candidate scorecards.',
+              'Diversity guardrails flagged two roles for review this morning.',
+              'Offer desk automation prepped compensation scenarios for finance.',
+            ],
+            icon: Icons.analytics_outlined,
+          ),
+          DashboardSection(
+            title: 'Employer brand studio',
+            subtitle: 'Showcase culture stories, benefits, and launch campaigns in minutes.',
+            highlights: [
+              'Storytelling modules ready for onboarding and candidate nurture.',
+              'Live career site blocks prepared for social amplification.',
+              'Video spotlights curated with comms and people partners.',
+            ],
+            icon: Icons.campaign_outlined,
+          ),
+        ],
+        actions: const [
+          DashboardAction(
+            label: 'Review hiring pipeline health',
+            description: 'Align recruiters and interview panels around upcoming decision gates.',
+          ),
+        ],
+      ),
+      'admin': RoleDashboard(
+        role: 'admin',
+        heroTitle: 'Admin control tower',
+        heroSubtitle: 'Monitor marketplace health, finances, and trust in real time.',
+        metrics: const [
+          DashboardMetric(label: 'Live incidents', value: '0', trend: 'All clear'),
+          DashboardMetric(label: 'Escrow health', value: 'Green', trend: 'SLA 99%'),
+          DashboardMetric(label: 'Support SLA', value: '96%', trend: 'On target'),
+          DashboardMetric(label: 'Risk posture', value: 'Low', trend: 'Guards active'),
+        ],
+        sections: const [
+          DashboardSection(
+            title: 'Security & compliance',
+            subtitle: 'Audit trails, anomaly detection, and incident playbooks on standby.',
+            highlights: [
+              'Privileged actions protected by enforced 2FA and device fingerprints.',
+              'Realtime anomaly detection inspects every admin session.',
+              'Escrow reconciliation completes under 90 seconds with automated alerts.',
+            ],
+            icon: Icons.shield_outlined,
+          ),
+          DashboardSection(
+            title: 'Operational cadence',
+            subtitle: 'Cross-functional telemetry keeps launch readiness on track.',
+            highlights: [
+              'Trust & safety, support, and finance signals converge into unified runbooks.',
+              'PagerDuty and Slack integrations route high-severity incidents instantly.',
+              'Enterprise encryption protects collaboration across web and mobile.',
+            ],
+            icon: Icons.dashboard_customize_outlined,
+          ),
+        ],
+        actions: const [
+          DashboardAction(
+            label: 'Review overnight audit log',
+            description: 'Confirm no privileged changes occurred outside the change window.',
+          ),
+          DashboardAction(
+            label: 'Run incident readiness drill',
+            description: 'Validate warm-standby plans and cross-team communication ladders.',
+          ),
+        ],
+      ),
+    };
+
     return UserSession(
-      id: 2,
-      userId: 2,
-      memberId: 2002,
       id: 1,
+      userId: 1,
+      memberId: 2001,
+      accountId: 3001,
+      profileId: 'usr_demo',
       name: 'Lena Fields',
       title: 'Product Designer',
       email: 'lena.fields@gigvora.com',
       location: 'Berlin, Germany',
-      profileId: 'usr_demo',
       avatarSeed: 'Lena Fields',
-      memberships: const ['company', 'user', 'freelancer', 'agency'],
-      activeMembership: 'company',
-      memberships: const ['user', 'freelancer', 'agency', 'volunteer'],
-      memberships: const ['user', 'freelancer', 'agency', 'company'],
-      memberships: const ['user', 'freelancer', 'agency', 'headhunter'],
-      memberships: const ['user', 'freelancer', 'agency', 'admin'],
+      memberships: dashboards.keys.toList(),
       activeMembership: 'user',
+      dashboards: dashboards,
       userType: 'freelancer',
-      followers: 1280,
       connections: 324,
+      followers: 1280,
       companies: const ['Gigvora Labs', 'Atlas Studios'],
       agencies: const ['Northshore Creative'],
       twoFactorEnabled: true,
-      dashboards: const {
-        'company': RoleDashboard(
-          role: 'company',
-          heroTitle: 'Talent acquisition nerve centre',
-          heroSubtitle:
-              'Monitor ATS health, collaborate across teams, and keep every requisition moving toward signed offers.',
-          metrics: [
-            DashboardMetric(label: 'Open requisitions', value: '24', trend: '▲ 6 this week'),
-            DashboardMetric(label: 'Avg days to decision', value: '18', trend: '↘ Beats target by 2'),
-            DashboardMetric(label: 'Candidate NPS', value: '4.7/5', trend: '▲ +0.3 over 30d'),
-            DashboardMetric(label: 'Automation coverage', value: '82%', trend: 'Playbooks activated'),
-          ],
-          sections: [
-            DashboardSection(
-              title: 'ATS lifecycle intelligence',
-              subtitle: 'Real-time insight across stages, from intake to onboarding readiness.',
-              highlights: [
-                'Hiring velocity steady at 18 days with interview SLAs green.',
-                'Score confidence 76% with 14 of 18 lifecycle signals connected.',
-                'Pipeline conversion +9% after automation nudges were deployed.',
-              ],
-              icon: Icons.analytics_outlined,
-              accentColor: Color(0xFF4F46E5),
-            ),
-            DashboardSection(
-              title: 'Collaboration & approvals',
-              subtitle: 'Structured guides, interviewer calibration, and guardrails keep teams aligned.',
-              highlights: [
-                '98% of stages now have documented guides and scorecards.',
-                'Approvals queue clear—auto-escalations caught two overdue offers.',
-                'Calibration cadence weekly with two new interviewers certified.',
-              ],
-              icon: Icons.groups_outlined,
-              accentColor: Color(0xFF2563EB),
-            ),
-            DashboardSection(
-              title: 'Experience & compliance',
-              subtitle: 'Candidate care centre tracks NPS, forms, and SLA response times.',
-              highlights: [
-                'Service desk response time 11 minutes with zero open escalations.',
-                'Background check automation reduced manual follow-ups by 35%.',
-                'Inclusion score 8.9/10 after refreshed prep resources went live.',
-              ],
-              icon: Icons.verified_user_outlined,
-              accentColor: Color(0xFF0EA5E9),
-            ),
-          ],
-          actions: [
-            DashboardAction(
-              label: 'Open analytics control room',
-              description: 'Forecast hiring capacity and monitor workforce signals in one secure view.',
-              route: '/dashboard/company/analytics',
-            ),
-            DashboardAction(
-              label: 'Review stage analytics',
-              description: 'Spot bottlenecks and rebalance interviewer load before next week.',
-              route: '/dashboard/company/ats',
-            ),
-            DashboardAction(
-              label: 'Sync hiring partners',
-              description: 'Share ATS scorecard and upcoming requisitions with agencies and headhunters.',
-              route: '/dashboard/company',
-            ),
-          ],
-        ),
-        'user': RoleDashboard(
-          role: 'user',
-          heroTitle: 'User & Job Seeker Command Center',
-          heroSubtitle:
-              'Track SLAs, interview readiness, and document workflows from a single command centre.',
-              'Monitor applications, interviews, documents, and collaborations with enterprise-grade orchestration.',
-          metrics: [
-            DashboardMetric(label: 'Total applications', value: '48', trend: '▲ 6 this quarter'),
-            DashboardMetric(label: 'Active pipeline', value: '14 live', trend: 'SLA windows green'),
-            DashboardMetric(label: 'Interviews scheduled', value: '5 upcoming', trend: 'Next: Tue 09:00'),
-            DashboardMetric(label: 'Documents uploaded', value: '18 assets', trend: 'CVs & case studies ready'),
-          ],
-          sections: [
-            DashboardSection(
-              title: 'Pipeline automation',
-              subtitle: 'SLA-aware kanban stages keep hiring teams and reminders in sync.',
-              highlights: [
-                'Career pipeline automation shows 82% completion across 5 stages with no SLA breaches.',
-                'Bulk update queue prioritises two nudges before interviews later this week.',
-                'Compliance guardrail: Equal opportunity report auto-generated for November.',
-              title: 'Career pipeline automation',
-              subtitle: 'Kanban governance, SLA nudges, and offer workflows stay in sync.',
-              highlights: [
-                '82% of opportunities progressing on schedule across five stages.',
-                'Two proactive reminders prepared for interview follow-ups.',
-                'Offer vault flagged one comp review for Friday’s negotiation huddle.',
-              ],
-              icon: Icons.track_changes,
-              accentColor: Color(0xFF2563EB),
-            ),
-            DashboardSection(
-              title: 'Document studio spotlight',
-              subtitle: 'Watermarked resumes, transcripts, and vendor deliverables ready for sharing.',
-              highlights: [
-                'Portfolio hub features 6 hero projects and 12 testimonials with smart tags applied.',
-                'AI resume audit suggests sharpening the leadership summary ahead of Friday review.',
-                'Purchased gig deliverables synced from escrow vault ready for recruiter export.',
-              subtitle: 'Templates, transcripts, and brand hubs export-ready in seconds.',
-              highlights: [
-                'Portfolio hub features 6 hero projects and 12 testimonials.',
-                'AI resume audit recommends sharpening leadership narrative.',
-                'One-click export to PDF, Notion, and web profile is primed.',
-              ],
-              icon: Icons.description_outlined,
-              accentColor: Color(0xFF0EA5E9),
-            ),
-            DashboardSection(
-              title: 'Network momentum',
-              subtitle: 'Advisor collaborations and warm intros keep referrals active.',
-              highlights: [
-                'Atlas Studios warmed up after last week’s product jam—follow-up scheduled for Thursday.',
-                '3 pending mentor requests with accountability notes logged for each.',
-                'Offer negotiation vault tracks 2 packages and compares compensation benchmarks.',
-              title: 'Insights & network',
-              subtitle: 'Relationship heat-maps and accountability rituals keep momentum.',
-              highlights: [
-                'Atlas Studios warmed up after last week’s product jam session.',
-                '3 pending mentor intros surfaced in the connections CRM.',
-                'Talent intelligence benchmarks refreshed against design market peers.',
-              ],
-              icon: Icons.groups_3,
-              accentColor: Color(0xFF7C3AED),
-            ),
-          ],
-          actions: [
-            DashboardAction(
-              label: 'Review interview prep kit',
-              description: 'Talking points, scorecards, and recordings are queued for tomorrow’s panel.',
-            ),
-            DashboardAction(
-              label: 'Approve auto-apply guardrails',
-              description: 'Validate premium role filters before the automation run this evening.',
-            ),
-            DashboardAction(label: 'Run follow-up queue', description: 'Trigger nudges for recruiters awaiting updates.'),
-            DashboardAction(label: 'Generate CV refresh', description: 'Roll latest portfolio wins into the enterprise CV suite.'),
-          ],
-        ),
-        'freelancer': RoleDashboard(
-          role: 'freelancer',
-          heroTitle: 'Freelancer mission control',
-          heroSubtitle:
-              'Operate gigs, growth, finance, and reputation with enterprise-grade telemetry across every engagement.',
-          metrics: [
-            DashboardMetric(label: 'Trustscore', value: '96 / 100', trend: '▲ 2.1 vs last month'),
-            DashboardMetric(label: 'Reviews', value: '182', trend: '4 new this week'),
-            DashboardMetric(label: 'Active jobs', value: '7', trend: '2 in kickoff'),
-            DashboardMetric(label: 'Gig orders', value: '11', trend: '3 awaiting QA'),
-          ],
-          sections: [
-            DashboardSection(
-              title: 'Mission overview',
-              subtitle: 'Live revenue, trust, and client telemetry in one cockpit.',
-              highlights: [
-                '96/100 trustscore with four fresh testimonials this week.',
-                'Seven active jobs and eleven gig orders moving through delivery.',
-                'Velocity up 12% after automating stand-ups and QA gates.',
-              ],
-              icon: Icons.dashboard_customize,
-              accentColor: Color(0xFF0EA5E9),
-            ),
-            DashboardSection(
-              title: 'Opportunity pipeline',
-              subtitle: 'Auto-assign invites, referrals, and launchpad leads awaiting response.',
-              highlights: [
-                'Priority brief: Product design sprint for Horizon Labs with a $24K retainer.',
-                'Average invite score tracking at 4.6 with no SLA breaches.',
-                'Pipeline nudges queued to keep shortlist conversations warm.',
-              ],
-              icon: Icons.radar,
-              accentColor: Color(0xFF22C55E),
-            ),
-            DashboardSection(
-              title: 'Project delivery',
-              subtitle: 'Sprint cadence, QA status, and assignment load across engagements.',
-              highlights: [
-                'Ops board shows 18 tasks cleared across four engagements this week.',
-                'Three retainers in QA while Atlas Robotics preps for kickoff.',
-                'Client pulse checks flagged one relationship needing proactive outreach.',
-              ],
-              icon: Icons.assignment_turned_in,
-              accentColor: Color(0xFF6366F1),
-            ),
-            DashboardSection(
-              title: 'Finance & compliance',
-              subtitle: 'Cash flow, escrow exposure, and reputation telemetry.',
-              highlights: [
-                'Revenue pacing 18% ahead of target with two retainers in negotiation.',
-                'All MSAs and NDAs verified—next renewal checkpoint in 12 days.',
-                'Reputation engine shows 4.9/5 NPS with zero open disputes.',
-              ],
-              icon: Icons.account_balance,
-              accentColor: Color(0xFF2563EB),
-            ),
-            DashboardSection(
-              title: 'Client success & automations',
-              subtitle: 'Support cases, engagement jobs, and automation guardrails.',
-              highlights: [
-                'Success desk clear with two escalations awaiting sentiment follow-up.',
-                'Engagement queue surfaced three renewal nudges due this week.',
-                'Automation studio keeping advocacy and referral programs on track.',
-              ],
-              icon: Icons.auto_mode,
-              accentColor: Color(0xFFF97316),
-            ),
-            DashboardSection(
-              title: 'Signals & alerts',
-              subtitle: 'Real-time notifications across gigs, finance, and trust & safety.',
-              highlights: [
-                'Signal center confirms zero open disputes and healthy cash flow.',
-                'QA automation delivered two new insights for the Gigvora Labs engagement.',
-                'Status beacons synced to mobile so nothing slips through overnight.',
-              ],
-              icon: Icons.notifications_active_outlined,
-              accentColor: Color(0xFF0EA5E9),
-            ),
-          ],
-          actions: [
-            DashboardAction(label: 'Send client pulse update', description: 'Share milestone recap for the Gigvora Labs engagement.'),
-            DashboardAction(label: 'Polish launchpad pitch deck', description: 'Integrate the newest conversion case study slides.'),
-            DashboardAction(label: 'Review compliance locker', description: 'Confirm NDAs and insurance certificates before renewals.'),
-          ],
-        ),
-        'agency': RoleDashboard(
-          role: 'agency',
-          heroTitle: 'Agency collaboration cockpit',
-          heroSubtitle: 'Synchronise rosters, briefs, and partner feedback in real time.',
-          metrics: [
-            DashboardMetric(label: 'Active retainers', value: '4', trend: 'Stable pipelines'),
-            DashboardMetric(label: 'Bench strength', value: '12 experts', trend: 'Across 5 disciplines'),
-            DashboardMetric(label: 'Avg fulfilment', value: '92%', trend: '▲ SLA confidence'),
-            DashboardMetric(label: 'Partner NPS', value: '4.6/5', trend: 'Trusted alliances'),
-          ],
-          sections: [
-            DashboardSection(
-              title: 'Collaboration rooms',
-              subtitle: 'Cross-functional squads ready for co-delivery.',
-              highlights: [
-                'Content guild tackling 3 concurrent brand sprints.',
-                'Ops handshake with Northshore Creative finalised.',
-                'Shared retrospectives highlight 2 workflow tweaks.',
-              ],
-              icon: Icons.handshake,
-              accentColor: Color(0xFFEC4899),
-            ),
-            DashboardSection(
-              title: 'Talent placement radar',
-              subtitle: 'Opportunities matched to bench availability in seconds.',
-              highlights: [
-                'Product strategist shortlist sent to Atlas Studios.',
-                'New lead from Gigvora Marketplace tagged for review.',
-                'Volunteering micro-squad assembled for Impact Labs.',
-              ],
-              icon: Icons.how_to_reg,
-              accentColor: Color(0xFF6366F1),
-            ),
-            DashboardSection(
-              title: 'Insights & finance',
-              subtitle: 'Margin tracking and billing ready for partner syncs.',
-              highlights: [
-                'Forecast predicts +15% revenue in next sprint.',
-                'Two invoices awaiting approval—auto reminders queued.',
-                'Cash flow dashboard signals healthy runway.',
-              ],
-              icon: Icons.insights,
-              accentColor: Color(0xFF14B8A6),
-            ),
-          ],
-          actions: [
-            DashboardAction(label: 'Kick off partner retro', description: 'Review shared wins with Atlas Studios leadership.'),
-            DashboardAction(label: 'Update availability matrix', description: 'Sync talent roster before Monday planning.'),
-            DashboardAction(
-              label: 'Launch brand page',
-              description: 'Publish a fresh company or program page to boost Explorer visibility.',
-            ),
-          ],
-        ),
-        'admin': RoleDashboard(
-          role: 'admin',
-          heroTitle: 'Admin control tower',
-          heroSubtitle: 'Monitor trust, campaign coverage, and monetisation signals.',
-          metrics: [
-            DashboardMetric(label: 'Live campaigns', value: '24', trend: '▲ 3 this week'),
-            DashboardMetric(label: 'Active disputes', value: '6', trend: '▼ improving'),
-            DashboardMetric(label: 'Escrow volume', value: '1.8M USD', trend: '↑ strong'),
-            DashboardMetric(label: 'Support backlog', value: '12', trend: '→ steady'),
-          ],
-          sections: [
-            DashboardSection(
-              title: 'Trust & operations',
-              subtitle: 'Keep disputes, compliance, and support SLAs on track.',
-              highlights: [
-                'Escrow release queue cleared ahead of payroll batches.',
-                'Compliance alerts down 14% after verification sprint.',
-                'Support first-response holding at 8 minutes network-wide.',
-              ],
-              icon: Icons.shield_moon_outlined,
-              accentColor: Color(0xFF2563EB),
-            ),
-            DashboardSection(
-              title: 'Gigvora ads',
-              subtitle: 'Review surface coverage, targeting gaps, and creative freshness.',
-              highlights: [
-                'Global dashboard coverage at 96% with fresh hero video.',
-                'Company portals need two new creatives for onboarding runs.',
-                'Volunteer hub placements scored 4.6 quality rating.',
-              ],
-              icon: Icons.campaign_outlined,
-              accentColor: Color(0xFF1E3A8A),
-            ),
-          ],
-          actions: const [
-            DashboardAction(
-              label: 'Open Gigvora Ads console',
-              description: 'Review placements, targeting telemetry, and recommendations.',
-            ),
-          ],
-        ),
-        'headhunter': RoleDashboard(
-          role: 'headhunter',
-          heroTitle: 'Headhunter command centre',
-          heroSubtitle: 'Command mandates, pipelines, and client expectations with confidence.',
-          metrics: [
-            DashboardMetric(label: 'Active mandates', value: '12', trend: '▲ 2 this month'),
-            DashboardMetric(label: 'Pipeline value', value: '\$1.8M', trend: '▲ 14% QoQ'),
-            DashboardMetric(label: 'Avg days in stage', value: '6.4', trend: '→ on target'),
-            DashboardMetric(label: 'Client NPS', value: '4.7/5', trend: 'Trusted partner'),
-          ],
-          sections: [
-            DashboardSection(
-              title: 'Pipeline health',
-              subtitle: 'Stage velocity, conversion rates, and automation guardrails.',
-              highlights: [
-                'Discovery to shortlist conversion holding at 42%.',
-                'Two offers pending with enterprise design and data mandates.',
-                'AI enrichment unlocked 18 fresh outreach targets.',
-              ],
-              icon: Icons.timeline,
-              accentColor: Color(0xFF2563EB),
-            ),
-            DashboardSection(
-              title: 'Client partnership spotlight',
-              subtitle: 'Retainers, renewals, and portal engagement signals.',
-              highlights: [
-                'Atlas Studios renewal due in 18 days—prep success fee brief.',
-                'Shared portal engagement up 23% after last briefing.',
-                'Issue desk clear—no escalations awaiting action.',
-              ],
-              icon: Icons.handshake,
-              accentColor: Color(0xFF0EA5E9),
-            ),
-            DashboardSection(
-              title: 'Outreach operations',
-              subtitle: 'Sequenced campaigns and pass-on collaborations ready to scale.',
-              highlights: [
-                'Warm introductions campaign running at 68% reply rate.',
-                'Compliance centre cleared 5 pending consent requests.',
-                'Two partner agencies awaiting feedback on pass-on matches.',
-              ],
-              icon: Icons.send,
-              accentColor: Color(0xFFF59E0B),
-            ),
-          ],
-          actions: [
-            DashboardAction(
-              label: 'Refresh mandate scorecard',
-              description: 'Align client reporting ahead of Tuesday status review.',
-            ),
-            DashboardAction(
-              label: 'Schedule outreach stand-up',
-              description: 'Sync prioritised sequences with sourcing leads.',
-            ),
-          ],
-        ),
-        'company': RoleDashboard(
-          role: 'company',
-          heroTitle: 'Company talent acquisition hub',
-          heroSubtitle:
-              'Monitor requisitions, interviews, offers, and partner performance with enterprise guardrails.',
-          metrics: [
-            DashboardMetric(label: 'Open requisitions', value: '48', trend: '▲ 6 net new'),
-            DashboardMetric(label: 'Active candidates', value: '1,260', trend: 'Pipeline steady'),
-            DashboardMetric(label: 'Upcoming interviews', value: '32', trend: 'Next: Wed 14:00'),
-            DashboardMetric(label: 'Offer win rate', value: '78%', trend: '▲ 5 pts'),
-            DashboardMetric(label: 'Candidate NPS', value: '4.6/5', trend: 'Satisfaction green'),
-            DashboardMetric(label: 'Open alerts', value: '2', trend: '▼ Cleared 3 today'),
-          ],
-          sections: [
-            DashboardSection(
-              title: 'Hiring overview',
-              subtitle: 'Velocity, diversity, and governance signals for every requisition.',
-              highlights: [
-                'Average time to decision sits at 18 days with SLA green.',
-                'Diversity representation index tracking at 1.04 across funnel.',
-                'Two medium-severity compliance alerts require review this week.',
-              ],
-              icon: Icons.bar_chart_rounded,
-              accentColor: const Color(0xFF2563EB),
-            ),
-            DashboardSection(
-              title: 'Sourcing intelligence',
-              subtitle: 'Campaign ROI, nurture cadences, and partner pipelines.',
-              highlights: [
-                'Referral campaigns delivering 32% of qualified interviews.',
-                'Headhunter briefs on track with 11 submissions awaiting review.',
-                'Applicant nurture flows triggered 540 follow-ups this month.',
-              ],
-              icon: Icons.public,
-              accentColor: const Color(0xFF0EA5E9),
-            ),
-            DashboardSection(
-              title: 'Experience & governance',
-              subtitle: 'Interview automation, offer bridge, and care centre coverage.',
-              highlights: [
-                'Scheduler coverage at 92% with auto-reminders live for panels.',
-                'Offer bridge shows 5 approvals pending; average start in 21 days.',
-                'Candidate care centre resolved 18 tickets with 2 escalations open.',
-              ],
-              icon: Icons.verified_user,
-              accentColor: const Color(0xFF22C55E),
-            ),
-          ],
-          actions: [
-            DashboardAction(
-              label: 'Review networking insights',
-              description: 'Validate attendance controls before Friday sessions.',
-            ),
-            DashboardAction(
-              label: 'Publish new employer story',
-              description: 'Showcase culture wins to boost campaign conversion.',
-            ),
-          ],
-        ),
-        'admin': RoleDashboard(
-          role: 'admin',
-          heroTitle: 'Workspace governance HQ',
-          heroSubtitle: 'Oversee community health, approvals, and compliance signals in one console.',
-          metrics: [
-            DashboardMetric(label: 'Managed groups', value: '24', trend: '↑ 3 this week'),
-            DashboardMetric(label: 'Pending approvals', value: '11', trend: 'Queue clear in 4h'),
-            DashboardMetric(label: 'Escalations', value: '2', trend: '⇢ None overdue'),
-            DashboardMetric(label: 'Security posture', value: 'AA', trend: 'Policy coverage green'),
-          ],
-          sections: [
-            DashboardSection(
-              title: 'Community health pulse',
-              subtitle: 'Keep every group vibrant and well supported.',
-              highlights: [
-                'Engagement sentiment steady at 4.6 / 5 across top cohorts.',
-                'Two groups flagged for review due to inactive moderators.',
-                'Weekly growth pacing +18% after refined onboarding journeys.',
-              ],
-              icon: Icons.health_and_safety_outlined,
-              accentColor: Color(0xFF2563EB),
-            ),
-            DashboardSection(
-              title: 'Approval runway',
-              subtitle: 'Triage join requests, invites, and compliance signals with clarity.',
-              highlights: [
-                '11 join requests awaiting final approval across 4 groups.',
-                'Auto-reminders sent to mentors for outstanding references.',
-                'No SLA breaches detected in the last 24 hours.',
-              ],
-              icon: Icons.fact_check_outlined,
-              accentColor: Color(0xFF16A34A),
-            ),
-            DashboardSection(
-              title: 'Security and governance',
-              subtitle: 'Monitor policies, access tiers, and audit events.',
-              highlights: [
-                'All admin sessions passing MFA and device trust checks.',
-                '4 policy updates shipped to community guidelines this month.',
-                'Audit trail synced to compliance vault at 04:00 UTC.',
-              ],
-              icon: Icons.admin_panel_settings_outlined,
-              accentColor: Color(0xFF9333EA),
-            ),
-          ],
-          actions: [
-            DashboardAction(
-              label: 'Open group management console',
-              description: 'Review requests, send invites, and curate visibility settings in real time.',
-              route: '/groups/manage',
-            ),
-            DashboardAction(
-              label: 'Audit membership escalations',
-              description: 'Double-check escalation queue before the weekly compliance review.',
-            ),
-          ],
-        ),
-        'company': RoleDashboard(
-          role: 'company',
-          heroTitle: 'Company networking orchestration',
-          heroSubtitle: 'Coordinate speed networking, sponsors, and business card experiences for your community.',
-          metrics: [
-            DashboardMetric(label: 'Active hubs', value: '3', trend: 'In progress'),
-            DashboardMetric(label: 'Upcoming events', value: '5', trend: 'Next: Wed 18:00'),
-            DashboardMetric(label: 'Attendee NPS', value: '4.7/5', trend: '↑ 0.3 WoW'),
-            DashboardMetric(label: 'Revenue (90d)', value: 'USD 86K', trend: '▲ 22% QoQ'),
-          ],
-          sections: [
-            DashboardSection(
-              title: 'Speed networking hub',
-              subtitle: 'Rotations, waitlists, and host controls are staged for the next showcase.',
-              highlights: [
-                'Auto-matched 420 introductions in the last 30 days.',
-                'Business card sharing up 18% after rolling out new templates.',
-                'Sponsor spotlight for Atlas Capital locked for Thursday session.',
-              ],
-              icon: Icons.auto_awesome,
-              accentColor: Color(0xFF2563EB),
-            ),
-            DashboardSection(
-              title: 'Attendee experience lab',
-              subtitle: 'Monitor satisfaction, follow-ups, and community momentum.',
-              highlights: [
-                'Average satisfaction score holding at 4.7/5.',
-                'Follow-up scheduler booked 58 meetings this month.',
-                'Messaging heatmap shows peak engagement at 18 minutes.',
-              ],
-              icon: Icons.groups_3,
-              accentColor: Color(0xFF10B981),
-            ),
-            DashboardSection(
-              title: 'Operational telemetry',
-              subtitle: 'Reminders, load share, and failover readiness are in the green.',
-              highlights: [
-                'Browser load share stable at 82% Chrome / 12% Safari.',
-                'Host announcements averaging 6 per event—keep sponsors engaged.',
-                'Failover rate below 0.4% with auto-heal on standby.',
-              ],
-              icon: Icons.speed,
-              accentColor: Color(0xFFF59E0B),
-            ),
-          ],
-          actions: [
-            DashboardAction(label: 'Open networking hub', description: 'Review sessions, cards, and live telemetry.'),
-            DashboardAction(label: 'Plan sponsor spotlight', description: 'Coordinate messaging ahead of the next rotation.'),
-          ],
-        ),
-      },
     );
   }
 }

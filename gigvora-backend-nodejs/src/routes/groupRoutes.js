@@ -1,63 +1,62 @@
 import { Router } from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
-import { authenticate } from '../middleware/authentication.js';
-import { requireRoles } from '../middleware/authorization.js';
+import { authenticateRequest, requireRoles } from '../middleware/authentication.js';
 import groupController from '../controllers/groupController.js';
 
 const router = Router();
+const GROUP_MANAGER_ROLES = ['admin', 'agency', 'company', 'workspace_admin'];
+const requireManager = [authenticateRequest(), requireRoles(...GROUP_MANAGER_ROLES)];
 
-router.get('/discover', authenticate({ optional: true }), asyncHandler(groupController.discover));
+router.get(
+  '/discover',
+  authenticateRequest({ optional: true }),
+  asyncHandler(groupController.discover),
+);
 
-router.get('/', authenticate(), requireRoles('admin', 'agency', 'company'), asyncHandler(groupController.index));
-router.post('/', authenticate(), requireRoles('admin', 'agency', 'company'), asyncHandler(groupController.create));
+router.get('/', ...requireManager, asyncHandler(groupController.index));
+router.post('/', ...requireManager, asyncHandler(groupController.create));
 
-router.get('/:groupId', authenticate(), requireRoles('admin', 'agency', 'company'), asyncHandler(groupController.show));
-router.put('/:groupId', authenticate(), requireRoles('admin', 'agency', 'company'), asyncHandler(groupController.update));
+router.get('/:groupId', ...requireManager, asyncHandler(groupController.show));
+router.put('/:groupId', ...requireManager, asyncHandler(groupController.update));
 
 router.post(
   '/manage/:groupId/memberships',
-  authenticate(),
-  requireRoles('admin', 'agency', 'company'),
+  ...requireManager,
   asyncHandler(groupController.addMember),
 );
 router.patch(
   '/manage/:groupId/memberships/:membershipId',
-  authenticate(),
-  requireRoles('admin', 'agency', 'company'),
+  ...requireManager,
   asyncHandler(groupController.updateMember),
 );
 router.delete(
   '/manage/:groupId/memberships/:membershipId',
-  authenticate(),
-  requireRoles('admin', 'agency', 'company'),
+  ...requireManager,
   asyncHandler(groupController.removeMember),
 );
 
 router.post(
   '/:groupId/memberships',
-  authenticate(),
-  requireRoles('admin', 'agency', 'company'),
+  ...requireManager,
   asyncHandler(groupController.addMember),
 );
 router.patch(
   '/:groupId/memberships/:membershipId',
-  authenticate(),
-  requireRoles('admin', 'agency', 'company'),
+  ...requireManager,
   asyncHandler(groupController.updateMember),
 );
 router.delete(
   '/:groupId/memberships/:membershipId',
-  authenticate(),
-  requireRoles('admin', 'agency', 'company'),
+  ...requireManager,
   asyncHandler(groupController.removeMember),
 );
 
-router.post('/:groupId/join', authenticate(), asyncHandler(groupController.join));
-router.delete('/:groupId/leave', authenticate(), asyncHandler(groupController.leave));
-router.patch('/:groupId/membership', authenticate(), asyncHandler(groupController.updateMembership));
+router.post('/:groupId/join', authenticateRequest(), asyncHandler(groupController.join));
+router.delete('/:groupId/leave', authenticateRequest(), asyncHandler(groupController.leave));
+router.patch('/:groupId/membership', authenticateRequest(), asyncHandler(groupController.updateMembership));
 router.post(
   '/:groupId/memberships/request',
-  authenticate(),
+  authenticateRequest(),
   asyncHandler(groupController.requestMembership),
 );
 

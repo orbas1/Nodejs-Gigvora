@@ -2,8 +2,11 @@ import { Router } from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
 import projectWorkspaceController from '../controllers/projectWorkspaceController.js';
 import { requireProjectManagementRole } from '../middleware/authorization.js';
+import { authenticateRequest } from '../middleware/authentication.js';
 
 const router = Router({ mergeParams: true });
+
+router.use(authenticateRequest());
 
 router.get('/', asyncHandler(projectWorkspaceController.overview));
 

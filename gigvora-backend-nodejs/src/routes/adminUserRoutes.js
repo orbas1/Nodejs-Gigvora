@@ -3,6 +3,7 @@ import { Router } from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
 import validateRequest from '../middleware/validateRequest.js';
 import * as controller from '../controllers/adminUserController.js';
+import { requireAdmin } from '../middleware/authenticate.js';
 import {
   adminUserListQuerySchema,
   adminUserCreateSchema,
@@ -16,6 +17,8 @@ import {
 } from '../validation/schemas/adminUserSchemas.js';
 
 const router = Router();
+
+router.use(requireAdmin);
 
 router.get('/meta', asyncHandler(controller.metadata));
 router.get('/', validateRequest({ query: adminUserListQuerySchema }), asyncHandler(controller.index));
