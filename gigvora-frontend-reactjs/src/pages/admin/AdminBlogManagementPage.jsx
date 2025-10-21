@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
+import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import {
   fetchAdminBlogPosts,
@@ -28,6 +29,7 @@ import BlogCategoryManager from '../../components/admin/blog/BlogCategoryManager
 import BlogTagManager from '../../components/admin/blog/BlogTagManager.jsx';
 import BlogMetricsPanel from '../../components/admin/blog/BlogMetricsPanel.jsx';
 import BlogCommentsPanel from '../../components/admin/blog/BlogCommentsPanel.jsx';
+import useSession from '../../hooks/useSession.js';
 
 const DEFAULT_FORM = Object.freeze({
   id: null,
@@ -93,6 +95,8 @@ function FullscreenPanel({ open, onClose, children }) {
 }
 
 export default function AdminBlogManagementPage() {
+  const navigate = useNavigate();
+  const { session, isAuthenticated } = useSession();
   const [activeSection, setActiveSection] = useState('overview');
   const [fullscreenPanel, setFullscreenPanel] = useState(null);
   const [formState, setFormState] = useState(DEFAULT_FORM);
@@ -111,6 +115,23 @@ export default function AdminBlogManagementPage() {
   const [comments, setComments] = useState([]);
   const [commentsLoading, setCommentsLoading] = useState(true);
   const [commentPagination, setCommentPagination] = useState(null);
+
+  const membershipSet = useMemo(() => {
+    if (!Array.isArray(session?.memberships)) {
+      return new Set();
+    }
+    return new Set(session.memberships.map((value) => `${value}`.trim().toLowerCase()).filter(Boolean));
+  }, [session?.memberships]);
+
+  const isAdmin = useMemo(() => {
+    if (!isAuthenticated) {
+      return false;
+    }
+    if (Array.isArray(session?.roles) && session.roles.some((role) => `${role}`.toLowerCase() === 'admin')) {
+      return true;
+    }
+    return membershipSet.has('admin');
+  }, [isAuthenticated, membershipSet, session?.roles]);
 
   const postSummary = useMemo(() => {
     const totals = {
@@ -135,6 +156,11 @@ export default function AdminBlogManagementPage() {
   );
 
   const loadPosts = useCallback(async () => {
+    if (!isAdmin) {
+      setPosts([]);
+      setPostsLoading(false);
+      return;
+    }
     setPostsLoading(true);
     try {
       const payload = await fetchAdminBlogPosts({ pageSize: 100 });
@@ -144,9 +170,14 @@ export default function AdminBlogManagementPage() {
     } finally {
       setPostsLoading(false);
     }
-  }, []);
+  }, [isAdmin]);
 
   const loadCategories = useCallback(async () => {
+    if (!isAdmin) {
+      setCategories([]);
+      setCategoriesLoading(false);
+      return;
+    }
     setCategoriesLoading(true);
     try {
       const payload = await fetchBlogCategories();
@@ -156,9 +187,14 @@ export default function AdminBlogManagementPage() {
     } finally {
       setCategoriesLoading(false);
     }
-  }, []);
+  }, [isAdmin]);
 
   const loadTags = useCallback(async () => {
+    if (!isAdmin) {
+      setTags([]);
+      setTagsLoading(false);
+      return;
+    }
     setTagsLoading(true);
     try {
       setGlobalError(null);
@@ -169,9 +205,14 @@ export default function AdminBlogManagementPage() {
     } finally {
       setTagsLoading(false);
     }
-  }, []);
+  }, [isAdmin]);
 
   const loadMetrics = useCallback(async () => {
+    if (!isAdmin) {
+      setMetricsOverview(null);
+      setMetricsLoading(false);
+      return;
+    }
     setMetricsLoading(true);
     try {
       setGlobalError(null);
@@ -182,9 +223,15 @@ export default function AdminBlogManagementPage() {
     } finally {
       setMetricsLoading(false);
     }
-  }, []);
+  }, [isAdmin]);
 
   const loadComments = useCallback(async () => {
+    if (!isAdmin) {
+      setComments([]);
+      setCommentPagination(null);
+      setCommentsLoading(false);
+      return;
+    }
     setCommentsLoading(true);
     try {
       setGlobalError(null);
@@ -201,23 +248,39 @@ export default function AdminBlogManagementPage() {
     } finally {
       setCommentsLoading(false);
     }
-  }, [commentFilters]);
+  }, [commentFilters, isAdmin]);
 
   useEffect(() => {
+    if (!isAdmin) {
+      return;
+    }
     loadPosts();
     loadCategories();
     loadTags();
     loadMetrics();
-  }, [loadPosts, loadCategories, loadTags, loadMetrics]);
+  }, [isAdmin, loadPosts, loadCategories, loadTags, loadMetrics]);
 
   useEffect(() => {
+    if (!isAdmin) {
+      return;
+    }
     loadComments();
-  }, [loadComments]);
+  }, [isAdmin, loadComments]);
 
-  const handleMenuSelect = (itemId) => {
-    setActiveSection(itemId);
-    setFullscreenPanel(null);
-  };
+  const handleMenuSelect = useCallback(
+    (itemId, item) => {
+      if (item?.href) {
+        navigate(item.href);
+        return;
+      }
+      const target = item?.sectionId ?? item?.id ?? itemId;
+      if (target) {
+        setActiveSection(target);
+        setFullscreenPanel(null);
+      }
+    },
+    [navigate],
+  );
 
   const handleSelectPost = (post) => {
     setSelectedPostId(post.id);
@@ -488,6 +551,26 @@ export default function AdminBlogManagementPage() {
     }
   };
 
+  if (!isAdmin) {
+    return (
+      <DashboardLayout
+        currentDashboard="admin"
+        title="Blog"
+        menuSections={ADMIN_BLOG_MENU_SECTIONS}
+        availableDashboards={AVAILABLE_DASHBOARDS}
+        activeMenuItem={activeSection}
+        onMenuItemSelect={handleMenuSelect}
+        profile={session}
+      >
+        <div className="px-6 py-12">
+          <div className="rounded-3xl border border-amber-200 bg-amber-50/80 p-6 text-sm text-amber-800">
+            Admin access required to manage the Gigvora blog workspace.
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout
       currentDashboard="admin"
@@ -496,6 +579,7 @@ export default function AdminBlogManagementPage() {
       availableDashboards={AVAILABLE_DASHBOARDS}
       activeMenuItem={activeSection}
       onMenuItemSelect={handleMenuSelect}
+      profile={session}
     >
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-10">
         {globalError ? (
