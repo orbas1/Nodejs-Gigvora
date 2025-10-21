@@ -1,5 +1,3 @@
-import { FeedPost } from '../models/index.js';
-
 const GUARDIAN_ENDPOINT = 'https://content.guardianapis.com/search';
 const DEFAULT_QUERY = 'gig economy OR freelance OR marketplace OR future of work';
 const DEFAULT_SECTIONS = ['business', 'technology', 'world'];
@@ -15,6 +13,16 @@ let workerLogger = console;
 let lastRunAt = null;
 let lastSuccessfulRunAt = null;
 let lastError = null;
+let FeedPostModel = null;
+
+async function loadFeedPostModel() {
+  if (FeedPostModel) {
+    return FeedPostModel;
+  }
+  const module = await import('../models/index.js');
+  FeedPostModel = module.FeedPost;
+  return FeedPostModel;
+}
 
 function decodeHtmlEntities(text = '') {
   return text
@@ -78,7 +86,8 @@ async function ensureLatestPublishedAt() {
   if (latestPublishedAt) {
     return;
   }
-  const mostRecent = await FeedPost.findOne({
+  const model = await loadFeedPostModel();
+  const mostRecent = await model.findOne({
     where: { type: 'news' },
     order: [
       ['publishedAt', 'DESC'],
@@ -95,7 +104,8 @@ async function publishArticle(article) {
     return null;
   }
 
-  const existing = await FeedPost.findOne({ where: { externalId: article.externalId } });
+  const model = await loadFeedPostModel();
+  const existing = await model.findOne({ where: { externalId: article.externalId } });
   const summary = article.summary?.slice(0, 800) || '';
   const content = summary || article.title;
   const publishedAt = article.publishedAt ?? new Date();
@@ -117,7 +127,7 @@ async function publishArticle(article) {
     return existing;
   }
 
-  return FeedPost.create({
+  return model.create({
     userId: null,
     content,
     summary,
@@ -211,9 +221,25 @@ export function getNewsAggregationStatus() {
   };
 }
 
+export function __setNewsAggregationModels({ FeedPost: customFeedPost } = {}) {
+  FeedPostModel = customFeedPost ?? null;
+}
+
+export function __resetNewsAggregationState() {
+  stopNewsAggregationWorker();
+  isRunning = false;
+  latestPublishedAt = null;
+  lastRunAt = null;
+  lastSuccessfulRunAt = null;
+  lastError = null;
+  FeedPostModel = null;
+}
+
 export default {
   startNewsAggregationWorker,
   stopNewsAggregationWorker,
   runNewsAggregationOnce,
   getNewsAggregationStatus,
+  __setNewsAggregationModels,
+  __resetNewsAggregationState,
 };

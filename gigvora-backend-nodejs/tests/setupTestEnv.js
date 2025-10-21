@@ -17,7 +17,7 @@ const REQUIRED_ENV_DEFAULTS = {
 
 function ensureEnvironmentDefaults() {
   if (typeof process.env.SKIP_SEQUELIZE_BOOTSTRAP === 'undefined') {
-    process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'false';
+    process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'true';
   }
 
   Object.entries(REQUIRED_ENV_DEFAULTS).forEach(([key, value]) => {
