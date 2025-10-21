@@ -3,9 +3,14 @@ import request from 'supertest';
 import { jest } from '@jest/globals';
 import { fileURLToPath } from 'url';
 
-const mockAuthenticate = jest.fn(() => (req, res, next) => {
-  req.user = req.user || { id: Number.parseInt(req.params.id ?? req.body?.id ?? '1', 10) || 1, roles: ['user'] };
-  next();
+const authenticateRegistrations = [];
+const mockAuthenticate = jest.fn((options = {}) => {
+  authenticateRegistrations.push(options);
+  return (req, res, next) => {
+    req.user =
+      req.user || { id: Number.parseInt(req.params.id ?? req.body?.id ?? '1', 10) || 1, roles: ['user'] };
+    next();
+  };
 });
 
 const createJsonResponder = (status = 200, payload = { ok: true }) =>
@@ -82,12 +87,23 @@ const createStubRouter = () => {
   return router;
 };
 
+const userModelMock = {
+  findAll: jest.fn(async () => []),
+  findByPk: jest.fn(async (id) => ({
+    id,
+    update: jest.fn(async () => undefined),
+    get: jest.fn(() => ({ plain: { id } })),
+  })),
+};
+
 const authenticateModulePath = fileURLToPath(new URL('../../src/middleware/authenticate.js', import.meta.url));
 const userControllerModulePath = fileURLToPath(new URL('../../src/controllers/userController.js', import.meta.url));
 const userDisputeControllerModulePath = fileURLToPath(new URL('../../src/controllers/userDisputeController.js', import.meta.url));
 const careerDocumentControllerModulePath = fileURLToPath(new URL('../../src/controllers/careerDocumentController.js', import.meta.url));
 const creationStudioControllerModulePath = fileURLToPath(new URL('../../src/controllers/creationStudioController.js', import.meta.url));
 const notificationControllerModulePath = fileURLToPath(new URL('../../src/controllers/notificationController.js', import.meta.url));
+const modelsModuleUrl = new URL('../../src/models/index.js', import.meta.url).href;
+const modelsModulePath = fileURLToPath(new URL('../../src/models/index.js', import.meta.url));
 const userNetworkingRoutesModulePath = fileURLToPath(new URL('../../src/routes/userNetworkingRoutes.js', import.meta.url));
 const userVolunteeringRoutesModulePath = fileURLToPath(new URL('../../src/routes/userVolunteeringRoutes.js', import.meta.url));
 const userConsentRoutesModulePath = fileURLToPath(new URL('../../src/routes/userConsentRoutes.js', import.meta.url));
@@ -127,6 +143,16 @@ jest.unstable_mockModule(notificationControllerModulePath, () => ({
   __esModule: true,
   ...notificationControllerMock,
 }));
+
+jest.unstable_mockModule(modelsModuleUrl, () => ({
+  __esModule: true,
+  User: userModelMock,
+}), { virtual: true });
+
+jest.unstable_mockModule(modelsModulePath, () => ({
+  __esModule: true,
+  User: userModelMock,
+}), { virtual: true });
 
 jest.unstable_mockModule(userNetworkingRoutesModulePath, () => ({
   __esModule: true,
@@ -218,7 +244,7 @@ describe('userRoutes', () => {
   });
 
   test('configures ownership-aware authentication for community workspaces', () => {
-    const registrationCalls = mockAuthenticate.mock.calls.map(([options]) => options);
+    const registrationCalls = authenticateRegistrations;
 
     expect(registrationCalls).toEqual(
       expect.arrayContaining([
