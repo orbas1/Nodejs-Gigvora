@@ -10,6 +10,7 @@ import {
   TestimonialsSection,
   MarketplaceLaunchesSection,
   CreationStudioSection,
+  FeesShowcaseSection,
   JoinCommunitySection,
   CollaborationToolkitSection,
 } from './home/index.js';
@@ -103,6 +104,7 @@ export default function HomePage() {
       />
       <CollaborationToolkitSection />
       <CreationStudioSection loading={homeLoading} error={homeError} />
+      <FeesShowcaseSection />
       <JoinCommunitySection />
     </div>
   );
