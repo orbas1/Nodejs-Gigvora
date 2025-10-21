@@ -1,4 +1,5 @@
 import { MapPinIcon, ClockIcon } from '@heroicons/react/24/outline';
+import PropTypes from 'prop-types';
 
 function initialsFromProfile(profile) {
   const name = profile?.fullName || '';
@@ -20,6 +21,7 @@ export default function ProfileSummaryCard({
   avatarUploading,
   onShowFollowers,
   onShowConnections,
+  onShowPending,
 }) {
   const stats = profile?.stats ?? {};
   const availability = profile?.availability ?? {};
@@ -32,13 +34,19 @@ export default function ProfileSummaryCard({
       ? 'Leave'
       : 'Limited';
 
+  const handleAvatarRequest = typeof onRequestAvatar === 'function' ? onRequestAvatar : () => {};
+  const handleEdit = typeof onEdit === 'function' ? onEdit : () => {};
+  const handleFollowers = typeof onShowFollowers === 'function' ? onShowFollowers : () => {};
+  const handleConnections = typeof onShowConnections === 'function' ? onShowConnections : () => {};
+  const handlePending = typeof onShowPending === 'function' ? onShowPending : handleConnections;
+
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex flex-1 flex-col gap-4 sm:flex-row sm:items-start">
           <button
             type="button"
-            onClick={onRequestAvatar}
+            onClick={handleAvatarRequest}
             className="relative flex h-28 w-28 items-center justify-center overflow-hidden rounded-3xl border border-slate-200 bg-slate-100 text-2xl font-semibold text-slate-700 transition hover:border-slate-300"
             disabled={avatarUploading}
           >
@@ -62,7 +70,7 @@ export default function ProfileSummaryCard({
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={onEdit}
+                  onClick={handleEdit}
                   className="rounded-full bg-slate-900 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700"
                 >
                   Edit
@@ -91,7 +99,7 @@ export default function ProfileSummaryCard({
         <div className="grid w-full max-w-xs grid-cols-3 gap-2 text-center text-xs font-medium text-slate-600 sm:max-w-none sm:grid-cols-3">
           <button
             type="button"
-            onClick={onShowFollowers}
+            onClick={handleFollowers}
             className="group rounded-3xl border border-slate-200 bg-slate-50 px-3 py-2 transition hover:border-slate-300 hover:bg-white"
           >
             <p className="text-[11px] uppercase tracking-wide text-slate-400">Followers</p>
@@ -99,7 +107,7 @@ export default function ProfileSummaryCard({
           </button>
           <button
             type="button"
-            onClick={onShowConnections}
+            onClick={handleConnections}
             className="group rounded-3xl border border-slate-200 bg-slate-50 px-3 py-2 transition hover:border-slate-300 hover:bg-white"
           >
             <p className="text-[11px] uppercase tracking-wide text-slate-400">Connections</p>
@@ -107,7 +115,7 @@ export default function ProfileSummaryCard({
           </button>
           <button
             type="button"
-            onClick={onShowConnections}
+            onClick={handlePending}
             className="group rounded-3xl border border-slate-200 bg-slate-50 px-3 py-2 transition hover:border-slate-300 hover:bg-white"
           >
             <p className="text-[11px] uppercase tracking-wide text-slate-400">Pending</p>
@@ -118,3 +126,43 @@ export default function ProfileSummaryCard({
     </div>
   );
 }
+
+ProfileSummaryCard.propTypes = {
+  profile: PropTypes.shape({
+    fullName: PropTypes.string,
+    headline: PropTypes.string,
+    avatar: PropTypes.shape({
+      url: PropTypes.string,
+      initials: PropTypes.string,
+    }),
+    stats: PropTypes.shape({
+      followerCount: PropTypes.number,
+      connectionCount: PropTypes.number,
+      pendingConnections: PropTypes.number,
+    }),
+    availability: PropTypes.shape({
+      status: PropTypes.string,
+    }),
+    locationDetails: PropTypes.shape({
+      summary: PropTypes.string,
+    }),
+    location: PropTypes.string,
+    timezone: PropTypes.string,
+  }),
+  onEdit: PropTypes.func,
+  onRequestAvatar: PropTypes.func,
+  avatarUploading: PropTypes.bool,
+  onShowFollowers: PropTypes.func,
+  onShowConnections: PropTypes.func,
+  onShowPending: PropTypes.func,
+};
+
+ProfileSummaryCard.defaultProps = {
+  profile: null,
+  onEdit: () => {},
+  onRequestAvatar: () => {},
+  avatarUploading: false,
+  onShowFollowers: () => {},
+  onShowConnections: () => {},
+  onShowPending: undefined,
+};
