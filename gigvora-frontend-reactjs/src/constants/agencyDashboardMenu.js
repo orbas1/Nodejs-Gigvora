@@ -20,7 +20,9 @@ import {
   WrenchScrewdriverIcon,
 } from '@heroicons/react/24/outline';
 
-export const AGENCY_DASHBOARD_MENU_SECTIONS = [
+import { createMenuRegistry } from './menuSchema.js';
+
+const agencyDashboardMenuSections = [
   {
     id: 'agency-main',
     label: 'Main',
@@ -173,7 +175,7 @@ export const AGENCY_DASHBOARD_MENU_SECTIONS = [
   },
 ];
 
-export const AGENCY_DASHBOARD_MENU = [
+const agencyDashboardMenu = [
   {
     id: 'workspace',
     label: 'Workspace',
@@ -214,7 +216,7 @@ export const AGENCY_DASHBOARD_MENU = [
   },
 ];
 
-export const AGENCY_ESCROW_MENU = [
+const agencyEscrowMenu = [
   {
     id: 'escrow-ops',
     label: 'Escrow',
@@ -227,7 +229,7 @@ export const AGENCY_ESCROW_MENU = [
   },
 ];
 
-export const AGENCY_CRM_MENU_SECTIONS = [
+const agencyCrmMenuSections = [
   {
     id: 'agency-pipeline',
     label: 'Pipeline',
@@ -248,6 +250,23 @@ export const AGENCY_CRM_MENU_SECTIONS = [
     ],
   },
 ];
+
+export const AGENCY_DASHBOARD_MENU_SECTIONS = createMenuRegistry(agencyDashboardMenuSections, {
+  moduleName: 'agencyDashboardMenuSections',
+});
+
+export const AGENCY_DASHBOARD_MENU = createMenuRegistry(agencyDashboardMenu, {
+  moduleName: 'agencyDashboardMenu',
+  requireSectionId: false,
+});
+
+export const AGENCY_ESCROW_MENU = createMenuRegistry(agencyEscrowMenu, {
+  moduleName: 'agencyEscrowMenu',
+});
+
+export const AGENCY_CRM_MENU_SECTIONS = createMenuRegistry(agencyCrmMenuSections, {
+  moduleName: 'agencyCrmMenuSections',
+});
 
 export const AGENCY_AVAILABLE_DASHBOARDS = ['agency', 'company', 'freelancer', 'user'];
 

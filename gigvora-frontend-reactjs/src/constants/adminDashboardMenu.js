@@ -1,4 +1,6 @@
-export const ADMIN_DASHBOARD_MENU_SECTIONS = [
+import { createMenuRegistry } from './menuSchema.js';
+
+const sections = [
   {
     label: 'Core',
     items: [
@@ -162,5 +164,7 @@ export const ADMIN_DASHBOARD_MENU_SECTIONS = [
     ],
   },
 ];
+
+export const ADMIN_DASHBOARD_MENU_SECTIONS = createMenuRegistry(sections, { moduleName: 'adminDashboardMenu' });
 
 export default ADMIN_DASHBOARD_MENU_SECTIONS;

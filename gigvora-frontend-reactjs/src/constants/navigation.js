@@ -11,7 +11,9 @@ import {
   UsersIcon,
 } from '@heroicons/react/24/outline';
 
-export const marketingNavigation = [
+import { deepFreeze } from './menuSchema.js';
+
+const marketingNavigationConfig = deepFreeze([
   {
     id: 'solutions',
     label: 'Solutions',
@@ -212,9 +214,11 @@ export const marketingNavigation = [
       },
     ],
   },
-];
+]);
 
-export const roleDashboardMapping = {
+export const marketingNavigation = marketingNavigationConfig;
+
+export const roleDashboardMapping = deepFreeze({
   user: '/dashboard/user',
   freelancer: '/dashboard/freelancer',
   agency: '/dashboard/agency',
@@ -223,7 +227,7 @@ export const roleDashboardMapping = {
   headhunter: '/dashboard/headhunter',
   launchpad: '/dashboard/launchpad',
   admin: '/dashboard/admin',
-};
+});
 
 export const timelineAccessRoles = Object.freeze([
   'user',

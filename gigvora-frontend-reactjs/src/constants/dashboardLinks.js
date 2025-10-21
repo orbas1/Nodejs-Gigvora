@@ -1,4 +1,6 @@
-export const DASHBOARD_LINKS = {
+import { deepFreeze } from './menuSchema.js';
+
+const dashboardLinks = deepFreeze({
   user: {
     label: 'User & Job Seeker',
     path: '/dashboard/user',
@@ -27,4 +29,6 @@ export const DASHBOARD_LINKS = {
     label: 'Mentor',
     path: '/dashboard/mentor',
   },
-};
+});
+
+export const DASHBOARD_LINKS = dashboardLinks;
