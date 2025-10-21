@@ -105,6 +105,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     return GigvoraScaffold(
       title: 'Join Gigvora',
       subtitle: 'Freelancer & professional signup',
+      useAppDrawer: true,
       body: SingleChildScrollView(
         child: Column(
           children: [

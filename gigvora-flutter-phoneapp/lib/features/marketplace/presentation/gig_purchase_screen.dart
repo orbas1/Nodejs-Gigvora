@@ -48,6 +48,7 @@ class GigPurchaseScreen extends ConsumerWidget {
     return GigvoraScaffold(
       title: 'Gig purchase',
       subtitle: 'Secure your next delivery sprint',
+      useAppDrawer: true,
       actions: [
         IconButton(
           tooltip: 'Refresh packages',

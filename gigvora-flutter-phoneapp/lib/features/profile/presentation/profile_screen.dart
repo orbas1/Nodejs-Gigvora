@@ -55,6 +55,7 @@ class ProfileScreen extends ConsumerWidget {
       return GigvoraScaffold(
         title: 'Profile',
         subtitle: 'Secure workspace',
+        useAppDrawer: true,
         body: Center(
           child: GigvoraCard(
             child: Column(
@@ -86,6 +87,7 @@ class ProfileScreen extends ConsumerWidget {
       return GigvoraScaffold(
         title: 'Profile',
         subtitle: session?.roleLabel(session.activeMembership) ?? 'Workspace access required',
+        useAppDrawer: true,
         body: Center(
           child: GigvoraCard(
             child: Column(
@@ -117,6 +119,7 @@ class ProfileScreen extends ConsumerWidget {
       return GigvoraScaffold(
         title: 'Profile',
         subtitle: 'No profile linked',
+        useAppDrawer: true,
         body: Center(
           child: GigvoraCard(
             child: Column(
@@ -260,6 +263,7 @@ class ProfileScreen extends ConsumerWidget {
     return GigvoraScaffold(
       title: profile?.fullName ?? 'Profile',
       subtitle: profile?.headline ?? 'Your Gigvora presence',
+      useAppDrawer: true,
       actions: [
         IconButton(
           tooltip: 'Refresh profile',

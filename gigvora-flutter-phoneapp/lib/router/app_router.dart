@@ -52,6 +52,7 @@ import '../features/company_ats/presentation/company_ats_screen.dart';
 import '../features/creation_studio/presentation/creation_studio_screen.dart';
 import '../features/app_boot/splash_screen.dart';
 import '../features/calendar/presentation/calendar_screen.dart';
+import '../features/settings/presentation/settings_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -152,6 +153,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/pages', builder: (context, state) => const PagesScreen()),
       GoRoute(path: '/support', builder: (context, state) => const SupportScreen()),
+      GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
       GoRoute(path: '/about', builder: (context, state) => const AboutUsScreen()),
       GoRoute(path: '/privacy', builder: (context, state) => const PrivacyPolicyScreen()),
       GoRoute(path: '/inbox', builder: (context, state) => const InboxScreen()),

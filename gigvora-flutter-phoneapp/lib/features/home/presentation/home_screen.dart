@@ -32,6 +32,7 @@ class HomeScreen extends ConsumerWidget {
       return GigvoraScaffold(
         title: l10n.translate('home.guestTitle'),
         subtitle: l10n.translate('home.guestSubtitle'),
+        useAppDrawer: true,
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -184,10 +185,11 @@ class HomeScreen extends ConsumerWidget {
         session.dashboardFor(session.memberships.first) ??
         session.dashboards.values.first;
 
-    return GigvoraScaffold(
-      title: 'Hi, ${session.name.split(' ').first}',
-      subtitle: '${session.title} • ${session.location}',
-      actions: [
+      return GigvoraScaffold(
+        title: 'Hi, ${session.name.split(' ').first}',
+        subtitle: '${session.title} • ${session.location}',
+        useAppDrawer: true,
+        actions: [
         IconButton(
           tooltip: 'Log out',
           onPressed: () {

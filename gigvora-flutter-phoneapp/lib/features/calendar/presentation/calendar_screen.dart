@@ -64,6 +64,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     return GigvoraScaffold(
       title: 'Team calendar',
       subtitle: 'Production ready scheduling',
+      useAppDrawer: true,
       actions: [
         IconButton(
           tooltip: 'Refresh events',

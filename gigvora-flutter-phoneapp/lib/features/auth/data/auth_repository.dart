@@ -232,6 +232,26 @@ class AuthRepository {
       },
     );
   }
+
+  Future<void> requestPasswordReset(String email) {
+    return _client.post(
+      '/auth/password/forgot',
+      body: {'email': email},
+    );
+  }
+
+  Future<void> confirmPasswordReset({
+    required String token,
+    required String password,
+  }) {
+    return _client.post(
+      '/auth/password/reset',
+      body: {
+        'token': token,
+        'password': password,
+      },
+    );
+  }
 }
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
