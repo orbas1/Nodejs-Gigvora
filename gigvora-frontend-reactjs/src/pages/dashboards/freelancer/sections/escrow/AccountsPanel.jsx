@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { PlusIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
+import { ExclamationTriangleIcon, PencilSquareIcon, PlusIcon } from '@heroicons/react/24/outline';
 import SlideOver from './components/SlideOver.jsx';
 
 const PROVIDERS = [
@@ -8,7 +8,7 @@ const PROVIDERS = [
   { value: 'trustshare', label: 'Trustshare' },
 ];
 
-function AccountForm({ initialValue, onSubmit, submitting }) {
+function AccountForm({ initialValue, onSubmit, submitting, error, onClose }) {
   const [form, setForm] = useState(() => ({
     provider: initialValue?.provider ?? 'escrow_com',
     currencyCode: initialValue?.currencyCode ?? 'USD',
@@ -31,14 +31,18 @@ function AccountForm({ initialValue, onSubmit, submitting }) {
     }));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    onSubmit({
-      provider: form.provider,
-      currencyCode: form.currencyCode,
-      metadata: { accountLabel: form.accountLabel },
-      settings: form.settings,
-    });
+    try {
+      await onSubmit({
+        provider: form.provider,
+        currencyCode: form.currencyCode,
+        metadata: { accountLabel: form.accountLabel.trim() },
+        settings: form.settings,
+      });
+    } catch (error_) {
+      // Parent component surfaces the error message.
+    }
   };
 
   return (
@@ -109,24 +113,46 @@ function AccountForm({ initialValue, onSubmit, submitting }) {
           Manual hold
         </label>
       </div>
-      <div className="flex justify-end">
-        <button
-          type="submit"
-          disabled={submitting}
-          className="rounded-full bg-slate-900 px-6 py-2 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20 disabled:cursor-not-allowed disabled:bg-slate-400"
-        >
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={submitting}
+            className="rounded-full bg-slate-900 px-6 py-2 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20 disabled:cursor-not-allowed disabled:bg-slate-400"
+          >
           {submitting ? 'Saving…' : 'Save'}
-        </button>
-      </div>
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+            className="ml-3 rounded-full border border-slate-300 px-6 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Cancel
+          </button>
+        </div>
+      {error ? (
+        <div className="flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700">
+          <ExclamationTriangleIcon className="h-4 w-4" aria-hidden="true" />
+          <span>{error}</span>
+        </div>
+      ) : null}
     </form>
   );
 }
 
-function formatMoney(value) {
+function formatMoney(value, currencyCode = 'USD') {
   if (value == null) {
     return '—';
   }
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(Number(value));
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: currencyCode,
+      maximumFractionDigits: 2,
+    }).format(Number(value));
+  } catch (error) {
+    return Number(value).toFixed(2);
+  }
 }
 
 export default function AccountsPanel({ accounts, onCreate, onUpdate, loading, actionState }) {
@@ -134,27 +160,55 @@ export default function AccountsPanel({ accounts, onCreate, onUpdate, loading, a
   const [mode, setMode] = useState('create');
   const [selectedAccount, setSelectedAccount] = useState(null);
 
-  const orderedAccounts = useMemo(() => [...accounts].sort((a, b) => b.currentBalance - a.currentBalance), [accounts]);
+  const [drawerError, setDrawerError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const safeAccounts = useMemo(() => (Array.isArray(accounts) ? accounts.filter(Boolean) : []), [accounts]);
+
+  const orderedAccounts = useMemo(
+    () =>
+      [...safeAccounts].sort((a, b) => {
+        const first = Number(b?.currentBalance ?? 0);
+        const second = Number(a?.currentBalance ?? 0);
+        return first - second;
+      }),
+    [safeAccounts],
+  );
+
+  const drawerBusy = submitting || actionState?.status === 'pending';
 
   const handleCreate = () => {
     setMode('create');
     setSelectedAccount(null);
+    setDrawerError(null);
     setOpenDrawer(true);
   };
 
   const handleEdit = (account) => {
     setMode('edit');
     setSelectedAccount(account);
+    setDrawerError(null);
     setOpenDrawer(true);
   };
 
   const handleSubmit = async (payload) => {
-    if (mode === 'edit' && selectedAccount) {
-      await onUpdate(selectedAccount.id, payload);
-    } else {
-      await onCreate(payload);
+    setDrawerError(null);
+    setSubmitting(true);
+    try {
+      if (mode === 'edit' && selectedAccount) {
+        await onUpdate(selectedAccount.id, payload);
+      } else {
+        await onCreate(payload);
+      }
+      setOpenDrawer(false);
+      setSelectedAccount(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to save escrow account.';
+      setDrawerError(message);
+      throw error;
+    } finally {
+      setSubmitting(false);
     }
-    setOpenDrawer(false);
   };
 
   return (
@@ -187,15 +241,17 @@ export default function AccountsPanel({ accounts, onCreate, onUpdate, loading, a
             <dl className="mt-4 space-y-2 text-sm text-slate-600">
               <div className="flex justify-between">
                 <dt>Balance</dt>
-                <dd className="font-semibold text-slate-900">{formatMoney(account.currentBalance)}</dd>
+                <dd className="font-semibold text-slate-900">
+                  {formatMoney(account.currentBalance, account.currencyCode)}
+                </dd>
               </div>
               <div className="flex justify-between">
                 <dt>Held</dt>
-                <dd>{formatMoney(account.outstandingBalance)}</dd>
+                <dd>{formatMoney(account.outstandingBalance, account.currencyCode)}</dd>
               </div>
               <div className="flex justify-between">
                 <dt>Released</dt>
-                <dd>{formatMoney(account.releasedVolume)}</dd>
+                <dd>{formatMoney(account.releasedVolume, account.currencyCode)}</dd>
               </div>
             </dl>
             <div className="mt-4 flex items-center justify-between text-xs text-slate-500">
@@ -206,6 +262,7 @@ export default function AccountsPanel({ accounts, onCreate, onUpdate, loading, a
               type="button"
               onClick={() => handleEdit(account)}
               className="mt-5 inline-flex items-center justify-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:border-slate-400 hover:bg-slate-50"
+              disabled={drawerBusy}
             >
               <PencilSquareIcon className="h-4 w-4" />
               Manage
@@ -221,14 +278,27 @@ export default function AccountsPanel({ accounts, onCreate, onUpdate, loading, a
 
       <SlideOver
         open={openDrawer}
-        onClose={() => setOpenDrawer(false)}
+        onClose={() => {
+          if (!drawerBusy) {
+            setOpenDrawer(false);
+            setDrawerError(null);
+          }
+        }}
         title={mode === 'edit' ? 'Edit account' : 'New account'}
         description="Configure the escrow account your projects will use."
       >
         <AccountForm
           initialValue={selectedAccount}
           onSubmit={handleSubmit}
-          submitting={actionState.status === 'pending'}
+          submitting={drawerBusy}
+          error={drawerError}
+          onClose={() => {
+            if (!drawerBusy) {
+              setOpenDrawer(false);
+              setDrawerError(null);
+              setSelectedAccount(null);
+            }
+          }}
         />
       </SlideOver>
     </div>

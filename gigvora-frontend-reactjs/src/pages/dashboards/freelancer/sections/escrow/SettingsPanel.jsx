@@ -1,11 +1,16 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 
 export default function SettingsPanel({ accounts, onUpdate }) {
   const [savingId, setSavingId] = useState(null);
+  const [error, setError] = useState(null);
+
+  const safeAccounts = useMemo(() => (Array.isArray(accounts) ? accounts.filter(Boolean) : []), [accounts]);
 
   const toggleSetting = async (account, key) => {
     const nextValue = !Boolean(account.settings?.[key]);
     setSavingId(account.id);
+    setError(null);
     try {
       await onUpdate(account.id, {
         provider: account.provider,
@@ -13,6 +18,12 @@ export default function SettingsPanel({ accounts, onUpdate }) {
         metadata: { accountLabel: account.metadata?.accountLabel },
         settings: { ...account.settings, [key]: nextValue },
       });
+    } catch (toggleError) {
+      const message =
+        toggleError instanceof Error
+          ? toggleError.message
+          : 'Unable to update the escrow account settings right now.';
+      setError(message);
     } finally {
       setSavingId(null);
     }
@@ -21,8 +32,14 @@ export default function SettingsPanel({ accounts, onUpdate }) {
   return (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold text-slate-900">Controls</h3>
+      {error ? (
+        <div className="flex items-center gap-2 rounded-3xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <ExclamationTriangleIcon className="h-4 w-4" aria-hidden="true" />
+          <span>{error}</span>
+        </div>
+      ) : null}
       <div className="grid gap-4 md:grid-cols-2">
-        {accounts.map((account) => (
+        {safeAccounts.map((account) => (
           <div key={account.id} className="space-y-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
@@ -82,7 +99,7 @@ export default function SettingsPanel({ accounts, onUpdate }) {
             </div>
           </div>
         ))}
-        {!accounts.length ? (
+        {!safeAccounts.length ? (
           <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
             Add an account first to configure its controls.
           </div>

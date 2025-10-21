@@ -3,26 +3,65 @@ import { ClockIcon } from '@heroicons/react/24/outline';
 
 function formatDate(value) {
   if (!value) return '—';
-  return new Date(value).toLocaleString();
+  const instance = new Date(value);
+  if (Number.isNaN(instance.getTime())) {
+    return '—';
+  }
+  return instance.toLocaleString();
+}
+
+function formatAmount(amount, currencyCode) {
+  if (amount == null) {
+    return '—';
+  }
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: currencyCode || 'USD',
+      maximumFractionDigits: 2,
+    }).format(Number(amount));
+  } catch (error) {
+    return Number(amount).toFixed(2);
+  }
 }
 
 export default function ActivityPanel({ activity, transactions }) {
   const [transactionFilter, setTransactionFilter] = useState('all');
 
+  const safeTransactions = useMemo(
+    () => (Array.isArray(transactions) ? transactions.filter(Boolean) : []),
+    [transactions],
+  );
+
+  const safeActivity = useMemo(
+    () => (Array.isArray(activity) ? activity.filter(Boolean) : []),
+    [activity],
+  );
+
+  const orderedActivity = useMemo(
+    () =>
+      [...safeActivity].sort(
+        (first, second) =>
+          new Date(second?.occurredAt ?? 0).getTime() - new Date(first?.occurredAt ?? 0).getTime(),
+      ),
+    [safeActivity],
+  );
+
   const transactionOptions = useMemo(() => {
     const options = new Map();
-    transactions.forEach((txn) => {
-      options.set(String(txn.id), txn.reference || `#${txn.id}`);
+    safeTransactions.forEach((txn, index) => {
+      const identifier = txn?.id ?? `${txn?.reference ?? 'txn'}-${index}`;
+      options.set(String(identifier), txn?.reference || `#${identifier}`);
     });
     return Array.from(options.entries());
-  }, [transactions]);
+  }, [safeTransactions]);
 
   const filteredActivity = useMemo(() => {
     if (transactionFilter === 'all') {
-      return activity;
+      return orderedActivity;
     }
-    return activity.filter((item) => String(item.transactionId) === transactionFilter);
-  }, [activity, transactionFilter]);
+    return orderedActivity.filter((item) => String(item?.transactionId) === transactionFilter);
+  }, [orderedActivity, transactionFilter]);
 
   return (
     <div className="space-y-6">
@@ -50,9 +89,11 @@ export default function ActivityPanel({ activity, transactions }) {
         ))}
       </div>
       <div className="space-y-4">
-        {filteredActivity.map((entry) => (
+        {filteredActivity.map((entry, index) => {
+          const key = entry?.id ?? `${entry?.transactionId ?? 'activity'}-${entry?.occurredAt ?? index}-${index}`;
+          return (
           <div
-            key={`${entry.transactionId}-${entry.occurredAt}-${entry.action}`}
+            key={key}
             className="flex items-start gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
           >
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-white">
@@ -65,10 +106,13 @@ export default function ActivityPanel({ activity, transactions }) {
               </div>
               <p className="mt-2 text-sm font-semibold text-slate-900">{entry.action?.replace('_', ' ')}</p>
               <p className="text-sm text-slate-600">{entry.notes || 'System event'}</p>
-              <p className="mt-2 text-xs text-slate-400">Amount: {entry.amount}</p>
+              <p className="mt-2 text-xs text-slate-400">
+                Amount: {formatAmount(entry.amount, entry.currencyCode)}
+              </p>
             </div>
           </div>
-        ))}
+        );
+        })}
         {!filteredActivity.length ? (
           <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
             No activity logged yet.
