@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import {
   BoltIcon,
+  ChatBubbleBottomCenterTextIcon,
   CloudArrowUpIcon,
   GlobeAltIcon,
   PaperClipIcon,
   ShieldCheckIcon,
+  SwatchIcon,
 } from '@heroicons/react/24/outline';
 
 const DEFAULT_ATTACHMENT = {
@@ -306,6 +308,106 @@ export default function MentorSettingsSection({ settings, saving, onSaveSettings
 
         <section className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6">
           <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+            <SwatchIcon className="h-5 w-5 text-accent" />
+            Brand kit & hero presence
+          </h3>
+          <p className="text-sm text-slate-600">Craft the visuals and copy powering Explorer hero modules, landing pages, and automated assets.</p>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+              Primary colour
+              <input
+                type="color"
+                value={formState.brandPrimaryColor ?? '#0ea5e9'}
+                onChange={(event) => setFormState((current) => ({ ...current, brandPrimaryColor: event.target.value }))}
+                className="h-11 w-full cursor-pointer rounded-2xl border border-slate-200 bg-white p-1"
+              />
+            </label>
+            <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+              Secondary colour
+              <input
+                type="color"
+                value={formState.brandSecondaryColor ?? '#10b981'}
+                onChange={(event) => setFormState((current) => ({ ...current, brandSecondaryColor: event.target.value }))}
+                className="h-11 w-full cursor-pointer rounded-2xl border border-slate-200 bg-white p-1"
+              />
+            </label>
+            <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+              Hero tagline
+              <input
+                type="text"
+                value={formState.heroTagline ?? ''}
+                onChange={(event) => setFormState((current) => ({ ...current, heroTagline: event.target.value }))}
+                placeholder="Designing promotion rituals for product leaders"
+                className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm text-slate-800 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+              />
+            </label>
+          </div>
+          <div
+            className="rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 p-6 text-white"
+            style={{
+              background: formState.brandPrimaryColor && formState.brandSecondaryColor
+                ? `linear-gradient(135deg, ${formState.brandPrimaryColor}, ${formState.brandSecondaryColor})`
+                : undefined,
+            }}
+          >
+            <p className="text-xs uppercase tracking-[0.3em] text-white/70">Explorer preview</p>
+            <p className="mt-3 text-lg font-semibold">{formState.heroTagline || 'Set your headline promise here'}</p>
+            <p className="text-xs text-white/70">Colours update instantly across Explorer and onboarding emails.</p>
+          </div>
+        </section>
+
+        <section className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50/80 p-6">
+          <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+            <ChatBubbleBottomCenterTextIcon className="h-5 w-5 text-accent" />
+            Communication templates
+          </h3>
+          <p className="text-sm text-slate-600">Personalise confirmations, reminders, and recap workflows. Variables like {'{'}{'{'}mentee.firstName{'}'}{'}'} auto-merge.</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+              Booking confirmation email
+              <textarea
+                rows={4}
+                value={formState.confirmationEmailTemplate ?? ''}
+                onChange={(event) => setFormState((current) => ({ ...current, confirmationEmailTemplate: event.target.value }))}
+                placeholder="Hi {{mentee.firstName}}, thrilled to confirm our session..."
+                className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm text-slate-800 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+              />
+            </label>
+            <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+              24h reminder SMS
+              <textarea
+                rows={4}
+                value={formState.reminderSmsTemplate ?? ''}
+                onChange={(event) => setFormState((current) => ({ ...current, reminderSmsTemplate: event.target.value }))}
+                placeholder="Heads up {{mentee.firstName}} – tomorrow's session covers ..."
+                className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm text-slate-800 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+              />
+            </label>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+              <span>Send agenda summary to Slack</span>
+              <input
+                type="checkbox"
+                checked={Boolean(formState.sendAgendaSlack)}
+                onChange={() => setFormState((current) => ({ ...current, sendAgendaSlack: !current?.sendAgendaSlack }))}
+                className="h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent"
+              />
+            </label>
+            <label className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+              <span>Dispatch recap email automatically</span>
+              <input
+                type="checkbox"
+                checked={Boolean(formState.sendRecapEmail)}
+                onChange={() => setFormState((current) => ({ ...current, sendRecapEmail: !current?.sendRecapEmail }))}
+                className="h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent"
+              />
+            </label>
+          </div>
+        </section>
+
+        <section className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6">
+          <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
             <ShieldCheckIcon className="h-5 w-5 text-accent" />
             Integrations
           </h3>
@@ -350,6 +452,13 @@ MentorSettingsSection.propTypes = {
     zoomRoom: PropTypes.string,
     videoGreeting: PropTypes.string,
     signature: PropTypes.string,
+    brandPrimaryColor: PropTypes.string,
+    brandSecondaryColor: PropTypes.string,
+    heroTagline: PropTypes.string,
+    confirmationEmailTemplate: PropTypes.string,
+    reminderSmsTemplate: PropTypes.string,
+    sendAgendaSlack: PropTypes.bool,
+    sendRecapEmail: PropTypes.bool,
     availabilityLeadTimeHours: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
     bookingWindowDays: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
     autoAcceptReturning: PropTypes.bool,

@@ -31,6 +31,45 @@ const STAGES = [
   { value: 4, label: 'Launch plan' },
 ];
 
+const CREATION_NARRATIVE_TEMPLATES = {
+  cv: {
+    summary:
+      'Outcome-led CV emphasising executive rituals, quantified wins, and narrative arcs tailored to high-growth product leadership roles.',
+    deliverables: [
+      'Career arc with impact metrics and promotion evidence',
+      'Leadership rituals + operating cadence summary',
+      'Signature frameworks visualised for quick reference',
+    ],
+  },
+  cover_letter: {
+    summary:
+      'Story-driven introduction that weaves through pivotal launches, stakeholder partnerships, and measurable product outcomes.',
+    deliverables: [
+      'Hook paragraph highlighting category leadership',
+      'Three proof points aligned to target role outcomes',
+      'Call-to-action inviting deeper exploration',
+    ],
+  },
+  gig: {
+    summary:
+      'Premium gig outlining transformation promise, rituals, and supporting artefacts to activate mentee pipeline instantly.',
+    deliverables: [
+      'Hero narrative with before/after transformation',
+      'Session-by-session breakdown with outcomes',
+      'Proof vault linking to testimonials and case studies',
+    ],
+  },
+  mentorship_offering: {
+    summary:
+      'Signature mentorship journey combining live sessions, async reviews, and community rituals tailored to growth-stage leaders.',
+    deliverables: [
+      'Programme roadmap with milestones and rituals',
+      'Tool stack + accountability cadences',
+      'Scaling plan for cohorts and async support',
+    ],
+  },
+};
+
 const DEFAULT_ITEM = {
   title: '',
   type: ITEM_TYPES[0].value,
@@ -127,12 +166,43 @@ export default function MentorCreationStudioWizardSection({
   const [attachmentForm, setAttachmentForm] = useState(DEFAULT_ATTACHMENT);
   const [feedback, setFeedback] = useState(null);
   const [typeFilter, setTypeFilter] = useState('all');
+  const [stageFilter, setStageFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const filteredItems = useMemo(() => {
-    if (!items?.length) return [];
-    if (typeFilter === 'all') return items;
-    return items.filter((item) => item.type === typeFilter);
-  }, [items, typeFilter]);
+    const list = items ?? [];
+    return list
+      .filter((item) => (typeFilter === 'all' ? true : item.type === typeFilter))
+      .filter((item) => (stageFilter === 'all' ? true : Number(item.stage) === Number(stageFilter)))
+      .filter((item) => (statusFilter === 'all' ? true : item.status === statusFilter))
+      .filter((item) => {
+        if (!searchQuery) return true;
+        const haystack = `${item.title} ${item.summary ?? ''} ${item.persona ?? ''} ${item.targetRole ?? ''}`.toLowerCase();
+        return haystack.includes(searchQuery.toLowerCase());
+      })
+      .sort((a, b) => {
+        const aDate = a.lastEditedAt ? new Date(a.lastEditedAt).getTime() : 0;
+        const bDate = b.lastEditedAt ? new Date(b.lastEditedAt).getTime() : 0;
+        return bDate - aDate;
+      });
+  }, [items, typeFilter, stageFilter, statusFilter, searchQuery]);
+
+  const stageSummary = useMemo(() => {
+    const list = items ?? [];
+    return STAGES.map((stage) => ({
+      ...stage,
+      count: list.filter((item) => Number(item.stage) === Number(stage.value)).length,
+    }));
+  }, [items]);
+
+  const statusSummary = useMemo(() => {
+    const list = items ?? [];
+    return STATUSES.map((status) => ({
+      status,
+      count: list.filter((item) => item.status === status).length,
+    }));
+  }, [items]);
 
   const activeStep = WIZARD_STEPS[activeStepIndex];
 
@@ -238,6 +308,34 @@ export default function MentorCreationStudioWizardSection({
           <p className="text-xs">{filteredItems.length} visible with current filters</p>
         </div>
       </header>
+
+      <div className="grid gap-4 lg:grid-cols-5">
+        <div className="rounded-3xl border border-emerald-100 bg-emerald-50/70 p-5 text-sm text-emerald-800 shadow-sm lg:col-span-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Stage distribution</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {stageSummary.map((stage) => (
+              <div key={stage.value} className="flex items-center justify-between rounded-2xl bg-white/70 px-3 py-2 text-xs">
+                <span className="font-semibold text-slate-600">{stage.label}</span>
+                <span className="text-slate-900">{stage.count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-3xl border border-sky-100 bg-sky-50/70 p-5 text-sm text-sky-800 shadow-sm lg:col-span-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">Status health</p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            {statusSummary.map((entry) => (
+              <span
+                key={entry.status}
+                className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white/80 px-4 py-2 text-xs font-semibold text-slate-600"
+              >
+                <span className="h-2 w-2 rounded-full bg-sky-500" />
+                {entry.status}: {entry.count}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
 
       {feedback ? (
         <div
@@ -369,6 +467,25 @@ export default function MentorCreationStudioWizardSection({
                   />
                   <span className="text-xs font-medium text-slate-500">Separate deliverables with new lines. These power Explorer cards.</span>
                 </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const template = CREATION_NARRATIVE_TEMPLATES[wizardItem.type];
+                    if (template) {
+                      setWizardItem((current) => ({
+                        ...current,
+                        summary: template.summary,
+                        deliverables: template.deliverables.join('\n'),
+                      }));
+                      setFeedback({ type: 'success', message: 'Narrative template applied. Refine copy to match your tone.' });
+                    } else {
+                      setFeedback({ type: 'error', message: 'No template available for this creation type yet.' });
+                    }
+                  }}
+                  className="inline-flex items-center gap-2 self-start rounded-full border border-slate-200 px-4 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+                >
+                  Load best-practice narrative
+                </button>
                 <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
                   Next step
                   <input
@@ -576,19 +693,59 @@ export default function MentorCreationStudioWizardSection({
             <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Creation inventory</h3>
             <p className="text-xs text-slate-500">Manage drafts, launch plans, and published experiences.</p>
           </div>
-          <div className="flex items-center gap-2">
-            <select
-              value={typeFilter}
-              onChange={(event) => setTypeFilter(event.target.value)}
-              className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-            >
-              <option value="all">All types</option>
-              {ITEM_TYPES.map((type) => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
-            </select>
+          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
+            <label className="flex items-center gap-2">
+              Type
+              <select
+                value={typeFilter}
+                onChange={(event) => setTypeFilter(event.target.value)}
+                className="rounded-full border border-slate-200 px-3 py-1 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
+              >
+                <option value="all">All</option>
+                {ITEM_TYPES.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-2">
+              Stage
+              <select
+                value={stageFilter}
+                onChange={(event) => setStageFilter(event.target.value)}
+                className="rounded-full border border-slate-200 px-3 py-1 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
+              >
+                <option value="all">All</option>
+                {STAGES.map((stage) => (
+                  <option key={stage.value} value={stage.value}>
+                    {stage.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-2">
+              Status
+              <select
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+                className="rounded-full border border-slate-200 px-3 py-1 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
+              >
+                <option value="all">All</option>
+                {STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search"
+              className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
+            />
           </div>
         </div>
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
