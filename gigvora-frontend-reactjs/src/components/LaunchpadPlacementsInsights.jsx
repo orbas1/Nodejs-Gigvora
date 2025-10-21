@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import DataStatus from './DataStatus.jsx';
 import { formatRelativeTime } from '../utils/date.js';
 
@@ -209,3 +210,28 @@ export default function LaunchpadPlacementsInsights({ dashboard, loading, error,
     </section>
   );
 }
+
+LaunchpadPlacementsInsights.propTypes = {
+  dashboard: PropTypes.shape({
+    pipeline: PropTypes.object,
+    placements: PropTypes.object,
+    employerBriefs: PropTypes.array,
+    upcomingInterviews: PropTypes.array,
+    matches: PropTypes.array,
+    totals: PropTypes.shape({
+      autoAssignments: PropTypes.number,
+      applications: PropTypes.number,
+      conversionRate: PropTypes.number,
+    }),
+    refreshedAt: PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.instanceOf(Date)]),
+    opportunities: PropTypes.object,
+  }),
+  loading: PropTypes.bool,
+  error: PropTypes.shape({
+    message: PropTypes.string,
+  }),
+  onRefresh: PropTypes.func,
+  launchpad: PropTypes.shape({
+    title: PropTypes.string,
+  }),
+};

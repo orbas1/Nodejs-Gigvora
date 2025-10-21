@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import {
   ArrowPathIcon,
   ChatBubbleLeftRightIcon,
@@ -394,5 +395,13 @@ DashboardInboxPanel.defaultProps = {
   workspaceId: null,
   workspaceSlug: null,
   session: null,
+};
+
+DashboardInboxPanel.propTypes = {
+  workspaceId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  workspaceSlug: PropTypes.string,
+  session: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  }),
 };
 

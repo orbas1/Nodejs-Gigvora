@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import DataStatus from './DataStatus.jsx';
 import useDebounce from '../hooks/useDebounce.js';
@@ -442,3 +443,7 @@ export default function LaunchpadCandidatePipeline({ launchpadId }) {
     </section>
   );
 }
+
+LaunchpadCandidatePipeline.propTypes = {
+  launchpadId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+};

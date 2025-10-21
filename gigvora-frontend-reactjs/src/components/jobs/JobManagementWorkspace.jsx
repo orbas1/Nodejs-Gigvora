@@ -843,6 +843,8 @@ export default function JobManagementWorkspace() {
     updateItem,
     removeItem,
     resetCollection,
+    clearCollection,
+    hasSeedData,
   } = useLocalCollection('job-postings-v1', { seed: SEED_JOB_POSTINGS });
 
   const [search, setSearch] = useState('');
@@ -948,9 +950,18 @@ export default function JobManagementWorkspace() {
           <button
             type="button"
             onClick={resetCollection}
-            className="inline-flex items-center rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+            disabled={!hasSeedData}
+            className="inline-flex items-center rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-60"
           >
             Restore sample roles
+          </button>
+          <button
+            type="button"
+            onClick={clearCollection}
+            disabled={jobs.length === 0}
+            className="inline-flex items-center rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-600 transition hover:border-rose-300 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Clear workspace
           </button>
           <button
             type="button"

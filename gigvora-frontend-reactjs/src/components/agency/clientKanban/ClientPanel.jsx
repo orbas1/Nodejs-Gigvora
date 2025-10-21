@@ -7,8 +7,15 @@ import {
   EnvelopeIcon,
   PhoneIcon,
   MapPinIcon,
+  UserIcon,
 } from '@heroicons/react/24/outline';
-import { HEALTH_TONES, classNames, formatCurrency } from './utils.js';
+import {
+  HEALTH_TONES,
+  classNames,
+  formatCurrency,
+  normalizeExternalUrl,
+  buildTelHref,
+} from './utils.js';
 
 export default function ClientPanel({
   open,
@@ -102,27 +109,7 @@ export default function ClientPanel({
             </button>
           </header>
           <dl className="space-y-2 text-xs text-slate-500">
-            <div className="flex items-center gap-2 text-slate-600">
-              <EnvelopeIcon className="h-4 w-4 text-slate-400" />
-              <span>{activeClient.primaryContactEmail ?? 'No email'}</span>
-            </div>
-            <div className="flex items-center gap-2 text-slate-600">
-              <PhoneIcon className="h-4 w-4 text-slate-400" />
-              <span>{activeClient.primaryContactName ?? 'No contact'}</span>
-            </div>
-            {activeClient.websiteUrl ? (
-              <div className="flex items-center gap-2 text-slate-600">
-                <MapPinIcon className="h-4 w-4 text-slate-400" />
-                <a
-                  href={activeClient.websiteUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="truncate text-xs font-semibold text-accent hover:text-accentDark"
-                >
-                  {activeClient.websiteUrl}
-                </a>
-              </div>
-            ) : null}
+            <ContactDetails activeClient={activeClient} />
             <div className="flex items-center justify-between text-slate-600">
               <span>Annual value</span>
               <span className="font-semibold text-slate-900">
@@ -150,6 +137,68 @@ export default function ClientPanel({
     </aside>
   );
 }
+
+function ContactDetails({ activeClient }) {
+  const safeEmail = activeClient.primaryContactEmail?.trim();
+  const contactName = activeClient.primaryContactName ?? 'No contact';
+  const phone =
+    activeClient.primaryContactPhone ?? activeClient.primaryContactPhoneNumber ?? activeClient.contactPhone ?? '';
+  const phoneHref = buildTelHref(phone);
+  const websiteUrl = normalizeExternalUrl(activeClient.websiteUrl);
+
+  return (
+    <>
+      <div className="flex items-center gap-2 text-slate-600">
+        <EnvelopeIcon className="h-4 w-4 text-slate-400" />
+        {safeEmail ? (
+          <a href={`mailto:${encodeURIComponent(safeEmail)}`} className="text-xs font-semibold text-accent hover:text-accentDark">
+            {safeEmail}
+          </a>
+        ) : (
+          <span>No email</span>
+        )}
+      </div>
+      <div className="flex items-center gap-2 text-slate-600">
+        <UserIcon className="h-4 w-4 text-slate-400" />
+        <span>{contactName}</span>
+      </div>
+      <div className="flex items-center gap-2 text-slate-600">
+        <PhoneIcon className="h-4 w-4 text-slate-400" />
+        {phoneHref ? (
+          <a href={phoneHref} className="text-xs font-semibold text-accent hover:text-accentDark">
+            {phone}
+          </a>
+        ) : (
+          <span>No phone</span>
+        )}
+      </div>
+      {websiteUrl ? (
+        <div className="flex items-center gap-2 text-slate-600">
+          <MapPinIcon className="h-4 w-4 text-slate-400" />
+          <a
+            href={websiteUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="truncate text-xs font-semibold text-accent hover:text-accentDark"
+          >
+            {new URL(websiteUrl).host}
+          </a>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+ContactDetails.propTypes = {
+  activeClient: PropTypes.shape({
+    primaryContactEmail: PropTypes.string,
+    primaryContactName: PropTypes.string,
+    primaryContactPhone: PropTypes.string,
+    primaryContactPhoneNumber: PropTypes.string,
+    contactPhone: PropTypes.string,
+    websiteUrl: PropTypes.string,
+  }).isRequired,
+};
 
 ClientPanel.propTypes = {
   open: PropTypes.bool,

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { PlusIcon } from '@heroicons/react/24/outline';
 
 function PackageCard({ pack, onRemove }) {
@@ -42,7 +43,7 @@ function PackageCard({ pack, onRemove }) {
   );
 }
 
-export default function MentorPackageBuilder({ packages = [], onSave, saving = false, analytics }) {
+export default function MentorPackageBuilder({ packages = [], onSave, saving = false, analytics } = {}) {
   const [items, setItems] = useState(() =>
     packages.map((item) => ({
       ...item,
@@ -68,6 +69,13 @@ export default function MentorPackageBuilder({ packages = [], onSave, saving = f
     setSuccess(false);
     if (!formState.name.trim()) {
       setError('Name your package to help mentees understand what they are booking.');
+      return;
+    }
+    const duplicate = items.some(
+      (pack) => pack.name.toLowerCase() === formState.name.trim().toLowerCase(),
+    );
+    if (duplicate) {
+      setError('You have already configured this package. Adjust the name or details to continue.');
       return;
     }
     const id = `${formState.name}-${formState.sessions}-${formState.price}-${Date.now()}`;
@@ -223,3 +231,24 @@ export default function MentorPackageBuilder({ packages = [], onSave, saving = f
     </section>
   );
 }
+
+MentorPackageBuilder.propTypes = {
+  packages: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string,
+      name: PropTypes.string.isRequired,
+      description: PropTypes.string,
+      sessions: PropTypes.number.isRequired,
+      price: PropTypes.number.isRequired,
+      currency: PropTypes.string.isRequired,
+      format: PropTypes.string,
+      outcome: PropTypes.string,
+    }),
+  ),
+  onSave: PropTypes.func,
+  saving: PropTypes.bool,
+  analytics: PropTypes.shape({
+    track: PropTypes.func,
+  }),
+};
+

@@ -1,3 +1,5 @@
+import PropTypes from 'prop-types';
+
 function formatCurrency(cents, currency = 'USD') {
   if (!Number.isFinite(Number(cents))) {
     return '—';
@@ -81,3 +83,22 @@ export default function ProjectPaySplitTable({ splits = [] }) {
     </div>
   );
 }
+
+ProjectPaySplitTable.propTypes = {
+  splits: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      contributorName: PropTypes.string,
+      contributorType: PropTypes.string,
+      allocationAmountCents: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      currency: PropTypes.string,
+      allocationPercent: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      payoutCadence: PropTypes.string,
+      status: PropTypes.string,
+    })
+  ),
+};
+
+ProjectPaySplitTable.defaultProps = {
+  splits: [],
+};

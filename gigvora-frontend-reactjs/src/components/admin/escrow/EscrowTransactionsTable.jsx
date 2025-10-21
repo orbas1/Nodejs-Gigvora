@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
+import PropTypes from 'prop-types';
 import { Dialog, Transition } from '@headlessui/react';
 
 const STATUS_BADGES = {
@@ -411,3 +412,48 @@ export default function EscrowTransactionsTable({
     </section>
   );
 }
+
+EscrowTransactionsTable.propTypes = {
+  transactions: PropTypes.shape({
+    items: PropTypes.arrayOf(
+      PropTypes.shape({
+        id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+        reference: PropTypes.string,
+        status: PropTypes.string,
+        amount: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+        currencyCode: PropTypes.string,
+        buyer: PropTypes.shape({ name: PropTypes.string, email: PropTypes.string }),
+        seller: PropTypes.shape({ name: PropTypes.string, email: PropTypes.string }),
+        scheduledReleaseAt: PropTypes.string,
+        updatedAt: PropTypes.string,
+        metadata: PropTypes.object,
+      }),
+    ),
+    pagination: PropTypes.shape({
+      page: PropTypes.number,
+      totalPages: PropTypes.number,
+      totalItems: PropTypes.number,
+    }),
+  }),
+  filters: PropTypes.shape({
+    status: PropTypes.string,
+    provider: PropTypes.string,
+    search: PropTypes.string,
+    page: PropTypes.number,
+  }),
+  onFilterChange: PropTypes.func,
+  onUpdateTransaction: PropTypes.func,
+  onRelease: PropTypes.func,
+  onRefund: PropTypes.func,
+  currency: PropTypes.string,
+};
+
+EscrowTransactionsTable.defaultProps = {
+  transactions: undefined,
+  filters: {},
+  onFilterChange: undefined,
+  onUpdateTransaction: undefined,
+  onRelease: undefined,
+  onRefund: undefined,
+  currency: 'USD',
+};

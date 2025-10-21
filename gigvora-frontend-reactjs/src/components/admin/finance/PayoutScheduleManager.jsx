@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { CalendarDaysIcon, ClockIcon, PlusIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 const DEFAULT_SCHEDULE = {
@@ -14,6 +15,17 @@ const DEFAULT_SCHEDULE = {
   autoApprove: false,
   fundingSource: '',
   notes: '',
+};
+
+const defaultFormatDate = (value) => {
+  if (!value) {
+    return '—';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '—';
+  }
+  return date.toLocaleString();
 };
 
 function ScheduleModal({ open, schedule, onClose, onSubmit, saving, error }) {
@@ -250,7 +262,13 @@ function ScheduleModal({ open, schedule, onClose, onSubmit, saving, error }) {
   );
 }
 
-export default function PayoutScheduleManager({ payoutSchedules, onCreate, onUpdate, onDelete, formatDate }) {
+export default function PayoutScheduleManager({
+  payoutSchedules,
+  onCreate,
+  onUpdate,
+  onDelete,
+  formatDate = defaultFormatDate,
+}) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -405,3 +423,35 @@ export default function PayoutScheduleManager({ payoutSchedules, onCreate, onUpd
     </section>
   );
 }
+
+PayoutScheduleManager.propTypes = {
+  payoutSchedules: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      name: PropTypes.string,
+      scheduleType: PropTypes.string,
+      cadence: PropTypes.string,
+      dayOfWeek: PropTypes.string,
+      dayOfMonth: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      leadTimeDays: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      payoutWindow: PropTypes.string,
+      status: PropTypes.string,
+      nextRunOn: PropTypes.string,
+      autoApprove: PropTypes.bool,
+      fundingSource: PropTypes.string,
+      notes: PropTypes.string,
+    }),
+  ),
+  onCreate: PropTypes.func,
+  onUpdate: PropTypes.func,
+  onDelete: PropTypes.func,
+  formatDate: PropTypes.func,
+};
+
+PayoutScheduleManager.defaultProps = {
+  payoutSchedules: [],
+  onCreate: undefined,
+  onUpdate: undefined,
+  onDelete: undefined,
+  formatDate: defaultFormatDate,
+};

@@ -7,7 +7,7 @@ import {
   publishCreationStudioItem,
 } from '../../services/creationStudio.js';
 import useSession from '../../hooks/useSession.js';
-import { CREATION_TYPES, getTypeConfig } from './config.js';
+import { CREATION_TYPES, getTypeConfig, evaluateCreationAccess } from './config.js';
 import StudioLayout from './layout/StudioLayout.jsx';
 import TypeGallery from './panels/TypeGallery.jsx';
 import ItemShelf from './panels/ItemShelf.jsx';

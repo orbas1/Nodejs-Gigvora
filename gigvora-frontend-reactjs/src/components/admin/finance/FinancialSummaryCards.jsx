@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { ArrowPathIcon, BanknotesIcon, ChartBarIcon, ShieldCheckIcon, ClipboardDocumentCheckIcon } from '@heroicons/react/24/outline';
 
 const CARD_STYLES = [
@@ -6,6 +7,26 @@ const CARD_STYLES = [
   { icon: ShieldCheckIcon, accent: 'from-indigo-500/10 to-indigo-500/5 text-indigo-700', border: 'border-indigo-200' },
   { icon: ClipboardDocumentCheckIcon, accent: 'from-amber-500/10 to-amber-500/5 text-amber-700', border: 'border-amber-200' },
 ];
+
+const defaultFormatCurrency = (amount) => {
+  const numeric = Number(amount ?? 0);
+  if (!Number.isFinite(numeric)) {
+    return '$0';
+  }
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: numeric >= 1000 ? 0 : 2,
+  }).format(numeric);
+};
+
+const defaultFormatNumber = (value) => {
+  const numeric = Number(value ?? 0);
+  if (!Number.isFinite(numeric)) {
+    return '0';
+  }
+  return new Intl.NumberFormat('en-US').format(Math.round(numeric));
+};
 
 export default function FinancialSummaryCards({
   summary,
@@ -101,3 +122,27 @@ export default function FinancialSummaryCards({
     </section>
   );
 }
+
+FinancialSummaryCards.propTypes = {
+  summary: PropTypes.shape({
+    grossEscrowVolume: PropTypes.number,
+    netEscrowVolume: PropTypes.number,
+    pendingReleaseTotal: PropTypes.number,
+    activeScheduleCount: PropTypes.number,
+    activeAdjustmentCount: PropTypes.number,
+  }),
+  lookbackDays: PropTypes.number,
+  refreshedAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+  onRefresh: PropTypes.func,
+  formatCurrency: PropTypes.func,
+  formatNumber: PropTypes.func,
+};
+
+FinancialSummaryCards.defaultProps = {
+  summary: {},
+  lookbackDays: 30,
+  refreshedAt: undefined,
+  onRefresh: undefined,
+  formatCurrency: defaultFormatCurrency,
+  formatNumber: defaultFormatNumber,
+};

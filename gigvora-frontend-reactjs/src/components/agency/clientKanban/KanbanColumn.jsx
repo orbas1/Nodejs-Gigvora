@@ -15,8 +15,17 @@ export default function KanbanColumn({
   onDragEnd,
   onCardDrop,
 }) {
+  const accentStyle = column.color ? { boxShadow: `inset 0 4px 0 ${column.color}` } : undefined;
+  const wipLimit =
+    column.wipLimit !== undefined && column.wipLimit !== null && column.wipLimit !== ''
+      ? Number(column.wipLimit)
+      : null;
+
   return (
     <section
+      role="region"
+      aria-label={`${column.name} column`}
+      data-testid={`kanban-column-${column.id}`}
       className="flex h-full w-80 flex-col rounded-4xl border border-slate-200 bg-slate-50/70"
       onDragOver={(event) => {
         event.preventDefault();
@@ -24,7 +33,7 @@ export default function KanbanColumn({
       }}
       onDrop={(event) => onCardDrop?.(event, column)}
     >
-      <header className="flex items-center justify-between gap-2 rounded-4xl px-4 py-3">
+      <header className="flex items-center justify-between gap-2 rounded-4xl px-4 py-3" style={accentStyle}>
         <div className="flex flex-col">
           <span className={classNames('inline-flex items-center gap-2 text-sm font-semibold text-slate-900')}>
             {column.name}
@@ -32,6 +41,9 @@ export default function KanbanColumn({
               {column.cards?.length ?? 0}
             </span>
           </span>
+          {Number.isFinite(wipLimit) ? (
+            <span className="text-[11px] font-medium text-slate-500">Limit {wipLimit}</span>
+          ) : null}
         </div>
         <div className="flex gap-1">
           <button
@@ -97,6 +109,7 @@ KanbanColumn.propTypes = {
     id: PropTypes.number.isRequired,
     name: PropTypes.string.isRequired,
     color: PropTypes.string,
+    wipLimit: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
     cards: PropTypes.arrayOf(PropTypes.object),
   }).isRequired,
   onAddCard: PropTypes.func,

@@ -189,6 +189,21 @@ class ApiClient {
     );
   }
 
+  Future<dynamic> head(
+    String path, {
+    Map<String, dynamic>? query,
+    Map<String, String>? headers,
+    Duration timeout = const Duration(seconds: 12),
+  }) {
+    return _send(
+      method: 'HEAD',
+      path: path,
+      query: query,
+      headers: headers,
+      timeout: timeout,
+    );
+  }
+
   Future<dynamic> _send({
     required String method,
     required String path,
@@ -210,7 +225,7 @@ class ApiClient {
       await interceptor(context);
     }
 
-    final encodedBody = context.body == null ? null : jsonEncode(context.body);
+    final encodedBody = _encodeBody(context.body);
 
     if (_config.enableNetworkLogging) {
       _logger.fine('[${context.method}] ${context.uri}');
@@ -226,6 +241,11 @@ class ApiClient {
             .get(context.uri, headers: context.headers)
             .timeout(timeout);
         break;
+      case 'HEAD':
+        response = await _httpClient
+            .head(context.uri, headers: context.headers)
+            .timeout(timeout);
+        break;
       case 'POST':
         response = await _httpClient
             .post(context.uri, headers: context.headers, body: encodedBody)
@@ -234,6 +254,11 @@ class ApiClient {
       case 'PUT':
         response = await _httpClient
             .put(context.uri, headers: context.headers, body: encodedBody)
+            .timeout(timeout);
+        break;
+      case 'PATCH':
+        response = await _httpClient
+            .patch(context.uri, headers: context.headers, body: encodedBody)
             .timeout(timeout);
         break;
       case 'DELETE':
@@ -269,6 +294,19 @@ class ApiClient {
 
   void dispose() {
     _httpClient.close();
+  }
+
+  Object? _encodeBody(Object? body) {
+    if (body == null) {
+      return null;
+    }
+    if (body is String || body is List<int>) {
+      return body;
+    }
+    if (body is Map || body is Iterable) {
+      return jsonEncode(body);
+    }
+    return jsonEncode(body);
   }
 }
 

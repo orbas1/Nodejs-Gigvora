@@ -84,35 +84,33 @@ export function useCachedResource(
 
   useEffect(() => {
     mountedRef.current = true;
-    dependencySnapshotRef.current = { values: dependencies, initialised: true };
-    if (enabled) {
-      refresh();
-    }
     return () => {
       mountedRef.current = false;
       abortRef.current?.abort();
       dependencySnapshotRef.current = { values: [], initialised: false };
     };
-  }, [dependencies, enabled, refresh]);
+  }, []);
 
   useEffect(() => {
     if (!enabled) {
+      abortRef.current?.abort();
       dependencySnapshotRef.current = { values: [], initialised: false };
+      setState((prev) => (prev.loading ? { ...prev, loading: false } : prev));
       return;
     }
 
+    const currentDependencies = Array.isArray(dependencies) ? dependencies : [];
     const snapshot = dependencySnapshotRef.current;
     const hasChanged =
-      snapshot.values.length !== dependencies.length ||
-      dependencies.some((value, index) => value !== snapshot.values[index]);
-
-    if (!snapshot.initialised) {
-      dependencySnapshotRef.current = { values: dependencies, initialised: true };
-      return;
-    }
+      !snapshot.initialised ||
+      snapshot.values.length !== currentDependencies.length ||
+      currentDependencies.some((value, index) => value !== snapshot.values[index]);
 
     if (hasChanged) {
-      dependencySnapshotRef.current = { values: dependencies, initialised: true };
+      dependencySnapshotRef.current = {
+        values: currentDependencies.slice(),
+        initialised: true,
+      };
       refresh();
     }
   }, [dependencies, enabled, refresh]);

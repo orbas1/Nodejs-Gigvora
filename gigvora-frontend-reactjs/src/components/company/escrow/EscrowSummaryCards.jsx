@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import {
   BanknotesIcon,
   ArrowTrendingUpIcon,
@@ -77,6 +78,33 @@ function SummaryOverlay({ card, detail, onClose }) {
     </div>
   );
 }
+
+SummaryOverlay.propTypes = {
+  card: PropTypes.shape({
+    key: PropTypes.string,
+    label: PropTypes.string,
+    value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  }),
+  detail: PropTypes.shape({
+    title: PropTypes.string.isRequired,
+    subtitle: PropTypes.string,
+    rows: PropTypes.arrayOf(
+      PropTypes.shape({
+        id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+        label: PropTypes.string.isRequired,
+        value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+        helper: PropTypes.string,
+      }),
+    ),
+    emptyState: PropTypes.string,
+  }),
+  onClose: PropTypes.func.isRequired,
+};
+
+SummaryOverlay.defaultProps = {
+  card: null,
+  detail: null,
+};
 
 export default function EscrowSummaryCards({
   summary,
@@ -286,3 +314,62 @@ export default function EscrowSummaryCards({
     </>
   );
 }
+
+EscrowSummaryCards.propTypes = {
+  summary: PropTypes.shape({
+    totalBalance: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    pendingRelease: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    activeAccounts: PropTypes.number,
+    totalAccounts: PropTypes.number,
+    openTransactions: PropTypes.number,
+    releasedInWindow: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  }),
+  currency: PropTypes.string,
+  accounts: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+      label: PropTypes.string,
+      currentBalance: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      pendingReleaseTotal: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      status: PropTypes.string,
+      currencyCode: PropTypes.string,
+      owner: PropTypes.shape({ name: PropTypes.string }),
+    }),
+  ),
+  transactions: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+      reference: PropTypes.string.isRequired,
+      amount: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      netAmount: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      status: PropTypes.string,
+      currencyCode: PropTypes.string,
+      releasedAt: PropTypes.string,
+    }),
+  ),
+  releaseQueue: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+      reference: PropTypes.string.isRequired,
+      amount: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      currencyCode: PropTypes.string,
+      scheduledReleaseAt: PropTypes.string,
+    }),
+  ),
+  disputes: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+      status: PropTypes.string,
+      summary: PropTypes.string,
+    }),
+  ),
+};
+
+EscrowSummaryCards.defaultProps = {
+  summary: null,
+  currency: 'USD',
+  accounts: [],
+  transactions: [],
+  releaseQueue: [],
+  disputes: [],
+};

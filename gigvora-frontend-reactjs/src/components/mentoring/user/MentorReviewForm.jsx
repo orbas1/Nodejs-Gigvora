@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 
 function buildMentorLabel(mentor) {
   if (!mentor) return '';
@@ -221,3 +222,32 @@ export default function MentorReviewForm({
     </form>
   );
 }
+
+MentorReviewForm.propTypes = {
+  sessions: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      mentorId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      topic: PropTypes.string,
+      mentor: PropTypes.shape({
+        id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+        firstName: PropTypes.string,
+        lastName: PropTypes.string,
+        profile: PropTypes.object,
+      }),
+    }),
+  ),
+  mentors: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      firstName: PropTypes.string,
+      lastName: PropTypes.string,
+      profile: PropTypes.object,
+    }),
+  ),
+  onSubmit: PropTypes.func,
+  onCancel: PropTypes.func,
+  initialValues: PropTypes.object,
+  submitting: PropTypes.bool,
+};
+

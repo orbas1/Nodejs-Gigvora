@@ -52,6 +52,20 @@ function relativeTime(value) {
   return rtf.format(days, 'day');
 }
 
+function trimValue(value) {
+  return `${value ?? ''}`.trim();
+}
+
+function trimOrNull(value) {
+  const trimmed = trimValue(value);
+  return trimmed ? trimmed : null;
+}
+
+function toOptionalNumber(value) {
+  const numeric = Number(trimValue(value));
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
 export default function IdVerificationDetailDrawer({
   open,
   verification,
@@ -94,23 +108,24 @@ export default function IdVerificationDetailDrawer({
     setStatusMessage(null);
     setErrorMessage(null);
     try {
+      const issuingCountry = trimOrNull(draft.issuingCountry);
       await onUpdate?.(verification.id, {
         status: draft.status,
-        reviewerId: draft.reviewerId || null,
-        reviewNotes: draft.reviewNotes || null,
-        declinedReason: draft.declinedReason || null,
-        documentFrontKey: draft.documentFrontKey || null,
-        documentBackKey: draft.documentBackKey || null,
-        selfieKey: draft.selfieKey || null,
-        typeOfId: draft.typeOfId || null,
-        idNumberLast4: draft.idNumberLast4 || null,
-        issuingCountry: draft.issuingCountry || null,
-        addressLine1: draft.addressLine1,
-        addressLine2: draft.addressLine2 || null,
-        city: draft.city,
-        state: draft.state || null,
-        postalCode: draft.postalCode,
-        country: draft.country,
+        reviewerId: toOptionalNumber(draft.reviewerId),
+        reviewNotes: trimOrNull(draft.reviewNotes),
+        declinedReason: trimOrNull(draft.declinedReason),
+        documentFrontKey: trimOrNull(draft.documentFrontKey),
+        documentBackKey: trimOrNull(draft.documentBackKey),
+        selfieKey: trimOrNull(draft.selfieKey),
+        typeOfId: trimOrNull(draft.typeOfId),
+        idNumberLast4: trimOrNull(draft.idNumberLast4),
+        issuingCountry: issuingCountry ? issuingCountry.toUpperCase() : null,
+        addressLine1: trimValue(draft.addressLine1),
+        addressLine2: trimOrNull(draft.addressLine2),
+        city: trimValue(draft.city),
+        state: trimOrNull(draft.state),
+        postalCode: trimValue(draft.postalCode),
+        country: trimValue(draft.country).toUpperCase(),
       });
       setStatusMessage('Verification updated');
     } catch (error) {
@@ -316,6 +331,7 @@ export default function IdVerificationDetailDrawer({
                     value={draft.addressLine1 ?? ''}
                     onChange={handleFieldChange('addressLine1')}
                     className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    aria-label="Address line 1"
                   />
                 </div>
                 <div>
@@ -325,6 +341,7 @@ export default function IdVerificationDetailDrawer({
                     value={draft.addressLine2 ?? ''}
                     onChange={handleFieldChange('addressLine2')}
                     className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    aria-label="Address line 2"
                   />
                 </div>
                 <div>
@@ -334,6 +351,7 @@ export default function IdVerificationDetailDrawer({
                     value={draft.city ?? ''}
                     onChange={handleFieldChange('city')}
                     className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    aria-label="Address city"
                   />
                 </div>
                 <div>
@@ -343,6 +361,7 @@ export default function IdVerificationDetailDrawer({
                     value={draft.state ?? ''}
                     onChange={handleFieldChange('state')}
                     className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    aria-label="Address state"
                   />
                 </div>
                 <div>
@@ -352,6 +371,18 @@ export default function IdVerificationDetailDrawer({
                     value={draft.postalCode ?? ''}
                     onChange={handleFieldChange('postalCode')}
                     className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    aria-label="Postal code"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Issuing country</label>
+                  <input
+                    type="text"
+                    value={draft.issuingCountry ?? ''}
+                    onChange={handleFieldChange('issuingCountry')}
+                    maxLength={4}
+                    className="mt-2 w-full uppercase tracking-wide rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    aria-label="Issuing country code"
                   />
                 </div>
                 <div>
@@ -362,6 +393,7 @@ export default function IdVerificationDetailDrawer({
                     onChange={handleFieldChange('country')}
                     maxLength={4}
                     className="mt-2 w-full uppercase tracking-wide rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    aria-label="Address country"
                   />
                 </div>
               </div>
@@ -532,6 +564,7 @@ function DocumentPreview({ label, fileKey, onChange, baseUrl }) {
 }
 
 function ActionCard({ title, description, value, onChange, onSubmit, disabled, submitLabel }) {
+  const safeValue = typeof value === 'string' ? value : value ?? '';
   return (
     <form onSubmit={onSubmit} className="space-y-3 rounded-3xl border border-slate-200 bg-slate-50/70 p-4">
       <div>
@@ -539,14 +572,14 @@ function ActionCard({ title, description, value, onChange, onSubmit, disabled, s
         <p className="text-xs text-slate-500">{description}</p>
       </div>
       <textarea
-        value={value}
+        value={safeValue}
         onChange={onChange}
         rows={3}
         className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
       />
       <button
         type="submit"
-        disabled={disabled || !value.trim()}
+        disabled={disabled || !safeValue.trim()}
         className="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {submitLabel}

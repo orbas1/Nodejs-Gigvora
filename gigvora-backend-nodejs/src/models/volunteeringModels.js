@@ -11,6 +11,16 @@ function ensureModel(name, factory) {
   return factory();
 }
 
+const arrayOrEmpty = (value) => (Array.isArray(value) ? value : []);
+const objectOrEmpty = (value) => (value && typeof value === 'object' && !Array.isArray(value) ? value : {});
+const toIso = (value) => {
+  if (!value) {
+    return null;
+  }
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toISOString() : null;
+};
+
 export const VOLUNTEERING_POST_STATUSES = Object.freeze(['draft', 'open', 'paused', 'closed', 'archived']);
 export const VOLUNTEERING_APPLICATION_STATUSES = Object.freeze([
   'submitted',
@@ -55,11 +65,11 @@ export const VolunteeringPost = ensureModel('VolunteeringPost', () =>
       startDate: { type: DataTypes.DATE, allowNull: true },
       endDate: { type: DataTypes.DATE, allowNull: true },
       applicationDeadline: { type: DataTypes.DATE, allowNull: true },
-      tags: { type: jsonType, allowNull: true },
-      skills: { type: jsonType, allowNull: true },
-      benefits: { type: jsonType, allowNull: true },
-      requirements: { type: jsonType, allowNull: true },
-      metadata: { type: jsonType, allowNull: true },
+      tags: { type: jsonType, allowNull: false, defaultValue: [] },
+      skills: { type: jsonType, allowNull: false, defaultValue: [] },
+      benefits: { type: jsonType, allowNull: false, defaultValue: [] },
+      requirements: { type: jsonType, allowNull: false, defaultValue: [] },
+      metadata: { type: jsonType, allowNull: false, defaultValue: {} },
     },
     {
       tableName: 'volunteering_posts',
@@ -72,6 +82,35 @@ export const VolunteeringPost = ensureModel('VolunteeringPost', () =>
     },
   ),
 );
+
+VolunteeringPost.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    createdById: plain.createdById ?? null,
+    updatedById: plain.updatedById ?? null,
+    title: plain.title,
+    summary: plain.summary ?? null,
+    description: plain.description ?? null,
+    status: plain.status,
+    location: plain.location ?? null,
+    remoteFriendly: Boolean(plain.remoteFriendly),
+    commitmentHours: plain.commitmentHours ?? null,
+    applicationUrl: plain.applicationUrl ?? null,
+    contactEmail: plain.contactEmail ?? null,
+    startDate: toIso(plain.startDate),
+    endDate: toIso(plain.endDate),
+    applicationDeadline: toIso(plain.applicationDeadline),
+    tags: arrayOrEmpty(plain.tags),
+    skills: arrayOrEmpty(plain.skills),
+    benefits: arrayOrEmpty(plain.benefits),
+    requirements: arrayOrEmpty(plain.requirements),
+    metadata: objectOrEmpty(plain.metadata),
+    createdAt: toIso(plain.createdAt),
+    updatedAt: toIso(plain.updatedAt),
+  };
+};
 
 export const VolunteeringApplication = ensureModel('VolunteeringApplication', () =>
   sequelize.define(
@@ -104,7 +143,7 @@ export const VolunteeringApplication = ensureModel('VolunteeringApplication', ()
       assignedTo: { type: DataTypes.STRING(180), allowNull: true },
       source: { type: DataTypes.STRING(120), allowNull: true },
       notes: { type: DataTypes.TEXT('long'), allowNull: true },
-      metadata: { type: jsonType, allowNull: true },
+      metadata: { type: jsonType, allowNull: false, defaultValue: {} },
     },
     {
       tableName: 'volunteering_applications',
@@ -118,6 +157,33 @@ export const VolunteeringApplication = ensureModel('VolunteeringApplication', ()
     },
   ),
 );
+
+VolunteeringApplication.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    postId: plain.postId,
+    createdById: plain.createdById ?? null,
+    updatedById: plain.updatedById ?? null,
+    candidateName: plain.candidateName,
+    candidateEmail: plain.candidateEmail ?? null,
+    candidatePhone: plain.candidatePhone ?? null,
+    resumeUrl: plain.resumeUrl ?? null,
+    portfolioUrl: plain.portfolioUrl ?? null,
+    coverLetter: plain.coverLetter ?? null,
+    status: plain.status,
+    stage: plain.stage ?? null,
+    submittedAt: toIso(plain.submittedAt),
+    reviewedAt: toIso(plain.reviewedAt),
+    assignedTo: plain.assignedTo ?? null,
+    source: plain.source ?? null,
+    notes: plain.notes ?? null,
+    metadata: objectOrEmpty(plain.metadata),
+    createdAt: toIso(plain.createdAt),
+    updatedAt: toIso(plain.updatedAt),
+  };
+};
 
 export const VolunteeringApplicationResponse = ensureModel('VolunteeringApplicationResponse', () =>
   sequelize.define(
@@ -145,9 +211,9 @@ export const VolunteeringApplicationResponse = ensureModel('VolunteeringApplicat
         defaultValue: 'internal',
       },
       message: { type: DataTypes.TEXT('long'), allowNull: false },
-      attachments: { type: jsonType, allowNull: true },
+      attachments: { type: jsonType, allowNull: false, defaultValue: [] },
       sentAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
-      metadata: { type: jsonType, allowNull: true },
+      metadata: { type: jsonType, allowNull: false, defaultValue: {} },
     },
     {
       tableName: 'volunteering_application_responses',
@@ -160,6 +226,26 @@ export const VolunteeringApplicationResponse = ensureModel('VolunteeringApplicat
     },
   ),
 );
+
+VolunteeringApplicationResponse.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    applicationId: plain.applicationId,
+    actorId: plain.actorId ?? null,
+    actorName: plain.actorName ?? null,
+    actorRole: plain.actorRole ?? null,
+    responseType: plain.responseType,
+    visibility: plain.visibility,
+    message: plain.message,
+    attachments: arrayOrEmpty(plain.attachments),
+    sentAt: toIso(plain.sentAt),
+    metadata: objectOrEmpty(plain.metadata),
+    createdAt: toIso(plain.createdAt),
+    updatedAt: toIso(plain.updatedAt),
+  };
+};
 
 export const VolunteeringInterview = ensureModel('VolunteeringInterview', () =>
   sequelize.define(
@@ -189,7 +275,7 @@ export const VolunteeringInterview = ensureModel('VolunteeringInterview', () =>
       feedback: { type: DataTypes.TEXT('long'), allowNull: true },
       score: { type: DataTypes.DECIMAL(4, 2), allowNull: true },
       notes: { type: DataTypes.TEXT('long'), allowNull: true },
-      metadata: { type: jsonType, allowNull: true },
+      metadata: { type: jsonType, allowNull: false, defaultValue: {} },
     },
     {
       tableName: 'volunteering_interviews',
@@ -203,6 +289,30 @@ export const VolunteeringInterview = ensureModel('VolunteeringInterview', () =>
     },
   ),
 );
+
+VolunteeringInterview.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    applicationId: plain.applicationId,
+    createdById: plain.createdById ?? null,
+    updatedById: plain.updatedById ?? null,
+    scheduledAt: toIso(plain.scheduledAt),
+    durationMinutes: plain.durationMinutes ?? null,
+    interviewerName: plain.interviewerName ?? null,
+    interviewerEmail: plain.interviewerEmail ?? null,
+    location: plain.location ?? null,
+    meetingUrl: plain.meetingUrl ?? null,
+    status: plain.status,
+    feedback: plain.feedback ?? null,
+    score: plain.score ?? null,
+    notes: plain.notes ?? null,
+    metadata: objectOrEmpty(plain.metadata),
+    createdAt: toIso(plain.createdAt),
+    updatedAt: toIso(plain.updatedAt),
+  };
+};
 
 export const VolunteeringContract = ensureModel('VolunteeringContract', () =>
   sequelize.define(
@@ -234,9 +344,9 @@ export const VolunteeringContract = ensureModel('VolunteeringContract', () =>
       hoursPerWeek: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
       stipendAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
       currency: { type: DataTypes.STRING(6), allowNull: false, defaultValue: 'USD' },
-      deliverables: { type: jsonType, allowNull: true },
+      deliverables: { type: jsonType, allowNull: false, defaultValue: [] },
       terms: { type: DataTypes.TEXT('long'), allowNull: true },
-      metadata: { type: jsonType, allowNull: true },
+      metadata: { type: jsonType, allowNull: false, defaultValue: {} },
     },
     {
       tableName: 'volunteering_contracts',
@@ -249,6 +359,30 @@ export const VolunteeringContract = ensureModel('VolunteeringContract', () =>
     },
   ),
 );
+
+VolunteeringContract.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    applicationId: plain.applicationId,
+    createdById: plain.createdById ?? null,
+    updatedById: plain.updatedById ?? null,
+    title: plain.title,
+    status: plain.status,
+    contractType: plain.contractType,
+    startDate: toIso(plain.startDate),
+    endDate: toIso(plain.endDate),
+    hoursPerWeek: plain.hoursPerWeek ?? null,
+    stipendAmount: plain.stipendAmount ?? null,
+    currency: plain.currency,
+    deliverables: arrayOrEmpty(plain.deliverables),
+    terms: plain.terms ?? null,
+    metadata: objectOrEmpty(plain.metadata),
+    createdAt: toIso(plain.createdAt),
+    updatedAt: toIso(plain.updatedAt),
+  };
+};
 
 export const VolunteeringContractSpend = ensureModel('VolunteeringContractSpend', () =>
   sequelize.define(
@@ -270,7 +404,7 @@ export const VolunteeringContractSpend = ensureModel('VolunteeringContractSpend'
       description: { type: DataTypes.STRING(255), allowNull: true },
       spentAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
       receiptUrl: { type: DataTypes.STRING(500), allowNull: true },
-      metadata: { type: jsonType, allowNull: true },
+      metadata: { type: jsonType, allowNull: false, defaultValue: {} },
     },
     {
       tableName: 'volunteering_contract_spend',
@@ -284,12 +418,33 @@ export const VolunteeringContractSpend = ensureModel('VolunteeringContractSpend'
   ),
 );
 
-VolunteeringPost.hasMany(VolunteeringApplication, { foreignKey: 'postId', as: 'applications' });
+VolunteeringContractSpend.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    contractId: plain.contractId,
+    createdById: plain.createdById ?? null,
+    updatedById: plain.updatedById ?? null,
+    amount: plain.amount ?? 0,
+    currency: plain.currency,
+    category: plain.category ?? null,
+    description: plain.description ?? null,
+    spentAt: toIso(plain.spentAt),
+    receiptUrl: plain.receiptUrl ?? null,
+    metadata: objectOrEmpty(plain.metadata),
+    createdAt: toIso(plain.createdAt),
+    updatedAt: toIso(plain.updatedAt),
+  };
+};
+
+VolunteeringPost.hasMany(VolunteeringApplication, { foreignKey: 'postId', as: 'applications', onDelete: 'CASCADE' });
 VolunteeringApplication.belongsTo(VolunteeringPost, { foreignKey: 'postId', as: 'post' });
 
 VolunteeringApplication.hasMany(VolunteeringApplicationResponse, {
   foreignKey: 'applicationId',
   as: 'responses',
+  onDelete: 'CASCADE',
 });
 VolunteeringApplicationResponse.belongsTo(VolunteeringApplication, {
   foreignKey: 'applicationId',
@@ -299,150 +454,9 @@ VolunteeringApplicationResponse.belongsTo(VolunteeringApplication, {
 VolunteeringApplication.hasMany(VolunteeringInterview, {
   foreignKey: 'applicationId',
   as: 'interviews',
+  onDelete: 'CASCADE',
 });
 VolunteeringInterview.belongsTo(VolunteeringApplication, {
-export const VOLUNTEERING_APPLICATION_STATUSES = [
-  'draft',
-  'submitted',
-  'interview',
-  'offer',
-  'accepted',
-  'declined',
-  'withdrawn',
-];
-
-export const VOLUNTEERING_RESPONSE_STATUSES = [
-  'awaiting_reply',
-  'info_requested',
-  'scheduled',
-  'completed',
-  'declined',
-];
-
-export const VOLUNTEERING_CONTRACT_STATUSES = ['pending', 'active', 'completed', 'cancelled'];
-
-export const VOLUNTEERING_SPEND_CATEGORIES = ['travel', 'materials', 'software', 'marketing', 'other'];
-
-export const VolunteeringApplication = sequelize.define(
-  'VolunteeringApplication',
-  {
-    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
-    title: { type: DataTypes.STRING(180), allowNull: false },
-    organizationName: { type: DataTypes.STRING(180), allowNull: false },
-    focusArea: { type: DataTypes.STRING(120), allowNull: true },
-    location: { type: DataTypes.STRING(180), allowNull: true },
-    remoteFriendly: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
-    skills: { type: jsonType, allowNull: true },
-    status: {
-      type: DataTypes.ENUM(...VOLUNTEERING_APPLICATION_STATUSES),
-      allowNull: false,
-      defaultValue: 'draft',
-    },
-    appliedAt: { type: DataTypes.DATE, allowNull: true },
-    targetStartDate: { type: DataTypes.DATE, allowNull: true },
-    hoursPerWeek: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
-    impactSummary: { type: DataTypes.TEXT, allowNull: true },
-    notes: { type: DataTypes.TEXT, allowNull: true },
-    coverImageUrl: { type: DataTypes.STRING(512), allowNull: true },
-    metadata: { type: jsonType, allowNull: true },
-  },
-  {
-    tableName: 'volunteering_applications',
-  },
-);
-
-export const VolunteeringResponse = sequelize.define(
-  'VolunteeringResponse',
-  {
-    applicationId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: { model: 'volunteering_applications', key: 'id' },
-      onDelete: 'CASCADE',
-    },
-    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
-    responderName: { type: DataTypes.STRING(180), allowNull: true },
-    responderEmail: { type: DataTypes.STRING(255), allowNull: true },
-    status: {
-      type: DataTypes.ENUM(...VOLUNTEERING_RESPONSE_STATUSES),
-      allowNull: false,
-      defaultValue: 'awaiting_reply',
-    },
-    respondedAt: { type: DataTypes.DATE, allowNull: true },
-    nextSteps: { type: DataTypes.STRING(255), allowNull: true },
-    message: { type: DataTypes.TEXT, allowNull: true },
-    attachments: { type: jsonType, allowNull: true },
-    metadata: { type: jsonType, allowNull: true },
-  },
-  {
-    tableName: 'volunteering_responses',
-  },
-);
-
-export const VolunteeringContract = sequelize.define(
-  'VolunteeringContract',
-  {
-    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
-    applicationId: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      references: { model: 'volunteering_applications', key: 'id' },
-      onDelete: 'SET NULL',
-    },
-    title: { type: DataTypes.STRING(180), allowNull: false },
-    organizationName: { type: DataTypes.STRING(180), allowNull: false },
-    status: {
-      type: DataTypes.ENUM(...VOLUNTEERING_CONTRACT_STATUSES),
-      allowNull: false,
-      defaultValue: 'pending',
-    },
-    startDate: { type: DataTypes.DATE, allowNull: true },
-    endDate: { type: DataTypes.DATE, allowNull: true },
-    expectedHours: { type: DataTypes.DECIMAL(7, 2), allowNull: true },
-    hoursCommitted: { type: DataTypes.DECIMAL(7, 2), allowNull: true },
-    financialValue: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
-    currencyCode: { type: DataTypes.STRING(6), allowNull: false, defaultValue: 'USD' },
-    impactNotes: { type: DataTypes.TEXT, allowNull: true },
-    agreementUrl: { type: DataTypes.STRING(512), allowNull: true },
-    metadata: { type: jsonType, allowNull: true },
-  },
-  {
-    tableName: 'volunteering_contracts',
-  },
-);
-
-export const VolunteeringSpend = sequelize.define(
-  'VolunteeringSpend',
-  {
-    contractId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: { model: 'volunteering_contracts', key: 'id' },
-      onDelete: 'CASCADE',
-    },
-    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
-    description: { type: DataTypes.STRING(255), allowNull: false },
-    category: {
-      type: DataTypes.ENUM(...VOLUNTEERING_SPEND_CATEGORIES),
-      allowNull: false,
-      defaultValue: 'other',
-    },
-    amount: { type: DataTypes.DECIMAL(12, 2), allowNull: false, defaultValue: 0 },
-    currencyCode: { type: DataTypes.STRING(6), allowNull: false, defaultValue: 'USD' },
-    spentAt: { type: DataTypes.DATE, allowNull: true },
-    receiptUrl: { type: DataTypes.STRING(512), allowNull: true },
-    metadata: { type: jsonType, allowNull: true },
-  },
-  {
-    tableName: 'volunteering_spend_entries',
-  },
-);
-
-VolunteeringApplication.hasMany(VolunteeringResponse, {
-  foreignKey: 'applicationId',
-  as: 'responses',
-});
-VolunteeringResponse.belongsTo(VolunteeringApplication, {
   foreignKey: 'applicationId',
   as: 'application',
 });
@@ -450,6 +464,7 @@ VolunteeringResponse.belongsTo(VolunteeringApplication, {
 VolunteeringApplication.hasMany(VolunteeringContract, {
   foreignKey: 'applicationId',
   as: 'contracts',
+  onDelete: 'CASCADE',
 });
 VolunteeringContract.belongsTo(VolunteeringApplication, {
   foreignKey: 'applicationId',
@@ -459,46 +474,29 @@ VolunteeringContract.belongsTo(VolunteeringApplication, {
 VolunteeringContract.hasMany(VolunteeringContractSpend, {
   foreignKey: 'contractId',
   as: 'spendEntries',
+  onDelete: 'CASCADE',
 });
 VolunteeringContractSpend.belongsTo(VolunteeringContract, {
-VolunteeringContract.hasMany(VolunteeringSpend, {
-  foreignKey: 'contractId',
-  as: 'spendEntries',
-});
-VolunteeringSpend.belongsTo(VolunteeringContract, {
   foreignKey: 'contractId',
   as: 'contract',
 });
 
+export async function syncVolunteeringModels(options = {}) {
+  await sequelize.sync({ alter: false, ...options });
+}
+
 export default {
-  VolunteeringPost,
-  VolunteeringApplication,
-  VolunteeringApplicationResponse,
-  VolunteeringInterview,
-  VolunteeringContract,
-  VolunteeringContractSpend,
   VOLUNTEERING_POST_STATUSES,
   VOLUNTEERING_APPLICATION_STATUSES,
   VOLUNTEERING_RESPONSE_TYPES,
   VOLUNTEERING_INTERVIEW_STATUSES,
   VOLUNTEERING_CONTRACT_STATUSES,
   VOLUNTEERING_CONTRACT_TYPES,
-export async function syncVolunteeringModels(options = {}) {
-  const syncOptions = { alter: false, ...options };
-  await VolunteeringApplication.sync(syncOptions);
-  await VolunteeringResponse.sync(syncOptions);
-  await VolunteeringContract.sync(syncOptions);
-  await VolunteeringSpend.sync(syncOptions);
-}
-
-export default {
+  VolunteeringPost,
   VolunteeringApplication,
-  VolunteeringResponse,
+  VolunteeringApplicationResponse,
+  VolunteeringInterview,
   VolunteeringContract,
-  VolunteeringSpend,
-  VOLUNTEERING_APPLICATION_STATUSES,
-  VOLUNTEERING_RESPONSE_STATUSES,
-  VOLUNTEERING_CONTRACT_STATUSES,
-  VOLUNTEERING_SPEND_CATEGORIES,
+  VolunteeringContractSpend,
   syncVolunteeringModels,
 };
