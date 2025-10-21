@@ -1,71 +1,162 @@
 import { apiClient } from './apiClient.js';
+import {
+  assertAdminAccess,
+  buildAdminCacheKey,
+  createRequestOptions,
+  encodeIdentifier,
+  fetchWithCache,
+  invalidateCacheByTag,
+  normaliseIdentifier,
+  sanitiseQueryParams,
+} from './adminServiceHelpers.js';
 
-export async function fetchDirectory(params = {}) {
-  return apiClient.get('/admin/users', { params });
+const USER_ROLES = ['super-admin', 'platform-admin', 'operations-admin', 'user-admin'];
+const CACHE_TAGS = {
+  directory: 'admin:users:directory',
+  metadata: 'admin:users:metadata',
+  user: (identifier) => `admin:users:${identifier}`,
+};
+
+function buildDirectoryParams(params = {}) {
+  return sanitiseQueryParams({
+    status: params.status,
+    role: params.role,
+    search: params.search,
+    page: params.page,
+    pageSize: params.pageSize ?? params.page_size,
+    sort: params.sort,
+  });
 }
 
-export async function fetchMetadata() {
-  return apiClient.get('/admin/users/meta');
+function userCache(userId) {
+  const identifier = normaliseIdentifier(userId, { label: 'userId' });
+  return {
+    key: buildAdminCacheKey('admin:users:detail', { userId: identifier }),
+    tag: CACHE_TAGS.user(identifier),
+  };
 }
 
-export async function fetchUser(userId) {
-  if (!userId) {
-    throw new Error('userId is required');
+async function performDirectoryMutation(userId, request) {
+  const response = await request();
+  const tags = [CACHE_TAGS.directory, CACHE_TAGS.metadata];
+  if (userId) {
+    const identifier = normaliseIdentifier(userId, { label: 'userId' });
+    tags.push(CACHE_TAGS.user(identifier));
   }
-  return apiClient.get(`/admin/users/${userId}`);
+  invalidateCacheByTag(tags);
+  return response;
 }
 
-export async function createUser(payload) {
-  return apiClient.post('/admin/users', payload);
+export function fetchDirectory(params = {}, options = {}) {
+  assertAdminAccess(USER_ROLES);
+  const cleanedParams = buildDirectoryParams(params);
+  const { forceRefresh = false, cacheTtl = 60000, ...requestOptions } = options ?? {};
+  const cacheKey = buildAdminCacheKey('admin:users:directory', cleanedParams);
+
+  return fetchWithCache(
+    cacheKey,
+    () => apiClient.get('/admin/users', createRequestOptions(requestOptions, cleanedParams)),
+    {
+      ttl: cacheTtl,
+      forceRefresh,
+      tag: CACHE_TAGS.directory,
+    },
+  );
 }
 
-export async function updateUser(userId, payload) {
-  if (!userId) {
-    throw new Error('userId is required');
-  }
-  return apiClient.patch(`/admin/users/${userId}`, payload);
+export function fetchMetadata(options = {}) {
+  assertAdminAccess(USER_ROLES);
+  const { forceRefresh = false, cacheTtl = 10 * 60 * 1000, ...requestOptions } = options ?? {};
+  const cacheKey = buildAdminCacheKey('admin:users:metadata');
+
+  return fetchWithCache(
+    cacheKey,
+    () => apiClient.get('/admin/users/meta', createRequestOptions(requestOptions)),
+    {
+      ttl: cacheTtl,
+      forceRefresh,
+      tag: CACHE_TAGS.metadata,
+    },
+  );
 }
 
-export async function updateSecurity(userId, payload) {
-  if (!userId) {
-    throw new Error('userId is required');
-  }
-  return apiClient.patch(`/admin/users/${userId}/security`, payload);
+export function fetchUser(userId, options = {}) {
+  assertAdminAccess(USER_ROLES);
+  const { forceRefresh = false, cacheTtl = 60000, ...requestOptions } = options ?? {};
+  const { key, tag } = userCache(userId);
+  const identifier = encodeIdentifier(userId, { label: 'userId' });
+
+  return fetchWithCache(
+    key,
+    () => apiClient.get(`/admin/users/${identifier}`, createRequestOptions(requestOptions)),
+    {
+      ttl: cacheTtl,
+      forceRefresh,
+      tag,
+    },
+  );
 }
 
-export async function updateStatus(userId, payload) {
-  if (!userId) {
-    throw new Error('userId is required');
-  }
-  return apiClient.patch(`/admin/users/${userId}/status`, payload);
+export function createUser(payload, options = {}) {
+  assertAdminAccess(USER_ROLES);
+  return performDirectoryMutation(null, () => apiClient.post('/admin/users', payload, options));
 }
 
-export async function updateRoles(userId, roles) {
-  if (!userId) {
-    throw new Error('userId is required');
-  }
-  return apiClient.put(`/admin/users/${userId}/roles`, { roles });
+export function updateUser(userId, payload, options = {}) {
+  assertAdminAccess(USER_ROLES);
+  const identifier = encodeIdentifier(userId, { label: 'userId' });
+  return performDirectoryMutation(userId, () =>
+    apiClient.patch(`/admin/users/${identifier}`, payload, options),
+  );
 }
 
-export async function removeRole(userId, role) {
-  if (!userId || !role) {
-    throw new Error('userId and role are required');
-  }
-  return apiClient.delete(`/admin/users/${userId}/roles/${encodeURIComponent(role)}`);
+export function updateSecurity(userId, payload, options = {}) {
+  assertAdminAccess(USER_ROLES);
+  const identifier = encodeIdentifier(userId, { label: 'userId' });
+  return performDirectoryMutation(userId, () =>
+    apiClient.patch(`/admin/users/${identifier}/security`, payload, options),
+  );
 }
 
-export async function resetPassword(userId, payload = {}) {
-  if (!userId) {
-    throw new Error('userId is required');
-  }
-  return apiClient.post(`/admin/users/${userId}/reset-password`, payload);
+export function updateStatus(userId, payload, options = {}) {
+  assertAdminAccess(USER_ROLES);
+  const identifier = encodeIdentifier(userId, { label: 'userId' });
+  return performDirectoryMutation(userId, () =>
+    apiClient.patch(`/admin/users/${identifier}/status`, payload, options),
+  );
 }
 
-export async function createNote(userId, payload) {
-  if (!userId) {
-    throw new Error('userId is required');
-  }
-  return apiClient.post(`/admin/users/${userId}/notes`, payload);
+export function updateRoles(userId, roles, options = {}) {
+  assertAdminAccess(USER_ROLES);
+  const identifier = encodeIdentifier(userId, { label: 'userId' });
+  return performDirectoryMutation(userId, () =>
+    apiClient.put(`/admin/users/${identifier}/roles`, { roles }, options),
+  );
+}
+
+export function removeRole(userId, role, options = {}) {
+  assertAdminAccess(USER_ROLES);
+  const identifier = encodeIdentifier(userId, { label: 'userId' });
+  const encodedRole = encodeIdentifier(role, { label: 'role' });
+  return performDirectoryMutation(userId, () =>
+    apiClient.delete(`/admin/users/${identifier}/roles/${encodedRole}`, options),
+  );
+}
+
+export function resetPassword(userId, payload = {}, options = {}) {
+  assertAdminAccess(USER_ROLES);
+  const identifier = encodeIdentifier(userId, { label: 'userId' });
+  return performDirectoryMutation(userId, () =>
+    apiClient.post(`/admin/users/${identifier}/reset-password`, payload, options),
+  );
+}
+
+export function createNote(userId, payload, options = {}) {
+  assertAdminAccess(USER_ROLES);
+  const identifier = encodeIdentifier(userId, { label: 'userId' });
+  return performDirectoryMutation(userId, () =>
+    apiClient.post(`/admin/users/${identifier}/notes`, payload, options),
+  );
 }
 
 export default {
@@ -81,4 +172,3 @@ export default {
   resetPassword,
   createNote,
 };
-

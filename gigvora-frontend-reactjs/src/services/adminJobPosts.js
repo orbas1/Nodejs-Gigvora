@@ -1,7 +1,32 @@
 import { apiClient } from './apiClient.js';
+import {
+  assertAdminAccess,
+  buildAdminCacheKey,
+  createRequestOptions,
+  encodeIdentifier,
+  fetchWithCache,
+  invalidateCacheByTag,
+  sanitiseQueryParams,
+} from './adminServiceHelpers.js';
 
-export async function fetchAdminJobPosts(params = {}) {
-  const response = await apiClient.get('/admin/jobs/posts', { params });
+const JOB_ROLES = ['super-admin', 'platform-admin', 'operations-admin', 'talent-admin'];
+const CACHE_TAGS = {
+  list: 'admin:jobs:posts',
+};
+
+function normaliseJobPostQuery(params = {}) {
+  return sanitiseQueryParams({
+    status: params.status,
+    ownerId: params.ownerId ?? params.owner_id,
+    workspaceId: params.workspaceId ?? params.workspace_id,
+    search: params.search,
+    page: params.page,
+    pageSize: params.pageSize ?? params.page_size,
+    sort: params.sort,
+  });
+}
+
+function normaliseResponse(response = {}) {
   return {
     results: Array.isArray(response?.results) ? response.results : [],
     pagination: response?.pagination ?? { page: 1, pageSize: 20, total: 0, totalPages: 0 },
@@ -9,44 +34,77 @@ export async function fetchAdminJobPosts(params = {}) {
   };
 }
 
-export async function fetchAdminJobPost(identifier) {
-  if (!identifier) {
-    throw new Error('identifier is required');
-  }
-  return apiClient.get(`/admin/jobs/posts/${identifier}`);
+async function performAndInvalidate(request) {
+  const response = await request();
+  invalidateCacheByTag(CACHE_TAGS.list);
+  return response;
 }
 
-export async function createAdminJobPost(payload = {}) {
-  return apiClient.post('/admin/jobs/posts', payload);
+export function fetchAdminJobPosts(params = {}, options = {}) {
+  assertAdminAccess(JOB_ROLES);
+  const cleanedParams = normaliseJobPostQuery(params);
+  const { forceRefresh = false, cacheTtl = 60000, ...requestOptions } = options ?? {};
+  const cacheKey = buildAdminCacheKey('admin:jobs:posts', cleanedParams);
+
+  return fetchWithCache(
+    cacheKey,
+    async () => {
+      const response = await apiClient.get(
+        '/admin/jobs/posts',
+        createRequestOptions(requestOptions, cleanedParams),
+      );
+      return normaliseResponse(response);
+    },
+    {
+      ttl: cacheTtl,
+      forceRefresh,
+      tag: CACHE_TAGS.list,
+    },
+  );
 }
 
-export async function updateAdminJobPost(identifier, payload = {}) {
-  if (!identifier) {
-    throw new Error('identifier is required');
-  }
-  return apiClient.put(`/admin/jobs/posts/${identifier}`, payload);
+export function fetchAdminJobPost(identifier, options = {}) {
+  assertAdminAccess(JOB_ROLES);
+  const encodedIdentifier = encodeIdentifier(identifier, { label: 'identifier' });
+  return apiClient.get(`/admin/jobs/posts/${encodedIdentifier}`, options);
 }
 
-export async function publishAdminJobPost(identifier, payload = {}) {
-  if (!identifier) {
-    throw new Error('identifier is required');
-  }
-  return apiClient.post(`/admin/jobs/posts/${identifier}/publish`, payload);
+export function createAdminJobPost(payload = {}, options = {}) {
+  assertAdminAccess(JOB_ROLES);
+  return performAndInvalidate(() => apiClient.post('/admin/jobs/posts', payload, options));
 }
 
-export async function archiveAdminJobPost(identifier, payload = {}) {
-  if (!identifier) {
-    throw new Error('identifier is required');
-  }
-  return apiClient.post(`/admin/jobs/posts/${identifier}/archive`, payload);
+export function updateAdminJobPost(identifier, payload = {}, options = {}) {
+  assertAdminAccess(JOB_ROLES);
+  const encodedIdentifier = encodeIdentifier(identifier, { label: 'identifier' });
+  return performAndInvalidate(() =>
+    apiClient.put(`/admin/jobs/posts/${encodedIdentifier}`, payload, options),
+  );
 }
 
-export async function deleteAdminJobPost(identifier, { hardDelete = false } = {}) {
-  if (!identifier) {
-    throw new Error('identifier is required');
-  }
-  const params = hardDelete ? { hardDelete: true } : undefined;
-  return apiClient.delete(`/admin/jobs/posts/${identifier}`, { params });
+export function publishAdminJobPost(identifier, payload = {}, options = {}) {
+  assertAdminAccess(JOB_ROLES);
+  const encodedIdentifier = encodeIdentifier(identifier, { label: 'identifier' });
+  return performAndInvalidate(() =>
+    apiClient.post(`/admin/jobs/posts/${encodedIdentifier}/publish`, payload, options),
+  );
+}
+
+export function archiveAdminJobPost(identifier, payload = {}, options = {}) {
+  assertAdminAccess(JOB_ROLES);
+  const encodedIdentifier = encodeIdentifier(identifier, { label: 'identifier' });
+  return performAndInvalidate(() =>
+    apiClient.post(`/admin/jobs/posts/${encodedIdentifier}/archive`, payload, options),
+  );
+}
+
+export function deleteAdminJobPost(identifier, { hardDelete = false, ...options } = {}) {
+  assertAdminAccess(JOB_ROLES);
+  const encodedIdentifier = encodeIdentifier(identifier, { label: 'identifier' });
+  const params = sanitiseQueryParams({ hardDelete });
+  return performAndInvalidate(() =>
+    apiClient.delete(`/admin/jobs/posts/${encodedIdentifier}`, createRequestOptions(options, params)),
+  );
 }
 
 export default {
