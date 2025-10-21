@@ -139,7 +139,15 @@ ThreadListItem.defaultProps = {
   onMarkRead: null,
 };
 
-export default function UserInboxSection({ userId }) {
+export default function UserInboxSection({
+  userId,
+  eyebrow,
+  title,
+  description,
+  statusLabel,
+  composerPlaceholder,
+  emptyStateMessage,
+}) {
   const { session } = useSession();
   const actorId = useMemo(() => resolveActorId(session) ?? (userId ? Number(userId) : null), [session, userId]);
 
@@ -459,11 +467,9 @@ export default function UserInboxSection({ userId }) {
     >
       <header className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-indigo-500">Inbox</p>
-          <h2 className="text-3xl font-semibold text-slate-900">Conversation control tower</h2>
-          <p className="mt-2 max-w-3xl text-sm text-slate-500">
-            Monitor SLAs, triage stakeholders, and respond with automation-ready playbooks across projects, gigs, and support.
-          </p>
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-indigo-500">{eyebrow}</p>
+          <h2 className="text-3xl font-semibold text-slate-900">{title}</h2>
+          <p className="mt-2 max-w-3xl text-sm text-slate-500">{description}</p>
         </div>
         <button
           type="button"
@@ -480,7 +486,7 @@ export default function UserInboxSection({ userId }) {
         fromCache={fromCache}
         lastUpdated={lastUpdated}
         onRefresh={() => refresh({ force: true })}
-        statusLabel="Inbox telemetry"
+        statusLabel={statusLabel}
       />
 
       {statusMessage ? (
@@ -711,7 +717,7 @@ export default function UserInboxSection({ userId }) {
                   rows={5}
                   value={composer}
                   onChange={(event) => setComposer(event.target.value)}
-                  placeholder="Write an update, share deliverables, or keep stakeholders aligned."
+                  placeholder={composerPlaceholder}
                   className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
                 />
                 <div className="flex flex-wrap items-center gap-3">
@@ -736,7 +742,7 @@ export default function UserInboxSection({ userId }) {
               </div>
             ) : (
               <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/80 p-6 text-sm text-slate-500">
-                Select a thread to compose a response or create a new conversation.
+                {emptyStateMessage}
               </div>
             )}
           </div>
@@ -1020,4 +1026,20 @@ export default function UserInboxSection({ userId }) {
 
 UserInboxSection.propTypes = {
   userId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  eyebrow: PropTypes.string,
+  title: PropTypes.string,
+  description: PropTypes.string,
+  statusLabel: PropTypes.string,
+  composerPlaceholder: PropTypes.string,
+  emptyStateMessage: PropTypes.string,
+};
+
+UserInboxSection.defaultProps = {
+  eyebrow: 'Inbox',
+  title: 'Conversation control tower',
+  description:
+    'Monitor SLAs, triage stakeholders, and respond with automation-ready playbooks across projects, gigs, and support.',
+  statusLabel: 'Inbox telemetry',
+  composerPlaceholder: 'Write an update, share deliverables, or keep stakeholders aligned.',
+  emptyStateMessage: 'Select a thread to compose a response or create a new conversation.',
 };
