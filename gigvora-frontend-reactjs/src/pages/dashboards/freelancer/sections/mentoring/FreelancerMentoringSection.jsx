@@ -52,7 +52,16 @@ export default function FreelancerMentoringSection() {
 
   const handleSuggestionStart = (mentorId) => {
     setPrefillMentorId(mentorId);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const openMentorDirectory = () => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    window.open('/mentors', '_blank', 'noopener');
   };
 
   const renderBody = () => {
@@ -148,7 +157,7 @@ export default function FreelancerMentoringSection() {
           </div>
           <button
             type="button"
-            onClick={() => window.open('/mentors', '_blank', 'noopener')}
+            onClick={openMentorDirectory}
             className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-blue-300 hover:text-blue-700"
           >
             Browse mentors

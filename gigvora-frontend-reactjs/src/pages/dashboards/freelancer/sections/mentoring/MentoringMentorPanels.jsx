@@ -1,6 +1,21 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
 
+function formatDate(value) {
+  if (!value) {
+    return '—';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '—';
+  }
+  try {
+    return date.toLocaleDateString();
+  } catch (error) {
+    return '—';
+  }
+}
+
 function FavouriteItem({ favourite, onUpdate, onRemove, pending }) {
   const [notes, setNotes] = useState(favourite.notes ?? '');
   const [saving, setSaving] = useState(false);
@@ -28,7 +43,7 @@ function FavouriteItem({ favourite, onUpdate, onRemove, pending }) {
           <p className="text-xs text-slate-500">
             {favourite.mentor?.email || favourite.mentor?.location || 'No contact set'}
           </p>
-          <p className="mt-2 text-xs text-slate-400">Pinned {new Date(favourite.createdAt).toLocaleDateString()}</p>
+          <p className="mt-2 text-xs text-slate-400">Pinned {formatDate(favourite.createdAt)}</p>
         </div>
         <button
           type="button"
@@ -87,7 +102,7 @@ function SuggestionCard({ suggestion, onFavourite, onStart, pending }) {
           {suggestion.source || 'AI'}
         </span>
       </div>
-      <p className="mt-2 text-xs text-slate-400">Suggested {new Date(suggestion.generatedAt).toLocaleDateString()}</p>
+      <p className="mt-2 text-xs text-slate-400">Suggested {formatDate(suggestion.generatedAt)}</p>
       <div className="mt-4 flex flex-wrap gap-3">
         <button
           type="button"

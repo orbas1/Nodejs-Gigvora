@@ -115,7 +115,7 @@ function NewPurchaseForm({ mentorOptions, onSubmit, pending }) {
         </label>
 
         <label className="text-sm font-semibold text-slate-700">
-          Status
+          Package progress
           <select
             name="status"
             value={form.status}
@@ -145,7 +145,7 @@ function NewPurchaseForm({ mentorOptions, onSubmit, pending }) {
         </label>
 
         <label className="text-sm font-semibold text-slate-700">
-          Sessions redeemed
+          Sessions used
           <input
             type="number"
             min="0"

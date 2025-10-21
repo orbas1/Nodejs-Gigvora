@@ -23,7 +23,7 @@ export default function OrdersPanel({
     () => ({
       sessionId: order?.sessionId ? String(order.sessionId) : '',
       amount: toAmount(order?.amountCents ?? null),
-      currency: order?.currency ?? 'USD',
+      currency: order?.currency ?? '',
       status: order?.status ?? 'pending',
       purchasedAt: order?.purchasedAt ? order.purchasedAt.slice(0, 16) : '',
       reference: order?.reference ?? '',
@@ -44,13 +44,19 @@ export default function OrdersPanel({
     setForm((prev) => ({ ...prev, [field]: event.target.value }));
   };
 
+  const handleSelectAll = (event) => {
+    if (event?.target?.select) {
+      event.target.select();
+    }
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError(null);
     const payload = {
       sessionId: form.sessionId ? Number(form.sessionId) : undefined,
       amount: form.amount,
-      currency: form.currency,
+      currency: form.currency || 'USD',
       status: form.status,
       purchasedAt: form.purchasedAt ? new Date(form.purchasedAt).toISOString() : undefined,
       reference: form.reference,
@@ -135,6 +141,7 @@ export default function OrdersPanel({
               type="number"
               step="0.01"
               min="0"
+              onFocus={handleSelectAll}
               className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-400 focus:outline-none"
               placeholder="250"
               disabled={busy}
@@ -148,6 +155,8 @@ export default function OrdersPanel({
               className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm uppercase focus:border-blue-400 focus:outline-none"
               maxLength={3}
               disabled={busy}
+              onFocus={handleSelectAll}
+              placeholder="USD"
             />
           </label>
           <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
