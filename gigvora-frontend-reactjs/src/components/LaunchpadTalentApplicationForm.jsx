@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { useMemo, useState } from 'react';
 import analytics from '../services/analytics.js';
 import { submitTalentApplication } from '../services/launchpad.js';
@@ -225,3 +226,13 @@ export default function LaunchpadTalentApplicationForm({ launchpads, onSubmitted
     </div>
   );
 }
+
+LaunchpadTalentApplicationForm.propTypes = {
+  launchpads: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      title: PropTypes.string.isRequired,
+    }),
+  ),
+  onSubmitted: PropTypes.func,
+};

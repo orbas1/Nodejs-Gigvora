@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { useMemo } from 'react';
 import DataStatus from './DataStatus.jsx';
 import UserAvatar from './UserAvatar.jsx';
@@ -372,3 +373,53 @@ export default function WorkspaceTemplatesSection({
     </div>
   );
 }
+
+const categoryShape = PropTypes.shape({
+  slug: PropTypes.string.isRequired,
+  name: PropTypes.string.isRequired,
+  templateCount: PropTypes.number,
+});
+
+const templateShape = PropTypes.shape({
+  id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  slug: PropTypes.string,
+  name: PropTypes.string,
+  description: PropTypes.string,
+  owner: PropTypes.shape({
+    name: PropTypes.string,
+    title: PropTypes.string,
+  }),
+  category: categoryShape,
+  automationLevel: PropTypes.number,
+  qualityScore: PropTypes.number,
+  workflowType: PropTypes.string,
+  requirementChecklist: PropTypes.array,
+  onboardingSequence: PropTypes.array,
+  deliverables: PropTypes.array,
+  metrics: PropTypes.array,
+  stages: PropTypes.array,
+  resources: PropTypes.array,
+  clientExperience: PropTypes.string,
+});
+
+WorkspaceTemplatesSection.propTypes = {
+  categories: PropTypes.arrayOf(categoryShape),
+  templates: PropTypes.arrayOf(templateShape),
+  stats: PropTypes.shape({
+    generatedAt: PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.instanceOf(Date)]),
+    totalTemplates: PropTypes.number,
+    averageAutomationLevel: PropTypes.number,
+    averageQualityScore: PropTypes.number,
+    industries: PropTypes.arrayOf(PropTypes.string),
+  }),
+  meta: PropTypes.shape({
+    cached: PropTypes.bool,
+  }),
+  loading: PropTypes.bool,
+  error: PropTypes.oneOfType([PropTypes.string, PropTypes.object]),
+  onRetry: PropTypes.func,
+  activeCategory: PropTypes.string,
+  onCategoryChange: PropTypes.func,
+  selectedTemplate: templateShape,
+  onSelectTemplate: PropTypes.func,
+};

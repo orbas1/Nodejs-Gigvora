@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import TagInput from './TagInput.jsx';
 import {
@@ -918,3 +919,11 @@ export default function ProfileEditor({ open, profile, saving = false, onClose, 
     </div>
   );
 }
+
+ProfileEditor.propTypes = {
+  open: PropTypes.bool.isRequired,
+  profile: PropTypes.object,
+  saving: PropTypes.bool,
+  onClose: PropTypes.func.isRequired,
+  onSave: PropTypes.func.isRequired,
+};
