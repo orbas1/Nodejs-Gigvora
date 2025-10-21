@@ -122,7 +122,7 @@ class GroupRepository {
       );
     } catch (error, stackTrace) {
       debugPrint('Failed to load managed groups: $error\n$stackTrace');
-      final fallback = forceRefresh ? null : _readManagedCache();
+      final fallback = cached ?? _readManagedCache();
       if (fallback != null) {
         return RepositoryResult<List<AdminGroupSummary>>(
           data: fallback.value,
