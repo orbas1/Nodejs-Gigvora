@@ -79,8 +79,8 @@ describe('DisputeDetailDrawer', () => {
     });
 
     const eventCall = onAddEvent.mock.calls[0];
-    const eventPayload = eventCall.length === 1 ? eventCall[0] : eventCall[1];
-    expect(eventPayload.notes).toBe('Reached out to both parties.');
+    expect(eventCall[0]).toBe(baseDispute.id);
+    expect(eventCall[1].notes).toBe('Reached out to both parties.');
   });
 
   it('renders inline variant with metadata driven options and logs events via alias', async () => {
@@ -133,7 +133,8 @@ describe('DisputeDetailDrawer', () => {
       expect(onSubmit).toHaveBeenCalledTimes(1);
     });
 
-    const [eventPayload] = onSubmit.mock.calls[0];
+    const [disputeId, eventPayload] = onSubmit.mock.calls[0];
+    expect(disputeId).toBe(baseDispute.id);
     expect(eventPayload.notes).toBe('Customer uploaded supporting documents.');
     expect(eventPayload.stage).toBe('investigation');
     expect(eventPayload.status).toBe('pending_review');

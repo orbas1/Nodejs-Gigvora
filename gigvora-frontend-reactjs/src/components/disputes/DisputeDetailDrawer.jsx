@@ -204,11 +204,7 @@ export default function DisputeDetailDrawer({
         status: eventState.status || undefined,
         evidence,
       };
-      if (logEvent.length >= 2) {
-        await logEvent(dispute.id, payload);
-      } else {
-        await logEvent(payload);
-      }
+      await logEvent(dispute.id, payload);
       setEventState({ notes: '', stage: '', status: '', file: null });
     } catch (error) {
       setEventError(error?.message ?? 'Unable to log update.');
