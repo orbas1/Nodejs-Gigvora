@@ -9,6 +9,7 @@ module.exports = {
     "eslint:recommended",
     "plugin:react/recommended",
     "plugin:react-hooks/recommended",
+    "plugin:jsx-a11y/recommended",
     "prettier",
   ],
   parserOptions: {
@@ -23,8 +24,17 @@ module.exports = {
       version: "detect",
     },
   },
-  plugins: ["react", "react-hooks"],
+  plugins: ["react", "react-hooks", "jsx-a11y"],
   rules: {
     "react/react-in-jsx-scope": "off",
+    "react/prop-types": "off",
+    "jsx-a11y/anchor-is-valid": [
+      "error",
+      {
+        components: ["Link", "Button"],
+        specialLink: ["to", "href"],
+        aspects: ["noHref", "invalidHref", "preferButton"],
+      },
+    ],
   },
 };
