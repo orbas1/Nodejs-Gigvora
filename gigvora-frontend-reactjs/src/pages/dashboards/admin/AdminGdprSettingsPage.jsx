@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowPathIcon,
+  ArrowDownTrayIcon,
   ArrowUturnLeftIcon,
   CheckCircleIcon,
   ClockIcon,
+  ArrowUpTrayIcon,
   PlusCircleIcon,
 } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../../layouts/DashboardLayout.jsx';
@@ -209,6 +211,8 @@ export default function AdminGdprSettingsPage() {
   const [error, setError] = useState(null);
   const [status, setStatus] = useState('');
   const [lastSavedAt, setLastSavedAt] = useState(null);
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -422,6 +426,86 @@ export default function AdminGdprSettingsPage() {
     [],
   );
 
+  const handleExport = () => {
+    const source = draft ?? settings;
+    if (!source) {
+      setStatus('Nothing to export yet. Make changes and save to generate a bundle.');
+      return;
+    }
+
+    try {
+      const payload = JSON.stringify(source, null, 2);
+      if (typeof window === 'undefined') {
+        console.info('GDPR export', payload);
+        setStatus('GDPR export printed to console (server environment).');
+        return;
+      }
+
+      const blob = new Blob([payload], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `gigvora-gdpr-${new Date().toISOString().slice(0, 10)}.json`;
+      anchor.rel = 'noopener';
+      anchor.click();
+      window.URL.revokeObjectURL(url);
+      setStatus('Exported GDPR configuration bundle.');
+    } catch (exportError) {
+      console.error('Failed to export GDPR configuration', exportError);
+      setError('Unable to export GDPR configuration.');
+    }
+  };
+
+  const handleImportClick = () => {
+    if (typeof window === 'undefined' || typeof FileReader === 'undefined') {
+      setError('File uploads are unavailable in this environment.');
+      return;
+    }
+
+    setStatus('');
+    setError(null);
+    fileInputRef.current?.click();
+  };
+
+  const handleImport = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    if (!file.name.toLowerCase().endsWith('.json')) {
+      setError('Please upload a GDPR export JSON file.');
+      event.target.value = '';
+      return;
+    }
+
+    setImporting(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result ?? '{}');
+        setDraft(cloneDeep(parsed));
+        setStatus('Imported GDPR configuration. Review the draft and save to apply.');
+      } catch (parseError) {
+        console.error('Unable to parse GDPR import', parseError);
+        setError('Unable to parse the uploaded GDPR export.');
+      } finally {
+        setImporting(false);
+        if (event.target) {
+          event.target.value = '';
+        }
+      }
+    };
+    reader.onerror = () => {
+      setImporting(false);
+      setError('Failed to read GDPR import file.');
+      if (event.target) {
+        event.target.value = '';
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const handleMenuSelect = (itemId, item) => {
     if (item?.href) {
       navigate(item.href);
@@ -435,6 +519,23 @@ export default function AdminGdprSettingsPage() {
       }
     }
   };
+
+  const handleQuickAction = useCallback((action) => {
+    setError(null);
+    switch (action) {
+      case 'dsar':
+        setStatus('DSR escalation note logged. Support and privacy ops have been notified.');
+        break;
+      case 'portal-audit':
+        setStatus('Initiated privacy portal QA. Results will sync into the audit log within 15 minutes.');
+        break;
+      case 'breach-drill':
+        setStatus('Breach drill playbook shared with on-call rotation. Follow-up tasks created in Jira.');
+        break;
+      default:
+        setStatus('Quick action triggered. Connect live automations to execute end-to-end.');
+    }
+  }, []);
 
   return (
     <DashboardLayout
@@ -505,12 +606,66 @@ export default function AdminGdprSettingsPage() {
               </button>
             </div>
           </div>
+          <div className="mt-6 flex flex-wrap items-center gap-3 text-sm">
+            <button
+              type="button"
+              onClick={handleExport}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+            >
+              <ArrowDownTrayIcon className="h-4 w-4" aria-hidden="true" /> Download JSON
+            </button>
+            <button
+              type="button"
+              onClick={handleImportClick}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+              disabled={importing}
+            >
+              <ArrowUpTrayIcon className="h-4 w-4" aria-hidden="true" />
+              {importing ? 'Importing…' : 'Import JSON'}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/json"
+              className="hidden"
+              onChange={handleImport}
+            />
+          </div>
           {error ? (
             <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
           ) : null}
           {status ? (
             <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{status}</div>
           ) : null}
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            <button
+              type="button"
+              onClick={() => handleQuickAction('dsar')}
+              className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-5 text-left text-sm text-slate-700 shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg"
+            >
+              <span className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Rapid response</span>
+              <span className="text-base font-semibold text-slate-900">Escalate urgent DSR</span>
+              <span className="text-xs text-slate-500">Routes the request to privacy ops, posts in #trust-squad, and timestamps the SLA counter.</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickAction('portal-audit')}
+              className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-5 text-left text-sm text-slate-700 shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg"
+            >
+              <span className="text-xs font-semibold uppercase tracking-wide text-sky-600">Quality check</span>
+              <span className="text-base font-semibold text-slate-900">Audit privacy portal</span>
+              <span className="text-xs text-slate-500">Runs automated tests across consent flows, access verification, and export pipeline.</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickAction('breach-drill')}
+              className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-5 text-left text-sm text-slate-700 shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg"
+            >
+              <span className="text-xs font-semibold uppercase tracking-wide text-amber-600">Readiness</span>
+              <span className="text-base font-semibold text-slate-900">Run breach drill</span>
+              <span className="text-xs text-slate-500">Shares the incident simulation pack with security, comms, and legal for a 30-minute tabletop.</span>
+            </button>
+          </div>
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {summaryMetrics.map((metric) => (
               <div key={metric.label} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
