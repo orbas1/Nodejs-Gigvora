@@ -9,7 +9,7 @@ import {
 import CvCreationFlow from '../../../components/documentStudio/CvCreationFlow.jsx';
 import CoverLetterComposer from '../../../components/documentStudio/CoverLetterComposer.jsx';
 import StoryBlockWorkshop from '../../../components/documentStudio/StoryBlockWorkshop.jsx';
-import { MENU_GROUPS, AVAILABLE_DASHBOARDS } from '../menuConfig.js';
+import { MENU_GROUPS, AVAILABLE_DASHBOARDS } from './menuConfig.js';
 import { formatRelativeTime } from '../../../utils/date.js';
 
 function SummaryCard({ label, value, description }) {

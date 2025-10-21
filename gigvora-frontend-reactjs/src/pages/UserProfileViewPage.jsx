@@ -180,6 +180,11 @@ export default function UserProfileViewPage() {
 
   const roleBadges = useMemo(() => buildRoleBadges(user), [user]);
 
+  const displayName = useMemo(() => {
+    const fallback = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim();
+    return user?.name ?? (fallback || 'Gigvora member');
+  }, [user]);
+
   const {
     posts,
     timelineEntries,
@@ -301,7 +306,7 @@ export default function UserProfileViewPage() {
       <div className="mx-auto max-w-7xl px-6 pt-16">
         <PageHeader
           eyebrow="Member profile"
-          title={user?.name ?? `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || 'Gigvora member'}
+          title={displayName}
           description={formState.headline || profile?.headline || 'Full-stack professional active across the Gigvora community.'}
           meta={roleBadges.length ? roleBadges.join(' • ') : undefined}
           actions={
