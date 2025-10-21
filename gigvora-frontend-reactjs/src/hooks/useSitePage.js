@@ -7,6 +7,7 @@ export default function useSitePage(slug, { fallback = null, autoFetch = true } 
   const [error, setError] = useState(null);
   const [usingFallback, setUsingFallback] = useState(Boolean(fallback));
   const [lastFetchedAt, setLastFetchedAt] = useState(null);
+  const [lastErrorAt, setLastErrorAt] = useState(null);
 
   const load = useCallback(
     async (options = {}) => {
@@ -21,10 +22,12 @@ export default function useSitePage(slug, { fallback = null, autoFetch = true } 
         setPage(result);
         setUsingFallback(false);
         setLastFetchedAt(new Date());
+        setLastErrorAt(null);
         return result;
       } catch (err) {
         setError(err);
         setUsingFallback(true);
+        setLastErrorAt(new Date());
         return null;
       } finally {
         setLoading(false);
@@ -32,6 +35,18 @@ export default function useSitePage(slug, { fallback = null, autoFetch = true } 
     },
     [slug],
   );
+
+  useEffect(() => {
+    if (!fallback) {
+      return;
+    }
+    setPage((current) => {
+      if (current && !usingFallback) {
+        return current;
+      }
+      return fallback;
+    });
+  }, [fallback, usingFallback]);
 
   useEffect(() => {
     if (!autoFetch || !slug) {
@@ -61,5 +76,6 @@ export default function useSitePage(slug, { fallback = null, autoFetch = true } 
     usingFallback,
     fallback,
     lastFetchedAt,
+    lastErrorAt,
   };
 }

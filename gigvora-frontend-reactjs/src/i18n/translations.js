@@ -18,7 +18,21 @@ export const LANGUAGE_DIRECTIONS = {
   ar: "rtl",
 };
 
-export const translations = {
+function deepFreeze(value) {
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+  Object.freeze(value);
+  Object.keys(value).forEach((key) => {
+    const child = value[key];
+    if (child && typeof child === "object" && !Object.isFrozen(child)) {
+      deepFreeze(child);
+    }
+  });
+  return value;
+}
+
+const translationsMap = {
   en: {
     language: {
       label: "Language",
@@ -710,6 +724,47 @@ export const translations = {
     },
   },
 };
+
+deepFreeze(translationsMap);
+
+export const translations = translationsMap;
+
+export function resolveLanguage(code) {
+  if (!code) {
+    return SUPPORTED_LANGUAGES[0];
+  }
+  const normalised = `${code}`.trim().toLowerCase();
+  return SUPPORTED_LANGUAGES.find((language) => language.code === normalised) ?? SUPPORTED_LANGUAGES[0];
+}
+
+export function getLanguageDirection(code) {
+  const language = resolveLanguage(code);
+  return LANGUAGE_DIRECTIONS[language.code] ?? "ltr";
+}
+
+export function translate(languageCode, keyPath, fallbackValue = "") {
+  const language = resolveLanguage(languageCode);
+  const segments = typeof keyPath === "string" ? keyPath.split(".").filter(Boolean) : [];
+  if (!segments.length) {
+    return fallbackValue;
+  }
+
+  const traverse = (source) =>
+    segments.reduce((accumulator, segment) => {
+      if (accumulator && typeof accumulator === "object" && segment in accumulator) {
+        return accumulator[segment];
+      }
+      return undefined;
+    }, source);
+
+  const primary = traverse(translationsMap[language.code]);
+  if (typeof primary === "string") {
+    return primary;
+  }
+
+  const fallback = traverse(translationsMap[DEFAULT_LANGUAGE]);
+  return typeof fallback === "string" ? fallback : fallbackValue;
+}
 
 export function getLanguageMeta(code) {
   return SUPPORTED_LANGUAGES.find((language) => language.code === code) ?? SUPPORTED_LANGUAGES[0];

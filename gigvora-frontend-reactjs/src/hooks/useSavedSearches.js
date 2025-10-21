@@ -74,7 +74,6 @@ export default function useSavedSearches({ enabled = true } = {}) {
   const storage = getLocalStorage();
   const authToken = storage?.getItem('gigvora:web:auth:accessToken');
   const canUseServer = Boolean(enabled && authToken);
-  const actorHeaders = useMemo(() => buildActorHeaders(), []);
 
   const savedState = useCachedResource(
     'search:saved',
@@ -83,7 +82,7 @@ export default function useSavedSearches({ enabled = true } = {}) {
         return { items: [] };
       }
       try {
-        return await apiClient.get('/search/subscriptions', { signal, headers: actorHeaders });
+        return await apiClient.get('/search/subscriptions', { signal, headers: buildActorHeaders() });
       } catch (error) {
         if (error instanceof apiClient.ApiError && [401, 403, 404, 422].includes(error.status)) {
           return { items: [] };
@@ -96,7 +95,7 @@ export default function useSavedSearches({ enabled = true } = {}) {
 
   const [localItems, setLocalItems] = useState(() => (canUseServer ? [] : readLocalSavedSearches()));
 
-  const { data, error, loading, refresh } = savedState;
+  const { data, error, loading, refresh, lastUpdated, fromCache } = savedState;
 
   useEffect(() => {
     if (!canUseServer) {
@@ -114,7 +113,7 @@ export default function useSavedSearches({ enabled = true } = {}) {
   const createSavedSearch = useCallback(
     async (payload) => {
       if (canUseServer) {
-        const created = await apiClient.post('/search/subscriptions', payload, { headers: actorHeaders });
+        const created = await apiClient.post('/search/subscriptions', payload, { headers: buildActorHeaders() });
         await refreshSaved({ force: true });
         return created;
       }
@@ -137,13 +136,13 @@ export default function useSavedSearches({ enabled = true } = {}) {
       writeLocalSavedSearches(next);
       return next[next.length - 1];
     },
-    [actorHeaders, canUseServer, items, refreshSaved],
+    [canUseServer, items, refreshSaved],
   );
 
   const updateSavedSearch = useCallback(
     async (id, changes) => {
       if (canUseServer) {
-        const updated = await apiClient.patch(`/search/subscriptions/${id}`, changes, { headers: actorHeaders });
+        const updated = await apiClient.patch(`/search/subscriptions/${id}`, changes, { headers: buildActorHeaders() });
         await refreshSaved({ force: true });
         return updated;
       }
@@ -155,14 +154,14 @@ export default function useSavedSearches({ enabled = true } = {}) {
       writeLocalSavedSearches(next);
       return next.find((item) => item.id === id) ?? null;
     },
-    [actorHeaders, canUseServer, items, refreshSaved],
+    [canUseServer, items, refreshSaved],
   );
 
   const deleteSavedSearch = useCallback(
     async (target) => {
       const id = typeof target === 'object' ? target.id : target;
       if (canUseServer) {
-        await apiClient.delete(`/search/subscriptions/${id}`, { headers: actorHeaders });
+        await apiClient.delete(`/search/subscriptions/${id}`, { headers: buildActorHeaders() });
         await refreshSaved({ force: true });
         return;
       }
@@ -170,14 +169,14 @@ export default function useSavedSearches({ enabled = true } = {}) {
       setLocalItems(next);
       writeLocalSavedSearches(next);
     },
-    [actorHeaders, canUseServer, items, refreshSaved],
+    [canUseServer, items, refreshSaved],
   );
 
   const runSavedSearch = useCallback(
     async (target) => {
       const id = typeof target === 'object' ? target.id : target;
       if (canUseServer) {
-        await apiClient.post(`/search/subscriptions/${id}/run`, {}, { headers: actorHeaders });
+        await apiClient.post(`/search/subscriptions/${id}/run`, {}, { headers: buildActorHeaders() });
         await refreshSaved({ force: true });
         return;
       }
@@ -197,13 +196,15 @@ export default function useSavedSearches({ enabled = true } = {}) {
       setLocalItems(updated);
       writeLocalSavedSearches(updated);
     },
-    [actorHeaders, canUseServer, items, refreshSaved],
+    [canUseServer, items, refreshSaved],
   );
 
   return {
     items,
     loading: canUseServer ? loading : false,
     error: canUseServer ? error : null,
+    fromCache: canUseServer ? fromCache : false,
+    lastUpdated: canUseServer ? lastUpdated : null,
     refresh: refreshSaved,
     createSavedSearch,
     updateSavedSearch,

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useFreelancerTimeline, computeTimelineAnalyticsFromClient } from './useFreelancerTimeline.js';
 import {
   fetchUserTimelineWorkspace,
@@ -180,12 +181,12 @@ const USER_FALLBACK_ENTRIES = [
   },
 ];
 
-const USER_FALLBACK_ANALYTICS = computeTimelineAnalyticsFromClient(
-  USER_FALLBACK_POSTS,
-  USER_FALLBACK_ENTRIES,
-);
-
 export default function useUserTimeline({ userId, enabled = true } = {}) {
+  const fallbackAnalytics = useMemo(
+    () => computeTimelineAnalyticsFromClient(USER_FALLBACK_POSTS, USER_FALLBACK_ENTRIES),
+    [],
+  );
+
   return useFreelancerTimeline({
     freelancerId: userId,
     enabled,
@@ -194,7 +195,7 @@ export default function useUserTimeline({ userId, enabled = true } = {}) {
     fallbackWorkspace: USER_FALLBACK_WORKSPACE,
     fallbackPosts: USER_FALLBACK_POSTS,
     fallbackEntries: USER_FALLBACK_ENTRIES,
-    fallbackAnalytics: USER_FALLBACK_ANALYTICS,
+    fallbackAnalytics,
     services: {
       fetchWorkspace: fetchUserTimelineWorkspace,
       updateSettings: updateUserTimelineSettings,

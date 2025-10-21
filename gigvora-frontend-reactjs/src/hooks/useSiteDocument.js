@@ -7,7 +7,7 @@ import {
 } from '../utils/siteDocuments.js';
 
 export default function useSiteDocument(slug, fallback) {
-  const { page, loading, error, refresh, usingFallback, lastFetchedAt } = useSitePage(slug, {
+  const { page, loading, error, refresh, usingFallback, lastFetchedAt, lastErrorAt } = useSitePage(slug, {
     fallback,
   });
 
@@ -29,5 +29,6 @@ export default function useSiteDocument(slug, fallback) {
     refresh,
     usingFallback,
     lastFetchedAt,
+    lastErrorAt,
   };
 }
