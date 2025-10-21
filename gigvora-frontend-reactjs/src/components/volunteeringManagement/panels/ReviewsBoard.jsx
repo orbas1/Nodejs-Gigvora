@@ -1,4 +1,5 @@
 import { PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
+import PropTypes from 'prop-types';
 import { formatDate } from '../utils.js';
 
 export default function ReviewsBoard({ reviews, onEdit, onDelete, onCreate }) {
@@ -72,3 +73,32 @@ export default function ReviewsBoard({ reviews, onEdit, onDelete, onCreate }) {
     </div>
   );
 }
+
+const applicationShape = PropTypes.shape({
+  role: PropTypes.shape({
+    title: PropTypes.string,
+  }),
+});
+
+const reviewShape = PropTypes.shape({
+  id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  rating: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+  headline: PropTypes.string,
+  publishedAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+  applicationId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  application: applicationShape,
+});
+
+ReviewsBoard.propTypes = {
+  reviews: PropTypes.arrayOf(reviewShape),
+  onEdit: PropTypes.func,
+  onDelete: PropTypes.func,
+  onCreate: PropTypes.func,
+};
+
+ReviewsBoard.defaultProps = {
+  reviews: [],
+  onEdit: () => {},
+  onDelete: () => {},
+  onCreate: null,
+};

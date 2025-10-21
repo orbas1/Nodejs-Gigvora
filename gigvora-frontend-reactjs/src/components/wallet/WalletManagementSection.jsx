@@ -142,11 +142,16 @@ function WalletManagementSection({ userId }) {
   const [transferErrors, setTransferErrors] = useState({});
   const [transferSubmitting, setTransferSubmitting] = useState(false);
   const [transferFeedback, setTransferFeedback] = useState(null);
+  const [globalFeedback, setGlobalFeedback] = useState(null);
 
   const inputClassName = (hasError) =>
     `w-full rounded-xl border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30 ${
       hasError ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-200' : 'border-slate-200 focus:border-accent'
     }`;
+
+  const showGlobalFeedback = (type, message) => {
+    setGlobalFeedback({ type, message });
+  };
 
   const closeDrawer = () => {
     setDrawer({ view: null, mode: null, data: null });
@@ -300,6 +305,7 @@ function WalletManagementSection({ userId }) {
         await actions.createFundingSource(payload);
       }
       closeDrawer();
+      showGlobalFeedback('success', 'Funding source saved.');
     } catch (err) {
       setFundingFeedback({ type: 'error', message: err?.message ?? 'Could not save source.' });
     } finally {
@@ -333,6 +339,7 @@ function WalletManagementSection({ userId }) {
         await actions.createTransferRule(payload);
       }
       closeDrawer();
+      showGlobalFeedback('success', 'Transfer rule saved.');
     } catch (err) {
       setRuleFeedback({ type: 'error', message: err?.message ?? 'Could not save rule.' });
     } finally {
@@ -365,6 +372,7 @@ function WalletManagementSection({ userId }) {
         await actions.createTransferRequest(payload);
       }
       closeDrawer();
+      showGlobalFeedback('success', 'Transfer move saved.');
     } catch (err) {
       setTransferFeedback({ type: 'error', message: err?.message ?? 'Could not save transfer.' });
     } finally {
@@ -373,27 +381,64 @@ function WalletManagementSection({ userId }) {
   };
 
   const handleMakePrimary = async (source) => {
-    await actions.updateFundingSource(source.id, { makePrimary: true });
+    try {
+      await actions.updateFundingSource(source.id, { makePrimary: true });
+      showGlobalFeedback('success', `${source.label ?? 'Funding source'} set as primary.`);
+    } catch (err) {
+      showGlobalFeedback('error', err?.message ?? 'Could not update primary funding source.');
+    }
   };
 
   const handlePauseRule = async (rule) => {
-    await actions.updateTransferRule(rule.id, { status: 'paused' });
+    try {
+      await actions.updateTransferRule(rule.id, { status: 'paused' });
+      showGlobalFeedback('success', 'Transfer rule paused.');
+    } catch (err) {
+      showGlobalFeedback('error', err?.message ?? 'Could not pause rule.');
+    }
   };
 
   const handleResumeRule = async (rule) => {
-    await actions.updateTransferRule(rule.id, { status: 'active' });
+    try {
+      await actions.updateTransferRule(rule.id, { status: 'active' });
+      showGlobalFeedback('success', 'Transfer rule resumed.');
+    } catch (err) {
+      showGlobalFeedback('error', err?.message ?? 'Could not resume rule.');
+    }
   };
 
   const handleRemoveRule = async (rule) => {
-    await actions.deleteTransferRule(rule.id);
+    try {
+      await actions.deleteTransferRule(rule.id);
+      showGlobalFeedback('success', 'Transfer rule removed.');
+    } catch (err) {
+      showGlobalFeedback('error', err?.message ?? 'Could not remove rule.');
+    }
   };
 
   const renderFeedback = (feedback) => {
     if (!feedback) {
       return null;
     }
-    const tone = feedback.type === 'error' ? 'border-rose-200 bg-rose-50 text-rose-600' : 'border-emerald-200 bg-emerald-50 text-emerald-600';
-    return <div className={`rounded-2xl border px-4 py-3 text-sm font-medium ${tone}`}>{feedback.message}</div>;
+    const { type, message, onClose } = feedback;
+    const tone = type === 'error' ? 'border-rose-200 bg-rose-50 text-rose-600' : 'border-emerald-200 bg-emerald-50 text-emerald-600';
+    return (
+      <div
+        className={`flex items-start justify-between gap-3 rounded-2xl border px-4 py-3 text-sm font-medium ${tone}`}
+        role={type === 'error' ? 'alert' : undefined}
+      >
+        <span className="flex-1">{message}</span>
+        {onClose ? (
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-xs font-semibold uppercase tracking-wide text-current transition hover:opacity-80"
+          >
+            Dismiss
+          </button>
+        ) : null}
+      </div>
+    );
   };
 
   const renderDrawer = () => {
@@ -1093,8 +1138,8 @@ function WalletManagementSection({ userId }) {
           </div>
           <DataStatus
             loading={loading}
-            error={error?.message}
-            onRetry={actions.refresh}
+            error={error}
+            onRefresh={actions.refresh}
             lastUpdated={data?.metadata?.generatedAt}
           />
         </div>
@@ -1116,6 +1161,11 @@ function WalletManagementSection({ userId }) {
         ))}
       </nav>
       <div className="flex-1 overflow-y-auto px-6 pb-8 pt-2">
+        {globalFeedback ? (
+          <div className="mb-4">
+            {renderFeedback({ ...globalFeedback, onClose: () => setGlobalFeedback(null) })}
+          </div>
+        ) : null}
         {renderPanel()}
       </div>
       {renderDrawer()}
