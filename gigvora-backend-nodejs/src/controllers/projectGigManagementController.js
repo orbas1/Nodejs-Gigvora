@@ -1,415 +1,344 @@
+import * as workflowService from '../services/projectGigManagementWorkflowService.js';
+import { parsePositiveInteger } from '../utils/controllerAccess.js';
+import { ValidationError } from '../utils/errors.js';
 import {
-  getProjectGigManagementOverview,
-  createProject,
-  updateProject,
-  addProjectAsset,
-  updateProjectAsset,
-  deleteProjectAsset,
-  updateProjectWorkspace,
-  archiveProject,
-  restoreProject,
-  createProjectMilestone,
-  updateProjectMilestone,
-  deleteProjectMilestone,
-  createProjectCollaborator,
-  updateProjectCollaborator,
-  deleteProjectCollaborator,
-  createGigOrder,
-  updateGigOrder,
-  createProjectBid,
-  updateProjectBid,
-  sendProjectInvitation,
-  updateProjectInvitation,
-  updateAutoMatchSettings,
-  recordAutoMatchCandidate,
-  updateAutoMatchCandidate,
-  createProjectReview,
-  createEscrowTransaction,
-  updateEscrowSettings,
-  addGigTimelineEvent,
-  updateGigTimelineEvent,
-  addGigSubmission,
-  updateGigSubmission as updateGigSubmissionService,
-  postGigChatMessage,
-  getGigOrderDetail,
-  createGigTimelineEvent,
-  createGigSubmission,
-  acknowledgeGigChatMessage,
-  createGigOrderMessage,
-  createGigOrderEscrowCheckpoint,
-  updateGigOrderEscrowCheckpoint,
-} from '../services/projectGigManagementWorkflowService.js';
-import { ensureManageAccess, ensureViewAccess, parseOwnerId } from '../utils/projectAccess.js';
+  requireOwnerContext,
+  sanitizeMemberActorPayload,
+  attachMemberAccess,
+  respondWithMemberAccess,
+} from '../utils/projectMemberAccess.js';
 
-async function withDashboardRefresh(ownerId, access, resolver) {
-  const result = await resolver();
-  const snapshot = await getProjectGigManagementOverview(ownerId);
-  return { result, snapshot: { ...snapshot, access } };
+function parseParam(req, config) {
+  if (typeof config === 'string') {
+    return parsePositiveInteger(req.params?.[config], config);
+  }
+  const { name, label = name, optional = false } = config;
+  return parsePositiveInteger(req.params?.[name], label, { optional });
 }
 
-async function withOrderRefresh(ownerId, orderId, resolver) {
-  const result = await resolver();
-  const detail = await getGigOrderDetail(ownerId, orderId);
-  return { result, detail };
+async function refreshDashboard(ownerId, access, actorId) {
+  const snapshot = await workflowService.getProjectGigManagementOverview(ownerId);
+  return attachMemberAccess(snapshot, access, { performedBy: actorId });
+}
+
+function resolveActorName(req) {
+  return req.user?.name ?? req.user?.fullName ?? req.user?.email ?? null;
+}
+
+function createDashboardMutationHandler({ service, params = [], resultKey, status = 200, includeBody = true }) {
+  if (typeof service !== 'string' || !service) {
+    throw new Error('Dashboard mutation handler requires a service method name.');
+  }
+  return async function handler(req, res) {
+    const { ownerId, access } = requireOwnerContext(req, { mode: 'manage' });
+    const { actorId, payload } = sanitizeMemberActorPayload(req.body, access);
+    const args = [ownerId];
+    params.forEach((param) => {
+      const parsed = parseParam(req, param);
+      if (parsed == null && !(typeof param === 'object' && param.optional)) {
+        const label = typeof param === 'string' ? param : param.label ?? param.name;
+        throw new ValidationError(`${label} is required.`);
+      }
+      if (parsed != null) {
+        args.push(parsed);
+      }
+    });
+
+    if (includeBody) {
+      args.push(payload);
+    }
+
+    const serviceFn = workflowService[service];
+    if (typeof serviceFn !== 'function') {
+      throw new Error(`Service method ${service} is not implemented.`);
+    }
+
+    const result = await serviceFn(...args);
+    const dashboard = await refreshDashboard(ownerId, access, actorId);
+    const response = { dashboard };
+    if (resultKey) {
+      response[resultKey] = result ?? null;
+    }
+    respondWithMemberAccess(res, response, access, { status, performedBy: actorId });
+  };
 }
 
 export async function overview(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureViewAccess(req, ownerId);
-  const snapshot = await getProjectGigManagementOverview(ownerId);
-  res.json({ ...snapshot, access });
+  const { ownerId, access } = requireOwnerContext(req, { mode: 'view' });
+  const dashboard = await workflowService.getProjectGigManagementOverview(ownerId);
+  respondWithMemberAccess(res, { dashboard: attachMemberAccess(dashboard, access) }, access);
 }
 
-export async function storeProject(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () => createProject(ownerId, req.body));
-  res.status(201).json({ project: result, dashboard: snapshot });
-}
+export const storeProject = createDashboardMutationHandler({
+  service: 'createProject',
+  resultKey: 'project',
+  status: 201,
+});
 
-export async function patchProject(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const projectId = Number.parseInt(req.params?.projectId, 10);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () => updateProject(ownerId, projectId, req.body));
-  res.json({ project: result, dashboard: snapshot });
-}
+export const patchProject = createDashboardMutationHandler({
+  service: 'updateProject',
+  params: ['projectId'],
+  resultKey: 'project',
+});
 
-export async function storeAsset(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const projectId = Number.parseInt(req.params?.projectId, 10);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () => addProjectAsset(ownerId, projectId, req.body));
-  res.status(201).json({ asset: result, dashboard: snapshot });
-}
+export const storeAsset = createDashboardMutationHandler({
+  service: 'addProjectAsset',
+  params: ['projectId'],
+  resultKey: 'asset',
+  status: 201,
+});
 
-export async function patchAsset(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const projectId = Number.parseInt(req.params?.projectId, 10);
-  const assetId = Number.parseInt(req.params?.assetId, 10);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
-    updateProjectAsset(ownerId, projectId, assetId, req.body),
-  );
-  res.json({ asset: result, dashboard: snapshot });
-}
+export const patchAsset = createDashboardMutationHandler({
+  service: 'updateProjectAsset',
+  params: ['projectId', 'assetId'],
+  resultKey: 'asset',
+});
 
-export async function destroyAsset(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const projectId = Number.parseInt(req.params?.projectId, 10);
-  const assetId = Number.parseInt(req.params?.assetId, 10);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
-    deleteProjectAsset(ownerId, projectId, assetId),
-  );
-  res.json({ asset: result, dashboard: snapshot });
-}
+export const destroyAsset = createDashboardMutationHandler({
+  service: 'deleteProjectAsset',
+  params: ['projectId', 'assetId'],
+  resultKey: 'asset',
+  includeBody: false,
+});
 
-export async function patchWorkspace(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const projectId = Number.parseInt(req.params?.projectId, 10);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
-    updateProjectWorkspace(ownerId, projectId, req.body),
-  );
-  res.json({ workspace: result, dashboard: snapshot });
-}
+export const patchWorkspace = createDashboardMutationHandler({
+  service: 'updateProjectWorkspace',
+  params: ['projectId'],
+  resultKey: 'workspace',
+});
 
-export async function archiveProjectAction(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const projectId = Number.parseInt(req.params?.projectId, 10);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
-    archiveProject(ownerId, projectId, req.body ?? {}),
-  );
-  res.json({ project: result, dashboard: snapshot });
-}
+export const archiveProjectAction = createDashboardMutationHandler({
+  service: 'archiveProject',
+  params: ['projectId'],
+  resultKey: 'project',
+});
 
-export async function restoreProjectAction(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const projectId = Number.parseInt(req.params?.projectId, 10);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
-    restoreProject(ownerId, projectId, req.body ?? {}),
-  );
-  res.json({ project: result, dashboard: snapshot });
-}
+export const restoreProjectAction = createDashboardMutationHandler({
+  service: 'restoreProject',
+  params: ['projectId'],
+  resultKey: 'project',
+});
 
-export async function storeMilestone(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const projectId = Number.parseInt(req.params?.projectId, 10);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
-    createProjectMilestone(ownerId, projectId, req.body),
-  );
-  res.status(201).json({ milestone: result, dashboard: snapshot });
-}
+export const storeMilestone = createDashboardMutationHandler({
+  service: 'createProjectMilestone',
+  params: ['projectId'],
+  resultKey: 'milestone',
+  status: 201,
+});
 
-export async function patchMilestone(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const projectId = Number.parseInt(req.params?.projectId, 10);
-  const milestoneId = Number.parseInt(req.params?.milestoneId, 10);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
-    updateProjectMilestone(ownerId, projectId, milestoneId, req.body),
-  );
-  res.json({ milestone: result, dashboard: snapshot });
-}
+export const patchMilestone = createDashboardMutationHandler({
+  service: 'updateProjectMilestone',
+  params: ['projectId', 'milestoneId'],
+  resultKey: 'milestone',
+});
 
-export async function destroyMilestone(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const projectId = Number.parseInt(req.params?.projectId, 10);
-  const milestoneId = Number.parseInt(req.params?.milestoneId, 10);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
-    deleteProjectMilestone(ownerId, projectId, milestoneId),
-  );
-  res.json({ milestone: result, dashboard: snapshot });
-}
+export const destroyMilestone = createDashboardMutationHandler({
+  service: 'deleteProjectMilestone',
+  params: ['projectId', 'milestoneId'],
+  resultKey: 'milestone',
+  includeBody: false,
+});
 
-export async function storeCollaborator(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const projectId = Number.parseInt(req.params?.projectId, 10);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
-    createProjectCollaborator(ownerId, projectId, req.body),
-  );
-  res.status(201).json({ collaborator: result, dashboard: snapshot });
-}
+export const storeCollaborator = createDashboardMutationHandler({
+  service: 'createProjectCollaborator',
+  params: ['projectId'],
+  resultKey: 'collaborator',
+  status: 201,
+});
 
-export async function patchCollaborator(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const projectId = Number.parseInt(req.params?.projectId, 10);
-  const collaboratorId = Number.parseInt(req.params?.collaboratorId, 10);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
-    updateProjectCollaborator(ownerId, projectId, collaboratorId, req.body),
-  );
-  res.json({ collaborator: result, dashboard: snapshot });
-}
+export const patchCollaborator = createDashboardMutationHandler({
+  service: 'updateProjectCollaborator',
+  params: ['projectId', 'collaboratorId'],
+  resultKey: 'collaborator',
+});
 
-export async function destroyCollaborator(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const projectId = Number.parseInt(req.params?.projectId, 10);
-  const collaboratorId = Number.parseInt(req.params?.collaboratorId, 10);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
-    deleteProjectCollaborator(ownerId, projectId, collaboratorId),
-  );
-  res.json({ collaborator: result, dashboard: snapshot });
-}
+export const destroyCollaborator = createDashboardMutationHandler({
+  service: 'deleteProjectCollaborator',
+  params: ['projectId', 'collaboratorId'],
+  resultKey: 'collaborator',
+  includeBody: false,
+});
 
-export async function storeGigOrder(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () => createGigOrder(ownerId, req.body));
-  res.status(201).json({ order: result, dashboard: snapshot });
-}
+export const storeGigOrder = createDashboardMutationHandler({
+  service: 'createGigOrder',
+  resultKey: 'order',
+  status: 201,
+});
 
-export async function patchGigOrder(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const orderId = Number.parseInt(req.params?.orderId, 10);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () => updateGigOrder(ownerId, orderId, req.body));
-  res.json({ order: result, dashboard: snapshot });
-}
+export const patchGigOrder = createDashboardMutationHandler({
+  service: 'updateGigOrder',
+  params: ['orderId'],
+  resultKey: 'order',
+});
 
-export async function storeBid(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () => createProjectBid(ownerId, req.body));
-  res.status(201).json({ bid: result, dashboard: snapshot });
-}
+export const storeBid = createDashboardMutationHandler({
+  service: 'createProjectBid',
+  resultKey: 'bid',
+  status: 201,
+});
 
-export async function patchBid(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const bidId = Number.parseInt(req.params?.bidId, 10);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () => updateProjectBid(ownerId, bidId, req.body));
-  res.json({ bid: result, dashboard: snapshot });
-}
+export const patchBid = createDashboardMutationHandler({
+  service: 'updateProjectBid',
+  params: ['bidId'],
+  resultKey: 'bid',
+});
 
-export async function storeInvitation(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () => sendProjectInvitation(ownerId, req.body));
-  res.status(201).json({ invitation: result, dashboard: snapshot });
-}
+export const storeInvitation = createDashboardMutationHandler({
+  service: 'sendProjectInvitation',
+  resultKey: 'invitation',
+  status: 201,
+});
 
-export async function patchInvitation(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const invitationId = Number.parseInt(req.params?.invitationId, 10);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
-    updateProjectInvitation(ownerId, invitationId, req.body),
-  );
-  res.json({ invitation: result, dashboard: snapshot });
-}
+export const patchInvitation = createDashboardMutationHandler({
+  service: 'updateProjectInvitation',
+  params: ['invitationId'],
+  resultKey: 'invitation',
+});
 
-export async function upsertAutoMatchSettings(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
-    updateAutoMatchSettings(ownerId, req.body),
-  );
-  res.json({ settings: result, dashboard: snapshot });
-}
+export const upsertAutoMatchSettings = createDashboardMutationHandler({
+  service: 'updateAutoMatchSettings',
+  resultKey: 'settings',
+});
 
-export async function storeAutoMatch(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
-    recordAutoMatchCandidate(ownerId, req.body),
-  );
-  res.status(201).json({ match: result, dashboard: snapshot });
-}
+export const storeAutoMatch = createDashboardMutationHandler({
+  service: 'recordAutoMatchCandidate',
+  resultKey: 'match',
+  status: 201,
+});
 
-export async function patchAutoMatch(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const matchId = Number.parseInt(req.params?.matchId, 10);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
-    updateAutoMatchCandidate(ownerId, matchId, req.body),
-  );
-  res.json({ match: result, dashboard: snapshot });
-}
+export const patchAutoMatch = createDashboardMutationHandler({
+  service: 'updateAutoMatchCandidate',
+  params: ['matchId'],
+  resultKey: 'match',
+});
 
-export async function storeReview(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () => createProjectReview(ownerId, req.body));
-  res.status(201).json({ review: result, dashboard: snapshot });
-}
+export const storeReview = createDashboardMutationHandler({
+  service: 'createProjectReview',
+  resultKey: 'review',
+  status: 201,
+});
 
-export async function storeEscrowTransaction(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
-    createEscrowTransaction(ownerId, req.body),
-  );
-  res.status(201).json({ transaction: result, dashboard: snapshot });
-}
+export const storeEscrowTransaction = createDashboardMutationHandler({
+  service: 'createEscrowTransaction',
+  resultKey: 'transaction',
+  status: 201,
+});
 
-export async function patchEscrowSettings(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () => updateEscrowSettings(ownerId, req.body));
-  res.json({ account: result, dashboard: snapshot });
-}
+export const patchEscrowSettings = createDashboardMutationHandler({
+  service: 'updateEscrowSettings',
+  resultKey: 'account',
+});
 
 export async function storeGigTimelineEvent(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const orderId = Number.parseInt(req.params?.orderId, 10);
-  const useNewPayload =
-    req.body.eventType != null || req.body.visibility != null || req.body.summary != null || req.body.attachments != null;
-  const handler = () =>
-    (useNewPayload
-      ? createGigTimelineEvent(ownerId, orderId, req.body, { actorId: access.actorId })
-      : addGigTimelineEvent(ownerId, orderId, req.body));
-  const { result, detail } = await withOrderRefresh(ownerId, orderId, handler);
-  res.status(201).json({ event: result, order: detail });
+  const { ownerId, access } = requireOwnerContext(req, { mode: 'manage' });
+  const orderId = parseParam(req, 'orderId');
+  const { actorId, payload } = sanitizeMemberActorPayload(req.body, access);
+  const shouldUseExtendedPayload =
+    payload.eventType != null || payload.visibility != null || payload.summary != null || payload.attachments != null;
+
+  const serviceFn = shouldUseExtendedPayload
+    ? () => workflowService.createGigTimelineEvent(ownerId, orderId, payload, { actorId })
+    : () => workflowService.addGigTimelineEvent(ownerId, orderId, payload);
+
+  const event = await serviceFn();
+  const detail = await workflowService.getGigOrderDetail(ownerId, orderId);
+  const order = attachMemberAccess(detail, access, { performedBy: actorId });
+  respondWithMemberAccess(res, { event, order }, access, { status: 201, performedBy: actorId });
 }
 
 export async function patchGigTimelineEvent(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const orderId = Number.parseInt(req.params?.orderId, 10);
-  const eventId = Number.parseInt(req.params?.eventId, 10);
-  const { result, detail } = await withOrderRefresh(ownerId, orderId, () =>
-    updateGigTimelineEvent(ownerId, orderId, eventId, req.body),
-  );
-  res.json({ event: result, order: detail });
+  const { ownerId, access } = requireOwnerContext(req, { mode: 'manage' });
+  const orderId = parseParam(req, 'orderId');
+  const eventId = parseParam(req, 'eventId');
+  const { actorId, payload } = sanitizeMemberActorPayload(req.body, access);
+  const event = await workflowService.updateGigTimelineEvent(ownerId, orderId, eventId, payload);
+  const detail = await workflowService.getGigOrderDetail(ownerId, orderId);
+  const order = attachMemberAccess(detail, access, { performedBy: actorId });
+  respondWithMemberAccess(res, { event, order }, access, { performedBy: actorId });
 }
 
 export async function storeGigMessage(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const orderId = Number.parseInt(req.params?.orderId, 10);
-  const actorContext = {
-    actorId: access.actorId,
-    actorRole: access.actorRole,
-    actorName: req.user?.name ?? req.user?.fullName ?? req.user?.email ?? null,
-  };
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
-    createGigOrderMessage(ownerId, orderId, req.body, actorContext),
-  );
-  res.status(201).json({ message: result, dashboard: snapshot });
+  const { ownerId, access } = requireOwnerContext(req, { mode: 'manage' });
+  const orderId = parseParam(req, 'orderId');
+  const { actorId, payload, actorRole } = sanitizeMemberActorPayload(req.body, access);
+  const actorContext = { actorId, actorRole, actorName: resolveActorName(req) };
+  const message = await workflowService.createGigOrderMessage(ownerId, orderId, payload, actorContext);
+  const dashboard = await refreshDashboard(ownerId, access, actorId);
+  respondWithMemberAccess(res, { message, dashboard }, access, { status: 201, performedBy: actorId });
 }
 
 export async function storeGigEscrowCheckpoint(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const orderId = Number.parseInt(req.params?.orderId, 10);
-  const actorContext = { actorId: access.actorId, actorRole: access.actorRole };
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
-    createGigOrderEscrowCheckpoint(ownerId, orderId, req.body, actorContext),
-  );
-  res.status(201).json({ checkpoint: result, dashboard: snapshot });
+  const { ownerId, access } = requireOwnerContext(req, { mode: 'manage' });
+  const orderId = parseParam(req, 'orderId');
+  const { actorId, payload, actorRole } = sanitizeMemberActorPayload(req.body, access);
+  const actorContext = { actorId, actorRole };
+  const checkpoint = await workflowService.createGigOrderEscrowCheckpoint(ownerId, orderId, payload, actorContext);
+  const dashboard = await refreshDashboard(ownerId, access, actorId);
+  respondWithMemberAccess(res, { checkpoint, dashboard }, access, { status: 201, performedBy: actorId });
 }
 
 export async function patchGigEscrowCheckpoint(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const checkpointId = Number.parseInt(req.params?.checkpointId, 10);
-  const actorContext = { actorId: access.actorId, actorRole: access.actorRole };
-  const { result, snapshot } = await withDashboardRefresh(ownerId, access, () =>
-    updateGigOrderEscrowCheckpoint(ownerId, checkpointId, req.body, actorContext),
-  );
-  res.json({ checkpoint: result, dashboard: snapshot });
+  const { ownerId, access } = requireOwnerContext(req, { mode: 'manage' });
+  const checkpointId = parseParam(req, 'checkpointId');
+  const { actorId, payload, actorRole } = sanitizeMemberActorPayload(req.body, access);
+  const actorContext = { actorId, actorRole };
+  const checkpoint = await workflowService.updateGigOrderEscrowCheckpoint(ownerId, checkpointId, payload, actorContext);
+  const dashboard = await refreshDashboard(ownerId, access, actorId);
+  respondWithMemberAccess(res, { checkpoint, dashboard }, access, { performedBy: actorId });
 }
 
 export async function storeGigSubmission(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const orderId = Number.parseInt(req.params?.orderId, 10);
-  const handler = () =>
-    (req.body.eventType || req.body.attachments || req.body.description
-      ? createGigSubmission(ownerId, orderId, req.body, { actorId: access.actorId })
-      : addGigSubmission(ownerId, orderId, req.body));
-  const { result, detail } = await withOrderRefresh(ownerId, orderId, handler);
-  res.status(201).json({ submission: result, order: detail });
+  const { ownerId, access } = requireOwnerContext(req, { mode: 'manage' });
+  const orderId = parseParam(req, 'orderId');
+  const { actorId, payload } = sanitizeMemberActorPayload(req.body, access);
+  const shouldUseExtendedPayload = payload.eventType != null || payload.attachments != null || payload.description != null;
+  const result = await (shouldUseExtendedPayload
+    ? workflowService.createGigSubmission(ownerId, orderId, payload, { actorId })
+    : workflowService.addGigSubmission(ownerId, orderId, payload));
+  const detail = await workflowService.getGigOrderDetail(ownerId, orderId);
+  const order = attachMemberAccess(detail, access, { performedBy: actorId });
+  respondWithMemberAccess(res, { submission: result, order }, access, { status: 201, performedBy: actorId });
 }
 
 export async function patchGigSubmission(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const orderId = Number.parseInt(req.params?.orderId, 10);
-  const submissionId = Number.parseInt(req.params?.submissionId, 10);
-  const { result, detail } = await withOrderRefresh(ownerId, orderId, () =>
-    updateGigSubmissionService(ownerId, orderId, submissionId, req.body, { actorId: access.actorId }),
-  );
-  res.json({ submission: result, order: detail });
+  const { ownerId, access } = requireOwnerContext(req, { mode: 'manage' });
+  const orderId = parseParam(req, 'orderId');
+  const submissionId = parseParam(req, 'submissionId');
+  const { actorId, payload } = sanitizeMemberActorPayload(req.body, access);
+  const submission = await workflowService.updateGigSubmission(ownerId, orderId, submissionId, payload, { actorId });
+  const detail = await workflowService.getGigOrderDetail(ownerId, orderId);
+  const order = attachMemberAccess(detail, access, { performedBy: actorId });
+  respondWithMemberAccess(res, { submission, order }, access, { performedBy: actorId });
 }
 
 export async function storeGigChatMessage(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const orderId = Number.parseInt(req.params?.orderId, 10);
-  const actorContext = { actorId: access.actorId, actorRole: access.actorRole };
-  const { result, detail } = await withOrderRefresh(ownerId, orderId, () =>
-    postGigChatMessage(ownerId, orderId, req.body, actorContext),
-  );
-  res.status(201).json({ message: result, order: detail });
+  const { ownerId, access } = requireOwnerContext(req, { mode: 'manage' });
+  const orderId = parseParam(req, 'orderId');
+  const { actorId, payload, actorRole } = sanitizeMemberActorPayload(req.body, access);
+  const actorContext = { actorId, actorRole };
+  const message = await workflowService.postGigChatMessage(ownerId, orderId, payload, actorContext);
+  const detail = await workflowService.getGigOrderDetail(ownerId, orderId);
+  const order = attachMemberAccess(detail, access, { performedBy: actorId });
+  respondWithMemberAccess(res, { message, order }, access, { status: 201, performedBy: actorId });
 }
 
 export async function showGigOrder(req, res) {
-  const ownerId = parseOwnerId(req);
-  ensureViewAccess(req, ownerId);
-  const orderId = Number.parseInt(req.params?.orderId, 10);
-  const detail = await getGigOrderDetail(ownerId, orderId);
-  res.json({ order: detail });
+  const { ownerId, access } = requireOwnerContext(req, { mode: 'view' });
+  const orderId = parseParam(req, 'orderId');
+  const detail = await workflowService.getGigOrderDetail(ownerId, orderId);
+  const order = attachMemberAccess(detail, access);
+  respondWithMemberAccess(res, { order }, access);
 }
 
 export async function acknowledgeGigMessage(req, res) {
-  const ownerId = parseOwnerId(req);
-  const access = ensureManageAccess(req, ownerId);
-  const orderId = Number.parseInt(req.params?.orderId, 10);
-  const messageId = Number.parseInt(req.params?.messageId, 10);
-  const { result, detail } = await withOrderRefresh(ownerId, orderId, () =>
-    acknowledgeGigChatMessage(ownerId, orderId, messageId, { actorId: access.actorId }),
-  );
-  res.json({ message: result, order: detail });
+  const { ownerId, access } = requireOwnerContext(req, { mode: 'manage' });
+  const orderId = parseParam(req, 'orderId');
+  const messageId = parseParam(req, 'messageId');
+  const { actorId } = sanitizeMemberActorPayload(req.body, access);
+  const message = await workflowService.acknowledgeGigChatMessage(ownerId, orderId, messageId, { actorId });
+  const detail = await workflowService.getGigOrderDetail(ownerId, orderId);
+  const order = attachMemberAccess(detail, access, { performedBy: actorId });
+  respondWithMemberAccess(res, { message, order }, access, { performedBy: actorId });
 }
 
 export default {
