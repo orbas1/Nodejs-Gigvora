@@ -117,6 +117,9 @@ import AdminStorageManagementPage from './pages/dashboards/admin/AdminStorageMan
 import AdminModerationDashboardPage from './pages/dashboards/admin/AdminModerationDashboardPage.jsx';
 import AdminDatabaseSettingsPage from './pages/dashboards/AdminDatabaseSettingsPage.jsx';
 import AdminGdprSettingsPage from './pages/dashboards/admin/AdminGdprSettingsPage.jsx';
+import AdminComplianceManagementPage from './pages/dashboards/admin/AdminComplianceManagementPage.jsx';
+import AdminMaintenanceModePage from './pages/dashboards/admin/AdminMaintenanceModePage.jsx';
+import AdminDocumentsManagementPage from './pages/dashboards/admin/AdminDocumentsManagementPage.jsx';
 import AdminAdsSettingsPage from './pages/dashboards/admin/AdminAdsSettingsPage.jsx';
 import AdminBlogManagementPage from './pages/admin/AdminBlogManagementPage.jsx';
 import AdminVolunteeringPage from './pages/dashboards/admin/AdminVolunteeringPage.jsx';
@@ -304,6 +307,9 @@ const adminRoutes = [
   { path: 'dashboard/admin/storage', element: <AdminStorageManagementPage /> },
   { path: 'dashboard/admin/database', element: <AdminDatabaseSettingsPage /> },
   { path: 'dashboard/admin/gdpr', element: <AdminGdprSettingsPage /> },
+  { path: 'dashboard/admin/compliance', element: <AdminComplianceManagementPage /> },
+  { path: 'dashboard/admin/maintenance', element: <AdminMaintenanceModePage /> },
+  { path: 'dashboard/admin/documents', element: <AdminDocumentsManagementPage /> },
   { path: 'dashboard/admin/ads-settings', element: <AdminAdsSettingsPage /> },
   { path: 'dashboard/admin/blog', element: <AdminBlogManagementPage /> },
   { path: 'dashboard/admin/volunteering', element: <AdminVolunteeringPage /> },

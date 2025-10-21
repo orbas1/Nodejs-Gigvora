@@ -30,6 +30,12 @@ export const ADMIN_MENU_SECTIONS = [
         tags: ['compliance'],
       },
       {
+        name: 'Compliance cockpit',
+        description: 'Frameworks, audits, obligations, and evidence lockers.',
+        tags: ['compliance', 'governance'],
+        href: '/dashboard/admin/compliance',
+      },
+      {
         name: 'Support operations',
         description: 'Service desk load, SLAs, and sentiment guardrails.',
       },
@@ -98,6 +104,18 @@ export const ADMIN_MENU_SECTIONS = [
         description: 'Runtime environment, storage credentials, and database endpoints.',
         sectionId: 'admin-settings-environment',
         tags: ['ops'],
+      },
+      {
+        name: 'Maintenance mode',
+        description: 'Global kill switch, downtime orchestration, and stakeholder comms.',
+        href: '/dashboard/admin/maintenance',
+        tags: ['ops'],
+      },
+      {
+        name: 'Document library',
+        description: 'Policies, evidence packs, and approval workflows.',
+        href: '/dashboard/admin/documents',
+        tags: ['compliance'],
       },
       {
         name: 'API & notifications',

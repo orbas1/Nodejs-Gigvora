@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowsPointingOutIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
+import { ArrowsPointingOutIcon, ArrowDownTrayIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
 import ConversationMessage from '../../messaging/ConversationMessage.jsx';
 import { classNames } from '../../../utils/classNames.js';
 import { buildThreadTitle, formatThreadParticipants } from '../../../utils/messaging.js';
@@ -73,6 +73,45 @@ export default function AdminInboxThreadDetail({
 
   const participants = useMemo(() => formatThreadParticipants(thread, actorId), [thread, actorId]);
 
+  const transcriptFileName = useMemo(() => {
+    return thread?.id ? `gigvora-thread-${thread.id}.txt` : 'gigvora-thread.txt';
+  }, [thread?.id]);
+
+  const handleDownloadTranscript = () => {
+    if (!thread) {
+      return;
+    }
+    const header = [`Thread: ${buildThreadTitle(thread, actorId)}`, `Channel: ${thread.channelType ?? 'n/a'}`];
+    if (participants.length) {
+      header.push(`Participants: ${participants.join(', ')}`);
+    }
+    const messageLines = (messages ?? []).map((message) => {
+      const author = message.author?.name ?? message.author?.email ?? message.authorId ?? 'Unknown';
+      const timestamp = message.createdAt ? new Date(message.createdAt).toISOString() : 'Unknown time';
+      const body = (message.body ?? message.message ?? '').replace(/\s+/g, ' ').trim();
+      return `[${timestamp}] ${author}: ${body}`;
+    });
+    const payload = [...header, '', ...messageLines].join('\n');
+
+    if (typeof window === 'undefined') {
+      console.info('Thread transcript', payload);
+      return;
+    }
+
+    try {
+      const blob = new Blob([payload], { type: 'text/plain;charset=utf-8' });
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = transcriptFileName;
+      anchor.rel = 'noopener';
+      anchor.click();
+      window.URL.revokeObjectURL(url);
+    } catch (exportError) {
+      console.error('Unable to export thread transcript', exportError);
+    }
+  };
+
   const toggleLabel = (labelId) => {
     const next = new Set(selectedLabelIds);
     if (next.has(labelId)) {
@@ -126,6 +165,13 @@ export default function AdminInboxThreadDetail({
               <ArrowsPointingOutIcon className="h-4 w-4" /> Expand
             </button>
           ) : null}
+          <button
+            type="button"
+            onClick={handleDownloadTranscript}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-accent/60 hover:text-accent"
+          >
+            <ArrowDownTrayIcon className="h-4 w-4" /> Transcript
+          </button>
           <button
             type="button"
             onClick={() => onOpenNewWindow?.(thread.id)}
