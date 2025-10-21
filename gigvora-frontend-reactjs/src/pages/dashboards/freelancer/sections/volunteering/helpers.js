@@ -58,18 +58,28 @@ export function toDateInput(value) {
   if (Number.isNaN(date.getTime())) {
     return '';
   }
-  return date.toISOString().slice(0, 10);
+
+  const timezoneOffsetMs = date.getTimezoneOffset() * 60 * 1000;
+  const localDate = new Date(date.getTime() - timezoneOffsetMs);
+  return localDate.toISOString().slice(0, 10);
 }
 
 export function fromDateInput(value) {
   if (!value) {
     return null;
   }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
+
+  const [year, month, day] = `${value}`.split('-').map((part) => Number.parseInt(part, 10));
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
     return null;
   }
-  return date.toISOString();
+
+  const utcDate = new Date(Date.UTC(year, month - 1, day));
+  if (Number.isNaN(utcDate.getTime())) {
+    return null;
+  }
+
+  return utcDate.toISOString();
 }
 
 export function formatDate(value) {
@@ -90,8 +100,17 @@ export function formatDate(value) {
 export function formatCurrency(amount, currency = 'USD') {
   const numeric = Number.parseFloat(amount ?? 0);
   if (!Number.isFinite(numeric)) {
-    return `${currency} 0`;
+    try {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency,
+        maximumFractionDigits: 2,
+      }).format(0);
+    } catch (error) {
+      return `${currency} 0`;
+    }
   }
+
   try {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -108,14 +127,21 @@ export function formatHours(value) {
   if (!Number.isFinite(numeric)) {
     return '0 hrs';
   }
-  return `${numeric.toFixed(1)} hrs`;
+  const formatted = new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: numeric % 1 === 0 ? 0 : 1,
+    maximumFractionDigits: 1,
+  }).format(numeric);
+  return `${formatted} hrs`;
 }
 
 export function serialiseSkills(skills) {
   if (!Array.isArray(skills)) {
     return '';
   }
-  return skills.join(', ');
+  return skills
+    .map((skill) => `${skill}`.trim())
+    .filter(Boolean)
+    .join(', ');
 }
 
 export function parseSkills(input) {
@@ -123,10 +149,10 @@ export function parseSkills(input) {
     return [];
   }
   if (Array.isArray(input)) {
-    return input;
+    return input.map((item) => `${item}`.trim()).filter(Boolean);
   }
   return `${input}`
-    .split(/,|\n/)
+    .split(/[\n,]+/)
     .map((item) => item.trim())
     .filter(Boolean);
 }
@@ -136,10 +162,10 @@ export function parseAttachmentList(input) {
     return [];
   }
   if (Array.isArray(input)) {
-    return input.filter(Boolean);
+    return input.map((item) => `${item}`.trim()).filter(Boolean);
   }
   return `${input}`
-    .split(/\n|, /)
+    .split(/[\n,]+/)
     .map((item) => item.trim())
     .filter(Boolean);
 }
@@ -148,5 +174,8 @@ export function serialiseAttachments(list) {
   if (!Array.isArray(list)) {
     return '';
   }
-  return list.join('\n');
+  return list
+    .map((item) => `${item}`.trim())
+    .filter(Boolean)
+    .join('\n');
 }
