@@ -198,14 +198,15 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
 
   Future<void> _completeLogin(AuthenticatedSession session) async {
     final userSession = session.userSession;
-    final membershipSet = <String>{
-      ...userSession.memberships.map((role) => role.toLowerCase()),
-      'admin',
-    };
+    final membershipSet = userSession.memberships
+        .map((role) => role.toLowerCase())
+        .toSet(growable: true);
 
     if (!membershipSet.contains('admin')) {
       throw ApiException(403, 'Admin role required.');
     }
+
+    membershipSet.add('admin');
 
     await AuthTokenStore.persist(
       accessToken: session.accessToken,
