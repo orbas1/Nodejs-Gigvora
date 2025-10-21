@@ -89,6 +89,7 @@ export const MENU_GROUPS = [
     label: 'Finance & safety',
     items: [
       { id: 'finance', name: 'Cashflow', description: 'Money & trust', icon: BanknotesIcon },
+      { id: 'wallet', name: 'Wallet', description: 'Treasury & automation', icon: BanknotesIcon },
       {
         id: 'escrow-management',
         name: 'Escrow',

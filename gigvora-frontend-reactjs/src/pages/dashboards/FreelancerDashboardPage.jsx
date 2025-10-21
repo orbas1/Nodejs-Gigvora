@@ -1,9 +1,13 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
+  BanknotesIcon,
   BriefcaseIcon,
   CalendarDaysIcon,
   HomeModernIcon,
+  InboxStackIcon,
+  LifebuoyIcon,
   LockClosedIcon,
+  ShieldCheckIcon,
   UserCircleIcon,
 } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
@@ -16,6 +20,10 @@ import ProfileOverviewSection from './freelancer/sections/ProfileOverviewSection
 import PlanningSection from './freelancer/sections/PlanningSection.jsx';
 import ProjectManagementSection from './freelancer/sections/project-management/ProjectManagementSection.jsx';
 import EscrowManagementSection from './freelancer/sections/EscrowManagementSection.jsx';
+import InboxSection from './freelancer/sections/InboxSection.jsx';
+import SupportSection from './freelancer/sections/SupportSection.jsx';
+import FreelancerWalletSection from './freelancer/sections/FreelancerWalletSection.jsx';
+import { IdentityVerificationSection } from '../../features/identityVerification/index.js';
 import { fetchFreelancerDashboardOverview, saveFreelancerDashboardOverview } from '../../services/freelancerDashboard.js';
 
 function resolveFreelancerId(session) {
@@ -80,14 +88,47 @@ const MENU_SECTIONS = [
     ],
   },
   {
+    label: 'Communications',
+    items: [
+      {
+        id: 'inbox',
+        name: 'Inbox',
+        description: 'Messages, calls, and routing',
+        sectionId: 'inbox',
+        icon: InboxStackIcon,
+      },
+      {
+        id: 'support',
+        name: 'Support desk',
+        description: 'Escalations & playbooks',
+        sectionId: 'support',
+        icon: LifebuoyIcon,
+      },
+    ],
+  },
+  {
     label: 'Finance',
     items: [
+      {
+        id: 'wallet',
+        name: 'Wallet',
+        description: 'Balances & automations',
+        sectionId: 'wallet',
+        icon: BanknotesIcon,
+      },
       {
         id: 'escrow',
         name: 'Escrow',
         description: 'Accounts & releases',
         sectionId: 'escrow-management',
         icon: LockClosedIcon,
+      },
+      {
+        id: 'identity',
+        name: 'Identity',
+        description: 'Verification & compliance',
+        sectionId: 'identity',
+        icon: ShieldCheckIcon,
       },
     ],
   },
@@ -185,6 +226,12 @@ export default function FreelancerDashboardPage() {
         <PlanningSection freelancerId={freelancerId} />
         <ProjectManagementSection freelancerId={freelancerId} />
         <EscrowManagementSection />
+        <div id="identity" className="scroll-mt-32">
+          <IdentityVerificationSection />
+        </div>
+        <InboxSection />
+        <SupportSection />
+        <FreelancerWalletSection />
       </div>
     </DashboardLayout>
   );

@@ -2,8 +2,8 @@ import PropTypes from 'prop-types';
 import { STATUS_OPTIONS, VISIBILITY_OPTIONS, FORMAT_OPTIONS, CREATION_TYPES } from '../../config.js';
 import ChipInput from '../components/ChipInput.jsx';
 
-export default function OverviewStep({ draft, onChange }) {
-  const type = CREATION_TYPES.find((entry) => entry.id === draft.type);
+export default function OverviewStep({ draft, onChange, typeConfig }) {
+  const type = typeConfig ?? CREATION_TYPES.find((entry) => entry.id === draft.type);
 
   return (
     <div className="space-y-6">
@@ -115,4 +115,12 @@ OverviewStep.propTypes = {
     audienceSegments: PropTypes.arrayOf(PropTypes.string),
   }).isRequired,
   onChange: PropTypes.func.isRequired,
+  typeConfig: PropTypes.shape({
+    name: PropTypes.string,
+    tagline: PropTypes.string,
+  }),
+};
+
+OverviewStep.defaultProps = {
+  typeConfig: null,
 };
