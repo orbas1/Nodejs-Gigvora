@@ -73,6 +73,10 @@ export default function SupportDrawer({
   }, [supportCase?.status, supportCase?.resolutionSummary]);
 
   useEffect(() => {
+    setPriority(supportCase?.priority ?? 'high');
+  }, [supportCase?.priority]);
+
+  useEffect(() => {
     if (supportCase?.assignedAgent?.id) {
       setAssignee(String(supportCase.assignedAgent.id));
     } else {
