@@ -2023,6 +2023,19 @@ export async function updateGroupMembership(groupId, membershipId, payload = {},
   return sanitizeMembership(membership);
 }
 
+export const __testing = {
+  slugify,
+  unique,
+  toNumber,
+  asBoolean,
+  minutesFromNow,
+  resolveBlueprint,
+  buildMembershipState,
+  computeEngagementScore,
+  mapGroupRecord,
+  GROUP_BLUEPRINTS,
+};
+
 export default {
   listMemberGroups,
   listGroups,

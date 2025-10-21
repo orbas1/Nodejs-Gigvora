@@ -514,6 +514,16 @@ export async function sampleLiveServiceTelemetry({ windowMinutes, forceRefresh =
   });
 }
 
+export const __testing = {
+  coerceWindowMinutes,
+  resolveWindowRange,
+  average,
+  median,
+  safePercentage,
+  normaliseChannelMetadata,
+  buildIncidentSignals,
+};
+
 export default {
   sampleLiveServiceTelemetry,
 };

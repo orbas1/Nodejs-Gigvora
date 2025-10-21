@@ -21,7 +21,8 @@ const REQUIRED_ENV_DEFAULTS = {
 
 function ensureEnvironmentDefaults() {
   if (typeof process.env.SKIP_SEQUELIZE_BOOTSTRAP === 'undefined') {
-    process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'false';
+    process.env.SKIP_SEQUELIZE_BOOTSTRAP =
+      process.env.LIGHTWEIGHT_SERVICE_TESTS === 'true' ? 'true' : 'false';
   }
 
   Object.entries(REQUIRED_ENV_DEFAULTS).forEach(([key, value]) => {
@@ -43,6 +44,8 @@ function markCoreDependenciesHealthy() {
 }
 
 let modelsLoaded = false;
+const skipHeavyBootstrap = process.env.LIGHTWEIGHT_SERVICE_TESTS === 'true';
+
 async function loadCoreModels() {
   if (modelsLoaded) {
     return;
@@ -143,21 +146,23 @@ jest.setTimeout(30_000);
 const skipBootstrap = process.env.SKIP_SEQUELIZE_BOOTSTRAP === 'true';
 const mockSequelizeMode = process.env.MOCK_SEQUELIZE_MODE === 'true';
 
-if (mockSequelizeMode) {
-  global.__mockSequelizeModels = {};
-  jest.unstable_mockModule('../src/models/index.js', () => global.__mockSequelizeModels);
-}
-
-if (mockSequelizeMode) {
+if (skipHeavyBootstrap) {
   ensureEnvironmentDefaults();
+  markCoreDependenciesHealthy();
 
-  beforeAll(async () => {});
+  beforeAll(async () => {
+    ensureEnvironmentDefaults();
+    markCoreDependenciesHealthy();
+  });
 
   beforeEach(async () => {
     appCache.store?.clear?.();
+    markCoreDependenciesHealthy();
   });
 
-  afterAll(async () => {});
+  afterAll(async () => {
+    await sequelize.close();
+  });
 } else {
   beforeAll(async () => {
     ensureEnvironmentDefaults();

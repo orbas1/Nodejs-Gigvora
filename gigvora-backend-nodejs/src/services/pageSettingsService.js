@@ -430,6 +430,20 @@ export async function deletePageSetting(identifier) {
   return { id: record.id };
 }
 
+export const __testing = {
+  slugify,
+  normaliseLimit,
+  normaliseOffset,
+  sanitiseKeywords,
+  sanitiseNavigationLinks,
+  sanitiseTheme,
+  sanitiseHero,
+  sanitiseSeo,
+  sanitiseCallToAction,
+  sanitiseSections,
+  buildPayload,
+};
+
 export default {
   listPageSettings,
   createPageSetting,
