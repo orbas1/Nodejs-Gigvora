@@ -132,6 +132,7 @@ export default function ResourceManager({
   itemName,
   loading = false,
   disabled = false,
+  readOnlyMessage,
   onCreate,
   onUpdate,
   onDelete,
@@ -144,9 +145,14 @@ export default function ResourceManager({
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  const sortedItems = useMemo(() => Array.isArray(items) ? items : [], [items]);
+  const sortedItems = useMemo(() => (Array.isArray(items) ? [...items] : []), [items]);
+  const effectiveDisabled = disabled || loading;
+  const disabledTitle = effectiveDisabled && readOnlyMessage ? readOnlyMessage : undefined;
 
   const openCreateDialog = () => {
+    if (effectiveDisabled) {
+      return;
+    }
     setMode('create');
     setCurrentItem(null);
     setDraft(buildDraft(fields, null));
@@ -155,6 +161,9 @@ export default function ResourceManager({
   };
 
   const openEditDialog = (item) => {
+    if (effectiveDisabled) {
+      return;
+    }
     setMode('edit');
     setCurrentItem(item);
     setDraft(buildDraft(fields, item));
@@ -175,7 +184,7 @@ export default function ResourceManager({
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (disabled) {
+    if (effectiveDisabled) {
       return;
     }
     try {
@@ -196,28 +205,47 @@ export default function ResourceManager({
     }
   };
 
-  const handleDelete = async (item) => {
-    if (!onDelete || disabled) {
+  const handleDelete = (item) => {
+    if (!onDelete || effectiveDisabled) {
       return;
     }
     const confirmed = window.confirm(`Delete this ${itemName}? This action cannot be undone.`);
     if (!confirmed) {
       return;
     }
-    try {
-      await onDelete(item);
-    } catch (deleteError) {
-      // eslint-disable-next-line no-alert
-      window.alert(deleteError?.message ?? `Unable to delete ${itemName}.`);
+    const executeDelete = () => {
+      try {
+        const result = onDelete(item);
+        if (result && typeof result.then === 'function') {
+          result.catch((deleteError) => {
+            // eslint-disable-next-line no-alert
+            window.alert(deleteError?.message ?? `Unable to delete ${itemName}.`);
+          });
+        }
+      } catch (deleteError) {
+        // eslint-disable-next-line no-alert
+        window.alert(deleteError?.message ?? `Unable to delete ${itemName}.`);
+      }
+    };
+
+    if (typeof window !== 'undefined' && typeof window.setTimeout === 'function') {
+      window.setTimeout(executeDelete, 0);
+    } else {
+      executeDelete();
     }
   };
 
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm" aria-busy={loading}>
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
           <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
           {description ? <p className="mt-1 text-sm text-slate-600">{description}</p> : null}
+          {disabled && readOnlyMessage ? (
+            <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-amber-600">
+              {readOnlyMessage}
+            </p>
+          ) : null}
           {lastUpdated ? (
             <p className="mt-1 text-xs text-slate-400">Last refreshed {lastUpdated.toLocaleString?.() ?? lastUpdated}</p>
           ) : null}
@@ -226,7 +254,8 @@ export default function ResourceManager({
           <button
             type="button"
             onClick={openCreateDialog}
-            disabled={disabled}
+            disabled={effectiveDisabled}
+            title={disabledTitle}
             className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-600 transition hover:border-blue-300 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <PlusIcon className="h-4 w-4" />
@@ -236,7 +265,11 @@ export default function ResourceManager({
       </div>
 
       <div className="mt-4">
-        {sortedItems.length === 0 ? (
+        {loading ? (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500 animate-pulse" aria-live="polite">
+            Loading {itemName}s…
+          </div>
+        ) : sortedItems.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
             {emptyLabel}
           </div>
@@ -266,7 +299,10 @@ export default function ResourceManager({
                         <button
                           type="button"
                           onClick={() => openEditDialog(item)}
-                          className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 transition hover:border-blue-200 hover:text-blue-600"
+                          className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 transition hover:border-blue-200 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
+                          disabled={effectiveDisabled}
+                          aria-disabled={effectiveDisabled}
+                          title={disabledTitle}
                         >
                           <PencilSquareIcon className="h-4 w-4" />
                           Edit
@@ -274,7 +310,10 @@ export default function ResourceManager({
                         <button
                           type="button"
                           onClick={() => handleDelete(item)}
-                          className="inline-flex items-center gap-1 rounded-full border border-rose-200 px-2.5 py-1 text-xs font-semibold text-rose-600 transition hover:border-rose-300 hover:text-rose-700"
+                          className="inline-flex items-center gap-1 rounded-full border border-rose-200 px-2.5 py-1 text-xs font-semibold text-rose-600 transition hover:border-rose-300 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          disabled={effectiveDisabled}
+                          aria-disabled={effectiveDisabled}
+                          title={disabledTitle}
                         >
                           <TrashIcon className="h-4 w-4" />
                           Remove
@@ -387,6 +426,7 @@ ResourceManager.propTypes = {
   itemName: PropTypes.string.isRequired,
   loading: PropTypes.bool,
   disabled: PropTypes.bool,
+  readOnlyMessage: PropTypes.string,
   onCreate: PropTypes.func,
   onUpdate: PropTypes.func,
   onDelete: PropTypes.func,

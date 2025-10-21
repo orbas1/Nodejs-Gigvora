@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { FunnelIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { STATUS_OPTIONS, HIGHLIGHT_OPTIONS } from './constants.js';
 
@@ -73,3 +74,14 @@ export default function FilterBar({ filters, onChange, onReset }) {
     </div>
   );
 }
+
+FilterBar.propTypes = {
+  filters: PropTypes.shape({
+    query: PropTypes.string,
+    status: PropTypes.string,
+    highlighted: PropTypes.oneOfType([PropTypes.bool, PropTypes.string]),
+    minRating: PropTypes.number,
+  }).isRequired,
+  onChange: PropTypes.func.isRequired,
+  onReset: PropTypes.func.isRequired,
+};

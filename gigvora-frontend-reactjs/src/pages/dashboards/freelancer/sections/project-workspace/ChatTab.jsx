@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { formatDate } from './helpers.js';
 
-export default function ChatTab({ conversations, manager, disabled = false }) {
+export default function ChatTab({ conversations, manager, disabled = false, readOnlyReason, loading = false }) {
   const [selectedId, setSelectedId] = useState(null);
   const [messageDraft, setMessageDraft] = useState({ authorName: '', body: '' });
   const [sending, setSending] = useState(false);
@@ -34,10 +34,11 @@ export default function ChatTab({ conversations, manager, disabled = false }) {
   }, [selectedId, sortedConversations]);
 
   const activeConversation = sortedConversations.find((conversation) => conversation.id === selectedId) ?? null;
+  const effectiveDisabled = disabled || loading;
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (!activeConversation || disabled) {
+    if (!activeConversation || effectiveDisabled) {
       return;
     }
     setSending(true);
@@ -56,7 +57,7 @@ export default function ChatTab({ conversations, manager, disabled = false }) {
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[280px,1fr]">
+    <div className="grid gap-6 lg:grid-cols-[280px,1fr]" aria-busy={loading}>
       <aside className="space-y-3">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">In-project conversations</h3>
         <div className="rounded-2xl border border-slate-200 bg-white">
@@ -121,6 +122,16 @@ export default function ChatTab({ conversations, manager, disabled = false }) {
             </div>
             <footer className="border-t border-slate-100 px-6 py-4">
               <form onSubmit={handleSubmit} className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                  {readOnlyReason && disabled ? (
+                    <span className="font-semibold uppercase tracking-wide text-amber-600">{readOnlyReason}</span>
+                  ) : null}
+                  {loading ? (
+                    <span className="text-slate-500" aria-live="polite">
+                      Syncing latest messages…
+                    </span>
+                  ) : null}
+                </div>
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-1">
                     <label htmlFor="messageAuthor" className="text-sm font-medium text-slate-700">
@@ -131,7 +142,8 @@ export default function ChatTab({ conversations, manager, disabled = false }) {
                       value={messageDraft.authorName}
                       onChange={(event) => setMessageDraft((prev) => ({ ...prev, authorName: event.target.value }))}
                       placeholder="Optional"
-                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                      disabled={effectiveDisabled}
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
                     />
                   </div>
                   <div className="space-y-1">
@@ -144,7 +156,8 @@ export default function ChatTab({ conversations, manager, disabled = false }) {
                       onChange={(event) => setMessageDraft((prev) => ({ ...prev, body: event.target.value }))}
                       required
                       rows={3}
-                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                      disabled={effectiveDisabled}
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
                     />
                   </div>
                 </div>
@@ -152,10 +165,10 @@ export default function ChatTab({ conversations, manager, disabled = false }) {
                 <div className="flex justify-end">
                   <button
                     type="submit"
-                    disabled={sending}
+                    disabled={sending || effectiveDisabled}
                     className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
                   >
-                    {sending ? 'Sending…' : 'Send message'}
+                    {loading ? 'Syncing…' : sending ? 'Sending…' : 'Send message'}
                   </button>
                 </div>
               </form>
@@ -175,4 +188,6 @@ ChatTab.propTypes = {
   conversations: PropTypes.array,
   manager: PropTypes.shape({ postConversationMessage: PropTypes.func.isRequired }).isRequired,
   disabled: PropTypes.bool,
+  readOnlyReason: PropTypes.string,
+  loading: PropTypes.bool,
 };

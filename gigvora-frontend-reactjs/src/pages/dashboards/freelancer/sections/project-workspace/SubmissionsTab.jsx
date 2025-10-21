@@ -2,7 +2,7 @@ import PropTypes from 'prop-types';
 import ResourceManager from './ResourceManager.jsx';
 import { submissionsConfig } from './config.js';
 
-export default function SubmissionsTab({ submissions, manager, disabled = false }) {
+export default function SubmissionsTab({ submissions, manager, disabled = false, readOnlyReason, loading = false }) {
   return (
     <ResourceManager
       title={submissionsConfig.title}
@@ -14,6 +14,8 @@ export default function SubmissionsTab({ submissions, manager, disabled = false 
       emptyLabel={submissionsConfig.emptyLabel}
       itemName={submissionsConfig.itemName}
       disabled={disabled}
+      readOnlyMessage={readOnlyReason}
+      loading={loading}
       onCreate={(payload) => manager.createSubmission(payload)}
       onUpdate={(item, payload) => manager.updateSubmission(item.id, payload)}
       onDelete={(item) => manager.deleteSubmission(item.id)}
@@ -29,4 +31,6 @@ SubmissionsTab.propTypes = {
     deleteSubmission: PropTypes.func.isRequired,
   }).isRequired,
   disabled: PropTypes.bool,
+  readOnlyReason: PropTypes.string,
+  loading: PropTypes.bool,
 };

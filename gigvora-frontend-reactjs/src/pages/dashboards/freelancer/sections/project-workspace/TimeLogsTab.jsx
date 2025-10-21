@@ -2,7 +2,7 @@ import PropTypes from 'prop-types';
 import ResourceManager from './ResourceManager.jsx';
 import { timeLogConfig } from './config.js';
 
-export default function TimeLogsTab({ entries, manager, disabled = false }) {
+export default function TimeLogsTab({ entries, manager, disabled = false, readOnlyReason, loading = false }) {
   return (
     <ResourceManager
       title={timeLogConfig.title}
@@ -14,6 +14,8 @@ export default function TimeLogsTab({ entries, manager, disabled = false }) {
       emptyLabel={timeLogConfig.emptyLabel}
       itemName={timeLogConfig.itemName}
       disabled={disabled}
+      readOnlyMessage={readOnlyReason}
+      loading={loading}
       onCreate={(payload) => manager.createTimeLog(payload)}
       onUpdate={(item, payload) => manager.updateTimeLog(item.id, payload)}
       onDelete={(item) => manager.deleteTimeLog(item.id)}
@@ -29,4 +31,6 @@ TimeLogsTab.propTypes = {
     deleteTimeLog: PropTypes.func.isRequired,
   }).isRequired,
   disabled: PropTypes.bool,
+  readOnlyReason: PropTypes.string,
+  loading: PropTypes.bool,
 };
