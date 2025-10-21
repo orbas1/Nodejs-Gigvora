@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normaliseDocumentMetadata, parseDocumentSections } from './siteDocuments.js';
+import { buildHeroConfig, normaliseDocumentMetadata, parseDocumentSections } from './siteDocuments.js';
 
 describe('parseDocumentSections', () => {
   it('splits markdown headings into section objects', () => {
@@ -34,17 +34,37 @@ describe('normaliseDocumentMetadata', () => {
       version: '1.0.0',
       contactEmail: 'legal@example.com',
       lastUpdated: '2024-08-10',
+      hero: {
+        title: 'Fallback title',
+        description: 'Fallback description',
+      },
     };
     const page = {
       slug: 'terms',
       version: '2.0.0',
       contactPhone: '+44 20 0000 0000',
       updatedAt: '2024-08-15T10:00:00Z',
+      heroTitle: 'Live title',
     };
     const metadata = normaliseDocumentMetadata(page, fallback);
     expect(metadata.version).toBe('2.0.0');
     expect(metadata.contactEmail).toBe('legal@example.com');
     expect(metadata.contactPhone).toBe('+44 20 0000 0000');
     expect(metadata.lastUpdated).toBeInstanceOf(Date);
+    expect(metadata.heroTitle).toBe('Live title');
+  });
+});
+
+describe('buildHeroConfig', () => {
+  it('builds hero configuration with sensible fallbacks', () => {
+    const hero = buildHeroConfig(
+      { heroSubtitle: 'Live subtitle', ctaLabel: 'Contact us', ctaUrl: '/contact' },
+      { hero: { title: 'Fallback title', description: 'Fallback description' } },
+    );
+
+    expect(hero.title).toBe('Fallback title');
+    expect(hero.description).toBe('Live subtitle');
+    expect(hero.ctaLabel).toBe('Contact us');
+    expect(hero.ctaUrl).toBe('/contact');
   });
 });
