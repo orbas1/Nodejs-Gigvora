@@ -137,6 +137,106 @@ export function deleteMentorPayout(payoutId) {
   return apiClient.delete(`/mentors/finance/payouts/${payoutId}`, { headers: mentorRoleHeaders });
 }
 
+export function createMentorHubUpdate(payload) {
+  return apiClient.post('/mentors/hub/updates', payload, { headers: mentorRoleHeaders });
+}
+
+export function updateMentorHubUpdate(updateId, payload) {
+  return apiClient.put(`/mentors/hub/updates/${updateId}`, payload, { headers: mentorRoleHeaders });
+}
+
+export function deleteMentorHubUpdate(updateId) {
+  return apiClient.delete(`/mentors/hub/updates/${updateId}`, { headers: mentorRoleHeaders });
+}
+
+export function createMentorHubAction(payload) {
+  return apiClient.post('/mentors/hub/actions', payload, { headers: mentorRoleHeaders });
+}
+
+export function updateMentorHubAction(actionId, payload) {
+  return apiClient.put(`/mentors/hub/actions/${actionId}`, payload, { headers: mentorRoleHeaders });
+}
+
+export function deleteMentorHubAction(actionId) {
+  return apiClient.delete(`/mentors/hub/actions/${actionId}`, { headers: mentorRoleHeaders });
+}
+
+export function updateMentorHubSpotlight(payload) {
+  return apiClient.put('/mentors/hub/spotlight', payload, { headers: mentorRoleHeaders });
+}
+
+export function createMentorCreationItem(payload) {
+  return apiClient.post('/mentors/creation-studio/items', payload, { headers: mentorRoleHeaders });
+}
+
+export function updateMentorCreationItem(itemId, payload) {
+  return apiClient.put(`/mentors/creation-studio/items/${itemId}`, payload, { headers: mentorRoleHeaders });
+}
+
+export function deleteMentorCreationItem(itemId) {
+  return apiClient.delete(`/mentors/creation-studio/items/${itemId}`, { headers: mentorRoleHeaders });
+}
+
+export function publishMentorCreationItem(itemId, payload = {}) {
+  return apiClient.post(`/mentors/creation-studio/items/${itemId}/publish`, payload, { headers: mentorRoleHeaders });
+}
+
+export function createMentorMetricWidget(payload) {
+  return apiClient.post('/mentors/metrics/widgets', payload, { headers: mentorRoleHeaders });
+}
+
+export function updateMentorMetricWidget(widgetId, payload) {
+  return apiClient.put(`/mentors/metrics/widgets/${widgetId}`, payload, { headers: mentorRoleHeaders });
+}
+
+export function deleteMentorMetricWidget(widgetId) {
+  return apiClient.delete(`/mentors/metrics/widgets/${widgetId}`, { headers: mentorRoleHeaders });
+}
+
+export function generateMentorMetricsReport(payload = {}) {
+  return apiClient.post('/mentors/metrics/report', payload, { headers: mentorRoleHeaders });
+}
+
+export function updateMentorSettings(payload) {
+  return apiClient.put('/mentors/settings', payload, { headers: mentorRoleHeaders });
+}
+
+export function updateMentorSystemPreferences(payload) {
+  return apiClient.put('/mentors/system-preferences', payload, { headers: mentorRoleHeaders });
+}
+
+export function rotateMentorApiKey() {
+  return apiClient.post('/mentors/system-preferences/api-key/rotate', {}, { headers: mentorRoleHeaders });
+}
+
+export function createMentorOrder(payload) {
+  return apiClient.post('/mentors/orders', payload, { headers: mentorRoleHeaders });
+}
+
+export function updateMentorOrder(orderId, payload) {
+  return apiClient.put(`/mentors/orders/${orderId}`, payload, { headers: mentorRoleHeaders });
+}
+
+export function deleteMentorOrder(orderId) {
+  return apiClient.delete(`/mentors/orders/${orderId}`, { headers: mentorRoleHeaders });
+}
+
+export function createMentorAdCampaign(payload) {
+  return apiClient.post('/mentors/ads/campaigns', payload, { headers: mentorRoleHeaders });
+}
+
+export function updateMentorAdCampaign(campaignId, payload) {
+  return apiClient.put(`/mentors/ads/campaigns/${campaignId}`, payload, { headers: mentorRoleHeaders });
+}
+
+export function deleteMentorAdCampaign(campaignId) {
+  return apiClient.delete(`/mentors/ads/campaigns/${campaignId}`, { headers: mentorRoleHeaders });
+}
+
+export function toggleMentorAdCampaign(campaignId, payload) {
+  return apiClient.post(`/mentors/ads/campaigns/${campaignId}/status`, payload, { headers: mentorRoleHeaders });
+}
+
 export default {
   submitMentorProfile,
   fetchMentorDashboard,
@@ -170,4 +270,29 @@ export default {
   createMentorPayout,
   updateMentorPayout,
   deleteMentorPayout,
+  createMentorHubUpdate,
+  updateMentorHubUpdate,
+  deleteMentorHubUpdate,
+  createMentorHubAction,
+  updateMentorHubAction,
+  deleteMentorHubAction,
+  updateMentorHubSpotlight,
+  createMentorCreationItem,
+  updateMentorCreationItem,
+  deleteMentorCreationItem,
+  publishMentorCreationItem,
+  createMentorMetricWidget,
+  updateMentorMetricWidget,
+  deleteMentorMetricWidget,
+  generateMentorMetricsReport,
+  updateMentorSettings,
+  updateMentorSystemPreferences,
+  rotateMentorApiKey,
+  createMentorOrder,
+  updateMentorOrder,
+  deleteMentorOrder,
+  createMentorAdCampaign,
+  updateMentorAdCampaign,
+  deleteMentorAdCampaign,
+  toggleMentorAdCampaign,
 };

@@ -16,12 +16,16 @@ import '../features/marketplace/presentation/project_post_screen.dart';
 import '../features/marketplace/presentation/project_auto_match_screen.dart';
 import '../features/marketplace/presentation/launchpad_screen.dart';
 import '../features/marketplace/presentation/volunteering_screen.dart';
+import '../features/marketplace/presentation/job_detail_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/admin/presentation/admin_login_screen.dart';
 import '../features/ads/presentation/ads_dashboard_screen.dart';
 import '../features/notifications/presentation/notifications_screen.dart';
 import '../features/messaging/presentation/inbox_screen.dart';
 import '../features/mentorship/presentation/mentorship_screen.dart';
+import '../features/mentorship/presentation/mentor_profile_screen.dart';
+import '../features/pages/presentation/about_us_screen.dart';
+import '../features/pages/presentation/privacy_policy_screen.dart';
 import '../features/project_gig_management/presentation/project_gig_management_screen.dart';
 import '../features/agency/presentation/agency_dashboard_screen.dart';
 import '../features/networking/presentation/networking_screen.dart';
@@ -33,6 +37,7 @@ import '../features/pipeline/presentation/freelancer_pipeline_screen.dart';
 import '../features/services/presentation/service_operations_screen.dart';
 import '../features/finance/presentation/finance_screen.dart';
 import '../features/pages/presentation/pages_screen.dart';
+import '../features/support/presentation/support_screen.dart';
 import '../features/connections/presentation/connections_screen.dart';
 import '../features/work_management/presentation/work_management_screen.dart';
 import '../features/integrations/presentation/company_integrations_screen.dart';
@@ -104,6 +109,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/feed', builder: (context, state) => const FeedScreen()),
       GoRoute(path: '/explorer', builder: (context, state) => const ExplorerScreen()),
       GoRoute(path: '/jobs', builder: (context, state) => const JobsScreen()),
+      GoRoute(
+        path: '/jobs/:id',
+        builder: (context, state) => JobDetailScreen(jobId: state.pathParameters['id'] ?? ''),
+      ),
       GoRoute(path: '/gigs', builder: (context, state) => const GigsScreen()),
       GoRoute(path: '/projects', builder: (context, state) => const ProjectsScreen()),
       GoRoute(path: '/projects/new', builder: (context, state) => const ProjectPostScreen()),
@@ -136,7 +145,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const NotificationsScreen(),
       ),
       GoRoute(path: '/pages', builder: (context, state) => const PagesScreen()),
+      GoRoute(path: '/support', builder: (context, state) => const SupportScreen()),
+      GoRoute(path: '/about', builder: (context, state) => const AboutUsScreen()),
+      GoRoute(path: '/privacy', builder: (context, state) => const PrivacyPolicyScreen()),
       GoRoute(path: '/inbox', builder: (context, state) => const InboxScreen()),
+      GoRoute(
+        path: '/mentors/:id',
+        builder: (context, state) => MentorProfileScreen(mentorId: state.pathParameters['id'] ?? 'mentor-aurora'),
+      ),
       GoRoute(path: '/finance', builder: (context, state) => const FinanceScreen()),
       GoRoute(path: '/connections', builder: (context, state) => const ConnectionsScreen()),
       GoRoute(path: '/operations', builder: (context, state) => const ServiceOperationsScreen()),

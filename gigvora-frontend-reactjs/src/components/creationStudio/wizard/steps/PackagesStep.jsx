@@ -70,7 +70,7 @@ export default function PackagesStep({ draft, onChange, typeConfig }) {
         <p className="text-sm font-semibold text-slate-900">{isGig ? 'Packages' : 'Options'}</p>
         <p className="text-sm text-slate-500">
           {isGig
-            ? 'Map your Basic, Standard, and Premium tiers just like Fiverr with pricing, delivery, and feature bullets.'
+            ? 'Map your Basic, Standard, and Premium tiers similar to leading marketplaces with pricing, delivery, and feature bullets.'
             : 'Add clear package-style options so buyers know what they receive.'}
         </p>
       </div>

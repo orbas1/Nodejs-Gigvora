@@ -32,6 +32,7 @@ export default function ProjectRosterDrawer({
   savingSettings,
   onAddFreelancer,
   onUpdateFreelancer,
+  onRemoveFreelancer,
   savingFreelancerKey,
 }) {
   const [newEntry, setNewEntry] = useState({
@@ -188,23 +189,31 @@ export default function ProjectRosterDrawer({
                                   >
                                     Accept
                                   </button>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      onUpdateFreelancer(entry.id, {
-                                        status: 'rejected',
-                                        autoMatchEnabled: false,
-                                      })
-                                    }
-                                    disabled={saving}
-                                    className="rounded-full bg-rose-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
-                                  >
-                                    Reject
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  onUpdateFreelancer(entry.id, {
+                                    status: 'rejected',
+                                    autoMatchEnabled: false,
+                                  })
+                                }
+                                disabled={saving}
+                                className="rounded-full bg-rose-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                Reject
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => onRemoveFreelancer?.(entry.id)}
+                                disabled={saving}
+                                className="rounded-full border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
                           {freelancers.length === 0 && (
                             <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm font-medium text-slate-500">
                               No freelancers yet.

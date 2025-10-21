@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../theme/widgets.dart';
 import '../application/opportunity_controller.dart';
@@ -1227,6 +1228,18 @@ class _OpportunityDetailSheetState extends ConsumerState<OpportunityDetailSheet>
             ),
           ],
         ),
+        if (widget.category == OpportunityCategory.job) ...[
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () {
+              final router = GoRouter.of(context);
+              Navigator.of(context).pop();
+              router.push('/jobs/${detail.id}');
+            },
+            icon: const Icon(Icons.open_in_new),
+            label: const Text('Open full mobile profile'),
+          ),
+        ],
         if ((detail.summary ?? '').isNotEmpty) ...[
           const SizedBox(height: 24),
           _SectionHeading(title: 'Highlights'),
