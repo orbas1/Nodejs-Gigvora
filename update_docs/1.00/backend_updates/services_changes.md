@@ -8,3 +8,4 @@
 - Added `chatwootService` for authenticated widget provisioning, contact identity signing, webhook-driven thread mirroring, and SLA escalation that promotes support cases to urgent priority and queues notifications when thresholds are breached.
 - Implemented `communityModerationService` to centralise heuristic scoring, moderation event persistence, queue aggregation, SLA escalation hooks, and admin resolution workflows with realtime notifications.
 - Introduced `liveServiceTelemetryService` to aggregate timeline publishing, community chat throughput, inbox SLA health, event attendance, analytics recency, and runbook references with caching and high-volume sampling safeguards powering the admin observability dashboards.
+- Enriched `featureFlagService` evaluation to respect assignment guard-rails, per-environment rollout policies, and RBAC-aware overrides sourced from the new schema so cross-platform clients receive deterministic results.

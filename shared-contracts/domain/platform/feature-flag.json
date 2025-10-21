@@ -1,7 +1,8 @@
 {
-  "$ref": "#/definitions/Schema",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$ref": "#/definitions/FeatureFlag",
   "definitions": {
-    "Schema": {
+    "FeatureFlag": {
       "type": "object",
       "properties": {
         "id": {
@@ -25,7 +26,8 @@
           "enum": [
             "draft",
             "active",
-            "disabled"
+            "disabled",
+            "sunset"
           ]
         },
         "rolloutType": {
@@ -33,7 +35,8 @@
           "enum": [
             "global",
             "percentage",
-            "cohort"
+            "cohort",
+            "conditional"
           ]
         },
         "rolloutPercentage": {
@@ -51,6 +54,42 @@
         "metadata": {
           "type": "object",
           "additionalProperties": {}
+        },
+        "assignments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Assignment"
+          }
+        },
+        "environments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Environment"
+          }
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "accessControl": {
+          "$ref": "#/definitions/AccessControl"
+        },
+        "audit": {
+          "$ref": "#/definitions/AuditTrail"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
         }
       },
       "required": [
@@ -62,7 +101,460 @@
         "rolloutPercentage"
       ],
       "additionalProperties": false
+    },
+    "Assignment": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "flagId": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "audienceType": {
+          "type": "string",
+          "enum": [
+            "user",
+            "workspace",
+            "membership",
+            "domain"
+          ]
+        },
+        "audienceValue": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rolloutPercentage": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "conditions": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expiresAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "createdAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "audienceType",
+        "audienceValue"
+      ],
+      "additionalProperties": false
+    },
+    "Environment": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 2
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "defaultRolloutPercentage": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "schedule": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ScheduleWindow"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Rule"
+          }
+        },
+        "overrides": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Override"
+          }
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "name",
+        "enabled"
+      ],
+      "additionalProperties": false
+    },
+    "Rule": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "criteria": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Criterion"
+          },
+          "minItems": 1
+        },
+        "rolloutPercentage": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "guardRails": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/GuardRail"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "priority",
+        "criteria"
+      ],
+      "additionalProperties": false
+    },
+    "Criterion": {
+      "type": "object",
+      "properties": {
+        "attribute": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operator": {
+          "type": "string",
+          "enum": [
+            "eq",
+            "neq",
+            "in",
+            "not_in",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "contains",
+            "starts_with"
+          ]
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              },
+              "minItems": 1
+            }
+          ]
+        }
+      },
+      "required": [
+        "attribute",
+        "operator",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "GuardRail": {
+      "type": "object",
+      "properties": {
+        "maxErrorRate": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "maxLatencyMs": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "automaticDisable": {
+          "type": "boolean"
+        },
+        "monitorMetrics": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Override": {
+      "type": "object",
+      "properties": {
+        "subject": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subjectType": {
+          "type": "string",
+          "enum": [
+            "user",
+            "workspace",
+            "account"
+          ]
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "expiresAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "subject",
+        "subjectType",
+        "enabled"
+      ],
+      "additionalProperties": false
+    },
+    "ScheduleWindow": {
+      "type": "object",
+      "properties": {
+        "startAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "endAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "timeZone": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "startAt"
+      ],
+      "additionalProperties": false
+    },
+    "AccessControl": {
+      "type": "object",
+      "properties": {
+        "allowedRoles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "deniedRoles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allowedOrigins": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          },
+          "minItems": 1
+        },
+        "requiresMfa": {
+          "type": "boolean"
+        },
+        "dataAgreements": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "allowedRoles",
+        "allowedOrigins",
+        "requiresMfa"
+      ],
+      "additionalProperties": false
+    },
+    "AuditTrail": {
+      "type": "object",
+      "properties": {
+        "createdBy": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedBy": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "updatedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "approvals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AuditApproval"
+          }
+        }
+      },
+      "required": [
+        "createdBy",
+        "createdAt"
+      ],
+      "additionalProperties": false
+    },
+    "AuditApproval": {
+      "type": "object",
+      "properties": {
+        "reviewer": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "approved",
+            "rejected",
+            "pending"
+          ]
+        },
+        "reviewedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "notes": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "reviewer",
+        "status"
+      ],
+      "additionalProperties": false
     }
-  },
-  "$schema": "http://json-schema.org/draft-07/schema#"
+  }
 }

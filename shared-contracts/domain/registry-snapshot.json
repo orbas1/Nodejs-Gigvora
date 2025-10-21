@@ -42,7 +42,32 @@
             "cadence": "quarterly",
             "owner": "Compliance Office"
           }
-        ]
+        ],
+        "accessControl": {
+          "allowedRoles": [
+            "system:admin",
+            "identity:read",
+            "identity:manage"
+          ],
+          "deniedRoles": [
+            "suspended:user"
+          ],
+          "allowedOrigins": [
+            "https://app.gigvora.com",
+            "https://admin.gigvora.com",
+            "https://api.gigvora.com"
+          ],
+          "requiresMfa": true,
+          "dataAgreements": [
+            "msa-2024-q3",
+            "dpa-2024"
+          ]
+        },
+        "observability": {
+          "dataFreshnessSlaMinutes": 5,
+          "incidentSlackChannel": "#alerts-auth",
+          "pagerDutyServiceId": "pd_auth_primary"
+        }
       }
     },
     "talent": {
@@ -134,7 +159,32 @@
             "cadence": "monthly",
             "owner": "Marketplace Insights"
           }
-        ]
+        ],
+        "accessControl": {
+          "allowedRoles": [
+            "system:admin",
+            "talent:read",
+            "talent:manage"
+          ],
+          "deniedRoles": [
+            "suspended:user"
+          ],
+          "allowedOrigins": [
+            "https://app.gigvora.com",
+            "https://admin.gigvora.com",
+            "https://api.gigvora.com"
+          ],
+          "requiresMfa": false,
+          "dataAgreements": [
+            "msa-2024-q3",
+            "dpa-2024"
+          ]
+        },
+        "observability": {
+          "dataFreshnessSlaMinutes": 15,
+          "incidentSlackChannel": "#alerts-talent",
+          "pagerDutyServiceId": "pd_talent_primary"
+        }
       }
     },
     "marketplace": {
@@ -230,7 +280,32 @@
             "cadence": "monthly",
             "owner": "Product Operations"
           }
-        ]
+        ],
+        "accessControl": {
+          "allowedRoles": [
+            "system:admin",
+            "marketplace:read",
+            "marketplace:manage"
+          ],
+          "deniedRoles": [
+            "suspended:user"
+          ],
+          "allowedOrigins": [
+            "https://app.gigvora.com",
+            "https://admin.gigvora.com",
+            "https://api.gigvora.com"
+          ],
+          "requiresMfa": false,
+          "dataAgreements": [
+            "msa-2024-q3",
+            "dpa-2024"
+          ]
+        },
+        "observability": {
+          "dataFreshnessSlaMinutes": 10,
+          "incidentSlackChannel": "#alerts-marketplace",
+          "pagerDutyServiceId": "pd_marketplace_primary"
+        }
       }
     },
     "finance": {
@@ -284,7 +359,32 @@
             "cadence": "quarterly",
             "owner": "Payments Compliance"
           }
-        ]
+        ],
+        "accessControl": {
+          "allowedRoles": [
+            "system:admin",
+            "finance:read",
+            "finance:manage"
+          ],
+          "deniedRoles": [
+            "suspended:user"
+          ],
+          "allowedOrigins": [
+            "https://app.gigvora.com",
+            "https://admin.gigvora.com",
+            "https://api.gigvora.com"
+          ],
+          "requiresMfa": true,
+          "dataAgreements": [
+            "msa-2024-q3",
+            "dpa-2024"
+          ]
+        },
+        "observability": {
+          "dataFreshnessSlaMinutes": 5,
+          "incidentSlackChannel": "#alerts-finance",
+          "pagerDutyServiceId": "pd_finance_primary"
+        }
       }
     },
     "communications": {
@@ -335,7 +435,32 @@
             "cadence": "continuous",
             "owner": "Engagement Platform"
           }
-        ]
+        ],
+        "accessControl": {
+          "allowedRoles": [
+            "system:admin",
+            "communications:read",
+            "communications:manage"
+          ],
+          "deniedRoles": [
+            "suspended:user"
+          ],
+          "allowedOrigins": [
+            "https://app.gigvora.com",
+            "https://admin.gigvora.com",
+            "https://api.gigvora.com"
+          ],
+          "requiresMfa": false,
+          "dataAgreements": [
+            "msa-2024-q3",
+            "dpa-2024"
+          ]
+        },
+        "observability": {
+          "dataFreshnessSlaMinutes": 10,
+          "incidentSlackChannel": "#alerts-comms",
+          "pagerDutyServiceId": "pd_comms_primary"
+        }
       }
     },
     "governance": {
@@ -388,7 +513,32 @@
             "cadence": "monthly",
             "owner": "Risk & Compliance"
           }
-        ]
+        ],
+        "accessControl": {
+          "allowedRoles": [
+            "system:admin",
+            "governance:read",
+            "governance:manage"
+          ],
+          "deniedRoles": [
+            "suspended:user"
+          ],
+          "allowedOrigins": [
+            "https://app.gigvora.com",
+            "https://admin.gigvora.com",
+            "https://api.gigvora.com"
+          ],
+          "requiresMfa": true,
+          "dataAgreements": [
+            "msa-2024-q3",
+            "dpa-2024"
+          ]
+        },
+        "observability": {
+          "dataFreshnessSlaMinutes": 30,
+          "incidentSlackChannel": "#alerts-governance",
+          "pagerDutyServiceId": "pd_governance_primary"
+        }
       }
     },
     "platform": {
@@ -424,7 +574,32 @@
             "cadence": "hourly",
             "owner": "Site Reliability Engineering"
           }
-        ]
+        ],
+        "accessControl": {
+          "allowedRoles": [
+            "system:admin",
+            "platform:read",
+            "platform:manage"
+          ],
+          "deniedRoles": [
+            "suspended:user"
+          ],
+          "allowedOrigins": [
+            "https://app.gigvora.com",
+            "https://admin.gigvora.com",
+            "https://api.gigvora.com"
+          ],
+          "requiresMfa": true,
+          "dataAgreements": [
+            "msa-2024-q3",
+            "dpa-2024"
+          ]
+        },
+        "observability": {
+          "dataFreshnessSlaMinutes": 5,
+          "incidentSlackChannel": "#alerts-platform",
+          "pagerDutyServiceId": "pd_platform_primary"
+        }
       }
     },
     "shared": {
@@ -617,7 +792,40 @@
         "MemberBrandingApproval",
         "MemberBrandingMetric"
       ],
-      "metadata": {}
+      "metadata": {
+        "accessControl": {
+          "allowedRoles": [
+            "system:admin",
+            "platform:read"
+          ],
+          "deniedRoles": [
+            "suspended:user"
+          ],
+          "allowedOrigins": [
+            "https://app.gigvora.com",
+            "https://admin.gigvora.com",
+            "https://api.gigvora.com"
+          ],
+          "requiresMfa": false,
+          "dataAgreements": [
+            "msa-2024-q3",
+            "dpa-2024"
+          ]
+        },
+        "observability": {
+          "dataFreshnessSlaMinutes": 15,
+          "incidentSlackChannel": "#alerts-shared",
+          "pagerDutyServiceId": "pd_shared_primary"
+        }
+      }
     }
+  },
+  "version": "2025.10.21",
+  "generatedAt": "2025-10-21T19:22:08Z",
+  "integrity": {
+    "algorithm": "sha256",
+    "checksum": "7387ca4c868c2b62d5ee43a1db8b3d0315180ec82370e3ae4418557ffafebecc",
+    "generatedAt": "2025-10-21T19:22:08Z",
+    "expiresAt": "2025-11-20T19:22:08Z"
   }
 }
