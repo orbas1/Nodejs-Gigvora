@@ -14,10 +14,18 @@ import ItemShelf from './panels/ItemShelf.jsx';
 import PreviewDrawer from './panels/PreviewDrawer.jsx';
 import CreationWizard from './wizard/CreationWizard.jsx';
 
+const ALLOWED_CREATOR_ROLES = ['user', 'freelancer', 'agency', 'company', 'mentor', 'headhunter', 'admin'];
+const ALLOWED_CREATOR_ROLE_SET = new Set(ALLOWED_CREATOR_ROLES);
+
 export default function CreationStudioManager() {
   const { session, isAuthenticated } = useSession();
-  const { ownerId, hasAccess } = useMemo(() => evaluateCreationAccess(session), [session]);
-  const canManage = Boolean(ownerId) && isAuthenticated && hasAccess;
+  const ownerId = session?.id ?? null;
+  const memberships = session?.memberships ?? [];
+  const hasRoleAccess = useMemo(
+    () => memberships.some((membership) => ALLOWED_CREATOR_ROLE_SET.has(membership)),
+    [memberships],
+  );
+  const canManage = Boolean(ownerId) && isAuthenticated && hasRoleAccess;
 
   const [items, setItems] = useState([]);
   const [filters, setFilters] = useState({ status: null, type: null });
@@ -204,8 +212,8 @@ export default function CreationStudioManager() {
       <div className="rounded-3xl border border-slate-200 bg-white/80 p-8 text-center text-sm text-slate-600 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Creation studio unavailable</h2>
         <p className="mt-2 text-slate-600">
-          Sign in with an eligible creator account to manage the creation studio. Freelancer, agency, company, mentor,
-          headhunter, or admin roles are required.
+          Sign in with an eligible creator account to manage the creation studio. User, freelancer, agency, company,
+          mentor, headhunter, or admin roles are required.
         </p>
       </div>
     );
