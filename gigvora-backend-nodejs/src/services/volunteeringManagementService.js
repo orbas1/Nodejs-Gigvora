@@ -1,10 +1,10 @@
 import {
   VolunteeringPost,
-  VolunteeringApplication,
-  VolunteeringApplicationResponse,
-  VolunteeringContract,
-  VolunteeringContractSpend,
-  VolunteeringInterview,
+  VolunteeringApplication as WorkspaceApplication,
+  VolunteeringApplicationResponse as WorkspaceApplicationResponse,
+  VolunteeringContract as WorkspaceContract,
+  VolunteeringContractSpend as WorkspaceContractSpend,
+  VolunteeringInterview as WorkspaceInterview,
   VOLUNTEERING_POST_STATUSES,
   VOLUNTEERING_APPLICATION_STATUSES,
   VOLUNTEERING_RESPONSE_TYPES,
@@ -12,46 +12,14 @@ import {
   VOLUNTEERING_CONTRACT_STATUSES,
   VOLUNTEERING_CONTRACT_TYPES,
 } from '../models/volunteeringModels.js';
-import { ProviderWorkspace } from '../models/index.js';
-import { ValidationError, NotFoundError } from '../utils/errors.js';
-
-function normalizeStringArray(input) {
-  if (input == null) {
-    return null;
-  }
-  const values = Array.isArray(input) ? input : [input];
-  const cleaned = values
-    .map((value) => `${value}`.trim())
-    .filter((value) => value.length > 0)
-    .slice(0, 50);
-  return cleaned.length ? cleaned : null;
-}
-
-function normalizeJson(input) {
-  if (input == null) {
-    return null;
-  }
-  if (typeof input === 'string') {
-    try {
-      const parsed = JSON.parse(input);
-      return parsed && typeof parsed === 'object' ? parsed : null;
-    } catch (error) {
-      return null;
-    }
-  }
-  if (typeof input === 'object') {
-    return input;
-  }
-  return null;
-}
-
-function normalizeNumber(value, { min = null, max = null } = {}) {
+import {
+  ProviderWorkspace,
   sequelize,
   VolunteerApplication,
   VolunteerResponse,
   VolunteerContract,
-  VolunteerContractSpend,
   VolunteerContractReview,
+  VolunteerContractSpend,
   Volunteering,
   User,
 } from '../models/index.js';
@@ -74,54 +42,73 @@ const APPLICATION_ACTIVE_STATUSES = new Set([
 const CONTRACT_OPEN_STATUSES = new Set(['draft', 'awaiting_signature', 'active', 'on_hold']);
 const CONTRACT_FINISHED_STATUSES = new Set(['completed', 'cancelled']);
 
-function normalizeUserId(userId) {
-  const numeric = Number(userId);
-  if (!Number.isInteger(numeric) || numeric <= 0) {
-    throw new ValidationError('userId must be a positive integer.');
+function assertPlainObject(value, label = 'payload') {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new ValidationError(`${label} must be an object.`);
   }
-  return numeric;
+  return value;
 }
 
-function coerceDate(value, label) {
-  if (!value) {
+function normalizeStringArray(value) {
+  if (value == null) {
     return null;
   }
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    throw new ValidationError(`${label ?? 'date'} must be a valid date.`);
-  }
-  return date;
+  const list = Array.isArray(value) ? value : [value];
+  const cleaned = list
+    .map((item) => `${item}`.trim())
+    .filter((item) => item.length > 0)
+    .slice(0, 50);
+  return cleaned.length ? cleaned : null;
 }
 
-function coerceDecimal(value, label) {
+function normalizeJson(value) {
+  if (value == null) {
+    return null;
+  }
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch (error) {
+      return null;
+    }
+  }
+  if (typeof value === 'object') {
+    return value;
+  }
+  return null;
+}
+
+function normalizeNumber(value, label, { min = null, max = null, allowNull = true } = {}) {
   if (value == null || value === '') {
-    return null;
+    if (allowNull) {
+      return null;
+    }
+    throw new ValidationError(`${label} is required.`);
   }
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) {
-    return null;
+    throw new ValidationError(`${label} must be a number.`);
   }
   if (min != null && numeric < min) {
-    return min;
+    throw new ValidationError(`${label} must be at least ${min}.`);
   }
   if (max != null && numeric > max) {
-    return max;
-  if (!Number.isFinite(numeric) || numeric < 0) {
-    throw new ValidationError(`${label ?? 'amount'} must be a positive number.`);
+    throw new ValidationError(`${label} must be at most ${max}.`);
   }
   return numeric;
 }
 
-function normalizeDate(value) {
-  if (!value) {
-    return null;
+function normalizeDate(value, label, { allowNull = true } = {}) {
+  if (value == null || value === '') {
+    if (allowNull) {
+      return null;
+    }
+    throw new ValidationError(`${label} is required.`);
   }
-  if (value instanceof Date) {
-    return Number.isNaN(value.getTime()) ? null : value;
-  }
-  const date = new Date(value);
+  const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) {
-    return null;
+    throw new ValidationError(`${label} must be a valid date.`);
   }
   return date;
 }
@@ -142,11 +129,11 @@ function toPlain(record) {
 async function resolveWorkspace({ workspaceId, workspaceSlug }) {
   const where = {};
   if (workspaceId != null) {
-    const parsed = Number(workspaceId);
-    if (!Number.isInteger(parsed) || parsed <= 0) {
-      throw new ValidationError('workspaceId must be a positive integer when provided.');
+    const numeric = Number(workspaceId);
+    if (!Number.isInteger(numeric) || numeric <= 0) {
+      throw new ValidationError('workspaceId must be a positive integer.');
     }
-    where.id = parsed;
+    where.id = numeric;
   }
   if (workspaceSlug) {
     where.slug = `${workspaceSlug}`.trim();
@@ -170,7 +157,7 @@ async function ensureWorkspaceForPost(post, workspace) {
     throw new NotFoundError('Volunteering post not found.');
   }
   if (workspace && post.workspaceId !== workspace.id) {
-    throw new ValidationError('Volunteering post does not belong to the specified workspace.');
+    throw new ValidationError('The requested resource does not belong to the specified workspace.');
   }
 }
 
@@ -188,15 +175,19 @@ function buildPostPayload(input = {}) {
   }
   if (input.location !== undefined) payload.location = input.location ? `${input.location}`.trim() : null;
   if (input.remoteFriendly !== undefined) payload.remoteFriendly = Boolean(input.remoteFriendly);
-  if (input.commitmentHours !== undefined) payload.commitmentHours = normalizeNumber(input.commitmentHours, { min: 0 });
+  if (input.commitmentHours !== undefined) {
+    payload.commitmentHours = normalizeNumber(input.commitmentHours, 'commitmentHours', { min: 0 });
+  }
   if (input.applicationUrl !== undefined) payload.applicationUrl = input.applicationUrl ? `${input.applicationUrl}`.trim() : null;
   if (input.contactEmail !== undefined) payload.contactEmail = input.contactEmail ? `${input.contactEmail}`.trim() : null;
-  if (input.startDate !== undefined) payload.startDate = normalizeDate(input.startDate);
-  if (input.endDate !== undefined) payload.endDate = normalizeDate(input.endDate);
-  if (input.applicationDeadline !== undefined) payload.applicationDeadline = normalizeDate(input.applicationDeadline);
+  if (input.startDate !== undefined) payload.startDate = normalizeDate(input.startDate, 'startDate');
+  if (input.endDate !== undefined) payload.endDate = normalizeDate(input.endDate, 'endDate');
+  if (input.applicationDeadline !== undefined)
+    payload.applicationDeadline = normalizeDate(input.applicationDeadline, 'applicationDeadline');
   if (input.tags !== undefined) payload.tags = normalizeStringArray(input.tags);
   if (input.skills !== undefined) payload.skills = normalizeStringArray(input.skills);
-  if (input.benefits !== undefined) payload.benefits = normalizeJson(input.benefits) ?? normalizeStringArray(input.benefits);
+  if (input.benefits !== undefined)
+    payload.benefits = normalizeJson(input.benefits) ?? normalizeStringArray(input.benefits);
   if (input.requirements !== undefined)
     payload.requirements = normalizeJson(input.requirements) ?? normalizeStringArray(input.requirements);
   if (input.metadata !== undefined) payload.metadata = normalizeJson(input.metadata);
@@ -219,8 +210,9 @@ function buildApplicationPayload(input = {}) {
     payload.status = normalised;
   }
   if (input.stage !== undefined) payload.stage = input.stage ? `${input.stage}`.trim() : null;
-  if (input.submittedAt !== undefined) payload.submittedAt = normalizeDate(input.submittedAt) ?? new Date();
-  if (input.reviewedAt !== undefined) payload.reviewedAt = normalizeDate(input.reviewedAt);
+  if (input.submittedAt !== undefined)
+    payload.submittedAt = normalizeDate(input.submittedAt, 'submittedAt', { allowNull: true }) ?? new Date();
+  if (input.reviewedAt !== undefined) payload.reviewedAt = normalizeDate(input.reviewedAt, 'reviewedAt', { allowNull: true });
   if (input.assignedTo !== undefined) payload.assignedTo = input.assignedTo ? `${input.assignedTo}`.trim() : null;
   if (input.source !== undefined) payload.source = input.source ? `${input.source}`.trim() : null;
   if (input.notes !== undefined) payload.notes = input.notes ?? null;
@@ -230,7 +222,10 @@ function buildApplicationPayload(input = {}) {
 
 function buildResponsePayload(input = {}) {
   const payload = {};
-  if (input.actorId !== undefined) payload.actorId = input.actorId == null ? null : Number(input.actorId) || null;
+  if (input.actorId !== undefined) {
+    const actorId = input.actorId == null ? null : Number(input.actorId);
+    payload.actorId = Number.isInteger(actorId) && actorId > 0 ? actorId : null;
+  }
   if (input.actorName !== undefined) payload.actorName = input.actorName ? `${input.actorName}`.trim() : null;
   if (input.actorRole !== undefined) payload.actorRole = input.actorRole ? `${input.actorRole}`.trim() : null;
   if (input.responseType) {
@@ -247,11 +242,11 @@ function buildResponsePayload(input = {}) {
     }
     payload.visibility = normalised;
   }
-  if (input.message != null) {
-    payload.message = `${input.message}`;
-  }
-  if (input.attachments !== undefined) payload.attachments = normalizeJson(input.attachments) ?? normalizeStringArray(input.attachments);
-  if (input.sentAt !== undefined) payload.sentAt = normalizeDate(input.sentAt) ?? new Date();
+  if (input.message != null) payload.message = `${input.message}`;
+  if (input.attachments !== undefined)
+    payload.attachments = normalizeJson(input.attachments) ?? normalizeStringArray(input.attachments);
+  if (input.sentAt !== undefined)
+    payload.sentAt = normalizeDate(input.sentAt, 'sentAt', { allowNull: true }) ?? new Date();
   if (input.metadata !== undefined) payload.metadata = normalizeJson(input.metadata);
   return payload;
 }
@@ -259,14 +254,11 @@ function buildResponsePayload(input = {}) {
 function buildInterviewPayload(input = {}) {
   const payload = {};
   if (input.scheduledAt !== undefined) {
-    const scheduled = normalizeDate(input.scheduledAt);
-    if (!scheduled) {
-      throw new ValidationError('scheduledAt must be a valid date.');
-    }
-    payload.scheduledAt = scheduled;
+    payload.scheduledAt = normalizeDate(input.scheduledAt, 'scheduledAt', { allowNull: false });
   }
-  if (input.durationMinutes !== undefined)
-    payload.durationMinutes = normalizeNumber(input.durationMinutes, { min: 0, max: 1440 });
+  if (input.durationMinutes !== undefined) {
+    payload.durationMinutes = normalizeNumber(input.durationMinutes, 'durationMinutes', { min: 0, max: 1440 });
+  }
   if (input.interviewerName !== undefined)
     payload.interviewerName = input.interviewerName ? `${input.interviewerName}`.trim() : null;
   if (input.interviewerEmail !== undefined)
@@ -281,7 +273,7 @@ function buildInterviewPayload(input = {}) {
     payload.status = normalised;
   }
   if (input.feedback !== undefined) payload.feedback = input.feedback ?? null;
-  if (input.score !== undefined) payload.score = normalizeNumber(input.score, { min: 0, max: 10 });
+  if (input.score !== undefined) payload.score = normalizeNumber(input.score, 'score', { min: 0, max: 10 });
   if (input.notes !== undefined) payload.notes = input.notes ?? null;
   if (input.metadata !== undefined) payload.metadata = normalizeJson(input.metadata);
   return payload;
@@ -304,11 +296,14 @@ function buildContractPayload(input = {}) {
     }
     payload.contractType = normalised;
   }
-  if (input.startDate !== undefined) payload.startDate = normalizeDate(input.startDate);
-  if (input.endDate !== undefined) payload.endDate = normalizeDate(input.endDate);
-  if (input.hoursPerWeek !== undefined) payload.hoursPerWeek = normalizeNumber(input.hoursPerWeek, { min: 0, max: 168 });
-  if (input.stipendAmount !== undefined) payload.stipendAmount = normalizeNumber(input.stipendAmount, { min: 0 });
-  if (input.currency !== undefined) payload.currency = input.currency ? `${input.currency}`.trim().toUpperCase().slice(0, 6) : 'USD';
+  if (input.startDate !== undefined) payload.startDate = normalizeDate(input.startDate, 'startDate');
+  if (input.endDate !== undefined) payload.endDate = normalizeDate(input.endDate, 'endDate');
+  if (input.hoursPerWeek !== undefined)
+    payload.hoursPerWeek = normalizeNumber(input.hoursPerWeek, 'hoursPerWeek', { min: 0, max: 168 });
+  if (input.stipendAmount !== undefined)
+    payload.stipendAmount = normalizeNumber(input.stipendAmount, 'stipendAmount', { min: 0 });
+  if (input.currency !== undefined)
+    payload.currency = input.currency ? `${input.currency}`.trim().toUpperCase().slice(0, 6) : 'USD';
   if (input.deliverables !== undefined)
     payload.deliverables = normalizeJson(input.deliverables) ?? normalizeStringArray(input.deliverables);
   if (input.terms !== undefined) payload.terms = input.terms ?? null;
@@ -318,20 +313,22 @@ function buildContractPayload(input = {}) {
 
 function buildSpendPayload(input = {}) {
   const payload = {};
-  if (input.amount !== undefined) payload.amount = normalizeNumber(input.amount, { min: 0 }) ?? 0;
-  if (input.currency !== undefined) payload.currency = input.currency ? `${input.currency}`.trim().toUpperCase().slice(0, 6) : 'USD';
+  if (input.amount !== undefined) payload.amount = normalizeNumber(input.amount, 'amount', { min: 0 }) ?? 0;
+  if (input.currency !== undefined)
+    payload.currency = input.currency ? `${input.currency}`.trim().toUpperCase().slice(0, 6) : 'USD';
   if (input.category !== undefined) payload.category = input.category ? `${input.category}`.trim() : null;
   if (input.description !== undefined) payload.description = input.description ? `${input.description}`.trim() : null;
-  if (input.spentAt !== undefined) payload.spentAt = normalizeDate(input.spentAt) ?? new Date();
+  if (input.spentAt !== undefined)
+    payload.spentAt = normalizeDate(input.spentAt, 'spentAt', { allowNull: true }) ?? new Date();
   if (input.receiptUrl !== undefined) payload.receiptUrl = input.receiptUrl ? `${input.receiptUrl}`.trim() : null;
   if (input.metadata !== undefined) payload.metadata = normalizeJson(input.metadata);
   return payload;
 }
 
-function groupBy(items, keySelector) {
+function groupBy(items, selector) {
   const map = new Map();
   (items ?? []).forEach((item) => {
-    const key = keySelector(item);
+    const key = selector(item);
     if (key == null) {
       return;
     }
@@ -343,8 +340,8 @@ function groupBy(items, keySelector) {
   return map;
 }
 
-function sumBy(items, valueSelector) {
-  return (items ?? []).reduce((total, item) => total + (Number(valueSelector(item)) || 0), 0);
+function sumBy(items, selector) {
+  return (items ?? []).reduce((total, item) => total + (Number(selector(item)) || 0), 0);
 }
 
 function computeSummary({ posts, applications, interviews, contracts, spendEntries, lookbackStart }) {
@@ -429,7 +426,7 @@ function computeSummary({ posts, applications, interviews, contracts, spendEntri
 function attachNestedData(posts, groupedApplications, groupedResponses, groupedInterviews, groupedContracts, groupedSpend) {
   return posts.map((post) => {
     const applications = groupedApplications.get(post.id) || [];
-    const applicationPayload = applications.map((application) => {
+    const enrichedApplications = applications.map((application) => {
       const responses = groupedResponses.get(application.id) || [];
       const interviews = groupedInterviews.get(application.id) || [];
       const contracts = (groupedContracts.get(application.id) || []).map((contract) => ({
@@ -447,7 +444,7 @@ function attachNestedData(posts, groupedApplications, groupedResponses, groupedI
 
     return {
       ...post,
-      applications: applicationPayload,
+      applications: enrichedApplications,
     };
   });
 }
@@ -466,7 +463,7 @@ export async function getVolunteeringDashboard({ workspaceId, workspaceSlug, loo
 
   const postIds = posts.map((post) => post.id);
   const applications = postIds.length
-    ? (await VolunteeringApplication.findAll({
+    ? (await WorkspaceApplication.findAll({
         where: { workspaceId: workspace.id, postId: postIds },
         order: [['submittedAt', 'DESC']],
       })).map(toPlain)
@@ -474,21 +471,21 @@ export async function getVolunteeringDashboard({ workspaceId, workspaceSlug, loo
   const applicationIds = applications.map((application) => application.id);
 
   const responses = applicationIds.length
-    ? (await VolunteeringApplicationResponse.findAll({
+    ? (await WorkspaceApplicationResponse.findAll({
         where: { workspaceId: workspace.id, applicationId: applicationIds },
         order: [['sentAt', 'DESC']],
       })).map(toPlain)
     : [];
 
   const interviews = applicationIds.length
-    ? (await VolunteeringInterview.findAll({
+    ? (await WorkspaceInterview.findAll({
         where: { workspaceId: workspace.id, applicationId: applicationIds },
         order: [['scheduledAt', 'DESC']],
       })).map(toPlain)
     : [];
 
   const contracts = applicationIds.length
-    ? (await VolunteeringContract.findAll({
+    ? (await WorkspaceContract.findAll({
         where: { workspaceId: workspace.id, applicationId: applicationIds },
         order: [['createdAt', 'DESC']],
       })).map(toPlain)
@@ -496,7 +493,7 @@ export async function getVolunteeringDashboard({ workspaceId, workspaceSlug, loo
   const contractIds = contracts.map((contract) => contract.id);
 
   const spendEntries = contractIds.length
-    ? (await VolunteeringContractSpend.findAll({
+    ? (await WorkspaceContractSpend.findAll({
         where: { workspaceId: workspace.id, contractId: contractIds },
         order: [['spentAt', 'DESC']],
       })).map(toPlain)
@@ -543,9 +540,7 @@ async function reloadPost(post) {
 }
 
 export async function createVolunteeringPost({ workspaceId, workspaceSlug, actorId, payload }) {
-  if (!payload || typeof payload !== 'object') {
-    throw new ValidationError('payload is required.');
-  }
+  assertPlainObject(payload, 'payload');
   const workspace = await resolveWorkspace({ workspaceId, workspaceSlug });
   const attributes = buildPostPayload(payload);
   if (!attributes.title) {
@@ -563,7 +558,7 @@ export async function createVolunteeringPost({ workspaceId, workspaceSlug, actor
 export async function updateVolunteeringPost({ postId, workspaceId, workspaceSlug, actorId, payload }) {
   const workspace = await resolveWorkspace({ workspaceId, workspaceSlug });
   const post = await findPostOrThrow(postId, workspace);
-  const attributes = buildPostPayload(payload);
+  const attributes = buildPostPayload(payload ?? {});
   if (Object.keys(attributes).length === 0) {
     return reloadPost(post);
   }
@@ -579,22 +574,22 @@ export async function deleteVolunteeringPost({ postId, workspaceId, workspaceSlu
   return true;
 }
 
-async function loadApplication(applicationId) {
-  const application = await VolunteeringApplication.findByPk(applicationId);
+async function loadWorkspaceApplication(applicationId) {
+  const application = await WorkspaceApplication.findByPk(applicationId);
   if (!application) {
     throw new NotFoundError('Volunteering application not found.');
   }
   const plainApplication = toPlain(application);
   const [responses, interviews, contracts] = await Promise.all([
-    VolunteeringApplicationResponse.findAll({
+    WorkspaceApplicationResponse.findAll({
       where: { applicationId: application.id },
       order: [['sentAt', 'DESC']],
     }).then((items) => items.map(toPlain)),
-    VolunteeringInterview.findAll({
+    WorkspaceInterview.findAll({
       where: { applicationId: application.id },
       order: [['scheduledAt', 'DESC']],
     }).then((items) => items.map(toPlain)),
-    VolunteeringContract.findAll({
+    WorkspaceContract.findAll({
       where: { applicationId: application.id },
       order: [['createdAt', 'DESC']],
     }).then((items) => items.map(toPlain)),
@@ -602,7 +597,7 @@ async function loadApplication(applicationId) {
 
   const contractIds = contracts.map((contract) => contract.id);
   const spendEntries = contractIds.length
-    ? (await VolunteeringContractSpend.findAll({
+    ? (await WorkspaceContractSpend.findAll({
         where: { contractId: contractIds },
         order: [['spentAt', 'DESC']],
       })).map(toPlain)
@@ -623,39 +618,39 @@ async function loadApplication(applicationId) {
 export async function createVolunteeringApplication({ postId, workspaceId, workspaceSlug, actorId, payload }) {
   const workspace = await resolveWorkspace({ workspaceId, workspaceSlug });
   const post = await findPostOrThrow(postId, workspace);
-  const attributes = buildApplicationPayload(payload);
+  const attributes = buildApplicationPayload(payload ?? {});
   if (!attributes.candidateName) {
     throw new ValidationError('candidateName is required.');
   }
-  const application = await VolunteeringApplication.create({
+  const application = await WorkspaceApplication.create({
     ...attributes,
     postId: post.id,
     workspaceId: workspace.id,
     createdById: actorId ?? null,
     updatedById: actorId ?? null,
   });
-  return loadApplication(application.id);
+  return loadWorkspaceApplication(application.id);
 }
 
 export async function updateVolunteeringApplication({ applicationId, workspaceId, workspaceSlug, actorId, payload }) {
   const workspace = await resolveWorkspace({ workspaceId, workspaceSlug });
-  const application = await VolunteeringApplication.findByPk(applicationId);
+  const application = await WorkspaceApplication.findByPk(applicationId);
   if (!application) {
     throw new NotFoundError('Volunteering application not found.');
   }
   await ensureWorkspaceForPost(await VolunteeringPost.findByPk(application.postId), workspace);
-  const attributes = buildApplicationPayload(payload);
+  const attributes = buildApplicationPayload(payload ?? {});
   if (Object.keys(attributes).length === 0) {
-    return loadApplication(application.id);
+    return loadWorkspaceApplication(application.id);
   }
   attributes.updatedById = actorId ?? application.updatedById ?? null;
   await application.update(attributes);
-  return loadApplication(application.id);
+  return loadWorkspaceApplication(application.id);
 }
 
 export async function deleteVolunteeringApplication({ applicationId, workspaceId, workspaceSlug }) {
   const workspace = await resolveWorkspace({ workspaceId, workspaceSlug });
-  const application = await VolunteeringApplication.findByPk(applicationId);
+  const application = await WorkspaceApplication.findByPk(applicationId);
   if (!application) {
     throw new NotFoundError('Volunteering application not found.');
   }
@@ -666,238 +661,231 @@ export async function deleteVolunteeringApplication({ applicationId, workspaceId
 
 export async function createVolunteeringResponse({ applicationId, workspaceId, workspaceSlug, payload }) {
   const workspace = await resolveWorkspace({ workspaceId, workspaceSlug });
-  const application = await VolunteeringApplication.findByPk(applicationId);
+  const application = await WorkspaceApplication.findByPk(applicationId);
   if (!application) {
     throw new NotFoundError('Volunteering application not found.');
   }
   await ensureWorkspaceForPost(await VolunteeringPost.findByPk(application.postId), workspace);
-  const attributes = buildResponsePayload(payload);
+  const attributes = buildResponsePayload(payload ?? {});
   if (!attributes.message) {
     throw new ValidationError('message is required.');
   }
-  const response = await VolunteeringApplicationResponse.create({
+  await WorkspaceApplicationResponse.create({
     ...attributes,
     applicationId: application.id,
     workspaceId: workspace.id,
   });
-  return loadApplication(application.id);
+  return loadWorkspaceApplication(application.id);
 }
 
 export async function updateVolunteeringResponse({ responseId, workspaceId, workspaceSlug, payload }) {
   const workspace = await resolveWorkspace({ workspaceId, workspaceSlug });
-  const response = await VolunteeringApplicationResponse.findByPk(responseId);
+  const response = await WorkspaceApplicationResponse.findByPk(responseId);
   if (!response) {
     throw new NotFoundError('Application response not found.');
   }
-  const application = await VolunteeringApplication.findByPk(response.applicationId);
+  const application = await WorkspaceApplication.findByPk(response.applicationId);
   if (!application) {
     throw new NotFoundError('Volunteering application not found.');
   }
   await ensureWorkspaceForPost(await VolunteeringPost.findByPk(application.postId), workspace);
-  const attributes = buildResponsePayload(payload);
+  const attributes = buildResponsePayload(payload ?? {});
   if (Object.keys(attributes).length === 0) {
-    return loadApplication(application.id);
+    return loadWorkspaceApplication(application.id);
   }
   await response.update(attributes);
-  return loadApplication(application.id);
+  return loadWorkspaceApplication(application.id);
 }
 
 export async function deleteVolunteeringResponse({ responseId, workspaceId, workspaceSlug }) {
   const workspace = await resolveWorkspace({ workspaceId, workspaceSlug });
-  const response = await VolunteeringApplicationResponse.findByPk(responseId);
+  const response = await WorkspaceApplicationResponse.findByPk(responseId);
   if (!response) {
     throw new NotFoundError('Application response not found.');
   }
-  const application = await VolunteeringApplication.findByPk(response.applicationId);
+  const application = await WorkspaceApplication.findByPk(response.applicationId);
   if (!application) {
     throw new NotFoundError('Volunteering application not found.');
   }
   await ensureWorkspaceForPost(await VolunteeringPost.findByPk(application.postId), workspace);
   await response.destroy();
-  return loadApplication(application.id);
+  return loadWorkspaceApplication(application.id);
 }
 
 export async function scheduleVolunteeringInterview({ applicationId, workspaceId, workspaceSlug, actorId, payload }) {
   const workspace = await resolveWorkspace({ workspaceId, workspaceSlug });
-  const application = await VolunteeringApplication.findByPk(applicationId);
+  const application = await WorkspaceApplication.findByPk(applicationId);
   if (!application) {
     throw new NotFoundError('Volunteering application not found.');
   }
   await ensureWorkspaceForPost(await VolunteeringPost.findByPk(application.postId), workspace);
-  const attributes = buildInterviewPayload(payload);
+  const attributes = buildInterviewPayload(payload ?? {});
   if (!attributes.scheduledAt) {
     throw new ValidationError('scheduledAt is required.');
   }
-  const interview = await VolunteeringInterview.create({
+  await WorkspaceInterview.create({
     ...attributes,
     applicationId: application.id,
     workspaceId: workspace.id,
     createdById: actorId ?? null,
     updatedById: actorId ?? null,
   });
-  return loadApplication(interview.applicationId);
+  return loadWorkspaceApplication(application.id);
 }
 
 export async function updateVolunteeringInterview({ interviewId, workspaceId, workspaceSlug, actorId, payload }) {
   const workspace = await resolveWorkspace({ workspaceId, workspaceSlug });
-  const interview = await VolunteeringInterview.findByPk(interviewId);
+  const interview = await WorkspaceInterview.findByPk(interviewId);
   if (!interview) {
     throw new NotFoundError('Volunteering interview not found.');
   }
-  const application = await VolunteeringApplication.findByPk(interview.applicationId);
+  const application = await WorkspaceApplication.findByPk(interview.applicationId);
   if (!application) {
     throw new NotFoundError('Volunteering application not found.');
   }
   await ensureWorkspaceForPost(await VolunteeringPost.findByPk(application.postId), workspace);
-  const attributes = buildInterviewPayload(payload);
+  const attributes = buildInterviewPayload(payload ?? {});
   if (Object.keys(attributes).length === 0) {
-    return loadApplication(application.id);
+    return loadWorkspaceApplication(application.id);
   }
   attributes.updatedById = actorId ?? interview.updatedById ?? null;
   await interview.update(attributes);
-  return loadApplication(application.id);
+  return loadWorkspaceApplication(application.id);
 }
 
 export async function deleteVolunteeringInterview({ interviewId, workspaceId, workspaceSlug }) {
   const workspace = await resolveWorkspace({ workspaceId, workspaceSlug });
-  const interview = await VolunteeringInterview.findByPk(interviewId);
+  const interview = await WorkspaceInterview.findByPk(interviewId);
   if (!interview) {
     throw new NotFoundError('Volunteering interview not found.');
   }
-  const application = await VolunteeringApplication.findByPk(interview.applicationId);
+  const application = await WorkspaceApplication.findByPk(interview.applicationId);
   if (!application) {
     throw new NotFoundError('Volunteering application not found.');
   }
   await ensureWorkspaceForPost(await VolunteeringPost.findByPk(application.postId), workspace);
   await interview.destroy();
-  return loadApplication(application.id);
+  return loadWorkspaceApplication(application.id);
 }
 
 export async function createVolunteeringContract({ applicationId, workspaceId, workspaceSlug, actorId, payload }) {
   const workspace = await resolveWorkspace({ workspaceId, workspaceSlug });
-  const application = await VolunteeringApplication.findByPk(applicationId);
+  const application = await WorkspaceApplication.findByPk(applicationId);
   if (!application) {
     throw new NotFoundError('Volunteering application not found.');
   }
   await ensureWorkspaceForPost(await VolunteeringPost.findByPk(application.postId), workspace);
-  const attributes = buildContractPayload(payload);
+  const attributes = buildContractPayload(payload ?? {});
   if (!attributes.title) {
     throw new ValidationError('title is required.');
   }
-  const contract = await VolunteeringContract.create({
+  await WorkspaceContract.create({
     ...attributes,
     applicationId: application.id,
     workspaceId: workspace.id,
     createdById: actorId ?? null,
     updatedById: actorId ?? null,
   });
-  return loadApplication(contract.applicationId);
+  return loadWorkspaceApplication(application.id);
 }
 
 export async function updateVolunteeringContract({ contractId, workspaceId, workspaceSlug, actorId, payload }) {
   const workspace = await resolveWorkspace({ workspaceId, workspaceSlug });
-  const contract = await VolunteeringContract.findByPk(contractId);
+  const contract = await WorkspaceContract.findByPk(contractId);
   if (!contract) {
     throw new NotFoundError('Volunteering contract not found.');
   }
-  const application = await VolunteeringApplication.findByPk(contract.applicationId);
+  const application = await WorkspaceApplication.findByPk(contract.applicationId);
   if (!application) {
     throw new NotFoundError('Volunteering application not found.');
   }
   await ensureWorkspaceForPost(await VolunteeringPost.findByPk(application.postId), workspace);
-  const attributes = buildContractPayload(payload);
+  const attributes = buildContractPayload(payload ?? {});
   if (Object.keys(attributes).length === 0) {
-    return loadApplication(application.id);
+    return loadWorkspaceApplication(application.id);
   }
   attributes.updatedById = actorId ?? contract.updatedById ?? null;
   await contract.update(attributes);
-  return loadApplication(application.id);
+  return loadWorkspaceApplication(application.id);
 }
 
 export async function addVolunteeringSpend({ contractId, workspaceId, workspaceSlug, actorId, payload }) {
   const workspace = await resolveWorkspace({ workspaceId, workspaceSlug });
-  const contract = await VolunteeringContract.findByPk(contractId);
+  const contract = await WorkspaceContract.findByPk(contractId);
   if (!contract) {
     throw new NotFoundError('Volunteering contract not found.');
   }
-  const application = await VolunteeringApplication.findByPk(contract.applicationId);
+  const application = await WorkspaceApplication.findByPk(contract.applicationId);
   if (!application) {
     throw new NotFoundError('Volunteering application not found.');
   }
   await ensureWorkspaceForPost(await VolunteeringPost.findByPk(application.postId), workspace);
-  const attributes = buildSpendPayload(payload);
-  const spend = await VolunteeringContractSpend.create({
+  const attributes = buildSpendPayload(payload ?? {});
+  await WorkspaceContractSpend.create({
     ...attributes,
     contractId: contract.id,
     workspaceId: workspace.id,
     createdById: actorId ?? null,
     updatedById: actorId ?? null,
   });
-  return loadApplication(contract.applicationId);
+  return loadWorkspaceApplication(application.id);
 }
 
 export async function updateVolunteeringSpend({ spendId, workspaceId, workspaceSlug, actorId, payload }) {
   const workspace = await resolveWorkspace({ workspaceId, workspaceSlug });
-  const spend = await VolunteeringContractSpend.findByPk(spendId);
+  const spend = await WorkspaceContractSpend.findByPk(spendId);
   if (!spend) {
     throw new NotFoundError('Volunteering contract spend entry not found.');
   }
-  const contract = await VolunteeringContract.findByPk(spend.contractId);
+  const contract = await WorkspaceContract.findByPk(spend.contractId);
   if (!contract) {
     throw new NotFoundError('Volunteering contract not found.');
   }
-  const application = await VolunteeringApplication.findByPk(contract.applicationId);
+  const application = await WorkspaceApplication.findByPk(contract.applicationId);
   if (!application) {
     throw new NotFoundError('Volunteering application not found.');
   }
   await ensureWorkspaceForPost(await VolunteeringPost.findByPk(application.postId), workspace);
-  const attributes = buildSpendPayload(payload);
+  const attributes = buildSpendPayload(payload ?? {});
   if (Object.keys(attributes).length === 0) {
-    return loadApplication(application.id);
+    return loadWorkspaceApplication(application.id);
   }
   attributes.updatedById = actorId ?? spend.updatedById ?? null;
   await spend.update(attributes);
-  return loadApplication(application.id);
+  return loadWorkspaceApplication(application.id);
 }
 
 export async function deleteVolunteeringSpend({ spendId, workspaceId, workspaceSlug }) {
   const workspace = await resolveWorkspace({ workspaceId, workspaceSlug });
-  const spend = await VolunteeringContractSpend.findByPk(spendId);
+  const spend = await WorkspaceContractSpend.findByPk(spendId);
   if (!spend) {
     throw new NotFoundError('Volunteering contract spend entry not found.');
   }
-  const contract = await VolunteeringContract.findByPk(spend.contractId);
+  const contract = await WorkspaceContract.findByPk(spend.contractId);
   if (!contract) {
     throw new NotFoundError('Volunteering contract not found.');
   }
-  const application = await VolunteeringApplication.findByPk(contract.applicationId);
+  const application = await WorkspaceApplication.findByPk(contract.applicationId);
   if (!application) {
     throw new NotFoundError('Volunteering application not found.');
   }
   await ensureWorkspaceForPost(await VolunteeringPost.findByPk(application.postId), workspace);
   await spend.destroy();
-  return loadApplication(application.id);
+  return loadWorkspaceApplication(application.id);
 }
 
-export default {
-  getVolunteeringDashboard,
-  createVolunteeringPost,
-  updateVolunteeringPost,
-  deleteVolunteeringPost,
-  createVolunteeringApplication,
-  updateVolunteeringApplication,
-  deleteVolunteeringApplication,
-  createVolunteeringResponse,
-  updateVolunteeringResponse,
-  deleteVolunteeringResponse,
-  scheduleVolunteeringInterview,
-  updateVolunteeringInterview,
-  deleteVolunteeringInterview,
-  createVolunteeringContract,
-  updateVolunteeringContract,
-  addVolunteeringSpend,
-  updateVolunteeringSpend,
-  deleteVolunteeringSpend,
+function normalizeUserId(userId) {
+  const numeric = Number(userId);
+  if (!Number.isInteger(numeric) || numeric <= 0) {
+    throw new ValidationError('userId must be a positive integer.');
+  }
+  return numeric;
+}
+
+function coerceDate(value, label) {
+  return value == null ? null : normalizeDate(value, label);
+}
+
 function coerceHours(value, label = 'hours', { max = 168 } = {}) {
   if (value == null || value === '') {
     return null;
@@ -907,6 +895,17 @@ function coerceHours(value, label = 'hours', { max = 168 } = {}) {
     throw new ValidationError(`${label} must be between 0 and ${max} hours.`);
   }
   return Math.round(numeric);
+}
+
+function coerceDecimal(value, label = 'amount') {
+  if (value == null || value === '') {
+    return null;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric < 0) {
+    throw new ValidationError(`${label} must be a positive number.`);
+  }
+  return numeric;
 }
 
 function toPlainUser(instance) {
@@ -1034,7 +1033,7 @@ function buildSummary(applications) {
     if (Array.isArray(contract.spendEntries)) {
       contract.spendEntries.forEach((entry) => {
         spendEntries.push({ ...entry, contractId: contract.id, applicationId: application.id });
-        const currency = entry.currencyCode ?? 'USD';
+        const currency = entry.currencyCode ?? entry.currency ?? 'USD';
         const amount = Number(entry.amount ?? 0);
         if (!Number.isNaN(amount)) {
           totalsByCurrency.set(currency, Number((totalsByCurrency.get(currency) ?? 0) + amount));
@@ -1322,16 +1321,14 @@ export async function updateVolunteerResponse(userId, applicationId, responseId,
 
   return sequelize.transaction(async (transaction) => {
     await findApplicationOrThrow(normalizedUserId, applicationId, transaction);
-
     const response = await VolunteerResponse.findOne({
       where: { id: responseId, applicationId },
       include: [{ model: User, as: 'responder', attributes: ['id', 'firstName', 'lastName', 'email'] }],
       transaction,
       lock: transaction.LOCK.UPDATE,
     });
-
     if (!response) {
-      throw new NotFoundError('The requested volunteering response was not found.');
+      throw new NotFoundError('The requested response was not found.');
     }
 
     await response.update(
@@ -1362,7 +1359,7 @@ export async function deleteVolunteerResponse(userId, applicationId, responseId)
       lock: transaction.LOCK.UPDATE,
     });
     if (!response) {
-      throw new NotFoundError('The requested volunteering response was not found.');
+      throw new NotFoundError('The requested response was not found.');
     }
     await response.destroy({ transaction });
     invalidateCaches(normalizedUserId);
@@ -1371,18 +1368,7 @@ export async function deleteVolunteerResponse(userId, applicationId, responseId)
 
 export async function upsertVolunteerContract(userId, applicationId, payload = {}) {
   const normalizedUserId = normalizeUserId(userId);
-  const {
-    status = 'draft',
-    startDate,
-    endDate,
-    commitmentHours,
-    hourlyRate,
-    currencyCode,
-    totalValue,
-    spendToDate,
-    notes,
-    metadata,
-  } = payload;
+  const { status, startDate, endDate, stipendAmount, currencyCode = 'USD', metadata } = payload;
 
   return sequelize.transaction(async (transaction) => {
     const application = await findApplicationOrThrow(normalizedUserId, applicationId, transaction);
@@ -1391,60 +1377,31 @@ export async function upsertVolunteerContract(userId, applicationId, payload = {
       where: { applicationId: application.id },
       defaults: {
         ownerId: normalizedUserId,
-        status,
+        status: status ?? 'draft',
         startDate: coerceDate(startDate, 'startDate'),
         endDate: coerceDate(endDate, 'endDate'),
-        commitmentHours: coerceHours(commitmentHours, 'commitmentHours', { max: 1000 }),
-        hourlyRate: coerceDecimal(hourlyRate, 'hourlyRate'),
-        currencyCode: currencyCode ?? null,
-        totalValue: coerceDecimal(totalValue, 'totalValue'),
-        spendToDate: coerceDecimal(spendToDate, 'spendToDate'),
-        notes: notes ?? null,
+        stipendAmount: coerceDecimal(stipendAmount, 'stipendAmount'),
+        currencyCode: currencyCode ?? 'USD',
         metadata: metadata ?? null,
       },
       transaction,
-      lock: transaction.LOCK.UPDATE,
     });
 
-    if (contract.ownerId !== normalizedUserId) {
-      await contract.update({ ownerId: normalizedUserId }, { transaction });
+    if (contract) {
+      await contract.update(
+        {
+          status: status ?? contract.status,
+          startDate: startDate !== undefined ? coerceDate(startDate, 'startDate') : contract.startDate,
+          endDate: endDate !== undefined ? coerceDate(endDate, 'endDate') : contract.endDate,
+          stipendAmount:
+            stipendAmount !== undefined ? coerceDecimal(stipendAmount, 'stipendAmount') : contract.stipendAmount,
+          currencyCode: currencyCode ?? contract.currencyCode,
+          metadata: metadata !== undefined ? metadata : contract.metadata,
+        },
+        { transaction },
+      );
+      await contract.reload({ transaction });
     }
-
-    await contract.update(
-      {
-        status,
-        startDate: startDate !== undefined ? coerceDate(startDate, 'startDate') : contract.startDate,
-        endDate: endDate !== undefined ? coerceDate(endDate, 'endDate') : contract.endDate,
-        commitmentHours:
-          commitmentHours !== undefined
-            ? coerceHours(commitmentHours, 'commitmentHours', { max: 1000 })
-            : contract.commitmentHours,
-        hourlyRate: hourlyRate !== undefined ? coerceDecimal(hourlyRate, 'hourlyRate') : contract.hourlyRate,
-        currencyCode: currencyCode !== undefined ? (currencyCode ?? null) : contract.currencyCode,
-        totalValue: totalValue !== undefined ? coerceDecimal(totalValue, 'totalValue') : contract.totalValue,
-        spendToDate: spendToDate !== undefined ? coerceDecimal(spendToDate, 'spendToDate') : contract.spendToDate,
-        notes: notes !== undefined ? notes : contract.notes,
-        metadata: metadata !== undefined ? metadata : contract.metadata,
-      },
-      { transaction },
-    );
-
-    await contract.reload({
-      include: [
-        { model: User, as: 'owner', attributes: ['id', 'firstName', 'lastName', 'email'] },
-        {
-          model: VolunteerContractSpend,
-          as: 'spendEntries',
-          include: [{ model: User, as: 'recordedBy', attributes: ['id', 'firstName', 'lastName', 'email'] }],
-        },
-        {
-          model: VolunteerContractReview,
-          as: 'reviews',
-          include: [{ model: User, as: 'reviewer', attributes: ['id', 'firstName', 'lastName', 'email'] }],
-        },
-      ],
-      transaction,
-    });
 
     invalidateCaches(normalizedUserId);
     return hydrateContract(contract);
@@ -1453,11 +1410,7 @@ export async function upsertVolunteerContract(userId, applicationId, payload = {
 
 export async function recordVolunteerSpend(userId, applicationId, payload = {}) {
   const normalizedUserId = normalizeUserId(userId);
-  const { amount, currencyCode = 'USD', category = 'other', description, incurredAt, metadata } = payload;
-
-  if (amount == null) {
-    throw new ValidationError('amount is required.');
-  }
+  const { amount, currencyCode = 'USD', category, description, incurredAt, metadata } = payload;
 
   return sequelize.transaction(async (transaction) => {
     const application = await findApplicationOrThrow(normalizedUserId, applicationId, transaction);
@@ -1467,14 +1420,14 @@ export async function recordVolunteerSpend(userId, applicationId, payload = {}) 
       lock: transaction.LOCK.UPDATE,
     });
     if (!contract) {
-      throw new ValidationError('An active volunteering contract is required before recording spend.');
+      throw new ValidationError('An active contract is required before logging spend.');
     }
 
     const spend = await VolunteerContractSpend.create(
       {
         contractId: contract.id,
         recordedById: normalizedUserId,
-        amount: coerceDecimal(amount, 'amount'),
+        amount: coerceDecimal(amount, 'amount') ?? 0,
         currencyCode,
         category,
         description: description ?? null,
@@ -1644,6 +1597,24 @@ export async function deleteVolunteerReview(userId, applicationId, reviewId) {
 }
 
 export default {
+  getVolunteeringDashboard,
+  createVolunteeringPost,
+  updateVolunteeringPost,
+  deleteVolunteeringPost,
+  createVolunteeringApplication,
+  updateVolunteeringApplication,
+  deleteVolunteeringApplication,
+  createVolunteeringResponse,
+  updateVolunteeringResponse,
+  deleteVolunteeringResponse,
+  scheduleVolunteeringInterview,
+  updateVolunteeringInterview,
+  deleteVolunteeringInterview,
+  createVolunteeringContract,
+  updateVolunteeringContract,
+  addVolunteeringSpend,
+  updateVolunteeringSpend,
+  deleteVolunteeringSpend,
   getUserVolunteeringManagement,
   createVolunteerApplication,
   updateVolunteerApplication,
@@ -1652,7 +1623,6 @@ export default {
   deleteVolunteerResponse,
   upsertVolunteerContract,
   recordVolunteerSpend,
-  updateVolunteerSpend,
   deleteVolunteerSpend,
   createVolunteerReview,
   updateVolunteerReview,
