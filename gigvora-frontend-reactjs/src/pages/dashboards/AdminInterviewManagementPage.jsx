@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import AccessDeniedPanel from '../../components/dashboard/AccessDeniedPanel.jsx';
 import useSession from '../../hooks/useSession.js';
 import WorkspaceSwitcher from '../../components/admin/interviews/WorkspaceSwitcher.jsx';
 import StatsStrip from '../../components/admin/interviews/StatsStrip.jsx';
@@ -34,6 +35,9 @@ import {
   updateCandidatePrepPortal,
   deleteCandidatePrepPortal,
 } from '../../services/interviews.js';
+import { deriveAdminAccess } from '../../utils/adminAccess.js';
+
+const AVAILABLE_DASHBOARDS = ['admin', 'user', 'freelancer', 'company', 'agency', 'headhunter'];
 
 function normalizeError(error) {
   if (!error) {
@@ -50,6 +54,7 @@ function normalizeError(error) {
 
 export default function AdminInterviewManagementPage() {
   const { session } = useSession();
+  const { hasAdminAccess } = useMemo(() => deriveAdminAccess(session), [session]);
   const [workspaces, setWorkspaces] = useState([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(null);
   const [overview, setOverview] = useState(null);
@@ -74,6 +79,12 @@ export default function AdminInterviewManagementPage() {
   }, []);
 
   const loadWorkspaces = useCallback(async () => {
+    if (!hasAdminAccess) {
+      setWorkspaces([]);
+      setActiveWorkspaceId(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const response = await listInterviewWorkspaces();
@@ -89,7 +100,7 @@ export default function AdminInterviewManagementPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeWorkspaceId]);
+  }, [activeWorkspaceId, hasAdminAccess]);
 
   const loadWorkspace = useCallback(
     async (workspaceId) => {
@@ -117,16 +128,16 @@ export default function AdminInterviewManagementPage() {
   }, [loadWorkspaces]);
 
   useEffect(() => {
-    if (!activeWorkspaceId) {
+    if (!activeWorkspaceId || !hasAdminAccess) {
       setOverview(null);
       return;
     }
     loadWorkspace(activeWorkspaceId);
-  }, [activeWorkspaceId, loadWorkspace]);
+  }, [activeWorkspaceId, loadWorkspace, hasAdminAccess]);
 
   const executeAndRefresh = useCallback(
     async (handler) => {
-      if (!activeWorkspaceId) {
+      if (!activeWorkspaceId || !hasAdminAccess) {
         return;
       }
       setBusy(true);
@@ -140,7 +151,7 @@ export default function AdminInterviewManagementPage() {
         setBusy(false);
       }
     },
-    [activeWorkspaceId, loadWorkspace],
+    [activeWorkspaceId, loadWorkspace, hasAdminAccess],
   );
 
   const handleCreateRoom = useCallback(
@@ -430,12 +441,30 @@ export default function AdminInterviewManagementPage() {
     );
   };
 
+  if (!hasAdminAccess) {
+    return (
+      <DashboardLayout
+        currentDashboard="admin"
+        title="Interviews"
+        subtitle={session?.name ? `${session.name} · Admin` : 'Admin'}
+        menuSections={menuSections}
+        availableDashboards={AVAILABLE_DASHBOARDS}
+      >
+        <AccessDeniedPanel
+          role="admin"
+          availableDashboards={AVAILABLE_DASHBOARDS.filter((dashboard) => dashboard !== 'admin')}
+        />
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout
       currentDashboard="admin"
       title="Interviews"
       subtitle={session?.name ? `${session.name} · Admin` : 'Admin'}
       menuSections={menuSections}
+      availableDashboards={AVAILABLE_DASHBOARDS}
     >
       <div className="px-6 py-10 lg:px-16">{content()}</div>
       <Transition.Root show={panelState.open} as={Fragment}>

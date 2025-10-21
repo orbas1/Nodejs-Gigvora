@@ -1,13 +1,18 @@
 import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import AccessDeniedPanel from '../../components/dashboard/AccessDeniedPanel.jsx';
 import useSession from '../../hooks/useSession.js';
 import useAgencyClientKanban from '../../hooks/useAgencyClientKanban.js';
 import ClientKanbanBoard from '../../components/agency/clientKanban/ClientKanbanBoard.jsx';
 import { AGENCY_DASHBOARD_MENU_SECTIONS } from '../../constants/agencyDashboardMenu.js';
+import { deriveAgencyAccess } from '../../utils/agencyAccess.js';
+
+const AVAILABLE_DASHBOARDS = ['agency', 'company', 'freelancer', 'user', 'headhunter'];
 
 export default function AgencyClientKanbanPage() {
-  const { session } = useSession();
+  const { session, isAuthenticated } = useSession();
+  const { hasAgencyAccess } = useMemo(() => deriveAgencyAccess(session), [session]);
   const [searchParams, setSearchParams] = useSearchParams();
   const workspaceParam = searchParams.get('workspaceId');
   const workspaceId = useMemo(() => {
@@ -17,7 +22,10 @@ export default function AgencyClientKanbanPage() {
     return Number.parseInt(workspaceParam, 10);
   }, [workspaceParam]);
 
-  const { data, loading, error, actions } = useAgencyClientKanban({ workspaceId, enabled: true });
+  const { data, loading, error, actions } = useAgencyClientKanban({
+    workspaceId,
+    enabled: isAuthenticated && hasAgencyAccess,
+  });
 
   const handleWorkspaceChange = (event) => {
     const value = event.target.value;
@@ -46,6 +54,42 @@ export default function AgencyClientKanbanPage() {
     return workspaces;
   }, [session?.memberships]);
 
+  if (!isAuthenticated) {
+    return (
+      <DashboardLayout
+        currentDashboard="agency"
+        title="Client Kanban"
+        subtitle="Run delivery in real time."
+        description={null}
+        menuSections={AGENCY_DASHBOARD_MENU_SECTIONS}
+        availableDashboards={AVAILABLE_DASHBOARDS}
+        activeMenuItem="agency-client-kanban"
+      >
+        <AccessDeniedPanel role="agency" availableDashboards={AVAILABLE_DASHBOARDS.filter((item) => item !== 'agency')} />
+      </DashboardLayout>
+    );
+  }
+
+  if (!hasAgencyAccess) {
+    return (
+      <DashboardLayout
+        currentDashboard="agency"
+        title="Client Kanban"
+        subtitle="Run delivery in real time."
+        description={null}
+        menuSections={AGENCY_DASHBOARD_MENU_SECTIONS}
+        availableDashboards={AVAILABLE_DASHBOARDS}
+        activeMenuItem="agency-client-kanban"
+      >
+        <AccessDeniedPanel
+          role="agency"
+          availableDashboards={AVAILABLE_DASHBOARDS.filter((item) => item !== 'agency')}
+          reason="Agency workspace membership required"
+        />
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout
       currentDashboard="agency"
@@ -53,6 +97,7 @@ export default function AgencyClientKanbanPage() {
       subtitle="Run delivery in real time."
       description={null}
       menuSections={AGENCY_DASHBOARD_MENU_SECTIONS}
+      availableDashboards={AVAILABLE_DASHBOARDS}
       activeMenuItem="agency-client-kanban"
     >
       {workspaceOptions.length ? (
