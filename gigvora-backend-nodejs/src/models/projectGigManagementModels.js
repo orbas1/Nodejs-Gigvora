@@ -1,6 +1,5 @@
 import { Sequelize, DataTypes } from 'sequelize';
 import databaseConfig from '../config/database.js';
-import { GIG_ORDER_ACTIVITY_TYPES, GIG_ORDER_ESCROW_STATUSES } from './constants/index.js';
 
 const { url, ...sequelizeOptions } = databaseConfig;
 const connectionOptions = {
@@ -14,6 +13,9 @@ export const projectGigManagementSequelize = url
 
 const dialect = projectGigManagementSequelize.getDialect();
 const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB : DataTypes.JSON;
+
+const GIG_ORDER_ACTIVITY_TYPES = Object.freeze(['system', 'client', 'vendor', 'internal']);
+const GIG_ORDER_ESCROW_STATUSES = Object.freeze(['pending', 'released', 'refunded', 'cancelled']);
 
 export const PROJECT_STATUSES = Object.freeze(['planning', 'in_progress', 'at_risk', 'completed', 'on_hold']);
 export const PROJECT_RISK_LEVELS = Object.freeze(['low', 'medium', 'high']);

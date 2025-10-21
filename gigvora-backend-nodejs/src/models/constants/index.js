@@ -237,6 +237,7 @@ export const ID_VERIFICATION_EVENT_TYPES = [
   'document_request',
   'escalation',
   'reminder',
+];
 export const IDENTITY_VERIFICATION_EVENT_TYPES = [
   'submission_created',
   'status_changed',

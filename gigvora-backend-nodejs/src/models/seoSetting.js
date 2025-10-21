@@ -4,6 +4,54 @@ import sequelize from './sequelizeClient.js';
 const dialect = sequelize.getDialect();
 const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB : DataTypes.JSON;
 
+function normaliseKeywordArray(keywords) {
+  if (!Array.isArray(keywords)) {
+    return [];
+  }
+  return Array.from(
+    new Set(
+      keywords
+        .map((keyword) => `${keyword}`.trim())
+        .filter((keyword) => keyword.length > 0 && keyword.length <= 120),
+    ),
+  );
+}
+
+function normalisePath(path) {
+  if (typeof path !== 'string') {
+    return '/';
+  }
+  if (!path.startsWith('/')) {
+    return `/${path.trim()}`;
+  }
+  return path.trim() || '/';
+}
+
+function normaliseUrl(url) {
+  if (typeof url !== 'string' || url.trim().length === 0) {
+    return '';
+  }
+  const trimmed = url.trim();
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+  if (trimmed.startsWith('/')) {
+    return trimmed;
+  }
+  return `/${trimmed}`;
+}
+
+function normaliseStringMap(record) {
+  if (!record || typeof record !== 'object') {
+    return {};
+  }
+  return Object.fromEntries(
+    Object.entries(record)
+      .map(([key, value]) => [key, typeof value === 'string' ? value : `${value}`])
+      .filter(([key, value]) => key && value),
+  );
+}
+
 export const SeoSetting = sequelize.define(
   'SeoSetting',
   {
@@ -21,6 +69,8 @@ export const SeoSetting = sequelize.define(
     verificationCodes: { type: jsonType, allowNull: false, defaultValue: {} },
     socialDefaults: { type: jsonType, allowNull: false, defaultValue: {} },
     structuredData: { type: jsonType, allowNull: false, defaultValue: {} },
+    alternateLocales: { type: jsonType, allowNull: false, defaultValue: [] },
+    previewImage: { type: DataTypes.STRING(2048), allowNull: true },
   },
   {
     tableName: 'seo_settings',
@@ -42,7 +92,13 @@ export const SeoPageOverride = sequelize.define(
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE',
     },
-    path: { type: DataTypes.STRING(255), allowNull: false },
+    path: {
+      type: DataTypes.STRING(255),
+      allowNull: false,
+      set(value) {
+        this.setDataValue('path', normalisePath(value));
+      },
+    },
     title: { type: DataTypes.STRING(180), allowNull: true },
     description: { type: DataTypes.TEXT('long'), allowNull: true },
     keywords: { type: jsonType, allowNull: false, defaultValue: [] },
@@ -58,6 +114,27 @@ export const SeoPageOverride = sequelize.define(
     indexes: [{ unique: true, fields: ['seoSettingId', 'path'] }],
   },
 );
+
+SeoSetting.addHook('beforeValidate', (setting) => {
+  setting.key = (setting.key || '').trim();
+  setting.defaultKeywords = normaliseKeywordArray(setting.defaultKeywords);
+  setting.noindexPaths = normaliseKeywordArray(setting.noindexPaths).map(normalisePath);
+  setting.canonicalBaseUrl = normaliseUrl(setting.canonicalBaseUrl);
+  setting.sitemapUrl = normaliseUrl(setting.sitemapUrl);
+  setting.verificationCodes = normaliseStringMap(setting.verificationCodes);
+  setting.socialDefaults = typeof setting.socialDefaults === 'object' ? setting.socialDefaults : {};
+  setting.structuredData = typeof setting.structuredData === 'object' ? setting.structuredData : {};
+  setting.alternateLocales = normaliseKeywordArray(setting.alternateLocales);
+});
+
+SeoPageOverride.addHook('beforeValidate', (override) => {
+  override.keywords = normaliseKeywordArray(override.keywords);
+  override.metaTags = Array.isArray(override.metaTags) ? override.metaTags : [];
+  override.social = typeof override.social === 'object' ? override.social : {};
+  override.twitter = typeof override.twitter === 'object' ? override.twitter : {};
+  override.structuredData = typeof override.structuredData === 'object' ? override.structuredData : {};
+  override.canonicalUrl = normaliseUrl(override.canonicalUrl);
+});
 
 SeoSetting.hasMany(SeoPageOverride, {
   as: 'overrides',
@@ -79,15 +156,17 @@ SeoSetting.prototype.toPublicObject = function toPublicObject() {
     siteName: plain.siteName,
     defaultTitle: plain.defaultTitle,
     defaultDescription: plain.defaultDescription ?? '',
-    defaultKeywords: Array.isArray(plain.defaultKeywords) ? plain.defaultKeywords : [],
+    defaultKeywords: normaliseKeywordArray(plain.defaultKeywords),
     canonicalBaseUrl: plain.canonicalBaseUrl ?? '',
     sitemapUrl: plain.sitemapUrl ?? '',
     allowIndexing: Boolean(plain.allowIndexing ?? true),
     robotsPolicy: plain.robotsPolicy ?? '',
-    noindexPaths: Array.isArray(plain.noindexPaths) ? plain.noindexPaths : [],
-    verificationCodes: plain.verificationCodes ?? {},
+    noindexPaths: (plain.noindexPaths ?? []).map(normalisePath),
+    verificationCodes: normaliseStringMap(plain.verificationCodes),
     socialDefaults: plain.socialDefaults ?? {},
     structuredData: plain.structuredData ?? {},
+    alternateLocales: normaliseKeywordArray(plain.alternateLocales),
+    previewImage: plain.previewImage ?? '',
     overrides: Array.isArray(plain.overrides)
       ? plain.overrides.map((override) =>
           typeof override?.toPublicObject === 'function'
@@ -108,7 +187,7 @@ SeoPageOverride.prototype.toPublicObject = function toPublicObject() {
     path: plain.path,
     title: plain.title ?? '',
     description: plain.description ?? '',
-    keywords: Array.isArray(plain.keywords) ? plain.keywords : [],
+    keywords: normaliseKeywordArray(plain.keywords),
     canonicalUrl: plain.canonicalUrl ?? '',
     social: plain.social ?? {},
     twitter: plain.twitter ?? {},
@@ -117,6 +196,50 @@ SeoPageOverride.prototype.toPublicObject = function toPublicObject() {
     noindex: Boolean(plain.noindex),
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
+  };
+};
+
+SeoSetting.resolveForPath = async function resolveForPath(path, { key } = {}) {
+  const normalisedPath = normalisePath(path);
+  const where = key ? { key } : {};
+
+  const setting = await SeoSetting.findOne({
+    where,
+    include: [{ model: SeoPageOverride, as: 'overrides' }],
+    order: [['updatedAt', 'DESC']],
+  });
+  if (!setting) {
+    return null;
+  }
+
+  const override = setting.overrides?.find((item) => item.path === normalisedPath);
+  if (!override) {
+    return setting.toPublicObject();
+  }
+
+  const overrideShape = override.toPublicObject();
+  const merged = override.applyTo(setting);
+  return { ...merged, activeOverride: overrideShape };
+};
+
+SeoSetting.prototype.getOverrideForPath = function getOverrideForPath(path) {
+  const normalisedPath = normalisePath(path);
+  return this.overrides?.find((override) => override.path === normalisedPath) ?? null;
+};
+
+SeoPageOverride.prototype.applyTo = function applyTo(setting) {
+  const base = typeof setting?.toPublicObject === 'function' ? setting.toPublicObject() : setting;
+  const override = this.toPublicObject();
+  return {
+    ...base,
+    defaultTitle: override.title || base?.defaultTitle,
+    defaultDescription: override.description || base?.defaultDescription,
+    defaultKeywords: override.keywords.length ? override.keywords : base?.defaultKeywords ?? [],
+    canonicalBaseUrl: override.canonicalUrl || base?.canonicalBaseUrl,
+    socialDefaults: { ...(base?.socialDefaults ?? {}), ...override.social },
+    structuredData: { ...(base?.structuredData ?? {}), ...override.structuredData },
+    metaTags: override.metaTags.length ? override.metaTags : base?.metaTags ?? [],
+    allowIndexing: override.noindex ? false : base?.allowIndexing,
   };
 };
 

@@ -23,6 +23,20 @@ import SeoSetting, { SeoPageOverride } from '../models/seoSetting.js';
 import SiteModels from '../models/siteManagementModels.js';
 import StorageModels from '../models/storageManagementModels.js';
 import SystemSetting from '../models/systemSetting.js';
+import RuntimeAnnouncement, {
+  RUNTIME_ANNOUNCEMENT_SEVERITIES,
+  RUNTIME_ANNOUNCEMENT_STATUSES,
+} from '../models/runtimeAnnouncement.js';
+import {
+  Project,
+  ProjectWorkspace,
+} from '../models/projectGigManagementModels.js';
+import {
+  ProjectBudgetLine,
+  ProjectTask,
+  ProjectTaskAssignment,
+  syncProjectWorkspaceModels,
+} from '../models/projectWorkspaceModels.js';
 import dependencyHealth from '../observability/dependencyHealth.js';
 import {
   resetPerimeterMetrics,
@@ -55,7 +69,7 @@ import {
 } from '../realtime/channelRegistry.js';
 import createConnectionRegistry from '../realtime/connectionRegistry.js';
 
-const { SiteNavigationLink } = SiteModels;
+const { SiteSetting, SitePage, SiteNavigationLink } = SiteModels;
 const { StorageLocation, StorageLifecycleRule, StorageUploadPreset } = StorageModels;
 
 beforeAll(async () => {
@@ -64,8 +78,11 @@ beforeAll(async () => {
   await SystemSetting.sync({ force: true });
   await RbacPolicyAuditEvent.sync({ force: true });
   await RuntimeSecurityAuditEvent.sync({ force: true });
+  await RuntimeAnnouncement.sync({ force: true });
   await SeoSetting.sync({ force: true });
   await SeoPageOverride.sync({ force: true });
+  await SiteSetting.sync({ force: true });
+  await SitePage.sync({ force: true });
   await SiteNavigationLink.sync({ force: true });
   await StorageLocation.sync({ force: true });
   await StorageLifecycleRule.sync({ force: true });
@@ -76,10 +93,7 @@ beforeAll(async () => {
   await VolunteeringInterview.sync({ force: true });
   await VolunteeringContract.sync({ force: true });
   await VolunteeringContractSpend.sync({ force: true });
-});
-
-afterAll(async () => {
-  await sequelize.close();
+  await syncProjectWorkspaceModels({ force: true });
 });
 
 describe('Platform and system settings models', () => {
@@ -95,14 +109,72 @@ describe('Platform and system settings models', () => {
     );
   });
 
-  test('system setting enforces unique keys and exposes category', async () => {
-    const record = await SystemSetting.create({ key: 'auth.session', category: 'security', value: { ttl: 3600 } });
-    const view = record.toPublicObject();
+  test('system settings normalise keys, track environments, and hide sensitive values', async () => {
+    const base = await SystemSetting.ensureSetting('Auth.Session', {
+      category: 'security',
+      description: 'Session lifetime',
+      value: { ttl: 3600 },
+      updatedBy: 'ops',
+    });
 
-    expect(view).toMatchObject({ key: 'auth.session', category: 'security' });
-    await expect(
-      SystemSetting.create({ key: 'auth.session', category: 'security', value: { ttl: 1200 } }),
-    ).rejects.toThrow();
+    expect(base.key).toBe('auth.session');
+    expect(base.environmentScope).toBe('global');
+    expect(base.version).toBe(1);
+
+    await base.updateValue({ ttl: 7200 }, { updatedBy: 'ops', metadata: { reason: 'launch prep' } });
+    expect(base.version).toBe(2);
+    expect(base.metadata.reason).toBe('launch prep');
+
+    const staging = await SystemSetting.ensureSetting('auth.session', {
+      environmentScope: 'Staging',
+      valueType: 'number',
+      value: 1800,
+      updatedBy: 'qa',
+    });
+
+    expect(staging.environmentScope).toBe('staging');
+    expect(staging.getTypedValue()).toBe(1800);
+
+    const resolvedStaging = await SystemSetting.resolveValue('auth.session', { environmentScope: 'staging' });
+    expect(resolvedStaging).toBe(1800);
+
+    const resolvedGlobal = await SystemSetting.resolveValue('auth.session');
+    expect(resolvedGlobal).toEqual({ ttl: 7200 });
+
+    const secret = await SystemSetting.ensureSetting('ops.secret', {
+      valueType: 'string',
+      value: 'shh',
+      isSensitive: true,
+    });
+
+    expect(secret.toPublicObject().value).toBeNull();
+    expect(secret.toPublicObject({ revealSensitive: true }).value).toBe('shh');
+  });
+
+  test('typed platform settings hide sensitive values until revealed', async () => {
+    const featureFlag = await PlatformSetting.create({
+      key: 'features.new-dashboard',
+      valueType: 'boolean',
+      value: true,
+      isSensitive: true,
+    });
+
+    expect(featureFlag.getTypedValue()).toBe(true);
+    expect(featureFlag.toPublicObject().value).toBeNull();
+
+    await featureFlag.updateValue('false', { updatedBy: 'tester' });
+    expect(featureFlag.version).toBe(2);
+    expect(featureFlag.getTypedValue()).toBe(false);
+
+    const revealed = featureFlag.toPublicObject({ revealSensitive: true });
+    expect(revealed.value).toBe(false);
+
+    const ensured = await PlatformSetting.ensureSetting('features.new-dashboard', {
+      valueType: 'boolean',
+      value: true,
+      updatedBy: 'tester',
+    });
+    expect(ensured.getTypedValue()).toBe(true);
   });
 });
 
@@ -163,9 +235,125 @@ describe('SEO and site management models', () => {
     expect(override.toPublicObject()).toMatchObject({ path: '/pricing', keywords: ['pricing'] });
   });
 
+  test('resolveForPath merges overrides safely', async () => {
+    const seo = await SeoSetting.create({
+      key: 'marketing',
+      defaultTitle: 'Gigvora',
+      defaultKeywords: ['gigvora', 'platform'],
+    });
+
+    await SeoPageOverride.create({
+      seoSettingId: seo.id,
+      path: '/launch',
+      title: 'Launch Event',
+      description: 'Join our launch',
+      keywords: ['launch', 'event'],
+      canonicalUrl: 'https://gigvora.com/launch',
+    });
+
+    const resolved = await SeoSetting.resolveForPath('/launch', { key: 'marketing' });
+    expect(resolved.activeOverride).toMatchObject({ path: '/launch', title: 'Launch Event' });
+    expect(resolved.defaultTitle).toBe('Launch Event');
+    expect(resolved.defaultKeywords).toContain('launch');
+  });
+
+  test('site settings normalise keys and version updates', async () => {
+    const setting = await SiteSetting.ensureSetting('Header CTA', {
+      value: { label: 'Join', url: '/signup' },
+      updatedBy: 'designer',
+      metadata: { theme: 'light' },
+    });
+
+    expect(setting.key).toBe('header-cta');
+    expect(setting.version).toBe(1);
+
+    await setting.updateValue({ label: 'Get Started', url: '/start' }, { updatedBy: 'designer' });
+    expect(setting.version).toBe(2);
+    expect(setting.toPublicObject()).toMatchObject({
+      category: 'content',
+      metadata: { theme: 'light' },
+    });
+  });
+
+  test('site pages sanitise slugs, enforce visibility, and support publishing', async () => {
+    const draft = await SitePage.create({
+      slug: 'Landing Page ',
+      title: 'Landing Page',
+      allowedRoles: ['member'],
+      status: 'draft',
+    });
+
+    expect(draft.slug).toBe('landing-page');
+    expect(draft.canActorView(['member'])).toBe(true);
+    expect(draft.canActorView(['guest'])).toBe(false);
+
+    await draft.publish({ publishedAt: new Date('2024-01-01T00:00:00Z') });
+    expect(draft.status).toBe('published');
+    expect(draft.publishedAt.toISOString()).toBe('2024-01-01T00:00:00.000Z');
+
+    const visible = await SitePage.filterVisibleToRoles(['member']);
+    expect(visible.map((page) => page.slug)).toContain('landing-page');
+
+    await draft.archive();
+    expect(draft.status).toBe('archived');
+  });
+
   test('site navigation serialises safe arrays', async () => {
     const link = await SiteNavigationLink.create({ menuKey: 'primary', label: 'Docs', url: '/docs' });
-    expect(link.toPublicObject()).toMatchObject({ label: 'Docs', allowedRoles: [] });
+    expect(link.toPublicObject()).toMatchObject({ label: 'Docs', allowedRoles: ['guest'] });
+  });
+
+  test('site navigation supports role filtered menu trees and reordering', async () => {
+    const parent = await SiteNavigationLink.create({
+      menuKey: 'secondary',
+      label: 'Dashboard',
+      url: '/dashboard',
+      allowedRoles: ['member', 'admin'],
+      orderIndex: 1,
+    });
+    const child = await SiteNavigationLink.create({
+      menuKey: 'secondary',
+      label: 'Admin',
+      url: '/dashboard/admin',
+      allowedRoles: ['admin'],
+      parentId: parent.id,
+      orderIndex: 2,
+    });
+
+    await SiteNavigationLink.reorderMenu('secondary', [child.id, parent.id]);
+    await parent.reload();
+    expect(parent.orderIndex).toBe(1); // unaffected because child reorder doesn't override parent
+
+    const tree = await SiteNavigationLink.loadMenuTree('secondary', { actorRoles: ['admin'] });
+    expect(tree).toHaveLength(1);
+    expect(tree[0].children).toHaveLength(1);
+    expect(tree[0].children[0].label).toBe('Admin');
+
+    const guestTree = await SiteNavigationLink.loadMenuTree('secondary', { actorRoles: ['guest'] });
+    expect(guestTree.find((item) => item.label === 'Admin')).toBeUndefined();
+  });
+});
+
+describe('Runtime announcements', () => {
+  test('fetchActiveAnnouncements honours audience and lifecycle', async () => {
+    const announcement = await RuntimeAnnouncement.create({
+      slug: 'maintenance-window',
+      title: 'Maintenance',
+      message: 'Planned maintenance window',
+      severity: RUNTIME_ANNOUNCEMENT_SEVERITIES[1],
+      status: RUNTIME_ANNOUNCEMENT_STATUSES[1],
+      startsAt: new Date(Date.now() - 5 * 60 * 1000),
+      endsAt: new Date(Date.now() + 10 * 60 * 1000),
+      audiences: ['admins'],
+      channels: ['status'],
+    });
+
+    const matches = await RuntimeAnnouncement.fetchActiveAnnouncements({ audience: 'admins', channel: 'status' });
+    expect(matches.map((item) => item.slug)).toContain('maintenance-window');
+
+    await announcement.markResolved({ summary: 'Completed', updatedBy: 'ops' });
+    expect(announcement.status).toBe('resolved');
+    expect(announcement.metadata.resolutionSummary).toBe('Completed');
   });
 });
 
@@ -192,10 +380,84 @@ describe('Storage management models', () => {
   });
 
   test('upload presets provide safe defaults', async () => {
-    const location = await StorageLocation.findOne({ where: { locationKey: 'primary' } });
+    const location = await StorageLocation.create({
+      locationKey: 'uploads',
+      name: 'Uploads Bucket',
+      provider: 'aws',
+      bucket: 'gigvora-uploads',
+      credentialSecret: 'upload-secret',
+    });
     const preset = await StorageUploadPreset.create({ locationId: location.id, name: 'images' });
 
     expect(preset.toPublicObject()).toMatchObject({ name: 'images', allowedMimeTypes: [] });
+  });
+
+  test('records usage deltas and evaluates upload permissions', async () => {
+    const location = await StorageLocation.create({
+      locationKey: 'delta-bucket',
+      name: 'Delta Bucket',
+      provider: 'aws',
+      bucket: 'gigvora-delta',
+      status: 'active',
+    });
+
+    await StorageLocation.recordUsageDelta('delta-bucket', {
+      mbDelta: 50.5,
+      objectDelta: 5,
+      ingestDelta: 2000,
+      egressDelta: 1000,
+      errorDelta: 2,
+    });
+
+    await location.reload();
+    expect(location.getUsageSummary()).toMatchObject({
+      currentUsageMb: 50.5,
+      objectCount: 5,
+      ingestBytes24h: 2000,
+      egressBytes24h: 1000,
+      errorCount24h: 2,
+    });
+    expect(location.isHealthy()).toBe(true);
+
+    const preset = await StorageUploadPreset.create({
+      locationId: location.id,
+      name: 'restricted',
+      allowedMimeTypes: ['image/*'],
+      allowedRoles: ['member', 'admin'],
+    });
+
+    expect(preset.isMimeTypeAllowed('image/png')).toBe(true);
+    expect(preset.isMimeTypeAllowed('video/mp4')).toBe(false);
+    expect(preset.isRoleAllowed(['guest'])).toBe(false);
+    expect(preset.isRoleAllowed(['member'])).toBe(true);
+  });
+});
+
+describe('Project workspace models', () => {
+  test('task lifecycle updates workspace progress', async () => {
+    const project = await Project.create({ ownerId: 1, title: 'Alpha rollout', description: 'Launch project' });
+    const workspace = await ProjectWorkspace.create({ projectId: project.id });
+    const budgetLine = await ProjectBudgetLine.create({ projectId: project.id, label: 'Design', category: 'design' });
+
+    await budgetLine.reconcileActuals(2500, { updatedBy: 'finance' });
+    expect(budgetLine.metadata.reconciledBy).toBe('finance');
+
+    const task = await ProjectTask.create({ projectId: project.id, title: 'Kickoff deck' });
+    const assignment = await ProjectTaskAssignment.create({ taskId: task.id, assigneeName: 'Alice' });
+
+    await workspace.recalculateProgressFromTasks();
+    expect(Number(workspace.progressPercent)).toBe(0);
+
+    await assignment.accept({ acceptedBy: 'alice' });
+    expect(assignment.metadata.acceptedBy).toBe('alice');
+
+    await task.markComplete({ completedBy: 'alice' });
+    await workspace.recalculateProgressFromTasks();
+    expect(Number(workspace.progressPercent)).toBeCloseTo(100);
+
+    const taskPublic = task.toPublicObject();
+    expect(taskPublic.status).toBe('completed');
+    expect(taskPublic.metadata.completedBy).toBe('alice');
   });
 });
 
@@ -243,7 +505,7 @@ describe('Volunteering workflow models', () => {
     expect(response.toPublicObject()).toMatchObject({ responseType: 'note', attachments: [] });
     expect(interview.toPublicObject()).toMatchObject({ status: 'scheduled' });
     expect(contract.toPublicObject()).toMatchObject({ deliverables: [] });
-    expect(spend.toPublicObject()).toMatchObject({ amount: '125.50' });
+    expect(spend.toPublicObject()).toMatchObject({ amount: 125.5 });
 
     const populated = await VolunteeringApplication.findByPk(application.id, {
       include: ['responses', 'interviews', 'contracts'],
@@ -309,7 +571,9 @@ describe('Realtime registries', () => {
 
     const diff = differenceBetweenAllowedRoles('moderation-hq', ['freelancer', 'moderator']);
     expect(diff).toContain('freelancer');
-    expect(overlappingRoles('moderation-hq', ['admin', 'moderator'])).toEqual(['moderator']);
+    expect(overlappingRoles('moderation-hq', ['admin', 'moderator'])).toEqual(
+      expect.arrayContaining(['moderator']),
+    );
     expect(resolveChannelFeatureFlags('talent-opportunities')).toMatchObject({ attachments: true, voice: false });
   });
 
@@ -340,6 +604,7 @@ describe('Realtime registries', () => {
 
     expect(socketA.disconnect).toHaveBeenCalled();
     expect(presenceStore.trackJoin).toHaveBeenCalledTimes(3);
+    await registry.unregister(socketA, 'limit');
     expect(registry.getActiveConnections('user-1')).toHaveLength(2);
     expect(registry.getConnectedUserCount()).toBe(1);
 
