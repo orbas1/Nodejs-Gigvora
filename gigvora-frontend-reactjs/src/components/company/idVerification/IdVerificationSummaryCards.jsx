@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import {
   ClockIcon,
   ShieldCheckIcon,
@@ -146,3 +147,40 @@ export default function IdVerificationSummaryCards({ stats = {}, loading = false
     </div>
   );
 }
+
+SummaryCard.propTypes = {
+  label: PropTypes.string.isRequired,
+  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  helper: PropTypes.string,
+  icon: PropTypes.elementType.isRequired,
+  tone: PropTypes.oneOf(Object.keys(cardStyles)),
+  active: PropTypes.bool,
+  onSelect: PropTypes.func,
+};
+
+SummaryCard.defaultProps = {
+  helper: null,
+  tone: 'slate',
+  active: false,
+  onSelect: undefined,
+};
+
+IdVerificationSummaryCards.propTypes = {
+  stats: PropTypes.shape({
+    countsByStatus: PropTypes.object,
+    oldestPending: PropTypes.shape({ submittedAt: PropTypes.string }),
+    averageReviewHours: PropTypes.number,
+    verifiedThisWeek: PropTypes.number,
+    submittedThisWeek: PropTypes.number,
+  }),
+  loading: PropTypes.bool,
+  activeSegment: PropTypes.string,
+  onSelect: PropTypes.func,
+};
+
+IdVerificationSummaryCards.defaultProps = {
+  stats: {},
+  loading: false,
+  activeSegment: 'all',
+  onSelect: undefined,
+};
