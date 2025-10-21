@@ -3,6 +3,40 @@ import { format } from 'date-fns';
 
 const EMPTY_RESOURCE = { label: '', url: '', type: '' };
 
+function normalizeMeetingProviders(providers) {
+  if (!Array.isArray(providers)) {
+    return [];
+  }
+
+  return providers
+    .map((provider) => {
+      if (!provider) {
+        return null;
+      }
+
+      if (typeof provider === 'string') {
+        const trimmed = provider.trim();
+        if (!trimmed) {
+          return null;
+        }
+        return { value: trimmed, label: trimmed };
+      }
+
+      if (typeof provider === 'object') {
+        const value =
+          provider.value ?? provider.id ?? provider.slug ?? provider.name ?? provider.label;
+        if (!value) {
+          return null;
+        }
+        const label = provider.label ?? provider.name ?? provider.title ?? String(value);
+        return { value: String(value), label };
+      }
+
+      return null;
+    })
+    .filter(Boolean);
+}
+
 function formatDate(value) {
   if (!value) return '—';
   try {
@@ -90,7 +124,10 @@ export default function MentoringSessionDetailPanel({
   const owners = useMemo(() => catalog?.owners ?? [], [catalog?.owners]);
   const serviceLines = useMemo(() => catalog?.serviceLines ?? [], [catalog?.serviceLines]);
   const statuses = catalog?.statuses ?? [];
-  const meetingProviders = catalog?.meetingProviders ?? [];
+  const meetingProviderOptions = useMemo(
+    () => normalizeMeetingProviders(catalog?.meetingProviders),
+    [catalog?.meetingProviders],
+  );
   const actionStatuses = catalog?.actionStatuses ?? [];
   const actionPriorities = catalog?.actionPriorities ?? [];
 
@@ -144,43 +181,64 @@ export default function MentoringSessionDetailPanel({
     onUpdateSession?.(session.id, payload);
   };
 
-  const handleNoteSubmit = (event) => {
+  const handleNoteSubmit = async (event) => {
     event.preventDefault();
     if (!noteDraft.trim()) {
       return;
     }
-    onCreateNote?.(session.id, { body: noteDraft, visibility: 'internal' }).then(() => {
+    if (!onCreateNote) {
       setNoteDraft('');
-    });
+      return;
+    }
+    try {
+      await onCreateNote(session.id, { body: noteDraft, visibility: 'internal' });
+      setNoteDraft('');
+    } catch (error) {
+      // keep current draft for retry on failure
+    }
   };
 
   const handleNoteEdit = (noteId, body) => {
     setNoteEdits((current) => ({ ...current, [noteId]: body }));
   };
 
-  const commitNoteEdit = (noteId) => {
+  const commitNoteEdit = async (noteId) => {
     const body = noteEdits[noteId];
     if (!body?.trim()) {
       return;
     }
-    onUpdateNote?.(session.id, noteId, { body, visibility: 'internal' }).then(() => {
+    if (!onUpdateNote) {
       setEditingNoteId(null);
-    });
+      return;
+    }
+    try {
+      await onUpdateNote(session.id, noteId, { body, visibility: 'internal' });
+      setEditingNoteId(null);
+    } catch (error) {
+      // keep editing state so the user can retry
+    }
   };
 
-  const handleActionSubmit = (event) => {
+  const handleActionSubmit = async (event) => {
     event.preventDefault();
     if (!actionDraft.title.trim()) {
       return;
     }
-    onCreateAction?.(session.id, {
-      title: actionDraft.title,
-      assigneeId: actionDraft.assigneeId ? Number(actionDraft.assigneeId) : undefined,
-      priority: actionDraft.priority || 'normal',
-      dueAt: actionDraft.dueAt || undefined,
-    }).then(() => {
+    if (!onCreateAction) {
       setActionDraft({ title: '', assigneeId: '', priority: 'normal', dueAt: '' });
-    });
+      return;
+    }
+    try {
+      await onCreateAction(session.id, {
+        title: actionDraft.title,
+        assigneeId: actionDraft.assigneeId ? Number(actionDraft.assigneeId) : undefined,
+        priority: actionDraft.priority || 'normal',
+        dueAt: actionDraft.dueAt || undefined,
+      });
+      setActionDraft({ title: '', assigneeId: '', priority: 'normal', dueAt: '' });
+    } catch (error) {
+      // retain the draft if the action creation fails
+    }
   };
 
   const handleActionUpdate = (actionId, updates) => {
@@ -221,6 +279,17 @@ export default function MentoringSessionDetailPanel({
                 <StatusBadge status={session.status} />
               </div>
               <div className="grid gap-4 md:grid-cols-2">
+                <label className="flex flex-col gap-1 text-sm text-slate-600 md:col-span-2">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Topic</span>
+                  <input
+                    type="text"
+                    name="topic"
+                    value={editForm?.topic ?? ''}
+                    onChange={handleFieldChange}
+                    className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                    placeholder="Session focus"
+                  />
+                </label>
                 <label className="flex flex-col gap-1 text-sm text-slate-600">
                   <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</span>
                   <select
@@ -328,11 +397,15 @@ export default function MentoringSessionDetailPanel({
                     className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                   >
                     <option value="">Select provider</option>
-                    {meetingProviders.map((provider) => (
+                    {meetingProviderOptions.map((provider) => (
                       <option key={provider.value} value={provider.value}>
                         {provider.label}
                       </option>
                     ))}
+                    {!meetingProviderOptions.find((option) => option.value === editForm?.meetingProvider) &&
+                    editForm?.meetingProvider ? (
+                      <option value={editForm.meetingProvider}>{editForm.meetingProvider}</option>
+                    ) : null}
                   </select>
                 </label>
                 <label className="flex flex-col gap-1 text-sm text-slate-600">

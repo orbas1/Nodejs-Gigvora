@@ -2,6 +2,40 @@ import { useEffect, useMemo, useState } from 'react';
 
 const EMPTY_RESOURCE = { label: '', url: '', type: '' };
 
+function normalizeMeetingProviders(providers) {
+  if (!Array.isArray(providers)) {
+    return [];
+  }
+
+  return providers
+    .map((provider) => {
+      if (!provider) {
+        return null;
+      }
+
+      if (typeof provider === 'string') {
+        const trimmed = provider.trim();
+        if (!trimmed) {
+          return null;
+        }
+        return { value: trimmed, label: trimmed };
+      }
+
+      if (typeof provider === 'object') {
+        const value =
+          provider.value ?? provider.id ?? provider.slug ?? provider.name ?? provider.label;
+        if (!value) {
+          return null;
+        }
+        const label = provider.label ?? provider.name ?? provider.title ?? String(value);
+        return { value: String(value), label };
+      }
+
+      return null;
+    })
+    .filter(Boolean);
+}
+
 function buildDefaultForm(defaults) {
   return {
     mentorId: defaults?.mentorId ?? '',
@@ -27,7 +61,10 @@ export default function MentoringSessionForm({ catalog, defaults, onSubmit, subm
   const mentees = useMemo(() => catalog?.mentees ?? [], [catalog?.mentees]);
   const owners = useMemo(() => catalog?.owners ?? [], [catalog?.owners]);
   const serviceLines = useMemo(() => catalog?.serviceLines ?? [], [catalog?.serviceLines]);
-  const meetingProviders = catalog?.meetingProviders ?? [];
+  const meetingProviderOptions = useMemo(
+    () => normalizeMeetingProviders(catalog?.meetingProviders),
+    [catalog?.meetingProviders],
+  );
 
   useEffect(() => {
     setForm(buildDefaultForm(defaults));
@@ -56,7 +93,7 @@ export default function MentoringSessionForm({ catalog, defaults, onSubmit, subm
     }));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     const payload = {
       mentorId: form.mentorId ? Number(form.mentorId) : undefined,
@@ -88,14 +125,17 @@ export default function MentoringSessionForm({ catalog, defaults, onSubmit, subm
         : undefined,
     };
 
-    const result = onSubmit?.(payload);
-    Promise.resolve(result)
-      .then(() => {
-        setForm(buildDefaultForm(defaults));
-      })
-      .catch(() => {
-        // allow parent to handle errors; keep current form state
-      });
+    if (!onSubmit) {
+      setForm(buildDefaultForm(defaults));
+      return;
+    }
+
+    try {
+      await onSubmit(payload);
+      setForm(buildDefaultForm(defaults));
+    } catch (error) {
+      // allow parent to surface submission errors without losing the current draft
+    }
   };
 
   return (
@@ -238,29 +278,33 @@ export default function MentoringSessionForm({ catalog, defaults, onSubmit, subm
             className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
           >
             <option value="">Select</option>
-            {meetingProviders.map((provider) => (
+            {meetingProviderOptions.map((provider) => (
               <option key={provider.value} value={provider.value}>
                 {provider.label}
               </option>
             ))}
+            {!meetingProviderOptions.find((option) => option.value === form.meetingProvider) &&
+            form.meetingProvider ? (
+              <option value={form.meetingProvider}>{form.meetingProvider}</option>
+            ) : null}
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm text-slate-600">
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Meeting link</span>
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Meeting URL</span>
           <input
             type="url"
             name="meetingUrl"
             value={form.meetingUrl}
             onChange={handleInputChange}
             className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
-            placeholder="https://"
+            placeholder="https://meeting-link"
           />
         </label>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <label className="flex flex-col gap-1 text-sm text-slate-600">
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Internal note</span>
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Internal briefing</span>
           <textarea
             name="notesSummary"
             value={form.notesSummary}
@@ -271,14 +315,14 @@ export default function MentoringSessionForm({ catalog, defaults, onSubmit, subm
           />
         </label>
         <label className="flex flex-col gap-1 text-sm text-slate-600">
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Welcome note</span>
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Add an internal note</span>
           <textarea
             name="initialNote"
             value={form.initialNote}
             onChange={handleInputChange}
             className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
             rows={2}
-            placeholder="Intro for the mentor"
+            placeholder="Share context for mentors or onboarding leads"
           />
         </label>
       </div>
@@ -308,7 +352,7 @@ export default function MentoringSessionForm({ catalog, defaults, onSubmit, subm
                 type="url"
                 value={resource.url}
                 onChange={(event) => handleResourceChange(index, 'url', event.target.value)}
-                placeholder="https://"
+                placeholder="https://..."
                 className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                 required={index === 0}
               />
