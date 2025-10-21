@@ -5798,6 +5798,8 @@ export const WORKSPACE_ROLE_STATUSES = ['active', 'pending', 'inactive', 'offboa
 export const WORKSPACE_SUBMISSION_STATUSES = ['draft', 'submitted', 'in_review', 'approved', 'returned'];
 export const WORKSPACE_INVITE_STATUSES = ['pending', 'accepted', 'declined', 'expired'];
 export const WORKSPACE_HR_STATUSES = ['pending', 'active', 'on_leave', 'completed'];
+export const WORKSPACE_OBJECT_TYPES = ['asset', 'deliverable', 'dependency', 'risk', 'note'];
+export const WORKSPACE_OBJECT_STATUSES = ['draft', 'in_progress', 'blocked', 'completed', 'archived'];
 
 export const ProjectIntegration = sequelize.define(
   'ProjectIntegration',
