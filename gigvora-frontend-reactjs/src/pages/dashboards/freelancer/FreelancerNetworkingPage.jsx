@@ -5,6 +5,7 @@ import useFreelancerNetworkingDashboard from '../../../hooks/useFreelancerNetwor
 import {
   createFreelancerNetworkingOrder,
   updateFreelancerNetworkingOrder,
+  deleteFreelancerNetworkingOrder,
   updateFreelancerNetworkingSettings,
   updateFreelancerNetworkingPreferences,
   createFreelancerNetworkingAd,
@@ -173,6 +174,25 @@ export default function FreelancerNetworkingPage() {
     }
   };
 
+  const handleDeleteOrder = async (orderId) => {
+    ensureFreelancer();
+    setOrdersBusy(true);
+    setOrdersError(null);
+    try {
+      const response = await deleteFreelancerNetworkingOrder(freelancerId, orderId);
+      await refresh({ force: true });
+      return response;
+    } catch (actionError) {
+      const message = extractErrorMessage(actionError, 'Unable to delete order.');
+      setOrdersError(message);
+      const nextError = new Error(message);
+      nextError.cause = actionError;
+      throw nextError;
+    } finally {
+      setOrdersBusy(false);
+    }
+  };
+
   const handleSaveSettings = async (payload) => {
     ensureFreelancer();
     setSettingsBusy(true);
@@ -319,6 +339,7 @@ export default function FreelancerNetworkingPage() {
           loading={loading}
           onCreate={handleCreateOrder}
           onUpdate={handleUpdateOrder}
+          onDelete={handleDeleteOrder}
           onRefresh={handleRefresh}
           statuses={orderStatuses}
           busy={ordersBusy}

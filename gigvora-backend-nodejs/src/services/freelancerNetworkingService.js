@@ -839,6 +839,38 @@ export async function updateFreelancerNetworkingSignup(
   return signup.toPublicObject();
 }
 
+export async function cancelFreelancerNetworkingSignup(
+  freelancerId,
+  signupId,
+  payload = {},
+) {
+  const numericSignupId = normalizeInteger(signupId);
+  if (!numericSignupId) {
+    throw new ValidationError('A valid signupId is required.');
+  }
+
+  const signup = await NetworkingSessionSignup.findOne({
+    where: { id: numericSignupId, participantId: freelancerId },
+  });
+
+  if (!signup) {
+    throw new NotFoundError('Networking session registration not found.');
+  }
+
+  const metadata = { ...(signup.metadata ?? {}) };
+  if (payload.reason) {
+    metadata.cancellationReason = payload.reason;
+  }
+
+  await signup.update({
+    status: 'removed',
+    cancelledAt: new Date(),
+    metadata,
+  });
+
+  return signup.toPublicObject();
+}
+
 export async function listFreelancerNetworkingConnections(freelancerId, options = {}) {
   const connections = await listConnections(freelancerId, options);
   return {
@@ -951,6 +983,25 @@ export async function updateFreelancerNetworkingConnection(
   return connection.toPublicObject();
 }
 
+export async function deleteFreelancerNetworkingConnection(freelancerId, connectionId) {
+  const numericConnectionId = normalizeInteger(connectionId);
+  if (!numericConnectionId) {
+    throw new ValidationError('A valid connectionId is required.');
+  }
+
+  const connection = await NetworkingConnection.findOne({
+    where: { id: numericConnectionId, ownerId: freelancerId },
+  });
+
+  if (!connection) {
+    throw new NotFoundError('Networking contact not found.');
+  }
+
+  const payload = connection.toPublicObject();
+  await connection.destroy();
+  return payload;
+}
+
 export async function listFreelancerNetworkingCampaigns(freelancerId) {
   const campaigns = await AdCampaign.findAll({
     where: { ownerId: freelancerId },
@@ -1042,6 +1093,25 @@ export async function createFreelancerNetworkingOrder(freelancerId, payload = {}
 export async function updateFreelancerNetworkingOrder(freelancerId, orderId, payload = {}) {
   const order = await updateUserNetworkingPurchase(freelancerId, orderId, payload);
   return sanitizeOrder(order);
+}
+
+export async function deleteFreelancerNetworkingOrder(freelancerId, orderId) {
+  const numericOrderId = normalizeInteger(orderId);
+  if (!numericOrderId) {
+    throw new ValidationError('A valid orderId is required.');
+  }
+
+  const order = await NetworkingSessionOrder.findOne({
+    where: { id: numericOrderId, purchaserId: freelancerId },
+  });
+
+  if (!order) {
+    throw new NotFoundError('Networking order not found.');
+  }
+
+  const payload = sanitizeOrder(order);
+  await order.destroy();
+  return payload;
 }
 
 export async function getFreelancerNetworkingSettings(freelancerId) {
@@ -1197,7 +1267,20 @@ export default {
   getFreelancerNetworkingDashboard,
   bookNetworkingSessionForFreelancer,
   updateFreelancerNetworkingSignup,
+  cancelFreelancerNetworkingSignup,
   listFreelancerNetworkingConnections,
   createFreelancerNetworkingConnection,
   updateFreelancerNetworkingConnection,
+  deleteFreelancerNetworkingConnection,
+  listFreelancerNetworkingOrders,
+  createFreelancerNetworkingOrder,
+  updateFreelancerNetworkingOrder,
+  deleteFreelancerNetworkingOrder,
+  getFreelancerNetworkingSettings,
+  updateFreelancerNetworkingSettings,
+  updateFreelancerNetworkingPreferences,
+  createFreelancerNetworkingCampaign,
+  updateFreelancerNetworkingCampaign,
+  deleteFreelancerNetworkingCampaign,
+  getFreelancerNetworkingAds,
 };

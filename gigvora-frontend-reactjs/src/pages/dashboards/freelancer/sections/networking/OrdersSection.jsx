@@ -17,6 +17,7 @@ export default function OrdersSection({
   loading,
   onCreate,
   onUpdate,
+  onDelete,
   onRefresh,
   statuses = [],
   busy = false,
@@ -65,6 +66,29 @@ export default function OrdersSection({
   };
 
   const combinedBusy = busy || pending;
+
+  const handleDelete = async (orderId) => {
+    if (!onDelete) {
+      return;
+    }
+    const confirmed = window.confirm('Delete this networking order? This cannot be undone.');
+    if (!confirmed) {
+      return;
+    }
+    setPending(true);
+    setBanner(null);
+    setDismissedError(false);
+    try {
+      await onDelete(orderId);
+      setBanner({ tone: 'success', message: 'Order deleted.' });
+    } catch (actionError) {
+      const message = actionError?.message ?? 'Unable to delete order.';
+      setBanner({ tone: 'error', message });
+      throw actionError;
+    } finally {
+      setPending(false);
+    }
+  };
 
   const renderBanner = () => {
     const errorBanner = error && !dismissedError ? { tone: 'error', message: error } : null;
@@ -179,14 +203,25 @@ export default function OrdersSection({
                 <td className="px-4 py-3 text-slate-700">{order.amountFormatted}</td>
                 <td className="px-4 py-3 text-slate-700 capitalize">{order.status?.replace(/_/g, ' ')}</td>
                 <td className="px-4 py-3 text-slate-500">{formatDate(order.purchasedAt)}</td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3 space-x-2">
                   <button
                     type="button"
                     onClick={() => setPanelState({ open: true, order })}
                     className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+                    disabled={combinedBusy}
                   >
                     Edit
                   </button>
+                  {onDelete ? (
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(order.id)}
+                      className="rounded-full border border-rose-200 px-3 py-1 text-xs font-semibold text-rose-600 transition hover:border-rose-300 hover:text-rose-700"
+                      disabled={combinedBusy}
+                    >
+                      Delete
+                    </button>
+                  ) : null}
                 </td>
               </tr>
             ))}
@@ -200,6 +235,7 @@ export default function OrdersSection({
         onClose={() => setPanelState({ open: false, order: null })}
         onCreate={handleCreate}
         onUpdate={handleUpdate}
+        onDelete={onDelete && panelState.order ? () => handleDelete(panelState.order.id) : undefined}
         busy={combinedBusy}
         statuses={statuses}
       />

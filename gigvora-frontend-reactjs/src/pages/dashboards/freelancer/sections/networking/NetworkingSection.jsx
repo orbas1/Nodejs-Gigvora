@@ -5,6 +5,8 @@ import {
   updateFreelancerNetworkingSignup,
   createFreelancerNetworkingConnection,
   updateFreelancerNetworkingConnection,
+  deleteFreelancerNetworkingSignup,
+  deleteFreelancerNetworkingConnection,
 } from '../../../../../services/freelancerNetworking.js';
 import SummaryStrip from './SummaryStrip.jsx';
 import ViewSwitcher from './ViewSwitcher.jsx';
@@ -145,6 +147,30 @@ export default function NetworkingSection({
     }
   };
 
+  const handleDeleteBooking = async (bookingId) => {
+    requireFreelancer();
+    setSaving(true);
+    try {
+      const reason = window.prompt('Reason for cancelling this booking? (optional)')?.trim();
+      const payload = reason ? { reason } : undefined;
+      await deleteFreelancerNetworkingSignup(freelancerId, bookingId, payload);
+      await handleSuccess('Booking removed.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteConnection = async (connectionId) => {
+    requireFreelancer();
+    setSaving(true);
+    try {
+      await deleteFreelancerNetworkingConnection(freelancerId, connectionId);
+      await handleSuccess('Contact removed.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <SectionShell id="network-hub" title="Network hub" description="Sessions, spend, and follow-ups.">
       <div className="space-y-6">
@@ -180,6 +206,7 @@ export default function NetworkingSection({
         session={panel?.type === 'booking-create' ? panel.session : panel?.booking?.session ?? null}
         onCreate={handleCreateBooking}
         onUpdate={handleUpdateBooking}
+        onDelete={panel?.type === 'booking-edit' ? () => handleDeleteBooking(panel.booking.id) : undefined}
         busy={saving}
       />
 
@@ -192,6 +219,7 @@ export default function NetworkingSection({
         connectionStatuses={connectionStatuses}
         onCreate={handleCreateConnection}
         onUpdate={handleUpdateConnection}
+        onDelete={panel?.type === 'connection-edit' ? () => handleDeleteConnection(panel.connection.id) : undefined}
         busy={saving}
       />
     </SectionShell>

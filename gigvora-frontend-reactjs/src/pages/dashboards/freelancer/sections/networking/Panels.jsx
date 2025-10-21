@@ -25,6 +25,7 @@ export function BookingPanel({
   session,
   onCreate,
   onUpdate,
+  onDelete,
   busy,
 }) {
   const isEditing = Boolean(booking);
@@ -75,6 +76,20 @@ export function BookingPanel({
     }
   };
 
+  const handleDelete = async () => {
+    if (!onDelete) {
+      return;
+    }
+    setError(null);
+    try {
+      await onDelete();
+    } catch (submissionError) {
+      setError(submissionError?.message || 'Unable to delete booking.');
+      return;
+    }
+    onClose();
+  };
+
   return (
     <SlideOver
       open={open}
@@ -82,14 +97,28 @@ export function BookingPanel({
       title={isEditing ? 'Update booking' : 'Reserve session'}
       subtitle={isEditing ? booking.session?.title : session?.title}
       footer={
-        <button
-          type="submit"
-          form="network-booking-form"
-          className="inline-flex w-full items-center justify-center rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
-          disabled={busy}
-        >
-          {busy ? 'Saving…' : 'Save'}
-        </button>
+        <div className="flex items-center justify-between gap-3">
+          {isEditing && onDelete ? (
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="rounded-full border border-rose-200 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-rose-600 transition hover:border-rose-300 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={busy}
+            >
+              Delete
+            </button>
+          ) : (
+            <span />
+          )}
+          <button
+            type="submit"
+            form="network-booking-form"
+            className="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+            disabled={busy}
+          >
+            {busy ? 'Saving…' : 'Save'}
+          </button>
+        </div>
       }
     >
       <form id="network-booking-form" onSubmit={handleSubmit} className="space-y-4">
@@ -174,6 +203,7 @@ export function ConnectionPanel({
   connectionStatuses,
   onCreate,
   onUpdate,
+  onDelete,
   busy,
 }) {
   const isEditing = Boolean(connection);
@@ -223,6 +253,20 @@ export function ConnectionPanel({
     }
   };
 
+  const handleDelete = async () => {
+    if (!onDelete) {
+      return;
+    }
+    setError(null);
+    try {
+      await onDelete();
+    } catch (submissionError) {
+      setError(submissionError?.message || 'Unable to delete contact.');
+      return;
+    }
+    onClose();
+  };
+
   return (
     <SlideOver
       open={open}
@@ -230,14 +274,28 @@ export function ConnectionPanel({
       title={isEditing ? 'Update contact' : 'Log contact'}
       subtitle={connection?.counterpart?.name || connection?.counterpartName || undefined}
       footer={
-        <button
-          type="submit"
-          form="network-connection-form"
-          className="inline-flex w-full items-center justify-center rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
-          disabled={busy}
-        >
-          {busy ? 'Saving…' : 'Save'}
-        </button>
+        <div className="flex items-center justify-between gap-3">
+          {isEditing && onDelete ? (
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="rounded-full border border-rose-200 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-rose-600 transition hover:border-rose-300 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={busy}
+            >
+              Delete
+            </button>
+          ) : (
+            <span />
+          )}
+          <button
+            type="submit"
+            form="network-connection-form"
+            className="inline-flex w-full items-center justify-center rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+            disabled={busy}
+          >
+            {busy ? 'Saving…' : 'Save'}
+          </button>
+        </div>
       }
     >
       <form id="network-connection-form" onSubmit={handleSubmit} className="space-y-4">

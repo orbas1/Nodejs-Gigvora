@@ -14,6 +14,7 @@ export default function OrdersPanel({
   onClose,
   onCreate,
   onUpdate,
+  onDelete,
   busy,
   statuses = ['pending', 'paid', 'refunded', 'cancelled'],
 }) {
@@ -67,6 +68,20 @@ export default function OrdersPanel({
     }
   };
 
+  const handleDelete = async () => {
+    if (!onDelete) {
+      return;
+    }
+    setError(null);
+    try {
+      await onDelete();
+    } catch (submissionError) {
+      setError(submissionError?.message ?? 'Unable to delete order.');
+      return;
+    }
+    onClose?.();
+  };
+
   return (
     <SlideOver
       open={open}
@@ -74,14 +89,28 @@ export default function OrdersPanel({
       title={isEditing ? 'Update order' : 'Record networking order'}
       subtitle={isEditing ? order?.session?.title : 'Capture spend and references for networking sessions.'}
       footer={
-        <button
-          type="submit"
-          form="network-orders-form"
-          className="inline-flex w-full items-center justify-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-300"
-          disabled={busy}
-        >
-          {busy ? 'Saving…' : 'Save order'}
-        </button>
+        <div className="flex items-center justify-between gap-3">
+          {isEditing && onDelete ? (
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="rounded-full border border-rose-200 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-rose-600 transition hover:border-rose-300 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={busy}
+            >
+              Delete
+            </button>
+          ) : (
+            <span />
+          )}
+          <button
+            type="submit"
+            form="network-orders-form"
+            className="inline-flex items-center justify-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-300"
+            disabled={busy}
+          >
+            {busy ? 'Saving…' : 'Save order'}
+          </button>
+        </div>
       }
     >
       <form id="network-orders-form" onSubmit={handleSubmit} className="space-y-4">

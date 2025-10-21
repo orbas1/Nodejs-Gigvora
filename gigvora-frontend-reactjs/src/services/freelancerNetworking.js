@@ -30,6 +30,16 @@ export function updateFreelancerNetworkingSignup(freelancerId, signupId, payload
   return apiClient.patch(`/freelancers/${freelancerId}/networking/signups/${signupId}`, payload);
 }
 
+export function deleteFreelancerNetworkingSignup(freelancerId, signupId, payload = {}) {
+  if (!freelancerId) {
+    throw new Error('freelancerId is required to cancel networking registrations.');
+  }
+  if (!signupId) {
+    throw new Error('signupId is required to cancel networking registrations.');
+  }
+  return apiClient.delete(`/freelancers/${freelancerId}/networking/signups/${signupId}`, { data: payload });
+}
+
 export function listFreelancerNetworkingConnections(freelancerId, { limit, signal } = {}) {
   if (!freelancerId) {
     throw new Error('freelancerId is required to load networking connections.');
@@ -54,6 +64,16 @@ export function updateFreelancerNetworkingConnection(freelancerId, connectionId,
     throw new Error('connectionId is required to update networking connections.');
   }
   return apiClient.patch(`/freelancers/${freelancerId}/networking/connections/${connectionId}`, payload);
+}
+
+export function deleteFreelancerNetworkingConnection(freelancerId, connectionId) {
+  if (!freelancerId) {
+    throw new Error('freelancerId is required to delete networking connections.');
+  }
+  if (!connectionId) {
+    throw new Error('connectionId is required to delete networking connections.');
+  }
+  return apiClient.delete(`/freelancers/${freelancerId}/networking/connections/${connectionId}`);
 }
 
 export function getFreelancerNetworkingMetrics(freelancerId, { lookbackDays, limitConnections, signal } = {}) {
@@ -90,6 +110,16 @@ export function updateFreelancerNetworkingOrder(freelancerId, orderId, payload =
     throw new Error('orderId is required to update networking orders.');
   }
   return apiClient.patch(`/freelancers/${freelancerId}/networking/orders/${orderId}`, payload);
+}
+
+export function deleteFreelancerNetworkingOrder(freelancerId, orderId) {
+  if (!freelancerId) {
+    throw new Error('freelancerId is required to delete networking orders.');
+  }
+  if (!orderId) {
+    throw new Error('orderId is required to delete networking orders.');
+  }
+  return apiClient.delete(`/freelancers/${freelancerId}/networking/orders/${orderId}`);
 }
 
 export function getFreelancerNetworkingSettings(freelancerId, { signal } = {}) {
@@ -151,13 +181,16 @@ const freelancerNetworkingService = {
   getFreelancerNetworkingDashboard,
   bookFreelancerNetworkingSession,
   updateFreelancerNetworkingSignup,
+  deleteFreelancerNetworkingSignup,
   listFreelancerNetworkingConnections,
   createFreelancerNetworkingConnection,
   updateFreelancerNetworkingConnection,
+  deleteFreelancerNetworkingConnection,
   getFreelancerNetworkingMetrics,
   listFreelancerNetworkingOrders,
   createFreelancerNetworkingOrder,
   updateFreelancerNetworkingOrder,
+  deleteFreelancerNetworkingOrder,
   getFreelancerNetworkingSettings,
   updateFreelancerNetworkingSettings,
   updateFreelancerNetworkingPreferences,

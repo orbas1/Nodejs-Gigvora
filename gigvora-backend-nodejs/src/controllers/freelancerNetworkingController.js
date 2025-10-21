@@ -2,12 +2,15 @@ import {
   getFreelancerNetworkingDashboard,
   bookNetworkingSessionForFreelancer,
   updateFreelancerNetworkingSignup,
+  cancelFreelancerNetworkingSignup,
   listFreelancerNetworkingConnections,
   createFreelancerNetworkingConnection,
   updateFreelancerNetworkingConnection,
+  deleteFreelancerNetworkingConnection,
   listFreelancerNetworkingOrders,
   createFreelancerNetworkingOrder,
   updateFreelancerNetworkingOrder,
+  deleteFreelancerNetworkingOrder,
   getFreelancerNetworkingSettings,
   updateFreelancerNetworkingSettings,
   updateFreelancerNetworkingPreferences,
@@ -89,6 +92,15 @@ export async function updateSignup(req, res) {
   res.json(payload);
 }
 
+export async function cancelSignup(req, res) {
+  const freelancerId = parsePositiveInteger(req.params.freelancerId, 'freelancerId');
+  ensureFreelancerAccess(req.user, freelancerId);
+  const signupId = parsePositiveInteger(req.params.signupId, 'signupId');
+  const reason = req.body?.reason ?? req.query?.reason;
+  const booking = await cancelFreelancerNetworkingSignup(freelancerId, signupId, { reason });
+  res.json({ success: true, booking });
+}
+
 export async function listConnections(req, res) {
   const freelancerId = parsePositiveInteger(req.params.freelancerId, 'freelancerId');
   ensureFreelancerAccess(req.user, freelancerId);
@@ -110,6 +122,14 @@ export async function updateConnection(req, res) {
   const connectionId = parsePositiveInteger(req.params.connectionId, 'connectionId');
   const payload = await updateFreelancerNetworkingConnection(freelancerId, connectionId, req.body ?? {});
   res.json(payload);
+}
+
+export async function deleteConnection(req, res) {
+  const freelancerId = parsePositiveInteger(req.params.freelancerId, 'freelancerId');
+  ensureFreelancerAccess(req.user, freelancerId);
+  const connectionId = parsePositiveInteger(req.params.connectionId, 'connectionId');
+  const payload = await deleteFreelancerNetworkingConnection(freelancerId, connectionId);
+  res.json({ success: true, connection: payload });
 }
 
 export async function metrics(req, res) {
@@ -153,6 +173,15 @@ export async function updateOrder(req, res) {
   const orderId = parsePositiveInteger(req.params.orderId, 'orderId');
   const order = await updateFreelancerNetworkingOrder(freelancerId, orderId, req.body ?? {});
   res.json(order);
+}
+
+export async function deleteOrder(req, res) {
+  const freelancerId = parsePositiveInteger(req.params.freelancerId, 'freelancerId');
+  ensureFreelancerAccess(req.user, freelancerId);
+  const orderId = parsePositiveInteger(req.params.orderId, 'orderId');
+  const order = await deleteFreelancerNetworkingOrder(freelancerId, orderId);
+  const overview = await listFreelancerNetworkingOrders(freelancerId);
+  res.json({ success: true, order, summary: overview.summary });
 }
 
 export async function getSettings(req, res) {
@@ -213,13 +242,16 @@ export default {
   dashboard,
   book,
   updateSignup,
+  cancelSignup,
   listConnections,
   createConnection,
   updateConnection,
+  deleteConnection,
   metrics,
   listOrders,
   createOrder,
   updateOrder,
+  deleteOrder,
   getSettings,
   patchSettings,
   patchPreferences,

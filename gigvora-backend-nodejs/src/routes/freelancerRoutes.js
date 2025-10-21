@@ -184,6 +184,11 @@ router.patch(
   authenticateRequest(),
   asyncHandler(freelancerNetworkingController.updateSignup),
 );
+router.delete(
+  '/:freelancerId/networking/signups/:signupId',
+  authenticateRequest(),
+  asyncHandler(freelancerNetworkingController.cancelSignup),
+);
 router.get(
   '/:freelancerId/networking/connections',
   authenticateRequest(),
@@ -198,6 +203,11 @@ router.patch(
   '/:freelancerId/networking/connections/:connectionId',
   authenticateRequest(),
   asyncHandler(freelancerNetworkingController.updateConnection),
+);
+router.delete(
+  '/:freelancerId/networking/connections/:connectionId',
+  authenticateRequest(),
+  asyncHandler(freelancerNetworkingController.deleteConnection),
 );
 router.get(
   '/:freelancerId/networking/metrics',
@@ -218,6 +228,11 @@ router.patch(
   '/:freelancerId/networking/orders/:orderId',
   authenticateRequest(),
   asyncHandler(freelancerNetworkingController.updateOrder),
+);
+router.delete(
+  '/:freelancerId/networking/orders/:orderId',
+  authenticateRequest(),
+  asyncHandler(freelancerNetworkingController.deleteOrder),
 );
 router.get(
   '/:freelancerId/networking/settings',
