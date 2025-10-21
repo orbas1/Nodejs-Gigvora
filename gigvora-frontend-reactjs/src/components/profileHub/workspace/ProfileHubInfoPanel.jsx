@@ -1,4 +1,5 @@
 import clsx from 'clsx';
+import PropTypes from 'prop-types';
 
 const VISIBILITY_OPTIONS = [
   { value: 'public', label: 'Public' },
@@ -140,3 +141,26 @@ export default function ProfileHubInfoPanel({
     </div>
   );
 }
+
+ProfileHubInfoPanel.propTypes = {
+  draft: PropTypes.shape({
+    headline: PropTypes.string,
+    location: PropTypes.string,
+    timezone: PropTypes.string,
+    missionStatement: PropTypes.string,
+    bio: PropTypes.string,
+    profileVisibility: PropTypes.string,
+    networkVisibility: PropTypes.string,
+    followersVisibility: PropTypes.string,
+  }).isRequired,
+  onChange: PropTypes.func.isRequired,
+  onSave: PropTypes.func.isRequired,
+  saving: PropTypes.bool,
+  onOpenAdvanced: PropTypes.func.isRequired,
+  layout: PropTypes.oneOf(['default', 'modal']),
+};
+
+ProfileHubInfoPanel.defaultProps = {
+  saving: false,
+  layout: 'default',
+};

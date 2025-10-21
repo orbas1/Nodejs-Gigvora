@@ -1,4 +1,5 @@
 import { PlusCircleIcon } from '@heroicons/react/24/outline';
+import PropTypes from 'prop-types';
 
 export default function ProfileExperienceCard({
   experience,
@@ -130,3 +131,24 @@ export default function ProfileExperienceCard({
     </section>
   );
 }
+
+const experienceShape = PropTypes.shape({
+  organization: PropTypes.string,
+  role: PropTypes.string,
+  startDate: PropTypes.string,
+  endDate: PropTypes.string,
+  description: PropTypes.string,
+  highlights: PropTypes.arrayOf(PropTypes.string),
+});
+
+ProfileExperienceCard.propTypes = {
+  experience: PropTypes.arrayOf(experienceShape).isRequired,
+  onAddExperience: PropTypes.func.isRequired,
+  onUpdateExperience: PropTypes.func.isRequired,
+  onRemoveExperience: PropTypes.func.isRequired,
+  canEdit: PropTypes.bool,
+};
+
+ProfileExperienceCard.defaultProps = {
+  canEdit: false,
+};

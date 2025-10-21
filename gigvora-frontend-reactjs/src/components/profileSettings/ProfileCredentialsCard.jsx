@@ -1,4 +1,5 @@
 import { AcademicCapIcon, PlusCircleIcon } from '@heroicons/react/24/outline';
+import PropTypes from 'prop-types';
 
 export default function ProfileCredentialsCard({
   qualifications,
@@ -199,3 +200,34 @@ export default function ProfileCredentialsCard({
     </section>
   );
 }
+
+const qualificationShape = PropTypes.shape({
+  title: PropTypes.string,
+  authority: PropTypes.string,
+  year: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  credentialId: PropTypes.string,
+  credentialUrl: PropTypes.string,
+  description: PropTypes.string,
+});
+
+const portfolioLinkShape = PropTypes.shape({
+  label: PropTypes.string,
+  url: PropTypes.string,
+  description: PropTypes.string,
+});
+
+ProfileCredentialsCard.propTypes = {
+  qualifications: PropTypes.arrayOf(qualificationShape).isRequired,
+  onAddQualification: PropTypes.func.isRequired,
+  onUpdateQualification: PropTypes.func.isRequired,
+  onRemoveQualification: PropTypes.func.isRequired,
+  portfolioLinks: PropTypes.arrayOf(portfolioLinkShape).isRequired,
+  onAddPortfolioLink: PropTypes.func.isRequired,
+  onUpdatePortfolioLink: PropTypes.func.isRequired,
+  onRemovePortfolioLink: PropTypes.func.isRequired,
+  canEdit: PropTypes.bool,
+};
+
+ProfileCredentialsCard.defaultProps = {
+  canEdit: false,
+};

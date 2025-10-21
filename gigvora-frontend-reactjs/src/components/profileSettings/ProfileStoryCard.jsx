@@ -1,4 +1,5 @@
 import { SparklesIcon } from '@heroicons/react/24/outline';
+import PropTypes from 'prop-types';
 
 export default function ProfileStoryCard({ profileDraft, onProfileChange, canEdit }) {
   return (
@@ -64,3 +65,18 @@ export default function ProfileStoryCard({ profileDraft, onProfileChange, canEdi
     </section>
   );
 }
+
+ProfileStoryCard.propTypes = {
+  profileDraft: PropTypes.shape({
+    headline: PropTypes.string,
+    missionStatement: PropTypes.string,
+    bio: PropTypes.string,
+    education: PropTypes.string,
+  }).isRequired,
+  onProfileChange: PropTypes.func.isRequired,
+  canEdit: PropTypes.bool,
+};
+
+ProfileStoryCard.defaultProps = {
+  canEdit: false,
+};

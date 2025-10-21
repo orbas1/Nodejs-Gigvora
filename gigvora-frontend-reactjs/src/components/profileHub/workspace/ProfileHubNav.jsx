@@ -1,4 +1,5 @@
 import clsx from 'clsx';
+import PropTypes from 'prop-types';
 
 export default function ProfileHubNav({ panels, activePanelId, onSelect }) {
   return (
@@ -25,3 +26,15 @@ export default function ProfileHubNav({ panels, activePanelId, onSelect }) {
     </nav>
   );
 }
+
+ProfileHubNav.propTypes = {
+  panels: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+      icon: PropTypes.elementType.isRequired,
+    }),
+  ).isRequired,
+  activePanelId: PropTypes.string.isRequired,
+  onSelect: PropTypes.func.isRequired,
+};

@@ -1,4 +1,5 @@
 import { UsersIcon, ChartBarIcon, RocketLaunchIcon } from '@heroicons/react/24/outline';
+import PropTypes from 'prop-types';
 
 export default function ProfileCollaborationCard({
   collaborationRoster,
@@ -260,3 +261,44 @@ export default function ProfileCollaborationCard({
     </section>
   );
 }
+
+const collaboratorShape = PropTypes.shape({
+  name: PropTypes.string,
+  role: PropTypes.string,
+  avatarSeed: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  contact: PropTypes.string,
+});
+
+const impactShape = PropTypes.shape({
+  title: PropTypes.string,
+  value: PropTypes.string,
+  description: PropTypes.string,
+});
+
+const pipelineShape = PropTypes.shape({
+  project: PropTypes.string,
+  status: PropTypes.string,
+  value: PropTypes.string,
+  notes: PropTypes.string,
+  expectedClose: PropTypes.string,
+});
+
+ProfileCollaborationCard.propTypes = {
+  collaborationRoster: PropTypes.arrayOf(collaboratorShape).isRequired,
+  onAddCollaborator: PropTypes.func.isRequired,
+  onUpdateCollaborator: PropTypes.func.isRequired,
+  onRemoveCollaborator: PropTypes.func.isRequired,
+  impactHighlights: PropTypes.arrayOf(impactShape).isRequired,
+  onAddImpact: PropTypes.func.isRequired,
+  onUpdateImpact: PropTypes.func.isRequired,
+  onRemoveImpact: PropTypes.func.isRequired,
+  pipelineInsights: PropTypes.arrayOf(pipelineShape).isRequired,
+  onAddPipeline: PropTypes.func.isRequired,
+  onUpdatePipeline: PropTypes.func.isRequired,
+  onRemovePipeline: PropTypes.func.isRequired,
+  canEdit: PropTypes.bool,
+};
+
+ProfileCollaborationCard.defaultProps = {
+  canEdit: false,
+};
