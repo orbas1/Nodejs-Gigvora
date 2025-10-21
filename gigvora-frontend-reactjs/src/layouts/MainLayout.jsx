@@ -5,6 +5,7 @@ import MessagingDock from '../components/messaging/MessagingDock.jsx';
 import PolicyAcknowledgementBanner from '../components/policy/PolicyAcknowledgementBanner.jsx';
 import useSession from '../hooks/useSession.js';
 import ChatwootWidget from '../components/support/ChatwootWidget.jsx';
+import SupportLauncher from '../components/support/SupportLauncher.jsx';
 
 export default function MainLayout() {
   const { isAuthenticated } = useSession();
@@ -25,6 +26,7 @@ export default function MainLayout() {
       <MessagingDock />
       <PolicyAcknowledgementBanner />
       <ChatwootWidget />
+      <SupportLauncher />
     </>
   );
 }

@@ -1235,7 +1235,6 @@ export default function MentorHubSection({
               <img src={spotlight.thumbnailUrl} alt="Spotlight thumbnail" className="h-48 w-full object-cover" />
             </div>
           ) : null}
-        </div>
       </div>
     </section>
   );
