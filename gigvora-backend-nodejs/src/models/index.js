@@ -23347,6 +23347,16 @@ domainRegistry.registerContext({
 });
 
 domainRegistry.registerContext({
+  name: 'volunteering',
+  displayName: 'Volunteering & Social Impact',
+  description: 'Volunteer programmes, workspace placements, contract management, and spend oversight.',
+  include: [
+    (modelName) => /^Volunteering/.test(modelName) || /^Volunteer/.test(modelName),
+  ],
+  metadata: domainMetadata.volunteering,
+});
+
+domainRegistry.registerContext({
   name: 'finance',
   displayName: 'Finance & Trust',
   description: 'Wallets, escrow, payouts, tax exports, and dispute artefacts.',
