@@ -77,8 +77,14 @@ export default function useWalletTransactions(
       fromCache: false,
       lastUpdated: null,
       refresh: async () => ({ data: { items: [], pagination: { total: 0, limit: normalizedFilters.limit, offset: 0 } } }),
+      filters: normalizedFilters,
+      cacheKey,
     };
   }
 
-  return resource;
+  return {
+    ...resource,
+    filters: normalizedFilters,
+    cacheKey,
+  };
 }

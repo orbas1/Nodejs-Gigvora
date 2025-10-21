@@ -15,23 +15,39 @@ if (!googleClientId) {
 }
 
 async function bootstrap() {
-  const { default: AppComponent } = isStandaloneAdminProfile
-    ? await import('./pages/admin/AdminProfileManagementPage.jsx')
-    : await import('./App.jsx');
+  try {
+    const { default: AppComponent } = isStandaloneAdminProfile
+      ? await import('./pages/admin/AdminProfileManagementPage.jsx')
+      : await import('./App.jsx');
 
-  ReactDOM.createRoot(document.getElementById('root')).render(
-    <React.StrictMode>
-      <BrowserRouter>
-        <GoogleOAuthProvider clientId={googleClientId}>
-          <LanguageProvider>
-            <SessionProvider>
-              <AppComponent />
-            </SessionProvider>
-          </LanguageProvider>
-        </GoogleOAuthProvider>
-      </BrowserRouter>
-    </React.StrictMode>,
-  );
+    const container = document.getElementById('root');
+    if (!container) {
+      throw new Error('Unable to find application root element with id "root".');
+    }
+
+    const root = ReactDOM.createRoot(container);
+
+    const OAuthProvider = googleClientId
+      ? GoogleOAuthProvider
+      : ({ children }) => <>{children}</>;
+
+    root.render(
+      <React.StrictMode>
+        <BrowserRouter>
+          <OAuthProvider clientId={googleClientId}>
+            <LanguageProvider>
+              <SessionProvider>
+                <AppComponent />
+              </SessionProvider>
+            </LanguageProvider>
+          </OAuthProvider>
+        </BrowserRouter>
+      </React.StrictMode>,
+    );
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to bootstrap Gigvora web application', error);
+  }
 }
 
 bootstrap();

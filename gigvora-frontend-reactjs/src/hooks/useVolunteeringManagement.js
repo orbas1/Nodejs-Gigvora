@@ -36,6 +36,8 @@ export default function useVolunteeringManagement({ freelancerId, enabled = true
   const [loading, setLoading] = useState(false);
   const [mutating, setMutating] = useState(false);
   const [error, setError] = useState(null);
+  const [lastLoadedAt, setLastLoadedAt] = useState(null);
+  const [lastErrorAt, setLastErrorAt] = useState(null);
 
   const refresh = useCallback(
     async ({ signal } = {}) => {
@@ -46,8 +48,12 @@ export default function useVolunteeringManagement({ freelancerId, enabled = true
       setError(null);
       try {
         const payload = await fetchFreelancerVolunteeringWorkspace(normalizedFreelancerId, { signal });
-        setWorkspace(payload);
-        setMetadata(payload?.metadata ?? null);
+        const resolvedWorkspace = payload?.workspace ?? payload ?? null;
+        const resolvedMetadata = payload?.metadata ?? payload?.workspace?.metadata ?? null;
+        setWorkspace(resolvedWorkspace);
+        setMetadata(resolvedMetadata);
+        setLastLoadedAt(new Date());
+        setLastErrorAt(null);
         return payload;
       } catch (err) {
         if (err?.name === 'AbortError') {
@@ -55,6 +61,7 @@ export default function useVolunteeringManagement({ freelancerId, enabled = true
         }
         const normalizedError = err instanceof Error ? err : new Error('Unable to load volunteering workspace.');
         setError(normalizedError);
+        setLastErrorAt(new Date());
         throw normalizedError;
       } finally {
         setLoading(false);
@@ -68,6 +75,8 @@ export default function useVolunteeringManagement({ freelancerId, enabled = true
       setWorkspace(null);
       setMetadata(null);
       setError(null);
+      setLastLoadedAt(null);
+      setLastErrorAt(null);
       return;
     }
     const controller = new AbortController();
@@ -171,6 +180,8 @@ export default function useVolunteeringManagement({ freelancerId, enabled = true
     mutating,
     error,
     refresh,
+    lastLoadedAt,
+    lastErrorAt,
     ...actions,
   };
 }

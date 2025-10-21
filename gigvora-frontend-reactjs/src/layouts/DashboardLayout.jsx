@@ -146,6 +146,7 @@ function DashboardSwitcher({ dashboards, currentId, onNavigate }) {
                 isActive ? 'bg-accent text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'
               }`}
               onClick={() => onNavigate?.(dashboard.href)}
+              aria-pressed={isActive}
             >
               {dashboard.label}
             </button>
@@ -174,16 +175,13 @@ DashboardSwitcher.defaultProps = {
   onNavigate: undefined,
 };
 
-function MenuSection({
-  section,
-  isOpen,
-  onToggle,
-  onItemClick,
-  activeItemId,
-}) {
+function MenuSection({ section, isOpen, onToggle, onItemClick, activeItemId }) {
   if (!section.items.length) {
     return null;
   }
+
+  const panelId = `${section.id}-panel`;
+  const buttonId = `${section.id}-toggle`;
 
   return (
     <div className="space-y-2">
@@ -191,12 +189,20 @@ function MenuSection({
         type="button"
         onClick={() => onToggle(section.id)}
         className="flex w-full items-center justify-between rounded-2xl border border-transparent bg-transparent px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 transition hover:text-slate-800"
+        aria-expanded={isOpen}
+        aria-controls={panelId}
+        id={buttonId}
       >
         <span>{section.label}</span>
         <ChevronDownIcon className={`h-4 w-4 transition ${isOpen ? 'rotate-180 text-accent' : 'text-slate-400'}`} />
       </button>
-      <div className={`${isOpen ? 'max-h-[960px]' : 'max-h-0'} overflow-hidden transition-[max-height] duration-300`}>
-        <nav className="space-y-1 pl-3">
+      <div
+        className={`${isOpen ? 'max-h-[960px]' : 'max-h-0'} overflow-hidden transition-[max-height] duration-300`}
+        id={panelId}
+        role="region"
+        aria-labelledby={buttonId}
+      >
+        <nav className="space-y-1 pl-3" aria-label={section.label}>
           {section.items.map((item) => {
             const Icon = item.icon;
             const isActive = activeItemId && item.id === activeItemId;
@@ -210,6 +216,7 @@ function MenuSection({
                     ? 'bg-accent text-white shadow-sm'
                     : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                 }`}
+                aria-current={isActive ? 'page' : undefined}
               >
                 {Icon ? <Icon className="h-5 w-5 flex-shrink-0" /> : null}
                 <span className="flex flex-col">
@@ -376,6 +383,24 @@ export default function DashboardLayout({
   }, [normalizedSections]);
 
   const allMenuItems = useMemo(() => normalizedSections.flatMap((section) => section.items), [normalizedSections]);
+
+  useEffect(() => {
+    if (!activeMenuItem) {
+      return;
+    }
+    const activeItem = allMenuItems.find((item) => item.id === activeMenuItem);
+    if (!activeItem) {
+      return;
+    }
+    setOpenSectionIds((previous) => {
+      if (previous.has(activeItem.parentSectionId)) {
+        return previous;
+      }
+      const next = new Set(previous);
+      next.add(activeItem.parentSectionId);
+      return next;
+    });
+  }, [activeMenuItem, allMenuItems]);
 
   const customizationKey = useMemo(() => {
     const dashboardId = slugify(currentDashboard) || 'dashboard';
