@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import {
   CalendarDaysIcon,
@@ -12,6 +12,7 @@ import {
   TrashIcon,
   UserIcon,
 } from '@heroicons/react/24/outline';
+import PropTypes from 'prop-types';
 import { EVENT_STATUS_OPTIONS, resolveStatusMeta, resolveTypeMeta } from './constants.js';
 
 function classNames(...values) {
@@ -65,12 +66,20 @@ function renderMetadata(metadata) {
   }
   return (
     <dl className="grid gap-3 text-sm text-slate-600 md:grid-cols-2">
-      {entries.map(([key, value]) => (
-        <div key={key} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{key}</dt>
-          <dd className="mt-1 break-words text-sm text-slate-700">{String(value)}</dd>
-        </div>
-      ))}
+      {entries.map(([key, value]) => {
+        const displayValue =
+          value == null
+            ? '—'
+            : typeof value === 'object'
+            ? JSON.stringify(value)
+            : String(value);
+        return (
+          <div key={key} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{key}</dt>
+            <dd className="mt-1 break-words text-sm text-slate-700">{displayValue}</dd>
+          </div>
+        );
+      })}
     </dl>
   );
 }
@@ -118,32 +127,71 @@ export default function CalendarEventDetailsDrawer({
   onDuplicate,
 }) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
+
+  useEffect(() => {
+    if (!open) {
+      setConfirmingDelete(false);
+      setDeleteError(null);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    setConfirmingDelete(false);
+    setDeleteError(null);
+  }, [event?.id]);
 
   const typeMeta = useMemo(() => resolveTypeMeta(event?.eventType), [event?.eventType]);
   const statusMeta = useMemo(() => resolveStatusMeta(event?.status), [event?.status]);
+  const viewerTimeZone = useMemo(
+    () => event?.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+    [event?.timeZone],
+  );
 
-  const handleDelete = async () => {
-    if (!event) {
+  const handleDelete = useCallback(async () => {
+    if (!event || !canManage || statusUpdating) {
       return;
     }
     if (!confirmingDelete) {
       setConfirmingDelete(true);
       return;
     }
-    await onDelete?.(event);
-    setConfirmingDelete(false);
-  };
+    try {
+      setDeleteError(null);
+      await onDelete?.(event);
+      setConfirmingDelete(false);
+    } catch (error) {
+      setDeleteError(error?.message ?? 'Unable to delete the event. Please try again.');
+    }
+  }, [event, canManage, statusUpdating, confirmingDelete, onDelete]);
 
-  const handleStatusChange = (nextStatus) => {
-    if (!event || !canManage) {
+  const handleStatusChange = useCallback(
+    (nextStatus) => {
+      if (!event || !canManage || statusUpdating || event.status === nextStatus) {
+        return;
+      }
+      onStatusChange?.(event, nextStatus);
+    },
+    [event, canManage, statusUpdating, onStatusChange],
+  );
+
+  const safeClose = useCallback(() => {
+    if (statusUpdating) {
       return;
     }
-    onStatusChange?.(event, nextStatus);
-  };
+    onClose?.();
+  }, [statusUpdating, onClose]);
+
+  const handleDuplicate = useCallback(() => {
+    if (!canManage || statusUpdating || !event) {
+      return;
+    }
+    onDuplicate?.(event);
+  }, [canManage, statusUpdating, event, onDuplicate]);
 
   return (
     <Transition.Root show={open} as={Fragment}>
-      <Dialog as="div" className="relative z-40" onClose={() => (statusUpdating ? null : onClose?.())}>
+      <Dialog as="div" className="relative z-40" onClose={safeClose}>
         <Transition.Child
           as={Fragment}
           enter="ease-out duration-200"
@@ -188,9 +236,10 @@ export default function CalendarEventDetailsDrawer({
                       </div>
                       <button
                         type="button"
-                        onClick={() => onClose?.()}
-                        className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+                        onClick={safeClose}
+                        className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-slate-300 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                         aria-label="Close details"
+                        disabled={statusUpdating}
                       >
                         ✕
                       </button>
@@ -213,7 +262,7 @@ export default function CalendarEventDetailsDrawer({
                           </div>
                           <div className="space-y-1 text-sm text-slate-600">
                             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Timezone</p>
-                            <p className="font-semibold text-slate-900">{Intl.DateTimeFormat().resolvedOptions().timeZone}</p>
+                            <p className="font-semibold text-slate-900">{viewerTimeZone}</p>
                           </div>
                         </div>
                       </section>
@@ -291,24 +340,25 @@ export default function CalendarEventDetailsDrawer({
                         </div>
                         <div className="flex flex-wrap items-center gap-3">
                           {canManage ? (
-                            <select
-                              value={event?.status ?? 'confirmed'}
-                              onChange={(eventChange) => handleStatusChange(eventChange.target.value)}
-                              disabled={statusUpdating}
-                              className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-blue-300 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              {EVENT_STATUS_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                  {option.label}
-                                </option>
-                              ))}
-                            </select>
+                          <select
+                            value={event?.status ?? 'confirmed'}
+                            onChange={(eventChange) => handleStatusChange(eventChange.target.value)}
+                            disabled={statusUpdating || !canManage}
+                            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-blue-300 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {EVENT_STATUS_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
                           ) : null}
                           {canManage ? (
                             <button
                               type="button"
                               onClick={() => onEdit?.(event)}
                               className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-blue-300 hover:text-blue-700"
+                              disabled={statusUpdating}
                             >
                               <PencilIcon className="h-4 w-4" /> Edit
                             </button>
@@ -316,8 +366,9 @@ export default function CalendarEventDetailsDrawer({
                           {canManage ? (
                             <button
                               type="button"
-                              onClick={() => onDuplicate?.(event)}
+                              onClick={handleDuplicate}
                               className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-blue-300 hover:text-blue-700"
+                              disabled={statusUpdating}
                             >
                               <DocumentIcon className="h-4 w-4" /> Duplicate
                             </button>
@@ -345,6 +396,11 @@ export default function CalendarEventDetailsDrawer({
                           <span>Deleting removes the event for everyone connected to this freelancer workspace.</span>
                         </div>
                       ) : null}
+                      {deleteError ? (
+                        <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50/80 px-4 py-3 text-xs text-rose-700">
+                          {deleteError}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 </Dialog.Panel>
@@ -356,3 +412,51 @@ export default function CalendarEventDetailsDrawer({
     </Transition.Root>
   );
 }
+
+CalendarEventDetailsDrawer.propTypes = {
+  open: PropTypes.bool,
+  event: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    title: PropTypes.string,
+    subtitle: PropTypes.string,
+    eventType: PropTypes.string,
+    status: PropTypes.string,
+    startsAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    endsAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    isAllDay: PropTypes.bool,
+    reminderMinutesBefore: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    location: PropTypes.string,
+    notes: PropTypes.string,
+    meetingUrl: PropTypes.string,
+    metadata: PropTypes.object,
+    relatedEntityId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    relatedEntityType: PropTypes.string,
+    relatedEntityName: PropTypes.string,
+    source: PropTypes.string,
+    color: PropTypes.string,
+    createdById: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    updatedById: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    createdAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    updatedAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    timeZone: PropTypes.string,
+  }),
+  onClose: PropTypes.func,
+  onEdit: PropTypes.func,
+  onDelete: PropTypes.func,
+  onStatusChange: PropTypes.func,
+  onDuplicate: PropTypes.func,
+  canManage: PropTypes.bool,
+  statusUpdating: PropTypes.bool,
+};
+
+CalendarEventDetailsDrawer.defaultProps = {
+  open: false,
+  event: null,
+  onClose: null,
+  onEdit: null,
+  onDelete: null,
+  onStatusChange: null,
+  onDuplicate: null,
+  canManage: false,
+  statusUpdating: false,
+};

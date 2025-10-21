@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { ArrowUturnLeftIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import PropTypes from 'prop-types';
 
 const STEPS = [
   { id: 'cover', label: 'Cover' },
@@ -68,6 +69,18 @@ const DEFAULT_FORM = Object.freeze({
 const DEFAULT_METRICS = Object.freeze([
   { id: 'metric-1', label: '', value: '', tone: 'positive' },
 ]);
+
+function isValidUrl(value) {
+  if (!value) {
+    return true;
+  }
+  try {
+    const url = new URL(value, window.location.origin);
+    return ['http:', 'https:'].includes(url.protocol);
+  } catch (error) {
+    return false;
+  }
+}
 
 export default function PortfolioEditorDrawer({ open, mode = 'create', item, canEdit, onClose, onSubmit }) {
   const [form, setForm] = useState(DEFAULT_FORM);
@@ -160,17 +173,52 @@ export default function PortfolioEditorDrawer({ open, mode = 'create', item, can
     setMetrics((previous) => (previous.length > 1 ? previous.filter((metric) => metric.id !== metricId) : previous));
   };
 
+  const moveToStep = (resolver) => {
+    setStep((current) => {
+      const resolvedIndex = typeof resolver === 'function' ? resolver(current) : resolver;
+      const nextIndex = Math.min(Math.max(resolvedIndex, 0), STEPS.length - 1);
+      if (nextIndex !== current) {
+        setError(null);
+      }
+      return nextIndex;
+    });
+  };
+
   const handleNext = () => {
-    setStep((current) => Math.min(current + 1, STEPS.length - 1));
+    moveToStep((current) => current + 1);
   };
 
   const handlePrevious = () => {
-    setStep((current) => Math.max(current - 1, 0));
+    moveToStep((current) => current - 1);
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (!canEdit || !canSubmit) {
+      return;
+    }
+    if (form.callToActionUrl && !isValidUrl(form.callToActionUrl)) {
+      setError('Call to action URL must be a valid HTTP(S) link.');
+      return;
+    }
+    if (form.repositoryUrl && !isValidUrl(form.repositoryUrl)) {
+      setError('Repository URL must be a valid HTTP(S) link.');
+      return;
+    }
+    if (form.liveUrl && !isValidUrl(form.liveUrl)) {
+      setError('Live URL must be a valid HTTP(S) link.');
+      return;
+    }
+    if (form.heroImageUrl && !isValidUrl(form.heroImageUrl)) {
+      setError('Hero image URL must be a valid HTTP(S) link.');
+      return;
+    }
+    if (form.heroVideoUrl && !isValidUrl(form.heroVideoUrl)) {
+      setError('Hero video URL must be a valid HTTP(S) link.');
+      return;
+    }
+    if (form.startDate && form.endDate && new Date(form.startDate) > new Date(form.endDate)) {
+      setError('End date must be after the start date.');
       return;
     }
     setSubmitting(true);
@@ -699,7 +747,7 @@ export default function PortfolioEditorDrawer({ open, mode = 'create', item, can
                           <button
                             key={stepItem.id}
                             type="button"
-                            onClick={() => setStep(index)}
+                            onClick={() => moveToStep(index)}
                             className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide transition ${
                               step === index
                                 ? 'bg-blue-600 text-white shadow-sm'
@@ -762,3 +810,55 @@ export default function PortfolioEditorDrawer({ open, mode = 'create', item, can
     </Transition.Root>
   );
 }
+
+PortfolioEditorDrawer.propTypes = {
+  open: PropTypes.bool,
+  mode: PropTypes.oneOf(['create', 'edit']),
+  item: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    title: PropTypes.string,
+    tagline: PropTypes.string,
+    clientName: PropTypes.string,
+    clientIndustry: PropTypes.string,
+    role: PropTypes.string,
+    summary: PropTypes.string,
+    problemStatement: PropTypes.string,
+    approachSummary: PropTypes.string,
+    outcomeSummary: PropTypes.string,
+    tags: PropTypes.arrayOf(PropTypes.string),
+    industries: PropTypes.arrayOf(PropTypes.string),
+    services: PropTypes.arrayOf(PropTypes.string),
+    technologies: PropTypes.arrayOf(PropTypes.string),
+    callToActionLabel: PropTypes.string,
+    callToActionUrl: PropTypes.string,
+    repositoryUrl: PropTypes.string,
+    liveUrl: PropTypes.string,
+    heroImageUrl: PropTypes.string,
+    heroVideoUrl: PropTypes.string,
+    visibility: PropTypes.string,
+    status: PropTypes.string,
+    isFeatured: PropTypes.bool,
+    featuredOrder: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    startDate: PropTypes.string,
+    endDate: PropTypes.string,
+    impactMetrics: PropTypes.arrayOf(
+      PropTypes.shape({
+        label: PropTypes.string,
+        value: PropTypes.string,
+        tone: PropTypes.string,
+      }),
+    ),
+  }),
+  canEdit: PropTypes.bool,
+  onClose: PropTypes.func,
+  onSubmit: PropTypes.func,
+};
+
+PortfolioEditorDrawer.defaultProps = {
+  open: false,
+  mode: 'create',
+  item: null,
+  canEdit: false,
+  onClose: () => {},
+  onSubmit: () => {},
+};

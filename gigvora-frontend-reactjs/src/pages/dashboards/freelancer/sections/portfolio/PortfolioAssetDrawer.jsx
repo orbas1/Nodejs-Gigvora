@@ -1,6 +1,7 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { ArrowUturnLeftIcon, PhotoIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import PropTypes from 'prop-types';
 
 const EMPTY_ASSET = Object.freeze({
   label: '',
@@ -18,6 +19,43 @@ function sanitizeNumber(value) {
   }
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function validateUrl(value) {
+  if (!value) {
+    return false;
+  }
+  try {
+    const url = new URL(value, window.location.origin);
+    return ['http:', 'https:'].includes(url.protocol);
+  } catch (error) {
+    return false;
+  }
+}
+
+function sanitizeAssetPayload(asset) {
+  return {
+    label: asset.label?.trim() ?? '',
+    url: asset.url?.trim() ?? '',
+    description: asset.description?.trim() || null,
+    assetType: asset.assetType || 'image',
+    thumbnailUrl: asset.thumbnailUrl?.trim() || null,
+    sortOrder: sanitizeNumber(asset.sortOrder),
+    isPrimary: Boolean(asset.isPrimary),
+  };
+}
+
+function isAssetValid(asset) {
+  if (!asset.label?.trim()) {
+    return { valid: false, message: 'Enter a descriptive label for the asset.' };
+  }
+  if (!validateUrl(asset.url)) {
+    return { valid: false, message: 'Provide a valid HTTPS link to the asset.' };
+  }
+  if (asset.thumbnailUrl && !validateUrl(asset.thumbnailUrl)) {
+    return { valid: false, message: 'Thumbnail URL must be a valid HTTPS link.' };
+  }
+  return { valid: true };
 }
 
 export default function PortfolioAssetDrawer({
@@ -53,79 +91,98 @@ export default function PortfolioAssetDrawer({
     }
   }, [open, existingAssets]);
 
-  const handleAssetFieldChange = (assetId, key, value) => {
-    setAssets((previous) => previous.map((asset) => (asset.id === assetId ? { ...asset, [key]: key === 'sortOrder' ? sanitizeNumber(value) : value } : asset)));
-  };
+  const handleAssetFieldChange = useCallback((assetId, key, value) => {
+    setAssets((previous) =>
+      previous.map((asset) =>
+        asset.id === assetId
+          ? {
+              ...asset,
+              [key]: key === 'sortOrder' ? sanitizeNumber(value) : value,
+            }
+          : asset,
+      ),
+    );
+  }, []);
 
-  const handleSaveAsset = async (asset) => {
-    if (!canEdit || !portfolioId) {
-      return;
-    }
-    setSavingAssetIds((previous) => new Set(previous).add(asset.id));
-    setError(null);
-    try {
-      await onUpdate(portfolioId, asset.id, {
-        label: asset.label,
-        url: asset.url,
-        description: asset.description ?? null,
-        assetType: asset.assetType,
-        thumbnailUrl: asset.thumbnailUrl ?? null,
-        sortOrder: sanitizeNumber(asset.sortOrder),
-        isPrimary: Boolean(asset.isPrimary),
-      });
-    } catch (err) {
-      console.error('Failed to update portfolio asset', err);
-      setError(err?.message || 'Unable to update asset.');
-    } finally {
+  const handleSaveAsset = useCallback(
+    async (asset) => {
+      if (!canEdit || !portfolioId || !onUpdate) {
+        return;
+      }
+      const validation = isAssetValid(asset);
+      if (!validation.valid) {
+        setError(validation.message);
+        return;
+      }
       setSavingAssetIds((previous) => {
         const next = new Set(previous);
-        next.delete(asset.id);
+        next.add(asset.id);
         return next;
       });
-    }
-  };
+      setError(null);
+      try {
+        await onUpdate(portfolioId, asset.id, sanitizeAssetPayload(asset));
+      } catch (err) {
+        console.error('Failed to update portfolio asset', err);
+        setError(err?.message || 'Unable to update asset.');
+      } finally {
+        setSavingAssetIds((previous) => {
+          const next = new Set(previous);
+          next.delete(asset.id);
+          return next;
+        });
+      }
+    },
+    [canEdit, onUpdate, portfolioId],
+  );
 
-  const handleDeleteAsset = async (asset) => {
-    if (!canEdit || !portfolioId) {
-      return;
-    }
-    const confirmed = window.confirm(`Remove “${asset.label || 'untitled asset'}” from this case study?`);
-    if (!confirmed) {
-      return;
-    }
-    setSavingAssetIds((previous) => new Set(previous).add(asset.id));
-    setError(null);
-    try {
-      await onDelete(portfolioId, asset.id);
-    } catch (err) {
-      console.error('Failed to delete portfolio asset', err);
-      setError(err?.message || 'Unable to delete asset.');
-    } finally {
+  const handleDeleteAsset = useCallback(
+    async (asset) => {
+      if (!canEdit || !portfolioId || !onDelete) {
+        return;
+      }
+      const confirmed = window.confirm(
+        `Remove “${asset.label || 'untitled asset'}” from this case study?`,
+      );
+      if (!confirmed) {
+        return;
+      }
       setSavingAssetIds((previous) => {
         const next = new Set(previous);
-        next.delete(asset.id);
+        next.add(asset.id);
         return next;
       });
-    }
-  };
+      setError(null);
+      try {
+        await onDelete(portfolioId, asset.id);
+      } catch (err) {
+        console.error('Failed to delete portfolio asset', err);
+        setError(err?.message || 'Unable to delete asset.');
+      } finally {
+        setSavingAssetIds((previous) => {
+          const next = new Set(previous);
+          next.delete(asset.id);
+          return next;
+        });
+      }
+    },
+    [canEdit, onDelete, portfolioId],
+  );
 
   const handleCreateAsset = async (event) => {
     event.preventDefault();
     if (!canEdit || !portfolioId) {
       return;
     }
+    const validation = isAssetValid(newAsset);
+    if (!validation.valid) {
+      setError(validation.message);
+      return;
+    }
     setCreating(true);
     setError(null);
     try {
-      await onCreate(portfolioId, {
-        label: newAsset.label,
-        url: newAsset.url,
-        description: newAsset.description ?? null,
-        assetType: newAsset.assetType,
-        thumbnailUrl: newAsset.thumbnailUrl ?? null,
-        sortOrder: sanitizeNumber(newAsset.sortOrder),
-        isPrimary: Boolean(newAsset.isPrimary),
-      });
+      await onCreate?.(portfolioId, sanitizeAssetPayload(newAsset));
       setNewAsset(EMPTY_ASSET);
     } catch (err) {
       console.error('Failed to create portfolio asset', err);
@@ -135,9 +192,11 @@ export default function PortfolioAssetDrawer({
     }
   };
 
+  const disableClose = creating || savingAssetIds.size > 0;
+
   return (
     <Transition.Root show={open} as={Fragment}>
-      <Dialog as="div" className="relative z-40" onClose={onClose}>
+      <Dialog as="div" className="relative z-40" onClose={disableClose ? () => {} : onClose}>
         <Transition.Child
           as={Fragment}
           enter="ease-out duration-300"
@@ -169,7 +228,8 @@ export default function PortfolioAssetDrawer({
                       <button
                         type="button"
                         onClick={onClose}
-                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-blue-200 hover:text-blue-600"
+                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-blue-200 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={disableClose}
                       >
                         <ArrowUturnLeftIcon className="h-4 w-4" /> Close
                       </button>
@@ -227,6 +287,7 @@ export default function PortfolioAssetDrawer({
                                           value={asset.url}
                                           onChange={(event) => handleAssetFieldChange(asset.id, 'url', event.target.value)}
                                           className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none"
+                                          placeholder="https://"
                                         />
                                       </div>
                                       <div className="md:col-span-2">
@@ -251,6 +312,7 @@ export default function PortfolioAssetDrawer({
                                           value={asset.thumbnailUrl ?? ''}
                                           onChange={(event) => handleAssetFieldChange(asset.id, 'thumbnailUrl', event.target.value)}
                                           className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none"
+                                          placeholder="Optional"
                                         />
                                       </div>
                                       <div>
@@ -285,7 +347,7 @@ export default function PortfolioAssetDrawer({
                                         disabled={saving}
                                         className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-blue-200 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
                                       >
-                                        Save
+                                        {saving ? 'Saving…' : 'Save changes'}
                                       </button>
                                       <button
                                         type="button"
@@ -293,7 +355,7 @@ export default function PortfolioAssetDrawer({
                                         disabled={saving}
                                         className="inline-flex items-center gap-2 rounded-full border border-rose-200 px-4 py-2 text-xs font-semibold text-rose-600 transition hover:border-rose-300 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
                                       >
-                                        <TrashIcon className={`h-4 w-4 ${saving ? 'animate-pulse' : ''}`} /> Remove
+                                        <TrashIcon className={saving ? 'h-4 w-4 animate-pulse' : 'h-4 w-4'} /> Remove
                                       </button>
                                     </div>
                                   </div>
@@ -433,3 +495,37 @@ export default function PortfolioAssetDrawer({
     </Transition.Root>
   );
 }
+
+PortfolioAssetDrawer.propTypes = {
+  open: PropTypes.bool,
+  item: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    assets: PropTypes.arrayOf(
+      PropTypes.shape({
+        id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+        label: PropTypes.string,
+        url: PropTypes.string,
+        description: PropTypes.string,
+        assetType: PropTypes.string,
+        thumbnailUrl: PropTypes.string,
+        sortOrder: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+        isPrimary: PropTypes.bool,
+      }),
+    ),
+  }),
+  canEdit: PropTypes.bool,
+  onClose: PropTypes.func,
+  onCreate: PropTypes.func,
+  onUpdate: PropTypes.func,
+  onDelete: PropTypes.func,
+};
+
+PortfolioAssetDrawer.defaultProps = {
+  open: false,
+  item: null,
+  canEdit: false,
+  onClose: () => {},
+  onCreate: null,
+  onUpdate: null,
+  onDelete: null,
+};
