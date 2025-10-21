@@ -4,7 +4,6 @@ import DataStatus from '../../../../components/DataStatus.jsx';
 import CreationStudioWizard from '../../../../components/creationStudio/CreationStudioWizard.jsx';
 import CreationStudioItemList from '../../../../components/creationStudio/CreationStudioItemList.jsx';
 import useAgencyCreationStudio from '../../../../hooks/useAgencyCreationStudio.js';
-import { deleteCreationStudioItem } from '../../../../services/agencyCreationStudio.js';
 
 function normaliseCatalog(config) {
   if (!Array.isArray(config)) {
@@ -55,8 +54,7 @@ export default function AgencyCreationStudioWizardSection({ agencyProfileId }) {
     if (!itemId) {
       return;
     }
-    await deleteCreationStudioItem(itemId);
-    await reload();
+    await actions.remove(itemId);
     setSelectedItemId((current) => (current === itemId ? null : current));
   };
 
@@ -120,8 +118,8 @@ export default function AgencyCreationStudioWizardSection({ agencyProfileId }) {
           loading={loading}
           error={error}
           lastUpdated={data?.metadata?.refreshedAt ?? null}
-          fromCache={false}
-          onRefresh={() => reload()}
+          fromCache={Boolean(data?.metadata?.fromCache)}
+          onRefresh={() => reload({ force: true })}
           statusLabel="Studio telemetry"
         />
       </header>

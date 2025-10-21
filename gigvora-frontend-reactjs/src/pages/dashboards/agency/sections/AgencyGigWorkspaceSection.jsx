@@ -209,8 +209,8 @@ export default function AgencyGigWorkspaceSection({ resource, statusLabel, curre
         </div>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        {metrics.slice(0, 6).map((metric) => (
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
+        {metrics.map((metric) => (
           <MetricCard key={metric.label} {...metric} />
         ))}
       </div>
@@ -223,7 +223,13 @@ export default function AgencyGigWorkspaceSection({ resource, statusLabel, curre
         open={orderComposerOpen}
         onClose={() => setOrderComposerOpen(false)}
         order={null}
-        onSubmit={handleOrderSubmit}
+        onSubmit={async (payload) => {
+          const result = await handleOrderSubmit(payload);
+          if (result !== false) {
+            setOrderComposerOpen(false);
+          }
+          return result;
+        }}
       />
     </section>
   );

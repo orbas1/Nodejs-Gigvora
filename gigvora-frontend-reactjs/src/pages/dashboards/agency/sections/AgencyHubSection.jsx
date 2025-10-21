@@ -50,7 +50,19 @@ MetricCard.defaultProps = {
   hint: null,
 };
 
-function Pill({ children }) {
+function Pill({ children, href }) {
+  if (href) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-100 hover:text-indigo-700"
+      >
+        {children}
+      </a>
+    );
+  }
   return (
     <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
       {children}
@@ -60,6 +72,11 @@ function Pill({ children }) {
 
 Pill.propTypes = {
   children: PropTypes.node.isRequired,
+  href: PropTypes.string,
+};
+
+Pill.defaultProps = {
+  href: undefined,
 };
 
 export default function AgencyHubSection({ dashboard, loading, error, lastUpdated, fromCache, onRefresh }) {
@@ -131,8 +148,10 @@ export default function AgencyHubSection({ dashboard, loading, error, lastUpdate
     brand?.tagline,
     brand?.sectorFocus,
     brand?.region,
-    brand?.websiteUrl,
   ].filter(Boolean);
+
+  const websiteUrl = brand?.websiteUrl;
+  const promoVideoUrl = brand?.promoVideoUrl ?? brand?.media?.promoVideoUrl ?? null;
 
   return (
     <section
@@ -196,8 +215,15 @@ export default function AgencyHubSection({ dashboard, loading, error, lastUpdate
         <div className="rounded-3xl border border-slate-200 bg-white/80 p-5 shadow-sm">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Brand snapshot</h3>
           <div className="mt-3 flex flex-wrap gap-2">
-            {brandPills.length ? brandPills.map((item) => <Pill key={item}>{item}</Pill>) : <p className="text-sm text-slate-500">Add brand tagline, sectors, and URL from profile management.</p>}
+            {brandPills.length
+              ? brandPills.map((item) => <Pill key={item}>{item}</Pill>)
+              : <p className="text-sm text-slate-500">Add brand tagline, sectors, and URL from profile management.</p>}
           </div>
+          {websiteUrl ? (
+            <div className="mt-3">
+              <Pill href={websiteUrl}>Visit website</Pill>
+            </div>
+          ) : null}
           <div className="mt-4 space-y-2 text-sm text-slate-600">
             <p>
               HQ: <span className="font-semibold text-slate-900">{brand.headquarters ?? 'Remote-first'}</span>
@@ -209,6 +235,20 @@ export default function AgencyHubSection({ dashboard, loading, error, lastUpdate
               Preferred verticals: <span className="font-semibold text-slate-900">{brand.verticals?.join(', ') ?? 'Multi-sector'}</span>
             </p>
           </div>
+          {promoVideoUrl ? (
+            <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-900/60 shadow-inner">
+              <div className="aspect-video w-full">
+                <iframe
+                  src={promoVideoUrl}
+                  title="Agency promo"
+                  className="h-full w-full"
+                  loading="lazy"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
 

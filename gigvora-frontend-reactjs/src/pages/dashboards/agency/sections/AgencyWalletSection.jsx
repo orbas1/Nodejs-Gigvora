@@ -225,10 +225,10 @@ export default function AgencyWalletSection({ workspaceId, statusLabel }) {
     () => ({
       loading: overviewResource?.loading || accountsResource?.loading,
       error: overviewResource?.error || accountsResource?.error,
-      lastUpdated: overviewResource?.lastUpdated ?? null,
-      fromCache: overviewResource?.fromCache ?? false,
+      lastUpdated: overviewResource?.lastUpdated ?? accountsResource?.lastUpdated ?? null,
+      fromCache: Boolean(overviewResource?.fromCache || accountsResource?.fromCache),
     }),
-    [accountsResource?.error, accountsResource?.loading, overviewResource],
+    [accountsResource?.error, accountsResource?.fromCache, accountsResource?.lastUpdated, accountsResource?.loading, overviewResource],
   );
 
   return (
@@ -250,11 +250,11 @@ export default function AgencyWalletSection({ workspaceId, statusLabel }) {
           lastUpdated={headerStatus.lastUpdated}
           fromCache={headerStatus.fromCache}
           onRefresh={reloadAll}
-      statusLabel={statusLabel}
-    />
-  </header>
+          statusLabel={statusLabel}
+        />
+      </header>
 
-  <div className="rounded-3xl border border-white/60 bg-white/80 p-5 shadow-inner">
+      <div className="rounded-3xl border border-white/60 bg-white/80 p-5 shadow-inner">
         <WalletSummary
           overview={overviewResource?.data ?? null}
           loading={overviewResource?.loading}
