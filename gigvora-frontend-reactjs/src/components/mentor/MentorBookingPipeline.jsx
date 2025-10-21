@@ -7,12 +7,43 @@ const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
   minute: '2-digit',
 });
 
+function sortBySchedule(items = []) {
+  return [...items].sort((bookingA, bookingB) => {
+    const dateA = new Date(bookingA.scheduledAt).getTime();
+    const dateB = new Date(bookingB.scheduledAt).getTime();
+    return dateA - dateB;
+  });
+}
+
 function formatDate(date) {
   try {
     return dateTimeFormatter.format(new Date(date));
   } catch (error) {
     return date;
   }
+}
+
+function formatPrice({ currency = 'GBP', price }) {
+  if (typeof price === 'number' && Number.isFinite(price)) {
+    if (currency && currency.length === 3) {
+      try {
+        return new Intl.NumberFormat(undefined, {
+          style: 'currency',
+          currency,
+          currencyDisplay: 'narrowSymbol',
+          maximumFractionDigits: 0,
+        }).format(price);
+      } catch (error) {
+        // fall through to symbol formatting
+      }
+    }
+    const symbol = currency && currency.length !== 3 ? currency : '';
+    return `${symbol}${price.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+  }
+  if (typeof price === 'string') {
+    return price;
+  }
+  return currency ? `${currency}—` : '—';
 }
 
 function BookingRow({ booking }) {
@@ -31,10 +62,7 @@ function BookingRow({ booking }) {
         <p className="text-xs text-slate-500">{booking.status}</p>
       </div>
       <div className="md:col-span-2">
-        <p className="font-semibold text-slate-800">
-          {booking.currency}
-          {booking.price}
-        </p>
+        <p className="font-semibold text-slate-800">{formatPrice(booking)}</p>
         <p className="text-xs text-slate-500">{booking.paymentStatus}</p>
       </div>
       <div className="md:col-span-1 text-right">
@@ -47,19 +75,20 @@ function BookingRow({ booking }) {
 }
 
 export default function MentorBookingPipeline({ bookings = [], segments = [] }) {
-  const grouped = segments.length
+  const grouped = (segments.length
     ? segments.map((segment) => ({
         title: segment.title,
         description: segment.description,
-        items: bookings.filter((booking) => booking.segment === segment.id),
+        items: sortBySchedule(bookings.filter((booking) => booking.segment === segment.id)),
       }))
     : [
         {
           title: 'Active bookings',
           description: 'Upcoming mentorship sessions with payment tracked in Finance hub.',
-          items: bookings,
+          items: sortBySchedule(bookings),
         },
-      ];
+      ]
+  ).filter((group) => group.title);
 
   return (
     <section className="space-y-6">
