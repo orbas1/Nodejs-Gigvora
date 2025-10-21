@@ -14,6 +14,7 @@ import {
   FeesShowcaseSection,
   JoinCommunitySection,
   CollaborationToolkitSection,
+  OperationsTrustSection,
 } from './home/index.js';
 
 export default function HomePage() {
@@ -94,6 +95,7 @@ export default function HomePage() {
         statusLabel={isAuthenticated ? 'Redirecting to live experience' : 'Live community snapshot'}
         homeData={homeData}
       />
+      <OperationsTrustSection homeData={homeData} loading={homeLoading} error={homeError} />
       <PersonaJourneysSection loading={homeLoading} error={homeError} />
       <CommunitySpotlightsSection loading={homeLoading} error={homeError} />
       <ExplorerShowcaseSection loading={homeLoading} error={homeError} creations={homeData?.creations} />

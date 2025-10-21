@@ -11,3 +11,4 @@ export { JoinCommunitySection } from './JoinCommunitySection.jsx';
 export { ExplorerShowcaseSection } from './ExplorerShowcaseSection.jsx';
 export { CollaborationToolkitSection } from './CollaborationToolkitSection.jsx';
 export { ClosingConversionSection } from './ClosingConversionSection.jsx';
+export { OperationsTrustSection } from './OperationsTrustSection.jsx';
