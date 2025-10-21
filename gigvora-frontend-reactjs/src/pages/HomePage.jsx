@@ -11,6 +11,7 @@ import {
   MarketplaceLaunchesSection,
   CreationStudioSection,
   JoinCommunitySection,
+  CollaborationToolkitSection,
 } from './home/index.js';
 
 export default function HomePage() {
@@ -99,6 +100,7 @@ export default function HomePage() {
         communityStats={communityStats}
         trendingCreations={trendingCreations}
       />
+      <CollaborationToolkitSection />
       <CreationStudioSection loading={homeLoading} error={homeError} />
       <JoinCommunitySection />
     </div>

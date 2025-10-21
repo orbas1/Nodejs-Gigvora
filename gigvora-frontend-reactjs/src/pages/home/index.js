@@ -7,4 +7,5 @@ export { MarketplaceLaunchesSection } from './MarketplaceLaunchesSection.jsx';
 export { CreationStudioSection } from './CreationStudioSection.jsx';
 export { CreationStudioWorkflowSection } from './CreationStudioWorkflowSection.jsx';
 export { JoinCommunitySection } from './JoinCommunitySection.jsx';
+export { CollaborationToolkitSection } from './CollaborationToolkitSection.jsx';
 export { ClosingConversionSection } from './ClosingConversionSection.jsx';
