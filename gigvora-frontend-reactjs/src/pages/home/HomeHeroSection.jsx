@@ -1,63 +1,196 @@
-import { Link } from 'react-router-dom';
-import { ArrowRightIcon, UsersIcon, ChatBubbleBottomCenterTextIcon } from '@heroicons/react/24/outline';
+import { ArrowUpRightIcon, RocketLaunchIcon, SparklesIcon, UsersIcon } from '@heroicons/react/24/outline';
 
-export function HomeHeroSection({ headline, subheading, loading, error }) {
+const DEFAULT_HEADLINE =
+  'Freelancers, employers, agencies, mentors, volunteers, new grads & career changers, clients, and job seekers move forward together.';
+
+const DEFAULT_SUBHEADING =
+  'Gigvora syncs live briefs, launchpads, and mentoring so every contributor sees the same plan and ships at the same pace.';
+
+const FALLBACK_KEYWORDS = [
+  'Product strategy gig kicked off · Lisbon',
+  'Mentorship session going live · Design Ops',
+  'Launchpad demo uploaded · Creation Studio',
+  'Volunteering mission matched · Impact hub',
+  'Growth marketing brief approved · Remote',
+  'Portfolio review starting · Career changers',
+  'UX research sprint recruiting · Explorer',
+  'Community co-build in progress · Web3',
+];
+
+function normaliseKeywords(keywords) {
+  if (!Array.isArray(keywords)) {
+    return [];
+  }
+
+  return keywords
+    .map((keyword) => {
+      if (!keyword) return null;
+      if (typeof keyword === 'string') return keyword;
+      if (typeof keyword === 'object') {
+        return keyword.label ?? keyword.title ?? keyword.keyword ?? keyword.name ?? null;
+      }
+      return null;
+    })
+    .filter(Boolean);
+}
+
+export function HomeHeroSection({
+  headline,
+  subheading,
+  keywords,
+  loading = false,
+  error = null,
+  onClaimWorkspace,
+  onBrowseOpportunities,
+}) {
+  const displayHeadline = error ? 'Stay tuned for what is next.' : headline ?? DEFAULT_HEADLINE;
+  const displaySubheading =
+    loading && !subheading
+      ? 'Gathering the latest programmes…'
+      : subheading ?? DEFAULT_SUBHEADING;
+
+  const resolvedKeywords = normaliseKeywords(keywords);
+  const tickerItems = resolvedKeywords.length ? resolvedKeywords : FALLBACK_KEYWORDS;
+  const doubledTickerItems = [...tickerItems, ...tickerItems];
+
+  const handleClaimWorkspace = () => {
+    if (typeof onClaimWorkspace === 'function') {
+      onClaimWorkspace();
+    }
+  };
+
+  const handleBrowseOpportunities = () => {
+    if (typeof onBrowseOpportunities === 'function') {
+      onBrowseOpportunities();
+    }
+  };
+
   return (
-    <section className="relative overflow-hidden bg-white">
+    <section className="relative overflow-hidden bg-slate-950 text-white">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute left-1/4 top-[-10%] h-72 w-72 rounded-full bg-accent/40 blur-3xl" aria-hidden="true" />
+        <div className="absolute bottom-[-15%] right-[-10%] h-[28rem] w-[28rem] rounded-full bg-accentDark/30 blur-3xl" aria-hidden="true" />
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent" aria-hidden="true" />
+      </div>
+
       <div className="relative mx-auto max-w-7xl px-6 py-24 lg:flex lg:items-center lg:gap-16">
         <div className="max-w-2xl space-y-10">
-          <span className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.35em] text-accent">
-            Professional community
-          </span>
           <div className="space-y-6">
-            <h1 className="text-4xl font-bold leading-tight tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
-              {error ? 'Stay tuned for what is next.' : headline}
-            </h1>
-            <p className="text-lg text-slate-600 sm:text-xl">
-              {loading && !subheading ? 'Gathering the latest programmes…' : subheading}
-            </p>
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1 text-xs font-semibold uppercase tracking-[0.35em] text-accent">
+              Community OS
+            </span>
+            <h1 className="text-4xl font-semibold leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl">{displayHeadline}</h1>
+            <p className="text-lg text-slate-200 sm:text-xl">{displaySubheading}</p>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Link
-              to="/register"
-              className="inline-flex items-center justify-center rounded-full bg-accent px-8 py-3 text-base font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-accentDark"
+
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <button
+              type="button"
+              onClick={handleClaimWorkspace}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-accent px-8 py-3 text-base font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-accentDark"
             >
-              Create your free account
-            </Link>
-            <Link
-              to="/about"
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 px-8 py-3 text-base font-semibold text-slate-700 transition hover:border-slate-900 hover:text-slate-900"
+              Claim your workspace
+              <ArrowUpRightIcon className="h-5 w-5" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={handleBrowseOpportunities}
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-white/30 bg-white/5 px-8 py-3 text-base font-semibold text-white transition hover:border-white/60 hover:bg-white/10"
             >
-              How it works
-              <ArrowRightIcon className="h-5 w-5" aria-hidden="true" />
-            </Link>
+              Browse live opportunities
+              <ArrowUpRightIcon className="h-5 w-5" aria-hidden="true" />
+            </button>
+          </div>
+
+          <div className="relative mt-10 h-14 overflow-hidden rounded-full border border-white/10 bg-white/5">
+            <div className="pointer-events-none absolute left-0 top-0 h-full w-24 bg-gradient-to-r from-slate-950 via-slate-950/50 to-transparent" aria-hidden="true" />
+            <div className="pointer-events-none absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-slate-950 via-slate-950/50 to-transparent" aria-hidden="true" />
+            <div className="flex h-full min-w-max items-center gap-6 animate-marquee">
+              {doubledTickerItems.map((item, index) => (
+                <span
+                  key={`ticker-primary-${index}`}
+                  className="inline-flex min-w-max items-center gap-2 rounded-full border border-white/10 bg-white/10 px-5 py-1.5 text-sm font-medium text-white/90"
+                >
+                  <UsersIcon className="h-4 w-4" aria-hidden="true" />
+                  {item}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
-        <div className="mt-16 w-full max-w-md lg:mt-0">
-          <div className="rounded-[2rem] border border-slate-200 bg-white p-1 shadow-xl">
-            <div className="space-y-6 rounded-[1.85rem] bg-white p-8 text-slate-900">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Weekly snapshot</p>
-                <h2 className="mt-2 text-2xl font-semibold text-slate-900">Community health report</h2>
-                <p className="mt-3 text-sm text-slate-500">
-                  Key insights from the latest portfolio of engagements across product, marketing, and operations.
+
+        <div className="mt-20 w-full max-w-lg lg:mt-0 lg:max-w-none">
+          <div className="relative mx-auto max-w-md space-y-6 lg:ml-auto lg:mr-0">
+            <div className="absolute -top-12 left-1/2 h-24 w-24 -translate-x-1/2 rounded-full bg-accent/40 blur-2xl" aria-hidden="true" />
+
+            <div className="rounded-[2rem] bg-white/95 p-8 text-slate-900 shadow-2xl ring-1 ring-white/60 backdrop-blur">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10 text-accent">
+                  <SparklesIcon className="h-6 w-6" aria-hidden="true" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Creation Studio draft</p>
+                  <p className="text-xs text-slate-500">Campaign kickoff • 78% ready</p>
+                </div>
+              </div>
+              <div className="mt-6 space-y-3 text-sm text-slate-600">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-slate-900">Storyboard deck</span>
+                  <span className="text-xs text-slate-400">Last edit 3m ago</span>
+                </div>
+                <div className="flex items-center justify-between rounded-2xl bg-slate-100/80 px-4 py-3">
+                  <span className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Launchpad sync</span>
+                  <span className="text-xs font-medium text-slate-600">Mentor feedback pending</span>
+                </div>
+                <p>
+                  Notes stream: <span className="font-medium text-slate-900">Prototype v3 ready for review</span>
                 </p>
               </div>
-              <div className="flex flex-col gap-4 rounded-2xl bg-slate-50 p-5">
+              <div className="mt-6 flex items-center gap-3">
+                {['AG', 'JT', 'LK'].map((initials) => (
+                  <span
+                    key={initials}
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-accent via-accentDark to-slate-900 text-sm font-semibold text-white shadow-soft"
+                  >
+                    {initials}
+                  </span>
+                ))}
+                <span className="rounded-full border border-slate-200/60 px-3 py-1 text-xs font-medium text-slate-500">
+                  +5 mentors watching
+                </span>
+              </div>
+            </div>
+
+            <div className="rounded-[2rem] border border-white/10 bg-white/10 p-7 text-white shadow-2xl backdrop-blur">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-white">Explorer opportunity card</p>
+                  <p className="text-xs text-slate-300">UX research mission • Volunteering</p>
+                </div>
+                <RocketLaunchIcon className="h-6 w-6 text-accent" aria-hidden="true" />
+              </div>
+
+              <div className="mt-6 space-y-4 text-sm text-slate-100">
                 <div className="flex items-center gap-3">
-                  <UsersIcon className="h-6 w-6 text-accent" aria-hidden="true" />
+                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-base font-semibold text-white">
+                    CJ
+                  </span>
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">Community concierge</p>
-                    <p className="text-xs text-slate-500">Dedicated partner for hiring, onboarding, and retention.</p>
+                    <p className="font-medium text-white">Casey · product mentor</p>
+                    <p className="text-xs text-slate-300">Hosting live portfolio review, 12 seats remaining</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <ChatBubbleBottomCenterTextIcon className="h-6 w-6 text-accent" aria-hidden="true" />
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">Signals you can trust</p>
-                    <p className="text-xs text-slate-500">Every update ties back to documented deliverables.</p>
-                  </div>
+                <div className="rounded-2xl bg-white/10 p-4 text-xs text-slate-200">
+                  Next session: Today · 18:30 UTC · collaborative whiteboard with volunteers & clients.
                 </div>
+              </div>
+
+              <div className="mt-6 flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-300">Community ticker</span>
+                <span className="inline-flex items-center gap-1 text-sm font-semibold text-accent">
+                  Join mission
+                  <ArrowUpRightIcon className="h-4 w-4" aria-hidden="true" />
+                </span>
               </div>
             </div>
           </div>
