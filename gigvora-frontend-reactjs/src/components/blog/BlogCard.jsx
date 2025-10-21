@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import { CalendarIcon, ClockIcon } from '@heroicons/react/24/outline';
 
@@ -62,9 +63,14 @@ export default function BlogCard({ post }) {
             : null}
         </div>
 
-        <Link to={`/blog/${post.slug}`} className="mt-4 text-xl font-semibold text-slate-900 transition group-hover:text-accent">
-          {post.title}
-        </Link>
+        <h3 className="mt-4 text-xl font-semibold text-slate-900 transition group-hover:text-accent">
+          <Link
+            to={`/blog/${post.slug}`}
+            className="inline-flex items-baseline text-inherit focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+          >
+            {post.title}
+          </Link>
+        </h3>
         {post.excerpt ? <p className="mt-3 flex-1 text-sm text-slate-600">{post.excerpt}</p> : null}
 
         <div className="mt-5 flex flex-wrap items-center gap-4 text-xs text-slate-500">
@@ -83,3 +89,27 @@ export default function BlogCard({ post }) {
     </article>
   );
 }
+
+BlogCard.propTypes = {
+  post: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    slug: PropTypes.string.isRequired,
+    title: PropTypes.string.isRequired,
+    coverImage: PropTypes.shape({
+      altText: PropTypes.string,
+      url: PropTypes.string,
+    }),
+    media: PropTypes.arrayOf(
+      PropTypes.shape({
+        media: PropTypes.shape({ url: PropTypes.string }),
+      }),
+    ),
+    featured: PropTypes.bool,
+    category: PropTypes.shape({ name: PropTypes.string }),
+    tags: PropTypes.arrayOf(PropTypes.shape({ id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]), name: PropTypes.string })),
+    publishedAt: PropTypes.string,
+    createdAt: PropTypes.string,
+    readingTimeMinutes: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    excerpt: PropTypes.string,
+  }).isRequired,
+};
