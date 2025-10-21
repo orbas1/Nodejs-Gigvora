@@ -1,14 +1,17 @@
 import { Dialog, Transition } from '@headlessui/react';
+import PropTypes from 'prop-types';
 import { Fragment, useEffect, useState } from 'react';
 
 export default function SkillManagerDrawer({ open, skills = [], onClose, onSave, saving }) {
-  const [draft, setDraft] = useState(skills);
+  const [draft, setDraft] = useState(() => (Array.isArray(skills) ? [...skills] : []));
   const [input, setInput] = useState('');
+  const [feedback, setFeedback] = useState(null);
 
   useEffect(() => {
     if (open) {
-      setDraft(skills);
+      setDraft(Array.isArray(skills) ? [...skills] : []);
       setInput('');
+      setFeedback(null);
     }
   }, [open, skills]);
 
@@ -30,7 +33,12 @@ export default function SkillManagerDrawer({ open, skills = [], onClose, onSave,
     if (!onSave) {
       return;
     }
-    await onSave({ skills: draft });
+    setFeedback(null);
+    try {
+      await onSave({ skills: draft });
+    } catch (error) {
+      setFeedback({ type: 'error', message: error?.message ?? 'Unable to update skills.' });
+    }
   };
 
   return (
@@ -56,6 +64,17 @@ export default function SkillManagerDrawer({ open, skills = [], onClose, onSave,
                     <Dialog.Title className="text-lg font-semibold text-slate-900">Skills</Dialog.Title>
                   </div>
                   <div className="flex-1 space-y-6 overflow-y-auto px-6 py-6">
+                    {feedback ? (
+                      <div
+                        className={`rounded-2xl border px-4 py-3 text-sm ${
+                          feedback.type === 'error'
+                            ? 'border-rose-200 bg-rose-50 text-rose-700'
+                            : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        }`}
+                      >
+                        {feedback.message}
+                      </div>
+                    ) : null}
                     <div className="flex flex-wrap gap-2">
                       {draft.length === 0 ? (
                         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-500">No skills</span>
@@ -84,6 +103,12 @@ export default function SkillManagerDrawer({ open, skills = [], onClose, onSave,
                         onChange={(event) => setInput(event.target.value)}
                         placeholder="Add skill"
                         className="flex-1 rounded-2xl border border-slate-200 px-4 py-2 text-sm focus:border-slate-900 focus:outline-none"
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            handleAdd();
+                          }
+                        }}
                       />
                       <button
                         type="button"
@@ -121,3 +146,19 @@ export default function SkillManagerDrawer({ open, skills = [], onClose, onSave,
     </Transition.Root>
   );
 }
+
+SkillManagerDrawer.propTypes = {
+  open: PropTypes.bool,
+  skills: PropTypes.arrayOf(PropTypes.string),
+  onClose: PropTypes.func,
+  onSave: PropTypes.func,
+  saving: PropTypes.bool,
+};
+
+SkillManagerDrawer.defaultProps = {
+  open: false,
+  skills: [],
+  onClose: () => {},
+  onSave: () => {},
+  saving: false,
+};

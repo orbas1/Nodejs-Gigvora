@@ -1,5 +1,9 @@
+import PropTypes from 'prop-types';
+
 export default function SkillCard({ skills = [], onManage }) {
-  const topSkills = skills.slice(0, 8);
+  const safeSkills = Array.isArray(skills) ? skills : [];
+  const topSkills = safeSkills.slice(0, 8);
+  const handleManage = typeof onManage === 'function' ? onManage : () => {};
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -16,14 +20,16 @@ export default function SkillCard({ skills = [], onManage }) {
                 </span>
               ))
             )}
-            {skills.length > topSkills.length ? (
-              <span className="rounded-full bg-slate-50 px-3 py-1 text-xs text-slate-400">+{skills.length - topSkills.length}</span>
+            {safeSkills.length > topSkills.length ? (
+              <span className="rounded-full bg-slate-50 px-3 py-1 text-xs text-slate-400">
+                +{safeSkills.length - topSkills.length}
+              </span>
             ) : null}
           </div>
         </div>
         <button
           type="button"
-          onClick={onManage}
+          onClick={handleManage}
           className="rounded-full bg-slate-900 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700"
         >
           Skills
@@ -32,3 +38,13 @@ export default function SkillCard({ skills = [], onManage }) {
     </div>
   );
 }
+
+SkillCard.propTypes = {
+  skills: PropTypes.arrayOf(PropTypes.string),
+  onManage: PropTypes.func,
+};
+
+SkillCard.defaultProps = {
+  skills: [],
+  onManage: () => {},
+};

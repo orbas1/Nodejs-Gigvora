@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { Dialog, Transition, Tab } from '@headlessui/react';
 import {
@@ -853,104 +853,122 @@ AssetsTab.defaultProps = {
 export default function ProjectDrawer({ open, project, onClose, actions }) {
   const normalizedProject = useMemo(() => normalizeProject(project), [project]);
   const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState(null);
 
-  const handleUpdateProject = async (payload) => {
+  useEffect(() => {
+    setFeedback(null);
+  }, [normalizedProject?.id]);
+
+  useEffect(() => {
+    if (feedback?.type !== 'success') {
+      return undefined;
+    }
+    const timeout = setTimeout(() => setFeedback(null), 4000);
+    return () => clearTimeout(timeout);
+  }, [feedback]);
+
+  const runAction = useCallback(async (task, successMessage) => {
     setSaving(true);
+    setFeedback(null);
     try {
-      await actions.updateProject(normalizedProject.id, payload);
+      const result = await task();
+      if (successMessage) {
+        setFeedback({ type: 'success', message: successMessage });
+      }
+      return result;
+    } catch (error) {
+      console.error('Project drawer action failed', error);
+      setFeedback({ type: 'error', message: error?.message ?? 'Unable to complete the request.' });
+      return null;
     } finally {
       setSaving(false);
     }
+  }, []);
+
+  const handleUpdateProject = async (payload) => {
+    if (!normalizedProject) {
+      return;
+    }
+    await runAction(() => actions.updateProject(normalizedProject.id, payload), 'Project details updated.');
   };
 
   const handleUpdateWorkspace = async (payload) => {
-    setSaving(true);
-    try {
-      await actions.updateWorkspace(normalizedProject.id, payload);
-    } finally {
-      setSaving(false);
+    if (!normalizedProject) {
+      return;
     }
+    await runAction(() => actions.updateWorkspace(normalizedProject.id, payload), 'Workspace updated.');
   };
 
   const handleCreateMilestone = async (payload) => {
-    setSaving(true);
-    try {
-      await actions.createMilestone(normalizedProject.id, payload);
-    } finally {
-      setSaving(false);
+    if (!normalizedProject) {
+      return;
     }
+    await runAction(() => actions.createMilestone(normalizedProject.id, payload), 'Milestone added.');
   };
 
   const handleUpdateMilestone = async (milestoneId, payload) => {
-    setSaving(true);
-    try {
-      await actions.updateMilestone(normalizedProject.id, milestoneId, payload);
-    } finally {
-      setSaving(false);
+    if (!normalizedProject) {
+      return;
     }
+    await runAction(
+      () => actions.updateMilestone(normalizedProject.id, milestoneId, payload),
+      'Milestone updated.',
+    );
   };
 
   const handleDeleteMilestone = async (milestoneId) => {
-    setSaving(true);
-    try {
-      await actions.deleteMilestone(normalizedProject.id, milestoneId);
-    } finally {
-      setSaving(false);
+    if (!normalizedProject) {
+      return;
     }
+    await runAction(() => actions.deleteMilestone(normalizedProject.id, milestoneId), 'Milestone removed.');
   };
 
   const handleCreateCollaborator = async (payload) => {
-    setSaving(true);
-    try {
-      await actions.createCollaborator(normalizedProject.id, payload);
-    } finally {
-      setSaving(false);
+    if (!normalizedProject) {
+      return;
     }
+    await runAction(() => actions.createCollaborator(normalizedProject.id, payload), 'Collaborator invited.');
   };
 
   const handleUpdateCollaborator = async (collaboratorId, payload) => {
-    setSaving(true);
-    try {
-      await actions.updateCollaborator(normalizedProject.id, collaboratorId, payload);
-    } finally {
-      setSaving(false);
+    if (!normalizedProject) {
+      return;
     }
+    await runAction(
+      () => actions.updateCollaborator(normalizedProject.id, collaboratorId, payload),
+      'Collaborator updated.',
+    );
   };
 
   const handleDeleteCollaborator = async (collaboratorId) => {
-    setSaving(true);
-    try {
-      await actions.deleteCollaborator(normalizedProject.id, collaboratorId);
-    } finally {
-      setSaving(false);
+    if (!normalizedProject) {
+      return;
     }
+    await runAction(
+      () => actions.deleteCollaborator(normalizedProject.id, collaboratorId),
+      'Collaborator removed.',
+    );
   };
 
   const handleCreateAsset = async (payload) => {
-    setSaving(true);
-    try {
-      await actions.addAsset(normalizedProject.id, payload);
-    } finally {
-      setSaving(false);
+    if (!normalizedProject) {
+      return;
     }
+    await runAction(() => actions.addAsset(normalizedProject.id, payload), 'Asset added.');
   };
 
   const handleUpdateAsset = async (assetId, payload) => {
-    setSaving(true);
-    try {
-      await actions.updateAsset(normalizedProject.id, assetId, payload);
-    } finally {
-      setSaving(false);
+    if (!normalizedProject) {
+      return;
     }
+    await runAction(() => actions.updateAsset(normalizedProject.id, assetId, payload), 'Asset updated.');
   };
 
   const handleDeleteAsset = async (assetId) => {
-    setSaving(true);
-    try {
-      await actions.deleteAsset(normalizedProject.id, assetId);
-    } finally {
-      setSaving(false);
+    if (!normalizedProject) {
+      return;
     }
+    await runAction(() => actions.deleteAsset(normalizedProject.id, assetId), 'Asset removed.');
   };
 
   const tabs = useMemo(
@@ -1007,6 +1025,10 @@ export default function ProjectDrawer({ open, project, onClose, actions }) {
     ],
     [normalizedProject, saving],
   );
+
+  if (!normalizedProject) {
+    return null;
+  }
 
   return (
     <Transition.Root show={open} as={Fragment}>
@@ -1078,6 +1100,18 @@ export default function ProjectDrawer({ open, project, onClose, actions }) {
                         </div>
                       </dl>
                     </div>
+
+                    {feedback ? (
+                      <div
+                        className={`mx-8 mt-4 rounded-2xl border px-4 py-3 text-sm ${
+                          feedback.type === 'error'
+                            ? 'border-rose-200 bg-rose-50 text-rose-700'
+                            : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        }`}
+                      >
+                        {feedback.message}
+                      </div>
+                    ) : null}
 
                     <Tab.Group>
                       <Tab.List className="flex gap-2 overflow-x-auto border-b border-slate-200 bg-slate-50 px-6 py-3">

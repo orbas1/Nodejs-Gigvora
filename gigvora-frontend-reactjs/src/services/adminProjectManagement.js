@@ -1,127 +1,257 @@
 import { apiClient } from './apiClient.js';
+import {
+  assertAdminAccess,
+  buildAdminCacheKey,
+  createRequestOptions,
+  encodeIdentifier,
+  fetchWithCache,
+  invalidateCacheByTag,
+  normaliseIdentifier,
+  sanitiseQueryParams,
+} from './adminServiceHelpers.js';
 
-export async function fetchProjectPortfolio(params = {}) {
-  const response = await apiClient.get('/admin/project-management', { params });
+const PROJECT_ROLES = ['super-admin', 'platform-admin', 'operations-admin', 'project-admin'];
+const CACHE_TAGS = {
+  portfolio: 'admin:project-management:portfolio',
+  summary: 'admin:project-management:summary',
+  project: (identifier) => `admin:project-management:project:${identifier}`,
+};
+
+function buildPortfolioParams(params = {}) {
+  return sanitiseQueryParams({
+    status: params.status,
+    ownerId: params.ownerId ?? params.owner_id,
+    clientId: params.clientId ?? params.client_id,
+    search: params.search,
+    page: params.page,
+    pageSize: params.pageSize ?? params.page_size,
+    sort: params.sort,
+  });
+}
+
+function projectCacheKey(projectId) {
+  const identifier = normaliseIdentifier(projectId, { label: 'projectId' });
+  return {
+    key: buildAdminCacheKey('admin:project-management:project', { projectId: identifier }),
+    tag: CACHE_TAGS.project(identifier),
+  };
+}
+
+async function performProjectMutation(projectId, request) {
+  const response = await request();
+  const tags = [CACHE_TAGS.portfolio, CACHE_TAGS.summary];
+  if (projectId) {
+    const identifier = normaliseIdentifier(projectId, { label: 'projectId' });
+    tags.push(CACHE_TAGS.project(identifier));
+  }
+  invalidateCacheByTag(tags);
   return response;
 }
 
-export async function fetchProjectSummary() {
-  return apiClient.get('/admin/project-management/summary');
-}
+export function fetchProjectPortfolio(params = {}, options = {}) {
+  assertAdminAccess(PROJECT_ROLES);
+  const cleanedParams = buildPortfolioParams(params);
+  const { forceRefresh = false, cacheTtl = 60000, ...requestOptions } = options ?? {};
+  const cacheKey = buildAdminCacheKey('admin:project-management:portfolio', cleanedParams);
 
-export async function fetchProject(projectId) {
-  if (!projectId) {
-    throw new Error('projectId is required');
-  }
-  return apiClient.get(`/admin/project-management/projects/${projectId}`);
-}
-
-export async function createProject(payload) {
-  return apiClient.post('/admin/project-management', payload);
-}
-
-export async function updateProject(projectId, payload) {
-  if (!projectId) {
-    throw new Error('projectId is required');
-  }
-  return apiClient.put(`/admin/project-management/projects/${projectId}`, payload);
-}
-
-export async function updateProjectWorkspace(projectId, payload) {
-  if (!projectId) {
-    throw new Error('projectId is required');
-  }
-  return apiClient.patch(`/admin/project-management/projects/${projectId}/workspace`, payload);
-}
-
-export async function createMilestone(projectId, payload) {
-  if (!projectId) {
-    throw new Error('projectId is required');
-  }
-  return apiClient.post(`/admin/project-management/projects/${projectId}/milestones`, payload);
-}
-
-export async function updateMilestone(projectId, milestoneId, payload) {
-  if (!projectId || !milestoneId) {
-    throw new Error('projectId and milestoneId are required');
-  }
-  return apiClient.put(`/admin/project-management/projects/${projectId}/milestones/${milestoneId}`, payload);
-}
-
-export async function deleteMilestone(projectId, milestoneId) {
-  if (!projectId || !milestoneId) {
-    throw new Error('projectId and milestoneId are required');
-  }
-  return apiClient.delete(`/admin/project-management/projects/${projectId}/milestones/${milestoneId}`);
-}
-
-export async function createCollaborator(projectId, payload) {
-  if (!projectId) {
-    throw new Error('projectId is required');
-  }
-  return apiClient.post(`/admin/project-management/projects/${projectId}/collaborators`, payload);
-}
-
-export async function updateCollaborator(projectId, collaboratorId, payload) {
-  if (!projectId || !collaboratorId) {
-    throw new Error('projectId and collaboratorId are required');
-  }
-  return apiClient.put(
-    `/admin/project-management/projects/${projectId}/collaborators/${collaboratorId}`,
-    payload,
+  return fetchWithCache(
+    cacheKey,
+    () =>
+      apiClient.get(
+        '/admin/project-management',
+        createRequestOptions(requestOptions, cleanedParams),
+      ),
+    {
+      ttl: cacheTtl,
+      forceRefresh,
+      tag: CACHE_TAGS.portfolio,
+    },
   );
 }
 
-export async function deleteCollaborator(projectId, collaboratorId) {
-  if (!projectId || !collaboratorId) {
-    throw new Error('projectId and collaboratorId are required');
-  }
-  return apiClient.delete(`/admin/project-management/projects/${projectId}/collaborators/${collaboratorId}`);
-}
+export function fetchProjectSummary(options = {}) {
+  assertAdminAccess(PROJECT_ROLES);
+  const { forceRefresh = false, cacheTtl = 60000, ...requestOptions } = options ?? {};
+  const cacheKey = buildAdminCacheKey('admin:project-management:summary');
 
-export async function createIntegration(projectId, payload) {
-  if (!projectId) {
-    throw new Error('projectId is required');
-  }
-  return apiClient.post(`/admin/project-management/projects/${projectId}/integrations`, payload);
-}
-
-export async function updateIntegration(projectId, integrationId, payload) {
-  if (!projectId || !integrationId) {
-    throw new Error('projectId and integrationId are required');
-  }
-  return apiClient.put(
-    `/admin/project-management/projects/${projectId}/integrations/${integrationId}`,
-    payload,
+  return fetchWithCache(
+    cacheKey,
+    () => apiClient.get('/admin/project-management/summary', createRequestOptions(requestOptions)),
+    {
+      ttl: cacheTtl,
+      forceRefresh,
+      tag: CACHE_TAGS.summary,
+    },
   );
 }
 
-export async function deleteIntegration(projectId, integrationId) {
-  if (!projectId || !integrationId) {
-    throw new Error('projectId and integrationId are required');
-  }
-  return apiClient.delete(`/admin/project-management/projects/${projectId}/integrations/${integrationId}`);
+export function fetchProject(projectId, options = {}) {
+  assertAdminAccess(PROJECT_ROLES);
+  const { forceRefresh = false, cacheTtl = 30000, ...requestOptions } = options ?? {};
+  const { key, tag } = projectCacheKey(projectId);
+  const identifier = encodeIdentifier(projectId, { label: 'projectId' });
+
+  return fetchWithCache(
+    key,
+    () =>
+      apiClient.get(
+        `/admin/project-management/projects/${identifier}`,
+        createRequestOptions(requestOptions),
+      ),
+    {
+      ttl: cacheTtl,
+      forceRefresh,
+      tag,
+    },
+  );
 }
 
-export async function createAsset(projectId, payload) {
-  if (!projectId) {
-    throw new Error('projectId is required');
-  }
-  return apiClient.post(`/admin/project-management/projects/${projectId}/assets`, payload);
+export function createProject(payload, options = {}) {
+  assertAdminAccess(PROJECT_ROLES);
+  return performProjectMutation(null, () => apiClient.post('/admin/project-management', payload, options));
 }
 
-export async function deleteAsset(projectId, assetId) {
-  if (!projectId || !assetId) {
-    throw new Error('projectId and assetId are required');
-  }
-  return apiClient.delete(`/admin/project-management/projects/${projectId}/assets/${assetId}`);
+export function updateProject(projectId, payload, options = {}) {
+  assertAdminAccess(PROJECT_ROLES);
+  const identifier = encodeIdentifier(projectId, { label: 'projectId' });
+  return performProjectMutation(projectId, () =>
+    apiClient.put(`/admin/project-management/projects/${identifier}`, payload, options),
+  );
 }
 
-export async function createRetrospective(projectId, payload) {
-  if (!projectId) {
-    throw new Error('projectId is required');
-  }
-  return apiClient.post(`/admin/project-management/projects/${projectId}/retrospectives`, payload);
+export function updateProjectWorkspace(projectId, payload, options = {}) {
+  assertAdminAccess(PROJECT_ROLES);
+  const identifier = encodeIdentifier(projectId, { label: 'projectId' });
+  return performProjectMutation(projectId, () =>
+    apiClient.patch(`/admin/project-management/projects/${identifier}/workspace`, payload, options),
+  );
+}
+
+export function createMilestone(projectId, payload, options = {}) {
+  assertAdminAccess(PROJECT_ROLES);
+  const identifier = encodeIdentifier(projectId, { label: 'projectId' });
+  return performProjectMutation(projectId, () =>
+    apiClient.post(`/admin/project-management/projects/${identifier}/milestones`, payload, options),
+  );
+}
+
+export function updateMilestone(projectId, milestoneId, payload, options = {}) {
+  assertAdminAccess(PROJECT_ROLES);
+  const projectIdentifier = encodeIdentifier(projectId, { label: 'projectId' });
+  const milestoneIdentifier = encodeIdentifier(milestoneId, { label: 'milestoneId' });
+  return performProjectMutation(projectId, () =>
+    apiClient.put(
+      `/admin/project-management/projects/${projectIdentifier}/milestones/${milestoneIdentifier}`,
+      payload,
+      options,
+    ),
+  );
+}
+
+export function deleteMilestone(projectId, milestoneId, options = {}) {
+  assertAdminAccess(PROJECT_ROLES);
+  const projectIdentifier = encodeIdentifier(projectId, { label: 'projectId' });
+  const milestoneIdentifier = encodeIdentifier(milestoneId, { label: 'milestoneId' });
+  return performProjectMutation(projectId, () =>
+    apiClient.delete(
+      `/admin/project-management/projects/${projectIdentifier}/milestones/${milestoneIdentifier}`,
+      options,
+    ),
+  );
+}
+
+export function createCollaborator(projectId, payload, options = {}) {
+  assertAdminAccess(PROJECT_ROLES);
+  const identifier = encodeIdentifier(projectId, { label: 'projectId' });
+  return performProjectMutation(projectId, () =>
+    apiClient.post(`/admin/project-management/projects/${identifier}/collaborators`, payload, options),
+  );
+}
+
+export function updateCollaborator(projectId, collaboratorId, payload, options = {}) {
+  assertAdminAccess(PROJECT_ROLES);
+  const projectIdentifier = encodeIdentifier(projectId, { label: 'projectId' });
+  const collaboratorIdentifier = encodeIdentifier(collaboratorId, { label: 'collaboratorId' });
+  return performProjectMutation(projectId, () =>
+    apiClient.put(
+      `/admin/project-management/projects/${projectIdentifier}/collaborators/${collaboratorIdentifier}`,
+      payload,
+      options,
+    ),
+  );
+}
+
+export function deleteCollaborator(projectId, collaboratorId, options = {}) {
+  assertAdminAccess(PROJECT_ROLES);
+  const projectIdentifier = encodeIdentifier(projectId, { label: 'projectId' });
+  const collaboratorIdentifier = encodeIdentifier(collaboratorId, { label: 'collaboratorId' });
+  return performProjectMutation(projectId, () =>
+    apiClient.delete(
+      `/admin/project-management/projects/${projectIdentifier}/collaborators/${collaboratorIdentifier}`,
+      options,
+    ),
+  );
+}
+
+export function createIntegration(projectId, payload, options = {}) {
+  assertAdminAccess(PROJECT_ROLES);
+  const identifier = encodeIdentifier(projectId, { label: 'projectId' });
+  return performProjectMutation(projectId, () =>
+    apiClient.post(`/admin/project-management/projects/${identifier}/integrations`, payload, options),
+  );
+}
+
+export function updateIntegration(projectId, integrationId, payload, options = {}) {
+  assertAdminAccess(PROJECT_ROLES);
+  const projectIdentifier = encodeIdentifier(projectId, { label: 'projectId' });
+  const integrationIdentifier = encodeIdentifier(integrationId, { label: 'integrationId' });
+  return performProjectMutation(projectId, () =>
+    apiClient.put(
+      `/admin/project-management/projects/${projectIdentifier}/integrations/${integrationIdentifier}`,
+      payload,
+      options,
+    ),
+  );
+}
+
+export function deleteIntegration(projectId, integrationId, options = {}) {
+  assertAdminAccess(PROJECT_ROLES);
+  const projectIdentifier = encodeIdentifier(projectId, { label: 'projectId' });
+  const integrationIdentifier = encodeIdentifier(integrationId, { label: 'integrationId' });
+  return performProjectMutation(projectId, () =>
+    apiClient.delete(
+      `/admin/project-management/projects/${projectIdentifier}/integrations/${integrationIdentifier}`,
+      options,
+    ),
+  );
+}
+
+export function createAsset(projectId, payload, options = {}) {
+  assertAdminAccess(PROJECT_ROLES);
+  const identifier = encodeIdentifier(projectId, { label: 'projectId' });
+  return performProjectMutation(projectId, () =>
+    apiClient.post(`/admin/project-management/projects/${identifier}/assets`, payload, options),
+  );
+}
+
+export function deleteAsset(projectId, assetId, options = {}) {
+  assertAdminAccess(PROJECT_ROLES);
+  const projectIdentifier = encodeIdentifier(projectId, { label: 'projectId' });
+  const assetIdentifier = encodeIdentifier(assetId, { label: 'assetId' });
+  return performProjectMutation(projectId, () =>
+    apiClient.delete(
+      `/admin/project-management/projects/${projectIdentifier}/assets/${assetIdentifier}`,
+      options,
+    ),
+  );
+}
+
+export function createRetrospective(projectId, payload, options = {}) {
+  assertAdminAccess(PROJECT_ROLES);
+  const identifier = encodeIdentifier(projectId, { label: 'projectId' });
+  return performProjectMutation(projectId, () =>
+    apiClient.post(`/admin/project-management/projects/${identifier}/retrospectives`, payload, options),
+  );
 }
 
 export default {

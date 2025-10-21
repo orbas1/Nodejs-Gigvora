@@ -1,28 +1,35 @@
-# Project & Gig Management Dashboard Modules
+# Project & Gig Management Dashboard
 
-## Overview
-- Project launch workspace with budget, milestone, and collaborator scaffolding.
-- Purchased gig tracking including compliance reminders and vendor scorecards.
-- Bid desk, freelancer invitations, auto-match management, reviews, and escrow tooling.
+## Mission
+Equip programme managers and operations leads with a consolidated workspace to monitor delivery health, coordinate teams, and maintain financial discipline across gigs, projects, and launchpad engagements.
 
-## Backend endpoints
-- `GET /users/:userId/project-gig-management`
-- `POST /users/:userId/project-gig-management/projects`
-- `PATCH /users/:userId/project-gig-management/projects/:projectId/workspace`
-- `POST /users/:userId/project-gig-management/project-bids`
-- `POST /users/:userId/project-gig-management/invitations`
-- `PUT /users/:userId/project-gig-management/auto-match/settings`
-- `POST /users/:userId/project-gig-management/auto-match/matches`
-- `POST /users/:userId/project-gig-management/reviews`
-- `POST /users/:userId/project-gig-management/escrow/transactions`
+## Feature Highlights
+- **Role-Aware Access** – `useProjectManagementAccess` enforces RBAC so only authorised roles (operations, agency admins, workspace owners) can enter the workspace. Denied users receive contextual messaging and escalation links.
+- **Portfolio Overview** – Summary tiles surface project counts, total allocated budget, average progress, and critical due dates using data returned from `useProjectWorkspace`.
+- **Project Navigator** – Left-hand list summarises status, completion percentage, and due date per project. Buttons toggle active selection with accessible focus states.
+- **Workspace Tabs** – Detail panel exposes tabs for execution plans, sprint backlogs, staffing, risks, and retrospectives via `ProjectWorkspaceSection` children.
+- **Create & Update Workflows** – Modal dialog (`CreateWorkspaceDialog`) enables new project creation with validation, currency formatting, and status presets. Update workflows reuse the same form state and guard against validation gaps.
+- **Real-Time Feedback** – Inline banners communicate save success, validation errors, and API issues using `DataStatus` and toast utilities.
 
-## Frontend modules
-- `ProjectGigManagementContainer` powers the dedicated workspace tabs and creation dialogs rendered by `UserProjectManagementPage`.
-- Panels: lifecycle, bids, invitations, auto-match, reviews, escrow.
-- Hook `useProjectGigManagement` handles data loading and action wiring.
+## Integrations
+- **Calendar & Timeline Sync** – Projects link to timeline data enabling milestone visualisation and dependency tracking.
+- **Finance Controls** – Budget fields integrate with finance services to reconcile spend versus allocation, exposing anomalies for review.
+- **Resource Planning** – Workspace surfaces staffing data and availability signals sourced from agency/freelancer services.
 
-## Notes
-- Open the workspace at `/dashboard/user/projects`; the user dashboard links directly via the Projects card.
-- Requires `project-gig-management:manage` permission or owner access.
-- Escrow balance adjustments follow debit/credit semantics when transactions complete.
-- Auto-match settings accept comma separated lists for roles, skills, and geo preferences.
+## Security & Governance
+- Every mutation routes through admin project management services (`adminProjectManagement.js`), enforcing server-side RBAC and audit logging.
+- Actions are debounced and idempotent to prevent duplicate submissions; optimistic updates roll back on failure with clear messaging.
+- Export buttons generate stakeholder-friendly PDFs/CSVs for weekly governance reviews.
+
+## UX & Accessibility
+- Layout employs responsive grids with generous spacing for clarity on widescreen monitors while remaining usable on tablets.
+- Buttons, dialogs, and tabs provide keyboard navigation, focus outlines, and screen-reader labels.
+- Color palette aligns with design tokens used across the platform, maintaining brand consistency.
+
+## Testing & Quality
+- Component tests under `components/admin/gigManagement/__tests__` cover list rendering, form validation, RBAC denial paths, and API integration stubs.
+- Hooks tests validate `useProjectWorkspace` data mapping, ensuring budgets, progress percentages, and risk summaries are formatted correctly.
+- CI verifies linting, unit tests, and build output for the dashboard before deployment.
+
+## Roadmap
+- Upcoming additions include predictive capacity modelling, AI-powered status summaries, and JIRA/Linear connectors for enterprise workflows.

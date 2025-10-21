@@ -4,6 +4,28 @@ module.exports = {
   async up(queryInterface, Sequelize) {
     const dialect = queryInterface.sequelize.getDialect();
     const jsonType = ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
+    const isPostgres = ['postgres', 'postgresql'].includes(dialect);
+    const isMySql = ['mysql', 'mariadb'].includes(dialect);
+    const supportsCheckConstraints = isPostgres || isMySql;
+
+    const wrapIdentifier = (identifier) => {
+      if (isMySql) {
+        return `\`${identifier}\``;
+      }
+
+      return `"${identifier}"`;
+    };
+
+    const addCheckConstraint = async (tableName, constraintName, condition, transaction) => {
+      if (!supportsCheckConstraints) {
+        return;
+      }
+
+      await queryInterface.sequelize.query(
+        `ALTER TABLE ${wrapIdentifier(tableName)} ADD CONSTRAINT ${wrapIdentifier(constraintName)} CHECK (${condition});`,
+        { transaction },
+      );
+    };
 
     await queryInterface.sequelize.transaction(async (transaction) => {
       await queryInterface.createTable(
@@ -26,7 +48,11 @@ module.exports = {
           remote_available: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: true },
           compensation_min: { type: Sequelize.DECIMAL(12, 2), allowNull: true },
           compensation_max: { type: Sequelize.DECIMAL(12, 2), allowNull: true },
-          compensation_currency: { type: Sequelize.STRING(6), allowNull: false, defaultValue: 'USD' },
+          compensation_currency: {
+            type: Sequelize.ENUM('USD', 'EUR', 'GBP', 'CAD', 'AUD', 'INR', 'SGD', 'JPY'),
+            allowNull: false,
+            defaultValue: 'USD',
+          },
           status: {
             type: Sequelize.ENUM('draft', 'open', 'paused', 'closed', 'filled'),
             allowNull: false,
@@ -53,6 +79,23 @@ module.exports = {
       await queryInterface.addIndex('agency_jobs', ['workspace_id', 'status'], { transaction, name: 'agency_jobs_workspace_status' });
       await queryInterface.addIndex('agency_jobs', ['workspace_id', 'title'], { transaction, name: 'agency_jobs_workspace_title' });
       await queryInterface.addIndex('agency_jobs', ['workspace_id', 'client_name'], { transaction, name: 'agency_jobs_workspace_client' });
+      await queryInterface.addIndex('agency_jobs', ['workspace_id', 'status', 'updated_at'], {
+        transaction,
+        name: 'agency_jobs_workspace_status_updated_at',
+      });
+
+      await addCheckConstraint(
+        'agency_jobs',
+        'agency_jobs_compensation_range',
+        'compensation_min IS NULL OR compensation_max IS NULL OR compensation_min <= compensation_max',
+        transaction,
+      );
+      await addCheckConstraint(
+        'agency_jobs',
+        'agency_jobs_closing_after_publish',
+        'closes_at IS NULL OR published_at IS NULL OR closes_at >= published_at',
+        transaction,
+      );
 
       await queryInterface.createTable(
         'agency_job_applications',
@@ -101,6 +144,23 @@ module.exports = {
         'agency_job_applications',
         ['workspace_id', 'candidate_email'],
         { transaction, name: 'agency_job_applications_workspace_candidate_email' },
+      );
+      await queryInterface.addIndex(
+        'agency_job_applications',
+        ['workspace_id', 'job_id', 'owner_id'],
+        { transaction, name: 'agency_job_applications_workspace_job_owner' },
+      );
+      await queryInterface.addConstraint('agency_job_applications', {
+        fields: ['workspace_id', 'job_id', 'candidate_email'],
+        type: 'unique',
+        name: 'agency_job_applications_unique_candidate_email',
+        transaction,
+      });
+      await addCheckConstraint(
+        'agency_job_applications',
+        'agency_job_applications_rating_range',
+        'rating IS NULL OR (rating >= 0 AND rating <= 5)',
+        transaction,
       );
 
       await queryInterface.createTable(
@@ -153,6 +213,12 @@ module.exports = {
         'agency_interviews',
         ['workspace_id', 'scheduled_at'],
         { transaction, name: 'agency_interviews_workspace_scheduled_at' },
+      );
+      await addCheckConstraint(
+        'agency_interviews',
+        'agency_interviews_duration_positive',
+        'duration_minutes > 0',
+        transaction,
       );
 
       await queryInterface.createTable(
@@ -220,6 +286,11 @@ module.exports = {
         ['workspace_id', 'application_id'],
         { transaction, name: 'agency_application_responses_workspace_application' },
       );
+      await queryInterface.addIndex(
+        'agency_application_responses',
+        ['workspace_id', 'response_type'],
+        { transaction, name: 'agency_application_responses_workspace_response_type' },
+      );
     });
   },
 
@@ -241,6 +312,7 @@ module.exports = {
         await dropEnum('enum_agency_jobs_employment_type');
         await dropEnum('enum_agency_jobs_seniority');
         await dropEnum('enum_agency_jobs_status');
+        await dropEnum('enum_agency_jobs_compensation_currency');
         await dropEnum('enum_agency_job_applications_status');
         await dropEnum('enum_agency_interviews_mode');
         await dropEnum('enum_agency_interviews_status');

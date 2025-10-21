@@ -96,16 +96,27 @@ export class ContentModerationError extends Error {
   }
 }
 
-const DEFAULT_RULES = {
+export const DEFAULT_RULES = Object.freeze({
   maxCharacters: 2200,
   maxLinks: 3,
   maxMentions: 8,
   minWordCount: 3,
   maxUppercaseRatio: 0.65,
   minUniqueWordRatio: 0.35,
+});
+
+const RULE_CONSTRAINTS = {
+  maxCharacters: { min: 120, max: 5000, type: 'integer' },
+  maxLinks: { min: 0, max: 10, type: 'integer' },
+  maxMentions: { min: 0, max: 25, type: 'integer' },
+  minWordCount: { min: 1, max: 100, type: 'integer' },
+  maxUppercaseRatio: { min: 0, max: 1, type: 'ratio' },
+  minUniqueWordRatio: { min: 0, max: 1, type: 'ratio' },
 };
 
 const ALLOWED_ATTACHMENT_TYPES = new Set(['image', 'gif', 'video', 'document']);
+const SAFE_PROTOCOLS = new Set(['http:', 'https:']);
+const MAX_ATTACHMENTS = 4;
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -132,6 +143,34 @@ function sanitiseText(value) {
 
 function normaliseForAnalysis(value) {
   return sanitiseText(value).toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function resolveRules(overrides = {}) {
+  if (!overrides || typeof overrides !== 'object') {
+    return { ...DEFAULT_RULES };
+  }
+
+  const resolved = { ...DEFAULT_RULES };
+  for (const [key, value] of Object.entries(overrides)) {
+    if (!(key in DEFAULT_RULES)) continue;
+    const constraint = RULE_CONSTRAINTS[key];
+    if (!constraint) continue;
+
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) continue;
+
+    if (constraint.type === 'ratio') {
+      resolved[key] = clamp(numericValue, constraint.min, constraint.max);
+    } else {
+      resolved[key] = clamp(Math.round(numericValue), constraint.min, constraint.max);
+    }
+  }
+
+  return resolved;
 }
 
 function buildObfuscationPattern(term) {
@@ -170,7 +209,7 @@ function calculateUppercaseRatio(value) {
   return uppercase / letters.length;
 }
 
-function detectSpamSignals({ content, summary, title, link }) {
+function detectSpamSignals({ content, summary, title, link, rawLink, rules }) {
   const combined = [content, summary, title].filter(Boolean).join(' ');
   const analysed = normaliseForAnalysis(combined);
   const words = analysed.split(/\s+/).filter(Boolean);
@@ -185,7 +224,7 @@ function detectSpamSignals({ content, summary, title, link }) {
   }
 
   const uniqueWords = new Set(words.filter((word) => word.length > 2));
-  if (words.length >= 4 && uniqueWords.size / words.length < DEFAULT_RULES.minUniqueWordRatio) {
+  if (words.length >= 4 && uniqueWords.size / words.length < rules.minUniqueWordRatio) {
     signals.push({
       type: 'repetitive_content',
       severity: 'medium',
@@ -194,25 +233,25 @@ function detectSpamSignals({ content, summary, title, link }) {
   }
 
   const linkCount = countLinks(combined) + (link ? 1 : 0);
-  if (linkCount > DEFAULT_RULES.maxLinks) {
+  if (linkCount > rules.maxLinks) {
     signals.push({
       type: 'excessive_links',
       severity: 'high',
-      message: `Posts can include up to ${DEFAULT_RULES.maxLinks} links.`,
+      message: `Posts can include up to ${rules.maxLinks} links.`,
     });
   }
 
   const mentionCount = countMentions(combined);
-  if (mentionCount > DEFAULT_RULES.maxMentions) {
+  if (mentionCount > rules.maxMentions) {
     signals.push({
       type: 'excessive_mentions',
       severity: 'medium',
-      message: `Tag up to ${DEFAULT_RULES.maxMentions} handles in a single update.`,
+      message: `Tag up to ${rules.maxMentions} handles in a single update.`,
     });
   }
 
   const uppercaseRatio = calculateUppercaseRatio(combined);
-  if (uppercaseRatio > DEFAULT_RULES.maxUppercaseRatio && combined.length > 32) {
+  if (uppercaseRatio > rules.maxUppercaseRatio && combined.length > 32) {
     signals.push({
       type: 'shouting',
       severity: 'medium',
@@ -230,11 +269,16 @@ function detectSpamSignals({ content, summary, title, link }) {
     }
   }
 
-  if (link && isBlockedDomain(link)) {
+  const blockedDomains = new Set([
+    ...extractBlockedDomainsFromText(combined),
+    ...extractBlockedDomainsFromText(rawLink),
+  ]);
+
+  for (const domain of blockedDomains) {
     signals.push({
       type: 'blocked_domain',
       severity: 'high',
-      message: 'Links from this domain are blocked for safety reasons.',
+      message: `Links from ${domain} are blocked for safety reasons.`,
     });
   }
 
@@ -251,28 +295,70 @@ function isBlockedDomain(link) {
   }
 }
 
+function extractBlockedDomainsFromText(value) {
+  if (!value) return [];
+  const text = `${value}`.toLowerCase();
+  const blocked = new Set();
+
+  const urlMatches = text.match(/https?:\/\/[^\s)]+/gi) ?? [];
+  for (const match of urlMatches) {
+    try {
+      const parsed = new URL(match);
+      if (isBlockedDomain(parsed.toString())) {
+        blocked.add(parsed.hostname.replace(/^www\./, ''));
+      }
+    } catch (error) {
+      // Ignore malformed URLs
+    }
+  }
+
+  for (const domain of BLOCKED_DOMAINS) {
+    if (text.includes(domain)) {
+      blocked.add(domain);
+    }
+  }
+
+  return [...blocked];
+}
+
 function sanitiseAttachments(attachments = []) {
   if (!Array.isArray(attachments)) {
     return [];
   }
+
+  const seenUrls = new Set();
+
   return attachments
     .filter((attachment) => attachment && typeof attachment === 'object' && typeof attachment.url === 'string')
-    .slice(0, 4)
-    .map((attachment, index) => ({
-      id: attachment.id ?? `attachment-${index + 1}`,
-      type: ALLOWED_ATTACHMENT_TYPES.has(`${attachment.type}`.toLowerCase())
-        ? `${attachment.type}`.toLowerCase()
-        : 'image',
-      url: attachment.url.trim(),
-      alt: sanitiseText(attachment.alt ?? attachment.caption ?? '').slice(0, 180),
-    }));
+    .map((attachment, index) => {
+      const url = sanitiseExternalLink(attachment.url);
+      if (!url || seenUrls.has(url)) {
+        return null;
+      }
+
+      seenUrls.add(url);
+      const type = `${attachment.type ?? ''}`.toLowerCase();
+      const altText = sanitiseText(attachment.alt ?? attachment.caption ?? '').slice(0, 180);
+
+      return {
+        id: attachment.id ?? `attachment-${index + 1}`,
+        type: ALLOWED_ATTACHMENT_TYPES.has(type) ? type : 'image',
+        url,
+        alt: altText || 'Media attachment',
+      };
+    })
+    .filter(Boolean)
+    .slice(0, MAX_ATTACHMENTS);
 }
 
-export function moderateFeedComposerPayload(input) {
+export function moderateFeedComposerPayload(rawInput, ruleOverrides = {}) {
+  const input = rawInput && typeof rawInput === 'object' ? rawInput : {};
+  const rules = resolveRules(ruleOverrides);
   const content = sanitiseText(input.content);
   const summary = sanitiseText(input.summary ?? '');
   const title = sanitiseText(input.title ?? '');
-  const link = input.link ?? null;
+  const rawLink = input.link ?? input.url ?? null;
+  const link = sanitiseExternalLink(rawLink);
   const attachments = sanitiseAttachments(input.mediaAttachments ?? input.attachments);
 
   if (!content) {
@@ -281,9 +367,9 @@ export function moderateFeedComposerPayload(input) {
     });
   }
 
-  if (content.length > DEFAULT_RULES.maxCharacters) {
-    throw new ContentModerationError(`Posts can contain up to ${DEFAULT_RULES.maxCharacters} characters.`, {
-      reasons: [`Reduce your update to within ${DEFAULT_RULES.maxCharacters} characters.`],
+  if (content.length > rules.maxCharacters) {
+    throw new ContentModerationError(`Posts can contain up to ${rules.maxCharacters} characters.`, {
+      reasons: [`Reduce your update to within ${rules.maxCharacters} characters.`],
     });
   }
 
@@ -294,7 +380,7 @@ export function moderateFeedComposerPayload(input) {
     });
   }
 
-  const signals = detectSpamSignals({ content, summary, title, link });
+  const signals = detectSpamSignals({ content, summary, title, link, rawLink, rules });
   const severeSignals = signals.filter((signal) => signal.severity === 'high');
   if (severeSignals.length > 0) {
     throw new ContentModerationError('We detected spam indicators in your update.', {
@@ -304,7 +390,7 @@ export function moderateFeedComposerPayload(input) {
   }
 
   const wordCount = content.split(/\s+/).filter(Boolean).length;
-  if (wordCount < DEFAULT_RULES.minWordCount) {
+  if (wordCount < rules.minWordCount) {
     throw new ContentModerationError('Add more context before publishing to the timeline.', {
       reasons: ['Share at least three words so the community understands your update.'],
     });
@@ -317,6 +403,7 @@ export function moderateFeedComposerPayload(input) {
     link,
     attachments,
     signals,
+    rules,
   };
 }
 
@@ -331,7 +418,7 @@ export function sanitiseExternalLink(raw) {
   const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
   try {
     const parsed = new URL(candidate);
-    if (!['http:', 'https:'].includes(parsed.protocol)) {
+    if (!SAFE_PROTOCOLS.has(parsed.protocol)) {
       return null;
     }
     if (isBlockedDomain(parsed.toString())) {
@@ -347,4 +434,5 @@ export default {
   moderateFeedComposerPayload,
   ContentModerationError,
   sanitiseExternalLink,
+  DEFAULT_RULES,
 };

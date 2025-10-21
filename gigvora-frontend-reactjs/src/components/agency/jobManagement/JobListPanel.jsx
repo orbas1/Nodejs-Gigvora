@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { MagnifyingGlassIcon, StarIcon } from '@heroicons/react/24/outline';
 
 function classNames(...values) {
@@ -180,3 +181,46 @@ export default function JobListPanel({
     </aside>
   );
 }
+
+JobListPanel.propTypes = {
+  jobs: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      title: PropTypes.string,
+      clientName: PropTypes.string,
+      location: PropTypes.string,
+      seniority: PropTypes.string,
+      status: PropTypes.string,
+      favoriteMemberIds: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),
+      applicationSummary: PropTypes.object,
+      updatedAt: PropTypes.string,
+    }),
+  ),
+  metadata: PropTypes.shape({
+    jobStatuses: PropTypes.arrayOf(PropTypes.string),
+  }),
+  filters: PropTypes.shape({
+    search: PropTypes.string,
+    status: PropTypes.string,
+  }),
+  onFilterChange: PropTypes.func,
+  onSelectJob: PropTypes.func,
+  selectedJobId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  onFavoriteToggle: PropTypes.func,
+  isLoading: PropTypes.bool,
+  workspaceId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  onCreateJob: PropTypes.func,
+};
+
+JobListPanel.defaultProps = {
+  jobs: [],
+  metadata: null,
+  filters: { search: '', status: undefined },
+  onFilterChange: undefined,
+  onSelectJob: undefined,
+  selectedJobId: null,
+  onFavoriteToggle: undefined,
+  isLoading: false,
+  workspaceId: null,
+  onCreateJob: undefined,
+};

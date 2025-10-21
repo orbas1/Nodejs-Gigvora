@@ -1,61 +1,109 @@
 import { apiClient } from './apiClient.js';
+import {
+  assertAdminAccess,
+  buildAdminCacheKey,
+  createRequestOptions,
+  encodeIdentifier,
+  fetchWithCache,
+  invalidateCacheByTag,
+} from './adminServiceHelpers.js';
 
-export async function fetchStorageOverview(signal) {
-  return apiClient.get('/admin/storage/overview', { signal });
-}
+const STORAGE_ROLES = ['super-admin', 'platform-admin', 'operations-admin', 'storage-admin'];
+const CACHE_TAG = 'admin:storage:overview';
 
-export async function createStorageLocation(payload) {
-  return apiClient.post('/admin/storage/locations', payload);
-}
-
-export async function updateStorageLocation(id, payload) {
-  if (!id) {
-    throw new Error('Storage location id is required');
+function normaliseOptions(input) {
+  const isAbortSignal = typeof AbortSignal !== 'undefined' && input instanceof AbortSignal;
+  if (isAbortSignal) {
+    return { options: { signal: input }, forceRefresh: false, cacheTtl: 60000 };
   }
-  return apiClient.put(`/admin/storage/locations/${id}`, payload);
+
+  const { forceRefresh = false, cacheTtl = 60000, ...rest } = input ?? {};
+  return { options: rest, forceRefresh, cacheTtl };
 }
 
-export async function deleteStorageLocation(id) {
-  if (!id) {
-    throw new Error('Storage location id is required');
-  }
-  return apiClient.delete(`/admin/storage/locations/${id}`);
+async function performAndInvalidate(request) {
+  const response = await request();
+  invalidateCacheByTag(CACHE_TAG);
+  return response;
 }
 
-export async function createLifecycleRule(payload) {
-  return apiClient.post('/admin/storage/lifecycle-rules', payload);
+export function fetchStorageOverview(input) {
+  assertAdminAccess(STORAGE_ROLES);
+  const { options = {}, forceRefresh, cacheTtl } = normaliseOptions(input);
+  const cacheKey = buildAdminCacheKey('admin:storage:overview');
+
+  return fetchWithCache(
+    cacheKey,
+    () => apiClient.get('/admin/storage/overview', createRequestOptions(options)),
+    {
+      ttl: cacheTtl,
+      forceRefresh,
+      tag: CACHE_TAG,
+    },
+  );
 }
 
-export async function updateLifecycleRule(id, payload) {
-  if (!id) {
-    throw new Error('Lifecycle rule id is required');
-  }
-  return apiClient.put(`/admin/storage/lifecycle-rules/${id}`, payload);
+export function createStorageLocation(payload, options = {}) {
+  assertAdminAccess(STORAGE_ROLES);
+  return performAndInvalidate(() => apiClient.post('/admin/storage/locations', payload, options));
 }
 
-export async function deleteLifecycleRule(id) {
-  if (!id) {
-    throw new Error('Lifecycle rule id is required');
-  }
-  return apiClient.delete(`/admin/storage/lifecycle-rules/${id}`);
+export function updateStorageLocation(id, payload, options = {}) {
+  assertAdminAccess(STORAGE_ROLES);
+  const identifier = encodeIdentifier(id, { label: 'Storage location id' });
+  return performAndInvalidate(() =>
+    apiClient.put(`/admin/storage/locations/${identifier}`, payload, options),
+  );
 }
 
-export async function createUploadPreset(payload) {
-  return apiClient.post('/admin/storage/upload-presets', payload);
+export function deleteStorageLocation(id, options = {}) {
+  assertAdminAccess(STORAGE_ROLES);
+  const identifier = encodeIdentifier(id, { label: 'Storage location id' });
+  return performAndInvalidate(() =>
+    apiClient.delete(`/admin/storage/locations/${identifier}`, options),
+  );
 }
 
-export async function updateUploadPreset(id, payload) {
-  if (!id) {
-    throw new Error('Upload preset id is required');
-  }
-  return apiClient.put(`/admin/storage/upload-presets/${id}`, payload);
+export function createLifecycleRule(payload, options = {}) {
+  assertAdminAccess(STORAGE_ROLES);
+  return performAndInvalidate(() => apiClient.post('/admin/storage/lifecycle-rules', payload, options));
 }
 
-export async function deleteUploadPreset(id) {
-  if (!id) {
-    throw new Error('Upload preset id is required');
-  }
-  return apiClient.delete(`/admin/storage/upload-presets/${id}`);
+export function updateLifecycleRule(id, payload, options = {}) {
+  assertAdminAccess(STORAGE_ROLES);
+  const identifier = encodeIdentifier(id, { label: 'Lifecycle rule id' });
+  return performAndInvalidate(() =>
+    apiClient.put(`/admin/storage/lifecycle-rules/${identifier}`, payload, options),
+  );
+}
+
+export function deleteLifecycleRule(id, options = {}) {
+  assertAdminAccess(STORAGE_ROLES);
+  const identifier = encodeIdentifier(id, { label: 'Lifecycle rule id' });
+  return performAndInvalidate(() =>
+    apiClient.delete(`/admin/storage/lifecycle-rules/${identifier}`, options),
+  );
+}
+
+export function createUploadPreset(payload, options = {}) {
+  assertAdminAccess(STORAGE_ROLES);
+  return performAndInvalidate(() => apiClient.post('/admin/storage/upload-presets', payload, options));
+}
+
+export function updateUploadPreset(id, payload, options = {}) {
+  assertAdminAccess(STORAGE_ROLES);
+  const identifier = encodeIdentifier(id, { label: 'Upload preset id' });
+  return performAndInvalidate(() =>
+    apiClient.put(`/admin/storage/upload-presets/${identifier}`, payload, options),
+  );
+}
+
+export function deleteUploadPreset(id, options = {}) {
+  assertAdminAccess(STORAGE_ROLES);
+  const identifier = encodeIdentifier(id, { label: 'Upload preset id' });
+  return performAndInvalidate(() =>
+    apiClient.delete(`/admin/storage/upload-presets/${identifier}`, options),
+  );
 }
 
 export default {

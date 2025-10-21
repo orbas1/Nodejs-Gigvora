@@ -1,9 +1,29 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { Dialog, Transition } from '@headlessui/react';
 import { toNumber } from '../utils.js';
 
 const STEP_ORDER = ['basics', 'workspace', 'budget'];
+
+function createInitialFormState() {
+  return {
+    title: '',
+    description: '',
+    startDate: '',
+    dueDate: '',
+    budgetCurrency: 'USD',
+    budgetAllocated: 0,
+    budgetSpent: 0,
+    metadata: { clientName: '', workspaceUrl: '' },
+    workspace: {
+      status: 'planning',
+      riskLevel: 'low',
+      progressPercent: 10,
+      nextMilestone: '',
+      nextMilestoneDueAt: '',
+    },
+  };
+}
 
 function BasicsStep({ form, onChange }) {
   return (
@@ -255,24 +275,9 @@ BudgetStep.propTypes = {
 
 export default function CreateProjectWizard({ open, onClose, onSubmit, loading }) {
   const [currentStep, setCurrentStep] = useState('basics');
-  const [form, setForm] = useState({
-    title: '',
-    description: '',
-    startDate: '',
-    dueDate: '',
-    budgetCurrency: 'USD',
-    budgetAllocated: 0,
-    budgetSpent: 0,
-    metadata: { clientName: '', workspaceUrl: '' },
-    workspace: {
-      status: 'planning',
-      riskLevel: 'low',
-      progressPercent: 10,
-      nextMilestone: '',
-      nextMilestoneDueAt: '',
-    },
-  });
+  const [form, setForm] = useState(() => createInitialFormState());
   const [submitting, setSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState(null);
 
   const updateForm = (patch) => {
     setForm((prev) => ({
@@ -282,6 +287,14 @@ export default function CreateProjectWizard({ open, onClose, onSubmit, loading }
       metadata: patch.metadata ? { ...prev.metadata, ...patch.metadata } : prev.metadata,
     }));
   };
+
+  useEffect(() => {
+    if (open) {
+      setCurrentStep('basics');
+      setForm(createInitialFormState());
+      setFeedback(null);
+    }
+  }, [open]);
 
   const steps = useMemo(
     () => ({
@@ -312,41 +325,46 @@ export default function CreateProjectWizard({ open, onClose, onSubmit, loading }
     }
     if (currentIndex === STEP_ORDER.length - 1) {
       setSubmitting(true);
+      setFeedback(null);
       try {
+        const progressPercent = Math.max(
+          0,
+          Math.min(100, toNumber(form.workspace.progressPercent ?? 0, 0)),
+        );
+        const allocated = toNumber(form.budgetAllocated, 0);
+        const spent = toNumber(form.budgetSpent, 0);
+        if (allocated < 0 || spent < 0) {
+          throw new Error('Budget values must be zero or greater.');
+        }
+        if (spent > allocated) {
+          throw new Error('Spent amount cannot exceed the allocated budget.');
+        }
         await onSubmit({
           ...form,
+          budgetAllocated: allocated,
+          budgetSpent: spent,
           startDate: form.startDate || null,
           dueDate: form.dueDate || null,
           workspace: {
             ...form.workspace,
+            progressPercent,
             nextMilestoneDueAt: form.workspace.nextMilestoneDueAt || null,
           },
         });
         onClose();
-        setForm((prev) => ({
-          ...prev,
-          title: '',
-          description: '',
-          startDate: '',
-          dueDate: '',
-          workspace: {
-            ...prev.workspace,
-            nextMilestone: '',
-            nextMilestoneDueAt: '',
-          },
-          metadata: { clientName: '', workspaceUrl: '' },
-          budgetAllocated: 0,
-          budgetSpent: 0,
-        }));
+        setForm(createInitialFormState());
         setCurrentStep('basics');
+        setFeedback({ type: 'success', message: 'Project created successfully.' });
       } catch (error) {
         console.error('Failed to create project', error);
+        setFeedback({ type: 'error', message: error?.message ?? 'Unable to create project.' });
       } finally {
         setSubmitting(false);
       }
       return;
     }
     const nextStep = STEP_ORDER[currentIndex + 1];
+    setFeedback(null);
     setCurrentStep(nextStep);
   };
 
@@ -356,6 +374,7 @@ export default function CreateProjectWizard({ open, onClose, onSubmit, loading }
       onClose();
       return;
     }
+    setFeedback(null);
     setCurrentStep(STEP_ORDER[currentIndex - 1]);
   };
 
@@ -403,7 +422,20 @@ export default function CreateProjectWizard({ open, onClose, onSubmit, loading }
                       </span>
                     ))}
                   </nav>
-                  <div className="mt-6">{steps[currentStep].content}</div>
+                  <div className="mt-6 space-y-4">
+                    {feedback ? (
+                      <div
+                        className={`rounded-2xl border px-4 py-3 text-sm ${
+                          feedback.type === 'error'
+                            ? 'border-rose-200 bg-rose-50 text-rose-700'
+                            : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        }`}
+                      >
+                        {feedback.message}
+                      </div>
+                    ) : null}
+                    {steps[currentStep].content}
+                  </div>
                 </div>
                 <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-6 py-4">
                   <button

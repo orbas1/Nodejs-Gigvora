@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import gigvoraWordmark from '../../images/Gigvora Logo.png';
 import MessagingDock from '../components/messaging/MessagingDock.jsx';
 import AdPlacementRail from '../components/ads/AdPlacementRail.jsx';
+import DashboardAccessGuard from '../components/security/DashboardAccessGuard.jsx';
 
 function slugify(value) {
   if (!value) {
@@ -354,6 +355,10 @@ export default function DashboardLayout({
   activeMenuItem,
   onMenuItemSelect,
   adSurface,
+  requiredRoles,
+  requiredPermissions,
+  guardFallback,
+  enforceAccessControl,
 }) {
   const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -510,10 +515,38 @@ export default function DashboardLayout({
     });
   }, []);
 
-  const activeDashboardId = slugify(currentDashboard) || dashboards[0]?.id;
+  const normalizedDashboardKey =
+    typeof currentDashboard === 'string' ? currentDashboard.trim().toLowerCase() : '';
+  const sluggedDashboardId = slugify(currentDashboard);
+  const activeDashboardId = sluggedDashboardId || dashboards[0]?.id;
   const surface = adSurface || DEFAULT_AD_SURFACE_BY_DASHBOARD[activeDashboardId] || 'global_dashboard';
 
-  return (
+  const guardEnabled = enforceAccessControl !== false;
+
+  const effectiveRequiredRoles = useMemo(() => {
+    if (!guardEnabled) {
+      return [];
+    }
+    if (Array.isArray(requiredRoles) && requiredRoles.length) {
+      return requiredRoles;
+    }
+    if (normalizedDashboardKey.startsWith('admin')) {
+      return ['admin'];
+    }
+    return [];
+  }, [guardEnabled, normalizedDashboardKey, requiredRoles]);
+
+  const effectiveRequiredPermissions = useMemo(() => {
+    if (!guardEnabled) {
+      return [];
+    }
+    if (Array.isArray(requiredPermissions) && requiredPermissions.length) {
+      return requiredPermissions;
+    }
+    return [];
+  }, [guardEnabled, requiredPermissions]);
+
+  const layoutMarkup = (
     <div className="relative flex min-h-screen bg-slate-50">
       <div
         className={`fixed inset-y-0 left-0 z-30 flex w-80 flex-col border-r border-slate-200 bg-white/95 backdrop-blur lg:relative lg:translate-x-0 ${
@@ -645,6 +678,20 @@ export default function DashboardLayout({
       <MessagingDock />
     </div>
   );
+
+  if (effectiveRequiredRoles.length || effectiveRequiredPermissions.length) {
+    return (
+      <DashboardAccessGuard
+        requiredRoles={effectiveRequiredRoles}
+        requiredPermissions={effectiveRequiredPermissions}
+        fallback={guardFallback}
+      >
+        {layoutMarkup}
+      </DashboardAccessGuard>
+    );
+  }
+
+  return layoutMarkup;
 }
 
 DashboardLayout.propTypes = {
@@ -659,6 +706,10 @@ DashboardLayout.propTypes = {
   activeMenuItem: PropTypes.string,
   onMenuItemSelect: PropTypes.func,
   adSurface: PropTypes.string,
+  requiredRoles: PropTypes.arrayOf(PropTypes.string),
+  requiredPermissions: PropTypes.arrayOf(PropTypes.string),
+  guardFallback: PropTypes.node,
+  enforceAccessControl: PropTypes.bool,
 };
 
 DashboardLayout.defaultProps = {
@@ -673,6 +724,10 @@ DashboardLayout.defaultProps = {
   activeMenuItem: undefined,
   onMenuItemSelect: undefined,
   adSurface: undefined,
+  requiredRoles: undefined,
+  requiredPermissions: undefined,
+  guardFallback: undefined,
+  enforceAccessControl: true,
 };
 
 export { DEFAULT_AD_SURFACE_BY_DASHBOARD };
