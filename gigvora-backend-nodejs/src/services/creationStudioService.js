@@ -51,6 +51,23 @@ function normaliseType(value) {
   return match ?? null;
 }
 
+function normalisePositiveInteger(value, { min = 1, max = Number.MAX_SAFE_INTEGER } = {}) {
+  const numeric = Number.parseInt(value, 10);
+  if (!Number.isFinite(numeric) || numeric < min) {
+    return null;
+  }
+  const clamped = Math.min(numeric, max);
+  return Math.max(clamped, min);
+}
+
+function normaliseNonNegativeInteger(value) {
+  const numeric = Number.parseInt(value, 10);
+  if (!Number.isFinite(numeric) || numeric < 0) {
+    return null;
+  }
+  return numeric;
+}
+
 function requireType(value) {
   const type = normaliseType(value);
   if (!type) {
@@ -200,8 +217,10 @@ export async function listCreationStudioItems({
   type,
   status,
   search,
-  limit = 20,
-  offset = 0,
+  limit,
+  offset,
+  page,
+  pageSize,
 } = {}) {
   const where = {};
   if (workspaceId) {
@@ -228,14 +247,23 @@ export async function listCreationStudioItems({
     ];
   }
 
+  const resolvedPageSize = normalisePositiveInteger(pageSize, { max: 100 });
+  const resolvedLimit = normalisePositiveInteger(limit, { max: 100 });
+  const resolvedPage = normalisePositiveInteger(page, { max: Number.MAX_SAFE_INTEGER });
+  const resolvedOffset = normaliseNonNegativeInteger(offset);
+
+  const pageLimit = resolvedPageSize ?? resolvedLimit ?? 20;
+  const pageOffset =
+    resolvedPage != null ? Math.max(0, (resolvedPage - 1) * pageLimit) : resolvedOffset ?? 0;
+
   const items = await CreationStudioItem.findAll({
     where,
     order: [
       ['status', 'ASC'],
       ['updatedAt', 'DESC'],
     ],
-    limit: Math.max(1, Math.min(Number(limit) || 20, 100)),
-    offset: Math.max(0, Number(offset) || 0),
+    limit: pageLimit,
+    offset: pageOffset,
   });
 
   return items.map((item) => sanitiseItem(item));
