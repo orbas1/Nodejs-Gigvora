@@ -7,38 +7,78 @@ import useNotificationCenter from '../hooks/useNotificationCenter.js';
 import useAuthorization from '../hooks/useAuthorization.js';
 import { formatRelativeTime } from '../utils/date.js';
 
+const noop = () => {};
+
 function NotificationCard({ notification, onOpen }) {
+  const {
+    type = 'Alert',
+    title = 'Notification update',
+    body = 'No additional details provided yet.',
+    read = false,
+  } = notification ?? {};
+
+  const timestampLabel = formatRelativeTime(notification?.timestamp) || 'Just now';
+
+  const action = useMemo(() => {
+    const rawHref = notification?.action?.href;
+    const label = notification?.action?.label ?? 'Open';
+
+    if (!rawHref || typeof rawHref !== 'string') {
+      return null;
+    }
+
+    if (typeof window === 'undefined') {
+      return { label, href: rawHref };
+    }
+
+    try {
+      const url = new URL(rawHref, window.location.origin);
+      const isSameOrigin = url.origin === window.location.origin;
+      const isSecure = url.protocol === 'https:';
+
+      if (!isSameOrigin && !isSecure) {
+        return null;
+      }
+
+      return { label, href: url.toString() };
+    } catch (error) {
+      console.warn('Blocked invalid notification action href', error);
+      return null;
+    }
+  }, [notification?.action?.href, notification?.action?.label]);
+
   const handleClick = () => {
     if (typeof onOpen === 'function') {
       onOpen(notification);
     }
-    if (notification?.action?.href) {
-      window.location.assign(notification.action.href);
+
+    if (action?.href && typeof window !== 'undefined') {
+      window.location.assign(action.href);
     }
   };
 
   return (
     <article
       className={`group relative overflow-hidden rounded-3xl border px-5 py-4 transition focus-within:ring-2 focus-within:ring-accent/40 ${
-        notification.read
+        read
           ? 'border-slate-200 bg-white'
           : 'border-accent/40 bg-accentSoft shadow-sm shadow-accent/10'
       }`}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
         <div className="min-w-0 space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{notification.type}</p>
-          <h3 className="text-base font-semibold text-slate-900 [text-wrap:balance]">{notification.title}</h3>
-          <p className="text-sm text-slate-600 [overflow-wrap:anywhere]">{notification.body}</p>
-          <p className="pt-1 text-xs font-medium text-slate-400">{formatRelativeTime(notification.timestamp)}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{type}</p>
+          <h3 className="text-base font-semibold text-slate-900 [text-wrap:balance]">{title}</h3>
+          <p className="text-sm text-slate-600 [overflow-wrap:anywhere]">{body}</p>
+          <p className="pt-1 text-xs font-medium text-slate-400">{timestampLabel}</p>
         </div>
-        {notification.action ? (
+        {action ? (
           <button
             type="button"
             onClick={handleClick}
             className="inline-flex shrink-0 items-center justify-center rounded-full border border-accent/30 bg-white px-4 py-2 text-xs font-semibold text-accent transition hover:border-accent hover:bg-accent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
           >
-            {notification.action.label}
+            {action.label}
           </button>
         ) : null}
       </div>
@@ -81,15 +121,26 @@ export default function NotificationsPage() {
     }
   }, [isAuthenticated, isAuthorizedForCenter, navigate]);
 
+  const notificationList = useMemo(
+    () => (Array.isArray(notifications) ? notifications : []),
+    [notifications],
+  );
+
+  const safeMarkNotificationAsRead =
+    typeof markNotificationAsRead === 'function' ? markNotificationAsRead : noop;
+  const safeMarkAllNotificationsAsRead =
+    typeof markAllNotificationsAsRead === 'function' ? markAllNotificationsAsRead : noop;
+
   const sortedNotifications = useMemo(
     () =>
       isAuthorizedForCenter
-        ? notifications.slice().sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+        ? notificationList.slice().sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
         : [],
-    [notifications, isAuthorizedForCenter],
+    [notificationList, isAuthorizedForCenter],
   );
 
-  const displayUnreadCount = isAuthorizedForCenter ? unreadNotificationCount : 0;
+  const numericUnreadCount = Number.isFinite(unreadNotificationCount) ? unreadNotificationCount : 0;
+  const displayUnreadCount = isAuthorizedForCenter ? numericUnreadCount : 0;
   const hasNotifications = sortedNotifications.length > 0;
 
   useEffect(() => {
@@ -208,7 +259,7 @@ export default function NotificationsPage() {
           actions={
             <button
               type="button"
-              onClick={markAllNotificationsAsRead}
+              onClick={safeMarkAllNotificationsAsRead}
               disabled={!hasNotifications || displayUnreadCount === 0}
               className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
             >
@@ -248,7 +299,11 @@ export default function NotificationsPage() {
               <NotificationCard
                 key={notification.id}
                 notification={notification}
-                onOpen={() => markNotificationAsRead(notification.id)}
+                onOpen={() => {
+                  if (notification?.id != null) {
+                    safeMarkNotificationAsRead(notification.id);
+                  }
+                }}
               />
             ))
           ) : (
