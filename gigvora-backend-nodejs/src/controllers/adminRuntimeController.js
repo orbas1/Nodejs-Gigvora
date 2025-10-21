@@ -5,16 +5,22 @@ import {
   updateAnnouncementStatus,
   getAnnouncement,
 } from '../services/runtimeMaintenanceService.js';
+import logger from '../utils/logger.js';
+import { extractAdminActor, stampPayloadWithActor, coercePositiveInteger } from '../utils/adminRequestContext.js';
 
-function resolveActor(req) {
-  if (!req?.user) {
-    return null;
-  }
-  const { id, type } = req.user;
-  if (id == null && !type) {
-    return null;
-  }
-  return { id, type };
+function buildServiceContext(req) {
+  const actor = extractAdminActor(req);
+  return {
+    actor,
+    context: {
+      actor: {
+        id: actor.actorId ?? null,
+        email: actor.actorEmail ?? null,
+        type: actor.roles[0] ?? 'admin',
+        name: actor.actorName ?? actor.descriptor ?? null,
+      },
+    },
+  };
 }
 
 export async function listMaintenance(req, res) {
@@ -32,28 +38,35 @@ export async function listMaintenance(req, res) {
 }
 
 export async function createMaintenance(req, res) {
-  const actor = resolveActor(req);
-  const record = await createAnnouncement(req.body ?? {}, { actor });
+  const { actor, context } = buildServiceContext(req);
+  const record = await createAnnouncement(stampPayloadWithActor(req.body ?? {}, actor), context);
+  logger.info({ actor: actor.reference, announcementId: record?.id }, 'Runtime maintenance created');
   res.status(201).json(record);
 }
 
 export async function updateMaintenance(req, res) {
-  const actor = resolveActor(req);
-  const { announcementId } = req.params ?? {};
-  const record = await updateAnnouncement(announcementId, req.body ?? {}, { actor });
+  const { actor, context } = buildServiceContext(req);
+  const announcementId = coercePositiveInteger(req.params?.announcementId, 'announcementId');
+  const record = await updateAnnouncement(
+    announcementId,
+    stampPayloadWithActor(req.body ?? {}, actor, { setUpdatedBy: true }),
+    context,
+  );
+  logger.info({ actor: actor.reference, announcementId }, 'Runtime maintenance updated');
   res.json(record);
 }
 
 export async function changeMaintenanceStatus(req, res) {
-  const actor = resolveActor(req);
-  const { announcementId } = req.params ?? {};
+  const { actor, context } = buildServiceContext(req);
+  const announcementId = coercePositiveInteger(req.params?.announcementId, 'announcementId');
   const { status } = req.body ?? {};
-  const record = await updateAnnouncementStatus(announcementId, status, { actor });
+  const record = await updateAnnouncementStatus(announcementId, status, context);
+  logger.info({ actor: actor.reference, announcementId, status }, 'Runtime maintenance status changed');
   res.json(record);
 }
 
 export async function fetchMaintenance(req, res) {
-  const { announcementId } = req.params ?? {};
+  const announcementId = coercePositiveInteger(req.params?.announcementId, 'announcementId');
   const record = await getAnnouncement(announcementId);
   res.json(record);
 }
