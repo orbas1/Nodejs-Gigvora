@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
+import PropTypes from 'prop-types';
 import { Dialog, Transition } from '@headlessui/react';
 import { PlusIcon } from '@heroicons/react/24/outline';
 
@@ -372,3 +373,31 @@ export default function EscrowFeeTiers({ tiers = [], currency = 'USD', onCreate,
     </section>
   );
 }
+
+EscrowFeeTiers.propTypes = {
+  tiers: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      provider: PropTypes.string,
+      status: PropTypes.string,
+      currencyCode: PropTypes.string,
+      minimumAmount: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      maximumAmount: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      percentFee: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      flatFee: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      label: PropTypes.string,
+    }),
+  ),
+  currency: PropTypes.string,
+  onCreate: PropTypes.func,
+  onUpdate: PropTypes.func,
+  onDelete: PropTypes.func,
+};
+
+EscrowFeeTiers.defaultProps = {
+  tiers: [],
+  currency: 'USD',
+  onCreate: undefined,
+  onUpdate: undefined,
+  onDelete: undefined,
+};
