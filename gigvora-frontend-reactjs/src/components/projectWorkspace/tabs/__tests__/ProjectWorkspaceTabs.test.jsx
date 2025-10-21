@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, act, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ProjectDescriptionTab from '../ProjectDescriptionTab.jsx';
 import ProjectTasksTab from '../ProjectTasksTab.jsx';
@@ -9,6 +9,11 @@ import TaskBoardTab from '../TaskBoardTab.jsx';
 import TaskDelegationTab from '../TaskDelegationTab.jsx';
 import TimelineTab from '../TimelineTab.jsx';
 import WorkspaceOverviewTab from '../WorkspaceOverviewTab.jsx';
+import BudgetManagementTab from '../BudgetManagementTab.jsx';
+import CalendarTab from '../CalendarTab.jsx';
+import DeliverablesTab from '../DeliverablesTab.jsx';
+import ProjectChatTab from '../ProjectChatTab.jsx';
+import GanttChartTab from '../GanttChartTab.jsx';
 
 const baseProject = {
   id: 42,
@@ -95,6 +100,198 @@ describe('ProjectTasksTab', () => {
       status: 'backlog',
       priority: 'medium',
     });
+  });
+});
+
+describe('BudgetManagementTab', () => {
+  it('creates a new budget line with numeric amounts', async () => {
+    const createBudgetLine = vi.fn().mockResolvedValue();
+    const actions = {
+      createBudgetLine,
+      updateBudgetLine: vi.fn(),
+      deleteBudgetLine: vi.fn(),
+    };
+
+    render(
+      <BudgetManagementTab
+        project={{ id: baseProject.id, budgetLines: [] }}
+        actions={actions}
+        canManage
+      />,
+    );
+
+    await act(async () => {
+      await userEvent.click(screen.getByRole('button', { name: 'New line' }));
+    });
+
+    await act(async () => {
+      await userEvent.type(screen.getByLabelText('Label'), 'Creative production');
+      await userEvent.type(screen.getByLabelText('Planned amount'), '1500');
+      await userEvent.type(screen.getByLabelText('Actual amount'), '500');
+      await userEvent.click(screen.getByRole('button', { name: 'Save line' }));
+    });
+
+    await waitFor(() => expect(createBudgetLine).toHaveBeenCalled());
+    expect(createBudgetLine.mock.calls[0]).toEqual([
+      baseProject.id,
+      expect.objectContaining({ plannedAmount: 1500, actualAmount: 500, status: 'planned' }),
+    ]);
+  });
+});
+
+describe('CalendarTab', () => {
+  it('parses metadata JSON when creating events', async () => {
+    const createCalendarEvent = vi.fn().mockResolvedValue();
+    const actions = {
+      createCalendarEvent,
+      updateCalendarEvent: vi.fn(),
+      deleteCalendarEvent: vi.fn(),
+    };
+
+    render(
+      <CalendarTab
+        project={{ id: baseProject.id, calendarEvents: [] }}
+        actions={actions}
+        canManage
+      />,
+    );
+
+    await act(async () => {
+      await userEvent.type(screen.getByLabelText('Title'), 'Weekly sync');
+      const metadataField = screen.getByLabelText('Metadata (JSON)');
+      await userEvent.clear(metadataField);
+      fireEvent.change(metadataField, { target: { value: '{"room":"Atlas"}' } });
+    });
+
+    const form = screen.getByText('Add project event').closest('form');
+    expect(form).not.toBeNull();
+
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    await waitFor(() => expect(createCalendarEvent).toHaveBeenCalled());
+    expect(createCalendarEvent.mock.calls[0]).toEqual([
+      baseProject.id,
+      expect.objectContaining({
+        title: 'Weekly sync',
+        metadata: { room: 'Atlas' },
+        category: 'event',
+      }),
+    ]);
+  });
+});
+
+describe('DeliverablesTab', () => {
+  it('submits new deliverable entries', async () => {
+    const actions = {
+      createDeliverable: vi.fn().mockResolvedValue(),
+      updateDeliverable: vi.fn(),
+      deleteDeliverable: vi.fn(),
+    };
+
+    render(
+      <DeliverablesTab
+        project={{ id: baseProject.id, deliverables: [] }}
+        actions={actions}
+        canManage
+      />,
+    );
+
+    await act(async () => {
+      await userEvent.click(screen.getByRole('button', { name: 'New asset' }));
+    });
+
+    const dialog = await screen.findByRole('dialog');
+    const titleInput = within(dialog).getByLabelText('Title');
+
+    await act(async () => {
+      await userEvent.type(titleInput, 'Prototype package');
+      await userEvent.type(
+        within(dialog).getByLabelText('Description'),
+        'Includes storyboard and brand kit.',
+      );
+      await userEvent.selectOptions(within(dialog).getByLabelText('Status'), 'in_review');
+      await userEvent.type(within(dialog).getByLabelText('Due date'), '2024-04-18');
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Save asset' }));
+    });
+
+    await waitFor(() => expect(actions.createDeliverable).toHaveBeenCalled());
+    expect(actions.createDeliverable.mock.calls[0]).toEqual([
+      baseProject.id,
+      expect.objectContaining({
+        title: 'Prototype package',
+        status: 'in_review',
+        dueDate: '2024-04-18',
+      }),
+    ]);
+  });
+});
+
+describe('ProjectChatTab', () => {
+  it('sends chat messages with default author fields', async () => {
+    const actions = {
+      createChatMessage: vi.fn().mockResolvedValue(),
+      updateChatMessage: vi.fn(),
+      deleteChatMessage: vi.fn(),
+    };
+    const project = {
+      id: baseProject.id,
+      chat: {
+        channels: [{ id: 1, name: 'general' }],
+        messages: [],
+      },
+    };
+
+    render(<ProjectChatTab project={project} actions={actions} canManage />);
+
+    await act(async () => {
+      await userEvent.type(screen.getByLabelText('Message'), 'Hello team');
+      await userEvent.click(screen.getByRole('button', { name: 'Send message' }));
+    });
+
+    await waitFor(() => expect(actions.createChatMessage).toHaveBeenCalled());
+    expect(actions.createChatMessage.mock.calls[0]).toEqual([
+      baseProject.id,
+      expect.objectContaining({
+        channelId: 1,
+        body: 'Hello team',
+        authorName: 'Project member',
+        authorRole: 'collaborator',
+      }),
+    ]);
+  });
+});
+
+describe('GanttChartTab', () => {
+  it('creates dependencies with numeric identifiers', async () => {
+    const actions = {
+      createTaskDependency: vi.fn().mockResolvedValue(),
+      deleteTaskDependency: vi.fn(),
+    };
+    const project = {
+      id: baseProject.id,
+      tasks: [
+        { id: 10, title: 'Kickoff', startDate: '2024-04-01', dueDate: '2024-04-02', status: 'completed' },
+        { id: 11, title: 'Design', startDate: '2024-04-03', dueDate: '2024-04-10', status: 'in_progress' },
+      ],
+    };
+
+    render(<GanttChartTab project={project} actions={actions} canManage />);
+
+    await act(async () => {
+      await userEvent.selectOptions(screen.getByLabelText('Task'), '11');
+      await userEvent.selectOptions(screen.getByLabelText('Depends on'), '10');
+      await userEvent.type(screen.getByLabelText('Lag (days)'), '2');
+      await userEvent.click(screen.getByRole('button', { name: 'Add dependency' }));
+    });
+
+    await waitFor(() => expect(actions.createTaskDependency).toHaveBeenCalled());
+    expect(actions.createTaskDependency.mock.calls[0]).toEqual([
+      baseProject.id,
+      11,
+      expect.objectContaining({ dependsOnTaskId: 10, lagDays: 2 }),
+    ]);
   });
 });
 
