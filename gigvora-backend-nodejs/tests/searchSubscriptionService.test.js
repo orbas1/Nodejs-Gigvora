@@ -1,25 +1,129 @@
-import { describe, beforeEach, it, expect } from '@jest/globals';
-import './setupTestEnv.js';
-import { User } from '../src/models/index.js';
-import {
-  listSubscriptions,
-  createSubscription,
-  updateSubscription,
-  deleteSubscription,
-} from '../src/services/searchSubscriptionService.js';
+import { describe, beforeEach, it, expect, jest } from '@jest/globals';
 import { ValidationError, NotFoundError } from '../src/utils/errors.js';
+
+const modelModuleUrl = new URL('../src/models/index.js', import.meta.url);
+
+const subscriptionStore = new Map();
+let subscriptionId = 1;
+
+function resetSubscriptionStore() {
+  subscriptionStore.clear();
+  subscriptionId = 1;
+}
+
+function createRecord(payload) {
+  const now = new Date();
+  const record = {
+    ...payload,
+    id: subscriptionId++,
+    createdAt: now,
+    updatedAt: now,
+    lastTriggeredAt: payload.lastTriggeredAt ?? null,
+    nextRunAt: payload.nextRunAt ?? null,
+  };
+
+  record.update = async (updates = {}) => {
+    Object.assign(record, updates);
+    record.updatedAt = new Date();
+    return record;
+  };
+
+  record.toPublicObject = () => ({
+    id: record.id,
+    userId: record.userId,
+    name: record.name,
+    category: record.category,
+    query: record.query,
+    filters: record.filters ?? null,
+    sort: record.sort ?? null,
+    frequency: record.frequency,
+    notifyByEmail: record.notifyByEmail,
+    notifyInApp: record.notifyInApp,
+    mapViewport: record.mapViewport ?? null,
+    nextRunAt: record.nextRunAt ?? null,
+    lastTriggeredAt: record.lastTriggeredAt ?? null,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+  });
+
+  return record;
+}
+
+function sortSubscriptions(records) {
+  return [...records].sort((a, b) => {
+    const nameCompare = (a.name ?? '').localeCompare(b.name ?? '');
+    if (nameCompare !== 0) {
+      return nameCompare;
+    }
+    const aUpdated = a.updatedAt instanceof Date ? a.updatedAt.getTime() : 0;
+    const bUpdated = b.updatedAt instanceof Date ? b.updatedAt.getTime() : 0;
+    return bUpdated - aUpdated;
+  });
+}
+
+const SearchSubscription = {
+  async findAll({ where } = {}) {
+    const userId = where?.userId;
+    const records = Array.from(subscriptionStore.values()).filter((record) => {
+      return userId == null || record.userId === userId;
+    });
+    return sortSubscriptions(records);
+  },
+  async create(payload) {
+    const record = createRecord(payload);
+    subscriptionStore.set(record.id, record);
+    return record;
+  },
+  async findOne({ where } = {}) {
+    const { id, userId } = where ?? {};
+    for (const record of subscriptionStore.values()) {
+      if (id != null && record.id !== id) {
+        continue;
+      }
+      if (userId != null && record.userId !== userId) {
+        continue;
+      }
+      return record;
+    }
+    return null;
+  },
+  async destroy({ where } = {}) {
+    const { id, userId } = where ?? {};
+    if (id == null) {
+      return 0;
+    }
+    const record = subscriptionStore.get(id);
+    if (!record) {
+      return 0;
+    }
+    if (userId != null && record.userId !== userId) {
+      return 0;
+    }
+    subscriptionStore.delete(id);
+    return 1;
+  },
+};
+
+await jest.unstable_mockModule(modelModuleUrl.pathname, () => ({
+  __esModule: true,
+  DIGEST_FREQUENCIES: ['immediate', 'daily', 'weekly'],
+  SearchSubscription,
+}));
+
+const service = await import('../src/services/searchSubscriptionService.js');
+const { listSubscriptions, createSubscription, updateSubscription, deleteSubscription, runSubscription } = service;
+
+let userCounter = 1;
 
 describe('searchSubscriptionService', () => {
   let user;
 
-  beforeEach(async () => {
-    user = await User.create({
-      firstName: 'Ada',
-      lastName: 'Lovelace',
-      email: `ada-${Date.now()}@gigvora.test`,
-      password: 'secure-password',
-      userType: 'user',
-    });
+  beforeEach(() => {
+    resetSubscriptionStore();
+    user = {
+      id: userCounter++,
+      email: `user-${Date.now()}@gigvora.test`,
+    };
   });
 
   it('creates subscriptions with sanitised filters and viewport', async () => {
@@ -73,10 +177,35 @@ describe('searchSubscriptionService', () => {
     await expect(deleteSubscription(created.id, user.id)).rejects.toBeInstanceOf(NotFoundError);
   });
 
+  it('executes manual runs and schedules the next trigger window', async () => {
+    const created = await createSubscription(user.id, {
+      name: 'Realtime Mentoring Alerts',
+      category: 'gig',
+      frequency: 'immediate',
+      sort: ['freshness:desc'],
+    });
+
+    const run = await runSubscription(created.id, user.id);
+
+    expect(run.lastTriggeredAt).toBeTruthy();
+    expect(run.nextRunAt).toBeTruthy();
+    expect(new Date(run.nextRunAt).getTime()).toBeGreaterThanOrEqual(new Date(run.lastTriggeredAt).getTime());
+  });
+
   it('validates input payloads', async () => {
     await expect(createSubscription(user.id, { name: '', category: 'invalid' })).rejects.toBeInstanceOf(ValidationError);
     const created = await createSubscription(user.id, { name: 'Test', category: 'job' });
     await expect(updateSubscription(created.id, user.id, { frequency: 'hourly' })).rejects.toBeInstanceOf(ValidationError);
     await expect(listSubscriptions(999999)).resolves.toEqual([]);
+  });
+
+  it('rejects malformed viewport payloads', async () => {
+    await expect(
+      createSubscription(user.id, {
+        name: 'Bad viewport payload',
+        category: 'job',
+        mapViewport: '{"boundingBox": invalid}',
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
   });
 });
