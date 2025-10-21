@@ -9,6 +9,7 @@ import gigManagerService from '../services/gigManagerService.js';
 import { getUserOpenAiSettings, updateUserOpenAiSettings } from '../services/aiAutoReplyService.js';
 import affiliateDashboardService from '../services/affiliateDashboardService.js';
 import userDashboardOverviewService from '../services/userDashboardOverviewService.js';
+import profileHubService from '../services/profileHubService.js';
 import {
   getUserWebsitePreferences as fetchUserWebsitePreferences,
   updateUserWebsitePreferences as saveUserWebsitePreferences,
@@ -160,6 +161,8 @@ export async function refreshUserDashboardOverviewWeather(req, res) {
     actorRoles: req.user?.roles ?? [],
   });
   res.json(overview);
+}
+
 export async function getUserProfileHub(req, res) {
   const hub = await profileHubService.getProfileHub(req.params.id, {
     bypassCache: req.query.fresh === 'true',
