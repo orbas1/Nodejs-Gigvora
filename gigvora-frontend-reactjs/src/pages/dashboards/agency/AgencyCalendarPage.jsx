@@ -147,6 +147,58 @@ function buildEventsByDay(events = []) {
   return map;
 }
 
+function formatIcsTimestamp(value) {
+  if (!value) {
+    return null;
+  }
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+}
+
+function escapeIcsText(text) {
+  if (!text) {
+    return '';
+  }
+  return String(text).replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
+}
+
+function buildIcsFeed(events = []) {
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Gigvora//Agency Calendar//EN'];
+  const dtStamp = formatIcsTimestamp(new Date());
+  events.forEach((event, index) => {
+    const dtStart = formatIcsTimestamp(event?.startsAt);
+    if (!dtStart) {
+      return;
+    }
+    const dtEnd = formatIcsTimestamp(event?.endsAt ?? event?.startsAt);
+    const uid = event?.id ? `gigvora-event-${event.id}` : `gigvora-event-${index}`;
+    lines.push('BEGIN:VEVENT');
+    lines.push(`UID:${uid}@gigvora.com`);
+    if (dtStamp) {
+      lines.push(`DTSTAMP:${dtStamp}`);
+    }
+    lines.push(`DTSTART:${dtStart}`);
+    if (dtEnd) {
+      lines.push(`DTEND:${dtEnd}`);
+    }
+    if (event?.title) {
+      lines.push(`SUMMARY:${escapeIcsText(event.title)}`);
+    }
+    if (event?.description) {
+      lines.push(`DESCRIPTION:${escapeIcsText(event.description)}`);
+    }
+    if (event?.location) {
+      lines.push(`LOCATION:${escapeIcsText(event.location)}`);
+    }
+    lines.push('END:VEVENT');
+  });
+  lines.push('END:VCALENDAR');
+  return `${lines.join('\r\n')}\r\n`;
+}
+
 export default function AgencyCalendarPage() {
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [workspace, setWorkspace] = useState(null);
@@ -162,6 +214,8 @@ export default function AgencyCalendarPage() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [activeView, setActiveView] = useState('month');
   const [monthCursor, setMonthCursor] = useState(() => startOfCurrentMonth());
+  const [exporting, setExporting] = useState(false);
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
 
   const activeTypes = useMemo(() => {
     return Object.entries(filters.types ?? {})
@@ -197,8 +251,42 @@ export default function AgencyCalendarPage() {
     fetchData();
   }, [fetchData]);
 
+  useEffect(() => {
+    if (!autoRefreshEnabled) {
+      return undefined;
+    }
+    const interval = setInterval(() => {
+      fetchData();
+    }, 60_000);
+    return () => clearInterval(interval);
+  }, [autoRefreshEnabled, fetchData]);
+
   const groupedEvents = useMemo(() => groupEvents(events), [events]);
+  const upcomingEvents = useMemo(() => {
+    return [...events]
+      .filter((event) => event?.startsAt)
+      .sort((a, b) => new Date(a.startsAt) - new Date(b.startsAt))
+      .slice(0, 3);
+  }, [events]);
   const eventsByDay = useMemo(() => buildEventsByDay(events), [events]);
+
+  const handleExportCalendar = useCallback(() => {
+    setExporting(true);
+    try {
+      const feed = buildIcsFeed(events);
+      const blob = new Blob([feed], { type: 'text/calendar;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `gigvora-agency-calendar-${Date.now()}.ics`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+    }
+  }, [events]);
 
   const handleTypeToggle = (type) => {
     setFilters((prev) => {
@@ -347,6 +435,51 @@ export default function AgencyCalendarPage() {
           </div>
           <div className="mt-6">
             <AgencyCalendarSummary summary={summary} />
+          </div>
+          <div className="mt-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleExportCalendar}
+                disabled={exporting || events.length === 0}
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {exporting ? 'Preparing ICS…' : 'Export ICS'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setAutoRefreshEnabled((value) => !value)}
+                className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                  autoRefreshEnabled
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300'
+                    : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                }`}
+              >
+                {autoRefreshEnabled ? 'Auto-refresh on' : 'Auto-refresh off'}
+              </button>
+            </div>
+            <div className="flex-1 rounded-3xl border border-slate-200 bg-slate-50/70 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Next up</p>
+              {upcomingEvents.length === 0 ? (
+                <p className="mt-2 text-sm text-slate-500">No upcoming events in the selected range.</p>
+              ) : (
+                <ul className="mt-3 space-y-2">
+                  {upcomingEvents.map((event) => (
+                    <li key={event.id ?? event.startsAt} className="flex flex-wrap items-center justify-between gap-3">
+                      <span className="text-sm font-semibold text-slate-900">{event.title ?? 'Untitled event'}</span>
+                      <span className="text-xs text-slate-500">
+                        {new Intl.DateTimeFormat('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                        }).format(new Date(event.startsAt))}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         </div>
 

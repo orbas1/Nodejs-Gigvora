@@ -11,6 +11,8 @@ import {
   HomeModernIcon,
   MegaphoneIcon,
   RectangleStackIcon,
+  IdentificationIcon,
+  LifebuoyIcon,
   ShieldCheckIcon,
   SparklesIcon,
   UserGroupIcon,
@@ -99,6 +101,20 @@ export const AGENCY_DASHBOARD_MENU_SECTIONS = [
         href: '/dashboard/agency/projects',
       },
       {
+        id: 'agency-workspace',
+        name: 'Workspace',
+        sectionId: 'agency-workspace',
+        icon: RectangleStackIcon,
+        href: '/dashboard/agency/workspace',
+      },
+      {
+        id: 'agency-interviews',
+        name: 'Interviews',
+        sectionId: 'interviews',
+        icon: CalendarDaysIcon,
+        href: '/dashboard/agency/interviews',
+      },
+      {
         id: 'gig-programs',
         name: 'Gigs',
         sectionId: 'gig-programs',
@@ -124,6 +140,20 @@ export const AGENCY_DASHBOARD_MENU_SECTIONS = [
         sectionId: 'inbox',
         icon: ChatBubbleLeftRightIcon,
         href: '/dashboard/agency/inbox',
+      },
+      {
+        id: 'support',
+        name: 'Support',
+        sectionId: 'support-desk',
+        icon: LifebuoyIcon,
+        href: '/dashboard/agency/support',
+      },
+      {
+        id: 'id-verification',
+        name: 'ID checks',
+        sectionId: 'agency-id-verification',
+        icon: IdentificationIcon,
+        href: '/dashboard/agency/id-verification',
       },
       {
         id: 'governance',
@@ -157,6 +187,8 @@ export const AGENCY_DASHBOARD_MENU = [
         icon: ClipboardDocumentListIcon,
       },
       { id: 'agency-calendar', name: 'Schedule', sectionId: 'calendar', href: '/dashboard/agency/calendar', icon: CalendarDaysIcon },
+      { id: 'agency-interviews', name: 'Interviews', sectionId: 'interviews', href: '/dashboard/agency/interviews', icon: CalendarDaysIcon },
+      { id: 'agency-workspace', name: 'Workspace', sectionId: 'agency-workspace', href: '/dashboard/agency/workspace', icon: RectangleStackIcon },
     ],
   },
   {
@@ -164,6 +196,8 @@ export const AGENCY_DASHBOARD_MENU = [
     label: 'Operations',
     items: [
       { id: 'agency-projects', name: 'Projects', href: '/dashboard/agency/projects', icon: WrenchScrewdriverIcon },
+      { id: 'agency-support', name: 'Support', href: '/dashboard/agency/support', icon: LifebuoyIcon },
+      { id: 'agency-id-verification', name: 'ID checks', href: '/dashboard/agency/id-verification', icon: IdentificationIcon },
       { id: 'agency-inbox', name: 'Inbox', href: '/dashboard/agency/inbox', icon: ChatBubbleLeftRightIcon },
       { id: 'agency-settings', name: 'Governance', href: '/dashboard/agency#governance', icon: ShieldCheckIcon },
     ],
