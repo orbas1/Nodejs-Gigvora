@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { Dialog, Transition } from '@headlessui/react';
 import {
   ArrowPathIcon,
@@ -34,6 +35,13 @@ function SummaryTile({ label, value, caption, icon: Icon }) {
     </div>
   );
 }
+
+SummaryTile.propTypes = {
+  label: PropTypes.string.isRequired,
+  value: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+  caption: PropTypes.string.isRequired,
+  icon: PropTypes.elementType.isRequired,
+};
 
 function ConfirmStatusDialog({ open, loading, status, user, onConfirm, onCancel }) {
   const [reason, setReason] = useState('');
@@ -137,12 +145,35 @@ function ConfirmStatusDialog({ open, loading, status, user, onConfirm, onCancel 
   );
 }
 
+ConfirmStatusDialog.propTypes = {
+  open: PropTypes.bool.isRequired,
+  loading: PropTypes.bool,
+  status: PropTypes.string.isRequired,
+  user: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    firstName: PropTypes.string,
+    lastName: PropTypes.string,
+    email: PropTypes.string,
+  }),
+  onConfirm: PropTypes.func,
+  onCancel: PropTypes.func,
+};
+
+ConfirmStatusDialog.defaultProps = {
+  loading: false,
+  user: null,
+  onConfirm: undefined,
+  onCancel: undefined,
+};
+
 export default function AdminUserManagementSection() {
   const [directory, setDirectory] = useState({ items: [], summary: null });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardMetadata, setWizardMetadata] = useState(null);
+  const [metadataStatus, setMetadataStatus] = useState('idle');
   const [confirmState, setConfirmState] = useState({ open: false, user: null, status: 'active', loading: false });
 
   useEffect(() => {
@@ -169,9 +200,51 @@ export default function AdminUserManagementSection() {
     }
   }, []);
 
+  const loadMetadata = useCallback(
+    async (force = false) => {
+      let shouldFetch = true;
+      setMetadataStatus((current) => {
+        if (current === 'loading') {
+          shouldFetch = false;
+          return current;
+        }
+        if (!force && current === 'ready') {
+          shouldFetch = false;
+          return current;
+        }
+        return 'loading';
+      });
+
+      if (!shouldFetch) {
+        return;
+      }
+
+      try {
+        const response = await adminUsers.fetchMetadata();
+        setWizardMetadata(response ?? null);
+        setMetadataStatus('ready');
+      } catch (metadataError) {
+        setMetadataStatus('error');
+        setError((currentError) =>
+          currentError ||
+          (metadataError instanceof Error
+            ? metadataError.message
+            : 'Unable to load user metadata. Defaults applied.'),
+        );
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
     loadDirectory();
   }, [loadDirectory]);
+
+  useEffect(() => {
+    if (wizardOpen && metadataStatus === 'idle') {
+      loadMetadata();
+    }
+  }, [wizardOpen, metadataStatus, loadMetadata]);
 
   const summaryMetrics = useMemo(() => {
     const summary = directory.summary ?? {};
@@ -203,6 +276,17 @@ export default function AdminUserManagementSection() {
     setFeedback('User created and invited successfully.');
     setWizardOpen(false);
     loadDirectory();
+  };
+
+  const handleWizardOpen = () => {
+    setWizardOpen(true);
+    if (metadataStatus === 'error') {
+      loadMetadata(true);
+    }
+  };
+
+  const handleWizardClose = () => {
+    setWizardOpen(false);
   };
 
   const handleOpenStatus = (user, status) => {
@@ -249,7 +333,7 @@ export default function AdminUserManagementSection() {
           </button>
           <button
             type="button"
-            onClick={() => setWizardOpen(true)}
+            onClick={handleWizardOpen}
             className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow-md transition hover:bg-blue-700"
           >
             <PlusIcon className="h-5 w-5" aria-hidden="true" /> Create user
@@ -365,38 +449,12 @@ export default function AdminUserManagementSection() {
         </table>
       </div>
 
-      <Transition show={wizardOpen} as={Fragment}>
-        <Dialog as="div" className="relative z-50" onClose={() => setWizardOpen(false)}>
-          <Transition.Child
-            as={Fragment}
-            enter="ease-out duration-200"
-            enterFrom="opacity-0"
-            enterTo="opacity-100"
-            leave="ease-in duration-150"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-          >
-            <div className="fixed inset-0 bg-slate-900/40" />
-          </Transition.Child>
-          <div className="fixed inset-0 overflow-y-auto">
-            <div className="flex min-h-full items-center justify-center px-4 py-10">
-              <Transition.Child
-                as={Fragment}
-                enter="ease-out duration-200"
-                enterFrom="opacity-0 scale-95"
-                enterTo="opacity-100 scale-100"
-                leave="ease-in duration-150"
-                leaveFrom="opacity-100 scale-100"
-                leaveTo="opacity-0 scale-95"
-              >
-                <Dialog.Panel className="w-full max-w-4xl transform overflow-hidden rounded-3xl bg-white shadow-xl transition-all">
-                  <CreateUserWizard onSubmit={handleCreateUser} onCancel={() => setWizardOpen(false)} />
-                </Dialog.Panel>
-              </Transition.Child>
-            </div>
-          </div>
-        </Dialog>
-      </Transition>
+      <CreateUserWizard
+        open={wizardOpen}
+        onClose={handleWizardClose}
+        metadata={wizardMetadata}
+        onSubmit={handleCreateUser}
+      />
 
       <ConfirmStatusDialog
         open={confirmState.open}

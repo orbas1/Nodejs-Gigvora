@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { ArrowRightIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 
@@ -20,6 +21,10 @@ function StatusBadge({ status }) {
   );
 }
 
+StatusBadge.propTypes = {
+  status: PropTypes.string,
+};
+
 function RoleList({ roles }) {
   if (!Array.isArray(roles) || roles.length === 0) {
     return <span className="text-xs text-slate-400">None</span>;
@@ -39,6 +44,10 @@ function RoleList({ roles }) {
   );
 }
 
+RoleList.propTypes = {
+  roles: PropTypes.arrayOf(PropTypes.string),
+};
+
 function TwoFactorIndicator({ enabled }) {
   if (enabled) {
     return (
@@ -51,7 +60,18 @@ function TwoFactorIndicator({ enabled }) {
   return <span className="text-xs font-medium text-amber-600">Disabled</span>;
 }
 
-export default function UserDirectoryTable({ items, selectedUserId, onSelect, loading, pagination, onPageChange }) {
+TwoFactorIndicator.propTypes = {
+  enabled: PropTypes.bool,
+};
+
+export default function UserDirectoryTable({
+  items,
+  selectedUserId,
+  onSelect,
+  loading,
+  pagination,
+  onPageChange,
+}) {
   const handlePrev = () => {
     if (pagination.offset <= 0) {
       return;
@@ -172,4 +192,37 @@ export default function UserDirectoryTable({ items, selectedUserId, onSelect, lo
     </div>
   );
 }
+
+UserDirectoryTable.propTypes = {
+  items: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+      firstName: PropTypes.string,
+      lastName: PropTypes.string,
+      email: PropTypes.string,
+      userType: PropTypes.string,
+      status: PropTypes.string,
+      roles: PropTypes.arrayOf(PropTypes.string),
+      twoFactorEnabled: PropTypes.bool,
+      lastSeenAt: PropTypes.string,
+      lastLoginAt: PropTypes.string,
+    }),
+  ),
+  selectedUserId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  onSelect: PropTypes.func,
+  loading: PropTypes.bool,
+  pagination: PropTypes.shape({
+    offset: PropTypes.number.isRequired,
+    limit: PropTypes.number.isRequired,
+    total: PropTypes.number,
+  }).isRequired,
+  onPageChange: PropTypes.func.isRequired,
+};
+
+UserDirectoryTable.defaultProps = {
+  items: [],
+  selectedUserId: null,
+  onSelect: undefined,
+  loading: false,
+};
 

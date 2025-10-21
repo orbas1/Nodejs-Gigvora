@@ -86,11 +86,15 @@ export default function UploadPresetDrawer({ open, preset, locations, onClose, o
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    const trimmedName = typeof form.name === 'string' ? form.name.trim() : '';
+    const trimmedDescription = typeof form.description === 'string' ? form.description.trim() : '';
+    const trimmedPathPrefix = typeof form.pathPrefix === 'string' ? form.pathPrefix.trim() : '';
+
     const payload = {
       locationId: form.locationId ? Number(form.locationId) : undefined,
-      name: form.name || undefined,
-      description: form.description || undefined,
-      pathPrefix: form.pathPrefix || undefined,
+      name: trimmedName || undefined,
+      description: trimmedDescription || undefined,
+      pathPrefix: trimmedPathPrefix || undefined,
       allowedMimeTypes: normaliseListString(form.allowedMimeTypes),
       allowedRoles: normaliseListString(form.allowedRoles),
       maxSizeMb: form.maxSizeMb != null && form.maxSizeMb !== '' ? Number(form.maxSizeMb) : undefined,

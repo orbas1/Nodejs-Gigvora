@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { Dialog, Transition } from '@headlessui/react';
 import { ArrowPathIcon, FunnelIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
@@ -210,6 +211,33 @@ export default function DirectoryFilters({
     </Transition.Root>
   );
 }
+
+DirectoryFilters.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  filters: PropTypes.shape({
+    limit: PropTypes.number.isRequired,
+    offset: PropTypes.number.isRequired,
+    status: PropTypes.string,
+    role: PropTypes.string,
+    membership: PropTypes.string,
+  }).isRequired,
+  metadata: PropTypes.shape({
+    statuses: PropTypes.arrayOf(PropTypes.string),
+    roles: PropTypes.arrayOf(PropTypes.string),
+    memberships: PropTypes.arrayOf(PropTypes.string),
+  }),
+  onChange: PropTypes.func,
+  onRefresh: PropTypes.func,
+  loading: PropTypes.bool,
+};
+
+DirectoryFilters.defaultProps = {
+  metadata: null,
+  onChange: undefined,
+  onRefresh: undefined,
+  loading: false,
+};
 
 function buildDraft(filters) {
   return {
