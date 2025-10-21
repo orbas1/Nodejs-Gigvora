@@ -5,7 +5,7 @@ import { markDependencyHealthy } from '../src/lifecycle/runtimeHealth.js';
 import { appCache } from '../src/utils/cache.js';
 
 if (typeof process.env.SKIP_SEQUELIZE_BOOTSTRAP === 'undefined') {
-  process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'true';
+  process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'false';
 }
 
 const REQUIRED_ENV_DEFAULTS = {
