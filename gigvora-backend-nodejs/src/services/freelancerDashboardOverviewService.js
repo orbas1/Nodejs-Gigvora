@@ -301,7 +301,7 @@ async function loadFreelancerContext(freelancerId) {
       },
       {
         model: FreelancerDashboardOverview,
-        as: 'dashboardOverview',
+        as: 'freelancerDashboardOverview',
         required: false,
       },
     ],
@@ -426,7 +426,7 @@ export async function getFreelancerDashboardOverview(freelancerId, { bypassCache
 
   const resolver = async () => {
     const user = await loadFreelancerContext(normalizedId);
-    const overviewRecord = user.dashboardOverview ?? null;
+    const overviewRecord = user.freelancerDashboardOverview ?? null;
     const { weather } = await maybeRefreshWeather(overviewRecord);
     return buildOverviewPayload({ user, overviewRecord, weather });
   };

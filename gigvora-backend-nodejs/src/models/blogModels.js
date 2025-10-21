@@ -349,25 +349,26 @@ BlogComment.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
-export function registerBlogAssociations({ User }) {
 export function registerBlogAssociations({ User, ProviderWorkspace }) {
   BlogPost.belongsTo(User, { as: 'author', foreignKey: 'authorId' });
   BlogPost.belongsTo(BlogCategory, { as: 'category', foreignKey: 'categoryId' });
   BlogPost.belongsTo(BlogMedia, { as: 'coverImage', foreignKey: 'coverImageId' });
-  BlogPost.belongsTo(ProviderWorkspace, {
-    as: 'workspace',
-    foreignKey: 'workspaceId',
-  });
+  if (ProviderWorkspace) {
+    BlogPost.belongsTo(ProviderWorkspace, {
+      as: 'workspace',
+      foreignKey: 'workspaceId',
+    });
 
-  BlogCategory.belongsTo(ProviderWorkspace, {
-    as: 'workspace',
-    foreignKey: 'workspaceId',
-  });
+    BlogCategory.belongsTo(ProviderWorkspace, {
+      as: 'workspace',
+      foreignKey: 'workspaceId',
+    });
 
-  BlogTag.belongsTo(ProviderWorkspace, {
-    as: 'workspace',
-    foreignKey: 'workspaceId',
-  });
+    BlogTag.belongsTo(ProviderWorkspace, {
+      as: 'workspace',
+      foreignKey: 'workspaceId',
+    });
+  }
 
   BlogPost.belongsToMany(BlogTag, { through: BlogPostTag, as: 'tags', foreignKey: 'postId' });
   BlogTag.belongsToMany(BlogPost, { through: BlogPostTag, as: 'posts', foreignKey: 'tagId' });

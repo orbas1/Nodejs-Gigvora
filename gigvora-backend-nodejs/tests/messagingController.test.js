@@ -3,6 +3,7 @@ import request from 'supertest';
 import messagingRoutes from '../src/routes/messagingRoutes.js';
 import errorHandler from '../src/middleware/errorHandler.js';
 import { createUser } from './helpers/factories.js';
+import './setupTestEnv.js';
 
 function createTestApp() {
   const app = express();

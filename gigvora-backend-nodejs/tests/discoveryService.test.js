@@ -1,4 +1,5 @@
 import { describe, beforeEach, it, expect } from '@jest/globals';
+import './setupTestEnv.js';
 import {
   Job,
   Gig,

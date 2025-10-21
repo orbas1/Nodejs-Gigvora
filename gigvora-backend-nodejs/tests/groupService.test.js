@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
+import './setupTestEnv.js';
 import { Group, GroupMembership } from '../src/models/index.js';
 import groupService from '../src/services/groupService.js';
 import { createUser } from './helpers/factories.js';

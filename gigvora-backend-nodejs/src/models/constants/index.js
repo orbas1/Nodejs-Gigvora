@@ -237,6 +237,7 @@ export const ID_VERIFICATION_EVENT_TYPES = [
   'document_request',
   'escalation',
   'reminder',
+];
 export const IDENTITY_VERIFICATION_EVENT_TYPES = [
   'submission_created',
   'status_changed',
@@ -729,7 +730,7 @@ export const CALENDAR_EVENT_TYPES = [
   'wellbeing',
   'deadline',
   'ritual',
-export const CALENDAR_EVENT_TYPES = ['interview', 'networking', 'project', 'wellbeing', 'deadline', 'ritual'];
+];
 export const FREELANCER_CALENDAR_EVENT_TYPES = [
   'project',
   'gig',
@@ -764,15 +765,6 @@ export const ADMIN_CALENDAR_EVENT_TYPES = ['ops_review', 'training', 'launch', '
 export const FOCUS_SESSION_TYPES = ['interview_prep', 'networking', 'application', 'deep_work', 'wellbeing'];
 export const CALENDAR_EVENT_VISIBILITIES = ['private', 'shared', 'public'];
 export const CALENDAR_DEFAULT_VIEWS = ['agenda', 'week', 'month'];
-export const FOCUS_SESSION_TYPES = [
-  'interview_prep',
-  'networking',
-  'application',
-  'deep_work',
-  'wellbeing',
-  'mentorship',
-  'volunteering',
-];
 export const ADVISOR_COLLABORATION_STATUSES = ['draft', 'active', 'paused', 'archived'];
 export const ADVISOR_COLLABORATION_MEMBER_ROLES = ['mentor', 'agency', 'coach', 'observer', 'teammate'];
 export const ADVISOR_COLLABORATION_MEMBER_STATUSES = ['invited', 'active', 'revoked'];
@@ -814,6 +806,9 @@ export const PIPELINE_DEAL_STATUSES = ['open', 'won', 'lost', 'on_hold'];
 export const PIPELINE_FOLLOW_UP_STATUSES = ['scheduled', 'completed', 'cancelled'];
 export const PIPELINE_CAMPAIGN_STATUSES = ['draft', 'active', 'paused', 'completed'];
 export const PIPELINE_PROPOSAL_STATUSES = ['draft', 'sent', 'accepted', 'declined'];
+export const WORKSPACE_BUDGET_STATUSES = ['draft', 'approved', 'active', 'exhausted', 'closed'];
+export const WORKSPACE_OBJECT_TYPES = ['asset', 'deliverable', 'dependency', 'risk', 'note'];
+export const WORKSPACE_OBJECT_STATUSES = ['draft', 'in_progress', 'completed', 'archived'];
 
 export const HEADHUNTER_PIPELINE_STAGE_TYPES = [
   'discovery',

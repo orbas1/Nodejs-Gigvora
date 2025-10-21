@@ -96,6 +96,7 @@ export const domainMetadata = {
       },
       TwoFactorBypass: {
         reason: 'Business justification captured when issuing temporary MFA bypass tokens.',
+      },
       IdentityVerificationEvent: {
         metadata: 'Structured payload with reviewer assignments, file references, and automation signals.',
       },

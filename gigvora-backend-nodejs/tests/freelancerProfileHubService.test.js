@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from '@jest/globals';
+import './setupTestEnv.js';
 import freelancerProfileHubService from '../src/services/freelancerProfileHubService.js';
 import {
   Profile,

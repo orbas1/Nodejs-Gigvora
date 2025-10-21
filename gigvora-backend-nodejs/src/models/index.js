@@ -465,6 +465,9 @@ import {
   WALLET_RISK_TIERS,
   WORKFORCE_COHORT_TYPES,
   WORKSPACE_CALENDAR_CONNECTION_STATUSES,
+  WORKSPACE_BUDGET_STATUSES,
+  WORKSPACE_OBJECT_TYPES,
+  WORKSPACE_OBJECT_STATUSES,
   WORKSPACE_INTEGRATION_AUDIT_EVENT_TYPES,
   WORKSPACE_INTEGRATION_AUTH_TYPES,
   WORKSPACE_INTEGRATION_CATEGORIES,
@@ -609,14 +612,6 @@ export const AGENCY_CREATION_VISIBILITIES = ['internal', 'restricted', 'public']
 export const AGENCY_CREATION_ASSET_TYPES = ['image', 'video', 'document', 'link'];
 export const AGENCY_CREATION_COLLABORATOR_STATUSES = ['invited', 'active', 'declined', 'removed'];
 
-JobApplication.belongsTo(User, { foreignKey: 'assignedRecruiterId', as: 'assignedRecruiter' });
-User.hasMany(JobApplication, { foreignKey: 'assignedRecruiterId', as: 'assignedApplications' });
-JobApplicationNote.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
-User.hasMany(JobApplicationNote, { foreignKey: 'authorId', as: 'jobApplicationNotes' });
-JobApplicationDocument.belongsTo(User, { foreignKey: 'uploadedById', as: 'uploadedBy' });
-User.hasMany(JobApplicationDocument, { foreignKey: 'uploadedById', as: 'jobApplicationDocuments' });
-JobApplicationInterview.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
-User.hasMany(JobApplicationInterview, { foreignKey: 'createdById', as: 'jobApplicationInterviews' });
 export const User = sequelize.define(
   'User',
   {
@@ -658,6 +653,7 @@ export const User = sequelize.define(
     ],
   },
 );
+
 
 export const UserDashboardOverview = sequelize.define(
   'UserDashboardOverview',
@@ -9923,6 +9919,15 @@ JobApplicationInterview.prototype.toPublicObject = function toPublicObject() {
     updatedAt: plain.updatedAt,
   };
 };
+
+JobApplication.belongsTo(User, { foreignKey: 'assignedRecruiterId', as: 'assignedRecruiter' });
+User.hasMany(JobApplication, { foreignKey: 'assignedRecruiterId', as: 'assignedApplications' });
+JobApplicationNote.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
+User.hasMany(JobApplicationNote, { foreignKey: 'authorId', as: 'jobApplicationNotes' });
+JobApplicationDocument.belongsTo(User, { foreignKey: 'uploadedById', as: 'uploadedBy' });
+User.hasMany(JobApplicationDocument, { foreignKey: 'uploadedById', as: 'jobApplicationDocuments' });
+JobApplicationInterview.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+User.hasMany(JobApplicationInterview, { foreignKey: 'createdById', as: 'jobApplicationInterviews' });
 
 export const JobApplicationResponse = sequelize.define(
   'JobApplicationResponse',
@@ -19685,7 +19690,7 @@ AgencyCreationCollaborator.belongsTo(User, { foreignKey: 'addedById', as: 'added
 User.hasMany(AgencyCreationItem, { foreignKey: 'createdById', as: 'createdAgencyItems' });
 User.hasMany(AgencyCreationItem, { foreignKey: 'updatedById', as: 'updatedAgencyItems' });
 User.hasMany(AgencyCreationAsset, { foreignKey: 'uploadedById', as: 'uploadedAgencyAssets' });
-User.hasMany(AgencyCreationCollaborator, { foreignKey: 'collaboratorId', as: 'agencyCollaborations' });
+User.hasMany(AgencyCreationCollaborator, { foreignKey: 'collaboratorId', as: 'agencyCreationCollaborations' });
 User.hasMany(AgencyCreationCollaborator, { foreignKey: 'addedById', as: 'invitedAgencyCollaborations' });
 
 AgencyProfile.hasMany(AgencyProfileMedia, {
@@ -19726,7 +19731,7 @@ User.hasMany(CorporateVerification, { foreignKey: 'reviewerId', as: 'reviewedCor
 User.hasMany(UserLoginAudit, { foreignKey: 'userId', as: 'loginAudits', onDelete: 'CASCADE' });
 User.hasMany(UserRole, { foreignKey: 'userId', as: 'roleAssignments', onDelete: 'CASCADE' });
 UserRole.belongsTo(User, { foreignKey: 'userId', as: 'user' });
-UserRole.belongsTo(User, { foreignKey: 'assignedBy', as: 'assignedBy' });
+UserRole.belongsTo(User, { foreignKey: 'assignedBy', as: 'assignedByUser' });
 User.hasMany(UserNote, { foreignKey: 'userId', as: 'notes', onDelete: 'CASCADE' });
 UserNote.belongsTo(User, { foreignKey: 'userId', as: 'subject' });
 UserNote.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
@@ -19834,7 +19839,7 @@ AgencyProfile.belongsTo(User, { foreignKey: 'userId' });
 
 ProviderWorkspace.hasMany(AgencyTimelinePost, {
   foreignKey: 'workspaceId',
-  as: 'timelinePosts',
+  as: 'agencyTimelinePosts',
   onDelete: 'CASCADE',
 });
 AgencyTimelinePost.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
@@ -19860,7 +19865,7 @@ AgencyTimelinePostMetric.belongsTo(AgencyTimelinePost, { foreignKey: 'postId', a
 User.hasOne(FreelancerProfile, { foreignKey: 'userId' });
 FreelancerProfile.belongsTo(User, { foreignKey: 'userId' });
 
-User.hasOne(FreelancerDashboardOverview, { foreignKey: 'freelancerId', as: 'dashboardOverview' });
+User.hasOne(FreelancerDashboardOverview, { foreignKey: 'freelancerId', as: 'freelancerDashboardOverview' });
 FreelancerDashboardOverview.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
 
 User.hasMany(ReputationTestimonial, { foreignKey: 'freelancerId', as: 'reputationTestimonials' });
@@ -20281,16 +20286,6 @@ ProjectWorkspaceBudget.belongsTo(ProjectWorkspace, {
 });
 ProjectWorkspaceBudget.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
 
-ProjectWorkspace.hasMany(ProjectWorkspaceObject, {
-  foreignKey: { name: 'workspaceId', allowNull: false },
-  as: 'objects',
-  onDelete: 'CASCADE',
-});
-ProjectWorkspaceObject.belongsTo(ProjectWorkspace, {
-  foreignKey: { name: 'workspaceId', allowNull: false },
-  as: 'workspace',
-});
-
 ProjectWorkspace.hasMany(ProjectWorkspaceTimelineEntry, {
   foreignKey: { name: 'workspaceId', allowNull: false },
   as: 'timelineEntries',
@@ -20307,56 +20302,6 @@ ProjectWorkspaceTimelineEntry.belongsTo(ProjectWorkspaceObject, {
 ProjectWorkspaceObject.hasMany(ProjectWorkspaceTimelineEntry, {
   foreignKey: { name: 'relatedObjectId', allowNull: true },
   as: 'timelineEntries',
-});
-
-ProjectWorkspace.hasMany(ProjectWorkspaceMeeting, {
-  foreignKey: { name: 'workspaceId', allowNull: false },
-  as: 'meetings',
-  onDelete: 'CASCADE',
-});
-ProjectWorkspaceMeeting.belongsTo(ProjectWorkspace, {
-  foreignKey: { name: 'workspaceId', allowNull: false },
-  as: 'workspace',
-});
-
-ProjectWorkspace.hasMany(ProjectWorkspaceRole, {
-  foreignKey: { name: 'workspaceId', allowNull: false },
-  as: 'roles',
-  onDelete: 'CASCADE',
-});
-ProjectWorkspaceRole.belongsTo(ProjectWorkspace, {
-  foreignKey: { name: 'workspaceId', allowNull: false },
-  as: 'workspace',
-});
-
-ProjectWorkspace.hasMany(ProjectWorkspaceSubmission, {
-  foreignKey: { name: 'workspaceId', allowNull: false },
-  as: 'submissions',
-  onDelete: 'CASCADE',
-});
-ProjectWorkspaceSubmission.belongsTo(ProjectWorkspace, {
-  foreignKey: { name: 'workspaceId', allowNull: false },
-  as: 'workspace',
-});
-
-ProjectWorkspace.hasMany(ProjectWorkspaceInvite, {
-  foreignKey: { name: 'workspaceId', allowNull: false },
-  as: 'invites',
-  onDelete: 'CASCADE',
-});
-ProjectWorkspaceInvite.belongsTo(ProjectWorkspace, {
-  foreignKey: { name: 'workspaceId', allowNull: false },
-  as: 'workspace',
-});
-
-ProjectWorkspace.hasMany(ProjectWorkspaceHrRecord, {
-  foreignKey: { name: 'workspaceId', allowNull: false },
-  as: 'hrRecords',
-  onDelete: 'CASCADE',
-});
-ProjectWorkspaceHrRecord.belongsTo(ProjectWorkspace, {
-  foreignKey: { name: 'workspaceId', allowNull: false },
-  as: 'workspace',
 });
 
 Project.hasMany(ProjectAssignmentEvent, {
@@ -20618,7 +20563,7 @@ JobApplicationFavourite.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 JobApplicationFavourite.belongsTo(Job, { foreignKey: 'jobId', as: 'job' });
 Job.hasMany(JobApplicationFavourite, { foreignKey: 'jobId', as: 'jobApplicationFavourites' });
 
-User.hasMany(JobApplicationInterview, { foreignKey: 'userId', as: 'jobApplicationInterviews' });
+User.hasMany(JobApplicationInterview, { foreignKey: 'userId', as: 'candidateJobApplicationInterviews' });
 JobApplicationInterview.belongsTo(User, { foreignKey: 'userId', as: 'owner' });
 Application.hasMany(JobApplicationInterview, { foreignKey: 'applicationId', as: 'jobInterviews' });
 JobApplicationInterview.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
@@ -22032,7 +21977,7 @@ ProviderWorkspace.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
 ProviderWorkspace.hasMany(ProviderWorkspaceMember, { foreignKey: 'workspaceId', as: 'members' });
 ProviderWorkspace.hasOne(CompanyDashboardOverview, {
   foreignKey: 'workspaceId',
-  as: 'dashboardOverview',
+  as: 'companyDashboardOverview',
 });
 CompanyDashboardOverview.belongsTo(ProviderWorkspace, {
   foreignKey: 'workspaceId',
@@ -22061,11 +22006,11 @@ CompanyPageMedia.belongsTo(User, { foreignKey: 'uploadedById', as: 'uploadedBy' 
 ProviderWorkspace.hasMany(ProviderWorkspaceInvite, { foreignKey: 'workspaceId', as: 'invites' });
 ProviderWorkspace.hasMany(ProviderContactNote, { foreignKey: 'workspaceId', as: 'contactNotes' });
 ProviderWorkspace.hasMany(CompanyTimelineEvent, { foreignKey: 'workspaceId', as: 'timelineEvents' });
-ProviderWorkspace.hasMany(CompanyTimelinePost, { foreignKey: 'workspaceId', as: 'timelinePosts' });
+ProviderWorkspace.hasMany(CompanyTimelinePost, { foreignKey: 'workspaceId', as: 'companyTimelinePosts' });
 ProviderWorkspace.hasMany(CompanyTimelinePostMetric, { foreignKey: 'workspaceId', as: 'timelinePostMetrics' });
 ProviderWorkspace.hasMany(ExecutiveIntelligenceMetric, { foreignKey: 'workspaceId', as: 'executiveMetrics' });
 ProviderWorkspace.hasMany(ExecutiveScenarioPlan, { foreignKey: 'workspaceId', as: 'executiveScenarioPlans' });
-ProviderWorkspace.hasOne(AgencyDashboardOverview, { foreignKey: 'workspaceId', as: 'dashboardOverview' });
+ProviderWorkspace.hasOne(AgencyDashboardOverview, { foreignKey: 'workspaceId', as: 'agencyDashboardOverview' });
 AgencyDashboardOverview.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 AgencyDashboardOverview.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
 AgencyDashboardOverview.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
@@ -22503,7 +22448,6 @@ EmployerBrandStory.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
 EmployerBenefit.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 EmployeeJourneyProgram.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 EmployeeJourneyProgram.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
-WorkspaceIntegration.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 WorkspaceCalendarConnection.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 
 WorkspaceTemplateCategory.hasMany(WorkspaceTemplate, { foreignKey: 'categoryId', as: 'templates' });
@@ -23142,7 +23086,6 @@ export default {
   BlogPostMedia,
 };
 
-registerBlogAssociations({ User });
 registerAdminTimelineAssociations({ User });
 registerBlogAssociations({ User, ProviderWorkspace });
 

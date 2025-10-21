@@ -238,7 +238,7 @@ export async function getUser(userId, { includeNotesLimit = DEFAULT_RECENT_AUDIT
         include: [
           {
             model: User,
-            as: 'assignedBy',
+            as: 'assignedByUser',
             attributes: ['id', 'firstName', 'lastName', 'email'],
           },
         ],
@@ -278,12 +278,12 @@ export async function getUser(userId, { includeNotesLimit = DEFAULT_RECENT_AUDIT
     ? user.roleAssignments.map((assignment) => ({
         role: assignment.role,
         assignedAt: assignment.assignedAt?.toISOString?.() ?? null,
-        assignedBy: assignment.assignedBy
+        assignedBy: assignment.assignedByUser
           ? {
-              id: assignment.assignedBy.id,
-              firstName: assignment.assignedBy.firstName,
-              lastName: assignment.assignedBy.lastName,
-              email: assignment.assignedBy.email,
+              id: assignment.assignedByUser.id,
+              firstName: assignment.assignedByUser.firstName,
+              lastName: assignment.assignedByUser.lastName,
+              email: assignment.assignedByUser.email,
             }
           : null,
       }))
