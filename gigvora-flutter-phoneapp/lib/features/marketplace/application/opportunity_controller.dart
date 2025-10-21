@@ -108,6 +108,7 @@ class OpportunityController extends StateNotifier<ResourceState<OpportunityPage>
       return;
     }
     _query = trimmed;
+    _viewRecorded = false;
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 400), () async {
       await load();
