@@ -11,6 +11,10 @@ class GigvoraScaffold extends ConsumerWidget {
     required this.body,
     this.actions,
     this.floatingActionButton,
+    this.drawer,
+    this.navigationDestinations,
+    this.selectedDestination = 0,
+    this.onDestinationSelected,
     super.key,
   });
 
@@ -19,6 +23,10 @@ class GigvoraScaffold extends ConsumerWidget {
   final Widget body;
   final List<Widget>? actions;
   final Widget? floatingActionButton;
+  final Widget? drawer;
+  final List<GigvoraNavigationDestination>? navigationDestinations;
+  final int selectedDestination;
+  final ValueChanged<int>? onDestinationSelected;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -26,6 +34,15 @@ class GigvoraScaffold extends ConsumerWidget {
           data: (value) => value,
           orElse: () => null,
         );
+    final bottomNav = navigationDestinations == null
+        ? null
+        : NavigationBar(
+            selectedIndex: selectedDestination,
+            destinations:
+                navigationDestinations!.map((destination) => destination.toNavigationDestination()).toList(),
+            onDestinationSelected: onDestinationSelected ?? (_) {},
+          );
+
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -61,7 +78,27 @@ class GigvoraScaffold extends ConsumerWidget {
       ),
       backgroundColor: Theme.of(context).colorScheme.background,
       floatingActionButton: floatingActionButton,
+      drawer: drawer,
+      bottomNavigationBar: bottomNav,
     );
+  }
+}
+
+class GigvoraNavigationDestination {
+  const GigvoraNavigationDestination({
+    required this.icon,
+    required this.selectedIcon,
+    required this.label,
+    this.route,
+  });
+
+  final Icon icon;
+  final Icon selectedIcon;
+  final String label;
+  final String? route;
+
+  NavigationDestination toNavigationDestination() {
+    return NavigationDestination(icon: icon, selectedIcon: selectedIcon, label: label);
   }
 }
 
