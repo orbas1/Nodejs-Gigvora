@@ -15,7 +15,8 @@ import {
   addParticipantsToThread,
   removeParticipantFromThread,
 } from '../services/messagingService.js';
-import { ValidationError } from '../utils/errors.js';
+import { AuthorizationError, ValidationError } from '../utils/errors.js';
+import { resolveRequestPermissions } from '../utils/requestContext.js';
 
 function parseArray(value) {
   if (Array.isArray(value)) {
@@ -28,6 +29,21 @@ function parseArray(value) {
       .filter(Boolean);
   }
   return [];
+}
+
+function parsePositiveInteger(value, label, { optional = false } = {}) {
+  if (value == null || value === '') {
+    if (optional) {
+      return null;
+    }
+    throw new ValidationError(`${label} is required.`);
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new ValidationError(`${label} must be a positive integer.`);
+  }
+  return parsed;
 }
 
 function resolveActorId(req, { required = true } = {}) {
@@ -43,15 +59,98 @@ function resolveActorId(req, { required = true } = {}) {
     if (candidate == null) continue;
     const parsed = Number(candidate);
     if (Number.isFinite(parsed) && parsed > 0) {
+      if (req.user?.id && Number.parseInt(req.user.id, 10) !== parsed) {
+        throw new AuthorizationError('You cannot impersonate another user in messaging.');
+      }
       return parsed;
     }
   }
 
   if (required) {
-    throw new ValidationError('An authenticated userId is required for this action.');
+    throw new AuthorizationError('Authentication required.');
   }
 
   return null;
+}
+
+function ensureSupportPrivileges(req) {
+  const permissions = new Set(resolveRequestPermissions(req).map((permission) => permission.toLowerCase()));
+  const roles = Array.isArray(req.user?.roles) ? req.user.roles : [req.user?.role].filter(Boolean);
+  roles.map((role) => `${role}`.toLowerCase()).forEach((role) => permissions.add(role));
+
+  if (
+    permissions.has('admin') ||
+    permissions.has('support') ||
+    permissions.has('support.manage.any') ||
+    permissions.has('messaging.manage.any')
+  ) {
+    return;
+  }
+
+  throw new AuthorizationError('Support permissions required for this action.');
+}
+
+function normalisePagination(query = {}) {
+  const page = query.page != null ? Number.parseInt(query.page, 10) : 1;
+  const pageSize = query.pageSize != null ? Number.parseInt(query.pageSize, 10) : 25;
+
+  if (!Number.isFinite(page) || page <= 0) {
+    throw new ValidationError('page must be a positive integer.');
+  }
+
+  if (!Number.isFinite(pageSize) || pageSize <= 0) {
+    throw new ValidationError('pageSize must be a positive integer.');
+  }
+
+  return {
+    page,
+    pageSize: Math.min(pageSize, 100),
+  };
+}
+
+function sanitiseMetadata(metadata) {
+  if (metadata == null) {
+    return {};
+  }
+  if (typeof metadata !== 'object' || Array.isArray(metadata)) {
+    throw new ValidationError('metadata must be an object.');
+  }
+  return JSON.parse(JSON.stringify(metadata));
+}
+
+function sanitiseAttachments(attachments) {
+  if (attachments == null) {
+    return [];
+  }
+  if (!Array.isArray(attachments)) {
+    throw new ValidationError('attachments must be an array.');
+  }
+  return attachments.slice(0, 25).map((attachment) => {
+    if (attachment == null || typeof attachment !== 'object') {
+      throw new ValidationError('Each attachment must be an object.');
+    }
+    const normalised = { ...attachment };
+    if (normalised.url != null) {
+      normalised.url = String(normalised.url).trim();
+    }
+    if (normalised.name != null) {
+      normalised.name = String(normalised.name).trim().slice(0, 200);
+    }
+    return normalised;
+  });
+}
+
+function ensureParticipantList(value) {
+  const normalised = Array.isArray(value)
+    ? value
+    : value == null
+    ? []
+    : parseArray(value);
+  const values = normalised.map((id) => parsePositiveInteger(id, 'participantId'));
+  if (values.length === 0) {
+    throw new ValidationError('At least one participantId is required.');
+  }
+  return values;
 }
 
 function parseDateInput(value) {
@@ -88,15 +187,15 @@ export async function listInbox(req, res) {
       includeSupport: String(includeSupport ?? '').toLowerCase() !== 'false',
       includeLabels: String(includeLabels ?? '').toLowerCase() === 'true',
     },
-    { page, pageSize },
+    normalisePagination({ page, pageSize }),
   );
 
   res.json(response);
 }
 
 export async function openThread(req, res) {
-  const { threadId } = req.params;
-  const thread = await getThread(Number(threadId), {
+  const threadId = parsePositiveInteger(req.params?.threadId, 'threadId');
+  const thread = await getThread(threadId, {
     withParticipants: String(req.query.includeParticipants ?? '').toLowerCase() !== 'false',
     includeSupportCase: String(req.query.includeSupport ?? '').toLowerCase() !== 'false',
     includeLabels: String(req.query.includeLabels ?? '').toLowerCase() === 'true',
@@ -106,14 +205,14 @@ export async function openThread(req, res) {
 
 export async function createConversation(req, res) {
   const createdBy = resolveActorId(req);
-  const participantIds = parseArray(req.body.participantIds).map((id) => Number(id)).filter((id) => Number.isFinite(id));
+  const participantIds = ensureParticipantList(req.body.participantIds ?? req.body.participantId);
 
   const thread = await createThread({
-    subject: req.body.subject,
+    subject: String(req.body.subject ?? '').trim().slice(0, 250) || null,
     channelType: req.body.channelType,
     createdBy,
     participantIds,
-    metadata: req.body.metadata && typeof req.body.metadata === 'object' ? req.body.metadata : {},
+    metadata: sanitiseMetadata(req.body.metadata),
   });
 
   res.status(201).json(thread);
@@ -121,23 +220,23 @@ export async function createConversation(req, res) {
 
 export async function postMessage(req, res) {
   const senderId = resolveActorId(req);
-  const { threadId } = req.params;
-  const message = await appendMessage(Number(threadId), senderId, {
+  const threadId = parsePositiveInteger(req.params?.threadId, 'threadId');
+  const message = await appendMessage(threadId, senderId, {
     messageType: req.body.messageType,
-    body: req.body.body,
-    attachments: Array.isArray(req.body.attachments) ? req.body.attachments : [],
-    metadata: req.body.metadata && typeof req.body.metadata === 'object' ? req.body.metadata : {},
+    body: String(req.body.body ?? '').trim(),
+    attachments: sanitiseAttachments(req.body.attachments),
+    metadata: sanitiseMetadata(req.body.metadata),
   });
 
   res.status(201).json(message);
 }
 
 export async function listThreadMessages(req, res) {
-  const { threadId } = req.params;
+  const threadId = parsePositiveInteger(req.params?.threadId, 'threadId');
   const { page, pageSize, includeSystem } = req.query;
   const response = await listMessages(
-    Number(threadId),
-    { page, pageSize },
+    threadId,
+    normalisePagination({ page, pageSize }),
     { includeSystem: String(includeSystem ?? '').toLowerCase() === 'true' },
   );
   res.json(response);
@@ -145,65 +244,67 @@ export async function listThreadMessages(req, res) {
 
 export async function acknowledgeThread(req, res) {
   const userId = resolveActorId(req);
-  const { threadId } = req.params;
-  const result = await markThreadRead(Number(threadId), userId);
+  const threadId = parsePositiveInteger(req.params?.threadId, 'threadId');
+  const result = await markThreadRead(threadId, userId);
   res.json(result);
 }
 
 export async function changeThreadState(req, res) {
-  const { threadId } = req.params;
-  const { state } = req.body;
-  const thread = await updateThreadState(Number(threadId), state);
+  const threadId = parsePositiveInteger(req.params?.threadId, 'threadId');
+  const { state } = req.body ?? {};
+  if (!state) {
+    throw new ValidationError('state is required.');
+  }
+  const thread = await updateThreadState(threadId, String(state).trim().toLowerCase());
   res.json(thread);
 }
 
 export async function muteConversation(req, res) {
   const userId = resolveActorId(req);
-  const { threadId } = req.params;
+  const threadId = parsePositiveInteger(req.params?.threadId, 'threadId');
   const mutedUntil = parseDateInput(req.body.until);
-  const result = await muteThread(Number(threadId), userId, mutedUntil);
+  const result = await muteThread(threadId, userId, mutedUntil);
   res.json(result);
 }
 
 export async function escalateThread(req, res) {
   const userId = resolveActorId(req);
-  const { threadId } = req.params;
-  const supportCase = await escalateThreadToSupport(Number(threadId), userId, {
-    reason: req.body.reason,
+  const threadId = parsePositiveInteger(req.params?.threadId, 'threadId');
+  const supportCase = await escalateThreadToSupport(threadId, userId, {
+    reason: String(req.body.reason ?? '').trim(),
     priority: req.body.priority,
-    metadata: req.body.metadata && typeof req.body.metadata === 'object' ? req.body.metadata : {},
+    metadata: sanitiseMetadata(req.body.metadata),
   });
   res.status(202).json(supportCase);
 }
 
 export async function assignSupport(req, res) {
+  ensureSupportPrivileges(req);
   const actorId = resolveActorId(req, { required: false });
-  const { threadId } = req.params;
-  const agentId = Number(req.body.agentId);
-  if (!Number.isFinite(agentId) || agentId <= 0) {
-    throw new ValidationError('agentId must be a positive integer.');
-  }
+  const threadId = parsePositiveInteger(req.params?.threadId, 'threadId');
+  const agentId = parsePositiveInteger(req.body?.agentId, 'agentId');
 
-  const supportCase = await assignSupportAgent(Number(threadId), agentId, {
-    assignedBy: Number.isFinite(Number(req.body.assignedBy)) ? Number(req.body.assignedBy) : actorId ?? agentId,
-    notifyAgent: String(req.body.notifyAgent ?? '').toLowerCase() !== 'false',
+  const supportCase = await assignSupportAgent(threadId, agentId, {
+    assignedBy: parsePositiveInteger(req.body?.assignedBy, 'assignedBy', { optional: true }) ?? actorId ?? agentId,
+    notifyAgent: String(req.body?.notifyAgent ?? '').toLowerCase() !== 'false',
   });
 
   res.json(supportCase);
 }
 
 export async function updateSupportStatus(req, res) {
+  ensureSupportPrivileges(req);
   const actorId = resolveActorId(req, { required: false });
-  const { threadId } = req.params;
+  const threadId = parsePositiveInteger(req.params?.threadId, 'threadId');
   const { status, resolutionSummary, metadata } = req.body;
   if (!status) {
     throw new ValidationError('status is required to update a support case.');
   }
 
-  const supportCase = await updateSupportCaseStatus(Number(threadId), status, {
+  const supportCase = await updateSupportCaseStatus(threadId, String(status).trim().toLowerCase(), {
     actorId,
     resolutionSummary,
-    metadataPatch: metadata && typeof metadata === 'object' ? metadata : {},
+    metadataPatch: sanitiseMetadata(metadata),
   });
 
   res.json(supportCase);
@@ -211,10 +312,10 @@ export async function updateSupportStatus(req, res) {
 
 export async function createCallSession(req, res) {
   const userId = resolveActorId(req);
-  const { threadId } = req.params;
+  const threadId = parsePositiveInteger(req.params?.threadId, 'threadId');
   const { callType, callId, role } = req.body ?? {};
 
-  const session = await startOrJoinCall(Number(threadId), userId, {
+  const session = await startOrJoinCall(threadId, userId, {
     callType,
     callId,
     role,
@@ -225,13 +326,13 @@ export async function createCallSession(req, res) {
 
 export async function updateThreadSettings(req, res) {
   const actorId = resolveActorId(req);
-  const { threadId } = req.params;
+  const threadId = parsePositiveInteger(req.params?.threadId, 'threadId');
   const { subject, channelType, metadataPatch, metadata } = req.body ?? {};
 
-  const thread = await updateThreadSettingsService(Number(threadId), actorId, {
-    subject,
+  const thread = await updateThreadSettingsService(threadId, actorId, {
+    subject: subject != null ? String(subject).trim().slice(0, 250) : undefined,
     channelType,
-    metadataPatch: metadataPatch && typeof metadataPatch === 'object' ? metadataPatch : metadata,
+    metadataPatch: metadataPatch != null ? sanitiseMetadata(metadataPatch) : sanitiseMetadata(metadata),
   });
 
   res.json(thread);
@@ -239,12 +340,10 @@ export async function updateThreadSettings(req, res) {
 
 export async function addParticipants(req, res) {
   const actorId = resolveActorId(req);
-  const { threadId } = req.params;
-  const participants = Array.isArray(req.body?.participantIds)
-    ? req.body.participantIds
-    : [req.body?.participantId].filter(Boolean);
+  const threadId = parsePositiveInteger(req.params?.threadId, 'threadId');
+  const participants = ensureParticipantList(req.body?.participantIds ?? req.body?.participantId);
 
-  const thread = await addParticipantsToThread(Number(threadId), actorId, participants);
+  const thread = await addParticipantsToThread(threadId, actorId, participants);
   res.status(201).json(thread);
 }
 
@@ -252,7 +351,11 @@ export async function removeParticipant(req, res) {
   const actorId = resolveActorId(req);
   const { threadId, participantId } = req.params;
 
-  const thread = await removeParticipantFromThread(Number(threadId), Number(participantId), actorId);
+  const thread = await removeParticipantFromThread(
+    parsePositiveInteger(threadId, 'threadId'),
+    parsePositiveInteger(participantId, 'participantId'),
+    actorId,
+  );
   res.json(thread);
 }
 
