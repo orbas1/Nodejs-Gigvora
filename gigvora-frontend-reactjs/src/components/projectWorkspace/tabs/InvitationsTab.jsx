@@ -202,7 +202,7 @@ export default function InvitationsTab({ project, actions, canManage }) {
             />
           </label>
           <label className="flex flex-col text-sm text-slate-700">
-            Expires at
+            Expires on
             <input
               type="date"
               name="expiresAt"
@@ -346,7 +346,7 @@ export default function InvitationsTab({ project, actions, canManage }) {
               />
             </label>
             <label className="flex flex-col text-sm text-slate-700">
-              Expires at
+              Expires on
               <input
                 type="date"
                 name="expiresAt"

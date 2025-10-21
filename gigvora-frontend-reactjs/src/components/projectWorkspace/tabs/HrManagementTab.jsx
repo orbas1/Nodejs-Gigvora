@@ -233,7 +233,7 @@ export default function HrManagementTab({ project, actions, canManage }) {
             />
           </label>
           <label className="flex flex-col text-sm text-slate-700">
-            Compensation (annual)
+            Compensation (USD)
             <input
               type="number"
               name="compensation"
@@ -246,7 +246,7 @@ export default function HrManagementTab({ project, actions, canManage }) {
             />
           </label>
           <label className="flex flex-col text-sm text-slate-700">
-            Allocation (%)
+            Allocation %
             <input
               type="number"
               name="allocationPercent"
@@ -411,7 +411,7 @@ export default function HrManagementTab({ project, actions, canManage }) {
               />
             </label>
             <label className="flex flex-col text-sm text-slate-700">
-              Compensation (annual)
+              Compensation (USD)
               <input
                 type="number"
                 name="compensation"
@@ -424,7 +424,7 @@ export default function HrManagementTab({ project, actions, canManage }) {
               />
             </label>
             <label className="flex flex-col text-sm text-slate-700">
-              Allocation (%)
+              Allocation %
               <input
                 type="number"
                 name="allocationPercent"
