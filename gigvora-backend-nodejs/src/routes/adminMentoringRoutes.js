@@ -2,6 +2,7 @@ import { Router } from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
 import adminMentoringController from '../controllers/adminMentoringController.js';
 import validateRequest from '../middleware/validateRequest.js';
+import { requireAdmin } from '../middleware/authenticate.js';
 import {
   adminMentoringListQuerySchema,
   adminMentoringCreateBodySchema,
@@ -13,6 +14,8 @@ import {
 } from '../validation/schemas/mentoringSchemas.js';
 
 const router = Router();
+
+router.use(requireAdmin);
 
 router.get('/catalog', asyncHandler(adminMentoringController.catalog));
 

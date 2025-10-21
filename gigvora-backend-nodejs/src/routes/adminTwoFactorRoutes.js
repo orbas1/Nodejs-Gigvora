@@ -22,8 +22,11 @@ import {
   approveEnrollment,
   revokeEnrollment,
 } from '../controllers/adminTwoFactorController.js';
+import { requireAdmin } from '../middleware/authenticate.js';
 
 const router = Router();
+
+router.use(requireAdmin);
 
 router.get('/', validateRequest({ query: adminTwoFactorOverviewQuerySchema }), asyncHandler(fetchOverview));
 

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
 import validateRequest from '../middleware/validateRequest.js';
 import * as adminProfileController from '../controllers/adminProfileController.js';
+import { requireAdmin } from '../middleware/authenticate.js';
 import {
   adminProfileListQuerySchema,
   adminProfileCreateSchema,
@@ -13,6 +14,8 @@ import {
 } from '../validation/schemas/adminProfileSchemas.js';
 
 const router = Router();
+
+router.use(requireAdmin);
 
 router.get(
   '/',
