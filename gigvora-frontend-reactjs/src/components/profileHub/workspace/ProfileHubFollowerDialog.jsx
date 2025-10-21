@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from 'react';
 import { Dialog, Transition, Switch } from '@headlessui/react';
 import clsx from 'clsx';
+import PropTypes from 'prop-types';
 import UserAvatar from '../../UserAvatar.jsx';
 
 const STATUS_OPTIONS = [
@@ -214,3 +215,32 @@ function buildForm(follower) {
     lastInteractedAt: follower.lastInteractedAt ? follower.lastInteractedAt.slice(0, 10) : '',
   };
 }
+
+ProfileHubFollowerDialog.propTypes = {
+  open: PropTypes.bool.isRequired,
+  follower: PropTypes.shape({
+    followerId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    status: PropTypes.string,
+    displayName: PropTypes.string,
+    tags: PropTypes.oneOfType([PropTypes.arrayOf(PropTypes.string), PropTypes.string]),
+    notes: PropTypes.string,
+    notificationsEnabled: PropTypes.bool,
+    lastInteractedAt: PropTypes.string,
+    summary: PropTypes.shape({
+      name: PropTypes.string,
+      avatarUrl: PropTypes.string,
+      avatarSeed: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      headline: PropTypes.string,
+      userType: PropTypes.string,
+    }),
+  }),
+  onClose: PropTypes.func.isRequired,
+  onSave: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
+  saving: PropTypes.bool,
+};
+
+ProfileHubFollowerDialog.defaultProps = {
+  follower: undefined,
+  saving: false,
+};

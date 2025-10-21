@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import DataStatus from '../../components/DataStatus.jsx';
 import CompanyProfileOverview from '../../components/company/profile/CompanyProfileOverview.jsx';
@@ -9,6 +9,7 @@ import CompanyFollowersManager from '../../components/company/profile/CompanyFol
 import CompanyConnectionsManager from '../../components/company/profile/CompanyConnectionsManager.jsx';
 import { useSession } from '../../context/SessionContext.jsx';
 import useCompanyProfileWorkspace from '../../hooks/useCompanyProfileWorkspace.js';
+import AccessDeniedPanel from '../../components/dashboard/AccessDeniedPanel.jsx';
 import {
   updateCompanyProfile,
   updateCompanyAvatar,
@@ -48,6 +49,7 @@ const DASHBOARD_DESTINATIONS = [
 
 export default function CompanyProfileWorkspacePage() {
   const { session, isAuthenticated } = useSession();
+  const navigate = useNavigate();
   const memberships = session?.memberships ?? [];
   const hasCompanyAccess = memberships.includes('company') || session?.userType === 'company';
 
@@ -212,10 +214,26 @@ export default function CompanyProfileWorkspacePage() {
   ) : null;
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace state={{ redirectTo: '/dashboard/company/profile' }} />;
   }
+
   if (!hasCompanyAccess) {
-    return <Navigate to="/dashboard" replace />;
+    const fallbackDashboards = memberships.filter((membership) => membership !== 'company');
+    return (
+      <DashboardLayout
+        currentDashboard="company"
+        title="Profile"
+        subtitle="Company workspace"
+        description="Company membership required to manage this profile."
+        menuSections={MENU_SECTIONS}
+        availableDashboards={DASHBOARD_DESTINATIONS}
+      >
+        <AccessDeniedPanel
+          availableDashboards={fallbackDashboards}
+          onNavigate={(dashboard) => navigate(`/dashboard/${dashboard}`)}
+        />
+      </DashboardLayout>
+    );
   }
 
   const overviewProfile = useMemo(() => profile ?? data?.profile ?? null, [profile, data?.profile]);

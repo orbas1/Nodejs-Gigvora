@@ -1,80 +1,131 @@
 import { apiClient } from './apiClient.js';
+import {
+  assertAdminAccess,
+  buildAdminCacheKey,
+  createRequestOptions,
+  encodeIdentifier,
+  fetchWithCache,
+  invalidateCacheByTag,
+  sanitiseQueryParams,
+} from './adminServiceHelpers.js';
 
-export async function fetchAdminProfiles(params = {}, options = {}) {
-  const config = { params, ...options };
-  return apiClient.get('/admin/profiles', config);
+const PROFILE_ROLES = ['super-admin', 'platform-admin', 'operations-admin', 'profile-admin'];
+const CACHE_TAGS = {
+  list: 'admin:profiles:list',
+};
+
+function normaliseProfileQuery(params = {}) {
+  return sanitiseQueryParams({
+    status: params.status,
+    ownerId: params.ownerId ?? params.owner_id,
+    search: params.search,
+    page: params.page,
+    pageSize: params.pageSize ?? params.page_size,
+    sort: params.sort,
+  });
 }
 
-export async function createAdminProfile(payload, options = {}) {
-  return apiClient.post('/admin/profiles', payload, options);
+async function performAndInvalidate(request) {
+  const response = await request();
+  invalidateCacheByTag(CACHE_TAGS.list);
+  return response;
 }
 
-export async function fetchAdminProfile(profileId, options = {}) {
-  if (!profileId) {
-    throw new Error('profileId is required');
-  }
-  return apiClient.get(`/admin/profiles/${profileId}`, options);
+export function fetchAdminProfiles(params = {}, options = {}) {
+  assertAdminAccess(PROFILE_ROLES);
+  const cleanedParams = normaliseProfileQuery(params);
+  const { forceRefresh = false, cacheTtl = 60000, ...requestOptions } = options ?? {};
+  const cacheKey = buildAdminCacheKey('admin:profiles:list', cleanedParams);
+
+  return fetchWithCache(
+    cacheKey,
+    () => apiClient.get('/admin/profiles', createRequestOptions(requestOptions, cleanedParams)),
+    {
+      ttl: cacheTtl,
+      forceRefresh,
+      tag: CACHE_TAGS.list,
+    },
+  );
 }
 
-export async function updateAdminProfile(profileId, payload, options = {}) {
-  if (!profileId) {
-    throw new Error('profileId is required');
-  }
-  return apiClient.put(`/admin/profiles/${profileId}`, payload, options);
+export function fetchAdminProfile(profileId, options = {}) {
+  assertAdminAccess(PROFILE_ROLES);
+  const identifier = encodeIdentifier(profileId, { label: 'profileId' });
+  return apiClient.get(`/admin/profiles/${identifier}`, options);
 }
 
-export async function createAdminProfileReference(profileId, payload, options = {}) {
-  if (!profileId) {
-    throw new Error('profileId is required');
-  }
-  return apiClient.post(`/admin/profiles/${profileId}/references`, payload, options);
+export function createAdminProfile(payload, options = {}) {
+  assertAdminAccess(PROFILE_ROLES);
+  return performAndInvalidate(() => apiClient.post('/admin/profiles', payload, options));
 }
 
-export async function updateAdminProfileReference(profileId, referenceId, payload, options = {}) {
-  if (!profileId) {
-    throw new Error('profileId is required');
-  }
-  if (!referenceId) {
-    throw new Error('referenceId is required');
-  }
-  return apiClient.put(`/admin/profiles/${profileId}/references/${referenceId}`, payload, options);
+export function updateAdminProfile(profileId, payload, options = {}) {
+  assertAdminAccess(PROFILE_ROLES);
+  const identifier = encodeIdentifier(profileId, { label: 'profileId' });
+  return performAndInvalidate(() => apiClient.put(`/admin/profiles/${identifier}`, payload, options));
 }
 
-export async function deleteAdminProfileReference(profileId, referenceId, options = {}) {
-  if (!profileId) {
-    throw new Error('profileId is required');
-  }
-  if (!referenceId) {
-    throw new Error('referenceId is required');
-  }
-  return apiClient.delete(`/admin/profiles/${profileId}/references/${referenceId}`, options);
+export function createAdminProfileReference(profileId, payload, options = {}) {
+  assertAdminAccess(PROFILE_ROLES);
+  const identifier = encodeIdentifier(profileId, { label: 'profileId' });
+  return performAndInvalidate(() =>
+    apiClient.post(`/admin/profiles/${identifier}/references`, payload, options),
+  );
 }
 
-export async function createAdminProfileNote(profileId, payload, options = {}) {
-  if (!profileId) {
-    throw new Error('profileId is required');
-  }
-  return apiClient.post(`/admin/profiles/${profileId}/notes`, payload, options);
+export function updateAdminProfileReference(profileId, referenceId, payload, options = {}) {
+  assertAdminAccess(PROFILE_ROLES);
+  const profileIdentifier = encodeIdentifier(profileId, { label: 'profileId' });
+  const referenceIdentifier = encodeIdentifier(referenceId, { label: 'referenceId' });
+  return performAndInvalidate(() =>
+    apiClient.put(
+      `/admin/profiles/${profileIdentifier}/references/${referenceIdentifier}`,
+      payload,
+      options,
+    ),
+  );
 }
 
-export async function updateAdminProfileNote(profileId, noteId, payload, options = {}) {
-  if (!profileId) {
-    throw new Error('profileId is required');
-  }
-  if (!noteId) {
-    throw new Error('noteId is required');
-  }
-  return apiClient.put(`/admin/profiles/${profileId}/notes/${noteId}`, payload, options);
+export function deleteAdminProfileReference(profileId, referenceId, options = {}) {
+  assertAdminAccess(PROFILE_ROLES);
+  const profileIdentifier = encodeIdentifier(profileId, { label: 'profileId' });
+  const referenceIdentifier = encodeIdentifier(referenceId, { label: 'referenceId' });
+  return performAndInvalidate(() =>
+    apiClient.delete(
+      `/admin/profiles/${profileIdentifier}/references/${referenceIdentifier}`,
+      options,
+    ),
+  );
 }
 
-export async function deleteAdminProfileNote(profileId, noteId, options = {}) {
-  if (!profileId) {
-    throw new Error('profileId is required');
-  }
-  if (!noteId) {
-    throw new Error('noteId is required');
-  }
-  return apiClient.delete(`/admin/profiles/${profileId}/notes/${noteId}`, options);
+export function createAdminProfileNote(profileId, payload, options = {}) {
+  assertAdminAccess(PROFILE_ROLES);
+  const identifier = encodeIdentifier(profileId, { label: 'profileId' });
+  return performAndInvalidate(() =>
+    apiClient.post(`/admin/profiles/${identifier}/notes`, payload, options),
+  );
+}
+
+export function updateAdminProfileNote(profileId, noteId, payload, options = {}) {
+  assertAdminAccess(PROFILE_ROLES);
+  const profileIdentifier = encodeIdentifier(profileId, { label: 'profileId' });
+  const noteIdentifier = encodeIdentifier(noteId, { label: 'noteId' });
+  return performAndInvalidate(() =>
+    apiClient.put(
+      `/admin/profiles/${profileIdentifier}/notes/${noteIdentifier}`,
+      payload,
+      options,
+    ),
+  );
+}
+
+export function deleteAdminProfileNote(profileId, noteId, options = {}) {
+  assertAdminAccess(PROFILE_ROLES);
+  const profileIdentifier = encodeIdentifier(profileId, { label: 'profileId' });
+  const noteIdentifier = encodeIdentifier(noteId, { label: 'noteId' });
+  return performAndInvalidate(() =>
+    apiClient.delete(`/admin/profiles/${profileIdentifier}/notes/${noteIdentifier}`, options),
+  );
 }
 
 export default {

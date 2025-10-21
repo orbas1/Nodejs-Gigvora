@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import PanelDialog from './PanelDialog.jsx';
 
-function normalizeSkill(skill = {}) {
+function normalizeSkill(skillInput = {}) {
+  const skill = skillInput ?? {};
   return {
     id: skill.id ?? null,
     name: skill.name ?? '',

@@ -7,7 +7,8 @@ const MEDIA_TYPE_OPTIONS = [
   { value: 'banner', label: 'Banner' },
 ];
 
-function normalizeMediaItem(item = {}) {
+function normalizeMediaItem(itemInput = {}) {
+  const item = itemInput ?? {};
   return {
     id: item.id ?? null,
     type: item.type ?? 'image',

@@ -1,4 +1,5 @@
 import { ArrowTopRightOnSquareIcon, UserGroupIcon, UsersIcon } from '@heroicons/react/24/outline';
+import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import UserAvatar from '../UserAvatar.jsx';
 
@@ -52,3 +53,33 @@ export default function ProfileHubQuickPanel({ profileOverview, profileHub, onOp
     </section>
   );
 }
+
+ProfileHubQuickPanel.propTypes = {
+  profileOverview: PropTypes.shape({
+    name: PropTypes.string,
+    headline: PropTypes.string,
+    location: PropTypes.string,
+    avatarUrl: PropTypes.string,
+    avatarSeed: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  }),
+  profileHub: PropTypes.shape({
+    followers: PropTypes.shape({
+      total: PropTypes.number,
+    }),
+    connections: PropTypes.shape({
+      total: PropTypes.number,
+      items: PropTypes.arrayOf(
+        PropTypes.shape({
+          id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+        }),
+      ),
+    }),
+  }),
+  onOpen: PropTypes.func,
+};
+
+ProfileHubQuickPanel.defaultProps = {
+  profileOverview: undefined,
+  profileHub: undefined,
+  onOpen: undefined,
+};

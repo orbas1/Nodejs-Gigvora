@@ -21,6 +21,7 @@ import ProfileReferencesCard from './ProfileReferencesCard.jsx';
 import ProfileCollaborationCard from './ProfileCollaborationCard.jsx';
 import { Squares2X2Icon, UserCircleIcon, ChatBubbleBottomCenterTextIcon, UsersIcon } from '@heroicons/react/24/outline';
 import { ClockIcon, AcademicCapIcon, BriefcaseIcon, BookmarkIcon } from '@heroicons/react/24/outline';
+import PropTypes from 'prop-types';
 
 function stableStringify(value) {
   return JSON.stringify(value, Object.keys(value).sort());
@@ -549,3 +550,26 @@ export default function ProfileSettingsSection({ profile, userId, onRefresh, ses
     </section>
   );
 }
+
+ProfileSettingsSection.propTypes = {
+  profile: PropTypes.shape({
+    identity: PropTypes.object,
+    availability: PropTypes.object,
+    metrics: PropTypes.shape({
+      profileCompletion: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      trustScore: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    }),
+    launchpadEligibility: PropTypes.shape({ status: PropTypes.string }),
+  }),
+  userId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  onRefresh: PropTypes.func,
+  session: PropTypes.shape({
+    memberships: PropTypes.arrayOf(PropTypes.string),
+  }),
+};
+
+ProfileSettingsSection.defaultProps = {
+  profile: null,
+  onRefresh: undefined,
+  session: null,
+};

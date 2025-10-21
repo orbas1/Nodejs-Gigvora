@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowPathIcon,
   CheckCircleIcon,
@@ -12,6 +12,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import useCrmIntegrationManager from '../../hooks/useCrmIntegrationManager.js';
 import useSession from '../../hooks/useSession.js';
 import { formatRelativeTime, formatAbsolute } from '../../utils/date.js';
+import AccessDeniedPanel from '../../components/dashboard/AccessDeniedPanel.jsx';
 
 const MENU_SECTIONS = [
   {
@@ -207,9 +208,40 @@ function AuditLog({ entries }) {
 
 export default function CompanyIntegrationsPage() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const workspaceId = searchParams.get('workspaceId') ?? undefined;
   const workspaceQuery = workspaceId ? `?workspaceId=${workspaceId}` : '';
-  const { session } = useSession();
+  const { session, isAuthenticated } = useSession();
+  const membershipsList = session?.memberships ?? [];
+  const isCompanyMember = isAuthenticated && membershipsList.includes('company');
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace state={{ redirectTo: '/dashboard/company/integrations' }} />;
+  }
+
+  if (!isCompanyMember) {
+    const fallbackDashboards = membershipsList.filter((membership) => membership !== 'company');
+    return (
+      <DashboardLayout
+        currentDashboard="company"
+        title="Integration control center"
+        subtitle="Monitor CRM and work management connectors"
+        description="Company membership required to manage integration control tower."
+        menuSections={MENU_SECTIONS}
+        sections={[
+          { id: 'integration-summary', label: 'Summary' },
+          { id: 'integration-connectors', label: 'Managed connectors' },
+          { id: 'integration-audit', label: 'Audit log' },
+        ]}
+        availableDashboards={availableDashboards}
+      >
+        <AccessDeniedPanel
+          availableDashboards={fallbackDashboards}
+          onNavigate={(dashboard) => navigate(`/dashboard/${dashboard}`)}
+        />
+      </DashboardLayout>
+    );
+  }
 
   const {
     loading,

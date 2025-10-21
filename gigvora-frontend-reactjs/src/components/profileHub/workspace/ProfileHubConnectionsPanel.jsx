@@ -1,5 +1,6 @@
 import { StarIcon, EllipsisHorizontalCircleIcon } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
+import PropTypes from 'prop-types';
 import UserAvatar from '../../UserAvatar.jsx';
 
 function formatDate(value) {
@@ -10,6 +11,34 @@ function formatDate(value) {
   }
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
+
+ProfileHubConnectionsPanel.propTypes = {
+  connections: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      favourite: PropTypes.bool,
+      relationshipTag: PropTypes.string,
+      lastInteractedAt: PropTypes.string,
+      visibility: PropTypes.string,
+      notes: PropTypes.string,
+      counterpart: PropTypes.shape({
+        name: PropTypes.string,
+        avatarUrl: PropTypes.string,
+        avatarSeed: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+        headline: PropTypes.string,
+        userType: PropTypes.string,
+      }),
+    }),
+  ).isRequired,
+  pending: PropTypes.arrayOf(PropTypes.any).isRequired,
+  onOpenConnection: PropTypes.func.isRequired,
+  onToggleFavourite: PropTypes.func.isRequired,
+  busyId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+};
+
+ProfileHubConnectionsPanel.defaultProps = {
+  busyId: undefined,
+};
 
 export default function ProfileHubConnectionsPanel({
   connections,

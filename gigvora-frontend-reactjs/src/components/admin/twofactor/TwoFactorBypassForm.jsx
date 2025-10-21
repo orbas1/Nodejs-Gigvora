@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import PropTypes from 'prop-types';
 
 const DEFAULT_VALUES = {
   userId: '',
@@ -29,18 +30,28 @@ export default function TwoFactorBypassForm({ onSubmit, submitting }) {
     setDraft((current) => ({ ...current, [field]: event.target.value }));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
+    if (!draft.userId && !draft.userEmail) {
+      return;
+    }
     const payload = {
       userId: draft.userId ? Number.parseInt(draft.userId, 10) : undefined,
-      userEmail: draft.userEmail ? draft.userEmail.trim() : undefined,
+      userEmail: draft.userEmail ? draft.userEmail.trim().toLowerCase() : undefined,
       reason: draft.reason?.trim() || undefined,
       expiresAt: new Date(Date.now() + Number(draft.durationHours ?? 24) * 60 * 60 * 1000).toISOString(),
       status: draft.status,
       notes: draft.notes?.trim() || undefined,
     };
-    onSubmit?.(payload);
-    setDraft(DEFAULT_VALUES);
+    try {
+      await onSubmit?.(payload);
+      setDraft(DEFAULT_VALUES);
+    } catch (error) {
+      // Preserve the current draft so the admin can address validation feedback surfaced by the caller.
+      if (error) {
+        // no-op
+      }
+    }
   };
 
   return (
@@ -142,3 +153,13 @@ export default function TwoFactorBypassForm({ onSubmit, submitting }) {
     </form>
   );
 }
+
+TwoFactorBypassForm.propTypes = {
+  onSubmit: PropTypes.func,
+  submitting: PropTypes.bool,
+};
+
+TwoFactorBypassForm.defaultProps = {
+  onSubmit: undefined,
+  submitting: false,
+};

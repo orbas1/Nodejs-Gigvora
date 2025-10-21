@@ -1,51 +1,122 @@
 import { apiClient } from './apiClient.js';
+import {
+  requireIdentifier,
+  optionalString,
+  mergeWorkspace,
+  buildWorkspaceContext,
+  combineRequestOptions,
+} from './serviceHelpers.js';
 
-export async function fetchVaultOverview({ freelancerId, signal } = {}) {
-  if (!freelancerId) {
-    throw new Error('freelancerId is required to fetch deliverable vault overview.');
+function resolveFreelancerId(payload) {
+  if (!payload) {
+    return undefined;
   }
-  return apiClient.get('/deliverable-vault/overview', {
-    params: { freelancerId },
-    signal,
-  });
+  if (payload instanceof FormData) {
+    return payload.get('freelancerId');
+  }
+  return payload.freelancerId;
 }
 
-export async function fetchVaultItem(itemId, { freelancerId, signal } = {}) {
-  if (!itemId) {
-    throw new Error('itemId is required to fetch a deliverable.');
+function normalisePayload(payload = {}, workspace = {}) {
+  const freelancerId = requireIdentifier(resolveFreelancerId(payload), 'freelancerId');
+  if (payload instanceof FormData) {
+    payload.set('freelancerId', freelancerId);
+    const context = buildWorkspaceContext(workspace);
+    Object.entries(context).forEach(([key, value]) => {
+      payload.set(key, value);
+    });
+    return payload;
   }
-  return apiClient.get(`/deliverable-vault/items/${itemId}`, {
-    params: freelancerId ? { freelancerId } : undefined,
-    signal,
-  });
+  const base = { ...(payload || {}) };
+  base.freelancerId = freelancerId;
+  return mergeWorkspace(base, workspace);
 }
 
-export async function createDeliverable(payload) {
-  if (!payload?.freelancerId) {
-    throw new Error('freelancerId is required when creating a deliverable.');
+function mergePayload(payload = {}, workspace = {}) {
+  if (payload instanceof FormData) {
+    const context = buildWorkspaceContext(workspace);
+    Object.entries(context).forEach(([key, value]) => {
+      payload.set(key, value);
+    });
+    return payload;
   }
-  return apiClient.post('/deliverable-vault/items', payload);
+  return mergeWorkspace({ ...(payload || {}) }, workspace);
 }
 
-export async function updateDeliverable(itemId, payload) {
-  if (!itemId) {
-    throw new Error('itemId is required when updating a deliverable.');
-  }
-  return apiClient.patch(`/deliverable-vault/items/${itemId}`, payload);
+export async function fetchVaultOverview({ freelancerId, workspaceId, workspaceSlug } = {}, options = {}) {
+  const resolvedFreelancerId = requireIdentifier(freelancerId, 'freelancerId');
+  const params = {
+    freelancerId: resolvedFreelancerId,
+    ...mergeWorkspace({}, { workspaceId, workspaceSlug }),
+  };
+  return apiClient.get(
+    '/deliverable-vault/overview',
+    combineRequestOptions({ params }, options),
+  );
 }
 
-export async function addDeliverableVersion(itemId, payload) {
-  if (!itemId) {
-    throw new Error('itemId is required when uploading a deliverable version.');
+export async function fetchVaultItem(
+  itemId,
+  { freelancerId, workspaceId, workspaceSlug } = {},
+  options = {},
+) {
+  const resolvedItemId = requireIdentifier(itemId, 'itemId');
+  const params = mergeWorkspace({}, { workspaceId, workspaceSlug });
+  const resolvedFreelancerId = optionalString(freelancerId);
+  if (resolvedFreelancerId) {
+    params.freelancerId = resolvedFreelancerId;
   }
-  return apiClient.post(`/deliverable-vault/items/${itemId}/versions`, payload);
+  return apiClient.get(
+    `/deliverable-vault/items/${resolvedItemId}`,
+    combineRequestOptions({ params }, options),
+  );
 }
 
-export async function generateDeliveryPackage(itemId, payload) {
-  if (!itemId) {
-    throw new Error('itemId is required when generating a delivery package.');
-  }
-  return apiClient.post(`/deliverable-vault/items/${itemId}/delivery-packages`, payload);
+export async function createDeliverable(payload = {}, { workspaceId, workspaceSlug, ...options } = {}) {
+  const body = normalisePayload(payload ?? {}, { workspaceId, workspaceSlug });
+  return apiClient.post('/deliverable-vault/items', body, combineRequestOptions({}, options));
+}
+
+export async function updateDeliverable(
+  itemId,
+  payload = {},
+  { workspaceId, workspaceSlug, ...options } = {},
+) {
+  const resolvedItemId = requireIdentifier(itemId, 'itemId');
+  const body = mergePayload(payload ?? {}, { workspaceId, workspaceSlug });
+  return apiClient.patch(
+    `/deliverable-vault/items/${resolvedItemId}`,
+    body,
+    combineRequestOptions({}, options),
+  );
+}
+
+export async function addDeliverableVersion(
+  itemId,
+  payload = {},
+  { workspaceId, workspaceSlug, ...options } = {},
+) {
+  const resolvedItemId = requireIdentifier(itemId, 'itemId');
+  const body = mergePayload(payload ?? {}, { workspaceId, workspaceSlug });
+  return apiClient.post(
+    `/deliverable-vault/items/${resolvedItemId}/versions`,
+    body,
+    combineRequestOptions({}, options),
+  );
+}
+
+export async function generateDeliveryPackage(
+  itemId,
+  payload = {},
+  { workspaceId, workspaceSlug, ...options } = {},
+) {
+  const resolvedItemId = requireIdentifier(itemId, 'itemId');
+  const body = mergePayload(payload ?? {}, { workspaceId, workspaceSlug });
+  return apiClient.post(
+    `/deliverable-vault/items/${resolvedItemId}/delivery-packages`,
+    body,
+    combineRequestOptions({}, options),
+  );
 }
 
 export default {

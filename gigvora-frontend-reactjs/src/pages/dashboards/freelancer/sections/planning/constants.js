@@ -110,10 +110,19 @@ export const EVENT_SOURCE_OPTIONS = [
 ];
 
 export function createOptionLookup(options) {
-  return options.reduce((accumulator, option) => {
-    accumulator.set(option.value, option);
-    return accumulator;
-  }, new Map());
+  const lookup = new Map();
+  if (!Array.isArray(options)) {
+    return lookup;
+  }
+  for (const option of options) {
+    if (!option || option.value == null || option.value === '') {
+      continue;
+    }
+    if (!lookup.has(option.value)) {
+      lookup.set(option.value, option);
+    }
+  }
+  return lookup;
 }
 
 export const EVENT_TYPE_LOOKUP = createOptionLookup(EVENT_TYPE_OPTIONS);

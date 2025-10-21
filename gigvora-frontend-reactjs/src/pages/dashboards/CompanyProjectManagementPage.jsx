@@ -1,7 +1,9 @@
 import { useMemo } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import ProjectGigManagementContainer from '../../components/projectGigManagement/ProjectGigManagementContainer.jsx';
 import useSession from '../../hooks/useSession.js';
+import AccessDeniedPanel from '../../components/dashboard/AccessDeniedPanel.jsx';
 
 const MENU_SECTIONS = [
   {
@@ -26,11 +28,15 @@ const MENU_SECTIONS = [
 const AVAILABLE_DASHBOARDS = ['company', 'agency', 'user', 'freelancer'];
 
 export default function CompanyProjectManagementPage() {
-  const { session } = useSession();
+  const navigate = useNavigate();
+  const { session, isAuthenticated } = useSession();
   const userId = useMemo(() => {
     const parsed = Number.parseInt(session?.id, 10);
     return Number.isFinite(parsed) ? parsed : null;
   }, [session?.id]);
+
+  const membershipsList = session?.memberships ?? [];
+  const isCompanyMember = membershipsList.includes('company');
 
   const sections = useMemo(
     () => [
@@ -44,6 +50,29 @@ export default function CompanyProjectManagementPage() {
     ],
     [],
   );
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace state={{ redirectTo: '/dashboard/company/projects' }} />;
+  }
+
+  if (!isCompanyMember) {
+    const fallbackDashboards = membershipsList.filter((membership) => membership !== 'company');
+    return (
+      <DashboardLayout
+        currentDashboard="company"
+        title="Project hub"
+        subtitle="Create, track, and close company projects in one view."
+        menuSections={MENU_SECTIONS}
+        sections={sections}
+        availableDashboards={AVAILABLE_DASHBOARDS}
+      >
+        <AccessDeniedPanel
+          availableDashboards={fallbackDashboards}
+          onNavigate={(dashboard) => navigate(`/dashboard/${dashboard}`)}
+        />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout

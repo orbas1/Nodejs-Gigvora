@@ -7,7 +7,7 @@ const INITIAL_ATTENDEE = { name: '', email: '', role: '', responseStatus: 'invit
 const INITIAL_FORM = {
   title: '',
   scheduledAt: '',
-  durationMinutes: 30,
+  durationMinutes: '',
   status: 'scheduled',
   location: '',
   meetingLink: '',
@@ -81,7 +81,13 @@ export default function MeetingsTab({ project, actions, canManage }) {
 
   const handleFieldChange = (event, setter) => {
     const { name, value } = event.target;
-    setter((current) => ({ ...current, [name]: value }));
+    setter((current) => ({
+      ...current,
+      [name]:
+        name === 'durationMinutes'
+          ? value.replace(/[^0-9]/g, '')
+          : value,
+    }));
   };
 
   const handleAttendeeChange = (setter, index, field, value) => {
@@ -116,17 +122,22 @@ export default function MeetingsTab({ project, actions, canManage }) {
     });
   };
 
-  const buildPayload = (payload) => ({
-    title: payload.title,
-    agenda: payload.agenda || undefined,
-    scheduledAt: payload.scheduledAt ? new Date(payload.scheduledAt).toISOString() : undefined,
-    durationMinutes: payload.durationMinutes ? Number(payload.durationMinutes) : 30,
-    location: payload.location || undefined,
-    meetingLink: payload.meetingLink || undefined,
-    status: payload.status,
-    notes: payload.notes || undefined,
-    attendees: sanitizeAttendees(payload.attendees),
-  });
+  const buildPayload = (payload) => {
+    const parsedDuration = Number.parseInt(payload.durationMinutes, 10);
+    const durationMinutes = Number.isFinite(parsedDuration) && parsedDuration >= 0 ? parsedDuration : 30;
+
+    return {
+      title: payload.title,
+      agenda: payload.agenda || undefined,
+      scheduledAt: payload.scheduledAt ? new Date(payload.scheduledAt).toISOString() : undefined,
+      durationMinutes,
+      location: payload.location || undefined,
+      meetingLink: payload.meetingLink || undefined,
+      status: payload.status,
+      notes: payload.notes || undefined,
+      attendees: sanitizeAttendees(payload.attendees),
+    };
+  };
 
   const resetForm = () => {
     setForm({ ...INITIAL_FORM, attendees: [createAttendee()] });
@@ -155,7 +166,10 @@ export default function MeetingsTab({ project, actions, canManage }) {
       title: meeting.title || '',
       agenda: meeting.agenda || '',
       scheduledAt: toInputDateTime(meeting.scheduledAt),
-      durationMinutes: meeting.durationMinutes ?? 30,
+      durationMinutes:
+        typeof meeting.durationMinutes === 'number' && Number.isFinite(meeting.durationMinutes)
+          ? String(meeting.durationMinutes)
+          : '',
       location: meeting.location || '',
       meetingLink: meeting.meetingLink || '',
       status: meeting.status || 'scheduled',
@@ -182,6 +196,7 @@ export default function MeetingsTab({ project, actions, canManage }) {
       await actions.updateMeeting(project.id, editingId, buildPayload(editingForm));
       setEditOpen(false);
       setEditingId(null);
+      setEditingForm({ ...INITIAL_FORM, attendees: [createAttendee()] });
       setFeedback({ status: 'success', message: 'Meeting updated.' });
     } catch (error) {
       setFeedback({ status: 'error', message: error?.message || 'Unable to update meeting.' });
@@ -392,6 +407,7 @@ export default function MeetingsTab({ project, actions, canManage }) {
                 className="rounded-xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
                 disabled={!canManage || submitting}
                 min="0"
+                placeholder="30"
               />
             </label>
             <label className="flex flex-col gap-2 text-sm text-slate-700">
@@ -554,6 +570,7 @@ export default function MeetingsTab({ project, actions, canManage }) {
           if (!submitting) {
             setEditOpen(false);
             setEditingId(null);
+            setEditingForm({ ...INITIAL_FORM, attendees: [createAttendee()] });
           }
         }}
         title="Edit meeting"
@@ -594,6 +611,7 @@ export default function MeetingsTab({ project, actions, canManage }) {
                 className="rounded-xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
                 disabled={!canManage || submitting}
                 min="0"
+                placeholder="30"
               />
             </label>
             <label className="flex flex-col gap-2 text-sm text-slate-700">

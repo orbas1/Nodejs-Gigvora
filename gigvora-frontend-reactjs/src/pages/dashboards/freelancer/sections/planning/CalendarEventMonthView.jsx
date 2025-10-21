@@ -50,7 +50,9 @@ export default function CalendarEventMonthView({
   const weeks = buildCalendarDays(month);
   const today = startOfDay(new Date());
 
-  const eventsByDay = events.reduce((accumulator, event) => {
+  const safeEvents = Array.isArray(events) ? events : [];
+
+  const eventsByDay = safeEvents.reduce((accumulator, event) => {
     if (!event.startsAt) {
       return accumulator;
     }
@@ -62,6 +64,18 @@ export default function CalendarEventMonthView({
     accumulator[key].push(event);
     return accumulator;
   }, {});
+
+  const handleCreate = (day) => {
+    if (typeof onCreateEvent === 'function') {
+      onCreateEvent(day);
+    }
+  };
+
+  const handleSelect = (event) => {
+    if (typeof onSelectEvent === 'function') {
+      onSelectEvent(event);
+    }
+  };
 
   return (
     <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -93,7 +107,7 @@ export default function CalendarEventMonthView({
                     <div className="flex items-center justify-between text-[0.7rem] font-semibold text-slate-500">
                       <button
                         type="button"
-                        onClick={() => onCreateEvent?.(day)}
+                        onClick={() => handleCreate(day)}
                         className={`rounded-full px-2 py-1 text-xs transition ${
                           isCurrentMonth
                             ? 'text-slate-600 hover:bg-slate-100'
@@ -109,9 +123,9 @@ export default function CalendarEventMonthView({
                     <div className="mt-2 space-y-1">
                       {dayEvents.slice(0, 3).map((event) => (
                         <button
-                          key={event.id}
+                          key={event.id ?? `${key}-${event.title}`}
                           type="button"
-                          onClick={() => onSelectEvent?.(event)}
+                          onClick={() => handleSelect(event)}
                           className="flex w-full items-center justify-between rounded-xl border border-slate-200 px-2 py-1 text-left hover:border-accent/50 hover:bg-slate-50"
                         >
                           <span className="flex-1 truncate text-[0.7rem] text-slate-700">{event.title}</span>

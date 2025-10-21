@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import SectionShell from '../../SectionShell.jsx';
@@ -26,12 +26,14 @@ export default function ProjectManagementSection({ freelancerId }) {
   const [showCreate, setShowCreate] = useState(false);
   const [activeProjectId, setActiveProjectId] = useState(null);
   const [exporting, setExporting] = useState(false);
+  const [actionError, setActionError] = useState(null);
+  const [actionSuccess, setActionSuccess] = useState(null);
 
   const lifecycle = data?.projectLifecycle ?? { open: [], closed: [], stats: null };
   const currency = data?.summary?.currency ?? data?.projectLifecycle?.stats?.currency ?? 'USD';
 
-  const openProjects = useMemo(() => Array.isArray(lifecycle.open) ? lifecycle.open : [], [lifecycle.open]);
-  const closedProjects = useMemo(() => Array.isArray(lifecycle.closed) ? lifecycle.closed : [], [lifecycle.closed]);
+  const openProjects = useMemo(() => (Array.isArray(lifecycle.open) ? lifecycle.open : []), [lifecycle.open]);
+  const closedProjects = useMemo(() => (Array.isArray(lifecycle.closed) ? lifecycle.closed : []), [lifecycle.closed]);
 
   const filteredOpen = useMemo(() => {
     const filtered = filterProjectsByRisk(
@@ -56,11 +58,43 @@ export default function ProjectManagementSection({ freelancerId }) {
     [allProjects, activeProjectId],
   );
 
+  useEffect(() => {
+    if (!actionSuccess) {
+      return undefined;
+    }
+    const timeout = setTimeout(() => setActionSuccess(null), 4000);
+    return () => clearTimeout(timeout);
+  }, [actionSuccess]);
+
+  const runProjectAction = useCallback(
+    async (task, { successMessage, propagate = false } = {}) => {
+      setActionError(null);
+      setActionSuccess(null);
+      try {
+        const result = await task();
+        if (successMessage) {
+          setActionSuccess(successMessage);
+        }
+        return result;
+      } catch (error) {
+        console.error('Project action failed', error);
+        setActionError(error?.message ?? 'Unable to process the project request.');
+        if (propagate) {
+          throw error;
+        }
+        return null;
+      }
+    },
+    [],
+  );
+
   const handleExportProjects = useCallback(() => {
     if (!allProjects.length || exporting) {
       return;
     }
     setExporting(true);
+    setActionError(null);
+    setActionSuccess(null);
     try {
       const header = ['ID', 'Title', 'Status', 'Client', 'Due', 'Budget Allocated', 'Budget Spent'];
       const rows = allProjects.map((project) => [
@@ -76,6 +110,7 @@ export default function ProjectManagementSection({ freelancerId }) {
         .map((line) => line.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
         .join('\n');
       if (typeof window === 'undefined' || typeof document === 'undefined') {
+        setActionError('CSV export is only available in the browser.');
         return;
       }
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -87,18 +122,62 @@ export default function ProjectManagementSection({ freelancerId }) {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(href);
+      setActionSuccess('Projects exported to CSV.');
+    } catch (error) {
+      console.error('Failed to export projects', error);
+      setActionError(error?.message ?? 'Unable to export projects.');
     } finally {
       setExporting(false);
     }
   }, [allProjects, exporting]);
 
   const handleArchive = async (project) => {
-    await actions.archiveProject(project.id, {});
+    await runProjectAction(() => actions.archiveProject(project.id, {}), {
+      successMessage: 'Project archived.',
+    });
   };
 
   const handleRestore = async (project) => {
-    await actions.restoreProject(project.id, {});
+    await runProjectAction(() => actions.restoreProject(project.id, {}), {
+      successMessage: 'Project restored.',
+    });
   };
+
+  const handleCreateProject = useCallback(
+    (payload) =>
+      runProjectAction(() => actions.createProject(payload), {
+        successMessage: 'Project created.',
+        propagate: true,
+      }),
+    [actions, runProjectAction],
+  );
+
+  const filtersApplied = Boolean(searchTerm.trim()) || statusFilter !== 'all' || riskFilter !== 'all';
+
+  const emptyState = useMemo(() => {
+    if (view === 'closed') {
+      if (filtersApplied) {
+        return {
+          title: 'No closed projects match the current filters.',
+          description: 'Adjust filters or review archived workspaces to find the engagement you need.',
+        };
+      }
+      return {
+        title: 'No closed projects yet',
+        description: 'Projects will appear here once engagements are completed and archived.',
+      };
+    }
+    if (filtersApplied) {
+      return {
+        title: 'No projects match the current filters.',
+        description: 'Try updating the search, status, or risk filters to broaden the results.',
+      };
+    }
+    return {
+      title: 'No projects yet',
+      description: 'Start by creating a project or importing one from another workspace.',
+    };
+  }, [view, filtersApplied]);
 
   return (
     <SectionShell
@@ -165,18 +244,28 @@ export default function ProjectManagementSection({ freelancerId }) {
         riskFilter={riskFilter}
         onRiskFilterChange={setRiskFilter}
       />
+      {actionError ? (
+        <div className="rounded-3xl border border-rose-200 bg-rose-50 px-5 py-3 text-sm text-rose-700">{actionError}</div>
+      ) : null}
+      {actionSuccess ? (
+        <div className="rounded-3xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm text-emerald-700">
+          {actionSuccess}
+        </div>
+      ) : null}
+
       <ProjectGrid
         projects={projectsToRender}
         onOpen={(project) => setActiveProjectId(project.id)}
         onArchive={handleArchive}
         onRestore={handleRestore}
         loading={loading}
+        emptyState={emptyState}
       />
 
       <CreateProjectWizard
         open={showCreate}
         onClose={() => setShowCreate(false)}
-        onSubmit={(payload) => actions.createProject(payload)}
+        onSubmit={handleCreateProject}
       />
 
       {activeProject ? (

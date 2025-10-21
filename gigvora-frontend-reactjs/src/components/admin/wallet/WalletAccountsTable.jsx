@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { ArrowPathIcon, CheckCircleIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 
 function formatCurrency(value, currency = 'USD') {
@@ -36,6 +37,10 @@ function StatusBadge({ status }) {
   );
 }
 
+StatusBadge.propTypes = {
+  status: PropTypes.string,
+};
+
 function ProviderBadge({ provider }) {
   const normalized = `${provider ?? ''}`.toLowerCase();
   const label = normalized === 'escrow_com' ? 'Escrow.com' : normalized ? normalized : '—';
@@ -45,6 +50,10 @@ function ProviderBadge({ provider }) {
     </span>
   );
 }
+
+ProviderBadge.propTypes = {
+  provider: PropTypes.string,
+};
 
 function EmptyState({ loading, onRefresh }) {
   return (
@@ -65,6 +74,16 @@ function EmptyState({ loading, onRefresh }) {
     </div>
   );
 }
+
+EmptyState.propTypes = {
+  loading: PropTypes.bool,
+  onRefresh: PropTypes.func,
+};
+
+EmptyState.defaultProps = {
+  loading: false,
+  onRefresh: undefined,
+};
 
 export default function WalletAccountsTable({
   accounts,
@@ -202,3 +221,43 @@ export default function WalletAccountsTable({
     </div>
   );
 }
+
+WalletAccountsTable.propTypes = {
+  accounts: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+      accountType: PropTypes.string,
+      status: PropTypes.string,
+      user: PropTypes.shape({
+        firstName: PropTypes.string,
+        lastName: PropTypes.string,
+        email: PropTypes.string,
+      }),
+      currentBalance: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      availableBalance: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      pendingHoldBalance: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      custodyProvider: PropTypes.string,
+      providerAccountId: PropTypes.string,
+      currencyCode: PropTypes.string,
+      updatedAt: PropTypes.string,
+    }),
+  ),
+  pagination: PropTypes.shape({
+    page: PropTypes.number.isRequired,
+    totalPages: PropTypes.number.isRequired,
+    totalItems: PropTypes.number,
+  }).isRequired,
+  onPageChange: PropTypes.func.isRequired,
+  onSelect: PropTypes.func,
+  selectedAccountId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  loading: PropTypes.bool,
+  onRefresh: PropTypes.func,
+};
+
+WalletAccountsTable.defaultProps = {
+  accounts: [],
+  onSelect: undefined,
+  selectedAccountId: null,
+  loading: false,
+  onRefresh: undefined,
+};

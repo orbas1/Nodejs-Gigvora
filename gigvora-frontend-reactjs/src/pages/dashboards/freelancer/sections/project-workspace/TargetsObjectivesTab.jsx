@@ -8,7 +8,14 @@ const GOAL_VIEWS = [
   { id: 'objectives', label: 'Objectives' },
 ];
 
-export default function TargetsObjectivesTab({ targets, objectives, manager, disabled = false }) {
+export default function TargetsObjectivesTab({
+  targets,
+  objectives,
+  manager,
+  disabled = false,
+  readOnlyReason,
+  loading = false,
+}) {
   const [view, setView] = useState('targets');
 
   return (
@@ -19,6 +26,7 @@ export default function TargetsObjectivesTab({ targets, objectives, manager, dis
             key={option.id}
             type="button"
             onClick={() => setView(option.id)}
+            aria-pressed={view === option.id}
             className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
               view === option.id
                 ? 'bg-blue-600 text-white shadow-sm'
@@ -41,6 +49,8 @@ export default function TargetsObjectivesTab({ targets, objectives, manager, dis
           emptyLabel={targetsConfig.emptyLabel}
           itemName={targetsConfig.itemName}
           disabled={disabled}
+          readOnlyMessage={readOnlyReason}
+          loading={loading}
           onCreate={(payload) => manager.createTarget(payload)}
           onUpdate={(item, payload) => manager.updateTarget(item.id, payload)}
           onDelete={(item) => manager.deleteTarget(item.id)}
@@ -56,6 +66,8 @@ export default function TargetsObjectivesTab({ targets, objectives, manager, dis
           emptyLabel={objectivesConfig.emptyLabel}
           itemName={objectivesConfig.itemName}
           disabled={disabled}
+          readOnlyMessage={readOnlyReason}
+          loading={loading}
           onCreate={(payload) => manager.createObjective(payload)}
           onUpdate={(item, payload) => manager.updateObjective(item.id, payload)}
           onDelete={(item) => manager.deleteObjective(item.id)}
@@ -77,4 +89,6 @@ TargetsObjectivesTab.propTypes = {
     deleteObjective: PropTypes.func.isRequired,
   }).isRequired,
   disabled: PropTypes.bool,
+  readOnlyReason: PropTypes.string,
+  loading: PropTypes.bool,
 };

@@ -2,28 +2,75 @@ import PropTypes from 'prop-types';
 import { ShieldCheckIcon } from '@heroicons/react/24/outline';
 import useSession from '../../hooks/useSession.js';
 
+function formatList(values, { transform } = {}) {
+  if (!Array.isArray(values)) {
+    return null;
+  }
+
+  const normalized = values
+    .map((value) => (typeof value === 'string' ? value.trim() : ''))
+    .filter(Boolean)
+    .map((value) => (transform ? transform(value) : value))
+    .filter(Boolean);
+
+  if (!normalized.length) {
+    return null;
+  }
+
+  if (normalized.length === 1) {
+    return normalized[0];
+  }
+
+  return `${normalized.slice(0, -1).join(', ')} or ${normalized.at(-1)}`;
+}
+
+function toTitleCase(value) {
+  return value
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 function normalizeRoles(session) {
   const roles = new Set();
   if (!session) {
     return roles;
   }
 
+  const register = (value) => {
+    const normalised = normaliseKey(value);
+    if (normalised) {
+      roles.add(normalised);
+    }
+  };
+
   if (Array.isArray(session.roles)) {
-    session.roles.filter(Boolean).forEach((role) => roles.add(role));
+    session.roles.forEach(register);
   }
 
-  if (typeof session.role === 'string' && session.role) {
-    roles.add(session.role);
+  if (typeof session.role === 'string') {
+    register(session.role);
   }
 
   if (Array.isArray(session.memberships)) {
-    session.memberships.filter(Boolean).forEach((role) => roles.add(role));
+    session.memberships.forEach(register);
+  }
+
+  if (Array.isArray(session.accountTypes)) {
+    session.accountTypes.forEach(register);
+  }
+
+  if (Array.isArray(session.roleKeys)) {
+    session.roleKeys.forEach(register);
   }
 
   if (session.dashboards && typeof session.dashboards === 'object') {
-    Object.keys(session.dashboards)
-      .filter(Boolean)
-      .forEach((role) => roles.add(role));
+    Object.keys(session.dashboards).forEach(register);
+  }
+
+  if (session.primaryDashboard) {
+    register(session.primaryDashboard);
   }
 
   return roles;
@@ -35,16 +82,35 @@ function normalizePermissions(session) {
     return permissions;
   }
 
+  const register = (value) => {
+    const normalised = normaliseKey(value);
+    if (normalised) {
+      permissions.add(normalised);
+    }
+  };
+
   if (Array.isArray(session.permissions)) {
-    session.permissions.filter(Boolean).forEach((perm) => permissions.add(perm));
+    session.permissions.forEach(register);
+  }
+
+  if (Array.isArray(session.permissionKeys)) {
+    session.permissionKeys.forEach(register);
   }
 
   if (session.capabilities && typeof session.capabilities === 'object') {
     Object.entries(session.capabilities).forEach(([key, value]) => {
       if (value) {
-        permissions.add(key);
+        register(key);
       }
     });
+  }
+
+  if (Array.isArray(session.features)) {
+    session.features.forEach(register);
+  }
+
+  if (Array.isArray(session.scopes)) {
+    session.scopes.forEach(register);
   }
 
   return permissions;
@@ -52,6 +118,7 @@ function normalizePermissions(session) {
 
 export default function DashboardAccessGuard({
   requiredRoles,
+  allowedRoles,
   requiredPermissions,
   fallback,
   children,
@@ -80,10 +147,20 @@ export default function DashboardAccessGuard({
   const normalizedRoles = normalizeRoles(session);
   const normalizedPermissions = normalizePermissions(session);
 
-  const hasRole = !requiredRoles?.length || requiredRoles.some((role) => normalizedRoles.has(role));
+  const roleRequirements = requiredRoles ?? allowedRoles;
+  const hasRole = !roleRequirements?.length || roleRequirements.some((role) => normalizedRoles.has(role));
   const hasPermission =
-    !requiredPermissions?.length ||
-    requiredPermissions.some((permission) => normalizedPermissions.has(permission));
+    !requiredPermissionKeys.length ||
+    requiredPermissionKeys.some((permission) => normalizedPermissions.has(permission));
+
+  const formattedRoles = formatList(roleRequirements, { transform: toTitleCase });
+  const formattedPermissions = formatList(requiredPermissions);
+  const roleRequirementText = formattedRoles
+    ? `This dashboard is limited to ${formattedRoles} workspaces.`
+    : 'This dashboard is limited to approved workspaces.';
+  const permissionRequirementText = formattedPermissions
+    ? ` It also requires ${formattedPermissions} permissions.`
+    : '';
 
   if (!hasRole || !hasPermission) {
     return (
@@ -95,8 +172,10 @@ export default function DashboardAccessGuard({
             </div>
             <h1 className="text-2xl font-semibold text-slate-900">Access restricted</h1>
             <p className="text-sm text-slate-600">
-              This dashboard is limited to approved roles. Please switch to an account with headhunter permissions or request
-              access from your workspace owner.
+              {roleRequirementText}
+              {permissionRequirementText}
+              {' '}
+              Please switch to an account with the proper access or contact your workspace owner.
             </p>
           </div>
         </div>
@@ -109,6 +188,7 @@ export default function DashboardAccessGuard({
 
 DashboardAccessGuard.propTypes = {
   requiredRoles: PropTypes.arrayOf(PropTypes.string),
+  allowedRoles: PropTypes.arrayOf(PropTypes.string),
   requiredPermissions: PropTypes.arrayOf(PropTypes.string),
   fallback: PropTypes.node,
   children: PropTypes.node.isRequired,

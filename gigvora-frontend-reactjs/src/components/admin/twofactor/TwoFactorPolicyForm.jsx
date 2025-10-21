@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 
 const METHOD_OPTIONS = [
   { value: 'email', label: 'Email codes' },
@@ -83,14 +84,14 @@ export default function TwoFactorPolicyForm({ initialValue, open, onClose, onSub
     });
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     const payload = {
       ...draft,
       allowedMethods: normaliseArray(draft.allowedMethods),
       ipAllowlist: normaliseArray(allowlistInput.split(/\n|,/) ?? []),
     };
-    onSubmit?.(payload);
+    await onSubmit?.(payload);
   };
 
   if (!open) {
@@ -283,3 +284,28 @@ export default function TwoFactorPolicyForm({ initialValue, open, onClose, onSub
     </div>
   );
 }
+
+TwoFactorPolicyForm.propTypes = {
+  initialValue: PropTypes.shape({
+    name: PropTypes.string,
+    description: PropTypes.string,
+    appliesToRole: PropTypes.string,
+    enforcementLevel: PropTypes.string,
+    allowedMethods: PropTypes.oneOfType([PropTypes.arrayOf(PropTypes.string), PropTypes.string]),
+    fallbackCodes: PropTypes.number,
+    sessionDurationMinutes: PropTypes.number,
+    requireForSensitiveActions: PropTypes.bool,
+    enforced: PropTypes.bool,
+    ipAllowlist: PropTypes.oneOfType([PropTypes.arrayOf(PropTypes.string), PropTypes.string]),
+    notes: PropTypes.string,
+  }),
+  open: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onSubmit: PropTypes.func.isRequired,
+  submitting: PropTypes.bool,
+};
+
+TwoFactorPolicyForm.defaultProps = {
+  initialValue: null,
+  submitting: false,
+};

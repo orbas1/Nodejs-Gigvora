@@ -17,6 +17,50 @@ const DEFAULT_CARD = {
   attachments: [],
 };
 
+const URL_FIELDS = [
+  'websiteUrl',
+  'linkedinUrl',
+  'calendlyUrl',
+  'portfolioUrl',
+  'spotlightVideoUrl',
+  'coverImageUrl',
+];
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
+
+function sanitizeText(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeUrl(value) {
+  const trimmed = sanitizeText(value);
+  if (!trimmed) return '';
+  try {
+    const url = new URL(trimmed);
+    if (!['http:', 'https:'].includes(url.protocol)) {
+      return '';
+    }
+    return url.toString();
+  } catch (error) {
+    return '';
+  }
+}
+
+function isValidUrl(value) {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    return ['http:', 'https:'].includes(url.protocol);
+  } catch (error) {
+    return false;
+  }
+}
+
+function isValidEmail(value) {
+  if (!value) return true;
+  return EMAIL_PATTERN.test(value);
+}
+
 function AttachmentList({ attachments, onRemove }) {
   if (!attachments?.length) {
     return (
@@ -52,6 +96,7 @@ export default function SettingsSection({ card, saving, onSave, onRefresh }) {
   const [form, setForm] = useState(initialCard);
   const [attachmentDraft, setAttachmentDraft] = useState({ name: '', url: '' });
   const [feedback, setFeedback] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     setForm(initialCard);
@@ -65,27 +110,81 @@ export default function SettingsSection({ card, saving, onSave, onRefresh }) {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setFeedback(null);
+    const sanitizedEmail = sanitizeText(form.contactEmail);
+    if (!isValidEmail(sanitizedEmail)) {
+      setFeedback({ type: 'error', message: 'Please provide a valid contact email.' });
+      return;
+    }
+
+    for (const field of URL_FIELDS) {
+      const value = sanitizeText(form[field]);
+      if (value && !isValidUrl(value)) {
+        setFeedback({ type: 'error', message: `The ${field.replace(/Url$/i, ' URL')} is invalid.` });
+        return;
+      }
+    }
+
+    if (form.attachments?.some((attachment) => !isValidUrl(attachment.url))) {
+      setFeedback({ type: 'error', message: 'Attachments require valid URLs.' });
+      return;
+    }
+
+    const payload = {
+      title: sanitizeText(form.title),
+      headline: sanitizeText(form.headline),
+      bio: sanitizeText(form.bio),
+      contactEmail: sanitizedEmail,
+      contactPhone: sanitizeText(form.contactPhone),
+      websiteUrl: normalizeUrl(form.websiteUrl),
+      linkedinUrl: normalizeUrl(form.linkedinUrl),
+      calendlyUrl: normalizeUrl(form.calendlyUrl),
+      portfolioUrl: normalizeUrl(form.portfolioUrl),
+      spotlightVideoUrl: normalizeUrl(form.spotlightVideoUrl),
+      coverImageUrl: normalizeUrl(form.coverImageUrl),
+      videoTranscript: sanitizeText(form.videoTranscript),
+      attachments: (form.attachments ?? []).map((attachment) => ({
+        name: sanitizeText(attachment.name) || attachment.url,
+        url: attachment.url,
+      })),
+    };
+
+    setSubmitting(true);
     try {
-      await onSave?.({
-        ...form,
-        attachments: form.attachments,
-        coverImageUrl: form.coverImageUrl,
-        videoTranscript: form.videoTranscript,
-      });
+      if (typeof onSave !== 'function') {
+        throw new Error('You do not have permission to update the workspace card.');
+      }
+      await onSave(payload);
       setFeedback({ type: 'success', message: 'Workspace card updated.' });
     } catch (error) {
       setFeedback({ type: 'error', message: error?.message ?? 'Unable to save workspace settings.' });
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleAddAttachment = () => {
-    if (!attachmentDraft.url) {
+    const url = sanitizeText(attachmentDraft.url);
+    if (!url) {
       setFeedback({ type: 'error', message: 'Attachment URL is required.' });
+      return;
+    }
+    if (!isValidUrl(url)) {
+      setFeedback({ type: 'error', message: 'Enter a valid attachment URL starting with http or https.' });
+      return;
+    }
+    if (form.attachments?.some((attachment) => attachment.url === url)) {
+      setFeedback({ type: 'error', message: 'This attachment has already been added.' });
       return;
     }
     setForm((prev) => ({
       ...prev,
-      attachments: [...(prev.attachments ?? []), { name: attachmentDraft.name || attachmentDraft.url, url: attachmentDraft.url }],
+      attachments: [
+        ...(prev.attachments ?? []),
+        {
+          name: sanitizeText(attachmentDraft.name) || url,
+          url,
+        },
+      ],
     }));
     setAttachmentDraft({ name: '', url: '' });
   };
@@ -274,6 +373,8 @@ export default function SettingsSection({ card, saving, onSave, onRefresh }) {
 
           {feedback ? (
             <p
+              role="status"
+              aria-live="polite"
               className={`text-sm ${feedback.type === 'error' ? 'text-red-600' : 'text-emerald-600'}`}
             >
               {feedback.message}
@@ -283,10 +384,10 @@ export default function SettingsSection({ card, saving, onSave, onRefresh }) {
           <div className="flex items-center gap-3">
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || submitting}
               className="inline-flex items-center justify-center rounded-full bg-blue-600 px-6 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-300"
             >
-              {saving ? 'Saving…' : 'Save changes'}
+              {saving || submitting ? 'Saving…' : 'Save changes'}
             </button>
             {feedback?.type === 'success' ? (
               <span className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Saved</span>

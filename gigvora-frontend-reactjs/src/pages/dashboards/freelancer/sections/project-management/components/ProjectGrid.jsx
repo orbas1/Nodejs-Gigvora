@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types';
 import ProjectCard from './ProjectCard.jsx';
 
-export default function ProjectGrid({ projects, onOpen, onArchive, onRestore, loading }) {
+export default function ProjectGrid({ projects, onOpen, onArchive, onRestore, loading, emptyState }) {
   if (loading) {
     return (
       <div className="grid gap-6 lg:grid-cols-2">
@@ -26,10 +26,13 @@ export default function ProjectGrid({ projects, onOpen, onArchive, onRestore, lo
   }
 
   if (!projects.length) {
+    const title = emptyState?.title ?? 'No projects yet';
+    const description = emptyState?.description ??
+      'Start by creating a project or importing one from another workspace.';
     return (
       <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-12 text-center text-slate-500">
-        <p className="text-lg font-semibold text-slate-600">No projects yet</p>
-        <p className="mt-2 text-sm text-slate-500">Start by creating a project or importing one from another workspace.</p>
+        <p className="text-lg font-semibold text-slate-600">{title}</p>
+        {description ? <p className="mt-2 text-sm text-slate-500">{description}</p> : null}
       </div>
     );
   }
@@ -55,8 +58,16 @@ ProjectGrid.propTypes = {
   onArchive: PropTypes.func.isRequired,
   onRestore: PropTypes.func.isRequired,
   loading: PropTypes.bool,
+  emptyState: PropTypes.shape({
+    title: PropTypes.string,
+    description: PropTypes.string,
+  }),
 };
 
 ProjectGrid.defaultProps = {
   loading: false,
+  emptyState: {
+    title: 'No projects yet',
+    description: 'Start by creating a project or importing one from another workspace.',
+  },
 };

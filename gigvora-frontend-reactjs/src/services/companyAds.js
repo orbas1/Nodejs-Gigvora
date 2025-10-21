@@ -1,5 +1,12 @@
 import { apiClient } from './apiClient.js';
 
+function ensureId(value, message) {
+  if (value === undefined || value === null || `${value}`.trim().length === 0) {
+    throw new Error(message);
+  }
+  return typeof value === 'string' ? value.trim() : value;
+}
+
 function serialiseSurfaces(surfaces) {
   if (!surfaces) {
     return undefined;
@@ -40,44 +47,53 @@ export function fetchCompanyAdsWorkspace({ surfaces, context, bypassCache = fals
   return apiClient.get('/company/ads/workspace', { params, signal });
 }
 
-export function createCompanyAdCampaign(payload, { signal } = {}) {
-  return apiClient.post('/company/ads/campaigns', payload ?? {}, { signal });
+export function createCompanyAdCampaign(payload = {}, { signal } = {}) {
+  return apiClient.post('/company/ads/campaigns', payload, { signal });
 }
 
-export function updateCompanyAdCampaign(campaignId, payload, { signal } = {}) {
-  return apiClient.put(`/company/ads/campaigns/${campaignId}`, payload ?? {}, { signal });
+export function updateCompanyAdCampaign(campaignId, payload = {}, { signal } = {}) {
+  const resolvedCampaignId = ensureId(campaignId, 'campaignId is required to update a campaign.');
+  return apiClient.put(`/company/ads/campaigns/${resolvedCampaignId}`, payload, { signal });
 }
 
 export function deleteCompanyAdCampaign(campaignId, { signal } = {}) {
-  return apiClient.delete(`/company/ads/campaigns/${campaignId}`, { signal });
+  const resolvedCampaignId = ensureId(campaignId, 'campaignId is required to delete a campaign.');
+  return apiClient.delete(`/company/ads/campaigns/${resolvedCampaignId}`, { signal });
 }
 
-export function createCompanyAdCreative(campaignId, payload, { signal } = {}) {
-  return apiClient.post(`/company/ads/campaigns/${campaignId}/creatives`, payload ?? {}, { signal });
+export function createCompanyAdCreative(campaignId, payload = {}, { signal } = {}) {
+  const resolvedCampaignId = ensureId(campaignId, 'campaignId is required to create a creative.');
+  return apiClient.post(`/company/ads/campaigns/${resolvedCampaignId}/creatives`, payload, { signal });
 }
 
-export function updateCompanyAdCreative(creativeId, payload, { signal } = {}) {
-  return apiClient.put(`/company/ads/creatives/${creativeId}`, payload ?? {}, { signal });
+export function updateCompanyAdCreative(creativeId, payload = {}, { signal } = {}) {
+  const resolvedCreativeId = ensureId(creativeId, 'creativeId is required to update a creative.');
+  return apiClient.put(`/company/ads/creatives/${resolvedCreativeId}`, payload, { signal });
 }
 
 export function deleteCompanyAdCreative(creativeId, { signal } = {}) {
-  return apiClient.delete(`/company/ads/creatives/${creativeId}`, { signal });
+  const resolvedCreativeId = ensureId(creativeId, 'creativeId is required to delete a creative.');
+  return apiClient.delete(`/company/ads/creatives/${resolvedCreativeId}`, { signal });
 }
 
-export function createCompanyAdPlacement(creativeId, payload, { signal } = {}) {
-  return apiClient.post(`/company/ads/creatives/${creativeId}/placements`, payload ?? {}, { signal });
+export function createCompanyAdPlacement(creativeId, payload = {}, { signal } = {}) {
+  const resolvedCreativeId = ensureId(creativeId, 'creativeId is required to create a placement.');
+  return apiClient.post(`/company/ads/creatives/${resolvedCreativeId}/placements`, payload, { signal });
 }
 
-export function updateCompanyAdPlacement(placementId, payload, { signal } = {}) {
-  return apiClient.put(`/company/ads/placements/${placementId}`, payload ?? {}, { signal });
+export function updateCompanyAdPlacement(placementId, payload = {}, { signal } = {}) {
+  const resolvedPlacementId = ensureId(placementId, 'placementId is required to update a placement.');
+  return apiClient.put(`/company/ads/placements/${resolvedPlacementId}`, payload, { signal });
 }
 
 export function deleteCompanyAdPlacement(placementId, { signal } = {}) {
-  return apiClient.delete(`/company/ads/placements/${placementId}`, { signal });
+  const resolvedPlacementId = ensureId(placementId, 'placementId is required to delete a placement.');
+  return apiClient.delete(`/company/ads/placements/${resolvedPlacementId}`, { signal });
 }
 
 export function toggleCompanyAdPlacement(placementId, { signal } = {}) {
-  return apiClient.post(`/company/ads/placements/${placementId}/toggle`, {}, { signal });
+  const resolvedPlacementId = ensureId(placementId, 'placementId is required to toggle a placement.');
+  return apiClient.post(`/company/ads/placements/${resolvedPlacementId}/toggle`, {}, { signal });
 }
 
 export default {

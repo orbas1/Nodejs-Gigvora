@@ -58,7 +58,7 @@ export default function WalletLedgerEntryForm({
       : 'rounded-3xl border border-slate-200 bg-white p-6 shadow-sm';
 
   return (
-    <form className={containerClass} onSubmit={handleSubmit}>
+    <form className={containerClass} onSubmit={handleSubmit} noValidate>
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-slate-900">New entry</h3>
         {onCancel ? (

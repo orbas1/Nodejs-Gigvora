@@ -1,0 +1,12 @@
+# Pages Updated — November 2024 Feature Pack
+
+| Page | Summary of Changes | Impacted Components | Notes |
+| --- | --- | --- | --- |
+| `/admin/dashboard` | Introduced Role Control Center, compliance pulse widgets, and unified alerts stream. | `RoleControlPanel`, `ComplianceHeatmap`, `AlertStream`, telemetry hooks. | Requires `admin:roles.manage` scope; features behind `feature.adminControlCenter` flag until launch day. |
+| `/provider/onboarding` | New multi-step credential submission wizard with document upload, validation, and badge preview. | `CredentialStepper`, `DocumentUploader`, `BadgePreview`, new hooks for storage signatures. | Supports resumable sessions via encrypted draft persistence; extends analytics events `credential_step_viewed`. |
+| `/provider/dashboard` | Added revenue forecast, lead pipeline modules, and compliance reminders. | `ForecastWidget`, `PipelineBoard`, `ComplianceChecklist`. | Each widget lazy-loads data using SWR caching; default sort derived from user preference service. |
+| `/provider/profile` | Redesigned public profile to emphasise verified badges, portfolio carousel, and testimonial insights. | `ProfileHero`, `PortfolioCarousel`, `InsightChips`, `TrustScoreMeter`. | Card layout responsive down to 320px; includes shareable open-graph metadata updates. |
+| `/serviceman/mission-control` | New mission console with SLA countdowns, offline-ready SOP viewer, and escalation actions. | `MissionTimeline`, `SlaCountdown`, `OfflineChecklist`, `EscalationDrawer`. | Offline sync uses IndexedDB; background sync worker retries every 5 minutes with exponential backoff. |
+| `/serviceman/profile` | Added performance scorecards, skill endorsements, and availability scheduling. | `PerformanceScorecard`, `EndorsementList`, `AvailabilityScheduler`. | Supports calendar integration via ICS feed; gating toggles behind `feature.servicemanAvailability`. |
+| `/user/profile` | Trust-focused profile refresh featuring activity timeline, recommendation carousel, and verification banner. | `ActivityTimeline`, `RecommendationCarousel`, `VerificationBanner`, `PreferenceCentre`. | Accessibility preferences persisted via `/api/profile/preferences`; CORS allowlist updated accordingly. |
+| `/settings/security` | Extended 2FA management to include WebAuthn devices and session history timeline. | `WebAuthnManager`, `SessionHistory`, `RecoveryCodesPanel`. | New rate limits applied to prevent token brute force attempts; logs emitted to security data lake. |

@@ -5,19 +5,19 @@ function toDate(value) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-export function formatRelativeTime(value) {
+export function formatRelativeTime(value, { locale = 'en', now = new Date(), numeric = 'auto' } = {}) {
   const date = toDate(value);
   if (!date) return '';
 
-  const now = new Date();
-  const diffMs = date.getTime() - now.getTime();
+  const reference = toDate(now) ?? new Date();
+  const diffMs = date.getTime() - reference.getTime();
   const diffSeconds = Math.round(diffMs / 1000);
   const absSeconds = Math.abs(diffSeconds);
 
-  const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric });
 
   if (absSeconds < 60) {
-    return rtf.format(Math.round(diffSeconds), 'second');
+    return rtf.format(diffSeconds, 'second');
   }
 
   const diffMinutes = Math.round(diffSeconds / 60);
@@ -49,30 +49,45 @@ export function formatRelativeTime(value) {
   return rtf.format(diffYears, 'year');
 }
 
-export function formatAbsolute(value, options = {}) {
+export function formatAbsolute(value, { locale = 'en-GB', dateStyle = 'medium', timeStyle = 'short', timeZone } = {}) {
   const date = toDate(value);
   if (!date) return '';
-  const formatter = new Intl.DateTimeFormat('en-GB', {
-    dateStyle: options.dateStyle || 'medium',
-    timeStyle: options.timeStyle || 'short',
-  });
+  const formatOptions = { dateStyle };
+  if (timeStyle) {
+    formatOptions.timeStyle = timeStyle;
+  }
+  if (timeZone) {
+    formatOptions.timeZone = timeZone;
+  }
+  const formatter = new Intl.DateTimeFormat(locale, formatOptions);
   return formatter.format(date);
 }
 
-export function describeTimeSince(value) {
+export function describeTimeSince(value, options = {}) {
   const date = toDate(value);
   if (!date) return '';
-  return `${formatRelativeTime(date)} (${formatAbsolute(date)})`;
+
+  const { now, locale, numeric, ...absoluteOptions } = options;
+  const relative = formatRelativeTime(date, { now, locale, numeric });
+  const absolute = formatAbsolute(date, {
+    ...absoluteOptions,
+    locale: absoluteOptions.locale || locale || 'en-GB',
+  });
+  return `${relative} (${absolute})`;
 }
 
-export function formatDateLabel(value, { includeTime = false, fallback = '—' } = {}) {
+export function formatDateLabel(value, { includeTime = false, fallback = '—', locale = 'en-US', timeZone } = {}) {
   const date = toDate(value);
   if (!date) {
     return fallback;
   }
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    dateStyle: 'medium',
-    ...(includeTime ? { timeStyle: 'short' } : {}),
-  });
+  const formatOptions = { dateStyle: 'medium' };
+  if (includeTime) {
+    formatOptions.timeStyle = 'short';
+  }
+  if (timeZone) {
+    formatOptions.timeZone = timeZone;
+  }
+  const formatter = new Intl.DateTimeFormat(locale, formatOptions);
   return formatter.format(date);
 }

@@ -1,151 +1,298 @@
 import { apiClient } from './apiClient.js';
+import {
+  requireIdentifier,
+  optionalString,
+  mergeWorkspace,
+  buildWorkspaceContext,
+  combineRequestOptions,
+} from './serviceHelpers.js';
 
-// Company creation studio endpoints
-export function fetchCompanyCreationStudioOverview({ workspaceId, signal } = {}) {
-  const params = {};
-  if (workspaceId != null && `${workspaceId}`.length > 0) {
-    params.workspaceId = workspaceId;
+function parseInteger(value) {
+  if (value == null) {
+    return undefined;
   }
-  return apiClient.get('/company/creation-studio/overview', { params, signal });
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : undefined;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+    const parsed = Number.parseInt(trimmed, 10);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
 }
 
-export function fetchCompanyCreationStudioItems({ workspaceId, type, status, search, limit, offset } = {}, { signal } = {}) {
-  const params = {};
-  if (workspaceId != null && `${workspaceId}`.length > 0) {
-    params.workspaceId = workspaceId;
-  }
-  if (type) {
-    params.type = type;
-  }
-  if (status) {
-    params.status = status;
-  }
-  if (search) {
-    params.search = search;
-  }
-  if (limit != null) {
-    params.limit = limit;
-  }
-  if (offset != null) {
-    params.offset = offset;
-  }
-  return apiClient.get('/company/creation-studio', { params, signal });
+function buildWorkspaceParams(workspace = {}) {
+  return mergeWorkspace({}, workspace);
 }
 
-export function createCompanyCreationStudioItem(payload, { signal } = {}) {
-  return apiClient.post('/company/creation-studio', payload, { signal });
+function applyWorkspaceToPayload(payload = {}, workspace = {}) {
+  const context = buildWorkspaceContext(workspace);
+  if (payload instanceof FormData) {
+    Object.entries(context).forEach(([key, value]) => {
+      payload.set(key, value);
+    });
+    return payload;
+  }
+  return mergeWorkspace({ ...(payload || {}) }, workspace);
 }
 
-export function updateCompanyCreationStudioItem(itemId, payload, { signal } = {}) {
-  if (!itemId) {
-    throw new Error('itemId is required to update a creation studio item.');
-  }
-  return apiClient.put(`/company/creation-studio/${itemId}`, payload, { signal });
+export function fetchCompanyCreationStudioOverview({ workspaceId, workspaceSlug } = {}, options = {}) {
+  const params = buildWorkspaceParams({ workspaceId, workspaceSlug });
+  return apiClient.get(
+    '/company/creation-studio/overview',
+    combineRequestOptions({ params }, options),
+  );
 }
 
-export function publishCompanyCreationStudioItem(itemId, payload = {}, { signal } = {}) {
-  if (!itemId) {
-    throw new Error('itemId is required to publish a creation studio item.');
+export function fetchCompanyCreationStudioItems(
+  { workspaceId, workspaceSlug, type, status, search, limit, offset } = {},
+  options = {},
+) {
+  const params = buildWorkspaceParams({ workspaceId, workspaceSlug });
+  const typeFilter = optionalString(type);
+  if (typeFilter) {
+    params.type = typeFilter;
   }
-  return apiClient.post(`/company/creation-studio/${itemId}/publish`, payload, { signal });
+  const statusFilter = optionalString(status);
+  if (statusFilter) {
+    params.status = statusFilter;
+  }
+  const searchQuery = optionalString(search);
+  if (searchQuery) {
+    params.search = searchQuery;
+  }
+  const limitValue = parseInteger(limit);
+  if (limitValue !== undefined) {
+    params.limit = limitValue;
+  }
+  const offsetValue = parseInteger(offset);
+  if (offsetValue !== undefined) {
+    params.offset = offsetValue;
+  }
+
+  return apiClient.get(
+    '/company/creation-studio',
+    combineRequestOptions({ params }, options),
+  );
 }
 
-export function shareCompanyCreationStudioItem(itemId, payload = {}, { signal } = {}) {
-  if (!itemId) {
-    throw new Error('itemId is required to share a creation studio item.');
-  }
-  return apiClient.post(`/company/creation-studio/${itemId}/share`, payload, { signal });
+export function createCompanyCreationStudioItem(payload = {}, { workspaceId, workspaceSlug, ...options } = {}) {
+  const body = applyWorkspaceToPayload(payload ?? {}, { workspaceId, workspaceSlug });
+  return apiClient.post('/company/creation-studio', body, combineRequestOptions({}, options));
 }
 
-export function deleteCompanyCreationStudioItem(itemId, { signal } = {}) {
-  if (!itemId) {
-    throw new Error('itemId is required to delete a creation studio item.');
-  }
-  return apiClient.delete(`/company/creation-studio/${itemId}`, { signal });
+export function updateCompanyCreationStudioItem(
+  itemId,
+  payload = {},
+  { workspaceId, workspaceSlug, ...options } = {},
+) {
+  const resolvedItemId = requireIdentifier(itemId, 'itemId');
+  const body = applyWorkspaceToPayload(payload ?? {}, { workspaceId, workspaceSlug });
+  return apiClient.put(
+    `/company/creation-studio/${resolvedItemId}`,
+    body,
+    combineRequestOptions({}, options),
+  );
 }
 
-// User creation studio workspace endpoints
-export async function fetchCreationWorkspace(userId, { includeArchived = false, signal } = {}) {
-  if (!userId) {
-    throw new Error('userId is required to load the creation studio workspace.');
-  }
-  const params = {};
+export function publishCompanyCreationStudioItem(
+  itemId,
+  payload = {},
+  { workspaceId, workspaceSlug, ...options } = {},
+) {
+  const resolvedItemId = requireIdentifier(itemId, 'itemId');
+  const body = applyWorkspaceToPayload(payload ?? {}, { workspaceId, workspaceSlug });
+  return apiClient.post(
+    `/company/creation-studio/${resolvedItemId}/publish`,
+    body,
+    combineRequestOptions({}, options),
+  );
+}
+
+export function shareCompanyCreationStudioItem(
+  itemId,
+  payload = {},
+  { workspaceId, workspaceSlug, ...options } = {},
+) {
+  const resolvedItemId = requireIdentifier(itemId, 'itemId');
+  const body = applyWorkspaceToPayload(payload ?? {}, { workspaceId, workspaceSlug });
+  return apiClient.post(
+    `/company/creation-studio/${resolvedItemId}/share`,
+    body,
+    combineRequestOptions({}, options),
+  );
+}
+
+export function deleteCompanyCreationStudioItem(itemId, { workspaceId, workspaceSlug, ...options } = {}) {
+  const resolvedItemId = requireIdentifier(itemId, 'itemId');
+  const params = buildWorkspaceParams({ workspaceId, workspaceSlug });
+  return apiClient.delete(
+    `/company/creation-studio/${resolvedItemId}`,
+    combineRequestOptions({ params }, options),
+  );
+}
+
+export function fetchCreationWorkspace(
+  userId,
+  { includeArchived = false, workspaceId, workspaceSlug, ...options } = {},
+) {
+  const resolvedUserId = requireIdentifier(userId, 'userId');
+  const params = buildWorkspaceParams({ workspaceId, workspaceSlug });
   if (includeArchived) {
     params.includeArchived = 'true';
   }
-  return apiClient.get(`/users/${userId}/creation-studio`, { params, signal });
+  return apiClient.get(
+    `/users/${resolvedUserId}/creation-studio`,
+    combineRequestOptions({ params }, options),
+  );
 }
 
-export function createCreationItem(userId, payload, { signal } = {}) {
-  if (!userId) {
-    throw new Error('userId is required to create a creation studio item.');
+export function createCreationItem(userId, payload = {}, { workspaceId, workspaceSlug, ...options } = {}) {
+  const resolvedUserId = requireIdentifier(userId, 'userId');
+  const body = applyWorkspaceToPayload(payload ?? {}, { workspaceId, workspaceSlug });
+  return apiClient.post(
+    `/users/${resolvedUserId}/creation-studio`,
+    body,
+    combineRequestOptions({}, options),
+  );
+}
+
+export function updateCreationItem(
+  userId,
+  itemId,
+  payload = {},
+  { workspaceId, workspaceSlug, ...options } = {},
+) {
+  const resolvedUserId = requireIdentifier(userId, 'userId');
+  const resolvedItemId = requireIdentifier(itemId, 'itemId');
+  const body = applyWorkspaceToPayload(payload ?? {}, { workspaceId, workspaceSlug });
+  return apiClient.put(
+    `/users/${resolvedUserId}/creation-studio/${resolvedItemId}`,
+    body,
+    combineRequestOptions({}, options),
+  );
+}
+
+export function saveCreationStep(
+  userId,
+  itemId,
+  stepKey,
+  payload = {},
+  { workspaceId, workspaceSlug, ...options } = {},
+) {
+  const resolvedUserId = requireIdentifier(userId, 'userId');
+  const resolvedItemId = requireIdentifier(itemId, 'itemId');
+  const normalisedStepKey = optionalString(stepKey);
+  if (!normalisedStepKey) {
+    throw new Error('stepKey is required to update a creation studio step.');
   }
-  return apiClient.post(`/users/${userId}/creation-studio`, payload, { signal });
+  const body = applyWorkspaceToPayload(payload ?? {}, { workspaceId, workspaceSlug });
+  return apiClient.post(
+    `/users/${resolvedUserId}/creation-studio/${resolvedItemId}/steps/${encodeURIComponent(normalisedStepKey)}`,
+    body,
+    combineRequestOptions({}, options),
+  );
 }
 
-export function updateCreationItem(userId, itemId, payload, { signal } = {}) {
-  if (!userId || !itemId) {
-    throw new Error('userId and itemId are required to update a creation studio item.');
+export function shareCreationItem(
+  userId,
+  itemId,
+  payload = {},
+  { workspaceId, workspaceSlug, ...options } = {},
+) {
+  const resolvedUserId = requireIdentifier(userId, 'userId');
+  const resolvedItemId = requireIdentifier(itemId, 'itemId');
+  const body = applyWorkspaceToPayload(payload ?? {}, { workspaceId, workspaceSlug });
+  return apiClient.post(
+    `/users/${resolvedUserId}/creation-studio/${resolvedItemId}/share`,
+    body,
+    combineRequestOptions({}, options),
+  );
+}
+
+export function archiveCreationItem(userId, itemId, { workspaceId, workspaceSlug, ...options } = {}) {
+  const resolvedUserId = requireIdentifier(userId, 'userId');
+  const resolvedItemId = requireIdentifier(itemId, 'itemId');
+  const params = buildWorkspaceParams({ workspaceId, workspaceSlug });
+  return apiClient.delete(
+    `/users/${resolvedUserId}/creation-studio/${resolvedItemId}`,
+    combineRequestOptions({ params }, options),
+  );
+}
+
+export function listCreationStudioItems(filters = {}, options = {}) {
+  const { type, status, search, limit, offset, workspaceId, workspaceSlug, ...rest } = filters;
+  const params = {
+    ...rest,
+    ...buildWorkspaceParams({ workspaceId, workspaceSlug }),
+  };
+  const typeFilter = optionalString(type);
+  if (typeFilter) {
+    params.type = typeFilter;
   }
-  return apiClient.put(`/users/${userId}/creation-studio/${itemId}`, payload, { signal });
-}
-
-export function saveCreationStep(userId, itemId, stepKey, payload, { signal } = {}) {
-  if (!userId || !itemId || !stepKey) {
-    throw new Error('userId, itemId, and stepKey are required to update a creation studio step.');
+  const statusFilter = optionalString(status);
+  if (statusFilter) {
+    params.status = statusFilter;
   }
-  return apiClient.post(`/users/${userId}/creation-studio/${itemId}/steps/${encodeURIComponent(stepKey)}`, payload, { signal });
-}
-
-export function shareCreationItem(userId, itemId, payload, { signal } = {}) {
-  if (!userId || !itemId) {
-    throw new Error('userId and itemId are required to share a creation studio item.');
+  const searchQuery = optionalString(search);
+  if (searchQuery) {
+    params.search = searchQuery;
   }
-  return apiClient.post(`/users/${userId}/creation-studio/${itemId}/share`, payload, { signal });
-}
-
-export function archiveCreationItem(userId, itemId, { signal } = {}) {
-  if (!userId || !itemId) {
-    throw new Error('userId and itemId are required to archive a creation studio item.');
+  const limitValue = parseInteger(limit);
+  if (limitValue !== undefined) {
+    params.limit = limitValue;
   }
-  return apiClient.delete(`/users/${userId}/creation-studio/${itemId}`, { signal });
-}
+  const offsetValue = parseInteger(offset);
+  if (offsetValue !== undefined) {
+    params.offset = offsetValue;
+  }
 
-// Public creation studio catalogue endpoints
-export function listCreationStudioItems(params = {}, options = {}) {
-  return apiClient.get('/creation-studio/items', { params, ...options });
+  return apiClient.get(
+    '/creation-studio/items',
+    combineRequestOptions({ params }, options),
+  );
 }
 
 export function getCreationStudioItem(itemId, options = {}) {
-  if (!itemId) {
-    throw new Error('itemId is required to fetch a creation studio item.');
-  }
-  return apiClient.get(`/creation-studio/items/${itemId}`, options);
+  const resolvedItemId = requireIdentifier(itemId, 'itemId');
+  return apiClient.get(
+    `/creation-studio/items/${resolvedItemId}`,
+    combineRequestOptions({}, options),
+  );
 }
 
-export function createCreationStudioItem(payload, options = {}) {
-  return apiClient.post('/creation-studio/items', payload, options);
+export function createCreationStudioItem(payload = {}, options = {}) {
+  return apiClient.post('/creation-studio/items', payload ?? {}, combineRequestOptions({}, options));
 }
 
-export function updateCreationStudioItem(itemId, payload, options = {}) {
-  if (!itemId) {
-    throw new Error('itemId is required to update a creation studio item.');
-  }
-  return apiClient.put(`/creation-studio/items/${itemId}`, payload, options);
+export function updateCreationStudioItem(itemId, payload = {}, options = {}) {
+  const resolvedItemId = requireIdentifier(itemId, 'itemId');
+  return apiClient.put(
+    `/creation-studio/items/${resolvedItemId}`,
+    payload ?? {},
+    combineRequestOptions({}, options),
+  );
 }
 
 export function publishCreationStudioItem(itemId, payload = {}, options = {}) {
-  if (!itemId) {
-    throw new Error('itemId is required to publish a creation studio item.');
-  }
-  return apiClient.post(`/creation-studio/items/${itemId}/publish`, payload, options);
+  const resolvedItemId = requireIdentifier(itemId, 'itemId');
+  return apiClient.post(
+    `/creation-studio/items/${resolvedItemId}/publish`,
+    payload ?? {},
+    combineRequestOptions({}, options),
+  );
 }
 
 export function deleteCreationStudioItem(itemId, options = {}) {
-  if (!itemId) {
-    throw new Error('itemId is required to delete a creation studio item.');
-  }
-  return apiClient.delete(`/creation-studio/items/${itemId}`, options);
+  const resolvedItemId = requireIdentifier(itemId, 'itemId');
+  return apiClient.delete(
+    `/creation-studio/items/${resolvedItemId}`,
+    combineRequestOptions({}, options),
+  );
 }
 
 export const creationStudioApi = {
@@ -170,3 +317,4 @@ export const creationStudioApi = {
   deleteCreationStudioItem,
 };
 
+export default creationStudioApi;

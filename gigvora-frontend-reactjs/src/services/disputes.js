@@ -1,31 +1,52 @@
 import { apiClient } from './apiClient.js';
+import { requireIdentifier, mergeWorkspace, combineRequestOptions } from './serviceHelpers.js';
 
-export async function fetchUserDisputes(userId, params = {}, { signal } = {}) {
-  if (!userId) {
-    throw new Error('userId is required to fetch disputes.');
-  }
-  return apiClient.get(`/users/${userId}/disputes`, { params, signal });
+export async function fetchUserDisputes(userId, filters = {}, options = {}) {
+  const resolvedUserId = requireIdentifier(userId, 'userId');
+  const { workspaceId, workspaceSlug, ...restFilters } = filters;
+  const params = {
+    ...restFilters,
+    ...mergeWorkspace({}, { workspaceId, workspaceSlug }),
+  };
+  return apiClient.get(
+    `/users/${resolvedUserId}/disputes`,
+    combineRequestOptions({ params }, options),
+  );
 }
 
-export async function fetchUserDispute(userId, disputeId, { signal } = {}) {
-  if (!userId || !disputeId) {
-    throw new Error('userId and disputeId are required.');
-  }
-  return apiClient.get(`/users/${userId}/disputes/${disputeId}`, { signal });
+export async function fetchUserDispute(userId, disputeId, options = {}) {
+  const resolvedUserId = requireIdentifier(userId, 'userId');
+  const resolvedDisputeId = requireIdentifier(disputeId, 'disputeId');
+  return apiClient.get(
+    `/users/${resolvedUserId}/disputes/${resolvedDisputeId}`,
+    combineRequestOptions({}, options),
+  );
 }
 
-export async function createUserDispute(userId, payload, { signal } = {}) {
-  if (!userId) {
-    throw new Error('userId is required to create a dispute.');
-  }
-  return apiClient.post(`/users/${userId}/disputes`, payload, { signal });
+export async function createUserDispute(userId, payload = {}, { workspaceId, workspaceSlug, ...options } = {}) {
+  const resolvedUserId = requireIdentifier(userId, 'userId');
+  const body = mergeWorkspace({ ...(payload || {}) }, { workspaceId, workspaceSlug });
+  return apiClient.post(
+    `/users/${resolvedUserId}/disputes`,
+    body,
+    combineRequestOptions({}, options),
+  );
 }
 
-export async function postUserDisputeEvent(userId, disputeId, payload, { signal } = {}) {
-  if (!userId || !disputeId) {
-    throw new Error('userId and disputeId are required.');
-  }
-  return apiClient.post(`/users/${userId}/disputes/${disputeId}/events`, payload, { signal });
+export async function postUserDisputeEvent(
+  userId,
+  disputeId,
+  payload = {},
+  { workspaceId, workspaceSlug, ...options } = {},
+) {
+  const resolvedUserId = requireIdentifier(userId, 'userId');
+  const resolvedDisputeId = requireIdentifier(disputeId, 'disputeId');
+  const body = mergeWorkspace({ ...(payload || {}) }, { workspaceId, workspaceSlug });
+  return apiClient.post(
+    `/users/${resolvedUserId}/disputes/${resolvedDisputeId}/events`,
+    body,
+    combineRequestOptions({}, options),
+  );
 }
 
 export default {

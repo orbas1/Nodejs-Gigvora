@@ -120,6 +120,7 @@ export default function ProjectWorkspaceContainer({ userId }) {
   const summary = data?.summary ?? data?.projectWorkspace?.summary ?? {
     projectCount: projects.length,
   };
+  const canManage = data?.access?.canManage !== false;
   const [selectedProjectId, setSelectedProjectId] = useState(() =>
     projects[0]?.id != null ? String(projects[0].id) : null,
   );
@@ -244,7 +245,7 @@ export default function ProjectWorkspaceContainer({ userId }) {
         </div>
       </header>
 
-      <DataStatus loading={loading} error={error} retry={reload}>
+      <DataStatus loading={loading} error={error} onRefresh={reload} onRetry={reload}>
         {projects.length ? (
           <div className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">

@@ -189,6 +189,7 @@ export default function ProfileOverviewSection({
             onRequestAvatar={handleAvatarClick}
             onShowFollowers={() => setFollowersOpen(true)}
             onShowConnections={() => setConnectionsOpen(true)}
+            onShowPending={() => setConnectionsOpen(true)}
           />
 
           <div className="grid gap-6 md:grid-cols-2">

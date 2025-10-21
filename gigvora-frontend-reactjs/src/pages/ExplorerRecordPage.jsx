@@ -30,7 +30,7 @@ import {
   deleteExplorerInteraction,
 } from '../services/explorerData.js';
 
-const CATEGORY_CONFIG = {
+export const CATEGORY_CONFIG = {
   project: {
     label: 'Project',
     highlight: 'Deliver end-to-end programmes with structured milestones.',
@@ -132,7 +132,7 @@ const CATEGORY_CONFIG = {
   },
 };
 
-const INTERACTION_TYPE_LABELS = {
+export const INTERACTION_TYPE_LABELS = {
   bid: 'Bid',
   booking: 'Booking',
   enquiry: 'Enquiry',
@@ -141,7 +141,7 @@ const INTERACTION_TYPE_LABELS = {
   volunteer: 'Volunteer pledge',
 };
 
-const STATUS_LABELS = {
+export const STATUS_LABELS = {
   new: 'New',
   in_review: 'In review',
   shortlisted: 'Shortlisted',
@@ -150,11 +150,11 @@ const STATUS_LABELS = {
   contacted: 'Contacted',
 };
 
-function classNames(...classes) {
+export function classNames(...classes) {
   return classes.filter(Boolean).join(' ');
 }
 
-function formatCurrency(amount, currency) {
+export function formatCurrency(amount, currency) {
   if (amount == null || Number.isNaN(Number(amount))) {
     return null;
   }
@@ -169,7 +169,7 @@ function formatCurrency(amount, currency) {
   }
 }
 
-function buildHighlights(record) {
+export function buildHighlights(record) {
   const highlights = [];
   if (record.status) {
     highlights.push({ label: 'Status', value: record.status });

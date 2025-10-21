@@ -198,7 +198,7 @@ export default function FileManagerTab({ project, actions, canManage }) {
             />
           </label>
           <label className="flex flex-col text-sm text-slate-700">
-            Size (bytes)
+            File size (bytes)
             <input
               type="number"
               name="sizeBytes"
@@ -356,7 +356,7 @@ export default function FileManagerTab({ project, actions, canManage }) {
               />
             </label>
             <label className="flex flex-col text-sm text-slate-700">
-              Size (bytes)
+              File size (bytes)
               <input
                 type="number"
                 name="sizeBytes"

@@ -1,45 +1,77 @@
 import { apiClient } from './apiClient.js';
+import {
+  requireIdentifier,
+  optionalString,
+  mergeWorkspace,
+  combineRequestOptions,
+} from './serviceHelpers.js';
 
-export async function fetchConnectionNetwork({ userId, viewerId, includePending = false, signal } = {}) {
-  if (!userId) {
-    throw new Error('A userId is required to fetch the connection network.');
+export async function fetchConnectionNetwork(
+  { userId, viewerId, includePending = false, workspaceId, workspaceSlug } = {},
+  options = {},
+) {
+  const resolvedUserId = requireIdentifier(userId, 'userId');
+  const params = {
+    userId: resolvedUserId,
+    ...mergeWorkspace({}, { workspaceId, workspaceSlug }),
+  };
+
+  const viewer = optionalString(viewerId);
+  if (viewer) {
+    params.viewerId = viewer;
+  }
+  if (includePending) {
+    params.includePending = 'true';
   }
 
-  return apiClient.get('/connections/network', {
-    params: {
-      userId,
-      viewerId,
-      includePending,
-    },
-    signal,
-  });
-}
-
-export async function createConnectionRequest({ actorId, targetId, signal } = {}) {
-  if (!actorId || !targetId) {
-    throw new Error('actorId and targetId are required to request a connection.');
-  }
-  return apiClient.post(
-    '/connections',
-    {
-      actorId,
-      targetId,
-    },
-    { signal },
+  return apiClient.get(
+    '/connections/network',
+    combineRequestOptions({ params }, options),
   );
 }
 
-export async function respondToConnection({ connectionId, actorId, decision, signal } = {}) {
-  if (!connectionId || !actorId) {
-    throw new Error('connectionId and actorId are required to respond to a connection request.');
-  }
-  return apiClient.post(
-    `/connections/${connectionId}/respond`,
+export async function createConnectionRequest(
+  { actorId, targetId, message, workspaceId, workspaceSlug } = {},
+  options = {},
+) {
+  const resolvedActorId = requireIdentifier(actorId, 'actorId');
+  const resolvedTargetId = requireIdentifier(targetId, 'targetId');
+  const body = mergeWorkspace(
     {
-      actorId,
-      decision,
+      actorId: resolvedActorId,
+      targetId: resolvedTargetId,
+      ...(optionalString(message) ? { message: optionalString(message) } : {}),
     },
-    { signal },
+    { workspaceId, workspaceSlug },
+  );
+
+  return apiClient.post('/connections', body, combineRequestOptions({}, options));
+}
+
+export async function respondToConnection(
+  { connectionId, actorId, decision, note, workspaceId, workspaceSlug } = {},
+  options = {},
+) {
+  const resolvedConnectionId = requireIdentifier(connectionId, 'connectionId');
+  const resolvedActorId = requireIdentifier(actorId, 'actorId');
+  const normalisedDecision = optionalString(decision);
+  if (!normalisedDecision) {
+    throw new Error('decision is required to respond to a connection request.');
+  }
+
+  const body = mergeWorkspace(
+    {
+      actorId: resolvedActorId,
+      decision: normalisedDecision,
+      ...(optionalString(note) ? { note: optionalString(note) } : {}),
+    },
+    { workspaceId, workspaceSlug },
+  );
+
+  return apiClient.post(
+    `/connections/${resolvedConnectionId}/respond`,
+    body,
+    combineRequestOptions({}, options),
   );
 }
 

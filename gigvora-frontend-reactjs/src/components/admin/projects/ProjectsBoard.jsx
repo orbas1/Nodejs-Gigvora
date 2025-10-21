@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import {
   ArrowPathIcon,
@@ -52,7 +52,7 @@ const BREAKDOWN_BADGE_CLASSES = {
   low: 'bg-emerald-100 text-emerald-700',
 };
 
-function SummaryTile({ title, value, accent }) {
+function SummaryTile({ title, value, accent = '' }) {
   return (
     <div className="rounded-3xl border border-slate-200 bg-white px-6 py-5 shadow-sm shadow-indigo-100/40">
       <p className="text-sm font-semibold text-slate-500">{title}</p>
@@ -68,15 +68,11 @@ SummaryTile.propTypes = {
   accent: PropTypes.string,
 };
 
-SummaryTile.defaultProps = {
-  accent: '',
-};
-
 function classNames(...values) {
   return values.filter(Boolean).join(' ');
 }
 
-export default function ProjectsBoard({ initialSnapshot }) {
+export default function ProjectsBoard({ initialSnapshot = null }) {
   const [portfolio, setPortfolio] = useState(initialSnapshot ?? null);
   const [loading, setLoading] = useState(!initialSnapshot);
   const [error, setError] = useState(null);
@@ -86,6 +82,23 @@ export default function ProjectsBoard({ initialSnapshot }) {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState('table');
+
+  const filtersRef = useRef(filters);
+  const portfolioRef = useRef(portfolio);
+  const requestIdRef = useRef(0);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
+
+  useEffect(() => {
+    portfolioRef.current = portfolio;
+  }, [portfolio]);
+
+  useEffect(() => () => {
+    isMountedRef.current = false;
+  }, []);
 
   const owners = useMemo(() => portfolio?.owners ?? [], [portfolio]);
 
@@ -142,14 +155,23 @@ export default function ProjectsBoard({ initialSnapshot }) {
     ];
   }, [portfolio]);
 
-  const loadPortfolio = async (overrides = {}) => {
-    const nextFilters = { ...filters, ...overrides };
-    if (!portfolio) {
+  const loadPortfolio = useCallback(async (overrides = {}) => {
+    const baseFilters = filtersRef.current;
+    const nextFilters = { ...baseFilters, ...overrides };
+    filtersRef.current = nextFilters;
+    setFilters(nextFilters);
+
+    const hasExistingSnapshot = Boolean(portfolioRef.current);
+    if (!hasExistingSnapshot) {
       setLoading(true);
     } else {
       setRefreshing(true);
     }
     setError(null);
+
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+
     try {
       const params = {
         search: nextFilters.search || undefined,
@@ -158,15 +180,31 @@ export default function ProjectsBoard({ initialSnapshot }) {
         riskLevels: nextFilters.risk || undefined,
       };
       const snapshot = await fetchProjectPortfolio(params);
+      if (!isMountedRef.current || requestId !== requestIdRef.current) {
+        return;
+      }
       setPortfolio(snapshot);
-      setFilters(nextFilters);
     } catch (err) {
-      setError(err.message || 'Unable to load projects.');
+      if (!isMountedRef.current || requestId !== requestIdRef.current) {
+        return;
+      }
+      if (err?.status === 403) {
+        setError(
+          'You do not have permission to view project portfolio data. Ask an administrator to grant the project:manage or platform:admin role.',
+        );
+      } else if (err?.status === 401) {
+        setError('Your session has expired. Sign in again to reload projects.');
+      } else {
+        setError(err?.message || 'Unable to load projects.');
+      }
     } finally {
+      if (!isMountedRef.current || requestId !== requestIdRef.current) {
+        return;
+      }
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (!initialSnapshot) {
@@ -463,6 +501,7 @@ export default function ProjectsBoard({ initialSnapshot }) {
                 value={filters.search}
                 onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
                 placeholder="Search"
+                aria-label="Search projects"
                 className="flex-1 border-none bg-transparent text-sm text-slate-900 outline-none"
               />
             </form>
@@ -491,6 +530,7 @@ export default function ProjectsBoard({ initialSnapshot }) {
               value={filters.status || 'all'}
               onChange={(event) => handleFilterChange('status', event.target.value)}
               className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm text-slate-700 focus:border-accent focus:outline-none"
+              aria-label="Filter by status"
             >
               {STATUS_OPTIONS.map((option) => (
                 <option key={option.value || 'all'} value={option.value || 'all'}>
@@ -502,6 +542,7 @@ export default function ProjectsBoard({ initialSnapshot }) {
               value={filters.risk || 'all'}
               onChange={(event) => handleFilterChange('risk', event.target.value)}
               className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm text-slate-700 focus:border-accent focus:outline-none"
+              aria-label="Filter by risk"
             >
               {RISK_OPTIONS.map((option) => (
                 <option key={option.value || 'all'} value={option.value || 'all'}>
@@ -513,6 +554,7 @@ export default function ProjectsBoard({ initialSnapshot }) {
               value={filters.ownerId || 'all'}
               onChange={(event) => handleFilterChange('ownerId', event.target.value)}
               className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm text-slate-700 focus:border-accent focus:outline-none"
+              aria-label="Filter by owner"
             >
               <option value="all">Owners</option>
               {owners.map((owner) => (
@@ -585,8 +627,4 @@ ProjectsBoard.propTypes = {
     projects: PropTypes.arrayOf(PropTypes.object),
     owners: PropTypes.arrayOf(PropTypes.object),
   }),
-};
-
-ProjectsBoard.defaultProps = {
-  initialSnapshot: null,
 };

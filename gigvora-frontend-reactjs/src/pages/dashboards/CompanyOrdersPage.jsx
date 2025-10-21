@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import DataStatus from '../../components/DataStatus.jsx';
 import AccessDeniedPanel from '../../components/dashboard/AccessDeniedPanel.jsx';
@@ -38,6 +38,7 @@ function SummaryCard({ label, value, helper }) {
 
 export default function CompanyOrdersPage() {
   const { session, isAuthenticated } = useSession();
+  const navigate = useNavigate();
   const memberships = session?.memberships ?? [];
   const isCompanyMember = isAuthenticated && memberships.includes('company');
 
@@ -87,6 +88,10 @@ export default function CompanyOrdersPage() {
   }
 
   if (!isCompanyMember) {
+    const fallbackDashboards = memberships.filter((membership) => membership !== 'company');
+    const alternativeDashboards = fallbackDashboards.length
+      ? fallbackDashboards
+      : AVAILABLE_DASHBOARDS.filter((dashboard) => dashboard !== 'company');
     return (
       <DashboardLayout
         currentDashboard="company"
@@ -97,7 +102,8 @@ export default function CompanyOrdersPage() {
       >
         <AccessDeniedPanel
           role="company"
-          availableDashboards={memberships.filter((membership) => membership !== 'company')}
+          availableDashboards={alternativeDashboards}
+          onNavigate={(dashboard) => navigate(`/dashboard/${dashboard}`)}
         />
       </DashboardLayout>
     );

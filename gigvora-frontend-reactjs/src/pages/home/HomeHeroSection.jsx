@@ -100,21 +100,23 @@ export function HomeHeroSection({
         <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent" aria-hidden="true" />
       </div>
 
-      <div className="relative mx-auto max-w-7xl px-6 py-24 lg:flex lg:items-center lg:gap-16">
-        <div className="max-w-2xl space-y-10">
+      <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-24 lg:flex lg:items-center lg:gap-16">
+        <div className="mx-auto max-w-2xl space-y-10 text-center lg:mx-0 lg:text-left">
           <div className="space-y-6">
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1 text-xs font-semibold uppercase tracking-[0.35em] text-accent">
+            <span className="mx-auto inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1 text-xs font-semibold uppercase tracking-[0.35em] text-accent lg:mx-0">
               Community OS
             </span>
-            <h1 className="text-4xl font-semibold leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl">{displayHeadline}</h1>
-            <p className="text-lg text-slate-200 sm:text-xl">{displaySubheading}</p>
+            <h1 className="text-balance text-3xl font-semibold leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl">
+              {displayHeadline}
+            </h1>
+            <p className="text-pretty text-base text-slate-200 sm:text-xl">{displaySubheading}</p>
           </div>
 
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center lg:justify-start">
             <button
               type="button"
               onClick={handleClaimWorkspace}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-accent px-8 py-3 text-base font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-accentDark"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-accent px-8 py-3 text-base font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-accentDark sm:w-auto"
             >
               Claim your workspace
               <ArrowUpRightIcon className="h-5 w-5" aria-hidden="true" />
@@ -122,14 +124,14 @@ export function HomeHeroSection({
             <button
               type="button"
               onClick={handleBrowseOpportunities}
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-white/30 bg-white/5 px-8 py-3 text-base font-semibold text-white transition hover:border-white/60 hover:bg-white/10"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/30 bg-white/5 px-8 py-3 text-base font-semibold text-white transition hover:border-white/60 hover:bg-white/10 sm:w-auto"
             >
               Browse live opportunities
               <ArrowUpRightIcon className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
 
-          <div className="relative mt-10 h-14 overflow-hidden rounded-full border border-white/10 bg-white/5">
+          <div className="relative mt-8 h-auto min-h-[3.25rem] overflow-hidden rounded-full border border-white/10 bg-white/5 sm:mt-10 sm:h-14">
             <div className="pointer-events-none absolute left-0 top-0 h-full w-24 bg-gradient-to-r from-slate-950 via-slate-950/50 to-transparent" aria-hidden="true" />
             <div className="pointer-events-none absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-slate-950 via-slate-950/50 to-transparent" aria-hidden="true" />
             <div
@@ -153,7 +155,7 @@ export function HomeHeroSection({
           </div>
         </div>
 
-        <div className="mt-20 w-full max-w-lg lg:mt-0 lg:max-w-none">
+        <div className="mt-16 w-full max-w-lg px-2 sm:px-0 lg:mt-0 lg:max-w-none">
           <div className="relative mx-auto max-w-md space-y-6 lg:ml-auto lg:mr-0">
             <div className="absolute -top-12 left-1/2 h-24 w-24 -translate-x-1/2 rounded-full bg-accent/40 blur-2xl" aria-hidden="true" />
 

@@ -6,7 +6,7 @@ import useSession from '../hooks/useSession.js';
 import useFinanceControlTower from '../hooks/useFinanceControlTower.js';
 import { hasFinanceOperationsAccess } from '../utils/permissions.js';
 
-function coerceNumber(value, defaultValue = 0) {
+export function coerceNumber(value, defaultValue = 0) {
   if (value == null || value === '') {
     return defaultValue;
   }
@@ -14,7 +14,7 @@ function coerceNumber(value, defaultValue = 0) {
   return Number.isFinite(parsed) ? parsed : defaultValue;
 }
 
-function coerceDate(value) {
+export function coerceDate(value) {
   if (!value) {
     return null;
   }
@@ -22,7 +22,7 @@ function coerceDate(value) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function ensureArray(value) {
+export function ensureArray(value) {
   if (Array.isArray(value)) {
     return value;
   }
@@ -35,7 +35,7 @@ function ensureArray(value) {
   return [];
 }
 
-function formatCurrency(amount, currency = 'USD') {
+export function formatCurrency(amount, currency = 'USD') {
   try {
     return new Intl.NumberFormat('en', {
       style: 'currency',
@@ -49,7 +49,7 @@ function formatCurrency(amount, currency = 'USD') {
   }
 }
 
-function formatPercent(value, { minimumFractionDigits = 0 } = {}) {
+export function formatPercent(value, { minimumFractionDigits = 0 } = {}) {
   const numeric = coerceNumber(value);
   return `${numeric.toLocaleString(undefined, {
     minimumFractionDigits,
@@ -57,7 +57,7 @@ function formatPercent(value, { minimumFractionDigits = 0 } = {}) {
   })}%`;
 }
 
-function formatDateTime(value) {
+export function formatDateTime(value) {
   const date = coerceDate(value);
   if (!date) {
     return 'Ready to release';
@@ -71,7 +71,7 @@ function formatDateTime(value) {
   });
 }
 
-function parseFinanceOverview(payload = {}) {
+export function parseFinanceOverview(payload = {}) {
   try {
     const summarySource = payload.summary ?? payload.metrics ?? {};
     const automationSource = payload.automation ?? {};

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import PanelDialog from './PanelDialog.jsx';
 
-function normalizeCredential(credential = {}, fallbackType = 'qualification') {
+function normalizeCredential(credentialInput = {}, fallbackType = 'qualification') {
+  const credential = credentialInput ?? {};
   return {
     id: credential.id ?? null,
     type: credential.type ?? fallbackType,

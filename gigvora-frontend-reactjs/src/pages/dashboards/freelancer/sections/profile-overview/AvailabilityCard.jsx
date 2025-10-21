@@ -1,3 +1,5 @@
+import PropTypes from 'prop-types';
+
 const STATUS_LABELS = {
   available: { label: 'Open', tone: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
   limited: { label: 'Limited', tone: 'text-amber-600 bg-amber-50 border-amber-100' },
@@ -7,6 +9,13 @@ const STATUS_LABELS = {
 
 export default function AvailabilityCard({ availability, hourlyRate, onManage }) {
   const status = STATUS_LABELS[availability?.status] ?? STATUS_LABELS.limited;
+  const formattedRate =
+    hourlyRate == null
+      ? null
+      : new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(
+          Number(hourlyRate),
+        );
+  const hoursPerWeek = availability?.hoursPerWeek;
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -18,13 +27,9 @@ export default function AvailabilityCard({ availability, hourlyRate, onManage })
             {status.label}
           </span>
           <div className="text-sm text-slate-600">
-            {availability?.hoursPerWeek ? (
-              <p>
-                {availability.hoursPerWeek} hrs/week
-              </p>
-            ) : null}
+            {hoursPerWeek ? <p>{hoursPerWeek} hrs/week</p> : <p>Hours not set</p>}
             <p>{availability?.openToRemote ? 'Remote friendly' : 'On-site only'}</p>
-            {hourlyRate != null ? <p>${hourlyRate}/hr</p> : null}
+            {formattedRate ? <p>{formattedRate} / hr</p> : <p>Rate hidden</p>}
           </div>
         </div>
         <button
@@ -38,3 +43,19 @@ export default function AvailabilityCard({ availability, hourlyRate, onManage })
     </div>
   );
 }
+
+AvailabilityCard.propTypes = {
+  availability: PropTypes.shape({
+    status: PropTypes.string,
+    hoursPerWeek: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    openToRemote: PropTypes.bool,
+  }),
+  hourlyRate: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  onManage: PropTypes.func,
+};
+
+AvailabilityCard.defaultProps = {
+  availability: {},
+  hourlyRate: null,
+  onManage: () => {},
+};

@@ -1,3 +1,5 @@
+import PropTypes from 'prop-types';
+
 function statusBadgeTone(status) {
   switch (status) {
     case 'open':
@@ -131,3 +133,37 @@ export default function DisputeBoard({ columns, activeDisputeId, onSelect, loadi
     </div>
   );
 }
+
+DisputeBoard.propTypes = {
+  columns: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      label: PropTypes.string.isRequired,
+      items: PropTypes.arrayOf(
+        PropTypes.shape({
+          id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+          status: PropTypes.string.isRequired,
+          summary: PropTypes.string.isRequired,
+          priority: PropTypes.string,
+          providerDeadlineAt: PropTypes.string,
+          customerDeadlineAt: PropTypes.string,
+          transaction: PropTypes.shape({
+            id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+            reference: PropTypes.string,
+            amount: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+            currencyCode: PropTypes.string,
+          }),
+        }),
+      ).isRequired,
+    }),
+  ).isRequired,
+  activeDisputeId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  onSelect: PropTypes.func,
+  loading: PropTypes.bool,
+};
+
+DisputeBoard.defaultProps = {
+  activeDisputeId: null,
+  onSelect: () => {},
+  loading: false,
+};

@@ -1,5 +1,6 @@
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment, useEffect, useState } from 'react';
+import PropTypes from 'prop-types';
 
 const STATUS_OPTIONS = [
   { value: 'available', label: 'Open' },
@@ -20,10 +21,12 @@ function buildDraft(availability = {}, hourlyRate) {
 
 export default function AvailabilityDrawer({ open, availability, hourlyRate, onClose, onSave, saving }) {
   const [draft, setDraft] = useState(buildDraft(availability, hourlyRate));
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (open) {
       setDraft(buildDraft(availability, hourlyRate));
+      setError(null);
     }
   }, [open, availability, hourlyRate]);
 
@@ -37,18 +40,30 @@ export default function AvailabilityDrawer({ open, availability, hourlyRate, onC
     if (!onSave) {
       return;
     }
+    const hours = draft.hoursPerWeek === '' ? null : Number(draft.hoursPerWeek);
+    if (hours != null && (Number.isNaN(hours) || hours < 0 || hours > 80)) {
+      setError('Hours per week must be between 0 and 80.');
+      return;
+    }
+    const rate = draft.hourlyRate === '' ? null : Number(draft.hourlyRate);
+    if (rate != null && (Number.isNaN(rate) || rate < 0)) {
+      setError('Hourly rate must be a positive number.');
+      return;
+    }
     await onSave({
       availabilityStatus: draft.status,
-      hoursPerWeek: draft.hoursPerWeek,
-      openToRemote: draft.openToRemote,
-      availabilityNotes: draft.notes,
-      hourlyRate: draft.hourlyRate,
+      hoursPerWeek: hours,
+      openToRemote: Boolean(draft.openToRemote),
+      availabilityNotes: draft.notes?.trim() || null,
+      hourlyRate: rate,
     });
   };
 
+  const disableClose = saving;
+
   return (
     <Transition.Root show={open} as={Fragment}>
-      <Dialog as="div" className="relative z-40" onClose={saving ? () => {} : onClose}>
+      <Dialog as="div" className="relative z-40" onClose={disableClose ? () => {} : onClose}>
         <Transition.Child as={Fragment} enter="ease-out duration-200" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-150" leaveFrom="opacity-100" leaveTo="opacity-0">
           <div className="fixed inset-0 bg-slate-900/30" />
         </Transition.Child>
@@ -122,13 +137,16 @@ export default function AvailabilityDrawer({ open, availability, hourlyRate, onC
                         className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm focus:border-slate-900 focus:outline-none"
                       />
                     </label>
+                    {error ? (
+                      <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs text-rose-700">{error}</div>
+                    ) : null}
                   </div>
                   <div className="flex items-center justify-between border-t border-slate-200 px-6 py-4">
                     <button
                       type="button"
                       onClick={onClose}
-                      className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300"
-                      disabled={saving}
+                      className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={disableClose}
                     >
                       Close
                     </button>
@@ -149,3 +167,26 @@ export default function AvailabilityDrawer({ open, availability, hourlyRate, onC
     </Transition.Root>
   );
 }
+
+AvailabilityDrawer.propTypes = {
+  open: PropTypes.bool,
+  availability: PropTypes.shape({
+    status: PropTypes.string,
+    hoursPerWeek: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    openToRemote: PropTypes.bool,
+    notes: PropTypes.string,
+  }),
+  hourlyRate: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  onClose: PropTypes.func,
+  onSave: PropTypes.func,
+  saving: PropTypes.bool,
+};
+
+AvailabilityDrawer.defaultProps = {
+  open: false,
+  availability: {},
+  hourlyRate: null,
+  onClose: () => {},
+  onSave: () => {},
+  saving: false,
+};

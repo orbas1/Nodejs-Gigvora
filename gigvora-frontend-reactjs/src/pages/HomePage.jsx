@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useSession from '../hooks/useSession.js';
 import useHomeExperience from '../hooks/useHomeExperience.js';
+
 import {
   HomeHeroSection,
   CommunityPulseSection,
@@ -18,6 +19,12 @@ import {
   ClosingConversionSection,
   OperationsTrustSection,
 } from './home/index.js';
+
+export const DEFAULT_COMMUNITY_STATS = [
+  { label: 'Global specialists', value: '12,400+' },
+  { label: 'Average NPS', value: '68' },
+  { label: 'Completion rate', value: '97%' },
+];
 
 export default function HomePage() {
   const { isAuthenticated } = useSession();
@@ -51,11 +58,7 @@ export default function HomePage() {
 
   const communityStats = useMemo(() => {
     if (!Array.isArray(homeData?.settings?.communityStats) || !homeData.settings.communityStats.length) {
-      return [
-        { label: 'Global specialists', value: '12,400+' },
-        { label: 'Average NPS', value: '68' },
-        { label: 'Completion rate', value: '97%' },
-      ];
+      return DEFAULT_COMMUNITY_STATS;
     }
     return homeData.settings.communityStats.map((stat) => ({
       label: stat.label ?? stat.name ?? 'Community stat',

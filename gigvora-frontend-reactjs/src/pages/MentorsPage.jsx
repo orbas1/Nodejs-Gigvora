@@ -7,11 +7,17 @@ import MentorProfileCard from '../components/mentor/MentorProfileCard.jsx';
 import MentorOnboardingForm from '../components/mentor/MentorOnboardingForm.jsx';
 import MentorShowcaseManager from '../components/mentors/MentorShowcaseManager.jsx';
 
+export const MENTOR_LISTING_RESOURCE = 'mentors';
+
 export default function MentorsPage() {
   const [query, setQuery] = useState('');
-  const { data, error, loading, fromCache, lastUpdated, refresh, debouncedQuery } = useOpportunityListing('mentors', query, {
-    pageSize: 30,
-  });
+  const { data, error, loading, fromCache, lastUpdated, refresh, debouncedQuery } = useOpportunityListing(
+    MENTOR_LISTING_RESOURCE,
+    query,
+    {
+      pageSize: 30,
+    },
+  );
 
   const mentors = useMemo(() => (Array.isArray(data?.items) ? data.items : []), [data?.items]);
 

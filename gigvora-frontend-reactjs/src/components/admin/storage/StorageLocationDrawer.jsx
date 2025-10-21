@@ -68,6 +68,60 @@ const initialFormState = {
   hasStoredSecret: false,
 };
 
+export function buildStorageLocationPayload(form) {
+  const payload = {
+    locationKey: form.locationKey || undefined,
+    name: form.name || undefined,
+    provider: form.provider || undefined,
+    bucket: form.bucket || undefined,
+    region: form.region || undefined,
+    endpoint: form.endpoint || undefined,
+    publicBaseUrl: form.publicBaseUrl || undefined,
+    defaultPathPrefix: form.defaultPathPrefix || undefined,
+    status: form.status || undefined,
+    isPrimary: Boolean(form.isPrimary),
+    versioningEnabled: Boolean(form.versioningEnabled),
+    replicationEnabled: Boolean(form.replicationEnabled),
+    kmsKeyArn: form.kmsKeyArn || undefined,
+    accessKeyId: form.accessKeyId || undefined,
+    roleArn: form.roleArn || undefined,
+    externalId: form.externalId || undefined,
+  };
+
+  const numericFields = [
+    ['currentUsageMb', 'currentUsageMb'],
+    ['objectCount', 'objectCount'],
+    ['ingestBytes24h', 'ingestBytes24h'],
+    ['egressBytes24h', 'egressBytes24h'],
+    ['errorCount24h', 'errorCount24h'],
+  ];
+
+  numericFields.forEach(([field, key]) => {
+    const value = form[field];
+    if (value !== '' && value != null) {
+      const numeric = Number(value);
+      if (!Number.isNaN(numeric)) {
+        payload[key] = numeric;
+      }
+    }
+  });
+
+  const timestamp = parseDateTimeLocal(form.lastInventoryAt);
+  if (timestamp) {
+    payload.lastInventoryAt = timestamp;
+  } else if (form.lastInventoryAt === '') {
+    payload.lastInventoryAt = null;
+  }
+
+  if (form.secretAction === 'set' && form.secretAccessKey) {
+    payload.secretAccessKey = form.secretAccessKey;
+  } else if (form.secretAction === 'clear') {
+    payload.secretAccessKey = null;
+  }
+
+  return payload;
+}
+
 export default function StorageLocationDrawer({ open, location, onClose, onSubmit, onDelete, saving }) {
   const [form, setForm] = useState(initialFormState);
   const isEditing = Boolean(location?.id);
@@ -154,55 +208,7 @@ export default function StorageLocationDrawer({ open, location, onClose, onSubmi
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const payload = {
-      locationKey: form.locationKey || undefined,
-      name: form.name || undefined,
-      provider: form.provider || undefined,
-      bucket: form.bucket || undefined,
-      region: form.region || undefined,
-      endpoint: form.endpoint || undefined,
-      publicBaseUrl: form.publicBaseUrl || undefined,
-      defaultPathPrefix: form.defaultPathPrefix || undefined,
-      status: form.status || undefined,
-      isPrimary: form.isPrimary,
-      versioningEnabled: form.versioningEnabled,
-      replicationEnabled: form.replicationEnabled,
-      kmsKeyArn: form.kmsKeyArn || undefined,
-      accessKeyId: form.accessKeyId || undefined,
-      roleArn: form.roleArn || undefined,
-      externalId: form.externalId || undefined,
-    };
-
-    const numericFields = [
-      ['currentUsageMb', 'currentUsageMb'],
-      ['objectCount', 'objectCount'],
-      ['ingestBytes24h', 'ingestBytes24h'],
-      ['egressBytes24h', 'egressBytes24h'],
-      ['errorCount24h', 'errorCount24h'],
-    ];
-
-    numericFields.forEach(([field, key]) => {
-      const value = form[field];
-      if (value !== '' && value != null) {
-        const numeric = Number(value);
-        if (!Number.isNaN(numeric)) {
-          payload[key] = numeric;
-        }
-      }
-    });
-
-    const timestamp = parseDateTimeLocal(form.lastInventoryAt);
-    if (timestamp) {
-      payload.lastInventoryAt = timestamp;
-    } else if (form.lastInventoryAt === '') {
-      payload.lastInventoryAt = null;
-    }
-
-    if (form.secretAction === 'set' && form.secretAccessKey) {
-      payload.secretAccessKey = form.secretAccessKey;
-    } else if (form.secretAction === 'clear') {
-      payload.secretAccessKey = null;
-    }
+    const payload = buildStorageLocationPayload(form);
 
     if (typeof onSubmit === 'function') {
       await onSubmit(payload);

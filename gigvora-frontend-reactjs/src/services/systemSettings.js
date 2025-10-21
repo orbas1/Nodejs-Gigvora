@@ -1,11 +1,38 @@
 import { apiClient } from './apiClient.js';
 
-export async function fetchSystemSettings(options = {}) {
-  return apiClient.get('/admin/system-settings', options);
+function ensureOptions(options) {
+  if (options === undefined || options === null) {
+    return {};
+  }
+  if (typeof options !== 'object') {
+    throw new Error('Options must be an object.');
+  }
+  return options;
 }
 
-export async function updateSystemSettings(payload) {
-  return apiClient.put('/admin/system-settings', payload);
+function ensurePayload(payload) {
+  if (payload === undefined || payload === null) {
+    throw new Error('payload is required');
+  }
+  if (typeof payload !== 'object') {
+    throw new Error('payload must be an object');
+  }
+  return payload;
+}
+
+export async function fetchSystemSettings(options = {}) {
+  const safeOptions = ensureOptions(options);
+  return apiClient.get('/admin/system-settings', Object.keys(safeOptions).length ? safeOptions : undefined);
+}
+
+export async function updateSystemSettings(payload, options = {}) {
+  const safePayload = ensurePayload(payload);
+  const safeOptions = ensureOptions(options);
+  return apiClient.put(
+    '/admin/system-settings',
+    safePayload,
+    Object.keys(safeOptions).length ? safeOptions : undefined,
+  );
 }
 
 export default {

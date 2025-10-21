@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { ArrowPathIcon, PlusIcon } from '@heroicons/react/24/outline';
 
 function formatNumber(value) {
@@ -90,3 +91,29 @@ export default function JobSummaryHeader({
     </header>
   );
 }
+
+JobSummaryHeader.propTypes = {
+  metrics: PropTypes.shape({
+    totalJobs: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    openJobs: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    favoriteJobs: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    totalApplications: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  }),
+  interviewSummary: PropTypes.shape({
+    planned: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    scheduled: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  }),
+  isRefreshing: PropTypes.bool,
+  onRefresh: PropTypes.func,
+  onCreate: PropTypes.func,
+  workspaceId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+};
+
+JobSummaryHeader.defaultProps = {
+  metrics: {},
+  interviewSummary: {},
+  isRefreshing: false,
+  onRefresh: undefined,
+  onCreate: undefined,
+  workspaceId: null,
+};

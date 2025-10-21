@@ -20,6 +20,7 @@ import {
   ProjectWorkspaceConversation,
   ProjectWorkspaceFile,
   ProjectWorkspaceBrief,
+  WORKSPACE_MEETING_STATUSES,
 } from '../models/index.js';
 import { initializeWorkspaceForProject } from './projectWorkspaceService.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
@@ -109,6 +110,25 @@ function normalizeArray(input) {
       .filter((value) => value != null);
   }
   return [];
+}
+
+function normalizeEnumValue(value, allowedValues, fieldName) {
+  if (value == null) {
+    return null;
+  }
+  const normalized = normalizeText(value);
+  if (!normalized || !allowedValues.includes(normalized)) {
+    throw new ValidationError(`${fieldName} must be one of: ${allowedValues.join(', ')}.`);
+  }
+  return normalized;
+}
+
+function requireEnumValue(value, allowedValues, fieldName) {
+  const normalized = normalizeEnumValue(value, allowedValues, fieldName);
+  if (!normalized) {
+    throw new ValidationError(`${fieldName} is required.`);
+  }
+  return normalized;
 }
 
 function parseBooleanValue(value, defaultValue = false) {
@@ -1455,19 +1475,21 @@ export async function deleteProjectTimelineEvent(projectId, eventId, { actorId }
 export async function createProjectMeeting(projectId, payload = {}, { actorId } = {}) {
   return sequelize.transaction(async (transaction) => {
     const { workspace } = await ensureWorkspace(projectId, { transaction, actorId });
+    const status = normalizeEnumValue(payload.status, WORKSPACE_MEETING_STATUSES, 'status');
     const meeting = await ProjectWorkspaceMeeting.create(
       {
         workspaceId: workspace.id,
         title: requireText(payload.title, 'title'),
         agenda: normalizeText(payload.agenda),
-        meetingType: normalizeText(payload.meetingType) ?? 'sync',
         location: normalizeText(payload.location),
         startAt: parseDateValue(payload.startAt, 'startAt', { allowNull: false }),
         endAt: parseDateValue(payload.endAt, 'endAt'),
         hostName: normalizeText(payload.hostName),
         attendees: normalizeArray(payload.attendees),
-        actionItems: normalizeArray(payload.actionItems),
-        resources: normalizeArray(payload.resources),
+        meetingUrl: normalizeText(payload.meetingUrl),
+        recordingUrl: normalizeText(payload.recordingUrl),
+        notes: normalizeText(payload.notes),
+        ...(status ? { status } : {}),
       },
       { transaction },
     );
@@ -1498,9 +1520,6 @@ export async function updateProjectMeeting(projectId, meetingId, payload = {}, {
     if (payload.agenda !== undefined) {
       updates.agenda = normalizeText(payload.agenda);
     }
-    if (payload.meetingType !== undefined) {
-      updates.meetingType = requireText(payload.meetingType, 'meetingType');
-    }
     if (payload.location !== undefined) {
       updates.location = normalizeText(payload.location);
     }
@@ -1516,11 +1535,17 @@ export async function updateProjectMeeting(projectId, meetingId, payload = {}, {
     if (payload.attendees !== undefined) {
       updates.attendees = normalizeArray(payload.attendees);
     }
-    if (payload.actionItems !== undefined) {
-      updates.actionItems = normalizeArray(payload.actionItems);
+    if (payload.meetingUrl !== undefined) {
+      updates.meetingUrl = normalizeText(payload.meetingUrl);
     }
-    if (payload.resources !== undefined) {
-      updates.resources = normalizeArray(payload.resources);
+    if (payload.recordingUrl !== undefined) {
+      updates.recordingUrl = normalizeText(payload.recordingUrl);
+    }
+    if (payload.notes !== undefined) {
+      updates.notes = normalizeText(payload.notes);
+    }
+    if (payload.status !== undefined) {
+      updates.status = requireEnumValue(payload.status, WORKSPACE_MEETING_STATUSES, 'status');
     }
 
     if (Object.keys(updates).length > 0) {

@@ -21,6 +21,7 @@ export default function DataStatus({
   onRetry,
   error,
   statusLabel = 'Live data',
+  children,
 }) {
   const resolvedLastUpdated = resolveDate(lastUpdated);
   const label = fromCache ? 'Offline snapshot' : statusLabel;
@@ -60,6 +61,7 @@ export default function DataStatus({
           </div>
         </div>
       ) : null}
+      {children ? <div className="space-y-6">{children}</div> : null}
     </div>
   );
 }
@@ -73,4 +75,5 @@ DataStatus.propTypes = {
     message: PropTypes.string,
   }),
   statusLabel: PropTypes.string,
+  children: PropTypes.node,
 };

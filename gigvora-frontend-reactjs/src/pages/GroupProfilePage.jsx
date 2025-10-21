@@ -17,7 +17,7 @@ import { GigvoraAdBanner, GigvoraAdGrid } from '../components/marketing/GigvoraA
 import { GIGVORA_GROUPS_ADS, GIGVORA_GROUPS_BANNER } from '../constants/marketing.js';
 import { classNames } from '../utils/classNames.js';
 
-function formatPercent(value) {
+export function formatPercent(value) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) {
     return '—';
@@ -25,7 +25,7 @@ function formatPercent(value) {
   return `${Math.round(numeric * 100)}%`;
 }
 
-function formatDate(value) {
+export function formatDate(value) {
   if (!value) {
     return 'Date TBC';
   }
@@ -42,7 +42,7 @@ function formatDate(value) {
   });
 }
 
-function formatTimelineDate(value) {
+export function formatTimelineDate(value) {
   const date = value ? new Date(value) : null;
   if (!date || Number.isNaN(date.getTime())) {
     return value ?? 'Upcoming';

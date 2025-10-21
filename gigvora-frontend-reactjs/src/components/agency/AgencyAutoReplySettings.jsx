@@ -113,6 +113,7 @@ export default function AgencyAutoReplySettings({ settings, disabled, busy, onSa
               'relative inline-flex h-6 w-11 items-center rounded-full transition',
               disabled || busy ? 'opacity-60' : 'cursor-pointer',
             )}
+            aria-label="Enable auto replies"
           >
             <span
               className={classNames(

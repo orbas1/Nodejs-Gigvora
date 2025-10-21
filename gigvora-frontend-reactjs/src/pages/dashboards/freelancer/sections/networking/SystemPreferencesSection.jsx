@@ -50,11 +50,19 @@ const DIGEST_OPTIONS = [
 
 export default function SystemPreferencesSection({ preferences, saving, onUpdate }) {
   const [feedback, setFeedback] = useState(null);
+  const canUpdatePreferences = typeof onUpdate === 'function';
 
   const handleToggle = async (key, nextValue) => {
+    if (!canUpdatePreferences) {
+      setFeedback({ tone: 'error', message: 'You do not have permission to update these preferences.' });
+      return;
+    }
+    if (preferences?.[key] === nextValue) {
+      return;
+    }
     try {
       setFeedback(null);
-      await onUpdate?.({ ...preferences, [key]: nextValue });
+      await onUpdate({ ...preferences, [key]: nextValue });
       setFeedback({ tone: 'success', message: 'Preferences updated.' });
     } catch (error) {
       const message = error?.message ?? 'Unable to update preferences.';
@@ -69,12 +77,15 @@ export default function SystemPreferencesSection({ preferences, saving, onUpdate
     const toneClasses = {
       success: 'border-emerald-200 bg-emerald-50 text-emerald-700',
       error: 'border-rose-200 bg-rose-50 text-rose-700',
+      info: 'border-blue-200 bg-blue-50 text-blue-700',
     };
     return (
       <div
         className={`flex items-center justify-between gap-4 rounded-3xl border px-4 py-3 text-xs font-semibold ${
           toneClasses[feedback.tone] ?? 'border-blue-200 bg-blue-50 text-blue-700'
         }`}
+        role="status"
+        aria-live="polite"
       >
         <span>{feedback.message}</span>
         <button

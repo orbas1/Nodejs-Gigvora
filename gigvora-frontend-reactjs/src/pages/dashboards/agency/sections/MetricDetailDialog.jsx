@@ -1,4 +1,5 @@
 import { Fragment } from 'react';
+import PropTypes from 'prop-types';
 import { Dialog, Transition } from '@headlessui/react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { formatAbsolute } from '../../../../utils/date.js';
@@ -101,3 +102,27 @@ export default function MetricDetailDialog({ open, onClose, metric, lastUpdated,
     </Transition.Root>
   );
 }
+
+MetricDetailDialog.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  metric: PropTypes.shape({
+    id: PropTypes.string,
+    label: PropTypes.string,
+    value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    rawValue: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    detailSuffix: PropTypes.string,
+    status: PropTypes.shape({
+      label: PropTypes.string,
+      tone: PropTypes.string,
+    }),
+  }),
+  lastUpdated: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+  onEdit: PropTypes.func,
+};
+
+MetricDetailDialog.defaultProps = {
+  metric: null,
+  lastUpdated: null,
+  onEdit: undefined,
+};

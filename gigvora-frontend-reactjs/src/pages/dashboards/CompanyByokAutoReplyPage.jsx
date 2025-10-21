@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import DataStatus from '../../components/DataStatus.jsx';
 import ByokCredentialCard from '../../components/company/auto-reply/ByokCredentialCard.jsx';
@@ -9,6 +9,7 @@ import AutoReplyActivityTimeline from '../../components/company/auto-reply/AutoR
 import Modal from '../../components/ui/Modal.jsx';
 import useCompanyAutoReply from '../../hooks/useCompanyAutoReply.js';
 import useSession from '../../hooks/useSession.js';
+import AccessDeniedPanel from '../../components/dashboard/AccessDeniedPanel.jsx';
 import {
   updateAutoReplySettings,
   createAutoReplyTemplate,
@@ -44,14 +45,18 @@ const MENU_SECTIONS = [
 const AVAILABLE_DASHBOARDS = ['company', 'user', 'freelancer', 'agency'];
 
 export default function CompanyByokAutoReplyPage() {
-  const { isAuthenticated } = useSession();
+  const navigate = useNavigate();
+  const { session, isAuthenticated } = useSession();
   const [searchParams, setSearchParams] = useSearchParams();
   const workspaceIdParam = searchParams.get('workspaceId');
   const workspaceId = workspaceIdParam && workspaceIdParam.length ? workspaceIdParam : null;
 
+  const membershipsList = session?.memberships ?? [];
+  const isCompanyMember = isAuthenticated && membershipsList.includes('company');
+
   const { data, error, loading, refresh, fromCache, lastUpdated } = useCompanyAutoReply({
     workspaceId,
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && isCompanyMember,
   });
 
   const [credentialSaving, setCredentialSaving] = useState(false);
@@ -86,6 +91,29 @@ export default function CompanyByokAutoReplyPage() {
     }
     setSearchParams(next, { replace: true });
   };
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace state={{ redirectTo: '/dashboard/company/ai-auto-reply' }} />;
+  }
+
+  if (!isCompanyMember) {
+    const fallbackDashboards = membershipsList.filter((membership) => membership !== 'company');
+    return (
+      <DashboardLayout
+        currentDashboard="company"
+        title="Auto Reply"
+        subtitle="Bring your own key"
+        description="Connect OpenAI keys and manage automated replies."
+        menuSections={MENU_SECTIONS}
+        availableDashboards={AVAILABLE_DASHBOARDS}
+      >
+        <AccessDeniedPanel
+          availableDashboards={fallbackDashboards}
+          onNavigate={(dashboard) => navigate(`/dashboard/${dashboard}`)}
+        />
+      </DashboardLayout>
+    );
+  }
 
   const handleCredentialSubmit = async (payload) => {
     setCredentialSaving(true);

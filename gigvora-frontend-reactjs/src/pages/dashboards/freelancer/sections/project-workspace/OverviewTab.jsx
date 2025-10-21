@@ -13,7 +13,7 @@ const metricCards = [
   { key: 'activeTargets', label: 'Active targets', formatter: (value) => formatNumber(value) },
 ];
 
-export default function OverviewTab({ operations, onUpdateTimeline, disabled = false }) {
+export default function OverviewTab({ operations, onUpdateTimeline, disabled = false, readOnlyReason }) {
   const metrics = operations?.metrics ?? {};
   const timeline = operations?.timeline ?? null;
   const [timelineDraft, setTimelineDraft] = useState(() => ({
@@ -88,6 +88,11 @@ export default function OverviewTab({ operations, onUpdateTimeline, disabled = f
               <h3 className="text-lg font-semibold text-slate-900">Timeline</h3>
               <p className="text-xs text-slate-500">Keep the schedule aligned across every view.</p>
             </div>
+            {disabled && readOnlyReason ? (
+              <span className="text-xs font-semibold uppercase tracking-wide text-amber-600">
+                {readOnlyReason}
+              </span>
+            ) : null}
             {feedback ? (
               <span
                 className={`text-xs font-semibold ${
@@ -241,4 +246,5 @@ OverviewTab.propTypes = {
   operations: PropTypes.object,
   onUpdateTimeline: PropTypes.func.isRequired,
   disabled: PropTypes.bool,
+  readOnlyReason: PropTypes.string,
 };

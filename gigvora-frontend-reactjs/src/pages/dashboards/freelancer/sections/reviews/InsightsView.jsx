@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { ChartBarIcon, PhotoIcon, SparklesIcon, TagIcon } from '@heroicons/react/24/outline';
 import { formatDate } from './utils.js';
 
@@ -21,6 +22,13 @@ function StatTile({ icon: Icon, label, value, tone = 'blue' }) {
     </div>
   );
 }
+
+StatTile.propTypes = {
+  icon: PropTypes.elementType.isRequired,
+  label: PropTypes.string.isRequired,
+  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  tone: PropTypes.oneOf(['blue', 'emerald', 'amber']),
+};
 
 export default function InsightsView({ insights, summary }) {
   const topTags = insights?.topTags ?? [];
@@ -59,3 +67,20 @@ export default function InsightsView({ insights, summary }) {
     </div>
   );
 }
+
+InsightsView.propTypes = {
+  insights: PropTypes.shape({
+    highlightedCount: PropTypes.number,
+    heroImageCoverage: PropTypes.number,
+    previewCoverage: PropTypes.number,
+    topTags: PropTypes.arrayOf(
+      PropTypes.shape({
+        tag: PropTypes.string.isRequired,
+        count: PropTypes.number.isRequired,
+      }),
+    ),
+  }),
+  summary: PropTypes.shape({
+    lastPublishedAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+  }),
+};

@@ -29,9 +29,9 @@ import { classNames } from '../utils/classNames.js';
 import { canAccessMessaging, getMessagingMemberships, MESSAGING_ALLOWED_MEMBERSHIPS } from '../constants/access.js';
 import { DASHBOARD_LINKS } from '../constants/dashboardLinks.js';
 
-const INBOX_REFRESH_INTERVAL = 60_000;
+export const INBOX_REFRESH_INTERVAL = 60_000;
 
-function sortThreads(threads = []) {
+export function sortThreads(threads = []) {
   return [...threads].sort((a, b) => {
     const aTime = a?.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
     const bTime = b?.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
@@ -39,11 +39,11 @@ function sortThreads(threads = []) {
   });
 }
 
-function formatMembershipLabel(key) {
+export function formatMembershipLabel(key) {
   return DASHBOARD_LINKS[key]?.label ?? key.replace(/-/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function ThreadCard({ thread, actorId, onSelect, selected }) {
+export function ThreadCard({ thread, actorId, onSelect, selected }) {
   const title = buildThreadTitle(thread, actorId);
   const participants = formatThreadParticipants(thread, actorId);
   const unread = isThreadUnread(thread);

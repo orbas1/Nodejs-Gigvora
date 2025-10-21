@@ -1,6 +1,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowsPointingOutIcon, UserCircleIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import DataStatus from '../../components/DataStatus.jsx';
@@ -442,17 +442,24 @@ export default function CompanyJobManagementPage() {
   };
 
   if (!isAuthenticated) {
-    return (
-      <DashboardLayout currentDashboard="company" menuSections={COMPANY_DASHBOARD_MENU_SECTIONS} availableDashboards={AVAILABLE_DASHBOARDS}>
-        <AccessDeniedPanel title="Sign in required" description="Sign in to access job management." />
-      </DashboardLayout>
-    );
+    return <Navigate to="/login" replace state={{ redirectTo: '/dashboard/company/job-management' }} />;
   }
 
   if (!isCompanyMember) {
+    const fallbackDashboards = memberships.filter((membership) => membership !== 'company');
     return (
-      <DashboardLayout currentDashboard="company" menuSections={COMPANY_DASHBOARD_MENU_SECTIONS} availableDashboards={AVAILABLE_DASHBOARDS}>
-        <AccessDeniedPanel title="Workspace membership required" description="You need company workspace access to view this dashboard." />
+      <DashboardLayout
+        currentDashboard="company"
+        title="Jobs"
+        subtitle="Company job management"
+        description="Company membership is required to access hiring tools."
+        menuSections={COMPANY_DASHBOARD_MENU_SECTIONS}
+        availableDashboards={AVAILABLE_DASHBOARDS}
+      >
+        <AccessDeniedPanel
+          availableDashboards={fallbackDashboards}
+          onNavigate={(dashboard) => navigate(`/dashboard/${dashboard}`)}
+        />
       </DashboardLayout>
     );
   }

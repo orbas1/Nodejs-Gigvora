@@ -42,7 +42,13 @@ export default function AdminSettingsSection() {
       });
       setError('');
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'Unable to load system settings.');
+      if (loadError?.status === 403) {
+        setError('You do not have permission to view system controls. Ask a platform administrator to grant platform:admin access.');
+      } else if (loadError instanceof Error) {
+        setError(loadError.message);
+      } else {
+        setError('Unable to load system settings.');
+      }
     } finally {
       setLoading(false);
     }
@@ -92,7 +98,13 @@ export default function AdminSettingsSection() {
       setSettings(response);
       setFeedback('System controls updated successfully.');
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Unable to save settings.');
+      if (saveError?.status === 403) {
+        setError('You do not have permission to update system controls. Ask a platform administrator to grant platform:admin access.');
+      } else if (saveError instanceof Error) {
+        setError(saveError.message);
+      } else {
+        setError('Unable to save settings.');
+      }
     } finally {
       setSaving(false);
     }
@@ -207,6 +219,7 @@ export default function AdminSettingsSection() {
               checked={draft.requireTwoFactor ?? true}
               onChange={handleToggle('requireTwoFactor')}
               disabled={loading}
+              aria-label="Require two-factor authentication"
               className={classNames(
                 draft.requireTwoFactor ? 'bg-emerald-500' : 'bg-slate-200',
                 'relative inline-flex h-7 w-14 items-center rounded-full transition'
@@ -266,6 +279,7 @@ export default function AdminSettingsSection() {
               checked={draft.maintenanceAutoBroadcast ?? true}
               onChange={handleToggle('maintenanceAutoBroadcast')}
               disabled={loading}
+              aria-label="Automatically broadcast maintenance updates"
               className={classNames(
                 draft.maintenanceAutoBroadcast ? 'bg-blue-600' : 'bg-slate-200',
                 'relative inline-flex h-7 w-14 items-center rounded-full transition'

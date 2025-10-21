@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { Dialog, Transition } from '@headlessui/react';
 import {
   ArrowLeftIcon,
@@ -354,3 +355,13 @@ export default function ReviewFormDrawer({ open, mode = 'create', review, onClos
     </Transition>
   );
 }
+
+ReviewFormDrawer.propTypes = {
+  open: PropTypes.bool.isRequired,
+  mode: PropTypes.oneOf(['create', 'edit']),
+  review: PropTypes.object,
+  onClose: PropTypes.func.isRequired,
+  onSubmit: PropTypes.func.isRequired,
+  loading: PropTypes.bool,
+  error: PropTypes.shape({ message: PropTypes.string }),
+};

@@ -1,3 +1,5 @@
+import PropTypes from 'prop-types';
+
 export default function ConnectionsCard({ connections = {}, onOpen }) {
   const pending = (connections.pendingIncoming || []).length + (connections.pendingOutgoing || []).length;
   const accepted = (connections.accepted || []).length;
@@ -21,3 +23,17 @@ export default function ConnectionsCard({ connections = {}, onOpen }) {
     </div>
   );
 }
+
+ConnectionsCard.propTypes = {
+  connections: PropTypes.shape({
+    pendingIncoming: PropTypes.array,
+    pendingOutgoing: PropTypes.array,
+    accepted: PropTypes.array,
+  }),
+  onOpen: PropTypes.func,
+};
+
+ConnectionsCard.defaultProps = {
+  connections: {},
+  onOpen: () => {},
+};

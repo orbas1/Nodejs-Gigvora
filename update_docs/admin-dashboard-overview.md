@@ -1,17 +1,46 @@
-# Admin dashboard overview module
+# Gigvora Admin Dashboard Overview
 
-This release introduces the fully-editable admin overview panel that anchors the Gigvora control tower.
+## Purpose
+Provide administrators, compliance officers, and operations leads with a unified control plane to govern the Gigvora ecosystem across talent onboarding, marketplace quality, compliance, and financial oversight.
 
-## Feature highlights
+## Core Workspaces
+- **Job Post Management** (`components/admin/job-posts/JobPostManagementWorkspace.jsx`)
+  - CRUD workflows backed by `adminJobPosts` service endpoints with publication scheduling, version history, and audit logging.
+  - Batch publishing, archiving, and deletion guardrails with confirmation modals and success toasts.
+  - Inline analytics summarising applicant pipelines, view-to-application ratios, and campaign status.
 
-- Greeting banner driven by the signed-in admin profile with avatar, follower metrics, trust score, and ratings.
-- Live date/time context and weather snapshot retrieved from Open Meteo based on stored admin location metadata.
-- Modular forms that let administrators update identity, mission headline, strategic notes, and avatar/location details.
-- Backend services to geocode free-form locations, fetch current weather snapshots with caching, and persist admin profile changes.
-- REST endpoints and validation that secure the `/admin/dashboard` overview update workflow for privileged accounts.
-- React hooks wiring for optimistic refresh, error handling, and save-status feedback throughout the overview panel.
+- **Compliance & GDPR Suite** (`components/admin/compliance`, `components/admin/gdpr`)
+  - Tracks regulatory obligations, breach response plans, DPO assignments, and data processor inventories.
+  - Tag inputs and retention policy editors provide granular control over regional data handling requirements.
+  - Export buttons generate regulator-ready reports leveraging backend compliance services.
 
-## Next steps
+- **Trust & Safety Operations**
+  - Identity verification queues, dispute escalation boards, and messaging oversight panels surfaced through dedicated admin services (`adminIdentityVerification`, `adminMessaging`, `adminEscrow`).
+  - RBAC-enforced views ensure only privileged roles can resolve flags or approve sensitive actions.
 
-- Backfill end-to-end tests covering the new overview persistence API once the sqlite fixtures mirror production schemas.
-- Run the dashboard against a seeded database to validate weather lookups and rating aggregates with real data.
+- **Workspace Governance**
+  - Agency, company, and freelancer management dashboards consolidate account health, subscription status, and feature flag assignments.
+  - Automations trigger alerts for expiring documentation, upcoming renewals, and SLA breaches.
+
+## Security & RBAC
+- Access controlled by RBAC scopes defined in `.env.example` (e.g., `admin:manage`, `compliance:review`, `finance:oversee`).
+- `RoleGate` component enforces scopes client-side, while backend middleware validates tokens before fulfilling requests.
+- Sensitive actions (identity approvals, escrow releases) require multi-step confirmation and produce immutable audit trails.
+
+## Observability & Telemetry
+- Embedded metrics cards show real-time adoption, incident volumes, and SLA adherence using telemetry sourced from the backend metrics registry.
+- Admin activity logs provide chronological records of changes with filters for actor, surface, and impact severity.
+
+## UX & Accessibility
+- Dashboard uses responsive grid layouts with consistent spacing tokens, ensuring readability across desktops and tablets.
+- Components include keyboard navigation support, focus trapping within modals, and ARIA attributes for assistive technologies.
+- Dark mode inherits design system palettes, maintaining contrast ratios that satisfy WCAG AA requirements.
+
+## Testing & Quality
+- React Testing Library suites cover critical admin flows (job publishing, compliance edits, approval queues) with deterministic mocks housed under `src/components/admin/**/__tests__`.
+- TypeScript/PropTypes validation and ESLint rules run in CI to prevent regressions before deployment.
+- Snapshot and interaction tests monitor layout drift when design tokens evolve.
+
+## Roadmap Hooks
+- Integration connectors prepared for CRM sync (HubSpot/Salesforce), identity proofing providers, and finance ERP exports.
+- Planned enhancements include anomaly detection dashboards, configurable escalation policies, and cross-workspace reporting exports.

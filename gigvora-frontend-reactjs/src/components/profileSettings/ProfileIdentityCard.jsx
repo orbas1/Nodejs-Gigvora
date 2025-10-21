@@ -1,4 +1,5 @@
 import { EnvelopeIcon, MapPinIcon, UserCircleIcon } from '@heroicons/react/24/outline';
+import PropTypes from 'prop-types';
 
 export default function ProfileIdentityCard({
   identityDraft,
@@ -138,3 +139,30 @@ export default function ProfileIdentityCard({
     </section>
   );
 }
+
+ProfileIdentityCard.propTypes = {
+  identityDraft: PropTypes.shape({
+    firstName: PropTypes.string,
+    lastName: PropTypes.string,
+    email: PropTypes.string,
+    location: PropTypes.string,
+    timezone: PropTypes.string,
+  }).isRequired,
+  profileDraft: PropTypes.shape({
+    location: PropTypes.string,
+    avatarSeed: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  }).isRequired,
+  onIdentityChange: PropTypes.func.isRequired,
+  onProfileChange: PropTypes.func.isRequired,
+  onSubmit: PropTypes.func.isRequired,
+  saving: PropTypes.bool,
+  canEdit: PropTypes.bool,
+  isDirty: PropTypes.bool.isRequired,
+  validationErrors: PropTypes.arrayOf(PropTypes.string),
+};
+
+ProfileIdentityCard.defaultProps = {
+  saving: false,
+  canEdit: false,
+  validationErrors: [],
+};

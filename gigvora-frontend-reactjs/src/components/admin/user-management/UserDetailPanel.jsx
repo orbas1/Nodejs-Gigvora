@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { Tab } from '@headlessui/react';
 import { ArrowPathIcon, KeyIcon, ShieldCheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
@@ -492,6 +493,70 @@ export default function UserDetailPanel({
   );
 }
 
+UserDetailPanel.propTypes = {
+  user: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    firstName: PropTypes.string,
+    lastName: PropTypes.string,
+    email: PropTypes.string,
+    status: PropTypes.string,
+    userType: PropTypes.string,
+    jobTitle: PropTypes.string,
+    phoneNumber: PropTypes.string,
+    location: PropTypes.string,
+    address: PropTypes.string,
+    roles: PropTypes.arrayOf(PropTypes.string),
+    notes: PropTypes.arrayOf(
+      PropTypes.shape({
+        id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+        body: PropTypes.string,
+        createdAt: PropTypes.string,
+        author: PropTypes.shape({
+          firstName: PropTypes.string,
+          lastName: PropTypes.string,
+          email: PropTypes.string,
+        }),
+      }),
+    ),
+    createdAt: PropTypes.string,
+    updatedAt: PropTypes.string,
+    lastLoginAt: PropTypes.string,
+  }),
+  metadata: PropTypes.shape({
+    roles: PropTypes.arrayOf(PropTypes.string),
+    statuses: PropTypes.arrayOf(PropTypes.string),
+    memberships: PropTypes.arrayOf(PropTypes.string),
+  }),
+  loading: PropTypes.bool,
+  onUpdate: PropTypes.func,
+  onUpdateSecurity: PropTypes.func,
+  onUpdateStatus: PropTypes.func,
+  onUpdateRoles: PropTypes.func,
+  onResetPassword: PropTypes.func,
+  onCreateNote: PropTypes.func,
+  feedback: PropTypes.shape({
+    profile: PropTypes.string,
+    security: PropTypes.string,
+    status: PropTypes.string,
+    roles: PropTypes.string,
+  }),
+  onClose: PropTypes.func,
+};
+
+UserDetailPanel.defaultProps = {
+  user: null,
+  metadata: null,
+  loading: false,
+  onUpdate: undefined,
+  onUpdateSecurity: undefined,
+  onUpdateStatus: undefined,
+  onUpdateRoles: undefined,
+  onResetPassword: undefined,
+  onCreateNote: undefined,
+  feedback: null,
+  onClose: undefined,
+};
+
 function Field({ label, className = '', children }) {
   return (
     <label className={clsx('space-y-2 text-sm text-slate-600', className)}>
@@ -500,4 +565,14 @@ function Field({ label, className = '', children }) {
     </label>
   );
 }
+
+Field.propTypes = {
+  label: PropTypes.string.isRequired,
+  className: PropTypes.string,
+  children: PropTypes.node.isRequired,
+};
+
+Field.defaultProps = {
+  className: '',
+};
 

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import useSession from '../../hooks/useSession.js';
 import DataStatus from '../../components/DataStatus.jsx';
 import UserProjectsWorkspace from './user/projects/UserProjectsWorkspace.jsx';
@@ -12,6 +13,8 @@ const AVAILABLE_DASHBOARDS = [
   { id: 'company', label: 'Company', href: '/dashboard/company' },
   { id: 'headhunter', label: 'Headhunter', href: '/dashboard/headhunter' },
 ];
+
+const ALLOWED_ROLES = AVAILABLE_DASHBOARDS.map((dashboard) => dashboard.id);
 
 const MENU_SECTIONS = [
   {
@@ -67,20 +70,22 @@ export default function UserProjectManagementPage() {
   }
 
   return (
-    <DashboardLayout
-      currentDashboard="user"
-      title="Projects"
-      subtitle="Command centre for every build"
-      description="Launch, coordinate, and review gigs without leaving the dashboard."
-      menuSections={MENU_SECTIONS}
-      availableDashboards={AVAILABLE_DASHBOARDS}
-      activeMenuItem="overview"
-      onMenuItemSelect={handleMenuSelect}
-    >
-      <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <UserProjectsWorkspace userId={userId} session={session} />
-      </div>
-    </DashboardLayout>
+    <DashboardAccessGuard requiredRoles={ALLOWED_ROLES}>
+      <DashboardLayout
+        currentDashboard="user"
+        title="Projects"
+        subtitle="Command centre for every build"
+        description="Launch, coordinate, and review gigs without leaving the dashboard."
+        menuSections={MENU_SECTIONS}
+        availableDashboards={AVAILABLE_DASHBOARDS}
+        activeMenuItem="overview"
+        onMenuItemSelect={handleMenuSelect}
+      >
+        <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          <UserProjectsWorkspace userId={userId} session={session} />
+        </div>
+      </DashboardLayout>
+    </DashboardAccessGuard>
   );
 }
 

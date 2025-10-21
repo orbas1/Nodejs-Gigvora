@@ -1,4 +1,5 @@
 import { ClockIcon, SignalIcon } from '@heroicons/react/24/outline';
+import PropTypes from 'prop-types';
 
 const AVAILABILITY_OPTIONS = [
   { value: 'available', label: 'Available now' },
@@ -91,3 +92,21 @@ export default function ProfileAvailabilityCard({
     </section>
   );
 }
+
+ProfileAvailabilityCard.propTypes = {
+  availabilityDraft: PropTypes.shape({
+    status: PropTypes.string,
+    hoursPerWeek: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    openToRemote: PropTypes.bool,
+    notes: PropTypes.string,
+    timezone: PropTypes.string,
+  }).isRequired,
+  onAvailabilityChange: PropTypes.func.isRequired,
+  canEdit: PropTypes.bool,
+  lastUpdatedAt: PropTypes.string,
+};
+
+ProfileAvailabilityCard.defaultProps = {
+  canEdit: false,
+  lastUpdatedAt: undefined,
+};

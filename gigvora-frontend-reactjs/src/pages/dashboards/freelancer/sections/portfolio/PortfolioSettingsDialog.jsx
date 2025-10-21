@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
+import PropTypes from 'prop-types';
 
 const DEFAULT_SETTINGS = Object.freeze({
   heroHeadline: '',
@@ -19,6 +20,25 @@ const DEFAULT_SETTINGS = Object.freeze({
   customDomain: '',
   previewBasePath: '',
 });
+
+function isValidUrl(value) {
+  if (!value) {
+    return true;
+  }
+  try {
+    const url = new URL(value, window.location.origin);
+    return ['http:', 'https:'].includes(url.protocol);
+  } catch (error) {
+    return false;
+  }
+}
+
+function isValidEmail(value) {
+  if (!value) {
+    return true;
+  }
+  return /.+@.+\..+/.test(value);
+}
 
 export default function PortfolioSettingsDialog({ open, settings, canEdit, saving, onClose, onSave }) {
   const [form, setForm] = useState(DEFAULT_SETTINGS);
@@ -63,6 +83,18 @@ export default function PortfolioSettingsDialog({ open, settings, canEdit, savin
     if (!canEdit) {
       return;
     }
+    if (!isValidEmail(form.contactEmail)) {
+      setError('Enter a valid contact email or leave the field blank.');
+      return;
+    }
+    if (!isValidUrl(form.coverImageUrl) || !isValidUrl(form.coverVideoUrl)) {
+      setError('Cover media links must use HTTP or HTTPS.');
+      return;
+    }
+    if (form.schedulingLink && !isValidUrl(form.schedulingLink)) {
+      setError('Scheduling link must be a valid HTTP(S) URL.');
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -91,9 +123,11 @@ export default function PortfolioSettingsDialog({ open, settings, canEdit, savin
     }
   };
 
+  const disableClose = saving || submitting;
+
   return (
     <Transition.Root show={open} as={Fragment}>
-      <Dialog as="div" className="relative z-40" onClose={onClose}>
+      <Dialog as="div" className="relative z-40" onClose={disableClose ? () => {} : onClose}>
         <Transition.Child
           as={Fragment}
           enter="ease-out duration-300"
@@ -125,7 +159,8 @@ export default function PortfolioSettingsDialog({ open, settings, canEdit, savin
                       <button
                         type="button"
                         onClick={onClose}
-                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-blue-200 hover:text-blue-600"
+                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-blue-200 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={disableClose}
                       >
                         <ArrowUturnLeftIcon className="h-4 w-4" /> Close
                       </button>
@@ -362,3 +397,37 @@ export default function PortfolioSettingsDialog({ open, settings, canEdit, savin
     </Transition.Root>
   );
 }
+
+PortfolioSettingsDialog.propTypes = {
+  open: PropTypes.bool,
+  settings: PropTypes.shape({
+    heroHeadline: PropTypes.string,
+    heroSubheadline: PropTypes.string,
+    coverImageUrl: PropTypes.string,
+    coverVideoUrl: PropTypes.string,
+    brandAccentColor: PropTypes.string,
+    defaultVisibility: PropTypes.string,
+    allowPublicDownload: PropTypes.bool,
+    autoShareToFeed: PropTypes.bool,
+    showMetrics: PropTypes.bool,
+    showTestimonials: PropTypes.bool,
+    showContactButton: PropTypes.bool,
+    contactEmail: PropTypes.string,
+    schedulingLink: PropTypes.string,
+    customDomain: PropTypes.string,
+    previewBasePath: PropTypes.string,
+  }),
+  canEdit: PropTypes.bool,
+  saving: PropTypes.bool,
+  onClose: PropTypes.func,
+  onSave: PropTypes.func,
+};
+
+PortfolioSettingsDialog.defaultProps = {
+  open: false,
+  settings: null,
+  canEdit: false,
+  saving: false,
+  onClose: () => {},
+  onSave: () => {},
+};

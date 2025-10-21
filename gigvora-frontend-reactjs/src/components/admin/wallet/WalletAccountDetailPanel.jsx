@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import WalletLedgerTable from './WalletLedgerTable.jsx';
 import WalletLedgerEntryForm from './WalletLedgerEntryForm.jsx';
 
@@ -323,3 +324,58 @@ export default function WalletAccountDetailPanel({
     </div>
   );
 }
+
+WalletAccountDetailPanel.propTypes = {
+  account: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+    status: PropTypes.string,
+    custodyProvider: PropTypes.string,
+    currencyCode: PropTypes.string,
+    providerAccountId: PropTypes.string,
+    metadata: PropTypes.object,
+    currentBalance: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    availableBalance: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    pendingHoldBalance: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    accountType: PropTypes.string,
+    user: PropTypes.shape({
+      firstName: PropTypes.string,
+      lastName: PropTypes.string,
+      email: PropTypes.string,
+    }),
+  }),
+  onUpdate: PropTypes.func,
+  updating: PropTypes.bool,
+  updateError: PropTypes.string,
+  ledger: PropTypes.shape({
+    entries: PropTypes.arrayOf(PropTypes.object),
+    pagination: PropTypes.object,
+  }),
+  ledgerLoading: PropTypes.bool,
+  ledgerFilters: PropTypes.object,
+  onLedgerFiltersChange: PropTypes.func,
+  onLedgerPageChange: PropTypes.func,
+  onCreateLedgerEntry: PropTypes.func,
+  ledgerMutationLoading: PropTypes.bool,
+  ledgerMutationError: PropTypes.string,
+  onBack: PropTypes.func,
+  ledgerFormResetKey: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  initialTab: PropTypes.oneOf(['settings', 'ledger']),
+};
+
+WalletAccountDetailPanel.defaultProps = {
+  account: null,
+  onUpdate: undefined,
+  updating: false,
+  updateError: '',
+  ledger: null,
+  ledgerLoading: false,
+  ledgerFilters: null,
+  onLedgerFiltersChange: undefined,
+  onLedgerPageChange: undefined,
+  onCreateLedgerEntry: undefined,
+  ledgerMutationLoading: false,
+  ledgerMutationError: '',
+  onBack: undefined,
+  ledgerFormResetKey: undefined,
+  initialTab: 'settings',
+};

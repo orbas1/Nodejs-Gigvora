@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import TagInput from '../TagInput.jsx';
 
 export default function ProfileTagsCard({ profileDraft, onProfileChange, canEdit }) {
@@ -51,3 +52,19 @@ export default function ProfileTagsCard({ profileDraft, onProfileChange, canEdit
     </section>
   );
 }
+
+ProfileTagsCard.propTypes = {
+  profileDraft: PropTypes.shape({
+    skills: PropTypes.arrayOf(PropTypes.string),
+    areasOfFocus: PropTypes.arrayOf(PropTypes.string),
+    preferredEngagements: PropTypes.arrayOf(PropTypes.string),
+    statusFlags: PropTypes.arrayOf(PropTypes.string),
+    volunteerBadges: PropTypes.arrayOf(PropTypes.string),
+  }).isRequired,
+  onProfileChange: PropTypes.func.isRequired,
+  canEdit: PropTypes.bool,
+};
+
+ProfileTagsCard.defaultProps = {
+  canEdit: false,
+};

@@ -16,6 +16,11 @@ function formatRange(experience) {
 
 export default function ExperienceCard({ experience, onManage }) {
   const entries = Array.isArray(experience) ? experience : [];
+  const sortedEntries = [...entries].sort((a, b) => {
+    const first = a?.startDate ? new Date(a.startDate).getTime() : 0;
+    const second = b?.startDate ? new Date(b.startDate).getTime() : 0;
+    return second - first;
+  });
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -34,10 +39,10 @@ export default function ExperienceCard({ experience, onManage }) {
       </div>
 
       <div className="mt-4 space-y-3">
-        {entries.length === 0 ? (
+        {sortedEntries.length === 0 ? (
           <p className="text-sm text-slate-500">Tell clients about your most relevant milestones.</p>
         ) : (
-          entries.slice(0, 3).map((item) => (
+          sortedEntries.slice(0, 3).map((item) => (
             <div key={item.id ?? `${item.title}-${item.company}`} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
               <div className="flex items-start gap-3">
                 <span className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-200 text-slate-600">
@@ -67,8 +72,8 @@ export default function ExperienceCard({ experience, onManage }) {
         )}
       </div>
 
-      {entries.length > 3 ? (
-        <p className="mt-3 text-xs text-slate-500">+{entries.length - 3} more saved in your profile.</p>
+      {sortedEntries.length > 3 ? (
+        <p className="mt-3 text-xs text-slate-500">+{sortedEntries.length - 3} more saved in your profile.</p>
       ) : null}
     </div>
   );

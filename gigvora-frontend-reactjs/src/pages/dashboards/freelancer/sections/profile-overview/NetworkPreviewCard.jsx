@@ -1,3 +1,5 @@
+import PropTypes from 'prop-types';
+
 function initials(value) {
   return value
     .toString()
@@ -9,7 +11,9 @@ function initials(value) {
 }
 
 export default function NetworkPreviewCard({ followers = [], onOpenFollowers }) {
-  const preview = followers.slice(0, 6);
+  const safeFollowers = Array.isArray(followers) ? followers : [];
+  const preview = safeFollowers.slice(0, 6);
+  const handleOpenFollowers = typeof onOpenFollowers === 'function' ? onOpenFollowers : () => {};
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -33,7 +37,7 @@ export default function NetworkPreviewCard({ followers = [], onOpenFollowers }) 
         </div>
         <button
           type="button"
-          onClick={onOpenFollowers}
+          onClick={handleOpenFollowers}
           className="rounded-full bg-slate-900 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700"
         >
           Followers
@@ -42,3 +46,20 @@ export default function NetworkPreviewCard({ followers = [], onOpenFollowers }) 
     </div>
   );
 }
+
+NetworkPreviewCard.propTypes = {
+  followers: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      email: PropTypes.string,
+      name: PropTypes.string,
+      initials: PropTypes.string,
+    }),
+  ),
+  onOpenFollowers: PropTypes.func,
+};
+
+NetworkPreviewCard.defaultProps = {
+  followers: [],
+  onOpenFollowers: () => {},
+};

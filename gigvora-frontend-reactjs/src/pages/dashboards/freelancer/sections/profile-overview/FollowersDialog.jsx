@@ -1,4 +1,5 @@
 import { Dialog, Transition } from '@headlessui/react';
+import PropTypes from 'prop-types';
 import { Fragment } from 'react';
 
 function initials(value) {
@@ -12,9 +13,12 @@ function initials(value) {
 }
 
 export default function FollowersDialog({ open, followers = [], onClose }) {
+  const safeFollowers = Array.isArray(followers) ? followers : [];
+  const handleClose = typeof onClose === 'function' ? onClose : () => {};
+
   return (
     <Transition.Root show={open} as={Fragment}>
-      <Dialog as="div" className="relative z-40" onClose={onClose}>
+      <Dialog as="div" className="relative z-40" onClose={handleClose}>
         <Transition.Child as={Fragment} enter="ease-out duration-200" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-150" leaveFrom="opacity-100" leaveTo="opacity-0">
           <div className="fixed inset-0 bg-slate-900/40" />
         </Transition.Child>
@@ -34,7 +38,7 @@ export default function FollowersDialog({ open, followers = [], onClose }) {
                   <Dialog.Title className="text-lg font-semibold text-slate-900">Followers</Dialog.Title>
                   <button
                     type="button"
-                    onClick={onClose}
+                    onClick={handleClose}
                     className="rounded-full border border-slate-200 px-4 py-1.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300"
                   >
                     Close
@@ -42,12 +46,12 @@ export default function FollowersDialog({ open, followers = [], onClose }) {
                 </div>
                 <div className="max-h-[60vh] overflow-y-auto px-6 py-6">
                   <ul className="space-y-3">
-                    {followers.length === 0 ? (
+                    {safeFollowers.length === 0 ? (
                       <li className="rounded-3xl border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-400">
                         No followers yet
                       </li>
                     ) : (
-                      followers.map((follower) => (
+                      safeFollowers.map((follower) => (
                         <li
                           key={follower.id || follower.email || follower.name}
                           className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
@@ -76,3 +80,26 @@ export default function FollowersDialog({ open, followers = [], onClose }) {
     </Transition.Root>
   );
 }
+
+FollowersDialog.propTypes = {
+  open: PropTypes.bool,
+  followers: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      email: PropTypes.string,
+      name: PropTypes.string,
+      initials: PropTypes.string,
+      headline: PropTypes.string,
+      location: PropTypes.shape({
+        summary: PropTypes.string,
+      }),
+    }),
+  ),
+  onClose: PropTypes.func,
+};
+
+FollowersDialog.defaultProps = {
+  open: false,
+  followers: [],
+  onClose: () => {},
+};

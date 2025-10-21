@@ -1,5 +1,6 @@
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment, useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 
 const TABS = [
   { id: 'inbox', label: 'Inbox' },
@@ -23,6 +24,30 @@ function ConnectionItem({ item, actionArea }) {
   );
 }
 
+ConnectionsDialog.propTypes = {
+  open: PropTypes.bool,
+  connections: PropTypes.shape({
+    pendingIncoming: PropTypes.array,
+    pendingOutgoing: PropTypes.array,
+    accepted: PropTypes.array,
+  }),
+  onClose: PropTypes.func,
+  onCreate: PropTypes.func,
+  onUpdate: PropTypes.func,
+  onDelete: PropTypes.func,
+  saving: PropTypes.bool,
+};
+
+ConnectionsDialog.defaultProps = {
+  open: false,
+  connections: {},
+  onClose: () => {},
+  onCreate: null,
+  onUpdate: null,
+  onDelete: null,
+  saving: false,
+};
+
 export default function ConnectionsDialog({
   open,
   connections = {},
@@ -34,11 +59,13 @@ export default function ConnectionsDialog({
 }) {
   const [tab, setTab] = useState('inbox');
   const [invite, setInvite] = useState({ email: '', userId: '' });
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (open) {
       setTab('inbox');
       setInvite({ email: '', userId: '' });
+      setError(null);
     }
   }, [open]);
 
@@ -56,16 +83,28 @@ export default function ConnectionsDialog({
     if (!onCreate) {
       return;
     }
-    const payload = invite.userId ? { targetUserId: invite.userId } : { email: invite.email };
+    if (!invite.email && !invite.userId) {
+      setError('Provide an email or user ID to send an invitation.');
+      return;
+    }
+    if (invite.email && !/.+@.+\..+/.test(invite.email)) {
+      setError('Enter a valid email address.');
+      return;
+    }
+    const payload = invite.userId
+      ? { targetUserId: Number(invite.userId) }
+      : { email: invite.email.trim() };
     await onCreate(payload);
     setInvite({ email: '', userId: '' });
+    setError(null);
   };
 
   const disableInvite = saving || (!invite.email && !invite.userId);
+  const disableClose = saving;
 
   return (
     <Transition.Root show={open} as={Fragment}>
-      <Dialog as="div" className="relative z-50" onClose={saving ? () => {} : onClose}>
+      <Dialog as="div" className="relative z-50" onClose={disableClose ? () => {} : onClose}>
         <Transition.Child as={Fragment} enter="ease-out duration-200" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-150" leaveFrom="opacity-100" leaveTo="opacity-0">
           <div className="fixed inset-0 bg-slate-900/40" />
         </Transition.Child>
@@ -189,6 +228,9 @@ export default function ConnectionsDialog({
                         </label>
                       </div>
                       <p className="text-xs text-slate-500">Send a request with either email or ID.</p>
+                      {error ? (
+                        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs text-rose-700">{error}</div>
+                      ) : null}
                       <button
                         type="submit"
                         className="rounded-full bg-slate-900 px-6 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"

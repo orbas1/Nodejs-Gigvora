@@ -1,4 +1,60 @@
+import { useMemo } from 'react';
 import TokenInput from './TokenInput.jsx';
+
+const DEFAULT_VALIDATION = {
+  errors: {},
+  warnings: {},
+  hasBlockingErrors: false,
+};
+
+function isValidAbsoluteUrl(value, { requireHttps = false } = {}) {
+  if (!value) return false;
+  try {
+    const parsed = new URL(value);
+    const protocols = requireHttps ? ['https:'] : ['https:', 'http:'];
+    if (!protocols.includes(parsed.protocol)) {
+      return false;
+    }
+    return Boolean(parsed.hostname);
+  } catch (error) {
+    return false;
+  }
+}
+
+function validateCanonicalBaseUrl(value) {
+  if (!value) return null;
+  if (!isValidAbsoluteUrl(value, { requireHttps: true })) {
+    return 'Enter a valid https:// base URL without extra path segments.';
+  }
+  try {
+    const parsed = new URL(value);
+    if (parsed.pathname && parsed.pathname !== '/' && parsed.pathname !== '') {
+      return 'Base URL should not include path segments.';
+    }
+    if (parsed.search || parsed.hash) {
+      return 'Remove query parameters and fragments from the base URL.';
+    }
+  } catch (error) {
+    return 'Enter a valid https:// base URL without extra path segments.';
+  }
+  return null;
+}
+
+function validateSitemapUrl(value) {
+  if (!value) return null;
+  if (!isValidAbsoluteUrl(value)) {
+    return 'Enter a valid sitemap URL ending in .xml.';
+  }
+  try {
+    const parsed = new URL(value);
+    if (!parsed.pathname?.endsWith('.xml')) {
+      return 'Enter a valid sitemap URL ending in .xml.';
+    }
+  } catch (error) {
+    return 'Enter a valid sitemap URL ending in .xml.';
+  }
+  return null;
+}
 
 function formatPathToken(value) {
   if (!value) return '';
@@ -47,16 +103,22 @@ export default function SeoSettingsForm({
   };
 
   const handleKeywordChange = (keywords) => {
+    const sanitized = (Array.isArray(keywords) ? keywords : [])
+      .map((keyword) => formatKeywordToken(keyword))
+      .filter(Boolean);
     onDraftChange((previous) => ({
       ...previous,
-      defaultKeywords: keywords,
+      defaultKeywords: sanitized,
     }));
   };
 
   const handleNoindexPathChange = (paths) => {
+    const sanitized = (Array.isArray(paths) ? paths : [])
+      .map((path) => formatPathToken(path))
+      .filter(Boolean);
     onDraftChange((previous) => ({
       ...previous,
-      noindexPaths: paths,
+      noindexPaths: sanitized,
     }));
   };
 
@@ -66,7 +128,7 @@ export default function SeoSettingsForm({
       ...previous,
       verificationCodes: {
         ...previous.verificationCodes,
-        [field]: value,
+        [field]: value.trim(),
       },
     }));
   };
@@ -97,13 +159,16 @@ export default function SeoSettingsForm({
   };
 
   const handleSameAsChange = (values) => {
+    const sanitized = (Array.isArray(values) ? values : [])
+      .map((value) => value?.trim())
+      .filter(Boolean);
     onDraftChange((previous) => ({
       ...previous,
       structuredData: {
         ...previous.structuredData,
         organization: {
           ...previous.structuredData?.organization,
-          sameAs: values,
+          sameAs: sanitized,
         },
       },
     }));
@@ -122,8 +187,83 @@ export default function SeoSettingsForm({
 
   const overrides = Array.isArray(draft.pageOverrides) ? draft.pageOverrides : [];
 
+  const validation = useMemo(() => {
+    if (!draft) return DEFAULT_VALIDATION;
+
+    const errors = {};
+    const warnings = {};
+
+    const canonicalError = validateCanonicalBaseUrl(draft.canonicalBaseUrl);
+    if (canonicalError) {
+      errors.canonicalBaseUrl = canonicalError;
+    }
+
+    const sitemapError = validateSitemapUrl(draft.sitemapUrl);
+    if (sitemapError) {
+      errors.sitemapUrl = sitemapError;
+    }
+
+    const invalidSameAs = (draft.structuredData?.organization?.sameAs ?? []).filter(
+      (value) => !isValidAbsoluteUrl(value, { requireHttps: false }),
+    );
+
+    if (invalidSameAs.length) {
+      warnings.sameAs =
+        invalidSameAs.length === 1
+          ? 'Review profile URLs – 1 link is not a valid http(s) address.'
+          : `Review profile URLs – ${invalidSameAs.length} links are not valid http(s) addresses.`;
+    }
+
+    const invalidVerificationProviders = Object.entries(draft.verificationCodes ?? {})
+      .filter(([, code]) => (code?.trim().length ?? 0) > 255)
+      .map(([provider]) => provider);
+
+    if (invalidVerificationProviders.length) {
+      warnings.verificationCodes = `Shorten verification codes for ${invalidVerificationProviders.join(
+        ', ',
+      )} (255 character limit).`;
+    }
+
+    if (draft.socialDefaults?.twitterHandle) {
+      const handle = draft.socialDefaults.twitterHandle.trim();
+      if (!/^@?[A-Za-z0-9_]{1,15}$/.test(handle)) {
+        errors.twitterHandle = 'Provide a valid X (Twitter) handle (letters, numbers, underscore).';
+      }
+    }
+
+    const jsonText = draft.structuredData?.customJsonText;
+    if (jsonText && jsonText.trim()) {
+      try {
+        JSON.parse(jsonText);
+      } catch (error) {
+        errors.customJsonText = `Invalid JSON-LD: ${error.message}`;
+      }
+    }
+
+    const logoUrl = draft.structuredData?.organization?.logoUrl;
+    if (logoUrl && !isValidAbsoluteUrl(logoUrl)) {
+      warnings.logoUrl = 'Logos should use a fully qualified URL accessible to crawlers.';
+    }
+
+    const hasBlockingErrors = Object.keys(errors).length > 0;
+
+    return {
+      errors,
+      warnings,
+      hasBlockingErrors,
+    };
+  }, [draft]);
+
   return (
     <div className="space-y-8">
+      {validation.hasBlockingErrors ? (
+        <div
+          className="rounded-3xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700"
+          role="alert"
+        >
+          Please resolve the highlighted fields before publishing. Search crawlers require accurate URLs and structured data.
+        </div>
+      ) : null}
       <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-lg shadow-blue-100/40 sm:p-8">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div>
@@ -211,12 +351,18 @@ export default function SeoSettingsForm({
               value={draft.canonicalBaseUrl ?? ''}
               onChange={handleTopLevelChange('canonicalBaseUrl')}
               disabled={disableInputs}
+              aria-invalid={Boolean(validation.errors.canonicalBaseUrl)}
               className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
               placeholder="https://gigvora.com"
             />
             <p className="text-xs text-slate-500">
               Used to build canonical tags across the platform and sitemap entries.
             </p>
+            {validation.errors.canonicalBaseUrl ? (
+              <p className="text-xs text-rose-600" role="alert">
+                {validation.errors.canonicalBaseUrl}
+              </p>
+            ) : null}
           </div>
         </div>
       </section>
@@ -262,10 +408,16 @@ export default function SeoSettingsForm({
               value={draft.sitemapUrl ?? ''}
               onChange={handleTopLevelChange('sitemapUrl')}
               disabled={disableInputs}
+              aria-invalid={Boolean(validation.errors.sitemapUrl)}
               className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
               placeholder="https://gigvora.com/sitemap.xml"
             />
             <p className="text-xs text-slate-500">Shared with search engines during verification and ping refresh cycles.</p>
+            {validation.errors.sitemapUrl ? (
+              <p className="text-xs text-rose-600" role="alert">
+                {validation.errors.sitemapUrl}
+              </p>
+            ) : null}
           </div>
         </div>
 
@@ -312,6 +464,9 @@ export default function SeoSettingsForm({
             </div>
           ))}
         </div>
+        {validation.warnings.verificationCodes ? (
+          <p className="mt-4 text-xs text-amber-600">{validation.warnings.verificationCodes}</p>
+        ) : null}
       </section>
 
       <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-lg shadow-blue-100/30 sm:p-8">
@@ -385,9 +540,15 @@ export default function SeoSettingsForm({
               value={draft.socialDefaults?.twitterHandle ?? ''}
               onChange={handleSocialChange('twitterHandle')}
               disabled={disableInputs}
+              aria-invalid={Boolean(validation.errors.twitterHandle)}
               className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
               placeholder="@gigvora"
             />
+            {validation.errors.twitterHandle ? (
+              <p className="text-xs text-rose-600" role="alert">
+                {validation.errors.twitterHandle}
+              </p>
+            ) : null}
           </div>
         </div>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -517,6 +678,9 @@ export default function SeoSettingsForm({
             disabled={disableInputs}
             description="Links to social profiles or marketplaces displayed in structured data."
           />
+          {validation.warnings.sameAs ? (
+            <p className="mt-2 text-xs text-amber-600">{validation.warnings.sameAs}</p>
+          ) : null}
         </div>
         <div className="mt-4 space-y-2">
           <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="customJson">
@@ -528,12 +692,21 @@ export default function SeoSettingsForm({
             onChange={handleCustomJsonChange}
             disabled={disableInputs}
             rows={8}
+            aria-invalid={Boolean(validation.errors.customJsonText)}
             className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 font-mono text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
             placeholder={`{\n  "@context": "https://schema.org",\n  "@type": "FAQPage",\n  "mainEntity": []\n}`}
           />
           <p className="text-xs text-slate-500">
             Provide valid JSON to supplement the organisation schema. Applied to every public route unless overridden.
           </p>
+          {validation.errors.customJsonText ? (
+            <p className="text-xs text-rose-600" role="alert">
+              {validation.errors.customJsonText}
+            </p>
+          ) : null}
+          {validation.warnings.logoUrl ? (
+            <p className="text-xs text-amber-600">{validation.warnings.logoUrl}</p>
+          ) : null}
         </div>
       </section>
 

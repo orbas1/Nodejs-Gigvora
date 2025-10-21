@@ -1,4 +1,5 @@
 import { CheckBadgeIcon, PlusCircleIcon } from '@heroicons/react/24/outline';
+import PropTypes from 'prop-types';
 
 export default function ProfileReferencesCard({
   references,
@@ -154,3 +155,27 @@ export default function ProfileReferencesCard({
     </section>
   );
 }
+
+const referenceShape = PropTypes.shape({
+  name: PropTypes.string,
+  relationship: PropTypes.string,
+  company: PropTypes.string,
+  email: PropTypes.string,
+  phone: PropTypes.string,
+  weight: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  lastInteractedAt: PropTypes.string,
+  isVerified: PropTypes.bool,
+  endorsement: PropTypes.string,
+});
+
+ProfileReferencesCard.propTypes = {
+  references: PropTypes.arrayOf(referenceShape).isRequired,
+  onAddReference: PropTypes.func.isRequired,
+  onUpdateReference: PropTypes.func.isRequired,
+  onRemoveReference: PropTypes.func.isRequired,
+  canEdit: PropTypes.bool,
+};
+
+ProfileReferencesCard.defaultProps = {
+  canEdit: false,
+};
