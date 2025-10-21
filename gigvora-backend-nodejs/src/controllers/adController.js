@@ -2,19 +2,30 @@ import { getAdDashboardSnapshot, listPlacements, getPlacementsForSurface } from 
 
 function parseSurfaces(req) {
   const { surface, surfaces } = req.query ?? {};
+  let resolved = [];
   if (Array.isArray(surfaces)) {
-    return surfaces.flatMap((value) => `${value}`.split(',').map((part) => part.trim())).filter(Boolean);
-  }
-  if (typeof surfaces === 'string') {
-    return surfaces.split(',').map((value) => value.trim()).filter(Boolean);
-  }
-  if (surface) {
-    return `${surface}`
+    resolved = surfaces.flatMap((value) => `${value}`.split(',').map((part) => part.trim()));
+  } else if (typeof surfaces === 'string') {
+    resolved = surfaces.split(',').map((value) => value.trim());
+  } else if (surface) {
+    resolved = `${surface}`
       .split(',')
-      .map((value) => value.trim())
-      .filter(Boolean);
+      .map((value) => value.trim());
   }
-  return [];
+
+  const unique = [];
+  const seen = new Set();
+  resolved
+    .filter(Boolean)
+    .forEach((entry) => {
+      const key = entry.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(entry);
+      }
+    });
+
+  return unique;
 }
 
 function parseContext(req) {
