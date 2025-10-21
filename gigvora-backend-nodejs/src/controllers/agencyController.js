@@ -1,10 +1,17 @@
 import { getAgencyDashboard } from '../services/agencyDashboardService.js';
 import { getAgencyOverview, updateAgencyOverview } from '../services/agencyOverviewService.js';
-import agencyProfileService from '../services/agencyProfileService.js';
-import { AuthorizationError } from '../utils/errors.js';
 import {
+  getAgencyProfileOverview,
+  updateAgencyProfile,
+  updateAgencyAvatar,
   getAgencyProfileManagement,
-  updateAgencyProfileBasics,
+  listAgencyFollowers,
+  updateAgencyFollower,
+  removeAgencyFollower,
+  listAgencyConnections,
+  requestAgencyConnection,
+  respondToAgencyConnection,
+  removeAgencyConnection,
   createAgencyProfileMedia,
   updateAgencyProfileMedia,
   deleteAgencyProfileMedia,
@@ -21,8 +28,17 @@ import {
   updateAgencyProfileWorkforceSegment,
   deleteAgencyProfileWorkforceSegment,
 } from '../services/agencyProfileService.js';
+import { AuthorizationError, AuthenticationError, ValidationError } from '../utils/errors.js';
 import {
-  updateAgencyProfileBasicsSchema,
+  agencyProfileQuerySchema,
+  updateAgencyProfileSchema,
+  updateAgencyAvatarSchema,
+  listFollowersQuerySchema,
+  followerParamsSchema,
+  updateFollowerBodySchema,
+  requestConnectionBodySchema,
+  connectionParamsSchema,
+  respondConnectionBodySchema,
   createAgencyProfileMediaSchema,
   updateAgencyProfileMediaSchema,
   createAgencyProfileSkillSchema,
@@ -34,292 +50,338 @@ import {
   createAgencyProfileWorkforceSegmentSchema,
   updateAgencyProfileWorkforceSegmentSchema,
 } from '../validation/schemas/agencySchemas.js';
-import { ValidationError } from '../utils/errors.js';
 
-function parseNumber(value) {
-  if (value == null) return undefined;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
+function toOptionalPositiveInteger(value) {
+  if (value == null || value === '') {
+    return null;
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const integer = Math.trunc(value);
+    return integer > 0 ? integer : null;
+  }
+  const parsed = Number.parseInt(`${value}`.trim(), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-function parseIdentifier(value, label = 'id') {
-  if (value == null) {
-    throw new ValidationError(`Missing ${label}.`);
-  }
-  const parsed = Number.parseInt(`${value}`, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    throw new ValidationError(`Invalid ${label}.`);
+function requirePositiveInteger(value, label) {
+  const parsed = toOptionalPositiveInteger(value);
+  if (!parsed) {
+    throw new ValidationError(`${label} must be a positive integer.`);
   }
   return parsed;
 }
 
+function sanitizeSlug(value) {
+  if (value == null) {
+    return undefined;
+  }
+  const text = `${value}`.trim();
+  return text ? text : undefined;
+}
+
+function hasAdminPrivileges(user = {}) {
+  const roleSet = new Set((user.roles ?? []).map((role) => `${role}`.toLowerCase()));
+  const type = `${user.type ?? ''}`.toLowerCase();
+  return roleSet.has('admin') || type === 'admin';
+}
+
+function resolveActorId(req) {
+  return toOptionalPositiveInteger(req?.user?.id);
+}
+
+function requireActorId(req) {
+  const actorId = resolveActorId(req);
+  if (!actorId) {
+    throw new AuthenticationError('Authentication required.');
+  }
+  return actorId;
+}
+
 function resolveActorContext(req) {
   return {
-    actorId: req.user?.id ?? null,
-    actorRoles: Array.isArray(req.user?.roles) ? req.user.roles : [],
+    actorId: resolveActorId(req),
+    actorRole: req?.user?.type ?? null,
+    actorRoles: Array.isArray(req?.user?.roles) ? req.user.roles : [],
   };
+}
+
+function formatZodIssues(issues = []) {
+  return issues.map((issue) => ({
+    path: issue.path.join('.') || issue.path.join(''),
+    message: issue.message,
+    code: issue.code,
+  }));
+}
+
+function parseWithSchema(schema, payload, { source = 'request' } = {}) {
+  const result = schema.safeParse(payload ?? {});
+  if (!result.success) {
+    throw new ValidationError(`${source} validation failed.`, { issues: formatZodIssues(result.error.issues) });
+  }
+  return result.data;
+}
+
+function resolveTargetUserId(req, queryOverride) {
+  const actorId = resolveActorId(req);
+  const query = queryOverride ?? req?.query ?? {};
+  const requested = toOptionalPositiveInteger(query.userId);
+
+  if (requested && requested !== actorId) {
+    if (!hasAdminPrivileges(req?.user)) {
+      throw new AuthorizationError('You can only manage your own agency profile.');
+    }
+    return requested;
+  }
+
+  if (actorId) {
+    return actorId;
+  }
+
+  throw new AuthenticationError('Authentication required.');
 }
 
 export async function dashboard(req, res) {
   const { workspaceId, workspaceSlug, lookbackDays } = req.query ?? {};
-  const actorId = req.user?.id ?? null;
-  const actorRole = req.user?.type ?? null;
-
   const payload = {
-    workspaceId: parseNumber(workspaceId),
-    workspaceSlug: workspaceSlug ?? undefined,
-    lookbackDays: parseNumber(lookbackDays),
+    workspaceId: toOptionalPositiveInteger(workspaceId) ?? undefined,
+    workspaceSlug: sanitizeSlug(workspaceSlug),
+    lookbackDays: toOptionalPositiveInteger(lookbackDays) ?? undefined,
   };
-
-  const result = await getAgencyDashboard(payload, { actorId, actorRole });
+  const context = resolveActorContext(req);
+  const result = await getAgencyDashboard(payload, {
+    actorId: context.actorId,
+    actorRole: context.actorRole,
+    actorRoles: context.actorRoles,
+  });
   res.json(result);
 }
 
 export async function overview(req, res) {
   const { workspaceId, workspaceSlug } = req.query ?? {};
-  const actorId = req.user?.id ?? null;
-  const actorRole = req.user?.type ?? null;
-  const actorRoles = req.user?.roles ?? [];
-
   const payload = {
-    workspaceId: parseNumber(workspaceId),
-    workspaceSlug: workspaceSlug ?? undefined,
+    workspaceId: toOptionalPositiveInteger(workspaceId) ?? undefined,
+    workspaceSlug: sanitizeSlug(workspaceSlug),
   };
-
-  const result = await getAgencyOverview(payload, { actorId, actorRole, actorRoles });
+  const context = resolveActorContext(req);
+  const result = await getAgencyOverview(payload, context);
   res.json(result);
 }
 
 export async function updateOverview(req, res) {
-  const actorId = req.user?.id ?? null;
-  const actorRole = req.user?.type ?? null;
-  const actorRoles = req.user?.roles ?? [];
-
-  const result = await updateAgencyOverview(req.body ?? {}, { actorId, actorRole, actorRoles });
+  const context = resolveActorContext(req);
+  const result = await updateAgencyOverview(req.body ?? {}, context);
   res.json(result);
-}
-
-export default {
-  dashboard,
-  overview,
-  updateOverview,
-function resolveTargetUserId(req) {
-  const requestedUserId = parseNumber(req.query?.userId);
-  if (requestedUserId && requestedUserId !== req.user?.id) {
-    const isAdmin = req.user?.roles?.includes('admin');
-    if (!isAdmin) {
-      throw new AuthorizationError('You can only manage your own agency profile.');
-    }
-    return requestedUserId;
-  }
-  return req.user?.id;
 }
 
 export async function getProfile(req, res) {
-  const targetUserId = resolveTargetUserId(req);
-  const payload = await agencyProfileService.getAgencyProfileOverview(targetUserId, {
-    includeFollowers: req.query.includeFollowers !== 'false',
-    includeConnections: req.query.includeConnections !== 'false',
-    followersLimit: parseNumber(req.query.followersLimit) ?? 25,
-    followersOffset: parseNumber(req.query.followersOffset) ?? 0,
-    bypassCache: req.query.fresh === 'true',
-    viewerId: req.user?.id ?? null,
+  const query = parseWithSchema(agencyProfileQuerySchema, req.query ?? {}, { source: 'query' });
+  const targetUserId = resolveTargetUserId({ ...req, query }, query);
+  const viewerId = resolveActorId(req);
+  const result = await getAgencyProfileOverview(targetUserId, {
+    includeFollowers: query.includeFollowers ?? true,
+    includeConnections: query.includeConnections ?? true,
+    followersLimit: query.followersLimit ?? 25,
+    followersOffset: query.followersOffset ?? 0,
+    bypassCache: query.fresh ?? false,
+    viewerId,
   });
-  res.json(payload);
-}
-
-export async function updateProfile(req, res) {
-  const targetUserId = resolveTargetUserId(req);
-  const payload = await agencyProfileService.updateAgencyProfile(targetUserId, req.body ?? {}, {
-    actorId: req.user?.id ?? null,
-  });
-  res.json(payload);
-}
-
-export async function updateAvatar(req, res) {
-  const targetUserId = resolveTargetUserId(req);
-  const payload = await agencyProfileService.updateAgencyAvatar(targetUserId, req.body ?? {}, {
-    actorId: req.user?.id ?? null,
-  });
-  res.json(payload);
-}
-
-export async function listFollowers(req, res) {
-  const targetUserId = resolveTargetUserId(req);
-  const followers = await agencyProfileService.listAgencyFollowers(targetUserId, {
-    limit: parseNumber(req.query.limit) ?? 25,
-    offset: parseNumber(req.query.offset) ?? 0,
-  });
-  res.json(followers);
-}
-
-export async function updateFollower(req, res) {
-  const targetUserId = resolveTargetUserId(req);
-  const followerId = req.params.followerId;
-  const follower = await agencyProfileService.updateAgencyFollower(targetUserId, followerId, req.body ?? {});
-  res.json(follower);
-}
-
-export async function removeFollower(req, res) {
-  const targetUserId = resolveTargetUserId(req);
-  const followerId = req.params.followerId;
-  await agencyProfileService.removeAgencyFollower(targetUserId, followerId);
-  res.status(204).end();
-}
-
-export async function listConnections(req, res) {
-  const targetUserId = resolveTargetUserId(req);
-  const connections = await agencyProfileService.listAgencyConnections(targetUserId, {
-    viewerId: req.user?.id ?? null,
-  });
-  res.json(connections);
-}
-
-export async function requestConnection(req, res) {
-  const targetUserId = resolveTargetUserId(req);
-  const connection = await agencyProfileService.requestAgencyConnection(targetUserId, req.body?.targetId);
-  res.status(201).json(connection);
-}
-
-export async function respondToConnection(req, res) {
-  const targetUserId = resolveTargetUserId(req);
-  const connectionId = req.params.connectionId;
-  const result = await agencyProfileService.respondToAgencyConnection(targetUserId, connectionId, req.body?.decision);
   res.json(result);
 }
 
-export async function removeConnection(req, res) {
+export async function updateProfile(req, res) {
+  const payload = parseWithSchema(updateAgencyProfileSchema, req.body ?? {}, { source: 'body' });
   const targetUserId = resolveTargetUserId(req);
-  const connectionId = req.params.connectionId;
-  await agencyProfileService.removeAgencyConnection(targetUserId, connectionId);
+  const actorId = requireActorId(req);
+  const result = await updateAgencyProfile(targetUserId, payload, { actorId });
+  res.json(result);
+}
+
+export async function updateAvatar(req, res) {
+  const payload = parseWithSchema(updateAgencyAvatarSchema, req.body ?? {}, { source: 'body' });
+  const targetUserId = resolveTargetUserId(req);
+  const actorId = requireActorId(req);
+  const result = await updateAgencyAvatar(targetUserId, payload, { actorId });
+  res.json(result);
+}
+
 export async function profile(req, res) {
   const context = resolveActorContext(req);
   const result = await getAgencyProfileManagement({}, context);
   res.json(result);
 }
 
-export async function updateProfile(req, res) {
-  const context = resolveActorContext(req);
-  const payload = updateAgencyProfileBasicsSchema.parse(req.body ?? {});
-  const result = await updateAgencyProfileBasics(context.actorId, payload);
+export async function listFollowers(req, res) {
+  const query = parseWithSchema(listFollowersQuerySchema, req.query ?? {}, { source: 'query' });
+  const targetUserId = resolveTargetUserId({ ...req, query }, query);
+  const followers = await listAgencyFollowers(targetUserId, {
+    limit: query.limit ?? 25,
+    offset: query.offset ?? 0,
+  });
+  res.json(followers);
+}
+
+export async function updateFollower(req, res) {
+  const params = parseWithSchema(followerParamsSchema, req.params ?? {}, { source: 'params' });
+  const updates = parseWithSchema(updateFollowerBodySchema, req.body ?? {}, { source: 'body' });
+  const targetUserId = resolveTargetUserId(req);
+  const follower = await updateAgencyFollower(targetUserId, params.followerId, updates);
+  res.json(follower);
+}
+
+export async function removeFollower(req, res) {
+  const params = parseWithSchema(followerParamsSchema, req.params ?? {}, { source: 'params' });
+  const targetUserId = resolveTargetUserId(req);
+  await removeAgencyFollower(targetUserId, params.followerId);
+  res.status(204).end();
+}
+
+export async function listConnections(req, res) {
+  const queryUserId = toOptionalPositiveInteger(req.query?.userId);
+  const targetUserId = resolveTargetUserId({ ...req, query: { userId: queryUserId } }, { userId: queryUserId });
+  const connections = await listAgencyConnections(targetUserId, { viewerId: resolveActorId(req) });
+  res.json(connections);
+}
+
+export async function requestConnection(req, res) {
+  const payload = parseWithSchema(requestConnectionBodySchema, req.body ?? {}, { source: 'body' });
+  const targetUserId = resolveTargetUserId(req);
+  const connection = await requestAgencyConnection(targetUserId, payload.targetId);
+  res.status(201).json(connection);
+}
+
+export async function respondToConnection(req, res) {
+  const params = parseWithSchema(connectionParamsSchema, req.params ?? {}, { source: 'params' });
+  const payload = parseWithSchema(respondConnectionBodySchema, req.body ?? {}, { source: 'body' });
+  const targetUserId = resolveTargetUserId(req);
+  const result = await respondToAgencyConnection(targetUserId, params.connectionId, payload.decision);
   res.json(result);
+}
+
+export async function removeConnection(req, res) {
+  const params = parseWithSchema(connectionParamsSchema, req.params ?? {}, { source: 'params' });
+  const targetUserId = resolveTargetUserId(req);
+  await removeAgencyConnection(targetUserId, params.connectionId);
+  res.status(204).end();
 }
 
 export async function createMedia(req, res) {
-  const context = resolveActorContext(req);
-  const payload = createAgencyProfileMediaSchema.parse(req.body ?? {});
-  const result = await createAgencyProfileMedia(context.actorId, payload);
-  res.status(201).json(result);
+  const actorId = requireActorId(req);
+  const payload = parseWithSchema(createAgencyProfileMediaSchema, req.body ?? {}, { source: 'body' });
+  const media = await createAgencyProfileMedia(actorId, payload);
+  res.status(201).json(media);
 }
 
 export async function updateMedia(req, res) {
-  const context = resolveActorContext(req);
-  const mediaId = parseIdentifier(req.params?.mediaId, 'mediaId');
-  const payload = updateAgencyProfileMediaSchema.parse(req.body ?? {});
-  const result = await updateAgencyProfileMedia(context.actorId, mediaId, payload);
-  res.json(result);
+  const actorId = requireActorId(req);
+  const mediaId = requirePositiveInteger(req.params?.mediaId, 'mediaId');
+  const payload = parseWithSchema(updateAgencyProfileMediaSchema, req.body ?? {}, { source: 'body' });
+  const media = await updateAgencyProfileMedia(actorId, mediaId, payload);
+  res.json(media);
 }
 
 export async function deleteMedia(req, res) {
-  const context = resolveActorContext(req);
-  const mediaId = parseIdentifier(req.params?.mediaId, 'mediaId');
-  await deleteAgencyProfileMedia(context.actorId, mediaId);
+  const actorId = requireActorId(req);
+  const mediaId = requirePositiveInteger(req.params?.mediaId, 'mediaId');
+  await deleteAgencyProfileMedia(actorId, mediaId);
   res.status(204).end();
 }
 
 export async function createSkill(req, res) {
-  const context = resolveActorContext(req);
-  const payload = createAgencyProfileSkillSchema.parse(req.body ?? {});
-  const result = await createAgencyProfileSkill(context.actorId, payload);
-  res.status(201).json(result);
+  const actorId = requireActorId(req);
+  const payload = parseWithSchema(createAgencyProfileSkillSchema, req.body ?? {}, { source: 'body' });
+  const skill = await createAgencyProfileSkill(actorId, payload);
+  res.status(201).json(skill);
 }
 
 export async function updateSkill(req, res) {
-  const context = resolveActorContext(req);
-  const skillId = parseIdentifier(req.params?.skillId, 'skillId');
-  const payload = updateAgencyProfileSkillSchema.parse(req.body ?? {});
-  const result = await updateAgencyProfileSkill(context.actorId, skillId, payload);
-  res.json(result);
+  const actorId = requireActorId(req);
+  const skillId = requirePositiveInteger(req.params?.skillId, 'skillId');
+  const payload = parseWithSchema(updateAgencyProfileSkillSchema, req.body ?? {}, { source: 'body' });
+  const skill = await updateAgencyProfileSkill(actorId, skillId, payload);
+  res.json(skill);
 }
 
 export async function deleteSkill(req, res) {
-  const context = resolveActorContext(req);
-  const skillId = parseIdentifier(req.params?.skillId, 'skillId');
-  await deleteAgencyProfileSkill(context.actorId, skillId);
+  const actorId = requireActorId(req);
+  const skillId = requirePositiveInteger(req.params?.skillId, 'skillId');
+  await deleteAgencyProfileSkill(actorId, skillId);
   res.status(204).end();
 }
 
 export async function createCredential(req, res) {
-  const context = resolveActorContext(req);
-  const payload = createAgencyProfileCredentialSchema.parse(req.body ?? {});
-  const result = await createAgencyProfileCredential(context.actorId, payload);
-  res.status(201).json(result);
+  const actorId = requireActorId(req);
+  const payload = parseWithSchema(createAgencyProfileCredentialSchema, req.body ?? {}, { source: 'body' });
+  const credential = await createAgencyProfileCredential(actorId, payload);
+  res.status(201).json(credential);
 }
 
 export async function updateCredential(req, res) {
-  const context = resolveActorContext(req);
-  const credentialId = parseIdentifier(req.params?.credentialId, 'credentialId');
-  const payload = updateAgencyProfileCredentialSchema.parse(req.body ?? {});
-  const result = await updateAgencyProfileCredential(context.actorId, credentialId, payload);
-  res.json(result);
+  const actorId = requireActorId(req);
+  const credentialId = requirePositiveInteger(req.params?.credentialId, 'credentialId');
+  const payload = parseWithSchema(updateAgencyProfileCredentialSchema, req.body ?? {}, { source: 'body' });
+  const credential = await updateAgencyProfileCredential(actorId, credentialId, payload);
+  res.json(credential);
 }
 
 export async function deleteCredential(req, res) {
-  const context = resolveActorContext(req);
-  const credentialId = parseIdentifier(req.params?.credentialId, 'credentialId');
-  await deleteAgencyProfileCredential(context.actorId, credentialId);
+  const actorId = requireActorId(req);
+  const credentialId = requirePositiveInteger(req.params?.credentialId, 'credentialId');
+  await deleteAgencyProfileCredential(actorId, credentialId);
   res.status(204).end();
 }
 
 export async function createExperience(req, res) {
-  const context = resolveActorContext(req);
-  const payload = createAgencyProfileExperienceSchema.parse(req.body ?? {});
-  const result = await createAgencyProfileExperience(context.actorId, payload);
-  res.status(201).json(result);
+  const actorId = requireActorId(req);
+  const payload = parseWithSchema(createAgencyProfileExperienceSchema, req.body ?? {}, { source: 'body' });
+  const experience = await createAgencyProfileExperience(actorId, payload);
+  res.status(201).json(experience);
 }
 
 export async function updateExperience(req, res) {
-  const context = resolveActorContext(req);
-  const experienceId = parseIdentifier(req.params?.experienceId, 'experienceId');
-  const payload = updateAgencyProfileExperienceSchema.parse(req.body ?? {});
-  const result = await updateAgencyProfileExperience(context.actorId, experienceId, payload);
-  res.json(result);
+  const actorId = requireActorId(req);
+  const experienceId = requirePositiveInteger(req.params?.experienceId, 'experienceId');
+  const payload = parseWithSchema(updateAgencyProfileExperienceSchema, req.body ?? {}, { source: 'body' });
+  const experience = await updateAgencyProfileExperience(actorId, experienceId, payload);
+  res.json(experience);
 }
 
 export async function deleteExperience(req, res) {
-  const context = resolveActorContext(req);
-  const experienceId = parseIdentifier(req.params?.experienceId, 'experienceId');
-  await deleteAgencyProfileExperience(context.actorId, experienceId);
+  const actorId = requireActorId(req);
+  const experienceId = requirePositiveInteger(req.params?.experienceId, 'experienceId');
+  await deleteAgencyProfileExperience(actorId, experienceId);
   res.status(204).end();
 }
 
 export async function createWorkforceSegment(req, res) {
-  const context = resolveActorContext(req);
-  const payload = createAgencyProfileWorkforceSegmentSchema.parse(req.body ?? {});
-  const result = await createAgencyProfileWorkforceSegment(context.actorId, payload);
-  res.status(201).json(result);
+  const actorId = requireActorId(req);
+  const payload = parseWithSchema(createAgencyProfileWorkforceSegmentSchema, req.body ?? {}, { source: 'body' });
+  const segment = await createAgencyProfileWorkforceSegment(actorId, payload);
+  res.status(201).json(segment);
 }
 
 export async function updateWorkforceSegment(req, res) {
-  const context = resolveActorContext(req);
-  const segmentId = parseIdentifier(req.params?.segmentId, 'segmentId');
-  const payload = updateAgencyProfileWorkforceSegmentSchema.parse(req.body ?? {});
-  const result = await updateAgencyProfileWorkforceSegment(context.actorId, segmentId, payload);
-  res.json(result);
+  const actorId = requireActorId(req);
+  const segmentId = requirePositiveInteger(req.params?.segmentId, 'segmentId');
+  const payload = parseWithSchema(updateAgencyProfileWorkforceSegmentSchema, req.body ?? {}, { source: 'body' });
+  const segment = await updateAgencyProfileWorkforceSegment(actorId, segmentId, payload);
+  res.json(segment);
 }
 
 export async function deleteWorkforceSegment(req, res) {
-  const context = resolveActorContext(req);
-  const segmentId = parseIdentifier(req.params?.segmentId, 'segmentId');
-  await deleteAgencyProfileWorkforceSegment(context.actorId, segmentId);
+  const actorId = requireActorId(req);
+  const segmentId = requirePositiveInteger(req.params?.segmentId, 'segmentId');
+  await deleteAgencyProfileWorkforceSegment(actorId, segmentId);
   res.status(204).end();
 }
 
 export default {
   dashboard,
+  overview,
+  updateOverview,
   getProfile,
   updateProfile,
   updateAvatar,
+  profile,
   listFollowers,
   updateFollower,
   removeFollower,
@@ -327,8 +389,6 @@ export default {
   requestConnection,
   respondToConnection,
   removeConnection,
-  profile,
-  updateProfile,
   createMedia,
   updateMedia,
   deleteMedia,
@@ -345,4 +405,3 @@ export default {
   updateWorkforceSegment,
   deleteWorkforceSegment,
 };
-
