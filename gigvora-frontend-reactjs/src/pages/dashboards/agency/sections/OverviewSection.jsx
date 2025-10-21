@@ -1,12 +1,5 @@
 import { useMemo, useState } from 'react';
-import {
-  BoltIcon,
-  CloudIcon,
-  CloudRainIcon,
-  CloudSnowIcon,
-  SparklesIcon,
-  SunIcon,
-} from '@heroicons/react/24/solid';
+import { BoltIcon, CloudIcon, SparklesIcon, SunIcon } from '@heroicons/react/24/solid';
 import {
   Bars3BottomLeftIcon,
   ShieldCheckIcon,
@@ -25,9 +18,9 @@ const WEATHER_ICON_MAP = {
   clear: SunIcon,
   cloudy: CloudIcon,
   fog: Bars3BottomLeftIcon,
-  drizzle: CloudRainIcon,
-  rain: CloudRainIcon,
-  snow: CloudSnowIcon,
+  drizzle: CloudIcon,
+  rain: CloudIcon,
+  snow: SparklesIcon,
   storm: BoltIcon,
 };
 

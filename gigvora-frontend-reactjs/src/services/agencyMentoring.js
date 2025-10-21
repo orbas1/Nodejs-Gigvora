@@ -40,6 +40,10 @@ export function updateAgencyMentoringPurchase(purchaseId, payload, { signal } = 
   return apiClient.patch(`/agency/mentoring/purchases/${purchaseId}`, payload, { signal });
 }
 
+export function deleteAgencyMentoringPurchase(purchaseId, params = {}, { signal } = {}) {
+  return apiClient.delete(`/agency/mentoring/purchases/${purchaseId}`, { params: cleanParams(params), signal });
+}
+
 export function listAgencyMentorFavourites(params = {}, { signal } = {}) {
   return apiClient.get('/agency/mentoring/favourites', { params: cleanParams(params), signal });
 }
@@ -69,6 +73,7 @@ export default {
   listAgencyMentoringPurchases,
   createAgencyMentoringPurchase,
   updateAgencyMentoringPurchase,
+  deleteAgencyMentoringPurchase,
   listAgencyMentorFavourites,
   createAgencyMentorPreference,
   updateAgencyMentorPreference,

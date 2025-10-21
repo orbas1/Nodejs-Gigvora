@@ -293,14 +293,16 @@ export default function AgencyBlogManager() {
 
   const handleCreateMedia = useCallback(
     async (mediaPayload) => {
+      if (!selectedWorkspaceId) return;
       setTaxonomySaving(true);
       try {
-        await createAgencyBlogMedia(mediaPayload);
+        await createAgencyBlogMedia(selectedWorkspaceId, mediaPayload);
+        await loadTaxonomy();
       } finally {
         setTaxonomySaving(false);
       }
     },
-    [],
+    [selectedWorkspaceId, loadTaxonomy],
   );
 
   const summary = useMemo(() => {

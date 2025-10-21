@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { ArrowUpRightIcon, RocketLaunchIcon, SparklesIcon, UsersIcon } from '@heroicons/react/24/outline';
 
 const DEFAULT_HEADLINE =
@@ -43,6 +44,31 @@ export function HomeHeroSection({
   onClaimWorkspace,
   onBrowseOpportunities,
 }) {
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return undefined;
+    }
+
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    const updatePreference = (event) => {
+      setReduceMotion(event.matches);
+    };
+
+    // Initialise with the current preference
+    setReduceMotion(mediaQuery.matches);
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', updatePreference);
+      return () => mediaQuery.removeEventListener('change', updatePreference);
+    }
+
+    mediaQuery.addListener(updatePreference);
+    return () => mediaQuery.removeListener(updatePreference);
+  }, []);
+
   const displayHeadline = error ? 'Stay tuned for what is next.' : headline ?? DEFAULT_HEADLINE;
   const displaySubheading =
     loading && !subheading
@@ -52,6 +78,7 @@ export function HomeHeroSection({
   const resolvedKeywords = normaliseKeywords(keywords);
   const tickerItems = resolvedKeywords.length ? resolvedKeywords : FALLBACK_KEYWORDS;
   const doubledTickerItems = [...tickerItems, ...tickerItems];
+  const tickerRenderList = reduceMotion ? tickerItems : doubledTickerItems;
 
   const handleClaimWorkspace = () => {
     if (typeof onClaimWorkspace === 'function') {
@@ -105,8 +132,15 @@ export function HomeHeroSection({
           <div className="relative mt-10 h-14 overflow-hidden rounded-full border border-white/10 bg-white/5">
             <div className="pointer-events-none absolute left-0 top-0 h-full w-24 bg-gradient-to-r from-slate-950 via-slate-950/50 to-transparent" aria-hidden="true" />
             <div className="pointer-events-none absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-slate-950 via-slate-950/50 to-transparent" aria-hidden="true" />
-            <div className="flex h-full min-w-max items-center gap-6 animate-marquee">
-              {doubledTickerItems.map((item, index) => (
+            <div
+              className={
+                reduceMotion
+                  ? 'flex h-full flex-wrap items-center justify-center gap-3 px-6 py-3'
+                  : 'flex h-full min-w-max items-center gap-6 animate-marquee'
+              }
+              aria-hidden={reduceMotion ? undefined : true}
+            >
+              {tickerRenderList.map((item, index) => (
                 <span
                   key={`ticker-primary-${index}`}
                   className="inline-flex min-w-max items-center gap-2 rounded-full border border-white/10 bg-white/10 px-5 py-1.5 text-sm font-medium text-white/90"
