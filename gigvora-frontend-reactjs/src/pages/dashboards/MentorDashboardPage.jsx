@@ -130,15 +130,33 @@ export default function MentorDashboardPage() {
 
   const menuSections = useMemo(() => MENU_GROUPS, []);
 
-  const applyDashboardUpdate = useCallback((snapshot) => {
+  const applyDashboardUpdate = useCallback((payload) => {
+    if (!payload) {
+      return;
+    }
+
+    const snapshot = payload.dashboard ?? payload;
     if (!snapshot) {
       return;
     }
-    setDashboard({ ...DEFAULT_DASHBOARD, ...snapshot });
-    if (snapshot.profile) {
-      setProfile((current) => ({ ...current, ...snapshot.profile }));
+
+    const { metadata: snapshotMetadata, profile: snapshotProfile, ...restSnapshot } = snapshot;
+
+    setDashboard({ ...DEFAULT_DASHBOARD, ...restSnapshot });
+
+    const profilePayload = payload.profile ?? snapshotProfile;
+    if (profilePayload !== undefined) {
+      if (profilePayload) {
+        setProfile((current) => ({ ...DEFAULT_PROFILE, ...current, ...profilePayload }));
+      } else {
+        setProfile(DEFAULT_PROFILE);
+      }
     }
-    setMetadata(snapshot.metadata ?? null);
+
+    const metadataPayload = payload.metadata ?? snapshotMetadata;
+    if (metadataPayload !== undefined) {
+      setMetadata(metadataPayload ?? null);
+    }
   }, []);
 
   const formatRelativeTime = useCallback((timestamp) => {
@@ -215,10 +233,7 @@ export default function MentorDashboardPage() {
       setProfileSaving(true);
       try {
         const response = await submitMentorProfile(payload);
-        if (response?.profile) {
-          setProfile((current) => ({ ...current, ...response.profile }));
-          setDashboard((current) => ({ ...current, profile: response.profile }));
-        }
+        applyDashboardUpdate(response);
         return response;
       } catch (saveError) {
         throw saveError;
@@ -226,7 +241,7 @@ export default function MentorDashboardPage() {
         setProfileSaving(false);
       }
     },
-    [],
+    [applyDashboardUpdate],
   );
 
   const handleCreateBooking = useCallback(
@@ -234,7 +249,7 @@ export default function MentorDashboardPage() {
       setBookingSaving(true);
       try {
         const response = await createMentorBooking(payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.booking;
       } catch (bookingError) {
         throw bookingError;
@@ -250,7 +265,7 @@ export default function MentorDashboardPage() {
       setBookingSaving(true);
       try {
         const response = await updateMentorBooking(bookingId, payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.booking;
       } catch (bookingError) {
         throw bookingError;
@@ -266,7 +281,7 @@ export default function MentorDashboardPage() {
       setBookingSaving(true);
       try {
         const response = await deleteMentorBooking(bookingId);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response;
       } catch (bookingError) {
         throw bookingError;
@@ -282,7 +297,7 @@ export default function MentorDashboardPage() {
       setClientSaving(true);
       try {
         const response = await createMentorClient(payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.client;
       } catch (clientError) {
         throw clientError;
@@ -298,7 +313,7 @@ export default function MentorDashboardPage() {
       setClientSaving(true);
       try {
         const response = await updateMentorClient(clientId, payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.client;
       } catch (clientError) {
         throw clientError;
@@ -314,7 +329,7 @@ export default function MentorDashboardPage() {
       setClientSaving(true);
       try {
         const response = await deleteMentorClient(clientId);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response;
       } catch (clientError) {
         throw clientError;
@@ -330,7 +345,7 @@ export default function MentorDashboardPage() {
       setEventSaving(true);
       try {
         const response = await createMentorEvent(payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.event;
       } catch (eventError) {
         throw eventError;
@@ -346,7 +361,7 @@ export default function MentorDashboardPage() {
       setEventSaving(true);
       try {
         const response = await updateMentorEvent(eventId, payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.event;
       } catch (eventError) {
         throw eventError;
@@ -362,7 +377,7 @@ export default function MentorDashboardPage() {
       setEventSaving(true);
       try {
         const response = await deleteMentorEvent(eventId);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response;
       } catch (eventError) {
         throw eventError;
@@ -378,7 +393,7 @@ export default function MentorDashboardPage() {
       setSupportSaving(true);
       try {
         const response = await createMentorSupportTicket(payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.ticket;
       } catch (ticketError) {
         throw ticketError;
@@ -394,7 +409,7 @@ export default function MentorDashboardPage() {
       setSupportSaving(true);
       try {
         const response = await updateMentorSupportTicket(ticketId, payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.ticket;
       } catch (ticketError) {
         throw ticketError;
@@ -410,7 +425,7 @@ export default function MentorDashboardPage() {
       setSupportSaving(true);
       try {
         const response = await deleteMentorSupportTicket(ticketId);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response;
       } catch (ticketError) {
         throw ticketError;
@@ -426,7 +441,7 @@ export default function MentorDashboardPage() {
       setMessageSaving(true);
       try {
         const response = await createMentorMessage(payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.message;
       } catch (messageError) {
         throw messageError;
@@ -442,7 +457,7 @@ export default function MentorDashboardPage() {
       setMessageSaving(true);
       try {
         const response = await updateMentorMessage(messageId, payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.message;
       } catch (messageError) {
         throw messageError;
@@ -458,7 +473,7 @@ export default function MentorDashboardPage() {
       setMessageSaving(true);
       try {
         const response = await deleteMentorMessage(messageId);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response;
       } catch (messageError) {
         throw messageError;
@@ -474,7 +489,7 @@ export default function MentorDashboardPage() {
       setVerificationSaving(true);
       try {
         const response = await updateMentorVerificationStatus(payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.verification;
       } catch (verificationError) {
         throw verificationError;
@@ -490,7 +505,7 @@ export default function MentorDashboardPage() {
       setVerificationSaving(true);
       try {
         const response = await createMentorVerificationDocument(payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.document;
       } catch (verificationError) {
         throw verificationError;
@@ -506,7 +521,7 @@ export default function MentorDashboardPage() {
       setVerificationSaving(true);
       try {
         const response = await updateMentorVerificationDocument(documentId, payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.document;
       } catch (verificationError) {
         throw verificationError;
@@ -522,7 +537,7 @@ export default function MentorDashboardPage() {
       setVerificationSaving(true);
       try {
         const response = await deleteMentorVerificationDocument(documentId);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response;
       } catch (verificationError) {
         throw verificationError;
@@ -538,7 +553,7 @@ export default function MentorDashboardPage() {
       setWalletSaving(true);
       try {
         const response = await createMentorWalletTransaction(payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.transaction;
       } catch (walletError) {
         throw walletError;
@@ -554,7 +569,7 @@ export default function MentorDashboardPage() {
       setWalletSaving(true);
       try {
         const response = await updateMentorWalletTransaction(transactionId, payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.transaction;
       } catch (walletError) {
         throw walletError;
@@ -570,7 +585,7 @@ export default function MentorDashboardPage() {
       setWalletSaving(true);
       try {
         const response = await deleteMentorWalletTransaction(transactionId);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response;
       } catch (walletError) {
         throw walletError;
@@ -586,7 +601,7 @@ export default function MentorDashboardPage() {
       setInvoiceSaving(true);
       try {
         const response = await createMentorInvoice(payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.invoice;
       } catch (invoiceError) {
         throw invoiceError;
@@ -602,7 +617,7 @@ export default function MentorDashboardPage() {
       setInvoiceSaving(true);
       try {
         const response = await updateMentorInvoice(invoiceId, payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.invoice;
       } catch (invoiceError) {
         throw invoiceError;
@@ -618,7 +633,7 @@ export default function MentorDashboardPage() {
       setInvoiceSaving(true);
       try {
         const response = await deleteMentorInvoice(invoiceId);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response;
       } catch (invoiceError) {
         throw invoiceError;
@@ -634,7 +649,7 @@ export default function MentorDashboardPage() {
       setPayoutSaving(true);
       try {
         const response = await createMentorPayout(payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.payout;
       } catch (payoutError) {
         throw payoutError;
@@ -650,7 +665,7 @@ export default function MentorDashboardPage() {
       setPayoutSaving(true);
       try {
         const response = await updateMentorPayout(payoutId, payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.payout;
       } catch (payoutError) {
         throw payoutError;
@@ -666,7 +681,7 @@ export default function MentorDashboardPage() {
       setPayoutSaving(true);
       try {
         const response = await deleteMentorPayout(payoutId);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response;
       } catch (payoutError) {
         throw payoutError;
@@ -682,7 +697,7 @@ export default function MentorDashboardPage() {
       setHubSaving(true);
       try {
         const response = await createMentorHubUpdate(payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.update;
       } catch (hubError) {
         throw hubError;
@@ -698,7 +713,7 @@ export default function MentorDashboardPage() {
       setHubSaving(true);
       try {
         const response = await updateMentorHubUpdate(updateId, payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.update;
       } catch (hubError) {
         throw hubError;
@@ -714,7 +729,7 @@ export default function MentorDashboardPage() {
       setHubSaving(true);
       try {
         const response = await deleteMentorHubUpdate(updateId);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response;
       } catch (hubError) {
         throw hubError;
@@ -730,7 +745,7 @@ export default function MentorDashboardPage() {
       setHubSaving(true);
       try {
         const response = await createMentorHubAction(payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.action;
       } catch (hubError) {
         throw hubError;
@@ -746,7 +761,7 @@ export default function MentorDashboardPage() {
       setHubSaving(true);
       try {
         const response = await updateMentorHubAction(actionId, payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.action;
       } catch (hubError) {
         throw hubError;
@@ -762,7 +777,7 @@ export default function MentorDashboardPage() {
       setHubSaving(true);
       try {
         const response = await deleteMentorHubAction(actionId);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response;
       } catch (hubError) {
         throw hubError;
@@ -778,7 +793,7 @@ export default function MentorDashboardPage() {
       setHubSaving(true);
       try {
         const response = await updateMentorHubSpotlight(payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.spotlight;
       } catch (hubError) {
         throw hubError;
@@ -794,7 +809,7 @@ export default function MentorDashboardPage() {
       setCreationSaving(true);
       try {
         const response = await createMentorCreationItem(payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.item;
       } catch (creationError) {
         throw creationError;
@@ -810,7 +825,7 @@ export default function MentorDashboardPage() {
       setCreationSaving(true);
       try {
         const response = await updateMentorCreationItem(itemId, payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.item;
       } catch (creationError) {
         throw creationError;
@@ -826,7 +841,7 @@ export default function MentorDashboardPage() {
       setCreationSaving(true);
       try {
         const response = await deleteMentorCreationItem(itemId);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response;
       } catch (creationError) {
         throw creationError;
@@ -842,7 +857,7 @@ export default function MentorDashboardPage() {
       setCreationSaving(true);
       try {
         const response = await publishMentorCreationItem(itemId);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.item;
       } catch (creationError) {
         throw creationError;
@@ -858,7 +873,7 @@ export default function MentorDashboardPage() {
       setMetricsSaving(true);
       try {
         const response = await createMentorMetricWidget(payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.widget;
       } catch (metricError) {
         throw metricError;
@@ -874,7 +889,7 @@ export default function MentorDashboardPage() {
       setMetricsSaving(true);
       try {
         const response = await updateMentorMetricWidget(widgetId, payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.widget;
       } catch (metricError) {
         throw metricError;
@@ -890,7 +905,7 @@ export default function MentorDashboardPage() {
       setMetricsSaving(true);
       try {
         const response = await deleteMentorMetricWidget(widgetId);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response;
       } catch (metricError) {
         throw metricError;
@@ -906,7 +921,7 @@ export default function MentorDashboardPage() {
       setMetricsSaving(true);
       try {
         const response = await generateMentorMetricsReport();
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response;
       } catch (metricError) {
         throw metricError;
@@ -922,7 +937,7 @@ export default function MentorDashboardPage() {
       setSettingsSaving(true);
       try {
         const response = await updateMentorSettings(payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.settings;
       } catch (settingsError) {
         throw settingsError;
@@ -938,7 +953,7 @@ export default function MentorDashboardPage() {
       setPreferencesSaving(true);
       try {
         const response = await updateMentorSystemPreferences(payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.preferences;
       } catch (preferencesError) {
         throw preferencesError;
@@ -953,7 +968,7 @@ export default function MentorDashboardPage() {
     setPreferencesSaving(true);
     try {
       const response = await rotateMentorApiKey();
-      applyDashboardUpdate(response?.dashboard);
+      applyDashboardUpdate(response);
       return response;
     } catch (rotateError) {
       throw rotateError;
@@ -967,7 +982,7 @@ export default function MentorDashboardPage() {
       setOrdersSaving(true);
       try {
         const response = await createMentorOrder(payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.order;
       } catch (orderError) {
         throw orderError;
@@ -983,7 +998,7 @@ export default function MentorDashboardPage() {
       setOrdersSaving(true);
       try {
         const response = await updateMentorOrder(orderId, payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.order;
       } catch (orderError) {
         throw orderError;
@@ -999,7 +1014,7 @@ export default function MentorDashboardPage() {
       setOrdersSaving(true);
       try {
         const response = await deleteMentorOrder(orderId);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response;
       } catch (orderError) {
         throw orderError;
@@ -1015,7 +1030,7 @@ export default function MentorDashboardPage() {
       setAdsSaving(true);
       try {
         const response = await createMentorAdCampaign(payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.campaign;
       } catch (adsError) {
         throw adsError;
@@ -1031,7 +1046,7 @@ export default function MentorDashboardPage() {
       setAdsSaving(true);
       try {
         const response = await updateMentorAdCampaign(campaignId, payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.campaign;
       } catch (adsError) {
         throw adsError;
@@ -1047,7 +1062,7 @@ export default function MentorDashboardPage() {
       setAdsSaving(true);
       try {
         const response = await deleteMentorAdCampaign(campaignId);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response;
       } catch (adsError) {
         throw adsError;
@@ -1063,7 +1078,7 @@ export default function MentorDashboardPage() {
       setAdsSaving(true);
       try {
         const response = await toggleMentorAdCampaign(campaignId, payload);
-        applyDashboardUpdate(response?.dashboard);
+        applyDashboardUpdate(response);
         return response?.campaign;
       } catch (adsError) {
         throw adsError;
