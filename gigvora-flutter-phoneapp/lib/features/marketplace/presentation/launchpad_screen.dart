@@ -10,6 +10,10 @@ import 'opportunity_list.dart';
 class LaunchpadScreen extends ConsumerWidget {
   const LaunchpadScreen({super.key});
 
+  static const gateCardKey = Key('launchpad_gate_card');
+  static const requestAccessMessageKey = Key('launchpad_request_access_message');
+  static const cohortListKey = Key('launchpad_opportunity_list');
+
   static final Set<String> _allowedRoles = {
     'freelancer',
     'mentor',
@@ -36,6 +40,7 @@ class LaunchpadScreen extends ConsumerWidget {
           padding: const EdgeInsets.all(16),
           children: [
             GigvoraCard(
+              key: gateCardKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -69,6 +74,7 @@ class LaunchpadScreen extends ConsumerWidget {
                         Text(
                           'Request Launchpad access via launchpad@gigvora.com so our cohort operations team can enable '
                           'the workspace for you.',
+                          key: requestAccessMessageKey,
                         ),
                       ],
                     ),
@@ -94,6 +100,7 @@ class LaunchpadScreen extends ConsumerWidget {
     }
 
     return OpportunityListScreen(
+      key: cohortListKey,
       category: OpportunityCategory.launchpad,
       title: 'Experience Launchpad',
       subtitle: 'Mentored sprints to accelerate your experience',
