@@ -66,6 +66,13 @@ export async function fetchLaunchpadApplications(params = {}) {
   });
 }
 
+export async function updateLaunchpadApplicationStatus(applicationId, payload = {}) {
+  if (!applicationId) {
+    throw new Error('applicationId is required to update a Launchpad application.');
+  }
+  return apiClient.patch(`/launchpad/applications/${applicationId}/status`, payload);
+}
+
 export default {
   submitTalentApplication,
   submitEmployerBrief,
@@ -73,4 +80,5 @@ export default {
   fetchLaunchpadDashboard,
   fetchLaunchpadWorkflow,
   fetchLaunchpadApplications,
+  updateLaunchpadApplicationStatus,
 };
