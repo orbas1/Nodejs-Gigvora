@@ -90,6 +90,7 @@ export default function HomePage() {
         lastUpdated={lastUpdated}
         onRefresh={() => refresh().catch(() => {})}
         statusLabel={isAuthenticated ? 'Redirecting to live experience' : 'Live community snapshot'}
+        homeData={homeData}
       />
       <PersonaJourneysSection loading={homeLoading} error={homeError} />
       <CommunitySpotlightsSection loading={homeLoading} error={homeError} />
