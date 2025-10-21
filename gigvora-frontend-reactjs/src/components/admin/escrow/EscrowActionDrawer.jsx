@@ -1,4 +1,5 @@
 import { Fragment } from 'react';
+import PropTypes from 'prop-types';
 import { Dialog, Transition } from '@headlessui/react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
@@ -52,3 +53,17 @@ export default function EscrowActionDrawer({ open, title, onClose, children }) {
     </Transition>
   );
 }
+
+EscrowActionDrawer.propTypes = {
+  open: PropTypes.bool,
+  title: PropTypes.string,
+  onClose: PropTypes.func,
+  children: PropTypes.node,
+};
+
+EscrowActionDrawer.defaultProps = {
+  open: false,
+  title: '',
+  onClose: undefined,
+  children: null,
+};

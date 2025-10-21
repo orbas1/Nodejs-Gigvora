@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import MainLayout from './layouts/MainLayout.jsx';
 import HomePage from './pages/HomePage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
@@ -156,7 +156,7 @@ import AdminMentoringSessionManagementPage from './pages/dashboards/admin/AdminM
 import AdminSpeedNetworkingManagementPage from './pages/dashboards/admin/AdminSpeedNetworkingManagementPage.jsx';
 import { LAUNCHPAD_ALLOWED_MEMBERSHIPS, SECURITY_ALLOWED_MEMBERSHIPS } from './constants/access.js';
 
-const COMMUNITY_ACCESS_MEMBERSHIPS = Object.freeze([
+export const COMMUNITY_ACCESS_MEMBERSHIPS = Object.freeze([
   'user',
   'freelancer',
   'agency',
@@ -165,11 +165,11 @@ const COMMUNITY_ACCESS_MEMBERSHIPS = Object.freeze([
   'headhunter',
 ]);
 
-const VOLUNTEER_ACCESS_MEMBERSHIPS = Object.freeze(['volunteer', 'mentor', 'admin']);
+export const VOLUNTEER_ACCESS_MEMBERSHIPS = Object.freeze(['volunteer', 'mentor', 'admin']);
 
-const userRoles = ['user', 'freelancer', 'agency', 'company', 'headhunter'];
+const userRoles = Object.freeze(['user', 'freelancer', 'agency', 'company', 'headhunter']);
 
-const PUBLIC_ROUTES = [
+export const PUBLIC_ROUTES = [
   { path: 'login', element: <LoginPage /> },
   { path: 'register', element: <RegisterPage /> },
   { path: 'register/company', element: <CompanyRegisterPage /> },
@@ -186,7 +186,7 @@ const PUBLIC_ROUTES = [
   { path: 'mentors', element: <MentorsPage /> },
 ];
 
-const COMMUNITY_ROUTES = [
+export const COMMUNITY_ROUTES = [
   { path: 'feed', element: <FeedPage /> },
   { path: 'search', element: <SearchPage /> },
   { path: 'explorer/:category/:recordId', element: <ExplorerRecordPage /> },
@@ -210,13 +210,13 @@ const COMMUNITY_ROUTES = [
   { path: 'finance', element: <FinanceHubPage /> },
 ];
 
-const VOLUNTEER_ROUTES = [{ path: 'volunteering', element: <VolunteeringPage /> }];
+export const VOLUNTEER_ROUTES = [{ path: 'volunteering', element: <VolunteeringPage /> }];
 
-const LAUNCHPAD_ROUTES = [{ path: 'experience-launchpad', element: <LaunchpadPage /> }];
+export const LAUNCHPAD_ROUTES = [{ path: 'experience-launchpad', element: <LaunchpadPage /> }];
 
-const SECURITY_ROUTES = [{ path: 'security-operations', element: <SecurityOperationsPage /> }];
+export const SECURITY_ROUTES = [{ path: 'security-operations', element: <SecurityOperationsPage /> }];
 
-const userDashboardRoutes = [
+export const userDashboardRoutes = [
   { path: 'dashboard/user', element: <UserDashboardPage /> },
   { path: 'dashboard/user/creation-studio', element: <UserCreationStudioPage /> },
   { path: 'dashboard/user/projects', element: <UserProjectManagementPage /> },
@@ -225,7 +225,7 @@ const userDashboardRoutes = [
   { path: 'dashboard/user/profile', element: <UserProfileHubPage /> },
 ];
 
-const freelancerRoutes = [
+export const freelancerRoutes = [
   { path: 'dashboard/freelancer', element: <FreelancerDashboardPage /> },
   { path: 'dashboard/freelancer/volunteer', element: <FreelancerVolunteerPage /> },
   { path: 'dashboard/freelancer/planner', element: <FreelancerPlannerPage /> },
@@ -238,7 +238,7 @@ const freelancerRoutes = [
   { path: 'dashboard/freelancer/disputes', element: <FreelancerDisputesPage /> },
 ];
 
-const companyRoutes = [
+export const companyRoutes = [
   { path: 'dashboard/company', element: <CompanyDashboardPage /> },
   { path: 'dashboard/company/profile', element: <CompanyProfileWorkspacePage /> },
   { path: 'dashboard/company/creation-studio', element: <CompanyCreationStudioPage /> },
@@ -271,7 +271,7 @@ const companyRoutes = [
   { path: 'dashboard/company/networking/sessions', element: <NetworkingSessionsPage /> },
 ];
 
-const agencyRoutes = [
+export const agencyRoutes = [
   { path: 'dashboard/agency', element: <AgencyDashboardPage />, roles: ['agency', 'agency_admin', 'admin'] },
   { path: 'dashboard/agency/disputes', element: <DisputeManagementPage />, roles: ['agency'] },
   { path: 'dashboard/agency/escrow', element: <AgencyEscrowManagementPage />, roles: ['agency'] },
@@ -296,13 +296,17 @@ const agencyRoutes = [
   { path: 'dashboard/agency/networking', element: <AgencyNetworkingManagementPage />, roles: ['agency', 'agency_admin', 'admin'] },
 ];
 
-const headhunterRoutes = [{ path: 'dashboard/headhunter', element: <HeadhunterDashboardPage />, roles: ['headhunter'] }];
+export const headhunterRoutes = [
+  { path: 'dashboard/headhunter', element: <HeadhunterDashboardPage />, roles: ['headhunter'] },
+];
 
-const mentorRoutes = [{ path: 'dashboard/mentor', element: <MentorDashboardPage />, roles: ['mentor'] }];
+export const mentorRoutes = [{ path: 'dashboard/mentor', element: <MentorDashboardPage />, roles: ['mentor'] }];
 
-const launchpadRoutes = [{ path: 'dashboard/launchpad', element: <LaunchpadOperationsPage />, roles: ['admin', 'mentor'] }];
+export const launchpadRoutes = [
+  { path: 'dashboard/launchpad', element: <LaunchpadOperationsPage />, roles: ['admin', 'mentor'] },
+];
 
-const adminRoutes = [
+export const adminRoutes = [
   { path: 'dashboard/admin', element: <AdminDashboardPage /> },
   { path: 'dashboard/admin/finance', element: <AdminFinancialManagementPage /> },
   { path: 'dashboard/admin/interviews', element: <AdminInterviewManagementPage /> },
@@ -370,6 +374,22 @@ function renderAdminRoutes(routes) {
   ));
 }
 
+export const ROUTE_COLLECTIONS = Object.freeze({
+  public: PUBLIC_ROUTES,
+  community: COMMUNITY_ROUTES,
+  volunteer: VOLUNTEER_ROUTES,
+  launchpad: LAUNCHPAD_ROUTES,
+  security: SECURITY_ROUTES,
+  userDashboards: userDashboardRoutes,
+  freelancer: freelancerRoutes,
+  company: companyRoutes,
+  agency: agencyRoutes,
+  headhunter: headhunterRoutes,
+  mentor: mentorRoutes,
+  launchpadOps: launchpadRoutes,
+  admin: adminRoutes,
+});
+
 export default function App() {
   return (
     <Routes>
@@ -388,18 +408,6 @@ export default function App() {
         <Route element={<ProtectedRoute requiredMemberships={SECURITY_ALLOWED_MEMBERSHIPS} />}>
           {renderRoutes(SECURITY_ROUTES)}
         </Route>
-
-        <Route path="mentors" element={<MentorsPage />} />
-        <Route path="login" element={<LoginPage />} />
-        <Route path="register" element={<RegisterPage />} />
-        <Route path="register/company" element={<CompanyRegisterPage />} />
-        <Route path="profile/:id" element={<ProfilePage />} />
-        <Route path="preview/freelancer-reviews" element={<FreelancerReviewsPreviewPage />} />
-        <Route path="blog" element={<BlogPage />} />
-        <Route path="blog/:slug" element={<BlogArticlePage />} />
-        <Route path="terms" element={<TermsPage />} />
-        <Route path="privacy" element={<PrivacyPage />} />
-        <Route path="about" element={<AboutPage />} />
       </Route>
 
       {userDashboardRoutes.map((route) => (
@@ -437,6 +445,7 @@ export default function App() {
       {renderAdminRoutes(adminRoutes)}
 
       <Route path="admin" element={<AdminLoginPage />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

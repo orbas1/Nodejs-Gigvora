@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import MentoringSummaryBar from './MentoringSummaryBar.jsx';
 import MentoringSessionsPanel from './MentoringSessionsPanel.jsx';
 import MentoringPackagesPanel from './MentoringPackagesPanel.jsx';
@@ -69,7 +70,7 @@ function uniqueMentorsFrom(mentoring) {
 }
 
 export default function UserMentoringSection({
-  mentoring,
+  mentoring = null,
   userId,
   onRefresh,
   canEdit = true,
@@ -505,3 +506,25 @@ export default function UserMentoringSection({
     </section>
   );
 }
+
+UserMentoringSection.propTypes = {
+  mentoring: PropTypes.shape({
+    summary: PropTypes.object,
+    sessions: PropTypes.object,
+    purchases: PropTypes.shape({
+      orders: PropTypes.arrayOf(PropTypes.object),
+    }),
+    favourites: PropTypes.arrayOf(PropTypes.object),
+    suggestions: PropTypes.arrayOf(PropTypes.object),
+    reviews: PropTypes.shape({
+      pending: PropTypes.arrayOf(PropTypes.object),
+      recent: PropTypes.arrayOf(PropTypes.object),
+    }),
+  }),
+  userId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  onRefresh: PropTypes.func,
+  canEdit: PropTypes.bool,
+  activePanelId: PropTypes.string,
+  onPanelChange: PropTypes.func,
+};
+

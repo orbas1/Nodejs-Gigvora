@@ -8,34 +8,13 @@ import {
   optionalTrimmedString,
   requiredTrimmedString,
 } from '../primitives.js';
+import { AGENCY_PROFILE_MEDIA_ALLOWED_TYPES, AGENCY_PROFILE_CREDENTIAL_TYPES } from '../../models/index.js';
 
-const followerPolicySchema = z.enum(['open', 'approval_required', 'closed']);
-const followerStatusSchema = z.enum(['active', 'muted', 'blocked']);
-const connectionPolicySchema = z.enum(['open', 'invite_only', 'manual_review']);
-
-const socialLinkSchema = z
-  .object({
-    label: optionalTrimmedString({ max: 80 }).transform((value) => value ?? undefined),
-    url: requiredTrimmedString({ max: 2048 }),
-  })
-  .transform((value) => {
-    try {
-      const normalisedUrl = value.url.startsWith('http') ? value.url : `https://${value.url}`;
-      const parsed = new URL(normalisedUrl);
-      return {
-        label: value.label ?? null,
-        url: parsed.toString(),
-      };
-    } catch (error) {
-      throw new z.ZodError([
-        {
-          code: z.ZodIssueCode.custom,
-          message: 'url must be a valid URL.',
-          path: ['url'],
-        },
-      ]);
-    }
-  });
+const FOLLOWER_POLICIES = ['open', 'approval_required', 'closed'];
+const FOLLOWER_STATUSES = ['active', 'muted', 'blocked'];
+const CONNECTION_POLICIES = ['open', 'invite_only', 'manual_review'];
+const MEDIA_TYPES = AGENCY_PROFILE_MEDIA_ALLOWED_TYPES.map((value) => value.toLowerCase());
+const CREDENTIAL_TYPES = AGENCY_PROFILE_CREDENTIAL_TYPES.map((value) => value.toLowerCase());
 
 const optionalEmail = z
   .union([
@@ -50,42 +29,55 @@ const optionalEmail = z
   ])
   .transform((value) => value ?? undefined);
 
-const optionalUrl = z
-  .union([
-    z
-      .string()
-      .trim()
-      .max(2048)
-      .transform((value) => {
-        if (!value) {
-          return undefined;
-        }
-        try {
-          const normalised = value.startsWith('http') ? value : `https://${value}`;
-          return new URL(normalised).toString();
-        } catch (error) {
-          throw new z.ZodError([
-            {
-              code: z.ZodIssueCode.custom,
-              message: 'must be a valid URL.',
-              path: [],
-            },
-          ]);
-        }
-      }),
-    z.literal('').transform(() => undefined),
-    z.undefined(),
-  ])
-  .transform((value) => value ?? undefined);
+const optionalUrl = ({ max = 2048, nullable = false } = {}) => {
+  const base = z
+    .preprocess((value) => {
+      if (value == null || value === '') {
+        return undefined;
+      }
+      const text = `${value}`.trim();
+      return text || undefined;
+    }, z.string().url({ message: 'must be a valid URL.' }).max(max));
 
-const baseUpdateSchema = z
+  const schema = z.union([base, z.undefined()]);
+  if (nullable) {
+    return z.union([schema, z.null()]).transform((value) => {
+      if (value === null) {
+        return null;
+      }
+      return value ?? undefined;
+    });
+  }
+  return schema.transform((value) => value ?? undefined);
+};
+
+const optionalNullableString = ({ max }) =>
+  z
+    .union([z.null(), optionalTrimmedString({ max })])
+    .transform((value) => (value === null ? null : value ?? undefined));
+
+const socialLinkSchema = z
+  .object({
+    label: optionalTrimmedString({ max: 120 }).transform((value) => value ?? undefined),
+    url: optionalUrl({ max: 500 }),
+  })
+  .strip()
+  .refine((value) => Boolean(value.label || value.url), {
+    message: 'Provide a label or URL for the social link.',
+  });
+
+const followerPolicySchema = z.enum(FOLLOWER_POLICIES);
+const followerStatusSchema = z.enum(FOLLOWER_STATUSES);
+const connectionPolicySchema = z.enum(CONNECTION_POLICIES);
+
+const baseProfileSchema = z
   .object({
     agencyName: optionalTrimmedString({ max: 255 }),
     focusArea: optionalTrimmedString({ max: 255 }),
     tagline: optionalTrimmedString({ max: 160 }),
     summary: optionalTrimmedString({ max: 4000 }),
     about: optionalTrimmedString({ max: 8000 }),
-    website: optionalUrl,
+    website: optionalUrl({ max: 2048 }),
     headline: optionalTrimmedString({ max: 255 }),
     bio: optionalTrimmedString({ max: 5000 }),
     missionStatement: optionalTrimmedString({ max: 2000 }),
@@ -103,7 +95,8 @@ const baseUpdateSchema = z
     primaryContactEmail: optionalEmail,
     primaryContactPhone: optionalTrimmedString({ max: 60 }),
     brandColor: optionalTrimmedString({ max: 12 }),
-    bannerUrl: optionalUrl,
+    bannerUrl: optionalUrl({ max: 2048 }),
+    avatarUrl: optionalUrl({ max: 2048 }),
     autoAcceptFollowers: optionalBoolean(),
     defaultConnectionMessage: optionalTrimmedString({ max: 2000 }),
     followerPolicy: followerPolicySchema.optional(),
@@ -111,7 +104,7 @@ const baseUpdateSchema = z
   })
   .strip();
 
-export const updateAgencyProfileSchema = baseUpdateSchema;
+export const updateAgencyProfileSchema = baseProfileSchema;
 
 const base64Schema = z
   .string()
@@ -121,21 +114,15 @@ const base64Schema = z
 export const updateAgencyAvatarSchema = z
   .object({
     imageData: z.union([base64Schema, z.undefined()]),
-    avatarUrl: optionalUrl,
+    avatarUrl: optionalUrl({ max: 2048 }),
     avatarSeed: optionalTrimmedString({ max: 255 }),
-    bannerUrl: optionalUrl,
+    bannerUrl: optionalUrl({ max: 2048 }),
     brandColor: optionalTrimmedString({ max: 12 }),
   })
   .strip()
-  .refine((value) => {
-    return (
-      value.imageData !== undefined ||
-      value.avatarUrl !== undefined ||
-      value.avatarSeed !== undefined ||
-      value.bannerUrl !== undefined ||
-      value.brandColor !== undefined
-    );
-  }, { message: 'At least one field must be provided.' });
+  .refine((value) => Object.values(value).some((entry) => entry !== undefined), {
+    message: 'Provide at least one field to update.',
+  });
 
 export const agencyProfileQuerySchema = z
   .object({
@@ -156,13 +143,19 @@ export const listFollowersQuerySchema = z
   })
   .strip();
 
-export const followerParamsSchema = z
-  .object({
-    followerId: requiredTrimmedString({ max: 120 })
-      .transform((value) => Number(value))
-      .refine((value) => Number.isInteger(value) && value > 0, { message: 'followerId must be a positive integer.' }),
-  })
-  .strip();
+const positiveId = (field) =>
+  z
+    .union([z.number(), z.string()])
+    .transform((value, ctx) => {
+      const numeric = Number(value);
+      if (!Number.isInteger(numeric) || numeric <= 0) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: `${field} must be a positive integer.` });
+        return z.NEVER;
+      }
+      return numeric;
+    });
+
+export const followerParamsSchema = z.object({ followerId: positiveId('followerId') }).strip();
 
 export const updateFollowerBodySchema = z
   .object({
@@ -171,86 +164,42 @@ export const updateFollowerBodySchema = z
   })
   .strip();
 
-export const connectionParamsSchema = z
-  .object({
-    connectionId: requiredTrimmedString({ max: 120 })
-      .transform((value) => Number(value))
-      .refine((value) => Number.isInteger(value) && value > 0, { message: 'connectionId must be a positive integer.' }),
-  })
-  .strip();
+export const connectionParamsSchema = z.object({ connectionId: positiveId('connectionId') }).strip();
 
-export const requestConnectionBodySchema = z
-  .object({
-    targetId: requiredTrimmedString({ max: 120 })
-      .transform((value) => Number(value))
-      .refine((value) => Number.isInteger(value) && value > 0, { message: 'targetId must be a positive integer.' }),
-  })
-  .strip();
+export const requestConnectionBodySchema = z.object({ targetId: positiveId('targetId') }).strip();
 
 export const respondConnectionBodySchema = z
   .object({
     decision: requiredTrimmedString({ max: 32, toLowerCase: true }).refine((value) => ['accept', 'reject'].includes(value), {
       message: 'decision must be accept or reject.',
     }),
-  optionalTrimmedString,
-  optionalNumber,
-  optionalBoolean,
-  requiredTrimmedString,
-} from '../primitives.js';
-import { AGENCY_PROFILE_MEDIA_ALLOWED_TYPES, AGENCY_PROFILE_CREDENTIAL_TYPES } from '../../models/index.js';
+    note: optionalTrimmedString({ max: 500 }).transform((value) => value ?? undefined),
+  })
+  .strip();
 
-const MEDIA_TYPES = AGENCY_PROFILE_MEDIA_ALLOWED_TYPES.map((type) => type.toLowerCase());
-const CREDENTIAL_TYPES = AGENCY_PROFILE_CREDENTIAL_TYPES.map((type) => type.toLowerCase());
+const optionalLongText = ({ max = 4000 } = {}) =>
+  optionalTrimmedString({ max }).transform((value) => value ?? undefined).nullable();
 
-function optionalUrl({ max = 2048 } = {}) {
-  return z
+const optionalDateString = () =>
+  z
     .union([
-      z.preprocess((value) => {
-        if (value == null || value === '') {
-          return undefined;
-        }
-        return `${value}`.trim();
-      }, z.string().url({ message: 'must be a valid URL.' }).max(max)),
+      z
+        .preprocess((value) => {
+          if (value == null || value === '') {
+            return undefined;
+          }
+          if (value instanceof Date && !Number.isNaN(value.getTime())) {
+            return value.toISOString().slice(0, 10);
+          }
+          const text = `${value}`.trim();
+          return text || undefined;
+        }, z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
       z.undefined(),
     ])
     .nullable();
-}
 
-function optionalLongText({ max = 4000 } = {}) {
-  return z
-    .union([
-      z.preprocess((value) => {
-        if (value == null) {
-          return undefined;
-        }
-        const text = `${value}`.trim();
-        return text ? text : undefined;
-      }, z.string().max(max)),
-      z.undefined(),
-    ])
-    .nullable();
-}
-
-function optionalDateString() {
-  return z
-    .union([
-      z.preprocess((value) => {
-        if (value == null || value === '') {
-          return undefined;
-        }
-        if (value instanceof Date && !Number.isNaN(value.getTime())) {
-          return value.toISOString().slice(0, 10);
-        }
-        const text = `${value}`.trim();
-        return text || undefined;
-      }, z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
-      z.undefined(),
-    ])
-    .nullable();
-}
-
-function optionalTagArray() {
-  return z
+const optionalTagArray = () =>
+  z
     .union([
       z.preprocess((value) => {
         if (value == null) {
@@ -274,45 +223,23 @@ function optionalTagArray() {
       return cleaned.length ? cleaned : [];
     })
     .nullable();
-}
 
 const mediaTypeSchema = z
   .union([
-    z.preprocess((value) => {
-      if (value == null || value === '') {
-        return undefined;
-      }
-      return `${value}`.trim().toLowerCase();
-    }, z.string().min(1)),
+    optionalTrimmedString({ max: 40 }).transform((value) => value?.toLowerCase()),
     z.undefined(),
   ])
   .refine((value) => value == null || MEDIA_TYPES.includes(value), {
     message: `type must be one of: ${MEDIA_TYPES.join(', ')}`,
-  })
-  .transform((value) => value ?? undefined);
-
-const credentialTypeSchema = z
-  .union([
-    z.preprocess((value) => {
-      if (value == null || value === '') {
-        return undefined;
-      }
-      return `${value}`.trim().toLowerCase();
-    }, z.string().min(1)),
-    z.undefined(),
-  ])
-  .refine((value) => value == null || CREDENTIAL_TYPES.includes(value), {
-    message: `type must be one of: ${CREDENTIAL_TYPES.join(', ')}`,
-  })
-  .transform((value) => value ?? undefined);
+  });
 
 export const updateAgencyProfileBasicsSchema = z
   .object({
     tagline: optionalTrimmedString({ max: 160 }).nullable(),
     description: optionalLongText({ max: 5000 }),
-    introVideoUrl: optionalUrl({ max: 500 }),
-    bannerImageUrl: optionalUrl({ max: 500 }),
-    profileImageUrl: optionalUrl({ max: 500 }),
+    introVideoUrl: optionalUrl({ max: 500, nullable: true }),
+    bannerImageUrl: optionalUrl({ max: 500, nullable: true }),
+    profileImageUrl: optionalUrl({ max: 500, nullable: true }),
     workforceAvailable: optionalNumber({ min: 0, max: 100000, integer: true }).nullable(),
     workforceNotes: optionalTrimmedString({ max: 255 }).nullable(),
   })
@@ -322,12 +249,7 @@ export const createAgencyProfileMediaSchema = z
   .object({
     type: mediaTypeSchema,
     title: optionalTrimmedString({ max: 160 }).nullable(),
-    url: z.preprocess((value) => {
-      if (value == null || value === '') {
-        return value;
-      }
-      return `${value}`.trim();
-    }, z.string().url({ message: 'url must be a valid URL.' }).max(2048)),
+    url: optionalUrl({ max: 2048 }),
     altText: optionalTrimmedString({ max: 255 }).nullable(),
     description: optionalLongText({ max: 4000 }),
     position: optionalNumber({ min: 0, integer: true }).nullable(),
@@ -343,7 +265,7 @@ export const updateAgencyProfileMediaSchema = z
   .object({
     type: mediaTypeSchema.nullable(),
     title: optionalTrimmedString({ max: 160 }).nullable(),
-    url: optionalUrl({ max: 2048 }),
+    url: optionalUrl({ max: 2048, nullable: true }),
     altText: optionalTrimmedString({ max: 255 }).nullable(),
     description: optionalLongText({ max: 4000 }),
     position: optionalNumber({ min: 0, integer: true }).nullable(),
@@ -373,13 +295,22 @@ export const updateAgencyProfileSkillSchema = z
   })
   .strip();
 
+const credentialTypeSchema = z
+  .union([
+    optionalTrimmedString({ max: 60 }).transform((value) => value?.toLowerCase()),
+    z.undefined(),
+  ])
+  .refine((value) => value == null || CREDENTIAL_TYPES.includes(value), {
+    message: `type must be one of: ${CREDENTIAL_TYPES.join(', ')}`,
+  });
+
 const credentialSharedSchema = z
   .object({
     type: credentialTypeSchema,
     issuer: optionalTrimmedString({ max: 180 }).nullable(),
     issuedAt: optionalDateString(),
     expiresAt: optionalDateString(),
-    credentialUrl: optionalUrl({ max: 500 }),
+    credentialUrl: optionalUrl({ max: 500, nullable: true }),
     description: optionalLongText({ max: 4000 }),
     referenceId: optionalTrimmedString({ max: 120 }).nullable(),
     verificationStatus: optionalTrimmedString({ max: 60 }).nullable(),
@@ -406,13 +337,13 @@ const experienceSharedSchema = z
     endDate: optionalDateString(),
     isCurrent: optionalBoolean(),
     impact: optionalLongText({ max: 6000 }),
-    heroImageUrl: optionalUrl({ max: 500 }),
+    heroImageUrl: optionalUrl({ max: 500, nullable: true }),
     tags: optionalTagArray(),
     position: optionalNumber({ min: 0, integer: true }).nullable(),
   })
   .strip();
 
-function validateExperienceDates(data, ctx) {
+const validateExperienceDates = (data, ctx) => {
   if (data.startDate && data.endDate && data.startDate > data.endDate) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
@@ -420,7 +351,7 @@ function validateExperienceDates(data, ctx) {
       message: 'endDate must be on or after startDate.',
     });
   }
-}
+};
 
 export const createAgencyProfileExperienceSchema = experienceSharedSchema
   .extend({
@@ -438,6 +369,7 @@ export const updateAgencyProfileExperienceSchema = experienceSharedSchema
 
 const workforceSharedSchema = z
   .object({
+    segmentName: optionalTrimmedString({ max: 180 }).nullable(),
     specialization: optionalTrimmedString({ max: 180 }).nullable(),
     availableCount: optionalNumber({ min: 0, max: 100000, integer: true }).nullable(),
     totalCount: optionalNumber({ min: 0, max: 100000, integer: true }).nullable(),

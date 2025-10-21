@@ -2042,6 +2042,23 @@ export function __resetMentorshipState() {
   mentorStores.clear();
 }
 
+export const __testing = {
+  DAY_NAMES,
+  normaliseMentorId,
+  normaliseLookbackDays,
+  toIsoDate,
+  generateId,
+  ensureUnique,
+  calculateChange,
+  parseCapacity,
+  sanitiseAvailabilitySlot,
+  validateAvailability,
+  parsePackageSessions,
+  parsePackagePrice,
+  sanitisePackage,
+  mentorStores,
+};
+
 export default {
   getMentorDashboard,
   updateMentorAvailability,

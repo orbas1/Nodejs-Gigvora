@@ -1182,6 +1182,23 @@ export async function getNetworkingSessionRuntime(sessionId, { authorizedWorkspa
   });
 }
 
+export const __testing = {
+  DEFAULT_PENALTY_RULES,
+  normaliseWorkspaceIds,
+  assertWorkspacePermission,
+  slugify,
+  toCents,
+  toDate,
+  secondsBetween,
+  minutesBetween,
+  normaliseRotationDuration,
+  normaliseSessionLengthMinutes,
+  serialiseSession,
+  serialiseSignup,
+  serialiseBusinessCard,
+  defaultVideoConfig,
+};
+
 export default {
   createNetworkingSession,
   updateNetworkingSession,

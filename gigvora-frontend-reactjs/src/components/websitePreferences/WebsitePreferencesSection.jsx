@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { ArrowTopRightOnSquareIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
 import WebsitePreferencesSummary from './WebsitePreferencesSummary.jsx';
 import WebsitePreferencesDesigner from './WebsitePreferencesDesigner.jsx';
 import WebsitePreferencesPreview from './WebsitePreferencesPreview.jsx';
 import { withDefaults, ensureArray } from './defaults.js';
+import websitePreferencesShape from './propTypes.js';
 
 function buildHostedUrl(preferences) {
   if (preferences.settings.customDomain) {
@@ -132,3 +134,16 @@ export default function WebsitePreferencesSection({ userId, initialPreferences, 
     </section>
   );
 }
+
+WebsitePreferencesSection.propTypes = {
+  userId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  initialPreferences: websitePreferencesShape,
+  onRefresh: PropTypes.func,
+  canEdit: PropTypes.bool,
+};
+
+WebsitePreferencesSection.defaultProps = {
+  initialPreferences: null,
+  onRefresh: undefined,
+  canEdit: false,
+};

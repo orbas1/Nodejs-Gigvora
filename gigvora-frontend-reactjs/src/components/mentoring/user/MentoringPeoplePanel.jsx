@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import PropTypes from 'prop-types';
 import { HeartIcon, UserPlusIcon, ArrowRightCircleIcon } from '@heroicons/react/24/outline';
 
 function MentorBadge({ label }) {
@@ -38,9 +39,9 @@ function MentorCard({ mentor, action, secondaryAction }) {
 }
 
 export default function MentoringPeoplePanel({
-  favourites,
-  suggestions,
-  canEdit,
+  favourites = [],
+  suggestions = [],
+  canEdit = false,
   onAddFavourite,
   onRemoveFavourite,
   onBook,
@@ -99,7 +100,7 @@ export default function MentoringPeoplePanel({
                   canEdit ? (
                     <button
                       type="button"
-                      onClick={() => onRemoveFavourite(mentor.id ?? mentor.mentorId)}
+                      onClick={() => onRemoveFavourite?.(mentor.id ?? mentor.mentorId)}
                       className="inline-flex items-center gap-1 rounded-full border border-rose-200 px-3 py-1 text-rose-600 transition hover:border-rose-300 hover:bg-rose-50"
                     >
                       <HeartIcon className="h-4 w-4" />
@@ -110,7 +111,7 @@ export default function MentoringPeoplePanel({
                   canEdit ? (
                     <button
                       type="button"
-                      onClick={() => onAddFavourite(mentor.id ?? mentor.mentorId)}
+                      onClick={() => onAddFavourite?.(mentor.id ?? mentor.mentorId)}
                       className="inline-flex items-center gap-1 rounded-full border border-accent/50 px-3 py-1 text-accent transition hover:bg-accentSoft"
                     >
                       <UserPlusIcon className="h-4 w-4" />
@@ -123,7 +124,7 @@ export default function MentoringPeoplePanel({
                 canEdit ? (
                   <button
                     type="button"
-                    onClick={() => onBook(mentor)}
+                    onClick={() => onBook?.(mentor)}
                     className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-slate-600 transition hover:border-accent/40 hover:text-accent"
                   >
                     <ArrowRightCircleIcon className="h-4 w-4" />
@@ -142,3 +143,13 @@ export default function MentoringPeoplePanel({
     </section>
   );
 }
+
+MentoringPeoplePanel.propTypes = {
+  favourites: PropTypes.arrayOf(PropTypes.object),
+  suggestions: PropTypes.arrayOf(PropTypes.object),
+  canEdit: PropTypes.bool,
+  onAddFavourite: PropTypes.func,
+  onRemoveFavourite: PropTypes.func,
+  onBook: PropTypes.func,
+};
+

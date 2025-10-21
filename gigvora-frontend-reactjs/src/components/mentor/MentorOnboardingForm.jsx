@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { submitMentorProfile } from '../../services/mentorship.js';
 
 const DEFAULT_FORM = {
@@ -13,15 +14,20 @@ const DEFAULT_FORM = {
   packages: '',
 };
 
-export default function MentorOnboardingForm({ onSubmitted, ctaLabel = 'Apply as mentor' }) {
+export default function MentorOnboardingForm({ onSubmitted, ctaLabel = 'Apply as mentor', analytics } = {}) {
   const [formState, setFormState] = useState(DEFAULT_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState(null);
 
   const isValid = useMemo(() => {
-    return formState.name.trim() && formState.email.trim() && formState.timezone.trim();
-  }, [formState.name, formState.email, formState.timezone]);
+    return (
+      formState.name.trim() &&
+      formState.email.trim() &&
+      formState.timezone.trim() &&
+      /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(formState.email.trim())
+    );
+  }, [formState.email, formState.name, formState.timezone]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -31,19 +37,30 @@ export default function MentorOnboardingForm({ onSubmitted, ctaLabel = 'Apply as
     setSubmitting(true);
     setError(null);
     try {
-      await submitMentorProfile({
-        name: formState.name,
-        email: formState.email,
-        headline: formState.headline,
-        timezone: formState.timezone,
-        expertise: formState.expertise.split(',').map((item) => item.trim()).filter(Boolean),
+      const expertise = formState.expertise
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+      const payload = {
+        name: formState.name.trim(),
+        email: formState.email.trim().toLowerCase(),
+        headline: formState.headline.trim() || undefined,
+        timezone: formState.timezone.trim(),
+        expertise,
         sessionFee: {
-          amount: Number(formState.sessionFee) || 0,
-          currency: formState.currency,
+          amount: Math.max(0, Number(formState.sessionFee) || 0),
+          currency: formState.currency.trim() || '£',
         },
-        availabilityNotes: formState.availabilityNotes,
-        packages: formState.packages,
-      });
+        availabilityNotes: formState.availabilityNotes.trim() || undefined,
+        packages: formState.packages.trim() || undefined,
+      };
+      await submitMentorProfile(payload);
+      if (analytics?.track) {
+        analytics.track('web_mentor_onboarding_submitted', {
+          hasPackages: Boolean(payload.packages),
+          expertiseCount: expertise.length,
+        });
+      }
       setSuccess(true);
       setFormState(DEFAULT_FORM);
       if (typeof onSubmitted === 'function') {
@@ -170,3 +187,12 @@ export default function MentorOnboardingForm({ onSubmitted, ctaLabel = 'Apply as
     </form>
   );
 }
+
+MentorOnboardingForm.propTypes = {
+  onSubmitted: PropTypes.func,
+  ctaLabel: PropTypes.string,
+  analytics: PropTypes.shape({
+    track: PropTypes.func,
+  }),
+};
+

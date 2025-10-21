@@ -22,6 +22,41 @@ class ProjectGigManagementController
   final int userId;
   bool _viewTracked = false;
 
+  void _ensureManagementPermission(String actionDescription) {
+    final snapshot = state.data;
+    if (snapshot == null) {
+      throw StateError(
+        'Project operations are still syncing. Please try again once your workspace finishes loading.',
+      );
+    }
+
+    final access = snapshot.access;
+    if (!access.canManage) {
+      final buffer = StringBuffer('You do not have permission to $actionDescription.');
+      if (access.reason != null && access.reason!.trim().isNotEmpty) {
+        buffer.write(' ${access.reason!.trim()}');
+      } else if (access.allowedRoles.isNotEmpty) {
+        buffer.write(
+          ' Required roles: ${access.allowedRoles.map((role) => role.replaceAll('_', ' ')).join(', ')}.',
+        );
+      }
+      throw StateError(buffer.toString().trim());
+    }
+  }
+
+  Map<String, dynamic> _failureContext({
+    required Map<String, dynamic> base,
+    Object? error,
+    String stage = 'submission',
+  }) {
+    final context = Map<String, dynamic>.from(base);
+    context['stage'] = stage;
+    if (error != null) {
+      context['reason'] = '$error';
+    }
+    return context;
+  }
+
   Future<void> load({bool forceRefresh = false}) async {
     state = state.copyWith(loading: true, error: null);
     try {
@@ -82,9 +117,7 @@ class ProjectGigManagementController
 
   Future<void> createProject(ProjectDraft draft) async {
     try {
-      if (state.data?.access.canManage == false) {
-        throw StateError('Project creation is restricted for your role.');
-      }
+      _ensureManagementPermission('create a project');
       await _repository.createProject(userId, draft);
       await _analytics.track(
         'mobile_gig_project_created',
@@ -97,13 +130,17 @@ class ProjectGigManagementController
       );
       await load(forceRefresh: true);
     } catch (error) {
+      final stage = error is StateError ? 'permission_check' : 'submission';
       unawaited(
         _analytics.track(
           'mobile_gig_project_failed',
-          context: {
-            'userId': userId,
-            'reason': '$error',
-          },
+          context: _failureContext(
+            base: {
+              'userId': userId,
+            },
+            error: error,
+            stage: stage,
+          ),
           metadata: const {'source': 'mobile_app'},
         ),
       );
@@ -113,9 +150,7 @@ class ProjectGigManagementController
 
   Future<void> createGigOrder(GigOrderDraft draft) async {
     try {
-      if (state.data?.access.canManage == false) {
-        throw StateError('Gig purchasing is restricted for your role.');
-      }
+      _ensureManagementPermission('submit gig orders');
       await _repository.createGigOrder(userId, draft);
       await _analytics.track(
         'mobile_gig_order_created',
@@ -129,14 +164,18 @@ class ProjectGigManagementController
       );
       await load(forceRefresh: true);
     } catch (error) {
+      final stage = error is StateError ? 'permission_check' : 'submission';
       unawaited(
         _analytics.track(
           'mobile_gig_order_failed',
-          context: {
-            'userId': userId,
-            'vendor': draft.vendorName,
-            'reason': '$error',
-          },
+          context: _failureContext(
+            base: {
+              'userId': userId,
+              'vendor': draft.vendorName,
+            },
+            error: error,
+            stage: stage,
+          ),
           metadata: const {'source': 'mobile_app'},
         ),
       );
@@ -146,9 +185,7 @@ class ProjectGigManagementController
 
   Future<void> createGigBlueprint(GigBlueprintDraft draft) async {
     try {
-      if (state.data?.access.canManage == false) {
-        throw StateError('Gig publishing is restricted for your role.');
-      }
+      _ensureManagementPermission('publish gig blueprints');
       await _repository.createGigBlueprint(userId, draft);
       await _analytics.track(
         'mobile_gig_blueprint_created',
@@ -162,14 +199,18 @@ class ProjectGigManagementController
       );
       await load(forceRefresh: true);
     } catch (error) {
+      final stage = error is StateError ? 'permission_check' : 'submission';
       unawaited(
         _analytics.track(
           'mobile_gig_blueprint_failed',
-          context: {
-            'userId': userId,
-            'title': draft.title,
-            'reason': '$error',
-          },
+          context: _failureContext(
+            base: {
+              'userId': userId,
+              'title': draft.title,
+            },
+            error: error,
+            stage: stage,
+          ),
           metadata: const {'source': 'mobile_app'},
         ),
       );
@@ -179,9 +220,7 @@ class ProjectGigManagementController
 
   Future<void> createProjectTask(ProjectTaskDraft draft) async {
     try {
-      if (state.data?.access.canManage == false) {
-        throw StateError('Project task management is restricted for your role.');
-      }
+      _ensureManagementPermission('manage project tasks');
       await _repository.createProjectTask(draft);
       await _analytics.track(
         'mobile_project_task_created',
@@ -195,15 +234,19 @@ class ProjectGigManagementController
       );
       await load(forceRefresh: true);
     } catch (error) {
+      final stage = error is StateError ? 'permission_check' : 'submission';
       unawaited(
         _analytics.track(
           'mobile_project_task_failed',
-          context: {
-            'userId': userId,
-            'projectId': draft.projectId,
-            'action': 'create',
-            'reason': '$error',
-          },
+          context: _failureContext(
+            base: {
+              'userId': userId,
+              'projectId': draft.projectId,
+              'action': 'create',
+            },
+            error: error,
+            stage: stage,
+          ),
           metadata: const {'source': 'mobile_app'},
         ),
       );
@@ -217,9 +260,7 @@ class ProjectGigManagementController
       return;
     }
     try {
-      if (state.data?.access.canManage == false) {
-        throw StateError('Project task management is restricted for your role.');
-      }
+      _ensureManagementPermission('manage project tasks');
       await _repository.updateProjectTask(task.projectId, task.id, mutation);
       await _analytics.track(
         'mobile_project_task_updated',
@@ -232,16 +273,20 @@ class ProjectGigManagementController
       );
       await load(forceRefresh: true);
     } catch (error) {
+      final stage = error is StateError ? 'permission_check' : 'submission';
       unawaited(
         _analytics.track(
           'mobile_project_task_failed',
-          context: {
-            'userId': userId,
-            'projectId': task.projectId,
-            'taskId': task.id,
-            'action': 'update',
-            'reason': '$error',
-          },
+          context: _failureContext(
+            base: {
+              'userId': userId,
+              'projectId': task.projectId,
+              'taskId': task.id,
+              'action': 'update',
+            },
+            error: error,
+            stage: stage,
+          ),
           metadata: const {'source': 'mobile_app'},
         ),
       );
@@ -251,9 +296,7 @@ class ProjectGigManagementController
 
   Future<void> deleteProjectTask(ProjectTaskRecord task) async {
     try {
-      if (state.data?.access.canManage == false) {
-        throw StateError('Project task management is restricted for your role.');
-      }
+      _ensureManagementPermission('manage project tasks');
       await _repository.deleteProjectTask(task.projectId, task.id);
       await _analytics.track(
         'mobile_project_task_deleted',
@@ -266,16 +309,20 @@ class ProjectGigManagementController
       );
       await load(forceRefresh: true);
     } catch (error) {
+      final stage = error is StateError ? 'permission_check' : 'submission';
       unawaited(
         _analytics.track(
           'mobile_project_task_failed',
-          context: {
-            'userId': userId,
-            'projectId': task.projectId,
-            'taskId': task.id,
-            'action': 'delete',
-            'reason': '$error',
-          },
+          context: _failureContext(
+            base: {
+              'userId': userId,
+              'projectId': task.projectId,
+              'taskId': task.id,
+              'action': 'delete',
+            },
+            error: error,
+            stage: stage,
+          ),
           metadata: const {'source': 'mobile_app'},
         ),
       );

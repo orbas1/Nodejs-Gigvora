@@ -9,14 +9,15 @@ const STAT_TILES = [
 ];
 
 function TrendLabel({ value }) {
-  if (!value) {
+  const numericValue = typeof value === 'string' ? Number.parseFloat(value) : value;
+  if (!Number.isFinite(numericValue) || numericValue === 0) {
     return <span className="text-xs text-slate-500">Stable</span>;
   }
-  const isPositive = value > 0;
+  const isPositive = numericValue > 0;
   return (
     <span className={`text-xs font-semibold ${isPositive ? 'text-emerald-600' : 'text-rose-500'}`}>
       {isPositive ? '+' : ''}
-      {value}%
+      {numericValue}%
     </span>
   );
 }
@@ -30,7 +31,10 @@ function StatTile({ stat }) {
         {stat.value}
         {stat.suffix}
       </p>
-      <p className="mt-2 text-xs text-slate-500">{stat.caption}</p>
+      <div className="mt-2 flex items-center justify-between gap-3 text-xs text-slate-500">
+        <p>{stat.caption}</p>
+        {stat.trend !== undefined ? <TrendLabel value={stat.trend} /> : null}
+      </div>
     </div>
   );
 }
@@ -41,13 +45,22 @@ function normalizeStats(stats = {}) {
     const prefix = tile.prefix ?? '';
     const suffix = tile.suffix ?? '';
     const change = stats[tile.trendKey];
-    const caption = change === undefined ? 'Last 30 days' : undefined;
+    const caption = (() => {
+      if (change === undefined || change === null) {
+        return 'Last 30 days';
+      }
+      const numericChange = typeof change === 'string' ? Number.parseFloat(change) : change;
+      if (!Number.isFinite(numericChange) || numericChange === 0) {
+        return 'Holding steady vs. last month';
+      }
+      return numericChange > 0 ? 'Growth vs. last month' : 'Down vs. last month';
+    })();
     return {
       ...tile,
       value,
       prefix,
       suffix,
-      caption: caption ?? (change === 0 ? 'Holding steady vs. last month' : undefined),
+      caption,
       trend: change,
     };
   });
@@ -55,7 +68,7 @@ function normalizeStats(stats = {}) {
 
 export default function MentorDashboardInsights({ dashboard, loading, error, onRefresh }) {
   const stats = normalizeStats(dashboard?.stats);
-  const conversion = dashboard?.conversion ?? null;
+  const conversion = Array.isArray(dashboard?.conversion) ? dashboard.conversion : null;
 
   return (
     <section className="space-y-6">
@@ -68,8 +81,9 @@ export default function MentorDashboardInsights({ dashboard, loading, error, onR
         </div>
         <button
           type="button"
-          onClick={onRefresh}
-          className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+          onClick={() => onRefresh?.()}
+          disabled={loading}
+          className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-60"
         >
           <ArrowPathIcon className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
         </button>

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import {
   CalendarDaysIcon,
   ClockIcon,
@@ -82,7 +83,12 @@ function SessionCard({ session, onSelect }) {
   );
 }
 
-export default function MentoringSessionsPanel({ sessions, canEdit, onCreate, onSelect }) {
+export default function MentoringSessionsPanel({
+  sessions = { upcoming: [], requested: [], completed: [], cancelled: [] },
+  canEdit = false,
+  onCreate,
+  onSelect,
+}) {
   const [statusFilter, setStatusFilter] = useState('upcoming');
 
   const groupedSessions = useMemo(() => ({
@@ -132,7 +138,9 @@ export default function MentoringSessionsPanel({ sessions, canEdit, onCreate, on
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" aria-live="polite">
         {activeSessions.length ? (
-          activeSessions.map((session) => <SessionCard key={session.id} session={session} onSelect={onSelect} />)
+          activeSessions.map((session) => (
+            <SessionCard key={session.id ?? session.topic} session={session} onSelect={onSelect} />
+          ))
         ) : (
           <div className="col-span-full flex min-h-[160px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 text-sm text-slate-500">
             No sessions yet.
@@ -142,3 +150,16 @@ export default function MentoringSessionsPanel({ sessions, canEdit, onCreate, on
     </div>
   );
 }
+
+MentoringSessionsPanel.propTypes = {
+  sessions: PropTypes.shape({
+    upcoming: PropTypes.arrayOf(PropTypes.object),
+    requested: PropTypes.arrayOf(PropTypes.object),
+    completed: PropTypes.arrayOf(PropTypes.object),
+    cancelled: PropTypes.arrayOf(PropTypes.object),
+  }),
+  canEdit: PropTypes.bool,
+  onCreate: PropTypes.func,
+  onSelect: PropTypes.func,
+};
+

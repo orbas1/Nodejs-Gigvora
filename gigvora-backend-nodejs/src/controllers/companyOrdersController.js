@@ -12,18 +12,39 @@ import {
   updateCompanyOrderEscrow,
   submitCompanyOrderReview,
 } from '../services/companyOrdersService.js';
+import { ValidationError } from '../utils/errors.js';
 
-function parseInteger(value, fallback = undefined) {
+function parseOptionalInteger(value) {
   if (value == null || value === '') {
-    return fallback;
+    return undefined;
   }
   const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) ? parsed : fallback;
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function ensurePositiveInteger(value, fieldName) {
+  const parsed = parseOptionalInteger(value);
+  if (!parsed || parsed <= 0) {
+    throw new ValidationError(`${fieldName} must be a positive integer.`);
+  }
+  return parsed;
 }
 
 function resolveOwnerId(req) {
-  const userId = req.user?.id ?? req.query?.userId ?? req.body?.userId;
-  return parseInteger(userId, null);
+  const candidate =
+    req.user?.id ??
+    req.auth?.userId ??
+    req.query?.ownerId ??
+    req.query?.userId ??
+    req.body?.ownerId ??
+    req.body?.userId ??
+    req.params?.ownerId;
+
+  const ownerId = parseOptionalInteger(candidate);
+  if (!ownerId) {
+    throw new ValidationError('An authenticated ownerId is required for company order operations.');
+  }
+  return ownerId;
 }
 
 export async function dashboard(req, res) {
@@ -42,28 +63,36 @@ export async function create(req, res) {
 export async function update(req, res) {
   const ownerId = resolveOwnerId(req);
   const { orderId } = req.params ?? {};
-  const order = await updateCompanyOrder({ ownerId, orderId: parseInteger(orderId), payload: req.body ?? {} });
+  const order = await updateCompanyOrder({
+    ownerId,
+    orderId: ensurePositiveInteger(orderId, 'orderId'),
+    payload: req.body ?? {},
+  });
   res.json(order);
 }
 
 export async function remove(req, res) {
   const ownerId = resolveOwnerId(req);
   const { orderId } = req.params ?? {};
-  await deleteCompanyOrder({ ownerId, orderId: parseInteger(orderId) });
+  await deleteCompanyOrder({ ownerId, orderId: ensurePositiveInteger(orderId, 'orderId') });
   res.status(204).send();
 }
 
 export async function detail(req, res) {
   const ownerId = resolveOwnerId(req);
   const { orderId } = req.params ?? {};
-  const order = await getCompanyOrderDetail({ ownerId, orderId: parseInteger(orderId) });
+  const order = await getCompanyOrderDetail({ ownerId, orderId: ensurePositiveInteger(orderId, 'orderId') });
   res.json(order);
 }
 
 export async function addTimelineEvent(req, res) {
   const ownerId = resolveOwnerId(req);
   const { orderId } = req.params ?? {};
-  const event = await createCompanyOrderTimeline({ ownerId, orderId: parseInteger(orderId), payload: req.body ?? {} });
+  const event = await createCompanyOrderTimeline({
+    ownerId,
+    orderId: ensurePositiveInteger(orderId, 'orderId'),
+    payload: req.body ?? {},
+  });
   res.status(201).json(event);
 }
 
@@ -72,8 +101,8 @@ export async function updateTimelineEvent(req, res) {
   const { orderId, eventId } = req.params ?? {};
   const event = await updateCompanyOrderTimeline({
     ownerId,
-    orderId: parseInteger(orderId),
-    eventId: parseInteger(eventId),
+    orderId: ensurePositiveInteger(orderId, 'orderId'),
+    eventId: ensurePositiveInteger(eventId, 'eventId'),
     payload: req.body ?? {},
   });
   res.json(event);
@@ -82,7 +111,11 @@ export async function updateTimelineEvent(req, res) {
 export async function removeTimelineEvent(req, res) {
   const ownerId = resolveOwnerId(req);
   const { orderId, eventId } = req.params ?? {};
-  await deleteCompanyOrderTimeline({ ownerId, orderId: parseInteger(orderId), eventId: parseInteger(eventId) });
+  await deleteCompanyOrderTimeline({
+    ownerId,
+    orderId: ensurePositiveInteger(orderId, 'orderId'),
+    eventId: ensurePositiveInteger(eventId, 'eventId'),
+  });
   res.status(204).send();
 }
 
@@ -90,12 +123,12 @@ export async function postMessage(req, res) {
   const ownerId = resolveOwnerId(req);
   const { orderId } = req.params ?? {};
   const actor = {
-    id: parseInteger(req.user?.id, ownerId),
+    id: parseOptionalInteger(req.user?.id) ?? ownerId,
     name: req.user?.displayName ?? req.user?.name ?? req.user?.email ?? 'Company operator',
   };
   const message = await postCompanyOrderMessage({
     ownerId,
-    orderId: parseInteger(orderId),
+    orderId: ensurePositiveInteger(orderId, 'orderId'),
     payload: req.body ?? {},
     actor,
   });
@@ -105,21 +138,33 @@ export async function postMessage(req, res) {
 export async function createEscrowCheckpoint(req, res) {
   const ownerId = resolveOwnerId(req);
   const { orderId } = req.params ?? {};
-  const checkpoint = await createCompanyOrderEscrow({ ownerId, orderId: parseInteger(orderId), payload: req.body ?? {} });
+  const checkpoint = await createCompanyOrderEscrow({
+    ownerId,
+    orderId: ensurePositiveInteger(orderId, 'orderId'),
+    payload: req.body ?? {},
+  });
   res.status(201).json(checkpoint);
 }
 
 export async function updateEscrowCheckpoint(req, res) {
   const ownerId = resolveOwnerId(req);
   const { checkpointId } = req.params ?? {};
-  const checkpoint = await updateCompanyOrderEscrow({ ownerId, checkpointId: parseInteger(checkpointId), payload: req.body ?? {} });
+  const checkpoint = await updateCompanyOrderEscrow({
+    ownerId,
+    checkpointId: ensurePositiveInteger(checkpointId, 'checkpointId'),
+    payload: req.body ?? {},
+  });
   res.json(checkpoint);
 }
 
 export async function submitReview(req, res) {
   const ownerId = resolveOwnerId(req);
   const { orderId } = req.params ?? {};
-  const order = await submitCompanyOrderReview({ ownerId, orderId: parseInteger(orderId), payload: req.body ?? {} });
+  const order = await submitCompanyOrderReview({
+    ownerId,
+    orderId: ensurePositiveInteger(orderId, 'orderId'),
+    payload: req.body ?? {},
+  });
   res.json(order);
 }
 

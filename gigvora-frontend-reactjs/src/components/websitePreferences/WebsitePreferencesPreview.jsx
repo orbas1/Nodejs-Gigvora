@@ -1,4 +1,6 @@
+import PropTypes from 'prop-types';
 import { withDefaults, ensureArray } from './defaults.js';
+import websitePreferencesShape from './propTypes.js';
 
 export default function WebsitePreferencesPreview({ preferences }) {
   const merged = withDefaults(preferences);
@@ -52,3 +54,11 @@ export default function WebsitePreferencesPreview({ preferences }) {
     </div>
   );
 }
+
+WebsitePreferencesPreview.propTypes = {
+  preferences: websitePreferencesShape,
+};
+
+WebsitePreferencesPreview.defaultProps = {
+  preferences: null,
+};

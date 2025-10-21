@@ -216,6 +216,7 @@ export default function ProjectWizard({ open, onClose, onSubmit }) {
                     <button
                       type="button"
                       onClick={closeAndReset}
+                      aria-label="Close project wizard"
                       className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
                     >
                       <XMarkIcon className="h-5 w-5" />
@@ -371,17 +372,20 @@ export default function ProjectWizard({ open, onClose, onSubmit }) {
                                   value={milestone.title}
                                   onChange={(event) => updateMilestone(milestone.id, { title: event.target.value })}
                                   placeholder="Milestone"
+                                  aria-label="Milestone title"
                                   className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
                                 />
                                 <input
                                   type="date"
                                   value={milestone.dueDate}
                                   onChange={(event) => updateMilestone(milestone.id, { dueDate: event.target.value })}
+                                  aria-label="Milestone due date"
                                   className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
                                 />
                                 <select
                                   value={milestone.status}
                                   onChange={(event) => updateMilestone(milestone.id, { status: event.target.value })}
+                                  aria-label="Milestone status"
                                   className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
                                 >
                                   <option value="planned">Planned</option>
@@ -391,6 +395,7 @@ export default function ProjectWizard({ open, onClose, onSubmit }) {
                                 <button
                                   type="button"
                                   onClick={() => removeMilestone(milestone.id)}
+                                  aria-label={`Remove milestone ${milestone.title || ''}`.trim() || 'Remove milestone'}
                                   className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-rose-500"
                                 >
                                   <TrashIcon className="h-4 w-4" />
@@ -419,23 +424,27 @@ export default function ProjectWizard({ open, onClose, onSubmit }) {
                                   value={collaborator.fullName}
                                   onChange={(event) => updateCollaborator(collaborator.id, { fullName: event.target.value })}
                                   placeholder="Name"
+                                  aria-label="Collaborator full name"
                                   className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
                                 />
                                 <input
                                   value={collaborator.email}
                                   onChange={(event) => updateCollaborator(collaborator.id, { email: event.target.value })}
                                   placeholder="Email"
+                                  aria-label="Collaborator email"
                                   className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
                                 />
                                 <input
                                   value={collaborator.role}
                                   onChange={(event) => updateCollaborator(collaborator.id, { role: event.target.value })}
                                   placeholder="Role"
+                                  aria-label="Collaborator role"
                                   className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
                                 />
                                 <button
                                   type="button"
                                   onClick={() => removeCollaborator(collaborator.id)}
+                                  aria-label={`Remove collaborator ${collaborator.fullName || collaborator.email || ''}`.trim() || 'Remove collaborator'}
                                   className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-rose-500"
                                 >
                                   <TrashIcon className="h-4 w-4" />

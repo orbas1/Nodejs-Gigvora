@@ -1,5 +1,9 @@
 import { useState } from 'react';
 
+function safeTrim(value) {
+  return `${value ?? ''}`.trim();
+}
+
 const DEFAULT_FORM = {
   userId: '',
   profileId: '',
@@ -25,22 +29,50 @@ export default function IdVerificationManualIntakeForm({ onCreate, busy = false,
   const handleChange = (field) => (event) => {
     const value = event?.target?.value;
     setForm((previous) => ({ ...previous, [field]: value }));
+    setStatusMessage(null);
+    setErrorMessage(null);
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setStatusMessage(null);
     setErrorMessage(null);
-    if (!form.userId || !form.profileId || !form.fullName || !form.dateOfBirth || !form.addressLine1 || !form.city || !form.postalCode || !form.country) {
+    const requiredFields = [
+      form.userId,
+      form.profileId,
+      form.fullName,
+      form.dateOfBirth,
+      form.addressLine1,
+      form.city,
+      form.postalCode,
+      form.country,
+    ];
+    if (requiredFields.some((value) => !`${value ?? ''}`.trim())) {
       setErrorMessage('Complete all required fields.');
       return;
     }
+    const sanitized = {
+      userId: Number(safeTrim(form.userId)),
+      profileId: Number(safeTrim(form.profileId)),
+      fullName: safeTrim(form.fullName),
+      dateOfBirth: safeTrim(form.dateOfBirth),
+      verificationProvider: safeTrim(form.verificationProvider) || 'manual_review',
+      typeOfId: safeTrim(form.typeOfId) || undefined,
+      idNumberLast4: safeTrim(form.idNumberLast4) || undefined,
+      issuingCountry: safeTrim(form.issuingCountry).toUpperCase() || undefined,
+      addressLine1: safeTrim(form.addressLine1),
+      addressLine2: safeTrim(form.addressLine2) || undefined,
+      city: safeTrim(form.city),
+      state: safeTrim(form.state) || undefined,
+      postalCode: safeTrim(form.postalCode),
+      country: safeTrim(form.country).toUpperCase(),
+    };
+    if (!Number.isFinite(sanitized.userId) || !Number.isFinite(sanitized.profileId)) {
+      setErrorMessage('User and profile IDs must be numbers.');
+      return;
+    }
     try {
-      await onCreate?.({
-        ...form,
-        userId: Number(form.userId),
-        profileId: Number(form.profileId),
-      });
+      await onCreate?.(sanitized);
       setForm(DEFAULT_FORM);
       setStatusMessage('Verification created and queued');
     } catch (error) {
@@ -138,6 +170,7 @@ export default function IdVerificationManualIntakeForm({ onCreate, busy = false,
               value={form.issuingCountry}
               onChange={handleChange('issuingCountry')}
               className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm uppercase tracking-wide text-slate-700 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+              aria-label="Issuing country code"
             />
           </Field>
         </div>
@@ -189,6 +222,7 @@ export default function IdVerificationManualIntakeForm({ onCreate, busy = false,
               value={form.country}
               onChange={handleChange('country')}
               className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm uppercase tracking-wide text-slate-700 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+              aria-label="Residence country code"
             />
           </Field>
         </div>
@@ -202,7 +236,11 @@ export default function IdVerificationManualIntakeForm({ onCreate, busy = false,
           </button>
           <button
             type="button"
-            onClick={() => setForm(DEFAULT_FORM)}
+            onClick={() => {
+              setForm(DEFAULT_FORM);
+              setStatusMessage(null);
+              setErrorMessage(null);
+            }}
             disabled={busy}
             className="inline-flex items-center justify-center rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
           >

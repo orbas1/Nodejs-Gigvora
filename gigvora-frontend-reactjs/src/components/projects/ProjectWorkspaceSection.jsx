@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import {
   ArrowPathIcon,
   BoltIcon,
@@ -632,3 +633,7 @@ export default function ProjectWorkspaceSection({ projectId }) {
     </section>
   );
 }
+
+ProjectWorkspaceSection.propTypes = {
+  projectId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+};

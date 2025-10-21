@@ -365,6 +365,19 @@ export async function markAllAsRead(userId) {
   return getStats(userId);
 }
 
+export const __testing = {
+  DEFAULT_PREFERENCES,
+  assertCategory,
+  assertPriority,
+  assertStatus,
+  parseTimeToMinutes,
+  getMinutesInTimezone,
+  isWithinQuietHours,
+  computeDeliveryChannels,
+  sanitizeNotification,
+  sanitizePreference,
+};
+
 export default {
   queueNotification,
   listNotifications,

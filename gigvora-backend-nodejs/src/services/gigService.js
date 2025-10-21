@@ -516,6 +516,22 @@ export async function publishGig(gigId, { actorId, visibility } = {}) {
   return gig.toPublicObject();
 }
 
+export const __testing = {
+  slugify,
+  normalizeGigPayload,
+  normalizePackage,
+  normalizeAddOn,
+  normalizeAvailability,
+  normalizeBannerSettings,
+  normalizeHexColor,
+  normalizeStatus,
+  normalizeVisibility,
+  normalizeInteger,
+  normalizeCurrency,
+  normalizePrice,
+  sanitizeHighlights,
+};
+
 export default {
   listFreelancerGigs,
   getGigDetail,

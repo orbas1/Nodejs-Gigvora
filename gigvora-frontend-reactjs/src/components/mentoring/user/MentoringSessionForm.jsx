@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 
 function formatMentorOption(mentor) {
   if (!mentor) return '';
@@ -279,3 +280,13 @@ export default function MentoringSessionForm({
     </form>
   );
 }
+
+MentoringSessionForm.propTypes = {
+  mentors: PropTypes.arrayOf(PropTypes.object),
+  orders: PropTypes.arrayOf(PropTypes.object),
+  onSubmit: PropTypes.func,
+  onCancel: PropTypes.func,
+  initialValues: PropTypes.object,
+  submitting: PropTypes.bool,
+};
+

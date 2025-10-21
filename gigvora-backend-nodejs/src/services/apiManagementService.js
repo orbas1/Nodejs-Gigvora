@@ -882,7 +882,7 @@ export async function recordClientUsage(clientId, payload = {}, actor = null) {
     if (lastRequestAt) {
       const existingLastUsed = client.lastUsedAt ? new Date(client.lastUsedAt) : null;
       if (!existingLastUsed || lastRequestAt > existingLastUsed) {
-        await client.update({ lastUsedAt }, { transaction });
+        await client.update({ lastUsedAt: lastRequestAt }, { transaction });
       }
     } else if (!client.lastUsedAt) {
       await client.update({ lastUsedAt: new Date() }, { transaction });

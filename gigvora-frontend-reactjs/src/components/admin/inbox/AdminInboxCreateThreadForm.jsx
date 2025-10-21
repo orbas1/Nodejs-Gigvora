@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
 const CHANNEL_OPTIONS = [
@@ -14,30 +14,63 @@ export default function AdminInboxCreateThreadForm({ open, onClose, onCreate, bu
   const [channelType, setChannelType] = useState('support');
   const [participantIds, setParticipantIds] = useState('');
   const [metadata, setMetadata] = useState('');
+  const [error, setError] = useState('');
+  const [feedback, setFeedback] = useState('');
 
-  const reset = () => {
+  const disableInputs = Boolean(busy);
+
+  const parsedParticipants = useMemo(() => {
+    return participantIds
+      .split(',')
+      .map((value) => Number(value.trim()))
+      .filter((value, index, list) => Number.isFinite(value) && value > 0 && list.indexOf(value) === index);
+  }, [participantIds]);
+
+  const reset = ({ preserveFeedback = false } = {}) => {
     setSubject('');
     setChannelType('support');
     setParticipantIds('');
     setMetadata('');
+    setError('');
+    if (!preserveFeedback) {
+      setFeedback('');
+    }
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const ids = participantIds
-      .split(',')
-      .map((value) => Number(value.trim()))
-      .filter((value) => Number.isFinite(value) && value > 0);
-    const metadataValue = (() => {
-      if (!metadata.trim()) return undefined;
+    setError('');
+    setFeedback('');
+
+    if (!parsedParticipants.length) {
+      setError('Add at least one participant ID.');
+      return;
+    }
+
+    let metadataValue;
+    if (metadata.trim()) {
       try {
-        return JSON.parse(metadata);
-      } catch (error) {
-        return undefined;
+        metadataValue = JSON.parse(metadata);
+      } catch (parseError) {
+        setError('Metadata must be valid JSON.');
+        return;
       }
-    })();
-    await onCreate({ subject: subject.trim() || undefined, channelType, participantIds: ids, metadata: metadataValue });
-    reset();
+    }
+
+    const payload = {
+      subject: subject.trim() || undefined,
+      channelType,
+      participantIds: parsedParticipants,
+      metadata: metadataValue,
+    };
+
+    try {
+      await onCreate?.(payload);
+      reset({ preserveFeedback: true });
+      setFeedback('Conversation created.');
+    } catch (submitError) {
+      setError(submitError?.message ?? 'Unable to create conversation.');
+    }
   };
 
   if (!open) {
@@ -59,6 +92,17 @@ export default function AdminInboxCreateThreadForm({ open, onClose, onCreate, bu
           <XMarkIcon className="h-4 w-4" />
         </button>
         <h3 className="text-lg font-semibold text-slate-900">New conversation</h3>
+        {(error || feedback) ? (
+          <div
+            role="status"
+            aria-live="assertive"
+            className={`mt-3 rounded-2xl border px-3 py-2 text-sm ${
+              error ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+            }`}
+          >
+            {error || feedback}
+          </div>
+        ) : null}
         <form className="mt-4 space-y-4" onSubmit={handleSubmit}>
           <div>
             <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="admin-thread-subject">
@@ -71,6 +115,7 @@ export default function AdminInboxCreateThreadForm({ open, onClose, onCreate, bu
               onChange={(event) => setSubject(event.target.value)}
               className="mt-1 w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
               placeholder="Subject"
+              disabled={disableInputs}
             />
           </div>
           <div>
@@ -82,6 +127,7 @@ export default function AdminInboxCreateThreadForm({ open, onClose, onCreate, bu
               value={channelType}
               onChange={(event) => setChannelType(event.target.value)}
               className="mt-1 w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+              disabled={disableInputs}
             >
               {CHANNEL_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -101,7 +147,10 @@ export default function AdminInboxCreateThreadForm({ open, onClose, onCreate, bu
               onChange={(event) => setParticipantIds(event.target.value)}
               className="mt-1 w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
               placeholder="IDs"
+              disabled={disableInputs}
             />
+            <p className="mt-1 text-xs text-slate-500">Comma separate user IDs. You can paste from CRM exports.</p>
+            <p className="text-xs text-slate-500">Parsed IDs: {parsedParticipants.join(', ') || '—'}</p>
           </div>
           <div>
             <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="admin-thread-metadata">
@@ -114,6 +163,7 @@ export default function AdminInboxCreateThreadForm({ open, onClose, onCreate, bu
               onChange={(event) => setMetadata(event.target.value)}
               className="mt-1 w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
               placeholder='{"priority":"urgent"}'
+              disabled={disableInputs}
             />
           </div>
           <div className="flex items-center gap-2">

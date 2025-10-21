@@ -2,7 +2,13 @@ import PropTypes from 'prop-types';
 import StatusBadge from './StatusBadge.jsx';
 import { IDENTITY_STEPS } from './constants.js';
 
-export default function IdentityStepNav({ activeStep, onSelect, status, nextActions = [], onOpenHistory }) {
+export default function IdentityStepNav({
+  activeStep,
+  onSelect = () => {},
+  status = 'pending',
+  nextActions = [],
+  onOpenHistory = () => {},
+}) {
   return (
     <div className="flex h-full flex-col justify-between">
       <div className="space-y-6">
@@ -84,9 +90,3 @@ IdentityStepNav.propTypes = {
   onOpenHistory: PropTypes.func,
 };
 
-IdentityStepNav.defaultProps = {
-  onSelect: undefined,
-  status: 'pending',
-  nextActions: [],
-  onOpenHistory: () => {},
-};

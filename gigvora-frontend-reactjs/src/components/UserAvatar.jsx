@@ -1,3 +1,5 @@
+import PropTypes from 'prop-types';
+
 const SIZE_MAP = {
   xs: 'h-8 w-8',
   sm: 'h-10 w-10',
@@ -48,3 +50,12 @@ export default function UserAvatar({
     </div>
   );
 }
+
+UserAvatar.propTypes = {
+  name: PropTypes.string,
+  imageUrl: PropTypes.string,
+  seed: PropTypes.string,
+  size: PropTypes.oneOf(Object.keys(SIZE_MAP)),
+  className: PropTypes.string,
+  showGlow: PropTypes.bool,
+};
