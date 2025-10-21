@@ -108,6 +108,8 @@ export async function previewByokAutoReply(req, res) {
     payload: req.body ?? {},
   });
   res.json(preview);
+}
+
 export async function timeline(req, res) {
   const workspaceId = resolveWorkspaceId(req);
   const lookbackDays = parseNumber(req.query?.lookbackDays ?? req.body?.lookbackDays);
@@ -197,6 +199,8 @@ export async function recordTimelineMetrics(req, res) {
     metadata,
   });
   res.status(201).json(result);
+}
+
 function sanitizeString(value, { maxLength, required = false } = {}) {
   if (value == null) {
     if (required) {

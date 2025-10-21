@@ -1,9 +1,14 @@
 import walletManagementService from '../services/walletManagementService.js';
+import { resolveRequestUserId } from '../utils/requestContext.js';
 
 function buildActorContext(req) {
+  const actorId = resolveRequestUserId(req) ?? req.user?.id ?? null;
   return {
-    actorId: req.user?.id ?? null,
-    actorRoles: Array.isArray(req.user?.roles) ? req.user.roles : [],
+    actorId,
+    actorRoles: Array.isArray(req.user?.roles)
+      ? req.user.roles.map((role) => `${role}`.trim().toLowerCase()).filter(Boolean)
+      : [],
+    ipAddress: req.ip ?? req.headers['x-forwarded-for'] ?? null,
   };
 }
 

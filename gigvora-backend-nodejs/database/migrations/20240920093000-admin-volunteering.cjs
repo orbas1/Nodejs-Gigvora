@@ -4,10 +4,16 @@ const ROLE_STATUSES = ['draft', 'open', 'paused', 'filled', 'archived'];
 const SHIFT_STATUSES = ['planned', 'open', 'locked', 'complete', 'cancelled'];
 const ASSIGNMENT_STATUSES = ['invited', 'confirmed', 'checked_in', 'checked_out', 'declined', 'no_show'];
 
+const resolveJsonType = (queryInterface, Sequelize) => {
+  const dialect = queryInterface.sequelize.getDialect();
+  return ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
+};
+
 module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.sequelize.transaction(async (transaction) => {
-      const jsonType = Sequelize.JSONB ?? Sequelize.JSON;
+      const jsonType = resolveJsonType(queryInterface, Sequelize);
+      const timestampDefault = Sequelize.literal('CURRENT_TIMESTAMP');
 
       await queryInterface.createTable(
         'volunteer_programs',
@@ -24,8 +30,8 @@ module.exports = {
           endsAt: { allowNull: true, type: Sequelize.DATE },
           maxVolunteers: { allowNull: true, type: Sequelize.INTEGER },
           metadata: { allowNull: true, type: jsonType },
-          createdAt: { allowNull: false, type: Sequelize.DATE, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { allowNull: false, type: Sequelize.DATE, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { allowNull: false, type: Sequelize.DATE, defaultValue: timestampDefault },
+          updatedAt: { allowNull: false, type: Sequelize.DATE, defaultValue: timestampDefault },
         },
         { transaction },
       );
@@ -59,8 +65,8 @@ module.exports = {
           reserved: { allowNull: true, type: Sequelize.INTEGER },
           status: { allowNull: false, type: Sequelize.ENUM(...SHIFT_STATUSES), defaultValue: 'planned' },
           notes: { allowNull: true, type: Sequelize.TEXT },
-          createdAt: { allowNull: false, type: Sequelize.DATE, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { allowNull: false, type: Sequelize.DATE, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { allowNull: false, type: Sequelize.DATE, defaultValue: timestampDefault },
+          updatedAt: { allowNull: false, type: Sequelize.DATE, defaultValue: timestampDefault },
         },
         { transaction },
       );
@@ -91,122 +97,44 @@ module.exports = {
           checkInAt: { allowNull: true, type: Sequelize.DATE },
           checkOutAt: { allowNull: true, type: Sequelize.DATE },
           metadata: { allowNull: true, type: jsonType },
-          createdAt: { allowNull: false, type: Sequelize.DATE, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { allowNull: false, type: Sequelize.DATE, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { allowNull: false, type: Sequelize.DATE, defaultValue: timestampDefault },
+          updatedAt: { allowNull: false, type: Sequelize.DATE, defaultValue: timestampDefault },
         },
         { transaction },
       );
 
-      await queryInterface.addColumn(
-        'volunteering_roles',
-        'programId',
-        {
-          type: Sequelize.INTEGER,
-          allowNull: true,
-          references: { model: 'volunteer_programs', key: 'id' },
-          onUpdate: 'CASCADE',
-          onDelete: 'SET NULL',
-        },
-        { transaction },
-      );
+      const rolesDefinition = await queryInterface.describeTable('volunteering_roles', { transaction });
+      const addRoleColumnIfMissing = async (column, definition) => {
+        if (!Object.prototype.hasOwnProperty.call(rolesDefinition, column)) {
+          await queryInterface.addColumn('volunteering_roles', column, definition, { transaction });
+        }
+      };
 
-      await queryInterface.addColumn(
-        'volunteering_roles',
-        'status',
-        { type: Sequelize.ENUM(...ROLE_STATUSES), allowNull: false, defaultValue: 'draft' },
-        { transaction },
-      );
-
-      await queryInterface.addColumn(
-        'volunteering_roles',
-        'summary',
-        { type: Sequelize.TEXT, allowNull: true },
-        { transaction },
-      );
-
-      await queryInterface.addColumn(
-        'volunteering_roles',
-        'commitmentHours',
-        { type: Sequelize.DECIMAL(6, 2), allowNull: true },
-        { transaction },
-      );
-
-      await queryInterface.addColumn(
-        'volunteering_roles',
-        'applicationUrl',
-        { type: Sequelize.STRING(500), allowNull: true },
-        { transaction },
-      );
-
-      await queryInterface.addColumn(
-        'volunteering_roles',
-        'applicationDeadline',
-        { type: Sequelize.DATE, allowNull: true },
-        { transaction },
-      );
-
-      await queryInterface.addColumn(
-        'volunteering_roles',
-        'remoteType',
-        { type: Sequelize.STRING(20), allowNull: true },
-        { transaction },
-      );
-
-      await queryInterface.addColumn(
-        'volunteering_roles',
-        'spots',
-        { type: Sequelize.INTEGER, allowNull: true },
-        { transaction },
-      );
-
-      await queryInterface.addColumn(
-        'volunteering_roles',
-        'skills',
-        { type: jsonType, allowNull: true },
-        { transaction },
-      );
-
-      await queryInterface.addColumn(
-        'volunteering_roles',
-        'requirements',
-        { type: jsonType, allowNull: true },
-        { transaction },
-      );
-
-      await queryInterface.addColumn(
-        'volunteering_roles',
-        'tags',
-        { type: jsonType, allowNull: true },
-        { transaction },
-      );
-
-      await queryInterface.addColumn(
-        'volunteering_roles',
-        'imageUrl',
-        { type: Sequelize.STRING(500), allowNull: true },
-        { transaction },
-      );
-
-      await queryInterface.addColumn(
-        'volunteering_roles',
-        'publishedAt',
-        { type: Sequelize.DATE, allowNull: true },
-        { transaction },
-      );
-
-      await queryInterface.addColumn(
-        'volunteering_roles',
-        'accessRoles',
-        { type: jsonType, allowNull: true },
-        { transaction },
-      );
-
-      await queryInterface.addColumn(
-        'volunteering_roles',
-        'metadata',
-        { type: jsonType, allowNull: true },
-        { transaction },
-      );
+      await addRoleColumnIfMissing('programId', {
+        type: Sequelize.INTEGER,
+        allowNull: true,
+        references: { model: 'volunteer_programs', key: 'id' },
+        onUpdate: 'CASCADE',
+        onDelete: 'SET NULL',
+      });
+      await addRoleColumnIfMissing('status', {
+        type: Sequelize.ENUM(...ROLE_STATUSES),
+        allowNull: false,
+        defaultValue: 'draft',
+      });
+      await addRoleColumnIfMissing('summary', { type: Sequelize.TEXT, allowNull: true });
+      await addRoleColumnIfMissing('commitmentHours', { type: Sequelize.DECIMAL(6, 2), allowNull: true });
+      await addRoleColumnIfMissing('applicationUrl', { type: Sequelize.STRING(500), allowNull: true });
+      await addRoleColumnIfMissing('applicationDeadline', { type: Sequelize.DATE, allowNull: true });
+      await addRoleColumnIfMissing('remoteType', { type: Sequelize.STRING(20), allowNull: true });
+      await addRoleColumnIfMissing('spots', { type: Sequelize.INTEGER, allowNull: true });
+      await addRoleColumnIfMissing('skills', { type: jsonType, allowNull: true });
+      await addRoleColumnIfMissing('requirements', { type: jsonType, allowNull: true });
+      await addRoleColumnIfMissing('tags', { type: jsonType, allowNull: true });
+      await addRoleColumnIfMissing('imageUrl', { type: Sequelize.STRING(500), allowNull: true });
+      await addRoleColumnIfMissing('publishedAt', { type: Sequelize.DATE, allowNull: true });
+      await addRoleColumnIfMissing('accessRoles', { type: jsonType, allowNull: true });
+      await addRoleColumnIfMissing('metadata', { type: jsonType, allowNull: true });
 
       await queryInterface.addIndex(
         'volunteering_roles',
@@ -255,30 +183,40 @@ module.exports = {
       await queryInterface.removeIndex('volunteering_roles', 'volunteering_roles_program_idx', { transaction });
       await queryInterface.removeIndex('volunteering_roles', 'volunteering_roles_status_idx', { transaction });
 
-      await queryInterface.removeColumn('volunteering_roles', 'metadata', { transaction });
-      await queryInterface.removeColumn('volunteering_roles', 'accessRoles', { transaction });
-      await queryInterface.removeColumn('volunteering_roles', 'publishedAt', { transaction });
-      await queryInterface.removeColumn('volunteering_roles', 'imageUrl', { transaction });
-      await queryInterface.removeColumn('volunteering_roles', 'tags', { transaction });
-      await queryInterface.removeColumn('volunteering_roles', 'requirements', { transaction });
-      await queryInterface.removeColumn('volunteering_roles', 'skills', { transaction });
-      await queryInterface.removeColumn('volunteering_roles', 'spots', { transaction });
-      await queryInterface.removeColumn('volunteering_roles', 'remoteType', { transaction });
-      await queryInterface.removeColumn('volunteering_roles', 'applicationDeadline', { transaction });
-      await queryInterface.removeColumn('volunteering_roles', 'applicationUrl', { transaction });
-      await queryInterface.removeColumn('volunteering_roles', 'commitmentHours', { transaction });
-      await queryInterface.removeColumn('volunteering_roles', 'summary', { transaction });
-      await queryInterface.removeColumn('volunteering_roles', 'status', { transaction });
-      await queryInterface.removeColumn('volunteering_roles', 'programId', { transaction });
+      const roleColumns = [
+        'metadata',
+        'accessRoles',
+        'publishedAt',
+        'imageUrl',
+        'tags',
+        'requirements',
+        'skills',
+        'spots',
+        'remoteType',
+        'applicationDeadline',
+        'applicationUrl',
+        'commitmentHours',
+        'summary',
+        'status',
+        'programId',
+      ];
+      const currentRoleDefinition = await queryInterface.describeTable('volunteering_roles', { transaction });
+      for (const column of roleColumns) {
+        if (Object.prototype.hasOwnProperty.call(currentRoleDefinition, column)) {
+          await queryInterface.removeColumn('volunteering_roles', column, { transaction });
+        }
+      }
 
       await queryInterface.dropTable('volunteer_assignments', { transaction });
       await queryInterface.dropTable('volunteer_shifts', { transaction });
       await queryInterface.dropTable('volunteer_programs', { transaction });
 
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_volunteer_assignments_status"', { transaction });
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_volunteer_shifts_status"', { transaction });
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_volunteering_roles_status"', { transaction });
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_volunteer_programs_status"', { transaction });
+      if (['postgres', 'postgresql'].includes(queryInterface.sequelize.getDialect())) {
+        await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_volunteer_assignments_status"', { transaction });
+        await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_volunteer_shifts_status"', { transaction });
+        await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_volunteering_roles_status"', { transaction });
+        await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_volunteer_programs_status"', { transaction });
+      }
     });
   },
 };

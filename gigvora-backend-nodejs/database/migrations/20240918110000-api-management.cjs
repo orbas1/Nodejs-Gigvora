@@ -1,9 +1,15 @@
 'use strict';
 
+const resolveJsonType = (queryInterface, Sequelize) => {
+  const dialect = queryInterface.sequelize.getDialect();
+  return ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
+};
+
 module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.sequelize.transaction(async (transaction) => {
-      const jsonType = Sequelize.JSONB ?? Sequelize.JSON;
+      const jsonType = resolveJsonType(queryInterface, Sequelize);
+      const timestampDefault = Sequelize.literal('CURRENT_TIMESTAMP');
 
       await queryInterface.createTable(
         'api_providers',
@@ -24,11 +30,18 @@ module.exports = {
           contactEmail: { type: Sequelize.STRING(255), allowNull: true },
           callPriceCents: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
           metadata: { type: jsonType, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
         },
         { transaction },
       );
+
+      await queryInterface.addConstraint('api_providers', {
+        type: 'unique',
+        fields: ['slug'],
+        name: 'api_providers_slug_unique',
+        transaction,
+      });
 
       await queryInterface.createTable(
         'api_clients',
@@ -72,14 +85,25 @@ module.exports = {
           metadata: { type: jsonType, allowNull: true },
           createdBy: { type: Sequelize.STRING(160), allowNull: true },
           lastUsedAt: { type: Sequelize.DATE, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
         },
         { transaction },
       );
 
-      await queryInterface.addIndex('api_clients', ['providerId'], { transaction });
-      await queryInterface.addIndex('api_clients', ['status'], { transaction });
+      await queryInterface.addConstraint('api_clients', {
+        type: 'unique',
+        fields: ['slug'],
+        name: 'api_clients_slug_unique',
+        transaction,
+      });
+
+      await queryInterface.addIndex(
+        'api_clients',
+        ['providerId'],
+        { transaction, name: 'api_clients_provider_idx' },
+      );
+      await queryInterface.addIndex('api_clients', ['status'], { transaction, name: 'api_clients_status_idx' });
 
       await queryInterface.createTable(
         'api_client_keys',
@@ -100,14 +124,14 @@ module.exports = {
           lastRotatedAt: { type: Sequelize.DATE, allowNull: true },
           revokedAt: { type: Sequelize.DATE, allowNull: true },
           metadata: { type: jsonType, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
         },
         { transaction },
       );
 
-      await queryInterface.addIndex('api_client_keys', ['clientId'], { transaction });
-      await queryInterface.addIndex('api_client_keys', ['revokedAt'], { transaction });
+      await queryInterface.addIndex('api_client_keys', ['clientId'], { transaction, name: 'api_client_keys_client_idx' });
+      await queryInterface.addIndex('api_client_keys', ['revokedAt'], { transaction, name: 'api_client_keys_revoked_idx' });
 
       await queryInterface.createTable(
         'api_client_audit_events',
@@ -125,14 +149,20 @@ module.exports = {
           actor: { type: Sequelize.STRING(160), allowNull: true },
           ipAddress: { type: Sequelize.STRING(64), allowNull: true },
           metadata: { type: jsonType, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
         },
         { transaction },
       );
 
-      await queryInterface.addIndex('api_client_audit_events', ['clientId'], { transaction });
-      await queryInterface.addIndex('api_client_audit_events', ['createdAt'], { transaction });
+      await queryInterface.addIndex('api_client_audit_events', ['clientId'], {
+        transaction,
+        name: 'api_client_audit_events_client_idx',
+      });
+      await queryInterface.addIndex('api_client_audit_events', ['createdAt'], {
+        transaction,
+        name: 'api_client_audit_events_created_idx',
+      });
 
       await queryInterface.createTable(
         'api_client_usage_metrics',
@@ -153,8 +183,8 @@ module.exports = {
           lastRequestAt: { type: Sequelize.DATE, allowNull: true },
           billableRequestCount: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
           billedAmountCents: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
         },
         { transaction },
       );
@@ -162,16 +192,25 @@ module.exports = {
       await queryInterface.addIndex(
         'api_client_usage_metrics',
         ['clientId', 'metricDate'],
-        { transaction, unique: true },
+        { transaction, unique: true, name: 'api_client_usage_metrics_client_date_unique' },
       );
     });
   },
 
   async down(queryInterface, Sequelize) {
     await queryInterface.sequelize.transaction(async (transaction) => {
+      await queryInterface.removeIndex('api_client_usage_metrics', 'api_client_usage_metrics_client_date_unique', { transaction });
+      await queryInterface.removeIndex('api_client_audit_events', 'api_client_audit_events_created_idx', { transaction });
+      await queryInterface.removeIndex('api_client_audit_events', 'api_client_audit_events_client_idx', { transaction });
+      await queryInterface.removeIndex('api_client_keys', 'api_client_keys_revoked_idx', { transaction });
+      await queryInterface.removeIndex('api_client_keys', 'api_client_keys_client_idx', { transaction });
+      await queryInterface.removeIndex('api_clients', 'api_clients_status_idx', { transaction });
+      await queryInterface.removeIndex('api_clients', 'api_clients_provider_idx', { transaction });
+      await queryInterface.removeConstraint('api_clients', 'api_clients_slug_unique', { transaction });
       await queryInterface.dropTable('api_client_usage_metrics', { transaction });
       await queryInterface.dropTable('api_client_audit_events', { transaction });
       await queryInterface.dropTable('api_client_keys', { transaction });
+      await queryInterface.removeConstraint('api_providers', 'api_providers_slug_unique', { transaction });
       await queryInterface.dropTable('api_clients', { transaction });
       await queryInterface.dropTable('api_providers', { transaction });
 

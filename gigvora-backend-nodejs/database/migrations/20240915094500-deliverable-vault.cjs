@@ -1,7 +1,11 @@
 'use strict';
 
+const { resolveJsonType, dropEnum, safeRemoveIndex } = require('../utils/migrationHelpers.cjs');
+
 module.exports = {
   async up(queryInterface, Sequelize) {
+    const jsonType = resolveJsonType(queryInterface, Sequelize);
+
     await queryInterface.createTable('deliverable_vaults', {
       id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
       freelancerId: {
@@ -23,7 +27,7 @@ module.exports = {
         defaultValue: 'standard_7_year',
       },
       ndaTemplateUrl: { type: Sequelize.STRING(500), allowNull: true },
-      settings: { type: Sequelize.JSON, allowNull: true },
+      settings: { type: jsonType, allowNull: true },
       isArchived: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false },
       createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
       updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
@@ -68,10 +72,10 @@ module.exports = {
       deliveredAt: { type: Sequelize.DATE, allowNull: true },
       currentVersionId: { type: Sequelize.INTEGER, allowNull: true },
       latestPackageId: { type: Sequelize.INTEGER, allowNull: true },
-      tags: { type: Sequelize.JSON, allowNull: true },
+      tags: { type: jsonType, allowNull: true },
       successSummary: { type: Sequelize.TEXT, allowNull: true },
-      successMetrics: { type: Sequelize.JSON, allowNull: true },
-      metadata: { type: Sequelize.JSON, allowNull: true },
+      successMetrics: { type: jsonType, allowNull: true },
+      metadata: { type: jsonType, allowNull: true },
       isArchived: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false },
       createdById: {
         type: Sequelize.INTEGER,
@@ -114,7 +118,7 @@ module.exports = {
       watermarkApplied: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false },
       notes: { type: Sequelize.TEXT, allowNull: true },
       storageRegion: { type: Sequelize.STRING(60), allowNull: true },
-      metadata: { type: Sequelize.JSON, allowNull: true },
+      metadata: { type: jsonType, allowNull: true },
       createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
       updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
     });
@@ -140,10 +144,10 @@ module.exports = {
       expiresAt: { type: Sequelize.DATE, allowNull: true },
       includesWatermark: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: true },
       deliverySummary: { type: Sequelize.TEXT, allowNull: true },
-      deliveryMetrics: { type: Sequelize.JSON, allowNull: true },
-      ndaSnapshot: { type: Sequelize.JSON, allowNull: true },
+      deliveryMetrics: { type: jsonType, allowNull: true },
+      ndaSnapshot: { type: jsonType, allowNull: true },
       status: { type: Sequelize.STRING(40), allowNull: false, defaultValue: 'active' },
-      metadata: { type: Sequelize.JSON, allowNull: true },
+      metadata: { type: jsonType, allowNull: true },
       createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
       updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
     });
@@ -160,36 +164,34 @@ module.exports = {
   },
 
   async down(queryInterface) {
-    await queryInterface.removeIndex('deliverable_delivery_packages', ['generatedAt']).catch(() => {});
-    await queryInterface.removeIndex('deliverable_delivery_packages', ['itemId']).catch(() => {});
-    await queryInterface.removeIndex('deliverable_versions', ['uploadedById']).catch(() => {});
-    await queryInterface.removeIndex('deliverable_versions', ['itemId', 'versionNumber']).catch(() => {});
-    await queryInterface.removeIndex('deliverable_vault_items', ['retentionPolicy']).catch(() => {});
-    await queryInterface.removeIndex('deliverable_vault_items', ['ndaStatus']).catch(() => {});
-    await queryInterface.removeIndex('deliverable_vault_items', ['status']).catch(() => {});
-    await queryInterface.removeIndex('deliverable_vault_items', ['vaultId']).catch(() => {});
-    await queryInterface.removeIndex('deliverable_vaults', ['freelancerId']).catch(() => {});
+    await queryInterface.sequelize.transaction(async (transaction) => {
+      await safeRemoveIndex(queryInterface, 'deliverable_delivery_packages', ['generatedAt'], { transaction });
+      await safeRemoveIndex(queryInterface, 'deliverable_delivery_packages', ['itemId'], { transaction });
+      await safeRemoveIndex(queryInterface, 'deliverable_versions', ['uploadedById'], { transaction });
+      await safeRemoveIndex(queryInterface, 'deliverable_versions', ['itemId', 'versionNumber'], { transaction });
+      await safeRemoveIndex(queryInterface, 'deliverable_vault_items', ['retentionPolicy'], { transaction });
+      await safeRemoveIndex(queryInterface, 'deliverable_vault_items', ['ndaStatus'], { transaction });
+      await safeRemoveIndex(queryInterface, 'deliverable_vault_items', ['status'], { transaction });
+      await safeRemoveIndex(queryInterface, 'deliverable_vault_items', ['vaultId'], { transaction });
+      await safeRemoveIndex(queryInterface, 'deliverable_vaults', ['freelancerId'], { transaction });
 
-    await queryInterface.dropTable('deliverable_delivery_packages');
-    await queryInterface.dropTable('deliverable_versions');
-    await queryInterface.dropTable('deliverable_vault_items');
-    await queryInterface.dropTable('deliverable_vaults');
+      await queryInterface.dropTable('deliverable_delivery_packages', { transaction });
+      await queryInterface.dropTable('deliverable_versions', { transaction });
+      await queryInterface.dropTable('deliverable_vault_items', { transaction });
+      await queryInterface.dropTable('deliverable_vaults', { transaction });
 
-    await queryInterface.sequelize.query(`DROP TYPE IF EXISTS "enum_deliverable_vaults_watermarkMode";`).catch(() => {});
-    await queryInterface.sequelize
-      .query(`DROP TYPE IF EXISTS "enum_deliverable_vaults_retentionPolicy";`)
-      .catch(() => {});
-    await queryInterface.sequelize
-      .query(`DROP TYPE IF EXISTS "enum_deliverable_vault_items_status";`)
-      .catch(() => {});
-    await queryInterface.sequelize
-      .query(`DROP TYPE IF EXISTS "enum_deliverable_vault_items_ndaStatus";`)
-      .catch(() => {});
-    await queryInterface.sequelize
-      .query(`DROP TYPE IF EXISTS "enum_deliverable_vault_items_watermarkMode";`)
-      .catch(() => {});
-    await queryInterface.sequelize
-      .query(`DROP TYPE IF EXISTS "enum_deliverable_vault_items_retentionPolicy";`)
-      .catch(() => {});
+      const enums = [
+        'enum_deliverable_vaults_watermarkMode',
+        'enum_deliverable_vaults_retentionPolicy',
+        'enum_deliverable_vault_items_status',
+        'enum_deliverable_vault_items_ndaStatus',
+        'enum_deliverable_vault_items_watermarkMode',
+        'enum_deliverable_vault_items_retentionPolicy',
+      ];
+
+      for (const enumName of enums) {
+        await dropEnum(queryInterface, enumName, transaction);
+      }
+    });
   },
 };

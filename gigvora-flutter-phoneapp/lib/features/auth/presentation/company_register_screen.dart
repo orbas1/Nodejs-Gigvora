@@ -179,13 +179,19 @@ class _CompanyRegisterScreenState extends ConsumerState<CompanyRegisterScreen> {
         }
       }
 
+      final profileSlug = workspaceName.isEmpty
+          ? contactName
+          : workspaceName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
+
       controller.login(
         UserSession(
+          id: DateTime.now().millisecondsSinceEpoch,
           name: contactName,
           title: 'Talent Acquisition Lead',
           email: email.isEmpty ? 'partnerships@gigvora.com' : email,
           location: location.isEmpty ? 'Global' : location,
           avatarSeed: contactName,
+          profileId: 'profile-$profileSlug',
           memberships: membershipSet.toList(),
           activeMembership: isCompany ? 'company' : 'agency',
           dashboards: dashboards,
@@ -193,6 +199,7 @@ class _CompanyRegisterScreenState extends ConsumerState<CompanyRegisterScreen> {
           followers: 0,
           companies: isCompany ? [workspaceName] : const <String>[],
           agencies: isCompany ? const <String>[] : [workspaceName],
+          userType: isCompany ? 'company' : 'agency',
         ),
       );
     }

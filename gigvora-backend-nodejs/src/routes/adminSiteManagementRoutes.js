@@ -2,6 +2,7 @@ import { Router } from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
 import validateRequest from '../middleware/validateRequest.js';
 import * as controller from '../controllers/adminSiteManagementController.js';
+import { requireAdmin } from '../middleware/authenticate.js';
 import {
   siteSettingsBodySchema,
   sitePageCreateSchema,
@@ -11,6 +12,8 @@ import {
 } from '../validation/schemas/siteManagementSchemas.js';
 
 const router = Router();
+
+router.use(requireAdmin);
 
 router.get('/', asyncHandler(controller.overview));
 router.put('/settings', validateRequest({ body: siteSettingsBodySchema }), asyncHandler(controller.updateSettings));

@@ -20024,30 +20024,12 @@ ProjectWorkspaceBudgetLine.belongsTo(ProjectWorkspace, {
   foreignKey: { name: 'workspaceId', allowNull: false },
   as: 'workspace',
 });
-ProjectWorkspace.hasMany(ProjectWorkspaceObject, {
-  foreignKey: { name: 'workspaceId', allowNull: false },
-  as: 'objects',
-  onDelete: 'CASCADE',
-});
-ProjectWorkspaceObject.belongsTo(ProjectWorkspace, {
-  foreignKey: { name: 'workspaceId', allowNull: false },
-  as: 'workspace',
-});
 ProjectWorkspace.hasMany(ProjectWorkspaceTimelineEvent, {
   foreignKey: { name: 'workspaceId', allowNull: false },
   as: 'timelineEvents',
   onDelete: 'CASCADE',
 });
 ProjectWorkspaceTimelineEvent.belongsTo(ProjectWorkspace, {
-  foreignKey: { name: 'workspaceId', allowNull: false },
-  as: 'workspace',
-});
-ProjectWorkspace.hasMany(ProjectWorkspaceMeeting, {
-  foreignKey: { name: 'workspaceId', allowNull: false },
-  as: 'meetings',
-  onDelete: 'CASCADE',
-});
-ProjectWorkspaceMeeting.belongsTo(ProjectWorkspace, {
   foreignKey: { name: 'workspaceId', allowNull: false },
   as: 'workspace',
 });
@@ -23086,6 +23068,16 @@ domainRegistry.registerContext({
       /^Deliverable/.test(modelName),
   ],
   metadata: domainMetadata.marketplace,
+});
+
+domainRegistry.registerContext({
+  name: 'volunteering',
+  displayName: 'Volunteering & Social Impact',
+  description: 'Volunteer programmes, workspace placements, contract management, and spend oversight.',
+  include: [
+    (modelName) => /^Volunteering/.test(modelName) || /^Volunteer/.test(modelName),
+  ],
+  metadata: domainMetadata.volunteering,
 });
 
 domainRegistry.registerContext({

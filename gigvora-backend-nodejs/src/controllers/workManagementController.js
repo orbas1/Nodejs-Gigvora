@@ -9,6 +9,7 @@ import {
   createChangeRequest,
   approveChangeRequest,
 } from '../services/workManagementService.js';
+import { resolveRequestUserId } from '../utils/requestContext.js';
 
 function parseNumeric(value) {
   if (value == null || value === '') {
@@ -16,6 +17,14 @@ function parseNumeric(value) {
   }
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function resolveActorContext(req, providedActorId) {
+  const resolvedId = parseNumeric(providedActorId) ?? resolveRequestUserId(req) ?? req.user?.id ?? null;
+  const actorRoles = Array.isArray(req.user?.roles)
+    ? req.user.roles.map((role) => `${role}`.trim().toLowerCase()).filter(Boolean)
+    : [];
+  return { actorId: resolvedId, actorRoles };
 }
 
 export async function overview(req, res) {
@@ -27,69 +36,84 @@ export async function overview(req, res) {
 export async function storeSprint(req, res) {
   const { projectId } = req.params;
   const payload = req.body ?? {};
-  const actorId = parseNumeric(payload.actorId);
-  const sprint = await createSprint(parseNumeric(projectId), payload, { actorId });
+  const sprint = await createSprint(parseNumeric(projectId), payload, resolveActorContext(req, payload.actorId));
   res.status(201).json(sprint);
 }
 
 export async function storeTask(req, res) {
   const { projectId, sprintId } = req.params;
   const payload = req.body ?? {};
-  const actorId = parseNumeric(payload.actorId);
   const enrichedPayload = sprintId ? { ...payload, sprintId: parseNumeric(sprintId) } : payload;
-  const task = await createSprintTask(parseNumeric(projectId), enrichedPayload, { actorId });
+  const task = await createSprintTask(
+    parseNumeric(projectId),
+    enrichedPayload,
+    resolveActorContext(req, payload.actorId),
+  );
   res.status(201).json(task);
 }
 
 export async function updateTask(req, res) {
   const { projectId, taskId } = req.params;
   const payload = req.body ?? {};
-  const actorId = parseNumeric(payload.actorId);
-  const task = await updateSprintTask(parseNumeric(projectId), parseNumeric(taskId), payload, { actorId });
+  const task = await updateSprintTask(
+    parseNumeric(projectId),
+    parseNumeric(taskId),
+    payload,
+    resolveActorContext(req, payload.actorId),
+  );
   res.json(task);
 }
 
 export async function logTime(req, res) {
   const { projectId, taskId } = req.params;
   const payload = req.body ?? {};
-  const actorId = parseNumeric(payload.actorId);
-  const result = await logTaskTime(parseNumeric(projectId), parseNumeric(taskId), payload, { actorId });
+  const result = await logTaskTime(
+    parseNumeric(projectId),
+    parseNumeric(taskId),
+    payload,
+    resolveActorContext(req, payload.actorId),
+  );
   res.status(201).json(result);
 }
 
 export async function storeRisk(req, res) {
   const { projectId } = req.params;
   const payload = req.body ?? {};
-  const actorId = parseNumeric(payload.actorId);
-  const risk = await createRisk(parseNumeric(projectId), payload, { actorId });
+  const risk = await createRisk(parseNumeric(projectId), payload, resolveActorContext(req, payload.actorId));
   res.status(201).json(risk);
 }
 
 export async function modifyRisk(req, res) {
   const { projectId, riskId } = req.params;
   const payload = req.body ?? {};
-  const actorId = parseNumeric(payload.actorId);
-  const risk = await updateRisk(parseNumeric(projectId), parseNumeric(riskId), payload, { actorId });
+  const risk = await updateRisk(
+    parseNumeric(projectId),
+    parseNumeric(riskId),
+    payload,
+    resolveActorContext(req, payload.actorId),
+  );
   res.json(risk);
 }
 
 export async function storeChangeRequest(req, res) {
   const { projectId } = req.params;
   const payload = req.body ?? {};
-  const actorId = parseNumeric(payload.actorId);
-  const change = await createChangeRequest(parseNumeric(projectId), payload, { actorId });
+  const change = await createChangeRequest(
+    parseNumeric(projectId),
+    payload,
+    resolveActorContext(req, payload.actorId),
+  );
   res.status(201).json(change);
 }
 
 export async function approveChange(req, res) {
   const { projectId, changeRequestId } = req.params;
   const payload = req.body ?? {};
-  const actorId = parseNumeric(payload.actorId);
   const change = await approveChangeRequest(
     parseNumeric(projectId),
     parseNumeric(changeRequestId),
     payload,
-    { actorId },
+    resolveActorContext(req, payload.actorId),
   );
   res.json(change);
 }

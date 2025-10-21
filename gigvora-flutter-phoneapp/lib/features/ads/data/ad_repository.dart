@@ -14,7 +14,7 @@ class AdRepository {
     required String surface,
     bool forceRefresh = false,
   }) async {
-    final normalizedSurface = surface.isNotEmpty ? surface : 'global_dashboard';
+    final normalizedSurface = surface.trim().isNotEmpty ? surface.trim() : 'global_dashboard';
     final cacheKey = 'ads:placements:$normalizedSurface';
 
     final cached = _cache.read<List<AdPlacement>>(cacheKey, (raw) {
@@ -40,9 +40,15 @@ class AdRepository {
     }
 
     try {
-      final response = await _apiClient.get('/ads/placements', query: {
-        'surface': normalizedSurface,
-      });
+      final response = await _apiClient.get(
+        '/ads/placements',
+        query: {
+          'surface': normalizedSurface,
+        },
+        headers: const {
+          'x-user-type': 'admin',
+        },
+      );
       if (response is! Map<String, dynamic>) {
         throw Exception('Unexpected ad placement payload');
       }

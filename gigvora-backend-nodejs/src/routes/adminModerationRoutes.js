@@ -2,6 +2,7 @@ import { Router } from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
 import validateRequest from '../middleware/validateRequest.js';
 import * as controller from '../controllers/adminModerationController.js';
+import { requireAdmin } from '../middleware/authenticate.js';
 import {
   adminModerationQueueQuerySchema,
   adminModerationEventsQuerySchema,
@@ -9,6 +10,8 @@ import {
 } from '../validation/schemas/adminModerationSchemas.js';
 
 const router = Router();
+
+router.use(requireAdmin);
 
 router.get('/overview', asyncHandler(controller.overview));
 router.get(

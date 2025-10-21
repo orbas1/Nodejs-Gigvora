@@ -62,13 +62,23 @@ class AdCouponStrip extends ConsumerWidget {
     return placements
         .expand((placement) {
           final creative = placement.creative;
-          return placement.coupons.map(
-            (coupon) => _AdOffer(
+          final creativeHeadline = _valueOrNull(creative?.headline);
+          final creativeSubheadline = _valueOrNull(creative?.subheadline);
+          final creativeCta = _valueOrNull(creative?.callToAction);
+          final creativeCtaUrl = _valueOrNull(creative?.ctaUrl);
+
+          return placement.coupons.map((coupon) {
+            final couponHeadline = creativeHeadline ?? _valueOrNull(coupon.name) ?? placement.surface;
+            final description =
+                _valueOrNull(coupon.description) ?? creativeSubheadline ?? _valueOrNull(placement.position) ?? '';
+            final cta = creativeCta ?? 'Redeem now';
+            final ctaUrl = _sanitizeUrl(creativeCtaUrl ?? coupon.termsUrl);
+            final termsUrl = _sanitizeUrl(coupon.termsUrl);
+
+            return _AdOffer(
               code: coupon.code,
-              headline: creative?.headline.isNotEmpty == true ? creative!.headline : coupon.name,
-              description: creative?.subheadline.isNotEmpty == true
-                  ? creative!.subheadline
-                  : coupon.description,
+              headline: couponHeadline.isNotEmpty ? couponHeadline : placement.surface,
+              description: description,
               discountLabel: _formatDiscount(coupon),
               lifecycleStatus: coupon.lifecycleStatus,
               isActive: coupon.isActive,
@@ -76,15 +86,11 @@ class AdCouponStrip extends ConsumerWidget {
               position: placement.position,
               startAt: coupon.startAt ?? placement.startAt,
               endAt: coupon.endAt ?? placement.endAt,
-              callToAction: creative?.callToAction.isNotEmpty == true
-                  ? creative!.callToAction
-                  : 'Redeem now',
-              ctaUrl: creative?.ctaUrl.isNotEmpty == true
-                  ? creative!.ctaUrl
-                  : coupon.termsUrl ?? '',
-              termsUrl: coupon.termsUrl,
-            ),
-          );
+              callToAction: cta,
+              ctaUrl: ctaUrl,
+              termsUrl: termsUrl.isEmpty ? null : termsUrl,
+            );
+          });
         })
         .where((offer) => offer.code.isNotEmpty)
         .toList()
@@ -104,6 +110,38 @@ class AdCouponStrip extends ConsumerWidget {
       return 'Save ' + String.fromCharCode(36) + coupon.discountValue.toStringAsFixed(0);
     }
     return 'Save ${coupon.discountValue.toStringAsFixed(0)}%';
+  }
+
+  String? _valueOrNull(String? value) {
+    if (value == null) {
+      return null;
+    }
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  String _sanitizeUrl(String? url) {
+    if (url == null) {
+      return '';
+    }
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) {
+      return '';
+    }
+    Uri? parsed = Uri.tryParse(trimmed);
+    if (parsed == null) {
+      return '';
+    }
+    if (!parsed.hasScheme) {
+      parsed = Uri.tryParse('https://$trimmed');
+    }
+    if (parsed == null) {
+      return '';
+    }
+    if (parsed.scheme != 'https' && parsed.scheme != 'http') {
+      return '';
+    }
+    return parsed.toString();
   }
 }
 
