@@ -1,4 +1,4 @@
-process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'false';
+process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'true';
 process.env.LOG_LEVEL = 'silent';
 process.env.JWT_SECRET = 'test-admin-secret';
 
@@ -7,7 +7,7 @@ import jwt from 'jsonwebtoken';
 
 import '../setupTestEnv.js';
 
-import { RbacPolicyAuditEvent } from '../../src/models/index.js';
+import { RbacPolicyAuditEvent } from '../../src/models/rbacPolicyAuditEvent.js';
 
 let app;
 
@@ -27,13 +27,13 @@ beforeAll(async () => {
   const expressModule = await import('express');
   const { default: correlationId } = await import('../../src/middleware/correlationId.js');
   const { default: errorHandler } = await import('../../src/middleware/errorHandler.js');
-  const { default: adminRoutes } = await import('../../src/routes/adminRoutes.js');
+  const { default: adminRbacRoutes } = await import('../../src/routes/adminRbacRoutes.js');
 
   const express = expressModule.default;
   app = express();
   app.use(express.json());
   app.use(correlationId());
-  app.use('/api/admin', adminRoutes);
+  app.use('/api/admin/governance/rbac', adminRbacRoutes);
   app.use(errorHandler);
 });
 

@@ -47,11 +47,13 @@ async function loadCoreModels() {
   if (process.env.SKIP_SEQUELIZE_BOOTSTRAP === 'true') {
     if (minimalAdminBootstrap) {
       await import('../src/models/adminManagementModels.js');
+      await import('../src/models/rbacPolicyAuditEvent.js');
     } else {
       await import('../src/models/messagingModels.js');
       await import('../src/models/moderationModels.js');
       await import('../src/models/liveServiceTelemetryModels.js');
       await import('../src/models/adminManagementModels.js');
+      await import('../src/models/rbacPolicyAuditEvent.js');
     }
     modelsLoaded = true;
     return;
@@ -65,6 +67,7 @@ async function loadCoreModels() {
       console.warn('[tests] Falling back to targeted model bootstrap due to syntax error in aggregated model index.');
       if (minimalAdminBootstrap) {
         await import('../src/models/adminManagementModels.js');
+        await import('../src/models/rbacPolicyAuditEvent.js');
       } else {
         await Promise.all([
           import('../src/models/messagingModels.js'),
@@ -72,6 +75,7 @@ async function loadCoreModels() {
           import('../src/models/liveServiceTelemetryModels.js'),
           import('../src/models/adminManagementModels.js'),
         ]);
+        await import('../src/models/rbacPolicyAuditEvent.js');
       }
       modelsLoaded = true;
       return;
