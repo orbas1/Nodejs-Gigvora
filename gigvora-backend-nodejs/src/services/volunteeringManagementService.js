@@ -1410,7 +1410,7 @@ export async function upsertVolunteerContract(userId, applicationId, payload = {
 
 export async function recordVolunteerSpend(userId, applicationId, payload = {}) {
   const normalizedUserId = normalizeUserId(userId);
-  const { amount, currencyCode = 'USD', category, description, incurredAt, metadata } = payload;
+  const { amount, currencyCode = 'USD', category = 'other', description, incurredAt, metadata } = payload;
 
   return sequelize.transaction(async (transaction) => {
     const application = await findApplicationOrThrow(normalizedUserId, applicationId, transaction);
@@ -1623,6 +1623,7 @@ export default {
   deleteVolunteerResponse,
   upsertVolunteerContract,
   recordVolunteerSpend,
+  updateVolunteerSpend,
   deleteVolunteerSpend,
   createVolunteerReview,
   updateVolunteerReview,
