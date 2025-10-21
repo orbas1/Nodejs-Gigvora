@@ -271,8 +271,9 @@ function SecurityCard({ governance, alerts }) {
 export default function CompanyAnalyticsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const session = useSession();
-  const { isAuthenticated, memberships = [] } = session;
+  const sessionContext = useSession();
+  const { session, isAuthenticated } = sessionContext ?? {};
+  const memberships = session?.memberships ?? [];
   const isCompanyMember = memberships.includes('company');
 
   const workspaceIdParam = searchParams.get('workspaceId');
