@@ -15,6 +15,11 @@ import SupportDeskPanel from '../../components/support/SupportDeskPanel.jsx';
 import UserProjectsWorkspace from './user/projects/UserProjectsWorkspace.jsx';
 import UserProjectWorkspaceSection from '../../components/dashboard/client/UserProjectWorkspaceSection.jsx';
 import UserGigWorkspaceSection from '../../components/dashboard/client/UserGigWorkspaceSection.jsx';
+import UserOrdersSection from '../../components/dashboard/client/UserOrdersSection.jsx';
+import UserLaunchpadJobsSection from '../../components/dashboard/client/UserLaunchpadJobsSection.jsx';
+import UserVolunteerJobsSection from '../../components/dashboard/client/UserVolunteerJobsSection.jsx';
+import UserSettingsSection from '../../components/dashboard/client/UserSettingsSection.jsx';
+import UserSystemPreferencesSection from '../../components/dashboard/client/UserSystemPreferencesSection.jsx';
 import UserInboxSection from '../../components/dashboard/client/UserInboxSection.jsx';
 import UserWalletSection from '../../components/dashboard/client/UserWalletSection.jsx';
 import UserHubSection from '../../components/dashboard/client/UserHubSection.jsx';
@@ -81,6 +86,12 @@ const MENU_SECTIONS = [
         sectionId: 'client-gig-workspace',
       },
       {
+        id: 'client-orders',
+        name: 'Orders',
+        description: 'Status changes, notes, and delivery history.',
+        sectionId: 'user-orders',
+      },
+      {
         id: 'client-inbox',
         name: 'Inbox',
         description: 'Conversations, saved replies, and routing rules.',
@@ -91,6 +102,24 @@ const MENU_SECTIONS = [
         name: 'Wallet',
         description: 'Treasury automation, ledgers, and payouts.',
         sectionId: 'client-wallet',
+      },
+    ],
+  },
+  {
+    id: 'talent-programmes',
+    label: 'Programmes',
+    items: [
+      {
+        id: 'experience-launchpad-jobs',
+        name: 'Launchpad jobs',
+        description: 'Eligibility scoring, interview readiness, and cohort submissions.',
+        sectionId: 'user-launchpad-jobs',
+      },
+      {
+        id: 'volunteer-jobs',
+        name: 'Volunteer jobs',
+        description: 'Applications, responses, contracts, and spend tracking.',
+        sectionId: 'user-volunteer-jobs',
       },
     ],
   },
@@ -133,6 +162,24 @@ const MENU_SECTIONS = [
         name: 'Metrics',
         description: 'Delivery signals, health metrics, and activity.',
         sectionId: 'client-metrics',
+      },
+    ],
+  },
+  {
+    id: 'client-settings',
+    label: 'Settings',
+    items: [
+      {
+        id: 'user-settings',
+        name: 'Settings',
+        description: 'Account controls, notifications, and AI concierge.',
+        sectionId: 'user-settings',
+      },
+      {
+        id: 'user-system-preferences',
+        name: 'System preferences',
+        description: 'Website themes, hero content, and social presence.',
+        sectionId: 'user-system-preferences',
       },
     ],
   },
@@ -213,6 +260,10 @@ function UserDashboardPage() {
   const supportDeskSnapshot = data?.insights?.supportDesk ?? null;
   const communityManagement = data?.communityManagement ?? null;
   const websitePreferences = data?.websitePreferences ?? null;
+  const launchpad = data?.launchpad ?? null;
+  const volunteeringManagement = data?.volunteeringManagement ?? null;
+  const notificationPreferences = data?.notifications?.preferences ?? null;
+  const weeklyDigest = data?.insights?.weeklyDigest ?? null;
 
   const quickActionContext = useMemo(() => {
     const projects = normalizeArray(projectGigManagement.projects ?? projectGigManagement.workspaces);
@@ -362,6 +413,8 @@ function UserDashboardPage() {
 
           <UserGigWorkspaceSection userId={userId} initialWorkspace={projectGigManagement} />
 
+          <UserOrdersSection userId={userId} initialWorkspace={projectGigManagement} />
+
           <UserInboxSection userId={userId} />
 
           <section id="escrow-management" className="space-y-6">
@@ -389,6 +442,10 @@ function UserDashboardPage() {
             onRefresh={refresh}
           />
 
+          <UserLaunchpadJobsSection applications={launchpad?.applications ?? []} onRefresh={refresh} />
+
+          <UserVolunteerJobsSection userId={userId} data={volunteeringManagement} onRefresh={refresh} />
+
           <UserMetricsSection
             metrics={data?.metrics ?? {}}
             quickMetrics={quickActionMetrics}
@@ -399,6 +456,19 @@ function UserDashboardPage() {
             lastUpdated={lastUpdated}
             fromCache={fromCache}
             onRefresh={refresh}
+          />
+
+          <UserSettingsSection
+            userId={userId}
+            session={session}
+            initialNotificationPreferences={notificationPreferences}
+            weeklyDigest={weeklyDigest}
+          />
+
+          <UserSystemPreferencesSection
+            userId={userId}
+            preferences={websitePreferences}
+            onUpdated={refresh}
           />
 
           <section id="mentors-booked" className="space-y-6">
