@@ -22,6 +22,22 @@ export function formatDate(value) {
   return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString();
 }
 
+export function formatRating(value) {
+  if (value == null || value === '') {
+    return '—';
+  }
+
+  const numeric = Number.parseFloat(value);
+  if (!Number.isFinite(numeric)) {
+    return '—';
+  }
+
+  return new Intl.NumberFormat('en-GB', {
+    minimumFractionDigits: numeric % 1 === 0 ? 0 : 1,
+    maximumFractionDigits: 1,
+  }).format(numeric);
+}
+
 export function formatDateInput(value) {
   if (!value) return '';
   const date = new Date(value);
@@ -39,6 +55,19 @@ export function formatTimeAgo(value) {
 export function optionLabelFor(value, options) {
   const match = options.find((option) => option.value === value);
   return match ? match.label : value;
+}
+
+export function humanizeCategory(value, fallback = 'Uncategorised') {
+  if (!value || typeof value !== 'string') {
+    return fallback;
+  }
+
+  return value
+    .split('_')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
 }
 
 export function safeNumber(value) {
