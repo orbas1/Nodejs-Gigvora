@@ -6,6 +6,9 @@ import AdminInboxFilters from '../AdminInboxFilters.jsx';
 import AdminInboxLabelManager from '../AdminInboxLabelManager.jsx';
 import AdminInboxStats from '../AdminInboxStats.jsx';
 import AdminInboxQueueSnapshot from '../AdminInboxQueueSnapshot.jsx';
+import AdminInboxThreadList from '../AdminInboxThreadList.jsx';
+import AdminInboxThreadDetail from '../AdminInboxThreadDetail.jsx';
+import AdminInboxToolbar from '../AdminInboxToolbar.jsx';
 import {
   fetchAdminInbox,
   updateAdminThreadState,
@@ -20,6 +23,11 @@ vi.mock('../../../../services/adminMessaging.js', () => ({
   escalateAdminThread: vi.fn(),
   createAdminThread: vi.fn(),
   listSupportAgents: vi.fn(),
+}));
+
+vi.mock('../../messaging/ConversationMessage.jsx', () => ({
+  __esModule: true,
+  default: ({ message }) => <div data-testid={`message-${message.id}`}>{message.body}</div>,
 }));
 
 async function runInAct(callback) {
@@ -39,18 +47,20 @@ describe('Admin inbox components', () => {
     );
 
     const participantsInput = screen.getByLabelText(/participants/i);
-    await user.type(participantsInput, '101, 101, abc, 202');
+    await runInAct(() => user.type(participantsInput, '101, 101, abc, 202'));
     const metadataInput = screen.getByLabelText(/metadata/i);
-    await user.type(metadataInput, '{{invalid');
-    await user.click(screen.getByRole('button', { name: /create/i }));
+    await runInAct(() => user.type(metadataInput, '{{invalid'));
+    await runInAct(() => user.click(screen.getByRole('button', { name: /create/i })));
 
     expect(await screen.findByText(/metadata must be valid json/i)).toBeInTheDocument();
     expect(onCreate).not.toHaveBeenCalled();
 
-    await user.clear(metadataInput);
-    fireEvent.change(metadataInput, { target: { value: JSON.stringify({ priority: 'urgent' }) } });
-    await user.type(screen.getByLabelText(/subject/i), '  Escalation  ');
-    await user.click(screen.getByRole('button', { name: /create/i }));
+    await runInAct(() => user.clear(metadataInput));
+    await act(async () => {
+      fireEvent.change(metadataInput, { target: { value: JSON.stringify({ priority: 'urgent' }) } });
+    });
+    await runInAct(() => user.type(screen.getByLabelText(/subject/i), '  Escalation  '));
+    await runInAct(() => user.click(screen.getByRole('button', { name: /create/i })));
 
     await waitFor(() => expect(onCreate).toHaveBeenCalled());
     const payload = onCreate.mock.calls[0][0];
@@ -92,18 +102,18 @@ describe('Admin inbox components', () => {
     render(<Harness />);
 
     const channelSection = screen.getByText(/channel/i).closest('div');
-    await user.click(within(channelSection).getByRole('button', { name: /support/i }));
+    await runInAct(() => user.click(within(channelSection).getByRole('button', { name: /support/i })));
     expect(latest.current.channelTypes).toContain('support');
 
     const stateSection = screen.getByText(/state/i).closest('div');
-    await user.click(within(stateSection).getByRole('button', { name: /active/i }));
+    await runInAct(() => user.click(within(stateSection).getByRole('button', { name: /active/i })));
     expect(latest.current.states).toContain('active');
 
-    await user.click(screen.getByRole('button', { name: /more/i }));
-    await user.click(screen.getByRole('button', { name: 'VIP' }));
+    await runInAct(() => user.click(screen.getByRole('button', { name: /more/i })));
+    await runInAct(() => user.click(screen.getByRole('button', { name: 'VIP' })));
     expect(latest.current.labelIds).toContain('1');
 
-    await user.click(screen.getByRole('button', { name: /reset/i }));
+    await runInAct(() => user.click(screen.getByRole('button', { name: /reset/i })));
     expect(latest.current).toEqual({ channelTypes: [], states: [], labelIds: [] });
   });
 
@@ -122,16 +132,16 @@ describe('Admin inbox components', () => {
       />,
     );
 
-    await user.type(screen.getByLabelText(/name/i), 'VIP customers');
-    await user.click(screen.getByRole('button', { name: /create/i }));
+    await runInAct(() => user.type(screen.getByLabelText(/name/i), 'VIP customers'));
+    await runInAct(() => user.click(screen.getByRole('button', { name: /create/i })));
     await waitFor(() => expect(onCreate).toHaveBeenCalled());
     expect(onCreate.mock.calls[0][0]).toMatchObject({ name: 'VIP customers' });
     await waitFor(() => expect(screen.getByLabelText(/name/i)).toHaveValue(''));
 
-    await user.click(screen.getByRole('button', { name: /edit/i }));
-    await user.clear(screen.getByLabelText(/name/i));
-    await user.type(screen.getByLabelText(/name/i), 'Support tier 1');
-    await user.click(screen.getByRole('button', { name: /update/i }));
+    await runInAct(() => user.click(screen.getByRole('button', { name: /edit/i })));
+    await runInAct(() => user.clear(screen.getByLabelText(/name/i)));
+    await runInAct(() => user.type(screen.getByLabelText(/name/i), 'Support tier 1'));
+    await runInAct(() => user.click(screen.getByRole('button', { name: /update/i })));
     await waitFor(() => expect(onUpdate).toHaveBeenCalledWith(1, expect.objectContaining({ name: 'Support tier 1' })));
   });
 
@@ -227,5 +237,183 @@ describe('Admin inbox components', () => {
       subject: 'Onboarding',
     });
     await waitFor(() => expect(onThreadCreated).toHaveBeenCalledWith(expect.objectContaining({ id: 303 })));
+  });
+
+  it('renders thread list and reacts to user input', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    const onRefresh = vi.fn();
+    const onLoadMore = vi.fn();
+
+    render(
+      <AdminInboxThreadList
+        actorId="admin-1"
+        threads={[
+          {
+            id: 1,
+            subject: 'Hiring sync',
+            channelType: 'support',
+            lastMessagePreview: 'Review portfolio',
+            lastMessageAt: new Date('2024-03-01T10:00:00Z').toISOString(),
+            unreadCount: 2,
+            supportCase: { status: 'in_progress', priority: 'high' },
+            labels: [{ id: '1', name: 'VIP', color: '#2563eb' }],
+          },
+          {
+            id: 2,
+            subject: 'Onboarding follow-up',
+            channelType: 'announcements',
+            lastMessagePreview: 'Sent agenda',
+            lastMessageAt: new Date('2024-03-02T08:00:00Z').toISOString(),
+            unreadCount: 0,
+          },
+        ]}
+        selectedThreadId={2}
+        onSelect={onSelect}
+        loading={false}
+        error={null}
+        onRefresh={onRefresh}
+        pagination={{ page: 1, totalPages: 2 }}
+        onLoadMore={onLoadMore}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /refresh/i }));
+    expect(onRefresh).toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: /hiring sync/i }));
+    expect(onSelect).toHaveBeenCalledWith(1);
+
+    await user.click(screen.getByRole('button', { name: /load more/i }));
+    expect(onLoadMore).toHaveBeenCalled();
+  });
+
+  it('surfaces toolbar actions', async () => {
+    const user = userEvent.setup();
+    const callbacks = {
+      onOpenFilters: vi.fn(),
+      onOpenLabels: vi.fn(),
+      onNewThread: vi.fn(),
+      onRefresh: vi.fn(),
+    };
+
+    render(<AdminInboxToolbar {...callbacks} syncing={false} />);
+
+    await user.click(screen.getByRole('button', { name: /refresh/i }));
+    await user.click(screen.getByRole('button', { name: /filters/i }));
+    await user.click(screen.getByRole('button', { name: /labels/i }));
+    await user.click(screen.getByRole('button', { name: /new/i }));
+
+    expect(callbacks.onRefresh).toHaveBeenCalled();
+    expect(callbacks.onOpenFilters).toHaveBeenCalled();
+    expect(callbacks.onOpenLabels).toHaveBeenCalled();
+    expect(callbacks.onNewThread).toHaveBeenCalled();
+  });
+
+  it('manages thread details workflows', async () => {
+    const user = userEvent.setup();
+    const onUpdateState = vi.fn();
+    const onAssign = vi.fn();
+    const onUpdateSupport = vi.fn();
+    const onEscalate = vi.fn();
+    const onSendMessage = vi.fn();
+    const onSetLabels = vi.fn();
+    const onOpenNewWindow = vi.fn();
+    const onExpand = vi.fn();
+
+    const thread = {
+      id: 42,
+      subject: 'Enterprise onboarding',
+      channelType: 'support',
+      createdAt: new Date('2024-01-01T00:00:00Z').toISOString(),
+      lastMessageAt: new Date('2024-01-01T01:00:00Z').toISOString(),
+      state: 'active',
+      supportCase: { status: 'triage', priority: 'medium', assignedTo: 'a-1' },
+      labels: [{ id: '1', name: 'VIP', color: '#2563eb' }],
+    };
+
+    function Harness({ onSendMessage: handleSendMessage, ...rest }) {
+      const [composer, setComposer] = useState('');
+      return (
+        <AdminInboxThreadDetail
+          {...rest}
+          composer={composer}
+          onComposerChange={setComposer}
+          onSendMessage={() => {
+            handleSendMessage(composer);
+            setComposer('');
+          }}
+        />
+      );
+    }
+
+    render(
+      <Harness
+        actorId="admin-1"
+        thread={thread}
+        messages={[{ id: 'm-1', body: 'Welcome aboard!' }]}
+        loading={false}
+        error={null}
+        sending={false}
+        onUpdateState={onUpdateState}
+        onAssign={onAssign}
+        assigning={false}
+        agents={[{ id: 'a-2', firstName: 'Jamie', lastName: 'Lee' }]}
+        onUpdateSupport={onUpdateSupport}
+        updatingSupport={false}
+        onEscalate={onEscalate}
+        escalating={false}
+        labels={[{ id: '1', name: 'VIP', color: '#2563eb' }]}
+        onSetLabels={onSetLabels}
+        updatingLabels={false}
+        onOpenNewWindow={onOpenNewWindow}
+        onExpand={onExpand}
+        onSendMessage={onSendMessage}
+      />,
+    );
+
+    await runInAct(() => user.click(screen.getByRole('button', { name: /window/i })));
+    expect(onOpenNewWindow).toHaveBeenCalledWith(42);
+
+    await runInAct(() => user.click(screen.getByRole('button', { name: /expand/i })));
+    expect(onExpand).toHaveBeenCalled();
+
+    const stateSection = screen.getByRole('heading', { name: /thread state/i }).closest('section');
+    await runInAct(() => user.selectOptions(within(stateSection).getByRole('combobox'), 'archived'));
+    await runInAct(() => user.click(within(stateSection).getByRole('button', { name: /update/i })));
+    expect(onUpdateState).toHaveBeenCalledWith('archived');
+
+    const assignmentSection = screen.getByRole('heading', { name: /assignment/i }).closest('section');
+    await runInAct(() => user.selectOptions(within(assignmentSection).getByRole('combobox'), 'a-2'));
+    await runInAct(() => user.click(within(assignmentSection).getByRole('button', { name: /assign/i })));
+    expect(onAssign).toHaveBeenCalledWith({ agentId: 'a-2', notifyAgent: true });
+
+    const supportSection = screen.getByRole('heading', { name: /support case/i }).closest('section');
+    const [statusSelect, prioritySelect] = within(supportSection).getAllByRole('combobox');
+    await runInAct(() => user.selectOptions(statusSelect, 'resolved'));
+    await runInAct(() => user.selectOptions(prioritySelect, 'high'));
+    const notesArea = within(supportSection).getByPlaceholderText(/notes/i);
+    await runInAct(() => user.type(notesArea, 'Issue resolved'));
+    await runInAct(() => user.click(within(supportSection).getByRole('button', { name: /save/i })));
+    expect(onUpdateSupport).toHaveBeenCalledWith({
+      status: 'resolved',
+      metadata: { priority: 'high' },
+      resolutionSummary: 'Issue resolved',
+    });
+
+    const escalateSection = screen.getByRole('heading', { name: /escalation/i }).closest('section');
+    await runInAct(() => user.type(within(escalateSection).getByPlaceholderText(/reason/i), 'Needs audit'));
+    await runInAct(() => user.selectOptions(within(escalateSection).getByRole('combobox'), 'urgent'));
+    await runInAct(() => user.click(within(escalateSection).getByRole('button', { name: /escalate/i })));
+    expect(onEscalate).toHaveBeenCalledWith({ reason: 'Needs audit', priority: 'urgent' });
+
+    const labelsSection = screen.getByRole('heading', { name: /^labels$/i }).closest('section');
+    await runInAct(() => user.click(within(labelsSection).getByRole('button', { name: /vip/i })));
+    expect(onSetLabels).toHaveBeenCalledWith([]);
+
+    const composer = screen.getByPlaceholderText(/reply/i);
+    await runInAct(() => user.type(composer, 'Thanks for the update'));
+    await runInAct(() => user.click(screen.getByRole('button', { name: /^send$/i })));
+    expect(onSendMessage).toHaveBeenCalledWith('Thanks for the update');
   });
 });
