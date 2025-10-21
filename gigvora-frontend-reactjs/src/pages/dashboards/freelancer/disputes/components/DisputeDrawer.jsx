@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 
 const INITIAL_FORM = {
   notes: '',
@@ -56,14 +57,7 @@ function Badge({ tone, children }) {
   );
 }
 
-export default function DisputeDrawer({
-  open,
-  detail,
-  loading,
-  error,
-  onClose,
-  onSubmit,
-}) {
+export default function DisputeDrawer({ open, detail, loading, error, onClose, onSubmit }) {
   const dispute = detail?.dispute ?? null;
   const events = detail?.events ?? [];
   const resolutionOptions = detail?.resolutionOptions ?? [];
@@ -419,3 +413,59 @@ export default function DisputeDrawer({
     </div>
   );
 }
+
+DisputeDrawer.propTypes = {
+  open: PropTypes.bool,
+  detail: PropTypes.shape({
+    dispute: PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      summary: PropTypes.string,
+      stage: PropTypes.string,
+      status: PropTypes.string,
+      priority: PropTypes.string,
+      createdAt: PropTypes.string,
+      updatedAt: PropTypes.string,
+      customerDeadlineAt: PropTypes.string,
+      providerDeadlineAt: PropTypes.string,
+      transaction: PropTypes.shape({
+        id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+        reference: PropTypes.string,
+        amount: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+        currencyCode: PropTypes.string,
+      }),
+    }),
+    events: PropTypes.arrayOf(
+      PropTypes.shape({
+        id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+        actionType: PropTypes.string.isRequired,
+        actorType: PropTypes.string,
+        eventAt: PropTypes.string,
+        notes: PropTypes.string,
+        evidenceUrl: PropTypes.string,
+        evidenceFileName: PropTypes.string,
+      }),
+    ),
+    resolutionOptions: PropTypes.arrayOf(
+      PropTypes.shape({
+        value: PropTypes.string.isRequired,
+        label: PropTypes.string.isRequired,
+      }),
+    ),
+    availableStages: PropTypes.arrayOf(PropTypes.string),
+    availableStatuses: PropTypes.arrayOf(PropTypes.string),
+    availableActionTypes: PropTypes.arrayOf(PropTypes.string),
+  }),
+  loading: PropTypes.bool,
+  error: PropTypes.instanceOf(Error),
+  onClose: PropTypes.func,
+  onSubmit: PropTypes.func,
+};
+
+DisputeDrawer.defaultProps = {
+  open: false,
+  detail: null,
+  loading: false,
+  error: null,
+  onClose: () => {},
+  onSubmit: () => Promise.resolve(),
+};

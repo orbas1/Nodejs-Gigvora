@@ -1,4 +1,5 @@
 import { Fragment } from 'react';
+import PropTypes from 'prop-types';
 import { Dialog, Transition } from '@headlessui/react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
@@ -76,3 +77,19 @@ export default function HighlightDetailDialog({ open, onClose, highlight }) {
     </Transition.Root>
   );
 }
+
+HighlightDetailDialog.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  highlight: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    title: PropTypes.string,
+    summary: PropTypes.string,
+    imageUrl: PropTypes.string,
+    link: PropTypes.string,
+  }),
+};
+
+HighlightDetailDialog.defaultProps = {
+  highlight: null,
+};
