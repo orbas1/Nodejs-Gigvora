@@ -1,5 +1,6 @@
 import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
+import PropTypes from 'prop-types';
 
 export default function ProfileHubLinksPanel({ links, onChange, disabled, layout = 'default' }) {
   const fieldClass = clsx(
@@ -93,3 +94,22 @@ export default function ProfileHubLinksPanel({ links, onChange, disabled, layout
     </div>
   );
 }
+
+ProfileHubLinksPanel.propTypes = {
+  links: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      label: PropTypes.string,
+      url: PropTypes.string,
+      description: PropTypes.string,
+    }),
+  ).isRequired,
+  onChange: PropTypes.func.isRequired,
+  disabled: PropTypes.bool,
+  layout: PropTypes.oneOf(['default', 'modal']),
+};
+
+ProfileHubLinksPanel.defaultProps = {
+  disabled: false,
+  layout: 'default',
+};

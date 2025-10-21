@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from 'react';
 import { Dialog, Transition, Switch } from '@headlessui/react';
 import clsx from 'clsx';
+import PropTypes from 'prop-types';
 import UserAvatar from '../../UserAvatar.jsx';
 
 const VISIBILITY_OPTIONS = [
@@ -174,6 +175,33 @@ export default function ProfileHubConnectionDialog({ open, connection, onClose, 
     </Transition.Root>
   );
 }
+
+ProfileHubConnectionDialog.propTypes = {
+  open: PropTypes.bool.isRequired,
+  connection: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    relationshipTag: PropTypes.string,
+    notes: PropTypes.string,
+    favourite: PropTypes.bool,
+    visibility: PropTypes.string,
+    lastInteractedAt: PropTypes.string,
+    counterpart: PropTypes.shape({
+      name: PropTypes.string,
+      avatarUrl: PropTypes.string,
+      avatarSeed: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      headline: PropTypes.string,
+      userType: PropTypes.string,
+    }),
+  }),
+  onClose: PropTypes.func.isRequired,
+  onSave: PropTypes.func.isRequired,
+  saving: PropTypes.bool,
+};
+
+ProfileHubConnectionDialog.defaultProps = {
+  connection: undefined,
+  saving: false,
+};
 
 function buildForm(connection) {
   if (!connection) {

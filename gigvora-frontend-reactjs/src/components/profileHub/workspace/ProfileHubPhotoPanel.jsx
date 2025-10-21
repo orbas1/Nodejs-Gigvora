@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import UserAvatar from '../../UserAvatar.jsx';
 
 export default function ProfileHubPhotoPanel({
@@ -59,3 +60,23 @@ export default function ProfileHubPhotoPanel({
     </div>
   );
 }
+
+ProfileHubPhotoPanel.propTypes = {
+  profile: PropTypes.shape({
+    name: PropTypes.string,
+    avatarUrl: PropTypes.string,
+    avatarSeed: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  }),
+  avatarUrlDraft: PropTypes.string.isRequired,
+  onAvatarDraftChange: PropTypes.func.isRequired,
+  onSelectFile: PropTypes.func.isRequired,
+  onApplyUrl: PropTypes.func.isRequired,
+  saving: PropTypes.bool,
+  fileInputRef: PropTypes.shape({ current: PropTypes.any }),
+};
+
+ProfileHubPhotoPanel.defaultProps = {
+  profile: undefined,
+  saving: false,
+  fileInputRef: undefined,
+};

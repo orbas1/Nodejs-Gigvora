@@ -9,6 +9,7 @@ import {
   UserIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
+import PropTypes from 'prop-types';
 import {
   deleteFollower,
   saveFollower,
@@ -552,3 +553,77 @@ export default function ProfileHubWorkspace({ userId, profileOverview, profileHu
     </section>
   );
 }
+
+const followerShape = PropTypes.shape({
+  followerId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  status: PropTypes.string,
+  displayName: PropTypes.string,
+  tags: PropTypes.oneOfType([PropTypes.arrayOf(PropTypes.string), PropTypes.string]),
+  notes: PropTypes.string,
+  notificationsEnabled: PropTypes.bool,
+  lastInteractedAt: PropTypes.string,
+  summary: PropTypes.shape({
+    name: PropTypes.string,
+    headline: PropTypes.string,
+    userType: PropTypes.string,
+    avatarUrl: PropTypes.string,
+    avatarSeed: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  }),
+});
+
+const connectionShape = PropTypes.shape({
+  id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  relationshipTag: PropTypes.string,
+  notes: PropTypes.string,
+  favourite: PropTypes.bool,
+  visibility: PropTypes.string,
+  lastInteractedAt: PropTypes.string,
+  counterpart: PropTypes.shape({
+    name: PropTypes.string,
+    headline: PropTypes.string,
+    userType: PropTypes.string,
+    avatarUrl: PropTypes.string,
+    avatarSeed: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  }),
+});
+
+ProfileHubWorkspace.propTypes = {
+  userId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  profileOverview: PropTypes.shape({
+    profileId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    name: PropTypes.string,
+    headline: PropTypes.string,
+    missionStatement: PropTypes.string,
+    bio: PropTypes.string,
+    location: PropTypes.string,
+    timezone: PropTypes.string,
+    avatarUrl: PropTypes.string,
+    avatarSeed: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  }),
+  profileHub: PropTypes.shape({
+    settings: PropTypes.shape({
+      socialLinks: PropTypes.arrayOf(
+        PropTypes.shape({
+          id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+          label: PropTypes.string,
+          url: PropTypes.string,
+          description: PropTypes.string,
+        }),
+      ),
+    }),
+    followers: PropTypes.shape({
+      items: PropTypes.arrayOf(followerShape),
+    }),
+    connections: PropTypes.shape({
+      items: PropTypes.arrayOf(connectionShape),
+      pending: PropTypes.arrayOf(PropTypes.any),
+    }),
+  }),
+  onRefresh: PropTypes.func,
+};
+
+ProfileHubWorkspace.defaultProps = {
+  profileOverview: undefined,
+  profileHub: undefined,
+  onRefresh: undefined,
+};

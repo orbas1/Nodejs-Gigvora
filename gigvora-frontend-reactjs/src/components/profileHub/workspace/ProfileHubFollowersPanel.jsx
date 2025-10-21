@@ -1,5 +1,6 @@
 import { UserPlusIcon, EllipsisHorizontalCircleIcon } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
+import PropTypes from 'prop-types';
 import UserAvatar from '../../UserAvatar.jsx';
 
 function formatDate(value) {
@@ -10,6 +11,46 @@ function formatDate(value) {
   }
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
+
+ProfileHubFollowersPanel.propTypes = {
+  stats: PropTypes.shape({
+    total: PropTypes.number,
+    active: PropTypes.number,
+    muted: PropTypes.number,
+    blocked: PropTypes.number,
+  }).isRequired,
+  followers: PropTypes.arrayOf(
+    PropTypes.shape({
+      followerId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      summary: PropTypes.shape({
+        name: PropTypes.string,
+        avatarUrl: PropTypes.string,
+        avatarSeed: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+        headline: PropTypes.string,
+        userType: PropTypes.string,
+      }),
+      status: PropTypes.string,
+      lastInteractedAt: PropTypes.string,
+    }),
+  ).isRequired,
+  addForm: PropTypes.shape({
+    identifier: PropTypes.string,
+    displayName: PropTypes.string,
+    tags: PropTypes.string,
+    notes: PropTypes.string,
+  }).isRequired,
+  onChangeAddForm: PropTypes.func.isRequired,
+  onAdd: PropTypes.func.isRequired,
+  onOpenFollower: PropTypes.func.isRequired,
+  onRemove: PropTypes.func.isRequired,
+  busyId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  layout: PropTypes.oneOf(['default', 'modal']),
+};
+
+ProfileHubFollowersPanel.defaultProps = {
+  busyId: undefined,
+  layout: 'default',
+};
 
 export default function ProfileHubFollowersPanel({
   stats,
