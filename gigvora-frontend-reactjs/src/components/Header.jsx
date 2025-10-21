@@ -29,6 +29,7 @@ import {
   buildRoleOptions,
   resolvePrimaryRoleKey,
 } from '../constants/navigation.js';
+import { formatRelativeTime } from '../utils/date.js';
 
 function resolveInitials(name = '') {
   const source = name.trim();
@@ -113,6 +114,76 @@ function UserMenu({ session, onLogout }) {
 
 function classNames(...classes) {
   return classes.filter(Boolean).join(' ');
+}
+
+const INBOX_PREVIEW_THREADS = [
+  {
+    id: 'thread-impact-ops',
+    title: 'Impact Ops · Volunteer mission intake',
+    snippet: 'Mae: “We have 4 new mission briefs ready for mentors. Need allocation today.”',
+    updatedAt: '2024-05-21T15:40:00Z',
+  },
+  {
+    id: 'thread-mentor-guild',
+    title: 'Mentor Guild Lounge',
+    snippet: 'Linh: “Dropped the new growth sprint template — keen for feedback.”',
+    updatedAt: '2024-05-21T12:10:00Z',
+  },
+  {
+    id: 'thread-support',
+    title: 'Support · Chatwoot desk',
+    snippet: 'Helena: “Your help centre access has been upgraded to steward tier.”',
+    updatedAt: '2024-05-20T18:05:00Z',
+  },
+];
+
+function InboxPreview() {
+  return (
+    <Menu as="div" className="relative hidden lg:block">
+      <Menu.Button className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-accent hover:text-accent">
+        <ChatBubbleLeftRightIcon className="h-4 w-4" /> Inbox
+      </Menu.Button>
+      <Transition
+        as={Fragment}
+        enter="transition ease-out duration-100"
+        enterFrom="transform opacity-0 scale-95"
+        enterTo="transform opacity-100 scale-100"
+        leave="transition ease-in duration-75"
+        leaveFrom="transform opacity-100 scale-100"
+        leaveTo="transform opacity-0 scale-95"
+      >
+        <Menu.Items className="absolute right-0 z-50 mt-3 w-80 origin-top-right space-y-3 rounded-3xl border border-slate-200/80 bg-white/95 p-4 text-sm shadow-xl focus:outline-none">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Latest messages</p>
+            <Link to="/inbox" className="text-xs font-semibold text-accent hover:text-accentDark">
+              Open inbox ↗
+            </Link>
+          </div>
+          {INBOX_PREVIEW_THREADS.map((thread) => (
+            <Menu.Item key={thread.id}>
+              {({ active }) => (
+                <Link
+                  to="/inbox"
+                  className={classNames(
+                    'block rounded-2xl border px-3 py-2 transition',
+                    active
+                      ? 'border-accent bg-accentSoft/70 text-slate-900 shadow-soft'
+                      : 'border-slate-200 bg-white text-slate-600',
+                  )}
+                >
+                  <p className="text-sm font-semibold text-slate-900">{thread.title}</p>
+                  <p className="mt-1 text-xs text-slate-500 line-clamp-2">{thread.snippet}</p>
+                  <p className="mt-2 text-[0.65rem] uppercase tracking-wide text-slate-400">
+                    {formatRelativeTime(thread.updatedAt)}
+                  </p>
+                </Link>
+              )}
+            </Menu.Item>
+          ))}
+        </Menu.Items>
+      </Transition>
+    </Menu>
+  );
 }
 
 export default function Header() {
@@ -274,6 +345,7 @@ export default function Header() {
               Demo tour
             </Link>
           ) : null}
+          {isAuthenticated ? <InboxPreview /> : null}
           <LanguageSelector />
           {isAuthenticated ? (
             <div className="flex items-center gap-3">

@@ -6,6 +6,7 @@ import useOpportunityListing from '../hooks/useOpportunityListing.js';
 import analytics from '../services/analytics.js';
 import { formatRelativeTime } from '../utils/date.js';
 import useSession from '../hooks/useSession.js';
+import VolunteerOpportunityManager from '../components/volunteering/VolunteerOpportunityManager.jsx';
 
 const FRESHNESS_OPTIONS = [
   { value: '24h', label: 'Updated in 24h' },
@@ -449,6 +450,7 @@ export default function VolunteeringPage() {
                 );
               })}
             </div>
+            <VolunteerOpportunityManager />
           </>
         )}
       </div>

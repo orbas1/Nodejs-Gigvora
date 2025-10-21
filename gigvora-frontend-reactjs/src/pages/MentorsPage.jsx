@@ -5,6 +5,7 @@ import useOpportunityListing from '../hooks/useOpportunityListing.js';
 import analytics from '../services/analytics.js';
 import MentorProfileCard from '../components/mentor/MentorProfileCard.jsx';
 import MentorOnboardingForm from '../components/mentor/MentorOnboardingForm.jsx';
+import MentorShowcaseManager from '../components/mentors/MentorShowcaseManager.jsx';
 
 export default function MentorsPage() {
   const [query, setQuery] = useState('');
@@ -112,6 +113,7 @@ export default function MentorsPage() {
             <MentorOnboardingForm onSubmitted={handleFormSubmitted} ctaLabel="List my mentorship" />
           </div>
         </div>
+        <MentorShowcaseManager />
       </div>
     </section>
   );

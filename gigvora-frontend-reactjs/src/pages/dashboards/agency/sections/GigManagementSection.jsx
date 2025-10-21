@@ -453,8 +453,8 @@ export default function GigManagementSection({
       const matchesStatus =
         statusFilter === 'all'
         || (statusFilter === 'active'
-          ? !['completed', 'cancelled'].includes(order.status))
-        || order.status === statusFilter;
+          ? !['completed', 'cancelled'].includes(order.status)
+          : order.status === statusFilter);
 
       if (!matchesStatus) {
         return false;

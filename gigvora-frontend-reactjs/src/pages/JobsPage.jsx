@@ -9,6 +9,7 @@ import analytics from '../services/analytics.js';
 import { fetchUserDashboard } from '../services/userDashboard.js';
 import { formatAbsolute, formatRelativeTime } from '../utils/date.js';
 import { classNames } from '../utils/classNames.js';
+import JobManagementWorkspace from '../components/jobs/JobManagementWorkspace.jsx';
 
 const DEFAULT_USER_ID = 1;
 const JOB_ACCESS_MEMBERSHIPS = new Set(['user', 'freelancer']);
@@ -923,6 +924,7 @@ export default function JobsPage() {
           )}
         </ul>
       </div>
+      <JobManagementWorkspace />
     </div>
   );
 
