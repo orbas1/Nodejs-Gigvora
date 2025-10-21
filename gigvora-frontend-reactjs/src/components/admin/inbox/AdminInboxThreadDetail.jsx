@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useId } from 'react';
 import { ArrowsPointingOutIcon, ArrowDownTrayIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
 import ConversationMessage from '../../messaging/ConversationMessage.jsx';
 import { classNames } from '../../../utils/classNames.js';
@@ -50,11 +50,24 @@ export default function AdminInboxThreadDetail({
   onExpand,
   layout = 'inline',
 }) {
+  const idPrefix = useId();
+  const sectionIds = useMemo(
+    () => ({
+      state: `${idPrefix}-state`,
+      assignment: `${idPrefix}-assignment`,
+      support: `${idPrefix}-support`,
+      escalation: `${idPrefix}-escalation`,
+      labels: `${idPrefix}-labels`,
+    }),
+    [idPrefix],
+  );
   const [stateDraft, setStateDraft] = useState(thread?.state ?? 'active');
   const [assigneeDraft, setAssigneeDraft] = useState(thread?.supportCase?.assignedTo ?? '');
   const [supportStatusDraft, setSupportStatusDraft] = useState(thread?.supportCase?.status ?? 'triage');
   const [supportPriorityDraft, setSupportPriorityDraft] = useState(thread?.supportCase?.priority ?? 'medium');
-  const [supportSummaryDraft, setSupportSummaryDraft] = useState('');
+  const [supportSummaryDraft, setSupportSummaryDraft] = useState(
+    thread?.supportCase?.resolutionSummary ?? '',
+  );
   const [escalationReason, setEscalationReason] = useState('');
   const [escalationPriority, setEscalationPriority] = useState(thread?.supportCase?.priority ?? 'high');
 
@@ -64,7 +77,15 @@ export default function AdminInboxThreadDetail({
     setSupportStatusDraft(thread?.supportCase?.status ?? 'triage');
     setSupportPriorityDraft(thread?.supportCase?.priority ?? 'medium');
     setEscalationPriority(thread?.supportCase?.priority ?? 'high');
-  }, [thread?.id, thread?.state, thread?.supportCase?.assignedTo, thread?.supportCase?.status, thread?.supportCase?.priority]);
+    setSupportSummaryDraft(thread?.supportCase?.resolutionSummary ?? '');
+  }, [
+    thread?.id,
+    thread?.state,
+    thread?.supportCase?.assignedTo,
+    thread?.supportCase?.status,
+    thread?.supportCase?.priority,
+    thread?.supportCase?.resolutionSummary,
+  ]);
 
   const selectedLabelIds = useMemo(
     () => new Set((thread?.labels ?? []).map((label) => String(label.id))),
@@ -119,8 +140,23 @@ export default function AdminInboxThreadDetail({
     } else {
       next.add(labelId);
     }
-    onSetLabels(Array.from(next));
+    const nextLabels = Array.from(next);
+    if (
+      onSetLabels &&
+      (thread?.labels ?? []).map((label) => String(label.id)).sort().join('|') !== nextLabels.slice().sort().join('|')
+    ) {
+      onSetLabels(nextLabels);
+    }
   };
+
+  const stateChanged = stateDraft !== (thread?.state ?? 'active');
+  const assignmentChanged = assigneeDraft !== (thread?.supportCase?.assignedTo ?? '');
+  const supportSummaryValue = supportSummaryDraft.trim();
+  const supportChanged =
+    supportStatusDraft !== (thread?.supportCase?.status ?? 'triage') ||
+    supportPriorityDraft !== (thread?.supportCase?.priority ?? 'medium') ||
+    supportSummaryValue !== (thread?.supportCase?.resolutionSummary ?? '');
+  const canEscalate = escalationReason.trim().length > 0 && !escalating;
 
   if (!thread) {
     return (
@@ -184,8 +220,10 @@ export default function AdminInboxThreadDetail({
 
       <div className="mt-5 grid flex-1 gap-4 lg:grid-cols-[minmax(220px,0.75fr),minmax(0,1.25fr)]">
         <div className="space-y-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
-          <div className="space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">State</p>
+          <section className="space-y-2" aria-labelledby={sectionIds.state}>
+            <h3 id={sectionIds.state} className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Thread state
+            </h3>
             <select
               value={stateDraft}
               onChange={(event) => setStateDraft(event.target.value)}
@@ -199,16 +237,18 @@ export default function AdminInboxThreadDetail({
             </select>
             <button
               type="button"
-              onClick={() => onUpdateState(stateDraft)}
-              disabled={updatingSupport || assigning}
+              onClick={() => stateChanged && onUpdateState?.(stateDraft)}
+              disabled={!stateChanged || updatingSupport || assigning}
               className="inline-flex w-full items-center justify-center rounded-full bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Update
             </button>
-          </div>
+          </section>
 
-          <div className="space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Assignment</p>
+          <section className="space-y-2" aria-labelledby={sectionIds.assignment}>
+            <h3 id={sectionIds.assignment} className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Assignment
+            </h3>
             <select
               value={assigneeDraft ?? ''}
               onChange={(event) => setAssigneeDraft(event.target.value)}
@@ -223,16 +263,18 @@ export default function AdminInboxThreadDetail({
             </select>
             <button
               type="button"
-              onClick={() => onAssign({ agentId: assigneeDraft, notifyAgent: true })}
-              disabled={assigning}
+              onClick={() => assignmentChanged && onAssign?.({ agentId: assigneeDraft || undefined, notifyAgent: true })}
+              disabled={!assignmentChanged || assigning}
               className="inline-flex w-full items-center justify-center rounded-full bg-accent px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-accentDark disabled:cursor-not-allowed disabled:opacity-60"
             >
               {assigning ? 'Assigning…' : 'Assign'}
             </button>
-          </div>
+          </section>
 
-          <div className="space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Support</p>
+          <section className="space-y-2" aria-labelledby={sectionIds.support}>
+            <h3 id={sectionIds.support} className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Support case
+            </h3>
             <select
               value={supportStatusDraft}
               onChange={(event) => setSupportStatusDraft(event.target.value)}
@@ -265,21 +307,24 @@ export default function AdminInboxThreadDetail({
             <button
               type="button"
               onClick={() =>
-                onUpdateSupport({
+                supportChanged &&
+                onUpdateSupport?.({
                   status: supportStatusDraft,
                   metadata: { priority: supportPriorityDraft },
-                  resolutionSummary: supportSummaryDraft,
+                  resolutionSummary: supportSummaryValue,
                 })
               }
-              disabled={updatingSupport}
+              disabled={!supportChanged || updatingSupport}
               className="inline-flex w-full items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-accent/60 hover:text-accent disabled:cursor-not-allowed disabled:opacity-60"
             >
               {updatingSupport ? 'Saving…' : 'Save'}
             </button>
-          </div>
+          </section>
 
-          <div className="space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Escalate</p>
+          <section className="space-y-2" aria-labelledby={sectionIds.escalation}>
+            <h3 id={sectionIds.escalation} className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Escalation
+            </h3>
             <textarea
               rows={3}
               value={escalationReason}
@@ -300,16 +345,21 @@ export default function AdminInboxThreadDetail({
             </select>
             <button
               type="button"
-              onClick={() => onEscalate({ reason: escalationReason, priority: escalationPriority })}
-              disabled={escalating}
+              onClick={() =>
+                canEscalate &&
+                onEscalate?.({ reason: escalationReason.trim(), priority: escalationPriority })
+              }
+              disabled={!canEscalate}
               className="inline-flex w-full items-center justify-center rounded-full bg-rose-500 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {escalating ? 'Escalating…' : 'Escalate'}
             </button>
-          </div>
+          </section>
 
-          <div className="space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Labels</p>
+          <section className="space-y-2" aria-labelledby={sectionIds.labels}>
+            <h3 id={sectionIds.labels} className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Labels
+            </h3>
             <div className="flex flex-wrap gap-2">
               {labels.map((label) => {
                 const active = selectedLabelIds.has(String(label.id));
@@ -337,7 +387,7 @@ export default function AdminInboxThreadDetail({
               })}
               {!labels.length ? <span className="text-xs text-slate-500">No labels</span> : null}
             </div>
-          </div>
+          </section>
         </div>
 
         <div className="flex flex-col gap-4">

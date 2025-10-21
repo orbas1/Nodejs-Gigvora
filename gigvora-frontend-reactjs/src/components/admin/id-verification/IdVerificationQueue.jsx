@@ -239,8 +239,14 @@ export default function IdVerificationQueue({
                         {descriptor.label}
                       </span>
                       <div className="mt-2">
-                        <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Update</label>
+                        <label
+                          htmlFor={`idv-status-${item.id}`}
+                          className="text-[10px] font-semibold uppercase tracking-wide text-slate-400"
+                        >
+                          Update status
+                        </label>
                         <select
+                          id={`idv-status-${item.id}`}
                           className="mt-1 w-full rounded-2xl border border-slate-200 px-2 py-1 text-xs text-slate-600 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
                           value={item.status}
                           onChange={handleStatusSelect(item.id)}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useId } from 'react';
 import {
   ArchiveBoxIcon,
   ArrowPathIcon,
@@ -949,6 +949,8 @@ function PolicyInfoDialog({ title, confirmLabel, saving, onClose, onSubmit, docu
   }));
   const [tagInput, setTagInput] = useState('');
   const [error, setError] = useState(null);
+  const titleId = useId();
+  const descriptionId = useId();
 
   useEffect(() => {
     setValues({
@@ -1022,12 +1024,16 @@ function PolicyInfoDialog({ title, confirmLabel, saving, onClose, onSubmit, docu
   };
 
   return (
-    <Modal onClose={onClose}>
+    <Modal onClose={onClose} labelledBy={titleId} describedBy={descriptionId}>
       <form onSubmit={handleSubmit} className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
         <header className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
           <div>
-            <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-            <p className="text-sm text-slate-500">Define how this policy is presented and who can edit it.</p>
+            <h3 id={titleId} className="text-lg font-semibold text-slate-900">
+              {title}
+            </h3>
+            <p id={descriptionId} className="text-sm text-slate-500">
+              Define how this policy is presented and who can edit it.
+            </p>
           </div>
           <button
             type="button"
@@ -1226,6 +1232,8 @@ function VersionDialog({ title, confirmLabel, saving, onClose, onSubmit, version
     externalUrl: version?.externalUrl ?? '',
   }));
   const [error, setError] = useState(null);
+  const titleId = useId();
+  const descriptionId = useId();
 
   useEffect(() => {
     setValues({
@@ -1266,12 +1274,16 @@ function VersionDialog({ title, confirmLabel, saving, onClose, onSubmit, version
   };
 
   return (
-    <Modal onClose={onClose}>
+    <Modal onClose={onClose} labelledBy={titleId} describedBy={descriptionId}>
       <form onSubmit={handleSubmit} className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
         <header className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
           <div>
-            <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-            <p className="text-sm text-slate-500">Draft, review, and publish the selected policy version.</p>
+            <h3 id={titleId} className="text-lg font-semibold text-slate-900">
+              {title}
+            </h3>
+            <p id={descriptionId} className="text-sm text-slate-500">
+              Draft, review, and publish the selected policy version.
+            </p>
           </div>
           <button
             type="button"
@@ -1425,13 +1437,19 @@ function VersionDialog({ title, confirmLabel, saving, onClose, onSubmit, version
 
 function HistoryDrawer({ document, onClose }) {
   const audit = document?.auditEvents ?? [];
+  const titleId = useId();
+  const descriptionId = useId();
   return (
-    <Modal onClose={onClose}>
+    <Modal onClose={onClose} labelledBy={titleId} describedBy={descriptionId}>
       <div className="flex h-[80vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
         <header className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
           <div>
-            <h3 className="text-lg font-semibold text-slate-900">History</h3>
-            <p className="text-sm text-slate-500">Complete audit log for {document.title}</p>
+            <h3 id={titleId} className="text-lg font-semibold text-slate-900">
+              History
+            </h3>
+            <p id={descriptionId} className="text-sm text-slate-500">
+              Complete audit log for {document.title}
+            </p>
           </div>
           <button
             type="button"
@@ -1473,15 +1491,22 @@ function VersionPreview({ version, onClose }) {
   if (!version) {
     return null;
   }
+  const titleId = useId();
+  const descriptionId = useId();
   return (
-    <Modal onClose={onClose}>
+    <Modal onClose={onClose} labelledBy={titleId} describedBy={descriptionId}>
       <div className="flex h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
         <header className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
           <div>
-            <h3 className="text-lg font-semibold text-slate-900">
+            <h3 id={titleId} className="text-lg font-semibold text-slate-900">
               v{version.version} · {version.locale}
             </h3>
-            <p className="text-sm text-slate-500">Status {version.status.replace('_', ' ')} · Updated {formatDateTime(version.updatedAt)}</p>
+            <p
+              id={descriptionId}
+              className="text-sm text-slate-500"
+            >
+              Status {version.status.replace('_', ' ')} · Updated {formatDateTime(version.updatedAt)}
+            </p>
           </div>
           <button
             type="button"
@@ -1521,7 +1546,36 @@ function VersionPreview({ version, onClose }) {
   );
 }
 
-function Modal({ children, onClose }) {
+function Modal({ children, onClose, labelledBy, describedBy }) {
+  const dialogRef = useRef(null);
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    const previousActive = document.activeElement;
+    const node = dialogRef.current;
+    if (node instanceof HTMLElement) {
+      node.focus({ preventScroll: true });
+    }
+    return () => {
+      if (previousActive instanceof HTMLElement) {
+        previousActive.focus({ preventScroll: true });
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onClose?.();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4 py-10">
       <button
@@ -1531,7 +1585,17 @@ function Modal({ children, onClose }) {
         aria-hidden="true"
         tabIndex={-1}
       />
-      <div className="relative z-10">{children}</div>
+      <div
+        ref={dialogRef}
+        className="relative z-10 outline-none"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={labelledBy || undefined}
+        aria-describedby={describedBy || undefined}
+        tabIndex={-1}
+      >
+        {children}
+      </div>
     </div>
   );
 }

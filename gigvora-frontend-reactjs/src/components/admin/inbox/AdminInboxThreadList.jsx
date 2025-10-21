@@ -26,7 +26,7 @@ function ThreadRow({ thread, actorId, selected, onSelect }) {
   return (
     <button
       type="button"
-      onClick={() => onSelect(thread.id)}
+      onClick={() => onSelect?.(thread.id)}
       className={classNames(
         'w-full rounded-2xl border px-4 py-3 text-left transition',
         selected
@@ -35,6 +35,7 @@ function ThreadRow({ thread, actorId, selected, onSelect }) {
           ? 'border-slate-200 bg-white shadow-sm hover:border-accent/50'
           : 'border-slate-200 bg-white hover:border-accent/40',
       )}
+      aria-pressed={selected}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
@@ -84,14 +85,25 @@ export default function AdminInboxThreadList({
   onLoadMore,
 }) {
   return (
-    <section className="space-y-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+    <section
+      className="space-y-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
+      aria-busy={loading && !error}
+      aria-label="Inbox threads"
+      role="region"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-semibold text-slate-800">Threads</p>
         <button
           type="button"
-          onClick={onRefresh}
-          className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-accent/60 hover:text-accent"
-        >
+          onClick={() => onRefresh?.()}
+          disabled={loading}
+          className={classNames(
+            'inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold transition',
+            loading
+              ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
+              : 'text-slate-600 hover:border-accent/60 hover:text-accent',
+          )}
+          >
           <ArrowPathIcon className={classNames('h-4 w-4', loading ? 'animate-spin' : '')} /> Refresh
         </button>
       </div>
@@ -126,8 +138,14 @@ export default function AdminInboxThreadList({
       {pagination && pagination.page < pagination.totalPages ? (
         <button
           type="button"
-          onClick={onLoadMore}
-          className="w-full rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent/60 hover:text-accent"
+          onClick={() => onLoadMore?.()}
+          disabled={loading}
+          className={classNames(
+            'w-full rounded-full border bg-white px-4 py-2 text-sm font-semibold transition',
+            loading
+              ? 'cursor-not-allowed border-slate-200 text-slate-400'
+              : 'border-slate-200 text-slate-600 hover:border-accent/60 hover:text-accent',
+          )}
         >
           Load more
         </button>

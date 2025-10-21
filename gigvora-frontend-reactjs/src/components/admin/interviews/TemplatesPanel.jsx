@@ -236,6 +236,8 @@ export default function TemplatesPanel({
                 type="button"
                 onClick={() => setModalState({ open: true, template })}
                 className="rounded-full border border-slate-200 p-1 text-slate-500 transition hover:border-blue-200 hover:text-blue-600"
+                aria-label="Edit template"
+                title="Edit template"
               >
                 <PencilSquareIcon className="h-4 w-4" />
               </button>
