@@ -1,13 +1,4 @@
 import { Op } from 'sequelize';
-import { AgencyProfile, Connection, Profile, ProfileFollower, User, sequelize } from '../models/index.js';
-import profileService from './profileService.js';
-import connectionService from './connectionService.js';
-import { queueProfileEngagementRecalculation } from './profileEngagementService.js';
-import { normalizeLocationPayload } from '../utils/location.js';
-import r2Client from '../utils/r2Client.js';
-import { AuthorizationError, NotFoundError, ValidationError } from '../utils/errors.js';
-
-function normalizeInteger(value, label) {
 import {
   sequelize,
   AgencyProfile,
@@ -16,23 +7,35 @@ import {
   AgencyProfileCredential,
   AgencyProfileExperience,
   AgencyProfileWorkforceSegment,
+  Connection,
+  Profile,
+  ProfileFollower,
+  User,
   AGENCY_PROFILE_MEDIA_ALLOWED_TYPES,
   AGENCY_PROFILE_CREDENTIAL_TYPES,
 } from '../models/index.js';
-import { AuthenticationError, NotFoundError, ValidationError } from '../utils/errors.js';
+import profileService from './profileService.js';
+import connectionService from './connectionService.js';
+import { queueProfileEngagementRecalculation } from './profileEngagementService.js';
+import { normalizeLocationPayload } from '../utils/location.js';
+import r2Client from '../utils/r2Client.js';
+import {
+  AuthenticationError,
+  AuthorizationError,
+  NotFoundError,
+  ValidationError,
+} from '../utils/errors.js';
 
 const MEDIA_TYPES = new Set(AGENCY_PROFILE_MEDIA_ALLOWED_TYPES.map((type) => type.toLowerCase()));
 const CREDENTIAL_TYPES = new Set(AGENCY_PROFILE_CREDENTIAL_TYPES.map((type) => type.toLowerCase()));
 
-function normalizeNumber(value) {
-  if (value == null) {
+function normalizeInteger(value, label) {
+  if (value == null || value === '') {
     return null;
   }
   const numeric = Number(value);
   if (!Number.isFinite(numeric) || !Number.isInteger(numeric) || numeric <= 0) {
     throw new ValidationError(`${label} must be a positive integer.`);
-  if (!Number.isFinite(numeric)) {
-    return null;
   }
   return numeric;
 }
@@ -783,17 +786,6 @@ export async function removeAgencyConnection(userId, connectionId) {
   }
 }
 
-export default {
-  getAgencyProfileOverview,
-  updateAgencyProfile,
-  updateAgencyAvatar,
-  listAgencyFollowers,
-  updateAgencyFollower,
-  removeAgencyFollower,
-  listAgencyConnections,
-  requestAgencyConnection,
-  respondToAgencyConnection,
-  removeAgencyConnection,
 function normalizeString(value) {
   if (value == null) {
     return null;
@@ -1545,6 +1537,16 @@ export async function deleteAgencyProfileWorkforceSegment(actorId, segmentId) {
 }
 
 export default {
+  getAgencyProfileOverview,
+  updateAgencyProfile,
+  updateAgencyAvatar,
+  listAgencyFollowers,
+  updateAgencyFollower,
+  removeAgencyFollower,
+  listAgencyConnections,
+  requestAgencyConnection,
+  respondToAgencyConnection,
+  removeAgencyConnection,
   getAgencyProfileManagement,
   updateAgencyProfileBasics,
   createAgencyProfileMedia,
