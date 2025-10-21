@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Gigvora Runtime & Authentication API",
-    "version": "1.50.0",
+    "version": "1.51.0",
     "description": "Operational health, maintenance, and authentication endpoints supporting Gigvora web and mobile clients."
   },
   "servers": [
@@ -31,6 +31,10 @@
     {
       "name": "Authentication",
       "description": "Session lifecycle and MFA"
+    },
+    {
+      "name": "Runtime Maintenance",
+      "description": "Public status feeds and administrative maintenance scheduling."
     }
   ],
   "paths": {
@@ -583,6 +587,522 @@
           },
           "403": {
             "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runtime/maintenance": {
+      "get": {
+        "tags": [
+          "Runtime Maintenance"
+        ],
+        "summary": "List maintenance announcements visible to the caller",
+        "operationId": "getRuntimeMaintenanceFeed",
+        "security": [
+          {},
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "audience",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Audience segment such as public, authenticated, provider, company, agency, admin, or operations."
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Restrict results to announcements targeting a specific delivery channel (web, mobile, email, sms, push, api)."
+          },
+          {
+            "name": "includeResolved",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Include resolved announcements when the caller has runtime maintenance permissions."
+          },
+          {
+            "name": "windowMinutes",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 5,
+              "maximum": 1440
+            },
+            "description": "Rolling lookahead window in minutes used to surface upcoming maintenance."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            },
+            "description": "Maximum number of announcements to return."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Maintenance announcements for the requested audience",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeMaintenanceFeed"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller does not have access to the requested audience.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/runtime/maintenance": {
+      "get": {
+        "tags": [
+          "Runtime Maintenance"
+        ],
+        "summary": "List maintenance announcements for administrative review",
+        "operationId": "listRuntimeMaintenanceAnnouncements",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "draft",
+                  "scheduled",
+                  "active",
+                  "resolved"
+                ]
+              }
+            },
+            "style": "form",
+            "explode": true,
+            "description": "Filter by one or more maintenance statuses."
+          },
+          {
+            "name": "audience",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by a specific audience segment."
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by the delivery channel configured on the announcement."
+          },
+          {
+            "name": "includeResolved",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Whether resolved announcements should be included when no explicit status filter is supplied."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "description": "Maximum number of announcements to return (defaults to 50)."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Number of records to skip before collecting results."
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 240
+            },
+            "description": "Case-insensitive search across slug, title, and message."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Administrative maintenance listing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaintenanceListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "User lacks runtime maintenance permissions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Runtime Maintenance"
+        ],
+        "summary": "Create a maintenance announcement",
+        "operationId": "createRuntimeMaintenanceAnnouncement",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MaintenanceCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Announcement created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaintenanceAnnouncement"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "User lacks runtime maintenance permissions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/runtime/maintenance/{announcementId}": {
+      "parameters": [
+        {
+          "name": "announcementId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "description": "Identifier of the maintenance announcement."
+        }
+      ],
+      "get": {
+        "tags": [
+          "Runtime Maintenance"
+        ],
+        "summary": "Retrieve a specific maintenance announcement",
+        "operationId": "getRuntimeMaintenanceAnnouncement",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Maintenance announcement details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaintenanceAnnouncement"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "User lacks runtime maintenance permissions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Announcement not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Runtime Maintenance"
+        ],
+        "summary": "Update an existing maintenance announcement",
+        "operationId": "updateRuntimeMaintenanceAnnouncement",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MaintenanceUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated maintenance announcement",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaintenanceAnnouncement"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "User lacks runtime maintenance permissions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Announcement not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/runtime/maintenance/{announcementId}/status": {
+      "parameters": [
+        {
+          "name": "announcementId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "description": "Identifier of the maintenance announcement."
+        }
+      ],
+      "patch": {
+        "tags": [
+          "Runtime Maintenance"
+        ],
+        "summary": "Update the status of a maintenance announcement",
+        "operationId": "updateRuntimeMaintenanceStatus",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MaintenanceStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated maintenance announcement status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaintenanceAnnouncement"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "User lacks runtime maintenance permissions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Announcement not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1600,6 +2120,10 @@
       "MaintenanceAnnouncement": {
         "type": "object",
         "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
           "slug": {
             "type": "string"
           },
@@ -1610,10 +2134,22 @@
             "type": "string"
           },
           "severity": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "info",
+              "maintenance",
+              "incident",
+              "security"
+            ]
           },
           "status": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "draft",
+              "scheduled",
+              "active",
+              "resolved"
+            ]
           },
           "audiences": {
             "type": "array",
@@ -1645,13 +2181,69 @@
             "format": "date-time"
           },
           "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "createdBy": {
             "type": [
-              "object",
+              "string",
+              "null"
+            ]
+          },
+          "updatedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": [
+              "string",
               "null"
             ],
-            "additionalProperties": true
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "publishedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "resolvedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "lastBroadcastAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           }
-        }
+        },
+        "required": [
+          "id",
+          "slug",
+          "title",
+          "message",
+          "severity",
+          "status",
+          "audiences",
+          "channels",
+          "dismissible",
+          "metadata"
+        ]
       },
       "ScheduledMaintenance": {
         "type": "object",
@@ -2668,6 +3260,238 @@
           "incidentSignals",
           "runbooks"
         ]
+      },
+      "RuntimeMaintenanceAccess": {
+        "type": "object",
+        "properties": {
+          "actorId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "audience": {
+            "type": "string"
+          },
+          "canViewResolved": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "audience",
+          "canViewResolved"
+        ]
+      },
+      "RuntimeMaintenanceFeed": {
+        "type": "object",
+        "properties": {
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "windowMinutes": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 5,
+            "maximum": 1440
+          },
+          "announcements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MaintenanceAnnouncement"
+            }
+          },
+          "access": {
+            "$ref": "#/components/schemas/RuntimeMaintenanceAccess"
+          }
+        },
+        "required": [
+          "generatedAt",
+          "windowMinutes",
+          "announcements",
+          "access"
+        ]
+      },
+      "MaintenanceListResponse": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "filteredCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MaintenanceAnnouncement"
+            }
+          }
+        },
+        "required": [
+          "total",
+          "filteredCount",
+          "records"
+        ]
+      },
+      "MaintenanceCreateRequest": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "maxLength": 140
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 240
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 5000
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "info",
+              "maintenance",
+              "incident",
+              "security"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "scheduled",
+              "active",
+              "resolved"
+            ]
+          },
+          "audiences": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 120
+            },
+            "uniqueItems": true
+          },
+          "channels": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 120
+            },
+            "uniqueItems": true
+          },
+          "dismissible": {
+            "type": "boolean"
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "title",
+          "message"
+        ],
+        "additionalProperties": false
+      },
+      "MaintenanceUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "maxLength": 140
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 240
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 5000
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "info",
+              "maintenance",
+              "incident",
+              "security"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "scheduled",
+              "active",
+              "resolved"
+            ]
+          },
+          "audiences": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 120
+            },
+            "uniqueItems": true
+          },
+          "channels": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 120
+            },
+            "uniqueItems": true
+          },
+          "dismissible": {
+            "type": "boolean"
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "MaintenanceStatusRequest": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "scheduled",
+              "active",
+              "resolved"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "additionalProperties": false
       }
     }
   }
