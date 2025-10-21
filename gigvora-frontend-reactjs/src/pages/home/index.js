@@ -5,4 +5,5 @@ export { CommunitySpotlightsSection } from './CommunitySpotlightsSection.jsx';
 export { TestimonialsSection } from './TestimonialsSection.jsx';
 export { MarketplaceLaunchesSection } from './MarketplaceLaunchesSection.jsx';
 export { CreationStudioSection } from './CreationStudioSection.jsx';
+export { CreationStudioWorkflowSection } from './CreationStudioWorkflowSection.jsx';
 export { JoinCommunitySection } from './JoinCommunitySection.jsx';
