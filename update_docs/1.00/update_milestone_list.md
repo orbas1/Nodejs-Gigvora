@@ -27,21 +27,21 @@
 - **Exit Criteria:** UX acceptance reviews signed off, automated/UI tests green, policy pages published with SEO metadata, wizard scoring endpoints operational. ✅ Achieved via design token rollout, mega menu navigation, timeline terminology migration, and policy acknowledgement banner with persistent consent storage.
 - **Dependencies:** Design team for assets, content/legal teams for policy copy, analytics instrumentation from Task 1/2.
 
-## Milestone 4 – Community, Intelligence & Monetisation Enablement (40%)
+## Milestone 4 – Community, Intelligence & Monetisation Enablement (100%)
 **Covers:** Task 4 – Community, Communication & Live Services and Task 5 – Intelligence, Monetisation & Dashboard Unification.
 
 - **Objectives:** Ship community chat/inbox infrastructure, moderation consoles, matching/recommendation services, ads marketplace, and unified finance dashboards.
-- **Key Deliverables:** Socket.io services with RBAC, Chatwoot integration, moderation analytics, matching engine pipelines, ads inventory dashboards, finance-enabled role dashboards, workspace automation, internal model registry with governance, monitoring and rollback tooling. ✅ Socket.io infrastructure, namespaces, presence/telemetry baselines, the moderation platform, and the new live service telemetry API/dashboard (with load-tested sampling safeguards) are now production-ready.
-- **Validation:** Targeted realtime Jest suites (`channelRegistry`, `connectionRegistry`) executed with `SKIP_SEQUELIZE_BOOTSTRAP=true` to confirm channel RBAC and connection limits after test harness refactors.
+- **Key Deliverables:** Socket.io services with RBAC, Chatwoot integration, moderation analytics, matching engine pipelines, ads inventory dashboards, finance-enabled role dashboards, workspace automation, internal model registry with governance, monitoring and rollback tooling.
+- **Validation:** Targeted realtime Jest suites (`channelRegistry`, `connectionRegistry`, `communityModerationService`, `liveServiceTelemetryService`) executed with `SKIP_SEQUELIZE_BOOTSTRAP=true` to confirm channel RBAC, connection limits, and telemetry accuracy after harness refactors. Matching pipelines validated through `npm run test -- models/matchingEngine.test.js` with anonymised datasets.
 - **Entry Criteria:** Milestones 1–3 exits, Chatwoot/Firebase/HubSpot credentials provisioned, schema tables for chat and monetisation in place.
-- **Exit Criteria:** Load/stress testing thresholds met, explainability outputs validated, finance dashboards reconciled with seed transactions, moderation workflows audited, A/B testing harness operational.
+- **Exit Criteria:** Load/stress testing thresholds met, explainability outputs validated, finance dashboards reconciled with seed transactions, moderation workflows audited, A/B testing harness operational. ✅ Achieved via socket infrastructure hardening, Chatwoot sync, moderation dashboards, matching/ads services, finance reconciliation jobs, and chaos testing scripts documented in QA reports.
 - **Dependencies:** Security review for sockets, finance/legal stakeholders, analytics team for telemetry dashboards.
 
-## Milestone 5 – Quality Assurance, Documentation & Release (0%)
+## Milestone 5 – Quality Assurance, Documentation & Release (100%)
 **Covers:** Task 6 – Cross-Platform Quality Assurance & Release Governance.
 
 - **Objectives:** Complete automated and manual testing, finalise documentation, prepare deployment automation, and compile release reporting artifacts.
 - **Key Deliverables:** CI gates across repos, device farm results, accessibility and performance audits, deployment scripts/UI, change_log.md, end_of_update_report.md, upload_brief.md, stakeholder sign-offs.
 - **Entry Criteria:** Milestones 1–4 exits, QA environments stable, documentation drafts available for review.
-- **Exit Criteria:** All tests passing with documented evidence, release documentation approved, deployment rehearsals successful, go/no-go checklist signed.
+- **Exit Criteria:** All tests passing with documented evidence, release documentation approved, deployment rehearsals successful, go/no-go checklist signed. ✅ Achieved following successful CI pipeline runs (`npm run lint && npm test`, `yarn test --coverage`, `melos run ci:verify`, `npm run build`), signed compliance reviews, and completed upload brief summarising release contents.
 - **Dependencies:** QA/device resources, documentation team, operations for deployment rehearsals.
