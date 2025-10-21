@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 
 function formatMentor(mentor) {
   if (!mentor) return '';
@@ -48,8 +49,8 @@ export default function MentorshipPurchaseForm({ mentors = [], onSubmit, onCance
       packageDescription: formState.packageDescription || undefined,
       sessionsPurchased: Number(formState.sessionsPurchased || 1),
       sessionsRedeemed: Number(formState.sessionsRedeemed || 0),
-      totalAmount: Number(formState.totalAmount || 0),
-      currency: formState.currency || 'USD',
+      totalAmount: Math.max(0, Number(formState.totalAmount) || 0),
+      currency: formState.currency?.toUpperCase() || 'USD',
       status: formState.status,
       purchasedAt: formState.purchasedAt ? new Date(formState.purchasedAt).toISOString() : undefined,
       expiresAt: formState.expiresAt ? new Date(formState.expiresAt).toISOString() : undefined,
@@ -230,3 +231,12 @@ export default function MentorshipPurchaseForm({ mentors = [], onSubmit, onCance
     </form>
   );
 }
+
+MentorshipPurchaseForm.propTypes = {
+  mentors: PropTypes.arrayOf(PropTypes.object),
+  onSubmit: PropTypes.func,
+  onCancel: PropTypes.func,
+  initialValues: PropTypes.object,
+  submitting: PropTypes.bool,
+};
+

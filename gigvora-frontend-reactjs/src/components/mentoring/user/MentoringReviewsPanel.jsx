@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import PropTypes from 'prop-types';
 import { StarIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
 
 function ReviewCard({ review }) {
@@ -21,7 +22,7 @@ function ReviewCard({ review }) {
   );
 }
 
-export default function MentoringReviewsPanel({ pending, recent, canEdit, onReview }) {
+export default function MentoringReviewsPanel({ pending = [], recent = [], canEdit = false, onReview }) {
   const [view, setView] = useState('pending');
   const items = view === 'pending' ? pending : recent;
   const emptyLabel = view === 'pending' ? 'No pending reviews.' : 'No reviews yet.';
@@ -56,7 +57,7 @@ export default function MentoringReviewsPanel({ pending, recent, canEdit, onRevi
         {canEdit && view === 'pending' && items.length ? (
           <button
             type="button"
-            onClick={() => onReview(items[0])}
+            onClick={() => onReview?.(items[0])}
             className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent/90"
           >
             <ChatBubbleLeftRightIcon className="h-4 w-4" />
@@ -77,3 +78,11 @@ export default function MentoringReviewsPanel({ pending, recent, canEdit, onRevi
     </section>
   );
 }
+
+MentoringReviewsPanel.propTypes = {
+  pending: PropTypes.arrayOf(PropTypes.object),
+  recent: PropTypes.arrayOf(PropTypes.object),
+  canEdit: PropTypes.bool,
+  onReview: PropTypes.func,
+};
+

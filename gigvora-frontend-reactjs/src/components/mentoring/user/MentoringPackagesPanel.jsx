@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { PlusIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
 
 function PackageRow({ order, onEdit, canEdit, currencyFormatter, dateFormatter }) {
@@ -29,7 +30,32 @@ function PackageRow({ order, onEdit, canEdit, currencyFormatter, dateFormatter }
   );
 }
 
-export default function MentoringPackagesPanel({ orders, canEdit, onCreate, onEdit, currencyFormatter, dateFormatter }) {
+const defaultCurrencyFormatter = (value, currency) =>
+  `${currency ?? '£'}${new Intl.NumberFormat('en-GB', { maximumFractionDigits: 2 }).format(value ?? 0)}`;
+
+const defaultDateFormatter = (value) => {
+  if (!value) return '—';
+  try {
+    return new Intl.DateTimeFormat('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    }).format(new Date(value));
+  } catch (error) {
+    return String(value);
+  }
+};
+
+export default function MentoringPackagesPanel({
+  orders = [],
+  canEdit = false,
+  onCreate,
+  onEdit,
+  currencyFormatter,
+  dateFormatter,
+}) {
+  const formatCurrency = currencyFormatter ?? defaultCurrencyFormatter;
+  const formatDate = dateFormatter ?? defaultDateFormatter;
   return (
     <section className="flex h-full flex-col gap-5 rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -66,8 +92,8 @@ export default function MentoringPackagesPanel({ orders, canEdit, onCreate, onEd
                   order={order}
                   onEdit={onEdit}
                   canEdit={canEdit}
-                  currencyFormatter={currencyFormatter}
-                  dateFormatter={dateFormatter}
+                  currencyFormatter={formatCurrency}
+                  dateFormatter={formatDate}
                 />
               ))
             ) : (
@@ -83,3 +109,29 @@ export default function MentoringPackagesPanel({ orders, canEdit, onCreate, onEd
     </section>
   );
 }
+
+MentoringPackagesPanel.propTypes = {
+  orders: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      packageName: PropTypes.string.isRequired,
+      packageDescription: PropTypes.string,
+      mentor: PropTypes.shape({
+        firstName: PropTypes.string,
+        lastName: PropTypes.string,
+      }),
+      mentorId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      sessionsRedeemed: PropTypes.number,
+      sessionsPurchased: PropTypes.number,
+      totalAmount: PropTypes.number,
+      currency: PropTypes.string,
+      purchasedAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    }),
+  ),
+  canEdit: PropTypes.bool,
+  onCreate: PropTypes.func,
+  onEdit: PropTypes.func,
+  currencyFormatter: PropTypes.func,
+  dateFormatter: PropTypes.func,
+};
+
