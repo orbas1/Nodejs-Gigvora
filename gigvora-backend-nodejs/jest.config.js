@@ -3,6 +3,7 @@ const TEST_DIRECTORIES = [
   '<rootDir>/tests/config/**/*.test.js',
   '<rootDir>/tests/lifecycle/**/*.test.js',
   '<rootDir>/tests/migrations/**/*.test.js',
+  '<rootDir>/src/services/__tests__/**/*.test.js',
 ];
 
 if (typeof process.env.SKIP_SEQUELIZE_BOOTSTRAP === 'undefined') {
