@@ -1,101 +1,202 @@
 import { apiClient } from './apiClient.js';
 
-export async function fetchFreelancerReputation(freelancerId, options = {}) {
-  if (!freelancerId) {
-    throw new Error('freelancerId is required to load reputation data.');
+const BASE_PATH = '/reputation/freelancers';
+const DEFAULT_COLLECTION_LIMIT = 20;
+const MAX_COLLECTION_LIMIT = 100;
+
+function ensureIdentifier(name, value) {
+  if (value === null || value === undefined) {
+    throw new Error(`${name} is required.`);
+  }
+  const normalised = `${value}`.trim();
+  if (!normalised) {
+    throw new Error(`${name} is required.`);
+  }
+  return normalised;
+}
+
+function ensureFreelancerId(freelancerId) {
+  return ensureIdentifier('freelancerId', freelancerId);
+}
+
+function ensurePayload(payload) {
+  if (payload == null) {
+    return {};
+  }
+  if (typeof payload !== 'object') {
+    throw new Error('Payload must be an object.');
+  }
+  return payload;
+}
+
+function ensureOptions(options) {
+  if (options === undefined || options === null) {
+    return {};
+  }
+  if (typeof options !== 'object') {
+    throw new Error('Request options must be an object.');
+  }
+  const { params: _ignoredParams, ...rest } = options;
+  return rest;
+}
+
+function buildFreelancerPath(freelancerId, ...segments) {
+  const safeSegments = segments
+    .filter((segment) => segment !== undefined && segment !== null)
+    .map((segment) => `${segment}`.trim())
+    .filter((segment) => segment.length > 0)
+    .map((segment) => encodeURIComponent(segment));
+
+  const base = `${BASE_PATH}/${encodeURIComponent(ensureFreelancerId(freelancerId))}`;
+  if (!safeSegments.length) {
+    return base;
+  }
+  return `${base}/${safeSegments.join('/')}`;
+}
+
+function normaliseLimit(value, fallback = DEFAULT_COLLECTION_LIMIT) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return Math.min(Math.max(parsed, 1), MAX_COLLECTION_LIMIT);
+}
+
+function normaliseQueryParams(params = {}) {
+  if (params === null || typeof params !== 'object') {
+    throw new Error('Query parameters must be provided as an object.');
   }
 
-  const { includeDrafts = false, limitTestimonials, limitStories, signal } = options;
+  const entries = Object.entries(params)
+    .map(([key, value]) => {
+      if (value === undefined || value === null) {
+        return [key, undefined];
+      }
+      if (Array.isArray(value)) {
+        return [key, value.map((item) => `${item}`.trim()).filter(Boolean).join(',') || undefined];
+      }
+      if (typeof value === 'number') {
+        return [key, Number.isFinite(value) ? value : undefined];
+      }
+      const trimmed = `${value}`.trim();
+      return [key, trimmed.length ? trimmed : undefined];
+    })
+    .filter(([, value]) => value !== undefined);
 
-  return apiClient.get(`/reputation/freelancers/${freelancerId}`, {
-    params: {
-      includeDrafts: includeDrafts ? 'true' : undefined,
-      limitTestimonials,
-      limitStories,
-    },
-    signal,
-  });
+  return Object.fromEntries(entries);
 }
 
-export async function createTestimonial(freelancerId, body, options = {}) {
-  return apiClient.post(`/reputation/freelancers/${freelancerId}/testimonials`, body, options);
+function sendFreelancerMutation(method, freelancerId, segments, payload, options) {
+  const client = apiClient[method];
+  if (typeof client !== 'function') {
+    throw new Error(`Unsupported method: ${method}`);
+  }
+
+  const path = buildFreelancerPath(freelancerId, ...segments);
+  const safeOptions = ensureOptions(options);
+
+  if (method === 'delete') {
+    return client(path, Object.keys(safeOptions).length ? safeOptions : undefined);
+  }
+
+  const body = ensurePayload(payload);
+  return client(path, body, Object.keys(safeOptions).length ? safeOptions : undefined);
 }
 
-export async function createSuccessStory(freelancerId, body, options = {}) {
-  return apiClient.post(`/reputation/freelancers/${freelancerId}/success-stories`, body, options);
+export async function fetchFreelancerReputation(freelancerId, options = {}) {
+  const { includeDrafts = false, limitTestimonials, limitStories, ...rest } = options ?? {};
+  const safeOptions = ensureOptions(rest);
+  const { signal, ...other } = safeOptions;
+
+  const params = {
+    includeDrafts: includeDrafts ? 'true' : undefined,
+    limitTestimonials: normaliseLimit(limitTestimonials, DEFAULT_COLLECTION_LIMIT),
+    limitStories: normaliseLimit(limitStories, DEFAULT_COLLECTION_LIMIT),
+  };
+
+  const requestOptions = {
+    params: normaliseQueryParams(params),
+    ...other,
+  };
+
+  if (signal) {
+    requestOptions.signal = signal;
+  }
+
+  return apiClient.get(buildFreelancerPath(freelancerId), requestOptions);
 }
 
-export async function upsertMetric(freelancerId, body, options = {}) {
-  return apiClient.post(`/reputation/freelancers/${freelancerId}/metrics`, body, options);
+export async function createTestimonial(freelancerId, payload, options) {
+  return sendFreelancerMutation('post', freelancerId, ['testimonials'], payload, options);
 }
 
-export async function createBadge(freelancerId, body, options = {}) {
-  return apiClient.post(`/reputation/freelancers/${freelancerId}/badges`, body, options);
+export async function createSuccessStory(freelancerId, payload, options) {
+  return sendFreelancerMutation('post', freelancerId, ['success-stories'], payload, options);
 }
 
-export async function createReviewWidget(freelancerId, body, options = {}) {
-  return apiClient.post(`/reputation/freelancers/${freelancerId}/widgets`, body, options);
+export async function upsertMetric(freelancerId, payload, options) {
+  return sendFreelancerMutation('post', freelancerId, ['metrics'], payload, options);
+}
+
+export async function createBadge(freelancerId, payload, options) {
+  return sendFreelancerMutation('post', freelancerId, ['badges'], payload, options);
+}
+
+export async function createReviewWidget(freelancerId, payload, options) {
+  return sendFreelancerMutation('post', freelancerId, ['widgets'], payload, options);
 }
 
 export async function fetchFreelancerReviews(freelancerId, params = {}, options = {}) {
-  if (!freelancerId) {
-    throw new Error('freelancerId is required to load reviews.');
-  }
-
-  const { signal } = options;
-  const normalizedParams = { ...params };
-
-  if (Array.isArray(normalizedParams.tags)) {
-    normalizedParams.tags = normalizedParams.tags.join(',');
-  }
-
-  return apiClient.get(`/reputation/freelancers/${freelancerId}/reviews`, {
-    params: normalizedParams,
-    signal,
+  const safeParams = normaliseQueryParams({
+    ...params,
+    limit: normaliseLimit(params.limit, DEFAULT_COLLECTION_LIMIT),
   });
+  const safeOptions = ensureOptions(options);
+  const { signal, ...other } = safeOptions;
+  const requestOptions = {
+    params: safeParams,
+    ...other,
+  };
+  if (signal) {
+    requestOptions.signal = signal;
+  }
+  return apiClient.get(buildFreelancerPath(freelancerId, 'reviews'), requestOptions);
 }
 
-export async function createFreelancerReview(freelancerId, body, options = {}) {
-  if (!freelancerId) {
-    throw new Error('freelancerId is required to create a review.');
-  }
-  return apiClient.post(`/reputation/freelancers/${freelancerId}/reviews`, body, options);
+export async function createFreelancerReview(freelancerId, payload, options) {
+  return sendFreelancerMutation('post', freelancerId, ['reviews'], payload, options);
 }
 
-export async function updateFreelancerReview(freelancerId, reviewId, body, options = {}) {
-  if (!freelancerId || !reviewId) {
-    throw new Error('freelancerId and reviewId are required to update a review.');
-  }
-  return apiClient.put(`/reputation/freelancers/${freelancerId}/reviews/${reviewId}`, body, options);
+export async function updateFreelancerReview(freelancerId, reviewId, payload, options) {
+  return sendFreelancerMutation(
+    'put',
+    freelancerId,
+    ['reviews', ensureIdentifier('reviewId', reviewId)],
+    payload,
+    options,
+  );
 }
 
-export async function deleteFreelancerReview(freelancerId, reviewId, options = {}) {
-  if (!freelancerId || !reviewId) {
-    throw new Error('freelancerId and reviewId are required to delete a review.');
-  }
-  return apiClient.delete(`/reputation/freelancers/${freelancerId}/reviews/${reviewId}`, options);
+export async function deleteFreelancerReview(freelancerId, reviewId, options) {
+  return sendFreelancerMutation('delete', freelancerId, ['reviews', ensureIdentifier('reviewId', reviewId)], undefined, options);
 }
 
-export async function updateReferenceSettings(freelancerId, settings, options = {}) {
-  if (!freelancerId) {
-    throw new Error('freelancerId is required to update reference settings.');
-  }
-
-  return apiClient.put(`/reputation/freelancers/${freelancerId}/references/settings`, settings, options);
+export async function updateReferenceSettings(freelancerId, payload, options) {
+  return sendFreelancerMutation('put', freelancerId, ['references', 'settings'], payload, options);
 }
 
-export async function requestReferenceInvite(freelancerId, payload, options = {}) {
-  if (!freelancerId) {
-    throw new Error('freelancerId is required to request a reference invite.');
-  }
-  return apiClient.post(`/reputation/freelancers/${freelancerId}/references/requests`, payload, options);
+export async function requestReferenceInvite(freelancerId, payload, options) {
+  return sendFreelancerMutation('post', freelancerId, ['references', 'requests'], payload, options);
 }
 
-export async function verifyReference(freelancerId, referenceId, body = {}, options = {}) {
-  if (!freelancerId || !referenceId) {
-    throw new Error('freelancerId and referenceId are required to verify a reference.');
-  }
-  return apiClient.post(`/reputation/freelancers/${freelancerId}/references/${referenceId}/verify`, body, options);
+export async function verifyReference(freelancerId, referenceId, payload = {}, options) {
+  return sendFreelancerMutation(
+    'post',
+    freelancerId,
+    ['references', ensureIdentifier('referenceId', referenceId), 'verify'],
+    payload,
+    options,
+  );
 }
 
 export default {
