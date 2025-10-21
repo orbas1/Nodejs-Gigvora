@@ -1,16 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import fs from 'fs-extra';
+import {
+  CATEGORY_COLLECTION_MAP,
+  getExplorerCollections,
+  inferExplorerCategoryFromCollection,
+} from '../utils/explorerCollections.js';
 
-const SUPPORTED_COLLECTIONS = [
-  'projects',
-  'gigs',
-  'talent',
-  'mentor',
-  'volunteering',
-  'job',
-  'launchpad',
-];
+const SUPPORTED_COLLECTIONS = getExplorerCollections();
 
 const DEFAULT_DATASET = Object.fromEntries(SUPPORTED_COLLECTIONS.map((key) => [key, []]));
 
@@ -111,24 +108,11 @@ export async function deleteRecord(collection, id) {
 }
 
 function inferCategoryFromCollection(collection) {
-  switch (collection) {
-    case 'projects':
-      return 'project';
-    case 'gigs':
-      return 'gig';
-    case 'talent':
-      return 'talent';
-    case 'mentor':
-      return 'mentor';
-    case 'volunteering':
-      return 'volunteering';
-    case 'job':
-      return 'job';
-    case 'launchpad':
-      return 'launchpad';
-    default:
-      return collection;
+  const match = Object.entries(CATEGORY_COLLECTION_MAP).find(([, value]) => value === collection);
+  if (match) {
+    return match[0];
   }
+  return inferExplorerCategoryFromCollection(collection);
 }
 
 export default {

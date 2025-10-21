@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { Dialog, Transition } from '@headlessui/react';
+import { Link } from 'react-router-dom';
 import {
   ArrowPathIcon,
   PencilSquareIcon,
@@ -348,6 +349,12 @@ function ExplorerManagementPanel({ category, categoryLabel, isOpen, onClose, onM
                                     </div>
                                   </div>
                                   <div className="flex flex-col gap-2">
+                                    <Link
+                                      to={`/explorer/${category}/${record.id}`}
+                                      className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-accent transition hover:border-accent hover:text-accentDark"
+                                    >
+                                      View profile
+                                    </Link>
                                     <button
                                       type="button"
                                       onClick={() => handleEdit(record)}

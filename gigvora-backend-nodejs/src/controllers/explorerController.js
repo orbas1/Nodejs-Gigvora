@@ -7,18 +7,7 @@ import {
   listRecords,
   updateRecord,
 } from '../services/explorerStore.js';
-
-const CATEGORY_COLLECTION_MAP = {
-  project: 'projects',
-  gig: 'gigs',
-  talent: 'talent',
-  mentor: 'mentor',
-  volunteering: 'volunteering',
-  job: 'job',
-  launchpad: 'launchpad',
-};
-
-const CATEGORY_SCHEMA = z.enum(Object.keys(CATEGORY_COLLECTION_MAP));
+import { resolveExplorerCollection } from '../utils/explorerCollections.js';
 
 const mediaSchema = z.object({
   heroImage: z.string().url().optional(),
@@ -82,13 +71,7 @@ const recordSchema = baseRecordSchema.extend({
 const updateSchema = baseRecordSchema.partial();
 
 function resolveCollection(category) {
-  const parsed = CATEGORY_SCHEMA.safeParse(category);
-  if (!parsed.success) {
-    const error = new Error('Explorer category not found');
-    error.status = 404;
-    throw error;
-  }
-  return CATEGORY_COLLECTION_MAP[parsed.data];
+  return resolveExplorerCollection(category);
 }
 
 function stringToArray(value) {

@@ -10,7 +10,7 @@ import {
   MapIcon,
   PlusIcon,
 } from '@heroicons/react/24/outline';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
 import DataStatus from '../components/DataStatus.jsx';
 import ExplorerMap from '../components/explorer/ExplorerMap.jsx';
@@ -679,6 +679,8 @@ export default function SearchPage() {
     return chips;
   }, [filters, handleRemoveFilterValue, handleRemoveRemoteFilter, handleRemoveFreshnessFilter, viewportBounds, handleClearViewport]);
 
+  const navigate = useNavigate();
+
   const handleResultClick = useCallback(
     (item) => {
       analytics.track(
@@ -689,6 +691,7 @@ export default function SearchPage() {
           title: item.title,
           query: debouncedQuery || null,
           filters: cleanedFilters,
+          mode: 'preview',
         },
         { source: 'web_app' },
       );
@@ -700,6 +703,25 @@ export default function SearchPage() {
       });
     },
     [debouncedQuery, cleanedFilters],
+  );
+
+  const handleOpenRecordPage = useCallback(
+    (item) => {
+      analytics.track(
+        'web_explorer_result_opened',
+        {
+          id: item.id,
+          category: item.category,
+          title: item.title,
+          query: debouncedQuery || null,
+          filters: cleanedFilters,
+          mode: 'detail_page',
+        },
+        { source: 'web_app' },
+      );
+      navigate(`/explorer/${item.category}/${item.id}`);
+    },
+    [debouncedQuery, cleanedFilters, navigate],
   );
 
   const handleCloseResultDialog = useCallback(() => {
@@ -1235,13 +1257,22 @@ export default function SearchPage() {
                           </div>
                           <div className="mt-4 flex items-center justify-between text-[0.6rem] text-slate-400">
                             <span>Updated {formatRelativeTime(item.updatedAt)}</span>
-                            <button
-                              type="button"
-                              onClick={() => handleResultClick(item)}
-                              className="text-accent hover:text-accentDark"
-                            >
-                              View details →
-                            </button>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleResultClick(item)}
+                                className="text-slate-400 underline-offset-2 transition hover:text-accent hover:underline"
+                              >
+                                Preview
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenRecordPage(item)}
+                                className="text-accent hover:text-accentDark"
+                              >
+                                Open profile →
+                              </button>
+                            </div>
                           </div>
                         </article>
                       ))}
@@ -1268,13 +1299,22 @@ export default function SearchPage() {
                         </div>
                         <div className="mt-4 flex items-center justify-between text-xs text-slate-400">
                           <span>Updated {formatRelativeTime(item.updatedAt)}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleResultClick(item)}
-                            className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
-                          >
-                            View details <span aria-hidden="true">→</span>
-                          </button>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleResultClick(item)}
+                              className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+                            >
+                              Quick preview
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenRecordPage(item)}
+                              className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-xs font-semibold text-white shadow-soft transition hover:bg-accentDark"
+                            >
+                              Open profile <span aria-hidden="true">→</span>
+                            </button>
+                          </div>
                         </div>
                       </article>
                     ))}
