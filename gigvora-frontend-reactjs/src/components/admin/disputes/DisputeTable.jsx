@@ -81,26 +81,48 @@ function buildBreakdownList(breakdown) {
 }
 
 export default function DisputeTable({
-  items,
-  summary,
-  pagination,
-  loading,
+  items = [],
+  summary = {},
+  pagination = { page: 1, pageSize: 25, totalItems: 0, totalPages: 1 },
+  loading = false,
   onSelect,
   onPageChange,
 }) {
   const stageBreakdown = buildBreakdownList(summary?.totalsByStage);
   const priorityBreakdown = buildBreakdownList(summary?.totalsByPriority);
 
+  const currentPage = Math.max(1, Number(pagination?.page) || 1);
+  const totalPages = Math.max(1, Number(pagination?.totalPages) || 1);
+  const totalItems = Number.isFinite(Number(pagination?.totalItems))
+    ? Number(pagination.totalItems)
+    : items.length;
+
   const handlePrev = () => {
-    if (pagination?.page > 1) {
-      onPageChange?.(pagination.page - 1);
+    if (currentPage > 1) {
+      onPageChange?.(currentPage - 1);
     }
   };
 
   const handleNext = () => {
-    if (pagination?.page < pagination?.totalPages) {
-      onPageChange?.(pagination.page + 1);
+    if (currentPage < totalPages) {
+      onPageChange?.(currentPage + 1);
     }
+  };
+
+  const handleRowActivate = (event, item) => {
+    if (!onSelect) {
+      return;
+    }
+
+    if (event?.type === 'keydown') {
+      const triggerKeys = ['Enter', ' '];
+      if (!triggerKeys.includes(event.key)) {
+        return;
+      }
+      event.preventDefault();
+    }
+
+    onSelect(item);
   };
 
   return (
@@ -163,7 +185,10 @@ export default function DisputeTable({
                   <tr
                     key={item.id}
                     className="cursor-pointer bg-white transition hover:bg-blue-50/50"
-                    onClick={() => onSelect?.(item)}
+                    tabIndex={0}
+                    aria-label={`View dispute #${item.id} - ${capitalize(item.stage)} stage`}
+                    onClick={(event) => handleRowActivate(event, item)}
+                    onKeyDown={(event) => handleRowActivate(event, item)}
                   >
                     <td className="px-6 py-4 font-semibold text-slate-900">
                       #{item.id}
@@ -199,7 +224,7 @@ export default function DisputeTable({
                       {latestNote ? <span className="line-clamp-2">{latestNote}</span> : '—'}
                     </td>
                     <td className="px-6 py-4 text-right text-slate-400">
-                      <ArrowLongRightIcon className="inline h-5 w-5" aria-hidden="true" />
+                      <ArrowLongRightIcon className="inline h-5 w-5" aria-hidden="true" focusable="false" />
                     </td>
                   </tr>
                 );
@@ -209,14 +234,14 @@ export default function DisputeTable({
         </table>
       </div>
       <div className="flex items-center justify-between gap-3 border-t border-slate-200 px-6 py-4 text-sm text-slate-600">
-        <div>
-          Page {pagination?.page ?? 1} of {pagination?.totalPages ?? 1} · {pagination?.totalItems ?? items.length} total cases
+        <div aria-live="polite">
+          Page {currentPage} of {totalPages} · {totalItems} total cases
         </div>
         <div className="flex gap-2">
           <button
             type="button"
             onClick={handlePrev}
-            disabled={loading || (pagination?.page ?? 1) <= 1}
+            disabled={loading || currentPage <= 1}
             className="inline-flex items-center rounded-full border border-slate-200 px-4 py-1.5 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Previous
@@ -224,7 +249,7 @@ export default function DisputeTable({
           <button
             type="button"
             onClick={handleNext}
-            disabled={loading || (pagination?.page ?? 1) >= (pagination?.totalPages ?? 1)}
+            disabled={loading || currentPage >= totalPages}
             className="inline-flex items-center rounded-full border border-slate-200 px-4 py-1.5 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Next
@@ -242,21 +267,13 @@ DisputeTable.propTypes = {
     totalsByPriority: PropTypes.object,
   }),
   pagination: PropTypes.shape({
-    page: PropTypes.number,
-    pageSize: PropTypes.number,
-    totalItems: PropTypes.number,
-    totalPages: PropTypes.number,
+    page: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    pageSize: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    totalItems: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    totalPages: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
   }),
   loading: PropTypes.bool,
   onSelect: PropTypes.func,
   onPageChange: PropTypes.func,
 };
 
-DisputeTable.defaultProps = {
-  items: [],
-  summary: {},
-  pagination: { page: 1, pageSize: 25, totalItems: 0, totalPages: 1 },
-  loading: false,
-  onSelect: undefined,
-  onPageChange: undefined,
-};

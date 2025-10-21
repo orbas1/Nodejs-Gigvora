@@ -29,6 +29,19 @@ describe('DisputeMetricsCards', () => {
     fireEvent.click(screen.getByText('Open'));
     expect(handleSelect).toHaveBeenCalledWith('openCount');
   });
+
+  it('handles keyboard activation and default summary gracefully', () => {
+    const handleSelect = vi.fn();
+    render(<DisputeMetricsCards onSelect={handleSelect} />);
+
+    const firstCard = screen.getByLabelText('View open disputes');
+    fireEvent.keyDown(firstCard, { key: ' ' });
+    fireEvent.keyDown(firstCard, { key: 'Enter' });
+
+    expect(handleSelect).toHaveBeenCalledTimes(2);
+    expect(screen.getAllByText('0').length).toBeGreaterThan(0);
+    expect(screen.getByLabelText('View escrow disputes')).toBeInTheDocument();
+  });
 });
 
 describe('DisputeTable', () => {
@@ -75,6 +88,35 @@ describe('DisputeTable', () => {
 
     fireEvent.click(screen.getByText('#42'));
     expect(handleSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 42 }));
+  });
+
+  it('supports keyboard activation and sanitises pagination values', () => {
+    const handleSelect = vi.fn();
+    const handlePageChange = vi.fn();
+
+    render(
+      <DisputeTable
+        items={[baseItem]}
+        onSelect={handleSelect}
+        onPageChange={handlePageChange}
+        pagination={{ page: '2', totalPages: '5', totalItems: '20' }}
+      />,
+    );
+
+    const interactiveRow = screen.getByLabelText('View dispute #42 - Mediation stage');
+    fireEvent.keyDown(interactiveRow, { key: 'Enter' });
+    fireEvent.keyDown(interactiveRow, { key: ' ' });
+
+    expect(handleSelect).toHaveBeenCalledTimes(2);
+    expect(handleSelect).toHaveBeenLastCalledWith(expect.objectContaining({ id: 42 }));
+
+    expect(screen.getByText('Page 2 of 5 · 20 total cases')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Previous/i }));
+    expect(handlePageChange).toHaveBeenCalledWith(1);
+
+    fireEvent.click(screen.getByRole('button', { name: /Next/i }));
+    expect(handlePageChange).toHaveBeenCalledWith(3);
   });
 
   it('shows empty state when no disputes exist', () => {
