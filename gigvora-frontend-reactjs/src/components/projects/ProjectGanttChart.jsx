@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import PropTypes from 'prop-types';
 import { formatRelativeTime } from '../../utils/date.js';
 
 function parseDate(value) {
@@ -152,3 +153,30 @@ export default function ProjectGanttChart({ timeline, tasks = [] }) {
     </div>
   );
 }
+
+ProjectGanttChart.propTypes = {
+  timeline: PropTypes.shape({
+    name: PropTypes.string,
+    startDate: PropTypes.string,
+    endDate: PropTypes.string,
+  }),
+  tasks: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+      title: PropTypes.string,
+      ownerName: PropTypes.string,
+      lane: PropTypes.string,
+      startDate: PropTypes.string,
+      endDate: PropTypes.string,
+      progressPercent: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      workloadHours: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      status: PropTypes.string,
+      color: PropTypes.string,
+    })
+  ),
+};
+
+ProjectGanttChart.defaultProps = {
+  timeline: null,
+  tasks: [],
+};
