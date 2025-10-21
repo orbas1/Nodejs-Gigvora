@@ -730,6 +730,7 @@ export const CALENDAR_EVENT_TYPES = Object.freeze([
   'wellbeing',
   'deadline',
   'ritual',
+  'other',
 ];
 export const FREELANCER_CALENDAR_EVENT_TYPES = [
   'project',
