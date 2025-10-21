@@ -1,4 +1,5 @@
 import { Fragment, useMemo } from 'react';
+import PropTypes from 'prop-types';
 import { Dialog, Transition } from '@headlessui/react';
 import { ArrowTopRightOnSquareIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { formatAbsolute } from '../../../../utils/date.js';
@@ -149,3 +150,33 @@ export default function WeatherDetailDialog({ open, onClose, weather, location, 
     </Transition.Root>
   );
 }
+
+WeatherDetailDialog.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  weather: PropTypes.shape({
+    temperatureC: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    temperatureF: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    windSpeedKph: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    windSpeedMph: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    windDirection: PropTypes.string,
+    description: PropTypes.string,
+    observedAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    provider: PropTypes.string,
+  }),
+  location: PropTypes.string,
+  coordinates: PropTypes.shape({
+    latitude: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    longitude: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  }),
+  lastUpdated: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+  onEdit: PropTypes.func,
+};
+
+WeatherDetailDialog.defaultProps = {
+  weather: null,
+  location: null,
+  coordinates: null,
+  lastUpdated: null,
+  onEdit: undefined,
+};

@@ -1,3 +1,5 @@
+import PropTypes from 'prop-types';
+
 export default function SectionShell({ id, title, description, children, actions }) {
   return (
     <section id={id} className="space-y-6">
@@ -12,3 +14,17 @@ export default function SectionShell({ id, title, description, children, actions
     </section>
   );
 }
+
+SectionShell.propTypes = {
+  id: PropTypes.string,
+  title: PropTypes.string.isRequired,
+  description: PropTypes.oneOfType([PropTypes.string, PropTypes.node]),
+  actions: PropTypes.node,
+  children: PropTypes.node.isRequired,
+};
+
+SectionShell.defaultProps = {
+  id: undefined,
+  description: undefined,
+  actions: null,
+};
