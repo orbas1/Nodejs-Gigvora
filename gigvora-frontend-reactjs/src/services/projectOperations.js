@@ -1,272 +1,303 @@
 import { apiClient } from './apiClient.js';
 
-function requireProjectId(projectId) {
-  if (!projectId) {
-    throw new Error('projectId is required');
-  }
-}
+const PROJECTS_BASE_PATH = '/projects';
 
-function requireIdentifier(name, value) {
-  if (!value && value !== 0) {
+function ensureIdentifier(name, value) {
+  if (value === undefined || value === null) {
     throw new Error(`${name} is required`);
   }
+  const trimmed = `${value}`.trim();
+  if (!trimmed) {
+    throw new Error(`${name} is required`);
+  }
+  return trimmed;
 }
 
-export function fetchProjectOperations(projectId, { signal } = {}) {
-  requireProjectId(projectId);
-  return apiClient.get(`/projects/${projectId}/operations`, { signal });
+function ensureProjectId(projectId) {
+  return ensureIdentifier('projectId', projectId);
 }
 
-export function updateProjectOperations(projectId, payload) {
-  requireProjectId(projectId);
-  return apiClient.put(`/projects/${projectId}/operations`, payload);
+function ensurePayload(payload) {
+  if (payload === undefined || payload === null) {
+    return {};
+  }
+  if (typeof payload !== 'object') {
+    throw new Error('Payload must be an object.');
+  }
+  return payload;
 }
 
-export function addProjectTask(projectId, payload) {
-  requireProjectId(projectId);
-  return apiClient.post(`/projects/${projectId}/operations/tasks`, payload);
+function ensureOptions(options) {
+  if (options === undefined || options === null) {
+    return {};
+  }
+  if (typeof options !== 'object') {
+    throw new Error('Options must be an object.');
+  }
+  return options;
 }
 
-export function updateProjectTask(projectId, taskId, payload) {
-  requireProjectId(projectId);
-  requireIdentifier('taskId', taskId);
-  return apiClient.patch(`/projects/${projectId}/operations/tasks/${taskId}`, payload);
+function buildOperationsPath(projectId, ...segments) {
+  const safeSegments = ['operations', ...segments]
+    .filter((segment) => segment !== undefined && segment !== null)
+    .map((segment) => `${segment}`.trim())
+    .filter((segment) => segment.length > 0)
+    .map((segment) => encodeURIComponent(segment));
+  const prefix = `${PROJECTS_BASE_PATH}/${encodeURIComponent(ensureProjectId(projectId))}`;
+  return `${prefix}/${safeSegments.join('/')}`;
 }
 
-export function deleteProjectTask(projectId, taskId) {
-  requireProjectId(projectId);
-  requireIdentifier('taskId', taskId);
-  return apiClient.delete(`/projects/${projectId}/operations/tasks/${taskId}`);
+function callApi(method, projectId, segments, payload, options) {
+  const client = apiClient[method];
+  if (typeof client !== 'function') {
+    throw new Error(`Unsupported method: ${method}`);
+  }
+  const safeOptions = ensureOptions(options);
+  const path = buildOperationsPath(projectId, ...segments);
+
+  if (method === 'delete') {
+    if (Object.keys(safeOptions).length > 0) {
+      return client(path, safeOptions);
+    }
+    return client(path);
+  }
+
+  const safePayload = ensurePayload(payload);
+  if (Object.keys(safeOptions).length > 0) {
+    return client(path, safePayload, safeOptions);
+  }
+  return client(path, safePayload);
 }
 
-export function createProjectBudget(projectId, payload) {
-  requireProjectId(projectId);
-  return apiClient.post(`/projects/${projectId}/operations/budgets`, payload);
-}
-
-export function updateProjectBudget(projectId, budgetId, payload) {
-  requireProjectId(projectId);
-  requireIdentifier('budgetId', budgetId);
-  return apiClient.patch(`/projects/${projectId}/operations/budgets/${budgetId}`, payload);
-}
-
-export function deleteProjectBudget(projectId, budgetId) {
-  requireProjectId(projectId);
-  requireIdentifier('budgetId', budgetId);
-  return apiClient.delete(`/projects/${projectId}/operations/budgets/${budgetId}`);
-}
-
-export function createProjectObject(projectId, payload) {
-  requireProjectId(projectId);
-  return apiClient.post(`/projects/${projectId}/operations/objects`, payload);
-}
-
-export function updateProjectObject(projectId, objectId, payload) {
-  requireProjectId(projectId);
-  requireIdentifier('objectId', objectId);
-  return apiClient.patch(`/projects/${projectId}/operations/objects/${objectId}`, payload);
-}
-
-export function deleteProjectObject(projectId, objectId) {
-  requireProjectId(projectId);
-  requireIdentifier('objectId', objectId);
-  return apiClient.delete(`/projects/${projectId}/operations/objects/${objectId}`);
-}
-
-export function createProjectTimelineEvent(projectId, payload) {
-  requireProjectId(projectId);
-  return apiClient.post(`/projects/${projectId}/operations/timeline/events`, payload);
-}
-
-export function updateProjectTimelineEvent(projectId, eventId, payload) {
-  requireProjectId(projectId);
-  requireIdentifier('eventId', eventId);
-  return apiClient.patch(`/projects/${projectId}/operations/timeline/events/${eventId}`, payload);
-}
-
-export function deleteProjectTimelineEvent(projectId, eventId) {
-  requireProjectId(projectId);
-  requireIdentifier('eventId', eventId);
-  return apiClient.delete(`/projects/${projectId}/operations/timeline/events/${eventId}`);
-}
-
-export function createProjectMeeting(projectId, payload) {
-  requireProjectId(projectId);
-  return apiClient.post(`/projects/${projectId}/operations/meetings`, payload);
-}
-
-export function updateProjectMeeting(projectId, meetingId, payload) {
-  requireProjectId(projectId);
-  requireIdentifier('meetingId', meetingId);
-  return apiClient.patch(`/projects/${projectId}/operations/meetings/${meetingId}`, payload);
-}
-
-export function deleteProjectMeeting(projectId, meetingId) {
-  requireProjectId(projectId);
-  requireIdentifier('meetingId', meetingId);
-  return apiClient.delete(`/projects/${projectId}/operations/meetings/${meetingId}`);
-}
-
-export function createProjectCalendarEntry(projectId, payload) {
-  requireProjectId(projectId);
-  return apiClient.post(`/projects/${projectId}/operations/calendar`, payload);
-}
-
-export function updateProjectCalendarEntry(projectId, entryId, payload) {
-  requireProjectId(projectId);
-  requireIdentifier('entryId', entryId);
-  return apiClient.patch(`/projects/${projectId}/operations/calendar/${entryId}`, payload);
-}
-
-export function deleteProjectCalendarEntry(projectId, entryId) {
-  requireProjectId(projectId);
-  requireIdentifier('entryId', entryId);
-  return apiClient.delete(`/projects/${projectId}/operations/calendar/${entryId}`);
-}
-
-export function createProjectRole(projectId, payload) {
-  requireProjectId(projectId);
-  return apiClient.post(`/projects/${projectId}/operations/roles`, payload);
-}
-
-export function updateProjectRole(projectId, roleId, payload) {
-  requireProjectId(projectId);
-  requireIdentifier('roleId', roleId);
-  return apiClient.patch(`/projects/${projectId}/operations/roles/${roleId}`, payload);
-}
-
-export function deleteProjectRole(projectId, roleId) {
-  requireProjectId(projectId);
-  requireIdentifier('roleId', roleId);
-  return apiClient.delete(`/projects/${projectId}/operations/roles/${roleId}`);
-}
-
-export function createProjectSubmission(projectId, payload) {
-  requireProjectId(projectId);
-  return apiClient.post(`/projects/${projectId}/operations/submissions`, payload);
-}
-
-export function updateProjectSubmission(projectId, submissionId, payload) {
-  requireProjectId(projectId);
-  requireIdentifier('submissionId', submissionId);
-  return apiClient.patch(`/projects/${projectId}/operations/submissions/${submissionId}`, payload);
-}
-
-export function deleteProjectSubmission(projectId, submissionId) {
-  requireProjectId(projectId);
-  requireIdentifier('submissionId', submissionId);
-  return apiClient.delete(`/projects/${projectId}/operations/submissions/${submissionId}`);
-}
-
-export function createProjectInvite(projectId, payload) {
-  requireProjectId(projectId);
-  return apiClient.post(`/projects/${projectId}/operations/invites`, payload);
-}
-
-export function updateProjectInvite(projectId, inviteId, payload) {
-  requireProjectId(projectId);
-  requireIdentifier('inviteId', inviteId);
-  return apiClient.patch(`/projects/${projectId}/operations/invites/${inviteId}`, payload);
-}
-
-export function deleteProjectInvite(projectId, inviteId) {
-  requireProjectId(projectId);
-  requireIdentifier('inviteId', inviteId);
-  return apiClient.delete(`/projects/${projectId}/operations/invites/${inviteId}`);
-}
-
-export function createProjectHrRecord(projectId, payload) {
-  requireProjectId(projectId);
-  return apiClient.post(`/projects/${projectId}/operations/hr`, payload);
-}
-
-export function updateProjectHrRecord(projectId, recordId, payload) {
-  requireProjectId(projectId);
-  requireIdentifier('recordId', recordId);
-  return apiClient.patch(`/projects/${projectId}/operations/hr/${recordId}`, payload);
-}
-
-export function deleteProjectHrRecord(projectId, recordId) {
-  requireProjectId(projectId);
-  requireIdentifier('recordId', recordId);
-  return apiClient.delete(`/projects/${projectId}/operations/hr/${recordId}`);
-}
-
-export function createProjectTimeLog(projectId, payload) {
-  requireProjectId(projectId);
-  return apiClient.post(`/projects/${projectId}/operations/time-logs`, payload);
-}
-
-export function updateProjectTimeLog(projectId, logId, payload) {
-  requireProjectId(projectId);
-  requireIdentifier('logId', logId);
-  return apiClient.patch(`/projects/${projectId}/operations/time-logs/${logId}`, payload);
-}
-
-export function deleteProjectTimeLog(projectId, logId) {
-  requireProjectId(projectId);
-  requireIdentifier('logId', logId);
-  return apiClient.delete(`/projects/${projectId}/operations/time-logs/${logId}`);
-}
-
-export function createProjectTarget(projectId, payload) {
-  requireProjectId(projectId);
-  return apiClient.post(`/projects/${projectId}/operations/targets`, payload);
-}
-
-export function updateProjectTarget(projectId, targetId, payload) {
-  requireProjectId(projectId);
-  requireIdentifier('targetId', targetId);
-  return apiClient.patch(`/projects/${projectId}/operations/targets/${targetId}`, payload);
-}
-
-export function deleteProjectTarget(projectId, targetId) {
-  requireProjectId(projectId);
-  requireIdentifier('targetId', targetId);
-  return apiClient.delete(`/projects/${projectId}/operations/targets/${targetId}`);
-}
-
-export function createProjectObjective(projectId, payload) {
-  requireProjectId(projectId);
-  return apiClient.post(`/projects/${projectId}/operations/objectives`, payload);
-}
-
-export function updateProjectObjective(projectId, objectiveId, payload) {
-  requireProjectId(projectId);
-  requireIdentifier('objectiveId', objectiveId);
-  return apiClient.patch(`/projects/${projectId}/operations/objectives/${objectiveId}`, payload);
-}
-
-export function deleteProjectObjective(projectId, objectiveId) {
-  requireProjectId(projectId);
-  requireIdentifier('objectiveId', objectiveId);
-  return apiClient.delete(`/projects/${projectId}/operations/objectives/${objectiveId}`);
-}
-
-export function postConversationMessage(projectId, conversationId, payload) {
-  requireProjectId(projectId);
-  requireIdentifier('conversationId', conversationId);
-  return apiClient.post(
-    `/projects/${projectId}/operations/conversations/${conversationId}/messages`,
-    payload,
+export function fetchProjectOperations(projectId, options = {}) {
+  const { signal, ...rest } = options ?? {};
+  const safeOptions = ensureOptions(rest);
+  const requestOptions = { ...safeOptions };
+  if (signal) {
+    requestOptions.signal = signal;
+  }
+  return apiClient.get(
+    buildOperationsPath(projectId),
+    Object.keys(requestOptions).length ? requestOptions : undefined,
   );
 }
 
-export function createProjectFile(projectId, payload) {
-  requireProjectId(projectId);
-  return apiClient.post(`/projects/${projectId}/operations/files`, payload);
+export function updateProjectOperations(projectId, payload, options) {
+  return callApi('put', projectId, [], payload, options);
 }
 
-export function updateProjectFile(projectId, fileId, payload) {
-  requireProjectId(projectId);
-  requireIdentifier('fileId', fileId);
-  return apiClient.patch(`/projects/${projectId}/operations/files/${fileId}`, payload);
+export function addProjectTask(projectId, payload, options) {
+  return callApi('post', projectId, ['tasks'], payload, options);
 }
 
-export function deleteProjectFile(projectId, fileId) {
-  requireProjectId(projectId);
-  requireIdentifier('fileId', fileId);
-  return apiClient.delete(`/projects/${projectId}/operations/files/${fileId}`);
+export function updateProjectTask(projectId, taskId, payload, options) {
+  return callApi('patch', projectId, ['tasks', ensureIdentifier('taskId', taskId)], payload, options);
+}
+
+export function deleteProjectTask(projectId, taskId, options) {
+  return callApi('delete', projectId, ['tasks', ensureIdentifier('taskId', taskId)], undefined, options);
+}
+
+export function createProjectBudget(projectId, payload, options) {
+  return callApi('post', projectId, ['budgets'], payload, options);
+}
+
+export function updateProjectBudget(projectId, budgetId, payload, options) {
+  return callApi('patch', projectId, ['budgets', ensureIdentifier('budgetId', budgetId)], payload, options);
+}
+
+export function deleteProjectBudget(projectId, budgetId, options) {
+  return callApi('delete', projectId, ['budgets', ensureIdentifier('budgetId', budgetId)], undefined, options);
+}
+
+export function createProjectObject(projectId, payload, options) {
+  return callApi('post', projectId, ['objects'], payload, options);
+}
+
+export function updateProjectObject(projectId, objectId, payload, options) {
+  return callApi('patch', projectId, ['objects', ensureIdentifier('objectId', objectId)], payload, options);
+}
+
+export function deleteProjectObject(projectId, objectId, options) {
+  return callApi('delete', projectId, ['objects', ensureIdentifier('objectId', objectId)], undefined, options);
+}
+
+export function createProjectTimelineEvent(projectId, payload, options) {
+  return callApi('post', projectId, ['timeline', 'events'], payload, options);
+}
+
+export function updateProjectTimelineEvent(projectId, eventId, payload, options) {
+  return callApi(
+    'patch',
+    projectId,
+    ['timeline', 'events', ensureIdentifier('eventId', eventId)],
+    payload,
+    options,
+  );
+}
+
+export function deleteProjectTimelineEvent(projectId, eventId, options) {
+  return callApi(
+    'delete',
+    projectId,
+    ['timeline', 'events', ensureIdentifier('eventId', eventId)],
+    undefined,
+    options,
+  );
+}
+
+export function createProjectMeeting(projectId, payload, options) {
+  return callApi('post', projectId, ['meetings'], payload, options);
+}
+
+export function updateProjectMeeting(projectId, meetingId, payload, options) {
+  return callApi('patch', projectId, ['meetings', ensureIdentifier('meetingId', meetingId)], payload, options);
+}
+
+export function deleteProjectMeeting(projectId, meetingId, options) {
+  return callApi('delete', projectId, ['meetings', ensureIdentifier('meetingId', meetingId)], undefined, options);
+}
+
+export function createProjectCalendarEntry(projectId, payload, options) {
+  return callApi('post', projectId, ['calendar'], payload, options);
+}
+
+export function updateProjectCalendarEntry(projectId, entryId, payload, options) {
+  return callApi('patch', projectId, ['calendar', ensureIdentifier('entryId', entryId)], payload, options);
+}
+
+export function deleteProjectCalendarEntry(projectId, entryId, options) {
+  return callApi('delete', projectId, ['calendar', ensureIdentifier('entryId', entryId)], undefined, options);
+}
+
+export function createProjectRole(projectId, payload, options) {
+  return callApi('post', projectId, ['roles'], payload, options);
+}
+
+export function updateProjectRole(projectId, roleId, payload, options) {
+  return callApi('patch', projectId, ['roles', ensureIdentifier('roleId', roleId)], payload, options);
+}
+
+export function deleteProjectRole(projectId, roleId, options) {
+  return callApi('delete', projectId, ['roles', ensureIdentifier('roleId', roleId)], undefined, options);
+}
+
+export function createProjectSubmission(projectId, payload, options) {
+  return callApi('post', projectId, ['submissions'], payload, options);
+}
+
+export function updateProjectSubmission(projectId, submissionId, payload, options) {
+  return callApi(
+    'patch',
+    projectId,
+    ['submissions', ensureIdentifier('submissionId', submissionId)],
+    payload,
+    options,
+  );
+}
+
+export function deleteProjectSubmission(projectId, submissionId, options) {
+  return callApi(
+    'delete',
+    projectId,
+    ['submissions', ensureIdentifier('submissionId', submissionId)],
+    undefined,
+    options,
+  );
+}
+
+export function createProjectInvite(projectId, payload, options) {
+  return callApi('post', projectId, ['invites'], payload, options);
+}
+
+export function updateProjectInvite(projectId, inviteId, payload, options) {
+  return callApi('patch', projectId, ['invites', ensureIdentifier('inviteId', inviteId)], payload, options);
+}
+
+export function deleteProjectInvite(projectId, inviteId, options) {
+  return callApi('delete', projectId, ['invites', ensureIdentifier('inviteId', inviteId)], undefined, options);
+}
+
+export function createProjectHrRecord(projectId, payload, options) {
+  return callApi('post', projectId, ['hr'], payload, options);
+}
+
+export function updateProjectHrRecord(projectId, recordId, payload, options) {
+  return callApi('patch', projectId, ['hr', ensureIdentifier('recordId', recordId)], payload, options);
+}
+
+export function deleteProjectHrRecord(projectId, recordId, options) {
+  return callApi('delete', projectId, ['hr', ensureIdentifier('recordId', recordId)], undefined, options);
+}
+
+export function createProjectTimeLog(projectId, payload, options) {
+  return callApi('post', projectId, ['time-logs'], payload, options);
+}
+
+export function updateProjectTimeLog(projectId, logId, payload, options) {
+  return callApi('patch', projectId, ['time-logs', ensureIdentifier('logId', logId)], payload, options);
+}
+
+export function deleteProjectTimeLog(projectId, logId, options) {
+  return callApi('delete', projectId, ['time-logs', ensureIdentifier('logId', logId)], undefined, options);
+}
+
+export function createProjectTarget(projectId, payload, options) {
+  return callApi('post', projectId, ['targets'], payload, options);
+}
+
+export function updateProjectTarget(projectId, targetId, payload, options) {
+  return callApi('patch', projectId, ['targets', ensureIdentifier('targetId', targetId)], payload, options);
+}
+
+export function deleteProjectTarget(projectId, targetId, options) {
+  return callApi('delete', projectId, ['targets', ensureIdentifier('targetId', targetId)], undefined, options);
+}
+
+export function createProjectObjective(projectId, payload, options) {
+  return callApi('post', projectId, ['objectives'], payload, options);
+}
+
+export function updateProjectObjective(projectId, objectiveId, payload, options) {
+  return callApi(
+    'patch',
+    projectId,
+    ['objectives', ensureIdentifier('objectiveId', objectiveId)],
+    payload,
+    options,
+  );
+}
+
+export function deleteProjectObjective(projectId, objectiveId, options) {
+  return callApi(
+    'delete',
+    projectId,
+    ['objectives', ensureIdentifier('objectiveId', objectiveId)],
+    undefined,
+    options,
+  );
+}
+
+export function postConversationMessage(projectId, conversationId, payload, options) {
+  return callApi(
+    'post',
+    projectId,
+    ['conversations', ensureIdentifier('conversationId', conversationId), 'messages'],
+    payload,
+    options,
+  );
+}
+
+export function createProjectFile(projectId, payload, options) {
+  return callApi('post', projectId, ['files'], payload, options);
+}
+
+export function updateProjectFile(projectId, fileId, payload, options) {
+  return callApi('patch', projectId, ['files', ensureIdentifier('fileId', fileId)], payload, options);
+}
+
+export function deleteProjectFile(projectId, fileId, options) {
+  return callApi('delete', projectId, ['files', ensureIdentifier('fileId', fileId)], undefined, options);
 }
 
 export default {
