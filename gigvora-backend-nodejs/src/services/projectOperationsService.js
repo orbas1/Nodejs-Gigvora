@@ -1283,10 +1283,10 @@ export async function createProjectObject(projectId, payload = {}, { actorId } =
       {
         workspaceId: workspace.id,
         name: requireText(payload.name, 'name'),
-        type: normalizeText(payload.type) ?? 'artifact',
+        objectType: normalizeText(payload.objectType ?? payload.type) ?? 'deliverable',
         status: normalizeText(payload.status) ?? 'draft',
         ownerName: normalizeText(payload.ownerName),
-        summary: normalizeText(payload.summary),
+        description: normalizeText(payload.description ?? payload.summary),
         dueAt: parseDateValue(payload.dueAt, 'dueAt'),
         tags: normalizeArray(payload.tags),
         metadata: payload.metadata ?? null,
@@ -1317,8 +1317,8 @@ export async function updateProjectObject(projectId, objectId, payload = {}, { a
     if (payload.name !== undefined) {
       updates.name = requireText(payload.name, 'name');
     }
-    if (payload.type !== undefined) {
-      updates.type = requireText(payload.type, 'type');
+    if (payload.objectType !== undefined || payload.type !== undefined) {
+      updates.objectType = requireText(payload.objectType ?? payload.type, 'objectType');
     }
     if (payload.status !== undefined) {
       updates.status = requireText(payload.status, 'status');
@@ -1326,8 +1326,8 @@ export async function updateProjectObject(projectId, objectId, payload = {}, { a
     if (payload.ownerName !== undefined) {
       updates.ownerName = normalizeText(payload.ownerName);
     }
-    if (payload.summary !== undefined) {
-      updates.summary = normalizeText(payload.summary);
+    if (payload.description !== undefined || payload.summary !== undefined) {
+      updates.description = normalizeText(payload.description ?? payload.summary);
     }
     if (payload.dueAt !== undefined) {
       updates.dueAt = parseDateValue(payload.dueAt, 'dueAt');
