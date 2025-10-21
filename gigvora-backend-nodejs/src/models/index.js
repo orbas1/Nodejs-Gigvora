@@ -6385,40 +6385,6 @@ ProjectWorkspaceBudgetLine.prototype.toPublicObject = function toPublicObject() 
   };
 };
 
-export const ProjectWorkspaceObject = sequelize.define(
-  'ProjectWorkspaceObject',
-  {
-    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
-    name: { type: DataTypes.STRING(255), allowNull: false },
-    type: { type: DataTypes.STRING(120), allowNull: false, defaultValue: 'artifact' },
-    status: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'draft' },
-    ownerName: { type: DataTypes.STRING(255), allowNull: true },
-    summary: { type: DataTypes.TEXT, allowNull: true },
-    dueAt: { type: DataTypes.DATE, allowNull: true },
-    tags: { type: jsonType, allowNull: true },
-    metadata: { type: jsonType, allowNull: true },
-  },
-  { tableName: 'project_workspace_objects' },
-);
-
-ProjectWorkspaceObject.prototype.toPublicObject = function toPublicObject() {
-  const plain = this.get({ plain: true });
-  return {
-    id: plain.id,
-    workspaceId: plain.workspaceId,
-    name: plain.name,
-    type: plain.type,
-    status: plain.status,
-    ownerName: plain.ownerName,
-    summary: plain.summary,
-    dueAt: plain.dueAt,
-    tags: Array.isArray(plain.tags) ? plain.tags : [],
-    metadata: plain.metadata ?? null,
-    createdAt: plain.createdAt,
-    updatedAt: plain.updatedAt,
-  };
-};
-
 export const ProjectWorkspaceTimelineEvent = sequelize.define(
   'ProjectWorkspaceTimelineEvent',
   {
@@ -20282,30 +20248,12 @@ ProjectWorkspaceBudgetLine.belongsTo(ProjectWorkspace, {
   foreignKey: { name: 'workspaceId', allowNull: false },
   as: 'workspace',
 });
-ProjectWorkspace.hasMany(ProjectWorkspaceObject, {
-  foreignKey: { name: 'workspaceId', allowNull: false },
-  as: 'objects',
-  onDelete: 'CASCADE',
-});
-ProjectWorkspaceObject.belongsTo(ProjectWorkspace, {
-  foreignKey: { name: 'workspaceId', allowNull: false },
-  as: 'workspace',
-});
 ProjectWorkspace.hasMany(ProjectWorkspaceTimelineEvent, {
   foreignKey: { name: 'workspaceId', allowNull: false },
   as: 'timelineEvents',
   onDelete: 'CASCADE',
 });
 ProjectWorkspaceTimelineEvent.belongsTo(ProjectWorkspace, {
-  foreignKey: { name: 'workspaceId', allowNull: false },
-  as: 'workspace',
-});
-ProjectWorkspace.hasMany(ProjectWorkspaceMeeting, {
-  foreignKey: { name: 'workspaceId', allowNull: false },
-  as: 'meetings',
-  onDelete: 'CASCADE',
-});
-ProjectWorkspaceMeeting.belongsTo(ProjectWorkspace, {
   foreignKey: { name: 'workspaceId', allowNull: false },
   as: 'workspace',
 });
