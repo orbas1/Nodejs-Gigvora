@@ -1,9 +1,15 @@
 'use strict';
 
+const resolveJsonType = (queryInterface, Sequelize) => {
+  const dialect = queryInterface.sequelize.getDialect();
+  return ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
+};
+
 module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.sequelize.transaction(async (transaction) => {
-      const jsonType = Sequelize.JSONB ?? Sequelize.JSON;
+      const jsonType = resolveJsonType(queryInterface, Sequelize);
+      const timestampDefault = Sequelize.literal('CURRENT_TIMESTAMP');
 
       await queryInterface.createTable(
         'consent_policies',
@@ -47,11 +53,18 @@ module.exports = {
           metadata: { type: jsonType, allowNull: false, defaultValue: {} },
           createdBy: { type: Sequelize.STRING(120), allowNull: true },
           updatedBy: { type: Sequelize.STRING(120), allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
         },
         { transaction },
       );
+
+      await queryInterface.addConstraint('consent_policies', {
+        type: 'unique',
+        fields: ['code'],
+        name: 'consent_policies_code_unique',
+        transaction,
+      });
 
       await queryInterface.createTable(
         'consent_policy_versions',
@@ -75,8 +88,8 @@ module.exports = {
           supersededAt: { type: Sequelize.DATE, allowNull: true },
           createdBy: { type: Sequelize.STRING(120), allowNull: true },
           metadata: { type: jsonType, allowNull: false, defaultValue: {} },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
         },
         { transaction },
       );
@@ -126,8 +139,8 @@ module.exports = {
           ipAddress: { type: Sequelize.STRING(120), allowNull: true },
           userAgent: { type: Sequelize.STRING(500), allowNull: true },
           metadata: { type: jsonType, allowNull: false, defaultValue: {} },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
         },
         { transaction },
       );
@@ -179,36 +192,68 @@ module.exports = {
           },
           reason: { type: Sequelize.TEXT, allowNull: true },
           metadata: { type: jsonType, allowNull: false, defaultValue: {} },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
         },
         { transaction },
       );
 
-      await queryInterface.addIndex('consent_policies', ['audience', 'region'], { transaction });
-      await queryInterface.addIndex('consent_policies', ['activeVersionId'], { transaction });
-      await queryInterface.addIndex('consent_policy_versions', ['policyId', 'effectiveAt'], { transaction });
-      await queryInterface.addIndex('user_consents', ['policyId', 'status'], { transaction });
-      await queryInterface.addIndex('user_consents', ['policyVersionId'], { transaction });
-      await queryInterface.addIndex('consent_audit_events', ['policyId', 'createdAt'], { transaction });
+      await queryInterface.addConstraint('consent_policies', {
+        type: 'foreign key',
+        fields: ['activeVersionId'],
+        name: 'consent_policies_active_version_fk',
+        references: { table: 'consent_policy_versions', field: 'id' },
+        onDelete: 'SET NULL',
+        onUpdate: 'CASCADE',
+        transaction,
+      });
+
+      await queryInterface.addIndex('consent_policies', ['audience', 'region'], {
+        transaction,
+        name: 'consent_policies_audience_region_idx',
+      });
+      await queryInterface.addIndex('consent_policies', ['activeVersionId'], {
+        transaction,
+        name: 'consent_policies_active_version_idx',
+      });
+      await queryInterface.addIndex('consent_policy_versions', ['policyId', 'effectiveAt'], {
+        transaction,
+        name: 'consent_policy_versions_policy_effective_idx',
+      });
+      await queryInterface.addIndex('user_consents', ['policyId', 'status'], {
+        transaction,
+        name: 'user_consents_policy_status_idx',
+      });
+      await queryInterface.addIndex('user_consents', ['policyVersionId'], {
+        transaction,
+        name: 'user_consents_policy_version_idx',
+      });
+      await queryInterface.addIndex('consent_audit_events', ['policyId', 'createdAt'], {
+        transaction,
+        name: 'consent_audit_events_policy_created_idx',
+      });
     });
   },
 
   async down(queryInterface) {
     await queryInterface.sequelize.transaction(async (transaction) => {
-      await queryInterface.removeIndex('consent_audit_events', ['policyId', 'createdAt'], { transaction });
-      await queryInterface.removeIndex('user_consents', ['policyVersionId'], { transaction });
-      await queryInterface.removeIndex('user_consents', ['policyId', 'status'], { transaction });
-      await queryInterface.removeIndex('consent_policy_versions', ['policyId', 'effectiveAt'], { transaction });
-      await queryInterface.removeIndex('consent_policies', ['activeVersionId'], { transaction });
-      await queryInterface.removeIndex('consent_policies', ['audience', 'region'], { transaction });
+      await queryInterface.removeIndex('consent_audit_events', 'consent_audit_events_policy_created_idx', { transaction });
+      await queryInterface.removeIndex('user_consents', 'user_consents_policy_version_idx', { transaction });
+      await queryInterface.removeIndex('user_consents', 'user_consents_policy_status_idx', { transaction });
+      await queryInterface.removeIndex('consent_policy_versions', 'consent_policy_versions_policy_effective_idx', { transaction });
+      await queryInterface.removeIndex('consent_policies', 'consent_policies_active_version_idx', { transaction });
+      await queryInterface.removeIndex('consent_policies', 'consent_policies_audience_region_idx', { transaction });
+      await queryInterface.removeConstraint('consent_policies', 'consent_policies_active_version_fk', { transaction });
+      await queryInterface.removeConstraint('consent_policies', 'consent_policies_code_unique', { transaction });
+      await queryInterface.removeConstraint('consent_policy_versions', 'consent_policy_versions_policy_version_unique', { transaction });
+      await queryInterface.removeConstraint('user_consents', 'user_consents_user_policy_unique', { transaction });
 
       await queryInterface.dropTable('consent_audit_events', { transaction });
       await queryInterface.dropTable('user_consents', { transaction });
       await queryInterface.dropTable('consent_policy_versions', { transaction });
       await queryInterface.dropTable('consent_policies', { transaction });
 
-      if (queryInterface.sequelize.getDialect() === 'postgres') {
+      if (['postgres', 'postgresql'].includes(queryInterface.sequelize.getDialect())) {
         await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_user_consents_status";', {
           transaction,
         });
