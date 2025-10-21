@@ -10,6 +10,7 @@ import {
   PencilIcon,
   PlayIcon,
 } from '@heroicons/react/24/outline';
+import PropTypes from 'prop-types';
 import { getTypeIcon, resolveStatusMeta, resolveTypeMeta, STATUS_PROGRESS_ORDER } from './constants.js';
 
 function formatDayHeading(date) {
@@ -78,8 +79,9 @@ function resolveRelatedLink(event) {
 }
 
 function groupEventsByDay(events) {
+  const safeEvents = Array.isArray(events) ? events : [];
   const map = new Map();
-  events.forEach((event) => {
+  safeEvents.forEach((event) => {
     const key = event?.startsAt ? new Date(event.startsAt).toDateString() : 'unscheduled';
     if (!map.has(key)) {
       map.set(key, []);
@@ -167,20 +169,29 @@ export default function CalendarEventTimeline({
   emptyState,
   statusUpdatingId,
 }) {
-  const groupedEvents = useMemo(() => groupEventsByDay(events), [events]);
+  const safeEvents = useMemo(() => (Array.isArray(events) ? [...events] : []), [events]);
+  const groupedEvents = useMemo(() => groupEventsByDay(safeEvents), [safeEvents]);
   const upcomingHighlight = useMemo(() => {
     const now = Date.now();
-    return events.find((event) => {
-      if (!event.startsAt) {
-        return false;
-      }
-      const startTime = new Date(event.startsAt).getTime();
-      return startTime >= now;
-    });
-  }, [events]);
+    return safeEvents
+      .filter((event) => event.startsAt)
+      .filter((event) => new Date(event.startsAt).getTime() >= now)
+      .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())[0];
+  }, [safeEvents]);
 
-  if (!loading && (!events || events.length === 0)) {
-    return emptyState;
+  const handleStatusUpdate = (event, nextStatus) => {
+    if (!canManage || statusUpdatingId === event.id) {
+      return;
+    }
+    onStatusChange?.(event, nextStatus);
+  };
+
+  if (!loading && safeEvents.length === 0) {
+    return emptyState ?? (
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+        No events scheduled yet. Create your first calendar entry to kick-start automations.
+      </div>
+    );
   }
 
   return (
@@ -292,7 +303,7 @@ export default function CalendarEventTimeline({
                             <button
                               type="button"
                               className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-600 transition hover:border-emerald-300 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                              onClick={() => onStatusChange?.(event, 'completed')}
+                              onClick={() => handleStatusUpdate(event, 'completed')}
                               disabled={statusUpdatingId === event.id}
                             >
                               <CheckCircleIcon className="h-4 w-4" />{' '}
@@ -342,3 +353,45 @@ export default function CalendarEventTimeline({
     </div>
   );
 }
+
+CalendarEventTimeline.propTypes = {
+  events: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      title: PropTypes.string,
+      eventType: PropTypes.string,
+      status: PropTypes.string,
+      startsAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+      endsAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+      isAllDay: PropTypes.bool,
+      notes: PropTypes.string,
+      location: PropTypes.string,
+      relatedEntityName: PropTypes.string,
+      meetingUrl: PropTypes.string,
+      relatedEntityType: PropTypes.string,
+      relatedEntityId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      source: PropTypes.string,
+      reminderMinutesBefore: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      updatedAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+      color: PropTypes.string,
+    }),
+  ),
+  onSelectEvent: PropTypes.func,
+  onEditEvent: PropTypes.func,
+  onStatusChange: PropTypes.func,
+  canManage: PropTypes.bool,
+  loading: PropTypes.bool,
+  emptyState: PropTypes.node,
+  statusUpdatingId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+};
+
+CalendarEventTimeline.defaultProps = {
+  events: [],
+  onSelectEvent: null,
+  onEditEvent: null,
+  onStatusChange: null,
+  canManage: false,
+  loading: false,
+  emptyState: null,
+  statusUpdatingId: null,
+};

@@ -10,6 +10,7 @@ import {
   PlusIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
+import PropTypes from 'prop-types';
 import {
   EVENT_STATUS_OPTIONS,
   EVENT_TYPE_OPTIONS,
@@ -123,21 +124,25 @@ function preparePayload(state) {
     relatedEntityId: state.relatedEntityId?.trim() || null,
     relatedEntityName: state.relatedEntityName?.trim() || null,
     reminderMinutesBefore:
-      state.reminderMinutesBefore === '' ? null : Number.parseInt(state.reminderMinutesBefore, 10) || null,
+      state.reminderMinutesBefore === ''
+        ? null
+        : Math.max(0, Number.parseInt(state.reminderMinutesBefore, 10) || 0),
     color: state.color || null,
     metadata: sanitizeMetadata(state.metadataEntries),
   };
 
   const startsAt = parseDateTime(state.startsAt);
   const endsAt = parseDateTime(state.endsAt);
-  payload.startsAt = startsAt;
-  payload.endsAt = endsAt;
+  payload.startsAt = startsAt ? startsAt.toISOString() : null;
+  let computedEnd = endsAt;
 
   if (state.isAllDay && startsAt && !endsAt) {
     const nextDay = new Date(startsAt.getTime());
     nextDay.setDate(nextDay.getDate() + 1);
-    payload.endsAt = nextDay;
+    computedEnd = nextDay;
   }
+
+  payload.endsAt = computedEnd ? computedEnd.toISOString() : null;
 
   return payload;
 }
@@ -241,6 +246,19 @@ export default function CalendarEventForm({
       if (endsAt.getTime() < startsAt.getTime()) {
         return 'End time must be after the start time.';
       }
+    }
+    if (state.meetingUrl) {
+      try {
+        const url = new URL(state.meetingUrl);
+        if (!['http:', 'https:'].includes(url.protocol)) {
+          return 'Meeting link must be a valid URL.';
+        }
+      } catch (error) {
+        return 'Meeting link must be a valid URL.';
+      }
+    }
+    if (state.relatedEntityType && !state.relatedEntityId.trim()) {
+      return 'Reference the workspace ID for linked records.';
     }
     return null;
   };
@@ -505,11 +523,11 @@ export default function CalendarEventForm({
                         onChange={handleFieldChange}
                         className="w-full rounded-2xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
                       >
-                        {RELATED_ENTITY_OPTIONS.map((option) => (
-                          <option key={option.value || 'none'} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
+                            {RELATED_ENTITY_OPTIONS.map((option) => (
+                              <option key={option.value || 'none'} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
                       </select>
                     </div>
 
@@ -684,3 +702,39 @@ export default function CalendarEventForm({
     </Transition.Root>
   );
 }
+
+CalendarEventForm.propTypes = {
+  open: PropTypes.bool,
+  mode: PropTypes.oneOf(['create', 'edit']),
+  initialValues: PropTypes.shape({
+    title: PropTypes.string,
+    eventType: PropTypes.string,
+    status: PropTypes.string,
+    startsAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    endsAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    isAllDay: PropTypes.bool,
+    location: PropTypes.string,
+    meetingUrl: PropTypes.string,
+    notes: PropTypes.string,
+    relatedEntityType: PropTypes.string,
+    relatedEntityId: PropTypes.string,
+    relatedEntityName: PropTypes.string,
+    reminderMinutesBefore: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    color: PropTypes.string,
+    metadata: PropTypes.object,
+  }),
+  onSubmit: PropTypes.func,
+  onClose: PropTypes.func,
+  submitting: PropTypes.bool,
+  error: PropTypes.shape({ message: PropTypes.string }),
+};
+
+CalendarEventForm.defaultProps = {
+  open: false,
+  mode: 'create',
+  initialValues: null,
+  onSubmit: null,
+  onClose: null,
+  submitting: false,
+  error: null,
+};

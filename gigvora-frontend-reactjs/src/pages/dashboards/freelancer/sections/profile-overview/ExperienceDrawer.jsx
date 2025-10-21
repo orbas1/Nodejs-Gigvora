@@ -79,15 +79,27 @@ export default function ExperienceDrawer({ open, onClose, experience, onSave, sa
         setError('Add at least one experience entry before saving.');
         return;
       }
+      const hasInvalidRange = entries.some(
+        (entry) =>
+          entry.startDate &&
+          entry.endDate &&
+          new Date(entry.startDate).getTime() > new Date(entry.endDate).getTime(),
+      );
+      if (hasInvalidRange) {
+        setError('Ensure end dates are not before the start dates.');
+        return;
+      }
       await onSave({ experience: payload });
       onClose();
     },
     [entries, onClose, onSave],
   );
 
+  const disableClose = saving;
+
   return (
     <Transition.Root show={open} as={Fragment}>
-      <Dialog as="div" className="relative z-50" onClose={onClose}>
+      <Dialog as="div" className="relative z-50" onClose={disableClose ? () => {} : onClose}>
         <Transition.Child
           as={Fragment}
           enter="ease-out duration-200"
@@ -214,7 +226,8 @@ export default function ExperienceDrawer({ open, onClose, experience, onSave, sa
                       <button
                         type="button"
                         onClick={onClose}
-                        className="rounded-full px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-700"
+                        className="rounded-full px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={disableClose}
                       >
                         Cancel
                       </button>
