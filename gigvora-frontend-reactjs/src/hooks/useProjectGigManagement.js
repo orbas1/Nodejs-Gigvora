@@ -39,34 +39,50 @@ import {
   postGigChatMessage,
 } from '../services/projectGigManagement.js';
 
-export default function useProjectGigManagement(userId) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+const DEFAULT_STATE = { data: null, loading: false, error: null };
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const snapshot = await fetchProjectGigManagement(userId);
-      setData(snapshot);
-    } catch (err) {
-      setError(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [userId]);
+export default function useProjectGigManagement(userId, { enabled = true, initialData = null } = {}) {
+  const [state, setState] = useState(() => ({
+    data: initialData ?? null,
+    loading: Boolean(enabled && userId),
+    error: null,
+  }));
 
   useEffect(() => {
-    if (userId) {
-      load();
+    if (initialData) {
+      setState((current) => ({ ...current, data: initialData }));
     }
-  }, [userId, load]);
+  }, [initialData]);
+
+  const load = useCallback(async () => {
+    if (!enabled || !userId) {
+      setState((current) => ({ ...current, loading: false }));
+      return;
+    }
+
+    setState((current) => ({ ...current, loading: true, error: null }));
+    try {
+      const snapshot = await fetchProjectGigManagement(userId);
+      setState((current) => ({ ...current, data: snapshot, error: null, loading: false }));
+    } catch (err) {
+      setState((current) => ({ ...current, error: err, loading: false }));
+    }
+  }, [enabled, userId]);
+
+  useEffect(() => {
+    if (!enabled || !userId) {
+      setState((current) => ({ ...current, loading: false }));
+      return;
+    }
+    load();
+  }, [enabled, userId, load]);
+
+  const { data, loading, error } = state ?? DEFAULT_STATE;
 
   const actions = useMemo(() => ({
-    async createProject(payload) {
-      if (data?.access?.canManage === false) {
-        throw new Error('You do not have permission to create project workspaces.');
+      async createProject(payload) {
+        if (data?.access?.canManage === false) {
+          throw new Error('You do not have permission to create project workspaces.');
       }
       const response = await createProject(userId, payload);
       await load();

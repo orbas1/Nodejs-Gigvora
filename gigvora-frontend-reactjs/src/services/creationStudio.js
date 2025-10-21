@@ -162,3 +162,38 @@ export default {
   deleteCreationStudioItem,
 };
 
+const companyCreationStudio = {
+  fetchCompanyCreationStudioOverview,
+  fetchCompanyCreationStudioItems,
+  createCompanyCreationStudioItem,
+  updateCompanyCreationStudioItem,
+  publishCompanyCreationStudioItem,
+  deleteCompanyCreationStudioItem,
+};
+
+const userCreationStudio = {
+  fetchCreationWorkspace,
+  createCreationItem,
+  updateCreationItem,
+  saveCreationStep,
+  shareCreationItem,
+  archiveCreationItem,
+};
+
+const communityCreationStudio = {
+  listCreationStudioItems,
+  getCreationStudioItem,
+  createCreationStudioItem,
+  updateCreationStudioItem,
+  publishCreationStudioItem,
+  deleteCreationStudioItem,
+};
+
+export const creationStudioService = {
+  ...companyCreationStudio,
+  ...userCreationStudio,
+  ...communityCreationStudio,
+  company: companyCreationStudio,
+  user: userCreationStudio,
+  community: communityCreationStudio,
+};

@@ -107,7 +107,7 @@ export const CREATION_TYPES = [
   {
     id: 'gig',
     name: 'Gig',
-    tagline: 'Package a service with 3 tiers like Fiverr.',
+    tagline: 'Package a service with 3 tiers like top marketplaces.',
     icon: SparklesIcon,
     accent: 'text-blue-600',
     defaults: {
