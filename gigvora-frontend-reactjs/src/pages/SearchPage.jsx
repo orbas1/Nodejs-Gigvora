@@ -16,6 +16,7 @@ import DataStatus from '../components/DataStatus.jsx';
 import ExplorerMap from '../components/explorer/ExplorerMap.jsx';
 import ExplorerFilterDrawer from '../components/explorer/ExplorerFilterDrawer.jsx';
 import SavedSearchList from '../components/explorer/SavedSearchList.jsx';
+import ExplorerManagementPanel from '../components/explorer/ExplorerManagementPanel.jsx';
 import UserAvatar from '../components/UserAvatar.jsx';
 import useCachedResource from '../hooks/useCachedResource.js';
 import useDebounce from '../hooks/useDebounce.js';
@@ -28,6 +29,8 @@ import useEngagementSignals from '../hooks/useEngagementSignals.js';
 import { getExplorerAllowedMemberships, hasExplorerAccess } from '../utils/accessControl.js';
 
 const DEFAULT_CATEGORY = 'job';
+
+const MANAGED_EXPLORER_CATEGORIES = new Set(['job', 'gig', 'project', 'launchpad', 'mentor', 'volunteering', 'talent']);
 
 const CATEGORIES = [
   {
@@ -364,6 +367,7 @@ export default function SearchPage() {
   const [viewMode, setViewMode] = useState('list');
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [viewportBounds, setViewportBounds] = useState(null);
+  const [isManagementPanelOpen, setIsManagementPanelOpen] = useState(false);
   const [saveModalState, setSaveModalState] = useState({ open: false, mode: 'create', draft: null });
   const [activeSavedSearchId, setActiveSavedSearchId] = useState(null);
   const [saveError, setSaveError] = useState(null);
@@ -373,6 +377,19 @@ export default function SearchPage() {
   const lastTrackedQueryRef = useRef(null);
 
   const explorerAccessEnabled = isAuthenticated && hasExplorerAccess(session);
+  const isManagedCategory = useMemo(
+    () => MANAGED_EXPLORER_CATEGORIES.has(selectedCategory),
+    [selectedCategory],
+  );
+  const canManageExplorerDataset = useMemo(() => {
+    if (!isManagedCategory || !session) {
+      return false;
+    }
+    const memberships = Array.isArray(session.memberships)
+      ? session.memberships.map((membership) => `${membership}`.toLowerCase())
+      : [];
+    return memberships.some((membership) => ['admin', 'agency', 'company'].includes(membership));
+  }, [isManagedCategory, session]);
 
   const { items: savedSearches, loading: savedSearchesLoading, createSavedSearch, updateSavedSearch, deleteSavedSearch, canUseServer } =
     useSavedSearches({ enabled: explorerAccessEnabled });
@@ -409,6 +426,10 @@ export default function SearchPage() {
     setPage(1);
   }, [debouncedQuery, filtersParam, sort, viewportParam]);
 
+  useEffect(() => {
+    setIsManagementPanelOpen(false);
+  }, [selectedCategory]);
+
   const searchKey = useMemo(
     () =>
       buildCacheKey({
@@ -424,22 +445,55 @@ export default function SearchPage() {
 
   const searchState = useCachedResource(
     searchKey,
-    ({ signal }) =>
-      apiClient.get('/search/opportunities', {
-        signal,
-        params: {
-          category: selectedCategory,
-          q: debouncedQuery || undefined,
+    ({ signal }) => {
+      if (!explorerAccessEnabled) {
+        return {
+          items: [],
+          total: 0,
+          totalPages: 1,
           page,
           pageSize: PAGE_SIZE,
-          sort,
-          filters: filtersParam,
-          includeFacets: true,
-          viewport: viewportParam,
-        },
-      }),
+          facets: {},
+          metrics: { source: 'explorer', processingTimeMs: 0 },
+        };
+      }
+
+      const params = {
+        q: debouncedQuery || undefined,
+        page,
+        pageSize: PAGE_SIZE,
+        sort,
+        filters: filtersParam,
+      };
+
+      if (!isManagedCategory) {
+        return apiClient.get('/search/opportunities', {
+          signal,
+          params: {
+            category: selectedCategory,
+            includeFacets: true,
+            viewport: viewportParam,
+            ...params,
+          },
+        });
+      }
+
+      return apiClient.get(`/explorer/${selectedCategory}`, {
+        signal,
+        params,
+      });
+    },
     {
-      dependencies: [selectedCategory, debouncedQuery, page, sort, filtersParam, viewportParam],
+      dependencies: [
+        selectedCategory,
+        debouncedQuery,
+        page,
+        sort,
+        filtersParam,
+        viewportParam,
+        isManagedCategory,
+        explorerAccessEnabled,
+      ],
       ttl: 60_000,
       enabled: explorerAccessEnabled,
     },
@@ -1114,6 +1168,18 @@ export default function SearchPage() {
               ) : null}
             </form>
 
+            {canManageExplorerDataset ? (
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsManagementPanelOpen(true)}
+                  className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-slate-700"
+                >
+                  Manage {currentCategory.label}
+                </button>
+              </div>
+            ) : null}
+
             <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
               <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
                 <span className="font-semibold text-slate-900">
@@ -1257,6 +1323,14 @@ export default function SearchPage() {
           </div>
         </div>
       </div>
+
+      <ExplorerManagementPanel
+        category={selectedCategory}
+        categoryLabel={currentCategory.label}
+        isOpen={isManagementPanelOpen}
+        onClose={() => setIsManagementPanelOpen(false)}
+        onMutate={() => searchState.refresh({ force: true })}
+      />
 
       <ExplorerFilterDrawer
         category={selectedCategory}
