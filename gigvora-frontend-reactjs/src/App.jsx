@@ -7,6 +7,7 @@ import CompanyRegisterPage from './pages/CompanyRegisterPage.jsx';
 import FeedPage from './pages/FeedPage.jsx';
 import ProfilePage from './pages/ProfilePage.jsx';
 import SearchPage from './pages/SearchPage.jsx';
+import ExplorerRecordPage from './pages/ExplorerRecordPage.jsx';
 import JobsPage from './pages/JobsPage.jsx';
 import GigsPage from './pages/GigsPage.jsx';
 import ProjectsPage from './pages/ProjectsPage.jsx';
@@ -178,6 +179,7 @@ const PUBLIC_ROUTES = [
 const COMMUNITY_ROUTES = [
   { path: 'feed', element: <FeedPage /> },
   { path: 'search', element: <SearchPage /> },
+  { path: 'explorer/:category/:recordId', element: <ExplorerRecordPage /> },
   { path: 'jobs', element: <JobsPage /> },
   { path: 'gigs', element: <GigsPage /> },
   { path: 'projects', element: <ProjectsPage /> },

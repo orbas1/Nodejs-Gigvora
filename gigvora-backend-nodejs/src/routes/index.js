@@ -43,6 +43,7 @@ import projectWorkspaceRoutes from './projectWorkspaceRoutes.js';
 import projectRoutes from './projectRoutes.js';
 import reputationRoutes from './reputationRoutes.js';
 import searchRoutes from './searchRoutes.js';
+import explorerRoutes from './explorerRoutes.js';
 import trustRoutes from './trustRoutes.js';
 import userRoutes from './userRoutes.js';
 import userMentoringRoutes from './userMentoringRoutes.js';
@@ -102,6 +103,7 @@ const routeDefinitions = [
   ['/projects', projectRoutes],
   ['/reputation', reputationRoutes],
   ['/runtime', runtimeRoutes],
+  ['/explorer', explorerRoutes],
   ['/search', searchRoutes],
   ['/support', supportRoutes],
   ['/trust', trustRoutes],
