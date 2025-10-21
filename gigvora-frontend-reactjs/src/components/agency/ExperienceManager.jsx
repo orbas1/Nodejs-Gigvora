@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import PanelDialog from './PanelDialog.jsx';
 
-function normalizeExperience(experience = {}) {
+function normalizeExperience(experienceInput = {}) {
+  const experience = experienceInput ?? {};
   return {
     id: experience.id ?? null,
     title: experience.title ?? '',
