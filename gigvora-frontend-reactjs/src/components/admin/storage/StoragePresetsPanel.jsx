@@ -20,7 +20,7 @@ function formatMimeTypes(types = []) {
   return types.slice(0, 3).join(', ') + (types.length > 3 ? '…' : '');
 }
 
-export default function StoragePresetsPanel({ presets, onAdd, onOpen }) {
+export default function StoragePresetsPanel({ presets = [], onAdd, onOpen } = {}) {
   return (
     <section id="storage-presets" className="flex flex-col gap-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -114,8 +114,3 @@ StoragePresetsPanel.propTypes = {
   onOpen: PropTypes.func,
 };
 
-StoragePresetsPanel.defaultProps = {
-  presets: [],
-  onAdd: undefined,
-  onOpen: undefined,
-};

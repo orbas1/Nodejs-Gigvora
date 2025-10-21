@@ -32,6 +32,39 @@ const initialState = {
   compressObjects: false,
 };
 
+export function buildLifecycleRulePayload(form) {
+  const payload = {
+    locationId: form.locationId ? Number(form.locationId) : undefined,
+    name: form.name ? form.name : undefined,
+    description: form.description ? form.description : undefined,
+    status: form.status || undefined,
+    filterPrefix: form.filterPrefix ? form.filterPrefix : undefined,
+    transitionStorageClass: form.transitionStorageClass ? form.transitionStorageClass : undefined,
+    deleteExpiredObjects: Boolean(form.deleteExpiredObjects),
+    compressObjects: Boolean(form.compressObjects),
+  };
+
+  const parseNumeric = (value) => {
+    if (value === '' || value == null) {
+      return undefined;
+    }
+    const numeric = Number(value);
+    return Number.isNaN(numeric) ? undefined : numeric;
+  };
+
+  const transitionAfter = parseNumeric(form.transitionAfterDays);
+  if (transitionAfter !== undefined) {
+    payload.transitionAfterDays = transitionAfter;
+  }
+
+  const expireAfter = parseNumeric(form.expireAfterDays);
+  if (expireAfter !== undefined) {
+    payload.expireAfterDays = expireAfter;
+  }
+
+  return payload;
+}
+
 export default function LifecycleRuleDrawer({ open, rule, locations, onClose, onSubmit, onDelete, saving }) {
   const [form, setForm] = useState(initialState);
   const isEditing = Boolean(rule?.id);
@@ -77,30 +110,7 @@ export default function LifecycleRuleDrawer({ open, rule, locations, onClose, on
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const payload = {
-      locationId: form.locationId ? Number(form.locationId) : undefined,
-      name: form.name || undefined,
-      description: form.description || undefined,
-      status: form.status || undefined,
-      filterPrefix: form.filterPrefix || undefined,
-      transitionStorageClass: form.transitionStorageClass || undefined,
-      deleteExpiredObjects: form.deleteExpiredObjects,
-      compressObjects: form.compressObjects,
-    };
-
-    if (form.transitionAfterDays !== '' && form.transitionAfterDays != null) {
-      const numeric = Number(form.transitionAfterDays);
-      if (!Number.isNaN(numeric)) {
-        payload.transitionAfterDays = numeric;
-      }
-    }
-
-    if (form.expireAfterDays !== '' && form.expireAfterDays != null) {
-      const numeric = Number(form.expireAfterDays);
-      if (!Number.isNaN(numeric)) {
-        payload.expireAfterDays = numeric;
-      }
-    }
+    const payload = buildLifecycleRulePayload(form);
 
     if (typeof onSubmit === 'function') {
       await onSubmit(payload);

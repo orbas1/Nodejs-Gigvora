@@ -24,7 +24,7 @@ function providerLabel(provider) {
   }
 }
 
-export default function StorageLocationsPanel({ locations, onAdd, onOpen }) {
+export default function StorageLocationsPanel({ locations = [], onAdd, onOpen } = {}) {
   return (
     <section id="storage-locations" className="flex flex-col gap-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -117,8 +117,3 @@ StorageLocationsPanel.propTypes = {
   onOpen: PropTypes.func,
 };
 
-StorageLocationsPanel.defaultProps = {
-  locations: [],
-  onAdd: undefined,
-  onOpen: undefined,
-};

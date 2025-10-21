@@ -27,7 +27,7 @@ function formatExpiration(rule) {
   return `${rule.expireAfterDays} days${rule.deleteExpiredObjects ? ' • delete' : ''}`;
 }
 
-export default function StorageRulesPanel({ rules, onAdd, onOpen }) {
+export default function StorageRulesPanel({ rules = [], onAdd, onOpen } = {}) {
   return (
     <section id="storage-rules" className="flex flex-col gap-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -111,8 +111,3 @@ StorageRulesPanel.propTypes = {
   onOpen: PropTypes.func,
 };
 
-StorageRulesPanel.defaultProps = {
-  rules: [],
-  onAdd: undefined,
-  onOpen: undefined,
-};

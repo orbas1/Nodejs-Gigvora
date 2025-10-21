@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types';
 
-export default function StorageAuditPanel({ auditLog }) {
+export default function StorageAuditPanel({ auditLog = [] } = {}) {
   return (
     <section id="storage-audit" className="flex flex-col gap-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -68,6 +68,3 @@ StorageAuditPanel.propTypes = {
   ),
 };
 
-StorageAuditPanel.defaultProps = {
-  auditLog: [],
-};
