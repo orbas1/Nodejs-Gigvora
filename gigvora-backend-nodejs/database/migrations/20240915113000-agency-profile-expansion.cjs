@@ -3,11 +3,23 @@
 const followerPolicyEnum = 'enum_agency_profiles_followerPolicy';
 const connectionPolicyEnum = 'enum_agency_profiles_connectionPolicy';
 
+function resolveJsonType(queryInterface, Sequelize) {
+  const dialect = queryInterface.sequelize.getDialect();
+  return ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
+}
+
+async function dropEnumIfExists(queryInterface, enumName) {
+  const dialect = queryInterface.sequelize.getDialect();
+  if (['postgres', 'postgresql'].includes(dialect)) {
+    await queryInterface.sequelize.query(`DROP TYPE IF EXISTS "${enumName}";`);
+  }
+}
+
 module.exports = {
   async up(queryInterface, Sequelize) {
+    const jsonType = resolveJsonType(queryInterface, Sequelize);
     await queryInterface.sequelize.transaction(async (transaction) => {
       const table = 'agency_profiles';
-      const jsonType = Sequelize.JSONB ?? Sequelize.JSON;
 
       await queryInterface.addColumn(
         table,
@@ -193,7 +205,7 @@ module.exports = {
       await queryInterface.removeColumn(table, 'tagline', { transaction });
     });
 
-    await queryInterface.sequelize.query(`DROP TYPE IF EXISTS "${connectionPolicyEnum}";`);
-    await queryInterface.sequelize.query(`DROP TYPE IF EXISTS "${followerPolicyEnum}";`);
+    await dropEnumIfExists(queryInterface, connectionPolicyEnum);
+    await dropEnumIfExists(queryInterface, followerPolicyEnum);
   },
 };
