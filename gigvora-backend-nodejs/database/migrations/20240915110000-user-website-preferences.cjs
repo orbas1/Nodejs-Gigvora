@@ -1,8 +1,15 @@
 'use strict';
 
+const resolveJsonType = (queryInterface, Sequelize) => {
+  const dialect = queryInterface.sequelize.getDialect();
+  return ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
+};
+
 module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.sequelize.transaction(async (transaction) => {
+      const jsonType = resolveJsonType(queryInterface, Sequelize);
+
       await queryInterface.createTable(
         'user_website_preferences',
         {
@@ -20,59 +27,26 @@ module.exports = {
             onDelete: 'CASCADE',
             unique: true,
           },
-          settings: {
-            allowNull: true,
-            type: Sequelize.JSONB ?? Sequelize.JSON,
-          },
-          theme: {
-            allowNull: true,
-            type: Sequelize.JSONB ?? Sequelize.JSON,
-          },
-          hero: {
-            allowNull: true,
-            type: Sequelize.JSONB ?? Sequelize.JSON,
-          },
-          about: {
-            allowNull: true,
-            type: Sequelize.JSONB ?? Sequelize.JSON,
-          },
-          navigation: {
-            allowNull: true,
-            type: Sequelize.JSONB ?? Sequelize.JSON,
-          },
-          services: {
-            allowNull: true,
-            type: Sequelize.JSONB ?? Sequelize.JSON,
-          },
-          testimonials: {
-            allowNull: true,
-            type: Sequelize.JSONB ?? Sequelize.JSON,
-          },
-          gallery: {
-            allowNull: true,
-            type: Sequelize.JSONB ?? Sequelize.JSON,
-          },
-          contact: {
-            allowNull: true,
-            type: Sequelize.JSONB ?? Sequelize.JSON,
-          },
-          seo: {
-            allowNull: true,
-            type: Sequelize.JSONB ?? Sequelize.JSON,
-          },
-          social: {
-            allowNull: true,
-            type: Sequelize.JSONB ?? Sequelize.JSON,
-          },
+          settings: { allowNull: true, type: jsonType },
+          theme: { allowNull: true, type: jsonType },
+          hero: { allowNull: true, type: jsonType },
+          about: { allowNull: true, type: jsonType },
+          navigation: { allowNull: true, type: jsonType },
+          services: { allowNull: true, type: jsonType },
+          testimonials: { allowNull: true, type: jsonType },
+          gallery: { allowNull: true, type: jsonType },
+          contact: { allowNull: true, type: jsonType },
+          seo: { allowNull: true, type: jsonType },
+          social: { allowNull: true, type: jsonType },
           createdAt: {
             allowNull: false,
             type: Sequelize.DATE,
-            defaultValue: Sequelize.fn('NOW'),
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
           },
           updatedAt: {
             allowNull: false,
             type: Sequelize.DATE,
-            defaultValue: Sequelize.fn('NOW'),
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
           },
         },
         { transaction },

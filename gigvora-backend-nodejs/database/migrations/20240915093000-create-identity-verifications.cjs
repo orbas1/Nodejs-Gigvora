@@ -157,7 +157,10 @@ module.exports = {
   async down(queryInterface) {
     await queryInterface.sequelize.transaction(async (transaction) => {
       await queryInterface.dropTable(TABLE_NAME, { transaction });
-      await queryInterface.sequelize.query(`DROP TYPE IF EXISTS "${STATUS_ENUM_NAME}";`, { transaction });
+      const dialect = queryInterface.sequelize.getDialect();
+      if (dialect === 'postgres' || dialect === 'postgresql') {
+        await queryInterface.sequelize.query(`DROP TYPE IF EXISTS "${STATUS_ENUM_NAME}";`, { transaction });
+      }
     });
   },
 };

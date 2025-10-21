@@ -2,6 +2,7 @@ import { Router } from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
 import validateRequest from '../middleware/validateRequest.js';
 import * as controller from '../controllers/adminMessagingController.js';
+import { requireAdmin } from '../middleware/authenticate.js';
 import {
   adminMessagingListQuerySchema,
   adminMessagingCreateThreadSchema,
@@ -15,6 +16,8 @@ import {
 } from '../validation/schemas/adminMessagingSchemas.js';
 
 const router = Router();
+
+router.use(requireAdmin);
 
 router.get(
   '/threads',

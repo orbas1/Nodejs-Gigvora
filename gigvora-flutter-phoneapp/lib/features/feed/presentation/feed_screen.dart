@@ -355,28 +355,8 @@ class _FeedAccessCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: colorScheme.primaryContainer,
                 borderRadius: BorderRadius.circular(16),
-        children: [
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              FilledButton.tonal(
-                onPressed: () => context.push('/operations'),
-                child: const Text('Gig operations'),
               ),
-              FilledButton.tonal(
-                onPressed: () => context.push('/groups'),
-                child: const Text('Community groups'),
-              ),
-              OutlinedButton(
-                onPressed: () => context.push('/operations?section=buy'),
-                child: const Text('Buy a gig'),
-              ),
-              OutlinedButton(
-                onPressed: () => context.push('/operations?section=post'),
-                child: const Text('Post a gig'),
-              ),
-              child: Icon(icon, color: colorScheme.onPrimaryContainer),
+              child: Icon(icon, color: colorScheme.onPrimaryContainer, size: 28),
             ),
             const SizedBox(height: 16),
             Text(title, style: theme.textTheme.titleMedium),

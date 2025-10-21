@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as controller from '../controllers/adminVolunteeringController.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import validateRequest from '../middleware/validateRequest.js';
+import { requireAdmin } from '../middleware/authenticate.js';
 import {
   volunteeringInsightsQuerySchema,
   programQuerySchema,
@@ -14,6 +15,8 @@ import {
 } from '../validation/schemas/adminVolunteeringSchemas.js';
 
 const router = Router();
+
+router.use(requireAdmin);
 
 router.get('/insights', validateRequest({ query: volunteeringInsightsQuerySchema }), asyncHandler(controller.insights));
 

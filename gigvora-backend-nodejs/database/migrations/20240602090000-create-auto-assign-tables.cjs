@@ -16,6 +16,7 @@ module.exports = {
   async up(queryInterface, Sequelize) {
     const transaction = await queryInterface.sequelize.transaction();
     try {
+      const timestampDefault = Sequelize.literal('CURRENT_TIMESTAMP');
       await queryInterface.createTable(
         'freelancer_assignment_metrics',
         {
@@ -37,8 +38,8 @@ module.exports = {
           lastCompletedAt: { type: Sequelize.DATE, allowNull: true },
           totalAssigned: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
           totalCompleted: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
-          createdAt: { type: Sequelize.DATE, allowNull: false },
-          updatedAt: { type: Sequelize.DATE, allowNull: false },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
         },
         { transaction },
       );
@@ -69,8 +70,8 @@ module.exports = {
               : Sequelize.JSON,
             allowNull: true,
           },
-          createdAt: { type: Sequelize.DATE, allowNull: false },
-          updatedAt: { type: Sequelize.DATE, allowNull: false },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
         },
         { transaction },
       );
@@ -85,6 +86,18 @@ module.exports = {
         'auto_assign_queue_entries',
         ['freelancerId', 'status', 'expiresAt'],
         { name: 'auto_assign_queue_freelancer_status_idx', transaction },
+      );
+
+      await queryInterface.addIndex(
+        'auto_assign_queue_entries',
+        ['status'],
+        { name: 'auto_assign_queue_status_idx', transaction },
+      );
+
+      await queryInterface.addIndex(
+        'auto_assign_queue_entries',
+        ['expiresAt'],
+        { name: 'auto_assign_queue_expiry_idx', transaction },
       );
 
       await queryInterface.addConstraint('auto_assign_queue_entries', {
@@ -105,6 +118,8 @@ module.exports = {
     const transaction = await queryInterface.sequelize.transaction();
     try {
       await queryInterface.removeConstraint('auto_assign_queue_entries', 'auto_assign_queue_unique_active', { transaction });
+      await queryInterface.removeIndex('auto_assign_queue_entries', 'auto_assign_queue_expiry_idx', { transaction });
+      await queryInterface.removeIndex('auto_assign_queue_entries', 'auto_assign_queue_status_idx', { transaction });
       await queryInterface.removeIndex('auto_assign_queue_entries', 'auto_assign_queue_target_status_idx', { transaction });
       await queryInterface.removeIndex('auto_assign_queue_entries', 'auto_assign_queue_freelancer_status_idx', { transaction });
       await queryInterface.dropTable('auto_assign_queue_entries', { transaction });

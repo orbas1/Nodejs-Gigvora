@@ -103,7 +103,10 @@ async function hydrateUser(user, payload) {
   };
 }
 
-export async function resolveAuthenticatedUser(req, { optional }) {
+export async function resolveAuthenticatedUser(
+  req,
+  { optional = false, allowHeaderOverride = true } = {},
+) {
   const token = extractToken(req);
   if (token) {
     const payload = jwt.verify(token, DEFAULT_SECRET);
@@ -119,12 +122,7 @@ export async function resolveAuthenticatedUser(req, { optional }) {
     return hydrateUser(user, payload);
   }
 
-  if (!optional) {
-    const override = parseHeaderOverride(req);
-    if (override) {
-      return override;
-    }
-  } else {
+  if (allowHeaderOverride) {
     const override = parseHeaderOverride(req);
     if (override) {
       return override;
@@ -137,10 +135,10 @@ export async function resolveAuthenticatedUser(req, { optional }) {
   throw new AuthenticationError('Authentication required.');
 }
 
-export function authenticateRequest({ optional = false } = {}) {
+export function authenticateRequest({ optional = false, allowHeaderOverride = true } = {}) {
   return async function authenticationMiddleware(req, res, next) {
     try {
-      const user = await resolveAuthenticatedUser(req, { optional });
+      const user = await resolveAuthenticatedUser(req, { optional, allowHeaderOverride });
       if (!user && !optional) {
         throw new AuthenticationError('Authentication required.');
       }

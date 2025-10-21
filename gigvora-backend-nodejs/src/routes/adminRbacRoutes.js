@@ -6,8 +6,11 @@ import {
   simulateAccessBodySchema,
 } from '../validation/schemas/rbacSchemas.js';
 import * as rbacPolicyController from '../controllers/rbacPolicyController.js';
+import { requireAdmin } from '../middleware/authenticate.js';
 
 const router = Router();
+
+router.use(requireAdmin);
 
 router.get('/matrix', asyncHandler(rbacPolicyController.matrix));
 

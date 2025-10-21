@@ -111,6 +111,10 @@ module.exports = {
     await queryInterface.addIndex('agency_creation_items', ['status']);
     await queryInterface.addIndex('agency_creation_items', ['priority']);
     await queryInterface.addIndex('agency_creation_items', ['launchDate']);
+    await queryInterface.addIndex('agency_creation_items', ['agencyProfileId', 'slug'], {
+      name: 'agency_creation_items_profile_slug_unique',
+      unique: true,
+    });
 
     await queryInterface.createTable('agency_creation_item_assets', {
       id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },

@@ -126,9 +126,12 @@ module.exports = {
       await queryInterface.removeColumn('projects', 'autoAssignEnabled', { transaction });
       await queryInterface.removeColumn('projects', 'budgetCurrency', { transaction });
       await queryInterface.removeColumn('projects', 'budgetAmount', { transaction });
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_project_assignment_events_eventType"', {
-        transaction,
-      });
+      const dialect = queryInterface.sequelize.getDialect();
+      if (dialect === 'postgres' || dialect === 'postgresql') {
+        await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_project_assignment_events_eventType"', {
+          transaction,
+        });
+      }
       await transaction.commit();
     } catch (error) {
       await transaction.rollback();

@@ -169,8 +169,11 @@ module.exports = {
       await queryInterface.removeIndex('agency_timeline_posts', ['workspaceId'], { transaction });
       await queryInterface.dropTable('agency_timeline_posts', { transaction });
 
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_agency_timeline_posts_status";', { transaction });
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_agency_timeline_posts_visibility";', { transaction });
+      const dialect = queryInterface.sequelize.getDialect();
+      if (dialect === 'postgres' || dialect === 'postgresql') {
+        await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_agency_timeline_posts_status";', { transaction });
+        await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_agency_timeline_posts_visibility";', { transaction });
+      }
     });
   },
 };

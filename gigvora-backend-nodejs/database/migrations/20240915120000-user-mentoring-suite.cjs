@@ -1,10 +1,16 @@
 'use strict';
 
+const resolveJsonType = (queryInterface, Sequelize) => {
+  const dialect = queryInterface.sequelize.getDialect();
+  return ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
+};
+
 module.exports = {
   async up(queryInterface, Sequelize) {
-    const jsonType = Sequelize.JSONB ?? Sequelize.JSON;
-
     await queryInterface.sequelize.transaction(async (transaction) => {
+      const jsonType = resolveJsonType(queryInterface, Sequelize);
+      const timestampDefault = Sequelize.literal('CURRENT_TIMESTAMP');
+
       await queryInterface.createTable(
         'mentorship_orders',
         {
@@ -34,17 +40,18 @@ module.exports = {
             allowNull: false,
             defaultValue: 'pending',
           },
-          purchasedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          purchasedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
           expiresAt: { type: Sequelize.DATE, allowNull: true },
           metadata: { type: jsonType, allowNull: true },
-          createdAt: { allowNull: false, type: Sequelize.DATE, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { allowNull: false, type: Sequelize.DATE, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { allowNull: false, type: Sequelize.DATE, defaultValue: timestampDefault },
+          updatedAt: { allowNull: false, type: Sequelize.DATE, defaultValue: timestampDefault },
         },
         { transaction },
       );
 
       await queryInterface.addIndex('mentorship_orders', ['userId'], { transaction, name: 'mentorship_orders_user_idx' });
       await queryInterface.addIndex('mentorship_orders', ['mentorId'], { transaction, name: 'mentorship_orders_mentor_idx' });
+      await queryInterface.addIndex('mentorship_orders', ['status'], { transaction, name: 'mentorship_orders_status_idx' });
 
       await queryInterface.createTable(
         'mentor_favourites',
@@ -65,8 +72,8 @@ module.exports = {
             onDelete: 'CASCADE',
           },
           notes: { type: Sequelize.TEXT, allowNull: true },
-          createdAt: { allowNull: false, type: Sequelize.DATE, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { allowNull: false, type: Sequelize.DATE, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { allowNull: false, type: Sequelize.DATE, defaultValue: timestampDefault },
+          updatedAt: { allowNull: false, type: Sequelize.DATE, defaultValue: timestampDefault },
         },
         { transaction },
       );
@@ -99,10 +106,10 @@ module.exports = {
           score: { type: Sequelize.DECIMAL(5, 2), allowNull: true },
           source: { type: Sequelize.STRING(120), allowNull: true },
           reason: { type: Sequelize.TEXT, allowNull: true },
-          generatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          generatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
           metadata: { type: jsonType, allowNull: true },
-          createdAt: { allowNull: false, type: Sequelize.DATE, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { allowNull: false, type: Sequelize.DATE, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { allowNull: false, type: Sequelize.DATE, defaultValue: timestampDefault },
+          updatedAt: { allowNull: false, type: Sequelize.DATE, defaultValue: timestampDefault },
         },
         { transaction },
       );
@@ -150,10 +157,10 @@ module.exports = {
           feedback: { type: Sequelize.TEXT, allowNull: true },
           praiseHighlights: { type: jsonType, allowNull: true },
           improvementAreas: { type: jsonType, allowNull: true },
-          publishedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          publishedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
           isPublic: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false },
-          createdAt: { allowNull: false, type: Sequelize.DATE, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { allowNull: false, type: Sequelize.DATE, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { allowNull: false, type: Sequelize.DATE, defaultValue: timestampDefault },
+          updatedAt: { allowNull: false, type: Sequelize.DATE, defaultValue: timestampDefault },
         },
         { transaction },
       );
@@ -222,6 +229,13 @@ module.exports = {
 
   async down(queryInterface) {
     await queryInterface.sequelize.transaction(async (transaction) => {
+      await queryInterface.removeIndex('mentorship_orders', 'mentorship_orders_status_idx', { transaction });
+      await queryInterface.removeIndex('mentorship_orders', 'mentorship_orders_mentor_idx', { transaction });
+      await queryInterface.removeIndex('mentorship_orders', 'mentorship_orders_user_idx', { transaction });
+
+      await queryInterface.removeIndex('mentor_recommendations', 'mentor_recommendations_user_score_idx', { transaction });
+      await queryInterface.removeIndex('mentor_reviews', 'mentor_reviews_mentor_rating_idx', { transaction });
+
       await queryInterface.removeColumn('peer_mentoring_sessions', 'feedbackRequested', { transaction });
       await queryInterface.removeColumn('peer_mentoring_sessions', 'completedAt', { transaction });
       await queryInterface.removeColumn('peer_mentoring_sessions', 'cancelledAt', { transaction });
@@ -233,12 +247,13 @@ module.exports = {
 
       await queryInterface.dropTable('mentor_reviews', { transaction });
       await queryInterface.dropTable('mentor_recommendations', { transaction });
+      await queryInterface.dropConstraint('mentor_favourites', 'mentor_favourites_user_mentor_unique', { transaction });
       await queryInterface.dropTable('mentor_favourites', { transaction });
       await queryInterface.dropTable('mentorship_orders', { transaction });
-    });
 
-    await queryInterface.sequelize
-      .query('DROP TYPE IF EXISTS "enum_mentorship_orders_status";', { raw: true })
-      .catch(() => {});
+      if (['postgres', 'postgresql'].includes(queryInterface.sequelize.getDialect())) {
+        await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_mentorship_orders_status";', { transaction });
+      }
+    });
   },
 };
