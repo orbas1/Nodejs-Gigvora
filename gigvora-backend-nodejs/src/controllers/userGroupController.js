@@ -10,7 +10,8 @@ import {
   updateGroupPost,
   deleteGroupPost,
 } from '../services/groupService.js';
-import { ValidationError } from '../utils/errors.js';
+import { AuthorizationError, ValidationError } from '../utils/errors.js';
+import { resolveRequestPermissions, resolveRequestUserId } from '../utils/requestContext.js';
 
 function parseIntOrNull(value) {
   const parsed = Number.parseInt(value, 10);
@@ -37,6 +38,7 @@ export async function index(req, res) {
     throw new ValidationError('A valid user id is required.');
   }
   const { page, pageSize, statuses, search, includeMembers, sort } = req.query ?? {};
+  const actor = assertGroupAccess(req, userId);
   const result = await listMemberGroups({
     actorId: userId,
     page,
@@ -46,7 +48,7 @@ export async function index(req, res) {
     includeMembers: includeMembers === 'true' || includeMembers === true,
     sort,
   });
-  res.json(result);
+  res.json({ ...result, access: actor });
 }
 
 export async function store(req, res) {
@@ -54,8 +56,9 @@ export async function store(req, res) {
   if (!userId) {
     throw new ValidationError('A valid user id is required.');
   }
-  const group = await createUserGroup(req.body ?? {}, { actorId: userId });
-  res.status(201).json(group);
+  const actor = assertGroupAccess(req, userId);
+  const group = await createUserGroup(ensurePayloadObject(req.body, 'group'), { actorId: userId });
+  res.status(201).json({ ...group, access: actor });
 }
 
 export async function update(req, res) {
@@ -64,8 +67,11 @@ export async function update(req, res) {
   if (!userId || !groupId) {
     throw new ValidationError('A valid user id and group id are required.');
   }
-  const group = await updateUserGroup(groupId, req.body ?? {}, { actorId: userId });
-  res.json(group);
+  const actor = assertGroupAccess(req, userId);
+  const group = await updateUserGroup(groupId, ensurePayloadObject(req.body, 'group update'), {
+    actorId: userId,
+  });
+  res.json({ ...group, access: actor });
 }
 
 export async function listInvites(req, res) {
@@ -74,8 +80,9 @@ export async function listInvites(req, res) {
   if (!userId || !groupId) {
     throw new ValidationError('A valid user id and group id are required.');
   }
+  const actor = assertGroupAccess(req, userId);
   const invites = await listGroupInvites(groupId, { actorId: userId });
-  res.json({ invites });
+  res.json({ invites, access: actor });
 }
 
 export async function createInvite(req, res) {
@@ -84,8 +91,11 @@ export async function createInvite(req, res) {
   if (!userId || !groupId) {
     throw new ValidationError('A valid user id and group id are required.');
   }
-  const invite = await createGroupInvite(groupId, req.body ?? {}, { actorId: userId });
-  res.status(201).json(invite);
+  const actor = assertGroupAccess(req, userId);
+  const invite = await createGroupInvite(groupId, ensurePayloadObject(req.body, 'group invite'), {
+    actorId: userId,
+  });
+  res.status(201).json({ ...invite, access: actor });
 }
 
 export async function removeInvite(req, res) {
@@ -95,8 +105,9 @@ export async function removeInvite(req, res) {
   if (!userId || !groupId || !inviteId) {
     throw new ValidationError('A valid user id, group id, and invite id are required.');
   }
+  const actor = assertGroupAccess(req, userId);
   const result = await cancelGroupInvite(groupId, inviteId, { actorId: userId });
-  res.json(result);
+  res.json({ ...result, access: actor });
 }
 
 export async function listPosts(req, res) {
@@ -105,9 +116,10 @@ export async function listPosts(req, res) {
   if (!userId || !groupId) {
     throw new ValidationError('A valid user id and group id are required.');
   }
+  const actor = assertGroupAccess(req, userId);
   const { status, limit } = req.query ?? {};
   const posts = await listGroupPosts(groupId, { actorId: userId, status, limit });
-  res.json({ posts });
+  res.json({ posts, access: actor });
 }
 
 export async function createPost(req, res) {
@@ -116,8 +128,9 @@ export async function createPost(req, res) {
   if (!userId || !groupId) {
     throw new ValidationError('A valid user id and group id are required.');
   }
-  const post = await createGroupPost(groupId, req.body ?? {}, { actorId: userId });
-  res.status(201).json(post);
+  const actor = assertGroupAccess(req, userId);
+  const post = await createGroupPost(groupId, ensurePayloadObject(req.body, 'group post'), { actorId: userId });
+  res.status(201).json({ ...post, access: actor });
 }
 
 export async function updatePost(req, res) {
@@ -127,8 +140,11 @@ export async function updatePost(req, res) {
   if (!userId || !groupId || !postId) {
     throw new ValidationError('A valid user id, group id, and post id are required.');
   }
-  const post = await updateGroupPost(groupId, postId, req.body ?? {}, { actorId: userId });
-  res.json(post);
+  const actor = assertGroupAccess(req, userId);
+  const post = await updateGroupPost(groupId, postId, ensurePayloadObject(req.body, 'group post update'), {
+    actorId: userId,
+  });
+  res.json({ ...post, access: actor });
 }
 
 export async function deletePost(req, res) {
@@ -138,8 +154,9 @@ export async function deletePost(req, res) {
   if (!userId || !groupId || !postId) {
     throw new ValidationError('A valid user id, group id, and post id are required.');
   }
+  const actor = assertGroupAccess(req, userId);
   const result = await deleteGroupPost(groupId, postId, { actorId: userId });
-  res.json(result);
+  res.json({ ...result, access: actor });
 }
 
 export default {
@@ -154,3 +171,53 @@ export default {
   updatePost,
   deletePost,
 };
+
+const ADMIN_PERMISSIONS = new Set(['groups:manage', 'community:manage']);
+const ADMIN_ROLES = new Set(['admin', 'platform_admin', 'support', 'community', 'moderator']);
+
+function ensurePayloadObject(body, label) {
+  if (body == null) {
+    return {};
+  }
+  if (typeof body !== 'object' || Array.isArray(body)) {
+    throw new ValidationError(`${label} must be provided as an object.`);
+  }
+  return { ...body };
+}
+
+function collectRoles(req) {
+  const roles = new Set();
+  const primary = req.user?.type ?? req.user?.role;
+  if (primary) {
+    roles.add(String(primary).toLowerCase());
+  }
+  if (Array.isArray(req.user?.roles)) {
+    req.user.roles
+      .map((role) => String(role).toLowerCase())
+      .filter(Boolean)
+      .forEach((role) => roles.add(role));
+  }
+  return roles;
+}
+
+function assertGroupAccess(req, targetUserId) {
+  const actorId = resolveRequestUserId(req);
+  if (!actorId) {
+    throw new AuthorizationError('Authentication is required to manage community groups.');
+  }
+
+  if (Number(actorId) === Number(targetUserId)) {
+    return { actorId: Number(actorId), actingAs: 'self' };
+  }
+
+  const roles = collectRoles(req);
+  const permissions = new Set(resolveRequestPermissions(req).map((permission) => String(permission).toLowerCase()));
+  const hasRole = Array.from(roles).some((role) => ADMIN_ROLES.has(role));
+  const hasPermission = Array.from(permissions).some((permission) => ADMIN_PERMISSIONS.has(permission));
+
+  if (!hasRole && !hasPermission) {
+    throw new AuthorizationError('You do not have permission to manage groups for this user.');
+  }
+
+  return { actorId: Number(actorId), actingAs: 'administrator' };
+}
