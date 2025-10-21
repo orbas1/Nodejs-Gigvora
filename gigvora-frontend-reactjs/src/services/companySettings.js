@@ -1,55 +1,60 @@
 import { apiClient } from './apiClient.js';
+import { buildRequestOptions, resolveSignal, requireIdentifier } from './serviceHelpers.js';
 
-export function fetchCompanySettings({ workspaceId } = {}, { signal } = {}) {
+export function fetchCompanySettings({ workspaceId, signal } = {}, options = {}) {
   const params = {};
-  if (workspaceId != null && `${workspaceId}`.length > 0) {
-    params.workspaceId = workspaceId;
+  if (workspaceId != null && `${workspaceId}`.toString().trim().length > 0) {
+    params.workspaceId = `${workspaceId}`.toString().trim();
   }
-  return apiClient.get('/company/settings', { params, signal });
+  const requestOptions = buildRequestOptions({
+    params,
+    signal: resolveSignal(signal, options.signal),
+  });
+  return apiClient.get('/company/settings', requestOptions);
 }
 
-export function updateCompanySettings(payload, { signal } = {}) {
-  return apiClient.put('/company/settings', payload ?? {}, { signal });
+export function updateCompanySettings(payload = {}, options = {}) {
+  const requestOptions = buildRequestOptions({ signal: resolveSignal(options.signal) });
+  return apiClient.put('/company/settings', payload ?? {}, requestOptions);
 }
 
-export function updateCompanyNotificationSettings(payload, { signal } = {}) {
-  return apiClient.put('/company/settings/notifications', payload ?? {}, { signal });
+export function updateCompanyNotificationSettings(payload = {}, options = {}) {
+  const requestOptions = buildRequestOptions({ signal: resolveSignal(options.signal) });
+  return apiClient.put('/company/settings/notifications', payload ?? {}, requestOptions);
 }
 
-export function createCompanyWorkflow(payload, { signal } = {}) {
-  return apiClient.post('/company/settings/workflows', payload ?? {}, { signal });
+export function createCompanyWorkflow(payload = {}, options = {}) {
+  const requestOptions = buildRequestOptions({ signal: resolveSignal(options.signal) });
+  return apiClient.post('/company/settings/workflows', payload ?? {}, requestOptions);
 }
 
-export function updateCompanyWorkflow(workflowId, payload, { signal } = {}) {
-  if (!workflowId) {
-    throw new Error('workflowId is required to update a workflow.');
-  }
-  return apiClient.put(`/company/settings/workflows/${workflowId}`, payload ?? {}, { signal });
+export function updateCompanyWorkflow(workflowId, payload = {}, options = {}) {
+  const workflowIdentifier = requireIdentifier(workflowId, 'workflowId');
+  const requestOptions = buildRequestOptions({ signal: resolveSignal(options.signal) });
+  return apiClient.put(`/company/settings/workflows/${workflowIdentifier}`, payload ?? {}, requestOptions);
 }
 
-export function deleteCompanyWorkflow(workflowId, { signal } = {}) {
-  if (!workflowId) {
-    throw new Error('workflowId is required to delete a workflow.');
-  }
-  return apiClient.delete(`/company/settings/workflows/${workflowId}`, { signal });
+export function deleteCompanyWorkflow(workflowId, options = {}) {
+  const workflowIdentifier = requireIdentifier(workflowId, 'workflowId');
+  const requestOptions = buildRequestOptions({ signal: resolveSignal(options.signal) });
+  return apiClient.delete(`/company/settings/workflows/${workflowIdentifier}`, requestOptions);
 }
 
-export function createCompanyJourneyTemplate(payload, { signal } = {}) {
-  return apiClient.post('/company/settings/journeys', payload ?? {}, { signal });
+export function createCompanyJourneyTemplate(payload = {}, options = {}) {
+  const requestOptions = buildRequestOptions({ signal: resolveSignal(options.signal) });
+  return apiClient.post('/company/settings/journeys', payload ?? {}, requestOptions);
 }
 
-export function updateCompanyJourneyTemplate(templateId, payload, { signal } = {}) {
-  if (!templateId) {
-    throw new Error('templateId is required to update a journey template.');
-  }
-  return apiClient.put(`/company/settings/journeys/${templateId}`, payload ?? {}, { signal });
+export function updateCompanyJourneyTemplate(templateId, payload = {}, options = {}) {
+  const journeyIdentifier = requireIdentifier(templateId, 'templateId');
+  const requestOptions = buildRequestOptions({ signal: resolveSignal(options.signal) });
+  return apiClient.put(`/company/settings/journeys/${journeyIdentifier}`, payload ?? {}, requestOptions);
 }
 
-export function deleteCompanyJourneyTemplate(templateId, { signal } = {}) {
-  if (!templateId) {
-    throw new Error('templateId is required to delete a journey template.');
-  }
-  return apiClient.delete(`/company/settings/journeys/${templateId}`, { signal });
+export function deleteCompanyJourneyTemplate(templateId, options = {}) {
+  const journeyIdentifier = requireIdentifier(templateId, 'templateId');
+  const requestOptions = buildRequestOptions({ signal: resolveSignal(options.signal) });
+  return apiClient.delete(`/company/settings/journeys/${journeyIdentifier}`, requestOptions);
 }
 
 export default {

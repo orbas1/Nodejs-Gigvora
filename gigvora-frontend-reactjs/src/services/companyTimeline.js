@@ -1,56 +1,83 @@
 import { apiClient } from './apiClient.js';
+import {
+  buildParams,
+  buildRequestOptions,
+  mergeWorkspace,
+  optionalString,
+  requireIdentifier,
+  resolveSignal,
+} from './serviceHelpers.js';
 
-export async function fetchTimelineSnapshot({ workspaceId, lookbackDays, signal } = {}) {
-  const params = {};
-  if (workspaceId != null && `${workspaceId}`.length > 0) {
-    params.workspaceId = workspaceId;
-  }
-  if (lookbackDays != null) {
-    params.lookbackDays = lookbackDays;
-  }
-  return apiClient.get('/company/dashboard/timeline', { params, signal });
-}
-
-export async function createTimelineEvent({ workspaceId, ...payload }) {
-  return apiClient.post('/company/dashboard/timeline/events', { workspaceId, ...payload });
-}
-
-export async function updateTimelineEvent(eventId, { workspaceId, ...payload }) {
-  return apiClient.patch(`/company/dashboard/timeline/events/${eventId}`, { workspaceId, ...payload });
-}
-
-export async function deleteTimelineEvent(eventId, { workspaceId }) {
-  return apiClient.delete(`/company/dashboard/timeline/events/${eventId}`, {
-    body: { workspaceId },
+export async function fetchTimelineSnapshot({ workspaceId, lookbackDays, signal } = {}, options = {}) {
+  const params = buildParams({
+    workspaceId: optionalString(workspaceId),
+    lookbackDays,
   });
-}
-
-export async function createTimelinePost({ workspaceId, ...payload }) {
-  return apiClient.post('/company/dashboard/timeline/posts', { workspaceId, ...payload });
-}
-
-export async function updateTimelinePost(postId, { workspaceId, ...payload }) {
-  return apiClient.patch(`/company/dashboard/timeline/posts/${postId}`, { workspaceId, ...payload });
-}
-
-export async function changeTimelinePostStatus(postId, { workspaceId, ...payload }) {
-  return apiClient.post(`/company/dashboard/timeline/posts/${postId}/status`, {
-    workspaceId,
-    ...payload,
+  const requestOptions = buildRequestOptions({
+    params,
+    signal: resolveSignal(signal, options.signal),
   });
+  return apiClient.get('/company/dashboard/timeline', requestOptions);
 }
 
-export async function deleteTimelinePost(postId, { workspaceId }) {
-  return apiClient.delete(`/company/dashboard/timeline/posts/${postId}`, {
-    body: { workspaceId },
-  });
+export async function createTimelineEvent({ workspaceId, ...payload } = {}, options = {}) {
+  const body = mergeWorkspace(payload ?? {}, { workspaceId });
+  const requestOptions = buildRequestOptions({ signal: resolveSignal(options.signal) });
+  return apiClient.post('/company/dashboard/timeline/events', body, requestOptions);
 }
 
-export async function recordTimelinePostMetrics(postId, { workspaceId, ...payload }) {
-  return apiClient.post(`/company/dashboard/timeline/posts/${postId}/metrics`, {
-    workspaceId,
-    ...payload,
+export async function updateTimelineEvent(eventId, { workspaceId, ...payload } = {}, options = {}) {
+  const eventIdentifier = requireIdentifier(eventId, 'eventId');
+  const body = mergeWorkspace(payload ?? {}, { workspaceId });
+  const requestOptions = buildRequestOptions({ signal: resolveSignal(options.signal) });
+  return apiClient.patch(`/company/dashboard/timeline/events/${eventIdentifier}`, body, requestOptions);
+}
+
+export async function deleteTimelineEvent(eventId, { workspaceId } = {}, options = {}) {
+  const eventIdentifier = requireIdentifier(eventId, 'eventId');
+  const body = mergeWorkspace({}, { workspaceId });
+  const requestOptions = buildRequestOptions({
+    signal: resolveSignal(options.signal),
+    body,
   });
+  return apiClient.delete(`/company/dashboard/timeline/events/${eventIdentifier}`, requestOptions);
+}
+
+export async function createTimelinePost({ workspaceId, ...payload } = {}, options = {}) {
+  const body = mergeWorkspace(payload ?? {}, { workspaceId });
+  const requestOptions = buildRequestOptions({ signal: resolveSignal(options.signal) });
+  return apiClient.post('/company/dashboard/timeline/posts', body, requestOptions);
+}
+
+export async function updateTimelinePost(postId, { workspaceId, ...payload } = {}, options = {}) {
+  const postIdentifier = requireIdentifier(postId, 'postId');
+  const body = mergeWorkspace(payload ?? {}, { workspaceId });
+  const requestOptions = buildRequestOptions({ signal: resolveSignal(options.signal) });
+  return apiClient.patch(`/company/dashboard/timeline/posts/${postIdentifier}`, body, requestOptions);
+}
+
+export async function changeTimelinePostStatus(postId, { workspaceId, ...payload } = {}, options = {}) {
+  const postIdentifier = requireIdentifier(postId, 'postId');
+  const body = mergeWorkspace(payload ?? {}, { workspaceId });
+  const requestOptions = buildRequestOptions({ signal: resolveSignal(options.signal) });
+  return apiClient.post(`/company/dashboard/timeline/posts/${postIdentifier}/status`, body, requestOptions);
+}
+
+export async function deleteTimelinePost(postId, { workspaceId } = {}, options = {}) {
+  const postIdentifier = requireIdentifier(postId, 'postId');
+  const body = mergeWorkspace({}, { workspaceId });
+  const requestOptions = buildRequestOptions({
+    signal: resolveSignal(options.signal),
+    body,
+  });
+  return apiClient.delete(`/company/dashboard/timeline/posts/${postIdentifier}`, requestOptions);
+}
+
+export async function recordTimelinePostMetrics(postId, { workspaceId, ...payload } = {}, options = {}) {
+  const postIdentifier = requireIdentifier(postId, 'postId');
+  const body = mergeWorkspace(payload ?? {}, { workspaceId });
+  const requestOptions = buildRequestOptions({ signal: resolveSignal(options.signal) });
+  return apiClient.post(`/company/dashboard/timeline/posts/${postIdentifier}/metrics`, body, requestOptions);
 }
 
 export default {
