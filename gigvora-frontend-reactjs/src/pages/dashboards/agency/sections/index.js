@@ -10,3 +10,7 @@ export { default as AgencyHrManagementSection } from './AgencyHrManagementSectio
 export { default as AgencyCrmLeadPipelineSection } from './AgencyCrmLeadPipelineSection.jsx';
 export { default as AgencyPaymentsManagementSection } from './AgencyPaymentsManagementSection.jsx';
 export { default as AgencyJobApplicationsSection } from './AgencyJobApplicationsSection.jsx';
+export { default as AgencyGigWorkspaceSection } from './AgencyGigWorkspaceSection.jsx';
+export { default as AgencyWalletSection } from './AgencyWalletSection.jsx';
+export { default as AgencyHubSection } from './AgencyHubSection.jsx';
+export { default as AgencyCreationStudioWizardSection } from './AgencyCreationStudioWizardSection.jsx';
