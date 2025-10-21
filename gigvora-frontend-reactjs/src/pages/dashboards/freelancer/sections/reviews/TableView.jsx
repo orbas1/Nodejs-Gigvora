@@ -106,6 +106,7 @@ export default function TableView({
                     <button
                       type="button"
                       onClick={() => onView(review)}
+                      aria-label="View review"
                       className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-blue-200 hover:text-blue-600"
                     >
                       <EyeIcon className="h-4 w-4" />
@@ -113,6 +114,7 @@ export default function TableView({
                     <button
                       type="button"
                       onClick={() => onEdit(review)}
+                      aria-label="Edit review"
                       className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-blue-200 hover:text-blue-600"
                     >
                       <PencilSquareIcon className="h-4 w-4" />
@@ -121,6 +123,7 @@ export default function TableView({
                       type="button"
                       onClick={() => onDelete(review)}
                       disabled={deletingId === review.id}
+                      aria-label="Delete review"
                       className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 text-rose-500 transition hover:border-rose-300 hover:text-rose-600 disabled:cursor-wait disabled:opacity-70"
                     >
                       <TrashIcon className="h-4 w-4" />
