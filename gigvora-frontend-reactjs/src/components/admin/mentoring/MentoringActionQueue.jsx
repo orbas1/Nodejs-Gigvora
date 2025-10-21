@@ -31,16 +31,16 @@ export default function MentoringActionQueue({ actionItems = [], onSelectSession
             <p className="text-xs text-slate-500">{item.assignee.firstName} {item.assignee.lastName}</p>
           ) : null}
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <select
-              value={item.status}
-              onChange={(event) => onUpdateStatus?.(item.sessionId, item.id, event.target.value)}
-              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600 hover:border-slate-300"
-            >
-              <option value="pending">Pending</option>
-              <option value="in_progress">In progress</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
+          <select
+            value={item.status}
+            onChange={(event) => onUpdateStatus?.(item.sessionId, item.id, event.target.value)}
+            className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600 hover:border-slate-300"
+          >
+              <option value="pending">pending</option>
+              <option value="in_progress">in progress</option>
+              <option value="completed">completed</option>
+              <option value="cancelled">cancelled</option>
+          </select>
             <button
               type="button"
               onClick={() => onSelectSession?.(item)}
