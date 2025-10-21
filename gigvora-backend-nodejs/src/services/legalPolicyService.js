@@ -625,6 +625,14 @@ export async function archiveDocumentVersion(documentId, versionId, payload = {}
   return version.toSummary();
 }
 
+export const __testing = {
+  slugify,
+  normalizeStringArray,
+  sanitizeMetadata,
+  mapDocumentInstance,
+  resolveDocumentStatus,
+};
+
 export default {
   listLegalDocuments,
   getLegalDocument,

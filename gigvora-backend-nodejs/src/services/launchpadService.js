@@ -201,23 +201,51 @@ function evaluateCandidateReadiness(launchpad, { yearsExperience, skills, target
   }
 
   const normalizedScore = clampScore(score);
+  const flags = new Set();
   let recommendedStatus = 'screening';
   if (!meetsExperience || missingSkills.length > 0) {
     recommendedStatus = learningAlignedMissing.length === missingSkills.length ? 'screening' : 'waitlisted';
+    if (!meetsExperience) {
+      flags.add('below_experience_threshold');
+    }
+    if (missingSkills.length) {
+      flags.add('missing_required_skills');
+      if (learningAlignedMissing.length) {
+        flags.add('learning_goals_cover_skill_gaps');
+      }
+    }
+  } else {
+    flags.add('meets_experience_threshold');
   }
   if (normalizedScore >= autoAdvanceScore && missingSkills.length === 0 && meetsExperience) {
     recommendedStatus = 'interview';
+    flags.add('meets_auto_advance_threshold');
   }
   if (normalizedScore >= autoAcceptScore && missingSkills.length === 0 && meetsExperience) {
     recommendedStatus = 'accepted';
+    flags.add('meets_auto_accept_threshold');
   }
   if (requiresPortfolio && !portfolioUrl) {
     recommendedStatus = 'waitlisted';
+    flags.add('portfolio_required');
+    flags.add('portfolio_missing');
+  } else if (requiresPortfolio) {
+    flags.add('portfolio_required');
+  }
+  if (!requiresPortfolio && portfolioUrl) {
+    flags.add('portfolio_submitted');
+  }
+  if (matchedSkills.length === normalizedRequired.length && normalizedRequired.length > 0) {
+    flags.add('all_required_skills_met');
+  }
+  if (typeof motivations === 'string' && motivations.trim().length > 200) {
+    flags.add('motivations_detail_high');
   }
 
   return {
     score: normalizedScore,
     recommendedStatus,
+    flags: Array.from(flags),
     snapshot: {
       criteria: {
         minimumExperience,
@@ -1445,6 +1473,18 @@ export async function getLaunchpadWorkflow(launchpadId, { lookbackDays = 45 } = 
     };
   });
 }
+
+export const __testing = {
+  normaliseSkills,
+  normaliseSkillTokens,
+  normaliseArrayParam,
+  normaliseApplicationStatuses,
+  computeMatchAgainstText,
+  clampScore,
+  entryDateValue,
+  evaluateCandidateReadiness,
+  computeOpportunityMatches,
+};
 
 export default {
   applyToLaunchpad,

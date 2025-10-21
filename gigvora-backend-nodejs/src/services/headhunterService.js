@@ -419,6 +419,21 @@ export async function getDashboardSnapshot({ workspaceId, lookbackDays = 30 } = 
   };
 }
 
+export const __testing = {
+  coerceDate,
+  ensureArray,
+  average,
+  sum,
+  normaliseStage,
+  buildPipelineSummary,
+  buildCandidateSpotlight,
+  buildPassOnSummary,
+  buildOutreachPerformance,
+  buildClientPartnerships,
+  buildAvailabilitySummary,
+  buildWellbeingSummary,
+};
+
 export default {
   getDashboardSnapshot,
 };

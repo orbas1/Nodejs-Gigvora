@@ -909,6 +909,24 @@ export async function deleteJobApplicationResponse(ownerId, applicationId, respo
   return { success: true };
 }
 
+export const __testing = {
+  normalisePositiveInteger,
+  normaliseOptionalPositiveInteger,
+  coerceDate,
+  coerceNumber,
+  sanitiseTags,
+  toCurrencyCode,
+  ensureStatus,
+  ensureInterviewType,
+  ensureInterviewStatus,
+  ensureFavouritePriority,
+  ensureResponseDirection,
+  ensureResponseChannel,
+  ensureResponseStatus,
+  hydrateMetadata,
+  extractApplicationDetail,
+};
+
 export default {
   getJobApplicationWorkspace,
   createJobApplication,

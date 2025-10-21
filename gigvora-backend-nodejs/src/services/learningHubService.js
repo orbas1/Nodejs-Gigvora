@@ -516,6 +516,16 @@ export async function acknowledgeCertificationReminder(freelancerId, certificati
   return sanitizeCertification(certification);
 }
 
+export const __testing = {
+  sanitizeCourse,
+  sanitizeMentoringSession,
+  sanitizeDiagnostic,
+  sanitizeCertification,
+  sanitizeRecommendation,
+  computeRenewalInsights,
+  computeEnrollmentStats,
+};
+
 export default {
   getFreelancerLearningHub,
   enrollInCourse,

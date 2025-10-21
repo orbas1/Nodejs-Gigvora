@@ -634,6 +634,17 @@ export async function deleteRoutingRule(userId, ruleId) {
   return true;
 }
 
+export const __testing = {
+  DEFAULT_WORKING_HOURS,
+  DEFAULT_PREFERENCES,
+  buildWorkspaceCacheKey,
+  coercePositiveId,
+  sanitizeParticipant,
+  sanitizeSupportCaseRecord,
+  normalizeWorkingHours,
+  sanitizePreferences,
+};
+
 export default {
   getInboxWorkspace,
   updateInboxPreferences,
