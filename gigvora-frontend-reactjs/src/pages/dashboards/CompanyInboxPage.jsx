@@ -1,6 +1,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowPathIcon,
   ArrowsPointingOutIcon,
@@ -23,6 +23,7 @@ import useSession from '../../hooks/useSession.js';
 import { formatRelativeTime } from '../../utils/date.js';
 import { classNames } from '../../utils/classNames.js';
 import { COMPANY_DASHBOARD_MENU_SECTIONS } from '../../constants/companyDashboardMenu.js';
+import AccessDeniedPanel from '../../components/dashboard/AccessDeniedPanel.jsx';
 import {
   fetchCompanyInboxOverview,
   fetchCompanyInboxThreads,
@@ -123,16 +124,10 @@ export default function CompanyInboxPage() {
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || isCompanyMember) {
       return;
     }
-    if (!isCompanyMember) {
-      const fallback = session?.primaryDashboard ?? membershipsList.find((role) => role !== 'company');
-      if (fallback) {
-        navigate(`/dashboard/${fallback}`, { replace: true, state: { from: '/dashboard/company/inbox' } });
-      }
-    }
-  }, [isAuthenticated, isCompanyMember, navigate, session?.primaryDashboard, membershipsList]);
+  }, [isAuthenticated, isCompanyMember]);
 
   const effectiveWorkspaceId = useMemo(() => {
     if (workspaceIdParam) {
@@ -493,21 +488,22 @@ export default function CompanyInboxPage() {
   };
 
   if (!isAuthenticated) {
-    return null;
+    return <Navigate to="/login" replace state={{ redirectTo: '/dashboard/company/inbox' }} />;
   }
 
   if (!isCompanyMember) {
+    const fallbackDashboards = membershipsList.filter((membership) => membership !== 'company');
     return (
       <DashboardLayout
         currentDashboard="company"
         title="Company Inbox"
         subtitle="Workspace communications"
         menuSections={COMPANY_DASHBOARD_MENU_SECTIONS}
-        availableDashboards={membershipsList.filter((membership) => membership !== 'company')}
+        availableDashboards={fallbackDashboards}
       >
-        <EmptyState
-          title="Company access required"
-          description="Switch to another dashboard or contact an administrator to request company workspace access."
+        <AccessDeniedPanel
+          availableDashboards={fallbackDashboards}
+          onNavigate={(dashboard) => navigate(`/dashboard/${dashboard}`)}
         />
       </DashboardLayout>
     );

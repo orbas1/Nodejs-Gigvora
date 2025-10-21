@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import CrmConnectorPanel from '../../components/integrations/CrmConnectorPanel.jsx';
 import useCrmIntegrationManager from '../../hooks/useCrmIntegrationManager.js';
 import useSession from '../../hooks/useSession.js';
 import { formatRelativeTime, formatAbsolute } from '../../utils/date.js';
+import AccessDeniedPanel from '../../components/dashboard/AccessDeniedPanel.jsx';
 
 const MENU_SECTIONS = [
   {
@@ -65,9 +66,40 @@ function AuditLog({ entries }) {
 
 export default function CompanyCrmIntegrationsPage() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const workspaceId = searchParams.get('workspaceId') ?? undefined;
   const workspaceQuery = workspaceId ? `?workspaceId=${workspaceId}` : '';
-  const { session } = useSession();
+  const { session, isAuthenticated } = useSession();
+  const membershipsList = session?.memberships ?? [];
+  const isCompanyMember = isAuthenticated && membershipsList.includes('company');
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace state={{ redirectTo: '/dashboard/company/integrations/crm' }} />;
+  }
+
+  if (!isCompanyMember) {
+    const fallbackDashboards = membershipsList.filter((membership) => membership !== 'company');
+    return (
+      <DashboardLayout
+        currentDashboard="company"
+        title="CRM Control"
+        subtitle="Salesforce, HubSpot, monday.com"
+        description="Company membership required to administer CRM connectors."
+        menuSections={MENU_SECTIONS}
+        sections={[
+          { id: 'crm-home', label: 'Home' },
+          { id: 'crm-connectors', label: 'Connectors' },
+          { id: 'crm-logs', label: 'Logs' },
+        ]}
+        availableDashboards={availableDashboards}
+      >
+        <AccessDeniedPanel
+          availableDashboards={fallbackDashboards}
+          onNavigate={(dashboard) => navigate(`/dashboard/${dashboard}`)}
+        />
+      </DashboardLayout>
+    );
+  }
 
   const {
     loading,

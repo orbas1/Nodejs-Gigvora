@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import DataStatus from '../../components/DataStatus.jsx';
 import IdVerificationSummaryCards from '../../components/company/idVerification/IdVerificationSummaryCards.jsx';
@@ -15,6 +15,7 @@ import {
 } from '../../services/companyIdentity.js';
 import { COMPANY_DASHBOARD_MENU_SECTIONS } from '../../constants/companyDashboardMenu.js';
 import { useSession } from '../../context/SessionContext.jsx';
+import AccessDeniedPanel from '../../components/dashboard/AccessDeniedPanel.jsx';
 
 const menuSections = COMPANY_DASHBOARD_MENU_SECTIONS;
 const availableDashboards = ['company', 'headhunter', 'agency', 'user'];
@@ -55,7 +56,7 @@ function resolveSegment(statuses) {
 
 export default function CompanyIdVerificationPage() {
   const navigate = useNavigate();
-  const { session } = useSession();
+  const { session, isAuthenticated } = useSession();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const workspaceIdParam = searchParams.get('workspaceId');
@@ -81,9 +82,35 @@ export default function CompanyIdVerificationPage() {
     [workspaceId, statusFilterValue, sortParam, pageParam, searchTerm],
   );
 
+  const membershipsList = session?.memberships ?? [];
+  const isCompanyMember = isAuthenticated && membershipsList.includes('company');
+
   const { data, loading, error, refresh, lastUpdated } = useCompanyIdentityVerifications(queryParams, {
-    enabled: Boolean(session?.userType === 'company'),
+    enabled: isAuthenticated && isCompanyMember,
   });
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace state={{ redirectTo: '/dashboard/company/id-verification' }} />;
+  }
+
+  if (!isCompanyMember) {
+    const fallbackDashboards = membershipsList.filter((membership) => membership !== 'company');
+    return (
+      <DashboardLayout
+        currentDashboard="company"
+        title="Identity verification"
+        subtitle="Verification workspace"
+        description="You need company membership to review verification requests."
+        menuSections={menuSections}
+        availableDashboards={availableDashboards}
+      >
+        <AccessDeniedPanel
+          availableDashboards={fallbackDashboards}
+          onNavigate={(dashboard) => navigate(`/dashboard/${dashboard}`)}
+        />
+      </DashboardLayout>
+    );
+  }
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerLoading, setDrawerLoading] = useState(false);
