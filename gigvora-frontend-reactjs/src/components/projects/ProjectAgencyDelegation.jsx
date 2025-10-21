@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { formatRelativeTime } from '../../utils/date.js';
 
 function formatStatus(status) {
@@ -65,3 +66,23 @@ export default function ProjectAgencyDelegation({ assignments = [] }) {
     </div>
   );
 }
+
+ProjectAgencyDelegation.propTypes = {
+  assignments: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      memberName: PropTypes.string,
+      role: PropTypes.string,
+      status: PropTypes.string,
+      delegatedAt: PropTypes.string,
+      delegatedBy: PropTypes.string,
+      capacityHours: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      allocatedHours: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      workloadPercent: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    })
+  ),
+};
+
+ProjectAgencyDelegation.defaultProps = {
+  assignments: [],
+};

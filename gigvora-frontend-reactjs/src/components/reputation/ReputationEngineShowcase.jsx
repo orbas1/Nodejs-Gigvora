@@ -6,6 +6,7 @@ import {
   MegaphoneIcon,
   SparklesIcon,
 } from '@heroicons/react/24/outline';
+import PropTypes from 'prop-types';
 import DataStatus from '../DataStatus.jsx';
 import UserAvatar from '../UserAvatar.jsx';
 import { formatRelativeTime, formatAbsolute } from '../../utils/date.js';
@@ -52,6 +53,11 @@ function TrendPill({ trendDirection, trendLabel }) {
   );
 }
 
+TrendPill.propTypes = {
+  trendDirection: PropTypes.oneOf(['up', 'down']),
+  trendLabel: PropTypes.string,
+};
+
 function TestimonialCard({ testimonial, featured = false }) {
   if (!testimonial) {
     return null;
@@ -80,6 +86,22 @@ function TestimonialCard({ testimonial, featured = false }) {
     </article>
   );
 }
+
+TestimonialCard.propTypes = {
+  testimonial: PropTypes.shape({
+    comment: PropTypes.string,
+    clientName: PropTypes.string,
+    clientRole: PropTypes.string,
+    company: PropTypes.string,
+    rating: PropTypes.number,
+  }),
+  featured: PropTypes.bool,
+};
+
+TestimonialCard.defaultProps = {
+  testimonial: null,
+  featured: false,
+};
 
 function SuccessStoryCard({ story }) {
   if (!story) return null;
@@ -113,6 +135,19 @@ function SuccessStoryCard({ story }) {
   );
 }
 
+SuccessStoryCard.propTypes = {
+  story: PropTypes.shape({
+    title: PropTypes.string,
+    summary: PropTypes.string,
+    impactMetrics: PropTypes.object,
+    ctaUrl: PropTypes.string,
+  }),
+};
+
+SuccessStoryCard.defaultProps = {
+  story: null,
+};
+
 function BadgeCard({ badge }) {
   return (
     <article className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
@@ -142,6 +177,16 @@ function BadgeCard({ badge }) {
   );
 }
 
+BadgeCard.propTypes = {
+  badge: PropTypes.shape({
+    name: PropTypes.string,
+    badgeType: PropTypes.string,
+    description: PropTypes.string,
+    issuedBy: PropTypes.string,
+    issuedAt: PropTypes.string,
+  }).isRequired,
+};
+
 function WidgetCard({ widget }) {
   const placement = widget.metadata?.placement ?? widget.config?.placement ?? 'active surfaces';
   return (
@@ -164,6 +209,17 @@ function WidgetCard({ widget }) {
     </article>
   );
 }
+
+WidgetCard.propTypes = {
+  widget: PropTypes.shape({
+    name: PropTypes.string,
+    widgetType: PropTypes.string,
+    metadata: PropTypes.object,
+    config: PropTypes.object,
+    impressions: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    ctaClicks: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  }).isRequired,
+};
 
 export default function ReputationEngineShowcase({
   data,
@@ -390,4 +446,65 @@ export default function ReputationEngineShowcase({
     </div>
   );
 }
+
+ReputationEngineShowcase.propTypes = {
+  data: PropTypes.shape({
+    freelancer: PropTypes.shape({
+      name: PropTypes.string,
+      title: PropTypes.string,
+      location: PropTypes.string,
+      headline: PropTypes.string,
+      avatarUrl: PropTypes.string,
+      avatarSeed: PropTypes.string,
+    }),
+    metrics: PropTypes.arrayOf(
+      PropTypes.shape({
+        id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+        label: PropTypes.string,
+        value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+        trendDirection: PropTypes.string,
+        trendLabel: PropTypes.string,
+        periodLabel: PropTypes.string,
+        source: PropTypes.string,
+      })
+    ),
+    summary: PropTypes.shape({
+      lastVerifiedAt: PropTypes.string,
+      totalReviews: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      reviewAverage: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      responseTime: PropTypes.string,
+      publishedWidgets: PropTypes.number,
+    }),
+    testimonials: PropTypes.shape({
+      featured: PropTypes.object,
+      recent: PropTypes.arrayOf(PropTypes.object),
+    }),
+    successStories: PropTypes.shape({
+      featured: PropTypes.object,
+      collection: PropTypes.arrayOf(PropTypes.object),
+    }),
+    badges: PropTypes.shape({
+      promoted: PropTypes.arrayOf(PropTypes.object),
+      collection: PropTypes.arrayOf(PropTypes.object),
+    }),
+    reviewWidgets: PropTypes.arrayOf(PropTypes.object),
+    automationPlaybooks: PropTypes.arrayOf(PropTypes.string),
+    integrationTouchpoints: PropTypes.arrayOf(PropTypes.string),
+    shareableLinks: PropTypes.arrayOf(PropTypes.object),
+  }),
+  loading: PropTypes.bool,
+  error: PropTypes.instanceOf(Error),
+  onRefresh: PropTypes.func,
+  fromCache: PropTypes.bool,
+  lastUpdated: PropTypes.instanceOf(Date),
+};
+
+ReputationEngineShowcase.defaultProps = {
+  data: null,
+  loading: false,
+  error: null,
+  onRefresh: undefined,
+  fromCache: false,
+  lastUpdated: undefined,
+};
 
