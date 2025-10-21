@@ -14,7 +14,7 @@ import ItemShelf from './panels/ItemShelf.jsx';
 import PreviewDrawer from './panels/PreviewDrawer.jsx';
 import CreationWizard from './wizard/CreationWizard.jsx';
 
-const ALLOWED_CREATOR_ROLES = new Set(['user', 'freelancer', 'agency', 'company', 'mentor', 'headhunter', 'admin']);
+const ALLOWED_CREATOR_ROLES = new Set(['freelancer', 'agency', 'company', 'mentor', 'headhunter', 'admin']);
 
 export default function CreationStudioManager() {
   const { session, isAuthenticated } = useSession();
