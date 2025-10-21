@@ -1,4 +1,5 @@
 import { Dialog, Transition } from '@headlessui/react';
+import PropTypes from 'prop-types';
 import { Fragment, useEffect, useState } from 'react';
 
 const STEPS = ['Identity', 'Story', 'Location'];
@@ -19,11 +20,13 @@ function buildDraft(profile) {
 export default function ProfileInfoDrawer({ open, profile, onClose, onSave, saving }) {
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState(buildDraft(profile));
+  const [feedback, setFeedback] = useState(null);
 
   useEffect(() => {
     if (open) {
       setDraft(buildDraft(profile));
       setStep(0);
+      setFeedback(null);
     }
   }, [open, profile]);
 
@@ -44,7 +47,12 @@ export default function ProfileInfoDrawer({ open, profile, onClose, onSave, savi
     if (!onSave) {
       return;
     }
-    await onSave(draft);
+    setFeedback(null);
+    try {
+      await onSave(draft);
+    } catch (error) {
+      setFeedback({ type: 'error', message: error?.message ?? 'Unable to save profile information.' });
+    }
   };
 
   return (
@@ -94,6 +102,18 @@ export default function ProfileInfoDrawer({ open, profile, onClose, onSave, savi
                   </div>
 
                   <div className="flex-1 space-y-6 overflow-y-auto px-6 py-6">
+                    {feedback ? (
+                      <div
+                        className={`rounded-2xl border px-4 py-3 text-sm ${
+                          feedback.type === 'error'
+                            ? 'border-rose-200 bg-rose-50 text-rose-700'
+                            : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        }`}
+                      >
+                        {feedback.message}
+                      </div>
+                    ) : null}
+
                     {step === 0 ? (
                       <div className="grid gap-4 sm:grid-cols-2">
                         <label className="space-y-1 text-sm text-slate-700">
@@ -220,3 +240,31 @@ export default function ProfileInfoDrawer({ open, profile, onClose, onSave, savi
     </Transition.Root>
   );
 }
+
+ProfileInfoDrawer.propTypes = {
+  open: PropTypes.bool,
+  profile: PropTypes.shape({
+    firstName: PropTypes.string,
+    lastName: PropTypes.string,
+    title: PropTypes.string,
+    headline: PropTypes.string,
+    bio: PropTypes.string,
+    missionStatement: PropTypes.string,
+    location: PropTypes.string,
+    locationDetails: PropTypes.shape({
+      summary: PropTypes.string,
+    }),
+    timezone: PropTypes.string,
+  }),
+  onClose: PropTypes.func,
+  onSave: PropTypes.func,
+  saving: PropTypes.bool,
+};
+
+ProfileInfoDrawer.defaultProps = {
+  open: false,
+  profile: null,
+  onClose: () => {},
+  onSave: () => {},
+  saving: false,
+};
