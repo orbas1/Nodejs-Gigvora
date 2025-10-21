@@ -234,10 +234,10 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur">
-      <div className="mx-auto flex h-20 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex flex-wrap items-center gap-3 px-4 py-3 sm:h-20 sm:flex-nowrap sm:gap-4 sm:px-6 sm:py-0 lg:px-8">
         <div className="flex items-center gap-3">
           <Menu as="div" className="relative lg:hidden">
-            <Menu.Button className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white/95 p-2 text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-slate-900">
+            <Menu.Button className="inline-flex shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white/95 p-2 text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-slate-900">
               <span className="sr-only">Open navigation</span>
               <Bars3Icon className="h-5 w-5" />
             </Menu.Button>
@@ -295,11 +295,47 @@ export default function Header() {
                     </Menu.Item>
                   ))
                 )}
+                <div className="space-y-3 border-t border-slate-200/70 pt-3">
+                  <LanguageSelector variant="mobile" />
+                  {isAuthenticated ? (
+                    <div className="grid gap-2">
+                      <Link
+                        to="/dashboard/user/creation-studio"
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accentDark"
+                      >
+                        <SparklesIcon className="h-4 w-4" />
+                        Launch Creation Studio
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        className="inline-flex w-full items-center justify-center rounded-full border border-slate-200/80 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
+                      >
+                        Log out
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid gap-2">
+                      <Link
+                        to="/login"
+                        className="inline-flex w-full items-center justify-center rounded-full border border-slate-200/80 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-white hover:text-slate-900"
+                      >
+                        {t('header.login', 'Log in')}
+                      </Link>
+                      <Link
+                        to="/register"
+                        className="inline-flex w-full items-center justify-center rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700"
+                      >
+                        {t('header.join', 'Join')}
+                      </Link>
+                    </div>
+                  )}
+                </div>
               </Menu.Items>
             </Transition>
           </Menu>
-          <Link to="/" className="inline-flex items-center">
-            <img src={LOGO_URL} alt="Gigvora" className="h-12 w-auto" />
+          <Link to="/" className="inline-flex items-center gap-2 shrink-0">
+            <img src={LOGO_URL} alt="Gigvora" className="h-10 w-auto shrink-0 sm:h-12" />
           </Link>
         </div>
 
@@ -335,7 +371,7 @@ export default function Header() {
           </nav>
         )}
 
-        <div className="ml-auto flex items-center gap-3 sm:gap-4">
+        <div className="ml-auto hidden items-center gap-3 sm:flex sm:gap-4">
           {!isAuthenticated ? (
             <Link
               to="/pages"
@@ -346,7 +382,7 @@ export default function Header() {
             </Link>
           ) : null}
           {isAuthenticated ? <InboxPreview /> : null}
-          <LanguageSelector />
+          <LanguageSelector className="hidden sm:inline-flex" />
           {isAuthenticated ? (
             <div className="flex items-center gap-3">
               <Link
