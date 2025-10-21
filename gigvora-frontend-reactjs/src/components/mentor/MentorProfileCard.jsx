@@ -1,22 +1,29 @@
+import PropTypes from 'prop-types';
 import { StarIcon } from '@heroicons/react/24/solid';
 import { formatRelativeTime } from '../../utils/date.js';
 
 export default function MentorProfileCard({ mentor, onBook, onView }) {
   const expertise = Array.isArray(mentor.expertise) ? mentor.expertise.slice(0, 4) : [];
   const packages = Array.isArray(mentor.packages) ? mentor.packages.slice(0, 2) : [];
-  const responseTime = mentor.responseTime ? formatRelativeTime(mentor.responseTime) : 'Responds within a day';
+  const responseTime = mentor.responseTime
+    ? formatRelativeTime(mentor.responseTime)
+    : 'Responds within a day';
+  const safeRating = Number.isFinite(mentor.rating) ? mentor.rating.toFixed(1) : '5.0';
+  const region = mentor.region || 'Global';
+  const sessionFee = mentor.sessionFee?.amount ?? 180;
+  const sessionCurrency = mentor.sessionFee?.currency ?? '£';
 
   return (
     <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{mentor.region}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{region}</p>
           <h3 className="mt-1 text-lg font-semibold text-slate-900">{mentor.name}</h3>
           <p className="mt-1 text-sm text-slate-500">{mentor.headline}</p>
         </div>
         <div className="text-right">
           <p className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-600">
-            <StarIcon className="h-4 w-4" /> {mentor.rating?.toFixed?.(1) ?? '5.0'}
+            <StarIcon className="h-4 w-4" /> {safeRating}
           </p>
           <p className="mt-2 text-xs text-slate-400">{mentor.reviews} reviews</p>
         </div>
@@ -44,7 +51,10 @@ export default function MentorProfileCard({ mentor, onBook, onView }) {
         ))}
       </div>
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
-        <p>{mentor.sessionFee?.currency ?? '£'}{mentor.sessionFee?.amount ?? 180} per session • {responseTime}</p>
+        <p>
+          {sessionCurrency}
+          {new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 }).format(sessionFee)} per session • {responseTime}
+        </p>
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -65,3 +75,32 @@ export default function MentorProfileCard({ mentor, onBook, onView }) {
     </article>
   );
 }
+
+MentorProfileCard.propTypes = {
+  mentor: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    name: PropTypes.string.isRequired,
+    headline: PropTypes.string,
+    bio: PropTypes.string,
+    region: PropTypes.string,
+    expertise: PropTypes.arrayOf(PropTypes.string),
+    packages: PropTypes.arrayOf(
+      PropTypes.shape({
+        name: PropTypes.string.isRequired,
+        description: PropTypes.string,
+        currency: PropTypes.string,
+        price: PropTypes.number,
+      }),
+    ),
+    rating: PropTypes.number,
+    reviews: PropTypes.number,
+    responseTime: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    sessionFee: PropTypes.shape({
+      amount: PropTypes.number,
+      currency: PropTypes.string,
+    }),
+  }).isRequired,
+  onBook: PropTypes.func,
+  onView: PropTypes.func,
+};
+

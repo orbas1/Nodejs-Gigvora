@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { ChatBubbleBottomCenterTextIcon, PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { formatRelativeTime, formatAbsolute } from '../../../utils/date.js';
@@ -7,7 +8,21 @@ function formatLabel(value) {
 }
 
 export default function ResponsesPanel({ responses, applications, onCreate, onEdit, onDelete }) {
-  const applicationLookup = new Map(applications.map((application) => [application.id, application]));
+  const applicationLookup = useMemo(
+    () => new Map(applications.map((application) => [application.id, application])),
+    [applications],
+  );
+  const sortedResponses = useMemo(
+    () =>
+      [...responses]
+        .filter((response) => response && response.id)
+        .sort((a, b) => {
+          const left = a.sentAt ? new Date(a.sentAt).getTime() : 0;
+          const right = b.sentAt ? new Date(b.sentAt).getTime() : 0;
+          return right - left;
+        }),
+    [responses],
+  );
 
   return (
     <div className="flex h-full flex-col gap-6">
@@ -27,11 +42,11 @@ export default function ResponsesPanel({ responses, applications, onCreate, onEd
 
       <div className="flex-1 overflow-hidden rounded-3xl border border-slate-200 bg-white">
         <div className="h-full overflow-auto px-6 py-6">
-          {responses.length === 0 ? (
+          {sortedResponses.length === 0 ? (
             <p className="text-center text-sm text-slate-400">No replies logged yet.</p>
           ) : (
             <ul className="space-y-4">
-              {responses.map((response) => {
+              {sortedResponses.map((response) => {
                 const application = applicationLookup.get(response.applicationId);
                 const title = application?.detail?.title ?? 'Opportunity';
                 const company = application?.detail?.companyName ?? 'Company';
@@ -44,7 +59,10 @@ export default function ResponsesPanel({ responses, applications, onCreate, onEd
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-semibold text-slate-900">{title}</p>
-                        <p className="text-xs uppercase tracking-wide text-slate-500">{company}</p>
+                        <p className="text-xs uppercase tracking-wide text-slate-500">
+                          {company}
+                          {application ? null : ' • Not linked'}
+                        </p>
                       </div>
                       <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                         <span className="inline-flex items-center gap-1 rounded-full bg-slate-900/5 px-3 py-1 text-slate-600">
@@ -99,8 +117,27 @@ export default function ResponsesPanel({ responses, applications, onCreate, onEd
 }
 
 ResponsesPanel.propTypes = {
-  responses: PropTypes.arrayOf(PropTypes.object).isRequired,
-  applications: PropTypes.arrayOf(PropTypes.object).isRequired,
+  responses: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      applicationId: PropTypes.string,
+      direction: PropTypes.string,
+      channel: PropTypes.string,
+      status: PropTypes.string,
+      subject: PropTypes.string,
+      body: PropTypes.string,
+      sentAt: PropTypes.string,
+    }),
+  ).isRequired,
+  applications: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      detail: PropTypes.shape({
+        title: PropTypes.string,
+        companyName: PropTypes.string,
+      }),
+    }),
+  ).isRequired,
   onCreate: PropTypes.func.isRequired,
   onEdit: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,
