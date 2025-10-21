@@ -147,14 +147,54 @@ void main() {
     test('preloads placements and memoises result per surface', () async {
       await controller.load();
 
-      await controller.preloadPlacements('home');
+      await controller.preloadPlacements('  home  ');
       expect(controller.placementsBySurface['home']!.length, 1);
       expect(analytics.events, contains('mobile_ads_surface_loaded'));
+
+      final placement = repository.placementsBySurface['home']!.first;
+      expect(
+        () => controller.placementsBySurface['home']!.add(placement),
+        throwsUnsupportedError,
+        reason: 'placements should be immutable to consumers',
+      );
 
       repository.placementsBySurface['home'] = const <AdPlacement>[];
       await controller.preloadPlacements('home');
 
       expect(controller.placementsBySurface['home']!.length, 1, reason: 'cached placements should be reused');
+    });
+
+    test('removes cached placements when surfaces disappear from snapshot', () async {
+      await controller.load();
+      await controller.preloadPlacements('home');
+      expect(controller.placementsBySurface, contains('home'));
+
+      final updatedSnapshot = AdDashboardSnapshot(
+        overview: snapshot.overview,
+        surfaces: <AdSurfaceGroup>[
+          AdSurfaceGroup(
+            surface: 'jobs',
+            label: 'Jobs',
+            placements: const <AdPlacement>[],
+            totalPlacements: 1,
+            upcomingPlacements: 0,
+          ),
+        ],
+        recommendations: snapshot.recommendations,
+        forecast: snapshot.forecast,
+        generatedAt: snapshot.generatedAt,
+      );
+
+      repository.snapshot = RepositoryResult<AdDashboardSnapshot>(
+        data: updatedSnapshot,
+        fromCache: false,
+        lastUpdated: DateTime.now(),
+      );
+
+      await controller.load(forceRefresh: true);
+
+      expect(controller.placementsBySurface.containsKey('home'), isFalse);
+      expect(controller.placementsBySurface.containsKey('jobs'), isFalse);
     });
   });
 }

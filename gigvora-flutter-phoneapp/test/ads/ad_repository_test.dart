@@ -170,5 +170,23 @@ void main() {
       expect(second.error, isA<ApiException>());
       expect(second.data, isNotEmpty);
     });
+
+    test('normalises surface queries before requesting placements', () async {
+      Map<String, dynamic>? lastQuery;
+      apiClient.onGet = (String path, {Map<String, dynamic>? query, Map<String, String>? headers}) async {
+        lastQuery = query;
+        return <String, dynamic>{'placements': const <Map<String, dynamic>>[]};
+      };
+
+      await repository.fetchPlacements(surface: '  home  ');
+      expect(lastQuery?['surface'], equals('home'));
+
+      await repository.fetchPlacements(surface: '');
+      expect(lastQuery?['surface'], equals('global_dashboard'));
+
+      final placements = await repository.fetchPlacements(surface: '  stage  ', forceRefresh: true);
+      expect(placements.data, isEmpty);
+      expect(lastQuery?['surface'], equals('stage'));
+    });
   });
 }

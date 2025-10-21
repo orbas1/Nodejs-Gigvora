@@ -99,5 +99,71 @@ void main() {
       expect(find.byType(AdCouponStrip), findsOneWidget);
       expect(find.text('Featured offers'), findsNothing);
     });
+
+    testWidgets('disables unsafe call-to-action URLs', (WidgetTester tester) async {
+      final placements = <AdPlacement>[ 
+        AdPlacement(
+          id: 2,
+          surface: 'jobs',
+          position: 'sidebar',
+          status: 'active',
+          isActive: true,
+          isUpcoming: false,
+          coupons: const <AdCoupon>[
+            AdCoupon(
+              id: 21,
+              code: 'GROW10',
+              name: 'Growth boost',
+              description: 'Add automation to your outreach.',
+              discountType: 'percentage',
+              discountValue: 10,
+              lifecycleStatus: 'active',
+              isActive: true,
+              startAt: null,
+              endAt: null,
+              surfaceTargets: <String>['jobs'],
+              termsUrl: 'ftp://invalid.example.com',
+              metadata: <String, dynamic>{},
+            ),
+          ],
+          creative: const AdCreative(
+            id: 11,
+            name: 'Sidebar creative',
+            headline: 'Scale your outreach',
+            subheadline: 'Activate curated leads with automation.',
+            callToAction: 'Claim now',
+            ctaUrl: 'javascript:alert(1)',
+          ),
+          startAt: null,
+          endAt: null,
+        ),
+      ];
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            adPlacementsProvider.overrideWith(
+              (ref, surface) async => RepositoryResult<List<AdPlacement>>(
+                data: placements,
+                fromCache: false,
+              ),
+            ),
+          ],
+          child: const MaterialApp(
+            home: Scaffold(
+              body: AdCouponStrip(surface: 'jobs'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      final buttonFinder = find.widgetWithText(ElevatedButton, 'CLAIM NOW');
+      expect(buttonFinder, findsOneWidget);
+      final button = tester.widget<ElevatedButton>(buttonFinder);
+      expect(button.onPressed, isNull);
+      expect(find.text('Terms & conditions'), findsNothing);
+    });
   });
 }
