@@ -6,6 +6,15 @@ import {
   deleteConsentPolicy,
   getConsentPolicyByCode,
 } from '../services/consentService.js';
+import { ValidationError } from '../utils/errors.js';
+
+function parsePositiveInteger(value, fieldName) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new ValidationError(`${fieldName} must be a positive integer.`);
+  }
+  return parsed;
+}
 
 export async function index(req, res) {
   const policies = await listConsentPolicies({
@@ -37,7 +46,7 @@ export async function store(req, res) {
 export async function update(req, res) {
   const { policyId } = req.params;
   const payload = req.body ?? {};
-  const policy = await updateConsentPolicy(Number(policyId), payload, {
+  const policy = await updateConsentPolicy(parsePositiveInteger(policyId, 'policyId'), payload, {
     actorId: req.user?.id ? String(req.user.id) : null,
   });
   res.json(policy);
@@ -46,7 +55,7 @@ export async function update(req, res) {
 export async function createVersion(req, res) {
   const { policyId } = req.params;
   const payload = req.body ?? {};
-  const version = await createPolicyVersion(Number(policyId), payload, {
+  const version = await createPolicyVersion(parsePositiveInteger(policyId, 'policyId'), payload, {
     actorId: req.user?.id ? String(req.user.id) : null,
   });
   res.status(201).json({
@@ -58,7 +67,7 @@ export async function createVersion(req, res) {
 
 export async function destroy(req, res) {
   const { policyId } = req.params;
-  await deleteConsentPolicy(Number(policyId), {
+  await deleteConsentPolicy(parsePositiveInteger(policyId, 'policyId'), {
     actorId: req.user?.id ? String(req.user.id) : null,
   });
   res.status(204).send();

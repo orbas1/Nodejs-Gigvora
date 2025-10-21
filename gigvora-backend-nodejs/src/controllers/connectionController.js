@@ -1,17 +1,29 @@
 import connectionService from '../services/connectionService.js';
 import { ValidationError } from '../utils/errors.js';
 
-function parseNumber(value, fallback = undefined) {
-  if (value == null) {
-    return fallback;
+function parsePositiveInteger(value, fieldName, { required = false } = {}) {
+  if (value == null || value === '') {
+    if (required) {
+      throw new ValidationError(`${fieldName} is required.`);
+    }
+    return undefined;
   }
   const parsed = Number.parseInt(value, 10);
-  return Number.isNaN(parsed) ? fallback : parsed;
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new ValidationError(`${fieldName} must be a positive integer.`);
+  }
+  return parsed;
 }
 
 export async function getNetwork(req, res) {
-  const userId = parseNumber(req.query.userId ?? req.params.userId ?? req.body?.userId ?? req.user?.id);
-  const viewerId = parseNumber(req.query.viewerId ?? req.user?.id ?? userId);
+  const userId =
+    parsePositiveInteger(
+      req.query?.userId ?? req.params?.userId ?? req.body?.userId ?? req.user?.id,
+      'userId',
+      { required: true },
+    );
+  const viewerCandidate = req.query?.viewerId ?? req.user?.id ?? userId;
+  const viewerId = viewerCandidate ? parsePositiveInteger(viewerCandidate, 'viewerId') : userId;
   const includePending = (req.query.includePending ?? 'false').toString().toLowerCase() === 'true';
 
   const network = await connectionService.buildConnectionNetwork({
@@ -24,21 +36,32 @@ export async function getNetwork(req, res) {
 }
 
 export async function createConnection(req, res) {
-  const requesterId = parseNumber(req.body?.actorId ?? req.body?.requesterId ?? req.user?.id);
-  const targetId = parseNumber(req.body?.targetId ?? req.body?.addresseeId);
-
-  if (!requesterId || !targetId) {
-    throw new ValidationError('Both actorId and targetId must be supplied to create a connection.');
-  }
+  const requesterId = parsePositiveInteger(
+    req.body?.actorId ?? req.body?.requesterId ?? req.user?.id,
+    'actorId',
+    { required: true },
+  );
+  const targetId = parsePositiveInteger(req.body?.targetId ?? req.body?.addresseeId, 'targetId', {
+    required: true,
+  });
 
   const connection = await connectionService.requestConnection(requesterId, targetId);
   res.status(201).json(connection);
 }
 
 export async function respondToConnection(req, res) {
-  const connectionId = parseNumber(req.params.connectionId ?? req.params.id);
-  const actorId = parseNumber(req.body?.actorId ?? req.user?.id);
-  const decision = req.body?.decision ?? req.body?.status;
+  const connectionId = parsePositiveInteger(
+    req.params?.connectionId ?? req.params?.id,
+    'connectionId',
+    { required: true },
+  );
+  const actorId = parsePositiveInteger(req.body?.actorId ?? req.user?.id, 'actorId', { required: true });
+  const decision = `${req.body?.decision ?? req.body?.status ?? ''}`.toLowerCase();
+
+  const allowed = new Set(['accepted', 'declined', 'pending', 'blocked']);
+  if (!allowed.has(decision)) {
+    throw new ValidationError('decision must be accepted, declined, pending, or blocked.');
+  }
 
   const result = await connectionService.respondToConnection({
     connectionId,
