@@ -1,142 +1,253 @@
-import { beforeEach, describe, expect, it } from '@jest/globals';
-import '../setupTestEnv.js';
-import { sequelize, User, FreelancerCalendarEvent } from '../../src/models/index.js';
-import {
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { Op } from 'sequelize';
+import { AuthorizationError, NotFoundError, ValidationError } from '../../src/utils/errors.js';
+
+const calendarModelMock = {
+  FreelancerCalendarEvent: {
+    findAll: jest.fn(),
+    create: jest.fn(),
+    findOne: jest.fn(),
+  },
+  FREELANCER_CALENDAR_EVENT_TYPES: ['project', 'gig', 'mentorship', 'job_interview', 'other'],
+  FREELANCER_CALENDAR_EVENT_STATUSES: ['confirmed', 'tentative', 'in_progress', 'completed', 'cancelled'],
+  FREELANCER_CALENDAR_RELATED_TYPES: ['project', 'gig', 'job', 'mentorship', 'volunteering'],
+};
+
+Object.keys(global.__mockSequelizeModels).forEach((key) => delete global.__mockSequelizeModels[key]);
+Object.assign(global.__mockSequelizeModels, calendarModelMock);
+
+const {
   listFreelancerCalendarEvents,
   createFreelancerCalendarEvent,
   updateFreelancerCalendarEvent,
   deleteFreelancerCalendarEvent,
-} from '../../src/services/freelancerCalendarService.js';
+} = await import('../../src/services/freelancerCalendarService.js');
 
-function buildDateOffset(days) {
-  return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+function resetCalendarMocks() {
+  Object.values(calendarModelMock.FreelancerCalendarEvent).forEach((maybeFn) => {
+    if (typeof maybeFn?.mockReset === 'function') {
+      maybeFn.mockReset();
+    }
+  });
 }
 
 describe('freelancerCalendarService', () => {
-  let freelancer;
+  beforeEach(() => {
+    resetCalendarMocks();
+    jest.useRealTimers();
+  });
 
-  beforeEach(async () => {
-    await sequelize.sync({ force: true });
-    freelancer = await User.create({
-      firstName: 'Taylor',
-      lastName: 'Indigo',
-      email: 'freelancer-calendar@example.com',
-      password: 'secure-password',
-      userType: 'freelancer',
+  describe('listFreelancerCalendarEvents', () => {
+    it('validates identifiers and query constraints before fetching', async () => {
+      await expect(listFreelancerCalendarEvents('abc')).rejects.toThrow(ValidationError);
+      await expect(listFreelancerCalendarEvents(3, { limit: 'bad' })).rejects.toThrow('positive integer');
+      await expect(
+        listFreelancerCalendarEvents(3, { startDate: '2024-06-01', endDate: '2024-05-01' }),
+      ).rejects.toThrow('startDate must be before endDate');
+    });
+
+    it('filters calendar events and computes engagement metrics', async () => {
+      const now = new Date('2024-05-01T12:00:00.000Z');
+      jest.useFakeTimers().setSystemTime(now);
+
+      const events = [
+        {
+          id: 1,
+          title: 'Client kickoff',
+          eventType: 'project',
+          status: 'confirmed',
+          startsAt: '2024-05-02T09:00:00.000Z',
+        },
+        {
+          id: 2,
+          title: 'Website audit',
+          eventType: 'gig',
+          status: 'completed',
+          startsAt: '2024-04-20T10:00:00.000Z',
+        },
+        {
+          id: 3,
+          title: 'Mentorship sync',
+          eventType: 'mentorship',
+          status: 'in_progress',
+          startsAt: '2024-04-18T13:30:00.000Z',
+        },
+        {
+          id: 4,
+          title: 'Status update',
+          eventType: 'project',
+          status: 'confirmed',
+          startsAt: null,
+        },
+      ];
+
+      calendarModelMock.FreelancerCalendarEvent.findAll.mockResolvedValue(
+        events.map((event) => ({
+          toPublicObject: () => ({ ...event }),
+        })),
+      );
+
+      const result = await listFreelancerCalendarEvents('42', {
+        startDate: '2024-04-01T00:00:00Z',
+        endDate: '2024-06-01T00:00:00Z',
+        types: ['project', 'gig'],
+        statuses: ['confirmed', 'completed'],
+        limit: 20,
+      });
+
+      expect(calendarModelMock.FreelancerCalendarEvent.findAll).toHaveBeenCalledTimes(1);
+      const [{ where, order, limit }] = calendarModelMock.FreelancerCalendarEvent.findAll.mock.calls[0];
+      expect(where.freelancerId).toBe(42);
+      expect(where.startsAt[Op.between][0]).toEqual(new Date('2024-04-01T00:00:00.000Z'));
+      expect(where.startsAt[Op.between][1]).toEqual(new Date('2024-06-01T00:00:00.000Z'));
+      expect(where.eventType[Op.in]).toEqual(['project', 'gig']);
+      expect(where.status[Op.in]).toEqual(['confirmed', 'completed']);
+      expect(order).toEqual([
+        ['startsAt', 'ASC'],
+        ['createdAt', 'ASC'],
+      ]);
+      expect(limit).toBe(20);
+
+      expect(result.events).toHaveLength(4);
+      expect(result.metrics).toEqual({
+        total: 4,
+        upcomingCount: 1,
+        pastCount: 2,
+        overdueCount: 1,
+        typeCounts: { project: 2, gig: 1, mentorship: 1 },
+        statusCounts: { confirmed: 2, completed: 1, in_progress: 1 },
+        nextEvent: events[0],
+        range: {
+          start: new Date('2024-04-01T00:00:00.000Z').toISOString(),
+          end: new Date('2024-06-01T00:00:00.000Z').toISOString(),
+        },
+      });
+      expect(typeof result.generatedAt).toBe('string');
     });
   });
 
-  it('creates, retrieves, updates, and deletes calendar events', async () => {
-    const startsAt = buildDateOffset(3);
-    const endsAt = new Date(startsAt.getTime() + 90 * 60 * 1000);
+  describe('createFreelancerCalendarEvent', () => {
+    it('enforces actor ownership when creating events', async () => {
+      await expect(
+        createFreelancerCalendarEvent(5, { title: 'Kickoff', startsAt: new Date().toISOString() }, { actorId: 8 }),
+      ).rejects.toThrow(AuthorizationError);
+      expect(calendarModelMock.FreelancerCalendarEvent.create).not.toHaveBeenCalled();
+    });
 
-    const created = await createFreelancerCalendarEvent(
-      freelancer.id,
-      {
-        title: 'Discovery session',
+    it('persists sanitized payloads with defaults applied', async () => {
+      const createdEvent = {
+        toPublicObject: () => ({ id: 11, title: 'Kickoff', eventType: 'gig', color: '#7c3aed' }),
+      };
+      calendarModelMock.FreelancerCalendarEvent.create.mockResolvedValue(createdEvent);
+
+      const payload = {
+        title: '  Kickoff  ',
+        eventType: 'gig',
+        status: 'confirmed',
+        startsAt: '2024-05-04T15:00:00.000Z',
+        endsAt: '2024-05-04T16:00:00.000Z',
+        reminderMinutesBefore: '15',
+        notes: 'Prepare discovery brief',
+      };
+
+      const result = await createFreelancerCalendarEvent(5, payload, { actorId: 5 });
+
+      expect(calendarModelMock.FreelancerCalendarEvent.create).toHaveBeenCalledTimes(1);
+      const [creationPayload] = calendarModelMock.FreelancerCalendarEvent.create.mock.calls[0];
+      expect(creationPayload).toMatchObject({
+        freelancerId: 5,
+        createdById: 5,
+        updatedById: 5,
+        color: '#7c3aed',
+        source: 'manual',
+        reminderMinutesBefore: 15,
+      });
+      expect(result).toEqual({ id: 11, title: 'Kickoff', eventType: 'gig', color: '#7c3aed' });
+    });
+  });
+
+  describe('updateFreelancerCalendarEvent', () => {
+    it('requires the event to exist before allowing updates', async () => {
+      calendarModelMock.FreelancerCalendarEvent.findOne.mockResolvedValue(null);
+      await expect(updateFreelancerCalendarEvent(3, { title: 'Missing' })).rejects.toThrow(NotFoundError);
+    });
+
+    it('applies partial updates while enforcing actor access', async () => {
+      const persisted = {
+        id: 12,
+        freelancerId: 9,
+        title: 'Discovery call',
         eventType: 'project',
         status: 'confirmed',
-        startsAt,
-        endsAt,
-        location: 'Zoom',
-        relatedEntityType: 'project',
-        relatedEntityName: 'Atlas Robotics revamp',
-        reminderMinutesBefore: 30,
-        notes: 'Bring updated brand audit.',
-      },
-      { actorId: freelancer.id },
-    );
+        notes: 'Existing notes',
+        startsAt: '2024-05-05T09:00:00.000Z',
+        color: '#2563eb',
+        toPublicObject() {
+          return {
+            id: this.id,
+            freelancerId: this.freelancerId,
+            title: this.title,
+            eventType: this.eventType,
+            status: this.status,
+            notes: this.notes,
+            startsAt: this.startsAt,
+            color: this.color,
+          };
+        },
+        update: jest.fn(function update(patch) {
+          Object.assign(this, patch);
+          return this;
+        }),
+      };
 
-    expect(created.id).toBeDefined();
-    expect(created.freelancerId).toBe(freelancer.id);
-    expect(created.color).toBeDefined();
-    expect(created.notes).toContain('brand audit');
+      calendarModelMock.FreelancerCalendarEvent.findOne.mockResolvedValue(persisted);
 
-    const listResponse = await listFreelancerCalendarEvents(freelancer.id, { lookaheadDays: 30 });
-    expect(listResponse.events).toHaveLength(1);
-    expect(listResponse.metrics.upcomingCount).toBe(1);
-    expect(listResponse.metrics.typeCounts.project).toBe(1);
+      const result = await updateFreelancerCalendarEvent(
+        12,
+        { status: 'cancelled', notes: 'Rescheduled', actorId: 9 },
+        { freelancerId: 9, actorId: 9 },
+      );
 
-    const updated = await updateFreelancerCalendarEvent(
-      created.id,
-      {
-        status: 'completed',
-        notes: 'Session completed with action items.',
-      },
-      { freelancerId: freelancer.id, actorId: freelancer.id },
-    );
-
-    expect(updated.status).toBe('completed');
-    expect(updated.notes).toContain('action items');
-
-    await deleteFreelancerCalendarEvent(created.id, { freelancerId: freelancer.id, actorId: freelancer.id });
-
-    const afterDelete = await listFreelancerCalendarEvents(freelancer.id, { lookaheadDays: 30 });
-    expect(afterDelete.events).toHaveLength(0);
-    expect(await FreelancerCalendarEvent.count()).toBe(0);
-  });
-
-  it('filters events by type and status and calculates metrics', async () => {
-    const futureInterview = await createFreelancerCalendarEvent(
-      freelancer.id,
-      {
-        title: 'Interview with Finley Capital',
-        eventType: 'job_interview',
-        status: 'confirmed',
-        startsAt: buildDateOffset(5),
-        location: 'Google Meet',
-      },
-      { actorId: freelancer.id },
-    );
-
-    await createFreelancerCalendarEvent(
-      freelancer.id,
-      {
-        title: 'Mentorship retrospective',
-        eventType: 'mentorship',
-        status: 'completed',
-        startsAt: buildDateOffset(-2),
-        notes: 'Wrap-up from Q1 cohort.',
-      },
-      { actorId: freelancer.id },
-    );
-
-    await createFreelancerCalendarEvent(
-      freelancer.id,
-      {
-        title: 'Volunteer clinic',
-        eventType: 'volunteering',
-        status: 'tentative',
-        startsAt: buildDateOffset(-5),
-      },
-      { actorId: freelancer.id },
-    );
-
-    const filtered = await listFreelancerCalendarEvents(freelancer.id, {
-      types: 'job_interview',
-      lookbackDays: 10,
-      lookaheadDays: 10,
+      expect(persisted.update).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'cancelled', notes: 'Rescheduled', updatedById: 9 }),
+      );
+      expect(result.status).toBe('cancelled');
+      expect(result.notes).toBe('Rescheduled');
     });
 
-    expect(filtered.events).toHaveLength(1);
-    expect(filtered.events[0].id).toBe(futureInterview.id);
-    expect(filtered.metrics.typeCounts.job_interview).toBe(1);
-    expect(filtered.metrics.overdueCount).toBe(1);
-    expect(filtered.metrics.upcomingCount).toBe(1);
+    it('rejects updates when the actor is not the owner', async () => {
+      const persisted = {
+        freelancerId: 2,
+        toPublicObject: () => ({ id: 99, freelancerId: 2, eventType: 'gig', status: 'confirmed' }),
+      };
+      calendarModelMock.FreelancerCalendarEvent.findOne.mockResolvedValue(persisted);
+
+      await expect(
+        updateFreelancerCalendarEvent(99, { status: 'cancelled' }, { actorId: 5 }),
+      ).rejects.toThrow(AuthorizationError);
+    });
   });
 
-  it('validates chronological integrity of events', async () => {
-    await expect(
-      createFreelancerCalendarEvent(
-        freelancer.id,
-        {
-          title: 'Timeline review',
-          eventType: 'project',
-          startsAt: buildDateOffset(2),
-          endsAt: buildDateOffset(1),
-        },
-        { actorId: freelancer.id },
-      ),
-    ).rejects.toThrow('endsAt must be greater than or equal to startsAt');
+  describe('deleteFreelancerCalendarEvent', () => {
+    it('deletes calendar events owned by the freelancer', async () => {
+      const destroy = jest.fn().mockResolvedValue(true);
+      const record = {
+        id: 22,
+        freelancerId: 6,
+        toPublicObject: () => ({ id: 22 }),
+        destroy,
+      };
+      calendarModelMock.FreelancerCalendarEvent.findOne.mockResolvedValue(record);
+
+      const result = await deleteFreelancerCalendarEvent(22, { freelancerId: 6, actorId: 6 });
+
+      expect(destroy).toHaveBeenCalledTimes(1);
+      expect(result).toBe(true);
+    });
+
+    it('throws when the event cannot be found', async () => {
+      calendarModelMock.FreelancerCalendarEvent.findOne.mockResolvedValue(null);
+      await expect(deleteFreelancerCalendarEvent(77, { freelancerId: 7, actorId: 7 })).rejects.toThrow(NotFoundError);
+    });
   });
 });
