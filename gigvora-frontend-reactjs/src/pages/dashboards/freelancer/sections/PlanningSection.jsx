@@ -601,7 +601,6 @@ export default function PlanningSection({ freelancerId: explicitFreelancerId = n
                 Reset
               </button>
             </div>
-          </div>
           {filterError ? (
             <div className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
               {filterError}

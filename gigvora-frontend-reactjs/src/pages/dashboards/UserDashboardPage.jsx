@@ -209,6 +209,159 @@ const MENU_SECTIONS = [
   },
 ];
 
+function cloneMenuSections() {
+  return MENU_SECTIONS.map((section) => ({
+    ...section,
+    items: section.items.map((item) => ({ ...item })),
+  }));
+}
+
+function toInteger(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) {
+    return null;
+  }
+  return number;
+}
+
+function buildProfileName(profile, session) {
+  if (!profile && !session) {
+    return 'Client workspace';
+  }
+
+  const preferred =
+    profile?.displayName ||
+    profile?.fullName ||
+    [profile?.firstName, profile?.lastName].filter(Boolean).join(' ') ||
+    session?.user?.name ||
+    session?.user?.fullName;
+
+  return preferred || 'Client workspace';
+}
+
+export function buildUserDashboardMenuSections(data) {
+  const summary = data?.summary ?? {};
+  const jobMetrics = data?.jobApplicationsWorkspace?.metrics ?? {};
+  const projectSummary = data?.projectGigManagement?.summary ?? {};
+  const mentoringSummary = data?.mentoring?.summary ?? {};
+  const calendarInsights = data?.insights?.calendar ?? {};
+
+  const badges = new Map();
+
+  const openJobs = toInteger(summary.openJobApplications ?? jobMetrics.open ?? jobMetrics.active);
+  if (openJobs != null) {
+    badges.set('pipeline-job-applications', openJobs);
+  }
+
+  const interviewsScheduled = toInteger(summary.interviewsScheduled ?? jobMetrics.interviewsScheduled);
+  if (interviewsScheduled != null) {
+    badges.set('pipeline-interviews', interviewsScheduled);
+  }
+
+  const activeProjects = toInteger(summary.activeProjects ?? projectSummary.activeProjects);
+  if (activeProjects != null) {
+    badges.set('client-project-workspace', activeProjects);
+  }
+
+  const openGigOrders = toInteger(summary.openGigOrders ?? projectSummary.openGigOrders);
+  if (openGigOrders != null) {
+    badges.set('client-gig-workspace', openGigOrders);
+  }
+
+  const mentorsBooked = toInteger(mentoringSummary.activeSessions ?? mentoringSummary.booked ?? summary.mentorsBooked);
+  if (mentorsBooked != null) {
+    badges.set('mentors-booked-section', mentorsBooked);
+  }
+
+  const calendarEvents = toInteger(calendarInsights?.upcomingEvents ?? summary.calendarEvents);
+  if (calendarEvents != null) {
+    badges.set('calendar-orchestrator-section', calendarEvents);
+  }
+
+  return cloneMenuSections().map((section) => ({
+    ...section,
+    items: section.items.map((item) => {
+      const badgeValue = badges.get(item.id);
+      if (badgeValue == null) {
+        return item;
+      }
+      return { ...item, badge: badgeValue };
+    }),
+  }));
+}
+
+export function buildProfileCard(data, summary = {}, session = null) {
+  const profile = data?.profile ?? {};
+  const profileHub = data?.profileHub ?? {};
+  const wallet = data?.finance ?? data?.wallet ?? {};
+  const metrics = data?.metrics ?? {};
+
+  const name = buildProfileName(profile, session);
+  const title = profile?.title || profile?.headline || profileHub?.headline || 'Client operations hub';
+  const avatarUrl =
+    profile?.avatarUrl ||
+    profile?.photoUrl ||
+    profile?.imageUrl ||
+    profileHub?.avatarUrl ||
+    profileHub?.photoUrl ||
+    null;
+
+  const locationParts = [profile?.city || profileHub?.city, profile?.country || profileHub?.country]
+    .filter(Boolean)
+    .map((part) => String(part));
+  const location = locationParts.join(', ') || profile?.location || profileHub?.location || null;
+
+  const stats = [
+    {
+      label: 'Active projects',
+      value: summary.activeProjects ?? data?.projectGigManagement?.summary?.activeProjects ?? metrics.projectsActive,
+    },
+    {
+      label: 'Gig orders',
+      value: summary.openGigOrders ?? data?.projectGigManagement?.summary?.openGigOrders ?? metrics.gigOrdersOpen,
+    },
+    {
+      label: 'Wallet balance',
+      value: wallet?.totalBalance ?? metrics.walletBalance,
+      suffix: wallet?.primaryCurrency ?? wallet?.defaultCurrency ?? metrics.walletCurrency,
+    },
+  ]
+    .filter((entry) => entry.value != null && entry.value !== '')
+    .map((entry) => {
+      const numberValue = Number(entry.value);
+      const formatted = Number.isFinite(numberValue)
+        ? numberValue.toLocaleString(undefined, { maximumFractionDigits: 1 })
+        : String(entry.value);
+      return entry.suffix ? { label: entry.label, value: formatted, suffix: entry.suffix } : { label: entry.label, value: formatted };
+    });
+
+  const badges = [];
+  if (profile?.status) {
+    badges.push({ label: profile.status });
+  }
+  if (profileHub?.availability) {
+    badges.push({ label: profileHub.availability });
+  }
+
+  const card = {
+    id: profile?.id ?? profile?.userId ?? session?.userId ?? session?.user?.id ?? 'user',
+    name,
+    title,
+    company: profile?.company ?? profileHub?.company ?? profileHub?.organization ?? null,
+    avatarUrl: avatarUrl ?? undefined,
+    location: location || undefined,
+    email: profile?.email ?? session?.user?.email ?? undefined,
+    stats,
+    badges,
+  };
+
+  if (!card.badges.length) {
+    delete card.badges;
+  }
+
+  return card;
+}
+
 function resolveUserId(session) {
   if (!session) {
     return DEFAULT_USER_ID;

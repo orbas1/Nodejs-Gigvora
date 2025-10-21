@@ -250,6 +250,13 @@ export function createAgencyBlogTag(workspaceId, payload, { signal } = {}) {
   return apiClient.post('/agency/blog/tags', { ...payload, workspaceId }, { signal });
 }
 
+export function createAgencyBlogMedia(workspaceId, payload, { signal } = {}) {
+  if (!workspaceId) {
+    throw new Error('workspaceId is required.');
+  }
+  return apiClient.post('/agency/blog/media', { ...payload, workspaceId }, { signal });
+}
+
 export function updateAgencyBlogTag(tagId, workspaceId, payload, { signal } = {}) {
   if (!tagId || !workspaceId) {
     throw new Error('tagId and workspaceId are required.');
@@ -299,6 +306,7 @@ export default {
   updateAgencyBlogCategory,
   deleteAgencyBlogCategory,
   createAgencyBlogTag,
+  createAgencyBlogMedia,
   updateAgencyBlogTag,
   deleteAgencyBlogTag,
 };

@@ -41,6 +41,11 @@ const MENU_SECTIONS = [
   },
 ];
 
+export const ADMIN_MENU_SECTIONS = MENU_SECTIONS.map((section) => ({
+  ...section,
+  items: section.items.map((item) => ({ ...item })),
+}));
+
 const SECTIONS = [
   { id: 'overview-home', title: 'Start' },
   { id: 'admin-agency-management', title: 'Agency management' },
@@ -137,7 +142,7 @@ export default function AdminDashboardPage() {
         title="Gigvora Admin Control Tower"
         subtitle="Enterprise governance & compliance"
         description="Centralize every lever that powers Gigvora—from member growth and financial operations to trust, support, and analytics."
-        menuSections={MENU_SECTIONS}
+        menuSections={ADMIN_MENU_SECTIONS}
         sections={[]}
         availableDashboards={AVAILABLE_DASHBOARDS}
         onMenuItemSelect={handleMenuSelect}
@@ -171,7 +176,7 @@ export default function AdminDashboardPage() {
       title="Gigvora Admin Control Tower"
       subtitle="Enterprise governance & compliance"
       description="Centralize every lever that powers Gigvora—from member growth and financial operations to trust, support, and analytics."
-      menuSections={MENU_SECTIONS}
+      menuSections={ADMIN_MENU_SECTIONS}
       sections={SECTIONS}
       availableDashboards={AVAILABLE_DASHBOARDS}
       onMenuItemSelect={handleMenuSelect}

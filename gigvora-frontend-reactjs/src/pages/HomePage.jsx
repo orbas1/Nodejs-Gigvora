@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useSession from '../hooks/useSession.js';
 import useHomeExperience from '../hooks/useHomeExperience.js';
@@ -11,9 +11,11 @@ import {
   TestimonialsSection,
   MarketplaceLaunchesSection,
   CreationStudioSection,
+  CreationStudioWorkflowSection,
   FeesShowcaseSection,
   JoinCommunitySection,
   CollaborationToolkitSection,
+  ClosingConversionSection,
   OperationsTrustSection,
 } from './home/index.js';
 
@@ -75,8 +77,24 @@ export default function HomePage() {
     }
   }, [isAuthenticated, navigate]);
 
+  const handleJoinAsTalent = useCallback(() => {
+    navigate('/register?intent=talent');
+  }, [navigate]);
+
+  const handleHireCrew = useCallback(() => {
+    navigate('/projects/create');
+  }, [navigate]);
+
+  const handleExploreMentorship = useCallback(() => {
+    navigate('/mentors');
+  }, [navigate]);
+
+  const handleGuidelines = useCallback(() => {
+    navigate('/community-guidelines');
+  }, [navigate]);
+
   return (
-    <div className="bg-white">
+    <main className="relative isolate bg-slate-950 text-white">
       <HomeHeroSection
         headline={heroHeadline}
         subheading={heroSubheading}
@@ -86,30 +104,40 @@ export default function HomePage() {
         onClaimWorkspace={() => navigate('/register')}
         onBrowseOpportunities={() => navigate('/gigs')}
       />
-      <CommunityPulseSection
-        loading={homeLoading}
-        error={homeError}
-        fromCache={fromCache}
-        lastUpdated={lastUpdated}
-        onRefresh={() => refresh().catch(() => {})}
-        statusLabel={isAuthenticated ? 'Redirecting to live experience' : 'Live community snapshot'}
-        homeData={homeData}
-      />
-      <OperationsTrustSection homeData={homeData} loading={homeLoading} error={homeError} />
-      <PersonaJourneysSection loading={homeLoading} error={homeError} />
-      <CommunitySpotlightsSection loading={homeLoading} error={homeError} />
-      <ExplorerShowcaseSection loading={homeLoading} error={homeError} creations={homeData?.creations} />
-      <TestimonialsSection loading={homeLoading} error={homeError} />
-      <MarketplaceLaunchesSection
-        loading={homeLoading}
-        error={homeError}
-        communityStats={communityStats}
-        trendingCreations={trendingCreations}
-      />
-      <CollaborationToolkitSection />
-      <CreationStudioSection loading={homeLoading} error={homeError} />
-      <FeesShowcaseSection />
-      <JoinCommunitySection />
-    </div>
+
+      <div className="flex flex-col">
+        <CommunityPulseSection
+          loading={homeLoading}
+          error={homeError}
+          fromCache={fromCache}
+          lastUpdated={lastUpdated}
+          onRefresh={() => refresh().catch(() => {})}
+          statusLabel={isAuthenticated ? 'Redirecting to live experience' : 'Live community snapshot'}
+          homeData={homeData}
+        />
+        <OperationsTrustSection homeData={homeData} loading={homeLoading} error={homeError} />
+        <PersonaJourneysSection loading={homeLoading} error={homeError} />
+        <CommunitySpotlightsSection loading={homeLoading} error={homeError} />
+        <ExplorerShowcaseSection loading={homeLoading} error={homeError} creations={homeData?.creations} />
+        <TestimonialsSection loading={homeLoading} error={homeError} />
+        <MarketplaceLaunchesSection
+          loading={homeLoading}
+          error={homeError}
+          communityStats={communityStats}
+          trendingCreations={trendingCreations}
+        />
+        <CollaborationToolkitSection />
+        <CreationStudioWorkflowSection />
+        <CreationStudioSection loading={homeLoading} error={homeError} />
+        <FeesShowcaseSection />
+        <ClosingConversionSection
+          onJoinAsTalentClick={handleJoinAsTalent}
+          onHireCrewClick={handleHireCrew}
+          onExploreMentorshipClick={handleExploreMentorship}
+          onGuidelinesClick={handleGuidelines}
+        />
+        <JoinCommunitySection />
+      </div>
+    </main>
   );
 }
