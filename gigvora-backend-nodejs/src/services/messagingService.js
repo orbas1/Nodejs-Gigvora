@@ -157,7 +157,10 @@ export function sanitizeParticipant(participant) {
 
 export function sanitizeThread(thread) {
   if (!thread) return null;
-  const plain = thread.get({ plain: true });
+  const plain = thread.get ? thread.get({ plain: true }) : thread;
+  const participantsSource = thread.participants ?? plain.participants;
+  const labelsSource = thread.labels ?? plain.labels;
+  const supportCaseSource = thread.supportCase ?? plain.supportCase;
   return {
     id: plain.id,
     subject: plain.subject,
@@ -171,15 +174,19 @@ export function sanitizeThread(thread) {
     metadata: plain.metadata && typeof plain.metadata === 'object'
       ? Object.fromEntries(Object.entries(plain.metadata).filter(([key]) => !/^(_|internal|private)/i.test(key)))
       : null,
-    participants: Array.isArray(thread.participants) ? thread.participants.map((p) => sanitizeParticipant(p)) : undefined,
-    labels: Array.isArray(thread.labels) ? thread.labels.map((label) => sanitizeLabel(label)) : undefined,
-    supportCase: thread.supportCase ? sanitizeSupportCase(thread.supportCase) : undefined,
+    participants: Array.isArray(participantsSource)
+      ? participantsSource.map((p) => sanitizeParticipant(p))
+      : undefined,
+    labels: Array.isArray(labelsSource)
+      ? labelsSource.map((label) => sanitizeLabel(label))
+      : undefined,
+    supportCase: supportCaseSource ? sanitizeSupportCase(supportCaseSource) : undefined,
   };
 }
 
 function sanitizeAttachment(attachment) {
   if (!attachment) return null;
-  const plain = attachment.get({ plain: true });
+  const plain = attachment.get ? attachment.get({ plain: true }) : attachment;
   return {
     id: plain.id,
     fileName: plain.fileName,

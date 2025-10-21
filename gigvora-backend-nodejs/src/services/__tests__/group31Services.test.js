@@ -1,16 +1,22 @@
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
+import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
 
-import {
-  sanitizeParticipant,
-  sanitizeThread,
-} from '../messagingService.js';
-import {
-  storeIdentityDocument,
-  readIdentityDocument,
-} from '../identityDocumentStorageService.js';
-import { readinessStatusToHttp } from '../healthService.js';
+let sanitizeParticipant;
+let sanitizeThread;
+let storeIdentityDocument;
+let readIdentityDocument;
+let readinessStatusToHttp;
+
+beforeAll(async () => {
+  process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'true';
+  process.env.ADMIN_MANAGEMENT_MINIMAL_BOOTSTRAP = 'true';
+
+  ({ sanitizeParticipant, sanitizeThread } = await import('../messagingService.js'));
+  ({ storeIdentityDocument, readIdentityDocument } = await import('../identityDocumentStorageService.js'));
+  ({ readinessStatusToHttp } = await import('../healthStatus.js'));
+});
 
 const buildParticipant = (overrides = {}) => {
   const base = {
@@ -154,6 +160,84 @@ describe('messagingService sanitizers', () => {
     expect(sanitizedThread.metadata).toEqual({ category: 'support' });
     expect(sanitizedThread.supportCase?.metadata).toEqual({ publicNote: 'visible' });
     expect(sanitizedThread.labels?.[0]).toMatchObject({ name: 'Priority', slug: 'priority' });
+  });
+
+  it('supports plain thread payloads without ORM helpers', () => {
+    const plainThread = {
+      id: 77,
+      subject: 'Plain support thread',
+      channelType: 'support',
+      state: 'open',
+      createdBy: 501,
+      lastMessageAt: new Date('2024-01-05T12:00:00.000Z'),
+      lastMessagePreview: 'Latest reply',
+      createdAt: new Date('2024-01-05T10:00:00.000Z'),
+      updatedAt: new Date('2024-01-05T12:00:00.000Z'),
+      metadata: {
+        category: 'billing',
+        _internalFlag: true,
+      },
+      participants: [
+        {
+          id: 1,
+          threadId: 77,
+          userId: 700,
+          role: 'member',
+          notificationsEnabled: true,
+          mutedUntil: null,
+          lastReadAt: null,
+          createdAt: new Date('2024-01-05T10:00:00.000Z'),
+          updatedAt: new Date('2024-01-05T10:05:00.000Z'),
+          user: {
+            id: 700,
+            firstName: 'Plain',
+            lastName: 'User',
+            email: 'plain@example.com',
+          },
+        },
+      ],
+      labels: [
+        {
+          id: 10,
+          name: 'Billing',
+          slug: 'billing',
+          color: '#ff8800',
+          description: 'Billing related threads',
+          createdBy: 501,
+          metadata: null,
+          createdAt: new Date('2024-01-05T10:00:00.000Z'),
+          updatedAt: new Date('2024-01-05T10:00:00.000Z'),
+        },
+      ],
+      supportCase: {
+        id: 99,
+        threadId: 77,
+        status: 'open',
+        priority: 'medium',
+        reason: 'billing-question',
+        metadata: {
+          publicSummary: 'Awaiting invoice clarification',
+          privateDetail: 'Include coupon code usage data',
+        },
+        escalatedBy: null,
+        escalatedAt: null,
+        assignedTo: 800,
+        assignedBy: 801,
+        assignedAt: new Date('2024-01-05T11:00:00.000Z'),
+        firstResponseAt: new Date('2024-01-05T11:15:00.000Z'),
+        resolvedAt: null,
+        resolvedBy: null,
+        resolutionSummary: null,
+      },
+    };
+
+    const sanitizedPlainThread = sanitizeThread(plainThread);
+
+    expect(sanitizedPlainThread.id).toBe(77);
+    expect(sanitizedPlainThread.metadata).toEqual({ category: 'billing' });
+    expect(sanitizedPlainThread.participants?.[0].user?.email).toBe('plain@example.com');
+    expect(sanitizedPlainThread.labels?.[0]).toMatchObject({ slug: 'billing', color: '#ff8800' });
+    expect(sanitizedPlainThread.supportCase?.metadata).toEqual({ publicSummary: 'Awaiting invoice clarification' });
   });
 });
 

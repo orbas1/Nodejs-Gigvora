@@ -9,6 +9,9 @@ import { getDatabasePoolSnapshot } from './databaseLifecycleService.js';
 import { collectWorkerTelemetry } from '../lifecycle/workerManager.js';
 import { ServiceUnavailableError } from '../utils/errors.js';
 import { getRuntimeConfig } from '../config/runtimeConfig.js';
+import { readinessStatusToHttp } from './healthStatus.js';
+
+export { readinessStatusToHttp } from './healthStatus.js';
 
 const DATABASE_CHECK_INTERVAL_MS = 30_000;
 
@@ -190,16 +193,6 @@ export async function getReadinessReport({
   }
 
   return readiness;
-}
-
-export function readinessStatusToHttp(status) {
-  if (status === 'ok') {
-    return 200;
-  }
-  if (status === 'starting') {
-    return 503;
-  }
-  return 503;
 }
 
 export function getLivenessReport() {
