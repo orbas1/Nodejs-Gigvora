@@ -8,6 +8,21 @@ export const MENU_GROUPS = [
     ],
   },
   {
+    id: 'hub',
+    label: 'Hub',
+    items: [{ id: 'hub', name: 'Hub' }],
+  },
+  {
+    id: 'creation-studio',
+    label: 'Creation Studio wizard',
+    items: [{ id: 'creation-studio', name: 'Creation Studio wizard' }],
+  },
+  {
+    id: 'metrics',
+    label: 'Metrics',
+    items: [{ id: 'metrics', name: 'Metrics' }],
+  },
+  {
     id: 'finance',
     label: 'Finance management',
     items: [{ id: 'finance', name: 'Finance management' }],
@@ -46,6 +61,26 @@ export const MENU_GROUPS = [
     id: 'wallet',
     label: 'Wallet',
     items: [{ id: 'wallet', name: 'Wallet' }],
+  },
+  {
+    id: 'settings',
+    label: 'Settings',
+    items: [{ id: 'settings', name: 'Settings' }],
+  },
+  {
+    id: 'system-preferences',
+    label: 'System preferences',
+    items: [{ id: 'system-preferences', name: 'System preferences' }],
+  },
+  {
+    id: 'orders',
+    label: 'Orders',
+    items: [{ id: 'orders', name: 'Orders' }],
+  },
+  {
+    id: 'ads',
+    label: 'Gigvora ads',
+    items: [{ id: 'ads', name: 'Gigvora ads' }],
   },
 ];
 

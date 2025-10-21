@@ -13,6 +13,13 @@ import {
   MentorInboxSection,
   MentorVerificationSection,
   MentorWalletSection,
+  MentorHubSection,
+  MentorCreationStudioWizardSection,
+  MentorMetricsSection,
+  MentorSettingsSection,
+  MentorSystemPreferencesSection,
+  MentorOrdersSection,
+  MentorAdsSection,
 } from './mentor/sections/index.js';
 import {
   fetchMentorDashboard,
@@ -47,6 +54,31 @@ import {
   createMentorPayout,
   updateMentorPayout,
   deleteMentorPayout,
+  createMentorHubUpdate,
+  updateMentorHubUpdate,
+  deleteMentorHubUpdate,
+  createMentorHubAction,
+  updateMentorHubAction,
+  deleteMentorHubAction,
+  updateMentorHubSpotlight,
+  createMentorCreationItem,
+  updateMentorCreationItem,
+  deleteMentorCreationItem,
+  publishMentorCreationItem,
+  createMentorMetricWidget,
+  updateMentorMetricWidget,
+  deleteMentorMetricWidget,
+  generateMentorMetricsReport,
+  updateMentorSettings,
+  updateMentorSystemPreferences,
+  rotateMentorApiKey,
+  createMentorOrder,
+  updateMentorOrder,
+  deleteMentorOrder,
+  createMentorAdCampaign,
+  updateMentorAdCampaign,
+  deleteMentorAdCampaign,
+  toggleMentorAdCampaign,
 } from '../../services/mentorship.js';
 
 const SECTION_COMPONENTS = {
@@ -60,6 +92,13 @@ const SECTION_COMPONENTS = {
   inbox: MentorInboxSection,
   verification: MentorVerificationSection,
   wallet: MentorWalletSection,
+  hub: MentorHubSection,
+  'creation-studio': MentorCreationStudioWizardSection,
+  metrics: MentorMetricsSection,
+  settings: MentorSettingsSection,
+  'system-preferences': MentorSystemPreferencesSection,
+  orders: MentorOrdersSection,
+  ads: MentorAdsSection,
 };
 
 export default function MentorDashboardPage() {
@@ -80,6 +119,13 @@ export default function MentorDashboardPage() {
   const [messageSaving, setMessageSaving] = useState(false);
   const [verificationSaving, setVerificationSaving] = useState(false);
   const [walletSaving, setWalletSaving] = useState(false);
+  const [hubSaving, setHubSaving] = useState(false);
+  const [creationSaving, setCreationSaving] = useState(false);
+  const [metricsSaving, setMetricsSaving] = useState(false);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [preferencesSaving, setPreferencesSaving] = useState(false);
+  const [ordersSaving, setOrdersSaving] = useState(false);
+  const [adsSaving, setAdsSaving] = useState(false);
   const [metadata, setMetadata] = useState(null);
 
   const menuSections = useMemo(() => MENU_GROUPS, []);
@@ -631,6 +677,403 @@ export default function MentorDashboardPage() {
     [applyDashboardUpdate],
   );
 
+  const handleCreateHubUpdate = useCallback(
+    async (payload) => {
+      setHubSaving(true);
+      try {
+        const response = await createMentorHubUpdate(payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.update;
+      } catch (hubError) {
+        throw hubError;
+      } finally {
+        setHubSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleUpdateHubUpdate = useCallback(
+    async (updateId, payload) => {
+      setHubSaving(true);
+      try {
+        const response = await updateMentorHubUpdate(updateId, payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.update;
+      } catch (hubError) {
+        throw hubError;
+      } finally {
+        setHubSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleDeleteHubUpdate = useCallback(
+    async (updateId) => {
+      setHubSaving(true);
+      try {
+        const response = await deleteMentorHubUpdate(updateId);
+        applyDashboardUpdate(response?.dashboard);
+        return response;
+      } catch (hubError) {
+        throw hubError;
+      } finally {
+        setHubSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleCreateHubAction = useCallback(
+    async (payload) => {
+      setHubSaving(true);
+      try {
+        const response = await createMentorHubAction(payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.action;
+      } catch (hubError) {
+        throw hubError;
+      } finally {
+        setHubSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleUpdateHubAction = useCallback(
+    async (actionId, payload) => {
+      setHubSaving(true);
+      try {
+        const response = await updateMentorHubAction(actionId, payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.action;
+      } catch (hubError) {
+        throw hubError;
+      } finally {
+        setHubSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleDeleteHubAction = useCallback(
+    async (actionId) => {
+      setHubSaving(true);
+      try {
+        const response = await deleteMentorHubAction(actionId);
+        applyDashboardUpdate(response?.dashboard);
+        return response;
+      } catch (hubError) {
+        throw hubError;
+      } finally {
+        setHubSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleSaveHubSpotlight = useCallback(
+    async (payload) => {
+      setHubSaving(true);
+      try {
+        const response = await updateMentorHubSpotlight(payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.spotlight;
+      } catch (hubError) {
+        throw hubError;
+      } finally {
+        setHubSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleCreateCreationItem = useCallback(
+    async (payload) => {
+      setCreationSaving(true);
+      try {
+        const response = await createMentorCreationItem(payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.item;
+      } catch (creationError) {
+        throw creationError;
+      } finally {
+        setCreationSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleUpdateCreationItem = useCallback(
+    async (itemId, payload) => {
+      setCreationSaving(true);
+      try {
+        const response = await updateMentorCreationItem(itemId, payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.item;
+      } catch (creationError) {
+        throw creationError;
+      } finally {
+        setCreationSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleDeleteCreationItem = useCallback(
+    async (itemId) => {
+      setCreationSaving(true);
+      try {
+        const response = await deleteMentorCreationItem(itemId);
+        applyDashboardUpdate(response?.dashboard);
+        return response;
+      } catch (creationError) {
+        throw creationError;
+      } finally {
+        setCreationSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handlePublishCreationItem = useCallback(
+    async (itemId) => {
+      setCreationSaving(true);
+      try {
+        const response = await publishMentorCreationItem(itemId);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.item;
+      } catch (creationError) {
+        throw creationError;
+      } finally {
+        setCreationSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleCreateMetricWidget = useCallback(
+    async (payload) => {
+      setMetricsSaving(true);
+      try {
+        const response = await createMentorMetricWidget(payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.widget;
+      } catch (metricError) {
+        throw metricError;
+      } finally {
+        setMetricsSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleUpdateMetricWidget = useCallback(
+    async (widgetId, payload) => {
+      setMetricsSaving(true);
+      try {
+        const response = await updateMentorMetricWidget(widgetId, payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.widget;
+      } catch (metricError) {
+        throw metricError;
+      } finally {
+        setMetricsSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleDeleteMetricWidget = useCallback(
+    async (widgetId) => {
+      setMetricsSaving(true);
+      try {
+        const response = await deleteMentorMetricWidget(widgetId);
+        applyDashboardUpdate(response?.dashboard);
+        return response;
+      } catch (metricError) {
+        throw metricError;
+      } finally {
+        setMetricsSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleGenerateMetricsReport = useCallback(
+    async () => {
+      setMetricsSaving(true);
+      try {
+        const response = await generateMentorMetricsReport();
+        applyDashboardUpdate(response?.dashboard);
+        return response;
+      } catch (metricError) {
+        throw metricError;
+      } finally {
+        setMetricsSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleSaveSettings = useCallback(
+    async (payload) => {
+      setSettingsSaving(true);
+      try {
+        const response = await updateMentorSettings(payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.settings;
+      } catch (settingsError) {
+        throw settingsError;
+      } finally {
+        setSettingsSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleSavePreferences = useCallback(
+    async (payload) => {
+      setPreferencesSaving(true);
+      try {
+        const response = await updateMentorSystemPreferences(payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.preferences;
+      } catch (preferencesError) {
+        throw preferencesError;
+      } finally {
+        setPreferencesSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleRotateApiKey = useCallback(async () => {
+    setPreferencesSaving(true);
+    try {
+      const response = await rotateMentorApiKey();
+      applyDashboardUpdate(response?.dashboard);
+      return response;
+    } catch (rotateError) {
+      throw rotateError;
+    } finally {
+      setPreferencesSaving(false);
+    }
+  }, [applyDashboardUpdate]);
+
+  const handleCreateOrder = useCallback(
+    async (payload) => {
+      setOrdersSaving(true);
+      try {
+        const response = await createMentorOrder(payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.order;
+      } catch (orderError) {
+        throw orderError;
+      } finally {
+        setOrdersSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleUpdateOrder = useCallback(
+    async (orderId, payload) => {
+      setOrdersSaving(true);
+      try {
+        const response = await updateMentorOrder(orderId, payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.order;
+      } catch (orderError) {
+        throw orderError;
+      } finally {
+        setOrdersSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleDeleteOrder = useCallback(
+    async (orderId) => {
+      setOrdersSaving(true);
+      try {
+        const response = await deleteMentorOrder(orderId);
+        applyDashboardUpdate(response?.dashboard);
+        return response;
+      } catch (orderError) {
+        throw orderError;
+      } finally {
+        setOrdersSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleCreateAdCampaign = useCallback(
+    async (payload) => {
+      setAdsSaving(true);
+      try {
+        const response = await createMentorAdCampaign(payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.campaign;
+      } catch (adsError) {
+        throw adsError;
+      } finally {
+        setAdsSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleUpdateAdCampaign = useCallback(
+    async (campaignId, payload) => {
+      setAdsSaving(true);
+      try {
+        const response = await updateMentorAdCampaign(campaignId, payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.campaign;
+      } catch (adsError) {
+        throw adsError;
+      } finally {
+        setAdsSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleDeleteAdCampaign = useCallback(
+    async (campaignId) => {
+      setAdsSaving(true);
+      try {
+        const response = await deleteMentorAdCampaign(campaignId);
+        applyDashboardUpdate(response?.dashboard);
+        return response;
+      } catch (adsError) {
+        throw adsError;
+      } finally {
+        setAdsSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleToggleAdCampaign = useCallback(
+    async (campaignId, payload) => {
+      setAdsSaving(true);
+      try {
+        const response = await toggleMentorAdCampaign(campaignId, payload);
+        applyDashboardUpdate(response?.dashboard);
+        return response?.campaign;
+      } catch (adsError) {
+        throw adsError;
+      } finally {
+        setAdsSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
   const renderSection = () => {
     const Component = SECTION_COMPONENTS[activeSection] ?? HomeOverviewSection;
     if (Component === HomeProfileSection) {
@@ -749,6 +1192,85 @@ export default function MentorDashboardPage() {
           onUpdateTransaction={handleUpdateWalletTransaction}
           onDeleteTransaction={handleDeleteWalletTransaction}
           saving={walletSaving}
+        />
+      );
+    }
+    if (Component === MentorHubSection) {
+      return (
+        <MentorHubSection
+          hub={dashboard?.hub ?? {}}
+          saving={hubSaving}
+          onCreateUpdate={handleCreateHubUpdate}
+          onUpdateUpdate={handleUpdateHubUpdate}
+          onDeleteUpdate={handleDeleteHubUpdate}
+          onCreateAction={handleCreateHubAction}
+          onUpdateAction={handleUpdateHubAction}
+          onDeleteAction={handleDeleteHubAction}
+          onSaveSpotlight={handleSaveHubSpotlight}
+        />
+      );
+    }
+    if (Component === MentorCreationStudioWizardSection) {
+      return (
+        <MentorCreationStudioWizardSection
+          items={dashboard?.creationStudio?.items ?? []}
+          saving={creationSaving}
+          onCreateItem={handleCreateCreationItem}
+          onUpdateItem={handleUpdateCreationItem}
+          onDeleteItem={handleDeleteCreationItem}
+          onPublishItem={handlePublishCreationItem}
+        />
+      );
+    }
+    if (Component === MentorMetricsSection) {
+      return (
+        <MentorMetricsSection
+          metrics={dashboard?.metricsDashboard?.widgets ?? []}
+          cohorts={dashboard?.metricsDashboard?.cohorts ?? []}
+          reporting={dashboard?.metricsDashboard?.reporting}
+          saving={metricsSaving}
+          onCreateWidget={handleCreateMetricWidget}
+          onUpdateWidget={handleUpdateMetricWidget}
+          onDeleteWidget={handleDeleteMetricWidget}
+          onGenerateReport={handleGenerateMetricsReport}
+        />
+      );
+    }
+    if (Component === MentorSettingsSection) {
+      return <MentorSettingsSection settings={dashboard?.settings} saving={settingsSaving} onSaveSettings={handleSaveSettings} />;
+    }
+    if (Component === MentorSystemPreferencesSection) {
+      return (
+        <MentorSystemPreferencesSection
+          preferences={dashboard?.systemPreferences}
+          saving={preferencesSaving}
+          onSavePreferences={handleSavePreferences}
+          onRotateApiKey={handleRotateApiKey}
+        />
+      );
+    }
+    if (Component === MentorOrdersSection) {
+      return (
+        <MentorOrdersSection
+          orders={dashboard?.orders?.list ?? []}
+          summary={dashboard?.orders?.summary}
+          saving={ordersSaving}
+          onCreateOrder={handleCreateOrder}
+          onUpdateOrder={handleUpdateOrder}
+          onDeleteOrder={handleDeleteOrder}
+        />
+      );
+    }
+    if (Component === MentorAdsSection) {
+      return (
+        <MentorAdsSection
+          campaigns={dashboard?.ads?.campaigns ?? []}
+          insights={dashboard?.ads?.insights}
+          saving={adsSaving}
+          onCreateCampaign={handleCreateAdCampaign}
+          onUpdateCampaign={handleUpdateAdCampaign}
+          onDeleteCampaign={handleDeleteAdCampaign}
+          onToggleCampaign={handleToggleAdCampaign}
         />
       );
     }
