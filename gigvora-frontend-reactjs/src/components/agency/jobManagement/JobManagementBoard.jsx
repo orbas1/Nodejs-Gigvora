@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import PropTypes from 'prop-types';
 import useSession from '../../../hooks/useSession.js';
 import JobSummaryHeader from './JobSummaryHeader.jsx';
 import JobCreationForm from './JobCreationForm.jsx';
@@ -457,3 +458,15 @@ export default function JobManagementBoard({ workspaceId: workspaceIdProp, jobId
     </>
   );
 }
+
+JobManagementBoard.propTypes = {
+  workspaceId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  jobId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  onJobSelectionChange: PropTypes.func,
+};
+
+JobManagementBoard.defaultProps = {
+  workspaceId: null,
+  jobId: null,
+  onJobSelectionChange: undefined,
+};

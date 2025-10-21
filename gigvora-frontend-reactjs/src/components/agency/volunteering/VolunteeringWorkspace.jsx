@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import {
   fetchAgencyVolunteeringOverview,
   createAgencyVolunteeringContract,
@@ -66,6 +67,17 @@ function PaneButton({ id, label, active, onSelect }) {
   );
 }
 
+PaneButton.propTypes = {
+  id: PropTypes.string.isRequired,
+  label: PropTypes.string.isRequired,
+  active: PropTypes.bool,
+  onSelect: PropTypes.func.isRequired,
+};
+
+PaneButton.defaultProps = {
+  active: false,
+};
+
 export default function VolunteeringWorkspace({ workspaceId, workspaceSlug, initialPane = 'overview', onPaneChange }) {
   const [pane, setPane] = useState(() => (PANES.some((item) => item.id === initialPane) ? initialPane : 'overview'));
   const [snapshot, setSnapshot] = useState(null);
@@ -115,6 +127,10 @@ export default function VolunteeringWorkspace({ workspaceId, workspaceSlug, init
     refresh();
   }, [refresh]);
 
+  const allowedActions = snapshot?.allowedActions ?? {};
+  const canView = allowedActions.canView ?? true;
+  const canManage = canView && (allowedActions.canManage ?? false);
+
   const contracts = snapshot?.contracts ?? { all: [], open: [], finished: [] };
   const applications = snapshot?.applications ?? [];
   const responses = snapshot?.responses ?? [];
@@ -123,7 +139,6 @@ export default function VolunteeringWorkspace({ workspaceId, workspaceSlug, init
   const summary = snapshot?.summary ?? {};
   const lookups = snapshot?.lookups ?? {};
   const defaultCurrency = snapshot?.workspace?.defaultCurrency ?? 'USD';
-  const canManage = snapshot?.allowedActions?.canManage ?? false;
   const resolvedWorkspaceId = snapshot?.workspace?.id ?? workspaceId ?? null;
   const isInitialLoading = loading && !snapshot;
 
@@ -535,6 +550,27 @@ export default function VolunteeringWorkspace({ workspaceId, workspaceSlug, init
 
   const activePane = pane;
 
+  if (!canView) {
+    return (
+      <section id="volunteering-home" className="rounded-3xl border border-slate-200 bg-slate-50/60 p-6 shadow-soft lg:p-10">
+        <div className="flex min-h-[320px] flex-col items-center justify-center gap-4 rounded-3xl border border-white bg-white p-10 text-center shadow-soft">
+          <h2 className="text-lg font-semibold text-slate-900">Access restricted</h2>
+          <p className="max-w-xl text-sm text-slate-600">
+            You do not have permission to view volunteering data for this workspace. Please contact your administrator to request
+            access or update your role permissions.
+          </p>
+          <button
+            type="button"
+            onClick={refresh}
+            className="inline-flex items-center justify-center rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+          >
+            Retry access check
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section id="volunteering-home" className="rounded-3xl border border-slate-200 bg-slate-50/60 p-6 shadow-soft lg:p-10">
       <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-10">
@@ -644,3 +680,17 @@ export default function VolunteeringWorkspace({ workspaceId, workspaceSlug, init
     </section>
   );
 }
+
+VolunteeringWorkspace.propTypes = {
+  workspaceId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  workspaceSlug: PropTypes.string,
+  initialPane: PropTypes.string,
+  onPaneChange: PropTypes.func,
+};
+
+VolunteeringWorkspace.defaultProps = {
+  workspaceId: null,
+  workspaceSlug: undefined,
+  initialPane: 'overview',
+  onPaneChange: undefined,
+};
