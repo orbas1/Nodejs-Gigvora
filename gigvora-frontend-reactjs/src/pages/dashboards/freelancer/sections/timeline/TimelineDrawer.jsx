@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
 export default function TimelineDrawer({ open, title, subtitle, onClose, footer, children, width = 'max-w-2xl' }) {
@@ -5,13 +6,28 @@ export default function TimelineDrawer({ open, title, subtitle, onClose, footer,
     return null;
   }
 
+  const headingId = useId();
+  const descriptionId = subtitle ? `${headingId}-description` : undefined;
+
   return (
     <div className="fixed inset-0 z-50 flex items-stretch justify-end bg-slate-900/40 backdrop-blur">
-      <div className={`flex h-full w-full ${width} flex-col bg-white shadow-2xl`}> 
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={headingId}
+        aria-describedby={descriptionId}
+        className={`flex h-full w-full ${width} flex-col bg-white shadow-2xl`}
+      >
         <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-6 py-5">
           <div>
-            <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-            {subtitle ? <p className="text-sm text-slate-500">{subtitle}</p> : null}
+            <h3 id={headingId} className="text-lg font-semibold text-slate-900">
+              {title}
+            </h3>
+            {subtitle ? (
+              <p id={descriptionId} className="text-sm text-slate-500">
+                {subtitle}
+              </p>
+            ) : null}
           </div>
           <button
             type="button"
