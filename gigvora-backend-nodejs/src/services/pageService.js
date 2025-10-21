@@ -676,6 +676,19 @@ export async function listManagedPages(actorId, { limit = 50 } = {}) {
   return memberships.map((membership) => sanitizePage(membership.page));
 }
 
+export const __testing = {
+  normalizeEmail,
+  sanitizeUser,
+  sanitizePage,
+  sanitizeMembership,
+  sanitizeInvite,
+  sanitizePost,
+  normalizeVisibility,
+  normaliseInviteStatus: normalizeInviteStatus,
+  normalisePostStatus: normalizePostStatus,
+  normalisePostVisibility: normalizePostVisibility,
+};
+
 export default {
   listUserPages,
   listManagedPages,

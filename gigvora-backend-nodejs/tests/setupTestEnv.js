@@ -17,7 +17,7 @@ const REQUIRED_ENV_DEFAULTS = {
 
 function ensureEnvironmentDefaults() {
   if (typeof process.env.SKIP_SEQUELIZE_BOOTSTRAP === 'undefined') {
-    process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'false';
+    process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'true';
   }
 
   Object.entries(REQUIRED_ENV_DEFAULTS).forEach(([key, value]) => {
@@ -39,6 +39,8 @@ function markCoreDependenciesHealthy() {
 }
 
 let modelsLoaded = false;
+const skipHeavyBootstrap = process.env.LIGHTWEIGHT_SERVICE_TESTS === 'true';
+
 async function loadCoreModels() {
   if (modelsLoaded) {
     return;
@@ -138,28 +140,47 @@ async function primeTestState() {
 jest.setTimeout(30_000);
 const skipBootstrap = process.env.SKIP_SEQUELIZE_BOOTSTRAP === 'true';
 
-beforeAll(async () => {
+if (skipHeavyBootstrap) {
   ensureEnvironmentDefaults();
-  if (skipBootstrap) {
-    // eslint-disable-next-line no-console
-    console.info('[tests] SKIP_SEQUELIZE_BOOTSTRAP enabled – skipping Sequelize sync for realtime-focused suites');
-    await resetDatabaseSchema();
-    markCoreDependenciesHealthy();
-  } else {
-    await primeTestState();
-  }
-});
+  markCoreDependenciesHealthy();
 
-beforeEach(async () => {
-  appCache.store?.clear?.();
-  if (skipBootstrap) {
-    await resetDatabaseSchema();
+  beforeAll(async () => {
+    ensureEnvironmentDefaults();
     markCoreDependenciesHealthy();
-  } else {
-    await primeTestState();
-  }
-});
+  });
 
-afterAll(async () => {
-  await sequelize.close();
-});
+  beforeEach(async () => {
+    appCache.store?.clear?.();
+    markCoreDependenciesHealthy();
+  });
+
+  afterAll(async () => {
+    await sequelize.close();
+  });
+} else {
+  beforeAll(async () => {
+    ensureEnvironmentDefaults();
+    if (skipBootstrap) {
+      // eslint-disable-next-line no-console
+      console.info('[tests] SKIP_SEQUELIZE_BOOTSTRAP enabled – skipping Sequelize sync for realtime-focused suites');
+      await resetDatabaseSchema();
+      markCoreDependenciesHealthy();
+    } else {
+      await primeTestState();
+    }
+  });
+
+  beforeEach(async () => {
+    appCache.store?.clear?.();
+    if (skipBootstrap) {
+      await resetDatabaseSchema();
+      markCoreDependenciesHealthy();
+    } else {
+      await primeTestState();
+    }
+  });
+
+  afterAll(async () => {
+    await sequelize.close();
+  });
+}
