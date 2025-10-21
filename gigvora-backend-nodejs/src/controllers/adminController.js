@@ -1,6 +1,7 @@
-import { getAdminDashboardSnapshot, updateAdminOverview } from '../services/adminDashboardService.js';
-import { getPlatformSettings, updatePlatformSettings } from '../services/platformSettingsService.js';
-import { getAdminDashboardSnapshot } from '../services/adminDashboardService.js';
+import {
+  getAdminDashboardSnapshot,
+  updateAdminOverview,
+} from '../services/adminDashboardService.js';
 import {
   getPlatformSettings,
   updatePlatformSettings,
@@ -25,15 +26,30 @@ import {
   sanitizeAffiliateSettingsInput,
 } from '../utils/adminSanitizers.js';
 
+function resolveActorId(user) {
+  if (!user) {
+    return undefined;
+  }
+  const candidate =
+    typeof user.id === 'number'
+      ? user.id
+      : typeof user.id === 'string'
+      ? Number.parseInt(user.id, 10)
+      : typeof user.userId === 'number'
+      ? user.userId
+      : typeof user.userId === 'string'
+      ? Number.parseInt(user.userId, 10)
+      : undefined;
+  return Number.isFinite(candidate) ? candidate : undefined;
+}
+
 export async function dashboard(req, res) {
-  const { lookbackDays, eventWindowDays } = req.query ?? {};
-  const snapshot = await getAdminDashboardSnapshot({
-    lookbackDays: parseInteger(lookbackDays, undefined),
-    eventWindowDays: parseInteger(eventWindowDays, undefined),
-    adminUserId: req.user?.id ?? null,
-  });
   const filters = sanitizeAdminDashboardFilters(req.query ?? {});
-  const snapshot = await getAdminDashboardSnapshot(filters);
+  const adminUserId = resolveActorId(req.user);
+  const snapshot = await getAdminDashboardSnapshot({
+    ...filters,
+    ...(adminUserId !== undefined ? { adminUserId } : {}),
+  });
   res.json(snapshot);
 }
 
@@ -77,20 +93,22 @@ export async function fetchPageSettings(req, res) {
 }
 
 export async function createAdminPageSetting(req, res) {
-  const record = await createPageSetting(req.body ?? {}, { actorId: req.user?.id });
+  const actorId = resolveActorId(req.user);
+  const record = await createPageSetting(req.body ?? {}, { actorId });
   res.status(201).json(record);
 }
 
 export async function persistPageSetting(req, res) {
-  const { pageId } = req.params;
-  const record = await updatePageSetting(pageId, req.body ?? {}, { actorId: req.user?.id });
+  const actorId = resolveActorId(req.user);
+  const record = await updatePageSetting(req.params.pageId, req.body ?? {}, { actorId });
   res.json(record);
 }
 
 export async function removePageSetting(req, res) {
-  const { pageId } = req.params;
-  await deletePageSetting(pageId);
+  await deletePageSetting(req.params.pageId);
   res.status(204).send();
+}
+
 export async function fetchGdprSettings(req, res) {
   const settings = await getGdprSettings();
   res.json(settings);
@@ -98,6 +116,9 @@ export async function fetchGdprSettings(req, res) {
 
 export async function persistGdprSettings(req, res) {
   const settings = await updateGdprSettings(req.body ?? {});
+  res.json(settings);
+}
+
 export async function fetchSeoSettings(req, res) {
   const settings = await getSeoSettings();
   res.json(settings);
@@ -124,7 +145,7 @@ export async function runtimeHealth(req, res) {
 }
 
 export async function persistAdminOverview(req, res) {
-  const adminId = req.user?.id ?? null;
+  const adminId = resolveActorId(req.user) ?? null;
   const overview = await updateAdminOverview(adminId, req.body ?? {});
   res.json(overview);
 }
