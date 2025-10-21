@@ -68,6 +68,13 @@ import {
   overlappingRoles,
 } from '../realtime/channelRegistry.js';
 import createConnectionRegistry from '../realtime/connectionRegistry.js';
+import registerCommunityNamespace, {
+  __setCommunityService as setCommunityServiceForTest,
+  __resetCommunityService as resetCommunityServiceForTest,
+} from '../realtime/communityNamespace.js';
+import registerEventsNamespace from '../realtime/eventsNamespace.js';
+import { UserEvent } from '../models/eventManagement.js';
+import { AuthorizationError } from '../utils/errors.js';
 
 const { SiteSetting, SitePage, SiteNavigationLink } = SiteModels;
 const { StorageLocation, StorageLifecycleRule, StorageUploadPreset } = StorageModels;
@@ -94,7 +101,146 @@ beforeAll(async () => {
   await VolunteeringContract.sync({ force: true });
   await VolunteeringContractSpend.sync({ force: true });
   await syncProjectWorkspaceModels({ force: true });
+  await UserEvent.sync({ force: true });
 });
+
+function createTestLogger() {
+  const logger = {
+    child: jest.fn(() => logger),
+    info: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+    error: jest.fn(),
+  };
+  return logger;
+}
+
+function createFakeNamespace() {
+  const middlewares = [];
+  const connectionHandlers = [];
+  const emissions = [];
+  return {
+    use(fn) {
+      middlewares.push(fn);
+    },
+    on(event, handler) {
+      if (event === 'connection') {
+        connectionHandlers.push(handler);
+      }
+    },
+    to(room) {
+      return {
+        emit(event, payload) {
+          emissions.push({ room, event, payload });
+        },
+      };
+    },
+    emit(event, payload) {
+      emissions.push({ room: null, event, payload });
+    },
+    async connect(socket) {
+      for (const middleware of middlewares) {
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((resolve, reject) => {
+          try {
+            middleware(socket, (error) => {
+              if (error) {
+                reject(error);
+              } else {
+                resolve();
+              }
+            });
+          } catch (error) {
+            reject(error);
+          }
+        });
+      }
+      connectionHandlers.forEach((handler) => handler(socket));
+      return socket;
+    },
+    getEmitted() {
+      return emissions;
+    },
+  };
+}
+
+function createFakeIo() {
+  const namespaces = new Map();
+  return {
+    of(namespace) {
+      if (!namespaces.has(namespace)) {
+        namespaces.set(namespace, createFakeNamespace());
+      }
+      return namespaces.get(namespace);
+    },
+    getNamespace(namespace) {
+      return namespaces.get(namespace);
+    },
+  };
+}
+
+function createFakeSocket({ actor } = {}) {
+  const handlers = new Map();
+  const emitted = [];
+  const joins = [];
+  const leaves = [];
+  const data = {};
+  if (actor !== undefined) {
+    data.actor = actor;
+  }
+  return {
+    id: `socket-${Math.random().toString(36).slice(2)}`,
+    data,
+    rooms: new Set(),
+    emit(event, payload) {
+      emitted.push({ event, payload });
+    },
+    on(event, handler) {
+      handlers.set(event, handler);
+    },
+    async trigger(event, payload) {
+      const handler = handlers.get(event);
+      if (!handler) {
+        throw new Error(`No handler registered for ${event}`);
+      }
+      return handler(payload);
+    },
+    async join(room) {
+      this.rooms.add(room);
+      joins.push(room);
+    },
+    async leave(room) {
+      this.rooms.delete(room);
+      leaves.push(room);
+    },
+    getEmitted() {
+      return emitted;
+    },
+    getJoins() {
+      return joins;
+    },
+    getLeaves() {
+      return leaves;
+    },
+  };
+}
+
+function findEmission(emissions, event) {
+  return emissions.find((entry) => entry.event === event);
+}
+
+function stubCommunityService(overrides = {}) {
+  const service = {
+    joinCommunityChannel: jest.fn().mockResolvedValue({ messages: [] }),
+    leaveCommunityChannel: jest.fn().mockResolvedValue(),
+    publishMessage: jest.fn().mockResolvedValue({}),
+    acknowledgeMessages: jest.fn().mockResolvedValue(),
+    fetchRecentMessages: jest.fn().mockResolvedValue([]),
+    ...overrides,
+  };
+  setCommunityServiceForTest(service);
+  return service;
+}
 
 describe('Platform and system settings models', () => {
   test('persist and format platform settings safely', async () => {
@@ -610,6 +756,211 @@ describe('Realtime registries', () => {
 
     await registry.unregister(socketB, 'manual');
     expect(presenceStore.trackLeave).toHaveBeenCalledWith('user-1', expect.any(Object), 'manual');
+  });
+});
+
+describe('Realtime namespaces', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+    resetCommunityServiceForTest();
+  });
+
+  afterEach(async () => {
+    await UserEvent.destroy({ where: {}, truncate: true, cascade: true });
+  });
+
+  test('rejects unauthenticated sockets for community namespace', async () => {
+    const io = createFakeIo();
+    const logger = createTestLogger();
+    const namespace = registerCommunityNamespace(io, { logger, runtimeConfig: {} });
+    const socket = createFakeSocket();
+
+    await expect(namespace.connect(socket)).rejects.toBeInstanceOf(AuthorizationError);
+  });
+
+  test('community namespace handles membership, messaging, and history fetches', async () => {
+    const io = createFakeIo();
+    const logger = createTestLogger();
+    const namespace = registerCommunityNamespace(io, {
+      logger,
+      runtimeConfig: { realtime: { namespaces: { community: { rateLimitPerMinute: 20 } } } },
+    });
+    const actor = { id: 21, roles: ['user'], permissions: [] };
+    const socket = createFakeSocket({ actor });
+
+    const serviceMocks = stubCommunityService({
+      joinCommunityChannel: jest.fn().mockResolvedValue({
+        messages: [{ id: 'm-1', body: 'Welcome' }],
+      }),
+      leaveCommunityChannel: jest.fn().mockResolvedValue(),
+      publishMessage: jest.fn().mockResolvedValue({ id: 'm-2', body: 'Hello world' }),
+      acknowledgeMessages: jest.fn().mockResolvedValue(),
+      fetchRecentMessages: jest.fn().mockResolvedValue([{ id: 'm-3', body: 'Recent update' }]),
+    });
+
+    await namespace.connect(socket);
+
+    await socket.trigger('community:join', { channel: 'global-lobby' });
+    const joinAck = findEmission(socket.getEmitted(), 'community:joined');
+    expect(joinAck?.payload.features).toMatchObject({ attachments: true });
+
+    const joinPresence = namespace
+      .getEmitted()
+      .find((entry) => entry.event === 'community:presence' && entry.payload?.status === 'joined');
+    expect(joinPresence).toEqual(
+      expect.objectContaining({
+        room: 'community:global-lobby',
+        payload: expect.objectContaining({ userId: actor.id }),
+      }),
+    );
+
+    await socket.trigger('community:message', {
+      channel: 'global-lobby',
+      body: 'Hi team!',
+      metadata: { importance: 'high' },
+    });
+
+    expect(serviceMocks.publishMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channelSlug: 'global-lobby',
+        userId: actor.id,
+        messageType: 'text',
+        metadata: expect.objectContaining({ importance: 'high' }),
+      }),
+    );
+
+    const broadcast = findEmission(namespace.getEmitted(), 'community:message');
+    expect(broadcast?.payload.message.sender.id).toBe(actor.id);
+
+    await socket.trigger('community:history', { channel: 'global-lobby', limit: 5 });
+    const history = findEmission(socket.getEmitted(), 'community:history:list');
+    expect(history?.payload.messages).toHaveLength(1);
+
+    await socket.trigger('community:ack', { channel: 'global-lobby' });
+    expect(serviceMocks.acknowledgeMessages).toHaveBeenCalledWith({
+      channelSlug: 'global-lobby',
+      userId: actor.id,
+    });
+
+    await socket.trigger('community:leave', { channel: 'global-lobby' });
+    const leavePresence = namespace
+      .getEmitted()
+      .find((entry) => entry.event === 'community:presence' && entry.payload?.status === 'left');
+    expect(leavePresence).toBeDefined();
+  });
+
+  test('community namespace enforces membership and rate limiting', async () => {
+    const io = createFakeIo();
+    const logger = createTestLogger();
+    const namespace = registerCommunityNamespace(io, {
+      logger,
+      runtimeConfig: { realtime: { namespaces: { community: { rateLimitPerMinute: 1 } } } },
+    });
+    const actor = { id: 55, roles: ['user'], permissions: [] };
+    const socket = createFakeSocket({ actor });
+
+    const serviceMocks = stubCommunityService({
+      joinCommunityChannel: jest.fn().mockResolvedValue({ messages: [] }),
+      publishMessage: jest.fn().mockResolvedValue({ id: 'm-10', body: 'payload' }),
+    });
+
+    await namespace.connect(socket);
+
+    await socket.trigger('community:message', { channel: 'global-lobby', body: 'First attempt' });
+    const membershipError = socket.getEmitted().find((entry) => entry.event === 'community:error');
+    expect(membershipError?.payload.message).toMatch(/join this channel/i);
+
+    await socket.trigger('community:join', { channel: 'global-lobby' });
+    await socket.trigger('community:message', { channel: 'global-lobby', body: 'First message' });
+    await socket.trigger('community:message', { channel: 'global-lobby', body: 'Second message' });
+
+    const rateLimitError = socket
+      .getEmitted()
+      .filter((entry) => entry.event === 'community:error')
+      .pop();
+    expect(rateLimitError?.payload.message).toMatch(/rate limit/i);
+    expect(serviceMocks.publishMessage).toHaveBeenCalledTimes(1);
+  });
+
+  test('events namespace schedules events and broadcasts announcements', async () => {
+    const io = createFakeIo();
+    const logger = createTestLogger();
+    const namespace = registerEventsNamespace(io, { logger });
+    const actor = { id: 77, roles: ['user'], permissions: [] };
+    const socket = createFakeSocket({ actor });
+
+    await namespace.connect(socket);
+
+    await socket.trigger('events:subscribe', { stream: 'product-launches' });
+    expect(socket.getJoins()).toContain('events:product-launches');
+
+    const startAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const endAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+
+    await socket.trigger('events:schedule', {
+      stream: 'product-launches',
+      title: 'Launch Briefing',
+      startAt,
+      endAt,
+      visibility: 'public',
+    });
+
+    const ack = findEmission(socket.getEmitted(), 'events:scheduled:ack');
+    expect(ack?.payload.stream).toBe('product-launches');
+
+    const scheduledBroadcast = findEmission(namespace.getEmitted(), 'events:scheduled');
+    expect(scheduledBroadcast?.payload.event.title).toBe('Launch Briefing');
+
+    const storedEvent = await UserEvent.findByPk(ack?.payload.id);
+    expect(storedEvent?.metadata).toMatchObject({ stream: 'product-launches', scheduledBy: actor.id });
+
+    await socket.trigger('events:announce', {
+      stream: 'product-launches',
+      message: '  Launch starting soon!  ',
+      metadata: { priority: 'high' },
+    });
+
+    const announcement = findEmission(namespace.getEmitted(), 'events:announcement');
+    expect(announcement?.payload.message).toBe('Launch starting soon!');
+    expect(announcement?.payload.metadata).toMatchObject({ priority: 'high' });
+  });
+
+  test('events namespace returns upcoming history and surfaces validation errors', async () => {
+    const io = createFakeIo();
+    const logger = createTestLogger();
+    const namespace = registerEventsNamespace(io, { logger });
+    const actor = { id: 88, roles: ['user'], permissions: [] };
+    const socket = createFakeSocket({ actor });
+
+    await namespace.connect(socket);
+
+    await UserEvent.create({
+      ownerId: actor.id,
+      title: 'Town Hall',
+      status: 'planned',
+      format: 'virtual',
+      visibility: 'invite_only',
+      startAt: new Date(Date.now() + 3 * 60 * 60 * 1000),
+      metadata: { stream: 'product-launches' },
+    });
+
+    await socket.trigger('events:history', { stream: 'product-launches', limit: 5 });
+
+    const history = findEmission(socket.getEmitted(), 'events:history:list');
+    expect(history?.payload.events).toHaveLength(1);
+    expect(history?.payload.events[0].title).toBe('Town Hall');
+
+    await socket.trigger('events:schedule', {
+      stream: 'product-launches',
+      title: 'Retro',
+      startAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+    });
+
+    const errorEmission = socket
+      .getEmitted()
+      .filter((entry) => entry.event === 'events:error')
+      .pop();
+    expect(errorEmission?.payload.details).toBeDefined();
   });
 });
 
