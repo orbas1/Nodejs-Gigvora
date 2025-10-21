@@ -53,7 +53,8 @@ export default function WorkspaceSubmissionManager({ submissions = [], onSave, o
     setError(null);
   }
 
-  function resetForm() {
+  function resetFormState(options = {}) {
+    const preserveFeedback = Boolean(options.preserveFeedback);
     setForm({
       id: null,
       title: '',
@@ -66,7 +67,9 @@ export default function WorkspaceSubmissionManager({ submissions = [], onSave, o
       notes: '',
       attachmentUrl: '',
     });
-    setFeedback(null);
+    if (!preserveFeedback) {
+      setFeedback(null);
+    }
     setError(null);
   }
 
@@ -90,7 +93,7 @@ export default function WorkspaceSubmissionManager({ submissions = [], onSave, o
         attachmentUrl: form.attachmentUrl,
       });
       setFeedback(form.id ? 'Submission updated.' : 'Submission logged.');
-      resetForm();
+      resetFormState({ preserveFeedback: true });
     } catch (submitError) {
       setError(submitError);
     } finally {
@@ -106,7 +109,7 @@ export default function WorkspaceSubmissionManager({ submissions = [], onSave, o
     try {
       await onDelete(entry);
       if (form.id === entry.id) {
-        resetForm();
+        resetFormState();
       }
       setFeedback('Submission removed.');
     } catch (deleteError) {
@@ -313,7 +316,7 @@ export default function WorkspaceSubmissionManager({ submissions = [], onSave, o
           </button>
           <button
             type="button"
-            onClick={resetForm}
+            onClick={() => resetFormState()}
             className="text-sm font-semibold text-slate-600 hover:text-slate-900"
           >
             Cancel

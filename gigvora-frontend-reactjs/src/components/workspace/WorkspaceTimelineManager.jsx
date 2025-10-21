@@ -88,7 +88,8 @@ export default function WorkspaceTimelineManager({ timeline = [], objects = [], 
     setError(null);
   }
 
-  function resetForm() {
+  function resetFormState(options = {}) {
+    const preserveFeedback = Boolean(options.preserveFeedback);
     setForm({
       id: null,
       title: '',
@@ -101,7 +102,9 @@ export default function WorkspaceTimelineManager({ timeline = [], objects = [], 
       lane: '',
       progressPercent: '',
     });
-    setFeedback(null);
+    if (!preserveFeedback) {
+      setFeedback(null);
+    }
     setError(null);
   }
 
@@ -123,11 +126,11 @@ export default function WorkspaceTimelineManager({ timeline = [], objects = [], 
         endAt: form.endAt ? new Date(form.endAt).toISOString() : null,
         ownerName: form.ownerName,
         relatedObjectId: form.relatedObjectId ? Number(form.relatedObjectId) : null,
-        lane: form.lane,
+        lane: form.lane === '' ? null : Number(form.lane),
         progressPercent: form.progressPercent === '' ? null : Number(form.progressPercent),
       });
       setFeedback(form.id ? 'Timeline entry updated.' : 'Timeline entry added.');
-      resetForm();
+      resetFormState({ preserveFeedback: true });
     } catch (submitError) {
       setError(submitError);
     } finally {
@@ -145,7 +148,7 @@ export default function WorkspaceTimelineManager({ timeline = [], objects = [], 
     try {
       await onDelete(entry);
       if (form.id === entry.id) {
-        resetForm();
+        resetFormState();
       }
       setFeedback('Timeline entry removed.');
     } catch (deleteError) {
@@ -182,6 +185,7 @@ export default function WorkspaceTimelineManager({ timeline = [], objects = [], 
                 <div
                   key={entry.id}
                   className="absolute rounded-xl border border-accent bg-accent/20 px-3 py-2 text-xs text-accent"
+                  data-testid={`timeline-chart-entry-${entry.id}`}
                   style={{ left: `${entry.left}%`, width: `${entry.width}%`, top: `${entry.laneIndex * 48}px` }}
                 >
                   <p className="font-semibold">{entry.title}</p>
@@ -407,7 +411,7 @@ export default function WorkspaceTimelineManager({ timeline = [], objects = [], 
           </button>
           <button
             type="button"
-            onClick={resetForm}
+            onClick={() => resetFormState()}
             className="text-sm font-semibold text-slate-600 hover:text-slate-900"
           >
             Cancel
