@@ -312,6 +312,42 @@ export default function AdminDocumentsManagementPage() {
     }
   }, []);
 
+  const handleDownloadManifest = useCallback(() => {
+    const manifest = {
+      generatedAt: new Date().toISOString(),
+      totals: {
+        documents: documents.length,
+        collections: collections.length,
+        reviews: reviews.length,
+      },
+      documents,
+      collections,
+      reviews,
+    };
+    const payload = JSON.stringify(manifest, null, 2);
+
+    if (typeof window === 'undefined') {
+      console.info('Document manifest', payload);
+      setToast('Document manifest printed to console output.');
+      return;
+    }
+
+    try {
+      const blob = new Blob([payload], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `gigvora-documents-${new Date().toISOString().slice(0, 10)}.json`;
+      anchor.rel = 'noopener';
+      anchor.click();
+      window.URL.revokeObjectURL(url);
+      setToast('Downloaded repository manifest.');
+    } catch (exportError) {
+      console.error('Failed to export document manifest', exportError);
+      setError('Unable to download document manifest.');
+    }
+  }, [collections, documents, reviews]);
+
   return (
     <DashboardLayout
       currentDashboard="admin"
@@ -333,6 +369,31 @@ export default function AdminDocumentsManagementPage() {
             {toast}
           </p>
         )}
+
+        <section className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-soft md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Repository snapshot</h2>
+            <p className="text-sm text-slate-600">
+              {documents.length} documents • {collections.length} collections • {reviews.length} review workflows active.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <button
+              type="button"
+              onClick={handleDownloadManifest}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+            >
+              Download manifest
+            </button>
+            <button
+              type="button"
+              onClick={() => setUploadOpen(true)}
+              className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 font-semibold text-white shadow-soft transition hover:bg-slate-800"
+            >
+              Upload document
+            </button>
+          </div>
+        </section>
 
         <DocumentRepositoryManager
           documents={documents}

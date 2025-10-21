@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { CalendarIcon, PencilSquareIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { ArrowDownTrayIcon, CalendarIcon, PencilSquareIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 const DEFAULT_WINDOW = {
   title: '',
@@ -181,7 +181,15 @@ function WindowRow({ window, editing, onEdit, onCancel, onSave, onDelete, busy }
   );
 }
 
-export default function MaintenanceScheduleTable({ windows = [], onCreate, onUpdate, onDelete, creating, busyWindowId }) {
+export default function MaintenanceScheduleTable({
+  windows = [],
+  onCreate,
+  onUpdate,
+  onDelete,
+  creating,
+  busyWindowId,
+  onExport,
+}) {
   const [showCreate, setShowCreate] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
@@ -210,13 +218,25 @@ export default function MaintenanceScheduleTable({ windows = [], onCreate, onUpd
             Plan infrastructure upgrades, release freezes, and hotfix windows with automated comms.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-soft hover:bg-slate-800"
-        >
-          <PlusIcon className="h-4 w-4" aria-hidden="true" /> New window
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          {typeof onExport === 'function' && (
+            <button
+              type="button"
+              onClick={onExport}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+            >
+              <ArrowDownTrayIcon className="h-4 w-4" aria-hidden="true" /> Download .ics
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setShowCreate(true)}
+            disabled={creating}
+            className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-soft hover:bg-slate-800 disabled:opacity-60"
+          >
+            <PlusIcon className="h-4 w-4" aria-hidden="true" /> New window
+          </button>
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-3xl border border-slate-200 shadow-soft">
@@ -394,7 +414,7 @@ export default function MaintenanceScheduleTable({ windows = [], onCreate, onUpd
               disabled={creating}
               className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-soft hover:bg-accentDark disabled:opacity-60"
             >
-              Schedule window
+              {creating ? 'Scheduling…' : 'Schedule window'}
             </button>
           </div>
         </form>

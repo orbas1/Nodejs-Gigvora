@@ -132,6 +132,7 @@ const FALLBACK_OVERVIEW = {
 };
 
 const AVAILABLE_DASHBOARDS = ['admin', 'user', 'freelancer', 'company', 'agency'];
+const RISK_FILTER_OPTIONS = ['low', 'medium', 'high', 'critical'];
 
 function mergeItem(list = [], item, key = 'id') {
   if (!item) return list;
@@ -156,6 +157,11 @@ export default function AdminComplianceManagementPage() {
   const [creatingFramework, setCreatingFramework] = useState(false);
   const [creatingAudit, setCreatingAudit] = useState(false);
   const [creatingObligation, setCreatingObligation] = useState(false);
+  const [obligationFilters, setObligationFilters] = useState({
+    search: '',
+    frameworkIds: [],
+    risks: [],
+  });
 
   const loadOverview = useCallback(async () => {
     setLoading(true);
@@ -186,6 +192,39 @@ export default function AdminComplianceManagementPage() {
   const audits = overview.audits ?? [];
   const obligations = overview.obligations ?? [];
 
+  const filteredObligations = useMemo(() => {
+    return obligations.filter((obligation) => {
+      if (obligationFilters.frameworkIds.length) {
+        const frameworksForObligation = Array.isArray(obligation.frameworkIds) ? obligation.frameworkIds : [];
+        const hasFrameworkMatch = frameworksForObligation.some((frameworkId) =>
+          obligationFilters.frameworkIds.includes(frameworkId),
+        );
+        if (!hasFrameworkMatch) {
+          return false;
+        }
+      }
+
+      if (obligationFilters.risks.length) {
+        const risk = `${obligation.riskRating ?? ''}`.toLowerCase();
+        if (!obligationFilters.risks.includes(risk)) {
+          return false;
+        }
+      }
+
+      if (obligationFilters.search.trim()) {
+        const haystack = [obligation.title, obligation.owner, obligation.notes]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(obligationFilters.search.trim().toLowerCase())) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [obligationFilters.frameworkIds, obligationFilters.risks, obligationFilters.search, obligations]);
+
   const metrics = useMemo(() => {
     return [
       { label: 'Frameworks active', value: overview.metrics?.frameworksActive ?? frameworks.length },
@@ -194,6 +233,77 @@ export default function AdminComplianceManagementPage() {
       { label: 'Obligations due this week', value: overview.metrics?.obligationsDueThisWeek ?? 4 },
     ];
   }, [overview.metrics, frameworks.length]);
+
+  const handleFrameworkFilterChange = (event) => {
+    const values = Array.from(event.target.selectedOptions).map((option) => option.value);
+    setObligationFilters((current) => ({ ...current, frameworkIds: values }));
+  };
+
+  const handleRiskToggle = (risk) => {
+    setObligationFilters((current) => {
+      const next = new Set(current.risks ?? []);
+      if (next.has(risk)) {
+        next.delete(risk);
+      } else {
+        next.add(risk);
+      }
+      return { ...current, risks: Array.from(next) };
+    });
+  };
+
+  const handleSearchFilterChange = (event) => {
+    const value = event.target.value;
+    setObligationFilters((current) => ({ ...current, search: value }));
+  };
+
+  const handleResetFilters = () => {
+    setObligationFilters({ search: '', frameworkIds: [], risks: [] });
+    setStatus('Cleared compliance filters.');
+  };
+
+  const handleExportObligations = () => {
+    const dataset = filteredObligations.length ? filteredObligations : obligations;
+    if (!dataset.length) {
+      setStatus('No obligations to export.');
+      return;
+    }
+
+    const headers = ['ID', 'Title', 'Owner', 'Due date', 'Status', 'Frameworks', 'Risk', 'Notes'];
+    const rows = dataset.map((obligation) => [
+      obligation.id ?? '',
+      obligation.title ?? '',
+      obligation.owner ?? '',
+      obligation.dueDate ? new Date(obligation.dueDate).toISOString() : '',
+      obligation.status ?? '',
+      Array.isArray(obligation.frameworkIds) ? obligation.frameworkIds.join('; ') : '',
+      obligation.riskRating ?? '',
+      obligation.notes ? obligation.notes.replace(/\r|\n/g, ' ') : '',
+    ]);
+    const csv = [headers, ...rows]
+      .map((row) => row.map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+
+    if (typeof window === 'undefined') {
+      console.info('Compliance obligations export:\n', csv);
+      setStatus('Obligation export available in console output.');
+      return;
+    }
+
+    try {
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `gigvora-compliance-obligations-${new Date().toISOString().slice(0, 10)}.csv`;
+      anchor.rel = 'noopener';
+      anchor.click();
+      window.URL.revokeObjectURL(url);
+      setStatus('Downloaded obligation CSV export.');
+    } catch (exportError) {
+      console.error('Unable to export obligations', exportError);
+      setError('Failed to export obligations.');
+    }
+  };
 
   const handleCreateFramework = useCallback(
     async (payload) => {
@@ -449,8 +559,82 @@ export default function AdminComplianceManagementPage() {
           onDelete={handleDeleteAudit}
         />
 
+        <section className="space-y-4 rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-soft">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Obligation filters</h2>
+              <p className="text-sm text-slate-600">Focus the board on specific frameworks or risk bands and export the view.</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 text-sm">
+              <button
+                type="button"
+                onClick={handleExportObligations}
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+              >
+                Export CSV
+              </button>
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+              >
+                Reset filters
+              </button>
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="space-y-2 text-sm">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Frameworks</span>
+              <select
+                multiple
+                value={obligationFilters.frameworkIds}
+                onChange={handleFrameworkFilterChange}
+                className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+              >
+                {frameworks.map((framework) => (
+                  <option key={framework.id} value={framework.id}>
+                    {framework.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-2 text-sm">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Owner or keyword</span>
+              <input
+                type="search"
+                placeholder="Search owner, obligation, or note"
+                value={obligationFilters.search}
+                onChange={handleSearchFilterChange}
+                className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+              />
+            </label>
+          </div>
+          <div className="space-y-2 text-sm">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Risk bands</span>
+            <div className="flex flex-wrap gap-2">
+              {RISK_FILTER_OPTIONS.map((risk) => {
+                const active = obligationFilters.risks.includes(risk);
+                return (
+                  <button
+                    key={risk}
+                    type="button"
+                    onClick={() => handleRiskToggle(risk)}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide transition ${
+                      active
+                        ? 'border-accent bg-accent text-white shadow-soft'
+                        : 'border border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                    }`}
+                  >
+                    {risk}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
         <ComplianceObligationBoard
-          obligations={obligations}
+          obligations={filteredObligations}
           frameworks={frameworks}
           onCreate={handleCreateObligation}
           onUpdate={handleUpdateObligation}

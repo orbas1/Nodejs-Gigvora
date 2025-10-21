@@ -179,7 +179,13 @@ function CreateObligationCard({ frameworks, onCreate }) {
   );
 }
 
-export default function ComplianceObligationBoard({ obligations = [], frameworks = [], onCreate, onUpdate, onAttachEvidence }) {
+export default function ComplianceObligationBoard({
+  obligations = [],
+  frameworks = [],
+  onCreate,
+  onUpdate,
+  onAttachEvidence,
+}) {
   const [showCreate, setShowCreate] = useState(true);
 
   const grouped = useMemo(() => {
@@ -205,6 +211,12 @@ export default function ComplianceObligationBoard({ obligations = [], frameworks
         >
           {showCreate ? 'Hide quick add' : 'Add obligation'}
         </button>
+      </div>
+
+      <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 text-sm text-slate-600">
+        Showing <span className="font-semibold text-slate-900">{obligations.length}</span> obligations in view. Completed items:{' '}
+        <span className="font-semibold text-emerald-600">{(grouped.complete ?? []).length}</span>. Adjust filters above to focus on
+        specific owners, frameworks, or risk bands.
       </div>
 
       {showCreate && <CreateObligationCard frameworks={frameworks} onCreate={onCreate} />}

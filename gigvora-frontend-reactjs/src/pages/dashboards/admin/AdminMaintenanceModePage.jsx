@@ -74,6 +74,82 @@ export default function AdminMaintenanceModePage() {
   const [creatingWindow, setCreatingWindow] = useState(false);
   const [sendingBroadcast, setSendingBroadcast] = useState(false);
 
+  const formatIcsDate = useCallback((value) => {
+    const date = value instanceof Date ? value : new Date(value ?? Date.now());
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  }, []);
+
+  const handleExportCalendar = useCallback(() => {
+    if (!windows?.length) {
+      setToast('No maintenance windows to export yet.');
+      return;
+    }
+
+    const events = windows.filter((window) => window.startAt);
+    if (!events.length) {
+      setToast('Add start times to maintenance windows before exporting.');
+      return;
+    }
+
+    const nowStamp = formatIcsDate(new Date());
+    const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Gigvora//Maintenance//EN'];
+    events.forEach((windowEntry, index) => {
+      const start = formatIcsDate(windowEntry.startAt);
+      const end = formatIcsDate(windowEntry.endAt || windowEntry.startAt);
+      const uid = windowEntry.id ? `gigvora-maintenance-${windowEntry.id}` : `gigvora-maintenance-${index}`;
+      const descriptionParts = [
+        windowEntry.impact ? `Impact: ${windowEntry.impact}` : null,
+        windowEntry.owner ? `Owner: ${windowEntry.owner}` : null,
+        Array.isArray(windowEntry.channels) && windowEntry.channels.length
+          ? `Channels: ${windowEntry.channels.join(', ')}`
+          : null,
+        windowEntry.rollbackPlan ? `Rollback: ${windowEntry.rollbackPlan}` : null,
+      ].filter(Boolean);
+
+      lines.push('BEGIN:VEVENT');
+      lines.push(`UID:${uid}`);
+      lines.push(`DTSTAMP:${nowStamp}`);
+      if (start) {
+        lines.push(`DTSTART:${start}`);
+      }
+      if (end) {
+        lines.push(`DTEND:${end}`);
+      }
+      lines.push(`SUMMARY:${windowEntry.title ?? 'Maintenance window'}`);
+      if (descriptionParts.length) {
+        lines.push(`DESCRIPTION:${descriptionParts.join('\\n')}`);
+      }
+      lines.push('END:VEVENT');
+    });
+    lines.push('END:VCALENDAR');
+
+    const payload = lines.join('\r\n');
+
+    if (typeof window === 'undefined') {
+      console.info('ICS export:\n', payload);
+      setToast('ICS calendar written to console output.');
+      return;
+    }
+
+    try {
+      const blob = new Blob([payload], { type: 'text/calendar;charset=utf-8' });
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `gigvora-maintenance-${new Date().toISOString().slice(0, 10)}.ics`;
+      anchor.rel = 'noopener';
+      anchor.click();
+      window.URL.revokeObjectURL(url);
+      setToast('Exported maintenance calendar.');
+    } catch (exportError) {
+      console.error('Unable to export maintenance calendar', exportError);
+      setError('Failed to export maintenance calendar.');
+    }
+  }, [formatIcsDate, windows]);
+
   const loadStatus = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -224,6 +300,7 @@ export default function AdminMaintenanceModePage() {
           onCreate={handleCreateWindow}
           onUpdate={handleUpdateWindow}
           onDelete={handleDeleteWindow}
+          onExport={handleExportCalendar}
         />
 
         <MaintenanceNotificationForm onSend={handleSendBroadcast} sending={sendingBroadcast} />
