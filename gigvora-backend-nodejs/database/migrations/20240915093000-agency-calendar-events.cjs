@@ -154,13 +154,16 @@ module.exports = {
         'enum_agency_calendar_events_visibility',
       ];
 
-      await Promise.all(
-        enumNames.map((enumName) =>
-          queryInterface.sequelize
-            .query(`DROP TYPE IF EXISTS "${enumName}"`, { transaction })
-            .catch(() => {}),
-        ),
-      );
+      const dialect = queryInterface.sequelize.getDialect();
+      if (dialect === 'postgres' || dialect === 'postgresql') {
+        await Promise.all(
+          enumNames.map((enumName) =>
+            queryInterface.sequelize
+              .query(`DROP TYPE IF EXISTS "${enumName}"`, { transaction })
+              .catch(() => {}),
+          ),
+        );
+      }
     });
   },
 };

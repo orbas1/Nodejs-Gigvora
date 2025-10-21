@@ -17,8 +17,11 @@ import {
   fetchMaintenance,
 } from '../controllers/adminRuntimeController.js';
 import { getLiveServiceTelemetry } from '../controllers/liveServiceTelemetryController.js';
+import { requireAdmin } from '../middleware/authenticate.js';
 
 const router = Router();
+
+router.use(requireAdmin);
 
 router.get(
   '/maintenance',

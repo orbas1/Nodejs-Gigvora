@@ -15,7 +15,11 @@ function parseBoolean(value, fallback = undefined) {
 function parseInteger(value, fallback = undefined) {
   if (value == null || value === '') return fallback;
   const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) ? parsed : fallback;
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  const clamped = Math.max(1, Math.min(parsed, 100));
+  return Number.isFinite(clamped) ? clamped : fallback;
 }
 
 export async function index(req, res) {

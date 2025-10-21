@@ -27,7 +27,8 @@ async function dropEnum(queryInterface, enumName, transaction) {
 module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.sequelize.transaction(async (transaction) => {
-      const jsonType = Sequelize.JSONB ?? Sequelize.JSON;
+      const dialect = queryInterface.sequelize.getDialect();
+      const jsonType = ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
 
       await queryInterface.createTable(
         TABLES.pages,
@@ -65,14 +66,32 @@ module.exports = {
           scheduledFor: { type: Sequelize.DATE, allowNull: true },
           publishedAt: { type: Sequelize.DATE, allowNull: true },
           archivedAt: { type: Sequelize.DATE, allowNull: true },
-          tags: { type: jsonType, allowNull: true },
-          seo: { type: jsonType, allowNull: true },
-          analytics: { type: jsonType, allowNull: true },
-          settings: { type: jsonType, allowNull: true },
-          allowedRoles: { type: jsonType, allowNull: true },
-          createdById: { type: Sequelize.INTEGER, allowNull: true },
-          updatedById: { type: Sequelize.INTEGER, allowNull: true },
-          lastEditedById: { type: Sequelize.INTEGER, allowNull: true },
+          tags: { type: jsonType, allowNull: false, defaultValue: [] },
+          seo: { type: jsonType, allowNull: false, defaultValue: {} },
+          analytics: { type: jsonType, allowNull: false, defaultValue: {} },
+          settings: { type: jsonType, allowNull: false, defaultValue: {} },
+          allowedRoles: { type: jsonType, allowNull: false, defaultValue: [] },
+          createdById: {
+            type: Sequelize.INTEGER,
+            allowNull: true,
+            references: { model: 'users', key: 'id' },
+            onDelete: 'SET NULL',
+            onUpdate: 'CASCADE',
+          },
+          updatedById: {
+            type: Sequelize.INTEGER,
+            allowNull: true,
+            references: { model: 'users', key: 'id' },
+            onDelete: 'SET NULL',
+            onUpdate: 'CASCADE',
+          },
+          lastEditedById: {
+            type: Sequelize.INTEGER,
+            allowNull: true,
+            references: { model: 'users', key: 'id' },
+            onDelete: 'SET NULL',
+            onUpdate: 'CASCADE',
+          },
           deletedAt: { type: Sequelize.DATE, allowNull: true },
           createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
           updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
@@ -80,16 +99,16 @@ module.exports = {
         { transaction },
       );
 
-      await queryInterface.addIndex(TABLES.pages, ['workspace_id', 'slug'], {
+      await queryInterface.addIndex(TABLES.pages, ['workspaceId', 'slug'], {
         unique: true,
         name: 'company_pages_workspace_slug_unique',
         transaction,
       });
-      await queryInterface.addIndex(TABLES.pages, ['workspace_id', 'status'], {
+      await queryInterface.addIndex(TABLES.pages, ['workspaceId', 'status'], {
         name: 'company_pages_workspace_status_idx',
         transaction,
       });
-      await queryInterface.addIndex(TABLES.pages, ['workspace_id', 'visibility'], {
+      await queryInterface.addIndex(TABLES.pages, ['workspaceId', 'visibility'], {
         name: 'company_pages_workspace_visibility_idx',
         transaction,
       });
@@ -120,8 +139,8 @@ module.exports = {
           orderIndex: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
           headline: { type: Sequelize.STRING(240), allowNull: true },
           body: { type: Sequelize.TEXT, allowNull: true },
-          content: { type: jsonType, allowNull: true },
-          media: { type: jsonType, allowNull: true },
+          content: { type: jsonType, allowNull: false, defaultValue: {} },
+          media: { type: jsonType, allowNull: false, defaultValue: [] },
           ctaLabel: { type: Sequelize.STRING(120), allowNull: true },
           ctaUrl: { type: Sequelize.STRING(255), allowNull: true },
           visibility: {
@@ -129,14 +148,14 @@ module.exports = {
             allowNull: false,
             defaultValue: 'public',
           },
-          settings: { type: jsonType, allowNull: true },
+          settings: { type: jsonType, allowNull: false, defaultValue: {} },
           createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
           updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
         },
         { transaction },
       );
 
-      await queryInterface.addIndex(TABLES.sections, ['page_id', 'order_index'], {
+      await queryInterface.addIndex(TABLES.sections, ['pageId', 'orderIndex'], {
         name: 'company_page_sections_page_order_idx',
         transaction,
       });
@@ -160,7 +179,13 @@ module.exports = {
           version: { type: Sequelize.INTEGER, allowNull: false },
           snapshot: { type: jsonType, allowNull: false },
           notes: { type: Sequelize.STRING(500), allowNull: true },
-          createdById: { type: Sequelize.INTEGER, allowNull: true },
+          createdById: {
+            type: Sequelize.INTEGER,
+            allowNull: true,
+            references: { model: 'users', key: 'id' },
+            onDelete: 'SET NULL',
+            onUpdate: 'CASCADE',
+          },
           createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
           updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
         },
@@ -170,7 +195,7 @@ module.exports = {
       await queryInterface.addConstraint(TABLES.revisions, {
         type: 'unique',
         name: 'company_page_revisions_unique_version',
-        fields: ['page_id', 'version'],
+        fields: ['pageId', 'version'],
         transaction,
       });
 
@@ -190,7 +215,13 @@ module.exports = {
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE',
           },
-          collaboratorId: { type: Sequelize.INTEGER, allowNull: true },
+          collaboratorId: {
+            type: Sequelize.INTEGER,
+            allowNull: true,
+            references: { model: 'users', key: 'id' },
+            onDelete: 'SET NULL',
+            onUpdate: 'CASCADE',
+          },
           collaboratorEmail: { type: Sequelize.STRING(180), allowNull: true },
           collaboratorName: { type: Sequelize.STRING(180), allowNull: true },
           role: {
@@ -203,23 +234,29 @@ module.exports = {
             allowNull: false,
             defaultValue: 'invited',
           },
-          permissions: { type: jsonType, allowNull: true },
-          invitedById: { type: Sequelize.INTEGER, allowNull: true },
+          permissions: { type: jsonType, allowNull: false, defaultValue: [] },
+          invitedById: {
+            type: Sequelize.INTEGER,
+            allowNull: true,
+            references: { model: 'users', key: 'id' },
+            onDelete: 'SET NULL',
+            onUpdate: 'CASCADE',
+          },
           createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
           updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
         },
         { transaction },
       );
 
-      await queryInterface.addIndex(TABLES.collaborators, ['page_id', 'status'], {
+      await queryInterface.addIndex(TABLES.collaborators, ['pageId', 'status'], {
         name: 'company_page_collaborators_page_status_idx',
         transaction,
       });
-      await queryInterface.addIndex(TABLES.collaborators, ['collaborator_id'], {
+      await queryInterface.addIndex(TABLES.collaborators, ['collaboratorId'], {
         name: 'company_page_collaborators_user_idx',
         transaction,
       });
-      await queryInterface.addIndex(TABLES.collaborators, ['collaborator_email'], {
+      await queryInterface.addIndex(TABLES.collaborators, ['collaboratorEmail'], {
         name: 'company_page_collaborators_email_idx',
         transaction,
       });
@@ -249,16 +286,27 @@ module.exports = {
           label: { type: Sequelize.STRING(180), allowNull: true },
           altText: { type: Sequelize.STRING(255), allowNull: true },
           isPrimary: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false },
-          metadata: { type: jsonType, allowNull: true },
-          uploadedById: { type: Sequelize.INTEGER, allowNull: true },
+          metadata: { type: jsonType, allowNull: false, defaultValue: {} },
+          uploadedById: {
+            type: Sequelize.INTEGER,
+            allowNull: true,
+            references: { model: 'users', key: 'id' },
+            onDelete: 'SET NULL',
+            onUpdate: 'CASCADE',
+          },
           createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
           updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
         },
         { transaction },
       );
 
-      await queryInterface.addIndex(TABLES.media, ['page_id', 'is_primary'], {
+      await queryInterface.addIndex(TABLES.media, ['pageId', 'isPrimary'], {
         name: 'company_page_media_primary_idx',
+        transaction,
+      });
+
+      await queryInterface.addIndex(TABLES.media, ['mediaType'], {
+        name: 'company_page_media_type_idx',
         transaction,
       });
     });

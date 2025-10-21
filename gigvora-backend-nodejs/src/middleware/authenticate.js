@@ -3,7 +3,10 @@ import { resolveAccessTokenSecret } from '../utils/jwtSecrets.js';
 import { AuthenticationError, AuthorizationError } from '../utils/errors.js';
 
 function extractToken(req) {
-  const header = req.headers?.authorization ?? req.headers?.Authorization;
+  let header = req.headers?.authorization ?? req.headers?.Authorization;
+  if (Array.isArray(header)) {
+    header = header.find((value) => typeof value === 'string' && value.trim().length > 0);
+  }
   if (typeof header === 'string') {
     const [scheme, token] = header.split(' ');
     if (scheme?.toLowerCase() === 'bearer' && token) {
@@ -23,13 +26,21 @@ function extractToken(req) {
 }
 
 function normalizeRoles(payload) {
+  const roles = new Set();
   if (Array.isArray(payload?.roles)) {
-    return payload.roles.map((role) => `${role}`.toLowerCase());
+    payload.roles.forEach((role) => {
+      if (role != null) {
+        roles.add(`${role}`.toLowerCase());
+      }
+    });
   }
   if (payload?.type) {
-    return [`${payload.type}`.toLowerCase()];
+    roles.add(`${payload.type}`.toLowerCase());
   }
-  return [];
+  if (payload?.role) {
+    roles.add(`${payload.role}`.toLowerCase());
+  }
+  return Array.from(roles);
 }
 
 function coerceIdentifier(value) {
