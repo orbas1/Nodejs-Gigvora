@@ -2769,7 +2769,8 @@ async function hydrateTargets(applications) {
   return map;
 }
 
-async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
+async function loadDashboardPayload(userIdInput, { bypassCache = false } = {}) {
+  const userId = normalizeUserId(userIdInput);
   const profile = await profileService.getProfileOverview(userId, { bypassCache });
   const overviewPromise = userDashboardOverviewService.getOverview(userId, {
     bypassCache,
@@ -3409,9 +3410,8 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     }
   });
 
-  const [networking, ads] = await Promise.all([
+  const [networking, disputeOverview, ads] = await Promise.all([
     networkingPromise,
-  const [disputeOverview, ads] = await Promise.all([
     disputeOverviewPromise,
     getAdDashboardSnapshot({
       surfaces: ['user_dashboard', 'global_dashboard'],
@@ -3425,7 +3425,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     }),
   ]);
 
-  const websitePreferences = await getUserWebsitePreferences(normalizedUserId);
+  const websitePreferences = await getUserWebsitePreferences(userId);
 
   const jobApplicationsWorkspace = await getJobApplicationWorkspaceSnapshot(userId, {
     actorId: userId,

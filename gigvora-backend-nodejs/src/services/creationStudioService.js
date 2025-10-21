@@ -1,902 +1,10 @@
-import { Op, fn, col } from 'sequelize';
-import {
-  CreationStudioItem,
-  CREATION_STUDIO_ITEM_TYPES,
-  CREATION_STUDIO_ITEM_STATUSES,
-  CREATION_STUDIO_VISIBILITIES,
-  ProviderWorkspace,
-} from '../models/index.js';
-import { ValidationError, NotFoundError } from '../utils/errors.js';
-
-function normaliseNumber(value, { integer = false } = {}) {
-  if (value == null || value === '') {
-    return null;
-  }
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) {
-    return null;
-  }
-  if (integer) {
-    return Math.trunc(numeric);
-  }
-  return numeric;
-import crypto from 'crypto';
-import { Op } from 'sequelize';
-import {
-  CreationStudioItem,
-  CreationStudioStep,
-  CREATION_STUDIO_TYPES,
-  CREATION_STUDIO_STATUSES,
-  CREATION_STUDIO_VISIBILITIES,
-  CREATION_STUDIO_STEPS,
-} from '../models/creationStudioModels.js';
-
-function normaliseString(value) {
-  if (value == null) {
-    return null;
-  }
-  const trimmed = `${value}`.trim();
-  return trimmed.length ? trimmed : null;
-}
-
-function normaliseType(candidate) {
-  const value = normaliseString(candidate);
-  if (!value) {
-    return null;
-  }
-  const lower = value.toLowerCase();
-  return CREATION_STUDIO_TYPES.find((type) => type === lower) ?? null;
-}
-
-function normaliseVisibility(candidate) {
-  const value = normaliseString(candidate);
-  if (!value) {
-    return 'private';
-  }
-  const lower = value.toLowerCase();
-  return CREATION_STUDIO_VISIBILITIES.find((visibility) => visibility === lower) ?? 'private';
-}
-
-function normaliseStatus(candidate) {
-  const value = normaliseString(candidate);
-  if (!value) {
-    return 'draft';
-  }
-  const lower = value.toLowerCase();
-  return CREATION_STUDIO_STATUSES.find((status) => status === lower) ?? 'draft';
-}
-
-function normaliseTags(tags) {
-  if (!tags) {
-    return [];
-  }
-  const source = Array.isArray(tags) ? tags : `${tags}`.split(',');
-  const normalised = source
-    .map((tag) => `${tag}`.trim())
-    .filter((tag) => tag.length > 0)
-    .map((tag) => tag.slice(0, 60));
-  return Array.from(new Set(normalised));
-}
-
-function normaliseSettings(settings) {
-  if (!settings || typeof settings !== 'object') {
-    return {};
-  }
-  const cleaned = Object.entries(settings).reduce((accumulator, [key, value]) => {
-    if (value == null) {
-      return accumulator;
-    }
-    if (typeof value === 'object' && !Array.isArray(value)) {
-      const nested = normaliseSettings(value);
-      if (Object.keys(nested).length) {
-        accumulator[key] = nested;
-      }
-      return accumulator;
-    }
-    accumulator[key] = value;
-    return accumulator;
-  }, {});
-  return cleaned;
-}
-
-function mapItem(record) {
-  if (!record) {
-    return null;
-  }
-  if (typeof record.toPublicObject === 'function') {
-    return record.toPublicObject();
-  }
-  const plain = record.get ? record.get({ plain: true }) : record;
-  return {
-    ...plain,
-    tags: normaliseTags(plain.tags),
-    settings: normaliseSettings(plain.settings),
-  };
-}
-
-function deriveStatus({ status, publishAt }) {
-  const now = new Date();
-  if (publishAt && new Date(publishAt) > now) {
-    return 'scheduled';
-  }
-  if (status === 'published') {
-    return 'published';
-  }
-  if (status === 'archived') {
-    return 'archived';
-  }
-  return status === 'scheduled' ? 'scheduled' : 'draft';
-}
-
-async function listAvailableWorkspaces() {
-  const workspaces = await ProviderWorkspace.findAll({
-    where: { type: 'company' },
-    attributes: ['id', 'name', 'slug'],
-    order: [['name', 'ASC']],
-    limit: 50,
-  });
-  return workspaces.map((workspace) => workspace.get({ plain: true }));
-}
-
-export async function listCreationStudioItems({
-  workspaceId,
-  type,
-  status,
-  search,
-  limit = 20,
-  offset = 0,
-} = {}) {
-  const where = {};
-  if (workspaceId != null) {
-    where.workspaceId = workspaceId;
-  }
-  if (type) {
-    where.type = type;
-  }
-  if (status) {
-    where.status = status;
-  }
-  if (search) {
-    where[Op.or] = [
-      { title: { [Op.iLike ?? Op.like]: `%${search}%` } },
-      { summary: { [Op.iLike ?? Op.like]: `%${search}%` } },
-    ];
-  }
-
-  const items = await CreationStudioItem.findAll({
-    where,
-    order: [
-      ['status', 'ASC'],
-      ['updatedAt', 'DESC'],
-    ],
-    limit,
-    offset,
-  });
-  return items.map(mapItem);
-}
-
-function buildTypeSummaries(groups) {
-  const summaryMap = new Map();
-  groups.forEach((row) => {
-    const type = row.type;
-    const status = row.status;
-    const count = Number(row.dataValues?.count ?? row.count ?? 0);
-    if (!summaryMap.has(type)) {
-      summaryMap.set(type, {
-        type,
-        total: 0,
-        byStatus: {},
-      });
-    }
-    const entry = summaryMap.get(type);
-    entry.total += count;
-    entry.byStatus[status] = (entry.byStatus[status] ?? 0) + count;
-  });
-
-  const typeSummaries = CREATION_STUDIO_ITEM_TYPES.map((type) => {
-    const entry = summaryMap.get(type) ?? { type, total: 0, byStatus: {} };
-    return {
-      type,
-      total: entry.total,
-      byStatus: CREATION_STUDIO_ITEM_STATUSES.reduce((accumulator, key) => {
-        accumulator[key] = entry.byStatus[key] ?? 0;
-        return accumulator;
-      }, {}),
-    };
-  });
-
-  const totals = typeSummaries.reduce(
-    (accumulator, entry) => {
-      accumulator.total += entry.total;
-      CREATION_STUDIO_ITEM_STATUSES.forEach((status) => {
-        accumulator.byStatus[status] = (accumulator.byStatus[status] ?? 0) + (entry.byStatus[status] ?? 0);
-      });
-      return accumulator;
-    },
-    { total: 0, byStatus: CREATION_STUDIO_ITEM_STATUSES.reduce((acc, status) => ({ ...acc, [status]: 0 }), {}) },
-  );
-
-  return { typeSummaries, totals };
-}
-
-export async function getCreationStudioOverview({ workspaceId, limit = 16 } = {}) {
-  const where = {};
-  if (workspaceId != null) {
-    where.workspaceId = workspaceId;
-  }
-
-  const [items, grouped] = await Promise.all([
-    CreationStudioItem.findAll({
-      where,
-      order: [
-        ['status', 'ASC'],
-        ['updatedAt', 'DESC'],
-      ],
-      limit,
-    }),
-    CreationStudioItem.findAll({
-      attributes: [
-        'type',
-        'status',
-        [fn('COUNT', col('id')), 'count'],
-      ],
-      where,
-      group: ['type', 'status'],
-    }),
-  ]);
-
-  const { typeSummaries, totals } = buildTypeSummaries(grouped);
-
-  const upcoming = items
-    .filter((item) => item.launchDate && new Date(item.launchDate).getTime() >= Date.now())
-    .sort((a, b) => new Date(a.launchDate) - new Date(b.launchDate))
-    .slice(0, 6)
-    .map(mapItem);
-
-  const draftRecommendations = CREATION_STUDIO_ITEM_TYPES.filter((type) =>
-    !typeSummaries.some((entry) => entry.type === type && entry.total > 0),
-  );
-
-  const availableWorkspaces = await listAvailableWorkspaces();
-
-  return {
-    meta: {
-      selectedWorkspaceId: workspaceId ?? null,
-      availableWorkspaces,
-      types: CREATION_STUDIO_ITEM_TYPES,
-      statuses: CREATION_STUDIO_ITEM_STATUSES,
-      visibilities: CREATION_STUDIO_VISIBILITIES,
-    },
-    items: items.map(mapItem),
-    upcoming,
-    summary: {
-      total: totals.total,
-      drafts: totals.byStatus.draft ?? 0,
-      scheduled: totals.byStatus.scheduled ?? 0,
-      published: totals.byStatus.published ?? 0,
-      archived: totals.byStatus.archived ?? 0,
-    },
-    typeSummaries,
-    draftRecommendations,
-  };
-}
-
-function preparePayload(payload = {}) {
-  const normalized = {
-    workspaceId: payload.workspaceId ?? null,
-    createdById: payload.createdById ?? null,
-    type: payload.type,
-    title: payload.title,
-    headline: payload.headline ?? null,
-    summary: payload.summary ?? null,
-    content: payload.content ?? null,
-    status: payload.status ?? 'draft',
-    visibility: payload.visibility ?? 'workspace',
-    category: payload.category ?? null,
-    location: payload.location ?? null,
-    targetAudience: payload.targetAudience ?? null,
-    launchDate: payload.launchDate ?? null,
-    publishAt: payload.publishAt ?? null,
-    publishedAt: payload.publishedAt ?? null,
-    endDate: payload.endDate ?? null,
-    imageUrl: payload.imageUrl ?? null,
-    tags: normaliseTags(payload.tags),
-    settings: normaliseSettings(payload.settings),
-    metadata: normaliseSettings(payload.metadata),
-    budgetAmount: normaliseNumber(payload.budgetAmount),
-    budgetCurrency: payload.budgetCurrency ?? null,
-    compensationMin: normaliseNumber(payload.compensationMin),
-    compensationMax: normaliseNumber(payload.compensationMax),
-    compensationCurrency: payload.compensationCurrency ?? null,
-    durationWeeks: normaliseNumber(payload.durationWeeks, { integer: true }),
-    commitmentHours: normaliseNumber(payload.commitmentHours, { integer: true }),
-    remoteEligible: payload.remoteEligible != null ? Boolean(payload.remoteEligible) : true,
-  };
-
-  normalized.status = deriveStatus({ status: normalized.status, publishAt: normalized.publishAt });
-  if (normalized.status !== 'scheduled') {
-    normalized.publishAt = null;
-  }
-  if (normalized.status === 'draft') {
-    normalized.publishedAt = null;
-  } else if (normalized.status === 'published' && !normalized.publishedAt) {
-    normalized.publishedAt = new Date();
-  }
-  return normalized;
-}
-
-export async function createCreationStudioItem(payload) {
-  if (!payload?.type || !CREATION_STUDIO_ITEM_TYPES.includes(payload.type)) {
-    throw new ValidationError('Unsupported creation studio type.');
-  }
-  if (!payload?.title) {
-    throw new ValidationError('Title is required.');
-  }
-  const prepared = preparePayload(payload);
-  const created = await CreationStudioItem.create(prepared);
-  return mapItem(created);
-}
-
-export async function updateCreationStudioItem(id, payload = {}) {
-  const item = await CreationStudioItem.findByPk(id);
-  if (!item) {
-    throw new NotFoundError('Creation studio item not found.');
-  }
-  const prepared = preparePayload({ ...item.toPublicObject(), ...payload });
-  await item.update(prepared);
-  return mapItem(item);
-}
-
-export async function publishCreationStudioItem(id, payload = {}) {
-  const item = await CreationStudioItem.findByPk(id);
-  if (!item) {
-    throw new NotFoundError('Creation studio item not found.');
-  }
-  const publishAt = payload.publishAt ? new Date(payload.publishAt) : null;
-  if (publishAt && Number.isNaN(publishAt.getTime())) {
-    throw new ValidationError('publishAt must be a valid date.');
-  }
-  if (publishAt && publishAt > new Date()) {
-    await item.update({ status: 'scheduled', publishAt });
-    return mapItem(item);
-  }
-  await item.update({ status: 'published', publishAt: null, publishedAt: new Date() });
-  return mapItem(item);
-}
-
-export async function deleteCreationStudioItem(id) {
-  const item = await CreationStudioItem.findByPk(id);
-  if (!item) {
-    throw new NotFoundError('Creation studio item not found.');
-  }
-  await item.destroy();
-  return { success: true };
-  if (Array.isArray(tags)) {
-    return tags
-      .map((tag) => normaliseString(tag))
-      .filter(Boolean)
-      .map((tag) => tag.toLowerCase());
-  }
-  if (typeof tags === 'string') {
-    return tags
-      .split(',')
-      .map((tag) => normaliseString(tag))
-      .filter(Boolean)
-      .map((tag) => tag.toLowerCase());
-  }
-  return [];
-}
-
-function slugify(value) {
-  if (!value) {
-    return null;
-  }
-  return value
-    .toString()
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 60);
-}
-
-const CREATION_TYPE_CATALOG = [
-  {
-    type: 'project',
-    label: 'Project',
-    summary: 'Scoped collaborative initiatives with milestones, deliverables, and collaborators.',
-    recommendedVisibility: 'connections',
-    defaultSettings: {
-      requiresBrief: true,
-      allowMentors: true,
-      allowVendors: true,
-      budget: { currency: 'USD', minimum: 0, maximum: null },
-    },
-  },
-  {
-    type: 'gig',
-    label: 'Gig',
-    summary: 'Short-term engagements or micro-deliverables suited for freelance collaborators.',
-    recommendedVisibility: 'connections',
-    defaultSettings: {
-      requiresBrief: true,
-      allowMentors: false,
-      allowVendors: true,
-      budget: { currency: 'USD', minimum: 0, maximum: null },
-    },
-  },
-  {
-    type: 'job',
-    label: 'Job',
-    summary: 'Full-time or part-time roles with application flows and interview scheduling.',
-    recommendedVisibility: 'public',
-    defaultSettings: {
-      requiresBrief: true,
-      allowMentors: false,
-      allowVendors: false,
-      compensation: { currency: 'USD', minimum: null, maximum: null, type: 'salary' },
-    },
-  },
-  {
-    type: 'launchpad_job',
-    label: 'Launchpad job',
-    summary: 'Experience Launchpad-aligned job brief with cohort gating and mentor co-signs.',
-    recommendedVisibility: 'connections',
-    defaultSettings: {
-      requiresBrief: true,
-      launchpadOnly: true,
-      allowMentors: true,
-      cohort: { required: true },
-    },
-  },
-  {
-    type: 'launchpad_project',
-    label: 'Launchpad project',
-    summary: 'Launchpad sprint workspace with mentor pods, talent rotations, and rituals.',
-    recommendedVisibility: 'connections',
-    defaultSettings: {
-      requiresBrief: true,
-      launchpadOnly: true,
-      allowMentors: true,
-      rituals: ['daily_standup', 'demo_day', 'retro'],
-    },
-  },
-  {
-    type: 'volunteering',
-    label: 'Volunteering opportunity',
-    summary: 'Social impact missions, pro bono briefs, and volunteering squads.',
-    recommendedVisibility: 'public',
-    defaultSettings: {
-      requiresBrief: true,
-      backgroundChecks: false,
-      allowMentors: true,
-      allowVendors: false,
-    },
-  },
-  {
-    type: 'networking_session',
-    label: 'Networking session',
-    summary: 'Live or virtual sessions with rotations, breakout rooms, and RSVP flows.',
-    recommendedVisibility: 'public',
-    defaultSettings: {
-      requiresBrief: false,
-      rsvpRequired: true,
-      capacity: 50,
-      allowMentors: true,
-      allowVendors: false,
-    },
-  },
-  {
-    type: 'group',
-    label: 'Community group',
-    summary: 'Persistent community spaces with membership policies and moderation settings.',
-    recommendedVisibility: 'connections',
-    defaultSettings: {
-      requiresBrief: false,
-      membershipPolicy: 'approval',
-      allowMentors: true,
-      allowVendors: true,
-    },
-  },
-  {
-    type: 'page',
-    label: 'Page',
-    summary: 'Public facing page for personal brand, initiative, or partner programme.',
-    recommendedVisibility: 'public',
-    defaultSettings: {
-      requiresBrief: false,
-      seoOptimised: true,
-      allowMentors: false,
-      allowVendors: false,
-    },
-  },
-  {
-    type: 'ad',
-    label: 'Gigvora ad',
-    summary: 'Sponsored placement with targeting controls and pacing guardrails.',
-    recommendedVisibility: 'public',
-    defaultSettings: {
-      requiresBrief: true,
-      allowMentors: false,
-      allowVendors: false,
-      budget: { currency: 'USD', minimum: 25, maximum: null },
-    },
-  },
-  {
-    type: 'blog_post',
-    label: 'Blog post',
-    summary: 'Editorial storytelling with hero imagery, SEO tags, and cross-posting.',
-    recommendedVisibility: 'public',
-    defaultSettings: {
-      requiresBrief: false,
-      seoOptimised: true,
-      allowMentors: false,
-      allowVendors: false,
-    },
-  },
-  {
-    type: 'event',
-    label: 'Event',
-    summary: 'Workshops, demo days, or meetups with ticketing, capacity, and streaming.',
-    recommendedVisibility: 'public',
-    defaultSettings: {
-      requiresBrief: true,
-      rsvpRequired: true,
-      capacity: 150,
-      allowMentors: true,
-      allowVendors: true,
-    },
-  },
-];
-
-const SHARE_DESTINATIONS = [
-  { id: 'timeline', label: 'Personal timeline' },
-  { id: 'groups', label: 'Groups & communities' },
-  { id: 'pages', label: 'Pages' },
-  { id: 'inbox', label: 'Direct inbox' },
-  { id: 'external', label: 'External social (shareable link)' },
-];
-
-function generateShareSlug(title) {
-  const slug = slugify(title ?? '') ?? crypto.randomBytes(6).toString('hex');
-  const suffix = crypto.randomBytes(2).toString('hex');
-  return `${slug}-${suffix}`.slice(0, 80);
-}
-
-function sanitiseStep(stepInstance) {
-  if (!stepInstance) {
-    return null;
-  }
-  const plain = stepInstance.get?.({ plain: true }) ?? stepInstance;
-  return {
-    id: plain.id,
-    stepKey: plain.stepKey,
-    completed: Boolean(plain.completed),
-    data: plain.data ?? {},
-    completedAt: plain.completedAt ?? null,
-    lastEditedBy: plain.lastEditedBy ?? null,
-    updatedAt: plain.updatedAt ?? null,
-    createdAt: plain.createdAt ?? null,
-  };
-}
-
-function sanitiseItem(itemInstance) {
-  if (!itemInstance) {
-    return null;
-  }
-  const plain = itemInstance.get?.({ plain: true }) ?? itemInstance;
-  return {
-    id: plain.id,
-    userId: plain.userId,
-    type: plain.type,
-    title: plain.title,
-    tagline: plain.tagline ?? null,
-    summary: plain.summary ?? null,
-    status: plain.status,
-    visibility: plain.visibility,
-    heroImageUrl: plain.heroImageUrl ?? null,
-    locationLabel: plain.locationLabel ?? null,
-    locationMode: plain.locationMode ?? 'hybrid',
-    schedule: plain.schedule ?? {},
-    settings: plain.settings ?? {},
-    metadata: plain.metadata ?? {},
-    shareTargets: plain.shareTargets ?? [],
-    shareMessage: plain.shareMessage ?? null,
-    tags: Array.isArray(plain.tags) ? plain.tags : [],
-    launchAt: plain.launchAt ?? null,
-    shareSlug: plain.shareSlug ?? null,
-    lastEditedBy: plain.lastEditedBy ?? null,
-    createdAt: plain.createdAt ?? null,
-    updatedAt: plain.updatedAt ?? null,
-    steps: Array.isArray(plain.steps) ? plain.steps.map((step) => sanitiseStep(step)).filter(Boolean) : [],
-  };
-}
-
-function buildSummary(items) {
-  const summary = {
-    total: items.length,
-    drafts: 0,
-    scheduled: 0,
-    published: 0,
-    archived: 0,
-    byType: {},
-  };
-  items.forEach((item) => {
-    summary.byType[item.type] = summary.byType[item.type] || { total: 0, published: 0, drafts: 0 };
-    summary.byType[item.type].total += 1;
-    if (item.status === 'published') {
-      summary.published += 1;
-      summary.byType[item.type].published += 1;
-    } else if (item.status === 'scheduled') {
-      summary.scheduled += 1;
-    } else if (item.status === 'archived') {
-      summary.archived += 1;
-    } else {
-      summary.drafts += 1;
-      summary.byType[item.type].drafts += 1;
-    }
-  });
-  return summary;
-}
-
-export function getCreationTypeCatalog() {
-  return CREATION_TYPE_CATALOG.map((entry) => ({ ...entry }));
-}
-
-export function getShareDestinations() {
-  return SHARE_DESTINATIONS.map((entry) => ({ ...entry }));
-}
-
-export async function listItems(userId, { includeArchived = false } = {}) {
-  if (!userId) {
-    return { items: [], summary: buildSummary([]) };
-  }
-
-  const where = { userId };
-  if (!includeArchived) {
-    where.status = { [Op.ne]: 'archived' };
-  }
-
-  const records = await CreationStudioItem.findAll({
-    where,
-    include: [{ model: CreationStudioStep, as: 'steps' }],
-    order: [
-      ['updatedAt', 'DESC'],
-      ['id', 'DESC'],
-    ],
-  });
-
-  const items = records.map((record) => sanitiseItem(record)).filter(Boolean);
-  return { items, summary: buildSummary(items) };
-}
-
-export async function getDashboardSnapshot(userId) {
-  const { items, summary } = await listItems(userId, { includeArchived: false });
-  return {
-    summary,
-    items: items.slice(0, 6),
-    catalog: getCreationTypeCatalog(),
-    shareDestinations: getShareDestinations(),
-  };
-}
-
-export async function getWorkspace(userId, { includeArchived = false } = {}) {
-  const result = await listItems(userId, { includeArchived });
-  return {
-    ...result,
-    catalog: getCreationTypeCatalog(),
-    shareDestinations: getShareDestinations(),
-  };
-}
-
-export async function createItem(userId, payload, { actorId } = {}) {
-  const type = normaliseType(payload?.type) ?? 'project';
-  const title = normaliseString(payload?.title) ?? `${type.replace('_', ' ')} draft`;
-  const defaults = CREATION_TYPE_CATALOG.find((entry) => entry.type === type)?.defaultSettings ?? {};
-  const visibility = normaliseVisibility(payload?.visibility ?? defaults?.visibility);
-  const tags = normaliseTags(payload?.tags);
-  const status = normaliseStatus(payload?.status);
-  const shareSlug = generateShareSlug(title);
-
-  const item = await CreationStudioItem.create({
-    userId,
-    lastEditedBy: actorId ?? userId,
-    type,
-    title,
-    tagline: normaliseString(payload?.tagline),
-    summary: normaliseString(payload?.summary),
-    status,
-    visibility,
-    heroImageUrl: normaliseString(payload?.heroImageUrl),
-    locationLabel: normaliseString(payload?.locationLabel),
-    locationMode: normaliseString(payload?.locationMode) ?? 'hybrid',
-    schedule: payload?.schedule ?? {},
-    settings: { ...defaults, ...(payload?.settings ?? {}) },
-    metadata: payload?.metadata ?? {},
-    shareTargets: Array.isArray(payload?.shareTargets) ? payload.shareTargets : [],
-    shareMessage: normaliseString(payload?.shareMessage),
-    tags,
-    launchAt: payload?.launchAt ?? null,
-    shareSlug,
-  });
-
-  const steps = await Promise.all(
-    CREATION_STUDIO_STEPS.map((stepKey, index) =>
-      CreationStudioStep.create({
-        itemId: item.id,
-        stepKey,
-        completed: stepKey === 'type',
-        completedAt: stepKey === 'type' ? new Date() : null,
-        data: index === 0 ? { type } : {},
-        lastEditedBy: actorId ?? userId,
-      }),
-    ),
-  );
-
-  const plain = sanitiseItem({ ...item.get({ plain: true }), steps });
-  return plain;
-}
-
-export async function updateItem(userId, itemId, payload, { actorId } = {}) {
-  const item = await CreationStudioItem.findOne({
-    where: { id: itemId, userId },
-    include: [{ model: CreationStudioStep, as: 'steps' }],
-  });
-  if (!item) {
-    return null;
-  }
-
-  const type = normaliseType(payload?.type) ?? item.type;
-  const updates = {
-    lastEditedBy: actorId ?? userId,
-  };
-
-  if (payload?.title !== undefined) {
-    const title = normaliseString(payload.title);
-    if (title) {
-      updates.title = title;
-    }
-  }
-  if (payload?.tagline !== undefined) {
-    updates.tagline = normaliseString(payload.tagline);
-  }
-  if (payload?.summary !== undefined) {
-    updates.summary = normaliseString(payload.summary);
-  }
-  if (payload?.heroImageUrl !== undefined) {
-    updates.heroImageUrl = normaliseString(payload.heroImageUrl);
-  }
-  if (payload?.locationLabel !== undefined) {
-    updates.locationLabel = normaliseString(payload.locationLabel);
-  }
-  if (payload?.locationMode !== undefined) {
-    updates.locationMode = normaliseString(payload.locationMode) ?? 'hybrid';
-  }
-  if (payload?.schedule !== undefined) {
-    updates.schedule = payload.schedule ?? {};
-  }
-  if (payload?.settings !== undefined) {
-    const defaults = CREATION_TYPE_CATALOG.find((entry) => entry.type === type)?.defaultSettings ?? {};
-    updates.settings = { ...defaults, ...(payload.settings ?? {}) };
-  }
-  if (payload?.metadata !== undefined) {
-    updates.metadata = payload.metadata ?? {};
-  }
-  if (payload?.shareTargets !== undefined) {
-    updates.shareTargets = Array.isArray(payload.shareTargets) ? payload.shareTargets : [];
-  }
-  if (payload?.shareMessage !== undefined) {
-    updates.shareMessage = normaliseString(payload.shareMessage);
-  }
-  if (payload?.tags !== undefined) {
-    updates.tags = normaliseTags(payload.tags);
-  }
-  if (payload?.launchAt !== undefined) {
-    updates.launchAt = payload.launchAt ?? null;
-  }
-  if (payload?.visibility !== undefined) {
-    updates.visibility = normaliseVisibility(payload.visibility);
-  }
-  if (payload?.status !== undefined) {
-    updates.status = normaliseStatus(payload.status);
-  }
-  if (payload?.type !== undefined && type !== item.type) {
-    updates.type = type;
-  }
-
-  await item.update(updates);
-  return sanitiseItem(item);
-}
-
-export async function recordStepProgress(userId, itemId, stepKey, payload = {}, { actorId } = {}) {
-  const normalisedKey = normaliseString(stepKey);
-  if (!normalisedKey) {
-    throw new Error('A step key is required');
-  }
-
-  if (!CREATION_STUDIO_STEPS.includes(normalisedKey)) {
-    throw new Error(`Unsupported wizard step: ${normalisedKey}`);
-  }
-
-  const item = await CreationStudioItem.findOne({
-    where: { id: itemId, userId },
-  });
-  if (!item) {
-    return null;
-  }
-
-  const [step] = await CreationStudioStep.findOrCreate({
-    where: { itemId, stepKey: normalisedKey },
-    defaults: {
-      itemId,
-      stepKey: normalisedKey,
-      completed: false,
-      data: {},
-      lastEditedBy: actorId ?? userId,
-    },
-  });
-
-  await step.update({
-    data: payload?.data ?? payload ?? {},
-    completed: Boolean(payload?.completed ?? payload?.isComplete),
-    completedAt: payload?.completed || payload?.isComplete ? new Date() : null,
-    lastEditedBy: actorId ?? userId,
-  });
-
-  return sanitiseStep(step);
-}
-
-export async function shareItem(userId, itemId, payload = {}, { actorId } = {}) {
-  const item = await CreationStudioItem.findOne({
-    where: { id: itemId, userId },
-  });
-  if (!item) {
-    return null;
-  }
-
-  const shareTargets = Array.isArray(payload.targets) ? payload.targets : Array.isArray(payload.shareTargets) ? payload.shareTargets : [];
-  const message = normaliseString(payload.message ?? payload.shareMessage);
-  const visibility = payload.visibility ? normaliseVisibility(payload.visibility) : item.visibility;
-  const status = payload.status ? normaliseStatus(payload.status) : item.status;
-
-  await item.update({
-    shareTargets,
-    shareMessage: message,
-    visibility,
-    status: status === 'draft' ? 'published' : status,
-    lastEditedBy: actorId ?? userId,
-    launchAt: payload.launchAt ?? item.launchAt ?? new Date(),
-  });
-
-  return sanitiseItem(item);
-}
-
-export async function archiveItem(userId, itemId, { actorId } = {}) {
-  const item = await CreationStudioItem.findOne({ where: { id: itemId, userId } });
-  if (!item) {
-    return null;
-  }
-  await item.update({ status: 'archived', lastEditedBy: actorId ?? userId });
-  return true;
-}
-
-export default {
-  getCreationTypeCatalog,
-  getShareDestinations,
-  listItems,
-  getWorkspace,
-  getDashboardSnapshot,
-  createItem,
-  updateItem,
-  recordStepProgress,
-  shareItem,
-  archiveItem,
-import { Op } from 'sequelize';
+import { Op, fn, col, literal } from 'sequelize';
 import {
   creationStudioSequelize,
   CreationStudioItem,
   CreationStudioAsset,
   CreationStudioPermission,
+  CreationStudioStep,
   CREATION_STUDIO_ITEM_TYPES,
   CREATION_STUDIO_ITEM_STATUSES,
   CREATION_STUDIO_VISIBILITIES,
@@ -904,6 +12,7 @@ import {
   CREATION_STUDIO_APPLICATION_TYPES,
   CREATION_STUDIO_PAYOUT_TYPES,
   CREATION_STUDIO_ROLE_OPTIONS,
+  CREATION_STUDIO_STEPS,
   syncCreationStudioModels,
 } from '../models/creationStudioModels.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
@@ -955,6 +64,85 @@ async function ensureUniqueSlug(baseSlug, { transaction, ignoreId } = {}) {
   }
 }
 
+const CREATION_TYPE_CATALOG = Object.freeze([
+  {
+    type: 'gig',
+    label: 'Gig',
+    summary: 'Short-term engagements or micro deliverables tailored for freelancers.',
+  },
+  {
+    type: 'project',
+    label: 'Project',
+    summary: 'Multi-phase collaborations with defined milestones and stakeholder alignment.',
+  },
+  {
+    type: 'job',
+    label: 'Job post',
+    summary: 'Full or part-time roles with dedicated application flows and screening tools.',
+  },
+  {
+    type: 'launchpad_project',
+    label: 'Launchpad project',
+    summary: 'Cohort-based programmes that blend mentorship with structured sprints.',
+  },
+  {
+    type: 'volunteering',
+    label: 'Volunteering',
+    summary: 'Social impact or pro bono opportunities that spotlight mission-driven work.',
+  },
+  {
+    type: 'networking_session',
+    label: 'Networking session',
+    summary: 'Live or virtual meetups with breakout rotations and RSVP orchestration.',
+  },
+  {
+    type: 'group',
+    label: 'Community group',
+    summary: 'Always-on communities with membership workflows and moderation tooling.',
+  },
+  {
+    type: 'page',
+    label: 'Page',
+    summary: 'Public-facing landing pages optimised for storytelling and conversion.',
+  },
+  {
+    type: 'ad',
+    label: 'Ad placement',
+    summary: 'Sponsored placements with precise targeting and pacing guardrails.',
+  },
+]);
+
+function buildRelationshipIncludes({ includeSteps = false } = {}) {
+  const includes = [
+    {
+      model: CreationStudioAsset,
+      as: 'assets',
+      separate: true,
+      order: [
+        ['orderIndex', 'ASC'],
+        ['id', 'ASC'],
+      ],
+    },
+    {
+      model: CreationStudioPermission,
+      as: 'permissions',
+      separate: true,
+      order: [['role', 'ASC']],
+    },
+  ];
+
+  if (includeSteps) {
+    includes.push({
+      model: CreationStudioStep,
+      as: 'steps',
+      separate: true,
+      order: [['stepKey', 'ASC']],
+    });
+  }
+
+  return includes;
+}
+
 function normalizeStringArray(value) {
   if (!value) {
     return [];
@@ -988,6 +176,17 @@ function parseNumeric(value) {
   const numeric = Number.parseFloat(value);
   if (!Number.isFinite(numeric)) {
     return null;
+  }
+  return numeric;
+}
+
+function parsePositiveInt(value, fieldName) {
+  if (value == null || value === '') {
+    throw new ValidationError(`${fieldName} is required.`);
+  }
+  const numeric = Number.parseInt(value, 10);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    throw new ValidationError(`${fieldName} must be a positive integer.`);
   }
   return numeric;
 }
@@ -1064,6 +263,24 @@ function sanitizePermission(record) {
   };
 }
 
+function sanitizeStep(record) {
+  if (!record) {
+    return null;
+  }
+  const plain = record.toJSON ? record.toJSON() : record;
+  return {
+    id: plain.id,
+    itemId: plain.itemId,
+    stepKey: plain.stepKey,
+    completed: Boolean(plain.completed),
+    completedAt: plain.completedAt ?? null,
+    data: plain.data ?? null,
+    lastEditedBy: plain.lastEditedBy ?? null,
+    createdAt: plain.createdAt ?? null,
+    updatedAt: plain.updatedAt ?? null,
+  };
+}
+
 function sanitizeItem(record, { includeRelationships = true } = {}) {
   if (!record) {
     return null;
@@ -1129,8 +346,10 @@ function sanitizeItem(record, { includeRelationships = true } = {}) {
     const permissions = Array.isArray(plain.permissions)
       ? plain.permissions.map(sanitizePermission).filter(Boolean)
       : [];
+    const steps = Array.isArray(plain.steps) ? plain.steps.map(sanitizeStep).filter(Boolean) : [];
     result.assets = assets;
     result.permissions = permissions;
+    result.steps = steps;
   }
 
   return result;
@@ -1255,6 +474,18 @@ function normalizePayload(payload, { partial = false } = {}) {
     body.ownerId = numericOwner;
   } else if (!partial) {
     throw new ValidationError('ownerId is required.');
+  }
+
+  if (payload.workspaceId !== undefined) {
+    if (payload.workspaceId == null || payload.workspaceId === '') {
+      body.workspaceId = null;
+    } else {
+      const numericWorkspace = Number.parseInt(payload.workspaceId, 10);
+      if (!Number.isFinite(numericWorkspace) || numericWorkspace <= 0) {
+        throw new ValidationError('workspaceId must be a positive integer.');
+      }
+      body.workspaceId = numericWorkspace;
+    }
   }
 
   if (payload.title !== undefined || !partial) {
@@ -1491,6 +722,109 @@ function defaultPermissions() {
   ];
 }
 
+export async function getCreationStudioOverview({ ownerId, workspaceId, limit = 12 } = {}) {
+  await ensureModelsReady();
+
+  const where = {};
+  if (ownerId != null) {
+    const numericOwner = Number.parseInt(ownerId, 10);
+    if (!Number.isFinite(numericOwner) || numericOwner <= 0) {
+      throw new ValidationError('ownerId must be a positive integer.');
+    }
+    where.ownerId = numericOwner;
+  }
+  if (workspaceId != null && workspaceId !== '') {
+    const numericWorkspace = Number.parseInt(workspaceId, 10);
+    if (!Number.isFinite(numericWorkspace) || numericWorkspace <= 0) {
+      throw new ValidationError('workspaceId must be a positive integer.');
+    }
+    where.workspaceId = numericWorkspace;
+  }
+
+  const baseStatusSummary = CREATION_STUDIO_ITEM_STATUSES.reduce((acc, status) => {
+    acc[status] = 0;
+    return acc;
+  }, {});
+
+  const typeSummaryMap = new Map(
+    CREATION_STUDIO_ITEM_TYPES.map((type) => [
+      type,
+      { type, total: 0, statuses: { ...baseStatusSummary } },
+    ]),
+  );
+
+  const statusSummary = { ...baseStatusSummary };
+  let total = 0;
+
+  const aggregates = await CreationStudioItem.findAll({
+    attributes: [
+      'type',
+      'status',
+      [fn('COUNT', literal('1')), 'count'],
+    ],
+    where,
+    group: ['type', 'status'],
+  });
+
+  for (const row of aggregates) {
+    const type = row.get('type');
+    const status = row.get('status');
+    const count = Number.parseInt(row.get('count'), 10) || 0;
+    total += count;
+    if (typeSummaryMap.has(type)) {
+      const entry = typeSummaryMap.get(type);
+      entry.total += count;
+      entry.statuses[status] = (entry.statuses[status] ?? 0) + count;
+    }
+    if (statusSummary[status] !== undefined) {
+      statusSummary[status] += count;
+    }
+  }
+
+  const sanitizedLimit = Number.isFinite(limit) && limit > 0 ? Math.min(Number(limit), 50) : 12;
+  const relationshipIncludes = buildRelationshipIncludes();
+
+  const recent = await CreationStudioItem.findAll({
+    where,
+    include: relationshipIncludes,
+    order: [
+      ['updatedAt', 'DESC'],
+      ['id', 'DESC'],
+    ],
+    limit: sanitizedLimit,
+  });
+
+  const drafts = await CreationStudioItem.findAll({
+    where: { ...where, status: 'draft' },
+    include: relationshipIncludes,
+    order: [
+      ['updatedAt', 'DESC'],
+      ['id', 'DESC'],
+    ],
+    limit: Math.min(sanitizedLimit, 10),
+  });
+
+  const scheduled = await CreationStudioItem.findAll({
+    where: { ...where, status: 'scheduled' },
+    include: relationshipIncludes,
+    order: [
+      ['scheduledAt', 'ASC'],
+      ['id', 'ASC'],
+    ],
+    limit: Math.min(sanitizedLimit, 10),
+  });
+
+  return {
+    total,
+    catalog: CREATION_TYPE_CATALOG,
+    byType: Array.from(typeSummaryMap.values()),
+    byStatus: statusSummary,
+    recent: recent.map((item) => sanitizeItem(item)),
+    drafts: drafts.map((item) => sanitizeItem(item)),
+    scheduled: scheduled.map((item) => sanitizeItem(item)),
+  };
+}
+
 export async function listCreationStudioItems(filters = {}) {
   await ensureModelsReady();
   const pageValue = Number.parseInt(filters.page ?? 1, 10);
@@ -1506,6 +840,17 @@ export async function listCreationStudioItems(filters = {}) {
       throw new ValidationError('ownerId must be a positive integer.');
     }
     where.ownerId = ownerId;
+  }
+  if (filters.workspaceId) {
+    if (filters.workspaceId == null || filters.workspaceId === '') {
+      where.workspaceId = null;
+    } else {
+      const workspaceId = Number.parseInt(filters.workspaceId, 10);
+      if (!Number.isFinite(workspaceId) || workspaceId <= 0) {
+        throw new ValidationError('workspaceId must be a positive integer.');
+      }
+      where.workspaceId = workspaceId;
+    }
   }
   if (filters.type) {
     where.type = normalizeEnum(filters.type, CREATION_STUDIO_ITEM_TYPES, { fieldName: 'type', required: true });
@@ -1733,15 +1078,258 @@ export async function publishCreationStudioItem(itemId, payload = {}, { actorId 
   return getCreationStudioItem(id);
 }
 
+export async function deleteCreationStudioItem(itemId, { actorId, hardDelete = false } = {}) {
+  await ensureModelsReady();
+  const id = Number.parseInt(itemId, 10);
+  if (!Number.isFinite(id) || id <= 0) {
+    throw new ValidationError('itemId must be a positive integer.');
+  }
+
+  const item = await CreationStudioItem.findByPk(id);
+  if (!item) {
+    throw new NotFoundError('Creation Studio item not found.');
+  }
+
+  await creationStudioSequelize.transaction(async (transaction) => {
+    if (actorId) {
+      await item.update({ updatedById: actorId }, { transaction });
+    }
+    await item.destroy({ transaction, force: Boolean(hardDelete) });
+  });
+
+  return { success: true };
+}
+
+async function loadOwnedItem(ownerId, itemId, { includeRelationships = true } = {}) {
+  const numericOwner = parsePositiveInt(ownerId, 'ownerId');
+  const numericItemId = parsePositiveInt(itemId, 'itemId');
+
+  const query = {
+    where: { id: numericItemId, ownerId: numericOwner },
+  };
+
+  if (includeRelationships) {
+    query.include = buildRelationshipIncludes({ includeSteps: true });
+  }
+
+  const item = await CreationStudioItem.findOne(query);
+  if (!item) {
+    throw new NotFoundError('Creation Studio item not found.');
+  }
+
+  return { item, ownerId: numericOwner, itemId: numericItemId };
+}
+
+export async function getWorkspace(ownerId, { includeArchived = false } = {}) {
+  await ensureModelsReady();
+  const numericOwner = parsePositiveInt(ownerId, 'ownerId');
+  const where = { ownerId: numericOwner };
+  if (!includeArchived) {
+    where.status = { [Op.ne]: 'archived' };
+  }
+
+  const items = await CreationStudioItem.findAll({
+    where,
+    include: buildRelationshipIncludes({ includeSteps: true }),
+    order: [
+      ['status', 'ASC'],
+      ['updatedAt', 'DESC'],
+    ],
+  });
+
+  const baseStatusSummary = CREATION_STUDIO_ITEM_STATUSES.reduce((acc, status) => {
+    acc[status] = 0;
+    return acc;
+  }, {});
+
+  const typeSummaryMap = new Map(
+    CREATION_STUDIO_ITEM_TYPES.map((type) => [
+      type,
+      { type, total: 0, statuses: { ...baseStatusSummary } },
+    ]),
+  );
+
+  for (const item of items) {
+    const status = item.status;
+    const type = item.type;
+    if (baseStatusSummary[status] !== undefined) {
+      baseStatusSummary[status] += 1;
+    }
+    if (typeSummaryMap.has(type)) {
+      const entry = typeSummaryMap.get(type);
+      entry.total += 1;
+      entry.statuses[status] = (entry.statuses[status] ?? 0) + 1;
+    }
+  }
+
+  return {
+    ownerId: numericOwner,
+    total: items.length,
+    catalog: CREATION_TYPE_CATALOG,
+    byStatus: baseStatusSummary,
+    byType: Array.from(typeSummaryMap.values()),
+    items: items.map((item) => sanitizeItem(item)),
+  };
+}
+
+export async function createItem(ownerId, payload = {}, { actorId } = {}) {
+  await ensureModelsReady();
+  const numericOwner = parsePositiveInt(ownerId, 'ownerId');
+  const prepared = { ...payload, ownerId: numericOwner };
+  const actor = actorId ?? numericOwner;
+  return createCreationStudioItem(prepared, { actorId: actor });
+}
+
+export async function updateItem(ownerId, itemId, payload = {}, { actorId } = {}) {
+  await ensureModelsReady();
+  const { itemId: numericItemId, ownerId: numericOwner } = await loadOwnedItem(ownerId, itemId, {
+    includeRelationships: false,
+  });
+  const prepared = { ...payload, ownerId: numericOwner };
+  const actor = actorId ?? numericOwner;
+  return updateCreationStudioItem(numericItemId, prepared, { actorId: actor });
+}
+
+export async function recordStepProgress(ownerId, itemId, stepKey, payload = {}, { actorId } = {}) {
+  await ensureModelsReady();
+  if (!stepKey) {
+    throw new ValidationError('stepKey is required.');
+  }
+
+  const { item, itemId: numericItemId, ownerId: numericOwner } = await loadOwnedItem(ownerId, itemId, {
+    includeRelationships: false,
+  });
+
+  const normalizedKey = stepKey.toString().trim().toLowerCase();
+  if (!CREATION_STUDIO_STEPS.includes(normalizedKey)) {
+    throw new ValidationError(`stepKey must be one of: ${CREATION_STUDIO_STEPS.join(', ')}.`);
+  }
+
+  const defaults = {
+    completed: false,
+    data: null,
+    lastEditedBy: actorId ?? numericOwner ?? null,
+  };
+
+  const [step] = await CreationStudioStep.findOrCreate({
+    where: { itemId: numericItemId, stepKey: normalizedKey },
+    defaults,
+  });
+
+  const update = {};
+  if (payload.completed !== undefined) {
+    update.completed = Boolean(payload.completed);
+    update.completedAt = update.completed ? new Date() : null;
+  }
+  if (payload.data !== undefined) {
+    update.data = payload.data == null ? null : parseObject(payload.data, { allowEmpty: true, fieldName: 'step data' });
+  }
+  if (actorId) {
+    update.lastEditedBy = actorId;
+  }
+
+  if (Object.keys(update).length) {
+    await step.update(update);
+  }
+
+  await step.reload();
+
+  // touch parent for ordering freshness
+  await item.update({ updatedById: actorId ?? numericOwner });
+
+  return sanitizeStep(step);
+}
+
+export async function shareItem(ownerId, itemId, payload = {}, { actorId } = {}) {
+  await ensureModelsReady();
+  const { item, itemId: numericItemId } = await loadOwnedItem(ownerId, itemId);
+
+  const update = {};
+  if (payload.visibility !== undefined) {
+    update.visibility = normalizeEnum(payload.visibility, CREATION_STUDIO_VISIBILITIES, {
+      fieldName: 'visibility',
+      required: true,
+    });
+  }
+  if (payload.status !== undefined) {
+    update.status = normalizeEnum(payload.status, CREATION_STUDIO_ITEM_STATUSES, {
+      fieldName: 'status',
+      required: true,
+    });
+  }
+  if (payload.shareMessage !== undefined) {
+    update.shareMessage = payload.shareMessage ? `${payload.shareMessage}`.trim() : null;
+  }
+  if (payload.shareTargets !== undefined) {
+    const targets = normalizeStringArray(payload.shareTargets);
+    update.shareTargets = targets.length ? targets : null;
+  }
+  if (payload.shareSlug !== undefined) {
+    update.shareSlug = payload.shareSlug ? slugify(payload.shareSlug) : null;
+  }
+
+  const scheduleSource = payload.schedule ?? payload;
+  if (scheduleSource.scheduledAt) {
+    const scheduleDate = parseDate(scheduleSource.scheduledAt, 'scheduledAt');
+    update.scheduledAt = scheduleDate;
+    update.status = scheduleDate.getTime() > Date.now() ? 'scheduled' : 'published';
+    if (update.status === 'published') {
+      update.publishedAt = new Date();
+    }
+  } else if (scheduleSource.publishNow) {
+    update.status = 'published';
+    update.scheduledAt = null;
+    update.publishedAt = new Date();
+  }
+
+  if (actorId) {
+    update.updatedById = actorId;
+  }
+
+  await creationStudioSequelize.transaction(async (transaction) => {
+    if (update.shareSlug) {
+      update.shareSlug = await ensureUniqueSlug(update.shareSlug, { transaction, ignoreId: numericItemId });
+    }
+    await item.update(update, { transaction });
+  });
+
+  return getCreationStudioItem(numericItemId);
+}
+
+export async function archiveItem(ownerId, itemId, { actorId } = {}) {
+  await ensureModelsReady();
+  const { item, itemId: numericItemId, ownerId: numericOwner } = await loadOwnedItem(ownerId, itemId, {
+    includeRelationships: false,
+  });
+
+  const update = {
+    status: 'archived',
+    scheduledAt: null,
+  };
+  if (actorId) {
+    update.updatedById = actorId;
+  }
+
+  await item.update(update);
+  return {
+    ownerId: numericOwner,
+    itemId: numericItemId,
+    status: 'archived',
+  };
+}
+
 export default {
-  listCreationStudioItems,
   getCreationStudioOverview,
-  createCreationStudioItem,
-  updateCreationStudioItem,
-  publishCreationStudioItem,
-  deleteCreationStudioItem,
+  listCreationStudioItems,
   getCreationStudioItem,
   createCreationStudioItem,
   updateCreationStudioItem,
   publishCreationStudioItem,
+  deleteCreationStudioItem,
+  getWorkspace,
+  createItem,
+  updateItem,
+  recordStepProgress,
+  shareItem,
+  archiveItem,
 };

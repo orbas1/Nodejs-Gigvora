@@ -12,8 +12,35 @@ import {
   VOLUNTEERING_CONTRACT_STATUSES,
   VOLUNTEERING_CONTRACT_TYPES,
 } from '../models/volunteeringModels.js';
-import { ProviderWorkspace } from '../models/index.js';
+import {
+  sequelize,
+  VolunteerApplication,
+  VolunteerResponse,
+  VolunteerContract,
+  VolunteerContractSpend,
+  VolunteerContractReview,
+  Volunteering,
+  ProviderWorkspace,
+  User,
+} from '../models/index.js';
+import { appCache, buildCacheKey } from '../utils/cache.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
+
+const CACHE_NAMESPACE = 'volunteering:management';
+const DASHBOARD_CACHE_NAMESPACE = 'dashboard:user';
+const CACHE_TTL_SECONDS = 60;
+
+const APPLICATION_ACTIVE_STATUSES = new Set([
+  'draft',
+  'submitted',
+  'in_review',
+  'interview',
+  'offered',
+  'accepted',
+]);
+
+const CONTRACT_OPEN_STATUSES = new Set(['draft', 'awaiting_signature', 'active', 'on_hold']);
+const CONTRACT_FINISHED_STATUSES = new Set(['completed', 'cancelled']);
 
 function normalizeStringArray(input) {
   if (input == null) {
@@ -46,33 +73,22 @@ function normalizeJson(input) {
 }
 
 function normalizeNumber(value, { min = null, max = null } = {}) {
-  sequelize,
-  VolunteerApplication,
-  VolunteerResponse,
-  VolunteerContract,
-  VolunteerContractSpend,
-  VolunteerContractReview,
-  Volunteering,
-  User,
-} from '../models/index.js';
-import { appCache, buildCacheKey } from '../utils/cache.js';
-import { ValidationError, NotFoundError } from '../utils/errors.js';
-
-const CACHE_NAMESPACE = 'volunteering:management';
-const DASHBOARD_CACHE_NAMESPACE = 'dashboard:user';
-const CACHE_TTL_SECONDS = 60;
-
-const APPLICATION_ACTIVE_STATUSES = new Set([
-  'draft',
-  'submitted',
-  'in_review',
-  'interview',
-  'offered',
-  'accepted',
-]);
-
-const CONTRACT_OPEN_STATUSES = new Set(['draft', 'awaiting_signature', 'active', 'on_hold']);
-const CONTRACT_FINISHED_STATUSES = new Set(['completed', 'cancelled']);
+  if (value == null || value === '') {
+    return null;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+  let result = numeric;
+  if (min != null && result < min) {
+    result = min;
+  }
+  if (max != null && result > max) {
+    result = max;
+  }
+  return result;
+}
 
 function normalizeUserId(userId) {
   const numeric = Number(userId);
@@ -98,18 +114,10 @@ function coerceDecimal(value, label) {
     return null;
   }
   const numeric = Number(value);
-  if (!Number.isFinite(numeric)) {
-    return null;
-  }
-  if (min != null && numeric < min) {
-    return min;
-  }
-  if (max != null && numeric > max) {
-    return max;
   if (!Number.isFinite(numeric) || numeric < 0) {
     throw new ValidationError(`${label ?? 'amount'} must be a positive number.`);
   }
-  return numeric;
+  return Math.round(numeric * 100) / 100;
 }
 
 function normalizeDate(value) {
@@ -879,25 +887,6 @@ export async function deleteVolunteeringSpend({ spendId, workspaceId, workspaceS
   return loadApplication(application.id);
 }
 
-export default {
-  getVolunteeringDashboard,
-  createVolunteeringPost,
-  updateVolunteeringPost,
-  deleteVolunteeringPost,
-  createVolunteeringApplication,
-  updateVolunteeringApplication,
-  deleteVolunteeringApplication,
-  createVolunteeringResponse,
-  updateVolunteeringResponse,
-  deleteVolunteeringResponse,
-  scheduleVolunteeringInterview,
-  updateVolunteeringInterview,
-  deleteVolunteeringInterview,
-  createVolunteeringContract,
-  updateVolunteeringContract,
-  addVolunteeringSpend,
-  updateVolunteeringSpend,
-  deleteVolunteeringSpend,
 function coerceHours(value, label = 'hours', { max = 168 } = {}) {
   if (value == null || value === '') {
     return null;

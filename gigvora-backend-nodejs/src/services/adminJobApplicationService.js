@@ -539,10 +539,13 @@ export async function createJobApplication(payload, actor) {
     if (Array.isArray(payload.interviews) && payload.interviews.length) {
       const interviews = payload.interviews.slice(0, 25);
       for (const interview of interviews) {
+        const meetingUrl = interview.meetingUrl ?? interview.meetingLink ?? null;
         await JobApplicationInterview.create(
           {
+            userId: interview.userId ?? null,
             applicationId: created.id,
             scheduledAt: coerceDate(interview.scheduledAt, 'scheduledAt'),
+            timezone: interview.timezone ? `${interview.timezone}`.trim() : null,
             durationMinutes:
               interview.durationMinutes == null
                 ? null
@@ -552,10 +555,15 @@ export async function createJobApplication(payload, actor) {
               ? ensureEnum(interview.status, JOB_APPLICATION_INTERVIEW_STATUSES, 'status')
               : 'scheduled',
             location: interview.location ? `${interview.location}`.trim() : null,
-            meetingLink: interview.meetingLink ? `${interview.meetingLink}`.trim() : null,
+            meetingUrl: meetingUrl ? `${meetingUrl}`.trim() : null,
             interviewerName: interview.interviewerName ? `${interview.interviewerName}`.trim() : null,
             interviewerEmail: interview.interviewerEmail ? `${interview.interviewerEmail}`.trim() : null,
+            feedbackScore:
+              interview.feedbackScore == null
+                ? null
+                : coerceNumber(interview.feedbackScore, { min: 0, max: 100 }),
             notes: interview.notes ?? null,
+            metadata: interview.metadata ?? null,
             createdById: actorMeta.actorId,
             createdByName: actorMeta.actorName,
           },
@@ -781,18 +789,23 @@ export async function createJobApplicationInterview(applicationId, payload, acto
   const type = ensureEnum(payload?.type ?? 'video', JOB_APPLICATION_INTERVIEW_TYPES, 'type');
   const status = ensureEnum(payload?.status ?? 'scheduled', JOB_APPLICATION_INTERVIEW_STATUSES, 'status');
   const actorMeta = buildActorMetadata(actor);
+  const meetingUrl = payload?.meetingUrl ?? payload?.meetingLink ?? null;
 
   const interview = await JobApplicationInterview.create({
+    userId: payload?.userId ?? null,
     applicationId: application.id,
     scheduledAt,
+    timezone: payload?.timezone ? `${payload.timezone}`.trim() : null,
     durationMinutes: payload?.durationMinutes ? coerceNumber(payload.durationMinutes, { min: 0 }) : null,
     type,
     status,
     location: payload?.location ? `${payload.location}`.trim() : null,
-    meetingLink: payload?.meetingLink ? `${payload.meetingLink}`.trim() : null,
+    meetingUrl: meetingUrl ? `${meetingUrl}`.trim() : null,
     interviewerName: payload?.interviewerName ? `${payload.interviewerName}`.trim() : null,
     interviewerEmail: payload?.interviewerEmail ? `${payload.interviewerEmail}`.trim() : null,
+    feedbackScore: payload?.feedbackScore == null ? null : coerceNumber(payload.feedbackScore, { min: 0, max: 100 }),
     notes: payload?.notes ?? null,
+    metadata: payload?.metadata ?? null,
     createdById: actorMeta.actorId,
     createdByName: actorMeta.actorName,
   });
@@ -822,11 +835,16 @@ export async function updateJobApplicationInterview(applicationId, interviewId, 
   if (payload.status !== undefined) {
     updates.status = ensureEnum(payload.status, JOB_APPLICATION_INTERVIEW_STATUSES, 'status');
   }
+  if (payload.timezone !== undefined) {
+    updates.timezone = payload.timezone ? `${payload.timezone}`.trim() : null;
+  }
   if (payload.location !== undefined) {
     updates.location = payload.location ? `${payload.location}`.trim() : null;
   }
-  if (payload.meetingLink !== undefined) {
-    updates.meetingLink = payload.meetingLink ? `${payload.meetingLink}`.trim() : null;
+  const meetingUrl =
+    payload.meetingUrl !== undefined ? payload.meetingUrl : payload.meetingLink !== undefined ? payload.meetingLink : undefined;
+  if (meetingUrl !== undefined) {
+    updates.meetingUrl = meetingUrl ? `${meetingUrl}`.trim() : null;
   }
   if (payload.interviewerName !== undefined) {
     updates.interviewerName = payload.interviewerName ? `${payload.interviewerName}`.trim() : null;
@@ -836,6 +854,15 @@ export async function updateJobApplicationInterview(applicationId, interviewId, 
   }
   if (payload.notes !== undefined) {
     updates.notes = payload.notes ?? null;
+  }
+  if (payload.feedbackScore !== undefined) {
+    updates.feedbackScore = payload.feedbackScore == null ? null : coerceNumber(payload.feedbackScore, { min: 0, max: 100 });
+  }
+  if (payload.metadata !== undefined) {
+    updates.metadata = payload.metadata ?? null;
+  }
+  if (payload.userId !== undefined) {
+    updates.userId = payload.userId ?? null;
   }
 
   if (Object.keys(updates).length === 0) {

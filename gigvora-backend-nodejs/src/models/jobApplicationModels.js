@@ -1,4 +1,5 @@
 import { DataTypes } from 'sequelize';
+import { JOB_INTERVIEW_STATUSES as GLOBAL_JOB_INTERVIEW_STATUSES, JOB_INTERVIEW_TYPES as GLOBAL_JOB_INTERVIEW_TYPES } from './constants/index.js';
 import sequelizeClient from './sequelizeClient.js';
 
 const sequelize = sequelizeClient;
@@ -36,20 +37,9 @@ export const JOB_APPLICATION_SOURCES = Object.freeze([
 
 export const JOB_APPLICATION_VISIBILITIES = Object.freeze(['internal', 'shared']);
 
-export const JOB_APPLICATION_INTERVIEW_TYPES = Object.freeze([
-  'phone',
-  'video',
-  'onsite',
-  'panel',
-  'assignment',
-]);
+export const JOB_APPLICATION_INTERVIEW_TYPES = Object.freeze([...GLOBAL_JOB_INTERVIEW_TYPES]);
 
-export const JOB_APPLICATION_INTERVIEW_STATUSES = Object.freeze([
-  'scheduled',
-  'completed',
-  'cancelled',
-  'no_show',
-]);
+export const JOB_APPLICATION_INTERVIEW_STATUSES = Object.freeze([...GLOBAL_JOB_INTERVIEW_STATUSES]);
 
 export const JobApplication = sequelize.define(
   'JobApplication',
@@ -235,25 +225,39 @@ JobApplicationDocument.prototype.toPublicObject = function toPublicObject() {
 export const JobApplicationInterview = sequelize.define(
   'JobApplicationInterview',
   {
+    userId: { type: DataTypes.INTEGER, allowNull: true },
     applicationId: { type: DataTypes.INTEGER, allowNull: false },
     scheduledAt: { type: DataTypes.DATE, allowNull: false },
-    durationMinutes: { type: DataTypes.INTEGER, allowNull: true },
-    type: { type: DataTypes.ENUM(...JOB_APPLICATION_INTERVIEW_TYPES), allowNull: false, defaultValue: 'video' },
-    status: { type: DataTypes.ENUM(...JOB_APPLICATION_INTERVIEW_STATUSES), allowNull: false, defaultValue: 'scheduled' },
-    location: { type: DataTypes.STRING(255), allowNull: true },
-    meetingLink: { type: DataTypes.STRING(2048), allowNull: true },
+    timezone: { type: DataTypes.STRING(120), allowNull: true },
+    type: {
+      type: DataTypes.ENUM(...JOB_APPLICATION_INTERVIEW_TYPES),
+      allowNull: false,
+      defaultValue: 'phone',
+      validate: { isIn: [JOB_APPLICATION_INTERVIEW_TYPES] },
+    },
+    status: {
+      type: DataTypes.ENUM(...JOB_APPLICATION_INTERVIEW_STATUSES),
+      allowNull: false,
+      defaultValue: 'scheduled',
+      validate: { isIn: [JOB_APPLICATION_INTERVIEW_STATUSES] },
+    },
     interviewerName: { type: DataTypes.STRING(180), allowNull: true },
-    interviewerEmail: { type: DataTypes.STRING(255), allowNull: true },
+    interviewerEmail: { type: DataTypes.STRING(255), allowNull: true, validate: { isEmail: true } },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    meetingUrl: { type: DataTypes.STRING(500), allowNull: true },
+    durationMinutes: { type: DataTypes.INTEGER, allowNull: true },
+    feedbackScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
     notes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
     createdById: { type: DataTypes.INTEGER, allowNull: true },
     createdByName: { type: DataTypes.STRING(180), allowNull: true },
   },
   {
     tableName: 'job_application_interviews',
     indexes: [
-      { fields: ['applicationId'] },
-      { fields: ['scheduledAt'] },
-      { fields: ['status'] },
+      { fields: ['userId'], name: 'job_application_interviews_user_idx' },
+      { fields: ['applicationId'], name: 'job_application_interviews_application_idx' },
+      { fields: ['scheduledAt'], name: 'job_application_interviews_schedule_idx' },
     ],
   },
 );
@@ -262,18 +266,22 @@ JobApplicationInterview.prototype.toPublicObject = function toPublicObject() {
   const plain = this.get({ plain: true });
   return {
     id: plain.id,
+    userId: plain.userId ?? null,
     applicationId: plain.applicationId,
     scheduledAt: plain.scheduledAt,
-    durationMinutes: plain.durationMinutes,
+    timezone: plain.timezone ?? null,
     type: plain.type,
     status: plain.status,
-    location: plain.location,
-    meetingLink: plain.meetingLink,
-    interviewerName: plain.interviewerName,
-    interviewerEmail: plain.interviewerEmail,
-    notes: plain.notes,
-    createdById: plain.createdById,
-    createdByName: plain.createdByName,
+    interviewerName: plain.interviewerName ?? null,
+    interviewerEmail: plain.interviewerEmail ?? null,
+    location: plain.location ?? null,
+    meetingUrl: plain.meetingUrl ?? null,
+    durationMinutes: plain.durationMinutes == null ? null : Number(plain.durationMinutes),
+    feedbackScore: plain.feedbackScore == null ? null : Number(plain.feedbackScore),
+    notes: plain.notes ?? null,
+    metadata: plain.metadata ?? null,
+    createdById: plain.createdById ?? null,
+    createdByName: plain.createdByName ?? null,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };

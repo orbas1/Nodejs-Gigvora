@@ -1,129 +1,29 @@
 import { DataTypes } from 'sequelize';
 import sequelize from './sequelizeClient.js';
 
+export const creationStudioSequelize = sequelize;
+
 const dialect = sequelize.getDialect();
-const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB : DataTypes.JSON;
-
-export const CREATION_STUDIO_ITEM_TYPES = [
-  'project',
-export const CREATION_STUDIO_TYPES = [
-  'project',
-import { Sequelize, DataTypes } from 'sequelize';
-import databaseConfig from '../config/database.js';
-
-const { url, ...sequelizeOptions } = databaseConfig;
-
-export const creationStudioSequelize = url
-  ? new Sequelize(url, { ...sequelizeOptions, define: { underscored: true, ...sequelizeOptions.define } })
-  : new Sequelize({ ...sequelizeOptions, define: { underscored: true, ...sequelizeOptions.define } });
-
-const dialect = creationStudioSequelize.getDialect();
 const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB : DataTypes.JSON;
 
 export const CREATION_STUDIO_ITEM_TYPES = Object.freeze([
   'gig',
+  'project',
   'job',
-  'launchpad_job',
   'launchpad_project',
-  'volunteer_opportunity',
-  'networking_session',
-  'blog_post',
-  'group',
-  'page',
-  'ad',
-];
-
-export const CREATION_STUDIO_ITEM_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
-export const CREATION_STUDIO_VISIBILITIES = ['private', 'workspace', 'public'];
+  'launchpad_job',
   'volunteering',
   'networking_session',
   'group',
   'page',
   'ad',
-  'blog_post',
-  'event',
-];
-
-export const CREATION_STUDIO_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
-export const CREATION_STUDIO_VISIBILITIES = ['private', 'connections', 'public'];
-export const CREATION_STUDIO_STEPS = ['type', 'basics', 'details', 'collaboration', 'settings', 'share'];
-
-export const CreationStudioItem = sequelize.define(
-  'CreationStudioItem',
-  {
-    workspaceId: { type: DataTypes.INTEGER, allowNull: true },
-    createdById: { type: DataTypes.INTEGER, allowNull: true },
-    type: { type: DataTypes.ENUM(...CREATION_STUDIO_ITEM_TYPES), allowNull: false },
-    title: { type: DataTypes.STRING(180), allowNull: false },
-    headline: { type: DataTypes.STRING(255), allowNull: true },
-    summary: { type: DataTypes.TEXT, allowNull: true },
-    content: { type: DataTypes.TEXT, allowNull: true },
-    status: { type: DataTypes.ENUM(...CREATION_STUDIO_ITEM_STATUSES), allowNull: false, defaultValue: 'draft' },
-    visibility: { type: DataTypes.ENUM(...CREATION_STUDIO_VISIBILITIES), allowNull: false, defaultValue: 'workspace' },
-    category: { type: DataTypes.STRING(120), allowNull: true },
-    location: { type: DataTypes.STRING(255), allowNull: true },
-    targetAudience: { type: DataTypes.STRING(255), allowNull: true },
-    launchDate: { type: DataTypes.DATE, allowNull: true },
-    publishAt: { type: DataTypes.DATE, allowNull: true },
-    publishedAt: { type: DataTypes.DATE, allowNull: true },
-    endDate: { type: DataTypes.DATE, allowNull: true },
-    imageUrl: { type: DataTypes.STRING(500), allowNull: true },
-    tags: { type: jsonType, allowNull: true },
-    settings: { type: jsonType, allowNull: true },
-    metadata: { type: jsonType, allowNull: true },
-    budgetAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
-    budgetCurrency: { type: DataTypes.STRING(6), allowNull: true },
-    compensationMin: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
-    compensationMax: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
-    compensationCurrency: { type: DataTypes.STRING(6), allowNull: true },
-    durationWeeks: { type: DataTypes.INTEGER, allowNull: true },
-    commitmentHours: { type: DataTypes.INTEGER, allowNull: true },
-    remoteEligible: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
-    userId: { type: DataTypes.INTEGER, allowNull: false },
-    lastEditedBy: { type: DataTypes.INTEGER, allowNull: true },
-    type: { type: DataTypes.ENUM(...CREATION_STUDIO_TYPES), allowNull: false },
-    title: { type: DataTypes.STRING(200), allowNull: false },
-    tagline: { type: DataTypes.STRING(240), allowNull: true },
-    summary: { type: DataTypes.TEXT, allowNull: true },
-    status: { type: DataTypes.ENUM(...CREATION_STUDIO_STATUSES), allowNull: false, defaultValue: 'draft' },
-    visibility: { type: DataTypes.ENUM(...CREATION_STUDIO_VISIBILITIES), allowNull: false, defaultValue: 'private' },
-    heroImageUrl: { type: DataTypes.STRING(255), allowNull: true },
-    locationLabel: { type: DataTypes.STRING(180), allowNull: true },
-    locationMode: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'hybrid' },
-    schedule: { type: jsonType, allowNull: true },
-    settings: { type: jsonType, allowNull: true },
-    metadata: { type: jsonType, allowNull: true },
-    shareTargets: { type: jsonType, allowNull: true },
-    shareMessage: { type: DataTypes.TEXT, allowNull: true },
-    tags: { type: jsonType, allowNull: true },
-    launchAt: { type: DataTypes.DATE, allowNull: true },
-    shareSlug: { type: DataTypes.STRING(80), allowNull: true, unique: true },
-  'blog_post',
-  'ad',
 ]);
 
-export const CREATION_STUDIO_ITEM_STATUSES = Object.freeze([
-  'draft',
-  'review',
-  'scheduled',
-  'published',
-  'archived',
-]);
-
-export const CREATION_STUDIO_VISIBILITIES = Object.freeze(['private', 'members', 'unlisted', 'public']);
-
+export const CREATION_STUDIO_ITEM_STATUSES = Object.freeze(['draft', 'review', 'scheduled', 'published', 'archived']);
+export const CREATION_STUDIO_VISIBILITIES = Object.freeze(['private', 'members', 'workspace', 'connections', 'public']);
 export const CREATION_STUDIO_FORMATS = Object.freeze(['async', 'virtual', 'in_person', 'hybrid', 'flex']);
-
-export const CREATION_STUDIO_APPLICATION_TYPES = Object.freeze([
-  'gigvora',
-  'internal',
-  'external',
-  'email',
-  'form',
-]);
-
+export const CREATION_STUDIO_APPLICATION_TYPES = Object.freeze(['gigvora', 'internal', 'external', 'email', 'form']);
 export const CREATION_STUDIO_PAYOUT_TYPES = Object.freeze(['fixed', 'hourly', 'stipend', 'unpaid', 'equity']);
-
 export const CREATION_STUDIO_ROLE_OPTIONS = Object.freeze([
   'freelancer',
   'agency',
@@ -133,11 +33,13 @@ export const CREATION_STUDIO_ROLE_OPTIONS = Object.freeze([
   'user',
   'admin',
 ]);
+export const CREATION_STUDIO_STEPS = Object.freeze(['type', 'basics', 'details', 'collaboration', 'settings', 'share']);
 
-export const CreationStudioItem = creationStudioSequelize.define(
+export const CreationStudioItem = sequelize.define(
   'CreationStudioItem',
   {
     ownerId: { type: DataTypes.INTEGER, allowNull: false },
+    workspaceId: { type: DataTypes.INTEGER, allowNull: true },
     createdById: { type: DataTypes.INTEGER, allowNull: true },
     updatedById: { type: DataTypes.INTEGER, allowNull: true },
     type: { type: DataTypes.ENUM(...CREATION_STUDIO_ITEM_TYPES), allowNull: false },
@@ -145,9 +47,21 @@ export const CreationStudioItem = creationStudioSequelize.define(
     slug: { type: DataTypes.STRING(200), allowNull: true, unique: true },
     summary: { type: DataTypes.TEXT, allowNull: true },
     description: { type: DataTypes.TEXT, allowNull: true },
-    status: { type: DataTypes.ENUM(...CREATION_STUDIO_ITEM_STATUSES), allowNull: false, defaultValue: 'draft' },
-    visibility: { type: DataTypes.ENUM(...CREATION_STUDIO_VISIBILITIES), allowNull: false, defaultValue: 'private' },
-    format: { type: DataTypes.ENUM(...CREATION_STUDIO_FORMATS), allowNull: false, defaultValue: 'async' },
+    status: {
+      type: DataTypes.ENUM(...CREATION_STUDIO_ITEM_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+    },
+    visibility: {
+      type: DataTypes.ENUM(...CREATION_STUDIO_VISIBILITIES),
+      allowNull: false,
+      defaultValue: 'private',
+    },
+    format: {
+      type: DataTypes.ENUM(...CREATION_STUDIO_FORMATS),
+      allowNull: false,
+      defaultValue: 'async',
+    },
     heroImageUrl: { type: DataTypes.STRING(255), allowNull: true },
     heroVideoUrl: { type: DataTypes.STRING(255), allowNull: true },
     thumbnailUrl: { type: DataTypes.STRING(255), allowNull: true },
@@ -173,7 +87,7 @@ export const CreationStudioItem = creationStudioSequelize.define(
     publishedAt: { type: DataTypes.DATE, allowNull: true },
     locationLabel: { type: DataTypes.STRING(180), allowNull: true },
     locationDetails: { type: jsonType, allowNull: true },
-    experienceLevel: { type: DataTypes.STRING(80), allowNull: true },
+    experienceLevel: { type: DataTypes.STRING(120), allowNull: true },
     commitmentHours: { type: DataTypes.DECIMAL(6, 2), allowNull: true },
     payoutType: {
       type: DataTypes.ENUM(...CREATION_STUDIO_PAYOUT_TYPES),
@@ -183,64 +97,20 @@ export const CreationStudioItem = creationStudioSequelize.define(
     compensationCurrency: { type: DataTypes.STRING(6), allowNull: false, defaultValue: 'USD' },
     compensationMin: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
     compensationMax: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    shareMessage: { type: DataTypes.TEXT, allowNull: true },
+    shareTargets: { type: jsonType, allowNull: true },
+    shareSlug: { type: DataTypes.STRING(120), allowNull: true, unique: true },
   },
   {
     tableName: 'creation_studio_items',
     underscored: true,
     paranoid: true,
     indexes: [
-      { fields: ['workspaceId', 'type'] },
+      { fields: ['owner_id'] },
+      { fields: ['workspace_id'] },
       { fields: ['type', 'status'] },
-      { fields: ['status'] },
-      { fields: ['launchDate'] },
-      { fields: ['publishAt'] },
-    ],
-  },
-);
-
-CreationStudioItem.prototype.toPublicObject = function toPublicObject() {
-  const plain = this.get({ plain: true });
-  return {
-    id: plain.id,
-    workspaceId: plain.workspaceId,
-    createdById: plain.createdById,
-    type: plain.type,
-    title: plain.title,
-    headline: plain.headline,
-    summary: plain.summary,
-    content: plain.content,
-    status: plain.status,
-    visibility: plain.visibility,
-    category: plain.category,
-    location: plain.location,
-    targetAudience: plain.targetAudience,
-    launchDate: plain.launchDate,
-    publishAt: plain.publishAt,
-    publishedAt: plain.publishedAt,
-    endDate: plain.endDate,
-    imageUrl: plain.imageUrl,
-    tags: Array.isArray(plain.tags) ? plain.tags : [],
-    settings: plain.settings ?? {},
-    metadata: plain.metadata ?? {},
-    budgetAmount: plain.budgetAmount,
-    budgetCurrency: plain.budgetCurrency,
-    compensationMin: plain.compensationMin,
-    compensationMax: plain.compensationMax,
-    compensationCurrency: plain.compensationCurrency,
-    durationWeeks: plain.durationWeeks,
-    commitmentHours: plain.commitmentHours,
-    remoteEligible: plain.remoteEligible,
-    createdAt: plain.createdAt,
-    updatedAt: plain.updatedAt,
-    deletedAt: plain.deletedAt,
-  };
-};
-
-export default CreationStudioItem;
-    indexes: [
-      { fields: ['user_id'] },
-      { fields: ['type'] },
-      { fields: ['status'] },
+      { fields: ['status', 'visibility'] },
+      { unique: true, fields: ['share_slug'] },
     ],
   },
 );
@@ -258,43 +128,16 @@ export const CreationStudioStep = sequelize.define(
   {
     tableName: 'creation_studio_steps',
     underscored: true,
-    indexes: [
-      { unique: true, fields: ['item_id', 'step_key'] },
-    ],
+    indexes: [{ unique: true, fields: ['item_id', 'step_key'] }],
   },
 );
 
-CreationStudioItem.hasMany(CreationStudioStep, {
-  foreignKey: 'itemId',
-  as: 'steps',
-  onDelete: 'CASCADE',
-  hooks: true,
-});
-CreationStudioStep.belongsTo(CreationStudioItem, {
-  foreignKey: 'itemId',
-  as: 'item',
-});
-
-export default {
-  CreationStudioItem,
-  CreationStudioStep,
-  CREATION_STUDIO_TYPES,
-  CREATION_STUDIO_STATUSES,
-  CREATION_STUDIO_VISIBILITIES,
-  CREATION_STUDIO_STEPS,
-      { fields: ['owner_id'] },
-      { fields: ['type', 'status'] },
-      { fields: ['status', 'visibility'] },
-    ],
-  },
-);
-
-export const CreationStudioAsset = creationStudioSequelize.define(
+export const CreationStudioAsset = sequelize.define(
   'CreationStudioAsset',
   {
     itemId: { type: DataTypes.INTEGER, allowNull: false },
     label: { type: DataTypes.STRING(180), allowNull: false },
-    type: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'image' },
+    type: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'image' },
     url: { type: DataTypes.STRING(255), allowNull: false },
     thumbnailUrl: { type: DataTypes.STRING(255), allowNull: true },
     altText: { type: DataTypes.STRING(200), allowNull: true },
@@ -306,11 +149,11 @@ export const CreationStudioAsset = creationStudioSequelize.define(
   {
     tableName: 'creation_studio_assets',
     underscored: true,
-    indexes: [{ fields: ['item_id'] }],
+    indexes: [{ fields: ['item_id', 'order_index'] }],
   },
 );
 
-export const CreationStudioPermission = creationStudioSequelize.define(
+export const CreationStudioPermission = sequelize.define(
   'CreationStudioPermission',
   {
     itemId: { type: DataTypes.INTEGER, allowNull: false },
@@ -323,42 +166,34 @@ export const CreationStudioPermission = creationStudioSequelize.define(
   {
     tableName: 'creation_studio_permissions',
     underscored: true,
-    indexes: [
-      { fields: ['item_id'] },
-      { unique: true, fields: ['item_id', 'role'] },
-    ],
+    indexes: [{ unique: true, fields: ['item_id', 'role'] }],
   },
 );
 
-CreationStudioItem.hasMany(CreationStudioAsset, {
-  as: 'assets',
-  foreignKey: 'itemId',
-  onDelete: 'CASCADE',
-});
-CreationStudioAsset.belongsTo(CreationStudioItem, { foreignKey: 'itemId' });
+CreationStudioItem.hasMany(CreationStudioStep, { foreignKey: 'itemId', as: 'steps', onDelete: 'CASCADE', hooks: true });
+CreationStudioStep.belongsTo(CreationStudioItem, { foreignKey: 'itemId', as: 'item' });
+
+CreationStudioItem.hasMany(CreationStudioAsset, { foreignKey: 'itemId', as: 'assets', onDelete: 'CASCADE', hooks: true });
+CreationStudioAsset.belongsTo(CreationStudioItem, { foreignKey: 'itemId', as: 'item' });
 
 CreationStudioItem.hasMany(CreationStudioPermission, {
-  as: 'permissions',
   foreignKey: 'itemId',
+  as: 'permissions',
   onDelete: 'CASCADE',
+  hooks: true,
 });
-CreationStudioPermission.belongsTo(CreationStudioItem, { foreignKey: 'itemId' });
+CreationStudioPermission.belongsTo(CreationStudioItem, { foreignKey: 'itemId', as: 'item' });
 
-export async function syncCreationStudioModels(options = {}) {
-  await creationStudioSequelize.sync({ alter: false, ...options });
+let synced = false;
+export async function syncCreationStudioModels() {
+  if (synced) {
+    return;
+  }
+  await CreationStudioItem.sync();
+  await CreationStudioStep.sync();
+  await CreationStudioAsset.sync();
+  await CreationStudioPermission.sync();
+  synced = true;
 }
 
-export default {
-  creationStudioSequelize,
-  CreationStudioItem,
-  CreationStudioAsset,
-  CreationStudioPermission,
-  CREATION_STUDIO_ITEM_TYPES,
-  CREATION_STUDIO_ITEM_STATUSES,
-  CREATION_STUDIO_VISIBILITIES,
-  CREATION_STUDIO_FORMATS,
-  CREATION_STUDIO_APPLICATION_TYPES,
-  CREATION_STUDIO_PAYOUT_TYPES,
-  CREATION_STUDIO_ROLE_OPTIONS,
-  syncCreationStudioModels,
-};
+export default CreationStudioItem;

@@ -2,7 +2,14 @@ import { Router } from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
 import { authenticate, requireRoles } from '../middleware/authentication.js';
 import validateRequest from '../middleware/validateRequest.js';
-import creationStudioController from '../controllers/creationStudioController.js';
+import {
+  overview,
+  index,
+  store,
+  update,
+  publish,
+  destroy,
+} from '../controllers/creationStudioController.js';
 import {
   creationStudioCreateSchema,
   creationStudioUpdateSchema,
@@ -21,51 +28,42 @@ router.get(
   '/overview',
   requireRoles(...MANAGER_ROLES),
   validateRequest({ query: creationStudioOverviewQuerySchema }),
-  asyncHandler(creationStudioController.overview),
+  asyncHandler(overview),
 );
 
 router.get(
   '/',
   requireRoles(...MANAGER_ROLES),
   validateRequest({ query: creationStudioListQuerySchema }),
-  asyncHandler(creationStudioController.index),
+  asyncHandler(index),
 );
 
 router.post(
   '/',
   requireRoles(...MANAGER_ROLES),
   validateRequest({ body: creationStudioCreateSchema }),
-  asyncHandler(creationStudioController.store),
+  asyncHandler(store),
 );
 
 router.put(
   '/:itemId',
   requireRoles(...MANAGER_ROLES),
   validateRequest({ params: creationStudioItemParamsSchema, body: creationStudioUpdateSchema }),
-  asyncHandler(creationStudioController.update),
+  asyncHandler(update),
 );
 
 router.post(
   '/:itemId/publish',
   requireRoles(...MANAGER_ROLES),
   validateRequest({ params: creationStudioItemParamsSchema, body: creationStudioPublishSchema }),
-  asyncHandler(creationStudioController.publish),
+  asyncHandler(publish),
 );
 
 router.delete(
   '/:itemId',
   requireRoles(...MANAGER_ROLES),
   validateRequest({ params: creationStudioItemParamsSchema }),
-  asyncHandler(creationStudioController.destroy),
+  asyncHandler(destroy),
 );
-import { index, show, create, update, publish } from '../controllers/creationStudioController.js';
-
-const router = Router();
-
-router.get('/items', asyncHandler(index));
-router.get('/items/:itemId', asyncHandler(show));
-router.post('/items', asyncHandler(create));
-router.put('/items/:itemId', asyncHandler(update));
-router.post('/items/:itemId/publish', asyncHandler(publish));
 
 export default router;

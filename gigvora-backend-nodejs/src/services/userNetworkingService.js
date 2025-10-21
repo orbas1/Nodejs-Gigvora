@@ -423,15 +423,17 @@ export async function createBooking(userId, payload = {}) {
     metadata.userNotes = payload.userNotes || null;
   }
 
+  const defaultParticipantName =
+    [participant.firstName, participant.lastName].filter(Boolean).join(' ') ||
+    participant.email ||
+    'Networking participant';
+  const participantName = payload.participantName ?? defaultParticipantName;
+
   const signup = await NetworkingSessionSignup.create({
     sessionId,
     participantId: normalizedUserId,
     participantEmail,
-    participantName:
-      payload.participantName ??
-      [participant.firstName, participant.lastName].filter(Boolean).join(' ') ||
-        participant.email ||
-        'Networking participant',
+    participantName,
     status,
     seatNumber,
     joinUrl: payload.joinUrl ?? null,
@@ -521,15 +523,17 @@ export async function createPurchase(userId, payload = {}) {
     metadata.userNotes = payload.notes || null;
   }
 
+  const defaultPurchaserName =
+    [purchaser.firstName, purchaser.lastName].filter(Boolean).join(' ') ||
+    purchaser.email ||
+    'Networking customer';
+  const purchaserName = payload.purchaserName ?? defaultPurchaserName;
+
   const order = await NetworkingSessionOrder.create({
     sessionId,
     purchaserId: normalizedUserId,
     purchaserEmail: payload.purchaserEmail ?? purchaser.email ?? null,
-    purchaserName:
-      payload.purchaserName ??
-      [purchaser.firstName, purchaser.lastName].filter(Boolean).join(' ') ||
-        purchaser.email ||
-        'Networking customer',
+    purchaserName,
     status,
     amountCents,
     currency,
