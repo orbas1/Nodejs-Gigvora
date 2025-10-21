@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import SectionShell from '../../SectionShell.jsx';
-import useSession from '../../../../../hooks/useSession.js';
-import useFreelancerNetworkingDashboard from '../../../../../hooks/useFreelancerNetworkingDashboard.js';
 import {
   bookFreelancerNetworkingSession,
   updateFreelancerNetworkingSignup,
   createFreelancerNetworkingConnection,
   updateFreelancerNetworkingConnection,
+  deleteFreelancerNetworkingSignup,
+  deleteFreelancerNetworkingConnection,
 } from '../../../../../services/freelancerNetworking.js';
 import SummaryStrip from './SummaryStrip.jsx';
 import ViewSwitcher from './ViewSwitcher.jsx';
@@ -42,22 +42,28 @@ function Notice({ tone = 'info', message, onDismiss }) {
   );
 }
 
-export default function NetworkingSection() {
-  const { session } = useSession();
-  const freelancerId = session?.id;
+export default function NetworkingSection({
+  freelancerId,
+  summaryCards = [],
+  bookings = [],
+  availableSessions = [],
+  connections = { total: 0, items: [] },
+  config = {},
+  loading = false,
+  error = null,
+  onRefresh,
+}) {
   const [view, setView] = useState('plan');
   const [panel, setPanel] = useState(null);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState(null);
 
-  const { summaryCards, bookings, availableSessions, connections, config, loading, error, refresh } =
-    useFreelancerNetworkingDashboard({ freelancerId, enabled: Boolean(freelancerId) });
-
   useEffect(() => {
-    if (error?.message) {
-      setNotice({ tone: 'error', message: error.message });
+    if (error?.message || typeof error === 'string') {
+      const message = typeof error === 'string' ? error : error.message;
+      setNotice({ tone: 'error', message });
     }
-  }, [error?.message]);
+  }, [error?.message, error]);
 
   const paymentStatuses = useMemo(() => (config?.paymentStatuses?.length ? config.paymentStatuses : ['unpaid', 'pending', 'paid', 'refunded']), [config?.paymentStatuses]);
   const connectionStatuses = useMemo(
@@ -78,7 +84,7 @@ export default function NetworkingSection() {
 
   const handleSuccess = async (message) => {
     setNotice({ tone: 'success', message });
-    await refresh({ force: true });
+    await onRefresh?.({ force: true });
   };
 
   const requireFreelancer = () => {
@@ -141,6 +147,30 @@ export default function NetworkingSection() {
     }
   };
 
+  const handleDeleteBooking = async (bookingId) => {
+    requireFreelancer();
+    setSaving(true);
+    try {
+      const reason = window.prompt('Reason for cancelling this booking? (optional)')?.trim();
+      const payload = reason ? { reason } : undefined;
+      await deleteFreelancerNetworkingSignup(freelancerId, bookingId, payload);
+      await handleSuccess('Booking removed.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteConnection = async (connectionId) => {
+    requireFreelancer();
+    setSaving(true);
+    try {
+      await deleteFreelancerNetworkingConnection(freelancerId, connectionId);
+      await handleSuccess('Contact removed.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <SectionShell id="network-hub" title="Network hub" description="Sessions, spend, and follow-ups.">
       <div className="space-y-6">
@@ -176,6 +206,7 @@ export default function NetworkingSection() {
         session={panel?.type === 'booking-create' ? panel.session : panel?.booking?.session ?? null}
         onCreate={handleCreateBooking}
         onUpdate={handleUpdateBooking}
+        onDelete={panel?.type === 'booking-edit' ? () => handleDeleteBooking(panel.booking.id) : undefined}
         busy={saving}
       />
 
@@ -188,6 +219,7 @@ export default function NetworkingSection() {
         connectionStatuses={connectionStatuses}
         onCreate={handleCreateConnection}
         onUpdate={handleUpdateConnection}
+        onDelete={panel?.type === 'connection-edit' ? () => handleDeleteConnection(panel.connection.id) : undefined}
         busy={saving}
       />
     </SectionShell>

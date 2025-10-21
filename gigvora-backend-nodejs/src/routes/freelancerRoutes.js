@@ -184,6 +184,11 @@ router.patch(
   authenticateRequest(),
   asyncHandler(freelancerNetworkingController.updateSignup),
 );
+router.delete(
+  '/:freelancerId/networking/signups/:signupId',
+  authenticateRequest(),
+  asyncHandler(freelancerNetworkingController.cancelSignup),
+);
 router.get(
   '/:freelancerId/networking/connections',
   authenticateRequest(),
@@ -198,6 +203,72 @@ router.patch(
   '/:freelancerId/networking/connections/:connectionId',
   authenticateRequest(),
   asyncHandler(freelancerNetworkingController.updateConnection),
+);
+router.delete(
+  '/:freelancerId/networking/connections/:connectionId',
+  authenticateRequest(),
+  asyncHandler(freelancerNetworkingController.deleteConnection),
+);
+router.get(
+  '/:freelancerId/networking/metrics',
+  authenticateRequest(),
+  asyncHandler(freelancerNetworkingController.metrics),
+);
+router.get(
+  '/:freelancerId/networking/orders',
+  authenticateRequest(),
+  asyncHandler(freelancerNetworkingController.listOrders),
+);
+router.post(
+  '/:freelancerId/networking/orders',
+  authenticateRequest(),
+  asyncHandler(freelancerNetworkingController.createOrder),
+);
+router.patch(
+  '/:freelancerId/networking/orders/:orderId',
+  authenticateRequest(),
+  asyncHandler(freelancerNetworkingController.updateOrder),
+);
+router.delete(
+  '/:freelancerId/networking/orders/:orderId',
+  authenticateRequest(),
+  asyncHandler(freelancerNetworkingController.deleteOrder),
+);
+router.get(
+  '/:freelancerId/networking/settings',
+  authenticateRequest(),
+  asyncHandler(freelancerNetworkingController.getSettings),
+);
+router.patch(
+  '/:freelancerId/networking/settings',
+  authenticateRequest(),
+  asyncHandler(freelancerNetworkingController.patchSettings),
+);
+router.patch(
+  '/:freelancerId/networking/preferences',
+  authenticateRequest(),
+  asyncHandler(freelancerNetworkingController.patchPreferences),
+);
+router.get(
+  '/:freelancerId/networking/ads',
+  authenticateRequest(),
+  asyncHandler(freelancerNetworkingController.listAds),
+);
+router.post(
+  '/:freelancerId/networking/ads',
+  authenticateRequest(),
+  asyncHandler(freelancerNetworkingController.createAd),
+);
+router.patch(
+  '/:freelancerId/networking/ads/:campaignId',
+  authenticateRequest(),
+  asyncHandler(freelancerNetworkingController.updateAd),
+);
+router.delete(
+  '/:freelancerId/networking/ads/:campaignId',
+  authenticateRequest(),
+  asyncHandler(freelancerNetworkingController.deleteAd),
+);
 router.get('/:freelancerId/volunteering', asyncHandler(volunteeringController.workspace));
 router.post('/:freelancerId/volunteering/applications', asyncHandler(volunteeringController.storeApplication));
 router.put('/:freelancerId/volunteering/applications/:applicationId', asyncHandler(volunteeringController.patchApplication));

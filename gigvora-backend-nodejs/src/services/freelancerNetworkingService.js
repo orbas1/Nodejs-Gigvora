@@ -6,13 +6,22 @@ import {
   NetworkingSessionSignup,
   NetworkingConnection,
   NetworkingBusinessCard,
+  NetworkingSessionOrder,
+  AdCampaign,
   ProviderWorkspaceMember,
   NETWORKING_SESSION_SIGNUP_STATUSES,
   NETWORKING_SIGNUP_PAYMENT_STATUSES,
   NETWORKING_CONNECTION_STATUSES,
   NETWORKING_CONNECTION_TYPES,
+  NETWORKING_SESSION_ORDER_STATUSES,
+  AD_STATUSES,
 } from '../models/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
+import {
+  listPurchases as listUserNetworkingPurchases,
+  createPurchase as createUserNetworkingPurchase,
+  updatePurchase as updateUserNetworkingPurchase,
+} from './userNetworkingService.js';
 import { registerForNetworkingSession } from './networkingService.js';
 
 const UPCOMING_STATUSES = new Set(['scheduled', 'in_progress']);
@@ -85,6 +94,45 @@ function normalizeConnectionType(value) {
   return valid;
 }
 
+function toCurrencyString(cents, currency = 'USD') {
+  const numeric = Number(cents ?? 0) / 100;
+  if (!Number.isFinite(numeric)) {
+    return `${currency} —`;
+  }
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(numeric);
+  } catch (error) {
+    return `${currency} ${numeric.toFixed(0)}`;
+  }
+}
+
+function normaliseBudgetCents(value) {
+  if (value == null || value === '') {
+    return null;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    throw new ValidationError('Budget must be numeric.');
+  }
+  return Math.max(0, Math.round(numeric * 100));
+}
+
+function ensureAdStatus(value) {
+  if (!value) {
+    return AD_STATUSES[0];
+  }
+  const normalised = String(value).toLowerCase();
+  if (!AD_STATUSES.includes(normalised)) {
+    throw new ValidationError(`Status must be one of: ${AD_STATUSES.join(', ')}.`);
+  }
+  return normalised;
+}
+
 function formatName(user) {
   if (!user) {
     return null;
@@ -92,6 +140,334 @@ function formatName(user) {
   const parts = [user.firstName, user.lastName].filter(Boolean);
   const name = parts.join(' ').trim();
   return name || user.email || null;
+}
+
+async function getOrCreateBusinessCard(freelancer) {
+  const existing = await NetworkingBusinessCard.findOne({
+    where: { ownerId: freelancer.id },
+    order: [
+      ['updatedAt', 'DESC'],
+      ['createdAt', 'DESC'],
+    ],
+  });
+  if (existing) {
+    return existing;
+  }
+
+  const defaultPreferences = {
+    shareAvailability: true,
+    autoShareCard: true,
+    calendarSync: 'google',
+    digestFrequency: 'weekly',
+    allowMentorIntroductions: true,
+    followUpReminders: true,
+  };
+
+  return NetworkingBusinessCard.create({
+    ownerId: freelancer.id,
+    title: formatName(freelancer) ?? 'Networking professional',
+    headline: 'Freelance networking partner',
+    status: 'draft',
+    contactEmail: freelancer.email ?? null,
+    preferences: defaultPreferences,
+    metadata: { createdBy: 'freelancer_networking_dashboard' },
+  });
+}
+
+function sanitizeBusinessCard(card) {
+  if (!card) {
+    return null;
+  }
+  const payload = card.toPublicObject();
+  return {
+    id: payload.id,
+    title: payload.title,
+    headline: payload.headline,
+    bio: payload.bio,
+    contactEmail: payload.contactEmail,
+    contactPhone: payload.contactPhone,
+    websiteUrl: payload.websiteUrl,
+    linkedinUrl: payload.linkedinUrl,
+    calendlyUrl: payload.calendlyUrl,
+    portfolioUrl: payload.portfolioUrl,
+    attachments: payload.attachments ?? [],
+    spotlightVideoUrl: payload.spotlightVideoUrl ?? null,
+    status: payload.status,
+    preferences: payload.preferences ?? {},
+    metadata: payload.metadata ?? {},
+    updatedAt: payload.updatedAt,
+  };
+}
+
+function sanitizeOrder(order) {
+  if (!order) {
+    return null;
+  }
+  const payload = order.toPublicObject ? order.toPublicObject() : order;
+  return {
+    id: payload.id,
+    sessionId: payload.sessionId,
+    purchaserId: payload.purchaserId,
+    status: payload.status,
+    amountCents: payload.amountCents ?? 0,
+    currency: payload.currency ?? 'USD',
+    purchasedAt: payload.purchasedAt ?? null,
+    reference: payload.reference ?? null,
+    purchaserEmail: payload.purchaserEmail ?? null,
+    purchaserName: payload.purchaserName ?? null,
+    metadata: payload.metadata ?? {},
+    session: payload.session ?? null,
+    createdAt: payload.createdAt ?? null,
+    updatedAt: payload.updatedAt ?? null,
+  };
+}
+
+function summariseOrders(orders = []) {
+  const paid = orders.filter((order) => order.status === 'paid');
+  const pending = orders.filter((order) => order.status === 'pending');
+  const refunded = orders.filter((order) => order.status === 'refunded');
+  const cancelled = orders.filter((order) => order.status === 'cancelled');
+  const currency = orders.find((order) => order.currency)?.currency ?? 'USD';
+
+  const totalSpendCents = paid.reduce((total, order) => total + (order.amountCents ?? 0), 0);
+  const pendingCents = pending.reduce((total, order) => total + (order.amountCents ?? 0), 0);
+  const refundedCents = refunded.reduce((total, order) => total + (order.amountCents ?? 0), 0);
+
+  return {
+    totals: {
+      total: orders.length,
+      paid: paid.length,
+      pending: pending.length,
+      refunded: refunded.length,
+      cancelled: cancelled.length,
+    },
+    spend: {
+      currency,
+      totalSpendCents,
+      totalSpendFormatted: toCurrencyString(totalSpendCents, currency),
+      pendingCents,
+      pendingFormatted: toCurrencyString(pendingCents, currency),
+      refundedCents,
+      refundedFormatted: toCurrencyString(refundedCents, currency),
+    },
+  };
+}
+
+function computeWeeklyBuckets({ bookings, connections, orders }) {
+  const now = new Date();
+  const startOfWeek = (input) => {
+    const date = new Date(input);
+    date.setUTCHours(0, 0, 0, 0);
+    const day = date.getUTCDay();
+    date.setUTCDate(date.getUTCDate() - day);
+    return date;
+  };
+  const labelForWeek = (start) => {
+    return start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const buckets = new Map();
+  for (let offset = 5; offset >= 0; offset -= 1) {
+    const anchor = new Date(now);
+    anchor.setUTCDate(anchor.getUTCDate() - offset * 7);
+    const start = startOfWeek(anchor);
+    buckets.set(start.getTime(), {
+      week: labelForWeek(start),
+      start,
+      end: new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000),
+      bookings: 0,
+      connections: 0,
+      spendCents: 0,
+    });
+  }
+
+  const assign = (date, key, incrementCents = 0) => {
+    if (!date) {
+      return;
+    }
+    const start = startOfWeek(date);
+    const bucket = buckets.get(start.getTime());
+    if (!bucket) {
+      return;
+    }
+    bucket[key] += 1;
+    if (incrementCents) {
+      bucket.spendCents += incrementCents;
+    }
+  };
+
+  bookings.forEach((booking) => {
+    const sessionDate = booking.session?.startTime ? new Date(booking.session.startTime) : null;
+    assign(sessionDate, 'bookings');
+  });
+
+  connections.forEach((connection) => {
+    const interacted = connection.firstInteractedAt ? new Date(connection.firstInteractedAt) : null;
+    assign(interacted ?? connection.createdAt, 'connections');
+  });
+
+  orders.forEach((order) => {
+    const purchasedAt = order.purchasedAt ? new Date(order.purchasedAt) : null;
+    assign(purchasedAt, 'bookings', order.amountCents ?? 0);
+  });
+
+  return Array.from(buckets.values()).map((bucket) => ({
+    week: bucket.week,
+    bookings: bucket.bookings,
+    connections: bucket.connections,
+    spendCents: bucket.spendCents,
+  }));
+}
+
+function computeNetworkingMetrics({ bookings, connections, orders }) {
+  const totalBookings = bookings.length;
+  const completedBookings = bookings.filter((booking) => booking.status === 'completed' || booking.session?.status === 'completed');
+  const cancelledBookings = bookings.filter((booking) => booking.status === 'removed' || booking.session?.status === 'cancelled');
+
+  const totalConnections = connections.length;
+  const followUpConnections = connections.filter((connection) => connection.status === 'follow_up');
+  const connectedConnections = connections.filter((connection) => connection.status === 'connected');
+
+  const paidOrders = orders.filter((order) => order.status === 'paid');
+  const currency = orders.find((order) => order.currency)?.currency ?? 'USD';
+  const totalSpendCents = paidOrders.reduce((total, order) => total + (order.amountCents ?? 0), 0);
+  const averageSpendCents = paidOrders.length ? Math.round(totalSpendCents / paidOrders.length) : 0;
+
+  const weeklyActivity = computeWeeklyBuckets({ bookings, connections, orders });
+
+  const sessionMap = new Map();
+  bookings.forEach((booking) => {
+    const session = booking.session;
+    if (!session) {
+      return;
+    }
+    const entry = sessionMap.get(session.id) ?? {
+      id: session.id,
+      title: session.title,
+      status: session.status,
+      bookings: 0,
+      spendCents: 0,
+      lastActivityAt: null,
+    };
+    entry.bookings += 1;
+    const sessionDate = session.endTime ? new Date(session.endTime) : session.startTime ? new Date(session.startTime) : null;
+    if (sessionDate && (!entry.lastActivityAt || sessionDate > entry.lastActivityAt)) {
+      entry.lastActivityAt = sessionDate;
+    }
+    sessionMap.set(session.id, entry);
+  });
+
+  orders.forEach((order) => {
+    if (!order.sessionId) {
+      return;
+    }
+    const entry = sessionMap.get(order.sessionId) ?? {
+      id: order.sessionId,
+      title: order.session?.title ?? 'Networking session',
+      status: order.session?.status ?? 'scheduled',
+      bookings: 0,
+      spendCents: 0,
+      lastActivityAt: null,
+    };
+    entry.spendCents += order.amountCents ?? 0;
+    const purchaseDate = order.purchasedAt ? new Date(order.purchasedAt) : null;
+    if (purchaseDate && (!entry.lastActivityAt || purchaseDate > entry.lastActivityAt)) {
+      entry.lastActivityAt = purchaseDate;
+    }
+    sessionMap.set(order.sessionId, entry);
+  });
+
+  const topSessions = Array.from(sessionMap.values())
+    .sort((a, b) => {
+      if (b.bookings !== a.bookings) {
+        return b.bookings - a.bookings;
+      }
+      return b.spendCents - a.spendCents;
+    })
+    .slice(0, 5)
+    .map((entry) => ({
+      ...entry,
+      lastActivityAt: entry.lastActivityAt ? entry.lastActivityAt.toISOString() : null,
+      spendFormatted: toCurrencyString(entry.spendCents, currency),
+    }));
+
+  return {
+    conversions: {
+      attendanceRate: totalBookings ? Number(((completedBookings.length / totalBookings) * 100).toFixed(1)) : 0,
+      cancellationRate: totalBookings ? Number(((cancelledBookings.length / totalBookings) * 100).toFixed(1)) : 0,
+      followUpRate: totalConnections ? Number(((followUpConnections.length / totalConnections) * 100).toFixed(1)) : 0,
+      connectionCloseRate: totalConnections ? Number(((connectedConnections.length / totalConnections) * 100).toFixed(1)) : 0,
+      paidRate: orders.length ? Number(((paidOrders.length / orders.length) * 100).toFixed(1)) : 0,
+    },
+    spend: {
+      totalSpendCents,
+      totalSpendFormatted: toCurrencyString(totalSpendCents, currency),
+      averageSpendCents,
+      averageSpendFormatted: toCurrencyString(averageSpendCents, currency),
+    },
+    topSessions,
+    weeklyActivity,
+  };
+}
+
+function sanitizeCampaign(campaign) {
+  if (!campaign) {
+    return null;
+  }
+  const payload = campaign.toPublicObject ? campaign.toPublicObject() : campaign;
+  const metrics = payload.metadata?.metrics ?? {};
+  const spendCents = metrics.spendCents ?? payload.metadata?.spendCents ?? 0;
+  const impressions = metrics.impressions ?? payload.metadata?.impressions ?? 0;
+  const clicks = metrics.clicks ?? payload.metadata?.clicks ?? 0;
+  const conversions = metrics.conversions ?? payload.metadata?.conversions ?? 0;
+
+  return {
+    id: payload.id,
+    name: payload.name,
+    objective: payload.objective,
+    status: payload.status,
+    budgetCents: payload.budgetCents ?? null,
+    currencyCode: payload.currencyCode ?? 'USD',
+    startDate: payload.startDate ?? null,
+    endDate: payload.endDate ?? null,
+    ownerId: payload.ownerId ?? null,
+    metadata: payload.metadata ?? {},
+    metrics: {
+      spendCents,
+      impressions,
+      clicks,
+      conversions,
+    },
+    createdAt: payload.createdAt,
+    updatedAt: payload.updatedAt,
+  };
+}
+
+function buildAdInsights(campaigns = []) {
+  if (!campaigns.length) {
+    return {
+      totalSpendCents: 0,
+      totalSpendFormatted: toCurrencyString(0),
+      totalImpressions: 0,
+      totalClicks: 0,
+      averageCpc: 0,
+      activeCampaigns: 0,
+    };
+  }
+  const totalSpendCents = campaigns.reduce((total, campaign) => total + (campaign.metrics?.spendCents ?? 0), 0);
+  const totalImpressions = campaigns.reduce((total, campaign) => total + (campaign.metrics?.impressions ?? 0), 0);
+  const totalClicks = campaigns.reduce((total, campaign) => total + (campaign.metrics?.clicks ?? 0), 0);
+  const activeCampaigns = campaigns.filter((campaign) => campaign.status === 'active').length;
+  const averageCpc = totalClicks ? Number(((totalSpendCents / totalClicks) / 100).toFixed(2)) : 0;
+
+  return {
+    totalSpendCents,
+    totalSpendFormatted: toCurrencyString(totalSpendCents),
+    totalImpressions,
+    totalClicks,
+    averageCpc,
+    activeCampaigns,
+  };
 }
 
 async function fetchFreelancer(freelancerId) {
@@ -266,10 +642,19 @@ export async function getFreelancerNetworkingDashboard(
     };
   });
 
-  const [availableSessions, connections] = await Promise.all([
+  const [availableSessions, connections, rawOrders, businessCard, campaigns] = await Promise.all([
     listAvailableSessions(freelancerId, { limit: 25 }),
     listConnections(freelancerId, { limit: limitConnections }),
+    listUserNetworkingPurchases(freelancerId, { limit: 200 }),
+    getOrCreateBusinessCard(freelancer),
+    listFreelancerNetworkingCampaigns(freelancerId),
   ]);
+
+  const orders = rawOrders.map((order) => sanitizeOrder(order));
+  const metrics = computeNetworkingMetrics({ bookings, connections, orders });
+  const orderSummary = summariseOrders(orders);
+  const businessCardPayload = sanitizeBusinessCard(businessCard);
+  const adsInsights = buildAdInsights(campaigns);
 
   return {
     freelancer: {
@@ -292,11 +677,25 @@ export async function getFreelancerNetworkingDashboard(
       total: connections.length,
       items: connections,
     },
+    metrics,
+    orders: {
+      items: orders,
+      summary: orderSummary,
+    },
+    settings: {
+      businessCard: businessCardPayload,
+    },
+    preferences: businessCardPayload?.preferences ?? {},
+    ads: {
+      campaigns,
+      insights: adsInsights,
+    },
     config: {
       paymentStatuses: NETWORKING_SIGNUP_PAYMENT_STATUSES,
       signupStatuses: NETWORKING_SESSION_SIGNUP_STATUSES,
       connectionStatuses: NETWORKING_CONNECTION_STATUSES,
       connectionTypes: NETWORKING_CONNECTION_TYPES,
+      orderStatuses: NETWORKING_SESSION_ORDER_STATUSES,
     },
   };
 }
@@ -440,6 +839,38 @@ export async function updateFreelancerNetworkingSignup(
   return signup.toPublicObject();
 }
 
+export async function cancelFreelancerNetworkingSignup(
+  freelancerId,
+  signupId,
+  payload = {},
+) {
+  const numericSignupId = normalizeInteger(signupId);
+  if (!numericSignupId) {
+    throw new ValidationError('A valid signupId is required.');
+  }
+
+  const signup = await NetworkingSessionSignup.findOne({
+    where: { id: numericSignupId, participantId: freelancerId },
+  });
+
+  if (!signup) {
+    throw new NotFoundError('Networking session registration not found.');
+  }
+
+  const metadata = { ...(signup.metadata ?? {}) };
+  if (payload.reason) {
+    metadata.cancellationReason = payload.reason;
+  }
+
+  await signup.update({
+    status: 'removed',
+    cancelledAt: new Date(),
+    metadata,
+  });
+
+  return signup.toPublicObject();
+}
+
 export async function listFreelancerNetworkingConnections(freelancerId, options = {}) {
   const connections = await listConnections(freelancerId, options);
   return {
@@ -552,11 +983,304 @@ export async function updateFreelancerNetworkingConnection(
   return connection.toPublicObject();
 }
 
+export async function deleteFreelancerNetworkingConnection(freelancerId, connectionId) {
+  const numericConnectionId = normalizeInteger(connectionId);
+  if (!numericConnectionId) {
+    throw new ValidationError('A valid connectionId is required.');
+  }
+
+  const connection = await NetworkingConnection.findOne({
+    where: { id: numericConnectionId, ownerId: freelancerId },
+  });
+
+  if (!connection) {
+    throw new NotFoundError('Networking contact not found.');
+  }
+
+  const payload = connection.toPublicObject();
+  await connection.destroy();
+  return payload;
+}
+
+export async function listFreelancerNetworkingCampaigns(freelancerId) {
+  const campaigns = await AdCampaign.findAll({
+    where: { ownerId: freelancerId },
+    order: [
+      ['createdAt', 'DESC'],
+    ],
+  });
+
+  return campaigns
+    .map((campaign) => sanitizeCampaign(campaign))
+    .filter((campaign) => {
+      const category = campaign.metadata?.category ?? campaign.metadata?.workspace ?? 'freelancer_networking';
+      return category === 'freelancer_networking';
+    });
+}
+
+function normaliseCampaignPayload(payload = {}) {
+  const metrics = payload.metrics ?? {};
+  const toNumber = (value) => {
+    if (value == null || value === '') {
+      return 0;
+    }
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : 0;
+  };
+
+  const spendCentsInput =
+    metrics.spendCents != null && metrics.spendCents !== '' ? Number(metrics.spendCents) : null;
+  const spendCents = Number.isFinite(spendCentsInput)
+    ? Math.max(0, Math.round(spendCentsInput))
+    : Math.max(0, Math.round(toNumber(metrics.spend) * 100));
+
+  return {
+    name: payload.name?.trim(),
+    objective: payload.objective?.trim() || 'awareness',
+    status: ensureAdStatus(payload.status),
+    budgetCents: normaliseBudgetCents(payload.budget ?? payload.budgetCents ?? null),
+    currencyCode: payload.currencyCode ? String(payload.currencyCode).toUpperCase() : 'USD',
+    startDate: payload.startDate ? new Date(payload.startDate) : null,
+    endDate: payload.endDate ? new Date(payload.endDate) : null,
+    metadata: {
+      ...(payload.metadata ?? {}),
+      category: 'freelancer_networking',
+      creative: {
+        headline: payload.headline ?? payload.metadata?.creative?.headline ?? null,
+        description: payload.description ?? payload.metadata?.creative?.description ?? null,
+        mediaUrl: payload.mediaUrl ?? payload.metadata?.creative?.mediaUrl ?? null,
+        cta: payload.cta ?? payload.metadata?.creative?.cta ?? null,
+        ctaUrl: payload.ctaUrl ?? payload.metadata?.creative?.ctaUrl ?? null,
+        thumbnailUrl: payload.thumbnailUrl ?? payload.metadata?.creative?.thumbnailUrl ?? null,
+      },
+      metrics: {
+        spendCents,
+        impressions: toNumber(metrics.impressions),
+        clicks: toNumber(metrics.clicks),
+        conversions: toNumber(metrics.conversions),
+      },
+      placements: Array.isArray(payload.placements)
+        ? payload.placements
+        : String(payload.placements ?? '')
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean),
+      audience: payload.audience ?? payload.metadata?.audience ?? null,
+    },
+  };
+}
+
+function ensureCampaignName(payload) {
+  if (!payload.name) {
+    throw new ValidationError('Campaign name is required.');
+  }
+}
+
+export async function listFreelancerNetworkingOrders(freelancerId, options = {}) {
+  const orders = await listUserNetworkingPurchases(freelancerId, options);
+  const sanitised = orders.map((order) => sanitizeOrder(order));
+  return {
+    items: sanitised,
+    summary: summariseOrders(sanitised),
+  };
+}
+
+export async function createFreelancerNetworkingOrder(freelancerId, payload = {}) {
+  const order = await createUserNetworkingPurchase(freelancerId, payload);
+  return sanitizeOrder(order);
+}
+
+export async function updateFreelancerNetworkingOrder(freelancerId, orderId, payload = {}) {
+  const order = await updateUserNetworkingPurchase(freelancerId, orderId, payload);
+  return sanitizeOrder(order);
+}
+
+export async function deleteFreelancerNetworkingOrder(freelancerId, orderId) {
+  const numericOrderId = normalizeInteger(orderId);
+  if (!numericOrderId) {
+    throw new ValidationError('A valid orderId is required.');
+  }
+
+  const order = await NetworkingSessionOrder.findOne({
+    where: { id: numericOrderId, purchaserId: freelancerId },
+  });
+
+  if (!order) {
+    throw new NotFoundError('Networking order not found.');
+  }
+
+  const payload = sanitizeOrder(order);
+  await order.destroy();
+  return payload;
+}
+
+export async function getFreelancerNetworkingSettings(freelancerId) {
+  const freelancer = await fetchFreelancer(freelancerId);
+  const card = await getOrCreateBusinessCard(freelancer);
+  return sanitizeBusinessCard(card);
+}
+
+function normaliseAttachments(attachments) {
+  if (!attachments) {
+    return [];
+  }
+  if (!Array.isArray(attachments)) {
+    return [];
+  }
+  return attachments
+    .map((attachment) => {
+      if (!attachment) {
+        return null;
+      }
+      if (typeof attachment === 'string') {
+        return { name: attachment, url: attachment };
+      }
+      const name = attachment.name?.toString().trim() || null;
+      const url = attachment.url?.toString().trim() || null;
+      if (!url) {
+        return null;
+      }
+      return { name: name || url, url };
+    })
+    .filter(Boolean);
+}
+
+export async function updateFreelancerNetworkingSettings(freelancerId, payload = {}) {
+  const freelancer = await fetchFreelancer(freelancerId);
+  const card = await getOrCreateBusinessCard(freelancer);
+
+  const updates = {};
+  if (payload.title !== undefined) updates.title = payload.title ?? null;
+  if (payload.headline !== undefined) updates.headline = payload.headline ?? null;
+  if (payload.bio !== undefined) updates.bio = payload.bio ?? null;
+  if (payload.contactEmail !== undefined) updates.contactEmail = payload.contactEmail ?? null;
+  if (payload.contactPhone !== undefined) updates.contactPhone = payload.contactPhone ?? null;
+  if (payload.websiteUrl !== undefined) updates.websiteUrl = payload.websiteUrl ?? null;
+  if (payload.linkedinUrl !== undefined) updates.linkedinUrl = payload.linkedinUrl ?? null;
+  if (payload.calendlyUrl !== undefined) updates.calendlyUrl = payload.calendlyUrl ?? null;
+  if (payload.portfolioUrl !== undefined) updates.portfolioUrl = payload.portfolioUrl ?? null;
+  if (payload.spotlightVideoUrl !== undefined) updates.spotlightVideoUrl = payload.spotlightVideoUrl ?? null;
+  if (payload.attachments !== undefined) updates.attachments = normaliseAttachments(payload.attachments);
+
+  const metadata = { ...(card.metadata ?? {}) };
+  if (payload.coverImageUrl !== undefined) {
+    metadata.coverImageUrl = payload.coverImageUrl ?? null;
+  }
+  if (payload.videoTranscript !== undefined) {
+    metadata.videoTranscript = payload.videoTranscript ?? null;
+  }
+  updates.metadata = metadata;
+
+  await card.update(updates);
+  await card.reload();
+  return sanitizeBusinessCard(card);
+}
+
+export async function updateFreelancerNetworkingPreferences(freelancerId, preferences = {}) {
+  const freelancer = await fetchFreelancer(freelancerId);
+  const card = await getOrCreateBusinessCard(freelancer);
+  const current = card.preferences && typeof card.preferences === 'object' ? card.preferences : {};
+
+  const allowedKeys = [
+    'shareAvailability',
+    'autoShareCard',
+    'calendarSync',
+    'digestFrequency',
+    'allowMentorIntroductions',
+    'followUpReminders',
+    'autoAcceptInvites',
+    'notifyOnOrders',
+  ];
+
+  const next = { ...current };
+  allowedKeys.forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(preferences, key)) {
+      next[key] = preferences[key];
+    }
+  });
+
+  await card.update({ preferences: next });
+  await card.reload();
+  return sanitizeBusinessCard(card);
+}
+
+export async function createFreelancerNetworkingCampaign(freelancerId, payload = {}) {
+  const freelancer = await fetchFreelancer(freelancerId);
+  const normalised = normaliseCampaignPayload(payload);
+  ensureCampaignName(normalised);
+
+  const campaign = await AdCampaign.create({
+    name: normalised.name,
+    objective: normalised.objective,
+    status: normalised.status,
+    budgetCents: normalised.budgetCents,
+    currencyCode: normalised.currencyCode,
+    startDate: normalised.startDate,
+    endDate: normalised.endDate,
+    ownerId: freelancer.id,
+    metadata: normalised.metadata,
+  });
+
+  return sanitizeCampaign(campaign);
+}
+
+export async function updateFreelancerNetworkingCampaign(freelancerId, campaignId, payload = {}) {
+  const campaign = await AdCampaign.findByPk(campaignId);
+  if (!campaign || campaign.ownerId !== Number(freelancerId)) {
+    throw new NotFoundError('Campaign not found.');
+  }
+
+  const normalised = normaliseCampaignPayload(payload);
+  if (normalised.name) {
+    campaign.name = normalised.name;
+  }
+  if (normalised.objective) {
+    campaign.objective = normalised.objective;
+  }
+  campaign.status = normalised.status;
+  campaign.budgetCents = normalised.budgetCents;
+  campaign.currencyCode = normalised.currencyCode;
+  campaign.startDate = normalised.startDate;
+  campaign.endDate = normalised.endDate;
+  campaign.metadata = { ...(campaign.metadata ?? {}), ...normalised.metadata };
+
+  await campaign.save();
+  await campaign.reload();
+  return sanitizeCampaign(campaign);
+}
+
+export async function deleteFreelancerNetworkingCampaign(freelancerId, campaignId) {
+  const campaign = await AdCampaign.findByPk(campaignId);
+  if (!campaign || campaign.ownerId !== Number(freelancerId)) {
+    throw new NotFoundError('Campaign not found.');
+  }
+  await campaign.destroy();
+  return { success: true };
+}
+
+export async function getFreelancerNetworkingAds(freelancerId) {
+  const campaigns = await listFreelancerNetworkingCampaigns(freelancerId);
+  return { campaigns, insights: buildAdInsights(campaigns) };
+}
+
 export default {
   getFreelancerNetworkingDashboard,
   bookNetworkingSessionForFreelancer,
   updateFreelancerNetworkingSignup,
+  cancelFreelancerNetworkingSignup,
   listFreelancerNetworkingConnections,
   createFreelancerNetworkingConnection,
   updateFreelancerNetworkingConnection,
+  deleteFreelancerNetworkingConnection,
+  listFreelancerNetworkingOrders,
+  createFreelancerNetworkingOrder,
+  updateFreelancerNetworkingOrder,
+  deleteFreelancerNetworkingOrder,
+  getFreelancerNetworkingSettings,
+  updateFreelancerNetworkingSettings,
+  updateFreelancerNetworkingPreferences,
+  createFreelancerNetworkingCampaign,
+  updateFreelancerNetworkingCampaign,
+  deleteFreelancerNetworkingCampaign,
+  getFreelancerNetworkingAds,
 };
