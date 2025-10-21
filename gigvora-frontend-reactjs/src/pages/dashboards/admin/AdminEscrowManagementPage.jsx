@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../../layouts/DashboardLayout.jsx';
 import useSession from '../../../hooks/useSession.js';
 import EscrowWorkspace from '../../../components/admin/escrow/EscrowWorkspace.jsx';
@@ -61,6 +62,7 @@ export default function AdminEscrowManagementPage() {
   const [tiers, setTiers] = useState([]);
   const [policies, setPolicies] = useState([]);
   const [message, setMessage] = useState(null);
+  const [exportNotice, setExportNotice] = useState('');
 
   useEffect(() => {
     if (!message) {
@@ -69,6 +71,14 @@ export default function AdminEscrowManagementPage() {
     const timeout = setTimeout(() => setMessage(null), 4000);
     return () => clearTimeout(timeout);
   }, [message]);
+
+  useEffect(() => {
+    if (!exportNotice) {
+      return undefined;
+    }
+    const timeout = setTimeout(() => setExportNotice(''), 2500);
+    return () => clearTimeout(timeout);
+  }, [exportNotice]);
 
   const currency = overview?.accounts?.items?.[0]?.currencyCode ?? 'USD';
 
@@ -185,6 +195,94 @@ export default function AdminEscrowManagementPage() {
     await loadOverview();
   };
 
+  const handleExportOverview = () => {
+    if (!overview) {
+      setExportNotice('Overview not ready.');
+      return;
+    }
+    try {
+      const rows = [];
+      const pushRow = (values) => {
+        const serialised = values.map((value) => {
+          if (value == null) {
+            return '""';
+          }
+          const text = `${value}`.replace(/"/g, '""');
+          return `"${text}"`;
+        });
+        rows.push(serialised.join(','));
+      };
+
+      const summary = overview.summary ?? {};
+      const currencyFormatter = new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: currency || 'USD',
+        maximumFractionDigits: 2,
+      });
+
+      pushRow(['Metric', 'Value']);
+      pushRow(['Gross volume (30d)', currencyFormatter.format(summary.grossVolume ?? 0)]);
+      pushRow(['Net volume (30d)', currencyFormatter.format(summary.netVolume ?? 0)]);
+      pushRow(['Fee volume (30d)', currencyFormatter.format(summary.feeVolume ?? 0)]);
+      pushRow(['Current balance', currencyFormatter.format(summary.currentBalance ?? 0)]);
+      pushRow(['Pending release total', currencyFormatter.format(summary.pendingReleaseTotal ?? 0)]);
+      pushRow(['Open disputes', summary.openDisputes ?? 0]);
+      pushRow(['Outstanding transactions', summary.outstandingTransactions ?? 0]);
+      pushRow(['Average release hours', summary.averageReleaseHours ?? 0]);
+
+      const accountItems = Array.isArray(overview.accounts?.items) ? overview.accounts.items : [];
+      if (accountItems.length) {
+        pushRow([]);
+        pushRow(['Escrow accounts']);
+        pushRow(['Account ID', 'Owner', 'Provider', 'Status', 'Currency', 'Balance', 'Pending release']);
+        accountItems.forEach((account) => {
+          pushRow([
+            account.id,
+            account.owner?.email || account.owner?.id || '—',
+            account.provider,
+            account.status,
+            account.currencyCode,
+            currencyFormatter.format(account.currentBalance ?? 0),
+            currencyFormatter.format(account.pendingReleaseTotal ?? 0),
+          ]);
+        });
+      }
+
+      const transactionItems = Array.isArray(overview.transactions?.items) ? overview.transactions.items : [];
+      if (transactionItems.length) {
+        pushRow([]);
+        pushRow(['Escrow transactions']);
+        pushRow(['Transaction ID', 'Reference', 'Status', 'Type', 'Amount', 'Currency', 'Account']);
+        transactionItems.forEach((transaction) => {
+          pushRow([
+            transaction.id,
+            transaction.reference,
+            transaction.status,
+            transaction.type,
+            currencyFormatter.format(transaction.amount ?? 0),
+            transaction.currencyCode,
+            transaction.account?.provider || transaction.accountId,
+          ]);
+        });
+      }
+
+      const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      const timestamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19);
+      anchor.download = `gigvora-escrow-${timestamp}.csv`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+      setExportNotice('Escrow report exported.');
+    } catch (err) {
+      console.error('Unable to export escrow overview', err);
+      setExportNotice('Export failed.');
+    }
+  };
+
   return (
     <DashboardLayout
       currentDashboard="admin"
@@ -195,6 +293,25 @@ export default function AdminEscrowManagementPage() {
       profile={profile}
     >
       <div className="space-y-6" id="escrow-home">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">Exports</h2>
+            <p className="text-xs text-slate-500">Export a CSV containing summary metrics, account balances, and transaction flow.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleExportOverview}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:text-blue-600"
+              disabled={!overview}
+            >
+              <ArrowDownTrayIcon className="h-4 w-4" aria-hidden="true" /> Export CSV
+            </button>
+            {exportNotice ? (
+              <span className="text-xs font-semibold uppercase tracking-wide text-emerald-600">{exportNotice}</span>
+            ) : null}
+          </div>
+        </div>
         {message && (
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div>
         )}

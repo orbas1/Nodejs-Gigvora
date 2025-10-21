@@ -50,11 +50,31 @@ export async function appendDisputeEvent(disputeId, payload, options = {}) {
 
 export async function fetchDisputes(params = {}, options = {}) {
   const response = await apiClient.get('/trust/disputes', { ...options, params });
+  const items = Array.isArray(response.items)
+    ? response.items
+    : Array.isArray(response.disputes)
+    ? response.disputes
+    : [];
+
+  const fallbackPageSize = items.length > 0 ? items.length : 25;
+  const pagination = response.pagination ?? response.meta ?? {
+    page: Number(params.page ?? 1),
+    pageSize: Number(params.pageSize ?? fallbackPageSize),
+    totalItems: response.totalItems ?? items.length,
+    totalPages: response.totalPages ?? 1,
+  };
+
+  const summary = response.summary ?? response.totals ?? {};
+  const filters = response.filters ?? {};
+
   return {
-    disputes: response.disputes ?? [],
-    pagination: response.pagination ?? {},
-    totals: response.totals ?? {},
-    filters: response.filters ?? {},
+    ...response,
+    items,
+    disputes: items,
+    summary,
+    totals: response.totals ?? summary,
+    pagination,
+    filters,
   };
 }
 

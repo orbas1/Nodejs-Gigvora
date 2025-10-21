@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { ClipboardDocumentCheckIcon, LinkIcon } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../../layouts/DashboardLayout.jsx';
 import useSession from '../../../hooks/useSession.js';
 import {
@@ -92,6 +93,7 @@ export default function AdminSiteManagementPage() {
   const [pages, setPages] = useState([]);
   const [stats, setStats] = useState({});
   const [lastSyncedAt, setLastSyncedAt] = useState(null);
+  const [copyFeedback, setCopyFeedback] = useState('');
 
   const [pageEditorOpen, setPageEditorOpen] = useState(false);
   const [pageEditorMode, setPageEditorMode] = useState('create');
@@ -178,6 +180,14 @@ export default function AdminSiteManagementPage() {
       })
       .finally(() => setLoading(false));
   };
+
+  useEffect(() => {
+    if (!copyFeedback) {
+      return undefined;
+    }
+    const timeout = setTimeout(() => setCopyFeedback(''), 2500);
+    return () => clearTimeout(timeout);
+  }, [copyFeedback]);
 
   const updateSettingsDraft = (path, value) => {
     setSettingsDraft((current) => {
@@ -360,6 +370,55 @@ export default function AdminSiteManagementPage() {
     [stats?.draft, stats?.published, totalNavigationLinks, lastSyncedAt],
   );
 
+  const heroPreview = settingsDraft?.hero ?? {};
+  const previewUrl = useMemo(() => {
+    if (!settingsDraft?.domain) {
+      return '';
+    }
+    const trimmed = `${settingsDraft.domain}`.trim();
+    const normalized = trimmed.replace(/^https?:\/\//i, '').replace(/\/$/, '');
+    return normalized ? `https://${normalized}` : '';
+  }, [settingsDraft?.domain]);
+
+  const heroBackgroundStyle = useMemo(() => {
+    if (heroPreview.backgroundImageUrl) {
+      return {
+        backgroundImage: `linear-gradient(to bottom, rgba(15,23,42,0.55), rgba(15,23,42,0.75)), url(${heroPreview.backgroundImageUrl})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      };
+    }
+    return {
+      backgroundImage: 'linear-gradient(120deg, rgba(37,99,235,0.75), rgba(79,70,229,0.6))',
+    };
+  }, [heroPreview.backgroundImageUrl]);
+
+  const handleCopyPreviewUrl = async () => {
+    if (!previewUrl) {
+      return;
+    }
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(previewUrl);
+        setCopyFeedback('Copied to clipboard');
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = previewUrl;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'absolute';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        setCopyFeedback('Copied to clipboard');
+      }
+    } catch (err) {
+      console.warn('Unable to copy preview URL', err);
+      setCopyFeedback('Unable to copy URL');
+    }
+  };
+
   const profileName = useMemo(() => {
     if (session?.name) {
       return session.name;
@@ -489,15 +548,79 @@ export default function AdminSiteManagementPage() {
       <div className="px-6 py-8">
         <div className="mx-auto flex max-w-6xl flex-col gap-8">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {statCards.map((card) => (
-              <div
-                key={card.id}
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-5 text-left shadow-sm shadow-slate-100"
-              >
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{card.label}</p>
-                <p className="mt-2 text-2xl font-semibold text-slate-900">{card.value}</p>
+          {statCards.map((card) => (
+            <div
+              key={card.id}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-5 text-left shadow-sm shadow-slate-100"
+            >
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{card.label}</p>
+              <p className="mt-2 text-2xl font-semibold text-slate-900">{card.value}</p>
+            </div>
+          ))}
+          </div>
+          <div className="grid gap-4 rounded-3xl border border-slate-200 bg-white/70 p-6 shadow-sm lg:grid-cols-[2fr,1fr]">
+            <div className="relative overflow-hidden rounded-3xl text-white" style={heroBackgroundStyle}>
+              <div className="relative flex min-h-[220px] flex-col justify-between gap-6 p-6">
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-200">
+                    {settingsDraft?.tagline || 'Brand tone'}
+                  </p>
+                  <h3 className="text-2xl font-semibold leading-tight sm:text-3xl">
+                    {heroPreview.title || 'Launch high-trust squads in days'}
+                  </h3>
+                  <p className="text-sm text-slate-100/90">
+                    {heroPreview.subtitle || 'Preview how your marketing surfaces render directly from the admin workspace.'}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <a
+                    href={heroPreview.ctaUrl || previewUrl || '#'}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/25"
+                  >
+                    <LinkIcon className="h-4 w-4" aria-hidden="true" />
+                    {heroPreview.ctaLabel || 'Open landing page'}
+                  </a>
+                  <button
+                    type="button"
+                    onClick={handleCopyPreviewUrl}
+                    className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20"
+                    disabled={!previewUrl}
+                  >
+                    <ClipboardDocumentCheckIcon className="h-4 w-4" aria-hidden="true" />
+                    {previewUrl ? copyFeedback || 'Copy preview link' : 'Preview link unavailable'}
+                  </button>
+                </div>
               </div>
-            ))}
+            </div>
+            <div className="flex flex-col justify-between gap-4 rounded-3xl border border-slate-200 bg-slate-50/80 p-5 shadow-inner">
+              <div>
+                <h4 className="text-sm font-semibold text-slate-900">Preview details</h4>
+                <p className="mt-2 text-xs text-slate-500">
+                  Your live marketing site pulls directly from these settings. Changes appear within minutes of publishing.
+                </p>
+              </div>
+              <dl className="space-y-3 text-sm text-slate-600">
+                <div className="flex items-center justify-between">
+                  <dt>Primary domain</dt>
+                  <dd className="font-semibold text-slate-800">{previewUrl || 'Not configured'}</dd>
+                </div>
+                <div className="flex items-center justify-between">
+                  <dt>CTA label</dt>
+                  <dd className="font-semibold text-slate-800">{heroPreview.ctaLabel || 'Book a demo'}</dd>
+                </div>
+                <div className="flex items-center justify-between">
+                  <dt>Media asset</dt>
+                  <dd className="font-semibold text-slate-800">
+                    {heroPreview.backgroundImageUrl ? 'Custom backdrop' : 'Gradient fallback'}
+                  </dd>
+                </div>
+              </dl>
+              {copyFeedback ? (
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">{copyFeedback}</p>
+              ) : null}
+            </div>
           </div>
           <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm shadow-slate-100">
             {PANE_OPTIONS.map((option) => {

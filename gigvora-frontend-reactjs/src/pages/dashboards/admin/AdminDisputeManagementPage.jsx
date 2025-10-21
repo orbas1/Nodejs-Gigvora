@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../../layouts/DashboardLayout.jsx';
 import useSession from '../../../hooks/useSession.js';
 import DataStatus from '../../../components/DataStatus.jsx';
@@ -108,6 +109,7 @@ export default function AdminDisputeManagementPage() {
   const [flashMessage, setFlashMessage] = useState(null);
   const [filterOpen, setFilterOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [exportStatus, setExportStatus] = useState('');
 
   const fetchDisputes = useCallback(
     async (targetPage, targetFilters) => {
@@ -131,6 +133,17 @@ export default function AdminDisputeManagementPage() {
     fetchDisputes(page, filters);
   }, [fetchDisputes, filters, page]);
 
+  const formatExportDate = (value) => {
+    if (!value) {
+      return '';
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    return date.toISOString();
+  };
+
   useEffect(() => {
     if (!flashMessage) {
       return undefined;
@@ -138,6 +151,14 @@ export default function AdminDisputeManagementPage() {
     const timeout = setTimeout(() => setFlashMessage(null), 4000);
     return () => clearTimeout(timeout);
   }, [flashMessage]);
+
+  useEffect(() => {
+    if (!exportStatus) {
+      return undefined;
+    }
+    const timeout = setTimeout(() => setExportStatus(''), 3000);
+    return () => clearTimeout(timeout);
+  }, [exportStatus]);
 
   const handleApplyFilters = (nextFilters) => {
     setFilters((current) => ({
@@ -154,6 +175,56 @@ export default function AdminDisputeManagementPage() {
   const handleResetFilters = (resetFilters) => {
     setFilters({ ...DEFAULT_FILTERS, ...resetFilters });
     setPage(1);
+  };
+
+  const handleExportCases = () => {
+    const exportItems = Array.isArray(response?.items) ? response.items : [];
+    if (!exportItems.length) {
+      setExportStatus('No cases available to export.');
+      return;
+    }
+    try {
+      const rows = [];
+      const pushRow = (values) => {
+        const serialised = values.map((value) => {
+          if (value == null) {
+            return '""';
+          }
+          const text = `${value}`.replace(/"/g, '""');
+          return `"${text}"`;
+        });
+        rows.push(serialised.join(','));
+      };
+
+      pushRow(['Case ID', 'Status', 'Stage', 'Priority', 'Assigned', 'Reference', 'Opened at', 'Updated at']);
+      exportItems.forEach((dispute) => {
+        pushRow([
+          dispute.id,
+          dispute.status,
+          dispute.stage,
+          dispute.priority,
+          dispute.assignedTo?.displayName || dispute.assignedTo?.email || 'Unassigned',
+          dispute.transaction?.reference || '—',
+          formatExportDate(dispute.createdAt || dispute.openedAt),
+          formatExportDate(dispute.updatedAt),
+        ]);
+      });
+
+      const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      const timestamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19);
+      anchor.download = `gigvora-disputes-${timestamp}.csv`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+      setExportStatus('Exported dispute queue snapshot.');
+    } catch (err) {
+      console.error('Failed to export disputes', err);
+      setExportStatus('Export failed.');
+    }
   };
 
   const handleMetricSelect = (metricKey) => {
@@ -312,7 +383,18 @@ export default function AdminDisputeManagementPage() {
               fromCache={false}
               statusLabel="Live"
             />
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleExportCases}
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:text-blue-600"
+                disabled={loading || !items.length}
+              >
+                <ArrowDownTrayIcon className="h-4 w-4" aria-hidden="true" /> Export view
+              </button>
+              {exportStatus ? (
+                <span className="text-xs font-semibold uppercase tracking-wide text-emerald-600">{exportStatus}</span>
+              ) : null}
               <button
                 type="button"
                 onClick={() => setFilterOpen(true)}
