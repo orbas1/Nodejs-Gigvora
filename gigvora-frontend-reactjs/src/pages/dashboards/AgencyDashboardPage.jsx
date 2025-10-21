@@ -21,6 +21,11 @@ import {
   ClosedGigsSection,
   GigSubmissionsSection,
   GigChatSection,
+  AgencyGigWorkspaceSection,
+  AgencyInboxSection,
+  AgencyWalletSection,
+  AgencyHubSection,
+  AgencyCreationStudioWizardSection,
 } from './agency/sections/index.js';
 import OverviewSection from './agency/sections/OverviewSection.jsx';
 import { EscrowProvider } from './agency/escrow/EscrowContext.jsx';
@@ -42,6 +47,11 @@ const MENU_SECTIONS = [
       { id: 'agency-gig-management', name: 'Gigs', sectionId: 'agency-gig-management' },
       { id: 'agency-escrow', name: 'Escrow', sectionId: 'agency-escrow' },
       { id: 'agency-finance', name: 'Finance', sectionId: 'agency-finance' },
+      { id: 'agency-gig-workspace', name: 'Gig workspace', sectionId: 'agency-gig-workspace' },
+      { id: 'agency-inbox', name: 'Inbox', sectionId: 'agency-inbox' },
+      { id: 'agency-wallet', name: 'Wallet', sectionId: 'agency-wallet' },
+      { id: 'agency-hub', name: 'Hub', sectionId: 'agency-hub' },
+      { id: 'agency-creation-studio', name: 'Creation Studio', sectionId: 'agency-creation-studio' },
     ],
   },
   {
@@ -65,6 +75,11 @@ const SECTIONS = [
   { id: 'agency-gig-management', label: 'Gig management' },
   { id: 'agency-escrow', label: 'Escrow' },
   { id: 'agency-finance', label: 'Finance' },
+  { id: 'agency-gig-workspace', label: 'Gig workspace' },
+  { id: 'agency-inbox', label: 'Inbox' },
+  { id: 'agency-wallet', label: 'Wallet' },
+  { id: 'agency-hub', label: 'Hub' },
+  { id: 'agency-creation-studio', label: 'Creation Studio' },
 ];
 
 function parseWorkspaceId(rawValue) {
@@ -190,13 +205,14 @@ export default function AgencyDashboardPage() {
     [agencyDashboard?.workspace?.ownerId, session?.id],
   );
 
+  const projectGigResource = useProjectGigManagement(ownerId);
   const {
     data: projectGigData,
     loading: projectLoading,
     error: projectError,
     actions: projectActions,
     reload: reloadProject,
-  } = useProjectGigManagement(ownerId);
+  } = projectGigResource;
 
   const orders = useMemo(() => projectGigData?.purchasedGigs?.orders ?? [], [projectGigData]);
   const [selectedOrderId, setSelectedOrderId] = useState(() => (orders.length ? orders[0].id : null));
@@ -474,6 +490,12 @@ export default function AgencyDashboardPage() {
           onCreated={handleRefreshGigData}
         />
 
+        <AgencyGigWorkspaceSection
+          resource={projectGigResource}
+          statusLabel="Gig marketplace sync"
+          onRefresh={handleRefreshGigData}
+        />
+
         <section id="agency-escrow" className="space-y-6 rounded-4xl border border-slate-200 bg-white p-8 shadow-soft">
           <header className="flex flex-wrap items-center justify-between gap-4">
             <div>
@@ -522,6 +544,25 @@ export default function AgencyDashboardPage() {
             currency={agencyDashboard?.workspace?.currency}
           />
         </section>
+
+        <AgencyInboxSection
+          workspaceId={workspace?.id ?? workspaceId}
+          statusLabel="Inbox telemetry"
+          initialSummary={agencyDashboard?.inbox?.summary}
+        />
+
+        <AgencyWalletSection workspaceId={workspace?.id ?? workspaceId} />
+
+        <AgencyHubSection
+          dashboard={agencyDashboard}
+          loading={dashboardLoading}
+          error={dashboardError}
+          lastUpdated={dashboardLastUpdated}
+          fromCache={dashboardFromCache}
+          onRefresh={() => refreshAgencyDashboard({ force: true })}
+        />
+
+        <AgencyCreationStudioWizardSection agencyProfileId={agencyDashboard?.agencyProfile?.id} />
       </div>
     </DashboardLayout>
   );
