@@ -1,27 +1,34 @@
 import { apiClient } from './apiClient.js';
+import { requireIdentifier, mergeWorkspace, combineRequestOptions } from './serviceHelpers.js';
 
-export function fetchCvWorkspace(userId, { signal } = {}) {
-  if (!userId) {
-    throw new Error('userId is required to load the CV workspace.');
-  }
-  return apiClient.get(`/users/${userId}/cv-documents/workspace`, { signal });
+export function fetchCvWorkspace(userId, { workspaceId, workspaceSlug, ...options } = {}) {
+  const resolvedUserId = requireIdentifier(userId, 'userId');
+  const params = mergeWorkspace({}, { workspaceId, workspaceSlug });
+  return apiClient.get(
+    `/users/${resolvedUserId}/cv-documents/workspace`,
+    combineRequestOptions({ params }, options),
+  );
 }
 
-export function createCvDocument(userId, payload) {
-  if (!userId) {
-    throw new Error('userId is required to create a CV document.');
-  }
-  return apiClient.post(`/users/${userId}/cv-documents`, payload);
+export function createCvDocument(userId, payload, { workspaceId, workspaceSlug, ...options } = {}) {
+  const resolvedUserId = requireIdentifier(userId, 'userId');
+  const params = mergeWorkspace({}, { workspaceId, workspaceSlug });
+  return apiClient.post(
+    `/users/${resolvedUserId}/cv-documents`,
+    payload ?? {},
+    combineRequestOptions({ params }, options),
+  );
 }
 
-export function uploadCvVersion(userId, documentId, payload) {
-  if (!userId) {
-    throw new Error('userId is required to upload a CV version.');
-  }
-  if (!documentId) {
-    throw new Error('documentId is required to upload a CV version.');
-  }
-  return apiClient.post(`/users/${userId}/cv-documents/${documentId}/upload`, payload);
+export function uploadCvVersion(userId, documentId, payload, { workspaceId, workspaceSlug, ...options } = {}) {
+  const resolvedUserId = requireIdentifier(userId, 'userId');
+  const resolvedDocumentId = requireIdentifier(documentId, 'documentId');
+  const params = mergeWorkspace({}, { workspaceId, workspaceSlug });
+  return apiClient.post(
+    `/users/${resolvedUserId}/cv-documents/${resolvedDocumentId}/upload`,
+    payload ?? {},
+    combineRequestOptions({ params }, options),
+  );
 }
 
 export default {

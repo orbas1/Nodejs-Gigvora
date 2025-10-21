@@ -1,51 +1,59 @@
 import { apiClient } from './apiClient.js';
+import { buildRequestOptions, resolveSignal, requireIdentifier } from './serviceHelpers.js';
 
-export function fetchCompanySystemPreferences({ workspaceId } = {}, { signal } = {}) {
+export function fetchCompanySystemPreferences({ workspaceId, signal } = {}, options = {}) {
   const params = {};
-  if (workspaceId != null && `${workspaceId}`.length > 0) {
-    params.workspaceId = workspaceId;
+  if (workspaceId != null && `${workspaceId}`.toString().trim().length > 0) {
+    params.workspaceId = `${workspaceId}`.toString().trim();
   }
-  return apiClient.get('/company/system-preferences', { params, signal });
+  const requestOptions = buildRequestOptions({
+    params,
+    signal: resolveSignal(signal, options.signal),
+  });
+  return apiClient.get('/company/system-preferences', requestOptions);
 }
 
-export function updateCompanySystemPreferences(payload, { signal } = {}) {
-  return apiClient.put('/company/system-preferences', payload ?? {}, { signal });
+export function updateCompanySystemPreferences(payload = {}, options = {}) {
+  const requestOptions = buildRequestOptions({ signal: resolveSignal(options.signal) });
+  return apiClient.put('/company/system-preferences', payload ?? {}, requestOptions);
 }
 
-export function createCompanyWebhook(payload, { signal } = {}) {
-  return apiClient.post('/company/system-preferences/webhooks', payload ?? {}, { signal });
+export function createCompanyWebhook(payload = {}, options = {}) {
+  const requestOptions = buildRequestOptions({ signal: resolveSignal(options.signal) });
+  return apiClient.post('/company/system-preferences/webhooks', payload ?? {}, requestOptions);
 }
 
-export function updateCompanyWebhook(webhookId, payload, { signal } = {}) {
-  if (!webhookId) {
-    throw new Error('webhookId is required to update a webhook.');
-  }
-  return apiClient.put(`/company/system-preferences/webhooks/${webhookId}`, payload ?? {}, { signal });
+export function updateCompanyWebhook(webhookId, payload = {}, options = {}) {
+  const webhookIdentifier = requireIdentifier(webhookId, 'webhookId');
+  const requestOptions = buildRequestOptions({ signal: resolveSignal(options.signal) });
+  return apiClient.put(`/company/system-preferences/webhooks/${webhookIdentifier}`, payload ?? {}, requestOptions);
 }
 
-export function deleteCompanyWebhook(webhookId, { signal } = {}) {
-  if (!webhookId) {
-    throw new Error('webhookId is required to delete a webhook.');
-  }
-  return apiClient.delete(`/company/system-preferences/webhooks/${webhookId}`, { signal });
+export function deleteCompanyWebhook(webhookId, options = {}) {
+  const webhookIdentifier = requireIdentifier(webhookId, 'webhookId');
+  const requestOptions = buildRequestOptions({ signal: resolveSignal(options.signal) });
+  return apiClient.delete(`/company/system-preferences/webhooks/${webhookIdentifier}`, requestOptions);
 }
 
-export function triggerCompanyWebhookTest(webhookId, payload = {}, { signal } = {}) {
-  if (!webhookId) {
-    throw new Error('webhookId is required to trigger a webhook test.');
-  }
-  return apiClient.post(`/company/system-preferences/webhooks/${webhookId}/test`, payload ?? {}, { signal });
+export function triggerCompanyWebhookTest(webhookId, payload = {}, options = {}) {
+  const webhookIdentifier = requireIdentifier(webhookId, 'webhookId');
+  const requestOptions = buildRequestOptions({ signal: resolveSignal(options.signal) });
+  return apiClient.post(
+    `/company/system-preferences/webhooks/${webhookIdentifier}/test`,
+    payload ?? {},
+    requestOptions,
+  );
 }
 
-export function createCompanyApiToken(payload = {}, { signal } = {}) {
-  return apiClient.post('/company/system-preferences/api-tokens', payload ?? {}, { signal });
+export function createCompanyApiToken(payload = {}, options = {}) {
+  const requestOptions = buildRequestOptions({ signal: resolveSignal(options.signal) });
+  return apiClient.post('/company/system-preferences/api-tokens', payload ?? {}, requestOptions);
 }
 
-export function revokeCompanyApiToken(tokenId, { signal } = {}) {
-  if (!tokenId) {
-    throw new Error('tokenId is required to revoke an API token.');
-  }
-  return apiClient.delete(`/company/system-preferences/api-tokens/${tokenId}`, { signal });
+export function revokeCompanyApiToken(tokenId, options = {}) {
+  const tokenIdentifier = requireIdentifier(tokenId, 'tokenId');
+  const requestOptions = buildRequestOptions({ signal: resolveSignal(options.signal) });
+  return apiClient.delete(`/company/system-preferences/api-tokens/${tokenIdentifier}`, requestOptions);
 }
 
 export default {
