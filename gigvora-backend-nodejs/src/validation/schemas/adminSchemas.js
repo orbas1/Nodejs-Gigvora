@@ -430,6 +430,27 @@ export const affiliateSettingsBodySchema = z
   })
   .strip();
 
+const profileLinkSchema = z
+  .object({
+    label: optionalTrimmedString({ max: 120 }),
+    url: optionalTrimmedString({ max: 2048 }),
+    icon: optionalTrimmedString({ max: 80 }),
+  })
+  .strip();
+
+const optionalOverviewEmail = z
+  .union([
+    z
+      .string()
+      .trim()
+      .min(1)
+      .max(255)
+      .email({ message: 'contactEmail must be a valid email address.' })
+      .transform((value) => value.toLowerCase()),
+    z.undefined(),
+  ])
+  .transform((value) => value ?? undefined);
+
 export const adminOverviewUpdateSchema = z
   .object({
     firstName: optionalTrimmedString({ max: 120 }),
@@ -441,6 +462,18 @@ export const adminOverviewUpdateSchema = z
     location: optionalLocationString({ max: 255 }),
     geoLocation: optionalGeoLocation(),
     timezone: optionalTrimmedString({ max: 120 }),
+    pronouns: optionalTrimmedString({ max: 60 }),
+    availabilityStatus: optionalTrimmedString({ max: 80 }),
+    availabilityNote: optionalTrimmedString({ max: 1000 }),
+    contactEmail: optionalOverviewEmail,
+    contactPhone: optionalTrimmedString({ max: 64 }),
+    preferredContactMethods: optionalStringArray({ maxItemLength: 40, maxLength: 10 }),
+    languages: optionalStringArray({ maxItemLength: 80, maxLength: 16 }),
+    focusAreas: optionalStringArray({ maxItemLength: 120, maxLength: 20 }),
+    links: z.array(profileLinkSchema).optional(),
+  })
+  .strip();
+
 const optionalMetadataSchema = z
   .union([z.record(z.any()), z.undefined()])
   .refine((value) => value === undefined || value === null || !Array.isArray(value), {
@@ -680,6 +713,8 @@ export const pageSettingsQuerySchema = z
 export const pageSettingsParamsSchema = z
   .object({
     pageId: requiredTrimmedString({ max: 180 }),
+  })
+  .strip();
 
 const optionalLooseString = (max) =>
   z
@@ -902,6 +937,10 @@ export const adminTwoFactorEnrollmentActionBodySchema = z
   .object({
     note: optionalTrimmedString({ max: 1000 }),
     reason: optionalTrimmedString({ max: 1000 }),
+    metadata: z.record(z.any()).optional(),
+  })
+  .strip();
+
 const DATABASE_DIALECTS = ['postgres', 'postgresql', 'mysql', 'mariadb', 'mssql', 'sqlite'];
 const DATABASE_SSL_MODES = ['disable', 'prefer', 'require', 'verify-ca', 'verify-full'];
 
@@ -1040,6 +1079,9 @@ export const databaseConnectionTestSchema = z
     password: optionalTrimmedString({ max: 255 }),
     sslMode: optionalTrimmedString({ max: 32 }).transform((value) => value?.toLowerCase()),
     options: databaseConnectionOptionsSchema.optional(),
+  })
+  .strip();
+
 const gdprDpoSchema = z
   .object({
     name: optionalTrimmedString({ max: 180 }),
@@ -1128,6 +1170,9 @@ export const gdprSettingsBodySchema = z
     processors: z.array(gdprProcessorSchema).optional(),
     breachResponse: gdprBreachResponseSchema.optional(),
     consentFramework: gdprConsentFrameworkSchema.optional(),
+  })
+  .strip();
+
 const seoMetaTagSchema = z
   .object({
     attribute: optionalTrimmedString({ max: 20 })

@@ -17,110 +17,214 @@ const CONTRACT_OPTIONS = ['full_time', 'part_time', 'contract', 'temporary', 'in
 const COMPENSATION_OPTIONS = ['salary', 'hourly', 'daily', 'project', 'equity', 'stipend'];
 const EXPERIENCE_OPTIONS = ['entry', 'mid', 'senior', 'lead', 'executive'];
 
-function optionalEnum(values) {
-  return z
-    .union([
-      z.undefined(),
-      z
-        .string()
-        .trim()
-        .min(1)
-        .transform((value) => value.toLowerCase())
-        .refine((value) => values.includes(value), {
-          message: `must be one of: ${values.join(', ')}`,
-        }),
-    ])
-    .transform((value) => value ?? undefined);
-}
+const optionalEnum = (values, field) =>
+  optionalTrimmedString({ max: 60 })
+    .transform((value) => {
+      if (value == null) {
+        return undefined;
+      }
+      return value.trim().toLowerCase();
+    })
+    .superRefine((value, ctx) => {
+      if (value == null) {
+        return;
+      }
+      if (!values.includes(value)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `${field ?? 'value'} must be one of: ${values.join(', ')}.`,
+        });
+      }
+    });
+
+const optionalIsoDateTime = (field) =>
+  optionalTrimmedString({ max: 64 })
+    .transform((value) => {
+      if (value == null) {
+        return undefined;
+      }
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return value;
+      }
+      return date.toISOString();
+    })
+    .superRefine((value, ctx) => {
+      if (value == null) {
+        return;
+      }
+      if (Number.isNaN(new Date(value).getTime())) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `${field} must be a valid ISO-8601 date/time.`,
+        });
+      }
+    });
+
+const optionalUrl = z
+  .union([
+    z.undefined(),
+    z
+      .string()
+      .trim()
+      .min(1)
+      .max(2048)
+      .transform((value) => (value.startsWith('http') ? value : `https://${value}`))
+      .refine((value) => {
+        try {
+          // eslint-disable-next-line no-new
+          new URL(value);
+          return true;
+        } catch (error) {
+          return false;
+        }
+      }, { message: 'must be a valid URL.' }),
+  ])
+  .transform((value) => value ?? undefined);
+
+const optionalEmail = z
+  .union([
+    z.undefined(),
+    z
+      .string()
+      .trim()
+      .min(1)
+      .max(255)
+      .email('must be a valid email address.')
+      .transform((value) => value.toLowerCase()),
+  ])
+  .transform((value) => value ?? undefined);
 
 const attachmentSchema = z
   .object({
     label: optionalTrimmedString({ max: 120 }),
-    url: requiredTrimmedString({ max: 2048 }),
+    url: requiredTrimmedString({ max: 2048 }).transform((value) => (value.startsWith('http') ? value : `https://${value}`)),
     type: optionalTrimmedString({ max: 40 }).transform((value) => value ?? undefined),
   })
   .strip();
 
 const textListSchema = z
   .union([
+    z.undefined(),
     requiredTrimmedString({ max: 5000 }),
     z.array(requiredTrimmedString({ max: 500 })),
   ])
-  .optional();
+  .transform((value) => {
+    if (value == null) {
+      return undefined;
+    }
+    if (typeof value === 'string') {
+      return value
+        .split('\n')
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+        .slice(0, 50);
+    }
+    return value
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .slice(0, 50);
+  });
 
-const jobPostBaseSchema = z
-  .object({
-    title: requiredTrimmedString({ max: 255, min: 4 }),
-    description: requiredTrimmedString({ max: 20000, min: 10 }),
-    location: optionalTrimmedString({ max: 255 }),
-    employmentType: optionalTrimmedString({ max: 120 }),
-    geoLocation: optionalGeoLocation(),
-    slug: optionalTrimmedString({ max: 160 }).transform((value) => value?.toLowerCase()),
-    status: optionalEnum(STATUS_OPTIONS),
-    visibility: optionalEnum(VISIBILITY_OPTIONS),
-    workflowStage: optionalEnum(WORKFLOW_OPTIONS),
-    approvalStatus: optionalEnum(APPROVAL_OPTIONS),
-    approvalNotes: optionalTrimmedString({ max: 1000 }),
-    applicationUrl: optionalTrimmedString({ max: 2048 }),
-    applicationEmail: optionalTrimmedString({ max: 255 }),
-    applicationInstructions: optionalTrimmedString({ max: 5000 }),
-    salaryMin: optionalNumber({ min: 0, precision: 2 }),
-    salaryMax: optionalNumber({ min: 0, precision: 2 }),
-    currency: optionalTrimmedString({ max: 3, toUpperCase: true }),
-    compensationType: optionalEnum(COMPENSATION_OPTIONS),
-    workplaceType: optionalEnum(WORKPLACE_OPTIONS),
-    contractType: optionalEnum(CONTRACT_OPTIONS),
-    experienceLevel: optionalEnum(EXPERIENCE_OPTIONS),
-    department: optionalTrimmedString({ max: 120 }),
-    team: optionalTrimmedString({ max: 120 }),
-    hiringManagerName: optionalTrimmedString({ max: 120 }),
-    hiringManagerEmail: optionalTrimmedString({ max: 255 }),
-    recruiterName: optionalTrimmedString({ max: 120 }),
-    recruiterEmail: optionalTrimmedString({ max: 255 }),
-    tags: optionalStringArray({ maxItemLength: 120, maxLength: 50 }),
-    benefits: textListSchema,
-    responsibilities: textListSchema,
-    requirements: textListSchema,
-    attachments: z.array(attachmentSchema).optional(),
-    promotionFlags: z
-      .object({
-        featured: optionalBoolean(),
-        highlighted: optionalBoolean(),
-        newsletter: optionalBoolean(),
-        pushNotification: optionalBoolean(),
-      })
-      .strip()
-      .optional(),
-    metadata: z.record(z.any()).optional(),
-    publishedAt: optionalTrimmedString({ max: 64 }),
-    expiresAt: optionalTrimmedString({ max: 64 }),
-    archivedAt: optionalTrimmedString({ max: 64 }),
-    archiveReason: optionalTrimmedString({ max: 255 }),
-    externalReference: optionalTrimmedString({ max: 120 }),
-  })
-  .strip();
+const jobPostSharedShape = {
+  location: optionalTrimmedString({ max: 255 }),
+  employmentType: optionalTrimmedString({ max: 120 }),
+  geoLocation: optionalGeoLocation(),
+  slug: optionalTrimmedString({ max: 160 }).transform((value) => value?.toLowerCase()),
+  status: optionalEnum(STATUS_OPTIONS, 'status'),
+  visibility: optionalEnum(VISIBILITY_OPTIONS, 'visibility'),
+  workflowStage: optionalEnum(WORKFLOW_OPTIONS, 'workflowStage'),
+  approvalStatus: optionalEnum(APPROVAL_OPTIONS, 'approvalStatus'),
+  approvalNotes: optionalTrimmedString({ max: 1000 }),
+  applicationUrl: optionalUrl,
+  applicationEmail: optionalEmail,
+  applicationInstructions: optionalTrimmedString({ max: 5000 }),
+  salaryMin: optionalNumber({ min: 0, precision: 2 }).transform((value) => value ?? undefined),
+  salaryMax: optionalNumber({ min: 0, precision: 2 }).transform((value) => value ?? undefined),
+  currency: optionalTrimmedString({ max: 3, toUpperCase: true }).transform((value) => value ?? undefined),
+  compensationType: optionalEnum(COMPENSATION_OPTIONS, 'compensationType'),
+  workplaceType: optionalEnum(WORKPLACE_OPTIONS, 'workplaceType'),
+  contractType: optionalEnum(CONTRACT_OPTIONS, 'contractType'),
+  experienceLevel: optionalEnum(EXPERIENCE_OPTIONS, 'experienceLevel'),
+  department: optionalTrimmedString({ max: 120 }),
+  team: optionalTrimmedString({ max: 120 }),
+  hiringManagerName: optionalTrimmedString({ max: 120 }),
+  hiringManagerEmail: optionalEmail,
+  recruiterName: optionalTrimmedString({ max: 120 }),
+  recruiterEmail: optionalEmail,
+  tags: optionalStringArray({ maxItemLength: 120, maxLength: 50 }),
+  benefits: textListSchema,
+  responsibilities: textListSchema,
+  requirements: textListSchema,
+  attachments: z.array(attachmentSchema).optional(),
+  promotionFlags: z
+    .object({
+      featured: optionalBoolean(),
+      highlighted: optionalBoolean(),
+      newsletter: optionalBoolean(),
+      pushNotification: optionalBoolean(),
+    })
+    .strip()
+    .optional(),
+  metadata: z.record(z.any()).optional(),
+  publishedAt: optionalIsoDateTime('publishedAt'),
+  expiresAt: optionalIsoDateTime('expiresAt'),
+  archivedAt: optionalIsoDateTime('archivedAt'),
+  archiveReason: optionalTrimmedString({ max: 255 }),
+  externalReference: optionalTrimmedString({ max: 120 }),
+};
+
+const buildJobPostSchema = (titleSchema, descriptionSchema) =>
+  z
+    .object({
+      title: titleSchema,
+      description: descriptionSchema,
+      ...jobPostSharedShape,
+    })
+    .strip();
+
+const applyJobPostRefinements = (schema) =>
+  schema.superRefine((value, ctx) => {
+    if (value.salaryMin != null && value.salaryMax != null && value.salaryMin > value.salaryMax) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'salaryMin must be less than or equal to salaryMax.',
+        path: ['salaryMin'],
+      });
+    }
+    if (value.publishedAt && value.expiresAt && value.publishedAt > value.expiresAt) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'publishedAt must be before expiresAt.',
+        path: ['publishedAt'],
+      });
+    }
+  });
+
+const jobPostBaseSchema = applyJobPostRefinements(
+  buildJobPostSchema(requiredTrimmedString({ max: 255, min: 4 }), requiredTrimmedString({ max: 20000, min: 10 })),
+);
 
 export const adminJobPostListQuerySchema = z
   .object({
-    status: optionalEnum(STATUS_OPTIONS),
-    workflowStage: optionalEnum(WORKFLOW_OPTIONS),
-    visibility: optionalEnum(VISIBILITY_OPTIONS),
-    search: optionalTrimmedString({ max: 255 }),
-    page: optionalNumber({ min: 1, precision: 0, integer: true }),
-    pageSize: optionalNumber({ min: 1, max: 100, precision: 0, integer: true }),
+    status: optionalEnum(STATUS_OPTIONS, 'status'),
+    workflowStage: optionalEnum(WORKFLOW_OPTIONS, 'workflowStage'),
+    visibility: optionalEnum(VISIBILITY_OPTIONS, 'visibility'),
+    search: optionalTrimmedString({ max: 255 }).transform((value) => value ?? undefined),
+    page: optionalNumber({ min: 1, precision: 0, integer: true }).transform((value) => value ?? undefined),
+    pageSize: optionalNumber({ min: 1, max: 100, precision: 0, integer: true }).transform((value) => value ?? undefined),
   })
   .strip();
 
 export const adminJobPostCreateSchema = jobPostBaseSchema;
 
-export const adminJobPostUpdateSchema = jobPostBaseSchema.partial().extend({
-  title: optionalTrimmedString({ max: 255 }),
-  description: optionalTrimmedString({ max: 20000 }),
-});
+export const adminJobPostUpdateSchema = applyJobPostRefinements(
+  buildJobPostSchema(optionalTrimmedString({ max: 255 }), optionalTrimmedString({ max: 20000 })),
+);
 
 export const adminJobPostLifecycleSchema = z
   .object({
-    publishedAt: z.union([optionalTrimmedString({ max: 64 }), z.date()]).optional(),
+    publishedAt: optionalIsoDateTime('publishedAt'),
   })
   .strip();
 
