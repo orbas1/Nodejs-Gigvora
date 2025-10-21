@@ -81,17 +81,69 @@ export default function useFreelancerNetworkingDashboard({
     ];
   }, [state.data]);
 
+  const orders = useMemo(() => {
+    const list = state.data?.orders?.items ?? [];
+    return list.map((order) => ({
+      ...order,
+      amountFormatted: formatCurrency(order.amountCents, order.currency),
+    }));
+  }, [state.data?.orders?.items]);
+
+  const adsCampaigns = useMemo(() => {
+    const campaigns = state.data?.ads?.campaigns ?? [];
+    return campaigns.map((campaign) => ({
+      ...campaign,
+      budgetFormatted: campaign.budgetCents != null
+        ? formatCurrency(campaign.budgetCents, campaign.currencyCode)
+        : '—',
+      spendFormatted: formatCurrency(campaign.metrics?.spendCents ?? 0, campaign.currencyCode),
+    }));
+  }, [state.data?.ads?.campaigns]);
+
   return {
     ...state,
     summaryCards,
     bookings: state.data?.bookings ?? [],
     availableSessions: state.data?.availableSessions ?? [],
     connections: state.data?.connections ?? { total: 0, items: [] },
+    metrics: state.data?.metrics ?? {
+      conversions: {},
+      spend: {},
+      topSessions: [],
+      weeklyActivity: [],
+    },
+    orders,
+    ordersSummary: state.data?.orders?.summary ?? {
+      totals: { total: 0, paid: 0, pending: 0, refunded: 0, cancelled: 0 },
+      spend: {
+        currency: 'USD',
+        totalSpendCents: 0,
+        totalSpendFormatted: formatCurrency(0),
+        pendingCents: 0,
+        pendingFormatted: formatCurrency(0),
+        refundedCents: 0,
+        refundedFormatted: formatCurrency(0),
+      },
+    },
+    settings: state.data?.settings ?? {},
+    preferences: state.data?.preferences ?? {},
+    ads: {
+      campaigns: adsCampaigns,
+      insights: state.data?.ads?.insights ?? {
+        totalSpendCents: 0,
+        totalSpendFormatted: formatCurrency(0),
+        totalImpressions: 0,
+        totalClicks: 0,
+        averageCpc: 0,
+        activeCampaigns: 0,
+      },
+    },
     config: state.data?.config ?? {
       paymentStatuses: [],
       signupStatuses: [],
       connectionStatuses: [],
       connectionTypes: [],
+      orderStatuses: [],
     },
   };
 }

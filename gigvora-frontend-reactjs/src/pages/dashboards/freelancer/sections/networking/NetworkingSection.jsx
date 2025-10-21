@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import SectionShell from '../../SectionShell.jsx';
-import useSession from '../../../../../hooks/useSession.js';
-import useFreelancerNetworkingDashboard from '../../../../../hooks/useFreelancerNetworkingDashboard.js';
 import {
   bookFreelancerNetworkingSession,
   updateFreelancerNetworkingSignup,
@@ -42,22 +40,28 @@ function Notice({ tone = 'info', message, onDismiss }) {
   );
 }
 
-export default function NetworkingSection() {
-  const { session } = useSession();
-  const freelancerId = session?.id;
+export default function NetworkingSection({
+  freelancerId,
+  summaryCards = [],
+  bookings = [],
+  availableSessions = [],
+  connections = { total: 0, items: [] },
+  config = {},
+  loading = false,
+  error = null,
+  onRefresh,
+}) {
   const [view, setView] = useState('plan');
   const [panel, setPanel] = useState(null);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState(null);
 
-  const { summaryCards, bookings, availableSessions, connections, config, loading, error, refresh } =
-    useFreelancerNetworkingDashboard({ freelancerId, enabled: Boolean(freelancerId) });
-
   useEffect(() => {
-    if (error?.message) {
-      setNotice({ tone: 'error', message: error.message });
+    if (error?.message || typeof error === 'string') {
+      const message = typeof error === 'string' ? error : error.message;
+      setNotice({ tone: 'error', message });
     }
-  }, [error?.message]);
+  }, [error?.message, error]);
 
   const paymentStatuses = useMemo(() => (config?.paymentStatuses?.length ? config.paymentStatuses : ['unpaid', 'pending', 'paid', 'refunded']), [config?.paymentStatuses]);
   const connectionStatuses = useMemo(
@@ -78,7 +82,7 @@ export default function NetworkingSection() {
 
   const handleSuccess = async (message) => {
     setNotice({ tone: 'success', message });
-    await refresh({ force: true });
+    await onRefresh?.({ force: true });
   };
 
   const requireFreelancer = () => {

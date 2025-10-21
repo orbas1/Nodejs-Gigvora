@@ -56,6 +56,97 @@ export function updateFreelancerNetworkingConnection(freelancerId, connectionId,
   return apiClient.patch(`/freelancers/${freelancerId}/networking/connections/${connectionId}`, payload);
 }
 
+export function getFreelancerNetworkingMetrics(freelancerId, { lookbackDays, limitConnections, signal } = {}) {
+  if (!freelancerId) {
+    throw new Error('freelancerId is required to load networking metrics.');
+  }
+  const params = {};
+  if (lookbackDays != null) params.lookbackDays = lookbackDays;
+  if (limitConnections != null) params.limitConnections = limitConnections;
+  return apiClient.get(`/freelancers/${freelancerId}/networking/metrics`, { params, signal });
+}
+
+export function listFreelancerNetworkingOrders(freelancerId, { limit, signal } = {}) {
+  if (!freelancerId) {
+    throw new Error('freelancerId is required to load networking orders.');
+  }
+  const params = {};
+  if (limit != null) params.limit = limit;
+  return apiClient.get(`/freelancers/${freelancerId}/networking/orders`, { params, signal });
+}
+
+export function createFreelancerNetworkingOrder(freelancerId, payload = {}) {
+  if (!freelancerId) {
+    throw new Error('freelancerId is required to create networking orders.');
+  }
+  return apiClient.post(`/freelancers/${freelancerId}/networking/orders`, payload);
+}
+
+export function updateFreelancerNetworkingOrder(freelancerId, orderId, payload = {}) {
+  if (!freelancerId) {
+    throw new Error('freelancerId is required to update networking orders.');
+  }
+  if (!orderId) {
+    throw new Error('orderId is required to update networking orders.');
+  }
+  return apiClient.patch(`/freelancers/${freelancerId}/networking/orders/${orderId}`, payload);
+}
+
+export function getFreelancerNetworkingSettings(freelancerId, { signal } = {}) {
+  if (!freelancerId) {
+    throw new Error('freelancerId is required to load networking settings.');
+  }
+  return apiClient.get(`/freelancers/${freelancerId}/networking/settings`, { signal });
+}
+
+export function updateFreelancerNetworkingSettings(freelancerId, payload = {}) {
+  if (!freelancerId) {
+    throw new Error('freelancerId is required to update networking settings.');
+  }
+  return apiClient.patch(`/freelancers/${freelancerId}/networking/settings`, payload);
+}
+
+export function updateFreelancerNetworkingPreferences(freelancerId, payload = {}) {
+  if (!freelancerId) {
+    throw new Error('freelancerId is required to update networking preferences.');
+  }
+  return apiClient.patch(`/freelancers/${freelancerId}/networking/preferences`, payload);
+}
+
+export function listFreelancerNetworkingAds(freelancerId, { signal } = {}) {
+  if (!freelancerId) {
+    throw new Error('freelancerId is required to load networking ads.');
+  }
+  return apiClient.get(`/freelancers/${freelancerId}/networking/ads`, { signal });
+}
+
+export function createFreelancerNetworkingAd(freelancerId, payload = {}) {
+  if (!freelancerId) {
+    throw new Error('freelancerId is required to create networking campaigns.');
+  }
+  return apiClient.post(`/freelancers/${freelancerId}/networking/ads`, payload);
+}
+
+export function updateFreelancerNetworkingAd(freelancerId, campaignId, payload = {}) {
+  if (!freelancerId) {
+    throw new Error('freelancerId is required to update networking campaigns.');
+  }
+  if (!campaignId) {
+    throw new Error('campaignId is required to update networking campaigns.');
+  }
+  return apiClient.patch(`/freelancers/${freelancerId}/networking/ads/${campaignId}`, payload);
+}
+
+export function deleteFreelancerNetworkingAd(freelancerId, campaignId) {
+  if (!freelancerId) {
+    throw new Error('freelancerId is required to delete networking campaigns.');
+  }
+  if (!campaignId) {
+    throw new Error('campaignId is required to delete networking campaigns.');
+  }
+  return apiClient.delete(`/freelancers/${freelancerId}/networking/ads/${campaignId}`);
+}
+
 const freelancerNetworkingService = {
   getFreelancerNetworkingDashboard,
   bookFreelancerNetworkingSession,
@@ -63,6 +154,17 @@ const freelancerNetworkingService = {
   listFreelancerNetworkingConnections,
   createFreelancerNetworkingConnection,
   updateFreelancerNetworkingConnection,
+  getFreelancerNetworkingMetrics,
+  listFreelancerNetworkingOrders,
+  createFreelancerNetworkingOrder,
+  updateFreelancerNetworkingOrder,
+  getFreelancerNetworkingSettings,
+  updateFreelancerNetworkingSettings,
+  updateFreelancerNetworkingPreferences,
+  listFreelancerNetworkingAds,
+  createFreelancerNetworkingAd,
+  updateFreelancerNetworkingAd,
+  deleteFreelancerNetworkingAd,
 };
 
 export default freelancerNetworkingService;

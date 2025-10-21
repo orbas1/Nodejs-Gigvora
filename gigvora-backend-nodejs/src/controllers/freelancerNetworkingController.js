@@ -5,6 +5,17 @@ import {
   listFreelancerNetworkingConnections,
   createFreelancerNetworkingConnection,
   updateFreelancerNetworkingConnection,
+  listFreelancerNetworkingOrders,
+  createFreelancerNetworkingOrder,
+  updateFreelancerNetworkingOrder,
+  getFreelancerNetworkingSettings,
+  updateFreelancerNetworkingSettings,
+  updateFreelancerNetworkingPreferences,
+  listFreelancerNetworkingCampaigns,
+  createFreelancerNetworkingCampaign,
+  updateFreelancerNetworkingCampaign,
+  deleteFreelancerNetworkingCampaign,
+  getFreelancerNetworkingAds,
 } from '../services/freelancerNetworkingService.js';
 import { AuthorizationError, ValidationError } from '../utils/errors.js';
 
@@ -101,6 +112,103 @@ export async function updateConnection(req, res) {
   res.json(payload);
 }
 
+export async function metrics(req, res) {
+  const freelancerId =
+    parsePositiveInteger(req.params.freelancerId ?? req.query.freelancerId, 'freelancerId') ??
+    parsePositiveInteger(req.user?.id, 'freelancerId');
+  ensureFreelancerAccess(req.user, freelancerId);
+  const lookback = req.query?.lookbackDays ? Number(req.query.lookbackDays) : undefined;
+  const limitConnections = req.query?.limitConnections ? Number(req.query.limitConnections) : undefined;
+  const dashboard = await getFreelancerNetworkingDashboard(freelancerId, {
+    lookbackDays: lookback ?? 180,
+    limitConnections: limitConnections ?? 100,
+  });
+  res.json({
+    summary: dashboard.summary,
+    metrics: dashboard.metrics,
+    orders: dashboard.orders?.summary ?? null,
+    ads: dashboard.ads?.insights ?? null,
+  });
+}
+
+export async function listOrders(req, res) {
+  const freelancerId = parsePositiveInteger(req.params.freelancerId, 'freelancerId');
+  ensureFreelancerAccess(req.user, freelancerId);
+  const limit = req.query?.limit ? Number(req.query.limit) : undefined;
+  const payload = await listFreelancerNetworkingOrders(freelancerId, { limit });
+  res.json(payload);
+}
+
+export async function createOrder(req, res) {
+  const freelancerId = parsePositiveInteger(req.params.freelancerId, 'freelancerId');
+  ensureFreelancerAccess(req.user, freelancerId);
+  const order = await createFreelancerNetworkingOrder(freelancerId, req.body ?? {});
+  const overview = await listFreelancerNetworkingOrders(freelancerId);
+  res.status(201).json({ order, summary: overview.summary });
+}
+
+export async function updateOrder(req, res) {
+  const freelancerId = parsePositiveInteger(req.params.freelancerId, 'freelancerId');
+  ensureFreelancerAccess(req.user, freelancerId);
+  const orderId = parsePositiveInteger(req.params.orderId, 'orderId');
+  const order = await updateFreelancerNetworkingOrder(freelancerId, orderId, req.body ?? {});
+  res.json(order);
+}
+
+export async function getSettings(req, res) {
+  const freelancerId = parsePositiveInteger(req.params.freelancerId, 'freelancerId');
+  ensureFreelancerAccess(req.user, freelancerId);
+  const card = await getFreelancerNetworkingSettings(freelancerId);
+  res.json(card);
+}
+
+export async function patchSettings(req, res) {
+  const freelancerId = parsePositiveInteger(req.params.freelancerId, 'freelancerId');
+  ensureFreelancerAccess(req.user, freelancerId);
+  const card = await updateFreelancerNetworkingSettings(freelancerId, req.body ?? {});
+  res.json(card);
+}
+
+export async function patchPreferences(req, res) {
+  const freelancerId = parsePositiveInteger(req.params.freelancerId, 'freelancerId');
+  ensureFreelancerAccess(req.user, freelancerId);
+  const card = await updateFreelancerNetworkingPreferences(freelancerId, req.body ?? {});
+  res.json({ preferences: card.preferences ?? {}, updatedAt: card.updatedAt });
+}
+
+export async function listAds(req, res) {
+  const freelancerId = parsePositiveInteger(req.params.freelancerId, 'freelancerId');
+  ensureFreelancerAccess(req.user, freelancerId);
+  const payload = await getFreelancerNetworkingAds(freelancerId);
+  res.json(payload);
+}
+
+export async function createAd(req, res) {
+  const freelancerId = parsePositiveInteger(req.params.freelancerId, 'freelancerId');
+  ensureFreelancerAccess(req.user, freelancerId);
+  const campaign = await createFreelancerNetworkingCampaign(freelancerId, req.body ?? {});
+  const ads = await getFreelancerNetworkingAds(freelancerId);
+  res.status(201).json({ campaign, ads });
+}
+
+export async function updateAd(req, res) {
+  const freelancerId = parsePositiveInteger(req.params.freelancerId, 'freelancerId');
+  ensureFreelancerAccess(req.user, freelancerId);
+  const campaignId = parsePositiveInteger(req.params.campaignId, 'campaignId');
+  const campaign = await updateFreelancerNetworkingCampaign(freelancerId, campaignId, req.body ?? {});
+  const ads = await getFreelancerNetworkingAds(freelancerId);
+  res.json({ campaign, ads });
+}
+
+export async function deleteAd(req, res) {
+  const freelancerId = parsePositiveInteger(req.params.freelancerId, 'freelancerId');
+  ensureFreelancerAccess(req.user, freelancerId);
+  const campaignId = parsePositiveInteger(req.params.campaignId, 'campaignId');
+  await deleteFreelancerNetworkingCampaign(freelancerId, campaignId);
+  const ads = await getFreelancerNetworkingAds(freelancerId);
+  res.json({ success: true, ads });
+}
+
 export default {
   dashboard,
   book,
@@ -108,4 +216,15 @@ export default {
   listConnections,
   createConnection,
   updateConnection,
+  metrics,
+  listOrders,
+  createOrder,
+  updateOrder,
+  getSettings,
+  patchSettings,
+  patchPreferences,
+  listAds,
+  createAd,
+  updateAd,
+  deleteAd,
 };
