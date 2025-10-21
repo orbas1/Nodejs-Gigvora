@@ -16,6 +16,7 @@ import {
   SUPPORT_CASE_STATUSES,
   SUPPORT_CASE_PRIORITIES,
 } from '../models/messagingModels.js';
+import { UserRole } from '../models/index.js';
 import { ApplicationError, ValidationError, NotFoundError, AuthorizationError } from '../utils/errors.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
 let notificationServicePromise = null;
@@ -43,6 +44,54 @@ const SUPPORT_ESCALATION_NOTIFY_USER_IDS = (process.env.SUPPORT_ESCALATION_NOTIF
 const SHOULD_QUEUE_SUPPORT_NOTIFICATIONS =
   String(process.env.SUPPRESS_SUPPORT_NOTIFICATIONS ?? '').toLowerCase() !== 'true' &&
   process.env.NODE_ENV !== 'test';
+
+function toNormalizedList(value, fallback = []) {
+  if (Array.isArray(value)) {
+    return value.map((entry) => entry?.toString().trim().toLowerCase()).filter(Boolean);
+  }
+  if (!value) {
+    return [...fallback];
+  }
+  return value
+    .split(',')
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+const SUPPORT_AGENT_ROLE_NAMES = new Set(
+  toNormalizedList(process.env.SUPPORT_AGENT_ROLES, ['support_agent', 'support_lead']),
+);
+const SUPPORT_AGENT_USER_TYPES = new Set(
+  toNormalizedList(process.env.SUPPORT_AGENT_USER_TYPES, ['admin']),
+);
+
+async function ensureSupportAgentPermissions(agent, transaction) {
+  if (!agent?.id) {
+    throw new ValidationError('Assigned agent does not exist.');
+  }
+
+  const normalizedType = agent.userType ? agent.userType.toString().trim().toLowerCase() : null;
+  if (normalizedType && SUPPORT_AGENT_USER_TYPES.has(normalizedType)) {
+    return true;
+  }
+
+  const roleAssignments = await UserRole.findAll({
+    where: { userId: agent.id },
+    transaction,
+    attributes: ['role'],
+  });
+
+  const hasAuthorizedRole = roleAssignments.some((assignment) => {
+    const normalizedRole = assignment?.role ? assignment.role.toString().trim().toLowerCase() : null;
+    return normalizedRole ? SUPPORT_AGENT_ROLE_NAMES.has(normalizedRole) : false;
+  });
+
+  if (!hasAuthorizedRole) {
+    throw new AuthorizationError('Assigned agent is not authorized for support operations.');
+  }
+
+  return true;
+}
 
 function normalizeMetadata(metadata, context) {
   if (metadata == null) return null;
@@ -1337,11 +1386,13 @@ export async function assignSupportAgent(threadId, agentId, { assignedBy, notify
 
     const agent = await User.findByPk(agentId, {
       transaction: trx,
-      attributes: ['id', 'firstName', 'lastName', 'email'],
+      attributes: ['id', 'firstName', 'lastName', 'email', 'userType'],
     });
     if (!agent) {
       throw new ValidationError('Assigned agent does not exist.');
     }
+
+    await ensureSupportAgentPermissions(agent, trx);
 
     supportCase.assignedTo = agentId;
     supportCase.assignedBy = assignedBy ?? agentId;
