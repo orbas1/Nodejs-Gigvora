@@ -85,9 +85,13 @@ class AdsRepository {
   }
 
   Future<List<AdPlacement>> fetchPlacementsForSurface(String surface) async {
+    final normalizedSurface = surface.trim();
+    if (normalizedSurface.isEmpty) {
+      return const <AdPlacement>[];
+    }
     final response = await _apiClient.get(
       '/ads/placements',
-      query: {'surfaces': surface},
+      query: {'surfaces': normalizedSurface},
       headers: const {
         'x-user-type': 'admin',
       },
@@ -96,14 +100,18 @@ class AdsRepository {
     if (response is Map<String, dynamic>) {
       final placements = response['placements'] ?? response['surface'];
       if (placements is List) {
-        return placements
-            .map((item) => AdPlacement.fromJson(Map<String, dynamic>.from(item as Map)))
-            .toList(growable: false);
+        return List<AdPlacement>.unmodifiable(
+          placements
+              .map((item) => AdPlacement.fromJson(Map<String, dynamic>.from(item as Map)))
+              .toList(growable: false),
+        );
       }
       if (placements is Map && placements['placements'] is List) {
-        return (placements['placements'] as List)
-            .map((item) => AdPlacement.fromJson(Map<String, dynamic>.from(item as Map)))
-            .toList(growable: false);
+        return List<AdPlacement>.unmodifiable(
+          (placements['placements'] as List)
+              .map((item) => AdPlacement.fromJson(Map<String, dynamic>.from(item as Map)))
+              .toList(growable: false),
+        );
       }
     }
 

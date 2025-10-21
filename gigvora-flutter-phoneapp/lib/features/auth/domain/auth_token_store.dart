@@ -93,7 +93,12 @@ class AuthTokenStore {
     required String accessToken,
     required String refreshToken,
   }) {
-    return _driver.persist(accessToken: accessToken, refreshToken: refreshToken);
+    final sanitizedAccess = accessToken.trim();
+    final sanitizedRefresh = refreshToken.trim();
+    if (sanitizedAccess.isEmpty || sanitizedRefresh.isEmpty) {
+      return _driver.clear();
+    }
+    return _driver.persist(accessToken: sanitizedAccess, refreshToken: sanitizedRefresh);
   }
 
   static Future<String?> readAccessToken() {
@@ -110,7 +115,7 @@ class AuthTokenStore {
 
   static Future<void> attachToken(ApiRequestContext context) async {
     final token = await _driver.readAccessToken();
-    if (token != null && token.isNotEmpty) {
+    if (token != null && token.isNotEmpty && !context.headers.containsKey('Authorization')) {
       context.headers['Authorization'] = 'Bearer $token';
     }
   }
