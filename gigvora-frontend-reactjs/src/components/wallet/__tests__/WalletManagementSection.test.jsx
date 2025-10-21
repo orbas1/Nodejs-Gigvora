@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 
@@ -147,13 +147,15 @@ describe('WalletManagementSection', () => {
   it('renders wallet summary metrics and supports manual refresh', async () => {
     const { actions } = arrange();
 
+    const user = userEvent.setup();
+
     render(<WalletManagementSection userId="user-1" />);
 
     expect(screen.getByRole('heading', { name: 'Wallet' })).toBeInTheDocument();
     expect(screen.getByText('US$5,500.00')).toBeInTheDocument();
 
     const refreshButton = screen.getByRole('button', { name: 'Refresh' });
-    await userEvent.click(refreshButton);
+    await user.click(refreshButton);
 
     expect(actions.refresh).toHaveBeenCalledTimes(1);
   });
@@ -161,32 +163,45 @@ describe('WalletManagementSection', () => {
   it('validates and submits a new funding source', async () => {
     const { actions } = arrange();
 
+    const user = userEvent.setup();
+
     render(<WalletManagementSection userId="user-1" />);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Sources' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Add source' }));
+    await user.click(screen.getByRole('button', { name: 'Sources' }));
+    await user.click(screen.getByRole('button', { name: 'Add source' }));
 
     const saveButton = screen.getByRole('button', { name: 'Save source' });
-    await userEvent.click(saveButton);
+    await user.click(saveButton);
 
     expect(await screen.findByText('Name is required.')).toBeInTheDocument();
 
-    await userEvent.type(screen.getByLabelText('Name'), 'New Source');
-    await userEvent.type(screen.getByLabelText('Provider'), 'Test Bank');
-    await userEvent.type(screen.getByLabelText('Last digits'), '9876');
+    const dialog = screen.getByRole('dialog', { name: /source/i });
+    const nameInput = within(dialog).getByLabelText('Name');
+    const providerInput = within(dialog).getByLabelText('Provider');
+    const lastDigitsInput = within(dialog).getByLabelText('Last digits');
 
-    await userEvent.click(saveButton);
+    fireEvent.change(nameInput, { target: { value: 'New Source' } });
+    fireEvent.change(providerInput, { target: { value: 'Test Bank' } });
+    fireEvent.change(lastDigitsInput, { target: { value: '9876' } });
+
+    expect(nameInput).toHaveValue('New Source');
+    expect(providerInput).toHaveValue('Test Bank');
+    expect(lastDigitsInput).toHaveValue('9876');
+
+    await user.click(saveButton);
 
     await waitFor(() => {
-      expect(actions.createFundingSource).toHaveBeenCalledWith({
-        walletAccountId: '1',
-        type: 'bank_account',
-        label: 'New Source',
-        provider: 'Test Bank',
-        lastFour: '9876',
-        makePrimary: false,
-        currencyCode: 'USD',
-      });
+      expect(actions.createFundingSource).toHaveBeenCalled();
+    });
+
+    expect(actions.createFundingSource).toHaveBeenCalledWith({
+      walletAccountId: '1',
+      type: 'bank_account',
+      label: 'New Source',
+      provider: 'Test Bank',
+      lastFour: '9876',
+      makePrimary: false,
+      currencyCode: 'USD',
     });
 
     expect(await screen.findByText('Funding source saved.')).toBeInTheDocument();
@@ -196,10 +211,12 @@ describe('WalletManagementSection', () => {
   it('promotes a funding source to primary', async () => {
     const { actions } = arrange();
 
+    const user = userEvent.setup();
+
     render(<WalletManagementSection userId="user-1" />);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Sources' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Set primary' }));
+    await user.click(screen.getByRole('button', { name: 'Sources' }));
+    await user.click(screen.getByRole('button', { name: /set backup card/i }));
 
     await waitFor(() => {
       expect(actions.updateFundingSource).toHaveBeenCalledWith(11, { makePrimary: true });

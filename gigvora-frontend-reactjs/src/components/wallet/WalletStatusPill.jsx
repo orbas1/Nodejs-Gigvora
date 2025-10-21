@@ -10,10 +10,15 @@ const toneClasses = {
 };
 
 function WalletStatusPill({ value }) {
+  const label = formatStatus(value);
   const tone = toneClasses[statusTone(value)] ?? toneClasses.neutral;
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold ${tone}`}>
-      <span className="truncate">{formatStatus(value)}</span>
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold ${tone}`}
+      aria-label={`Status: ${label}`}
+      title={label}
+    >
+      <span className="truncate">{label}</span>
     </span>
   );
 }
