@@ -9,6 +9,8 @@ import {
   deleteNavigation,
 } from '../services/siteManagementService.js';
 import { ValidationError } from '../utils/errors.js';
+import logger from '../utils/logger.js';
+import { extractAdminActor, stampPayloadWithActor, coercePositiveInteger } from '../utils/adminRequestContext.js';
 
 export async function overview(req, res) {
   const snapshot = await getSiteManagementOverview();
@@ -16,57 +18,55 @@ export async function overview(req, res) {
 }
 
 export async function updateSettings(req, res) {
-  const result = await saveSiteSettings(req.body ?? {});
+  const actor = extractAdminActor(req);
+  const result = await saveSiteSettings(stampPayloadWithActor(req.body ?? {}, actor, { setUpdatedBy: true }));
+  logger.info({ actor: actor.reference }, 'Site management settings updated');
   res.json(result);
 }
 
 export async function createPage(req, res) {
-  const page = await createSitePage(req.body ?? {});
+  const actor = extractAdminActor(req);
+  const page = await createSitePage(stampPayloadWithActor(req.body ?? {}, actor, { setCreatedBy: true }));
+  logger.info({ actor: actor.reference, pageId: page?.id }, 'Site management page created');
   res.status(201).json({ page });
 }
 
 export async function updatePage(req, res) {
-  const { pageId } = req.params;
-  const id = Number.parseInt(pageId, 10);
-  if (Number.isNaN(id)) {
-    throw new ValidationError('Valid pageId is required.');
-  }
-  const page = await updateSitePageById(id, req.body ?? {});
+  const id = coercePositiveInteger(req.params?.pageId, 'pageId');
+  const actor = extractAdminActor(req);
+  const page = await updateSitePageById(id, stampPayloadWithActor(req.body ?? {}, actor, { setUpdatedBy: true }));
+  logger.info({ actor: actor.reference, pageId: id }, 'Site management page updated');
   res.json({ page });
 }
 
 export async function deletePage(req, res) {
-  const { pageId } = req.params;
-  const id = Number.parseInt(pageId, 10);
-  if (Number.isNaN(id)) {
-    throw new ValidationError('Valid pageId is required.');
-  }
+  const id = coercePositiveInteger(req.params?.pageId, 'pageId');
   await deleteSitePageById(id);
+  const actor = extractAdminActor(req);
+  logger.info({ actor: actor.reference, pageId: id }, 'Site management page deleted');
   res.status(204).send();
 }
 
 export async function createNavigationLink(req, res) {
-  const link = await createNavigation(req.body ?? {});
+  const actor = extractAdminActor(req);
+  const link = await createNavigation(stampPayloadWithActor(req.body ?? {}, actor, { setCreatedBy: true }));
+  logger.info({ actor: actor.reference, navigationId: link?.id }, 'Site navigation link created');
   res.status(201).json({ link });
 }
 
 export async function updateNavigationLink(req, res) {
-  const { linkId } = req.params;
-  const id = Number.parseInt(linkId, 10);
-  if (Number.isNaN(id)) {
-    throw new ValidationError('Valid linkId is required.');
-  }
-  const link = await updateNavigation(id, req.body ?? {});
+  const id = coercePositiveInteger(req.params?.linkId, 'linkId');
+  const actor = extractAdminActor(req);
+  const link = await updateNavigation(id, stampPayloadWithActor(req.body ?? {}, actor, { setUpdatedBy: true }));
+  logger.info({ actor: actor.reference, navigationId: id }, 'Site navigation link updated');
   res.json({ link });
 }
 
 export async function deleteNavigationLink(req, res) {
-  const { linkId } = req.params;
-  const id = Number.parseInt(linkId, 10);
-  if (Number.isNaN(id)) {
-    throw new ValidationError('Valid linkId is required.');
-  }
+  const id = coercePositiveInteger(req.params?.linkId, 'linkId');
   await deleteNavigation(id);
+  const actor = extractAdminActor(req);
+  logger.info({ actor: actor.reference, navigationId: id }, 'Site navigation link deleted');
   res.status(204).send();
 }
 
