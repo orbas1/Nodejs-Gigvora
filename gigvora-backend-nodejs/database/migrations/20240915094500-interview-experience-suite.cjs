@@ -1,9 +1,6 @@
 'use strict';
 
-function resolveJsonType(queryInterface, Sequelize) {
-  const dialect = queryInterface.sequelize.getDialect();
-  return ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
-}
+const { resolveJsonType, safeRemoveIndex } = require('../utils/migrationHelpers.cjs');
 
 module.exports = {
   async up(queryInterface, Sequelize) {
@@ -267,6 +264,30 @@ module.exports = {
 
   async down(queryInterface) {
     await queryInterface.sequelize.transaction(async (transaction) => {
+      await safeRemoveIndex(queryInterface, 'candidate_care_tickets', ['workspaceId', 'openedAt'], { transaction });
+      await safeRemoveIndex(queryInterface, 'candidate_care_tickets', ['workspaceId', 'status'], { transaction });
+      await safeRemoveIndex(queryInterface, 'onboarding_tasks', ['workspaceId', 'status'], { transaction });
+      await safeRemoveIndex(queryInterface, 'offer_packages', ['workspaceId', 'status'], { transaction });
+      await safeRemoveIndex(queryInterface, 'decision_trackers', ['workspaceId', 'status'], { transaction });
+      await safeRemoveIndex(
+        queryInterface,
+        'evaluation_calibration_sessions',
+        ['workspaceId', 'scheduledAt'],
+        { transaction },
+      );
+      await safeRemoveIndex(queryInterface, 'interview_evaluations', ['workspaceId', 'submittedAt'], { transaction });
+      await safeRemoveIndex(queryInterface, 'interview_evaluations', ['workspaceId', 'stage'], { transaction });
+      await safeRemoveIndex(queryInterface, 'candidate_prep_portals', ['workspaceId', 'status'], { transaction });
+      await safeRemoveIndex(queryInterface, 'interview_reminders', ['workspaceId', 'sentAt'], { transaction });
+      await safeRemoveIndex(
+        queryInterface,
+        'interviewer_availabilities',
+        ['workspaceId', 'availableFrom'],
+        { transaction },
+      );
+      await safeRemoveIndex(queryInterface, 'interview_panel_templates', ['workspaceId', 'stage'], { transaction });
+      await safeRemoveIndex(queryInterface, 'interview_panel_templates', ['workspaceId', 'roleName'], { transaction });
+
       await queryInterface.dropTable('candidate_care_tickets', { transaction });
       await queryInterface.dropTable('onboarding_tasks', { transaction });
       await queryInterface.dropTable('offer_packages', { transaction });

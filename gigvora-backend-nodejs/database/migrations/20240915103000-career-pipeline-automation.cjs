@@ -1,8 +1,10 @@
 'use strict';
 
+const { resolveJsonType, dropEnum } = require('../utils/migrationHelpers.cjs');
+
 module.exports = {
   async up(queryInterface, Sequelize) {
-    const jsonType = Sequelize.JSONB ?? Sequelize.JSON;
+    const jsonType = resolveJsonType(queryInterface, Sequelize);
 
     await queryInterface.sequelize.transaction(async (transaction) => {
       await queryInterface.createTable(
@@ -21,8 +23,8 @@ module.exports = {
           isPrimary: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false },
           timezone: { type: Sequelize.STRING(120), allowNull: true },
           settings: { type: jsonType, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
         },
         { transaction },
       );
@@ -54,8 +56,8 @@ module.exports = {
           slaHours: { type: Sequelize.INTEGER, allowNull: true },
           exitCriteria: { type: jsonType, allowNull: true },
           checklistTemplate: { type: jsonType, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
         },
         { transaction },
       );
@@ -124,8 +126,8 @@ module.exports = {
           },
           equalOpportunityReport: { type: jsonType, allowNull: true },
           automationMetadata: { type: jsonType, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
         },
         { transaction },
       );
@@ -153,8 +155,8 @@ module.exports = {
           permissions: { type: jsonType, allowNull: true },
           invitedAt: { type: Sequelize.DATE, allowNull: true },
           joinedAt: { type: Sequelize.DATE, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
         },
         { transaction },
       );
@@ -188,12 +190,12 @@ module.exports = {
             defaultValue: 'in_app',
           },
           message: { type: Sequelize.TEXT, allowNull: false },
-          triggeredAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          triggeredAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
           dueAt: { type: Sequelize.DATE, allowNull: true },
           resolvedAt: { type: Sequelize.DATE, allowNull: true },
           metadata: { type: jsonType, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
         },
         { transaction },
       );
@@ -228,8 +230,8 @@ module.exports = {
           recipients: { type: jsonType, allowNull: true },
           attachments: { type: jsonType, allowNull: true },
           lastSharedAt: { type: Sequelize.DATE, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
         },
         { transaction },
       );
@@ -271,8 +273,8 @@ module.exports = {
           resources: { type: jsonType, allowNull: true },
           lastSyncedAt: { type: Sequelize.DATE, allowNull: true },
           metadata: { type: jsonType, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
         },
         { transaction },
       );
@@ -310,8 +312,8 @@ module.exports = {
           dueAt: { type: Sequelize.DATE, allowNull: true },
           completedAt: { type: Sequelize.DATE, allowNull: true },
           metadata: { type: jsonType, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
         },
         { transaction },
       );
@@ -345,8 +347,8 @@ module.exports = {
             defaultValue: 'hold',
           },
           notes: { type: Sequelize.TEXT, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
         },
         { transaction },
       );
@@ -398,8 +400,8 @@ module.exports = {
           documentsSummary: { type: jsonType, allowNull: true },
           decisionDeadline: { type: Sequelize.DATE, allowNull: true },
           metadata: { type: jsonType, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
         },
         { transaction },
       );
@@ -423,8 +425,8 @@ module.exports = {
           totalValue: { type: Sequelize.DECIMAL(14, 2), allowNull: true },
           assumptions: { type: jsonType, allowNull: true },
           notes: { type: Sequelize.TEXT, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
         },
         { transaction },
       );
@@ -447,8 +449,8 @@ module.exports = {
           signedAt: { type: Sequelize.DATE, allowNull: true },
           storedAt: { type: Sequelize.STRING(120), allowNull: true },
           metadata: { type: jsonType, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
         },
         { transaction },
       );
@@ -479,8 +481,8 @@ module.exports = {
           premiumRoleGuardrail: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: true },
           lastExecutedAt: { type: Sequelize.DATE, allowNull: true },
           metadata: { type: jsonType, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
         },
         { transaction },
       );
@@ -501,15 +503,15 @@ module.exports = {
             allowNull: false,
             defaultValue: 'pending',
           },
-          executedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          executedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
           evaluatedCount: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
           matchesCount: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
           autoSentCount: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
           rejectionReasons: { type: jsonType, allowNull: true },
           notes: { type: Sequelize.TEXT, allowNull: true },
           sampleSubmission: { type: jsonType, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
         },
         { transaction },
       );
@@ -533,9 +535,9 @@ module.exports = {
           manualReviews: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
           rejectionReasons: { type: jsonType, allowNull: true },
           conversionSignals: { type: jsonType, allowNull: true },
-          lastUpdatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          lastUpdatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
         },
         { transaction },
       );
@@ -548,41 +550,45 @@ module.exports = {
 
       await dropTable('career_auto_apply_analytics');
       await dropTable('career_auto_apply_test_runs');
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_career_auto_apply_test_runs_status"', { transaction });
       await dropTable('career_auto_apply_rules');
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_career_auto_apply_rules_status"', { transaction });
 
       await dropTable('career_offer_documents');
       await dropTable('career_offer_scenarios');
       await dropTable('career_offer_packages');
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_career_offer_packages_status"', { transaction });
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_career_offer_packages_decisionStatus"', { transaction });
 
       await dropTable('career_interview_scorecards');
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_career_interview_scorecards_recommendation"', { transaction });
       await dropTable('career_interview_tasks');
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_career_interview_tasks_status"', { transaction });
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_career_interview_tasks_priority"', { transaction });
       await dropTable('career_interview_workspaces');
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_career_interview_workspaces_status"', { transaction });
 
       await dropTable('career_candidate_briefs');
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_career_candidate_briefs_status"', { transaction });
 
       await dropTable('career_opportunity_nudges');
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_career_opportunity_nudges_severity"', { transaction });
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_career_opportunity_nudges_channel"', { transaction });
 
       await dropTable('career_opportunity_collaborators');
       await dropTable('career_opportunities');
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_career_opportunities_followUpStatus"', { transaction });
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_career_opportunities_complianceStatus"', { transaction });
 
       await dropTable('career_pipeline_stages');
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_career_pipeline_stages_stageType"', { transaction });
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_career_pipeline_stages_outcomeCategory"', { transaction });
-
       await dropTable('career_pipeline_boards');
+
+      const enumNames = [
+        'enum_career_auto_apply_test_runs_status',
+        'enum_career_auto_apply_rules_status',
+        'enum_career_offer_packages_status',
+        'enum_career_offer_packages_decisionStatus',
+        'enum_career_interview_scorecards_recommendation',
+        'enum_career_interview_tasks_status',
+        'enum_career_interview_tasks_priority',
+        'enum_career_interview_workspaces_status',
+        'enum_career_candidate_briefs_status',
+        'enum_career_opportunity_nudges_severity',
+        'enum_career_opportunity_nudges_channel',
+        'enum_career_opportunities_followUpStatus',
+        'enum_career_opportunities_complianceStatus',
+        'enum_career_pipeline_stages_stageType',
+        'enum_career_pipeline_stages_outcomeCategory',
+      ];
+
+      await Promise.all(enumNames.map((enumName) => dropEnum(queryInterface, enumName, transaction)));
     });
   },
 };

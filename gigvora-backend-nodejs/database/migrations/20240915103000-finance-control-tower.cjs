@@ -1,9 +1,6 @@
 'use strict';
 
-function resolveJsonType(queryInterface, Sequelize) {
-  const dialect = queryInterface.sequelize.getDialect();
-  return ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
-}
+const { resolveJsonType, safeRemoveIndex } = require('../utils/migrationHelpers.cjs');
 
 module.exports = {
   async up(queryInterface, Sequelize) {
@@ -241,12 +238,25 @@ module.exports = {
   },
 
   async down(queryInterface) {
-    await queryInterface.dropTable('finance_tax_exports');
-    await queryInterface.dropTable('finance_forecast_scenarios');
-    await queryInterface.dropTable('finance_payout_splits');
-    await queryInterface.dropTable('finance_payout_batches');
-    await queryInterface.dropTable('finance_savings_goals');
-    await queryInterface.dropTable('finance_expense_entries');
-    await queryInterface.dropTable('finance_revenue_entries');
+    await queryInterface.sequelize.transaction(async (transaction) => {
+      await safeRemoveIndex(queryInterface, 'finance_tax_exports', ['userId', 'periodEnd'], { transaction });
+      await safeRemoveIndex(queryInterface, 'finance_forecast_scenarios', ['userId', 'scenarioType'], { transaction });
+      await safeRemoveIndex(queryInterface, 'finance_forecast_scenarios', ['userId', 'generatedAt'], { transaction });
+      await safeRemoveIndex(queryInterface, 'finance_payout_splits', ['batchId'], { transaction });
+      await safeRemoveIndex(queryInterface, 'finance_payout_batches', ['userId', 'executedAt'], { transaction });
+      await safeRemoveIndex(queryInterface, 'finance_savings_goals', ['userId', 'status'], { transaction });
+      await safeRemoveIndex(queryInterface, 'finance_expense_entries', ['userId', 'category'], { transaction });
+      await safeRemoveIndex(queryInterface, 'finance_expense_entries', ['userId', 'occurredAt'], { transaction });
+      await safeRemoveIndex(queryInterface, 'finance_revenue_entries', ['userId', 'revenueType'], { transaction });
+      await safeRemoveIndex(queryInterface, 'finance_revenue_entries', ['userId', 'recognizedAt'], { transaction });
+
+      await queryInterface.dropTable('finance_tax_exports', { transaction });
+      await queryInterface.dropTable('finance_forecast_scenarios', { transaction });
+      await queryInterface.dropTable('finance_payout_splits', { transaction });
+      await queryInterface.dropTable('finance_payout_batches', { transaction });
+      await queryInterface.dropTable('finance_savings_goals', { transaction });
+      await queryInterface.dropTable('finance_expense_entries', { transaction });
+      await queryInterface.dropTable('finance_revenue_entries', { transaction });
+    });
   },
 };

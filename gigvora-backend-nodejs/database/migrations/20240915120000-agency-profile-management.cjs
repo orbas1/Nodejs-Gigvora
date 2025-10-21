@@ -1,6 +1,22 @@
 
 'use strict';
 
+function resolveJsonType(queryInterface, Sequelize) {
+  const dialect = queryInterface.sequelize.getDialect();
+  return ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
+}
+
+async function ensureColumn(queryInterface, transaction, table, column, definition, columnsCache) {
+  if (!columnsCache[column]) {
+    await queryInterface.addColumn(table, column, definition, { transaction });
+    columnsCache[column] = true;
+  }
+}
+
+async function removeColumnIfExists(queryInterface, transaction, table, column) {
+  const columns = await queryInterface.describeTable(table, { transaction });
+  if (columns[column]) {
+    await queryInterface.removeColumn(table, column, { transaction });
 const resolveJsonType = (queryInterface, Sequelize) => {
   const dialect = queryInterface.sequelize.getDialect();
   return ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
@@ -15,8 +31,19 @@ async function addColumnIfMissing(queryInterface, transaction, table, columnName
 
 module.exports = {
   async up(queryInterface, Sequelize) {
+    const jsonType = resolveJsonType(queryInterface, Sequelize);
     await queryInterface.sequelize.transaction(async (transaction) => {
       const agencyProfilesTable = 'agency_profiles';
+      const columns = await queryInterface.describeTable(agencyProfilesTable, { transaction });
+
+      await ensureColumn(
+        queryInterface,
+        transaction,
+        agencyProfilesTable,
+        'description',
+        { type: Sequelize.TEXT, allowNull: true },
+        columns,
+      );
       const jsonType = resolveJsonType(queryInterface, Sequelize);
 
       await addColumnIfMissing(queryInterface, transaction, agencyProfilesTable, 'description', {
@@ -24,39 +51,49 @@ module.exports = {
         allowNull: true,
       });
 
-      await queryInterface.addColumn(
+      await ensureColumn(
+        queryInterface,
+        transaction,
         agencyProfilesTable,
         'introVideoUrl',
         { type: Sequelize.STRING(500), allowNull: true },
-        { transaction },
+        columns,
       );
 
-      await queryInterface.addColumn(
+      await ensureColumn(
+        queryInterface,
+        transaction,
         agencyProfilesTable,
         'bannerImageUrl',
         { type: Sequelize.STRING(500), allowNull: true },
-        { transaction },
+        columns,
       );
 
-      await queryInterface.addColumn(
+      await ensureColumn(
+        queryInterface,
+        transaction,
         agencyProfilesTable,
         'profileImageUrl',
         { type: Sequelize.STRING(500), allowNull: true },
-        { transaction },
+        columns,
       );
 
-      await queryInterface.addColumn(
+      await ensureColumn(
+        queryInterface,
+        transaction,
         agencyProfilesTable,
         'workforceAvailable',
         { type: Sequelize.INTEGER, allowNull: true },
-        { transaction },
+        columns,
       );
 
-      await queryInterface.addColumn(
+      await ensureColumn(
+        queryInterface,
+        transaction,
         agencyProfilesTable,
         'workforceNotes',
         { type: Sequelize.STRING(255), allowNull: true },
-        { transaction },
+        columns,
       );
 
       await queryInterface.createTable(
@@ -278,6 +315,12 @@ module.exports = {
       await queryInterface.dropTable('agency_profile_skills', { transaction });
       await queryInterface.dropTable('agency_profile_media', { transaction });
 
+      await removeColumnIfExists(queryInterface, transaction, agencyProfilesTable, 'workforceNotes');
+      await removeColumnIfExists(queryInterface, transaction, agencyProfilesTable, 'workforceAvailable');
+      await removeColumnIfExists(queryInterface, transaction, agencyProfilesTable, 'profileImageUrl');
+      await removeColumnIfExists(queryInterface, transaction, agencyProfilesTable, 'bannerImageUrl');
+      await removeColumnIfExists(queryInterface, transaction, agencyProfilesTable, 'introVideoUrl');
+      await removeColumnIfExists(queryInterface, transaction, agencyProfilesTable, 'description');
       await queryInterface.removeColumn(agencyProfilesTable, 'workforceNotes', { transaction }).catch(() => {});
       await queryInterface.removeColumn(agencyProfilesTable, 'workforceAvailable', { transaction }).catch(() => {});
       await queryInterface.removeColumn(agencyProfilesTable, 'profileImageUrl', { transaction }).catch(() => {});

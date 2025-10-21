@@ -3,48 +3,161 @@
 const followerPolicyEnum = 'enum_agency_profiles_followerPolicy';
 const connectionPolicyEnum = 'enum_agency_profiles_connectionPolicy';
 
-const resolveJsonType = (queryInterface, Sequelize) => {
+function resolveJsonType(queryInterface, Sequelize) {
   const dialect = queryInterface.sequelize.getDialect();
   return ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
-};
+}
 
-async function ensureColumns(queryInterface, transaction, table, columns) {
-  const definition = await queryInterface.describeTable(table, { transaction });
-  const tasks = Object.entries(columns)
-    .filter(([columnName]) => !definition[columnName])
-    .map(([columnName, columnDefinition]) =>
-      queryInterface.addColumn(table, columnName, columnDefinition, { transaction }),
-    );
-  await Promise.all(tasks);
+async function dropEnumIfExists(queryInterface, enumName) {
+  const dialect = queryInterface.sequelize.getDialect();
+  if (['postgres', 'postgresql'].includes(dialect)) {
+    await queryInterface.sequelize.query(`DROP TYPE IF EXISTS "${enumName}";`);
+  }
 }
 
 module.exports = {
   async up(queryInterface, Sequelize) {
+    const jsonType = resolveJsonType(queryInterface, Sequelize);
     await queryInterface.sequelize.transaction(async (transaction) => {
       const table = 'agency_profiles';
-      const jsonType = resolveJsonType(queryInterface, Sequelize);
 
-      await ensureColumns(queryInterface, transaction, table, {
-        tagline: { type: Sequelize.STRING(160), allowNull: true },
-        summary: { type: Sequelize.TEXT, allowNull: true },
-        about: { type: Sequelize.TEXT, allowNull: true },
-        services: { type: jsonType, allowNull: true },
-        industries: { type: jsonType, allowNull: true },
-        clients: { type: jsonType, allowNull: true },
-        awards: { type: jsonType, allowNull: true },
-        socialLinks: { type: jsonType, allowNull: true },
-        teamSize: { type: Sequelize.INTEGER, allowNull: true },
-        foundedYear: { type: Sequelize.INTEGER, allowNull: true },
-        primaryContactName: { type: Sequelize.STRING(160), allowNull: true },
-        primaryContactEmail: { type: Sequelize.STRING(255), allowNull: true },
-        primaryContactPhone: { type: Sequelize.STRING(60), allowNull: true },
-        brandColor: { type: Sequelize.STRING(12), allowNull: true },
-        bannerUrl: { type: Sequelize.STRING(500), allowNull: true },
-        avatarUrl: { type: Sequelize.STRING(500), allowNull: true },
-        avatarStorageKey: { type: Sequelize.STRING(500), allowNull: true },
-        autoAcceptFollowers: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: true },
-        defaultConnectionMessage: { type: Sequelize.TEXT, allowNull: true },
-        followerPolicy: {
+      await queryInterface.addColumn(
+        table,
+        'tagline',
+        { type: Sequelize.STRING(160), allowNull: true },
+        { transaction },
+      );
+
+      await queryInterface.addColumn(
+        table,
+        'summary',
+        { type: Sequelize.TEXT, allowNull: true },
+        { transaction },
+      );
+
+      await queryInterface.addColumn(
+        table,
+        'about',
+        { type: Sequelize.TEXT, allowNull: true },
+        { transaction },
+      );
+
+      await queryInterface.addColumn(
+        table,
+        'services',
+        { type: jsonType, allowNull: true },
+        { transaction },
+      );
+
+      await queryInterface.addColumn(
+        table,
+        'industries',
+        { type: jsonType, allowNull: true },
+        { transaction },
+      );
+
+      await queryInterface.addColumn(
+        table,
+        'clients',
+        { type: jsonType, allowNull: true },
+        { transaction },
+      );
+
+      await queryInterface.addColumn(
+        table,
+        'awards',
+        { type: jsonType, allowNull: true },
+        { transaction },
+      );
+
+      await queryInterface.addColumn(
+        table,
+        'socialLinks',
+        { type: jsonType, allowNull: true },
+        { transaction },
+      );
+
+      await queryInterface.addColumn(
+        table,
+        'teamSize',
+        { type: Sequelize.INTEGER, allowNull: true },
+        { transaction },
+      );
+
+      await queryInterface.addColumn(
+        table,
+        'foundedYear',
+        { type: Sequelize.INTEGER, allowNull: true },
+        { transaction },
+      );
+
+      await queryInterface.addColumn(
+        table,
+        'primaryContactName',
+        { type: Sequelize.STRING(160), allowNull: true },
+        { transaction },
+      );
+
+      await queryInterface.addColumn(
+        table,
+        'primaryContactEmail',
+        { type: Sequelize.STRING(255), allowNull: true },
+        { transaction },
+      );
+
+      await queryInterface.addColumn(
+        table,
+        'primaryContactPhone',
+        { type: Sequelize.STRING(60), allowNull: true },
+        { transaction },
+      );
+
+      await queryInterface.addColumn(
+        table,
+        'brandColor',
+        { type: Sequelize.STRING(12), allowNull: true },
+        { transaction },
+      );
+
+      await queryInterface.addColumn(
+        table,
+        'bannerUrl',
+        { type: Sequelize.STRING(500), allowNull: true },
+        { transaction },
+      );
+
+      await queryInterface.addColumn(
+        table,
+        'avatarUrl',
+        { type: Sequelize.STRING(500), allowNull: true },
+        { transaction },
+      );
+
+      await queryInterface.addColumn(
+        table,
+        'avatarStorageKey',
+        { type: Sequelize.STRING(500), allowNull: true },
+        { transaction },
+      );
+
+      await queryInterface.addColumn(
+        table,
+        'autoAcceptFollowers',
+        { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: true },
+        { transaction },
+      );
+
+      await queryInterface.addColumn(
+        table,
+        'defaultConnectionMessage',
+        { type: Sequelize.TEXT, allowNull: true },
+        { transaction },
+      );
+
+      await queryInterface.addColumn(
+        table,
+        'followerPolicy',
+        {
           type: Sequelize.ENUM('open', 'approval_required', 'closed'),
           allowNull: false,
           defaultValue: 'open',
@@ -85,10 +198,7 @@ module.exports = {
       await queryInterface.removeColumn(table, 'tagline', { transaction }).catch(() => {});
     });
 
-    const dialect = queryInterface.sequelize.getDialect();
-    if (['postgres', 'postgresql'].includes(dialect)) {
-      await queryInterface.sequelize.query(`DROP TYPE IF EXISTS "${connectionPolicyEnum}";`).catch(() => {});
-      await queryInterface.sequelize.query(`DROP TYPE IF EXISTS "${followerPolicyEnum}";`).catch(() => {});
-    }
+    await dropEnumIfExists(queryInterface, connectionPolicyEnum);
+    await dropEnumIfExists(queryInterface, followerPolicyEnum);
   },
 };

@@ -1,5 +1,7 @@
 'use strict';
 
+const { resolveJsonType, dropEnum, safeRemoveIndex } = require('../utils/migrationHelpers.cjs');
+
 const PROFILE_TABLE = 'profiles';
 const APPRECIATIONS_TABLE = 'profile_appreciations';
 const FOLLOWERS_TABLE = 'profile_followers';
@@ -7,8 +9,7 @@ const JOBS_TABLE = 'profile_engagement_jobs';
 
 module.exports = {
   async up(queryInterface, Sequelize) {
-    const dialect = queryInterface.sequelize.getDialect();
-    const jsonType = ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
+    const jsonType = resolveJsonType(queryInterface, Sequelize);
 
     await queryInterface.sequelize.transaction(async (transaction) => {
       await queryInterface.addColumn(
@@ -155,8 +156,8 @@ module.exports = {
 
   async down(queryInterface) {
     await queryInterface.sequelize.transaction(async (transaction) => {
-      await queryInterface.removeIndex(JOBS_TABLE, ['status', 'scheduledAt'], { transaction }).catch(() => {});
-      await queryInterface.removeIndex(JOBS_TABLE, ['profileId'], { transaction }).catch(() => {});
+      await safeRemoveIndex(queryInterface, JOBS_TABLE, ['status', 'scheduledAt'], { transaction });
+      await safeRemoveIndex(queryInterface, JOBS_TABLE, ['profileId'], { transaction });
 
       await queryInterface.dropTable(JOBS_TABLE, { transaction });
       await queryInterface.dropTable(FOLLOWERS_TABLE, { transaction });
@@ -164,16 +165,15 @@ module.exports = {
 
       await queryInterface.removeColumn(PROFILE_TABLE, 'engagementRefreshedAt', { transaction });
 
-      const dropEnum = async (enumName) => {
-        const dialect = queryInterface.sequelize.getDialect();
-        if (dialect === 'postgres' || dialect === 'postgresql') {
-          await queryInterface.sequelize.query(`DROP TYPE IF EXISTS "${enumName}";`, { transaction });
-        }
-      };
+      const enums = [
+        'enum_profile_appreciations_appreciationType',
+        'enum_profile_followers_status',
+        'enum_profile_engagement_jobs_status',
+      ];
 
-      await dropEnum('enum_profile_appreciations_appreciationType');
-      await dropEnum('enum_profile_followers_status');
-      await dropEnum('enum_profile_engagement_jobs_status');
+      for (const enumName of enums) {
+        await dropEnum(queryInterface, enumName, transaction);
+      }
     });
   },
 };
