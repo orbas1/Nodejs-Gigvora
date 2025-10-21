@@ -8,6 +8,7 @@ function resetAll() {
   global.fetch = ORIGINAL_FETCH;
 }
 
+
 describe('interviewOrchestrationService', () => {
   beforeEach(() => {
     resetAll();
@@ -212,6 +213,171 @@ describe('newsAggregationService', () => {
     } finally {
       __resetNewsAggregationState();
     }
+  });
+});
+
+describe('messagingService assignSupportAgent', () => {
+  const messagingModelsUrl = new URL('../../models/messagingModels.js', import.meta.url);
+  const modelsIndexUrl = new URL('../../models/index.js', import.meta.url);
+  const cacheModuleUrl = new URL('../../utils/cache.js', import.meta.url);
+  const agoraModuleUrl = new URL('../agoraService.js', import.meta.url);
+
+  beforeEach(() => {
+    resetAll();
+  });
+
+  afterEach(() => {
+    resetAll();
+  });
+
+  async function loadMessagingService({
+    agentUserType = 'company',
+    agentRoles = ['support_agent'],
+    participantIds = [102, 204],
+  } = {}) {
+    const trx = { LOCK: { UPDATE: Symbol('update') } };
+
+    const supportCaseRecord = {
+      id: 8801,
+      threadId: 4455,
+      status: 'triage',
+      priority: 'high',
+      reason: 'Customer escalation',
+      metadata: { customer: 'Acme Corp', _internalNote: 'sensitive' },
+      assignedTo: null,
+      assignedBy: null,
+      assignedAt: null,
+      firstResponseAt: null,
+      save: jest.fn(async function save() {
+        return this;
+      }),
+    };
+
+    const agentRecord = {
+      id: 730,
+      firstName: 'Jordan',
+      lastName: 'Lee',
+      email: 'support.agent@example.com',
+      userType: agentUserType,
+    };
+
+    const Message = { create: jest.fn() };
+    const MessageThread = { update: jest.fn(), findByPk: jest.fn() };
+    const MessageParticipant = {
+      findAll: jest.fn(async () => participantIds.map((userId) => ({ userId }))),
+    };
+    const SupportCase = {
+      findOne: jest.fn(async () => supportCaseRecord),
+      findByPk: jest.fn(async () => ({
+        ...supportCaseRecord,
+        get: ({ plain } = {}) => (plain ? { ...supportCaseRecord } : supportCaseRecord),
+        assignedAgent: {
+          id: agentRecord.id,
+          firstName: agentRecord.firstName,
+          lastName: agentRecord.lastName,
+          email: agentRecord.email,
+        },
+        escalatedByUser: null,
+        resolvedByUser: null,
+      })),
+    };
+    const User = {
+      findByPk: jest.fn(async () => agentRecord),
+    };
+    const userRoleStub = {
+      findAll: jest.fn(async () => agentRoles.map((role) => ({ role }))),
+    };
+
+    await jest.unstable_mockModule(messagingModelsUrl.pathname, () => ({
+      sequelize: { transaction: jest.fn(async (handler) => handler(trx)) },
+      MessageThread,
+      MessageParticipant,
+      Message,
+      MessageAttachment: { create: jest.fn() },
+      MessageLabel: { findAll: jest.fn(), create: jest.fn(), update: jest.fn(), destroy: jest.fn() },
+      MessageThreadLabel: { findAll: jest.fn(), bulkCreate: jest.fn(), destroy: jest.fn() },
+      SupportCase,
+      User,
+      MESSAGE_CHANNEL_TYPES: ['direct', 'support', 'project', 'contract', 'group'],
+      MESSAGE_THREAD_STATES: ['active', 'archived', 'locked'],
+      MESSAGE_TYPES: ['text', 'file', 'system', 'event'],
+      SUPPORT_CASE_STATUSES: ['triage', 'in_progress', 'waiting_on_customer', 'resolved', 'closed'],
+      SUPPORT_CASE_PRIORITIES: ['low', 'medium', 'high', 'urgent'],
+    }));
+    await jest.unstable_mockModule(modelsIndexUrl.pathname, () => ({
+      UserRole: userRoleStub,
+    }));
+    await jest.unstable_mockModule(cacheModuleUrl.pathname, () => ({
+      appCache: {
+        flushByPrefix: jest.fn(),
+        delete: jest.fn(),
+        get: jest.fn(),
+        set: jest.fn(),
+      },
+      buildCacheKey: (...parts) => parts.join(':'),
+    }));
+    await jest.unstable_mockModule(agoraModuleUrl.pathname, () => ({
+      createCallTokens: jest.fn(() => ({ token: 'token', uid: 'uid', appId: 'gigvora' })),
+      getDefaultAgoraExpiry: jest.fn(() => new Date(Date.now() + 60_000)),
+    }));
+
+    const service = await import('../messagingService.js');
+
+    return {
+      assignSupportAgent: service.assignSupportAgent,
+      supportCaseRecord,
+      agentRecord,
+      stubs: { Message, MessageParticipant, MessageThread, SupportCase, User },
+      userRoleStub,
+    };
+  }
+
+  it('prevents assigning agents without support authorization', async () => {
+    const { assignSupportAgent, stubs, userRoleStub, agentRecord, supportCaseRecord } =
+      await loadMessagingService({
+      agentUserType: 'company',
+      agentRoles: [],
+    });
+
+    await expect(assignSupportAgent(4455, agentRecord.id, { assignedBy: 12 })).rejects.toThrow(
+      'Assigned agent is not authorized for support operations.',
+    );
+    expect(userRoleStub.findAll).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: agentRecord.id } }));
+    expect(stubs.SupportCase.findOne).toHaveBeenCalledTimes(1);
+    expect(stubs.SupportCase.findOne.mock.calls[0][0]).toEqual(
+      expect.objectContaining({ where: { threadId: 4455 } }),
+    );
+    expect(stubs.Message.create).not.toHaveBeenCalled();
+    expect(supportCaseRecord.save).not.toHaveBeenCalled();
+    expect(stubs.SupportCase.findByPk).not.toHaveBeenCalled();
+  });
+
+  it('assigns authorized support agents and returns a sanitized case', async () => {
+    const { assignSupportAgent, supportCaseRecord, stubs, userRoleStub, agentRecord } =
+      await loadMessagingService({ agentUserType: 'company', agentRoles: ['support_agent'] });
+
+    const result = await assignSupportAgent(4455, agentRecord.id, { assignedBy: 12 });
+
+    expect(supportCaseRecord.assignedTo).toBe(agentRecord.id);
+    expect(supportCaseRecord.status).toBe('in_progress');
+    expect(supportCaseRecord.save).toHaveBeenCalledTimes(1);
+    expect(stubs.SupportCase.findByPk).toHaveBeenCalledTimes(1);
+    expect(stubs.Message.create).toHaveBeenCalledWith(
+      expect.objectContaining({ threadId: 4455, messageType: 'system' }),
+      expect.objectContaining({ transaction: expect.any(Object) }),
+    );
+    expect(stubs.MessageParticipant.findAll).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { threadId: 4455 } }),
+    );
+    expect(userRoleStub.findAll).toHaveBeenCalledTimes(1);
+    expect(result).toEqual(
+      expect.objectContaining({
+        id: supportCaseRecord.id,
+        assignedTo: agentRecord.id,
+        metadata: expect.objectContaining({ customer: 'Acme Corp' }),
+      }),
+    );
+    expect(result.metadata).not.toHaveProperty('_internalNote');
   });
 });
 
