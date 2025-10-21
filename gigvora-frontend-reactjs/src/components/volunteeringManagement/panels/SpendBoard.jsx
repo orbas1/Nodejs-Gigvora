@@ -1,4 +1,5 @@
 import { PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
+import PropTypes from 'prop-types';
 import { formatCurrency, formatDate } from '../utils.js';
 
 export default function SpendBoard({ entries, totals, onEdit, onDelete, onCreate }) {
@@ -80,3 +81,33 @@ export default function SpendBoard({ entries, totals, onEdit, onDelete, onCreate
     </div>
   );
 }
+
+const spendEntryShape = PropTypes.shape({
+  id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  category: PropTypes.string.isRequired,
+  amount: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+  currencyCode: PropTypes.string,
+  incurredAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+  applicationId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  application: PropTypes.shape({
+    role: PropTypes.shape({
+      title: PropTypes.string,
+    }),
+  }),
+});
+
+SpendBoard.propTypes = {
+  entries: PropTypes.arrayOf(spendEntryShape),
+  totals: PropTypes.objectOf(PropTypes.oneOfType([PropTypes.number, PropTypes.string])),
+  onEdit: PropTypes.func,
+  onDelete: PropTypes.func,
+  onCreate: PropTypes.func,
+};
+
+SpendBoard.defaultProps = {
+  entries: [],
+  totals: {},
+  onEdit: () => {},
+  onDelete: () => {},
+  onCreate: null,
+};

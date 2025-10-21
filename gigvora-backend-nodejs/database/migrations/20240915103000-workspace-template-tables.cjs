@@ -1,5 +1,7 @@
 'use strict';
 
+const { resolveJsonType, dropEnum, safeRemoveIndex } = require('../utils/migrationHelpers.cjs');
+
 const CATEGORY_TABLE = 'workspace_template_categories';
 const TEMPLATE_TABLE = 'workspace_templates';
 const STAGE_TABLE = 'workspace_template_stages';
@@ -8,6 +10,7 @@ const RESOURCE_TABLE = 'workspace_template_resources';
 module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.sequelize.transaction(async (transaction) => {
+      const jsonType = resolveJsonType(queryInterface, Sequelize);
       await queryInterface.createTable(
         CATEGORY_TABLE,
         {
@@ -42,12 +45,12 @@ module.exports = {
           createdAt: {
             allowNull: false,
             type: Sequelize.DATE,
-            defaultValue: Sequelize.fn('NOW'),
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
           },
           updatedAt: {
             allowNull: false,
             type: Sequelize.DATE,
-            defaultValue: Sequelize.fn('NOW'),
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
           },
         },
         { transaction },
@@ -126,23 +129,23 @@ module.exports = {
             allowNull: true,
           },
           requirementChecklist: {
-            type: Sequelize.JSONB ?? Sequelize.JSON,
+            type: jsonType,
             allowNull: true,
           },
           onboardingSequence: {
-            type: Sequelize.JSONB ?? Sequelize.JSON,
+            type: jsonType,
             allowNull: true,
           },
           deliverables: {
-            type: Sequelize.JSONB ?? Sequelize.JSON,
+            type: jsonType,
             allowNull: true,
           },
           metrics: {
-            type: Sequelize.JSONB ?? Sequelize.JSON,
+            type: jsonType,
             allowNull: true,
           },
           metadata: {
-            type: Sequelize.JSONB ?? Sequelize.JSON,
+            type: jsonType,
             allowNull: true,
           },
           lastPublishedAt: {
@@ -156,12 +159,12 @@ module.exports = {
           createdAt: {
             allowNull: false,
             type: Sequelize.DATE,
-            defaultValue: Sequelize.fn('NOW'),
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
           },
           updatedAt: {
             allowNull: false,
             type: Sequelize.DATE,
-            defaultValue: Sequelize.fn('NOW'),
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
           },
         },
         { transaction },
@@ -206,30 +209,30 @@ module.exports = {
             allowNull: true,
           },
           checklists: {
-            type: Sequelize.JSONB ?? Sequelize.JSON,
+            type: jsonType,
             allowNull: true,
           },
           questionnaires: {
-            type: Sequelize.JSONB ?? Sequelize.JSON,
+            type: jsonType,
             allowNull: true,
           },
           automations: {
-            type: Sequelize.JSONB ?? Sequelize.JSON,
+            type: jsonType,
             allowNull: true,
           },
           deliverables: {
-            type: Sequelize.JSONB ?? Sequelize.JSON,
+            type: jsonType,
             allowNull: true,
           },
           createdAt: {
             allowNull: false,
             type: Sequelize.DATE,
-            defaultValue: Sequelize.fn('NOW'),
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
           },
           updatedAt: {
             allowNull: false,
             type: Sequelize.DATE,
-            defaultValue: Sequelize.fn('NOW'),
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
           },
         },
         { transaction },
@@ -269,7 +272,7 @@ module.exports = {
             allowNull: true,
           },
           metadata: {
-            type: Sequelize.JSONB ?? Sequelize.JSON,
+            type: jsonType,
             allowNull: true,
           },
           sortOrder: {
@@ -280,12 +283,12 @@ module.exports = {
           createdAt: {
             allowNull: false,
             type: Sequelize.DATE,
-            defaultValue: Sequelize.fn('NOW'),
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
           },
           updatedAt: {
             allowNull: false,
             type: Sequelize.DATE,
-            defaultValue: Sequelize.fn('NOW'),
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
           },
         },
         { transaction },
@@ -302,34 +305,26 @@ module.exports = {
 
   async down(queryInterface) {
     await queryInterface.sequelize.transaction(async (transaction) => {
-      await queryInterface.removeIndex(RESOURCE_TABLE, ['templateId', 'resourceType'], { transaction });
-      await queryInterface.removeIndex(STAGE_TABLE, ['templateId', 'sortOrder'], { transaction });
-      await queryInterface.removeIndex(TEMPLATE_TABLE, ['industry'], { transaction });
-      await queryInterface.removeIndex(TEMPLATE_TABLE, ['slug'], { transaction });
-      await queryInterface.removeIndex(TEMPLATE_TABLE, ['categoryId', 'status'], { transaction });
-      await queryInterface.removeIndex(CATEGORY_TABLE, ['sortOrder'], { transaction });
+      await safeRemoveIndex(queryInterface, RESOURCE_TABLE, ['templateId', 'resourceType'], { transaction });
+      await safeRemoveIndex(queryInterface, STAGE_TABLE, ['templateId', 'sortOrder'], { transaction });
+      await safeRemoveIndex(queryInterface, TEMPLATE_TABLE, ['industry'], { transaction });
+      await safeRemoveIndex(queryInterface, TEMPLATE_TABLE, ['slug'], { transaction });
+      await safeRemoveIndex(queryInterface, TEMPLATE_TABLE, ['categoryId', 'status'], { transaction });
+      await safeRemoveIndex(queryInterface, CATEGORY_TABLE, ['sortOrder'], { transaction });
 
       await queryInterface.dropTable(RESOURCE_TABLE, { transaction });
       await queryInterface.dropTable(STAGE_TABLE, { transaction });
       await queryInterface.dropTable(TEMPLATE_TABLE, { transaction });
       await queryInterface.dropTable(CATEGORY_TABLE, { transaction });
 
-      await queryInterface.sequelize.query(
-        "DROP TYPE IF EXISTS \"enum_workspace_templates_status\"",
-        { transaction },
-      );
-      await queryInterface.sequelize.query(
-        "DROP TYPE IF EXISTS \"enum_workspace_templates_visibility\"",
-        { transaction },
-      );
-      await queryInterface.sequelize.query(
-        "DROP TYPE IF EXISTS \"enum_workspace_template_stages_stageType\"",
-        { transaction },
-      );
-      await queryInterface.sequelize.query(
-        "DROP TYPE IF EXISTS \"enum_workspace_template_resources_resourceType\"",
-        { transaction },
-      );
+      const enumNames = [
+        'enum_workspace_templates_status',
+        'enum_workspace_templates_visibility',
+        'enum_workspace_template_stages_stageType',
+        'enum_workspace_template_resources_resourceType',
+      ];
+
+      await Promise.all(enumNames.map((enumName) => dropEnum(queryInterface, enumName, transaction)));
     });
   },
 };

@@ -1,5 +1,7 @@
+import PropTypes from 'prop-types';
 import { ensureArray, withDefaults } from './defaults.js';
 import { formatDateTime } from './utils.js';
+import websitePreferencesShape, { WEBSITE_SECTION_IDS } from './propTypes.js';
 
 const SUMMARY_ORDER = ['basics', 'brand', 'hero', 'offers', 'proof', 'contact', 'seo', 'social'];
 
@@ -15,6 +17,13 @@ function SummaryCard({ id, label, value, onSelect }) {
     </button>
   );
 }
+
+SummaryCard.propTypes = {
+  id: PropTypes.oneOf(WEBSITE_SECTION_IDS).isRequired,
+  label: PropTypes.string.isRequired,
+  value: PropTypes.string.isRequired,
+  onSelect: PropTypes.func.isRequired,
+};
 
 export default function WebsitePreferencesSummary({ preferences, updatedAt, onSelectSection }) {
   const merged = withDefaults(preferences);
@@ -68,3 +77,14 @@ export default function WebsitePreferencesSummary({ preferences, updatedAt, onSe
     </div>
   );
 }
+
+WebsitePreferencesSummary.propTypes = {
+  preferences: websitePreferencesShape,
+  updatedAt: PropTypes.string,
+  onSelectSection: PropTypes.func.isRequired,
+};
+
+WebsitePreferencesSummary.defaultProps = {
+  preferences: null,
+  updatedAt: null,
+};

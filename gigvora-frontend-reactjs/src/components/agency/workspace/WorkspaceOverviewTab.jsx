@@ -20,6 +20,33 @@ const RISK_OPTIONS = [
   { value: 'high', label: 'High' },
 ];
 
+function trimText(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function optionalText(value) {
+  if (value == null) {
+    return '';
+  }
+  return typeof value === 'string' ? value.trim() : String(value);
+}
+
+function toNumberOrNull(value) {
+  if (value === '' || value === null || value === undefined) {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function clampPercent(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return 0;
+  }
+  return Math.min(100, Math.max(0, parsed));
+}
+
 export default function WorkspaceOverviewTab({
   project,
   workspace,
@@ -73,8 +100,14 @@ export default function WorkspaceOverviewTab({
           onSubmit={(event) => {
             event.preventDefault();
             onUpdateSummary?.({
-              ...summaryForm,
-              progressPercent: Number(summaryForm.progressPercent ?? 0),
+              title: trimText(summaryForm.title),
+              description: optionalText(summaryForm.description),
+              status: summaryForm.status,
+              riskLevel: summaryForm.riskLevel,
+              progressPercent: clampPercent(summaryForm.progressPercent),
+              nextMilestone: optionalText(summaryForm.nextMilestone),
+              nextMilestoneDueAt: summaryForm.nextMilestoneDueAt || '',
+              notes: optionalText(summaryForm.notes),
             });
           }}
         >
@@ -244,15 +277,15 @@ export default function WorkspaceOverviewTab({
               return;
             }
             const payload = {
-              title: objectiveForm.title,
-              description: objectiveForm.description,
-              ownerName: objectiveForm.ownerName,
-              metric: objectiveForm.metric,
-              targetValue: objectiveForm.targetValue,
-              currentValue: objectiveForm.currentValue,
-              status: objectiveForm.status,
-              dueDate: objectiveForm.dueDate,
-              weight: objectiveForm.weight,
+              title: trimText(objectiveForm.title),
+              description: optionalText(objectiveForm.description),
+              ownerName: optionalText(objectiveForm.ownerName),
+              metric: optionalText(objectiveForm.metric),
+              targetValue: toNumberOrNull(objectiveForm.targetValue),
+              currentValue: toNumberOrNull(objectiveForm.currentValue),
+              status: optionalText(objectiveForm.status) || 'on_track',
+              dueDate: objectiveForm.dueDate || '',
+              weight: toNumberOrNull(objectiveForm.weight),
             };
             if (objectiveForm.id) {
               onUpdateObjective?.(objectiveForm.id, payload);

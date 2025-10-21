@@ -1,3 +1,5 @@
+import PropTypes from 'prop-types';
+
 const PROVIDER_STYLES = {
   x: {
     label: 'Continue with X',
@@ -52,3 +54,10 @@ export default function SocialAuthButton({ provider, label, onClick, disabled = 
 }
 
 export const SOCIAL_PROVIDERS = Object.keys(PROVIDER_STYLES);
+
+SocialAuthButton.propTypes = {
+  provider: PropTypes.oneOf(SOCIAL_PROVIDERS).isRequired,
+  label: PropTypes.string,
+  onClick: PropTypes.func,
+  disabled: PropTypes.bool,
+};

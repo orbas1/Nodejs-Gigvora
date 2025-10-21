@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { Dialog, Transition } from '@headlessui/react';
 import {
   AdjustmentsHorizontalIcon,
@@ -34,12 +35,14 @@ const STATUS_OPTIONS = [
 
 const SENIORITY_OPTIONS = ['junior', 'mid', 'senior', 'principal'];
 
+const FEEDBACK_DISMISS_MS = process.env.NODE_ENV === 'test' ? 0 : 4000;
+
 function formatList(value) {
   if (!Array.isArray(value)) return [];
   return value.filter(Boolean);
 }
 
-function FreelancerEditor({ open, submitting, defaults, onSubmit, onClose }) {
+function FreelancerEditor({ open = false, submitting = false, defaults = null, onSubmit, onClose } = {}) {
   const [form, setForm] = useState(() => ({
     firstName: defaults?.firstName ?? '',
     lastName: defaults?.lastName ?? '',
@@ -142,8 +145,9 @@ function FreelancerEditor({ open, submitting, defaults, onSubmit, onClose }) {
                     </div>
                     <button
                       type="button"
-                      onClick={onClose}
-                      className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500 transition hover:border-slate-300"
+                      onClick={() => (submitting ? null : onClose?.())}
+                      disabled={submitting}
+                      className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500 transition hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       Close
                     </button>
@@ -337,8 +341,9 @@ function FreelancerEditor({ open, submitting, defaults, onSubmit, onClose }) {
                   <div className="flex items-center justify-end gap-3">
                     <button
                       type="button"
-                      onClick={onClose}
-                      className="rounded-full border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300"
+                      onClick={() => (submitting ? null : onClose?.())}
+                      disabled={submitting}
+                      className="rounded-full border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       Cancel
                     </button>
@@ -361,6 +366,32 @@ function FreelancerEditor({ open, submitting, defaults, onSubmit, onClose }) {
   );
 }
 
+FreelancerEditor.propTypes = {
+  open: PropTypes.bool,
+  submitting: PropTypes.bool,
+  defaults: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    firstName: PropTypes.string,
+    lastName: PropTypes.string,
+    email: PropTypes.string,
+    phone: PropTypes.string,
+    location: PropTypes.string,
+    timezone: PropTypes.string,
+    hourlyRate: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    availability: PropTypes.string,
+    seniority: PropTypes.string,
+    skills: PropTypes.arrayOf(PropTypes.string),
+    industries: PropTypes.arrayOf(PropTypes.string),
+    portfolioUrl: PropTypes.string,
+    websiteUrl: PropTypes.string,
+    status: PropTypes.string,
+    verified: PropTypes.bool,
+    summary: PropTypes.string,
+  }),
+  onSubmit: PropTypes.func,
+  onClose: PropTypes.func,
+};
+
 export default function AdminFreelancerManagementSection() {
   const [freelancers, setFreelancers] = useState([]);
   const [stats, setStats] = useState({ total: 0, active: 0, verified: 0, invited: 0, suspended: 0 });
@@ -376,7 +407,7 @@ export default function AdminFreelancerManagementSection() {
     const timeout = setTimeout(() => {
       setFeedback('');
       setError('');
-    }, 4000);
+    }, FEEDBACK_DISMISS_MS);
     return () => clearTimeout(timeout);
   }, [feedback, error]);
 
@@ -442,6 +473,7 @@ export default function AdminFreelancerManagementSection() {
   const handleReset = () => {
     const reset = { search: '', status: 'all' };
     setFilters(reset);
+    setPagination((current) => ({ ...current, page: 1 }));
     loadFreelancers(reset, 1);
   };
 
@@ -468,6 +500,7 @@ export default function AdminFreelancerManagementSection() {
         await createAdminFreelancer(payload);
         setFeedback('Freelancer added and invited to activate their workspace.');
       }
+      setError('');
       setEditorState({ open: false, submitting: false, freelancer: null });
       await Promise.all([loadFreelancers(filters), loadStats()]);
     } catch (saveError) {
@@ -481,6 +514,7 @@ export default function AdminFreelancerManagementSection() {
     try {
       await archiveAdminFreelancer(freelancer.id);
       setFeedback(`${freelancer.firstName} was archived.`);
+      setError('');
       await Promise.all([loadFreelancers(filters), loadStats()]);
     } catch (archiveError) {
       setError(archiveError instanceof Error ? archiveError.message : 'Unable to archive freelancer.');
@@ -492,6 +526,7 @@ export default function AdminFreelancerManagementSection() {
     try {
       await reactivateAdminFreelancer(freelancer.id);
       setFeedback(`${freelancer.firstName} is active again.`);
+      setError('');
       await Promise.all([loadFreelancers(filters), loadStats()]);
     } catch (activateError) {
       setError(activateError instanceof Error ? activateError.message : 'Unable to activate freelancer.');
@@ -503,6 +538,8 @@ export default function AdminFreelancerManagementSection() {
     try {
       await sendAdminFreelancerInvite(freelancer.id);
       setFeedback(`Invite re-sent to ${freelancer.email}.`);
+      setError('');
+      await Promise.all([loadFreelancers(filters), loadStats()]);
     } catch (inviteError) {
       setError(inviteError instanceof Error ? inviteError.message : 'Unable to send invite.');
     }
@@ -548,12 +585,22 @@ export default function AdminFreelancerManagementSection() {
       </div>
 
       {feedback ? (
-        <div className="rounded-3xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 shadow-sm">
+        <div
+          className="rounded-3xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 shadow-sm"
+          role="status"
+          aria-live="polite"
+        >
           {feedback}
         </div>
       ) : null}
       {error ? (
-        <div className="rounded-3xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 shadow-sm">{error}</div>
+        <div
+          className="rounded-3xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 shadow-sm"
+          role="alert"
+          aria-live="assertive"
+        >
+          {error}
+        </div>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-5">

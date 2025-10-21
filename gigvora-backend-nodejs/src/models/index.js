@@ -6453,6 +6453,108 @@ ProjectWorkspaceCalendarEntry.prototype.toPublicObject = function toPublicObject
   };
 };
 
+export const ProjectWorkspaceTimeLog = sequelize.define(
+  'ProjectWorkspaceTimeLog',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    taskId: { type: DataTypes.INTEGER, allowNull: true },
+    memberName: { type: DataTypes.STRING(255), allowNull: false },
+    startedAt: { type: DataTypes.DATE, allowNull: false },
+    endedAt: { type: DataTypes.DATE, allowNull: true },
+    durationMinutes: { type: DataTypes.INTEGER, allowNull: true },
+    billable: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    rateCents: { type: DataTypes.INTEGER, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  { tableName: 'project_workspace_time_logs' },
+);
+
+ProjectWorkspaceTimeLog.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    taskId: plain.taskId,
+    memberName: plain.memberName,
+    startedAt: plain.startedAt,
+    endedAt: plain.endedAt,
+    durationMinutes: plain.durationMinutes == null ? null : Number(plain.durationMinutes),
+    billable: Boolean(plain.billable),
+    rateCents: plain.rateCents == null ? null : Number(plain.rateCents),
+    notes: plain.notes,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ProjectWorkspaceTarget = sequelize.define(
+  'ProjectWorkspaceTarget',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    targetValue: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    currentValue: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    unit: { type: DataTypes.STRING(40), allowNull: true },
+    dueAt: { type: DataTypes.DATE, allowNull: true },
+    status: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'on_track' },
+    ownerName: { type: DataTypes.STRING(255), allowNull: true },
+    trend: { type: DataTypes.STRING(60), allowNull: true },
+  },
+  { tableName: 'project_workspace_targets' },
+);
+
+ProjectWorkspaceTarget.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    name: plain.name,
+    description: plain.description,
+    targetValue: plain.targetValue == null ? null : Number(plain.targetValue),
+    currentValue: plain.currentValue == null ? null : Number(plain.currentValue),
+    unit: plain.unit,
+    dueAt: plain.dueAt,
+    status: plain.status,
+    ownerName: plain.ownerName,
+    trend: plain.trend,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const ProjectWorkspaceObjective = sequelize.define(
+  'ProjectWorkspaceObjective',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    status: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'in_progress' },
+    ownerName: { type: DataTypes.STRING(255), allowNull: true },
+    dueAt: { type: DataTypes.DATE, allowNull: true },
+    progressPercent: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    keyResults: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'project_workspace_objectives' },
+);
+
+ProjectWorkspaceObjective.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId,
+    title: plain.title,
+    description: plain.description,
+    status: plain.status,
+    ownerName: plain.ownerName,
+    dueAt: plain.dueAt,
+    progressPercent: plain.progressPercent == null ? null : Number(plain.progressPercent),
+    keyResults: Array.isArray(plain.keyResults) ? plain.keyResults : [],
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 export const ProjectWorkspaceMessage = sequelize.define(
   'ProjectWorkspaceMessage',
   {
@@ -6556,11 +6658,16 @@ ProjectWorkspaceObject.prototype.toPublicObject = function toPublicObject() {
     id: plain.id,
     workspaceId: plain.workspaceId,
     name: plain.name,
-    objectType: plain.objectType,
-    status: plain.status,
+    label: plain.label ?? plain.name ?? null,
+    objectType: plain.objectType ?? plain.type ?? 'deliverable',
+    type: plain.objectType ?? plain.type ?? 'deliverable',
+    status: plain.status ?? null,
     ownerName: plain.ownerName ?? null,
-    description: plain.description ?? null,
-    dueAt: plain.dueAt,
+    description: plain.description ?? plain.summary ?? null,
+    summary: plain.summary ?? plain.description ?? null,
+    quantity: plain.quantity == null ? null : Number(plain.quantity),
+    unit: plain.unit ?? null,
+    dueAt: plain.dueAt ?? null,
     metadata: plain.metadata ?? null,
     tags: Array.isArray(plain.tags) ? plain.tags : [],
     createdAt: plain.createdAt,
@@ -8069,6 +8176,68 @@ export const NetworkingSessionOrder = sequelize.define(
 
 NetworkingSessionOrder.prototype.toPublicObject = function toPublicObject() {
   const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    sessionId: plain.sessionId,
+    purchaserId: plain.purchaserId,
+    purchaserEmail: plain.purchaserEmail,
+    purchaserName: plain.purchaserName,
+    status: plain.status,
+    amountCents: plain.amountCents == null ? 0 : Number(plain.amountCents),
+    currency: plain.currency,
+    purchasedAt: plain.purchasedAt,
+    reference: plain.reference,
+    metadata: plain.metadata ?? {},
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const NetworkingConnection = sequelize.define(
+  'NetworkingConnection',
+  {
+    sessionId: { type: DataTypes.INTEGER, allowNull: true },
+    sourceSignupId: { type: DataTypes.INTEGER, allowNull: true },
+    targetSignupId: { type: DataTypes.INTEGER, allowNull: true },
+    sourceParticipantId: { type: DataTypes.INTEGER, allowNull: true },
+    targetParticipantId: { type: DataTypes.INTEGER, allowNull: true },
+    counterpartName: { type: DataTypes.STRING(255), allowNull: true },
+    counterpartEmail: { type: DataTypes.STRING(255), allowNull: true, validate: { isEmail: true } },
+    connectionType: {
+      type: DataTypes.ENUM(...NETWORKING_CONNECTION_TYPES),
+      allowNull: false,
+      defaultValue: 'follow',
+      validate: { isIn: [NETWORKING_CONNECTION_TYPES] },
+    },
+    status: {
+      type: DataTypes.ENUM(...NETWORKING_CONNECTION_STATUSES),
+      allowNull: false,
+      defaultValue: 'new',
+      validate: { isIn: [NETWORKING_CONNECTION_STATUSES] },
+    },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    firstInteractedAt: { type: DataTypes.DATE, allowNull: true },
+    followUpAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'networking_connections' },
+);
+
+NetworkingConnection.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const resolveParticipant = (participant) => {
+    if (!participant) {
+      return null;
+    }
+    const name = participant.name
+      ? participant.name
+      : [participant.firstName, participant.lastName].filter(Boolean).join(' ').trim();
+    return {
+      id: participant.id ?? null,
+      name: name || participant.email || null,
+      email: participant.email ?? null,
+    };
+  };
   return {
     id: plain.id,
     sessionId: plain.sessionId,
@@ -20010,30 +20179,12 @@ ProjectWorkspaceBudgetLine.belongsTo(ProjectWorkspace, {
   foreignKey: { name: 'workspaceId', allowNull: false },
   as: 'workspace',
 });
-ProjectWorkspace.hasMany(ProjectWorkspaceObject, {
-  foreignKey: { name: 'workspaceId', allowNull: false },
-  as: 'objects',
-  onDelete: 'CASCADE',
-});
-ProjectWorkspaceObject.belongsTo(ProjectWorkspace, {
-  foreignKey: { name: 'workspaceId', allowNull: false },
-  as: 'workspace',
-});
 ProjectWorkspace.hasMany(ProjectWorkspaceTimelineEvent, {
   foreignKey: { name: 'workspaceId', allowNull: false },
   as: 'timelineEvents',
   onDelete: 'CASCADE',
 });
 ProjectWorkspaceTimelineEvent.belongsTo(ProjectWorkspace, {
-  foreignKey: { name: 'workspaceId', allowNull: false },
-  as: 'workspace',
-});
-ProjectWorkspace.hasMany(ProjectWorkspaceMeeting, {
-  foreignKey: { name: 'workspaceId', allowNull: false },
-  as: 'meetings',
-  onDelete: 'CASCADE',
-});
-ProjectWorkspaceMeeting.belongsTo(ProjectWorkspace, {
   foreignKey: { name: 'workspaceId', allowNull: false },
   as: 'workspace',
 });
@@ -22693,12 +22844,10 @@ export default {
   ProjectWorkspaceBudget,
   ProjectWorkspaceObject,
   ProjectWorkspaceTimelineEntry,
-  ProjectWorkspaceMeeting,
   ProjectWorkspaceTimeline,
   ProjectWorkspaceTask,
   ProjectWorkspaceTaskAssignment,
   ProjectWorkspaceBudgetLine,
-  ProjectWorkspaceObject,
   ProjectWorkspaceTimelineEvent,
   ProjectWorkspaceMeeting,
   ProjectWorkspaceCalendarEntry,
@@ -23072,6 +23221,16 @@ domainRegistry.registerContext({
       /^Deliverable/.test(modelName),
   ],
   metadata: domainMetadata.marketplace,
+});
+
+domainRegistry.registerContext({
+  name: 'volunteering',
+  displayName: 'Volunteering & Social Impact',
+  description: 'Volunteer programmes, workspace placements, contract management, and spend oversight.',
+  include: [
+    (modelName) => /^Volunteering/.test(modelName) || /^Volunteer/.test(modelName),
+  ],
+  metadata: domainMetadata.volunteering,
 });
 
 domainRegistry.registerContext({

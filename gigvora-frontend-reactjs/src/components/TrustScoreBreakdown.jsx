@@ -1,3 +1,5 @@
+import PropTypes from 'prop-types';
+
 function formatLevel(level) {
   if (!level) return 'Emerging';
   const normalized = `${level}`.toLowerCase();
@@ -95,3 +97,18 @@ export default function TrustScoreBreakdown({ score, level, breakdown, recommend
     </section>
   );
 }
+
+TrustScoreBreakdown.propTypes = {
+  score: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  level: PropTypes.string,
+  breakdown: PropTypes.arrayOf(
+    PropTypes.shape({
+      key: PropTypes.string,
+      label: PropTypes.string,
+      description: PropTypes.string,
+      weight: PropTypes.number,
+      contribution: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    }),
+  ),
+  recommendedReviewAt: PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.instanceOf(Date)]),
+};

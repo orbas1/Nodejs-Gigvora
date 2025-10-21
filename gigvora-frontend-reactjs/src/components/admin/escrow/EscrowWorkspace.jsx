@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { BanknotesIcon, Cog8ToothIcon, ShieldCheckIcon, SquaresPlusIcon, UserGroupIcon } from '@heroicons/react/24/outline';
 import EscrowMetrics from './EscrowMetrics.jsx';
 import EscrowProviderForm from './EscrowProviderForm.jsx';
@@ -143,3 +144,65 @@ export default function EscrowWorkspace({
     </div>
   );
 }
+
+EscrowWorkspace.propTypes = {
+  summary: PropTypes.object,
+  currency: PropTypes.string,
+  providerSettings: PropTypes.object,
+  providerSaving: PropTypes.bool,
+  onProviderSave: PropTypes.func,
+  onProviderReset: PropTypes.func,
+  policies: PropTypes.array,
+  onCreatePolicy: PropTypes.func,
+  onUpdatePolicy: PropTypes.func,
+  onDeletePolicy: PropTypes.func,
+  tiers: PropTypes.array,
+  onCreateTier: PropTypes.func,
+  onUpdateTier: PropTypes.func,
+  onDeleteTier: PropTypes.func,
+  accounts: PropTypes.shape({
+    items: PropTypes.array,
+    pagination: PropTypes.object,
+  }),
+  accountFilters: PropTypes.object,
+  onAccountFilterChange: PropTypes.func,
+  onCreateAccount: PropTypes.func,
+  onUpdateAccount: PropTypes.func,
+  transactions: PropTypes.shape({
+    items: PropTypes.array,
+    pagination: PropTypes.object,
+  }),
+  transactionFilters: PropTypes.object,
+  onTransactionFilterChange: PropTypes.func,
+  onUpdateTransaction: PropTypes.func,
+  onReleaseTransaction: PropTypes.func,
+  onRefundTransaction: PropTypes.func,
+};
+
+EscrowWorkspace.defaultProps = {
+  summary: {},
+  currency: 'USD',
+  providerSettings: {},
+  providerSaving: false,
+  onProviderSave: undefined,
+  onProviderReset: undefined,
+  policies: [],
+  onCreatePolicy: undefined,
+  onUpdatePolicy: undefined,
+  onDeletePolicy: undefined,
+  tiers: [],
+  onCreateTier: undefined,
+  onUpdateTier: undefined,
+  onDeleteTier: undefined,
+  accounts: undefined,
+  accountFilters: {},
+  onAccountFilterChange: undefined,
+  onCreateAccount: undefined,
+  onUpdateAccount: undefined,
+  transactions: undefined,
+  transactionFilters: {},
+  onTransactionFilterChange: undefined,
+  onUpdateTransaction: undefined,
+  onReleaseTransaction: undefined,
+  onRefundTransaction: undefined,
+};

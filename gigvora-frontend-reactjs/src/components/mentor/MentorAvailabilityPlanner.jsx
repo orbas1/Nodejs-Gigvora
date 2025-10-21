@@ -1,7 +1,32 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { PlusIcon } from '@heroicons/react/24/outline';
 
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const DAY_ORDER_LOOKUP = DAYS_OF_WEEK.reduce((accumulator, day, index) => {
+  accumulator[day] = index;
+  return accumulator;
+}, {});
+
+function sortSlots(slots) {
+  return [...slots].sort((slotA, slotB) => {
+    const dayDelta = (DAY_ORDER_LOOKUP[slotA.day] ?? 0) - (DAY_ORDER_LOOKUP[slotB.day] ?? 0);
+    if (dayDelta !== 0) {
+      return dayDelta;
+    }
+    const startA = new Date(slotA.start).getTime();
+    const startB = new Date(slotB.start).getTime();
+    return startA - startB;
+  });
+}
+
+function normaliseSlots(input = []) {
+  return sortSlots(
+    input.map((slot) => ({
+      ...slot,
+      id: slot.id ?? `${slot.day}-${slot.start}-${slot.end}-${slot.format ?? 'session'}`,
+    })),
+  );
+}
 
 const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
   month: 'short',
@@ -53,12 +78,7 @@ export default function MentorAvailabilityPlanner({
   saving = false,
   analytics,
 }) {
-  const [slots, setSlots] = useState(() =>
-    availability.map((slot) => ({
-      ...slot,
-      id: slot.id ?? `${slot.day}-${slot.start}-${slot.end}`,
-    })),
-  );
+  const [slots, setSlots] = useState(() => normaliseSlots(availability));
   const [formState, setFormState] = useState({
     day: DAYS_OF_WEEK[0],
     start: '',
@@ -68,6 +88,26 @@ export default function MentorAvailabilityPlanner({
   });
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    setSlots((previous) => {
+      const next = normaliseSlots(availability);
+      const hasChanged =
+        previous.length !== next.length ||
+        previous.some((slot, index) => {
+          const compared = next[index];
+          return (
+            slot.id !== compared.id ||
+            slot.start !== compared.start ||
+            slot.end !== compared.end ||
+            slot.day !== compared.day ||
+            slot.format !== compared.format ||
+            slot.capacity !== compared.capacity
+          );
+        });
+      return hasChanged ? next : previous;
+    });
+  }, [availability]);
 
   const handleAddSlot = () => {
     setError(null);
@@ -86,18 +126,38 @@ export default function MentorAvailabilityPlanner({
       setError('End time must be later than the start time.');
       return;
     }
-    const id = `${formState.day}-${formState.start}-${formState.end}-${formState.format}`;
-    setSlots((previous) => [
-      ...previous,
-      {
-        id,
-        day: formState.day,
-        start: startDate.toISOString(),
-        end: endDate.toISOString(),
-        format: formState.format,
-        capacity: Number(formState.capacity) || 1,
-      },
-    ]);
+    const capacity = Math.max(1, Number.parseInt(formState.capacity, 10) || 1);
+    const id = `${formState.day}-${startDate.toISOString()}-${endDate.toISOString()}-${formState.format}`;
+    let added = false;
+    setSlots((previous) => {
+      const overlaps = previous.some((existing) => {
+        if (existing.day !== formState.day) {
+          return false;
+        }
+        const existingStart = new Date(existing.start).getTime();
+        const existingEnd = new Date(existing.end).getTime();
+        return startDate.getTime() < existingEnd && endDate.getTime() > existingStart;
+      });
+      if (overlaps) {
+        setError('That slot overlaps with an existing availability window. Update the times or remove the original slot.');
+        return previous;
+      }
+      added = true;
+      return sortSlots([
+        ...previous,
+        {
+          id,
+          day: formState.day,
+          start: startDate.toISOString(),
+          end: endDate.toISOString(),
+          format: formState.format,
+          capacity,
+        },
+      ]);
+    });
+    if (!added) {
+      return;
+    }
     setFormState((current) => ({ ...current, start: '', end: '' }));
   };
 
@@ -110,11 +170,15 @@ export default function MentorAvailabilityPlanner({
     setError(null);
     setSuccess(false);
     try {
+      const payload = slots.map(({ id, ...rest }) => rest);
       if (typeof onSave === 'function') {
-        await onSave(slots.map(({ id, ...rest }) => rest));
+        await onSave(payload);
       }
       if (analytics?.track) {
-        analytics.track('web_mentor_availability_saved', { slots: slots.length });
+        analytics.track('web_mentor_availability_saved', {
+          slots: payload.length,
+          totalCapacity: payload.reduce((total, slot) => total + (slot.capacity ?? 1), 0),
+        });
       }
       setSuccess(true);
     } catch (saveError) {
@@ -208,11 +272,19 @@ export default function MentorAvailabilityPlanner({
           </button>
         </div>
       </div>
-      {error ? <p className="mt-4 rounded-2xl bg-rose-50 px-4 py-2 text-sm text-rose-600">{error}</p> : null}
-      {success ? <p className="mt-4 rounded-2xl bg-emerald-50 px-4 py-2 text-sm text-emerald-600">Availability updated.</p> : null}
+      {error ? (
+        <p className="mt-4 rounded-2xl bg-rose-50 px-4 py-2 text-sm text-rose-600" role="alert" aria-live="polite">
+          {error}
+        </p>
+      ) : null}
+      {success ? (
+        <p className="mt-4 rounded-2xl bg-emerald-50 px-4 py-2 text-sm text-emerald-600" role="status" aria-live="polite">
+          Availability updated.
+        </p>
+      ) : null}
       <div className="mt-6 space-y-3">
         {slots.length ? (
-          slots.map((slot) => <AvailabilitySlot key={slot.id} slot={slot} onRemove={handleRemoveSlot} />)
+          sortSlots(slots).map((slot) => <AvailabilitySlot key={slot.id} slot={slot} onRemove={handleRemoveSlot} />)
         ) : (
           <p className="rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-500">
             No availability published yet. Add at least one slot to go live on Explorer.

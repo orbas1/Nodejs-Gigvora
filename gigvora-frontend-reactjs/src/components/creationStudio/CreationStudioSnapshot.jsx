@@ -1,32 +1,92 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { listCreationStudioItems } from '../../services/creationStudio.js';
 import useSession from '../../hooks/useSession.js';
-import { CREATION_TYPES } from './config.js';
+import { CREATION_TYPES, evaluateCreationAccess } from './config.js';
+
+const SNAPSHOT_STATES = {
+  IDLE: 'idle',
+  LOADING: 'loading',
+  UNAUTHENTICATED: 'unauthenticated',
+  FORBIDDEN: 'forbidden',
+  ERROR: 'error',
+  READY: 'ready',
+};
 
 export default function CreationStudioSnapshot() {
-  const { session } = useSession();
-  const ownerId = session?.id ?? 1;
+  const { session, isAuthenticated } = useSession();
+  const { ownerId, hasAccess } = useMemo(() => evaluateCreationAccess(session), [session]);
   const [items, setItems] = useState([]);
+  const [status, setStatus] = useState(SNAPSHOT_STATES.IDLE);
 
   useEffect(() => {
-    let mounted = true;
-    listCreationStudioItems({ ownerId, pageSize: 5 })
+    if (!isAuthenticated) {
+      setItems([]);
+      setStatus(SNAPSHOT_STATES.UNAUTHENTICATED);
+      return undefined;
+    }
+    if (!hasAccess || !ownerId) {
+      setItems([]);
+      setStatus(SNAPSHOT_STATES.FORBIDDEN);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    setStatus(SNAPSHOT_STATES.LOADING);
+
+    listCreationStudioItems(
+      { ownerId, pageSize: 5 },
+      { signal: controller.signal },
+    )
       .then((response) => {
-        if (mounted) {
-          setItems(response?.items ?? []);
+        if (controller.signal.aborted) {
+          return;
         }
+        setItems(response?.items ?? []);
+        setStatus(SNAPSHOT_STATES.READY);
       })
       .catch((error) => {
+        if (controller.signal.aborted) {
+          return;
+        }
         console.error('Unable to load studio snapshot', error);
+        setItems([]);
+        setStatus(SNAPSHOT_STATES.ERROR);
       });
+
     return () => {
-      mounted = false;
+      controller.abort();
     };
-  }, [ownerId]);
+  }, [ownerId, hasAccess, isAuthenticated]);
+
+  if (status === SNAPSHOT_STATES.UNAUTHENTICATED) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
+        Sign in to view your creation studio snapshot.
+      </div>
+    );
+  }
+
+  if (status === SNAPSHOT_STATES.FORBIDDEN) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
+        Your account doesn&apos;t have creation studio access yet. Ask an admin to enable it.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
-      {items.length === 0 ? (
+      {status === SNAPSHOT_STATES.ERROR ? (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-600">
+          Unable to load your recent creations. Try again shortly.
+        </div>
+      ) : null}
+      {status === SNAPSHOT_STATES.LOADING ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
+          Loading your recent creations...
+        </div>
+      ) : null}
+      {items.length === 0 && status === SNAPSHOT_STATES.READY ? (
         <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-sm text-slate-500">
           No launches yet. Open Creation Studio to start one.
         </div>

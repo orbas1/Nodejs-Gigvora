@@ -100,7 +100,7 @@ export async function publishMessage({ channelSlug, userId, body, messageType = 
     throw new ApplicationError('Message is too long. Please shorten your content and try again.');
   }
 
-  return sequelize.transaction(async (transaction) => {
+  const result = await sequelize.transaction(async (transaction) => {
     const { thread, participant } = await ensureParticipant({ channelSlug, userId, transaction });
     if (participant.mutedUntil && new Date(participant.mutedUntil) > new Date()) {
       throw new AuthorizationError('You are temporarily muted in this channel.');
@@ -114,6 +114,9 @@ export async function publishMessage({ channelSlug, userId, body, messageType = 
       transaction,
     });
 
+    const evaluationSignals = Array.isArray(evaluation.signals) ? evaluation.signals : [];
+    const evaluationMetadata = evaluation.metadata ?? {};
+
     if (evaluation.decision === 'block') {
       await recordMessageModeration({
         threadId: thread.id,
@@ -122,21 +125,26 @@ export async function publishMessage({ channelSlug, userId, body, messageType = 
         channelSlug,
         decision: evaluation.decision,
         severity: evaluation.severity,
-        signals: evaluation.signals,
+        signals: evaluationSignals,
         score: evaluation.score,
-        metadata: evaluation.metadata,
+        metadata: evaluationMetadata,
         transaction,
       });
-      throw new ApplicationError(
-        'Your message violated community policies and was blocked. Please review the guidelines before posting again.',
-      );
+      return { outcome: 'blocked' };
     }
+
+    const sanitisedBody =
+      messageType === 'text'
+        ? evaluation.sanitisedBody != null && `${evaluation.sanitisedBody}`.trim().length
+          ? `${evaluation.sanitisedBody}`.trim()
+          : normalisedBody
+        : null;
 
     const moderationMetadata = {
       decision: evaluation.decision,
       severity: evaluation.severity,
       score: evaluation.score,
-      signals: evaluation.signals,
+      signals: evaluationSignals,
       evaluatedAt: new Date().toISOString(),
       status: evaluation.decision === 'review' ? 'pending_review' : 'approved',
     };
@@ -146,11 +154,12 @@ export async function publishMessage({ channelSlug, userId, body, messageType = 
         threadId: thread.id,
         senderId: userId,
         messageType,
-        body: messageType === 'text' ? evaluation.sanitisedBody : null,
+        body: sanitisedBody,
         metadata: {
           ...(metadata ?? {}),
           channelSlug,
           moderation: moderationMetadata,
+          evaluation: evaluationMetadata,
         },
         deliveredAt: new Date(),
       },
@@ -171,15 +180,24 @@ export async function publishMessage({ channelSlug, userId, body, messageType = 
         channelSlug,
         decision: evaluation.decision,
         severity: evaluation.severity,
-        signals: evaluation.signals,
+        signals: evaluationSignals,
         score: evaluation.score,
-        metadata: evaluation.metadata,
+        metadata: evaluationMetadata,
         transaction,
       });
     }
 
-    return message.toPublicObject ? message.toPublicObject() : message.get({ plain: true });
+    const publicMessage = message.toPublicObject ? message.toPublicObject() : message.get({ plain: true });
+    return { outcome: 'published', message: publicMessage };
   });
+
+  if (result.outcome === 'blocked') {
+    throw new ApplicationError(
+      'Your message violated community policies and was blocked. Please review the guidelines before posting again.',
+    );
+  }
+
+  return result.message;
 }
 
 export async function acknowledgeMessages({ channelSlug, userId }) {

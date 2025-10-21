@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { Fragment } from 'react';
 import { Menu, Transition } from '@headlessui/react';
 import { CheckIcon, ChevronUpDownIcon, GlobeAltIcon } from '@heroicons/react/24/outline';
@@ -98,3 +99,8 @@ export default function LanguageSelector({ variant = 'header', className }) {
     </Menu>
   );
 }
+
+LanguageSelector.propTypes = {
+  variant: PropTypes.oneOf(['header', 'hero', 'mobile']),
+  className: PropTypes.string,
+};

@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowTrendingUpIcon,
@@ -588,3 +589,8 @@ export default function GigBuilderDeepDive({ freelancerId, gigId }) {
     </div>
   );
 }
+
+GigBuilderDeepDive.propTypes = {
+  freelancerId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  gigId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+};

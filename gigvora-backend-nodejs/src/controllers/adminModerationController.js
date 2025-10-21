@@ -5,6 +5,8 @@ import {
   resolveModerationEvent,
 } from '../services/communityModerationService.js';
 import { ApplicationError } from '../utils/errors.js';
+import logger from '../utils/logger.js';
+import { extractAdminActor, coercePositiveInteger } from '../utils/adminRequestContext.js';
 
 function parseListParam(value) {
   if (Array.isArray(value)) {
@@ -62,19 +64,18 @@ export async function events(req, res) {
 }
 
 export async function resolve(req, res) {
-  const eventId = Number.parseInt(req.params.eventId, 10);
-  if (!Number.isInteger(eventId) || eventId <= 0) {
-    throw new ApplicationError('eventId must be a positive integer.');
-  }
+  const eventId = coercePositiveInteger(req.params?.eventId, 'eventId');
+  const actor = extractAdminActor(req);
   const payload = {
     status: req.body?.status,
-    resolvedBy: req.user?.id,
+    resolvedBy: actor.actorId,
     resolutionNotes: req.body?.notes,
   };
   const event = await resolveModerationEvent(eventId, payload);
   if (!event) {
     throw new ApplicationError('Moderation event not found.');
   }
+  logger.info({ actor: actor.reference, eventId, status: payload.status }, 'Admin moderation event resolved');
   res.json(event);
 }
 

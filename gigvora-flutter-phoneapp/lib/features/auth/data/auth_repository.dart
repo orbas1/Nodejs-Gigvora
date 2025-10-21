@@ -36,20 +36,36 @@ class AuthenticatedSession {
 
   factory AuthenticatedSession.fromJson(Map<String, dynamic> json) {
     final user = json['user'] as Map<String, dynamic>? ?? const <String, dynamic>{};
+    final userId = user['id'] is num ? (user['id'] as num).toInt() : null;
+    final memberId = user['memberId'] is num ? (user['memberId'] as num).toInt() : null;
+    final accountId = user['accountId'] is num ? (user['accountId'] as num).toInt() : null;
+    final actorId = user['actorId'] is num ? (user['actorId'] as num).toInt() : null;
+    final resolvedId = actorId ?? userId ?? memberId ?? accountId ?? 0;
+
     final memberships = List<String>.from(
-      (user['memberships'] as List? ?? const <String>[]).cast<String>().where((value) => value.isNotEmpty),
+      (user['memberships'] as List? ?? const <String>[])
+          .whereType<String>()
+          .map((value) => value.trim())
+          .where((value) => value.isNotEmpty),
     );
     if (memberships.isEmpty) {
       memberships.add(user['userType'] as String? ?? 'user');
     }
     final primaryDashboard = user['primaryDashboard'] as String? ?? memberships.first;
+    final profileId = (user['profileId'] as String?)?.trim();
+    final userType = (user['userType'] as String?)?.trim();
 
     return AuthenticatedSession(
       userSession: UserSession(
+        id: resolvedId,
+        userId: userId,
+        memberId: memberId,
+        accountId: accountId,
         name: user['name'] as String? ?? user['email'] as String? ?? 'Gigvora member',
         title: user['title'] as String? ?? 'Member',
         email: user['email'] as String? ?? 'member@gigvora.com',
         location: user['location'] as String? ?? 'Remote',
+        profileId: profileId ?? 'profile-$resolvedId',
         memberships: memberships,
         activeMembership: primaryDashboard,
         dashboards: const <String, RoleDashboard>{},
@@ -62,6 +78,7 @@ class AuthenticatedSession {
         refreshToken: json['refreshToken'] as String?,
         tokenExpiresAt: json['expiresAt'] is String ? DateTime.tryParse(json['expiresAt'] as String) : null,
         twoFactorEnabled: user['twoFactorEnabled'] as bool? ?? true,
+        userType: userType ?? memberships.first,
       ),
       accessToken: json['accessToken'] as String? ?? '',
       refreshToken: json['refreshToken'] as String? ?? '',

@@ -1,5 +1,5 @@
 import { performance } from 'node:perf_hooks';
-import { z } from 'zod';
+import { ZodError, z } from 'zod';
 import {
   createRecord,
   deleteRecord,
@@ -8,18 +8,38 @@ import {
   updateRecord,
 } from '../services/explorerStore.js';
 import { resolveExplorerCollection } from '../utils/explorerCollections.js';
+import { ValidationError } from '../utils/errors.js';
+
+const urlSchema = z
+  .string()
+  .url()
+  .transform((value) => value.trim())
+  .refine((value) => value.length > 0, { message: 'URL cannot be empty.' });
 
 const mediaSchema = z.object({
-  heroImage: z.string().url().optional(),
-  gallery: z.array(z.string().url()).optional(),
-  videoUrl: z.string().url().optional(),
+  heroImage: urlSchema.optional(),
+  gallery: z.array(urlSchema).optional(),
+  videoUrl: urlSchema.optional(),
 });
+
+const numericAmountSchema = z.preprocess((value) => {
+  if (value == null || value === '') {
+    return undefined;
+  }
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : value;
+}, z.number().nonnegative());
 
 const priceSchema = z
   .object({
-    amount: z.number().nonnegative().optional(),
-    currency: z.string().min(1).optional(),
-    unit: z.string().min(1).optional(),
+    amount: numericAmountSchema.optional(),
+    currency: z
+      .string()
+      .trim()
+      .min(1)
+      .transform((value) => value.toUpperCase())
+      .optional(),
+    unit: z.string().trim().min(1).optional(),
   })
   .optional();
 
@@ -27,7 +47,7 @@ const ownerSchema = z
   .object({
     name: z.string().min(1).optional(),
     role: z.string().optional(),
-    avatar: z.string().url().optional(),
+    avatar: urlSchema.optional(),
   })
   .optional();
 
@@ -47,11 +67,11 @@ const baseRecordSchema = z.object({
   tags: z.array(z.string()).optional(),
   price: priceSchema,
   media: mediaSchema.optional(),
-  heroImage: z.string().url().optional(),
-  gallery: z.array(z.string().url()).optional(),
-  videoUrl: z.string().url().optional(),
-  detailUrl: z.string().url().optional(),
-  applicationUrl: z.string().url().optional(),
+  heroImage: urlSchema.optional(),
+  gallery: z.array(urlSchema).optional(),
+  videoUrl: urlSchema.optional(),
+  detailUrl: urlSchema.optional(),
+  applicationUrl: urlSchema.optional(),
   rating: z.number().min(0).max(5).optional(),
   reviewCount: z.number().int().nonnegative().optional(),
   owner: ownerSchema,
@@ -68,7 +88,15 @@ const recordSchema = baseRecordSchema.extend({
   id: z.string().optional(),
 });
 
-const updateSchema = baseRecordSchema.partial();
+const updateSchema = baseRecordSchema.partial().superRefine((value, ctx) => {
+  const hasAtLeastOneField = Object.keys(value).some((key) => value[key] !== undefined);
+  if (!hasAtLeastOneField) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'At least one field must be provided to update the explorer record.',
+    });
+  }
+});
 
 function resolveCollection(category) {
   return resolveExplorerCollection(category);
@@ -76,15 +104,49 @@ function resolveCollection(category) {
 
 function stringToArray(value) {
   if (Array.isArray(value)) {
-    return value.filter((item) => item && `${item}`.trim().length);
+    return Array.from(
+      new Set(
+        value
+          .map((item) => (item == null ? '' : `${item}`.trim()))
+          .filter((item) => item.length),
+      ),
+    );
   }
   if (typeof value === 'string' && value.trim().length) {
-    return value
-      .split(',')
-      .map((token) => token.trim())
-      .filter((token) => token.length);
+    return Array.from(
+      new Set(
+        value
+          .split(',')
+          .map((token) => token.trim())
+          .filter((token) => token.length),
+      ),
+    );
   }
   return [];
+}
+
+function normalisePrice(price) {
+  if (!price) {
+    return undefined;
+  }
+  const amount = Number(price.amount);
+  const normalised = {};
+  if (Number.isFinite(amount) && amount >= 0) {
+    normalised.amount = amount;
+  }
+  if (price.currency) {
+    const trimmed = `${price.currency}`.trim();
+    if (trimmed) {
+      normalised.currency = trimmed.toUpperCase();
+    }
+  }
+  if (price.unit) {
+    const trimmed = `${price.unit}`.trim();
+    if (trimmed) {
+      normalised.unit = trimmed;
+    }
+  }
+  return Object.keys(normalised).length ? normalised : undefined;
 }
 
 function normaliseRecordPayload(category, payload) {
@@ -94,11 +156,24 @@ function normaliseRecordPayload(category, payload) {
     category,
   };
 
-  if (!base.skills && payload.skills) {
+  if (payload.skills != null) {
     base.skills = stringToArray(payload.skills);
   }
-  if (!base.tags && payload.tags) {
+  if (base.skills?.length) {
+    base.skills = stringToArray(base.skills);
+  }
+  if (payload.tags != null) {
     base.tags = stringToArray(payload.tags);
+  }
+  if (base.tags?.length) {
+    base.tags = stringToArray(base.tags);
+  }
+
+  const normalisedPrice = normalisePrice(payload.price ?? base.price);
+  if (normalisedPrice) {
+    base.price = normalisedPrice;
+  } else {
+    delete base.price;
   }
 
   if (base.media) {
@@ -113,19 +188,62 @@ function normaliseRecordPayload(category, payload) {
 
 function normaliseUpdatePayload(payload) {
   const parsed = updateSchema.parse(payload);
-  const result = { ...parsed };
+  const result = Object.fromEntries(
+    Object.entries(parsed).filter(([, value]) => value !== undefined),
+  );
+
   if (payload.skills != null) {
-    result.skills = stringToArray(payload.skills ?? []);
+    const normalisedSkills = stringToArray(payload.skills ?? []);
+    if (normalisedSkills.length) {
+      result.skills = normalisedSkills;
+    } else {
+      delete result.skills;
+    }
+  } else if (result.skills?.length) {
+    result.skills = stringToArray(result.skills);
+    if (!result.skills.length) {
+      delete result.skills;
+    }
   }
+
   if (payload.tags != null) {
-    result.tags = stringToArray(payload.tags ?? []);
+    const normalisedTags = stringToArray(payload.tags ?? []);
+    if (normalisedTags.length) {
+      result.tags = normalisedTags;
+    } else {
+      delete result.tags;
+    }
+  } else if (result.tags?.length) {
+    result.tags = stringToArray(result.tags);
+    if (!result.tags.length) {
+      delete result.tags;
+    }
   }
+
+  const normalisedPrice = normalisePrice(payload.price ?? result.price);
+  if (payload.price != null) {
+    if (normalisedPrice) {
+      result.price = normalisedPrice;
+    } else {
+      delete result.price;
+    }
+  } else if (normalisedPrice) {
+    result.price = normalisedPrice;
+  }
+
   if (result.media) {
     result.heroImage = result.heroImage ?? result.media.heroImage;
     result.gallery = result.gallery ?? result.media.gallery;
     result.videoUrl = result.videoUrl ?? result.media.videoUrl;
     delete result.media;
   }
+
+  if (!Object.keys(result).length) {
+    throw new ValidationError('At least one field must be provided to update the explorer record.', [
+      { message: 'At least one field must be provided to update the explorer record.' },
+    ]);
+  }
+
   return result;
 }
 
@@ -166,9 +284,13 @@ function buildFilters(filters) {
   }
   if (typeof filters === 'string') {
     try {
-      return JSON.parse(filters);
-    } catch (error) {
+      const parsed = JSON.parse(filters);
+      if (parsed && typeof parsed === 'object') {
+        return parsed;
+      }
       return {};
+    } catch (error) {
+      throw new ValidationError('filters must be valid JSON.', { cause: error });
     }
   }
   if (typeof filters === 'object') {
@@ -219,6 +341,33 @@ const SORT_HANDLERS = {
 function sortRecords(records, sort) {
   const handler = SORT_HANDLERS[sort] ?? SORT_HANDLERS.default;
   return [...records].sort(handler);
+}
+
+function normalisePage(value) {
+  const parsed = Number.parseInt(value ?? '1', 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return 1;
+  }
+  return Math.min(parsed, 100);
+}
+
+function normalisePageSize(value) {
+  const parsed = Number.parseInt(value ?? '20', 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return 20;
+  }
+  return Math.min(parsed, 100);
+}
+
+function parseSort(sort) {
+  if (!sort) {
+    return 'default';
+  }
+  const normalised = `${sort}`.trim().toLowerCase();
+  if (!SORT_HANDLERS[normalised]) {
+    throw new ValidationError('Unsupported sort option.');
+  }
+  return normalised;
 }
 
 function resolveDurationCategory(duration) {
@@ -282,10 +431,10 @@ export async function listExplorer(req, res, next) {
     const start = performance.now();
     const { category } = req.params;
     const collection = resolveCollection(category);
-    const query = typeof req.query.q === 'string' ? req.query.q.trim() : '';
-    const sort = typeof req.query.sort === 'string' ? req.query.sort : 'default';
-    const pageSize = Math.max(1, Math.min(Number.parseInt(req.query.pageSize, 10) || 20, 100));
-    const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+    const query = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 255) : '';
+    const sort = parseSort(req.query.sort);
+    const pageSize = normalisePageSize(req.query.pageSize);
+    const page = normalisePage(req.query.page);
     const filters = buildFilters(req.query.filters);
 
     const records = await listRecords(collection);
@@ -312,6 +461,8 @@ export async function listExplorer(req, res, next) {
         source: 'explorer-dataset',
       },
       facets: buildFacets(filtered),
+      appliedFilters: filters,
+      sort,
     });
   } catch (error) {
     next(error);
@@ -340,7 +491,7 @@ export async function createExplorerRecord(req, res, next) {
     const record = await createRecord(collection, payload);
     res.status(201).json(record);
   } catch (error) {
-    if (error instanceof z.ZodError) {
+    if (error instanceof ZodError) {
       return res.status(400).json({ message: 'Validation failed', issues: error.issues });
     }
     return next(error);
@@ -352,14 +503,21 @@ export async function updateExplorerRecord(req, res, next) {
     const { category, recordId } = req.params;
     const collection = resolveCollection(category);
     const payload = normaliseUpdatePayload(req.body ?? {});
+    if (!recordId || !`${recordId}`.trim()) {
+      throw new ValidationError('A valid record identifier must be provided for explorer updates.');
+    }
     const record = await updateRecord(collection, recordId, payload);
     if (!record) {
       return res.status(404).json({ message: 'Explorer record not found' });
     }
     return res.json(record);
   } catch (error) {
-    if (error instanceof z.ZodError) {
+    if (error instanceof ZodError) {
       return res.status(400).json({ message: 'Validation failed', issues: error.issues });
+    }
+    if (error instanceof ValidationError) {
+      const issues = Array.isArray(error.details) ? error.details : [{ message: error.message }];
+      return res.status(400).json({ message: 'Validation failed', issues });
     }
     return next(error);
   }

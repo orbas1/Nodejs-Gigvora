@@ -13,6 +13,17 @@ on:
 env:
   FLUTTER_VERSION: '3.19.6'
 
+permissions:
+  contents: read
+
+concurrency:
+  group: flutter-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -eo pipefail {0}
+
 jobs:
   analyze_and_test:
     name: Analyze & Test
@@ -33,6 +44,9 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
 
+      - name: Export pub cache bin to PATH
+        run: echo "$HOME/.pub-cache/bin" >> "$GITHUB_PATH"
+
       - name: Cache Flutter dependencies
         uses: actions/cache@v4
         with:
@@ -49,6 +63,9 @@ jobs:
 
       - name: Bootstrap workspace
         run: melos bootstrap
+
+      - name: Verify formatting
+        run: melos exec -- flutter format --set-exit-if-changed .
 
       - name: Flutter analyze
         run: melos run analyze
@@ -75,6 +92,7 @@ jobs:
     name: Build Release Artifacts
     runs-on: macos-latest
     needs: analyze_and_test
+    if: ${{ github.event_name != 'pull_request' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -91,6 +109,15 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
 
+      - name: Export pub cache bin to PATH
+        run: echo "$HOME/.pub-cache/bin" >> "$GITHUB_PATH"
+
+      - name: Prepare native build caches
+        run: |
+          mkdir -p ~/.gradle/caches ~/.gradle/wrapper
+          mkdir -p ~/.cocoapods ~/Library/Caches/CocoaPods
+          mkdir -p gigvora-flutter-phoneapp/ios/Pods
+
       - name: Cache Flutter dependencies
         uses: actions/cache@v4
         with:
@@ -101,6 +128,27 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-flutter-${{ env.FLUTTER_VERSION }}-
             ${{ runner.os }}-flutter-
+
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/gradle-wrapper.properties', '**/*.gradle*') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cocoapods
+            ~/Library/Caches/CocoaPods
+            gigvora-flutter-phoneapp/ios/Pods
+          key: ${{ runner.os }}-cocoapods-${{ hashFiles('**/Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cocoapods-
 
       - name: Activate melos
         run: dart pub global activate melos
@@ -128,3 +176,4 @@ jobs:
             gigvora-flutter-phoneapp/build/app/outputs/**/*.aab
             gigvora-flutter-phoneapp/build/ios/ipa/*.ipa
           if-no-files-found: warn
+          retention-days: 14

@@ -25,7 +25,7 @@ export function GigvoraAdBanner({ eyebrow, title, description, stats, cta, class
               <a
                 href={cta.href}
                 target={cta.target ?? '_self'}
-                rel={cta.target === '_blank' ? 'noreferrer' : undefined}
+                rel={cta.target === '_blank' ? 'noreferrer noopener' : undefined}
                 className="inline-flex items-center gap-2 rounded-full bg-white/15 px-5 py-2 text-sm font-semibold text-white transition hover:bg-white/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
               >
                 <span>{cta.label}</span>
@@ -107,7 +107,7 @@ export function GigvoraAdGrid({ ads, className }) {
             <a
               href={ad.href}
               target={ad.target ?? '_self'}
-              rel={ad.target === '_blank' ? 'noreferrer' : undefined}
+              rel={ad.target === '_blank' ? 'noreferrer noopener' : undefined}
               className="relative inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
             >
               <span>{ad.ctaLabel ?? 'Discover more'}</span>

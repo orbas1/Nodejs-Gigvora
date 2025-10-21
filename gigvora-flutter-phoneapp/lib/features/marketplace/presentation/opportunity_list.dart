@@ -200,6 +200,7 @@ class _OpportunityListViewState extends ConsumerState<OpportunityListView> {
           )
         else ...[
           TextField(
+            key: const Key('opportunity_search_field'),
             controller: _searchController,
             textInputAction: TextInputAction.search,
             onChanged: controller.updateQuery,

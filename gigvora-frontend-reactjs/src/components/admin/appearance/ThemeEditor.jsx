@@ -326,6 +326,7 @@ function ThemeCard({ theme, onEdit, onMakeDefault, onRemove, disabled }) {
             type="button"
             onClick={() => onRemove(theme)}
             disabled={disabled}
+            aria-label={`Delete theme ${theme.name}`}
             className="inline-flex items-center gap-1 rounded-full border border-red-200 px-3 py-1 text-sm font-medium text-red-600 hover:border-red-300 hover:text-red-700 disabled:opacity-50"
           >
             <TrashIcon className="h-4 w-4" />

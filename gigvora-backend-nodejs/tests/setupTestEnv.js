@@ -4,6 +4,10 @@ import { PlatformSetting } from '../src/models/platformSetting.js';
 import { markDependencyHealthy } from '../src/lifecycle/runtimeHealth.js';
 import { appCache } from '../src/utils/cache.js';
 
+if (typeof process.env.SKIP_SEQUELIZE_BOOTSTRAP === 'undefined') {
+  process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'true';
+}
+
 const REQUIRED_ENV_DEFAULTS = {
   STRIPE_PUBLISHABLE_KEY: 'pk_test_mocked',
   STRIPE_SECRET_KEY: 'sk_test_mocked',
@@ -137,29 +141,47 @@ async function primeTestState() {
 
 jest.setTimeout(30_000);
 const skipBootstrap = process.env.SKIP_SEQUELIZE_BOOTSTRAP === 'true';
+const mockSequelizeMode = process.env.MOCK_SEQUELIZE_MODE === 'true';
 
-beforeAll(async () => {
+if (mockSequelizeMode) {
+  global.__mockSequelizeModels = {};
+  jest.unstable_mockModule('../src/models/index.js', () => global.__mockSequelizeModels);
+}
+
+if (mockSequelizeMode) {
   ensureEnvironmentDefaults();
-  if (skipBootstrap) {
-    // eslint-disable-next-line no-console
-    console.info('[tests] SKIP_SEQUELIZE_BOOTSTRAP enabled – skipping Sequelize sync for realtime-focused suites');
-    await resetDatabaseSchema();
-    markCoreDependenciesHealthy();
-  } else {
-    await primeTestState();
-  }
-});
 
-beforeEach(async () => {
-  appCache.store?.clear?.();
-  if (skipBootstrap) {
-    await resetDatabaseSchema();
-    markCoreDependenciesHealthy();
-  } else {
-    await primeTestState();
-  }
-});
+  beforeAll(async () => {});
 
-afterAll(async () => {
-  await sequelize.close();
-});
+  beforeEach(async () => {
+    appCache.store?.clear?.();
+  });
+
+  afterAll(async () => {});
+} else {
+  beforeAll(async () => {
+    ensureEnvironmentDefaults();
+    if (skipBootstrap) {
+      // eslint-disable-next-line no-console
+      console.info('[tests] SKIP_SEQUELIZE_BOOTSTRAP enabled – skipping Sequelize sync for realtime-focused suites');
+      await resetDatabaseSchema();
+      markCoreDependenciesHealthy();
+    } else {
+      await primeTestState();
+    }
+  });
+
+  beforeEach(async () => {
+    appCache.store?.clear?.();
+    if (skipBootstrap) {
+      await resetDatabaseSchema();
+      markCoreDependenciesHealthy();
+    } else {
+      await primeTestState();
+    }
+  });
+
+  afterAll(async () => {
+    await sequelize.close();
+  });
+}

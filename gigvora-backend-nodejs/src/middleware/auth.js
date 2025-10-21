@@ -1,39 +1,52 @@
 import jwt from 'jsonwebtoken';
 import { User } from '../models/index.js';
 import { AuthenticationError, AuthorizationError } from '../utils/errors.js';
+import { resolveAccessTokenSecret } from '../utils/jwtSecrets.js';
 
 function extractToken(req) {
-  const header = req.headers?.authorization ?? req.headers?.Authorization;
-  if (!header || typeof header !== 'string') {
-    throw new AuthenticationError('Authentication token missing.');
+  let header = req.headers?.authorization ?? req.headers?.Authorization;
+  if (Array.isArray(header)) {
+    header = header.find((value) => typeof value === 'string' && value.trim().length > 0);
   }
-  const parts = header.split(' ');
-  if (parts.length !== 2 || parts[0].toLowerCase() !== 'bearer') {
-    throw new AuthenticationError('Authentication token is malformed.');
+  if (typeof header === 'string') {
+    const parts = header.trim().split(' ');
+    if (parts.length === 2 && parts[0].toLowerCase() === 'bearer' && parts[1].trim()) {
+      return parts[1].trim();
+    }
   }
-  const token = parts[1].trim();
-  if (!token) {
-    throw new AuthenticationError('Authentication token is malformed.');
+
+  if (req.cookies?.accessToken) {
+    const token = `${req.cookies.accessToken}`.trim();
+    if (token) {
+      return token;
+    }
   }
-  return token;
+
+  if (req.query?.accessToken) {
+    const token = `${req.query.accessToken}`.trim();
+    if (token) {
+      return token;
+    }
+  }
+
+  throw new AuthenticationError('Authentication token missing.');
 }
 
 async function resolveUserFromToken(token) {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    throw new AuthenticationError('Authentication configuration is invalid.');
-  }
+  const secret = resolveAccessTokenSecret();
   let payload;
   try {
     payload = jwt.verify(token, secret);
   } catch (error) {
-    throw new AuthenticationError('Authentication token is invalid or expired.');
+    throw new AuthenticationError('Authentication token is invalid or expired.', { cause: error });
   }
   const userId = payload?.id;
   if (!userId) {
     throw new AuthenticationError('Authentication token is invalid.');
   }
-  const user = await User.findByPk(userId);
+  const user = await User.findByPk(userId, {
+    attributes: ['id', 'email', 'userType'],
+  });
   if (!user) {
     throw new AuthenticationError('Authenticated user could not be found.');
   }
@@ -44,10 +57,21 @@ export async function authenticate(req, res, next) {
   try {
     const token = extractToken(req);
     const { user, payload } = await resolveUserFromToken(token);
+    const normalizedRoles = Array.isArray(payload?.roles)
+      ? payload.roles.map((role) => `${role}`.trim().toLowerCase()).filter(Boolean)
+      : payload?.role
+        ? [`${payload.role}`.trim().toLowerCase()].filter(Boolean)
+        : [];
     req.user = {
       id: user.id,
       role: user.userType,
       email: user.email,
+      roles: normalizedRoles,
+      payload,
+    };
+    req.auth = {
+      userId: user.id,
+      token,
       payload,
     };
     next();
@@ -64,7 +88,11 @@ export function requireRole(...roles) {
         throw new AuthenticationError('Authentication required.');
       }
       const role = `${req.user.role ?? req.user.userType ?? ''}`.trim().toLowerCase();
-      if (!allowed.includes(role)) {
+      const normalizedRoles = Array.isArray(req.user.roles)
+        ? req.user.roles.map((entry) => `${entry}`.trim().toLowerCase()).filter(Boolean)
+        : [];
+      const granted = new Set([role, ...normalizedRoles]);
+      if (!allowed.some((value) => granted.has(value))) {
         throw new AuthorizationError('You do not have access to this resource.');
       }
       next();

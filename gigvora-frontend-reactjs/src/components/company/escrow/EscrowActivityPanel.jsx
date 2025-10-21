@@ -1,3 +1,5 @@
+import PropTypes from 'prop-types';
+
 function formatDate(value) {
   if (!value) return '—';
   try {
@@ -38,3 +40,21 @@ export default function EscrowActivityPanel({ activity }) {
     </div>
   );
 }
+
+EscrowActivityPanel.propTypes = {
+  activity: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+      reference: PropTypes.string,
+      type: PropTypes.string,
+      occurredAt: PropTypes.string,
+      milestoneLabel: PropTypes.string,
+      currencyCode: PropTypes.string,
+      amount: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    }),
+  ),
+};
+
+EscrowActivityPanel.defaultProps = {
+  activity: [],
+};

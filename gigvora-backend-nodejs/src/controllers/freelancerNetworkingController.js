@@ -22,6 +22,27 @@ import {
 } from '../services/freelancerNetworkingService.js';
 import { AuthorizationError, ValidationError } from '../utils/errors.js';
 
+const MAX_LOOKBACK_DAYS = 365;
+const MAX_CONNECTION_SAMPLE = 200;
+const MAX_LIST_LIMIT = 200;
+
+function normalizeOptionalInteger(value, { name, defaultValue, max }) {
+  if (value == null || value === '') {
+    return defaultValue;
+  }
+
+  const numeric = Number.parseInt(value, 10);
+  if (!Number.isInteger(numeric) || numeric < 0) {
+    throw new ValidationError(`${name} must be a non-negative integer.`);
+  }
+
+  if (typeof max === 'number' && numeric > max) {
+    return max;
+  }
+
+  return numeric;
+}
+
 function parsePositiveInteger(value, label = 'id') {
   if (value == null || value === '') {
     return null;
@@ -64,10 +85,15 @@ export async function dashboard(req, res) {
     parsePositiveInteger(req.user?.id, 'freelancerId');
   ensureFreelancerAccess(req.user, freelancerId);
 
-  const lookbackDays = req.query?.lookbackDays ? Number(req.query.lookbackDays) : undefined;
-  const limitConnections = req.query?.limitConnections
-    ? Number(req.query.limitConnections)
-    : undefined;
+  const lookbackDays = normalizeOptionalInteger(req.query?.lookbackDays, {
+    name: 'lookbackDays',
+    max: MAX_LOOKBACK_DAYS,
+  });
+
+  const limitConnections = normalizeOptionalInteger(req.query?.limitConnections, {
+    name: 'limitConnections',
+    max: MAX_CONNECTION_SAMPLE,
+  });
 
   const payload = await getFreelancerNetworkingDashboard(freelancerId, {
     lookbackDays,
@@ -104,7 +130,7 @@ export async function cancelSignup(req, res) {
 export async function listConnections(req, res) {
   const freelancerId = parsePositiveInteger(req.params.freelancerId, 'freelancerId');
   ensureFreelancerAccess(req.user, freelancerId);
-  const limit = req.query?.limit ? Number(req.query.limit) : undefined;
+  const limit = normalizeOptionalInteger(req.query?.limit, { name: 'limit', max: MAX_LIST_LIMIT });
   const payload = await listFreelancerNetworkingConnections(freelancerId, { limit });
   res.json(payload);
 }
@@ -137,11 +163,19 @@ export async function metrics(req, res) {
     parsePositiveInteger(req.params.freelancerId ?? req.query.freelancerId, 'freelancerId') ??
     parsePositiveInteger(req.user?.id, 'freelancerId');
   ensureFreelancerAccess(req.user, freelancerId);
-  const lookback = req.query?.lookbackDays ? Number(req.query.lookbackDays) : undefined;
-  const limitConnections = req.query?.limitConnections ? Number(req.query.limitConnections) : undefined;
+  const lookback = normalizeOptionalInteger(req.query?.lookbackDays, {
+    name: 'lookbackDays',
+    defaultValue: 180,
+    max: MAX_LOOKBACK_DAYS,
+  });
+  const limitConnections = normalizeOptionalInteger(req.query?.limitConnections, {
+    name: 'limitConnections',
+    defaultValue: 100,
+    max: MAX_CONNECTION_SAMPLE,
+  });
   const dashboard = await getFreelancerNetworkingDashboard(freelancerId, {
-    lookbackDays: lookback ?? 180,
-    limitConnections: limitConnections ?? 100,
+    lookbackDays: lookback,
+    limitConnections,
   });
   res.json({
     summary: dashboard.summary,
@@ -154,7 +188,7 @@ export async function metrics(req, res) {
 export async function listOrders(req, res) {
   const freelancerId = parsePositiveInteger(req.params.freelancerId, 'freelancerId');
   ensureFreelancerAccess(req.user, freelancerId);
-  const limit = req.query?.limit ? Number(req.query.limit) : undefined;
+  const limit = normalizeOptionalInteger(req.query?.limit, { name: 'limit', max: MAX_LIST_LIMIT });
   const payload = await listFreelancerNetworkingOrders(freelancerId, { limit });
   res.json(payload);
 }

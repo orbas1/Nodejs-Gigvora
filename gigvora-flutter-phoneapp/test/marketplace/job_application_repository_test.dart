@@ -7,10 +7,8 @@ import '../helpers/in_memory_offline_cache.dart';
 
 void main() {
   group('JobApplicationRepository', () {
-    late InMemoryOfflineCache cache;
     late JobApplicationRepository repository;
-
-    const jobId = 'staff-product-manager';
+    late InMemoryOfflineCache cache;
 
     setUp(() {
       cache = InMemoryOfflineCache();
@@ -21,109 +19,109 @@ void main() {
       await cache.dispose();
     });
 
-    test('seeds a collection of demo applications when cache is empty', () async {
-      final applications = await repository.loadApplications(jobId, forceRefresh: true);
-
-      expect(applications, isNotEmpty);
-      expect(applications.first.jobId, equals(jobId));
+    test('loadApplications seeds cache and returns sorted results', () async {
+      final records = await repository.loadApplications('gigvora-product-lead');
+      expect(records, isNotEmpty);
+      expect(records.first.updatedAt.isAfter(records.last.updatedAt), isTrue);
     });
 
-    test('createApplication stores a new record at the top of the list', () async {
-      final draft = const JobApplicationDraft(
-        applicantName: 'Jordan Miles',
-        email: 'jordan.miles@example.com',
-        phone: '+1 202 555 0182',
-        resumeUrl: 'https://cdn.gigvora.com/resumes/jordan-miles.pdf',
-        coverLetter: 'Excited about the opportunity to build inclusive marketplaces.',
-      );
+    test('createApplication persists new record at top of list', () async {
+      await repository.loadApplications('gigvora-product-lead');
+      final draft = JobApplicationDraft(applicantName: 'Alex Gómez', email: 'alex@example.com');
 
-      final record = await repository.createApplication(jobId, draft);
-      final applications = await repository.loadApplications(jobId);
+      final created = await repository.createApplication('gigvora-product-lead', draft);
+      final stored = await repository.loadApplications('gigvora-product-lead');
 
-      expect(applications.first.id, equals(record.id));
-      expect(applications.first.applicantName, equals('Jordan Miles'));
-      expect(applications.first.status, equals(JobApplicationStatus.submitted));
+      expect(stored.first.id, created.id);
+      expect(created.status, JobApplicationStatus.submitted);
     });
 
-    test('saveApplication updates the stored record', () async {
-      final applications = await repository.loadApplications(jobId);
-      final record = applications.first;
-      final updated = await repository.saveApplication(
-        record.copyWith(applicantName: 'Updated Name', phone: '+1 202 555 0100'),
-      );
+    test('saveApplication updates existing record', () async {
+      final records = await repository.loadApplications('gigvora-product-lead');
+      final original = records.first;
+      final updatedRecord = original.copyWith(status: JobApplicationStatus.offer);
 
-      final refreshed = await repository.loadApplications(jobId);
-      final persisted = refreshed.firstWhere((entry) => entry.id == record.id);
-
-      expect(updated.applicantName, equals('Updated Name'));
-      expect(persisted.phone, equals('+1 202 555 0100'));
-      expect(updated.updatedAt.isAfter(record.updatedAt), isTrue);
+      final saved = await repository.saveApplication(updatedRecord);
+      expect(saved.status, JobApplicationStatus.offer);
+      expect(saved.updatedAt.isAfter(original.updatedAt), isTrue);
     });
 
-    test('updateStatus persists a status change', () async {
-      final applications = await repository.loadApplications(jobId);
-      final record = applications.first;
+    test('deleteApplication removes entry from cache', () async {
+      final records = await repository.loadApplications('gigvora-product-lead');
+      final target = records.first;
 
-      await repository.updateStatus(jobId, record.id, JobApplicationStatus.offer);
-      final refreshed = await repository.loadApplications(jobId);
+      await repository.deleteApplication('gigvora-product-lead', target.id);
 
-      final updated = refreshed.firstWhere((entry) => entry.id == record.id);
-      expect(updated.status, JobApplicationStatus.offer);
+      final after = await repository.loadApplications('gigvora-product-lead');
+      expect(after.any((record) => record.id == target.id), isFalse);
     });
 
-    test('upsertInterview creates and updates interview slots', () async {
-      final applications = await repository.loadApplications(jobId);
-      final record = applications.first;
-      final interview = InterviewStep(
-        id: 'onsite',
-        label: 'Onsite loop',
-        startsAt: DateTime.now().add(const Duration(days: 5)),
-        format: 'In person',
-        host: 'Hiring panel',
-      );
-
-      await repository.upsertInterview(jobId, record.id, interview);
-      var refreshed = await repository.loadApplications(jobId);
-      var updated = refreshed.firstWhere((entry) => entry.id == record.id);
-
-      expect(updated.interviews.any((step) => step.id == 'onsite'), isTrue);
-
-      final amended = interview.copyWith(notes: 'Bring roadmap deep dive');
-      await repository.upsertInterview(jobId, record.id, amended);
-      refreshed = await repository.loadApplications(jobId);
-      updated = refreshed.firstWhere((entry) => entry.id == record.id);
-
-      final stored = updated.interviews.firstWhere((step) => step.id == 'onsite');
-      expect(stored.notes, equals('Bring roadmap deep dive'));
-      expect(updated.status, equals(JobApplicationStatus.interviewing));
-    });
-
-    test('removeInterview deletes the requested interview entry', () async {
-      final applications = await repository.loadApplications(jobId);
-      final record = applications.first;
+    test('upsertInterview inserts and updates interview steps', () async {
+      final records = await repository.loadApplications('gigvora-product-lead');
+      final target = records.first;
       final interview = InterviewStep(
         id: 'panel',
-        label: 'Panel',
-        startsAt: DateTime.now().add(const Duration(days: 3)),
+        label: 'Panel interview',
+        startsAt: DateTime.now().add(const Duration(days: 2)),
+        format: 'Video',
+        host: 'Strategy panel',
       );
 
-      await repository.upsertInterview(jobId, record.id, interview);
-      await repository.removeInterview(jobId, record.id, interview.id);
+      await repository.upsertInterview('gigvora-product-lead', target.id, interview);
+      var refreshed = await repository.loadApplications('gigvora-product-lead');
+      var stored = refreshed.firstWhere((record) => record.id == target.id);
+      expect(stored.interviews.any((step) => step.id == 'panel'), isTrue);
+      expect(stored.status, JobApplicationStatus.interviewing);
 
-      final refreshed = await repository.loadApplications(jobId);
-      final updated = refreshed.firstWhere((entry) => entry.id == record.id);
-
-      expect(updated.interviews.any((step) => step.id == interview.id), isFalse);
+      final updatedInterview = interview.copyWith(notes: 'Bring growth case study');
+      await repository.upsertInterview('gigvora-product-lead', target.id, updatedInterview);
+      refreshed = await repository.loadApplications('gigvora-product-lead');
+      stored = refreshed.firstWhere((record) => record.id == target.id);
+      expect(stored.interviews.firstWhere((step) => step.id == 'panel').notes, 'Bring growth case study');
     });
 
-    test('deleteApplication removes the record from storage', () async {
-      final applications = await repository.loadApplications(jobId);
-      final record = applications.first;
+    test('removeInterview deletes interview and preserves other fields', () async {
+      final records = await repository.loadApplications('gigvora-product-lead');
+      final target = records.first;
+      final interview = InterviewStep(
+        id: 'coffee',
+        label: 'Coffee chat',
+        startsAt: DateTime.now().add(const Duration(days: 1)),
+      );
+      await repository.upsertInterview('gigvora-product-lead', target.id, interview);
 
-      await repository.deleteApplication(jobId, record.id);
-      final refreshed = await repository.loadApplications(jobId);
+      await repository.removeInterview('gigvora-product-lead', target.id, 'coffee');
+      final refreshed = await repository.loadApplications('gigvora-product-lead');
+      final stored = refreshed.firstWhere((record) => record.id == target.id);
+      expect(stored.interviews.any((step) => step.id == 'coffee'), isFalse);
+    });
 
-      expect(refreshed.any((entry) => entry.id == record.id), isFalse);
+    test('updateStatus changes status while preserving other fields', () async {
+      final records = await repository.loadApplications('gigvora-product-lead');
+      final target = records.first;
+
+      await repository.updateStatus('gigvora-product-lead', target.id, JobApplicationStatus.rejected);
+      final refreshed = await repository.loadApplications('gigvora-product-lead');
+      final updated = refreshed.firstWhere((record) => record.id == target.id);
+      expect(updated.status, JobApplicationStatus.rejected);
+    });
+
+    test('cache expiry triggers a refresh of seeded applications', () async {
+      var now = DateTime(2024, 04, 11, 12);
+      await cache.dispose();
+      cache = InMemoryOfflineCache(clock: () => now);
+      repository = JobApplicationRepository(cache);
+
+      await repository.loadApplications('gigvora-product-lead');
+      await repository.createApplication(
+        'gigvora-product-lead',
+        const JobApplicationDraft(applicantName: 'Cache Tester', email: 'cache@test.dev'),
+      );
+
+      now = now.add(const Duration(minutes: 16));
+      final refreshed = await repository.loadApplications('gigvora-product-lead');
+
+      expect(refreshed.any((record) => record.email == 'cache@test.dev'), isFalse);
     });
   });
 }

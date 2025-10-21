@@ -98,8 +98,11 @@ MessageThread.searchByTerm = async function searchByTerm(term) {
   const normalized = term.trim();
   if (!normalized) return [];
 
+  const dialect = sequelize.getDialect();
+  const likeOperator = ['postgres', 'postgresql'].includes(dialect) ? Op.iLike : Op.like;
+
   return MessageThread.findAll({
-    where: { subject: { [Op.iLike ?? Op.like]: `%${normalized}%` } },
+    where: { subject: { [likeOperator]: `%${normalized}%` } },
     limit: 20,
     order: [['subject', 'ASC']],
   });

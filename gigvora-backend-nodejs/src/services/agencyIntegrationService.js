@@ -510,6 +510,15 @@ function mergeIntegrationMetadata(currentMetadata, updates) {
   if (Object.prototype.hasOwnProperty.call(updates, 'webhookPolicy')) {
     base.webhookPolicy = updates.webhookPolicy ?? null;
   }
+  if (Object.prototype.hasOwnProperty.call(updates, 'lastConnectionTestAt')) {
+    const timestamp = updates.lastConnectionTestAt;
+    if (!timestamp) {
+      base.lastConnectionTestAt = null;
+    } else {
+      const parsed = new Date(timestamp);
+      base.lastConnectionTestAt = Number.isNaN(parsed.getTime()) ? `${timestamp}` : parsed.toISOString();
+    }
+  }
   return base;
 }
 

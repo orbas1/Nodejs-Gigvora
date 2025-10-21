@@ -1,3 +1,5 @@
+import PropTypes from 'prop-types';
+
 export default function PageHeader({ eyebrow, title, description, actions, meta }) {
   return (
     <header className="mb-12 space-y-6">
@@ -17,3 +19,11 @@ export default function PageHeader({ eyebrow, title, description, actions, meta 
     </header>
   );
 }
+
+PageHeader.propTypes = {
+  eyebrow: PropTypes.node,
+  title: PropTypes.node.isRequired,
+  description: PropTypes.node,
+  actions: PropTypes.node,
+  meta: PropTypes.node,
+};

@@ -1,9 +1,6 @@
 'use strict';
 
-function resolveJsonType(queryInterface, Sequelize) {
-  const dialect = queryInterface.sequelize.getDialect();
-  return ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
-}
+const { resolveJsonType, safeRemoveIndex } = require('../utils/migrationHelpers.cjs');
 
 module.exports = {
   async up(queryInterface, Sequelize) {
@@ -348,25 +345,27 @@ module.exports = {
   },
 
   async down(queryInterface, Sequelize) {
-    await queryInterface.removeIndex('issue_resolution_cases', ['openedAt']).catch(() => {});
-    await queryInterface.removeIndex('issue_resolution_cases', ['workspaceId', 'status']).catch(() => {});
-    await queryInterface.removeIndex('engagement_schedule_events', ['startAt']).catch(() => {});
-    await queryInterface.removeIndex('engagement_schedule_events', ['workspaceId', 'scope']).catch(() => {});
-    await queryInterface.removeIndex('engagement_invoices', ['engagementId', 'status']).catch(() => {});
-    await queryInterface.removeIndex('client_engagement_portals', ['engagementId', 'status']).catch(() => {});
-    await queryInterface.removeIndex('client_engagement_mandates', ['engagementId']).catch(() => {});
-    await queryInterface.removeIndex('client_engagements', ['workspaceId', 'contractStatus']).catch(() => {});
-    await queryInterface.removeIndex('client_engagements', ['workspaceId']).catch(() => {});
+    await queryInterface.sequelize.transaction(async (transaction) => {
+      await safeRemoveIndex(queryInterface, 'issue_resolution_cases', ['openedAt'], { transaction });
+      await safeRemoveIndex(queryInterface, 'issue_resolution_cases', ['workspaceId', 'status'], { transaction });
+      await safeRemoveIndex(queryInterface, 'engagement_schedule_events', ['startAt'], { transaction });
+      await safeRemoveIndex(queryInterface, 'engagement_schedule_events', ['workspaceId', 'scope'], { transaction });
+      await safeRemoveIndex(queryInterface, 'engagement_invoices', ['engagementId', 'status'], { transaction });
+      await safeRemoveIndex(queryInterface, 'client_engagement_portals', ['engagementId', 'status'], { transaction });
+      await safeRemoveIndex(queryInterface, 'client_engagement_mandates', ['engagementId'], { transaction });
+      await safeRemoveIndex(queryInterface, 'client_engagements', ['workspaceId', 'contractStatus'], { transaction });
+      await safeRemoveIndex(queryInterface, 'client_engagements', ['workspaceId'], { transaction });
 
-    await queryInterface.dropTable('issue_resolution_events');
-    await queryInterface.dropTable('issue_resolution_cases');
-    await queryInterface.dropTable('engagement_schedule_events');
-    await queryInterface.dropTable('engagement_commission_splits');
-    await queryInterface.dropTable('engagement_invoices');
-    await queryInterface.dropTable('client_engagement_portal_audit_logs');
-    await queryInterface.dropTable('client_engagement_portals');
-    await queryInterface.dropTable('client_engagement_milestones');
-    await queryInterface.dropTable('client_engagement_mandates');
-    await queryInterface.dropTable('client_engagements');
+      await queryInterface.dropTable('issue_resolution_events', { transaction });
+      await queryInterface.dropTable('issue_resolution_cases', { transaction });
+      await queryInterface.dropTable('engagement_schedule_events', { transaction });
+      await queryInterface.dropTable('engagement_commission_splits', { transaction });
+      await queryInterface.dropTable('engagement_invoices', { transaction });
+      await queryInterface.dropTable('client_engagement_portal_audit_logs', { transaction });
+      await queryInterface.dropTable('client_engagement_portals', { transaction });
+      await queryInterface.dropTable('client_engagement_milestones', { transaction });
+      await queryInterface.dropTable('client_engagement_mandates', { transaction });
+      await queryInterface.dropTable('client_engagements', { transaction });
+    });
   },
 };

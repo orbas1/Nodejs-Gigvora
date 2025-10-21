@@ -29,14 +29,16 @@ function parsePositiveInteger(value) {
   return Number.isFinite(numeric) && numeric > 0 ? numeric : undefined;
 }
 
-function requireFreelancerId(value) {
+function requirePositiveIdentifier(name, value) {
   const parsed = parsePositiveInteger(value);
-
   if (!parsed) {
-    throw new ValidationError('freelancerId must be a positive integer.');
+    throw new ValidationError(`${name} must be a positive integer.`);
   }
-
   return parsed;
+}
+
+function requireFreelancerId(value) {
+  return requirePositiveIdentifier('freelancerId', value);
 }
 
 export async function dashboard(req, res) {
@@ -79,7 +81,9 @@ export async function createOrder(req, res) {
   const payload = req.body ? { ...req.body } : {};
   const { freelancerId } = req.query ?? {};
 
-  payload.freelancerId = payload.freelancerId ?? parsePositiveInteger(freelancerId);
+  const resolvedFreelancerId =
+    parsePositiveInteger(payload.freelancerId) ?? parsePositiveInteger(freelancerId);
+  payload.freelancerId = resolvedFreelancerId;
 
   if (!payload.freelancerId) {
     throw new ValidationError('freelancerId is required to create an order.');
@@ -90,43 +94,43 @@ export async function createOrder(req, res) {
 }
 
 export async function updateOrder(req, res) {
-  const { orderId } = req.params ?? {};
+  const orderId = requirePositiveIdentifier('orderId', req.params?.orderId);
   const result = await updateFreelancerOrder(orderId, req.body ?? {});
   res.json(result);
 }
 
 export async function createOrderRequirement(req, res) {
-  const { orderId } = req.params ?? {};
+  const orderId = requirePositiveIdentifier('orderId', req.params?.orderId);
   const result = await createRequirementForm(orderId, req.body ?? {});
   res.status(201).json(result);
 }
 
 export async function updateOrderRequirement(req, res) {
-  const { formId } = req.params ?? {};
+  const formId = requirePositiveIdentifier('formId', req.params?.formId);
   const result = await updateRequirementForm(formId, req.body ?? {});
   res.json(result);
 }
 
 export async function createOrderRevision(req, res) {
-  const { orderId } = req.params ?? {};
+  const orderId = requirePositiveIdentifier('orderId', req.params?.orderId);
   const result = await createRevision(orderId, req.body ?? {});
   res.status(201).json(result);
 }
 
 export async function updateOrderRevision(req, res) {
-  const { revisionId } = req.params ?? {};
+  const revisionId = requirePositiveIdentifier('revisionId', req.params?.revisionId);
   const result = await updateRevision(revisionId, req.body ?? {});
   res.json(result);
 }
 
 export async function createOrderEscrowCheckpoint(req, res) {
-  const { orderId } = req.params ?? {};
+  const orderId = requirePositiveIdentifier('orderId', req.params?.orderId);
   const result = await createEscrowCheckpoint(orderId, req.body ?? {});
   res.status(201).json(result);
 }
 
 export async function updateOrderEscrowCheckpoint(req, res) {
-  const { checkpointId } = req.params ?? {};
+  const checkpointId = requirePositiveIdentifier('checkpointId', req.params?.checkpointId);
   const result = await updateEscrowCheckpoint(checkpointId, req.body ?? {});
   res.json(result);
 }
@@ -134,24 +138,34 @@ export async function updateOrderEscrowCheckpoint(req, res) {
 export async function createGig(req, res) {
   const payload = req.body ? { ...req.body } : {};
   const actorId = parsePositiveInteger(payload.actorId ?? payload.ownerId);
-
+  if (!actorId) {
+    throw new ValidationError('actorId must be a positive integer.');
+  }
   const gig = await createGigBlueprint(payload, { actorId });
   res.status(201).json(gig);
 }
 
 export async function updateGig(req, res) {
-  const { gigId } = req.params;
+  const gigId = requirePositiveIdentifier('gigId', req.params?.gigId);
   const payload = req.body ? { ...req.body } : {};
   const actorId = parsePositiveInteger(payload.actorId ?? payload.ownerId);
+
+  if (!actorId) {
+    throw new ValidationError('actorId must be a positive integer.');
+  }
 
   const gig = await updateGigBlueprint(gigId, payload, { actorId });
   res.json(gig);
 }
 
 export async function publish(req, res) {
-  const { gigId } = req.params;
+  const gigId = requirePositiveIdentifier('gigId', req.params?.gigId);
   const payload = req.body ?? {};
   const actorId = parsePositiveInteger(payload.actorId ?? payload.ownerId);
+
+  if (!actorId) {
+    throw new ValidationError('actorId must be a positive integer.');
+  }
 
   const gig = await publishGig(gigId, {
     actorId,
@@ -162,13 +176,13 @@ export async function publish(req, res) {
 }
 
 export async function show(req, res) {
-  const { gigId } = req.params;
+  const gigId = requirePositiveIdentifier('gigId', req.params?.gigId);
   const gig = await getGigDetail(gigId);
   res.json(gig);
 }
 
 export async function getPurchasedGigWorkspace(req, res) {
-  const { id } = req.params;
+  const id = requirePositiveIdentifier('id', req.params?.id);
 
   const dashboard = await freelancerPurchasedGigService.getFreelancerPurchasedGigDashboard(id, {
     bypassCache: req.query?.fresh === 'true',

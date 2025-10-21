@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import apiClient from '../services/apiClient.js';
 
 const STORAGE_KEY = 'gigvora:web:session';
@@ -6,10 +6,33 @@ const STORAGE_KEY = 'gigvora:web:session';
 const defaultValue = {
   session: null,
   isAuthenticated: false,
+  roleKeys: [],
+  permissionKeys: [],
+  hasRole: () => false,
+  hasPermission: () => false,
   login: () => {},
   logout: () => {},
   updateSession: () => {},
 };
+
+function normaliseKey(value) {
+  if (value == null) {
+    return null;
+  }
+
+  if (typeof value === 'object' && 'key' in value) {
+    return normaliseKey(value.key);
+  }
+
+  const stringified = typeof value === 'string' ? value : String(value);
+  const trimmed = stringified.trim().toLowerCase();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  return trimmed.replace(/[^a-z0-9]+/g, '_');
+}
 
 function normalizeStringList(value) {
   if (!Array.isArray(value)) {
@@ -58,6 +81,41 @@ function normalizeSessionValue(value) {
   const permissions = normalizeStringList(value.permissions ?? []);
   const capabilities = normalizeStringList(value.capabilities ?? []);
 
+  const roleCandidates = [];
+  const permissionCandidates = [];
+
+  const pushValues = (target, candidate) => {
+    if (!candidate) {
+      return;
+    }
+    if (Array.isArray(candidate) || candidate instanceof Set) {
+      candidate.forEach((entry) => {
+        if (typeof entry === 'string' && entry.trim()) {
+          target.push(entry);
+        }
+      });
+      return;
+    }
+    if (typeof candidate === 'string' && candidate.trim()) {
+      target.push(candidate);
+    }
+  };
+
+  pushValues(roleCandidates, memberships);
+  pushValues(roleCandidates, roles);
+  pushValues(roleCandidates, value.primaryDashboard);
+  pushValues(roleCandidates, value.accountTypes);
+  pushValues(roleCandidates, value.activeMembership);
+  pushValues(roleCandidates, value.userType);
+  pushValues(roleCandidates, value.roleKeys);
+
+  pushValues(permissionCandidates, permissions);
+  pushValues(permissionCandidates, capabilities);
+  pushValues(permissionCandidates, value.grants);
+  pushValues(permissionCandidates, value.scopes);
+  pushValues(permissionCandidates, value.features);
+  pushValues(permissionCandidates, value.permissionKeys);
+
   let primaryDashboard = typeof value.primaryDashboard === 'string' ? value.primaryDashboard.trim() : '';
   if (!primaryDashboard) {
     primaryDashboard = memberships[0] ?? 'user';
@@ -85,6 +143,8 @@ function normalizeSessionValue(value) {
     permissions,
     capabilities,
     memberships,
+    roleKeys: Array.from(new Set(roleCandidates.map(normaliseKey).filter(Boolean))),
+    permissionKeys: Array.from(new Set(permissionCandidates.map(normaliseKey).filter(Boolean))),
     primaryDashboard,
     avatarUrl: value.avatarUrl ?? profileMeta.avatarUrl ?? null,
     avatarSeed: value.avatarSeed ?? profileMeta.avatarSeed ?? name ?? email ?? 'Gigvora member',
@@ -121,11 +181,12 @@ function normalizeSessionPayload(payload) {
   const profileMeta = extractProfileMeta(user) ?? extractProfileMeta(payload);
 
   const tokens = payload.tokens ??
-    (payload.accessToken || payload.refreshToken
+    user.tokens ??
+    (payload.accessToken || payload.refreshToken || user.accessToken || user.refreshToken
       ? {
-          accessToken: payload.accessToken ?? null,
-          refreshToken: payload.refreshToken ?? null,
-          expiresAt: payload.expiresAt ?? payload.tokenExpiresAt ?? null,
+          accessToken: payload.accessToken ?? user.accessToken ?? null,
+          refreshToken: payload.refreshToken ?? user.refreshToken ?? null,
+          expiresAt: payload.expiresAt ?? payload.tokenExpiresAt ?? user.expiresAt ?? user.tokenExpiresAt ?? null,
         }
       : null);
 
@@ -146,10 +207,14 @@ function normalizeSessionPayload(payload) {
     roles: normalizeStringList(payload.roles ?? user.roles ?? []),
     permissions: normalizeStringList(payload.permissions ?? user.permissions ?? []),
     capabilities: normalizeStringList(payload.capabilities ?? user.capabilities ?? []),
+    grants: normalizeStringList(payload.grants ?? user.grants ?? []),
+    scopes: normalizeStringList(payload.scopes ?? user.scopes ?? []),
+    features: normalizeStringList(payload.features ?? user.features ?? []),
     tokens,
-    accessToken: tokens?.accessToken ?? payload.accessToken ?? null,
-    refreshToken: tokens?.refreshToken ?? payload.refreshToken ?? null,
-    tokenExpiresAt: tokens?.expiresAt ?? payload.expiresAt ?? payload.tokenExpiresAt ?? null,
+    accessToken: tokens?.accessToken ?? payload.accessToken ?? user.accessToken ?? null,
+    refreshToken: tokens?.refreshToken ?? payload.refreshToken ?? user.refreshToken ?? null,
+    tokenExpiresAt:
+      tokens?.expiresAt ?? payload.expiresAt ?? payload.tokenExpiresAt ?? user.expiresAt ?? user.tokenExpiresAt ?? null,
     isAuthenticated: true,
   };
 
@@ -229,10 +294,32 @@ export function SessionProvider({ children }) {
     }
   }, [session?.tokens, session?.accessToken, session?.refreshToken, session?.tokenExpiresAt]);
 
+  const roleKeys = useMemo(() => session?.roleKeys ?? [], [session?.roleKeys]);
+  const permissionKeys = useMemo(() => session?.permissionKeys ?? [], [session?.permissionKeys]);
+
+  const roleKeySet = useMemo(() => new Set(roleKeys.map(normaliseKey).filter(Boolean)), [roleKeys]);
+  const permissionKeySet = useMemo(
+    () => new Set(permissionKeys.map(normaliseKey).filter(Boolean)),
+    [permissionKeys],
+  );
+
+  const hasRole = useCallback((role) => roleKeySet.has(normaliseKey(role)), [roleKeySet]);
+
+  const hasPermission = useCallback(
+    (permission) => permissionKeySet.has(normaliseKey(permission)),
+    [permissionKeySet],
+  );
+
   const value = useMemo(
     () => ({
       session,
       isAuthenticated: Boolean(session?.isAuthenticated),
+      roleKeys,
+      permissionKeys,
+      roles: session?.roles ?? [],
+      permissions: session?.permissions ?? [],
+      hasRole,
+      hasPermission,
       login: (payload = {}) => {
         const normalized = normalizeSessionPayload(payload);
         if (!normalized) {
@@ -275,7 +362,7 @@ export function SessionProvider({ children }) {
         });
       },
     }),
-    [session],
+    [hasPermission, hasRole, permissionKeys, roleKeys, session],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

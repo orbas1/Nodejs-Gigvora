@@ -1,4 +1,30 @@
-export default function RecentTransactionsTable({ transactions, formatCurrency, formatDate }) {
+import PropTypes from 'prop-types';
+
+const defaultFormatCurrency = (amount, currency = 'USD') => {
+  const numeric = Number(amount ?? 0);
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: numeric >= 1000 ? 0 : 2,
+  }).format(Number.isFinite(numeric) ? numeric : 0);
+};
+
+const defaultFormatDate = (value) => {
+  if (!value) {
+    return '—';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '—';
+  }
+  return date.toLocaleString();
+};
+
+export default function RecentTransactionsTable({
+  transactions,
+  formatCurrency = defaultFormatCurrency,
+  formatDate = defaultFormatDate,
+}) {
   const rows = Array.isArray(transactions) ? transactions : [];
 
   return (
@@ -51,3 +77,27 @@ export default function RecentTransactionsTable({ transactions, formatCurrency, 
     </section>
   );
 }
+
+RecentTransactionsTable.propTypes = {
+  transactions: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      reference: PropTypes.string,
+      type: PropTypes.string,
+      status: PropTypes.string,
+      amount: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      netAmount: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      currencyCode: PropTypes.string,
+      account: PropTypes.shape({ provider: PropTypes.string }),
+      createdAt: PropTypes.string,
+    }),
+  ),
+  formatCurrency: PropTypes.func,
+  formatDate: PropTypes.func,
+};
+
+RecentTransactionsTable.defaultProps = {
+  transactions: [],
+  formatCurrency: defaultFormatCurrency,
+  formatDate: defaultFormatDate,
+};

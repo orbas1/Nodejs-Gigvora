@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { useState } from 'react';
 
 const OBJECT_TYPES = ['asset', 'deliverable', 'dependency', 'risk', 'note'];
@@ -65,20 +66,23 @@ export default function WorkspaceObjectsTab({ objects = [], onCreate, onUpdate, 
 
       {formState !== null ? (
         <form
+          noValidate
           className="mt-6 grid gap-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 md:grid-cols-2"
           onSubmit={(event) => {
             event.preventDefault();
-            if (!formState.label) {
+            const label = formState.label?.trim();
+            if (!label) {
               return;
             }
+            const quantityValue = Number.parseFloat(formState.quantity);
             const payload = {
-              objectType: formState.objectType,
-              label: formState.label,
-              description: formState.description,
-              ownerName: formState.ownerName,
-              quantity: formState.quantity,
-              unit: formState.unit,
-              status: formState.status,
+              objectType: (formState.objectType ?? 'asset').trim(),
+              label,
+              description: formState.description?.trim() || '',
+              ownerName: formState.ownerName?.trim() || '',
+              quantity: Number.isFinite(quantityValue) ? quantityValue : null,
+              unit: formState.unit?.trim() || '',
+              status: formState.status?.trim() || '',
             };
             if (formState.id) {
               onUpdate?.(formState.id, payload);
@@ -126,6 +130,7 @@ export default function WorkspaceObjectsTab({ objects = [], onCreate, onUpdate, 
             <input
               type="number"
               min="0"
+              step="0.1"
               value={formState.quantity ?? ''}
               onChange={(event) => setFormState((state) => ({ ...(state ?? {}), quantity: event.target.value }))}
               className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
@@ -178,3 +183,28 @@ export default function WorkspaceObjectsTab({ objects = [], onCreate, onUpdate, 
     </div>
   );
 }
+
+WorkspaceObjectsTab.propTypes = {
+  objects: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      objectType: PropTypes.string,
+      label: PropTypes.string,
+      description: PropTypes.string,
+      ownerName: PropTypes.string,
+      quantity: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      unit: PropTypes.string,
+      status: PropTypes.string,
+    }),
+  ),
+  onCreate: PropTypes.func,
+  onUpdate: PropTypes.func,
+  onDelete: PropTypes.func,
+};
+
+WorkspaceObjectsTab.defaultProps = {
+  objects: [],
+  onCreate: undefined,
+  onUpdate: undefined,
+  onDelete: undefined,
+};

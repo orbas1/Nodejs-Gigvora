@@ -657,69 +657,84 @@ export default function CompanyPageEditorDrawer({
                                 </button>
                               </div>
                               <div className="space-y-3">
-                                {collaborators.map((collaborator, index) => (
-                                  <div key={collaborator.id ?? index} className="grid gap-3 rounded-3xl border border-slate-200 bg-slate-50/70 p-4 sm:grid-cols-2">
-                                    <div>
-                                      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                        Email
-                                      </label>
-                                      <input
-                                        value={collaborator.collaboratorEmail ?? ''}
-                                        onChange={(event) => handleCollaboratorChange(index, 'collaboratorEmail', event.target.value)}
-                                        className="mt-1 w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                                      />
+                                {collaborators.map((collaborator, index) => {
+                                  const key = collaborator.id ?? index;
+                                  const emailId = `collaborator-email-${key}`;
+                                  const nameId = `collaborator-name-${key}`;
+                                  const roleId = `collaborator-role-${key}`;
+                                  const statusId = `collaborator-status-${key}`;
+                                  return (
+                                    <div key={key} className="grid gap-3 rounded-3xl border border-slate-200 bg-slate-50/70 p-4 sm:grid-cols-2">
+                                      <div>
+                                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor={emailId}>
+                                          Email
+                                        </label>
+                                        <input
+                                          id={emailId}
+                                          name="collaboratorEmail"
+                                          value={collaborator.collaboratorEmail ?? ''}
+                                          onChange={(event) => handleCollaboratorChange(index, 'collaboratorEmail', event.target.value)}
+                                          className="mt-1 w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor={nameId}>
+                                          Name
+                                        </label>
+                                        <input
+                                          id={nameId}
+                                          name="collaboratorName"
+                                          value={collaborator.collaboratorName ?? ''}
+                                          onChange={(event) => handleCollaboratorChange(index, 'collaboratorName', event.target.value)}
+                                          className="mt-1 w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor={roleId}>
+                                          Role
+                                        </label>
+                                        <select
+                                          id={roleId}
+                                          name="collaboratorRole"
+                                          value={collaborator.role ?? 'editor'}
+                                          onChange={(event) => handleCollaboratorChange(index, 'role', event.target.value)}
+                                          className="mt-1 w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                                        >
+                                          {collaboratorRoleOptions.map((option) => (
+                                            <option key={option.value} value={option.value}>
+                                              {option.label}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </div>
+                                      <div>
+                                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor={statusId}>
+                                          Status
+                                        </label>
+                                        <select
+                                          id={statusId}
+                                          name="collaboratorStatus"
+                                          value={collaborator.status ?? 'invited'}
+                                          onChange={(event) => handleCollaboratorChange(index, 'status', event.target.value)}
+                                          className="mt-1 w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-inner focus-border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                                        >
+                                          <option value="invited">Invited</option>
+                                          <option value="active">Active</option>
+                                          <option value="inactive">Inactive</option>
+                                        </select>
+                                      </div>
+                                      <div className="sm:col-span-2 flex justify-end">
+                                        <button
+                                          type="button"
+                                          onClick={() => removeCollaborator(index)}
+                                          className="rounded-full border border-rose-200 px-3 py-1 text-xs font-semibold text-rose-500 transition hover:border-rose-300 hover:text-rose-600"
+                                        >
+                                          Remove
+                                        </button>
+                                      </div>
                                     </div>
-                                    <div>
-                                      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                        Name
-                                      </label>
-                                      <input
-                                        value={collaborator.collaboratorName ?? ''}
-                                        onChange={(event) => handleCollaboratorChange(index, 'collaboratorName', event.target.value)}
-                                        className="mt-1 w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                                      />
-                                    </div>
-                                    <div>
-                                      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                        Role
-                                      </label>
-                                      <select
-                                        value={collaborator.role ?? 'editor'}
-                                        onChange={(event) => handleCollaboratorChange(index, 'role', event.target.value)}
-                                        className="mt-1 w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                                      >
-                                        {collaboratorRoleOptions.map((option) => (
-                                          <option key={option.value} value={option.value}>
-                                            {option.label}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    </div>
-                                    <div>
-                                      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                        Status
-                                      </label>
-                                      <select
-                                        value={collaborator.status ?? 'invited'}
-                                        onChange={(event) => handleCollaboratorChange(index, 'status', event.target.value)}
-                                        className="mt-1 w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                                      >
-                                        <option value="invited">Invited</option>
-                                        <option value="active">Active</option>
-                                        <option value="inactive">Inactive</option>
-                                      </select>
-                                    </div>
-                                    <div className="sm:col-span-2 flex justify-end">
-                                      <button
-                                        type="button"
-                                        onClick={() => removeCollaborator(index)}
-                                        className="rounded-full border border-rose-200 px-3 py-1 text-xs font-semibold text-rose-500 transition hover:border-rose-300 hover:text-rose-600"
-                                      >
-                                        Remove
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                               <div className="flex items-center justify-end">
                                 <button

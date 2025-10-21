@@ -1,5 +1,7 @@
 'use strict';
 
+const { resolveJsonType, dropEnum } = require('../utils/migrationHelpers.cjs');
+
 const GROUP_MEMBERSHIP_ROLES = ['owner', 'moderator', 'member', 'observer'];
 const COMMUNITY_INVITE_STATUSES = ['pending', 'accepted', 'declined', 'expired'];
 const GROUP_POST_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
@@ -13,8 +15,7 @@ const PAGE_POST_VISIBILITIES = ['public', 'followers', 'members', 'private'];
 module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.sequelize.transaction(async (transaction) => {
-      const dialect = queryInterface.sequelize.getDialect();
-      const jsonType = dialect === 'postgres' ? Sequelize.JSONB : Sequelize.JSON;
+      const jsonType = resolveJsonType(queryInterface, Sequelize);
 
       await queryInterface.createTable(
         'group_invites',
@@ -324,9 +325,7 @@ module.exports = {
         'enum_page_posts_visibility',
       ];
 
-      for (const typeName of typeNames) {
-        await queryInterface.sequelize.query(`DROP TYPE IF EXISTS "${typeName}";`, { transaction });
-      }
+      await Promise.all(typeNames.map((typeName) => dropEnum(queryInterface, typeName, transaction)));
     });
   },
 };

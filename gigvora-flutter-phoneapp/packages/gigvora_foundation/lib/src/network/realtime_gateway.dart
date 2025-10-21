@@ -132,7 +132,11 @@ class RealtimeGateway {
     }
     _connecting = true;
     _setStatus(RealtimeConnectionState.connecting);
-    _connect().whenComplete(() => _connecting = false);
+    _connect()
+        .catchError((error, stackTrace) {
+          _logger.fine('Realtime connection attempt failed', error, stackTrace);
+        })
+        .whenComplete(() => _connecting = false);
   }
 
   Future<void> _connect() async {
@@ -165,7 +169,6 @@ class RealtimeGateway {
     } catch (error, stackTrace) {
       _logger.warning('Failed to establish realtime connection', error, stackTrace);
       _scheduleReconnect();
-      rethrow;
     }
   }
 

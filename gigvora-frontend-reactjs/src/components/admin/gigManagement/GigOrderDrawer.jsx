@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import { Dialog, Transition } from '@headlessui/react';
-import { XMarkIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, PlusIcon } from '@heroicons/react/24/outline';
 
 const STATUS_OPTIONS = [
   { value: 'requirements', label: 'Requirements' },
@@ -278,20 +278,25 @@ export default function GigOrderDrawer({ open, order, canManage, onClose, onSubm
                         ) : null}
                       </div>
                       <div className="mt-3 space-y-3">
-                        {requirements.map((requirement) => (
-                          <div key={requirement._key} className={`rounded-2xl border px-4 py-4 text-sm shadow-sm ${requirement._remove ? 'border-rose-300 bg-rose-50/70' : 'border-slate-200 bg-white/80'}`}>
+                        {requirements.map((requirement, index) => (
+                          <div
+                            key={requirement._key}
+                            className={`rounded-2xl border px-4 py-4 text-sm shadow-sm ${requirement._remove ? 'border-rose-300 bg-rose-50/70' : 'border-slate-200 bg-white/80'}`}
+                          >
                             <div className="grid gap-3 sm:grid-cols-[2fr_1fr_1fr_auto]">
                               <input
                                 value={requirement.title}
                                 onChange={(event) => handleRequirementChange(requirement._key, 'title', event.target.value)}
                                 disabled={!canManage || saving || requirement._remove}
                                 placeholder="Requirement"
+                                aria-label="Requirement title"
                                 className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
                               />
                               <select
                                 value={requirement.status}
                                 onChange={(event) => handleRequirementChange(requirement._key, 'status', event.target.value)}
                                 disabled={!canManage || saving || requirement._remove}
+                                aria-label="Requirement status"
                                 className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
                               >
                                 {REQUIREMENT_STATUS.map((option) => (
@@ -305,6 +310,7 @@ export default function GigOrderDrawer({ open, order, canManage, onClose, onSubm
                                 value={requirement.dueAt}
                                 onChange={(event) => handleRequirementChange(requirement._key, 'dueAt', event.target.value)}
                                 disabled={!canManage || saving || requirement._remove}
+                                aria-label="Requirement due date"
                                 className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
                               />
                               <div className="flex items-center justify-end gap-2">
@@ -316,6 +322,11 @@ export default function GigOrderDrawer({ open, order, canManage, onClose, onSubm
                                       : removeUnsavedRequirement(requirement._key)
                                   }
                                   disabled={!canManage || saving}
+                                  aria-label={
+                                    requirement._remove
+                                      ? 'Keep requirement'
+                                      : `Remove requirement ${requirement.title || `#${index + 1}`}`
+                                  }
                                   className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide transition ${
                                     requirement._remove
                                       ? 'bg-emerald-100 text-emerald-600'
@@ -332,6 +343,7 @@ export default function GigOrderDrawer({ open, order, canManage, onClose, onSubm
                               disabled={!canManage || saving || requirement._remove}
                               rows={2}
                               placeholder="Notes"
+                              aria-label={`Requirement notes ${index + 1}`}
                               className="mt-3 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs text-slate-600 shadow-sm focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
                             />
                           </div>
@@ -405,6 +417,7 @@ export default function GigOrderDrawer({ open, order, canManage, onClose, onSubm
                           onChange={(event) => setRevisionSummary(event.target.value)}
                           disabled={!canManage || saving}
                           placeholder="Summary"
+                          aria-label="Revision summary"
                           className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
                         />
                         <input
@@ -412,12 +425,14 @@ export default function GigOrderDrawer({ open, order, canManage, onClose, onSubm
                           value={revisionDueAt}
                           onChange={(event) => setRevisionDueAt(event.target.value)}
                           disabled={!canManage || saving}
+                          aria-label="Revision due date"
                           className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
                         />
                         <select
                           value={revisionStatus}
                           onChange={(event) => setRevisionStatus(event.target.value)}
                           disabled={!canManage || saving}
+                          aria-label="Revision status"
                           className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
                         >
                           {REVISION_STATUS.map((option) => (

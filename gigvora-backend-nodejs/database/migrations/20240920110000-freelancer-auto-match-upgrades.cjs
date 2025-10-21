@@ -1,11 +1,15 @@
 'use strict';
 
+const resolveJsonType = (queryInterface, Sequelize) => {
+  const dialect = queryInterface.sequelize.getDialect();
+  return ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
+};
+
 module.exports = {
   async up(queryInterface, Sequelize) {
-    const transaction = await queryInterface.sequelize.transaction();
-    try {
-      const dialect = queryInterface.sequelize.getDialect();
-      const jsonType = ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
+    await queryInterface.sequelize.transaction(async (transaction) => {
+      const jsonType = resolveJsonType(queryInterface, Sequelize);
+      const timestampDefault = Sequelize.literal('CURRENT_TIMESTAMP');
 
       await queryInterface.createTable(
         'freelancer_auto_match_preferences',
@@ -17,7 +21,6 @@ module.exports = {
             references: { model: 'users', key: 'id' },
             onUpdate: 'CASCADE',
             onDelete: 'CASCADE',
-            unique: true,
           },
           availabilityStatus: { type: Sequelize.STRING(32), allowNull: false, defaultValue: 'available' },
           availabilityMode: { type: Sequelize.STRING(32), allowNull: false, defaultValue: 'always_on' },
@@ -32,11 +35,18 @@ module.exports = {
           escalationContact: { type: Sequelize.STRING(180), allowNull: true },
           notes: { type: Sequelize.TEXT, allowNull: true },
           metadata: { type: jsonType, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false },
-          updatedAt: { type: Sequelize.DATE, allowNull: false },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
         },
         { transaction },
       );
+
+      await queryInterface.addConstraint('freelancer_auto_match_preferences', {
+        type: 'unique',
+        fields: ['freelancerId'],
+        name: 'freelancer_auto_match_preferences_freelancer_unique',
+        transaction,
+      });
 
       await queryInterface.createTable(
         'auto_assign_responses',
@@ -72,8 +82,8 @@ module.exports = {
           reasonLabel: { type: Sequelize.STRING(180), allowNull: true },
           responseNotes: { type: Sequelize.TEXT, allowNull: true },
           metadata: { type: jsonType, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false },
-          updatedAt: { type: Sequelize.DATE, allowNull: false },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
         },
         { transaction },
       );
@@ -85,48 +95,39 @@ module.exports = {
         { transaction },
       );
 
-      await queryInterface.addIndex(
-        'auto_assign_responses',
-        ['freelancerId', 'status', 'respondedAt'],
-        { name: 'auto_assign_responses_freelancer_status_idx', transaction },
-      );
+      await queryInterface.addIndex('auto_assign_responses', ['freelancerId', 'status', 'respondedAt'], {
+        name: 'auto_assign_responses_freelancer_status_idx',
+        transaction,
+      });
 
-      await queryInterface.addIndex(
-        'auto_assign_responses',
-        ['queueEntryId'],
-        { name: 'auto_assign_responses_queue_idx', unique: true, transaction },
-      );
-
-      await transaction.commit();
-    } catch (error) {
-      await transaction.rollback();
-      throw error;
-    }
+      await queryInterface.addIndex('auto_assign_responses', ['queueEntryId'], {
+        name: 'auto_assign_responses_queue_idx',
+        unique: true,
+        transaction,
+      });
+    });
   },
 
   async down(queryInterface) {
-    const transaction = await queryInterface.sequelize.transaction();
-    try {
+    await queryInterface.sequelize.transaction(async (transaction) => {
       await queryInterface.removeColumn('auto_assign_queue_entries', 'responseMetadata', { transaction });
-      await queryInterface.removeIndex(
-        'auto_assign_responses',
-        'auto_assign_responses_queue_idx',
-        { transaction },
-      );
-      await queryInterface.removeIndex(
-        'auto_assign_responses',
-        'auto_assign_responses_freelancer_status_idx',
-        { transaction },
-      );
-      await queryInterface.dropTable('auto_assign_responses', { transaction });
-      await queryInterface.dropTable('freelancer_auto_match_preferences', { transaction });
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_auto_assign_responses_status"', {
+      await queryInterface.removeIndex('auto_assign_responses', 'auto_assign_responses_queue_idx', { transaction });
+      await queryInterface.removeIndex('auto_assign_responses', 'auto_assign_responses_freelancer_status_idx', {
         transaction,
       });
-      await transaction.commit();
-    } catch (error) {
-      await transaction.rollback();
-      throw error;
-    }
+      await queryInterface.dropTable('auto_assign_responses', { transaction });
+      await queryInterface.removeConstraint(
+        'freelancer_auto_match_preferences',
+        'freelancer_auto_match_preferences_freelancer_unique',
+        { transaction },
+      );
+      await queryInterface.dropTable('freelancer_auto_match_preferences', { transaction });
+
+      if (['postgres', 'postgresql'].includes(queryInterface.sequelize.getDialect())) {
+        await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_auto_assign_responses_status"', {
+          transaction,
+        });
+      }
+    });
   },
 };

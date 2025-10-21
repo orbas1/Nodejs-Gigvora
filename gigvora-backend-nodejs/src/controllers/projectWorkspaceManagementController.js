@@ -5,79 +5,188 @@ import {
   updateWorkspaceEntity,
   deleteWorkspaceEntity,
 } from '../services/projectWorkspaceManagementService.js';
-import { NotFoundError } from '../utils/errors.js';
+import { NotFoundError, ValidationError } from '../utils/errors.js';
+import {
+  ensurePlainObject,
+  ensureProjectManagementAccess,
+  parsePositiveInteger,
+  respondWithAccess,
+  sanitizeActorPayload,
+} from '../utils/controllerAccess.js';
 
-function parseNumber(value, fallback = undefined) {
-  if (value == null || value === '') {
-    return fallback;
+const ENTITY_ALIASES = new Map([
+  ['budgetlines', 'budget-lines'],
+  ['budget-line', 'budget-lines'],
+  ['budget_line', 'budget-lines'],
+  ['objectives', 'objectives'],
+  ['objective', 'objectives'],
+  ['tasks', 'tasks'],
+  ['task', 'tasks'],
+  ['meetings', 'meetings'],
+  ['meeting', 'meetings'],
+  ['calendar', 'calendar-events'],
+  ['calendar-events', 'calendar-events'],
+  ['calendar_event', 'calendar-events'],
+  ['roles', 'role-assignments'],
+  ['role-assignments', 'role-assignments'],
+  ['role_assignment', 'role-assignments'],
+  ['submissions', 'submissions'],
+  ['submission', 'submissions'],
+  ['invites', 'invites'],
+  ['invite', 'invites'],
+  ['hr-records', 'hr-records'],
+  ['hr_record', 'hr-records'],
+  ['time-entries', 'time-entries'],
+  ['time_entry', 'time-entries'],
+  ['objects', 'objects'],
+  ['object', 'objects'],
+  ['documents', 'documents'],
+  ['document', 'documents'],
+  ['chat-messages', 'chat-messages'],
+  ['chat_message', 'chat-messages'],
+  ['summary', 'summary'],
+  ['integrations', 'integrations'],
+]);
+
+function normaliseEntityKey(rawValue) {
+  if (!rawValue) {
+    throw new ValidationError('entity is required.');
   }
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
+  const slug = String(rawValue)
+    .trim()
+    .toLowerCase()
+    .replace(/[_\s]+/g, '-')
+    .replace(/-+/g, '-');
+  const resolved = ENTITY_ALIASES.get(slug) ?? slug;
+  if (!ENTITY_ALIASES.has(resolved) && !ENTITY_ALIASES.has(slug)) {
+    ENTITY_ALIASES.set(resolved, resolved);
+  }
+  return resolved;
 }
 
-function normalizeEntity(value) {
-  if (!value) {
-    return '';
+function parseOptionalProjectId(value) {
+  return parsePositiveInteger(value, 'projectId', { optional: true });
+}
+
+async function fetchWorkspace(projectId) {
+  if (!projectId) {
+    return null;
   }
-  return String(value).trim().toLowerCase();
+  try {
+    return await getWorkspaceManagementSnapshot(projectId);
+  } catch (error) {
+    if (error instanceof NotFoundError) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+function withActorOverride(context, actorId) {
+  if (!actorId) {
+    return context;
+  }
+  return { ...context, actorId };
 }
 
 export async function index(req, res) {
-  const { projectId } = req.query ?? {};
+  const access = ensureProjectManagementAccess(req);
+  const requestedProjectId = parseOptionalProjectId(req.query?.projectId);
   const projects = await getWorkspaceProjectsList();
-  const numericProjectId = parseNumber(projectId);
 
-  let workspace = null;
-  if (numericProjectId) {
-    try {
-      workspace = await getWorkspaceManagementSnapshot(numericProjectId);
-    } catch (error) {
-      if (!(error instanceof NotFoundError)) {
-        throw error;
-      }
-    }
-  } else if (projects.length > 0) {
-    try {
-      workspace = await getWorkspaceManagementSnapshot(projects[0].id);
-    } catch (error) {
-      if (!(error instanceof NotFoundError)) {
-        throw error;
-      }
-    }
-  }
+  const fallbackProjectId = projects.length > 0 ? parseOptionalProjectId(projects[0]?.id) ?? projects[0]?.id : null;
+  const selectedProjectId = requestedProjectId ?? fallbackProjectId ?? null;
+  const workspace = await fetchWorkspace(selectedProjectId);
 
-  res.json({ projects, workspace, selectedProjectId: workspace?.project?.id ?? numericProjectId ?? null });
+  respondWithAccess(
+    res,
+    {
+      projects,
+      workspace,
+      selectedProjectId: workspace?.project?.id ?? selectedProjectId ?? null,
+    },
+    access,
+  );
 }
 
 export async function show(req, res) {
-  const { projectId } = req.params;
-  const snapshot = await getWorkspaceManagementSnapshot(parseNumber(projectId, projectId));
-  res.json(snapshot);
+  const access = ensureProjectManagementAccess(req);
+  const projectId = parsePositiveInteger(req.params?.projectId, 'projectId');
+  const workspace = await getWorkspaceManagementSnapshot(projectId);
+
+  respondWithAccess(
+    res,
+    {
+      workspace,
+      selectedProjectId: workspace?.project?.id ?? projectId,
+    },
+    access,
+  );
+}
+
+async function mutateEntity(req, res, handler, { status = 200 } = {}) {
+  const access = ensureProjectManagementAccess(req);
+  const projectId = parsePositiveInteger(req.params?.projectId, 'projectId');
+  const { actorId, payload } = sanitizeActorPayload(req.body, access);
+  const entityKey = normaliseEntityKey(req.params?.entity);
+  const context = withActorOverride(access, actorId);
+
+  const result = await handler({ projectId, entityKey, payload });
+  const workspace = await fetchWorkspace(projectId);
+
+  respondWithAccess(
+    res,
+    {
+      entity: entityKey,
+      record: result ?? null,
+      workspace,
+    },
+    context,
+    { status, performedBy: actorId ?? undefined },
+  );
 }
 
 export async function create(req, res) {
-  const { projectId, entity } = req.params;
-  const payload = req.body ?? {};
-  const result = await createWorkspaceEntity(parseNumber(projectId, projectId), normalizeEntity(entity), payload);
-  res.status(201).json(result);
+  await mutateEntity(
+    req,
+    res,
+    async ({ projectId, entityKey, payload }) =>
+      createWorkspaceEntity(projectId, entityKey, ensurePlainObject(payload, 'workspace entity')),
+    { status: 201 },
+  );
 }
 
 export async function update(req, res) {
-  const { projectId, entity, recordId } = req.params;
-  const payload = req.body ?? {};
-  const result = await updateWorkspaceEntity(
-    parseNumber(projectId, projectId),
-    normalizeEntity(entity),
-    recordId ? parseNumber(recordId, recordId) : recordId,
-    payload,
-  );
-  res.json(result);
+  await mutateEntity(req, res, async ({ projectId, entityKey, payload }) => {
+    const recordId = parsePositiveInteger(req.params?.recordId, 'recordId', { optional: true });
+    return updateWorkspaceEntity(
+      projectId,
+      entityKey,
+      recordId,
+      ensurePlainObject(payload, 'workspace entity update'),
+    );
+  });
 }
 
 export async function destroy(req, res) {
-  const { projectId, entity, recordId } = req.params;
-  await deleteWorkspaceEntity(parseNumber(projectId, projectId), normalizeEntity(entity), parseNumber(recordId, recordId));
-  res.status(204).send();
+  const access = ensureProjectManagementAccess(req);
+  const projectId = parsePositiveInteger(req.params?.projectId, 'projectId');
+  const entityKey = normaliseEntityKey(req.params?.entity);
+  const recordId = parsePositiveInteger(req.params?.recordId, 'recordId');
+
+  await deleteWorkspaceEntity(projectId, entityKey, recordId);
+  const workspace = await fetchWorkspace(projectId);
+
+  respondWithAccess(
+    res,
+    {
+      entity: entityKey,
+      removedRecordId: recordId,
+      workspace,
+    },
+    access,
+    { status: 200 },
+  );
 }
 
 export default {

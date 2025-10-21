@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { CheckCircleIcon, ExclamationTriangleIcon, PlusIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 const STATUS_COLORS = {
@@ -6,6 +7,26 @@ const STATUS_COLORS = {
   approved: 'bg-emerald-100 text-emerald-700',
   declined: 'bg-rose-100 text-rose-700',
   posted: 'bg-blue-100 text-blue-700',
+};
+
+const defaultFormatCurrency = (amount, currency = 'USD') => {
+  const numeric = Number(amount ?? 0);
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: numeric >= 1000 ? 0 : 2,
+  }).format(Number.isFinite(numeric) ? numeric : 0);
+};
+
+const defaultFormatDate = (value) => {
+  if (!value) {
+    return '—';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '—';
+  }
+  return date.toLocaleDateString();
 };
 
 const DEFAULT_ADJUSTMENT = {
@@ -245,7 +266,14 @@ function AdjustmentModal({ open, adjustment, onClose, onSubmit, onDelete, saving
   );
 }
 
-export default function EscrowAdjustmentManager({ adjustments, onCreate, onUpdate, onDelete, formatCurrency, formatDate }) {
+export default function EscrowAdjustmentManager({
+  adjustments,
+  onCreate,
+  onUpdate,
+  onDelete,
+  formatCurrency = defaultFormatCurrency,
+  formatDate = defaultFormatDate,
+}) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingAdjustment, setEditingAdjustment] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -401,8 +429,38 @@ export default function EscrowAdjustmentManager({ adjustments, onCreate, onUpdat
         onSubmit={handleSubmit}
         onDelete={editingAdjustment ? handleDelete : null}
         saving={saving}
-        error={error}
-      />
-    </section>
+      error={error}
+    />
+  </section>
   );
 }
+
+EscrowAdjustmentManager.propTypes = {
+  adjustments: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      reference: PropTypes.string,
+      adjustmentType: PropTypes.string,
+      amount: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      currency: PropTypes.string,
+      accountReference: PropTypes.string,
+      status: PropTypes.string,
+      effectiveOn: PropTypes.string,
+      reason: PropTypes.string,
+    }),
+  ),
+  onCreate: PropTypes.func,
+  onUpdate: PropTypes.func,
+  onDelete: PropTypes.func,
+  formatCurrency: PropTypes.func,
+  formatDate: PropTypes.func,
+};
+
+EscrowAdjustmentManager.defaultProps = {
+  adjustments: [],
+  onCreate: undefined,
+  onUpdate: undefined,
+  onDelete: undefined,
+  formatCurrency: defaultFormatCurrency,
+  formatDate: defaultFormatDate,
+};

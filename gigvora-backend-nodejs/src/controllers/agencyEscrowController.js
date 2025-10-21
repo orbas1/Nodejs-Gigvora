@@ -1,4 +1,3 @@
-import asyncHandler from '../utils/asyncHandler.js';
 import {
   getEscrowOverview,
   listEscrowAccounts,
@@ -11,94 +10,124 @@ import {
   refundEscrowForWorkspace,
   updateEscrowSettingsForWorkspace,
 } from '../services/agencyEscrowService.js';
+import {
+  buildAgencyActorContext,
+  ensurePlainObject,
+  mergeDefined,
+  toOptionalPositiveInteger,
+  toOptionalString,
+  toPositiveInteger,
+} from '../utils/controllerUtils.js';
+import { resolveWorkspaceIdentifiersFromRequest } from '../utils/agencyWorkspaceAccess.js';
 
-function parseNumber(value, fallback = undefined) {
-  if (value == null) {
-    return fallback;
-  }
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
+function normaliseWorkspaceQuery(req) {
+  return resolveWorkspaceIdentifiersFromRequest(req, {}, { required: false });
 }
 
-function buildActorContext(req) {
-  return {
-    actorId: req.user?.id ?? null,
-    actorRole: req.user?.type ?? null,
-  };
+function normalisePaging(query = {}, { defaultLimit = 25, maxLimit = 100 } = {}) {
+  const limit =
+    toOptionalPositiveInteger(query.limit, { fieldName: 'limit', required: false, allowZero: false }) ?? defaultLimit;
+  const offset =
+    toOptionalPositiveInteger(query.offset, { fieldName: 'offset', required: false, allowZero: true }) ?? 0;
+  return { limit: Math.min(limit, maxLimit), offset };
 }
 
-export const fetchOverview = asyncHandler(async (req, res) => {
-  const result = await getEscrowOverview(req.query ?? {}, buildActorContext(req));
-  res.json(result);
-});
+function normaliseAccountQuery(req) {
+  const workspace = normaliseWorkspaceQuery(req);
+  const paging = normalisePaging(req.query ?? {}, { defaultLimit: 25, maxLimit: 100 });
+  const status = toOptionalString(req.query?.status, { fieldName: 'status', maxLength: 40, lowercase: true });
+  const search = toOptionalString(req.query?.search, { fieldName: 'search', maxLength: 200 });
+  return mergeDefined(workspace, { ...paging, status, search });
+}
 
-export const fetchAccounts = asyncHandler(async (req, res) => {
-  const result = await listEscrowAccounts(
-    {
-      ...req.query,
-      limit: parseNumber(req.query?.limit, 25),
-      offset: parseNumber(req.query?.offset, 0),
-    },
-    buildActorContext(req),
-  );
-  res.json(result);
-});
+function normaliseTransactionQuery(req) {
+  const workspace = normaliseWorkspaceQuery(req);
+  const paging = normalisePaging(req.query ?? {}, { defaultLimit: 50, maxLimit: 200 });
+  const status = toOptionalString(req.query?.status, { fieldName: 'status', maxLength: 40, lowercase: true });
+  const type = toOptionalString(req.query?.type, { fieldName: 'type', maxLength: 40, lowercase: true });
+  return mergeDefined(workspace, { ...paging, status, type });
+}
 
-export const createAccount = asyncHandler(async (req, res) => {
-  const result = await createEscrowAccountForWorkspace(req.body ?? {}, req.query ?? {}, buildActorContext(req));
+export async function fetchOverview(req, res) {
+  const actor = buildAgencyActorContext(req);
+  const filters = mergeDefined(normaliseWorkspaceQuery(req), {});
+  const result = await getEscrowOverview(filters, actor);
+  res.json(result);
+}
+
+export async function fetchAccounts(req, res) {
+  const actor = buildAgencyActorContext(req);
+  const filters = normaliseAccountQuery(req);
+  const result = await listEscrowAccounts(filters, actor);
+  res.json(result);
+}
+
+export async function createAccount(req, res) {
+  const actor = buildAgencyActorContext(req);
+  const payload = ensurePlainObject(req.body ?? {}, 'body');
+  const query = normaliseWorkspaceQuery(req);
+  const result = await createEscrowAccountForWorkspace(payload, query, actor);
   res.status(201).json(result);
-});
+}
 
-export const updateAccount = asyncHandler(async (req, res) => {
-  const accountId = parseNumber(req.params?.accountId);
-  const result = await updateEscrowAccountForWorkspace(accountId, req.body ?? {}, req.query ?? {}, buildActorContext(req));
+export async function updateAccount(req, res) {
+  const actor = buildAgencyActorContext(req);
+  const accountId = toPositiveInteger(req.params?.accountId, { fieldName: 'accountId' });
+  const payload = ensurePlainObject(req.body ?? {}, 'body');
+  const query = normaliseWorkspaceQuery(req);
+  const result = await updateEscrowAccountForWorkspace(accountId, payload, query, actor);
   res.json(result);
-});
+}
 
-export const fetchTransactions = asyncHandler(async (req, res) => {
-  const result = await listEscrowTransactions(
-    {
-      ...req.query,
-      limit: parseNumber(req.query?.limit, 50),
-      offset: parseNumber(req.query?.offset, 0),
-    },
-    buildActorContext(req),
-  );
+export async function fetchTransactions(req, res) {
+  const actor = buildAgencyActorContext(req);
+  const filters = normaliseTransactionQuery(req);
+  const result = await listEscrowTransactions(filters, actor);
   res.json(result);
-});
+}
 
-export const createTransaction = asyncHandler(async (req, res) => {
-  const result = await createEscrowTransactionForWorkspace(req.body ?? {}, req.query ?? {}, buildActorContext(req));
+export async function createTransaction(req, res) {
+  const actor = buildAgencyActorContext(req);
+  const payload = ensurePlainObject(req.body ?? {}, 'body');
+  const query = normaliseWorkspaceQuery(req);
+  const result = await createEscrowTransactionForWorkspace(payload, query, actor);
   res.status(201).json(result);
-});
+}
 
-export const updateTransaction = asyncHandler(async (req, res) => {
-  const transactionId = parseNumber(req.params?.transactionId);
-  const result = await updateEscrowTransactionDetails(
-    transactionId,
-    req.body ?? {},
-    req.query ?? {},
-    buildActorContext(req),
-  );
+export async function updateTransaction(req, res) {
+  const actor = buildAgencyActorContext(req);
+  const transactionId = toPositiveInteger(req.params?.transactionId, { fieldName: 'transactionId' });
+  const payload = ensurePlainObject(req.body ?? {}, 'body');
+  const query = normaliseWorkspaceQuery(req);
+  const result = await updateEscrowTransactionDetails(transactionId, payload, query, actor);
   res.json(result);
-});
+}
 
-export const releaseTransaction = asyncHandler(async (req, res) => {
-  const transactionId = parseNumber(req.params?.transactionId);
-  const result = await releaseEscrowForWorkspace(transactionId, req.body ?? {}, req.query ?? {}, buildActorContext(req));
+export async function releaseTransaction(req, res) {
+  const actor = buildAgencyActorContext(req);
+  const transactionId = toPositiveInteger(req.params?.transactionId, { fieldName: 'transactionId' });
+  const payload = ensurePlainObject(req.body ?? {}, 'body');
+  const query = normaliseWorkspaceQuery(req);
+  const result = await releaseEscrowForWorkspace(transactionId, payload, query, actor);
   res.json(result);
-});
+}
 
-export const refundTransaction = asyncHandler(async (req, res) => {
-  const transactionId = parseNumber(req.params?.transactionId);
-  const result = await refundEscrowForWorkspace(transactionId, req.body ?? {}, req.query ?? {}, buildActorContext(req));
+export async function refundTransaction(req, res) {
+  const actor = buildAgencyActorContext(req);
+  const transactionId = toPositiveInteger(req.params?.transactionId, { fieldName: 'transactionId' });
+  const payload = ensurePlainObject(req.body ?? {}, 'body');
+  const query = normaliseWorkspaceQuery(req);
+  const result = await refundEscrowForWorkspace(transactionId, payload, query, actor);
   res.json(result);
-});
+}
 
-export const updateSettings = asyncHandler(async (req, res) => {
-  const result = await updateEscrowSettingsForWorkspace(req.body ?? {}, req.query ?? {}, buildActorContext(req));
+export async function updateSettings(req, res) {
+  const actor = buildAgencyActorContext(req);
+  const payload = ensurePlainObject(req.body ?? {}, 'body');
+  const query = normaliseWorkspaceQuery(req);
+  const result = await updateEscrowSettingsForWorkspace(payload, query, actor);
   res.json(result);
-});
+}
 
 export default {
   fetchOverview,

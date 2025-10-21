@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import PropTypes from 'prop-types';
 import { ExclamationTriangleIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 function formatDate(value) {
@@ -72,6 +73,23 @@ function SlideOut({ dispute, onClose }) {
   );
 }
 
+SlideOut.propTypes = {
+  dispute: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    status: PropTypes.string,
+    stage: PropTypes.string,
+    priority: PropTypes.string,
+    openedAt: PropTypes.string,
+    transactionId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    summary: PropTypes.string,
+  }),
+  onClose: PropTypes.func.isRequired,
+};
+
+SlideOut.defaultProps = {
+  dispute: null,
+};
+
 export default function EscrowDisputesPanel({ disputes }) {
   const [selected, setSelected] = useState(null);
 
@@ -129,3 +147,19 @@ export default function EscrowDisputesPanel({ disputes }) {
     </div>
   );
 }
+
+EscrowDisputesPanel.propTypes = {
+  disputes: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+      stage: PropTypes.string,
+      priority: PropTypes.string,
+      summary: PropTypes.string,
+      status: PropTypes.string,
+    }),
+  ),
+};
+
+EscrowDisputesPanel.defaultProps = {
+  disputes: [],
+};

@@ -27,6 +27,60 @@ function toDateTimeLocal(value) {
   }
 }
 
+function toList(value) {
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item, index, array) => item && array.indexOf(item) === index);
+}
+
+function deriveFormState(initialValue) {
+  if (!initialValue) {
+    return { ...DEFAULT_EVENT };
+  }
+
+  return {
+    title: initialValue.title ?? '',
+    calendarAccountId:
+      initialValue.calendarAccountId !== undefined && initialValue.calendarAccountId !== null
+        ? String(initialValue.calendarAccountId)
+        : initialValue.calendarAccount?.id !== undefined && initialValue.calendarAccount?.id !== null
+        ? String(initialValue.calendarAccount.id)
+        : '',
+    templateId:
+      initialValue.templateId !== undefined && initialValue.templateId !== null
+        ? String(initialValue.templateId)
+        : '',
+    eventType: initialValue.eventType ?? DEFAULT_EVENT.eventType,
+    status: initialValue.status ?? DEFAULT_EVENT.status,
+    visibility: initialValue.visibility ?? DEFAULT_EVENT.visibility,
+    startsAt: toDateTimeLocal(initialValue.startsAt),
+    endsAt: toDateTimeLocal(initialValue.endsAt),
+    meetingUrl: initialValue.meetingUrl ?? '',
+    location: initialValue.location ?? '',
+    allowedRoles: Array.isArray(initialValue.allowedRoles)
+      ? initialValue.allowedRoles.join(', ')
+      : initialValue.allowedRoles ?? '',
+    invitees: Array.isArray(initialValue.invitees)
+      ? initialValue.invitees.join(', ')
+      : initialValue.invitees ?? '',
+    attachments: Array.isArray(initialValue.attachments)
+      ? initialValue.attachments.join(', ')
+      : initialValue.attachments ?? '',
+    description: initialValue.description ?? '',
+  };
+}
+
+function isSameFormState(previous, next) {
+  const keys = Object.keys(next);
+  for (const key of keys) {
+    if (previous[key] !== next[key]) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export default function CalendarEventForm({
   initialValue,
   accounts,
@@ -35,35 +89,13 @@ export default function CalendarEventForm({
   onCancel,
   submitting,
 }) {
-  const [form, setForm] = useState(DEFAULT_EVENT);
+  const [form, setForm] = useState(() => deriveFormState(initialValue));
+  const [errors, setErrors] = useState({});
 
   useEffect(() => {
-    if (initialValue) {
-      setForm({
-        title: initialValue.title ?? '',
-        calendarAccountId: initialValue.calendarAccountId ?? initialValue.calendarAccount?.id ?? '',
-        templateId: initialValue.templateId ?? '',
-        eventType: initialValue.eventType ?? DEFAULT_EVENT.eventType,
-        status: initialValue.status ?? DEFAULT_EVENT.status,
-        visibility: initialValue.visibility ?? DEFAULT_EVENT.visibility,
-        startsAt: toDateTimeLocal(initialValue.startsAt),
-        endsAt: toDateTimeLocal(initialValue.endsAt),
-        meetingUrl: initialValue.meetingUrl ?? '',
-        location: initialValue.location ?? '',
-        allowedRoles: Array.isArray(initialValue.allowedRoles)
-          ? initialValue.allowedRoles.join(', ')
-          : initialValue.allowedRoles ?? '',
-        invitees: Array.isArray(initialValue.invitees)
-          ? initialValue.invitees.join(', ')
-          : initialValue.invitees ?? '',
-        attachments: Array.isArray(initialValue.attachments)
-          ? initialValue.attachments.join(', ')
-          : initialValue.attachments ?? '',
-        description: initialValue.description ?? '',
-      });
-    } else {
-      setForm(DEFAULT_EVENT);
-    }
+    const nextForm = deriveFormState(initialValue);
+    setForm((prev) => (isSameFormState(prev, nextForm) ? prev : nextForm));
+    setErrors((prev) => (Object.keys(prev).length ? {} : prev));
   }, [initialValue]);
 
   const accountOptions = useMemo(() => {
@@ -80,25 +112,67 @@ export default function CalendarEventForm({
   const updateField = (event) => {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+    setErrors((prev) => {
+      if (!prev[name]) {
+        return prev;
+      }
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
   };
 
   const handleSubmit = (event) => {
     event.preventDefault();
+    const nextErrors = {};
+
+    const trimmedTitle = form.title.trim();
+    if (!trimmedTitle) {
+      nextErrors.title = 'Event title is required.';
+    }
+
+    const startDate = form.startsAt ? new Date(form.startsAt) : null;
+    const endDate = form.endsAt ? new Date(form.endsAt) : null;
+    if (!startDate || Number.isNaN(startDate.getTime())) {
+      nextErrors.startsAt = 'Provide a valid start time.';
+    }
+    if (!endDate || Number.isNaN(endDate.getTime())) {
+      nextErrors.endsAt = 'Provide a valid end time.';
+    }
+    if (!nextErrors.startsAt && !nextErrors.endsAt && startDate >= endDate) {
+      nextErrors.endsAt = 'End time must be after the start time.';
+    }
+
+    if (!form.calendarAccountId) {
+      nextErrors.calendarAccountId = 'Select a calendar account.';
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      return;
+    }
+
+    setErrors({});
+
+    const allowedRoles = toList(form.allowedRoles);
+    const invitees = toList(form.invitees);
+    const attachments = toList(form.attachments);
+
     onSubmit({
-      title: form.title,
-      calendarAccountId: form.calendarAccountId || undefined,
-      templateId: form.templateId || undefined,
+      title: trimmedTitle,
+      calendarAccountId: form.calendarAccountId ? Number(form.calendarAccountId) : undefined,
+      templateId: form.templateId ? Number(form.templateId) : undefined,
       eventType: form.eventType,
       status: form.status,
       visibility: form.visibility,
-      startsAt: form.startsAt ? new Date(form.startsAt).toISOString() : undefined,
-      endsAt: form.endsAt ? new Date(form.endsAt).toISOString() : undefined,
-      meetingUrl: form.meetingUrl || undefined,
-      location: form.location || undefined,
-      allowedRoles: form.allowedRoles,
-      invitees: form.invitees,
-      attachments: form.attachments,
-      description: form.description || undefined,
+      startsAt: new Date(form.startsAt).toISOString(),
+      endsAt: new Date(form.endsAt).toISOString(),
+      meetingUrl: form.meetingUrl.trim() || undefined,
+      location: form.location.trim() || undefined,
+      allowedRoles: allowedRoles.length ? allowedRoles : undefined,
+      invitees: invitees.length ? invitees : undefined,
+      attachments: attachments.length ? attachments : undefined,
+      description: form.description.trim() || undefined,
     });
   };
 
@@ -112,8 +186,17 @@ export default function CalendarEventForm({
           value={form.title}
           onChange={updateField}
           required
-          className="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"
+          aria-invalid={Boolean(errors.title)}
+          aria-describedby={errors.title ? 'event-title-error' : undefined}
+          className={`rounded-xl border px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200 ${
+            errors.title ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-200' : 'border-slate-300 focus:border-slate-500'
+          }`}
         />
+        {errors.title ? (
+          <span id="event-title-error" className="text-xs font-semibold text-rose-600">
+            {errors.title}
+          </span>
+        ) : null}
       </label>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -125,6 +208,8 @@ export default function CalendarEventForm({
             onChange={updateField}
             className="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"
             required
+            aria-invalid={Boolean(errors.calendarAccountId)}
+            aria-describedby={errors.calendarAccountId ? 'event-account-error' : undefined}
           >
             <option value="">Select account</option>
             {accountOptions.map((option) => (
@@ -133,6 +218,11 @@ export default function CalendarEventForm({
               </option>
             ))}
           </select>
+          {errors.calendarAccountId ? (
+            <span id="event-account-error" className="text-xs font-semibold text-rose-600">
+              {errors.calendarAccountId}
+            </span>
+          ) : null}
         </label>
         <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
           Template
@@ -209,8 +299,17 @@ export default function CalendarEventForm({
             value={form.startsAt}
             onChange={updateField}
             required
-            className="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"
+            aria-invalid={Boolean(errors.startsAt)}
+            aria-describedby={errors.startsAt ? 'event-start-error' : undefined}
+            className={`rounded-xl border px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200 ${
+              errors.startsAt ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-200' : 'border-slate-300 focus:border-slate-500'
+            }`}
           />
+          {errors.startsAt ? (
+            <span id="event-start-error" className="text-xs font-semibold text-rose-600">
+              {errors.startsAt}
+            </span>
+          ) : null}
         </label>
         <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
           Ends
@@ -220,8 +319,17 @@ export default function CalendarEventForm({
             value={form.endsAt}
             onChange={updateField}
             required
-            className="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"
+            aria-invalid={Boolean(errors.endsAt)}
+            aria-describedby={errors.endsAt ? 'event-end-error' : undefined}
+            className={`rounded-xl border px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200 ${
+              errors.endsAt ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-200' : 'border-slate-300 focus:border-slate-500'
+            }`}
           />
+          {errors.endsAt ? (
+            <span id="event-end-error" className="text-xs font-semibold text-rose-600">
+              {errors.endsAt}
+            </span>
+          ) : null}
         </label>
       </div>
 

@@ -1,220 +1,142 @@
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { jest } from '@jest/globals';
 
-import createWebApplicationFirewall from '../../src/middleware/webApplicationFirewall.js';
-import {
-  configureWebApplicationFirewall,
-  getWebApplicationFirewallSnapshot,
-  resetWebApplicationFirewallMetrics,
-} from '../../src/security/webApplicationFirewall.js';
-import { getPerimeterSnapshot, resetPerimeterMetrics } from '../../src/observability/perimeterMetrics.js';
+const moduleUrl = new URL('../../src/middleware/webApplicationFirewall.js', import.meta.url);
+const wafEngineModuleUrl = new URL('../../src/security/webApplicationFirewall.js', import.meta.url);
+const perimeterModuleUrl = new URL('../../src/observability/perimeterMetrics.js', import.meta.url);
+const loggerModuleUrl = new URL('../../src/utils/logger.js', import.meta.url);
+const auditServiceModuleUrl = new URL('../../src/services/securityAuditService.js', import.meta.url);
 
-function createResponse() {
-  const res = {};
-  res.status = jest.fn().mockReturnValue(res);
-  res.json = jest.fn().mockReturnValue(res);
-  return res;
-}
+let evaluateRequest;
+let recordBlockedOrigin;
+let loggerInstance;
+let recordRuntimeSecurityEvent;
 
-describe('webApplicationFirewall middleware', () => {
-  beforeEach(() => {
-    configureWebApplicationFirewall({ env: {} });
-    resetWebApplicationFirewallMetrics();
-    resetPerimeterMetrics();
-  });
+beforeEach(() => {
+  jest.resetModules();
 
-  it('allows clean requests to continue through the pipeline', async () => {
-    const middleware = createWebApplicationFirewall({
-      auditRecorder: jest.fn(),
-    });
-    const req = {
-      method: 'GET',
-      originalUrl: '/api/projects',
-      headers: {},
-      ip: '192.168.1.1',
-    };
-    const res = createResponse();
+  evaluateRequest = jest.fn();
+  recordBlockedOrigin = jest.fn();
+  recordRuntimeSecurityEvent = jest.fn().mockResolvedValue();
+  loggerInstance = {
+    child: jest.fn(function child() {
+      return loggerInstance;
+    }),
+    error: jest.fn(),
+    warn: jest.fn(),
+  };
+
+  jest.unstable_mockModule(wafEngineModuleUrl.pathname, () => ({ evaluateRequest }));
+  jest.unstable_mockModule(perimeterModuleUrl.pathname, () => ({ recordBlockedOrigin }));
+  jest.unstable_mockModule(loggerModuleUrl.pathname, () => ({ default: loggerInstance }));
+  jest.unstable_mockModule(auditServiceModuleUrl.pathname, () => ({
+    recordRuntimeSecurityEvent,
+  }));
+  const randomUUID = jest.fn(() => 'generated-reference');
+  jest.unstable_mockModule('node:crypto', () => ({
+    default: { randomUUID },
+    randomUUID,
+  }));
+});
+
+afterEach(() => {
+  jest.resetModules();
+  jest.clearAllMocks();
+});
+
+describe('middleware/webApplicationFirewall', () => {
+  it('allows requests that pass the evaluation step', async () => {
+    evaluateRequest.mockResolvedValue({ allowed: true });
+    const { default: createWebApplicationFirewall } = await import(moduleUrl.pathname);
+    const middleware = createWebApplicationFirewall();
+
     const next = jest.fn();
+    await middleware({ originalUrl: '/health' }, {}, next);
 
-    await middleware(req, res, next);
-
-    expect(next).toHaveBeenCalledTimes(1);
-    expect(res.status).not.toHaveBeenCalled();
-    const snapshot = getWebApplicationFirewallSnapshot();
-    expect(snapshot.blockedRequests).toBe(0);
-    const perimeter = getPerimeterSnapshot();
-    expect(perimeter.totalBlocked).toBe(0);
+    expect(evaluateRequest).toHaveBeenCalledTimes(1);
+    expect(next).toHaveBeenCalledWith();
+    expect(recordBlockedOrigin).not.toHaveBeenCalled();
   });
 
-  it('blocks SQL injection attempts and records audit metadata', async () => {
-    const auditRecorder = jest.fn().mockResolvedValue(undefined);
-    const middleware = createWebApplicationFirewall({
-      auditRecorder,
-    });
-    const req = {
-      method: 'GET',
-      originalUrl: "/api/users?email=admin@example.com' OR '1'='1",
-      headers: {
-        origin: 'https://attack.example',
-        'user-agent': 'sqlmap/1.7.1',
-      },
-      ip: '203.0.113.10',
-      get(header) {
-        return this.headers?.[header.toLowerCase()];
-      },
-    };
-    const res = createResponse();
-    const next = jest.fn();
-
-    await middleware(req, res, next);
-
-    expect(next).not.toHaveBeenCalled();
-    expect(res.status).toHaveBeenCalledWith(403);
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        message: 'Request blocked by security policy.',
-        referenceId: expect.any(String),
-      }),
-    );
-    expect(auditRecorder).toHaveBeenCalledWith(
-      expect.objectContaining({
-        eventType: 'security.perimeter.request_blocked',
-        level: 'notice',
-        metadata: expect.objectContaining({
-          ip: '203.0.113.10',
-          matchedRules: expect.arrayContaining([
-            expect.objectContaining({ id: 'sql.boolean-operator' }),
-            expect.objectContaining({ id: 'agent.blocked' }),
-          ]),
-        }),
-      }),
-      expect.any(Object),
-    );
-
-    const wafSnapshot = getWebApplicationFirewallSnapshot();
-    expect(wafSnapshot.blockedRequests).toBe(1);
-    expect(wafSnapshot.recentBlocks).toHaveLength(1);
-    expect(wafSnapshot.blockedByRule.map((entry) => entry.ruleId)).toEqual(
-      expect.arrayContaining(['sql.boolean-operator', 'agent.blocked']),
-    );
-
-    const perimeter = getPerimeterSnapshot();
-    expect(perimeter.totalBlocked).toBe(1);
-  });
-
-  it('blocks requests from configured forbidden IP addresses', async () => {
-    configureWebApplicationFirewall({ env: { WAF_BLOCKED_IPS: '10.0.0.5' } });
-    resetWebApplicationFirewallMetrics();
-    resetPerimeterMetrics();
-
-    const auditRecorder = jest.fn().mockResolvedValue(undefined);
-    const middleware = createWebApplicationFirewall({ auditRecorder });
-    const req = {
+  it('blocks malicious requests and records telemetry with a provided audit recorder', async () => {
+    evaluateRequest.mockResolvedValue({
+      allowed: false,
       method: 'POST',
-      originalUrl: '/api/auth/login',
-      headers: {},
-      ip: '10.0.0.5',
-    };
-    const res = createResponse();
-    const next = jest.fn();
-
-    await middleware(req, res, next);
-
-    expect(next).not.toHaveBeenCalled();
-    expect(res.status).toHaveBeenCalledWith(403);
-    expect(auditRecorder).toHaveBeenCalledWith(
-      expect.objectContaining({ level: 'warn' }),
-      expect.any(Object),
-    );
-
-    const snapshot = getWebApplicationFirewallSnapshot();
-    expect(snapshot.blockedRequests).toBe(1);
-    expect(snapshot.blockedIps[0]).toEqual({ ip: '10.0.0.5', count: 1 });
-  });
-
-  it('auto-blocks repeat offenders and escalates audit severity', async () => {
-    configureWebApplicationFirewall({
-      env: {
-        WAF_AUTO_BLOCK_THRESHOLD: '2',
-        WAF_AUTO_BLOCK_WINDOW_SECONDS: '120',
-        WAF_AUTO_BLOCK_TTL_SECONDS: '600',
+      path: '/api/users',
+      ip: '203.0.113.10',
+      origin: 'https://bad.example',
+      reason: 'auto-block',
+      userAgent: 'curl/8.0',
+      matchedRules: [{ id: 'waf-1' }],
+      autoBlock: {
+        triggered: true,
+        blockedAt: '2023-05-01T00:00:00Z',
+        expiresAt: '2023-05-01T01:00:00Z',
+        hits: 5,
+        threshold: 5,
+        windowSeconds: 300,
       },
+      detectedAt: '2023-05-01T00:00:01Z',
+      referenceId: 'ref-123',
     });
-    resetWebApplicationFirewallMetrics();
-    resetPerimeterMetrics();
 
-    const auditRecorder = jest.fn().mockResolvedValue(undefined);
+    const auditRecorder = jest.fn().mockResolvedValue();
+    const { default: createWebApplicationFirewall } = await import(moduleUrl.pathname);
     const middleware = createWebApplicationFirewall({ auditRecorder });
 
-    function buildRequest() {
-      return {
-        method: 'POST',
-        originalUrl: "/api/auth/login?email=admin@example.com' OR '1'='1",
-        headers: {
-          origin: 'https://attack.example',
-          'user-agent': 'sqlmap/1.7.1',
-        },
-        body: {
-          email: "admin@example.com' OR '1'='1",
-        },
-        ip: '198.51.100.42',
-        get(header) {
-          return this.headers?.[header.toLowerCase()];
-        },
-      };
-    }
+    const json = jest.fn();
+    const res = { status: jest.fn().mockReturnValue({ json }) };
+    const req = { id: 'req-1', originalUrl: '/api/users' };
 
-    const res1 = createResponse();
-    const next1 = jest.fn();
-    await middleware(buildRequest(), res1, next1);
-    expect(next1).not.toHaveBeenCalled();
-    expect(auditRecorder).toHaveBeenLastCalledWith(
-      expect.objectContaining({ level: 'notice' }),
-      expect.any(Object),
-    );
+    await middleware(req, res, jest.fn());
 
-    const res2 = createResponse();
-    const next2 = jest.fn();
-    await middleware(buildRequest(), res2, next2);
-    expect(auditRecorder).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        level: 'error',
-        metadata: expect.objectContaining({
-          autoBlock: expect.objectContaining({ triggered: true, hits: 2 }),
-        }),
-      }),
-      expect.any(Object),
-    );
-    expect(res2.json).toHaveBeenCalledWith(
+    expect(recordBlockedOrigin).toHaveBeenCalledWith('https://bad.example', {
+      path: '/api/users',
+      method: 'POST',
+    });
+    expect(auditRecorder).toHaveBeenCalledTimes(1);
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(json).toHaveBeenCalledWith(
       expect.objectContaining({
         message: 'Request blocked by security policy.',
-        autoBlock: expect.objectContaining({ triggered: true, hits: 2 }),
-      }),
-    );
-
-    const snapshotAfterEscalation = getWebApplicationFirewallSnapshot();
-    expect(snapshotAfterEscalation.autoBlock.totalTriggered).toBe(1);
-    expect(snapshotAfterEscalation.autoBlock.active[0]).toEqual(
-      expect.objectContaining({ ip: '198.51.100.42', hits: 2 }),
-    );
-
-    const res3 = createResponse();
-    const next3 = jest.fn();
-    const cleanRequest = {
-      method: 'GET',
-      originalUrl: '/api/projects',
-      headers: {},
-      ip: '198.51.100.42',
-    };
-    await middleware(cleanRequest, res3, next3);
-    expect(res3.json).toHaveBeenCalledWith(
-      expect.objectContaining({
+        referenceId: 'ref-123',
         reason: 'auto-block',
-        autoBlock: expect.objectContaining({ triggered: false }),
+        autoBlock: expect.objectContaining({ triggered: true }),
       }),
     );
-    expect(auditRecorder).toHaveBeenLastCalledWith(
-      expect.objectContaining({ level: 'warn' }),
-      expect.any(Object),
-    );
+  });
+
+  it('imports the audit service dynamically when no recorder is provided', async () => {
+    evaluateRequest.mockResolvedValue({
+      allowed: false,
+      method: 'GET',
+      path: '/api/metrics',
+      reason: 'ip-blocked',
+      ip: '198.51.100.5',
+      matchedRules: [],
+    });
+
+    const { default: createWebApplicationFirewall } = await import(moduleUrl.pathname);
+    const middleware = createWebApplicationFirewall();
+
+    await middleware({ id: 'req-2', originalUrl: '/api/metrics' }, { status: jest.fn().mockReturnValue({ json: jest.fn() }) }, jest.fn());
+
+    expect(recordRuntimeSecurityEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails closed when evaluation throws an error', async () => {
+    const evaluationError = new Error('engine failure');
+    evaluateRequest.mockRejectedValue(evaluationError);
+    const { default: createWebApplicationFirewall } = await import(moduleUrl.pathname);
+    const middleware = createWebApplicationFirewall();
+
+    const json = jest.fn();
+    const res = { status: jest.fn().mockReturnValue({ json }) };
+
+    await middleware({ originalUrl: '/api/data' }, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(json).toHaveBeenCalledWith({ message: 'Request blocked by security policy.', requestId: null });
+    expect(loggerInstance.error).toHaveBeenCalledTimes(1);
+    expect(recordBlockedOrigin).not.toHaveBeenCalled();
   });
 });

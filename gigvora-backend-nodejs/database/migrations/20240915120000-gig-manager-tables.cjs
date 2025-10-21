@@ -3,135 +3,95 @@
 module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.sequelize.transaction(async (transaction) => {
-      await queryInterface.addColumn(
-        'gigs',
-        'freelancerId',
-        {
-          type: Sequelize.INTEGER,
-          allowNull: true,
-          references: { model: 'users', key: 'id' },
-          onDelete: 'SET NULL',
-          onUpdate: 'CASCADE',
-        },
-        { transaction },
-      );
+      const describeGigs = await queryInterface.describeTable('gigs', { transaction });
+      const ensureGigColumn = async (column, definition) => {
+        if (!Object.prototype.hasOwnProperty.call(describeGigs, column)) {
+          await queryInterface.addColumn('gigs', column, definition, { transaction });
+        }
+      };
 
-      await queryInterface.addColumn(
-        'gigs',
-        'status',
-        {
-          type: Sequelize.STRING(40),
-          allowNull: false,
-          defaultValue: 'draft',
-        },
-        { transaction },
-      );
+      await ensureGigColumn('freelancerId', {
+        type: Sequelize.INTEGER,
+        allowNull: true,
+        references: { model: 'users', key: 'id' },
+        onDelete: 'SET NULL',
+        onUpdate: 'CASCADE',
+      });
 
-      await queryInterface.addColumn(
-        'gigs',
-        'pipelineStage',
-        {
-          type: Sequelize.STRING(40),
-          allowNull: false,
-          defaultValue: 'discovery',
-        },
-        { transaction },
-      );
+      await ensureGigColumn('status', {
+        type: Sequelize.ENUM('draft', 'in_review', 'active', 'paused', 'completed', 'cancelled'),
+        allowNull: false,
+        defaultValue: 'draft',
+      });
 
-      await queryInterface.addColumn(
-        'gigs',
-        'contractValueCents',
-        {
-          type: Sequelize.BIGINT,
-          allowNull: false,
-          defaultValue: 0,
-        },
-        { transaction },
-      );
+      await ensureGigColumn('pipelineStage', {
+        type: Sequelize.ENUM('discovery', 'qualification', 'proposal', 'negotiation', 'won', 'lost'),
+        allowNull: false,
+        defaultValue: 'discovery',
+      });
 
-      await queryInterface.addColumn(
-        'gigs',
-        'previousPipelineValueCents',
-        {
-          type: Sequelize.BIGINT,
-          allowNull: false,
-          defaultValue: 0,
-        },
-        { transaction },
-      );
+      await ensureGigColumn('contractValueCents', {
+        type: Sequelize.BIGINT,
+        allowNull: false,
+        defaultValue: 0,
+      });
 
-      await queryInterface.addColumn(
-        'gigs',
-        'currency',
-        {
-          type: Sequelize.STRING(12),
-          allowNull: false,
-          defaultValue: 'USD',
-        },
-        { transaction },
-      );
+      await ensureGigColumn('previousPipelineValueCents', {
+        type: Sequelize.BIGINT,
+        allowNull: false,
+        defaultValue: 0,
+      });
 
-      await queryInterface.addColumn(
-        'gigs',
-        'upsellEligibleValueCents',
-        {
-          type: Sequelize.BIGINT,
-          allowNull: false,
-          defaultValue: 0,
-        },
-        { transaction },
-      );
+      await ensureGigColumn('currency', {
+        type: Sequelize.STRING(12),
+        allowNull: false,
+        defaultValue: 'USD',
+      });
 
-      await queryInterface.addColumn(
-        'gigs',
-        'expectedDeliveryDate',
-        {
-          type: Sequelize.DATE,
-          allowNull: true,
-        },
-        { transaction },
-      );
+      await ensureGigColumn('upsellEligibleValueCents', {
+        type: Sequelize.BIGINT,
+        allowNull: false,
+        defaultValue: 0,
+      });
 
-      await queryInterface.addColumn(
-        'gigs',
-        'clientName',
-        {
-          type: Sequelize.STRING(255),
-          allowNull: true,
-        },
-        { transaction },
-      );
+      await ensureGigColumn('expectedDeliveryDate', {
+        type: Sequelize.DATE,
+        allowNull: true,
+      });
 
-      await queryInterface.addColumn(
-        'gigs',
-        'csatScore',
-        {
-          type: Sequelize.DECIMAL(3, 2),
-          allowNull: true,
-        },
-        { transaction },
-      );
+      await ensureGigColumn('clientName', {
+        type: Sequelize.STRING(255),
+        allowNull: true,
+      });
 
-      await queryInterface.addColumn(
-        'gigs',
-        'csatPreviousScore',
-        {
-          type: Sequelize.DECIMAL(3, 2),
-          allowNull: true,
-        },
-        { transaction },
-      );
+      await ensureGigColumn('csatScore', {
+        type: Sequelize.DECIMAL(3, 2),
+        allowNull: true,
+      });
 
-      await queryInterface.addColumn(
-        'gigs',
-        'csatResponseCount',
-        {
-          type: Sequelize.INTEGER,
-          allowNull: false,
-          defaultValue: 0,
-        },
-        { transaction },
-      );
+      await ensureGigColumn('csatPreviousScore', {
+        type: Sequelize.DECIMAL(3, 2),
+        allowNull: true,
+      });
+
+      await ensureGigColumn('csatResponseCount', {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+      });
+
+      const ensureIndex = async (table, indexName, fields, options = {}) => {
+        const indexes = await queryInterface.showIndex(table, { transaction });
+        if (!indexes.some((index) => index.name === indexName)) {
+          await queryInterface.addIndex(table, fields, { name: indexName, transaction, ...options });
+        }
+      };
+
+      await ensureIndex('gigs', 'gigs_freelancer_idx', ['freelancerId']);
+      await ensureIndex('gigs', 'gigs_status_idx', ['status']);
+      await ensureIndex('gigs', 'gigs_pipeline_stage_idx', ['pipelineStage']);
+
+      const timestampDefault = Sequelize.literal('CURRENT_TIMESTAMP');
 
       await queryInterface.createTable(
         'gig_milestones',
@@ -151,16 +111,8 @@ module.exports = {
           ownerName: { type: Sequelize.STRING(120), allowNull: true },
           sequenceIndex: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
           progressPercent: { type: Sequelize.INTEGER, allowNull: true },
-          createdAt: {
-            type: Sequelize.DATE,
-            allowNull: false,
-            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
-          },
-          updatedAt: {
-            type: Sequelize.DATE,
-            allowNull: false,
-            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
-          },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
         },
         { transaction },
       );
@@ -194,16 +146,8 @@ module.exports = {
           attachRateChange: { type: Sequelize.DECIMAL(5, 2), allowNull: true },
           isFeatured: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false },
           conversionWindowDays: { type: Sequelize.INTEGER, allowNull: true },
-          createdAt: {
-            type: Sequelize.DATE,
-            allowNull: false,
-            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
-          },
-          updatedAt: {
-            type: Sequelize.DATE,
-            allowNull: false,
-            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
-          },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
         },
         { transaction },
       );
@@ -230,16 +174,8 @@ module.exports = {
           },
           label: { type: Sequelize.STRING(255), allowNull: false },
           orderIndex: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
-          createdAt: {
-            type: Sequelize.DATE,
-            allowNull: false,
-            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
-          },
-          updatedAt: {
-            type: Sequelize.DATE,
-            allowNull: false,
-            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
-          },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
         },
         { transaction },
       );
@@ -273,16 +209,8 @@ module.exports = {
           currency: { type: Sequelize.STRING(12), allowNull: false, defaultValue: 'USD' },
           conversionRate: { type: Sequelize.DECIMAL(5, 2), allowNull: true },
           conversionChange: { type: Sequelize.DECIMAL(5, 2), allowNull: true },
-          createdAt: {
-            type: Sequelize.DATE,
-            allowNull: false,
-            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
-          },
-          updatedAt: {
-            type: Sequelize.DATE,
-            allowNull: false,
-            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
-          },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
         },
         { transaction },
       );
@@ -344,33 +272,57 @@ module.exports = {
 
   async down(queryInterface) {
     await queryInterface.sequelize.transaction(async (transaction) => {
-      await queryInterface.removeIndex('gig_catalog_items', 'gig_catalog_items_freelancer_status_idx', { transaction });
+      const dropIndexIfExists = async (table, indexName) => {
+        const indexes = await queryInterface.showIndex(table, { transaction });
+        if (indexes.some((index) => index.name === indexName)) {
+          await queryInterface.removeIndex(table, indexName, { transaction });
+        }
+      };
+
+      await dropIndexIfExists('gigs', 'gigs_pipeline_stage_idx');
+      await dropIndexIfExists('gigs', 'gigs_status_idx');
+      await dropIndexIfExists('gigs', 'gigs_freelancer_idx');
+
+      await dropIndexIfExists('gig_catalog_items', 'gig_catalog_items_freelancer_status_idx');
       await queryInterface.dropTable('gig_catalog_items', { transaction });
 
-      await queryInterface.removeIndex('gig_upsells', 'gig_upsells_freelancer_status_idx', { transaction });
+      await dropIndexIfExists('gig_upsells', 'gig_upsells_freelancer_status_idx');
       await queryInterface.dropTable('gig_upsells', { transaction });
 
-      await queryInterface.removeIndex('gig_bundle_items', 'gig_bundle_items_bundle_order_idx', { transaction });
+      await dropIndexIfExists('gig_bundle_items', 'gig_bundle_items_bundle_order_idx');
       await queryInterface.dropTable('gig_bundle_items', { transaction });
 
-      await queryInterface.removeIndex('gig_bundles', 'gig_bundles_freelancer_status_idx', { transaction });
+      await dropIndexIfExists('gig_bundles', 'gig_bundles_freelancer_status_idx');
       await queryInterface.dropTable('gig_bundles', { transaction });
 
-      await queryInterface.removeIndex('gig_milestones', 'gig_milestones_gig_sequence_idx', { transaction });
+      await dropIndexIfExists('gig_milestones', 'gig_milestones_gig_sequence_idx');
       await queryInterface.dropTable('gig_milestones', { transaction });
 
-      await queryInterface.removeColumn('gigs', 'csatResponseCount', { transaction });
-      await queryInterface.removeColumn('gigs', 'csatPreviousScore', { transaction });
-      await queryInterface.removeColumn('gigs', 'csatScore', { transaction });
-      await queryInterface.removeColumn('gigs', 'clientName', { transaction });
-      await queryInterface.removeColumn('gigs', 'expectedDeliveryDate', { transaction });
-      await queryInterface.removeColumn('gigs', 'upsellEligibleValueCents', { transaction });
-      await queryInterface.removeColumn('gigs', 'currency', { transaction });
-      await queryInterface.removeColumn('gigs', 'previousPipelineValueCents', { transaction });
-      await queryInterface.removeColumn('gigs', 'contractValueCents', { transaction });
-      await queryInterface.removeColumn('gigs', 'pipelineStage', { transaction });
-      await queryInterface.removeColumn('gigs', 'status', { transaction });
-      await queryInterface.removeColumn('gigs', 'freelancerId', { transaction });
+      const gigDefinition = await queryInterface.describeTable('gigs', { transaction });
+      const removeGigColumnIfExists = async (columnName) => {
+        if (Object.prototype.hasOwnProperty.call(gigDefinition, columnName)) {
+          await queryInterface.removeColumn('gigs', columnName, { transaction });
+        }
+      };
+
+      await removeGigColumnIfExists('csatResponseCount');
+      await removeGigColumnIfExists('csatPreviousScore');
+      await removeGigColumnIfExists('csatScore');
+      await removeGigColumnIfExists('clientName');
+      await removeGigColumnIfExists('expectedDeliveryDate');
+      await removeGigColumnIfExists('upsellEligibleValueCents');
+      await removeGigColumnIfExists('currency');
+      await removeGigColumnIfExists('previousPipelineValueCents');
+      await removeGigColumnIfExists('contractValueCents');
+      await removeGigColumnIfExists('pipelineStage');
+      await removeGigColumnIfExists('status');
+      await removeGigColumnIfExists('freelancerId');
+
+      const dialect = queryInterface.sequelize.getDialect();
+      if (['postgres', 'postgresql'].includes(dialect)) {
+        await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_gigs_status";', { transaction });
+        await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_gigs_pipelineStage";', { transaction });
+      }
     });
   },
 };

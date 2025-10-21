@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { AdjustmentsHorizontalIcon } from '@heroicons/react/24/outline';
 
 const RELEASE_POLICIES = [
@@ -192,3 +193,21 @@ export default function EscrowAutomationPanel({ automation, onUpdate, currentUse
     </div>
   );
 }
+
+EscrowAutomationPanel.propTypes = {
+  automation: PropTypes.shape({
+    autoReleaseEnabled: PropTypes.bool,
+    manualReviewThreshold: PropTypes.number,
+    notifyFinanceTeam: PropTypes.bool,
+    defaultReleaseOffsetHours: PropTypes.number,
+    releasePolicy: PropTypes.string,
+    webhookUrl: PropTypes.string,
+  }),
+  onUpdate: PropTypes.func.isRequired,
+  currentUserId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+};
+
+EscrowAutomationPanel.defaultProps = {
+  automation: null,
+  currentUserId: null,
+};
