@@ -20,7 +20,8 @@ module.exports = {
           '@babel/preset-env',
           {
             targets: { node: 'current' },
-            modules: 'commonjs',
+            bugfixes: true,
+            modules: false,
           },
         ],
       ],
