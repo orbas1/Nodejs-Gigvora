@@ -168,19 +168,44 @@ export default function ProjectGigManagementSection({
     [data?.projectCreation?.templates],
   );
   const lifecycle = data?.projectLifecycle ?? data?.projectCreation?.lifecycle ?? {};
-  const projects = useMemo(
-    () => (Array.isArray(data?.projectLifecycle?.open) ? data.projectLifecycle.open : data?.projectCreation?.projects ?? []),
-    [data?.projectLifecycle?.open, data?.projectCreation?.projects],
+  const openLifecycleProjects = Array.isArray(data?.projectLifecycle?.open) ? data.projectLifecycle.open : [];
+  const closedLifecycleProjects = Array.isArray(data?.projectLifecycle?.closed) ? data.projectLifecycle.closed : [];
+  const creationProjects = Array.isArray(data?.projectCreation?.projects) ? data.projectCreation.projects : [];
+  const projectsForSummary = useMemo(
+    () => (openLifecycleProjects.length ? openLifecycleProjects : creationProjects),
+    [openLifecycleProjects, creationProjects],
   );
+  const projectsForMatch = useMemo(() => {
+    if (openLifecycleProjects.length || closedLifecycleProjects.length) {
+      return [...openLifecycleProjects, ...closedLifecycleProjects];
+    }
+    return creationProjects;
+  }, [openLifecycleProjects, closedLifecycleProjects, creationProjects]);
   const bids = data?.projectBids ?? { bids: [], stats: {} };
   const invitations = data?.invitations ?? { entries: [], stats: {} };
   const autoMatch = data?.autoMatch ?? {};
   const reviews = data?.reviews ?? {};
   const escrow = data?.escrow ?? {};
   const board = data?.managementBoard ?? null;
+  const orders = useMemo(
+    () => (Array.isArray(data?.purchasedGigs?.orders) ? data.purchasedGigs.orders : []),
+    [data?.purchasedGigs?.orders],
+  );
+
+  const autoMatchSettings = autoMatch.settings ?? {};
+  const autoMatchMatches = Array.isArray(autoMatch.matches) ? autoMatch.matches : [];
+  const autoMatchSummary = autoMatch.summary ?? {};
+  const reviewEntries = Array.isArray(reviews.entries) ? reviews.entries : [];
+  const reviewSummary = reviews.summary ?? {};
+  const escrowAccount = escrow.account ?? null;
+  const escrowTransactions = Array.isArray(escrow.transactions) ? escrow.transactions : [];
 
   const summaryCards = [
-    { label: 'Active projects', value: formatNumber(summary.activeProjects ?? lifecycle?.stats?.openCount ?? projects.length), accent: true },
+    {
+      label: 'Active projects',
+      value: formatNumber(summary.activeProjects ?? lifecycle?.stats?.openCount ?? projectsForSummary.length),
+      accent: true,
+    },
     { label: 'Budget in play', value: formatCurrency(summary.budgetInPlay ?? lifecycle?.stats?.budgetInPlay, summary.currency ?? 'USD') },
     { label: 'Open gigs', value: formatNumber(summary.gigsInDelivery ?? data?.purchasedGigs?.stats?.active ?? 0) },
     { label: 'Templates', value: formatNumber(summary.templatesAvailable ?? templates.length) },
@@ -226,7 +251,10 @@ export default function ProjectGigManagementSection({
       case 'match':
         return (
           <AutoMatchPanel
-            snapshot={autoMatch}
+            settings={autoMatchSettings}
+            matches={autoMatchMatches}
+            summary={autoMatchSummary}
+            projects={projectsForMatch}
             canManage={canManage}
             onUpdateSettings={actions.updateAutoMatchSettings}
             onCreateMatch={actions.createAutoMatch}
@@ -236,7 +264,10 @@ export default function ProjectGigManagementSection({
       case 'reviews':
         return (
           <ProjectReviewsPanel
-            snapshot={reviews}
+            entries={reviewEntries}
+            summary={reviewSummary}
+            projects={projectsForMatch}
+            orders={orders}
             onCreateReview={actions.createProjectReview}
             canManage={canManage}
           />
@@ -244,7 +275,8 @@ export default function ProjectGigManagementSection({
       case 'escrow':
         return (
           <EscrowManagementPanel
-            snapshot={escrow}
+            account={escrowAccount}
+            transactions={escrowTransactions}
             onCreateTransaction={actions.createEscrowTransaction}
             onUpdateSettings={actions.updateEscrowSettings}
             canManage={canManage}
