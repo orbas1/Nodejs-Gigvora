@@ -223,6 +223,145 @@ SocialList.defaultProps = {
   onRemove: null,
 };
 
+function MicrositePreview({ form }) {
+  const theme = form?.theme ?? {};
+  const hero = form?.hero ?? {};
+  const contact = form?.contact ?? {};
+  const navLinks = Array.isArray(form?.navigation?.links) ? form.navigation.links : [];
+  const socialLinks = Array.isArray(form?.social?.links) ? form.social.links : [];
+  const isDark = theme.backgroundStyle === 'dark';
+  const isGradient = theme.backgroundStyle === 'gradient';
+  const heroOnDark = isDark || isGradient;
+  const baseTone = heroOnDark
+    ? isDark
+      ? 'bg-slate-950 text-slate-100'
+      : 'bg-gradient-to-br from-slate-900 via-indigo-900 to-slate-900 text-white'
+    : 'bg-white text-slate-900';
+  const buttonShape =
+    theme.buttonShape === 'pill' ? 'rounded-full' : theme.buttonShape === 'square' ? 'rounded-lg' : 'rounded-2xl';
+  const heroStyle = (() => {
+    const style = {};
+    if (hero.media?.type === 'image' && hero.media?.url) {
+      const overlay = isDark
+        ? 'linear-gradient(140deg, rgba(15,23,42,0.92), rgba(15,23,42,0.6))'
+        : isGradient
+        ? 'linear-gradient(140deg, rgba(15,23,42,0.75), rgba(37,99,235,0.45))'
+        : 'linear-gradient(140deg, rgba(15,23,42,0.55), rgba(30,64,175,0.25))';
+      style.backgroundImage = `${overlay}, url(${hero.media.url})`;
+      style.backgroundSize = 'cover';
+      style.backgroundPosition = 'center';
+    } else if (isDark) {
+      style.backgroundImage = 'radial-gradient(circle at top left, rgba(148,163,184,0.25), transparent 55%)';
+    } else if (isGradient) {
+      style.backgroundImage = 'radial-gradient(circle at top left, rgba(148,163,184,0.18), transparent 55%)';
+    }
+    if (isDark) {
+      style.backgroundColor = '#0f172a';
+    }
+    return style;
+  })();
+  const navChipClasses = heroOnDark
+    ? 'rounded-full bg-white/10 px-3 py-1 text-white/90'
+    : 'rounded-full bg-slate-900/5 px-3 py-1 text-slate-600';
+  const navEmptyClasses = heroOnDark
+    ? 'rounded-full border border-white/15 px-3 py-1 text-white/80'
+    : 'rounded-full border border-dashed border-slate-200 px-3 py-1 text-slate-500';
+  const detailWrapperTone = isDark
+    ? 'border-t border-slate-800 bg-slate-950/95 text-slate-300'
+    : 'border-t border-slate-200 bg-white/90 text-slate-600';
+  const detailEyebrowTone = isDark ? 'text-slate-400' : 'text-slate-500';
+  const detailChipTone = isDark
+    ? 'rounded-full border border-slate-700 px-3 py-1 text-slate-300'
+    : 'rounded-full border border-slate-200 px-3 py-1 text-slate-500';
+  const detailEmptyChipTone = isDark
+    ? 'rounded-full border border-dashed border-slate-700 px-3 py-1 text-slate-500'
+    : 'rounded-full border border-dashed border-slate-200 px-3 py-1 text-slate-400';
+  const kickerTone = heroOnDark ? 'text-white/70' : 'text-slate-500';
+  const bodyTone = heroOnDark ? 'text-white/85' : 'text-slate-600';
+  const secondaryCtaTone = heroOnDark ? 'border-white/40 text-white' : 'border-slate-900/10 text-slate-900';
+
+  return (
+    <div className="overflow-hidden rounded-3xl border border-slate-200 shadow-inner">
+      <div className={`relative space-y-6 p-6 ${baseTone}`} style={heroStyle}>
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-semibold uppercase tracking-[0.3em]">
+          <span>{form?.settings?.siteTitle || 'Your microsite'}</span>
+          <nav className="flex flex-wrap items-center gap-3 text-[10px]">
+            {navLinks.length ? (
+              navLinks.slice(0, 5).map((link) => (
+                <span key={link.id ?? link.label} className={navChipClasses}>
+                  {link.label}
+                </span>
+              ))
+            ) : (
+              <span className={navEmptyClasses}>Add navigation</span>
+            )}
+          </nav>
+        </div>
+        <div className="max-w-xl space-y-4">
+          {hero.kicker ? (
+            <p className={`text-xs font-semibold uppercase tracking-[0.3em] ${kickerTone}`}>{hero.kicker}</p>
+          ) : null}
+          <h3 className="text-3xl font-semibold leading-tight">{hero.headline || 'Let’s launch your next project.'}</h3>
+          <p className={`text-sm ${bodyTone}`}>
+            {hero.subheadline || 'Preview how your hero section will appear to clients.'}
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <a
+              href={hero.primaryCtaLink || '#contact'}
+              className={`${buttonShape} border border-transparent px-4 py-2 text-sm font-semibold`}
+              style={{ backgroundColor: theme.primaryColor || '#2563EB', color: '#fff' }}
+            >
+              {hero.primaryCtaLabel || 'Book intro call'}
+            </a>
+            {hero.secondaryCtaLabel ? (
+              <a
+                href={hero.secondaryCtaLink || '#work'}
+                className={`${buttonShape} border px-4 py-2 text-sm font-semibold ${secondaryCtaTone}`}
+              >
+                {hero.secondaryCtaLabel}
+              </a>
+            ) : null}
+          </div>
+        </div>
+        {hero.media?.type === 'video' && hero.media?.url ? (
+          <div className="rounded-2xl border border-white/20 bg-black/30 p-3">
+            <video controls className="h-40 w-full rounded-xl border border-white/10 bg-black/60">
+              <source src={hero.media.url} />
+              Your browser does not support video playback.
+            </video>
+          </div>
+        ) : null}
+      </div>
+      <div className={`grid gap-4 p-6 text-sm md:grid-cols-2 ${detailWrapperTone}`}>
+        <div className="space-y-2">
+          <p className={`text-xs font-semibold uppercase tracking-wide ${detailEyebrowTone}`}>Contact</p>
+          <p>{contact.email || 'team@gigvora.com'}</p>
+          <p>{contact.phone || '+44 20 0000 0000'}</p>
+          <p>{contact.location || 'Global remote team'}</p>
+        </div>
+        <div className="space-y-2">
+          <p className={`text-xs font-semibold uppercase tracking-wide ${detailEyebrowTone}`}>Socials</p>
+          <div className="flex flex-wrap gap-2 text-xs">
+            {socialLinks.length ? (
+              socialLinks.slice(0, 5).map((link) => (
+                <span key={link.id ?? link.label} className={detailChipTone}>
+                  {link.label}
+                </span>
+              ))
+            ) : (
+              <span className={detailEmptyChipTone}>Add profiles</span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+MicrositePreview.propTypes = {
+  form: PropTypes.object.isRequired,
+};
+
 export default function UserSystemPreferencesSection({ userId, preferences, onUpdated }) {
   const [loading, setLoading] = useState(!preferences);
   const [error, setError] = useState(null);
@@ -470,6 +609,8 @@ export default function UserSystemPreferencesSection({ userId, preferences, onUp
           <p className="mt-2 text-2xl font-semibold text-slate-900">{form.navigation.links.length}</p>
         </div>
       </div>
+
+      <MicrositePreview form={form} />
 
       <form onSubmit={handleSave} className="space-y-8">
         <div className="space-y-4 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-inner">

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
+import DataStatus from '../../DataStatus.jsx';
 import {
   fetchLaunchpadApplications,
   submitTalentApplication,
@@ -49,6 +50,10 @@ function formatScore(value) {
     return '—';
   }
   return numeric.toFixed(2);
+}
+
+function humaniseStatus(value) {
+  return value ? value.replace(/_/g, ' ') : '—';
 }
 
 function normalizeApplications(applications) {
@@ -120,6 +125,7 @@ export default function UserLaunchpadJobsSection({ applications, onRefresh }) {
     placementDate: '',
     endDate: '',
   });
+  const [statusWizard, setStatusWizard] = useState({ open: false, step: 1, status: 'accepted', notes: '', application: null });
 
   const normalizedApplications = useMemo(() => normalizeApplications(workspace.items), [workspace.items]);
 
@@ -195,7 +201,7 @@ export default function UserLaunchpadJobsSection({ applications, onRefresh }) {
   }, [fetchWorkspace]);
 
   const handleStatusChange = useCallback(
-    async (applicationId, status) => {
+    async (applicationId, status, context = {}) => {
       if (!applicationId || !status) {
         return;
       }
@@ -203,12 +209,26 @@ export default function UserLaunchpadJobsSection({ applications, onRefresh }) {
       setStatusFeedback('');
       setStatusError('');
       try {
-        await updateLaunchpadApplicationStatus(applicationId, { status });
+        const payload = { status };
+        const trimmedNotes = context.notes?.trim();
+        if (trimmedNotes) {
+          payload.notes = trimmedNotes;
+        }
+        await updateLaunchpadApplicationStatus(applicationId, payload);
         setWorkspace((previous) => ({
           ...previous,
-          items: previous.items.map((item) => (item.id === applicationId ? { ...item, status } : item)),
+          items: previous.items.map((item) => {
+            if (item.id !== applicationId) {
+              return item;
+            }
+            const nextItem = { ...item, status };
+            if (trimmedNotes) {
+              nextItem.readiness = { ...(item.readiness ?? {}), notes: trimmedNotes };
+            }
+            return nextItem;
+          }),
         }));
-        setStatusFeedback('Application status updated.');
+        setStatusFeedback(trimmedNotes ? 'Application status updated with programme notes.' : 'Application status updated.');
         setLastUpdated(new Date());
         await onRefresh?.();
       } catch (err) {
@@ -219,6 +239,48 @@ export default function UserLaunchpadJobsSection({ applications, onRefresh }) {
     },
     [onRefresh],
   );
+
+  const openStatusWizard = useCallback((application) => {
+    if (!application) {
+      return;
+    }
+    setStatusWizard({
+      open: true,
+      step: 1,
+      status: application.recommendedStatus ?? application.status ?? 'screening',
+      notes: application.readiness?.notes ?? '',
+      application,
+    });
+  }, []);
+
+  const closeStatusWizard = useCallback(() => {
+    setStatusWizard({ open: false, step: 1, status: 'accepted', notes: '', application: null });
+  }, []);
+
+  const handleWizardStatusChange = useCallback((value) => {
+    setStatusWizard((previous) => ({ ...previous, status: value }));
+  }, []);
+
+  const handleWizardNotesChange = useCallback((event) => {
+    const { value } = event.target;
+    setStatusWizard((previous) => ({ ...previous, notes: value }));
+  }, []);
+
+  const handleWizardNext = useCallback(() => {
+    setStatusWizard((previous) => ({ ...previous, step: Math.min(previous.step + 1, 2) }));
+  }, []);
+
+  const handleWizardBack = useCallback(() => {
+    setStatusWizard((previous) => ({ ...previous, step: Math.max(previous.step - 1, 1) }));
+  }, []);
+
+  const handleWizardSubmit = useCallback(async () => {
+    if (!statusWizard.application) {
+      return;
+    }
+    await handleStatusChange(statusWizard.application.id, statusWizard.status, { notes: statusWizard.notes });
+    closeStatusWizard();
+  }, [closeStatusWizard, handleStatusChange, statusWizard.application, statusWizard.notes, statusWizard.status]);
 
   const handleCreateChange = useCallback((event) => {
     const { name, value } = event.target;
@@ -363,6 +425,15 @@ export default function UserLaunchpadJobsSection({ applications, onRefresh }) {
         </div>
       </div>
 
+      <DataStatus
+        loading={loading}
+        error={error}
+        lastUpdated={lastUpdated}
+        fromCache={false}
+        statusLabel="Launchpad synchronisation"
+        onRefresh={fetchWorkspace}
+      />
+
       <div className="rounded-3xl border border-slate-200 bg-white/95 p-4 shadow-sm">
         <form className="grid gap-3 md:grid-cols-[1fr_1fr_auto]" onSubmit={(event) => event.preventDefault()}>
           <label className="flex flex-col gap-1 text-xs text-slate-600">
@@ -464,11 +535,11 @@ export default function UserLaunchpadJobsSection({ applications, onRefresh }) {
                     </td>
                     <td className="px-4 py-3">
                       <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                        {application.status.replace(/_/g, ' ')}
+                        {humaniseStatus(application.status)}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-slate-600">
-                      {application.recommendedStatus?.replace(/_/g, ' ') || '—'}
+                      {humaniseStatus(application.recommendedStatus)}
                     </td>
                     <td className="px-4 py-3 text-sm font-semibold text-slate-900">{formatScore(application.qualificationScore)}</td>
                     <td className="px-4 py-3 text-sm text-slate-600">{formatDate(application.updatedAt)}</td>
@@ -486,6 +557,14 @@ export default function UserLaunchpadJobsSection({ applications, onRefresh }) {
                             </option>
                           ))}
                         </select>
+                        <button
+                          type="button"
+                          onClick={() => openStatusWizard(application)}
+                          disabled={statusBusy}
+                          className="rounded-full border border-amber-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-600 transition hover:border-amber-300 hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Status wizard
+                        </button>
                         <details className="group">
                           <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-amber-600 transition group-open:text-amber-700">
                             Snapshot
@@ -868,6 +947,111 @@ export default function UserLaunchpadJobsSection({ applications, onRefresh }) {
           <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{placementError}</div>
         ) : null}
       </form>
+
+      {statusWizard.open ? (
+        <div className="space-y-4 rounded-3xl border border-amber-200 bg-amber-50/70 p-6 shadow-inner">
+          <div className="flex flex-col gap-1">
+            <h3 className="text-lg font-semibold text-amber-900">Concierge status wizard</h3>
+            <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">Step {statusWizard.step} of 2</p>
+            <p className="text-sm text-amber-900/80">
+              Guided workflow for {statusWizard.application?.applicantFirstName ?? 'the selected candidate'} to confirm the next
+              programme milestone.
+            </p>
+          </div>
+          {statusWizard.step === 1 ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              {STATUS_OPTIONS.map((option) => (
+                <label
+                  key={option.value}
+                  className={`flex cursor-pointer items-center gap-3 rounded-2xl border px-4 py-3 text-sm transition ${
+                    statusWizard.status === option.value
+                      ? 'border-amber-400 bg-white shadow-sm'
+                      : 'border-transparent bg-amber-100/70 hover:border-amber-300'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="statusWizard.status"
+                    value={option.value}
+                    checked={statusWizard.status === option.value}
+                    onChange={(event) => handleWizardStatusChange(event.target.value)}
+                    className="h-4 w-4 text-amber-600 focus:ring-amber-500"
+                  />
+                  <div>
+                    <p className="font-semibold text-amber-900">{option.label}</p>
+                    <p className="text-xs text-amber-800/80">
+                      {option.value === statusWizard.application?.recommendedStatus
+                        ? 'Recommended by scoring engine'
+                        : 'Manual override'}
+                    </p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm text-amber-900">
+                <p className="font-semibold">Update preview</p>
+                <p className="mt-1 text-xs text-amber-800/80">
+                  The candidate will move from <strong>{humaniseStatus(statusWizard.application?.status)}</strong> to
+                  <strong className="ml-1">{humaniseStatus(statusWizard.status)}</strong>.
+                </p>
+                <p className="mt-2 text-xs text-amber-800/80">
+                  Recommended route: {humaniseStatus(statusWizard.application?.recommendedStatus)}.
+                </p>
+              </div>
+              <label className="flex flex-col gap-2 text-sm text-amber-900">
+                <span className="font-semibold">Internal notes for the programme team</span>
+                <textarea
+                  rows={3}
+                  value={statusWizard.notes}
+                  onChange={handleWizardNotesChange}
+                  placeholder="Record why the status changed or link to a review call."
+                  className="rounded-2xl border border-amber-200 bg-white px-3 py-2 text-sm text-amber-900 shadow-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                />
+              </label>
+            </div>
+          )}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={closeStatusWizard}
+              className="rounded-full border border-amber-200 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-amber-700 transition hover:border-amber-300 hover:text-amber-800"
+            >
+              Cancel wizard
+            </button>
+            <div className="flex gap-2">
+              {statusWizard.step > 1 ? (
+                <button
+                  type="button"
+                  onClick={handleWizardBack}
+                  className="rounded-full border border-amber-200 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-amber-700 transition hover:border-amber-300 hover:text-amber-800"
+                >
+                  Back
+                </button>
+              ) : null}
+              {statusWizard.step === 1 ? (
+                <button
+                  type="button"
+                  onClick={handleWizardNext}
+                  className="rounded-full bg-amber-600 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition hover:bg-amber-500"
+                >
+                  Continue
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleWizardSubmit}
+                  disabled={statusBusy}
+                  className="rounded-full bg-amber-600 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:bg-amber-300"
+                >
+                  Apply status
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {error ? (
         <div className="rounded-3xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">

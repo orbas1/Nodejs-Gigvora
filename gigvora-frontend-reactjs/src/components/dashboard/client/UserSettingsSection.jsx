@@ -6,7 +6,11 @@ import {
   updateNotificationPreferences,
 } from '../../../services/notificationCenter.js';
 import { fetchUser, updateUserAccount } from '../../../services/user.js';
-import { fetchUserAiSettings, updateUserAiSettings } from '../../../services/userAiSettings.js';
+import {
+  fetchUserAiSettings,
+  updateUserAiSettings,
+  testUserAiSettingsConnection,
+} from '../../../services/userAiSettings.js';
 
 const DIGEST_OPTIONS = [
   { value: 'daily', label: 'Daily' },
@@ -274,6 +278,9 @@ export default function UserSettingsSection({
   const [aiFeedback, setAiFeedback] = useState('');
   const [aiError, setAiError] = useState('');
   const [aiApiKey, setAiApiKey] = useState('');
+  const [aiTestBusy, setAiTestBusy] = useState(false);
+  const [aiTestFeedback, setAiTestFeedback] = useState('');
+  const [aiTestError, setAiTestError] = useState('');
 
   const refreshAll = useCallback(() => {
     if (!userId) return () => {};
@@ -282,6 +289,8 @@ export default function UserSettingsSection({
     (async () => {
       setLoading(true);
       setError(null);
+      setAiTestFeedback('');
+      setAiTestError('');
       try {
         const [accountResponse, notificationResponse, aiResponse] = await Promise.all([
           fetchUser(userId, { signal: controller.signal }).catch(() => null),
@@ -442,6 +451,8 @@ export default function UserSettingsSection({
       setAiBusy(true);
       setAiFeedback('');
       setAiError('');
+      setAiTestFeedback('');
+      setAiTestError('');
       try {
         const payload = {
           provider: aiSettings.provider,
@@ -471,6 +482,59 @@ export default function UserSettingsSection({
     },
     [aiApiKey, aiSettings, userId],
   );
+
+  const handleAiTest = useCallback(async () => {
+    if (!userId) return;
+    setAiTestBusy(true);
+    setAiTestFeedback('');
+    setAiTestError('');
+    if (!aiSettings.connection.baseUrl?.trim()) {
+      setAiTestBusy(false);
+      setAiTestError('Provide a concierge base URL before running a connection test.');
+      return;
+    }
+    try {
+      const payload = {
+        provider: aiSettings.provider,
+        model: aiSettings.model,
+        connection: { baseUrl: aiSettings.connection.baseUrl },
+      };
+      if (aiApiKey.trim()) {
+        payload.apiKey = aiApiKey.trim();
+      }
+      const response = await testUserAiSettingsConnection(userId, payload);
+      const result = response?.result ?? response ?? {};
+      const success =
+        result?.status === 'ok' || result?.success === true || (result && result.error == null && result.message == null);
+      if (!success) {
+        setAiTestError(result?.message ?? result?.error ?? 'AI concierge connection test failed.');
+      } else {
+        const latency = result?.latencyMs ?? result?.latency ?? null;
+        const fingerprint = result?.fingerprint ?? result?.apiKeyFingerprint ?? null;
+        const testedAt = result?.testedAt ?? result?.connectionTestedAt ?? new Date().toISOString();
+        setAiSettings((previous) => ({
+          ...previous,
+          apiKey: {
+            ...previous.apiKey,
+            configured: result?.apiKeyConfigured ?? previous.apiKey?.configured ?? Boolean(fingerprint),
+            fingerprint: fingerprint ?? previous.apiKey?.fingerprint ?? null,
+            updatedAt: previous.apiKey?.updatedAt ?? null,
+          },
+          connection: {
+            ...previous.connection,
+            lastTestedAt: testedAt,
+          },
+        }));
+        setAiTestFeedback(
+          latency != null ? `Connection verified in ${Number(latency).toFixed(0)}ms.` : 'Connection verified successfully.',
+        );
+      }
+    } catch (err) {
+      setAiTestError(err?.message ?? 'Unable to verify AI concierge connection.');
+    } finally {
+      setAiTestBusy(false);
+    }
+  }, [aiApiKey, aiSettings.connection.baseUrl, aiSettings.model, aiSettings.provider, userId]);
 
   const digestIntegrations = useMemo(() => weeklyDigest?.integrations ?? [], [weeklyDigest]);
 
@@ -872,10 +936,20 @@ export default function UserSettingsSection({
             </p>
           </div>
         </div>
-        {aiBusy ? (
-          <p className="text-xs font-semibold uppercase tracking-wide text-violet-600">Updating concierge preferences…</p>
+        {(aiBusy || aiTestBusy) ? (
+          <p className="text-xs font-semibold uppercase tracking-wide text-violet-600">
+            {aiBusy ? 'Updating concierge preferences…' : 'Testing concierge connection…'}
+          </p>
         ) : null}
-        <div className="flex justify-end">
+        <div className="flex flex-wrap justify-between gap-3">
+          <button
+            type="button"
+            onClick={handleAiTest}
+            disabled={aiBusy || aiTestBusy}
+            className="rounded-2xl border border-violet-200 px-4 py-2 text-sm font-semibold text-violet-700 shadow-sm transition hover:border-violet-300 hover:text-violet-800 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Test concierge connection
+          </button>
           <button
             type="submit"
             disabled={aiBusy}
@@ -889,6 +963,12 @@ export default function UserSettingsSection({
         ) : null}
         {aiError ? (
           <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-600">{aiError}</p>
+        ) : null}
+        {aiTestFeedback ? (
+          <p className="rounded-2xl border border-violet-200 bg-white px-4 py-3 text-xs text-violet-700">{aiTestFeedback}</p>
+        ) : null}
+        {aiTestError ? (
+          <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-600">{aiTestError}</p>
         ) : null}
       </form>
     </section>
