@@ -205,3 +205,13 @@ export function getLivenessReport() {
     http: state.http,
   };
 }
+
+const healthService = {
+  getReadinessReport,
+  getLivenessReport,
+  readinessStatusToHttp,
+  verifyDatabaseConnectivity,
+  setDatabaseStatus,
+};
+
+export default healthService;
