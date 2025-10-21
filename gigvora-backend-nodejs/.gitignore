@@ -5,3 +5,12 @@ tmp/
 *.sqlite
 coverage/
 storage/
+dist/
+build/
+logs/
+*.log
+npm-debug.log*
+*.pem
+.DS_Store
+.idea/
+.vscode/

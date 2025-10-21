@@ -87,7 +87,25 @@ This base delivers the foundational scaffolding for the Gigvora platform so the 
 - Run `npm test` to execute the Jest integration suite covering application lifecycles, messaging, notifications, and provider workspace governance across an in-memory SQLite database.
 - Coverage artefacts are emitted to `coverage/` and should be attached to CI runs for regression tracking.
 
+## Security & RBAC
+
+- JWT access, refresh tokens, and session cookies are configured via `.env`. Generate strong 64-character secrets before going beyond local development and rotate them regularly.【F:gigvora-backend-nodejs/.env.example†L15-L43】
+- Two-factor tokens, password reset TTLs, and rate limiter controls (`RATE_LIMITER_POINTS`, `RATE_LIMITER_DURATION_SECONDS`) protect authentication endpoints from brute force attempts.【F:gigvora-backend-nodejs/.env.example†L24-L43】
+- Role-based access (e.g. `calendar:view`, `calendar:manage`, `platform:admin`) is enforced consistently across API controllers, admin panels, and the calendar stub—ensure any new surface maps to these existing roles instead of inventing new strings.【F:gigvora-backend-nodejs/.env.example†L44-L61】【F:../calendar_stub/server.mjs†L210-L323】
+- Configure allowed origins, methods, and headers in `.env` so CORS rules stay aligned with the React and Flutter clients. Update the calendar stub variables at the same time to prevent mismatched policies.【F:gigvora-backend-nodejs/.env.example†L30-L61】【F:../calendar_stub/server.mjs†L46-L172】
+
 ## Data Governance
 
 - Reference `docs/schema-overview.md` for table-level details and ownership of new entities.
 - Consult `docs/er-diagram.md` and `docs/data-governance.md` before designing new features to ensure retention, masking, and access rules remain compliant.
+
+## Observability & Operations
+
+- Prometheus metrics are exposed at `/metrics` when `ENABLE_PROMETHEUS_METRICS=true` and protected with `METRICS_BEARER_TOKEN`. Add the token to your scraping job’s headers.【F:gigvora-backend-nodejs/.env.example†L10-L23】
+- Structured logging is emitted via Pino; adjust verbosity with `LOG_LEVEL` and forward logs to your SIEM through Fluent Bit, Vector, or another forwarder.【F:gigvora-backend-nodejs/.env.example†L5-L23】
+- Use `npm run db:backup` to capture pre-change snapshots and `npm run db:verify` to validate restores during incident response. Runbooks in `docs/runbooks/` outline escalation paths and post-incident reviews.【F:gigvora-backend-nodejs/package.json†L23-L31】【F:gigvora-backend-nodejs/docs/runbooks/runtime-incident.md†L1-L120】
+
+## Calendar Stub Integration
+
+- The local calendar stub (`calendar_stub/server.mjs`) mirrors production RBAC and CORS expectations, requiring `CALENDAR_STUB_API_KEY` and the correct `x-roles` headers for read/write operations.【F:../calendar_stub/server.mjs†L210-L323】
+- Update the `CALENDAR_STUB_*` variables in `.env` when onboarding new environments so preflight requests succeed and event data remains isolated per workspace.【F:.env.example†L44-L61】

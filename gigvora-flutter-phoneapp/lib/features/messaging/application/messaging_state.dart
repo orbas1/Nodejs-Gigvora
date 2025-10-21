@@ -31,6 +31,8 @@ class MessagingState {
 
   List<MessageThread> get threads => inbox.data ?? const <MessageThread>[];
   List<ThreadMessage> get messages => conversation.data ?? const <ThreadMessage>[];
+  bool get hasActiveCall => callSession != null;
+  bool get hasComposerError => (composerError ?? '').isNotEmpty;
 
   MessagingState copyWith({
     ResourceState<List<MessageThread>>? inbox,

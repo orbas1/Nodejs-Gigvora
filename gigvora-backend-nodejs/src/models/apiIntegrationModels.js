@@ -63,6 +63,51 @@ ApiProvider.prototype.toPublicObject = function toPublicObject({ includeClients 
   return provider;
 };
 
+function sanitizeKeyRecord(key) {
+  if (!key) {
+    return null;
+  }
+
+  if (typeof key.toPublicObject === 'function') {
+    return key.toPublicObject();
+  }
+
+  const { secretHash: _secretHash, ...rest } = key;
+  return {
+    ...rest,
+    secretLastFour: key.secretLastFour ?? null,
+    createdAt: key.createdAt ?? null,
+    updatedAt: key.updatedAt ?? null,
+  };
+}
+
+function sanitizeProviderRecord(provider) {
+  if (!provider) {
+    return null;
+  }
+
+  if (typeof provider.toPublicObject === 'function') {
+    return provider.toPublicObject({ includeClients: false });
+  }
+
+  const { clients: _clients, ...rest } = provider;
+  return {
+    ...rest,
+    baseUrl: provider.baseUrl ?? null,
+    sandboxBaseUrl: provider.sandboxBaseUrl ?? null,
+    docsUrl: provider.docsUrl ?? null,
+    iconUrl: provider.iconUrl ?? null,
+    description: provider.description ?? null,
+    contactEmail: provider.contactEmail ?? null,
+    metadata: provider.metadata ?? {},
+    callPriceCents: Number.isFinite(provider.callPriceCents)
+      ? Number(provider.callPriceCents)
+      : 0,
+    createdAt: provider.createdAt ?? null,
+    updatedAt: provider.updatedAt ?? null,
+  };
+}
+
 export const ApiClient = sequelize.define(
   'ApiClient',
   {
@@ -130,11 +175,9 @@ ApiClient.prototype.toPublicObject = function toPublicObject({ includeKeys = tru
   };
 
   if (includeKeys && Array.isArray(plain.keys)) {
-    client.keys = plain.keys.map((key) =>
-      typeof key.toPublicObject === 'function'
-        ? key.toPublicObject()
-        : key,
-    );
+    client.keys = plain.keys
+      .map((key) => sanitizeKeyRecord(key))
+      .filter((key) => key != null);
   }
 
   if (Array.isArray(plain.usageMetrics)) {
@@ -145,8 +188,8 @@ ApiClient.prototype.toPublicObject = function toPublicObject({ includeKeys = tru
     );
   }
 
-  if (includeProvider && plain.provider && typeof plain.provider.toPublicObject === 'function') {
-    client.provider = plain.provider.toPublicObject({ includeClients: false });
+  if (includeProvider && plain.provider) {
+    client.provider = sanitizeProviderRecord(plain.provider);
   }
 
   return client;

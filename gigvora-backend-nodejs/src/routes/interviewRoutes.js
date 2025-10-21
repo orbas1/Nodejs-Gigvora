@@ -1,8 +1,13 @@
 import { Router } from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
+import { authenticateRequest, requireRoles } from '../middleware/authentication.js';
 import interviewController from '../controllers/interviewController.js';
 
 const router = Router();
+const INTERVIEW_ROLES = ['company', 'agency', 'headhunter', 'mentor', 'admin'];
+
+router.use(authenticateRequest());
+router.use(requireRoles(...INTERVIEW_ROLES));
 
 router.get('/', asyncHandler(interviewController.index));
 router.post('/', asyncHandler(interviewController.store));

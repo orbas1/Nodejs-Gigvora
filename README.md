@@ -178,3 +178,28 @@ Each step should be resumable, persist progress, and export a configuration repo
 - Flutter integration tests: `gigvora-flutter-phoneapp/integration_test/`
 
 Follow these references to extend Gigvora safely while keeping user data, monetization logic, and cross-platform experiences aligned.
+
+---
+
+## Security & RBAC checklist
+
+- Configure JWT, refresh tokens, and session cookies using the placeholders provided in `.env.example`, and rotate them whenever production secrets change.【F:gigvora-backend-nodejs/.env.example†L15-L43】
+- Restrict cross-origin requests by aligning the API’s `CORS_ALLOWED_*` lists with the frontends you deploy. The calendar stub inherits the same origin and role policies to avoid inconsistent behaviour between services.【F:gigvora-backend-nodejs/.env.example†L30-L61】【F:calendar_stub/server.mjs†L46-L323】
+- Honour role-based access grants (`calendar:view`, `calendar:manage`, `platform:admin`, etc.) in your clients before calling protected endpoints to surface helpful UX instead of raw 403 responses.【F:gigvora-backend-nodejs/.env.example†L44-L61】【F:calendar_stub/server.mjs†L210-L323】
+- Keep Prometheus metrics behind the `METRICS_BEARER_TOKEN` and transport logs via HTTPS when shipping them to your SIEM of choice.【F:gigvora-backend-nodejs/.env.example†L10-L23】
+
+---
+
+## CI/CD & release automation
+
+- Codemagic orchestrates release builds across Android and iOS with environment validation, formatting enforcement, static analysis, and full test runs before packaging artefacts for distribution.【F:codemagic.yaml†L1-L86】
+- Flutter-specific automation lives in `melos.yaml`; use `melos run ci:verify` locally to mirror Codemagic’s gates before pushing changes.【F:melos.yaml†L9-L22】
+- Backend releases should run `npm run lint`, `npm test`, and, if database changes exist, `npx sequelize-cli db:migrate --dry-run` to confirm schema safety before promotion.【F:gigvora-backend-nodejs/package.json†L7-L31】
+
+---
+
+## Incident response quick links
+
+- Review the runtime incident runbook for escalation paths, communication templates, and recovery procedures.【F:gigvora-backend-nodejs/docs/runbooks/runtime-incident.md†L1-L120】
+- Trigger `npm run db:backup` prior to executing emergency migrations and verify backups via `npm run db:verify` once the change lands.【F:gigvora-backend-nodejs/package.json†L23-L31】
+- After any security event, reset API keys (`CALENDAR_STUB_API_KEY`, Stripe, Escrow.com) and JWT secrets, then broadcast forced logout notices through the admin console and email templates.【F:gigvora-backend-nodejs/.env.example†L36-L61】

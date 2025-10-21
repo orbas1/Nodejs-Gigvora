@@ -2,592 +2,565 @@
 
 const { QueryTypes } = require('sequelize');
 
+const seedTag = 'agency_alliance_demo_v2';
+const allianceSlug = 'enterprise-launch-alliance';
+const workspaceSlug = 'alliance-studio-hq';
+
+async function findUserByEmail(queryInterface, transaction, email) {
+  const [rows] = await queryInterface.sequelize.query(
+    'SELECT id FROM users WHERE email = :email LIMIT 1',
+    {
+      type: QueryTypes.SELECT,
+      transaction,
+      replacements: { email },
+    },
+  );
+  return rows?.id ?? null;
+}
+
 module.exports = {
-  async up(queryInterface, Sequelize) {
+  async up(queryInterface) {
     await queryInterface.sequelize.transaction(async (transaction) => {
       const now = new Date();
-      const oneWeek = 7 * 24 * 60 * 60 * 1000;
+      const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
 
-      const [[freelancerUser]] = await queryInterface.sequelize.query(
-        "SELECT id FROM users WHERE email = 'leo@gigvora.com' LIMIT 1",
-        { type: QueryTypes.SELECT, transaction },
-      );
-      const [[agencyOwner]] = await queryInterface.sequelize.query(
-        "SELECT id FROM users WHERE email = 'noah@gigvora.com' LIMIT 1",
-        { type: QueryTypes.SELECT, transaction },
-      );
-      const [[opsManager]] = await queryInterface.sequelize.query(
-        "SELECT id FROM users WHERE email = 'mia@gigvora.com' LIMIT 1",
-        { type: QueryTypes.SELECT, transaction },
-      );
+      const ownerId = await findUserByEmail(queryInterface, transaction, 'noah@gigvora.com');
+      const leadId = await findUserByEmail(queryInterface, transaction, 'leo@gigvora.com');
+      const operatorId = await findUserByEmail(queryInterface, transaction, 'mia@gigvora.com');
 
-      if (!freelancerUser || !agencyOwner) {
-        throw new Error('Required seed users missing for agency alliance demo.');
+      if (!ownerId || !leadId) {
+        throw new Error('Required demo users are missing. Ensure base seed has been executed.');
       }
 
-      await queryInterface.bulkInsert(
-        'provider_workspaces',
-        [
-          {
-            ownerId: agencyOwner.id,
-            name: 'Alliance Studio HQ',
-            slug: 'alliance-studio-hq',
-            type: 'agency',
-            timezone: 'America/New_York',
-            defaultCurrency: 'USD',
-            intakeEmail: 'alliances@alliancestudio.example.com',
-            isActive: true,
-            settings: {
-              alliancePlaybooksEnabled: true,
-              defaultRevenueSplit: { agency: 60, partners: 40 },
-            },
-            createdAt: new Date(now.getTime() - oneWeek * 6),
-            updatedAt: now,
-          },
-        ],
-        { transaction, ignoreDuplicates: true },
-      );
-
-      const [[workspaceRecord]] = await queryInterface.sequelize.query(
-        "SELECT id FROM provider_workspaces WHERE slug = 'alliance-studio-hq' LIMIT 1",
-        { type: QueryTypes.SELECT, transaction },
-      );
-      const allianceWorkspaceId = workspaceRecord?.id;
-      if (!allianceWorkspaceId) {
-        throw new Error('Failed to seed alliance workspace.');
-      }
-
-      const existingMembers = await queryInterface.sequelize.query(
-        'SELECT id, userId FROM provider_workspace_members WHERE workspaceId = :workspaceId AND userId IN (:userIds)',
+      const [workspaceRow] = await queryInterface.sequelize.query(
+        'SELECT id FROM provider_workspaces WHERE slug = :slug LIMIT 1',
         {
-          replacements: { workspaceId: allianceWorkspaceId, userIds: [agencyOwner.id, freelancerUser.id, opsManager?.id].filter(Boolean) },
           type: QueryTypes.SELECT,
           transaction,
+          replacements: { slug: workspaceSlug },
         },
       );
 
-      const membersToInsert = [];
-      const existingMemberIdsByUser = new Map(existingMembers.map((member) => [member.userId, member.id]));
+      let workspaceId = workspaceRow?.id ?? null;
+      if (!workspaceId) {
+        await queryInterface.bulkInsert(
+          'provider_workspaces',
+          [
+            {
+              ownerId,
+              name: 'Alliance Studio HQ',
+              slug: workspaceSlug,
+              type: 'agency',
+              timezone: 'America/New_York',
+              defaultCurrency: 'USD',
+              intakeEmail: 'alliances@example.gigvora',
+              isActive: true,
+              settings: { seedTag, defaultRevenueSplit: { agency: 60, partners: 40 } },
+              createdAt: now,
+              updatedAt: now,
+            },
+          ],
+          { transaction },
+        );
+        const [insertedWorkspace] = await queryInterface.sequelize.query(
+          'SELECT id FROM provider_workspaces WHERE slug = :slug LIMIT 1',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { slug: workspaceSlug },
+          },
+        );
+        workspaceId = insertedWorkspace?.id ?? null;
+      }
 
-      const ensureMember = (userId, role, status = 'active') => {
-        if (!userId) return;
-        if (!existingMemberIdsByUser.has(userId)) {
-          membersToInsert.push({
-            workspaceId: allianceWorkspaceId,
-            userId,
-            role,
-            status,
-            invitedById: agencyOwner.id,
-            joinedAt: new Date(now.getTime() - oneWeek * 5),
-            lastActiveAt: now,
-            removedAt: null,
-            createdAt: new Date(now.getTime() - oneWeek * 5),
-            updatedAt: now,
-          });
+      if (!workspaceId) {
+        throw new Error('Failed to create or resolve the alliance workspace.');
+      }
+
+      const ensureWorkspaceMember = async (userId, role) => {
+        const [existing] = await queryInterface.sequelize.query(
+          'SELECT id FROM provider_workspace_members WHERE workspaceId = :workspaceId AND userId = :userId LIMIT 1',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { workspaceId, userId },
+          },
+        );
+        if (existing?.id) {
+          return existing.id;
         }
+        await queryInterface.bulkInsert(
+          'provider_workspace_members',
+          [
+            {
+              workspaceId,
+              userId,
+              role,
+              status: 'active',
+              invitedById: ownerId,
+              joinedAt: new Date(now.getTime() - oneWeekMs * 4),
+              lastActiveAt: now,
+              removedAt: null,
+              createdAt: now,
+              updatedAt: now,
+            },
+          ],
+          { transaction },
+        );
+        const [inserted] = await queryInterface.sequelize.query(
+          'SELECT id FROM provider_workspace_members WHERE workspaceId = :workspaceId AND userId = :userId LIMIT 1',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { workspaceId, userId },
+          },
+        );
+        return inserted?.id ?? null;
       };
 
-      ensureMember(agencyOwner.id, 'owner');
-      ensureMember(freelancerUser.id, 'staff');
-      ensureMember(opsManager?.id, 'manager');
+      const ownerMemberId = await ensureWorkspaceMember(ownerId, 'owner');
+      const leadMemberId = await ensureWorkspaceMember(leadId, 'staff');
+      const operatorMemberId = operatorId ? await ensureWorkspaceMember(operatorId, 'manager') : null;
 
-      if (membersToInsert.length) {
-        await queryInterface.bulkInsert('provider_workspace_members', membersToInsert, {
+      const [allianceRow] = await queryInterface.sequelize.query(
+        'SELECT id FROM agency_alliances WHERE slug = :slug LIMIT 1',
+        {
+          type: QueryTypes.SELECT,
           transaction,
-          ignoreDuplicates: true,
+          replacements: { slug: allianceSlug },
+        },
+      );
+
+      let allianceId = allianceRow?.id ?? null;
+      if (!allianceId) {
+        await queryInterface.bulkInsert(
+          'agency_alliances',
+          [
+            {
+              workspaceId,
+              name: 'Enterprise Launch Alliance',
+              slug: allianceSlug,
+              status: 'active',
+              allianceType: 'delivery_pod',
+              description:
+                'High-trust alliance focused on shipping marketplace launches with embedded analytics and compliance.',
+              focusAreas: ['Product engineering', 'Growth analytics'],
+              defaultRevenueSplit: { agency: 60, partners: 40, seedTag },
+              startDate: new Date(now.getTime() - oneWeekMs * 12),
+              endDate: null,
+              nextReviewAt: new Date(now.getTime() + oneWeekMs * 4),
+              createdAt: now,
+              updatedAt: now,
+            },
+          ],
+          { transaction },
+        );
+        const [insertedAlliance] = await queryInterface.sequelize.query(
+          'SELECT id FROM agency_alliances WHERE slug = :slug LIMIT 1',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { slug: allianceSlug },
+          },
+        );
+        allianceId = insertedAlliance?.id ?? null;
+      }
+
+      if (!allianceId) {
+        throw new Error('Failed to create or resolve alliance.');
+      }
+
+      const membersToEnsure = [
+        {
+          workspaceMemberId: ownerMemberId,
+          userId: ownerId,
+          role: 'lead',
+          status: 'active',
+          commitmentHours: 18,
+          revenueSharePercent: 60,
+          objectives: { focus: 'Alliance governance and enterprise relationships', seedTag },
+        },
+        {
+          workspaceMemberId: leadMemberId,
+          userId: leadId,
+          role: 'specialist',
+          status: 'active',
+          commitmentHours: 24,
+          revenueSharePercent: 35,
+          objectives: { focus: 'Lead delivery pods and automation', seedTag },
+        },
+      ];
+
+      if (operatorMemberId && operatorId) {
+        membersToEnsure.push({
+          workspaceMemberId: operatorMemberId,
+          userId: operatorId,
+          role: 'contributor',
+          status: 'active',
+          commitmentHours: 12,
+          revenueSharePercent: 5,
+          objectives: { focus: 'Operational cadence and reporting', seedTag },
         });
       }
 
-      const workspaceMembers = await queryInterface.sequelize.query(
-        'SELECT id, userId FROM provider_workspace_members WHERE workspaceId = :workspaceId AND userId IN (:userIds)',
-        {
-          replacements: {
-            workspaceId: allianceWorkspaceId,
-            userIds: [agencyOwner.id, freelancerUser.id, opsManager?.id].filter(Boolean),
-          },
-          type: QueryTypes.SELECT,
-          transaction,
-        },
-      );
-      workspaceMembers.forEach((member) => {
-        existingMemberIdsByUser.set(member.userId, member.id);
-      });
-
-      const allianceRecords = [
-        {
-          workspaceId: allianceWorkspaceId,
-          name: 'Enterprise Launch Alliance',
-          slug: 'enterprise-launch-alliance',
-          status: 'active',
-          allianceType: 'delivery_pod',
-          description:
-            'Cross-functional pod partnering with enterprise agencies to deliver full-stack product launches and revenue programs.',
-          focusAreas: ['Product engineering', 'Growth experiments', 'Analytics readiness'],
-          defaultRevenueSplit: { agency: 55, partners: 45 },
-          startDate: new Date(now.getTime() - oneWeek * 12),
-          endDate: null,
-          nextReviewAt: new Date(now.getTime() + oneWeek * 4),
-          createdAt: new Date(now.getTime() - oneWeek * 12),
-          updatedAt: now,
-        },
-        {
-          workspaceId: allianceWorkspaceId,
-          name: 'Venture Scale Pod',
-          slug: 'venture-scale-pod',
-          status: 'active',
-          allianceType: 'managed_service',
-          description:
-            'Dedicated growth and retention pod supporting venture-backed marketplaces with performance guarantees and shared upside.',
-          focusAreas: ['Lifecycle marketing', 'Retention analytics', 'Conversion optimization'],
-          defaultRevenueSplit: { agency: 50, partners: 50 },
-          startDate: new Date(now.getTime() - oneWeek * 8),
-          endDate: null,
-          nextReviewAt: new Date(now.getTime() + oneWeek * 6),
-          createdAt: new Date(now.getTime() - oneWeek * 8),
-          updatedAt: now,
-        },
-      ];
-
-      await queryInterface.bulkInsert('agency_alliances', allianceRecords, {
-        transaction,
-        ignoreDuplicates: true,
-      });
-
-      const allianceRows = await queryInterface.sequelize.query(
-        'SELECT id, slug FROM agency_alliances WHERE slug IN (:slugs)',
-        {
-          replacements: { slugs: allianceRecords.map((record) => record.slug) },
-          type: QueryTypes.SELECT,
-          transaction,
-        },
-      );
-      const alliancesBySlug = new Map(allianceRows.map((row) => [row.slug, row.id]));
-      const enterpriseAllianceId = alliancesBySlug.get('enterprise-launch-alliance');
-      const ventureAllianceId = alliancesBySlug.get('venture-scale-pod');
-
-      if (!enterpriseAllianceId || !ventureAllianceId) {
-        throw new Error('Failed to resolve seeded alliance identifiers.');
-      }
-
-      const allianceMembers = [
-        {
-          allianceId: enterpriseAllianceId,
-          workspaceId: allianceWorkspaceId,
-          workspaceMemberId: existingMemberIdsByUser.get(agencyOwner.id),
-          userId: agencyOwner.id,
-          role: 'lead',
-          status: 'active',
-          joinDate: new Date(now.getTime() - oneWeek * 12),
-          exitDate: null,
-          commitmentHours: 20,
-          revenueSharePercent: 55,
-          objectives: { okrs: ['Stabilize enterprise launch velocity', 'Improve bench forecasting accuracy'] },
-          createdAt: new Date(now.getTime() - oneWeek * 12),
-          updatedAt: now,
-        },
-        {
-          allianceId: enterpriseAllianceId,
-          workspaceId: allianceWorkspaceId,
-          workspaceMemberId: existingMemberIdsByUser.get(freelancerUser.id),
-          userId: freelancerUser.id,
-          role: 'specialist',
-          status: 'active',
-          joinDate: new Date(now.getTime() - oneWeek * 10),
-          exitDate: null,
-          commitmentHours: 28,
-          revenueSharePercent: 35,
-          objectives: { focus: 'Own growth experimentation backlog and QA analytics events.' },
-          createdAt: new Date(now.getTime() - oneWeek * 10),
-          updatedAt: now,
-        },
-        {
-          allianceId: enterpriseAllianceId,
-          workspaceId: allianceWorkspaceId,
-          workspaceMemberId: existingMemberIdsByUser.get(opsManager?.id),
-          userId: opsManager?.id ?? null,
-          role: 'contributor',
-          status: 'active',
-          joinDate: new Date(now.getTime() - oneWeek * 9),
-          exitDate: null,
-          commitmentHours: 18,
-          revenueSharePercent: 10,
-          objectives: { focus: 'Drive PMO cadence and alliance reporting.' },
-          createdAt: new Date(now.getTime() - oneWeek * 9),
-          updatedAt: now,
-        },
-        {
-          allianceId: ventureAllianceId,
-          workspaceId: allianceWorkspaceId,
-          workspaceMemberId: existingMemberIdsByUser.get(agencyOwner.id),
-          userId: agencyOwner.id,
-          role: 'lead',
-          status: 'active',
-          joinDate: new Date(now.getTime() - oneWeek * 8),
-          exitDate: null,
-          commitmentHours: 16,
-          revenueSharePercent: 50,
-          objectives: { focus: 'Grow retainer backlog across marketplaces and SaaS' },
-          createdAt: new Date(now.getTime() - oneWeek * 8),
-          updatedAt: now,
-        },
-        {
-          allianceId: ventureAllianceId,
-          workspaceId: allianceWorkspaceId,
-          workspaceMemberId: existingMemberIdsByUser.get(freelancerUser.id),
-          userId: freelancerUser.id,
-          role: 'specialist',
-          status: 'active',
-          joinDate: new Date(now.getTime() - oneWeek * 7),
-          exitDate: null,
-          commitmentHours: 24,
-          revenueSharePercent: 40,
-          objectives: { focus: 'Lead experiment pods and train partner developers.' },
-          createdAt: new Date(now.getTime() - oneWeek * 7),
-          updatedAt: now,
-        },
-      ];
-
-      await queryInterface.bulkInsert('agency_alliance_members', allianceMembers, {
-        transaction,
-        ignoreDuplicates: true,
-      });
-
-      const memberRows = await queryInterface.sequelize.query(
-        'SELECT id, allianceId, userId FROM agency_alliance_members WHERE allianceId IN (:ids)',
-        {
-          replacements: { ids: [enterpriseAllianceId, ventureAllianceId] },
-          type: QueryTypes.SELECT,
-          transaction,
-        },
-      );
-
-      const findMemberId = (allianceId, userId) => {
-        const match = memberRows.find((row) => row.allianceId === allianceId && row.userId === userId);
-        return match ? match.id : null;
-      };
-
-      const enterpriseLeadMemberId = findMemberId(enterpriseAllianceId, agencyOwner.id);
-      const enterpriseSpecialistId = findMemberId(enterpriseAllianceId, freelancerUser.id);
-      const ventureLeadMemberId = findMemberId(ventureAllianceId, agencyOwner.id);
-      const ventureSpecialistId = findMemberId(ventureAllianceId, freelancerUser.id);
-
-      if (!enterpriseLeadMemberId || !enterpriseSpecialistId || !ventureLeadMemberId || !ventureSpecialistId) {
-        throw new Error('Failed to resolve alliance member identifiers for seeding.');
-      }
-
-      const podRowsData = [
-        {
-          allianceId: enterpriseAllianceId,
-          leadMemberId: enterpriseLeadMemberId,
-          name: 'Launch Readiness Pod',
-          focusArea: 'Product launch engineering',
-          podType: 'delivery',
-          status: 'active',
-          backlogValue: 185000,
-          capacityTarget: 4,
-          externalNotes: 'Supports enterprise onboarding sprints with readiness scorecards.',
-          createdAt: new Date(now.getTime() - oneWeek * 12),
-          updatedAt: now,
-        },
-        {
-          allianceId: ventureAllianceId,
-          leadMemberId: ventureLeadMemberId,
-          name: 'Retention Acceleration Pod',
-          focusArea: 'Lifecycle & retention experiments',
-          podType: 'growth',
-          status: 'active',
-          backlogValue: 126000,
-          capacityTarget: 3,
-          externalNotes: 'Owns churn rescue and activation loops for venture clients.',
-          createdAt: new Date(now.getTime() - oneWeek * 8),
-          updatedAt: now,
-        },
-      ];
-
-      await queryInterface.bulkInsert('agency_alliance_pods', podRowsData, {
-        transaction,
-        ignoreDuplicates: true,
-      });
-
-      const podRows = await queryInterface.sequelize.query(
-        'SELECT id, allianceId, name FROM agency_alliance_pods WHERE allianceId IN (:ids)',
-        {
-          replacements: { ids: [enterpriseAllianceId, ventureAllianceId] },
-          type: QueryTypes.SELECT,
-          transaction,
-        },
-      );
-
-      const findPodId = (allianceId, name) => {
-        const match = podRows.find((row) => row.allianceId === allianceId && row.name === name);
-        return match ? match.id : null;
-      };
-
-      const enterprisePodId = findPodId(enterpriseAllianceId, 'Launch Readiness Pod');
-      const venturePodId = findPodId(ventureAllianceId, 'Retention Acceleration Pod');
-
-      if (!enterprisePodId || !venturePodId) {
-        throw new Error('Failed to resolve alliance pod identifiers for seeding.');
-      }
-
-      await queryInterface.bulkInsert(
-        'agency_alliance_pod_members',
-        [
+      const allianceMemberIds = new Map();
+      for (const member of membersToEnsure) {
+        const [existing] = await queryInterface.sequelize.query(
+          'SELECT id FROM agency_alliance_members WHERE allianceId = :allianceId AND userId = :userId LIMIT 1',
           {
-            podId: enterprisePodId,
-            allianceMemberId: enterpriseLeadMemberId,
-            role: 'Alliance director',
-            weeklyCommitmentHours: 20,
-            utilizationTarget: 85,
-            createdAt: new Date(now.getTime() - oneWeek * 12),
-            updatedAt: now,
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { allianceId, userId: member.userId },
           },
-          {
-            podId: enterprisePodId,
-            allianceMemberId: enterpriseSpecialistId,
-            role: 'Lead growth engineer',
-            weeklyCommitmentHours: 25,
-            utilizationTarget: 80,
-            createdAt: new Date(now.getTime() - oneWeek * 10),
-            updatedAt: now,
-          },
-          {
-            podId: venturePodId,
-            allianceMemberId: ventureLeadMemberId,
-            role: 'Alliance director',
-            weeklyCommitmentHours: 16,
-            utilizationTarget: 80,
-            createdAt: new Date(now.getTime() - oneWeek * 8),
-            updatedAt: now,
-          },
-          {
-            podId: venturePodId,
-            allianceMemberId: ventureSpecialistId,
-            role: 'Lifecycle architect',
-            weeklyCommitmentHours: 22,
-            utilizationTarget: 78,
-            createdAt: new Date(now.getTime() - oneWeek * 7),
-            updatedAt: now,
-          },
-        ],
-        { transaction },
-      );
-
-      const rateCardRows = [
-        {
-          allianceId: enterpriseAllianceId,
-          version: 1,
-          serviceLine: 'Launch readiness sprint',
-          deliveryModel: 'pod_fixed',
-          currency: 'USD',
-          unit: 'sprint',
-          rate: 18500,
-          status: 'superseded',
-          effectiveFrom: new Date(now.getTime() - oneWeek * 12),
-          effectiveTo: new Date(now.getTime() - oneWeek * 6),
-          changeSummary: 'Baseline sprint package for launch readiness.',
-          createdById: agencyOwner.id,
-          createdAt: new Date(now.getTime() - oneWeek * 12),
-          updatedAt: new Date(now.getTime() - oneWeek * 6),
-        },
-        {
-          allianceId: enterpriseAllianceId,
-          version: 2,
-          serviceLine: 'Launch readiness sprint',
-          deliveryModel: 'pod_fixed',
-          currency: 'USD',
-          unit: 'sprint',
-          rate: 20500,
-          status: 'active',
-          effectiveFrom: new Date(now.getTime() - oneWeek * 6),
-          effectiveTo: null,
-          changeSummary: 'Includes analytics QA and experimentation runway.',
-          createdById: agencyOwner.id,
-          createdAt: new Date(now.getTime() - oneWeek * 6),
-          updatedAt: now,
-        },
-        {
-          allianceId: ventureAllianceId,
-          version: 1,
-          serviceLine: 'Retention accelerator',
-          deliveryModel: 'managed_service',
-          currency: 'USD',
-          unit: 'month',
-          rate: 14800,
-          status: 'active',
-          effectiveFrom: new Date(now.getTime() - oneWeek * 7),
-          effectiveTo: null,
-          changeSummary: 'Monthly managed service covering lifecycle experiments and coaching.',
-          createdById: agencyOwner.id,
-          createdAt: new Date(now.getTime() - oneWeek * 7),
-          updatedAt: now,
-        },
-      ];
-
-      await queryInterface.bulkInsert('agency_alliance_rate_cards', rateCardRows, {
-        transaction,
-        ignoreDuplicates: true,
-      });
-
-      const rateCardRowsInserted = await queryInterface.sequelize.query(
-        'SELECT id, allianceId, serviceLine, version FROM agency_alliance_rate_cards WHERE allianceId IN (:ids)',
-        {
-          replacements: { ids: [enterpriseAllianceId, ventureAllianceId] },
-          type: QueryTypes.SELECT,
-          transaction,
-        },
-      );
-
-      const findRateCardId = (allianceId, serviceLine, version) => {
-        const match = rateCardRowsInserted.find(
-          (row) => row.allianceId === allianceId && row.serviceLine === serviceLine && row.version === version,
         );
-        return match ? match.id : null;
-      };
-
-      const launchCardV2Id = findRateCardId(enterpriseAllianceId, 'Launch readiness sprint', 2);
-      const retentionCardV1Id = findRateCardId(ventureAllianceId, 'Retention accelerator', 1);
-
-      if (launchCardV2Id) {
+        if (existing?.id) {
+          allianceMemberIds.set(member.userId, existing.id);
+          continue;
+        }
         await queryInterface.bulkInsert(
-          'agency_alliance_rate_card_approvals',
+          'agency_alliance_members',
           [
             {
-              rateCardId: launchCardV2Id,
-              approverId: opsManager?.id ?? agencyOwner.id,
-              status: 'approved',
-              comment: 'Approved after validating utilization targets.',
-              decidedAt: new Date(now.getTime() - oneWeek * 5),
-              createdAt: new Date(now.getTime() - oneWeek * 5),
-              updatedAt: new Date(now.getTime() - oneWeek * 5),
+              allianceId,
+              workspaceId,
+              workspaceMemberId: member.workspaceMemberId,
+              userId: member.userId,
+              role: member.role,
+              status: member.status,
+              joinDate: new Date(now.getTime() - oneWeekMs * 8),
+              exitDate: null,
+              commitmentHours: member.commitmentHours,
+              revenueSharePercent: member.revenueSharePercent,
+              objectives: member.objectives,
+              createdAt: now,
+              updatedAt: now,
             },
           ],
-          { transaction, ignoreDuplicates: true },
+          { transaction },
         );
+        const [insertedMember] = await queryInterface.sequelize.query(
+          'SELECT id FROM agency_alliance_members WHERE allianceId = :allianceId AND userId = :userId LIMIT 1',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { allianceId, userId: member.userId },
+          },
+        );
+        if (insertedMember?.id) {
+          allianceMemberIds.set(member.userId, insertedMember.id);
+        }
       }
 
-      if (retentionCardV1Id) {
-        await queryInterface.bulkInsert(
-          'agency_alliance_rate_card_approvals',
-          [
-            {
-              rateCardId: retentionCardV1Id,
-              approverId: opsManager?.id ?? agencyOwner.id,
-              status: 'pending',
-              comment: null,
-              decidedAt: null,
-              createdAt: new Date(now.getTime() - oneWeek * 4),
-              updatedAt: new Date(now.getTime() - oneWeek * 4),
-            },
-          ],
-          { transaction, ignoreDuplicates: true },
-        );
-      }
+      const leadAllianceMemberId = allianceMemberIds.get(ownerId);
+      const specialistAllianceMemberId = allianceMemberIds.get(leadId);
 
-      await queryInterface.bulkInsert(
-        'agency_alliance_revenue_splits',
-        [
-          {
-            allianceId: enterpriseAllianceId,
-            splitType: 'tiered',
-            terms: {
-              tiers: [
-                { threshold: 0, agency: 60, partners: 40 },
-                { threshold: 150000, agency: 55, partners: 45 },
-              ],
-            },
-            status: 'active',
-            effectiveFrom: new Date(now.getTime() - oneWeek * 8),
-            effectiveTo: null,
-            createdById: agencyOwner.id,
-            approvedById: opsManager?.id ?? agencyOwner.id,
-            approvedAt: new Date(now.getTime() - oneWeek * 8),
-            createdAt: new Date(now.getTime() - oneWeek * 8),
-            updatedAt: now,
-          },
-          {
-            allianceId: ventureAllianceId,
-            splitType: 'performance',
-            terms: {
-              base: { agency: 50, partners: 50 },
-              bonus: { activationSLA: '48h', performanceKickback: 5 },
-            },
-            status: 'pending_approval',
-            effectiveFrom: new Date(now.getTime() - oneWeek * 4),
-            effectiveTo: null,
-            createdById: agencyOwner.id,
-            approvedById: null,
-            approvedAt: null,
-            createdAt: new Date(now.getTime() - oneWeek * 4),
-            updatedAt: now,
-          },
-        ],
-        { transaction },
+      const [podRow] = await queryInterface.sequelize.query(
+        'SELECT id FROM agency_alliance_pods WHERE allianceId = :allianceId AND name = :name LIMIT 1',
+        {
+          type: QueryTypes.SELECT,
+          transaction,
+          replacements: { allianceId, name: 'Launch Readiness Pod' },
+        },
       );
 
-      const buildWeekDate = (offsetWeeks) => {
-        const date = new Date(now.getTime() - offsetWeeks * oneWeek);
-        const day = date.getUTCDay();
-        const diffToMonday = (day + 6) % 7;
-        const monday = new Date(date.getTime() - diffToMonday * 24 * 60 * 60 * 1000);
-        return monday.toISOString().slice(0, 10);
-      };
-
-      const resourceSlots = [];
-      for (let week = 0; week < 8; week += 1) {
-        resourceSlots.push(
+      let podId = podRow?.id ?? null;
+      if (!podId) {
+        await queryInterface.bulkInsert(
+          'agency_alliance_pods',
+          [
+            {
+              allianceId,
+              leadMemberId: leadAllianceMemberId,
+              name: 'Launch Readiness Pod',
+              focusArea: 'Product launch engineering',
+              podType: 'delivery',
+              status: 'active',
+              backlogValue: 125000,
+              capacityTarget: 3,
+              externalNotes: 'Handles enterprise launch squads and QA rituals.',
+              createdAt: now,
+              updatedAt: now,
+            },
+          ],
+          { transaction },
+        );
+        const [insertedPod] = await queryInterface.sequelize.query(
+          'SELECT id FROM agency_alliance_pods WHERE allianceId = :allianceId AND name = :name LIMIT 1',
           {
-            allianceId: enterpriseAllianceId,
-            allianceMemberId: enterpriseSpecialistId,
-            weekStartDate: buildWeekDate(week),
-            plannedHours: 30,
-            bookedHours: week < 2 ? 26 : 28,
-            engagementType: 'launch_sprint',
-            notes: week === 0 ? 'Buffer reserved for integrations launch.' : null,
-            createdAt: now,
-            updatedAt: now,
-          },
-          {
-            allianceId: ventureAllianceId,
-            allianceMemberId: ventureSpecialistId,
-            weekStartDate: buildWeekDate(week),
-            plannedHours: 24,
-            bookedHours: week < 3 ? 18 : 22,
-            engagementType: 'retention_playbook',
-            notes: week === 1 ? 'Focus on churn reduction experiments.' : null,
-            createdAt: now,
-            updatedAt: now,
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { allianceId, name: 'Launch Readiness Pod' },
           },
         );
+        podId = insertedPod?.id ?? null;
       }
 
-      await queryInterface.bulkInsert('agency_alliance_resource_slots', resourceSlots, { transaction });
+      if (podId && specialistAllianceMemberId) {
+        const [existingPodMember] = await queryInterface.sequelize.query(
+          'SELECT id FROM agency_alliance_pod_members WHERE podId = :podId AND allianceMemberId = :memberId LIMIT 1',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { podId, memberId: specialistAllianceMemberId },
+          },
+        );
+        if (!existingPodMember?.id) {
+          await queryInterface.bulkInsert(
+            'agency_alliance_pod_members',
+            [
+              {
+                podId,
+                allianceMemberId: specialistAllianceMemberId,
+                role: 'Lead engineer',
+                weeklyCommitmentHours: 22,
+                utilizationTarget: 80,
+                createdAt: now,
+                updatedAt: now,
+              },
+            ],
+            { transaction },
+          );
+        }
+      }
+
+      const resourceWeeks = [0, 1];
+      for (const offset of resourceWeeks) {
+        const weekStart = new Date(now.getTime() - offset * oneWeekMs);
+        const isoMonday = new Date(weekStart);
+        const diffToMonday = (isoMonday.getUTCDay() + 6) % 7;
+        isoMonday.setUTCDate(isoMonday.getUTCDate() - diffToMonday);
+        isoMonday.setUTCHours(0, 0, 0, 0);
+
+        const [existingSlot] = await queryInterface.sequelize.query(
+          'SELECT id FROM agency_alliance_resource_slots WHERE allianceId = :allianceId AND allianceMemberId = :memberId AND weekStartDate = :week LIMIT 1',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: {
+              allianceId,
+              memberId: specialistAllianceMemberId,
+              week: isoMonday.toISOString().slice(0, 10),
+            },
+          },
+        );
+
+        if (!existingSlot?.id) {
+          await queryInterface.bulkInsert(
+            'agency_alliance_resource_slots',
+            [
+              {
+                allianceId,
+                allianceMemberId: specialistAllianceMemberId,
+                weekStartDate: isoMonday,
+                plannedHours: 26,
+                bookedHours: offset === 0 ? 24 : 20,
+                engagementType: 'launch_sprint',
+                notes: offset === 0 ? 'Buffer reserved for analytics QA.' : null,
+                createdAt: now,
+                updatedAt: now,
+              },
+            ],
+            { transaction },
+          );
+        }
+      }
+
+      const [rateCardRow] = await queryInterface.sequelize.query(
+        'SELECT id FROM agency_alliance_rate_cards WHERE allianceId = :allianceId AND serviceLine = :serviceLine AND version = :version LIMIT 1',
+        {
+          type: QueryTypes.SELECT,
+          transaction,
+          replacements: { allianceId, serviceLine: 'Launch readiness sprint', version: 1 },
+        },
+      );
+
+      let rateCardId = rateCardRow?.id ?? null;
+      if (!rateCardId) {
+        await queryInterface.bulkInsert(
+          'agency_alliance_rate_cards',
+          [
+            {
+              allianceId,
+              version: 1,
+              serviceLine: 'Launch readiness sprint',
+              deliveryModel: 'pod_fixed',
+              currency: 'USD',
+              unit: 'sprint',
+              rate: 18500,
+              status: 'active',
+              effectiveFrom: new Date(now.getTime() - oneWeekMs * 4),
+              effectiveTo: null,
+              changeSummary: 'Baseline sprint covering discovery, QA, and analytics instrumentation.',
+              createdById: ownerId,
+              createdAt: now,
+              updatedAt: now,
+            },
+          ],
+          { transaction },
+        );
+        const [insertedRateCard] = await queryInterface.sequelize.query(
+          'SELECT id FROM agency_alliance_rate_cards WHERE allianceId = :allianceId AND serviceLine = :serviceLine AND version = :version LIMIT 1',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { allianceId, serviceLine: 'Launch readiness sprint', version: 1 },
+          },
+        );
+        rateCardId = insertedRateCard?.id ?? null;
+      }
+
+      if (rateCardId) {
+        const [existingApproval] = await queryInterface.sequelize.query(
+          'SELECT id FROM agency_alliance_rate_card_approvals WHERE rateCardId = :rateCardId LIMIT 1',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { rateCardId },
+          },
+        );
+        if (!existingApproval?.id) {
+          await queryInterface.bulkInsert(
+            'agency_alliance_rate_card_approvals',
+            [
+              {
+                rateCardId,
+                approverId: operatorId ?? ownerId,
+                status: 'approved',
+                comment: 'Validated utilisation targets and compliance guardrails.',
+                decidedAt: new Date(now.getTime() - oneWeekMs * 2),
+                createdAt: now,
+                updatedAt: now,
+              },
+            ],
+            { transaction },
+          );
+        }
+      }
+
+      const [splitRow] = await queryInterface.sequelize.query(
+        'SELECT id FROM agency_alliance_revenue_splits WHERE allianceId = :allianceId LIMIT 1',
+        {
+          type: QueryTypes.SELECT,
+          transaction,
+          replacements: { allianceId },
+        },
+      );
+
+      if (!splitRow?.id) {
+        await queryInterface.bulkInsert(
+          'agency_alliance_revenue_splits',
+          [
+            {
+              allianceId,
+              splitType: 'tiered',
+              terms: { tiers: [{ threshold: 0, agency: 60, partners: 40 }, { threshold: 150000, agency: 55, partners: 45 }], seedTag },
+              status: 'active',
+              effectiveFrom: new Date(now.getTime() - oneWeekMs * 4),
+              effectiveTo: null,
+              createdById: ownerId,
+              approvedById: operatorId ?? ownerId,
+              approvedAt: new Date(now.getTime() - oneWeekMs * 3),
+              createdAt: now,
+              updatedAt: now,
+            },
+          ],
+          { transaction },
+        );
+      }
     });
   },
 
   async down(queryInterface, Sequelize) {
     await queryInterface.sequelize.transaction(async (transaction) => {
-      const allianceSlugs = ['enterprise-launch-alliance', 'venture-scale-pod'];
-
-      const alliances = await queryInterface.sequelize.query(
-        'SELECT id FROM agency_alliances WHERE slug IN (:slugs)',
-        { replacements: { slugs: allianceSlugs }, type: QueryTypes.SELECT, transaction },
+      const [alliance] = await queryInterface.sequelize.query(
+        'SELECT id FROM agency_alliances WHERE slug = :slug LIMIT 1',
+        {
+          type: QueryTypes.SELECT,
+          transaction,
+          replacements: { slug: allianceSlug },
+        },
       );
-      const allianceIds = alliances.map((row) => row.id);
 
-      if (allianceIds.length) {
+      const allianceId = alliance?.id ?? null;
+      if (allianceId) {
+        await queryInterface.bulkDelete('agency_alliance_resource_slots', { allianceId }, { transaction });
+
+        const pods = await queryInterface.sequelize.query(
+          'SELECT id FROM agency_alliance_pods WHERE allianceId = :allianceId',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { allianceId },
+          },
+        );
+        const podIds = pods.map((pod) => pod.id);
+        if (podIds.length) {
+          await queryInterface.bulkDelete(
+            'agency_alliance_pod_members',
+            { podId: { [Sequelize.Op.in]: podIds } },
+            { transaction },
+          );
+        }
+        await queryInterface.bulkDelete('agency_alliance_pods', { allianceId }, { transaction });
+
+        const rateCards = await queryInterface.sequelize.query(
+          'SELECT id FROM agency_alliance_rate_cards WHERE allianceId = :allianceId',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { allianceId },
+          },
+        );
+        const rateCardIds = rateCards.map((row) => row.id);
+        if (rateCardIds.length) {
+          await queryInterface.bulkDelete(
+            'agency_alliance_rate_card_approvals',
+            { rateCardId: { [Sequelize.Op.in]: rateCardIds } },
+            { transaction },
+          );
+        }
+        await queryInterface.bulkDelete('agency_alliance_rate_cards', { allianceId }, { transaction });
+        await queryInterface.bulkDelete('agency_alliance_revenue_splits', { allianceId }, { transaction });
+        await queryInterface.bulkDelete('agency_alliance_members', { allianceId }, { transaction });
+        await queryInterface.bulkDelete('agency_alliances', { id: allianceId }, { transaction });
+      }
+
+      const [workspace] = await queryInterface.sequelize.query(
+        'SELECT id FROM provider_workspaces WHERE slug = :slug LIMIT 1',
+        {
+          type: QueryTypes.SELECT,
+          transaction,
+          replacements: { slug: workspaceSlug },
+        },
+      );
+      const workspaceId = workspace?.id ?? null;
+
+      if (workspaceId) {
+        const users = await queryInterface.sequelize.query(
+          'SELECT id FROM users WHERE email IN (:emails)',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { emails: ['noah@gigvora.com', 'leo@gigvora.com', 'mia@gigvora.com'] },
+          },
+        );
+        const userIds = users.map((row) => row.id);
+        if (userIds.length) {
+          await queryInterface.bulkDelete(
+            'provider_workspace_members',
+            {
+              workspaceId,
+              userId: { [Sequelize.Op.in]: userIds },
+            },
+            { transaction },
+          );
+        }
         await queryInterface.bulkDelete(
-          'agency_alliances',
-          { id: { [Sequelize.Op.in]: allianceIds } },
+          'provider_workspaces',
+          { id: workspaceId, intakeEmail: 'alliances@example.gigvora' },
           { transaction },
         );
       }
-
-      await queryInterface.bulkDelete(
-        'provider_workspaces',
-        { slug: 'alliance-studio-hq' },
-        { transaction },
-      );
     });
   },
 };

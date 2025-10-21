@@ -1,11 +1,11 @@
 'use strict';
 
+const { resolveJsonType, dropEnum, safeRemoveIndex } = require('../utils/migrationHelpers.cjs');
+
 module.exports = {
   async up(queryInterface, Sequelize) {
-    const transaction = await queryInterface.sequelize.transaction();
-    try {
-      const dialect = queryInterface.sequelize.getDialect();
-      const jsonType = ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
+    await queryInterface.sequelize.transaction(async (transaction) => {
+      const jsonType = resolveJsonType(queryInterface, Sequelize);
 
       await queryInterface.createTable(
         'project_blueprints',
@@ -33,8 +33,16 @@ module.exports = {
           endDate: { type: Sequelize.DATE, allowNull: true },
           lastReviewedAt: { type: Sequelize.DATE, allowNull: true },
           metadata: { type: jsonType, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false },
-          updatedAt: { type: Sequelize.DATE, allowNull: false },
+          createdAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
+          updatedAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
         },
         { transaction },
       );
@@ -65,8 +73,16 @@ module.exports = {
           progress: { type: Sequelize.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
           deliverables: { type: jsonType, allowNull: true },
           acceptanceCriteria: { type: Sequelize.TEXT, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false },
-          updatedAt: { type: Sequelize.DATE, allowNull: false },
+          createdAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
+          updatedAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
         },
         { transaction },
       );
@@ -110,8 +126,16 @@ module.exports = {
           },
           impact: { type: Sequelize.STRING(255), allowNull: true },
           notes: { type: Sequelize.TEXT, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false },
-          updatedAt: { type: Sequelize.DATE, allowNull: false },
+          createdAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
+          updatedAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
         },
         { transaction },
       );
@@ -142,8 +166,16 @@ module.exports = {
           contingencyPlan: { type: Sequelize.TEXT, allowNull: true },
           nextReviewAt: { type: Sequelize.DATE, allowNull: true },
           tags: { type: jsonType, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false },
-          updatedAt: { type: Sequelize.DATE, allowNull: false },
+          createdAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
+          updatedAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
         },
         { transaction },
       );
@@ -184,8 +216,16 @@ module.exports = {
           approvalRequired: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: true },
           invoiceUrl: { type: Sequelize.STRING(255), allowNull: true },
           notes: { type: Sequelize.TEXT, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false },
-          updatedAt: { type: Sequelize.DATE, allowNull: false },
+          createdAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
+          updatedAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
         },
         { transaction },
       );
@@ -213,37 +253,26 @@ module.exports = {
         ['blueprintId', 'status', 'dueDate'],
         { name: 'project_billing_checkpoints_due_idx', transaction },
       );
-
-      await transaction.commit();
-    } catch (error) {
-      await transaction.rollback();
-      throw error;
-    }
+    });
   },
 
   async down(queryInterface) {
-    const transaction = await queryInterface.sequelize.transaction();
-    try {
-      await queryInterface.removeIndex(
-        'project_billing_checkpoints',
-        'project_billing_checkpoints_due_idx',
-        { transaction },
-      );
-      await queryInterface.removeIndex(
-        'project_blueprint_risks',
-        'project_blueprint_risks_status_idx',
-        { transaction },
-      );
-      await queryInterface.removeIndex(
+    await queryInterface.sequelize.transaction(async (transaction) => {
+      await safeRemoveIndex(queryInterface, 'project_billing_checkpoints', 'project_billing_checkpoints_due_idx', {
+        transaction,
+      });
+      await safeRemoveIndex(queryInterface, 'project_blueprint_risks', 'project_blueprint_risks_status_idx', {
+        transaction,
+      });
+      await safeRemoveIndex(
+        queryInterface,
         'project_blueprint_dependencies',
         'project_blueprint_dependencies_status_idx',
         { transaction },
       );
-      await queryInterface.removeIndex(
-        'project_blueprint_sprints',
-        'project_blueprint_sprints_sequence_idx',
-        { transaction },
-      );
+      await safeRemoveIndex(queryInterface, 'project_blueprint_sprints', 'project_blueprint_sprints_sequence_idx', {
+        transaction,
+      });
 
       await queryInterface.dropTable('project_billing_checkpoints', { transaction });
       await queryInterface.dropTable('project_blueprint_risks', { transaction });
@@ -251,25 +280,18 @@ module.exports = {
       await queryInterface.dropTable('project_blueprint_sprints', { transaction });
       await queryInterface.dropTable('project_blueprints', { transaction });
 
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_project_blueprints_healthStatus"', { transaction });
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_project_blueprint_sprints_status"', { transaction });
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_project_blueprint_dependencies_dependencyType"', {
-        transaction,
-      });
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_project_blueprint_dependencies_status"', { transaction });
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_project_blueprint_dependencies_riskLevel"', {
-        transaction,
-      });
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_project_blueprint_risks_status"', { transaction });
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_project_billing_checkpoints_billingType"', {
-        transaction,
-      });
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_project_billing_checkpoints_status"', { transaction });
+      const enumNames = [
+        'enum_project_blueprints_healthStatus',
+        'enum_project_blueprint_sprints_status',
+        'enum_project_blueprint_dependencies_dependencyType',
+        'enum_project_blueprint_dependencies_status',
+        'enum_project_blueprint_dependencies_riskLevel',
+        'enum_project_blueprint_risks_status',
+        'enum_project_billing_checkpoints_billingType',
+        'enum_project_billing_checkpoints_status',
+      ];
 
-      await transaction.commit();
-    } catch (error) {
-      await transaction.rollback();
-      throw error;
-    }
+      await Promise.all(enumNames.map((enumName) => dropEnum(queryInterface, enumName, transaction)));
+    });
   },
 };

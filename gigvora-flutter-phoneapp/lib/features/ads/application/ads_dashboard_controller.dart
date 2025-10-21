@@ -31,10 +31,19 @@ class AdsDashboardController extends StateNotifier<ResourceState<AdDashboardSnap
         forceRefresh: forceRefresh,
       );
 
+      final placementsBySurface = Map<String, List<AdPlacement>>.from(
+        (state.metadata[_placementsKey] as Map<String, List<AdPlacement>>?) ??
+            const <String, List<AdPlacement>>{},
+      );
+      final activeSurfaces = result.data.surfaces
+          .map((surface) => surface.surface.trim())
+          .where((surface) => surface.isNotEmpty)
+          .toSet();
+      placementsBySurface.removeWhere((key, value) => !activeSurfaces.contains(key));
+
       final metadata = {
         ...state.metadata,
-        _placementsKey: (state.metadata[_placementsKey] as Map<String, List<AdPlacement>>?) ??
-            <String, List<AdPlacement>>{},
+        _placementsKey: placementsBySurface,
         _contextKey: _context ?? result.data.overview.context,
         _loadingSurfaceKey: null,
       };
@@ -86,13 +95,17 @@ class AdsDashboardController extends StateNotifier<ResourceState<AdDashboardSnap
   Future<void> refresh() => load(forceRefresh: true);
 
   void updateFilters({List<String>? surfaces, AdTargetingContext? context}) {
-    _surfaces = surfaces;
+    _surfaces = surfaces
+        ?.map((surface) => surface.trim())
+        .where((surface) => surface.isNotEmpty)
+        .toList(growable: false);
     _context = context;
     load(forceRefresh: true);
   }
 
   Future<void> preloadPlacements(String surface) async {
-    if (surface.isEmpty) {
+    final normalizedSurface = surface.trim();
+    if (normalizedSurface.isEmpty) {
       return;
     }
     final placementsBySurface = Map<String, List<AdPlacement>>.from(
@@ -100,20 +113,20 @@ class AdsDashboardController extends StateNotifier<ResourceState<AdDashboardSnap
           <String, List<AdPlacement>>{},
     );
 
-    if (placementsBySurface.containsKey(surface)) {
+    if (placementsBySurface.containsKey(normalizedSurface)) {
       return;
     }
 
     state = state.copyWith(
       metadata: {
         ...state.metadata,
-        _loadingSurfaceKey: surface,
+        _loadingSurfaceKey: normalizedSurface,
       },
     );
 
     try {
-      final placements = await _repository.fetchPlacementsForSurface(surface);
-      placementsBySurface[surface] = placements;
+      final placements = await _repository.fetchPlacementsForSurface(normalizedSurface);
+      placementsBySurface[normalizedSurface] = List<AdPlacement>.unmodifiable(placements);
       state = state.copyWith(
         metadata: {
           ...state.metadata,
@@ -141,9 +154,15 @@ class AdsDashboardController extends StateNotifier<ResourceState<AdDashboardSnap
     }
   }
 
-  Map<String, List<AdPlacement>> get placementsBySurface =>
-      (state.metadata[_placementsKey] as Map<String, List<AdPlacement>>?) ??
-      const <String, List<AdPlacement>>{};
+  Map<String, List<AdPlacement>> get placementsBySurface {
+    final placements = (state.metadata[_placementsKey] as Map<String, List<AdPlacement>>?) ??
+        const <String, List<AdPlacement>>{};
+    return Map<String, List<AdPlacement>>.unmodifiable(
+      placements.map(
+        (key, value) => MapEntry(key, List<AdPlacement>.unmodifiable(value)),
+      ),
+    );
+  }
 
   String? get loadingSurface => state.metadata[_loadingSurfaceKey] as String?;
 

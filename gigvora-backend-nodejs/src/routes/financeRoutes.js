@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
+import { authenticateRequest, requireRoles } from '../middleware/authentication.js';
 import { controlTowerOverview, showFreelancerInsights } from '../controllers/financeController.js';
 import validateRequest from '../middleware/validateRequest.js';
 import {
@@ -8,6 +9,10 @@ import {
 } from '../validation/schemas/financeSchemas.js';
 
 const router = Router();
+const FINANCE_ROLES = ['admin', 'finance', 'company_admin', 'operations'];
+
+router.use(authenticateRequest());
+router.use(requireRoles(...FINANCE_ROLES));
 
 router.get(
   '/control-tower/overview',

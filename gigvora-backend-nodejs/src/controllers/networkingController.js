@@ -11,30 +11,104 @@ import {
   updateNetworkingBusinessCard,
   getNetworkingSessionRuntime,
 } from '../services/networkingService.js';
+import { AuthorizationError, ValidationError } from '../utils/errors.js';
+import { resolveRequestPermissions, resolveRequestUserId } from '../utils/requestContext.js';
 
-function parseNumber(value) {
+function parsePositiveInteger(value, label, { optional = false } = {}) {
   if (value == null || value === '') {
-    return undefined;
+    if (optional) {
+      return null;
+    }
+    throw new ValidationError(`${label} is required.`);
   }
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new ValidationError(`${label} must be a positive integer.`);
+  }
+  return parsed;
 }
 
-function parseBoolean(value) {
+function parseOptionalInteger(value, label) {
+  if (value == null || value === '') {
+    return null;
+  }
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new ValidationError(`${label} must be a positive integer when provided.`);
+  }
+  return parsed;
+}
+
+function parseBoolean(value, fallback = undefined) {
   if (value == null) {
-    return undefined;
+    return fallback;
   }
   if (typeof value === 'boolean') {
     return value;
   }
-  const normalized = `${value}`.toLowerCase();
+  const normalized = `${value}`.trim().toLowerCase();
   if (['1', 'true', 'yes', 'on'].includes(normalized)) {
     return true;
   }
   if (['0', 'false', 'no', 'off'].includes(normalized)) {
     return false;
   }
-  return undefined;
+  throw new ValidationError('Boolean parameters must be true or false.');
+}
+
+function resolveActorId(req, { required = true } = {}) {
+  const actorId = resolveRequestUserId(req);
+  if (!actorId && required) {
+    throw new AuthorizationError('Authentication required.');
+  }
+  return actorId;
+}
+
+function ensureWorkspaceAccess(req, workspaceId) {
+  const permissions = new Set(resolveRequestPermissions(req).map((permission) => permission.toLowerCase()));
+  const roles = Array.isArray(req.user?.roles) ? req.user.roles : [req.user?.role].filter(Boolean);
+  roles.map((role) => `${role}`.toLowerCase()).forEach((role) => permissions.add(role));
+
+  if (
+    permissions.has('admin') ||
+    permissions.has('community.manage.any') ||
+    permissions.has('networking.manage.any')
+  ) {
+    return;
+  }
+
+  const access = req.networkingAccess ?? {};
+  const permittedWorkspaceIds = Array.isArray(access.permittedWorkspaceIds)
+    ? access.permittedWorkspaceIds
+    : [];
+  const numericWorkspaceId = Number.isFinite(workspaceId) ? workspaceId : parseOptionalInteger(workspaceId, 'workspaceId');
+
+  if (
+    numericWorkspaceId != null &&
+    permittedWorkspaceIds.length &&
+    !permittedWorkspaceIds.includes(numericWorkspaceId)
+  ) {
+    throw new AuthorizationError('You do not have access to this workspace.');
+  }
+
+  if (numericWorkspaceId != null && permittedWorkspaceIds.length === 0 && !permissions.has('networking.manage.own')) {
+    throw new AuthorizationError('You must be provisioned for this workspace.');
+  }
+}
+
+function clampLookback(value, fallback) {
+  const parsed = value == null ? fallback : parsePositiveInteger(value, 'lookbackDays');
+  return Math.min(parsed, 365);
+}
+
+function sanitisePayload(payload, label) {
+  if (payload == null) {
+    return {};
+  }
+  if (typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new ValidationError(`${label} must be an object.`);
+  }
+  return JSON.parse(JSON.stringify(payload));
 }
 
 export async function index(req, res) {
@@ -51,27 +125,23 @@ export async function index(req, res) {
     ? access.permittedWorkspaceIds
     : [];
 
-  const requestedCompanyId = parseNumber(companyId);
-  if (
-    requestedCompanyId != null &&
-    permittedWorkspaceIds.length &&
-    !permittedWorkspaceIds.includes(requestedCompanyId)
-  ) {
-    return res.status(403).json({ message: 'You do not have access to this workspace.' });
+  const requestedCompanyId = parseOptionalInteger(companyId, 'companyId');
+  if (requestedCompanyId != null) {
+    ensureWorkspaceAccess(req, requestedCompanyId);
   }
 
   const resolvedCompanyId =
-    requestedCompanyId != null
-      ? requestedCompanyId
-      : access.defaultWorkspaceId ?? permittedWorkspaceIds[0] ?? null;
+    requestedCompanyId ??
+    (access.defaultWorkspaceId != null ? parseOptionalInteger(access.defaultWorkspaceId, 'workspaceId') : null) ??
+    (permittedWorkspaceIds[0] ?? null);
 
   const result = await listNetworkingSessions(
     {
       companyId: resolvedCompanyId,
       status: status ?? undefined,
-      includeMetrics: parseBoolean(includeMetrics) ?? true,
-      upcomingOnly: parseBoolean(upcomingOnly) ?? false,
-      lookbackDays: parseNumber(lookbackDays) ?? 180,
+      includeMetrics: parseBoolean(includeMetrics, true),
+      upcomingOnly: parseBoolean(upcomingOnly, false),
+      lookbackDays: clampLookback(lookbackDays, 180),
     },
     { authorizedWorkspaceIds: permittedWorkspaceIds },
   );
@@ -87,16 +157,18 @@ export async function index(req, res) {
 
 export async function create(req, res) {
   const payload = req.body ?? {};
-  const actorId = parseNumber(payload.actorId ?? req.user?.id);
+  const actorId = resolveActorId(req);
   const access = req.networkingAccess ?? {};
   const permittedWorkspaceIds = Array.isArray(access.permittedWorkspaceIds)
     ? access.permittedWorkspaceIds
     : [];
 
-  const requestPayload = { ...payload };
+  const requestPayload = sanitisePayload(payload, 'networking session');
   if (requestPayload.companyId == null && access.defaultWorkspaceId != null) {
-    requestPayload.companyId = access.defaultWorkspaceId;
+    requestPayload.companyId = parseOptionalInteger(access.defaultWorkspaceId, 'workspaceId');
   }
+
+  ensureWorkspaceAccess(req, requestPayload.companyId ?? permittedWorkspaceIds[0]);
 
   const result = await createNetworkingSession(requestPayload, {
     actorId,
@@ -106,14 +178,14 @@ export async function create(req, res) {
 }
 
 export async function show(req, res) {
-  const { sessionId } = req.params ?? {};
+  const sessionId = parsePositiveInteger(req.params?.sessionId, 'sessionId');
   const includeAssociations = parseBoolean(req.query?.includeAssociations);
   const access = req.networkingAccess ?? {};
   const permittedWorkspaceIds = Array.isArray(access.permittedWorkspaceIds)
     ? access.permittedWorkspaceIds
     : [];
 
-  const result = await getNetworkingSession(parseNumber(sessionId), {
+  const result = await getNetworkingSession(sessionId, {
     includeAssociations: includeAssociations ?? true,
     authorizedWorkspaceIds: permittedWorkspaceIds,
   });
@@ -121,15 +193,17 @@ export async function show(req, res) {
 }
 
 export async function update(req, res) {
-  const { sessionId } = req.params ?? {};
-  const payload = req.body ?? {};
-  const actorId = parseNumber(payload.actorId ?? req.user?.id);
+  const sessionId = parsePositiveInteger(req.params?.sessionId, 'sessionId');
+  const payload = sanitisePayload(req.body ?? {}, 'networking session');
+  const actorId = resolveActorId(req);
   const access = req.networkingAccess ?? {};
   const permittedWorkspaceIds = Array.isArray(access.permittedWorkspaceIds)
     ? access.permittedWorkspaceIds
     : [];
 
-  const result = await updateNetworkingSession(parseNumber(sessionId), payload, {
+  ensureWorkspaceAccess(req, payload.companyId ?? permittedWorkspaceIds[0]);
+
+  const result = await updateNetworkingSession(sessionId, payload, {
     actorId,
     authorizedWorkspaceIds: permittedWorkspaceIds,
   });
@@ -137,38 +211,39 @@ export async function update(req, res) {
 }
 
 export async function regenerateRotationsHandler(req, res) {
-  const { sessionId } = req.params ?? {};
-  const payload = req.body ?? {};
+  const sessionId = parsePositiveInteger(req.params?.sessionId, 'sessionId');
+  const payload = sanitisePayload(req.body ?? {}, 'rotation request');
   const access = req.networkingAccess ?? {};
   const permittedWorkspaceIds = Array.isArray(access.permittedWorkspaceIds)
     ? access.permittedWorkspaceIds
     : [];
 
-  const result = await regenerateNetworkingRotations(parseNumber(sessionId), payload, {
+  const result = await regenerateNetworkingRotations(sessionId, payload, {
     authorizedWorkspaceIds: permittedWorkspaceIds,
   });
   res.json(result);
 }
 
 export async function register(req, res) {
-  const { sessionId } = req.params ?? {};
-  const payload = req.body ?? {};
-  const actorId = parseNumber(payload.actorId ?? req.user?.id);
-  const result = await registerForNetworkingSession(parseNumber(sessionId), payload, { actorId });
+  const sessionId = parsePositiveInteger(req.params?.sessionId, 'sessionId');
+  const payload = sanitisePayload(req.body ?? {}, 'registration');
+  const actorId = resolveActorId(req);
+  const result = await registerForNetworkingSession(sessionId, payload, { actorId });
   res.status(201).json(result);
 }
 
 export async function updateSignupHandler(req, res) {
-  const { sessionId, signupId } = req.params ?? {};
-  const payload = req.body ?? {};
+  const sessionId = parsePositiveInteger(req.params?.sessionId, 'sessionId');
+  const signupId = parsePositiveInteger(req.params?.signupId, 'signupId');
+  const payload = sanitisePayload(req.body ?? {}, 'signup update');
   const access = req.networkingAccess ?? {};
   const permittedWorkspaceIds = Array.isArray(access.permittedWorkspaceIds)
     ? access.permittedWorkspaceIds
     : [];
 
   const result = await updateNetworkingSignup(
-    parseNumber(sessionId),
-    parseNumber(signupId),
+    sessionId,
+    signupId,
     payload,
     { authorizedWorkspaceIds: permittedWorkspaceIds },
   );
@@ -176,13 +251,13 @@ export async function updateSignupHandler(req, res) {
 }
 
 export async function runtime(req, res) {
-  const { sessionId } = req.params ?? {};
+  const sessionId = parsePositiveInteger(req.params?.sessionId, 'sessionId');
   const access = req.networkingAccess ?? {};
   const permittedWorkspaceIds = Array.isArray(access.permittedWorkspaceIds)
     ? access.permittedWorkspaceIds
     : [];
 
-  const result = await getNetworkingSessionRuntime(parseNumber(sessionId), {
+  const result = await getNetworkingSessionRuntime(sessionId, {
     authorizedWorkspaceIds: permittedWorkspaceIds,
   });
   res.json(result);
@@ -195,19 +270,17 @@ export async function listBusinessCardsHandler(req, res) {
     ? access.permittedWorkspaceIds
     : [];
 
-  const requestedCompanyId = parseNumber(companyId);
-  if (
-    requestedCompanyId != null &&
-    permittedWorkspaceIds.length &&
-    !permittedWorkspaceIds.includes(requestedCompanyId)
-  ) {
-    return res.status(403).json({ message: 'You do not have access to this workspace.' });
+  const requestedCompanyId = parseOptionalInteger(companyId, 'companyId');
+  if (requestedCompanyId != null) {
+    ensureWorkspaceAccess(req, requestedCompanyId);
   }
 
   const result = await listNetworkingBusinessCards(
     {
-      ownerId: parseNumber(ownerId),
-      companyId: requestedCompanyId ?? access.defaultWorkspaceId ?? null,
+      ownerId: parseOptionalInteger(ownerId, 'ownerId'),
+      companyId:
+        requestedCompanyId ??
+        (access.defaultWorkspaceId != null ? parseOptionalInteger(access.defaultWorkspaceId, 'workspaceId') : null),
     },
     { authorizedWorkspaceIds: permittedWorkspaceIds },
   );
@@ -216,18 +289,22 @@ export async function listBusinessCardsHandler(req, res) {
 
 export async function createBusinessCardHandler(req, res) {
   const payload = req.body ?? {};
-  const ownerId = parseNumber(payload.ownerId ?? req.user?.id);
-  const companyId = parseNumber(payload.companyId ?? req.user?.companyId);
+  const ownerId = resolveActorId(req);
+  const companyId = parseOptionalInteger(payload.companyId ?? req.user?.companyId, 'companyId');
   const access = req.networkingAccess ?? {};
   const permittedWorkspaceIds = Array.isArray(access.permittedWorkspaceIds)
     ? access.permittedWorkspaceIds
     : [];
 
+  ensureWorkspaceAccess(req, companyId ?? permittedWorkspaceIds[0]);
+
   const result = await createNetworkingBusinessCard(
-    payload,
+    sanitisePayload(payload, 'business card'),
     {
       ownerId,
-      companyId: companyId ?? access.defaultWorkspaceId ?? null,
+      companyId:
+        companyId ??
+        (access.defaultWorkspaceId != null ? parseOptionalInteger(access.defaultWorkspaceId, 'workspaceId') : null),
       authorizedWorkspaceIds: permittedWorkspaceIds,
     },
   );
@@ -235,14 +312,14 @@ export async function createBusinessCardHandler(req, res) {
 }
 
 export async function updateBusinessCardHandler(req, res) {
-  const { cardId } = req.params ?? {};
-  const payload = req.body ?? {};
+  const cardId = parsePositiveInteger(req.params?.cardId, 'cardId');
+  const payload = sanitisePayload(req.body ?? {}, 'business card');
   const access = req.networkingAccess ?? {};
   const permittedWorkspaceIds = Array.isArray(access.permittedWorkspaceIds)
     ? access.permittedWorkspaceIds
     : [];
 
-  const result = await updateNetworkingBusinessCard(parseNumber(cardId), payload, {
+  const result = await updateNetworkingBusinessCard(cardId, payload, {
     authorizedWorkspaceIds: permittedWorkspaceIds,
   });
   res.json(result);

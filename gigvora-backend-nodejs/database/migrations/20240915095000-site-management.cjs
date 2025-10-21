@@ -1,9 +1,11 @@
 'use strict';
 
+const { resolveJsonType, dropEnum, safeRemoveIndex } = require('../utils/migrationHelpers.cjs');
+
 module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.sequelize.transaction(async (transaction) => {
-      const jsonType = Sequelize.JSONB ?? Sequelize.JSON;
+      const jsonType = resolveJsonType(queryInterface, Sequelize);
 
       await queryInterface.createTable(
         'site_settings',
@@ -222,15 +224,13 @@ module.exports = {
 
   async down(queryInterface) {
     await queryInterface.sequelize.transaction(async (transaction) => {
-      await queryInterface.removeIndex('site_navigation_links', ['menuKey', 'orderIndex'], { transaction }).catch(() => null);
+      await safeRemoveIndex(queryInterface, 'site_navigation_links', ['menuKey', 'orderIndex'], { transaction });
       await queryInterface.dropTable('site_navigation_links', { transaction });
-      await queryInterface.removeIndex('site_pages', ['status'], { transaction }).catch(() => null);
+      await safeRemoveIndex(queryInterface, 'site_pages', ['status'], { transaction });
       await queryInterface.dropTable('site_pages', { transaction });
       await queryInterface.dropTable('site_settings', { transaction });
-    });
 
-    if (queryInterface.sequelize.getDialect() === 'postgres') {
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_site_pages_status";');
-    }
+      await dropEnum(queryInterface, 'enum_site_pages_status', transaction);
+    });
   },
 };
