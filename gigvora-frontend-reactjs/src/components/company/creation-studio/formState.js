@@ -47,6 +47,13 @@ export function normaliseTagsInput(tagsText) {
 
 function baseSettings() {
   return {
+    templateStyle: 'modern',
+    persona: '',
+    portfolioLinks: '',
+    tone: 'professional',
+    targetRole: '',
+    storyHighlights: '',
+    callToAction: '',
     employmentType: '',
     seniority: '',
     hiringManager: '',
@@ -69,12 +76,17 @@ function baseSettings() {
     objective: '',
     seoTitle: '',
     seoDescription: '',
+    sessionLengthMinutes: '',
+    rate: '',
+    deliveryFormat: 'virtual',
+    cadence: '',
+    mentorshipNotes: '',
   };
 }
 
 export function buildInitialState(type) {
   const defaultType = CREATION_STUDIO_TYPES.find((entry) => entry.id === type)?.id ?? CREATION_STUDIO_TYPES[0]?.id ?? 'job';
-  return {
+  const baseState = {
     type: defaultType,
     title: '',
     headline: '',
@@ -100,11 +112,48 @@ export function buildInitialState(type) {
     remoteEligible: true,
     settings: baseSettings(),
   };
+  const typeDefaults = {
+    cv: {
+      visibility: 'private',
+      settings: { templateStyle: 'modern', tone: 'professional', portfolioLinks: '', persona: '' },
+    },
+    cover_letter: {
+      visibility: 'private',
+      settings: { tone: 'enthusiastic', targetRole: '', callToAction: '', storyHighlights: '' },
+    },
+    mentorship_offering: {
+      visibility: 'workspace',
+      commitmentHours: '2',
+      settings: { deliveryFormat: 'virtual', sessionLengthMinutes: '60', cadence: '', mentorshipNotes: '', rate: '' },
+    },
+  };
+
+  const overrides = typeDefaults[defaultType] ?? {};
+  const mergedSettings = { ...baseState.settings, ...(overrides.settings ?? {}) };
+  return {
+    ...baseState,
+    ...overrides,
+    settings: mergedSettings,
+  };
 }
 
 export function buildSettingsPayload(type, state) {
   const settings = state.settings ?? {};
   switch (type) {
+    case 'cv':
+      return {
+        templateStyle: settings.templateStyle || 'modern',
+        persona: settings.persona || undefined,
+        tone: settings.tone || undefined,
+        portfolioLinks: parseMultilineList(settings.portfolioLinks),
+      };
+    case 'cover_letter':
+      return {
+        targetRole: settings.targetRole || undefined,
+        tone: settings.tone || undefined,
+        storyHighlights: parseMultilineList(settings.storyHighlights),
+        callToAction: settings.callToAction || undefined,
+      };
     case 'job':
       return {
         employmentType: settings.employmentType || undefined,
@@ -138,6 +187,14 @@ export function buildSettingsPayload(type, state) {
       return {
         skills: settings.skills || undefined,
         impactStatement: settings.deliverables || undefined,
+      };
+    case 'mentorship_offering':
+      return {
+        deliveryFormat: settings.deliveryFormat || 'virtual',
+        sessionLengthMinutes: parseNumberInput(settings.sessionLengthMinutes, { integer: true }),
+        rate: parseNumberInput(settings.rate),
+        cadence: settings.cadence || undefined,
+        mentorshipNotes: settings.mentorshipNotes || undefined,
       };
     case 'networking_session':
       return {
@@ -206,7 +263,32 @@ export function mergeItemToState(item, fallbackType) {
     ...state.settings,
     ...(item.settings ?? {}),
   };
+  if (Array.isArray(item.settings?.portfolioLinks)) {
+    state.settings.portfolioLinks = item.settings.portfolioLinks.join('\n');
+  }
+  if (Array.isArray(item.settings?.storyHighlights)) {
+    state.settings.storyHighlights = item.settings.storyHighlights.join('\n');
+  }
+  if (item.settings?.sessionLengthMinutes != null) {
+    state.settings.sessionLengthMinutes = String(item.settings.sessionLengthMinutes);
+  }
+  if (item.settings?.rate != null) {
+    state.settings.rate = String(item.settings.rate);
+  }
   return state;
+}
+
+function parseMultilineList(value) {
+  if (!value) {
+    return [];
+  }
+  if (Array.isArray(value)) {
+    return value.filter(Boolean);
+  }
+  return String(value)
+    .split(/\r?\n/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
 }
 
 export default {

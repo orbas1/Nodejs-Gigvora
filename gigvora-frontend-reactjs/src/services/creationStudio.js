@@ -50,6 +50,13 @@ export function publishCompanyCreationStudioItem(itemId, payload = {}, { signal 
   return apiClient.post(`/company/creation-studio/${itemId}/publish`, payload, { signal });
 }
 
+export function shareCompanyCreationStudioItem(itemId, payload = {}, { signal } = {}) {
+  if (!itemId) {
+    throw new Error('itemId is required to share a creation studio item.');
+  }
+  return apiClient.post(`/company/creation-studio/${itemId}/share`, payload, { signal });
+}
+
 export function deleteCompanyCreationStudioItem(itemId, { signal } = {}) {
   if (!itemId) {
     throw new Error('itemId is required to delete a creation studio item.');
@@ -147,6 +154,7 @@ export const creationStudioApi = {
   createCompanyCreationStudioItem,
   updateCompanyCreationStudioItem,
   publishCompanyCreationStudioItem,
+  shareCompanyCreationStudioItem,
   deleteCompanyCreationStudioItem,
   fetchCreationWorkspace,
   createCreationItem,

@@ -8,6 +8,13 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
         href: '/dashboard/company',
       },
       {
+        name: 'Hub',
+        description: 'Followers, partners, and workspace relationships.',
+        sectionId: 'company-hub',
+        href: '/dashboard/company/hub',
+        tags: ['community'],
+      },
+      {
         name: 'Profile',
         description: 'Manage brand, fans, and partners.',
         sectionId: 'profile-workspace',
@@ -127,6 +134,13 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
         name: 'Summary',
         description: 'Company health, workforce analytics, and engagement insights.',
         sectionId: 'analytics-summary',
+        href: '/dashboard/company/analytics',
+      },
+      {
+        name: 'Metrics',
+        description: 'Operational KPIs, conversion rates, and alerts.',
+        sectionId: 'company-metrics',
+        href: '/dashboard/company/metrics',
       },
       {
         name: 'Team signals',
@@ -168,9 +182,24 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
   {
     label: 'Settings',
     items: [
-      { name: 'Governance', sectionId: 'settings-governance' },
-      { name: 'Journeys', sectionId: 'employee-journeys' },
-      { name: 'Brand studio', sectionId: 'employer-brand-studio' },
+      {
+        name: 'Workspace settings',
+        description: 'Governance, journeys, and collaboration defaults.',
+        sectionId: 'company-settings',
+        href: '/dashboard/company/settings',
+      },
+      {
+        name: 'System preferences',
+        description: 'Automation, webhooks, and API controls.',
+        sectionId: 'company-system-preferences',
+        href: '/dashboard/company/system-preferences',
+      },
+      {
+        name: 'ID verification',
+        description: 'Identity reviews and compliance checks.',
+        sectionId: 'company-id-verification',
+        href: '/dashboard/company/id-verification',
+      },
     ],
   },
 ];

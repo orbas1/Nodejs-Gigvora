@@ -22,6 +22,7 @@ import {
 const creationTracks = [
   {
     id: 'cv',
+    type: 'cv',
     title: 'CV generator',
     description:
       'Craft tailored resumes with persona-aware story blocks, approvals, and reusable templates.',
@@ -29,7 +30,8 @@ const creationTracks = [
     to: '/dashboard/freelancer/documents',
   },
   {
-    id: 'cover-letter',
+    id: 'cover_letter',
+    type: 'cover_letter',
     title: 'Cover letter composer',
     description:
       'Combine dynamic prompts with saved successes to generate targeted cover letters on demand.',
@@ -38,6 +40,7 @@ const creationTracks = [
   },
   {
     id: 'gig',
+    type: 'gig',
     title: 'Gig launchpad',
     description:
       'Publish outcome-oriented gig briefs with compliance scoring and instant sharing controls.',
@@ -46,6 +49,7 @@ const creationTracks = [
   },
   {
     id: 'project',
+    type: 'project',
     title: 'Project workspace',
     description:
       'Spin up delivery workspaces with milestone templates, contributor onboarding, and reporting.',
@@ -53,7 +57,8 @@ const creationTracks = [
     to: '/projects/new',
   },
   {
-    id: 'volunteering',
+    id: 'volunteer_opportunity',
+    type: 'volunteer_opportunity',
     title: 'Volunteering missions',
     description:
       'Coordinate purpose-led initiatives with guardrails for safeguarding, access, and impact metrics.',
@@ -61,7 +66,8 @@ const creationTracks = [
     to: '/volunteering',
   },
   {
-    id: 'experience-launchpad',
+    id: 'launchpad_job',
+    type: 'launchpad_job',
     title: 'Experience Launchpad',
     description:
       'Design cohort programmes with readiness scores, mentor pairing, and automated check-ins.',
@@ -69,7 +75,8 @@ const creationTracks = [
     to: '/experience-launchpad',
   },
   {
-    id: 'mentorship',
+    id: 'mentorship_offering',
+    type: 'mentorship_offering',
     title: 'Mentorship offering',
     description:
       'Package mentoring tracks with availability slots, curriculum assets, and billing preferences.',
@@ -246,7 +253,7 @@ export default function CreationStudioWizardPage() {
                 className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-soft focus:border-accent focus:outline-none"
               >
                 {creationTracks.map((track) => (
-                  <option key={track.id} value={track.id}>
+                  <option key={track.id} value={track.type}>
                     {track.title}
                   </option>
                 ))}

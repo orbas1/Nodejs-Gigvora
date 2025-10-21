@@ -64,6 +64,10 @@ import CompanyProfileWorkspacePage from './pages/dashboards/CompanyProfileWorksp
 import CompanyIdVerificationPage from './pages/dashboards/CompanyIdVerificationPage.jsx';
 import CompanyCalendarPage from './pages/dashboards/CompanyCalendarPage.jsx';
 import CompanyCreationStudioPage from './pages/dashboards/CompanyCreationStudioPage.jsx';
+import CompanyHubPage from './pages/dashboards/CompanyHubPage.jsx';
+import CompanyMetricsPage from './pages/dashboards/CompanyMetricsPage.jsx';
+import CompanySettingsPage from './pages/dashboards/CompanySettingsPage.jsx';
+import CompanySystemPreferencesPage from './pages/dashboards/CompanySystemPreferencesPage.jsx';
 import CompanyJobManagementPage from './pages/dashboards/CompanyJobManagementPage.jsx';
 import CompanyGroupManagementPage from './pages/dashboards/CompanyGroupManagementPage.jsx';
 import CompanyVolunteeringManagementPage from './pages/dashboards/CompanyVolunteeringManagementPage.jsx';
@@ -232,7 +236,11 @@ const companyRoutes = [
   { path: 'dashboard/company', element: <CompanyDashboardPage /> },
   { path: 'dashboard/company/profile', element: <CompanyProfileWorkspacePage /> },
   { path: 'dashboard/company/creation-studio', element: <CompanyCreationStudioPage /> },
+  { path: 'dashboard/company/hub', element: <CompanyHubPage /> },
+  { path: 'dashboard/company/metrics', element: <CompanyMetricsPage /> },
   { path: 'dashboard/company/wallets', element: <CompanyWalletManagementPage /> },
+  { path: 'dashboard/company/settings', element: <CompanySettingsPage /> },
+  { path: 'dashboard/company/system-preferences', element: <CompanySystemPreferencesPage /> },
   { path: 'dashboard/company/analytics', element: <CompanyAnalyticsPage /> },
   { path: 'dashboard/company/projects', element: <CompanyProjectManagementPage /> },
   { path: 'dashboard/company/workspace', element: <CompanyProjectWorkspacePage /> },

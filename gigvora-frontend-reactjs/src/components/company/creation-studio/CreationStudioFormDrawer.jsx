@@ -25,6 +25,87 @@ const steps = [
   { id: 'details', label: 'Details' },
 ];
 
+const TYPE_CAPABILITIES = {
+  default: {
+    showLocation: true,
+    showTargetAudience: true,
+    showRemoteEligible: true,
+    showBudget: true,
+    showCompensation: true,
+    showDuration: true,
+    showCommitment: true,
+    showImage: true,
+    showTags: true,
+  },
+  cv: {
+    showLocation: false,
+    showTargetAudience: false,
+    showRemoteEligible: false,
+    showBudget: false,
+    showCompensation: false,
+    showDuration: false,
+    showCommitment: false,
+  },
+  cover_letter: {
+    showLocation: false,
+    showTargetAudience: false,
+    showRemoteEligible: false,
+    showBudget: false,
+    showCompensation: false,
+    showDuration: false,
+    showCommitment: false,
+  },
+  mentorship_offering: {
+    showRemoteEligible: false,
+    showBudget: false,
+    showCompensation: false,
+    showDuration: true,
+    showCommitment: true,
+  },
+  volunteer_opportunity: {
+    showCompensation: false,
+  },
+  networking_session: {
+    showRemoteEligible: false,
+    showBudget: false,
+    showCompensation: false,
+    showDuration: false,
+    showCommitment: false,
+  },
+  blog_post: {
+    showLocation: false,
+    showTargetAudience: true,
+    showRemoteEligible: false,
+    showBudget: false,
+    showCompensation: false,
+    showDuration: false,
+    showCommitment: false,
+  },
+  page: {
+    showLocation: false,
+    showTargetAudience: true,
+    showRemoteEligible: false,
+    showBudget: false,
+    showCompensation: false,
+    showDuration: false,
+    showCommitment: false,
+  },
+  group: {
+    showLocation: false,
+    showRemoteEligible: false,
+    showBudget: false,
+    showCompensation: false,
+    showDuration: false,
+    showCommitment: false,
+  },
+  ad: {
+    showRemoteEligible: false,
+    showCompensation: false,
+    showDuration: false,
+    showCommitment: false,
+  },
+};
+
 function Stepper({ activeStep }) {
   return (
     <ol className="flex items-center gap-3 text-xs font-semibold text-slate-500">
@@ -94,6 +175,50 @@ Field.propTypes = {
 function SettingsFields({ type, settings, onChange }) {
   const typeConfig = useMemo(() => {
     switch (type) {
+      case 'cv':
+        return [
+          {
+            name: 'templateStyle',
+            label: 'Template style',
+            type: 'select',
+            options: ['modern', 'minimal', 'classic', 'creative'],
+          },
+          { name: 'persona', label: 'Persona focus', placeholder: 'Product marketer, design lead…' },
+          {
+            name: 'tone',
+            label: 'Tone',
+            type: 'select',
+            options: ['professional', 'friendly', 'bold', 'executive'],
+          },
+          {
+            name: 'portfolioLinks',
+            label: 'Portfolio links',
+            type: 'textarea',
+            helper: 'One URL per line. We embed these throughout the CV automatically.',
+          },
+        ];
+      case 'cover_letter':
+        return [
+          { name: 'targetRole', label: 'Target role', placeholder: 'Senior Product Designer at Acme' },
+          {
+            name: 'tone',
+            label: 'Tone',
+            type: 'select',
+            options: ['enthusiastic', 'formal', 'collaborative', 'visionary'],
+          },
+          {
+            name: 'storyHighlights',
+            label: 'Story highlights',
+            type: 'textarea',
+            helper: 'Key achievements or anecdotes. One per line.',
+          },
+          {
+            name: 'callToAction',
+            label: 'Call to action',
+            type: 'textarea',
+            helper: 'How should the reader follow up? e.g. “Schedule a 20-minute intro call.”',
+          },
+        ];
       case 'job':
         return [
           { name: 'employmentType', label: 'Employment type', placeholder: 'Full-time, contract…' },
@@ -107,6 +232,29 @@ function SettingsFields({ type, settings, onChange }) {
           { name: 'deliverables', label: 'Deliverables', type: 'textarea' },
           { name: 'mentorLead', label: 'Lead', placeholder: 'Owner' },
           { name: 'skills', label: 'Skills', placeholder: 'Design, analytics…' },
+        ];
+      case 'mentorship_offering':
+        return [
+          {
+            name: 'deliveryFormat',
+            label: 'Delivery format',
+            type: 'select',
+            options: ['virtual', 'in_person', 'hybrid'],
+          },
+          {
+            name: 'sessionLengthMinutes',
+            label: 'Session length (minutes)',
+            type: 'number',
+            placeholder: '60',
+          },
+          { name: 'rate', label: 'Rate per session', placeholder: '200' },
+          { name: 'cadence', label: 'Cadence', placeholder: 'Weekly, monthly, on demand…' },
+          {
+            name: 'mentorshipNotes',
+            label: 'Mentorship notes',
+            type: 'textarea',
+            helper: 'Share onboarding steps, curriculum focus, or included materials.',
+          },
         ];
       case 'launchpad_job':
       case 'launchpad_project':
@@ -184,6 +332,7 @@ function SettingsFields({ type, settings, onChange }) {
                 type="number"
                 value={value}
                 onChange={(event) => onChange(field.name, event.target.value)}
+                placeholder={field.placeholder}
                 className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/10"
               />
             ) : (
@@ -191,9 +340,11 @@ function SettingsFields({ type, settings, onChange }) {
                 type="text"
                 value={value}
                 onChange={(event) => onChange(field.name, event.target.value)}
+                placeholder={field.placeholder}
                 className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/10"
               />
             )}
+            {field.helper ? <p className="pt-1 text-xs font-normal text-slate-500">{field.helper}</p> : null}
           </Field>
         );
       })}
@@ -227,6 +378,10 @@ export default function CreationStudioFormDrawer({
   const [feedback, setFeedback] = useState(null);
 
   const availableTypes = useMemo(() => CREATION_STUDIO_TYPES, []);
+  const typeCapabilities = useMemo(
+    () => ({ ...TYPE_CAPABILITIES.default, ...(TYPE_CAPABILITIES[formState.type] ?? {}) }),
+    [formState.type],
+  );
 
   useEffect(() => {
     if (open) {
@@ -300,21 +455,23 @@ export default function CreationStudioFormDrawer({
         status: formState.status,
         visibility: formState.visibility,
         category: formState.category || undefined,
-        location: formState.location || undefined,
-        targetAudience: formState.targetAudience || undefined,
+        location: typeCapabilities.showLocation ? formState.location || undefined : undefined,
+        targetAudience: typeCapabilities.showTargetAudience ? formState.targetAudience || undefined : undefined,
         launchDate: parseDateInput(formState.launchDate),
         publishAt: formState.status === 'scheduled' ? parseDateInput(formState.publishAt) : undefined,
         endDate: parseDateInput(formState.endDate),
-        imageUrl: formState.imageUrl || undefined,
-        tags: normaliseTagsInput(formState.tagsText),
-        budgetAmount: parseNumberInput(formState.budgetAmount),
-        budgetCurrency: formState.budgetCurrency || undefined,
-        compensationMin: parseNumberInput(formState.compensationMin),
-        compensationMax: parseNumberInput(formState.compensationMax),
-        compensationCurrency: formState.compensationCurrency || undefined,
-        durationWeeks: parseNumberInput(formState.durationWeeks, { integer: true }),
-        commitmentHours: parseNumberInput(formState.commitmentHours, { integer: true }),
-        remoteEligible: !!formState.remoteEligible,
+        imageUrl: typeCapabilities.showImage ? formState.imageUrl || undefined : undefined,
+        tags: typeCapabilities.showTags ? normaliseTagsInput(formState.tagsText) : undefined,
+        budgetAmount: typeCapabilities.showBudget ? parseNumberInput(formState.budgetAmount) : undefined,
+        budgetCurrency: typeCapabilities.showBudget ? formState.budgetCurrency || undefined : undefined,
+        compensationMin: typeCapabilities.showCompensation ? parseNumberInput(formState.compensationMin) : undefined,
+        compensationMax: typeCapabilities.showCompensation ? parseNumberInput(formState.compensationMax) : undefined,
+        compensationCurrency: typeCapabilities.showCompensation ? formState.compensationCurrency || undefined : undefined,
+        durationWeeks: typeCapabilities.showDuration ? parseNumberInput(formState.durationWeeks, { integer: true }) : undefined,
+        commitmentHours: typeCapabilities.showCommitment
+          ? parseNumberInput(formState.commitmentHours, { integer: true })
+          : undefined,
+        remoteEligible: typeCapabilities.showRemoteEligible ? !!formState.remoteEligible : undefined,
         settings: buildSettingsPayload(formState.type, formState),
       };
 
@@ -419,31 +576,39 @@ export default function CreationStudioFormDrawer({
             />
           </Field>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Location">
+        {typeCapabilities.showLocation || typeCapabilities.showTargetAudience ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {typeCapabilities.showLocation ? (
+              <Field label="Location">
+                <input
+                  value={formState.location}
+                  onChange={(event) => handleFieldChange('location', event.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/10"
+                />
+              </Field>
+            ) : null}
+            {typeCapabilities.showTargetAudience ? (
+              <Field label="Target audience">
+                <input
+                  value={formState.targetAudience}
+                  onChange={(event) => handleFieldChange('targetAudience', event.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/10"
+                />
+              </Field>
+            ) : null}
+          </div>
+        ) : null}
+        {typeCapabilities.showRemoteEligible ? (
+          <label className="flex items-center gap-2 text-sm font-semibold text-slate-600">
             <input
-              value={formState.location}
-              onChange={(event) => handleFieldChange('location', event.target.value)}
-              className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/10"
+              type="checkbox"
+              checked={!!formState.remoteEligible}
+              onChange={(event) => handleFieldChange('remoteEligible', event.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent/40"
             />
-          </Field>
-          <Field label="Target audience">
-            <input
-              value={formState.targetAudience}
-              onChange={(event) => handleFieldChange('targetAudience', event.target.value)}
-              className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/10"
-            />
-          </Field>
-        </div>
-        <label className="flex items-center gap-2 text-sm font-semibold text-slate-600">
-          <input
-            type="checkbox"
-            checked={!!formState.remoteEligible}
-            onChange={(event) => handleFieldChange('remoteEligible', event.target.checked)}
-            className="h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent/40"
-          />
-          Remote friendly
-        </label>
+            Remote friendly
+          </label>
+        ) : null}
       </div>
     );
   };
@@ -458,75 +623,91 @@ export default function CreationStudioFormDrawer({
             className="h-32 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/10"
           />
         </Field>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Budget">
-            <div className="flex gap-2">
-              <input
-                value={formState.budgetAmount}
-                onChange={(event) => handleFieldChange('budgetAmount', event.target.value)}
-                placeholder="Amount"
-                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/10"
-              />
-              <input
-                value={formState.budgetCurrency}
-                onChange={(event) => handleFieldChange('budgetCurrency', event.target.value.toUpperCase())}
-                className="w-20 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/10"
-              />
-            </div>
-          </Field>
-          <Field label="Compensation range">
-            <div className="flex gap-2">
-              <input
-                value={formState.compensationMin}
-                onChange={(event) => handleFieldChange('compensationMin', event.target.value)}
-                placeholder="Min"
-                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/10"
-              />
-              <input
-                value={formState.compensationMax}
-                onChange={(event) => handleFieldChange('compensationMax', event.target.value)}
-                placeholder="Max"
-                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/10"
-              />
-              <input
-                value={formState.compensationCurrency}
-                onChange={(event) => handleFieldChange('compensationCurrency', event.target.value.toUpperCase())}
-                className="w-20 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/10"
-              />
-            </div>
-          </Field>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Duration (weeks)">
+        {typeCapabilities.showBudget || typeCapabilities.showCompensation ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {typeCapabilities.showBudget ? (
+              <Field label="Budget">
+                <div className="flex gap-2">
+                  <input
+                    value={formState.budgetAmount}
+                    onChange={(event) => handleFieldChange('budgetAmount', event.target.value)}
+                    placeholder="Amount"
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/10"
+                  />
+                  <input
+                    value={formState.budgetCurrency}
+                    onChange={(event) => handleFieldChange('budgetCurrency', event.target.value.toUpperCase())}
+                    className="w-20 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/10"
+                  />
+                </div>
+              </Field>
+            ) : null}
+            {typeCapabilities.showCompensation ? (
+              <Field label="Compensation range">
+                <div className="flex gap-2">
+                  <input
+                    value={formState.compensationMin}
+                    onChange={(event) => handleFieldChange('compensationMin', event.target.value)}
+                    placeholder="Min"
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/10"
+                  />
+                  <input
+                    value={formState.compensationMax}
+                    onChange={(event) => handleFieldChange('compensationMax', event.target.value)}
+                    placeholder="Max"
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/10"
+                  />
+                  <input
+                    value={formState.compensationCurrency}
+                    onChange={(event) => handleFieldChange('compensationCurrency', event.target.value.toUpperCase())}
+                    className="w-20 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/10"
+                  />
+                </div>
+              </Field>
+            ) : null}
+          </div>
+        ) : null}
+        {typeCapabilities.showDuration || typeCapabilities.showCommitment ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {typeCapabilities.showDuration ? (
+              <Field label="Duration (weeks)">
+                <input
+                  value={formState.durationWeeks}
+                  onChange={(event) => handleFieldChange('durationWeeks', event.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/10"
+                />
+              </Field>
+            ) : null}
+            {typeCapabilities.showCommitment ? (
+              <Field label="Weekly hours">
+                <input
+                  value={formState.commitmentHours}
+                  onChange={(event) => handleFieldChange('commitmentHours', event.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/10"
+                />
+              </Field>
+            ) : null}
+          </div>
+        ) : null}
+        {typeCapabilities.showTags ? (
+          <Field label="Tags">
             <input
-              value={formState.durationWeeks}
-              onChange={(event) => handleFieldChange('durationWeeks', event.target.value)}
+              value={formState.tagsText}
+              onChange={(event) => handleFieldChange('tagsText', event.target.value)}
+              placeholder="Comma separated"
               className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/10"
             />
           </Field>
-          <Field label="Weekly hours">
+        ) : null}
+        {typeCapabilities.showImage ? (
+          <Field label="Image URL">
             <input
-              value={formState.commitmentHours}
-              onChange={(event) => handleFieldChange('commitmentHours', event.target.value)}
+              value={formState.imageUrl}
+              onChange={(event) => handleFieldChange('imageUrl', event.target.value)}
               className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/10"
             />
           </Field>
-        </div>
-        <Field label="Tags">
-          <input
-            value={formState.tagsText}
-            onChange={(event) => handleFieldChange('tagsText', event.target.value)}
-            placeholder="Comma separated"
-            className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/10"
-          />
-        </Field>
-        <Field label="Image URL">
-          <input
-            value={formState.imageUrl}
-            onChange={(event) => handleFieldChange('imageUrl', event.target.value)}
-            className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/10"
-          />
-        </Field>
+        ) : null}
         <SettingsFields type={formState.type} settings={formState.settings} onChange={handleSettingsChange} />
       </div>
     );
