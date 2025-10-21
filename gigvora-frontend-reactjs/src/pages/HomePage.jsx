@@ -5,6 +5,7 @@ import useHomeExperience from '../hooks/useHomeExperience.js';
 import {
   HomeHeroSection,
   CommunityPulseSection,
+  OperationsTrustSection,
   PersonaJourneysSection,
   CommunitySpotlightsSection,
   TestimonialsSection,
@@ -55,6 +56,11 @@ export default function HomePage() {
   return (
     <div className="bg-white">
       <HomeHeroSection headline={heroHeadline} subheading={heroSubheading} loading={homeLoading} error={homeError} />
+      <OperationsTrustSection
+        loading={homeLoading}
+        error={homeError}
+        summary={homeData?.operationsSummary}
+      />
       <CommunityPulseSection
         loading={homeLoading}
         error={homeError}
