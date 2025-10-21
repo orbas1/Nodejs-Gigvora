@@ -172,8 +172,8 @@ export default function UserGigWorkspaceSection({ userId, initialWorkspace }) {
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-indigo-500">Gig workspace</p>
           <h2 className="text-3xl font-semibold text-slate-900">Marketplace gig orchestration</h2>
           <p className="mt-2 max-w-2xl text-sm text-slate-500">
-            Publish and fulfil catalogue-style gigs à la Fiverr, track every revision, and reconcile escrow-backed payments in
-            one unified control centre.
+            Publish and fulfil catalogue-style gigs across your marketplace, track every revision, and reconcile escrow-backed
+            payments in one unified control centre.
           </p>
         </div>
         <div className="flex flex-col items-start gap-3">
