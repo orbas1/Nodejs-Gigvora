@@ -16,6 +16,7 @@ import '../features/marketplace/presentation/project_post_screen.dart';
 import '../features/marketplace/presentation/project_auto_match_screen.dart';
 import '../features/marketplace/presentation/launchpad_screen.dart';
 import '../features/marketplace/presentation/volunteering_screen.dart';
+import '../features/marketplace/presentation/gig_purchase_screen.dart';
 import '../features/marketplace/presentation/job_detail_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/admin/presentation/admin_login_screen.dart';
@@ -49,6 +50,9 @@ import '../features/security/presentation/security_operations_screen.dart';
 import '../features/company_analytics/presentation/company_analytics_screen.dart';
 import '../features/company_ats/presentation/company_ats_screen.dart';
 import '../features/creation_studio/presentation/creation_studio_screen.dart';
+import '../features/app_boot/splash_screen.dart';
+import '../features/calendar/presentation/calendar_screen.dart';
+import '../features/settings/presentation/settings_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -99,14 +103,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
-    initialLocation: '/home',
+    initialLocation: '/splash',
     routes: [
+      GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
       GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
       GoRoute(path: '/signup', builder: (context, state) => const SignUpScreen()),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(path: '/register', builder: (context, state) => const RegisterScreen()),
       GoRoute(path: '/register/company', builder: (context, state) => const CompanyRegisterScreen()),
       GoRoute(path: '/feed', builder: (context, state) => const FeedScreen()),
+      GoRoute(path: '/calendar', builder: (context, state) => const CalendarScreen()),
       GoRoute(path: '/explorer', builder: (context, state) => const ExplorerScreen()),
       GoRoute(path: '/jobs', builder: (context, state) => const JobsScreen()),
       GoRoute(
@@ -114,6 +120,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => JobDetailScreen(jobId: state.pathParameters['id'] ?? ''),
       ),
       GoRoute(path: '/gigs', builder: (context, state) => const GigsScreen()),
+      GoRoute(path: '/gigs/purchase', builder: (context, state) => const GigPurchaseScreen()),
       GoRoute(path: '/projects', builder: (context, state) => const ProjectsScreen()),
       GoRoute(path: '/projects/new', builder: (context, state) => const ProjectPostScreen()),
       GoRoute(
@@ -146,6 +153,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/pages', builder: (context, state) => const PagesScreen()),
       GoRoute(path: '/support', builder: (context, state) => const SupportScreen()),
+      GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
       GoRoute(path: '/about', builder: (context, state) => const AboutUsScreen()),
       GoRoute(path: '/privacy', builder: (context, state) => const PrivacyPolicyScreen()),
       GoRoute(path: '/inbox', builder: (context, state) => const InboxScreen()),

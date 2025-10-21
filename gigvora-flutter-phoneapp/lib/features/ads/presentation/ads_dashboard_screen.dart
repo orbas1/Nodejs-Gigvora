@@ -32,6 +32,7 @@ class _AdsDashboardScreenState extends ConsumerState<AdsDashboardScreen> {
       return GigvoraScaffold(
         title: 'Gigvora Ads Console',
         subtitle: 'Administrator access required',
+        useAppDrawer: true,
         body: Center(
           child: GigvoraCard(
             child: Column(
@@ -95,6 +96,7 @@ class _AdsDashboardScreenState extends ConsumerState<AdsDashboardScreen> {
     return GigvoraScaffold(
       title: 'Gigvora Ads Console',
       subtitle: 'Campaign coverage & placement telemetry',
+      useAppDrawer: true,
       actions: [
         IconButton(
           tooltip: 'Refresh dashboard',

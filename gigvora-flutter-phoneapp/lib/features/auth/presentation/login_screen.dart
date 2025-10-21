@@ -15,6 +15,38 @@ class LoginScreen extends ConsumerStatefulWidget {
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
+class _InlineStatus extends StatelessWidget {
+  const _InlineStatus({required this.message, required this.success});
+
+  final String message;
+  final bool success;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = success ? const Color(0xFF047857) : const Color(0xFFB91C1C);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: success ? const Color(0xFFD1FAE5) : const Color(0xFFFEE2E2),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(success ? Icons.check_circle_outline : Icons.error_outline, color: color, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: color),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
@@ -152,6 +184,198 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
+  Future<void> _openPasswordResetSheet() async {
+    final emailController = TextEditingController(text: _emailController.text.trim());
+    final tokenController = TextEditingController();
+    final passwordController = TextEditingController();
+    final confirmController = TextEditingController();
+    bool requestSent = false;
+    bool submitting = false;
+    String? feedback;
+    String? errorMessage;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 24,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+          ),
+          child: StatefulBuilder(
+            builder: (context, setSheetState) {
+              Future<void> sendReset() async {
+                setSheetState(() {
+                  submitting = true;
+                  feedback = null;
+                  errorMessage = null;
+                });
+                try {
+                  final email = emailController.text.trim();
+                  if (email.isEmpty || !email.contains('@')) {
+                    throw Exception('Enter the email address linked to your Gigvora account.');
+                  }
+                  await ref.read(authRepositoryProvider).requestPasswordReset(email);
+                  setSheetState(() {
+                    requestSent = true;
+                    feedback = 'Check $email for a six-digit reset code.';
+                  });
+                } catch (error) {
+                  setSheetState(() {
+                    errorMessage = error.toString();
+                  });
+                } finally {
+                  setSheetState(() {
+                    submitting = false;
+                  });
+                }
+              }
+
+              Future<void> updatePassword() async {
+                setSheetState(() {
+                  submitting = true;
+                  feedback = null;
+                  errorMessage = null;
+                });
+                try {
+                  if (passwordController.text != confirmController.text) {
+                    throw Exception('Passwords do not match.');
+                  }
+                  if (passwordController.text.length < 12) {
+                    throw Exception('Use at least 12 characters to keep your workspace secure.');
+                  }
+                  await ref.read(authRepositoryProvider).confirmPasswordReset(
+                        token: tokenController.text.trim(),
+                        password: passwordController.text,
+                      );
+                  if (!mounted) return;
+                  setState(() {
+                    _info = 'Password updated. Sign in with your new credentials.';
+                    _error = null;
+                  });
+                  Navigator.of(context).pop();
+                } catch (error) {
+                  setSheetState(() {
+                    errorMessage = error.toString();
+                  });
+                } finally {
+                  setSheetState(() {
+                    submitting = false;
+                  });
+                }
+              }
+
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Reset password',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    requestSent
+                        ? 'Enter the reset code from your email and choose a new password.'
+                        : 'We will send a reset code to your account email address.',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: emailController,
+                    enabled: !requestSent,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'Email address',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  if (requestSent) ...[
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: tokenController,
+                      decoration: const InputDecoration(
+                        labelText: 'Reset code',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: passwordController,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'New password',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: confirmController,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Confirm password',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ],
+                  if (feedback != null) ...[
+                    const SizedBox(height: 12),
+                    _InlineStatus(message: feedback!, success: true),
+                  ],
+                  if (errorMessage != null) ...[
+                    const SizedBox(height: 12),
+                    _InlineStatus(message: errorMessage!, success: false),
+                  ],
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: submitting
+                          ? null
+                          : requestSent
+                              ? updatePassword
+                              : sendReset,
+                      child: submitting
+                          ? const SizedBox(
+                              height: 16,
+                              width: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(requestSent ? 'Update password' : 'Send reset code'),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
+
+    emailController.dispose();
+    tokenController.dispose();
+    passwordController.dispose();
+    confirmController.dispose();
+  }
+
   Future<void> _signInWithGoogle() async {
     setState(() {
       _loading = true;
@@ -195,6 +419,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     return GigvoraScaffold(
       title: 'Sign in',
       subtitle: 'Access the Gigvora network',
+      useAppDrawer: true,
       body: Form(
         key: _formKey,
         child: Column(
@@ -256,6 +481,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       : _submitCredentials,
               child: Text(waitingForCode ? 'Verify & sign in' : 'Request 2FA code'),
             ),
+            if (!waitingForCode) ...[
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: _loading ? null : _openPasswordResetSheet,
+                  child: const Text('Forgot password?'),
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             OutlinedButton(
               onPressed: _loading ? null : _signInWithGoogle,
