@@ -5,232 +5,171 @@ import {
   updateCreationStudioItem,
   publishCreationStudioItem,
   deleteCreationStudioItem,
+  getWorkspace,
+  createItem,
+  updateItem,
+  recordStepProgress,
+  shareItem,
+  archiveItem,
   CREATION_STUDIO_ITEM_TYPES,
   CREATION_STUDIO_ITEM_STATUSES,
 } from '../services/creationStudioService.js';
+import { ValidationError, AuthorizationError } from '../utils/errors.js';
 
-function parseInteger(value) {
-  if (value == null) {
-    return undefined;
+function parsePositiveInt(value, fieldName) {
+  if (value == null || value === '') {
+    return null;
   }
   const parsed = Number.parseInt(value, 10);
-  return Number.isInteger(parsed) ? parsed : undefined;
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new ValidationError(`${fieldName} must be a positive integer.`);
+  }
+  return parsed;
 }
 
-function collectRoles(user) {
-  const roles = new Set();
-  if (!user) {
-    return roles;
+function parseOptionalPositiveInt(value) {
+  if (value == null || value === '') {
+    return null;
   }
-  if (user.userType) {
-    roles.add(String(user.userType).toLowerCase());
-  }
-  if (Array.isArray(user.roles)) {
-    user.roles.map((role) => String(role).toLowerCase()).forEach((role) => roles.add(role));
-  }
-  if (Array.isArray(user.memberships)) {
-    user.memberships
-      .map((membership) => membership?.role ?? membership)
-      .filter(Boolean)
-      .map((role) => String(role).toLowerCase())
-      .forEach((role) => roles.add(role));
-  }
-  return roles;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-function buildPermissions(req) {
-  const roles = collectRoles(req.user);
-  const allowedRoles = new Set(['admin', 'company', 'company_admin', 'workspace_admin']);
-  const canManage = Array.from(roles).some((role) => allowedRoles.has(role));
-  return {
-    roles: Array.from(roles),
-    canManage,
-    allowedRoles: Array.from(allowedRoles),
-  };
+function resolveActorId(req, { required = true } = {}) {
+  const candidates = [req.user?.id, req.body?.actorId, req.headers?.['x-actor-id']];
+  for (const candidate of candidates) {
+    const parsed = parseOptionalPositiveInt(candidate);
+    if (parsed) {
+      return parsed;
+    }
+  }
+  if (required) {
+    throw new AuthorizationError('Authenticated actor required.');
+  }
+  return null;
+}
+
+function normaliseLimit(value, { fallback = 20, min = 1, max = 100 } = {}) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return Math.max(min, Math.min(parsed, max));
+}
+
+function normaliseOffset(value) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return 0;
+  }
+  return parsed;
 }
 
 export async function overview(req, res) {
-  const { workspaceId } = req.query ?? {};
-  const selectedWorkspaceId = parseInteger(workspaceId);
-  const result = await getCreationStudioOverview({ workspaceId: selectedWorkspaceId });
-  res.json({
-    ...result,
-    permissions: buildPermissions(req),
-  });
+  const workspaceId = parseOptionalPositiveInt(req.query.workspaceId);
+  const payload = await getCreationStudioOverview({ workspaceId });
+  res.json(payload);
 }
 
 export async function index(req, res) {
   const { workspaceId, type, status, search, limit, offset } = req.query ?? {};
-  const payload = {
-    workspaceId: parseInteger(workspaceId),
-    type: type && CREATION_STUDIO_ITEM_TYPES.includes(type) ? type : undefined,
-    status: status && CREATION_STUDIO_ITEM_STATUSES.includes(status) ? status : undefined,
-    search: search ?? undefined,
-    limit: parseInteger(limit) ?? 20,
-    offset: parseInteger(offset) ?? 0,
-  };
-  const items = await listCreationStudioItems(payload);
+  const selectedType = type && CREATION_STUDIO_ITEM_TYPES.includes(type) ? type : undefined;
+  const selectedStatus = status && CREATION_STUDIO_ITEM_STATUSES.includes(status) ? status : undefined;
+  const items = await listCreationStudioItems({
+    workspaceId: parseOptionalPositiveInt(workspaceId),
+    type: selectedType,
+    status: selectedStatus,
+    search,
+    limit: normaliseLimit(limit),
+    offset: normaliseOffset(offset),
+  });
   res.json({ items });
 }
 
 export async function store(req, res) {
-  const payload = {
-    ...req.body,
-    workspaceId: req.body.workspaceId ?? parseInteger(req.body.workspaceId),
-    createdById: req.user?.id ?? null,
-  };
-  const item = await createCreationStudioItem(payload);
-import creationStudioService from '../services/creationStudioService.js';
-
-function resolveActorId(req) {
-  if (req.user?.id) {
-    return req.user.id;
-  }
-  if (req.user?.userId) {
-    return req.user.userId;
-  }
-  if (req.user?.profileId) {
-    return req.user.profileId;
-  }
-  return Number.parseInt(req.params.id, 10) || null;
-}
-
-export async function getWorkspace(req, res) {
-  const includeArchived = req.query.includeArchived === 'true';
-  const workspace = await creationStudioService.getWorkspace(req.params.id, { includeArchived });
-  res.json(workspace);
-}
-
-export async function createItem(req, res) {
   const actorId = resolveActorId(req);
-  const item = await creationStudioService.createItem(req.params.id, req.body ?? {}, { actorId });
-  res.status(201).json(item);
-}
-
-export async function updateItem(req, res) {
-  const actorId = resolveActorId(req);
-  const item = await creationStudioService.updateItem(req.params.id, req.params.itemId, req.body ?? {}, { actorId });
-  if (!item) {
-    return res.status(404).json({ message: 'Creation not found' });
-  }
-  res.json(item);
-}
-
-export async function recordStep(req, res) {
-  const actorId = resolveActorId(req);
-  const step = await creationStudioService.recordStepProgress(
-    req.params.id,
-    req.params.itemId,
-    req.params.stepKey,
-    req.body ?? {},
-    { actorId },
-  );
-  if (!step) {
-    return res.status(404).json({ message: 'Creation not found' });
-  }
-  res.json(step);
-}
-
-export async function shareItem(req, res) {
-  const actorId = resolveActorId(req);
-  const item = await creationStudioService.shareItem(req.params.id, req.params.itemId, req.body ?? {}, { actorId });
-  if (!item) {
-    return res.status(404).json({ message: 'Creation not found' });
-  }
-  res.json(item);
-}
-
-export async function archiveItem(req, res) {
-  const actorId = resolveActorId(req);
-  const archived = await creationStudioService.archiveItem(req.params.id, req.params.itemId, { actorId });
-  if (!archived) {
-    return res.status(404).json({ message: 'Creation not found' });
-  }
-  res.status(204).end();
-}
-
-export default {
-  getWorkspace,
-  createItem,
-  updateItem,
-  recordStep,
-  shareItem,
-  archiveItem,
-import {
-  listCreationStudioItems,
-  getCreationStudioItem,
-  createCreationStudioItem,
-  updateCreationStudioItem,
-  publishCreationStudioItem,
-} from '../services/creationStudioService.js';
-
-function resolveActorId(req, payload = {}) {
-  const candidates = [
-    req?.user?.id,
-    req?.headers?.['x-user-id'],
-    payload.actorId,
-    payload.ownerId,
-  ];
-  for (const candidate of candidates) {
-    if (candidate == null || candidate === '') {
-      continue;
-    }
-    const numeric = Number.parseInt(candidate, 10);
-    if (Number.isFinite(numeric) && numeric > 0) {
-      return numeric;
-    }
-  }
-  return undefined;
-}
-
-export async function index(req, res) {
-  const { ownerId, type, status, visibility, search, page, pageSize } = req.query ?? {};
-  const result = await listCreationStudioItems({ ownerId, type, status, visibility, search, page, pageSize });
-  res.json(result);
-}
-
-export async function show(req, res) {
-  const { itemId } = req.params ?? {};
-  const item = await getCreationStudioItem(itemId);
-  res.json(item);
-}
-
-export async function create(req, res) {
-  const payload = req.body ? { ...req.body } : {};
-  const actorId = resolveActorId(req, payload);
-  const item = await createCreationStudioItem(payload, { actorId });
+  const workspaceId = parsePositiveInt(req.body?.workspaceId, 'workspaceId');
+  const item = await createCreationStudioItem({ ...req.body, workspaceId }, { actorId });
   res.status(201).json(item);
 }
 
 export async function update(req, res) {
-  const { itemId } = req.params ?? {};
-  const id = parseInteger(itemId);
-  const payload = {
-    ...req.body,
-    workspaceId: req.body.workspaceId ?? parseInteger(req.body.workspaceId),
-  };
-  const item = await updateCreationStudioItem(id, payload);
-  const payload = req.body ? { ...req.body } : {};
-  const actorId = resolveActorId(req, payload);
-  const item = await updateCreationStudioItem(itemId, payload, { actorId });
+  const actorId = resolveActorId(req, { required: false });
+  const itemId = parsePositiveInt(req.params.itemId, 'itemId');
+  const item = await updateCreationStudioItem(itemId, req.body ?? {}, { actorId });
   res.json(item);
 }
 
 export async function publish(req, res) {
-  const { itemId } = req.params ?? {};
-  const id = parseInteger(itemId);
-  const payload = {
-    publishAt: req.body?.publishAt ?? null,
-  };
-  const item = await publishCreationStudioItem(id, payload);
+  const actorId = resolveActorId(req, { required: false });
+  const itemId = parsePositiveInt(req.params.itemId, 'itemId');
+  const item = await publishCreationStudioItem(itemId, req.body ?? {}, { actorId });
   res.json(item);
 }
 
 export async function destroy(req, res) {
-  const { itemId } = req.params ?? {};
-  const id = parseInteger(itemId);
-  await deleteCreationStudioItem(id);
+  const itemId = parsePositiveInt(req.params.itemId, 'itemId');
+  await deleteCreationStudioItem(itemId);
   res.status(204).send();
+}
+
+export async function getWorkspaceHandler(req, res) {
+  const ownerId = parsePositiveInt(req.params.id, 'ownerId');
+  const includeArchived = req.query.includeArchived === 'true';
+  const workspace = await getWorkspace(ownerId, { includeArchived });
+  res.json(workspace);
+}
+
+export async function createItemHandler(req, res) {
+  const ownerId = parsePositiveInt(req.params.id, 'ownerId');
+  const actorId = resolveActorId(req, { required: false }) ?? ownerId;
+  const item = await createItem(ownerId, req.body ?? {}, { actorId });
+  res.status(201).json(item);
+}
+
+export async function updateItemHandler(req, res) {
+  const ownerId = parsePositiveInt(req.params.id, 'ownerId');
+  const itemId = parsePositiveInt(req.params.itemId, 'itemId');
+  const actorId = resolveActorId(req, { required: false }) ?? ownerId;
+  const item = await updateItem(ownerId, itemId, req.body ?? {}, { actorId });
+  if (!item) {
+    return res.status(404).json({ message: 'Creation not found' });
+  }
+  return res.json(item);
+}
+
+export async function recordStep(req, res) {
+  const ownerId = parsePositiveInt(req.params.id, 'ownerId');
+  const itemId = parsePositiveInt(req.params.itemId, 'itemId');
+  const { stepKey } = req.params;
+  const actorId = resolveActorId(req, { required: false }) ?? ownerId;
+  const step = await recordStepProgress(ownerId, itemId, stepKey, req.body ?? {}, { actorId });
+  if (!step) {
+    return res.status(404).json({ message: 'Creation not found' });
+  }
+  return res.json(step);
+}
+
+export async function shareItemHandler(req, res) {
+  const ownerId = parsePositiveInt(req.params.id, 'ownerId');
+  const itemId = parsePositiveInt(req.params.itemId, 'itemId');
+  const actorId = resolveActorId(req, { required: false }) ?? ownerId;
+  const item = await shareItem(ownerId, itemId, req.body ?? {}, { actorId });
+  if (!item) {
+    return res.status(404).json({ message: 'Creation not found' });
+  }
+  return res.json(item);
+}
+
+export async function archiveItemHandler(req, res) {
+  const ownerId = parsePositiveInt(req.params.id, 'ownerId');
+  const itemId = parsePositiveInt(req.params.itemId, 'itemId');
+  const actorId = resolveActorId(req, { required: false }) ?? ownerId;
+  const archived = await archiveItem(ownerId, itemId, { actorId });
+  if (!archived) {
+    return res.status(404).json({ message: 'Creation not found' });
+  }
+  return res.status(204).send();
 }
 
 export default {
@@ -240,16 +179,10 @@ export default {
   update,
   publish,
   destroy,
-  const payload = req.body ? { ...req.body } : {};
-  const actorId = resolveActorId(req, payload);
-  const item = await publishCreationStudioItem(itemId, payload, { actorId });
-  res.json(item);
-}
-
-export default {
-  index,
-  show,
-  create,
-  update,
-  publish,
+  getWorkspace: getWorkspaceHandler,
+  createItem: createItemHandler,
+  updateItem: updateItemHandler,
+  recordStep,
+  shareItem: shareItemHandler,
+  archiveItem: archiveItemHandler,
 };
