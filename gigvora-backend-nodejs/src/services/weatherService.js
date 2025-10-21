@@ -102,7 +102,7 @@ async function fetchJson(url, { timeoutMs = WEATHER_TIMEOUT_MS, init } = {}) {
   }
 }
 
-export async function geocodeLocation(query) {
+async function geocodeLocation(query) {
   if (!query || typeof query !== 'string') {
     return null;
   }
@@ -260,7 +260,7 @@ function mapSnapshotToResponse({
   };
 }
 
-export async function getWeatherSnapshot({
+async function getWeatherSnapshot({
   location,
   latitude,
   longitude,
@@ -327,7 +327,7 @@ export async function getWeatherSnapshot({
   return snapshot;
 }
 
-export async function getCurrentWeather({ latitude, longitude, locationName, units = 'metric', forceRefresh = false } = {}) {
+async function getCurrentWeather({ latitude, longitude, locationName, units = 'metric', forceRefresh = false } = {}) {
   const snapshot = await getWeatherSnapshot({
     latitude,
     longitude,
@@ -353,7 +353,7 @@ export async function getCurrentWeather({ latitude, longitude, locationName, uni
   };
 }
 
-export async function fetchCurrentWeather({ latitude, longitude }) {
+async function fetchCurrentWeather({ latitude, longitude }) {
   const lat = normalizeNumber(latitude);
   const lon = normalizeNumber(longitude);
   if (lat == null || lon == null) {
@@ -382,7 +382,7 @@ export async function fetchCurrentWeather({ latitude, longitude }) {
   };
 }
 
-export async function fetchWeatherSummary({ latitude, longitude, timezone }) {
+async function fetchWeatherSummary({ latitude, longitude, timezone }) {
   if (!Number.isFinite(Number(latitude)) || !Number.isFinite(Number(longitude))) {
     return null;
   }
@@ -406,6 +406,8 @@ export async function fetchWeatherSummary({ latitude, longitude, timezone }) {
     timezone: timezone ?? snapshot.timezone ?? null,
   };
 }
+
+export { geocodeLocation, getWeatherSnapshot, getCurrentWeather, fetchCurrentWeather, fetchWeatherSummary };
 
 export default {
   geocodeLocation,

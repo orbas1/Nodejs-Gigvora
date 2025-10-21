@@ -49,7 +49,7 @@ function resolveActorId(req, { required = true } = {}) {
   return null;
 }
 
-function normaliseLimit(value, { fallback = 20, min = 1, max = 100 } = {}) {
+function normaliseLimit(value, { fallback, min = 1, max = 100 } = {}) {
   const parsed = Number.parseInt(value, 10);
   if (!Number.isFinite(parsed)) {
     return fallback;
@@ -57,10 +57,18 @@ function normaliseLimit(value, { fallback = 20, min = 1, max = 100 } = {}) {
   return Math.max(min, Math.min(parsed, max));
 }
 
-function normaliseOffset(value) {
+function normaliseOffset(value, { fallback } = {}) {
   const parsed = Number.parseInt(value, 10);
   if (!Number.isFinite(parsed) || parsed < 0) {
-    return 0;
+    return fallback;
+  }
+  return parsed;
+}
+
+function normalisePage(value, { fallback } = {}) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
   }
   return parsed;
 }
@@ -72,16 +80,34 @@ export async function overview(req, res) {
 }
 
 export async function index(req, res) {
-  const { workspaceId, type, status, search, limit, offset } = req.query ?? {};
+  const { workspaceId, type, status, search, limit, offset, page, pageSize } = req.query ?? {};
   const selectedType = type && CREATION_STUDIO_ITEM_TYPES.includes(type) ? type : undefined;
   const selectedStatus = status && CREATION_STUDIO_ITEM_STATUSES.includes(status) ? status : undefined;
+  const pagination = {};
+  const limitValue = normaliseLimit(limit);
+  const offsetValue = normaliseOffset(offset);
+  const pageValue = normalisePage(page);
+  const pageSizeValue = normaliseLimit(pageSize);
+
+  if (limitValue != null) {
+    pagination.limit = limitValue;
+  }
+  if (offsetValue != null) {
+    pagination.offset = offsetValue;
+  }
+  if (pageValue != null) {
+    pagination.page = pageValue;
+  }
+  if (pageSizeValue != null) {
+    pagination.pageSize = pageSizeValue;
+  }
+
   const items = await listCreationStudioItems({
     workspaceId: parseOptionalPositiveInt(workspaceId),
     type: selectedType,
     status: selectedStatus,
     search,
-    limit: normaliseLimit(limit),
-    offset: normaliseOffset(offset),
+    ...pagination,
   });
   res.json({ items });
 }
@@ -169,7 +195,7 @@ export async function archiveItemHandler(req, res) {
   if (!archived) {
     return res.status(404).json({ message: 'Creation not found' });
   }
-  return res.status(204).send();
+  return res.status(204).end();
 }
 
 export default {

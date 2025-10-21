@@ -97,6 +97,8 @@ export const creationStudioListQuerySchema = z
     search: optionalTrimmedString({ max: 255 }).transform((value) => value ?? undefined),
     limit: optionalNumber({ min: 1, max: 100, integer: true }).transform((value) => value ?? undefined),
     offset: optionalNumber({ min: 0, integer: true }).transform((value) => value ?? undefined),
+    page: optionalNumber({ min: 1, integer: true }).transform((value) => value ?? undefined),
+    pageSize: optionalNumber({ min: 1, max: 100, integer: true }).transform((value) => value ?? undefined),
   })
   .strip();
 
