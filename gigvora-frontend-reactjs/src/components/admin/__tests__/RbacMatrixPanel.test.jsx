@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 
@@ -87,8 +87,17 @@ const baseMatrix = {
 };
 
 describe('RbacMatrixPanel', () => {
+  let user;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    user = userEvent.setup({
+      eventWrapper: async (callback) => {
+        await act(async () => {
+          await callback();
+        });
+      },
+    });
   });
 
   it('renders the RBAC matrix and refreshes data on demand', async () => {
@@ -121,7 +130,9 @@ describe('RbacMatrixPanel', () => {
       .mockResolvedValueOnce(baseMatrix)
       .mockResolvedValueOnce(updatedMatrix);
 
-    render(<RbacMatrixPanel />);
+    await act(async () => {
+      render(<RbacMatrixPanel />);
+    });
 
     expect(await screen.findByText('Security controls enforced across privileged personas.')).toBeInTheDocument();
     expect(screen.getByText('Platform Administrator')).toBeInTheDocument();
@@ -129,7 +140,7 @@ describe('RbacMatrixPanel', () => {
     expect(fetchRbacMatrix).toHaveBeenCalledTimes(1);
 
     const refreshButton = screen.getByRole('button', { name: /refresh/i });
-    await userEvent.click(refreshButton);
+    await user.click(refreshButton);
 
     await waitFor(() => expect(fetchRbacMatrix).toHaveBeenCalledTimes(2));
     expect(await screen.findByText('Audit watermark enforcement')).toBeInTheDocument();
@@ -138,7 +149,9 @@ describe('RbacMatrixPanel', () => {
   it('surfaces API failures with actionable messaging', async () => {
     fetchRbacMatrix.mockRejectedValueOnce(new Error('RBAC service unavailable'));
 
-    render(<RbacMatrixPanel />);
+    await act(async () => {
+      render(<RbacMatrixPanel />);
+    });
 
     expect(await screen.findByText(/RBAC service unavailable/)).toBeInTheDocument();
     expect(screen.getByText("We couldn't refresh your data")).toBeInTheDocument();
@@ -147,7 +160,9 @@ describe('RbacMatrixPanel', () => {
   it('shows guidance when the matrix has not been published yet', async () => {
     fetchRbacMatrix.mockResolvedValueOnce(null);
 
-    render(<RbacMatrixPanel />);
+    await act(async () => {
+      render(<RbacMatrixPanel />);
+    });
 
     expect(
       await screen.findByText(/RBAC metadata has not been published yet/i),
