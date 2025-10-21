@@ -1,88 +1,153 @@
 import { apiClient } from './apiClient.js';
+import {
+  assertAdminAccess,
+  buildAdminCacheKey,
+  createRequestOptions,
+  encodeIdentifier,
+  fetchWithCache,
+  invalidateCacheByTag,
+  sanitiseQueryParams,
+} from './adminServiceHelpers.js';
 
-function serialiseStatus(status) {
-  if (!status) {
-    return undefined;
-  }
-  if (Array.isArray(status)) {
-    const filtered = status.map((entry) => `${entry}`.trim()).filter(Boolean);
-    return filtered.length ? filtered.join(',') : undefined;
-  }
-  return `${status}`.trim();
-}
+const MENTORING_ROLES = ['super-admin', 'platform-admin', 'mentoring-admin', 'operations-admin'];
+const CACHE_TAGS = {
+  catalog: 'admin:mentoring:catalog',
+  sessions: 'admin:mentoring:sessions',
+};
 
-function buildQueryParams({
-  status,
-  mentorId,
-  menteeId,
-  serviceLineId,
-  ownerId,
-  from,
-  to,
-  search,
-  page,
-  pageSize,
-  sort,
-} = {}) {
-  const params = {};
-  const serialisedStatus = serialiseStatus(status);
-  if (serialisedStatus) {
-    params.status = serialisedStatus;
-  }
-  if (mentorId) params.mentorId = mentorId;
-  if (menteeId) params.menteeId = menteeId;
-  if (serviceLineId) params.serviceLineId = serviceLineId;
-  if (ownerId) params.ownerId = ownerId;
-  if (from) params.from = from;
-  if (to) params.to = to;
-  if (search) params.search = search;
-  if (page) params.page = page;
-  if (pageSize) params.pageSize = pageSize;
-  if (sort) params.sort = sort;
-  return params;
-}
-
-export async function fetchAdminMentoringCatalog({ signal } = {}) {
-  return apiClient.get('/admin/mentoring/catalog', { signal });
-}
-
-export async function fetchAdminMentoringSessions(filters = {}, { signal } = {}) {
-  return apiClient.get('/admin/mentoring/sessions', {
-    params: buildQueryParams(filters),
-    signal,
+function buildSessionParams(filters = {}) {
+  return sanitiseQueryParams({
+    status: filters.status,
+    mentorId: filters.mentorId ?? filters.mentor_id,
+    menteeId: filters.menteeId ?? filters.mentee_id,
+    serviceLineId: filters.serviceLineId ?? filters.service_line_id,
+    ownerId: filters.ownerId ?? filters.owner_id,
+    from: filters.from,
+    to: filters.to,
+    search: filters.search,
+    page: filters.page,
+    pageSize: filters.pageSize ?? filters.page_size,
+    sort: filters.sort,
   });
 }
 
-export async function createAdminMentoringSession(payload) {
-  return apiClient.post('/admin/mentoring/sessions', payload);
+async function performAndInvalidate(request) {
+  const response = await request();
+  invalidateCacheByTag(CACHE_TAGS.catalog, CACHE_TAGS.sessions);
+  return response;
 }
 
-export async function updateAdminMentoringSession(sessionId, payload) {
-  return apiClient.patch(`/admin/mentoring/sessions/${sessionId}`, payload);
+export function fetchAdminMentoringCatalog(options = {}) {
+  assertAdminAccess(MENTORING_ROLES);
+  const { forceRefresh = false, cacheTtl = 10 * 60 * 1000, ...requestOptions } = options ?? {};
+  const cacheKey = buildAdminCacheKey('admin:mentoring:catalog');
+
+  return fetchWithCache(
+    cacheKey,
+    () => apiClient.get('/admin/mentoring/catalog', createRequestOptions(requestOptions)),
+    {
+      ttl: cacheTtl,
+      forceRefresh,
+      tag: CACHE_TAGS.catalog,
+    },
+  );
 }
 
-export async function createAdminMentoringNote(sessionId, payload) {
-  return apiClient.post(`/admin/mentoring/sessions/${sessionId}/notes`, payload);
+export function fetchAdminMentoringSessions(filters = {}, options = {}) {
+  assertAdminAccess(MENTORING_ROLES);
+  const cleanedParams = buildSessionParams(filters);
+  const { forceRefresh = false, cacheTtl = 60000, ...requestOptions } = options ?? {};
+  const cacheKey = buildAdminCacheKey('admin:mentoring:sessions', cleanedParams);
+
+  return fetchWithCache(
+    cacheKey,
+    () =>
+      apiClient.get(
+        '/admin/mentoring/sessions',
+        createRequestOptions(requestOptions, cleanedParams),
+      ),
+    {
+      ttl: cacheTtl,
+      forceRefresh,
+      tag: CACHE_TAGS.sessions,
+    },
+  );
 }
 
-export async function updateAdminMentoringNote(sessionId, noteId, payload) {
-  return apiClient.patch(`/admin/mentoring/sessions/${sessionId}/notes/${noteId}`, payload);
+export function createAdminMentoringSession(payload, options = {}) {
+  assertAdminAccess(MENTORING_ROLES);
+  return performAndInvalidate(() => apiClient.post('/admin/mentoring/sessions', payload, options));
 }
 
-export async function deleteAdminMentoringNote(sessionId, noteId) {
-  return apiClient.delete(`/admin/mentoring/sessions/${sessionId}/notes/${noteId}`);
+export function updateAdminMentoringSession(sessionId, payload, options = {}) {
+  assertAdminAccess(MENTORING_ROLES);
+  const identifier = encodeIdentifier(sessionId, { label: 'sessionId' });
+  return performAndInvalidate(() =>
+    apiClient.patch(`/admin/mentoring/sessions/${identifier}`, payload, options),
+  );
 }
 
-export async function createAdminMentoringAction(sessionId, payload) {
-  return apiClient.post(`/admin/mentoring/sessions/${sessionId}/actions`, payload);
+export function createAdminMentoringNote(sessionId, payload, options = {}) {
+  assertAdminAccess(MENTORING_ROLES);
+  const identifier = encodeIdentifier(sessionId, { label: 'sessionId' });
+  return performAndInvalidate(() =>
+    apiClient.post(`/admin/mentoring/sessions/${identifier}/notes`, payload, options),
+  );
 }
 
-export async function updateAdminMentoringAction(sessionId, actionId, payload) {
-  return apiClient.patch(`/admin/mentoring/sessions/${sessionId}/actions/${actionId}`, payload);
+export function updateAdminMentoringNote(sessionId, noteId, payload, options = {}) {
+  assertAdminAccess(MENTORING_ROLES);
+  const sessionIdentifier = encodeIdentifier(sessionId, { label: 'sessionId' });
+  const noteIdentifier = encodeIdentifier(noteId, { label: 'noteId' });
+  return performAndInvalidate(() =>
+    apiClient.patch(
+      `/admin/mentoring/sessions/${sessionIdentifier}/notes/${noteIdentifier}`,
+      payload,
+      options,
+    ),
+  );
 }
 
-export async function deleteAdminMentoringAction(sessionId, actionId) {
-  return apiClient.delete(`/admin/mentoring/sessions/${sessionId}/actions/${actionId}`);
+export function deleteAdminMentoringNote(sessionId, noteId, options = {}) {
+  assertAdminAccess(MENTORING_ROLES);
+  const sessionIdentifier = encodeIdentifier(sessionId, { label: 'sessionId' });
+  const noteIdentifier = encodeIdentifier(noteId, { label: 'noteId' });
+  return performAndInvalidate(() =>
+    apiClient.delete(`/admin/mentoring/sessions/${sessionIdentifier}/notes/${noteIdentifier}`, options),
+  );
+}
+
+export function createAdminMentoringAction(sessionId, payload, options = {}) {
+  assertAdminAccess(MENTORING_ROLES);
+  const identifier = encodeIdentifier(sessionId, { label: 'sessionId' });
+  return performAndInvalidate(() =>
+    apiClient.post(`/admin/mentoring/sessions/${identifier}/actions`, payload, options),
+  );
+}
+
+export function updateAdminMentoringAction(sessionId, actionId, payload, options = {}) {
+  assertAdminAccess(MENTORING_ROLES);
+  const sessionIdentifier = encodeIdentifier(sessionId, { label: 'sessionId' });
+  const actionIdentifier = encodeIdentifier(actionId, { label: 'actionId' });
+  return performAndInvalidate(() =>
+    apiClient.patch(
+      `/admin/mentoring/sessions/${sessionIdentifier}/actions/${actionIdentifier}`,
+      payload,
+      options,
+    ),
+  );
+}
+
+export function deleteAdminMentoringAction(sessionId, actionId, options = {}) {
+  assertAdminAccess(MENTORING_ROLES);
+  const sessionIdentifier = encodeIdentifier(sessionId, { label: 'sessionId' });
+  const actionIdentifier = encodeIdentifier(actionId, { label: 'actionId' });
+  return performAndInvalidate(() =>
+    apiClient.delete(
+      `/admin/mentoring/sessions/${sessionIdentifier}/actions/${actionIdentifier}`,
+      options,
+    ),
+  );
 }
 
 export default {
