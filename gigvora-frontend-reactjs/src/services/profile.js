@@ -20,7 +20,7 @@ function ensureOptions(options) {
   if (typeof options !== 'object') {
     throw new Error('Options must be an object.');
   }
-  return options;
+  return { ...options };
 }
 
 function ensurePayload(payload) {
@@ -31,6 +31,40 @@ function ensurePayload(payload) {
     throw new Error('Payload must be an object.');
   }
   return payload;
+}
+
+function ensureParams(params) {
+  if (params === undefined || params === null) {
+    return {};
+  }
+  if (typeof params !== 'object') {
+    throw new Error('Query parameters must be an object.');
+  }
+
+  return Object.fromEntries(
+    Object.entries(params)
+      .map(([key, value]) => {
+        if (value === undefined || value === null) {
+          return [key, undefined];
+        }
+        if (typeof value === 'boolean') {
+          return [key, value ? 'true' : 'false'];
+        }
+        if (typeof value === 'number') {
+          return [key, Number.isFinite(value) ? value : undefined];
+        }
+        if (Array.isArray(value)) {
+          const normalised = value
+            .map((item) => `${item}`.trim())
+            .filter((item) => item.length > 0)
+            .join(',');
+          return [key, normalised || undefined];
+        }
+        const trimmed = `${value}`.trim();
+        return [key, trimmed.length ? trimmed : undefined];
+      })
+      .filter(([, value]) => value !== undefined),
+  );
 }
 
 function buildUserPath(userId, ...segments) {
@@ -51,7 +85,7 @@ function cacheKey(userId) {
 export async function fetchProfile(userId, options = {}) {
   const { force = false, ...restOptions } = options ?? {};
   const safeOptions = ensureOptions(restOptions);
-  const { signal, ...other } = safeOptions;
+  const { signal, params: rawParams, ...other } = safeOptions;
   const key = cacheKey(userId);
 
   if (!force) {
@@ -61,7 +95,15 @@ export async function fetchProfile(userId, options = {}) {
     }
   }
 
+  const normalisedParams = ensureParams(rawParams);
+  if (force) {
+    normalisedParams.fresh = 'true';
+  }
+
   const requestOptions = { ...other };
+  if (Object.keys(normalisedParams).length > 0) {
+    requestOptions.params = normalisedParams;
+  }
   if (signal) {
     requestOptions.signal = signal;
   }
@@ -88,7 +130,16 @@ export async function updateProfile(userId, payload, options) {
 }
 
 export async function updateProfileAvailability(userId, payload, options) {
-  return updateProfile(userId, payload, options);
+  const key = cacheKey(userId);
+  const safePayload = ensurePayload(payload);
+  const safeOptions = ensureOptions(options);
+  const updatedProfile = await apiClient.patch(
+    buildUserPath(userId, 'profile', 'availability'),
+    safePayload,
+    Object.keys(safeOptions).length ? safeOptions : undefined,
+  );
+  apiClient.writeCache(key, updatedProfile, PROFILE_CACHE_TTL);
+  return updatedProfile;
 }
 
 export default {
