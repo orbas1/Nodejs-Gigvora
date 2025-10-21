@@ -58,7 +58,12 @@ export default function EventLibrary({
                   </button>
                   {canManage ? (
                     <Menu as="div" className="relative inline-block text-left">
-                      <Menu.Button className="rounded-full p-1 text-slate-500 hover:bg-white hover:text-slate-900">
+                      <Menu.Button
+                        className="rounded-full p-1 text-slate-500 hover:bg-white hover:text-slate-900"
+                        aria-label="Open event actions"
+                        title="Open event actions"
+                      >
+                        <span className="sr-only">Open event actions</span>
                         <EllipsisVerticalIcon className="h-5 w-5" aria-hidden="true" />
                       </Menu.Button>
                       <Transition
