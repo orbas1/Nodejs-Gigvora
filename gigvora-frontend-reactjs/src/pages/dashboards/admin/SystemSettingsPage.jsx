@@ -1,5 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowPathIcon, BellAlertIcon, PlusIcon, ShieldCheckIcon, SparklesIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ArrowDownTrayIcon,
+  ArrowPathIcon,
+  ArrowUpTrayIcon,
+  BellAlertIcon,
+  PlusIcon,
+  ShieldCheckIcon,
+  SparklesIcon,
+  TrashIcon,
+} from '@heroicons/react/24/outline';
 import DashboardLayout from '../../../layouts/DashboardLayout.jsx';
 import useSession from '../../../hooks/useSession.js';
 import { fetchSystemSettings, updateSystemSettings } from '../../../services/systemSettings.js';
@@ -209,11 +218,14 @@ export default function SystemSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [status, setStatus] = useState('');
+  const [importError, setImportError] = useState('');
   const [dirty, setDirty] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState(null);
   const [domainInput, setDomainInput] = useState('');
   const [ipInput, setIpInput] = useState('');
   const [channelInput, setChannelInput] = useState('');
+  const [downloadState, setDownloadState] = useState('');
+  const fileInputRef = useRef(null);
 
   const normalizedSettings = useMemo(() => normalizeSettings(draft ?? settings ?? EMPTY_SETTINGS), [draft, settings]);
 
@@ -308,6 +320,21 @@ export default function SystemSettingsPage() {
     };
   }, [loadSettings]);
 
+  useEffect(() => {
+    if (!downloadState && !importError) {
+      return undefined;
+    }
+    const timeout = setTimeout(() => {
+      if (downloadState) {
+        setDownloadState('');
+      }
+      if (importError) {
+        setImportError('');
+      }
+    }, 3500);
+    return () => clearTimeout(timeout);
+  }, [downloadState, importError]);
+
   const updateDraft = useCallback(
     (path, value) => {
       setDraft((current) => {
@@ -379,6 +406,63 @@ export default function SystemSettingsPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleDownloadSettings = () => {
+    try {
+      const payload = cloneDeep(normalizedSettings);
+      if (payload) {
+        delete payload.updatedAt;
+      }
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      const timestamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19);
+      anchor.download = `gigvora-system-settings-${timestamp}.json`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+      setDownloadState('Settings exported to JSON.');
+    } catch (err) {
+      console.error('Unable to export system settings', err);
+      setImportError('Unable to export configuration. Please retry.');
+    }
+  };
+
+  const handleTriggerImport = () => {
+    setImportError('');
+    fileInputRef.current?.click();
+  };
+
+  const handleImportSettings = (event) => {
+    const [file] = event.target.files ?? [];
+    if (!file) {
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const text = reader.result ? reader.result.toString() : '';
+        const parsed = JSON.parse(text);
+        const normalized = normalizeSettings(parsed);
+        setDraft(normalized);
+        setDirty(true);
+        setStatus('Imported configuration – review and save to apply.');
+        setImportError('');
+      } catch (err) {
+        console.error('Invalid system settings file', err);
+        setImportError('Uploaded file is not valid JSON.');
+      } finally {
+        event.target.value = '';
+      }
+    };
+    reader.onerror = () => {
+      setImportError('Failed to read configuration file.');
+      event.target.value = '';
+    };
+    reader.readAsText(file);
   };
 
   const disableInputs = loading || saving;
@@ -536,38 +620,73 @@ export default function SystemSettingsPage() {
               ) : null}
             </div>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <button
-              type="button"
-              onClick={handleRefresh}
-              className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={actionDisabled}
-            >
-              <ArrowPathIcon className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Re-sync data
-            </button>
-            <button
-              type="button"
-              onClick={handleReset}
-              className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={actionDisabled || !dirty}
-            >
-              Discard draft
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              className="inline-flex items-center justify-center rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark disabled:cursor-not-allowed disabled:bg-accent/60"
-              disabled={actionDisabled || !dirty}
-            >
-              {saving ? 'Saving…' : 'Save changes'}
-            </button>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadSettings}
+                className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={loading}
+              >
+                <ArrowDownTrayIcon className="mr-2 h-4 w-4" /> Export JSON
+              </button>
+              <button
+                type="button"
+                onClick={handleTriggerImport}
+                className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={loading}
+              >
+                <ArrowUpTrayIcon className="mr-2 h-4 w-4" /> Import JSON
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2 sm:ml-2">
+              <button
+                type="button"
+                onClick={handleRefresh}
+                className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={actionDisabled}
+              >
+                <ArrowPathIcon className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Re-sync data
+              </button>
+              <button
+                type="button"
+                onClick={handleReset}
+                className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={actionDisabled || !dirty}
+              >
+                Discard draft
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                className="inline-flex items-center justify-center rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark disabled:cursor-not-allowed disabled:bg-accent/60"
+                disabled={actionDisabled || !dirty}
+              >
+                {saving ? 'Saving…' : 'Save changes'}
+              </button>
+            </div>
           </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json"
+            className="hidden"
+            onChange={handleImportSettings}
+          />
         </div>
         {error ? (
           <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
         ) : null}
+        {importError ? (
+          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{importError}</div>
+        ) : null}
         {status ? (
           <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{status}</div>
+        ) : null}
+        {downloadState ? (
+          <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            {downloadState}
+          </div>
         ) : null}
         <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {summaryCards.map((card) => {
@@ -588,6 +707,54 @@ export default function SystemSettingsPage() {
               </div>
             );
           })}
+        </div>
+        <div className="mt-8 grid gap-6 lg:grid-cols-[2fr,1fr]">
+          <article className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="aspect-video w-full bg-slate-900/80">
+              <iframe
+                title="Operational readiness walkthrough"
+                src="https://www.youtube.com/embed/6Dh-RL__uN4"
+                className="h-full w-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+            <div className="space-y-3 px-6 py-5">
+              <h3 className="text-lg font-semibold text-slate-900">Operational readiness playbook</h3>
+              <p className="text-sm text-slate-600">
+                Walk through the incident response choreography used by Gigvora’s command centre, including alert fan-out,
+                runbook automation, and comms templates.
+              </p>
+              <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">Alerts</span>
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">On-call</span>
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">SSO</span>
+              </div>
+            </div>
+          </article>
+          <aside className="flex flex-col justify-between gap-4 rounded-3xl border border-slate-200 bg-slate-50/80 p-5 shadow-inner">
+            <div>
+              <h4 className="text-sm font-semibold text-slate-900">Escalation roster</h4>
+              <p className="mt-2 text-xs text-slate-500">
+                Rotate these leaders into the hot seat for severity-1 incidents. Update the roster monthly and pair with the on-call
+                Slack channel.
+              </p>
+            </div>
+            <ul className="space-y-3 text-sm text-slate-700">
+              <li className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+                <span>Platform operations</span>
+                <span className="text-xs font-semibold uppercase text-emerald-600">Primary</span>
+              </li>
+              <li className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+                <span>Security engineering</span>
+                <span className="text-xs font-semibold uppercase text-blue-600">Secondary</span>
+              </li>
+              <li className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+                <span>Communications</span>
+                <span className="text-xs font-semibold uppercase text-amber-600">Comms</span>
+              </li>
+            </ul>
+          </aside>
         </div>
       </section>
       <section id="system-general" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
@@ -706,6 +873,12 @@ export default function SystemSettingsPage() {
                 type="text"
                 value={domainInput}
                 onChange={(event) => setDomainInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    handleAddDomain();
+                  }
+                }}
                 disabled={disableInputs}
                 placeholder="gigvora.com"
                 className="w-40 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm"
@@ -844,6 +1017,12 @@ export default function SystemSettingsPage() {
                 type="text"
                 value={ipInput}
                 onChange={(event) => setIpInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    handleAddIpRange();
+                  }
+                }}
                 disabled={disableInputs}
                 placeholder="203.0.113.0/24"
                 className="w-48 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm"
@@ -1031,6 +1210,12 @@ export default function SystemSettingsPage() {
                 type="text"
                 value={channelInput}
                 onChange={(event) => setChannelInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    handleAddChannel();
+                  }
+                }}
                 disabled={disableInputs}
                 placeholder="email"
                 className="w-36 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm"

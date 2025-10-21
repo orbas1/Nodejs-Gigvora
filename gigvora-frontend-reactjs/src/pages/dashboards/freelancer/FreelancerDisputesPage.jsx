@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowPathIcon, FunnelIcon, PlusIcon } from '@heroicons/react/24/outline';
-import useSession from '../../hooks/useSession.js';
+import useSession from '../../../hooks/useSession.js';
 import useDisputesData from './disputes/useDisputesData.js';
 import DisputeBoard from './disputes/components/DisputeBoard.jsx';
 import DisputeDrawer from './disputes/components/DisputeDrawer.jsx';

@@ -1,70 +1,107 @@
 import asyncHandler from '../utils/asyncHandler.js';
 import trustService from '../services/trustService.js';
 
+function toBoolean(value) {
+  if (value === true || value === 'true' || value === 1 || value === '1') {
+    return true;
+  }
+  if (value === false || value === 'false' || value === 0 || value === '0') {
+    return false;
+  }
+  return undefined;
+}
+
+function normaliseDisputeFilters(query = {}) {
+  const filters = { ...query };
+
+  if (filters.limit != null && filters.pageSize == null) {
+    filters.pageSize = filters.limit;
+  }
+
+  if (filters.offset != null && filters.page == null && filters.pageSize != null) {
+    const pageSize = Number.parseInt(filters.pageSize, 10);
+    const offset = Number.parseInt(filters.offset, 10);
+    if (Number.isFinite(pageSize) && pageSize > 0 && Number.isFinite(offset)) {
+      filters.page = Math.floor(offset / pageSize) + 1;
+    }
+  }
+
+  if (filters.includeClosed != null && filters.openOnly == null) {
+    const includeClosed = toBoolean(filters.includeClosed);
+    filters.openOnly = includeClosed === undefined ? filters.openOnly : !includeClosed;
+  }
+  delete filters.includeClosed;
+
+  if (filters.openOnly != null) {
+    const parsed = toBoolean(filters.openOnly);
+    if (parsed !== undefined) {
+      filters.openOnly = parsed;
+    }
+  }
+
+  return filters;
+}
+
 export const createEscrowAccount = asyncHandler(async (req, res) => {
-  const account = await trustService.ensureEscrowAccount(req.body);
+  const account = await trustService.ensureEscrowAccount(req.body ?? {});
   res.status(201).json({ account });
 });
 
 export const updateEscrowAccount = asyncHandler(async (req, res) => {
-  const account = await trustService.updateEscrowAccount(req.params.accountId, req.body);
+  const account = await trustService.updateEscrowAccount(req.params.accountId, req.body ?? {});
   res.json({ account });
 });
 
 export const initiateEscrow = asyncHandler(async (req, res) => {
-  const transaction = await trustService.initiateEscrowTransaction(req.body);
+  const transaction = await trustService.initiateEscrowTransaction(req.body ?? {});
   res.status(201).json({ transaction });
 });
 
 export const updateEscrowTransaction = asyncHandler(async (req, res) => {
-  const transaction = await trustService.updateEscrowTransaction(
-    req.params.transactionId,
-    req.body,
-  );
+  const transaction = await trustService.updateEscrowTransaction(req.params.transactionId, req.body ?? {});
   res.json({ transaction });
 });
 
 export const releaseEscrow = asyncHandler(async (req, res) => {
-  const transaction = await trustService.releaseEscrowTransaction(Number.parseInt(req.params.transactionId, 10), req.body);
+  const transaction = await trustService.releaseEscrowTransaction(
+    Number.parseInt(req.params.transactionId, 10),
+    req.body ?? {},
+  );
   res.json({ transaction });
 });
 
 export const refundEscrow = asyncHandler(async (req, res) => {
-  const transaction = await trustService.refundEscrowTransaction(Number.parseInt(req.params.transactionId, 10), req.body);
+  const transaction = await trustService.refundEscrowTransaction(
+    Number.parseInt(req.params.transactionId, 10),
+    req.body ?? {},
+  );
   res.json({ transaction });
 });
 
 export const createDispute = asyncHandler(async (req, res) => {
-  const dispute = await trustService.createDisputeCase(req.body);
+  const dispute = await trustService.createDisputeCase(req.body ?? {});
   res.status(201).json({ dispute });
 });
 
 export const appendDisputeEvent = asyncHandler(async (req, res) => {
-  const result = await trustService.appendDisputeEvent(Number.parseInt(req.params.disputeId, 10), req.body);
+  const result = await trustService.appendDisputeEvent(Number.parseInt(req.params.disputeId, 10), req.body ?? {});
   res.status(201).json(result);
 });
 
 export const listDisputes = asyncHandler(async (req, res) => {
-  const disputes = await trustService.listDisputeCases(req.query ?? {});
-  res.json({ disputes });
-});
-
-export const getDispute = asyncHandler(async (req, res) => {
-  const dispute = await trustService.getDisputeCaseDetail(req.params.disputeId);
-  const result = await trustService.listDisputeCases(req.query ?? {});
+  const filters = normaliseDisputeFilters(req.query ?? {});
+  const result = await trustService.listDisputeCases(filters);
   res.json(result);
 });
 
 export const getDispute = asyncHandler(async (req, res) => {
   const dispute = await trustService.getDisputeCaseById(Number.parseInt(req.params.disputeId, 10));
-  res.json({ dispute });
+  res.json(dispute);
 });
 
 export const updateDispute = asyncHandler(async (req, res) => {
-  const result = await trustService.updateDisputeCase(req.params.disputeId, req.body);
-  res.json(result);
   const dispute = await trustService.updateDisputeCase(Number.parseInt(req.params.disputeId, 10), req.body ?? {});
-  res.json({ dispute });
+  res.json(dispute);
 });
 
 export const getTrustOverview = asyncHandler(async (req, res) => {
@@ -72,59 +109,12 @@ export const getTrustOverview = asyncHandler(async (req, res) => {
   res.json({ overview });
 });
 
-export const listDisputes = asyncHandler(async (req, res) => {
-  const {
-    status,
-    stage,
-    priority,
-    assignedToId,
-    openedById,
-    search,
-    sort,
-    page,
-    limit,
-    offset,
-  } = req.query ?? {};
-
-  const pageSize = limit != null ? Number.parseInt(limit, 10) : undefined;
-  const pageNumber = page != null ? Number.parseInt(page, 10) : undefined;
-  const offsetValue = offset != null ? Number.parseInt(offset, 10) : undefined;
-
-  const options = {
-    status,
-    stage,
-    priority,
-    assignedToId,
-    openedById,
-    search,
-    sort,
-    limit: Number.isFinite(pageSize) ? pageSize : undefined,
-    offset: Number.isFinite(offsetValue)
-      ? offsetValue
-      : Number.isFinite(pageNumber) && Number.isFinite(pageSize)
-      ? Math.max(0, (pageNumber - 1) * pageSize)
-      : undefined,
-  };
-
-  const result = await trustService.listDisputeCases(options);
-  res.json(result);
-});
-
-export const getDispute = asyncHandler(async (req, res) => {
-  const disputeId = Number.parseInt(req.params.disputeId, 10);
-  const result = await trustService.getDisputeCaseById(disputeId);
-  res.json(result);
-});
-
-export const updateDispute = asyncHandler(async (req, res) => {
-  const disputeId = Number.parseInt(req.params.disputeId, 10);
-  const dispute = await trustService.updateDisputeCase(disputeId, req.body ?? {});
-  res.json({ dispute });
-});
-
 export const getDisputeSettings = asyncHandler(async (req, res) => {
-  const workspaceId = req.query?.workspaceId != null ? Number.parseInt(req.query.workspaceId, 10) : undefined;
-  const result = await trustService.getDisputeWorkflowSettings({ workspaceId: Number.isFinite(workspaceId) ? workspaceId : undefined });
+  const workspaceId =
+    req.query?.workspaceId != null ? Number.parseInt(req.query.workspaceId, 10) : undefined;
+  const result = await trustService.getDisputeWorkflowSettings({
+    workspaceId: Number.isFinite(workspaceId) ? workspaceId : undefined,
+  });
   res.json(result);
 });
 
@@ -139,7 +129,8 @@ export const updateDisputeSettings = asyncHandler(async (req, res) => {
 });
 
 export const listDisputeTemplates = asyncHandler(async (req, res) => {
-  const workspaceId = req.query?.workspaceId != null ? Number.parseInt(req.query.workspaceId, 10) : undefined;
+  const workspaceId =
+    req.query?.workspaceId != null ? Number.parseInt(req.query.workspaceId, 10) : undefined;
   const includeGlobal = req.query?.includeGlobal == null ? true : req.query.includeGlobal !== 'false';
   const result = await trustService.listDisputeTemplates({
     workspaceId: Number.isFinite(workspaceId) ? workspaceId : undefined,
@@ -178,9 +169,6 @@ export default {
   getDispute,
   updateDispute,
   getTrustOverview,
-  listDisputes,
-  getDispute,
-  updateDispute,
   getDisputeSettings,
   updateDisputeSettings,
   listDisputeTemplates,
@@ -188,3 +176,4 @@ export default {
   updateDisputeTemplate,
   deleteDisputeTemplate,
 };
+

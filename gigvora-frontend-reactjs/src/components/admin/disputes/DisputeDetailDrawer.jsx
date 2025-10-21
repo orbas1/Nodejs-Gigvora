@@ -10,6 +10,7 @@ import {
   ArrowPathIcon,
   ArrowLeftIcon,
   ArrowDownCircleIcon,
+  ArrowDownTrayIcon,
   PaperClipIcon,
 } from '@heroicons/react/24/outline';
 import DisputeEventComposer from './DisputeEventComposer.jsx';
@@ -109,6 +110,7 @@ export default function DisputeDetailDrawer({
   const [formState, setFormState] = useState(null);
   const [metadataText, setMetadataText] = useState('');
   const [formError, setFormError] = useState(null);
+  const [timelineStatus, setTimelineStatus] = useState('');
 
   useEffect(() => {
     if (!dispute) {
@@ -132,12 +134,66 @@ export default function DisputeDetailDrawer({
     setFormError(null);
   }, [dispute]);
 
+  useEffect(() => {
+    if (!timelineStatus) {
+      return undefined;
+    }
+    const timeout = setTimeout(() => setTimelineStatus(''), 2500);
+    return () => clearTimeout(timeout);
+  }, [timelineStatus]);
+
   const timeline = useMemo(() => {
     if (!dispute?.events) {
       return [];
     }
     return [...dispute.events].sort((a, b) => new Date(b.eventAt).getTime() - new Date(a.eventAt).getTime());
   }, [dispute]);
+
+  const handleDownloadTimeline = () => {
+    if (!timeline.length) {
+      setTimelineStatus('No timeline events yet.');
+      return;
+    }
+    try {
+      const rows = [];
+      const pushRow = (values) => {
+        const serialised = values.map((value) => {
+          if (value == null) {
+            return '""';
+          }
+          const text = `${value}`.replace(/"/g, '""');
+          return `"${text}"`;
+        });
+        rows.push(serialised.join(','));
+      };
+
+      pushRow(['Event', 'Actor', 'Actor type', 'Notes', 'Occurred at']);
+      timeline.forEach((event) => {
+        pushRow([
+          event.actionType || 'update',
+          event.actor?.displayName || event.actor?.email || event.actorId || 'System',
+          event.actorType || 'system',
+          event.notes ? event.notes.replace(/\s+/g, ' ').slice(0, 200) : '',
+          event.eventAt ? new Date(event.eventAt).toISOString() : '',
+        ]);
+      });
+
+      const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      const timestamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19);
+      anchor.download = `dispute-${dispute?.id ?? 'timeline'}-${timestamp}.csv`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+      setTimelineStatus('Timeline exported.');
+    } catch (err) {
+      console.error('Unable to export dispute timeline', err);
+      setTimelineStatus('Timeline export failed.');
+    }
+  };
 
   if (!open) {
     return null;
@@ -217,6 +273,18 @@ export default function DisputeDetailDrawer({
               </span>
             </div>
             <p className="mt-2 text-sm text-slate-600">{dispute?.summary}</p>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadTimeline}
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:border-blue-200 hover:text-blue-600"
+              >
+                <ArrowDownTrayIcon className="h-4 w-4" aria-hidden="true" /> Download timeline
+              </button>
+              {timelineStatus ? (
+                <span className="text-xs font-semibold uppercase tracking-wide text-emerald-600">{timelineStatus}</span>
+              ) : null}
+            </div>
           </div>
           <button
             type="button"

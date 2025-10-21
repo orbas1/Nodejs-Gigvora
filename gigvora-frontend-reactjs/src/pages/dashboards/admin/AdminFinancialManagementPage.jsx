@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../../layouts/DashboardLayout.jsx';
 import FinancialSummaryCards from '../../../components/admin/finance/FinancialSummaryCards.jsx';
 import TreasuryPolicyForm from '../../../components/admin/finance/TreasuryPolicyForm.jsx';
@@ -91,6 +92,7 @@ export default function AdminFinancialManagementPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [refreshIndex, setRefreshIndex] = useState(0);
+  const [exportMessage, setExportMessage] = useState('');
 
   useEffect(() => {
     let isMounted = true;
@@ -114,6 +116,14 @@ export default function AdminFinancialManagementPage() {
       isMounted = false;
     };
   }, [refreshIndex]);
+
+  useEffect(() => {
+    if (!exportMessage) {
+      return undefined;
+    }
+    const timeout = setTimeout(() => setExportMessage(''), 3000);
+    return () => clearTimeout(timeout);
+  }, [exportMessage]);
 
   const defaultCurrency = (data?.treasuryPolicy?.defaultCurrency ?? 'USD').toUpperCase();
 
@@ -219,6 +229,84 @@ export default function AdminFinancialManagementPage() {
     handleRefresh();
   };
 
+  const handleExportDashboard = () => {
+    if (!data) {
+      setExportMessage('No data to export yet.');
+      return;
+    }
+    try {
+      const rows = [];
+      const pushRow = (values) => {
+        const serialised = values.map((value) => {
+          if (value == null) {
+            return '""';
+          }
+          const text = `${value}`.replace(/"/g, '""');
+          return `"${text}"`;
+        });
+        rows.push(serialised.join(','));
+      };
+
+      const summary = data.summary ?? {};
+      pushRow(['Metric', 'Value']);
+      pushRow(['Gross escrow volume', formatCurrency(summary.grossEscrowVolume, defaultCurrency)]);
+      pushRow(['Net escrow volume', formatCurrency(summary.netEscrowVolume, defaultCurrency)]);
+      pushRow(['Pending release total', formatCurrency(summary.pendingReleaseTotal, defaultCurrency)]);
+      pushRow(['Escrow fees', formatCurrency(summary.escrowFees, defaultCurrency)]);
+      pushRow(['Active payout schedules', formatNumber(summary.activeScheduleCount ?? 0)]);
+      pushRow(['Pending adjustments', formatNumber(summary.activeAdjustmentCount ?? 0)]);
+
+      if (summary.transactionsByStatus) {
+        pushRow([]);
+        pushRow(['Transactions by status', 'Count']);
+        Object.entries(summary.transactionsByStatus).forEach(([statusKey, count]) => {
+          pushRow([statusKey, formatNumber(count ?? 0)]);
+        });
+      }
+
+      if (summary.accountsByStatus) {
+        pushRow([]);
+        pushRow(['Accounts by status', 'Count']);
+        Object.entries(summary.accountsByStatus).forEach(([statusKey, count]) => {
+          pushRow([statusKey, formatNumber(count ?? 0)]);
+        });
+      }
+
+      const transactions = Array.isArray(data.recentTransactions) ? data.recentTransactions : [];
+      if (transactions.length) {
+        pushRow([]);
+        pushRow(['Recent transactions']);
+        pushRow(['Reference', 'Type', 'Status', 'Net amount', 'Currency', 'Account', 'Created at']);
+        transactions.forEach((transaction) => {
+          pushRow([
+            transaction.reference || transaction.id,
+            transaction.type || '—',
+            transaction.status || '—',
+            formatCurrency(transaction.netAmount ?? transaction.amount, transaction.currencyCode ?? defaultCurrency),
+            (transaction.currencyCode || defaultCurrency).toUpperCase(),
+            transaction.account?.provider || '—',
+            formatDate(transaction.createdAt),
+          ]);
+        });
+      }
+
+      const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      const timestamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19);
+      anchor.download = `gigvora-finance-dashboard-${timestamp}.csv`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+      setExportMessage('Export ready.');
+    } catch (err) {
+      console.error('Failed to export finance dashboard snapshot', err);
+      setExportMessage('Unable to export data.');
+    }
+  };
+
   const renderDashboard = () => {
     if (loading && !data) {
       return <LoadingState />;
@@ -232,6 +320,23 @@ export default function AdminFinancialManagementPage() {
 
     return (
       <div className="space-y-8">
+        <div className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-slate-900">Exports</h2>
+            <p className="text-xs text-slate-500">Download a CSV snapshot of treasury performance and the latest ledger entries.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleExportDashboard}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+              disabled={!data}
+            >
+              <ArrowDownTrayIcon className="h-4 w-4" aria-hidden="true" /> Export CSV
+            </button>
+            {exportMessage ? <span className="text-xs font-semibold text-emerald-600">{exportMessage}</span> : null}
+          </div>
+        </div>
         <FinancialSummaryCards
           summary={data.summary}
           lookbackDays={LOOKBACK_DAYS}
