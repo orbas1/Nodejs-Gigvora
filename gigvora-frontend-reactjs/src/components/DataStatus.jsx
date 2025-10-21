@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/solid';
 import { formatRelativeTime, formatAbsolute } from '../utils/date.js';
 
@@ -62,3 +63,14 @@ export default function DataStatus({
     </div>
   );
 }
+
+DataStatus.propTypes = {
+  loading: PropTypes.bool,
+  fromCache: PropTypes.bool,
+  lastUpdated: PropTypes.oneOfType([PropTypes.instanceOf(Date), PropTypes.string, PropTypes.number]),
+  onRefresh: PropTypes.func,
+  error: PropTypes.shape({
+    message: PropTypes.string,
+  }),
+  statusLabel: PropTypes.string,
+};

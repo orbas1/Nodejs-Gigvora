@@ -141,7 +141,7 @@ export default function CalendarEventForm({
     }));
   };
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = (event) => {
     event.preventDefault();
     setError(null);
     if (!formState.title.trim()) {
@@ -183,15 +183,26 @@ export default function CalendarEventForm({
       },
     };
 
+    let result;
     try {
-      await onSubmit(payload);
+      result = onSubmit?.(payload);
     } catch (submitError) {
       setError(submitError?.message ?? 'We could not save this event. Please try again.');
+      return;
     }
+
+    if (result && typeof result.then === 'function') {
+      return result.catch((submitError) => {
+        setError(submitError?.message ?? 'We could not save this event. Please try again.');
+        throw submitError;
+      });
+    }
+
+    return result;
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6" noValidate>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
           Title

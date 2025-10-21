@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 
 const PROVIDERS = [
   { value: 'stripe', label: 'Stripe Connect' },
@@ -366,3 +367,43 @@ export default function EscrowProviderForm({ value, onSave, saving = false, onRe
     </form>
   );
 }
+
+EscrowProviderForm.propTypes = {
+  value: PropTypes.shape({
+    provider: PropTypes.string,
+    stripe: PropTypes.shape({
+      publishableKey: PropTypes.string,
+      secretKey: PropTypes.string,
+      webhookSecret: PropTypes.string,
+      accountId: PropTypes.string,
+    }),
+    escrow_com: PropTypes.shape({
+      apiKey: PropTypes.string,
+      apiSecret: PropTypes.string,
+      sandbox: PropTypes.bool,
+    }),
+    escrowControls: PropTypes.shape({
+      defaultHoldPeriodHours: PropTypes.number,
+      autoReleaseHours: PropTypes.number,
+      requireManualApproval: PropTypes.bool,
+      manualApprovalThreshold: PropTypes.number,
+      notificationEmails: PropTypes.oneOfType([
+        PropTypes.arrayOf(PropTypes.string),
+        PropTypes.string,
+      ]),
+      statementDescriptor: PropTypes.string,
+    }),
+  }),
+  onSave: PropTypes.func,
+  saving: PropTypes.bool,
+  onReset: PropTypes.func,
+  currency: PropTypes.string,
+};
+
+EscrowProviderForm.defaultProps = {
+  value: undefined,
+  onSave: undefined,
+  saving: false,
+  onReset: undefined,
+  currency: 'USD',
+};

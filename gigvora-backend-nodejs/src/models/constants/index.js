@@ -237,8 +237,8 @@ export const ID_VERIFICATION_EVENT_TYPES = Object.freeze([
   'document_request',
   'escalation',
   'reminder',
-]);
-export const IDENTITY_VERIFICATION_EVENT_TYPES = Object.freeze([
+];
+export const IDENTITY_VERIFICATION_EVENT_TYPES = [
   'submission_created',
   'status_changed',
   'assignment_updated',
@@ -730,8 +730,8 @@ export const CALENDAR_EVENT_TYPES = Object.freeze([
   'wellbeing',
   'deadline',
   'ritual',
-]);
-export const FREELANCER_CALENDAR_EVENT_TYPES = Object.freeze([
+];
+export const FREELANCER_CALENDAR_EVENT_TYPES = [
   'project',
   'gig',
   'job_interview',
@@ -756,13 +756,15 @@ export const FREELANCER_CALENDAR_RELATED_TYPES = Object.freeze([
   'client',
   'community',
   'other',
-]);
-export const CALENDAR_EVENT_SOURCES = Object.freeze(['manual', 'google', 'outlook', 'gigvora']);
-export const ADMIN_CALENDAR_SYNC_STATUSES = Object.freeze(['connected', 'syncing', 'needs_attention', 'disconnected']);
-export const ADMIN_CALENDAR_EVENT_STATUSES = Object.freeze(['draft', 'scheduled', 'published', 'cancelled']);
-export const ADMIN_CALENDAR_VISIBILITIES = Object.freeze(['internal', 'external', 'private']);
-export const ADMIN_CALENDAR_EVENT_TYPES = Object.freeze(['ops_review', 'training', 'launch', 'webinar', 'support', 'governance']);
-export const FOCUS_SESSION_TYPES = Object.freeze([
+];
+export const CALENDAR_EVENT_SOURCES = ['manual', 'google', 'outlook', 'gigvora'];
+export const ADMIN_CALENDAR_SYNC_STATUSES = ['connected', 'syncing', 'needs_attention', 'disconnected'];
+export const ADMIN_CALENDAR_EVENT_STATUSES = ['draft', 'scheduled', 'published', 'cancelled'];
+export const ADMIN_CALENDAR_VISIBILITIES = ['internal', 'external', 'private'];
+export const ADMIN_CALENDAR_EVENT_TYPES = ['ops_review', 'training', 'launch', 'webinar', 'support', 'governance'];
+export const CALENDAR_EVENT_VISIBILITIES = ['private', 'shared', 'public'];
+export const CALENDAR_DEFAULT_VIEWS = ['agenda', 'week', 'month'];
+export const FOCUS_SESSION_TYPES = [
   'interview_prep',
   'networking',
   'application',

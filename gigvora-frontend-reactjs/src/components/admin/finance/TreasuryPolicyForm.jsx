@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { CheckCircleIcon } from '@heroicons/react/24/solid';
 
 const DAY_OPTIONS = [
@@ -297,3 +298,26 @@ export default function TreasuryPolicyForm({ policy, onSave }) {
     </section>
   );
 }
+
+TreasuryPolicyForm.propTypes = {
+  policy: PropTypes.shape({
+    policyName: PropTypes.string,
+    defaultCurrency: PropTypes.string,
+    reserveTarget: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    minimumBalanceThreshold: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    autopayoutEnabled: PropTypes.bool,
+    autopayoutWindowDays: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    autopayoutDayOfWeek: PropTypes.string,
+    autopayoutTimeOfDay: PropTypes.string,
+    invoiceGracePeriodDays: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    riskAppetite: PropTypes.string,
+    operationalContacts: PropTypes.string,
+    notes: PropTypes.string,
+  }),
+  onSave: PropTypes.func,
+};
+
+TreasuryPolicyForm.defaultProps = {
+  policy: undefined,
+  onSave: undefined,
+};

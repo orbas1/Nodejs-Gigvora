@@ -6,6 +6,7 @@ import {
   ClockIcon,
   SparklesIcon,
 } from '@heroicons/react/24/outline';
+import PropTypes from 'prop-types';
 import DataStatus from '../DataStatus.jsx';
 
 function StatCard({ label, value, helper }) {
@@ -18,6 +19,17 @@ function StatCard({ label, value, helper }) {
   );
 }
 
+StatCard.propTypes = {
+  label: PropTypes.string.isRequired,
+  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  helper: PropTypes.string,
+};
+
+StatCard.defaultProps = {
+  value: undefined,
+  helper: undefined,
+};
+
 function ProgressBar({ value }) {
   const safeValue = Math.max(0, Math.min(100, Number.isFinite(Number(value)) ? Number(value) : 0));
   return (
@@ -26,6 +38,14 @@ function ProgressBar({ value }) {
     </div>
   );
 }
+
+ProgressBar.propTypes = {
+  value: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+};
+
+ProgressBar.defaultProps = {
+  value: 0,
+};
 
 function CourseCard({ course }) {
   const enrollment = course.enrollment;
@@ -91,6 +111,22 @@ function CourseCard({ course }) {
   );
 }
 
+CourseCard.propTypes = {
+  course: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    title: PropTypes.string,
+    summary: PropTypes.string,
+    difficulty: PropTypes.string,
+    tags: PropTypes.arrayOf(PropTypes.string),
+    modules: PropTypes.array,
+    enrollment: PropTypes.shape({
+      progress: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      status: PropTypes.string,
+      lastAccessedAt: PropTypes.string,
+    }),
+  }).isRequired,
+};
+
 function MentoringList({ sessions }) {
   if (!sessions?.length) {
     return null;
@@ -119,6 +155,26 @@ function MentoringList({ sessions }) {
     </div>
   );
 }
+
+MentoringList.propTypes = {
+  sessions: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      topic: PropTypes.string,
+      scheduledAt: PropTypes.string,
+      status: PropTypes.string,
+      agenda: PropTypes.string,
+      mentor: PropTypes.shape({
+        firstName: PropTypes.string,
+        lastName: PropTypes.string,
+      }),
+    }),
+  ),
+};
+
+MentoringList.defaultProps = {
+  sessions: undefined,
+};
 
 function DiagnosticsList({ diagnostics }) {
   if (!diagnostics?.length) {
@@ -149,6 +205,22 @@ function DiagnosticsList({ diagnostics }) {
   );
 }
 
+DiagnosticsList.propTypes = {
+  diagnostics: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      summary: PropTypes.string,
+      strengths: PropTypes.arrayOf(PropTypes.string),
+      gaps: PropTypes.arrayOf(PropTypes.string),
+      recommendedActions: PropTypes.arrayOf(PropTypes.string),
+    }),
+  ),
+};
+
+DiagnosticsList.defaultProps = {
+  diagnostics: undefined,
+};
+
 function RecommendationsList({ recommendations }) {
   if (!recommendations?.length) {
     return null;
@@ -176,6 +248,21 @@ function RecommendationsList({ recommendations }) {
     </div>
   );
 }
+
+RecommendationsList.propTypes = {
+  recommendations: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      title: PropTypes.string,
+      description: PropTypes.string,
+      confidenceScore: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    }),
+  ),
+};
+
+RecommendationsList.defaultProps = {
+  recommendations: undefined,
+};
 
 function CertificationsList({ certifications }) {
   if (!certifications?.length) {
@@ -212,6 +299,21 @@ function CertificationsList({ certifications }) {
     </div>
   );
 }
+
+CertificationsList.propTypes = {
+  certifications: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      name: PropTypes.string,
+      issuingOrganization: PropTypes.string,
+      expirationDate: PropTypes.string,
+    }),
+  ),
+};
+
+CertificationsList.defaultProps = {
+  certifications: undefined,
+};
 
 export default function LearningHubSection({
   data,
@@ -345,3 +447,38 @@ export default function LearningHubSection({
     </section>
   );
 }
+
+LearningHubSection.propTypes = {
+  data: PropTypes.shape({
+    generatedAt: PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.instanceOf(Date)]),
+    serviceLines: PropTypes.array,
+    recommendations: PropTypes.array,
+  }),
+  isLoading: PropTypes.bool,
+  error: PropTypes.shape({ message: PropTypes.string }),
+  fromCache: PropTypes.bool,
+  onRefresh: PropTypes.func,
+  summaryCards: PropTypes.arrayOf(
+    PropTypes.shape({
+      label: PropTypes.string,
+      value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      helper: PropTypes.string,
+    }),
+  ),
+  upcomingRenewal: PropTypes.shape({
+    name: PropTypes.string,
+    organization: PropTypes.string,
+    formattedDate: PropTypes.string,
+    daysRemaining: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  }),
+};
+
+LearningHubSection.defaultProps = {
+  data: undefined,
+  isLoading: false,
+  error: undefined,
+  fromCache: false,
+  onRefresh: undefined,
+  summaryCards: undefined,
+  upcomingRenewal: undefined,
+};

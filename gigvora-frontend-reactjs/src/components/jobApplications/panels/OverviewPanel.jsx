@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { ArrowPathIcon, PlusIcon, BoltIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 
@@ -36,54 +37,87 @@ function buildFocusAlerts(recommendedActions = []) {
 }
 
 export default function OverviewPanel({
-  summary,
-  statusBreakdown,
-  recommendedActions,
+  summary = {},
+  statusBreakdown = [],
+  recommendedActions = [],
   onCreateApplication,
   onCreateInterview,
   onCreateFavourite,
   onCreateResponse,
 }) {
   const totalApplications = summary?.totalApplications ?? 0;
-  const focusAlerts = buildFocusAlerts(recommendedActions);
+  const focusAlerts = useMemo(() => buildFocusAlerts(recommendedActions), [recommendedActions]);
 
-  const stats = [
-    { id: 'active', label: 'Active', value: summary?.activeApplications ?? 0 },
-    { id: 'meets', label: 'Interviews', value: summary?.interviewsScheduled ?? 0 },
-    { id: 'offers', label: 'Offers', value: summary?.offersNegotiating ?? 0 },
-    { id: 'saved', label: 'Saved', value: summary?.favourites ?? 0 },
-  ];
+  const stats = useMemo(
+    () => [
+      { id: 'active', label: 'Active', value: summary?.activeApplications ?? 0 },
+      { id: 'meets', label: 'Interviews', value: summary?.interviewsScheduled ?? 0 },
+      { id: 'offers', label: 'Offers', value: summary?.offersNegotiating ?? 0 },
+      { id: 'saved', label: 'Saved', value: summary?.favourites ?? 0 },
+    ],
+    [
+      summary?.activeApplications,
+      summary?.interviewsScheduled,
+      summary?.offersNegotiating,
+      summary?.favourites,
+    ],
+  );
 
-  const quickActions = [
-    { id: 'new-app', label: 'New app', onClick: onCreateApplication },
-    { id: 'new-meet', label: 'Plan meet', onClick: onCreateInterview },
-    { id: 'new-save', label: 'Save role', onClick: onCreateFavourite },
-    { id: 'new-reply', label: 'Log reply', onClick: onCreateResponse },
-  ];
+  const quickActions = useMemo(
+    () => [
+      { id: 'new-app', label: 'New app', onClick: onCreateApplication },
+      { id: 'new-meet', label: 'Plan meet', onClick: onCreateInterview },
+      { id: 'new-save', label: 'Save role', onClick: onCreateFavourite },
+      { id: 'new-reply', label: 'Log reply', onClick: onCreateResponse },
+    ],
+    [onCreateApplication, onCreateFavourite, onCreateInterview, onCreateResponse],
+  );
 
-  const focusCards = [
-    {
-      id: 'replies',
-      label: 'Replies',
-      value: summary?.pendingResponses ?? 0,
-      action: onCreateResponse,
-      cta: 'Reply now',
-    },
-    {
-      id: 'meets',
-      label: 'Meets',
-      value: summary?.interviewsScheduled ?? 0,
-      action: onCreateInterview,
-      cta: 'Prep meet',
-    },
-    {
-      id: 'saved',
-      label: 'Saved',
-      value: summary?.favourites ?? 0,
-      action: onCreateApplication,
-      cta: 'Promote role',
-    },
-  ];
+  const focusCards = useMemo(
+    () => [
+      {
+        id: 'replies',
+        label: 'Replies',
+        value: summary?.pendingResponses ?? 0,
+        action: onCreateResponse,
+        cta: 'Reply now',
+      },
+      {
+        id: 'meets',
+        label: 'Meets',
+        value: summary?.interviewsScheduled ?? 0,
+        action: onCreateInterview,
+        cta: 'Prep meet',
+      },
+      {
+        id: 'saved',
+        label: 'Saved',
+        value: summary?.favourites ?? 0,
+        action: onCreateApplication,
+        cta: 'Promote role',
+      },
+    ],
+    [
+      onCreateApplication,
+      onCreateInterview,
+      onCreateResponse,
+      summary?.favourites,
+      summary?.interviewsScheduled,
+      summary?.pendingResponses,
+    ],
+  );
+
+  const safeStatusBreakdown = useMemo(
+    () =>
+      statusBreakdown
+        .filter((item) => item && typeof item === 'object' && item.status && Number.isFinite(item.count))
+        .map((item) => ({
+          status: item.status,
+          label: item.label || item.status,
+          count: Math.max(0, item.count ?? 0),
+        })),
+    [statusBreakdown],
+  );
 
   return (
     <div className="flex h-full flex-col gap-6">
@@ -106,12 +140,12 @@ export default function OverviewPanel({
             <span className="text-xs text-slate-500">{formatNumber(totalApplications)} total</span>
           </header>
           <ul className="mt-6 space-y-3">
-            {statusBreakdown.length === 0 ? (
+            {safeStatusBreakdown.length === 0 ? (
               <li className="rounded-2xl bg-slate-50 px-4 py-6 text-center text-sm text-slate-400">
                 No active applications yet.
               </li>
             ) : (
-              statusBreakdown.map((item) => {
+              safeStatusBreakdown.map((item) => {
                 const percent = formatPercent(item.count, totalApplications || 1);
                 return (
                   <li key={item.status} className="rounded-2xl bg-slate-50 px-4 py-3">
@@ -131,7 +165,7 @@ export default function OverviewPanel({
 
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <h3 className="text-lg font-semibold text-slate-900">Quick create</h3>
-          <div className="mt-4 grid gap-3">
+          <div className="mt-4 grid gap-3" data-testid="overview-quick-actions">
             {quickActions.map((action) => (
               <button
                 key={action.id}
@@ -192,21 +226,30 @@ export default function OverviewPanel({
 }
 
 OverviewPanel.propTypes = {
-  summary: PropTypes.object,
-  statusBreakdown: PropTypes.arrayOf(PropTypes.shape({
-    status: PropTypes.string,
-    label: PropTypes.string,
-    count: PropTypes.number,
-  })),
-  recommendedActions: PropTypes.arrayOf(PropTypes.object),
+  summary: PropTypes.shape({
+    totalApplications: PropTypes.number,
+    activeApplications: PropTypes.number,
+    interviewsScheduled: PropTypes.number,
+    offersNegotiating: PropTypes.number,
+    favourites: PropTypes.number,
+    pendingResponses: PropTypes.number,
+  }),
+  statusBreakdown: PropTypes.arrayOf(
+    PropTypes.shape({
+      status: PropTypes.string.isRequired,
+      label: PropTypes.string,
+      count: PropTypes.number,
+    }),
+  ),
+  recommendedActions: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string,
+      title: PropTypes.string,
+    }),
+  ),
   onCreateApplication: PropTypes.func.isRequired,
   onCreateInterview: PropTypes.func.isRequired,
   onCreateFavourite: PropTypes.func.isRequired,
   onCreateResponse: PropTypes.func.isRequired,
 };
 
-OverviewPanel.defaultProps = {
-  summary: {},
-  statusBreakdown: [],
-  recommendedActions: [],
-};

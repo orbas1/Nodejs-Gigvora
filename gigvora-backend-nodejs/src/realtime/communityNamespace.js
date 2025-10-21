@@ -8,6 +8,7 @@ import {
   leaveCommunityChannel,
   publishMessage,
   acknowledgeMessages,
+  fetchRecentMessages,
 } from '../services/communityChatService.js';
 import { ApplicationError, AuthorizationError } from '../utils/errors.js';
 
@@ -42,6 +43,56 @@ function buildRateLimiter(limitPerMinute) {
   };
 }
 
+function sanitiseMetadata(metadata) {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return {};
+  }
+  return Object.entries(metadata).reduce((acc, [key, value]) => {
+    if (typeof key !== 'string' || key.length === 0) {
+      return acc;
+    }
+    const safeKey = key.slice(0, 120);
+    let safeValue = value;
+    if (typeof value === 'string') {
+      safeValue = value.slice(0, 2_000);
+    }
+    if (typeof safeValue === 'object' && safeValue !== null) {
+      try {
+        safeValue = JSON.parse(JSON.stringify(safeValue));
+      } catch (_error) {
+        safeValue = null;
+      }
+    }
+    acc[safeKey] = safeValue;
+    return acc;
+  }, {});
+}
+
+function ensureMessageTypeAllowed(resolvedType, features) {
+  if (resolvedType === 'file' && features?.attachments === false) {
+    throw new ApplicationError('File sharing is disabled for this community channel.');
+  }
+  return resolvedType;
+}
+
+const defaultCommunityService = {
+  joinCommunityChannel,
+  leaveCommunityChannel,
+  publishMessage,
+  acknowledgeMessages,
+  fetchRecentMessages,
+};
+
+const communityService = { ...defaultCommunityService };
+
+export function __setCommunityService(overrides = {}) {
+  Object.assign(communityService, overrides);
+}
+
+export function __resetCommunityService() {
+  Object.assign(communityService, defaultCommunityService);
+}
+
 export function registerCommunityNamespace(io, { logger, runtimeConfig }) {
   const communityConfig = runtimeConfig?.realtime?.namespaces?.community ?? {};
   const namespace = io.of('/community');
@@ -56,6 +107,7 @@ export function registerCommunityNamespace(io, { logger, runtimeConfig }) {
       channels: new Map(channels.map((channel) => [channel.slug, channel])),
       features: new Map(channels.map((channel) => [channel.slug, resolveChannelFeatureFlags(channel.slug)])),
       rateLimiter: buildRateLimiter(communityConfig.rateLimitPerMinute ?? 120),
+      joinedRooms: new Set(),
     };
     return next();
   });
@@ -82,7 +134,7 @@ export function registerCommunityNamespace(io, { logger, runtimeConfig }) {
         }
         const roomName = resolveRoomName(channel);
         await socket.join(roomName);
-        const { messages } = await joinCommunityChannel({ channelSlug: channel, userId: actor.id });
+        const { messages } = await communityService.joinCommunityChannel({ channelSlug: channel, userId: actor.id });
         socket.emit('community:joined', {
           channel,
           messages,
@@ -94,6 +146,7 @@ export function registerCommunityNamespace(io, { logger, runtimeConfig }) {
           status: 'joined',
           timestamp: new Date().toISOString(),
         });
+        communityState.joinedRooms.add(channel);
         communityLogger?.info({ channel }, 'Joined community channel');
       } catch (error) {
         communityLogger?.warn({ err: error, channel }, 'Failed to join community channel');
@@ -107,13 +160,14 @@ export function registerCommunityNamespace(io, { logger, runtimeConfig }) {
           throw new ApplicationError('Channel is required.');
         }
         await socket.leave(resolveRoomName(channel));
-        await leaveCommunityChannel({ channelSlug: channel, userId: actor.id });
+        await communityService.leaveCommunityChannel({ channelSlug: channel, userId: actor.id });
         namespace.to(resolveRoomName(channel)).emit('community:presence', {
           channel,
           userId: actor.id,
           status: 'left',
           timestamp: new Date().toISOString(),
         });
+        communityState.joinedRooms.delete(channel);
       } catch (error) {
         communityLogger?.warn({ err: error, channel }, 'Failed to leave community channel');
       }
@@ -130,16 +184,21 @@ export function registerCommunityNamespace(io, { logger, runtimeConfig }) {
         ) {
           throw new AuthorizationError('You do not have permission to post in this channel.');
         }
+        if (!communityState.joinedRooms.has(channel)) {
+          throw new ApplicationError('You must join this channel before posting messages.');
+        }
         if (!communityState.rateLimiter.accept()) {
           throw new ApplicationError('Message rate limit exceeded. Please slow down.');
         }
         const resolvedType = normaliseMessageType(messageType);
-        const message = await publishMessage({
+        const channelFeatures = communityState.features.get(channel);
+        ensureMessageTypeAllowed(resolvedType, channelFeatures);
+        const message = await communityService.publishMessage({
           channelSlug: channel,
           userId: actor.id,
           body,
           messageType: resolvedType,
-          metadata,
+          metadata: sanitiseMetadata(metadata),
         });
         namespace.to(resolveRoomName(channel)).emit('community:message', {
           channel,
@@ -157,12 +216,29 @@ export function registerCommunityNamespace(io, { logger, runtimeConfig }) {
       }
     });
 
+    socket.on('community:history', async ({ channel, limit = 50 } = {}) => {
+      try {
+        if (!channel) {
+          throw new ApplicationError('Channel is required.');
+        }
+        if (!communityState.channels.has(channel)) {
+          throw new AuthorizationError('You do not have access to this channel.');
+        }
+        const safeLimit = Math.min(Math.max(Number.parseInt(limit, 10) || 50, 1), 200);
+        const messages = await communityService.fetchRecentMessages({ channelSlug: channel, limit: safeLimit });
+        socket.emit('community:history:list', { channel, messages });
+      } catch (error) {
+        communityLogger?.warn({ err: error, channel }, 'Failed to fetch community history');
+        socket.emit('community:error', { channel, message: error.message });
+      }
+    });
+
     socket.on('community:ack', async ({ channel } = {}) => {
       try {
         if (!channel) {
           throw new ApplicationError('Channel is required.');
         }
-        await acknowledgeMessages({ channelSlug: channel, userId: actor.id });
+        await communityService.acknowledgeMessages({ channelSlug: channel, userId: actor.id });
       } catch (error) {
         communityLogger?.warn({ err: error, channel }, 'Failed to acknowledge messages');
       }

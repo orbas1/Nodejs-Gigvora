@@ -15,6 +15,10 @@ void main() {
       repository = JobApplicationRepository(cache);
     });
 
+    tearDown(() async {
+      await cache.dispose();
+    });
+
     test('loadApplications seeds cache and returns sorted results', () async {
       final records = await repository.loadApplications('gigvora-product-lead');
       expect(records, isNotEmpty);
@@ -100,6 +104,24 @@ void main() {
       final refreshed = await repository.loadApplications('gigvora-product-lead');
       final updated = refreshed.firstWhere((record) => record.id == target.id);
       expect(updated.status, JobApplicationStatus.rejected);
+    });
+
+    test('cache expiry triggers a refresh of seeded applications', () async {
+      var now = DateTime(2024, 04, 11, 12);
+      await cache.dispose();
+      cache = InMemoryOfflineCache(clock: () => now);
+      repository = JobApplicationRepository(cache);
+
+      await repository.loadApplications('gigvora-product-lead');
+      await repository.createApplication(
+        'gigvora-product-lead',
+        const JobApplicationDraft(applicantName: 'Cache Tester', email: 'cache@test.dev'),
+      );
+
+      now = now.add(const Duration(minutes: 16));
+      final refreshed = await repository.loadApplications('gigvora-product-lead');
+
+      expect(refreshed.any((record) => record.email == 'cache@test.dev'), isFalse);
     });
   });
 }

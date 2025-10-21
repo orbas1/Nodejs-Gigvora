@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
 
 function formatNumber(value, { fallback = '—', suffix = '' } = {}) {
@@ -37,6 +38,10 @@ function EmptyState({ message }) {
   );
 }
 
+EmptyState.propTypes = {
+  message: PropTypes.node.isRequired,
+};
+
 function StatGrid({ items }) {
   if (!items?.length) {
     return null;
@@ -53,6 +58,20 @@ function StatGrid({ items }) {
     </div>
   );
 }
+
+StatGrid.propTypes = {
+  items: PropTypes.arrayOf(
+    PropTypes.shape({
+      label: PropTypes.string.isRequired,
+      value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      helper: PropTypes.string,
+    }),
+  ),
+};
+
+StatGrid.defaultProps = {
+  items: undefined,
+};
 
 function LeaderboardTable({ items }) {
   if (!items?.length) {
@@ -93,6 +112,25 @@ function LeaderboardTable({ items }) {
   );
 }
 
+LeaderboardTable.propTypes = {
+  items: PropTypes.arrayOf(
+    PropTypes.shape({
+      headhunterWorkspaceId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      name: PropTypes.string,
+      placements: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      responseRate: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      averageTimeToSubmitHours: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      qualityScore: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      activeBriefs: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      lastSubmissionAt: PropTypes.string,
+    }),
+  ),
+};
+
+LeaderboardTable.defaultProps = {
+  items: undefined,
+};
+
 function BriefPipelineTable({ items }) {
   if (!items?.length) {
     return <EmptyState message="Share a headhunter brief to activate the pipeline." />;
@@ -129,6 +167,25 @@ function BriefPipelineTable({ items }) {
     </div>
   );
 }
+
+BriefPipelineTable.propTypes = {
+  items: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      title: PropTypes.string,
+      status: PropTypes.string,
+      openings: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      submissions: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      placements: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      dueAt: PropTypes.string,
+      headhunters: PropTypes.array,
+    }),
+  ),
+};
+
+BriefPipelineTable.defaultProps = {
+  items: undefined,
+};
 
 function TalentPoolBreakdownTable({ items }) {
   if (!items?.length) {
@@ -167,6 +224,23 @@ function TalentPoolBreakdownTable({ items }) {
   );
 }
 
+TalentPoolBreakdownTable.propTypes = {
+  items: PropTypes.arrayOf(
+    PropTypes.shape({
+      type: PropTypes.string.isRequired,
+      pools: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      candidates: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      active: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      hires: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      averageTimeInPoolDays: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    }),
+  ),
+};
+
+TalentPoolBreakdownTable.defaultProps = {
+  items: undefined,
+};
+
 function UpcomingList({ items, emptyMessage }) {
   if (!items?.length) {
     return <EmptyState message={emptyMessage} />;
@@ -189,6 +263,23 @@ function UpcomingList({ items, emptyMessage }) {
   );
 }
 
+UpcomingList.propTypes = {
+  items: PropTypes.arrayOf(
+    PropTypes.shape({
+      poolName: PropTypes.string,
+      candidateName: PropTypes.string,
+      nextActionAt: PropTypes.string,
+      status: PropTypes.string,
+      ownerName: PropTypes.string,
+    }),
+  ),
+  emptyMessage: PropTypes.node.isRequired,
+};
+
+UpcomingList.defaultProps = {
+  items: undefined,
+};
+
 function RecentEngagementsList({ items }) {
   if (!items?.length) {
     return <EmptyState message="No recent talent pool engagements logged." />;
@@ -209,6 +300,22 @@ function RecentEngagementsList({ items }) {
     </ul>
   );
 }
+
+RecentEngagementsList.propTypes = {
+  items: PropTypes.arrayOf(
+    PropTypes.shape({
+      poolName: PropTypes.string,
+      occurredAt: PropTypes.string,
+      summary: PropTypes.string,
+      status: PropTypes.string,
+      ownerName: PropTypes.string,
+    }),
+  ),
+};
+
+RecentEngagementsList.defaultProps = {
+  items: undefined,
+};
 
 function BillingTable({ billing }) {
   const upcoming = billing?.upcomingInvoices ?? [];
@@ -499,3 +606,15 @@ export default function PartnershipsSourcingSection({ data }) {
     </section>
   );
 }
+
+PartnershipsSourcingSection.propTypes = {
+  data: PropTypes.shape({
+    headhunterProgram: PropTypes.object,
+    talentPools: PropTypes.object,
+    agencyCollaboration: PropTypes.object,
+  }),
+};
+
+PartnershipsSourcingSection.defaultProps = {
+  data: undefined,
+};

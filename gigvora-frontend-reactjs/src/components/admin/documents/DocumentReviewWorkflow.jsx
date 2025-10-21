@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import PropTypes from 'prop-types';
 import { CheckIcon, ClockIcon, ExclamationTriangleIcon, UserGroupIcon } from '@heroicons/react/24/outline';
 
 const STATUS_STYLES = {
@@ -121,3 +122,26 @@ export default function DocumentReviewWorkflow({ reviews = [], onApprove, onReje
     </section>
   );
 }
+
+DocumentReviewWorkflow.propTypes = {
+  reviews: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      documentName: PropTypes.string,
+      requestedBy: PropTypes.string,
+      status: PropTypes.oneOf(['pending', 'approved', 'rejected']),
+      dueAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+      notes: PropTypes.string,
+    }),
+  ),
+  onApprove: PropTypes.func,
+  onReject: PropTypes.func,
+  onRequestChanges: PropTypes.func,
+};
+
+DocumentReviewWorkflow.defaultProps = {
+  reviews: [],
+  onApprove: undefined,
+  onReject: undefined,
+  onRequestChanges: undefined,
+};

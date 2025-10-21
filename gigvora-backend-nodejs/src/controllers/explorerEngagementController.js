@@ -1,4 +1,5 @@
-import { z } from 'zod';
+import { ZodError, z } from 'zod';
+import { ValidationError } from '../utils/errors.js';
 import { getRecord } from '../services/explorerStore.js';
 import {
   createInteraction,
@@ -32,9 +33,61 @@ const interactionSchema = z.object({
   internalNotes: z.string().optional(),
 });
 
-const updateSchema = interactionSchema.partial().refine((value) => Object.keys(value).length > 0, {
-  message: 'Update payload must include at least one field',
-});
+const updateSchema = interactionSchema
+  .partial()
+  .refine((value) => Object.values(value).some((field) => field !== undefined), {
+    message: 'Update payload must include at least one field',
+  });
+
+function trimOptionalString(value) {
+  if (value == null) {
+    return undefined;
+  }
+  const trimmed = `${value}`.trim();
+  return trimmed.length ? trimmed : undefined;
+}
+
+function normaliseInteractionPayload(body) {
+  const parsed = interactionSchema.parse(body);
+  const payload = { ...parsed };
+  const issues = [];
+
+  const name = trimOptionalString(payload.name);
+  if (!name) {
+    issues.push({ path: ['name'], message: 'Name is required' });
+  } else {
+    payload.name = name;
+  }
+
+  const email = trimOptionalString(payload.email);
+  if (!email) {
+    issues.push({ path: ['email'], message: 'Valid email required' });
+  } else {
+    payload.email = email;
+  }
+
+  const message = trimOptionalString(payload.message);
+  if (!message) {
+    issues.push({ path: ['message'], message: 'Message is required' });
+  } else {
+    payload.message = message;
+  }
+
+  payload.phone = trimOptionalString(payload.phone);
+  payload.company = trimOptionalString(payload.company);
+  payload.headline = trimOptionalString(payload.headline);
+  payload.availability = trimOptionalString(payload.availability);
+  payload.startDate = trimOptionalString(payload.startDate);
+  payload.linkedin = trimOptionalString(payload.linkedin);
+  payload.website = trimOptionalString(payload.website);
+  payload.internalNotes = trimOptionalString(payload.internalNotes);
+
+  if (issues.length) {
+    throw new ValidationError('Interaction payload validation failed', issues);
+  }
+
+  return payload;
+}
 
 function resolveCollection(category) {
   return resolveExplorerCollection(category);
@@ -82,12 +135,16 @@ export async function createExplorerInteraction(req, res, next) {
     const { category, recordId } = req.params;
     const collection = resolveCollection(category);
     await ensureRecordExists(collection, recordId);
-    const payload = interactionSchema.parse(req.body ?? {});
+    const payload = normaliseInteractionPayload(req.body ?? {});
     const interaction = await createInteraction(collection, recordId, payload);
     res.status(201).json(interaction);
   } catch (error) {
-    if (error instanceof z.ZodError) {
+    if (error instanceof ZodError) {
       return res.status(400).json({ message: 'Validation failed', issues: error.issues });
+    }
+    if (error instanceof ValidationError) {
+      const issues = Array.isArray(error.details) ? error.details : [{ message: error.message }];
+      return res.status(400).json({ message: 'Validation failed', issues });
     }
     return next(error);
   }
@@ -105,7 +162,7 @@ export async function updateExplorerInteraction(req, res, next) {
     }
     return res.json(interaction);
   } catch (error) {
-    if (error instanceof z.ZodError) {
+    if (error instanceof ZodError) {
       return res.status(400).json({ message: 'Validation failed', issues: error.issues });
     }
     return next(error);

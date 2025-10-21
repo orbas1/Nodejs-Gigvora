@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import PropTypes from 'prop-types';
 import {
   ArrowPathIcon,
   ArrowTrendingUpIcon,
@@ -360,3 +361,13 @@ export default function FinanceControlTowerFeature({ userId, currency: preferred
     </div>
   );
 }
+
+FinanceControlTowerFeature.propTypes = {
+  userId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  currency: PropTypes.string,
+};
+
+FinanceControlTowerFeature.defaultProps = {
+  userId: undefined,
+  currency: undefined,
+};

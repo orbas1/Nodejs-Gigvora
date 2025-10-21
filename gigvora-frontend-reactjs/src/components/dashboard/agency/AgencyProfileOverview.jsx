@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import UserAvatar from '../../UserAvatar.jsx';
 
 function TagList({ label, items }) {
@@ -164,3 +165,38 @@ export default function AgencyProfileOverview({
     </section>
   );
 }
+
+AgencyProfileOverview.propTypes = {
+  overview: PropTypes.shape({
+    name: PropTypes.string,
+    headline: PropTypes.string,
+    bio: PropTypes.string,
+    location: PropTypes.string,
+    avatarSeed: PropTypes.string,
+    agencyProfile: PropTypes.object,
+    metrics: PropTypes.object,
+  }),
+  preferences: PropTypes.shape({
+    avatarUrl: PropTypes.string,
+  }),
+  followers: PropTypes.shape({
+    items: PropTypes.array,
+    pagination: PropTypes.object,
+  }),
+  connections: PropTypes.shape({
+    summary: PropTypes.object,
+  }),
+  onEdit: PropTypes.func,
+  onFollowers: PropTypes.func,
+  onConnections: PropTypes.func,
+};
+
+AgencyProfileOverview.defaultProps = {
+  overview: undefined,
+  preferences: undefined,
+  followers: undefined,
+  connections: undefined,
+  onEdit: undefined,
+  onFollowers: undefined,
+  onConnections: undefined,
+};

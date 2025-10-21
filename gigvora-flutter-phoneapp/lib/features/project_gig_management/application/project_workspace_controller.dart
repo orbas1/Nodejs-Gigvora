@@ -82,6 +82,16 @@ class ProjectWorkspaceController
 
   Future<void> acknowledgeConversation(int conversationId) async {
     try {
+      final current = state.data;
+      if (current == null) {
+        throw StateError('Project workspace is still syncing. Please try again shortly.');
+      }
+      final conversationExists =
+          current.conversations.any((conversation) => conversation.id == conversationId);
+      if (!conversationExists) {
+        throw StateError('Conversation $conversationId is not part of this workspace.');
+      }
+
       state = state.copyWith(error: null);
       final snapshot = await _repository.acknowledgeConversation(projectId, conversationId);
       state = state.copyWith(
@@ -102,6 +112,7 @@ class ProjectWorkspaceController
       );
     } catch (error) {
       state = state.copyWith(error: error);
+      final stage = error is StateError ? 'permission_check' : 'submission';
       unawaited(
         _analytics.track(
           'mobile_project_workspace_conversation_failed',
@@ -109,6 +120,7 @@ class ProjectWorkspaceController
             'projectId': projectId,
             'conversationId': conversationId,
             'reason': '$error',
+            'stage': stage,
           },
           metadata: const {'source': 'mobile_app'},
         ),

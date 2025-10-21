@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import PropTypes from 'prop-types';
 import {
   CalendarDaysIcon,
   CheckCircleIcon,
@@ -40,6 +41,10 @@ function ProgressBar({ value }) {
     </div>
   );
 }
+
+ProgressBar.propTypes = {
+  value: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+};
 
 export default function InterviewExperienceSection({
   data,
@@ -599,3 +604,24 @@ export default function InterviewExperienceSection({
     </div>
   );
 }
+
+InterviewExperienceSection.propTypes = {
+  data: PropTypes.shape({
+    scheduler: PropTypes.object,
+    panelTemplates: PropTypes.object,
+    candidatePrep: PropTypes.object,
+    evaluationWorkspace: PropTypes.object,
+    offerBridge: PropTypes.object,
+    candidateCareCenter: PropTypes.object,
+  }),
+  interviewOperations: PropTypes.object,
+  candidateExperience: PropTypes.object,
+  offerOnboarding: PropTypes.object,
+};
+
+InterviewExperienceSection.defaultProps = {
+  data: undefined,
+  interviewOperations: undefined,
+  candidateExperience: undefined,
+  offerOnboarding: undefined,
+};

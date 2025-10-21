@@ -1,3 +1,5 @@
+import PropTypes from 'prop-types';
+
 const SUMMARY_CONFIG = [
   { key: 'totalSessions', label: 'Sessions', tone: 'primary' },
   { key: 'upcomingSessions', label: 'Upcoming', tone: 'neutral' },
@@ -7,9 +9,12 @@ const SUMMARY_CONFIG = [
   { key: 'sessionsRemaining', label: 'Credits left', tone: 'neutral' },
 ];
 
-export default function MentoringSummaryBar({ summary, currencyFormatter }) {
+const defaultCurrencyFormatter = (value = 0, currency = '£') =>
+  `${currency}${new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 }).format(value ?? 0)}`;
+
+export default function MentoringSummaryBar({ summary = {}, currencyFormatter } = {}) {
   const safeSummary = summary ?? {};
-  const formatCurrency = typeof currencyFormatter === 'function' ? currencyFormatter : (value) => value ?? '—';
+  const formatCurrency = typeof currencyFormatter === 'function' ? currencyFormatter : defaultCurrencyFormatter;
 
   return (
     <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6" role="grid">
@@ -37,3 +42,9 @@ export default function MentoringSummaryBar({ summary, currencyFormatter }) {
     </div>
   );
 }
+
+MentoringSummaryBar.propTypes = {
+  summary: PropTypes.object,
+  currencyFormatter: PropTypes.func,
+};
+

@@ -33,7 +33,6 @@ import '../features/networking/presentation/networking_screen.dart';
 import '../features/groups/presentation/groups_directory_screen.dart';
 import '../features/groups/presentation/group_profile_screen.dart';
 import '../features/groups/presentation/group_management_screen.dart';
-import '../features/auth/application/session_controller.dart';
 import '../features/pipeline/presentation/freelancer_pipeline_screen.dart';
 import '../features/services/presentation/service_operations_screen.dart';
 import '../features/finance/presentation/finance_screen.dart';

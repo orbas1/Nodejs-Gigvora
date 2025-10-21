@@ -1,4 +1,8 @@
-const TEST_DIRECTORIES = ['<rootDir>/tests/controllers/**/*.test.js', '<rootDir>/tests/config/**/*.test.js'];
+const TEST_DIRECTORIES = [
+  '<rootDir>/tests/controllers/**/*.test.js',
+  '<rootDir>/tests/config/**/*.test.js',
+  '<rootDir>/tests/lifecycle/**/*.test.js',
+];
 
 if (typeof process.env.SKIP_SEQUELIZE_BOOTSTRAP === 'undefined') {
   process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'true';
@@ -19,6 +23,8 @@ export default {
     '^express-rate-limit$': '<rootDir>/tests/stubs/expressRateLimitStub.js',
     '^zod$': '<rootDir>/tests/stubs/zodStub.js',
     '^compression$': '<rootDir>/tests/stubs/compressionStub.js',
+    '(.*/)?models/index\\.js$': '<rootDir>/tests/stubs/modelsIndexStub.js',
+    '(.*/)?models/constants/index\\.js$': '<rootDir>/tests/stubs/modelConstantsStub.js',
   },
   testMatch: TEST_DIRECTORIES,
   testPathIgnorePatterns: ['/node_modules/'],
@@ -26,7 +32,7 @@ export default {
   collectCoverageFrom: [
     'src/**/*.js',
     '!src/server.js',
-    '!src/models/index.js',
+    '!src/models/**',
   ],
   coverageDirectory: '<rootDir>/coverage',
 };

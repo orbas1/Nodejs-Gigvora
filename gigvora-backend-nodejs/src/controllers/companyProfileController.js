@@ -1,13 +1,21 @@
 import companyProfileService from '../services/companyProfileService.js';
+import { ValidationError } from '../utils/errors.js';
+
+function parsePositiveInteger(value, fieldName) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new ValidationError(`${fieldName} must be a positive number.`);
+  }
+  return parsed;
+}
 
 function resolveUserId(req) {
-  if (req.user?.id != null) {
-    return Number(req.user.id);
+  const candidates = [req.user?.id, req.params?.userId, req.query?.userId, req.body?.userId];
+  const candidate = candidates.find((value) => value != null && `${value}`.trim() !== '');
+  if (candidate == null) {
+    throw new ValidationError('Authenticated user required.');
   }
-  if (req.query?.userId != null) {
-    return Number(req.query.userId);
-  }
-  throw new Error('Authenticated user required.');
+  return parsePositiveInteger(candidate, 'userId');
 }
 
 export async function getWorkspace(req, res) {
@@ -54,7 +62,10 @@ export async function addFollower(req, res) {
 
 export async function updateFollower(req, res) {
   const userId = resolveUserId(req);
-  const followerId = req.params?.followerId ?? req.body?.followerId;
+  const followerId = parsePositiveInteger(
+    req.params?.followerId ?? req.body?.followerId,
+    'followerId',
+  );
   const follower = await companyProfileService.updateFollower({
     userId,
     followerId,
@@ -66,7 +77,10 @@ export async function updateFollower(req, res) {
 
 export async function removeFollower(req, res) {
   const userId = resolveUserId(req);
-  const followerId = req.params?.followerId ?? req.body?.followerId;
+  const followerId = parsePositiveInteger(
+    req.params?.followerId ?? req.body?.followerId,
+    'followerId',
+  );
   await companyProfileService.removeFollower({ userId, followerId });
   res.status(204).send();
 }
@@ -98,7 +112,10 @@ export async function createConnection(req, res) {
 
 export async function updateConnection(req, res) {
   const userId = resolveUserId(req);
-  const connectionId = req.params?.connectionId ?? req.body?.connectionId;
+  const connectionId = parsePositiveInteger(
+    req.params?.connectionId ?? req.body?.connectionId,
+    'connectionId',
+  );
   const connection = await companyProfileService.updateConnection({
     userId,
     connectionId,
@@ -114,7 +131,10 @@ export async function updateConnection(req, res) {
 
 export async function removeConnection(req, res) {
   const userId = resolveUserId(req);
-  const connectionId = req.params?.connectionId ?? req.body?.connectionId;
+  const connectionId = parsePositiveInteger(
+    req.params?.connectionId ?? req.body?.connectionId,
+    'connectionId',
+  );
   await companyProfileService.removeConnection({ userId, connectionId });
   res.status(204).send();
 }

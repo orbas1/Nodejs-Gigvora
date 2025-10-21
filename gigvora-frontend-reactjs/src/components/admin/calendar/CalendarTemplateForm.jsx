@@ -30,49 +30,117 @@ function normaliseReminder(value) {
   return value ?? '';
 }
 
+function parseRoles(value) {
+  return value
+    .split(',')
+    .map((role) => role.trim())
+    .filter((role, index, array) => role && array.indexOf(role) === index);
+}
+
+function parseReminders(value) {
+  if (!value.trim()) {
+    return [];
+  }
+  return value
+    .split(',')
+    .map((entry) => Number.parseInt(entry.trim(), 10))
+    .filter((minutes, index, array) => Number.isFinite(minutes) && minutes > 0 && array.indexOf(minutes) === index)
+    .sort((a, b) => a - b);
+}
+
+function deriveTemplateState(initialValue) {
+  if (!initialValue) {
+    return { ...DEFAULT_TEMPLATE };
+  }
+
+  return {
+    name: initialValue.name ?? '',
+    description: initialValue.description ?? '',
+    defaultEventType: initialValue.defaultEventType ?? DEFAULT_TEMPLATE.defaultEventType,
+    defaultVisibility: initialValue.defaultVisibility ?? DEFAULT_TEMPLATE.defaultVisibility,
+    durationMinutes: initialValue.durationMinutes ?? DEFAULT_TEMPLATE.durationMinutes,
+    defaultLocation: initialValue.defaultLocation ?? '',
+    defaultMeetingUrl: initialValue.defaultMeetingUrl ?? '',
+    defaultAllowedRoles: normaliseRoles(initialValue.defaultAllowedRoles),
+    reminderMinutes: normaliseReminder(initialValue.reminderMinutes),
+    instructions: initialValue.instructions ?? '',
+    bannerImageUrl: initialValue.bannerImageUrl ?? '',
+    isActive: initialValue.isActive !== false,
+  };
+}
+
+function isSameTemplateState(previous, next) {
+  const keys = Object.keys(next);
+  for (const key of keys) {
+    if (previous[key] !== next[key]) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export default function CalendarTemplateForm({ initialValue, onSubmit, onCancel, submitting }) {
-  const [form, setForm] = useState(DEFAULT_TEMPLATE);
+  const [form, setForm] = useState(() => deriveTemplateState(initialValue));
+  const [errors, setErrors] = useState({});
 
   useEffect(() => {
-    if (initialValue) {
-      setForm({
-        name: initialValue.name ?? '',
-        description: initialValue.description ?? '',
-        defaultEventType: initialValue.defaultEventType ?? DEFAULT_TEMPLATE.defaultEventType,
-        defaultVisibility: initialValue.defaultVisibility ?? DEFAULT_TEMPLATE.defaultVisibility,
-        durationMinutes: initialValue.durationMinutes ?? DEFAULT_TEMPLATE.durationMinutes,
-        defaultLocation: initialValue.defaultLocation ?? '',
-        defaultMeetingUrl: initialValue.defaultMeetingUrl ?? '',
-        defaultAllowedRoles: normaliseRoles(initialValue.defaultAllowedRoles),
-        reminderMinutes: normaliseReminder(initialValue.reminderMinutes),
-        instructions: initialValue.instructions ?? '',
-        bannerImageUrl: initialValue.bannerImageUrl ?? '',
-        isActive: initialValue.isActive !== false,
-      });
-    } else {
-      setForm(DEFAULT_TEMPLATE);
-    }
+    const nextForm = deriveTemplateState(initialValue);
+    setForm((prev) => (isSameTemplateState(prev, nextForm) ? prev : nextForm));
+    setErrors((prev) => (Object.keys(prev).length ? {} : prev));
   }, [initialValue]);
 
   const updateField = (event) => {
     const { name, value, type, checked } = event.target;
     setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    setErrors((prev) => {
+      if (!prev[name]) {
+        return prev;
+      }
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
   };
 
   const handleSubmit = (event) => {
     event.preventDefault();
+    const nextErrors = {};
+    const trimmedName = form.name.trim();
+    if (!trimmedName) {
+      nextErrors.name = 'Template name is required.';
+    }
+
+    const duration = Number(form.durationMinutes);
+    if (!Number.isFinite(duration) || duration <= 0) {
+      nextErrors.durationMinutes = 'Duration must be a positive number of minutes.';
+    }
+
+    const reminders = parseReminders(String(form.reminderMinutes ?? ''));
+    if (form.reminderMinutes.trim() && reminders.length === 0) {
+      nextErrors.reminderMinutes = 'Enter reminders as comma separated positive numbers.';
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      return;
+    }
+
+    setErrors({});
+
+    const allowedRoles = parseRoles(form.defaultAllowedRoles);
+
     onSubmit({
-      name: form.name,
-      description: form.description || undefined,
+      name: trimmedName,
+      description: form.description.trim() || undefined,
       defaultEventType: form.defaultEventType,
       defaultVisibility: form.defaultVisibility,
-      durationMinutes: form.durationMinutes ? Number(form.durationMinutes) : undefined,
-      defaultLocation: form.defaultLocation || undefined,
-      defaultMeetingUrl: form.defaultMeetingUrl || undefined,
-      defaultAllowedRoles: form.defaultAllowedRoles,
-      reminderMinutes: form.reminderMinutes,
-      instructions: form.instructions || undefined,
-      bannerImageUrl: form.bannerImageUrl || undefined,
+      durationMinutes: Math.round(duration),
+      defaultLocation: form.defaultLocation.trim() || undefined,
+      defaultMeetingUrl: form.defaultMeetingUrl.trim() || undefined,
+      defaultAllowedRoles: allowedRoles.length ? allowedRoles : undefined,
+      reminderMinutes: reminders.length ? reminders : undefined,
+      instructions: form.instructions.trim() || undefined,
+      bannerImageUrl: form.bannerImageUrl.trim() || undefined,
       isActive: !!form.isActive,
     });
   };
@@ -87,8 +155,17 @@ export default function CalendarTemplateForm({ initialValue, onSubmit, onCancel,
           value={form.name}
           onChange={updateField}
           required
-          className="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"
+          aria-invalid={Boolean(errors.name)}
+          aria-describedby={errors.name ? 'template-name-error' : undefined}
+          className={`rounded-xl border px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200 ${
+            errors.name ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-200' : 'border-slate-300 focus:border-slate-500'
+          }`}
         />
+        {errors.name ? (
+          <span id="template-name-error" className="text-xs font-semibold text-rose-600">
+            {errors.name}
+          </span>
+        ) : null}
       </label>
 
       <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
@@ -143,8 +220,19 @@ export default function CalendarTemplateForm({ initialValue, onSubmit, onCancel,
             name="durationMinutes"
             value={form.durationMinutes}
             onChange={updateField}
-            className="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"
+            aria-invalid={Boolean(errors.durationMinutes)}
+            aria-describedby={errors.durationMinutes ? 'template-duration-error' : undefined}
+            className={`rounded-xl border px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200 ${
+              errors.durationMinutes
+                ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-200'
+                : 'border-slate-300 focus:border-slate-500'
+            }`}
           />
+          {errors.durationMinutes ? (
+            <span id="template-duration-error" className="text-xs font-semibold text-rose-600">
+              {errors.durationMinutes}
+            </span>
+          ) : null}
         </label>
         <label className="flex items-center gap-3 text-sm font-medium text-slate-700">
           <input
@@ -201,8 +289,19 @@ export default function CalendarTemplateForm({ initialValue, onSubmit, onCancel,
             value={form.reminderMinutes}
             onChange={updateField}
             placeholder="e.g. 60,15"
-            className="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"
+            aria-invalid={Boolean(errors.reminderMinutes)}
+            aria-describedby={errors.reminderMinutes ? 'template-reminder-error' : undefined}
+            className={`rounded-xl border px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200 ${
+              errors.reminderMinutes
+                ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-200'
+                : 'border-slate-300 focus:border-slate-500'
+            }`}
           />
+          {errors.reminderMinutes ? (
+            <span id="template-reminder-error" className="text-xs font-semibold text-rose-600">
+              {errors.reminderMinutes}
+            </span>
+          ) : null}
         </label>
       </div>
 

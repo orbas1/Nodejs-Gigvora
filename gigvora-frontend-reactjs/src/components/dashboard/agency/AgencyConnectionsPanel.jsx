@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import PropTypes from 'prop-types';
 import UserAvatar from '../../UserAvatar.jsx';
 
 function formatName(user) {
@@ -130,6 +131,29 @@ function ConnectionRow({
     </article>
   );
 }
+
+ConnectionRow.propTypes = {
+  connection: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+    requester: PropTypes.object,
+    target: PropTypes.object,
+    counterpart: PropTypes.object,
+    createdAt: PropTypes.string,
+    updatedAt: PropTypes.string,
+  }).isRequired,
+  busy: PropTypes.bool,
+  type: PropTypes.oneOf(['incoming', 'outgoing', 'accepted']).isRequired,
+  onAccept: PropTypes.func,
+  onReject: PropTypes.func,
+  onRemove: PropTypes.func,
+};
+
+ConnectionRow.defaultProps = {
+  busy: false,
+  onAccept: undefined,
+  onReject: undefined,
+  onRemove: undefined,
+};
 
 export default function AgencyConnectionsPanel({
   connections,
@@ -286,3 +310,30 @@ export default function AgencyConnectionsPanel({
     </section>
   );
 }
+
+AgencyConnectionsPanel.propTypes = {
+  connections: PropTypes.shape({
+    accepted: PropTypes.array,
+    pendingIncoming: PropTypes.array,
+    pendingOutgoing: PropTypes.array,
+    summary: PropTypes.object,
+  }),
+  loading: PropTypes.bool,
+  error: PropTypes.string,
+  onRefresh: PropTypes.func,
+  onRequestConnection: PropTypes.func,
+  onRespond: PropTypes.func,
+  onRemove: PropTypes.func,
+  pendingUpdates: PropTypes.object,
+};
+
+AgencyConnectionsPanel.defaultProps = {
+  connections: undefined,
+  loading: false,
+  error: undefined,
+  onRefresh: undefined,
+  onRequestConnection: undefined,
+  onRespond: undefined,
+  onRemove: undefined,
+  pendingUpdates: undefined,
+};
