@@ -11,13 +11,20 @@ import {
 } from '../services/companyPageService.js';
 import { ValidationError } from '../utils/errors.js';
 
+function parsePositiveInteger(value, fieldName) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new ValidationError(`${fieldName} must be a positive integer.`);
+  }
+  return parsed;
+}
+
 function parseWorkspaceId(req) {
-  const candidate = req.query.workspaceId ?? req.body.workspaceId;
-  const workspaceId = Number.parseInt(candidate, 10);
-  if (!Number.isInteger(workspaceId) || workspaceId <= 0) {
+  const candidate = req.query.workspaceId ?? req.body.workspaceId ?? req.params.workspaceId;
+  if (candidate == null) {
     throw new ValidationError('workspaceId is required and must be a positive integer.');
   }
-  return workspaceId;
+  return parsePositiveInteger(candidate, 'workspaceId');
 }
 
 function parsePagination(req) {
@@ -40,8 +47,8 @@ export async function index(req, res) {
 
 export async function show(req, res) {
   const workspaceId = parseWorkspaceId(req);
-  const { pageId } = req.params;
-  const page = await getCompanyPage({ workspaceId, pageId: Number(pageId) });
+  const pageId = parsePositiveInteger(req.params.pageId, 'pageId');
+  const page = await getCompanyPage({ workspaceId, pageId });
   res.json({ page });
 }
 
@@ -54,28 +61,29 @@ export async function create(req, res) {
 
 export async function update(req, res) {
   const workspaceId = parseWorkspaceId(req);
-  const { pageId } = req.params;
+  const pageId = parsePositiveInteger(req.params.pageId, 'pageId');
   const actorId = req.user?.id ?? null;
-  const page = await updateCompanyPage({ workspaceId, pageId: Number(pageId), actorId, ...req.body });
+  const page = await updateCompanyPage({ workspaceId, pageId, actorId, ...req.body });
   res.json({ page });
 }
 
 export async function updateSections(req, res) {
   const workspaceId = parseWorkspaceId(req);
-  const { pageId } = req.params;
+  const pageId = parsePositiveInteger(req.params.pageId, 'pageId');
   const actorId = req.user?.id ?? null;
-  const page = await replacePageSections({ workspaceId, pageId: Number(pageId), sections: req.body.sections ?? [], actorId });
+  const sections = Array.isArray(req.body.sections) ? req.body.sections : [];
+  const page = await replacePageSections({ workspaceId, pageId, sections, actorId });
   res.json({ page });
 }
 
 export async function updateCollaboratorsHandler(req, res) {
   const workspaceId = parseWorkspaceId(req);
-  const { pageId } = req.params;
+  const pageId = parsePositiveInteger(req.params.pageId, 'pageId');
   const actorId = req.user?.id ?? null;
   const page = await replacePageCollaborators({
     workspaceId,
-    pageId: Number(pageId),
-    collaborators: req.body.collaborators ?? [],
+    pageId,
+    collaborators: Array.isArray(req.body.collaborators) ? req.body.collaborators : [],
     actorId,
   });
   res.json({ page });
@@ -83,24 +91,24 @@ export async function updateCollaboratorsHandler(req, res) {
 
 export async function publish(req, res) {
   const workspaceId = parseWorkspaceId(req);
-  const { pageId } = req.params;
+  const pageId = parsePositiveInteger(req.params.pageId, 'pageId');
   const actorId = req.user?.id ?? null;
-  const page = await publishCompanyPage({ workspaceId, pageId: Number(pageId), actorId });
+  const page = await publishCompanyPage({ workspaceId, pageId, actorId });
   res.json({ page });
 }
 
 export async function archive(req, res) {
   const workspaceId = parseWorkspaceId(req);
-  const { pageId } = req.params;
+  const pageId = parsePositiveInteger(req.params.pageId, 'pageId');
   const actorId = req.user?.id ?? null;
-  await archiveCompanyPage({ workspaceId, pageId: Number(pageId), actorId });
+  await archiveCompanyPage({ workspaceId, pageId, actorId });
   res.status(204).send();
 }
 
 export async function destroy(req, res) {
   const workspaceId = parseWorkspaceId(req);
-  const { pageId } = req.params;
-  await deleteCompanyPage({ workspaceId, pageId: Number(pageId) });
+  const pageId = parsePositiveInteger(req.params.pageId, 'pageId');
+  await deleteCompanyPage({ workspaceId, pageId });
   res.status(204).send();
 }
 
