@@ -60,3 +60,17 @@ Analytic tables are optimised for append-only workloads and integrate with data 
 
 ## Reference Data & Seeds
 The curated seeders provision diverse personas (talent, clients, agencies) plus realistic messaging and notification records so QA flows mirror production traffic patterns.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L6-L160】 When combined with the integration tests in `tests/`, these seeds guarantee migrations and services remain regression-safe across environments.
+
+## Access Control & RBAC Alignment
+- Roles and fine-grained permissions follow the shared RBAC vocabulary (for example `calendar:manage`, `talent:disputes`, `admin:networking`) defined in `.env.example`, keeping the backend, React app, and calendar stub aligned on capability names.【F:gigvora-backend-nodejs/.env.example†L44-L61】【F:calendar_stub/server.mjs†L210-L323】
+- Controllers enforce those permissions by checking both role membership and delegated capability flags before mutating resources—for instance the mentoring and networking surfaces require either an admin role or the corresponding `admin:*` permission set before allowing updates.【F:gigvora-backend-nodejs/src/controllers/userMentoringController.js†L36-L78】【F:gigvora-backend-nodejs/src/controllers/userNetworkingController.js†L47-L88】
+- Two-factor tokens are re-created with hashed verification codes and least-privilege constraints during the governance upgrade migration so credential recovery never exposes plaintext secrets while still allowing automated rollover of existing data.【F:gigvora-backend-nodejs/database/migrations/20241120100000-database-governance-upgrade.cjs†L1-L210】
+
+## Cross-Origin & API Surface Hardening
+- The HTTP security module maintains an allowlist-based CORS middleware that mirrors production origins and annotates blocked attempts, ensuring browser clients receive actionable errors while unauthorized origins are denied early.【F:gigvora-backend-nodejs/src/config/httpSecurity.js†L182-L308】
+- Dedicated tests assert that allowed origins obtain the correct response headers and disallowed origins are rejected, preventing regressions when environments or staging URLs change.【F:gigvora-backend-nodejs/tests/config/httpSecurity.test.js†L1-L114】
+- Socket namespaces inherit the same CORS configuration, so real-time dashboards and notifications respect the identical security posture as the REST layer without duplicating configuration knobs.【F:gigvora-backend-nodejs/tests/realtime/socketServer.test.js†L150-L236】
+
+## Database Provisioning & Least Privilege
+- `install.sql` now provisions separate migrator and application roles with enforced TLS requirements and 16+ character password validation, ensuring CI/CD pipelines have the elevated privileges they need while the runtime API is locked to CRUD-only access.【F:gigvora-backend-nodejs/install.sql†L1-L143】
+- The migrator role grants schema-altering capabilities for Sequelize migrations, whereas the runtime account receives only the DML grants required by the service layer—keeping production blast radius minimal and aligning with the operational guardrails documented above.【F:gigvora-backend-nodejs/install.sql†L31-L132】【F:gigvora-backend-nodejs/src/services/applicationService.js†L67-L191】
