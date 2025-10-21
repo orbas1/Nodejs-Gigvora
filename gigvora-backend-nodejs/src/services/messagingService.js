@@ -124,19 +124,6 @@ function sanitizeLabel(label) {
   };
 }
 
-export function sanitizeParticipant(participant) {
-    workspaceId: plain.workspaceId,
-    name: plain.name,
-    slug: plain.slug,
-    color: plain.color,
-    description: plain.description ?? null,
-    createdBy: plain.createdBy ?? null,
-    metadata: plain.metadata && typeof plain.metadata === 'object' ? plain.metadata : null,
-    createdAt: plain.createdAt ?? null,
-    updatedAt: plain.updatedAt ?? null,
-  };
-}
-
 function buildLabelCacheKey(workspaceId, search) {
   const normalizedWorkspaceId = Number(workspaceId) || 0;
   const tokenBase = search ? slugifyLabelName(search) : 'all';
@@ -144,9 +131,9 @@ function buildLabelCacheKey(workspaceId, search) {
   return `messaging:labels:${normalizedWorkspaceId}:${token}`;
 }
 
-function sanitizeParticipant(participant) {
+export function sanitizeParticipant(participant) {
   if (!participant) return null;
-  const plain = participant.get({ plain: true });
+  const plain = participant.get ? participant.get({ plain: true }) : participant;
   return {
     id: plain.id,
     threadId: plain.threadId,
