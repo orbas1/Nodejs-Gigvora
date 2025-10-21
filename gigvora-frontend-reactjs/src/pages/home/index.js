@@ -8,5 +8,6 @@ export { CreationStudioSection } from './CreationStudioSection.jsx';
 export { FeesShowcaseSection } from './FeesShowcaseSection.jsx';
 export { CreationStudioWorkflowSection } from './CreationStudioWorkflowSection.jsx';
 export { JoinCommunitySection } from './JoinCommunitySection.jsx';
+export { ExplorerShowcaseSection } from './ExplorerShowcaseSection.jsx';
 export { CollaborationToolkitSection } from './CollaborationToolkitSection.jsx';
 export { ClosingConversionSection } from './ClosingConversionSection.jsx';

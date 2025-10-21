@@ -7,6 +7,7 @@ import {
   CommunityPulseSection,
   PersonaJourneysSection,
   CommunitySpotlightsSection,
+  ExplorerShowcaseSection,
   TestimonialsSection,
   MarketplaceLaunchesSection,
   CreationStudioSection,
@@ -95,6 +96,7 @@ export default function HomePage() {
       />
       <PersonaJourneysSection loading={homeLoading} error={homeError} />
       <CommunitySpotlightsSection loading={homeLoading} error={homeError} />
+      <ExplorerShowcaseSection loading={homeLoading} error={homeError} creations={homeData?.creations} />
       <TestimonialsSection loading={homeLoading} error={homeError} />
       <MarketplaceLaunchesSection
         loading={homeLoading}
