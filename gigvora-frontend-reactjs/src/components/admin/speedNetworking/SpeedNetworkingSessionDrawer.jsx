@@ -135,8 +135,24 @@ export default function SpeedNetworkingSessionDrawer({
       return;
     }
     setErrors({});
+    const normalizeText = (value) => {
+      if (value == null) {
+        return '';
+      }
+      return `${value}`.trim();
+    };
+    const optionalText = (value) => {
+      const trimmed = normalizeText(value);
+      return trimmed.length ? trimmed : undefined;
+    };
     const payload = {
       ...formState,
+      title: normalizeText(formState.title),
+      description: optionalText(formState.description),
+      instructions: optionalText(formState.instructions),
+      meetingProvider: optionalText(formState.meetingProvider),
+      lobbyUrl: optionalText(formState.lobbyUrl),
+      meetingUrl: optionalText(formState.meetingUrl),
       capacity: formState.capacity ? Number(formState.capacity) : undefined,
       roundDurationSeconds: formState.roundDurationSeconds ? Number(formState.roundDurationSeconds) : undefined,
       totalRounds: formState.totalRounds ? Number(formState.totalRounds) : undefined,
@@ -147,13 +163,13 @@ export default function SpeedNetworkingSessionDrawer({
       tags: toTags(formState.tags),
       rooms: rooms.map((room) => ({
         id: room.id,
-        name: room.name,
-        topic: room.topic || null,
+        name: normalizeText(room.name),
+        topic: optionalText(room.topic) ?? null,
         capacity: room.capacity ? Number(room.capacity) : null,
         facilitatorId: room.facilitatorId ? Number(room.facilitatorId) : null,
-        meetingUrl: room.meetingUrl || null,
+        meetingUrl: optionalText(room.meetingUrl) ?? null,
         rotationIntervalSeconds: room.rotationIntervalSeconds ? Number(room.rotationIntervalSeconds) : null,
-        instructions: room.instructions || null,
+        instructions: optionalText(room.instructions) ?? null,
       })),
     };
     onSubmit(payload);
