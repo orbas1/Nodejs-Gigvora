@@ -63,9 +63,47 @@ describe('profile service', () => {
     readCache.mockReturnValue(null);
     get.mockResolvedValue({ id: 'p-2' });
     const { fetchProfile } = await import('../profile.js');
-    const result = await fetchProfile('7', { force: true });
+    const result = await fetchProfile('7', { force: true, params: { include: ' activity ' } });
     expect(result).toEqual({ id: 'p-2' });
+    expect(get).toHaveBeenCalledWith('/users/7', { params: { include: 'activity', fresh: 'true' } });
     expect(writeCache).toHaveBeenCalledWith(expect.stringContaining('profiles:overview:7'), { id: 'p-2' }, expect.any(Number));
+  });
+
+  it('appends fresh query params when forcing refresh and merges request options', async () => {
+    readCache.mockReturnValue(null);
+    get.mockResolvedValue({ id: 'p-3' });
+    const controller = new AbortController();
+    const { fetchProfile } = await import('../profile.js');
+    await fetchProfile('abc', {
+      force: true,
+      params: { include: ' stats ', page: 2, tags: [' design ', ''], active: false },
+      headers: { 'x-debug': '1' },
+      signal: controller.signal,
+    });
+    expect(get).toHaveBeenCalledWith(
+      '/users/abc',
+      {
+        headers: { 'x-debug': '1' },
+        params: { include: 'stats', page: 2, tags: 'design', active: 'false', fresh: 'true' },
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('updates availability using the dedicated endpoint and refreshes the cache', async () => {
+    const updated = { id: 'user-42', availability: { status: 'busy' } };
+    patch.mockResolvedValue(updated);
+    const { updateProfileAvailability } = await import('../profile.js');
+    const result = await updateProfileAvailability('user-42', { status: 'busy' }, {
+      headers: { 'x-scope': 'profile' },
+    });
+    expect(patch).toHaveBeenCalledWith(
+      '/users/user-42/profile/availability',
+      { status: 'busy' },
+      { headers: { 'x-scope': 'profile' } },
+    );
+    expect(writeCache).toHaveBeenCalledWith('profiles:overview:user-42', updated, expect.any(Number));
+    expect(result).toEqual(updated);
   });
 });
 
