@@ -16,8 +16,8 @@ export default function AgencyBiddingStrategyForm({ bidding, disabled, busy, onS
   const [formState, setFormState] = useState({
     enabled: false,
     strategy: 'balanced',
-    minBudget: null,
-    maxBudget: null,
+    minBudget: '',
+    maxBudget: '',
     markupPercent: 18,
     autoSubmit: false,
     guardrails: { requireHumanReview: true, notifyOwner: true, maxConcurrentBids: 5, minRatingThreshold: 4.2 },
@@ -103,6 +103,7 @@ export default function AgencyBiddingStrategyForm({ bidding, disabled, busy, onS
               disabled || busy ? 'opacity-60' : 'cursor-pointer',
             )}
             disabled={disabled || busy}
+            aria-label="Enable auto bidding"
           >
             <span
               className={classNames(
