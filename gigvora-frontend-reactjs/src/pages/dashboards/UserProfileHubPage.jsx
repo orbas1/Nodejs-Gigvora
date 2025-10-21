@@ -1,4 +1,5 @@
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import useCachedResource from '../../hooks/useCachedResource.js';
 import useSession from '../../hooks/useSession.js';
 import DataStatus from '../../components/DataStatus.jsx';
@@ -16,6 +17,8 @@ const MENU_SECTIONS = [
 ];
 
 const AVAILABLE_DASHBOARDS = ['user', 'freelancer', 'agency', 'company', 'headhunter'];
+
+const ALLOWED_ROLES = AVAILABLE_DASHBOARDS;
 
 function resolveUserId(session) {
   if (!session) {
@@ -48,15 +51,16 @@ export default function UserProfileHubPage() {
   const profileHub = data?.profileHub ?? null;
 
   return (
-    <DashboardLayout
-      currentDashboard="user"
-      title="Profile Hub"
-      subtitle="Workspace"
-      menuSections={MENU_SECTIONS}
-      sections={[]}
-      availableDashboards={AVAILABLE_DASHBOARDS}
-      activeMenuItem="profile-hub"
-    >
+    <DashboardAccessGuard requiredRoles={ALLOWED_ROLES}>
+      <DashboardLayout
+        currentDashboard="user"
+        title="Profile Hub"
+        subtitle="Workspace"
+        menuSections={MENU_SECTIONS}
+        sections={[]}
+        availableDashboards={AVAILABLE_DASHBOARDS}
+        activeMenuItem="profile-hub"
+      >
       <div className="space-y-6">
         <DataStatus
           loading={loading}
@@ -74,6 +78,7 @@ export default function UserProfileHubPage() {
           />
         ) : null}
       </div>
-    </DashboardLayout>
+      </DashboardLayout>
+    </DashboardAccessGuard>
   );
 }

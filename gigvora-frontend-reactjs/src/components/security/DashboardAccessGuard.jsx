@@ -2,6 +2,36 @@ import PropTypes from 'prop-types';
 import { ShieldCheckIcon } from '@heroicons/react/24/outline';
 import useSession from '../../hooks/useSession.js';
 
+function formatList(values, { transform } = {}) {
+  if (!Array.isArray(values)) {
+    return null;
+  }
+
+  const normalized = values
+    .map((value) => (typeof value === 'string' ? value.trim() : ''))
+    .filter(Boolean)
+    .map((value) => (transform ? transform(value) : value))
+    .filter(Boolean);
+
+  if (!normalized.length) {
+    return null;
+  }
+
+  if (normalized.length === 1) {
+    return normalized[0];
+  }
+
+  return `${normalized.slice(0, -1).join(', ')} or ${normalized.at(-1)}`;
+}
+
+function toTitleCase(value) {
+  return value
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 function normalizeRoles(session) {
   const roles = new Set();
   if (!session) {
@@ -52,6 +82,7 @@ function normalizePermissions(session) {
 
 export default function DashboardAccessGuard({
   requiredRoles,
+  allowedRoles,
   requiredPermissions,
   fallback,
   children,
@@ -80,10 +111,20 @@ export default function DashboardAccessGuard({
   const normalizedRoles = normalizeRoles(session);
   const normalizedPermissions = normalizePermissions(session);
 
-  const hasRole = !requiredRoles?.length || requiredRoles.some((role) => normalizedRoles.has(role));
+  const roleRequirements = requiredRoles ?? allowedRoles;
+  const hasRole = !roleRequirements?.length || roleRequirements.some((role) => normalizedRoles.has(role));
   const hasPermission =
     !requiredPermissions?.length ||
     requiredPermissions.some((permission) => normalizedPermissions.has(permission));
+
+  const formattedRoles = formatList(roleRequirements, { transform: toTitleCase });
+  const formattedPermissions = formatList(requiredPermissions);
+  const roleRequirementText = formattedRoles
+    ? `This dashboard is limited to ${formattedRoles} workspaces.`
+    : 'This dashboard is limited to approved workspaces.';
+  const permissionRequirementText = formattedPermissions
+    ? ` It also requires ${formattedPermissions} permissions.`
+    : '';
 
   if (!hasRole || !hasPermission) {
     return (
@@ -95,8 +136,10 @@ export default function DashboardAccessGuard({
             </div>
             <h1 className="text-2xl font-semibold text-slate-900">Access restricted</h1>
             <p className="text-sm text-slate-600">
-              This dashboard is limited to approved roles. Please switch to an account with headhunter permissions or request
-              access from your workspace owner.
+              {roleRequirementText}
+              {permissionRequirementText}
+              {' '}
+              Please switch to an account with the proper access or contact your workspace owner.
             </p>
           </div>
         </div>
@@ -109,6 +152,7 @@ export default function DashboardAccessGuard({
 
 DashboardAccessGuard.propTypes = {
   requiredRoles: PropTypes.arrayOf(PropTypes.string),
+  allowedRoles: PropTypes.arrayOf(PropTypes.string),
   requiredPermissions: PropTypes.arrayOf(PropTypes.string),
   fallback: PropTypes.node,
   children: PropTypes.node.isRequired,

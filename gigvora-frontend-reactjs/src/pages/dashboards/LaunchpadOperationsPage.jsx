@@ -7,6 +7,7 @@ import {
   UsersIcon,
 } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import DataStatus from '../../components/DataStatus.jsx';
 import useOpportunityListing from '../../hooks/useOpportunityListing.js';
 import { fetchLaunchpadWorkflow } from '../../services/launchpad.js';
@@ -62,6 +63,8 @@ const LOOKBACK_OPTIONS = [
   { value: 60, label: 'Last 60 days' },
   { value: 90, label: 'Last 90 days' },
 ];
+
+const ALLOWED_ROLES = ['admin', 'mentor'];
 
 function formatScore(value) {
   if (value == null) {
@@ -313,15 +316,16 @@ export default function LaunchpadOperationsPage() {
   const matchHighlights = workflow?.automation?.highlights ?? [];
 
   return (
-    <DashboardLayout
-      currentDashboard="launchpad"
-      title="Experience Launchpad operations"
-      subtitle="Coordinate talent, interviews, and partner demand from a single mission control."
-      description="Monitor readiness, orchestrate assignments, and keep cohorts on track with the latest telemetry."
-      menuSections={menuSections}
-      profile={profile}
-      activeMenuItem={null}
-    >
+    <DashboardAccessGuard requiredRoles={ALLOWED_ROLES}>
+      <DashboardLayout
+        currentDashboard="launchpad"
+        title="Experience Launchpad operations"
+        subtitle="Coordinate talent, interviews, and partner demand from a single mission control."
+        description="Monitor readiness, orchestrate assignments, and keep cohorts on track with the latest telemetry."
+        menuSections={menuSections}
+        profile={profile}
+        activeMenuItem={null}
+      >
       <div className="space-y-12">
         <section id="overview" className="space-y-6">
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
@@ -531,6 +535,7 @@ export default function LaunchpadOperationsPage() {
           <MatchList items={matchHighlights} />
         </section>
       </div>
-    </DashboardLayout>
+      </DashboardLayout>
+    </DashboardAccessGuard>
   );
 }
