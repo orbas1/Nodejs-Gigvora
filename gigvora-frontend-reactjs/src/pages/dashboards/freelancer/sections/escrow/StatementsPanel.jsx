@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 
@@ -75,7 +75,51 @@ function buildCsv(transactions, currency) {
 
 export default function StatementsPanel({ transactions, currency, loading }) {
   const [exporting, setExporting] = useState(false);
-  const rows = useMemo(() => buildStatementRows(normaliseTransactions(transactions)), [transactions]);
+  const statementRows = useMemo(() => buildStatementRows(normaliseTransactions(transactions)), [transactions]);
+  const availableYears = useMemo(() => {
+    const years = new Set();
+    normaliseTransactions(transactions).forEach((transaction) => {
+      if (!transaction?.createdAt) {
+        return;
+      }
+      const created = new Date(transaction.createdAt);
+      if (!Number.isNaN(created.getTime())) {
+        years.add(created.getFullYear().toString());
+      }
+    });
+    return [...years].sort((first, second) => Number(second) - Number(first));
+  }, [transactions]);
+  const [selectedYear, setSelectedYear] = useState(() => availableYears[0] ?? 'all');
+
+  useEffect(() => {
+    if (availableYears.length === 0) {
+      if (selectedYear !== 'all') {
+        setSelectedYear('all');
+      }
+      return;
+    }
+
+    if (selectedYear === 'all') {
+      return;
+    }
+
+    if (availableYears.includes(selectedYear)) {
+      return;
+    }
+
+    const nextYear = availableYears[0] ?? 'all';
+    if (selectedYear !== nextYear) {
+      setSelectedYear(nextYear);
+    }
+  }, [availableYears, selectedYear]);
+
+  const rows = useMemo(() => {
+    if (selectedYear === 'all') {
+      return statementRows;
+    }
+    return statementRows.filter((row) => row.key.startsWith(selectedYear));
+  }, [statementRows, selectedYear]);
+
   const totals = useMemo(() => {
     return rows.reduce(
       (accumulator, row) => ({
@@ -116,6 +160,24 @@ export default function StatementsPanel({ transactions, currency, loading }) {
           <p className="text-lg font-semibold text-slate-900">Statements</p>
           <p className="text-sm text-slate-500">Monthly summary of funds held, released, and refunded.</p>
         </div>
+        <div className="flex items-center gap-2">
+          <label htmlFor="statement-year" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Period
+          </label>
+          <select
+            id="statement-year"
+            value={selectedYear}
+            onChange={(event) => setSelectedYear(event.target.value)}
+            className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 focus:border-blue-300 focus:outline-none"
+          >
+            <option value="all">All time</option>
+            {availableYears.map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </select>
+        </div>
         <button
           type="button"
           onClick={handleExport}
@@ -129,15 +191,21 @@ export default function StatementsPanel({ transactions, currency, loading }) {
 
       <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total inflow</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            {selectedYear === 'all' ? 'Total inflow' : `Inflow ${selectedYear}`}
+          </p>
           <p className="mt-2 text-2xl font-semibold text-emerald-600">{formatCurrency(totals.inflow, currency)}</p>
         </div>
         <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total outflow</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            {selectedYear === 'all' ? 'Total outflow' : `Outflow ${selectedYear}`}
+          </p>
           <p className="mt-2 text-2xl font-semibold text-rose-600">{formatCurrency(Math.abs(totals.outflow), currency)}</p>
         </div>
         <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Transactions</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            {selectedYear === 'all' ? 'Transactions' : `Transactions ${selectedYear}`}
+          </p>
           <p className="mt-2 text-2xl font-semibold text-slate-900">{totals.count}</p>
         </div>
       </div>

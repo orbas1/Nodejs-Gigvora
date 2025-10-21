@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ChatBubbleLeftRightIcon,
   ExclamationTriangleIcon,
-  PlusIcon
+  PlusIcon,
 } from '@heroicons/react/24/outline';
 import SlideOver from './components/SlideOver.jsx';
 
@@ -24,10 +24,10 @@ function formatDate(value) {
   return new Date(value).toLocaleString();
 }
 
-function NewDisputeForm({ transactions, onSubmit, submitting }) {
+function NewDisputeForm({ transactions, onSubmit, submitting, error }) {
   const eligibleTransactions = useMemo(
     () =>
-      transactions.filter((txn) => ['funded', 'in_escrow', 'disputed'].includes(txn.status ?? '')),
+      transactions.filter((txn) => ['funded', 'in_escrow', 'disputed'].includes((txn?.status ?? '').toString())),
     [transactions],
   );
 
@@ -38,20 +38,40 @@ function NewDisputeForm({ transactions, onSubmit, submitting }) {
     summary: '',
   });
 
+  useEffect(() => {
+    setForm((previous) => {
+      const stillAvailable = eligibleTransactions.some((txn) => txn.id === previous.transactionId);
+      if (stillAvailable) {
+        return previous;
+      }
+      return {
+        ...previous,
+        transactionId: eligibleTransactions[0]?.id ?? '',
+      };
+    });
+  }, [eligibleTransactions]);
+
   const updateField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     if (!form.transactionId) return;
-    onSubmit({
-      transactionId: Number(form.transactionId),
-      reasonCode: form.reasonCode,
-      priority: form.priority,
-      summary: form.summary,
-    });
+    try {
+      await onSubmit({
+        transactionId: Number(form.transactionId),
+        reasonCode: form.reasonCode,
+        priority: form.priority,
+        summary: form.summary.trim(),
+      });
+      setForm((previous) => ({ ...previous, summary: '' }));
+    } catch (error_) {
+      // Parent handles error messaging.
+    }
   };
+
+  const disabled = submitting || eligibleTransactions.length === 0;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -63,11 +83,17 @@ function NewDisputeForm({ transactions, onSubmit, submitting }) {
           required
           className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/20"
         >
-          {eligibleTransactions.map((txn) => (
-            <option key={txn.id} value={txn.id}>
-              {txn.reference} · {txn.status}
+          {eligibleTransactions.length === 0 ? (
+            <option value="" disabled>
+              No active transactions eligible
             </option>
-          ))}
+          ) : (
+            eligibleTransactions.map((txn) => (
+              <option key={txn.id} value={txn.id}>
+                {txn.reference} · {txn.status}
+              </option>
+            ))
+          )}
         </select>
       </label>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -110,20 +136,31 @@ function NewDisputeForm({ transactions, onSubmit, submitting }) {
           className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/20"
         />
       </label>
+      {error ? (
+        <div className="flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700">
+          <ExclamationTriangleIcon className="h-4 w-4" aria-hidden="true" />
+          <span>{error}</span>
+        </div>
+      ) : null}
       <div className="flex justify-end">
         <button
           type="submit"
-          disabled={submitting}
+          disabled={disabled}
           className="rounded-full bg-slate-900 px-6 py-2 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20 disabled:cursor-not-allowed disabled:bg-slate-400"
         >
           {submitting ? 'Submitting…' : 'Submit'}
         </button>
       </div>
+      {eligibleTransactions.length === 0 ? (
+        <p className="text-xs text-slate-500">
+          Disputes can only be opened on transactions that are currently funded or held in escrow.
+        </p>
+      ) : null}
     </form>
   );
 }
 
-function DisputeDetail({ dispute, onAddEvent }) {
+function DisputeDetail({ dispute, onAddEvent, pending, error }) {
   const [note, setNote] = useState('');
   return (
     <div className="space-y-6 text-sm text-slate-600">
@@ -156,10 +193,15 @@ function DisputeDetail({ dispute, onAddEvent }) {
         </ul>
       </div>
       <form
-        onSubmit={(event) => {
+        onSubmit={async (event) => {
           event.preventDefault();
           if (note.trim().length === 0) return;
-          onAddEvent(note).then(() => setNote(''));
+          try {
+            await onAddEvent(note.trim());
+            setNote('');
+          } catch (error_) {
+            // Error surfaced via props.
+          }
         }}
         className="space-y-3 rounded-3xl border border-slate-200 bg-white p-4"
       >
@@ -172,14 +214,20 @@ function DisputeDetail({ dispute, onAddEvent }) {
             className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/20"
           />
         </label>
+        {error ? (
+          <div className="flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700">
+            <ExclamationTriangleIcon className="h-4 w-4" aria-hidden="true" />
+            <span>{error}</span>
+          </div>
+        ) : null}
         <div className="flex justify-end">
           <button
             type="submit"
-            disabled={note.trim().length === 0}
+            disabled={note.trim().length === 0 || pending}
             className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
           >
             <ChatBubbleLeftRightIcon className="h-4 w-4" />
-            Log note
+            {pending ? 'Saving…' : 'Log note'}
           </button>
         </div>
       </form>
@@ -192,14 +240,58 @@ export default function DisputesPanel({ disputes, transactions, onOpenDispute, o
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
 
+  const [createError, setCreateError] = useState(null);
+  const [noteError, setNoteError] = useState(null);
+  const [creating, setCreating] = useState(false);
+  const [notePendingId, setNotePendingId] = useState(null);
+
+  const safeDisputes = useMemo(() => (Array.isArray(disputes) ? disputes.filter(Boolean) : []), [disputes]);
+  const safeTransactions = useMemo(
+    () => (Array.isArray(transactions) ? transactions.filter(Boolean) : []),
+    [transactions],
+  );
+
   const sortedDisputes = useMemo(
-    () => [...disputes].sort((a, b) => new Date(b.openedAt || 0) - new Date(a.openedAt || 0)),
-    [disputes],
+    () =>
+      [...safeDisputes].sort(
+        (a, b) => new Date(b?.openedAt || 0).getTime() - new Date(a?.openedAt || 0).getTime(),
+      ),
+    [safeDisputes],
   );
 
   const openDetail = (dispute) => {
     setSelected(dispute);
     setDrawerOpen(true);
+    setNoteError(null);
+  };
+
+  const handleCreateDispute = async (payload) => {
+    setCreateError(null);
+    setCreating(true);
+    try {
+      await onOpenDispute(payload.transactionId, payload);
+      setNewOpen(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to open dispute right now.';
+      setCreateError(message);
+      throw error;
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleAppendNote = async (disputeId, note) => {
+    setNoteError(null);
+    setNotePendingId(disputeId);
+    try {
+      await onAppendEvent(disputeId, { notes: note });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to record the dispute note.';
+      setNoteError(message);
+      throw error;
+    } finally {
+      setNotePendingId(null);
+    }
   };
 
   return (
@@ -249,7 +341,11 @@ export default function DisputesPanel({ disputes, transactions, onOpenDispute, o
 
       <SlideOver
         open={drawerOpen && Boolean(selected)}
-        onClose={() => setDrawerOpen(false)}
+        onClose={() => {
+          setDrawerOpen(false);
+          setSelected(null);
+          setNoteError(null);
+        }}
         title={selected?.transaction?.reference ?? `Dispute ${selected?.id ?? ''}`}
         description={selected ? `${selected.stage ?? 'open'} · ${selected.status}` : ''}
         wide
@@ -257,24 +353,27 @@ export default function DisputesPanel({ disputes, transactions, onOpenDispute, o
         {selected ? (
           <DisputeDetail
             dispute={selected}
-            onAddEvent={(note) => onAppendEvent(selected.id, { notes: note })}
+            onAddEvent={(note) => handleAppendNote(selected.id, note)}
+            pending={notePendingId === selected.id || actionState?.status === 'pending'}
+            error={noteError}
           />
         ) : null}
       </SlideOver>
 
       <SlideOver
         open={newOpen}
-        onClose={() => setNewOpen(false)}
+        onClose={() => {
+          setNewOpen(false);
+          setCreateError(null);
+        }}
         title="New dispute"
         description="Escalate an issue to the trust desk."
       >
         <NewDisputeForm
-          transactions={transactions}
-          onSubmit={async (payload) => {
-            await onOpenDispute(payload.transactionId, payload);
-            setNewOpen(false);
-          }}
-          submitting={actionState.status === 'pending'}
+          transactions={safeTransactions}
+          onSubmit={handleCreateDispute}
+          submitting={creating || actionState?.status === 'pending'}
+          error={createError}
         />
       </SlideOver>
     </div>
