@@ -39,6 +39,20 @@ const ACCENT_CLASSNAMES = {
   },
 };
 
+const STATUS_BADGE_STYLES = {
+  Paid: 'bg-emerald-50 text-emerald-600',
+  Refunded: 'bg-slate-100 text-slate-600',
+  Cancelled: 'bg-rose-50 text-rose-600',
+  'Pending payment': 'bg-amber-50 text-amber-600',
+};
+
+const FULFILMENT_BADGE_STYLES = {
+  Completed: 'bg-emerald-50 text-emerald-600',
+  'In progress': 'bg-blue-50 text-blue-600',
+  'Awaiting payment': 'bg-amber-50 text-amber-600',
+  'On hold': 'bg-rose-50 text-rose-600',
+};
+
 function formatForDateTimeInput(value) {
   if (!value) return '';
   try {
@@ -96,6 +110,9 @@ export default function MentorOrdersSection({ orders, summary, saving, onCreateO
   const [formState, setFormState] = useState(DEFAULT_ORDER);
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [feedback, setFeedback] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [channelFilter, setChannelFilter] = useState('all');
+  const [orderSearch, setOrderSearch] = useState('');
 
   const list = orders ?? [];
 
@@ -171,6 +188,27 @@ export default function MentorOrdersSection({ orders, summary, saving, onCreateO
       setFeedback({ type: 'error', message: error.message ?? 'Unable to delete order.' });
     }
   };
+
+  const channelOptions = useMemo(() => {
+    const channels = new Set(list.map((order) => order.channel).filter(Boolean));
+    return Array.from(channels);
+  }, [list]);
+
+  const filteredOrders = useMemo(() => {
+    return list
+      .filter((order) => (statusFilter === 'all' ? true : order.status === statusFilter))
+      .filter((order) => (channelFilter === 'all' ? true : order.channel === channelFilter))
+      .filter((order) => {
+        if (!orderSearch) return true;
+        const haystack = `${order.reference ?? ''} ${order.mentee ?? ''} ${order.package ?? ''}`.toLowerCase();
+        return haystack.includes(orderSearch.toLowerCase());
+      })
+      .sort((a, b) => {
+        const aDate = a.orderedAt ? new Date(a.orderedAt).getTime() : 0;
+        const bDate = b.orderedAt ? new Date(b.orderedAt).getTime() : 0;
+        return bDate - aDate;
+      });
+  }, [channelFilter, list, orderSearch, statusFilter]);
 
   return (
     <section className="space-y-10 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
@@ -337,7 +375,48 @@ export default function MentorOrdersSection({ orders, summary, saving, onCreateO
             </button>
           </div>
         </form>
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-3 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600 shadow-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-2">
+                Status
+                <select
+                  value={statusFilter}
+                  onChange={(event) => setStatusFilter(event.target.value)}
+                  className="rounded-full border border-slate-200 px-3 py-1 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
+                >
+                  <option value="all">All</option>
+                  {ORDER_STATUSES.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex items-center gap-2">
+                Channel
+                <select
+                  value={channelFilter}
+                  onChange={(event) => setChannelFilter(event.target.value)}
+                  className="rounded-full border border-slate-200 px-3 py-1 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
+                >
+                  <option value="all">All</option>
+                  {channelOptions.map((channel) => (
+                    <option key={channel} value={channel}>
+                      {channel}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <input
+              type="search"
+              value={orderSearch}
+              onChange={(event) => setOrderSearch(event.target.value)}
+              placeholder="Search orders"
+              className="rounded-full border border-slate-200 px-3 py-1 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
+            />
+          </div>
           <div className="overflow-hidden rounded-3xl border border-slate-200">
             <table className="min-w-full divide-y divide-slate-200 text-left">
               <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -346,19 +425,21 @@ export default function MentorOrdersSection({ orders, summary, saving, onCreateO
                   <th className="px-5 py-3">Mentee</th>
                   <th className="px-5 py-3">Amount</th>
                   <th className="px-5 py-3">Status</th>
+                  <th className="px-5 py-3">Fulfilment</th>
+                  <th className="px-5 py-3">Channel</th>
                   <th className="px-5 py-3">Ordered</th>
                   <th className="px-5 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-                {list.length === 0 ? (
+                {filteredOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-5 py-6 text-center text-sm text-slate-500">
-                      No orders logged yet. Sync Explorer checkout or log manual bookings here.
+                    <td colSpan={8} className="px-5 py-6 text-center text-sm text-slate-500">
+                      {list.length ? 'No orders match the filters above.' : 'No orders logged yet. Sync Explorer checkout or log manual bookings here.'}
                     </td>
                   </tr>
                 ) : (
-                  list.map((order) => (
+                  filteredOrders.map((order) => (
                     <tr key={order.id} className="hover:bg-slate-50/80">
                       <td className="px-5 py-4">
                         <div className="space-y-1">
@@ -372,21 +453,22 @@ export default function MentorOrdersSection({ orders, summary, saving, onCreateO
                         {order.amount}
                       </td>
                       <td className="px-5 py-4">
-                        <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600">
+                        <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${STATUS_BADGE_STYLES[order.status] ?? 'bg-slate-100 text-slate-600'}`}>
                           {order.status}
                         </span>
-                        <p className="mt-1 text-xs text-slate-500">{order.fulfillmentStatus}</p>
                       </td>
+                      <td className="px-5 py-4">
+                        <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${FULFILMENT_BADGE_STYLES[order.fulfillmentStatus] ?? 'bg-slate-100 text-slate-600'}`}>
+                          {order.fulfillmentStatus}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-xs text-slate-500">{order.channel ?? '—'}</td>
                       <td className="px-5 py-4 text-xs text-slate-500">
                         {order.orderedAt ? format(new Date(order.orderedAt), 'dd MMM yyyy HH:mm') : '—'}
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
-                          <button
-                            type="button"
-                            onClick={() => handleEdit(order)}
-                            className="text-slate-500 hover:text-accent"
-                          >
+                          <button type="button" onClick={() => handleEdit(order)} className="text-slate-500 hover:text-accent">
                             Edit
                           </button>
                           <button

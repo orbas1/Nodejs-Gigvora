@@ -65,6 +65,44 @@ function MetricCard({ widget, onEdit, onDelete }) {
         </span>
       </div>
       <p className="text-sm text-slate-600">{widget.insight ?? 'Add a narrative insight to coach future you.'}</p>
+      <div className="flex items-center justify-between text-xs font-semibold">
+        {widget.trend !== undefined ? (
+          <span className={widget.trend >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
+            {widget.trend >= 0 ? '+' : ''}
+            {widget.trend}% trend
+          </span>
+        ) : (
+          <span className="text-slate-400">Trend pending</span>
+        )}
+        {widget.variance !== undefined ? (
+          <span className={widget.variance >= 0 ? 'text-emerald-600' : 'text-amber-600'}>
+            {widget.variance >= 0 ? '+' : ''}
+            {widget.variance} variance
+          </span>
+        ) : null}
+      </div>
+      <div className="h-12 w-full overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-50 via-white to-slate-100">
+        <svg viewBox="0 0 120 40" className="h-full w-full">
+          <polyline
+            fill="none"
+            stroke="url(#metricGradient)"
+            strokeWidth="3"
+            points={(widget.samples ?? [20, 24, 18, 28, 32, 30, 38])
+              .map((value, index, arr) => {
+                const x = (index / Math.max(arr.length - 1, 1)) * 120;
+                const y = 40 - (Number(value) / Math.max(...arr, 1)) * 32 - 4;
+                return `${x},${Number.isFinite(y) ? y : 20}`;
+              })
+              .join(' ')}
+          />
+          <defs>
+            <linearGradient id="metricGradient" x1="0" x2="1" y1="0" y2="0">
+              <stop offset="0%" stopColor="#22d3ee" />
+              <stop offset="100%" stopColor="#10b981" />
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
       {progress !== null ? (
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs text-slate-500">
@@ -101,6 +139,9 @@ MetricCard.propTypes = {
     unit: PropTypes.string,
     timeframe: PropTypes.string,
     insight: PropTypes.string,
+    trend: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    variance: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    samples: PropTypes.arrayOf(PropTypes.number),
   }).isRequired,
   onEdit: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,
@@ -120,6 +161,9 @@ export default function MentorMetricsSection({
   const [editingWidgetId, setEditingWidgetId] = useState(null);
   const [feedback, setFeedback] = useState(null);
   const [reportGenerating, setReportGenerating] = useState(false);
+  const [timeframeFilter, setTimeframeFilter] = useState('all');
+  const [metricSearch, setMetricSearch] = useState('');
+  const [cohortFocus, setCohortFocus] = useState('all');
 
   useEffect(() => {
     if (!editingWidgetId) {
@@ -187,6 +231,26 @@ export default function MentorMetricsSection({
       setReportGenerating(false);
     }
   };
+
+  const filteredMetrics = useMemo(() => {
+    const list = metrics ?? [];
+    return list
+      .filter((widget) => (timeframeFilter === 'all' ? true : widget.timeframe === timeframeFilter))
+      .filter((widget) => {
+        if (!metricSearch) return true;
+        const haystack = `${widget.name} ${widget.insight ?? ''}`.toLowerCase();
+        return haystack.includes(metricSearch.toLowerCase());
+      });
+  }, [metrics, timeframeFilter, metricSearch]);
+
+  const filteredCohorts = useMemo(() => {
+    const list = cohorts ?? [];
+    if (cohortFocus === 'all') return list;
+    if (cohortFocus === 'growing') {
+      return list.filter((cohort) => cohort.change >= 0);
+    }
+    return list.filter((cohort) => cohort.change < 0);
+  }, [cohortFocus, cohorts]);
 
   return (
     <section className="space-y-10 rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-slate-100 p-8 shadow-sm">
@@ -306,13 +370,39 @@ export default function MentorMetricsSection({
           </div>
         </form>
         <div className="space-y-4 lg:col-span-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600 shadow-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-2">
+                Timeframe
+                <select
+                  value={timeframeFilter}
+                  onChange={(event) => setTimeframeFilter(event.target.value)}
+                  className="rounded-full border border-slate-200 px-3 py-1 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
+                >
+                  <option value="all">All</option>
+                  {TIMEFRAMES.map((timeframe) => (
+                    <option key={timeframe} value={timeframe}>
+                      {timeframe}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <input
+              type="search"
+              value={metricSearch}
+              onChange={(event) => setMetricSearch(event.target.value)}
+              placeholder="Search metrics"
+              className="rounded-full border border-slate-200 px-3 py-1 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
+            />
+          </div>
           <div className="grid gap-4 lg:grid-cols-3">
-            {(metrics ?? []).length === 0 ? (
+            {filteredMetrics.length === 0 ? (
               <div className="col-span-3 rounded-3xl border border-dashed border-slate-200 px-6 py-10 text-center text-sm text-slate-500">
-                No scorecards yet. Add metrics on the left to unlock automated reporting.
+                {metrics?.length ? 'No widgets match the filters. Adjust timeframe or search terms.' : 'No scorecards yet. Add metrics on the left to unlock automated reporting.'}
               </div>
             ) : (
-              (metrics ?? []).map((widget) => (
+              filteredMetrics.map((widget) => (
                 <MetricCard key={widget.id ?? widget.name} widget={widget} onEdit={handleEdit} onDelete={handleDelete} />
               ))
             )}
@@ -320,8 +410,32 @@ export default function MentorMetricsSection({
           <div className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:grid-cols-2">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Funnel cohorts</p>
+              <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-slate-500">
+                <span>View:</span>
+                <button
+                  type="button"
+                  onClick={() => setCohortFocus('all')}
+                  className={`rounded-full px-3 py-1 ${cohortFocus === 'all' ? 'bg-accent text-white' : 'border border-slate-200 bg-white text-slate-600'}`}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCohortFocus('growing')}
+                  className={`rounded-full px-3 py-1 ${cohortFocus === 'growing' ? 'bg-emerald-500 text-white' : 'border border-slate-200 bg-white text-slate-600'}`}
+                >
+                  Growing
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCohortFocus('declining')}
+                  className={`rounded-full px-3 py-1 ${cohortFocus === 'declining' ? 'bg-rose-500 text-white' : 'border border-slate-200 bg-white text-slate-600'}`}
+                >
+                  Needs attention
+                </button>
+              </div>
               <ul className="mt-4 space-y-3 text-sm text-slate-600">
-                {(cohorts ?? []).map((cohort) => (
+                {filteredCohorts.map((cohort) => (
                   <li key={cohort.id} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3">
                     <div>
                       <p className="font-semibold text-slate-800">{cohort.label}</p>
@@ -400,6 +514,9 @@ MentorMetricsSection.propTypes = {
       unit: PropTypes.string,
       timeframe: PropTypes.string,
       insight: PropTypes.string,
+      trend: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      variance: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      samples: PropTypes.arrayOf(PropTypes.number),
     }),
   ),
   cohorts: PropTypes.arrayOf(

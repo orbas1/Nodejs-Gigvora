@@ -61,6 +61,9 @@ import {
   updateMentorHubAction,
   deleteMentorHubAction,
   updateMentorHubSpotlight,
+  createMentorHubResource,
+  updateMentorHubResource,
+  deleteMentorHubResource,
   createMentorCreationItem,
   updateMentorCreationItem,
   deleteMentorCreationItem,
@@ -788,6 +791,54 @@ export default function MentorDashboardPage() {
     [applyDashboardUpdate],
   );
 
+  const handleCreateHubResource = useCallback(
+    async (payload) => {
+      setHubSaving(true);
+      try {
+        const response = await createMentorHubResource(payload);
+        applyDashboardUpdate(response);
+        return response?.resource;
+      } catch (hubError) {
+        throw hubError;
+      } finally {
+        setHubSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleUpdateHubResource = useCallback(
+    async (resourceId, payload) => {
+      setHubSaving(true);
+      try {
+        const response = await updateMentorHubResource(resourceId, payload);
+        applyDashboardUpdate(response);
+        return response?.resource;
+      } catch (hubError) {
+        throw hubError;
+      } finally {
+        setHubSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
+  const handleDeleteHubResource = useCallback(
+    async (resourceId) => {
+      setHubSaving(true);
+      try {
+        const response = await deleteMentorHubResource(resourceId);
+        applyDashboardUpdate(response);
+        return response;
+      } catch (hubError) {
+        throw hubError;
+      } finally {
+        setHubSaving(false);
+      }
+    },
+    [applyDashboardUpdate],
+  );
+
   const handleSaveHubSpotlight = useCallback(
     async (payload) => {
       setHubSaving(true);
@@ -1221,6 +1272,9 @@ export default function MentorDashboardPage() {
           onCreateAction={handleCreateHubAction}
           onUpdateAction={handleUpdateHubAction}
           onDeleteAction={handleDeleteHubAction}
+          onCreateResource={handleCreateHubResource}
+          onUpdateResource={handleUpdateHubResource}
+          onDeleteResource={handleDeleteHubResource}
           onSaveSpotlight={handleSaveHubSpotlight}
         />
       );

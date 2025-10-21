@@ -165,6 +165,18 @@ export function updateMentorHubSpotlight(payload) {
   return apiClient.put('/mentors/hub/spotlight', payload, { headers: mentorRoleHeaders });
 }
 
+export function createMentorHubResource(payload) {
+  return apiClient.post('/mentors/hub/resources', payload, { headers: mentorRoleHeaders });
+}
+
+export function updateMentorHubResource(resourceId, payload) {
+  return apiClient.put(`/mentors/hub/resources/${resourceId}`, payload, { headers: mentorRoleHeaders });
+}
+
+export function deleteMentorHubResource(resourceId) {
+  return apiClient.delete(`/mentors/hub/resources/${resourceId}`, { headers: mentorRoleHeaders });
+}
+
 export function createMentorCreationItem(payload) {
   return apiClient.post('/mentors/creation-studio/items', payload, { headers: mentorRoleHeaders });
 }
@@ -277,6 +289,9 @@ export default {
   updateMentorHubAction,
   deleteMentorHubAction,
   updateMentorHubSpotlight,
+  createMentorHubResource,
+  updateMentorHubResource,
+  deleteMentorHubResource,
   createMentorCreationItem,
   updateMentorCreationItem,
   deleteMentorCreationItem,

@@ -32,6 +32,7 @@ export default function MentorSystemPreferencesSection({
   const [formState, setFormState] = useState(normalisePreferences(preferences ?? {}));
   const [feedback, setFeedback] = useState(null);
   const [rotating, setRotating] = useState(false);
+  const [logFilter, setLogFilter] = useState('all');
 
   useEffect(() => {
     setFormState(normalisePreferences(preferences ?? {}));
@@ -91,6 +92,15 @@ export default function MentorSystemPreferencesSection({
       setRotating(false);
     }
   };
+
+  const securityLog = useMemo(() => formState.security?.logs ?? [], [formState.security?.logs]);
+  const deviceSessions = useMemo(() => formState.security?.devices ?? [], [formState.security?.devices]);
+  const filteredSecurityLog = useMemo(() => {
+    if (logFilter === 'all') {
+      return securityLog;
+    }
+    return securityLog.filter((entry) => entry.level === logFilter);
+  }, [logFilter, securityLog]);
 
   return (
     <section className="space-y-10 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
@@ -213,6 +223,90 @@ export default function MentorSystemPreferencesSection({
 
         <section className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6">
           <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+            <ShieldCheckIcon className="h-5 w-5 text-accent" />
+            Security activity
+          </h3>
+          <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-semibold text-slate-500">
+            <span>{securityLog.length} events tracked</span>
+            <select
+              value={logFilter}
+              onChange={(event) => setLogFilter(event.target.value)}
+              className="rounded-full border border-slate-200 px-3 py-1 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
+            >
+              <option value="all">All</option>
+              <option value="info">Info</option>
+              <option value="warning">Warning</option>
+              <option value="critical">Critical</option>
+            </select>
+          </div>
+          <div className="overflow-hidden rounded-2xl border border-slate-200">
+            <table className="min-w-full divide-y divide-slate-200 text-left text-sm text-slate-600">
+              <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-3">Event</th>
+                  <th className="px-4 py-3">Location</th>
+                  <th className="px-4 py-3">When</th>
+                  <th className="px-4 py-3">Level</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredSecurityLog.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-4 text-center text-xs text-slate-500">
+                      No log entries for this filter.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredSecurityLog.map((entry) => (
+                    <tr key={entry.id} className="hover:bg-slate-50/70">
+                      <td className="px-4 py-3 font-semibold text-slate-700">{entry.event}</td>
+                      <td className="px-4 py-3 text-xs text-slate-500">{entry.location ?? '—'}</td>
+                      <td className="px-4 py-3 text-xs text-slate-500">
+                        {entry.occurredAt ? formatDistanceToNow(new Date(entry.occurredAt), { addSuffix: true }) : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-xs font-semibold">
+                        <span
+                          className={`rounded-full px-3 py-1 ${
+                            entry.level === 'critical'
+                              ? 'bg-rose-50 text-rose-600'
+                              : entry.level === 'warning'
+                                ? 'bg-amber-50 text-amber-600'
+                                : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          {entry.level ?? 'info'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-600">
+            <h4 className="text-sm font-semibold text-slate-700">Trusted devices</h4>
+            {deviceSessions.length === 0 ? (
+              <p className="text-xs text-slate-500">No approved devices logged yet.</p>
+            ) : (
+              <ul className="space-y-2 text-xs">
+                {deviceSessions.map((device) => (
+                  <li key={device.id} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-2">
+                    <div>
+                      <p className="font-semibold text-slate-700">{device.name}</p>
+                      <p className="text-[11px] text-slate-500">{device.location ?? 'Unknown location'}</p>
+                    </div>
+                    <span className="text-[11px] text-slate-500">
+                      {device.lastActiveAt ? formatDistanceToNow(new Date(device.lastActiveAt), { addSuffix: true }) : '—'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+
+        <section className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6">
+          <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
             <CpuChipIcon className="h-5 w-5 text-accent" />
             AI assistant
           </h3>
@@ -300,6 +394,23 @@ MentorSystemPreferencesSection.propTypes = {
       sessionTimeoutMinutes: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
       deviceApprovals: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
       mfaEnabled: PropTypes.bool,
+      logs: PropTypes.arrayOf(
+        PropTypes.shape({
+          id: PropTypes.string,
+          event: PropTypes.string,
+          occurredAt: PropTypes.string,
+          level: PropTypes.string,
+          location: PropTypes.string,
+        }),
+      ),
+      devices: PropTypes.arrayOf(
+        PropTypes.shape({
+          id: PropTypes.string,
+          name: PropTypes.string,
+          location: PropTypes.string,
+          lastActiveAt: PropTypes.string,
+        }),
+      ),
     }),
     aiAssistant: PropTypes.shape({
       enabled: PropTypes.bool,

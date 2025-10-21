@@ -67,6 +67,8 @@ export const DEFAULT_DASHBOARD = {
       videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
       ctaLabel: 'Share spotlight with mentees',
       ctaLink: 'https://mentor.gigvora.com/spotlight',
+      thumbnailUrl: 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1200&q=80',
+      backgroundColor: 'from-slate-900 via-emerald-700 to-slate-800',
     },
     resources: [
       {
@@ -75,6 +77,8 @@ export const DEFAULT_DASHBOARD = {
         type: 'Notion',
         link: 'https://www.notion.so/gigvora/mentor-playbook',
         updatedAt: new Date().toISOString(),
+        thumbnail: 'https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?auto=format&fit=crop&w=900&q=80',
+        tags: ['Onboarding', 'Playbook'],
       },
       {
         id: 'resource-2',
@@ -82,6 +86,8 @@ export const DEFAULT_DASHBOARD = {
         type: 'PDF',
         link: 'https://mentor.gigvora.com/resources/explorer-checklist.pdf',
         updatedAt: new Date().toISOString(),
+        thumbnail: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=900&q=80',
+        tags: ['Launch', 'Checklist'],
       },
     ],
   },
@@ -403,6 +409,7 @@ export const DEFAULT_DASHBOARD = {
         trend: 15,
         variance: -1800,
         insight: 'Momentum is strong – add 2 more async review upsells to reach target.',
+        samples: [3200, 3400, 3600, 3800, 4100, 4200],
       },
       {
         id: 'metric-2',
@@ -414,6 +421,7 @@ export const DEFAULT_DASHBOARD = {
         trend: 4,
         variance: 4,
         insight: 'Cover letter wizard launch increased conversions 4 pts week-on-week.',
+        samples: [34, 35, 37, 38, 41, 42],
       },
     ],
     cohorts: [
@@ -534,6 +542,15 @@ export const DEFAULT_DASHBOARD = {
     zoomRoom: 'https://zoom.us/j/123456789',
     videoGreeting: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
     signature: 'Warmly,\nJordan',
+    brandPrimaryColor: '#0ea5e9',
+    brandSecondaryColor: '#10b981',
+    heroTagline: 'Designing promotion rituals for product leaders',
+    confirmationEmailTemplate:
+      'Hi {{mentee.firstName}}, thrilled to confirm our session on {{booking.startTime}}. I will send a Notion workspace with prep questions shortly.\n\nWarmly,\nJordan',
+    reminderSmsTemplate:
+      "Heads up {{mentee.firstName}} – tomorrow's session covers your growth narrative. Bring the latest wins!",
+    sendAgendaSlack: true,
+    sendRecapEmail: true,
     availabilityLeadTimeHours: 24,
     bookingWindowDays: 60,
     autoAcceptReturning: true,
@@ -565,6 +582,43 @@ export const DEFAULT_DASHBOARD = {
       mfaEnabled: true,
       sessionTimeoutMinutes: 45,
       deviceApprovals: 2,
+      logs: [
+        {
+          id: 'log-1',
+          event: 'API key rotated',
+          level: 'info',
+          occurredAt: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
+          location: 'London, UK',
+        },
+        {
+          id: 'log-2',
+          event: 'New device approved',
+          level: 'warning',
+          occurredAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
+          location: 'Berlin, DE',
+        },
+        {
+          id: 'log-3',
+          event: 'Failed login attempt',
+          level: 'critical',
+          occurredAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(),
+          location: 'Paris, FR',
+        },
+      ],
+      devices: [
+        {
+          id: 'device-1',
+          name: 'MacBook Pro • Chrome',
+          location: 'London, UK',
+          lastActiveAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+        },
+        {
+          id: 'device-2',
+          name: 'iPhone 15 • Safari',
+          location: 'Lisbon, PT',
+          lastActiveAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
+        },
+      ],
     },
     aiAssistant: {
       enabled: true,
