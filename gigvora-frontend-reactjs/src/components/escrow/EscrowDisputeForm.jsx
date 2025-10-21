@@ -27,23 +27,25 @@ export default function EscrowDisputeForm({
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    if (!form.summary?.trim()) {
+      setError('Add a summary.');
+      return;
+    }
+    setError(null);
     try {
-      if (!form.summary) {
-        throw new Error('Add a summary.');
-      }
       const payload = {
         escrowTransactionId: transaction.id,
         openedById: userId,
         assignedToId: form.assignedToId ? Number.parseInt(form.assignedToId, 10) : undefined,
         reasonCode: form.reasonCode,
-        summary: form.summary,
+        summary: form.summary.trim(),
         priority: form.priority,
         customerDeadlineAt: form.customerDeadlineAt ? new Date(form.customerDeadlineAt).toISOString() : undefined,
         providerDeadlineAt: form.providerDeadlineAt ? new Date(form.providerDeadlineAt).toISOString() : undefined,
       };
       await onSubmit(payload);
     } catch (err) {
-      setError(err.message ?? 'Unable to open dispute.');
+      setError(err?.message ?? 'Unable to open dispute.');
     }
   };
 
