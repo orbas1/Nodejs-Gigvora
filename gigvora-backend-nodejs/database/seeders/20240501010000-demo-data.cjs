@@ -214,7 +214,7 @@ async function ensureUsers(queryInterface, transaction) {
     await queryInterface.bulkInsert('users', toInsert, { transaction });
   }
 
-  const [allUsers] = await queryInterface.sequelize.query(
+  const allUsers = await queryInterface.sequelize.query(
     'SELECT id, email FROM users WHERE email IN (:emails)',
     {
       type: QueryTypes.SELECT,
