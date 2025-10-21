@@ -237,6 +237,7 @@ export const ID_VERIFICATION_EVENT_TYPES = [
   'document_request',
   'escalation',
   'reminder',
+];
 export const IDENTITY_VERIFICATION_EVENT_TYPES = [
   'submission_created',
   'status_changed',
@@ -729,7 +730,8 @@ export const CALENDAR_EVENT_TYPES = [
   'wellbeing',
   'deadline',
   'ritual',
-export const CALENDAR_EVENT_TYPES = ['interview', 'networking', 'project', 'wellbeing', 'deadline', 'ritual'];
+  'other',
+];
 export const FREELANCER_CALENDAR_EVENT_TYPES = [
   'project',
   'gig',
@@ -761,7 +763,6 @@ export const ADMIN_CALENDAR_SYNC_STATUSES = ['connected', 'syncing', 'needs_atte
 export const ADMIN_CALENDAR_EVENT_STATUSES = ['draft', 'scheduled', 'published', 'cancelled'];
 export const ADMIN_CALENDAR_VISIBILITIES = ['internal', 'external', 'private'];
 export const ADMIN_CALENDAR_EVENT_TYPES = ['ops_review', 'training', 'launch', 'webinar', 'support', 'governance'];
-export const FOCUS_SESSION_TYPES = ['interview_prep', 'networking', 'application', 'deep_work', 'wellbeing'];
 export const CALENDAR_EVENT_VISIBILITIES = ['private', 'shared', 'public'];
 export const CALENDAR_DEFAULT_VIEWS = ['agenda', 'week', 'month'];
 export const FOCUS_SESSION_TYPES = [

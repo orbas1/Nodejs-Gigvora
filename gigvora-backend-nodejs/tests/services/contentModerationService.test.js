@@ -34,6 +34,37 @@ describe('contentModerationService', () => {
       expect(result.decision).toBe('reject');
       expect(result.reasons.some((reason) => reason.includes('links'))).toBe(true);
     });
+
+    it('rejects posts linking to blocked domains', () => {
+      const result = evaluateFeedPostContent({
+        content: 'Suspicious promotion to check out now',
+        link: 'https://bit.ly/unsafe-offer',
+      });
+
+      expect(result.decision).toBe('reject');
+      expect(result.reasons).toContain('Links from this domain are blocked for safety reasons.');
+      expect(result.signals.some((signal) => signal.type === 'blocked_domain')).toBe(true);
+    });
+
+    it('optionally allows medium severity warnings when configured', () => {
+      const mentionHeavyContent =
+        '@ops1 @ops2 @ops3 @ops4 @ops5 @ops6 @ops7 @ops8 @ops9 reviewing escalation playbooks';
+
+      const strictEvaluation = evaluateFeedPostContent({ content: mentionHeavyContent });
+      expect(strictEvaluation.decision).toBe('reject');
+      expect(strictEvaluation.reasons).toContain('Tag up to 8 handles in a single update.');
+
+      const permissiveEvaluation = evaluateFeedPostContent(
+        { content: mentionHeavyContent },
+        { allowWarnings: true },
+      );
+
+      expect(permissiveEvaluation.decision).toBe('approve');
+      expect(permissiveEvaluation.reasons).toEqual([]);
+      expect(
+        permissiveEvaluation.signals.some((signal) => signal.type === 'excessive_mentions'),
+      ).toBe(true);
+    });
   });
 
   describe('enforceFeedPostPolicies', () => {
