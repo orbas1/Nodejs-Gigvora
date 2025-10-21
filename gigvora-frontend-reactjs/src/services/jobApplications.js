@@ -22,11 +22,11 @@ async function updateAdminJobApplication(applicationId, payload = {}) {
   return apiClient.put(`/admin/job-applications/${applicationId}`, payload);
 }
 
-async function deleteAdminJobApplication(applicationId) {
+async function deleteAdminJobApplication(applicationId, { signal } = {}) {
   if (!applicationId) {
     throw new Error('applicationId is required');
   }
-  return apiClient.delete(`/admin/job-applications/${applicationId}`);
+  return apiClient.delete(`/admin/job-applications/${applicationId}`, { signal });
 }
 
 async function createJobApplicationNote(applicationId, payload = {}) {
@@ -43,11 +43,11 @@ async function updateJobApplicationNote(applicationId, noteId, payload = {}) {
   return apiClient.put(`/admin/job-applications/${applicationId}/notes/${noteId}`, payload);
 }
 
-async function deleteJobApplicationNote(applicationId, noteId) {
+async function deleteJobApplicationNote(applicationId, noteId, { signal } = {}) {
   if (!applicationId || !noteId) {
     throw new Error('applicationId and noteId are required');
   }
-  return apiClient.delete(`/admin/job-applications/${applicationId}/notes/${noteId}`);
+  return apiClient.delete(`/admin/job-applications/${applicationId}/notes/${noteId}`, { signal });
 }
 
 async function createJobApplicationInterview(applicationId, payload = {}) {
@@ -64,11 +64,11 @@ async function updateJobApplicationInterview(applicationId, interviewId, payload
   return apiClient.put(`/admin/job-applications/${applicationId}/interviews/${interviewId}`, payload);
 }
 
-async function deleteJobApplicationInterview(applicationId, interviewId) {
+async function deleteJobApplicationInterview(applicationId, interviewId, { signal } = {}) {
   if (!applicationId || !interviewId) {
     throw new Error('applicationId and interviewId are required');
   }
-  return apiClient.delete(`/admin/job-applications/${applicationId}/interviews/${interviewId}`);
+  return apiClient.delete(`/admin/job-applications/${applicationId}/interviews/${interviewId}`, { signal });
 }
 
 async function createJobApplicationDocument(applicationId, payload = {}) {
@@ -85,11 +85,11 @@ async function updateJobApplicationDocument(applicationId, documentId, payload =
   return apiClient.put(`/admin/job-applications/${applicationId}/documents/${documentId}`, payload);
 }
 
-async function deleteJobApplicationDocument(applicationId, documentId) {
+async function deleteJobApplicationDocument(applicationId, documentId, { signal } = {}) {
   if (!applicationId || !documentId) {
     throw new Error('applicationId and documentId are required');
   }
-  return apiClient.delete(`/admin/job-applications/${applicationId}/documents/${documentId}`);
+  return apiClient.delete(`/admin/job-applications/${applicationId}/documents/${documentId}`, { signal });
 }
 
 const adminJobApplicationService = {
@@ -137,12 +137,12 @@ async function updateWorkspaceJobApplication(userId, applicationId, payload) {
   return apiClient.patch(`/job-applications/${applicationId}`, { ...payload, ownerId: userId });
 }
 
-async function archiveWorkspaceJobApplication(userId, applicationId) {
+async function archiveWorkspaceJobApplication(userId, applicationId, { signal } = {}) {
   assertUserId(userId, 'userId is required to archive a job application.');
   if (!applicationId) {
     throw new Error('applicationId is required to archive a job application.');
   }
-  return apiClient.delete(`/job-applications/${applicationId}`, { params: { ownerId: userId } });
+  return apiClient.delete(`/job-applications/${applicationId}`, { signal, body: { ownerId: userId } });
 }
 
 async function createWorkspaceJobApplicationInterview(userId, applicationId, payload) {
@@ -164,13 +164,14 @@ async function updateWorkspaceJobApplicationInterview(userId, applicationId, int
   });
 }
 
-async function deleteWorkspaceJobApplicationInterview(userId, applicationId, interviewId) {
+async function deleteWorkspaceJobApplicationInterview(userId, applicationId, interviewId, { signal } = {}) {
   assertUserId(userId, 'userId is required to delete an interview.');
   if (!applicationId || !interviewId) {
     throw new Error('applicationId and interviewId are required to delete an interview.');
   }
   return apiClient.delete(`/job-applications/${applicationId}/interviews/${interviewId}`, {
-    params: { ownerId: userId },
+    signal,
+    body: { ownerId: userId },
   });
 }
 
@@ -187,12 +188,15 @@ async function updateWorkspaceJobApplicationFavourite(userId, favouriteId, paylo
   return apiClient.patch(`/job-applications/favourites/${favouriteId}`, { ...payload, ownerId: userId });
 }
 
-async function deleteWorkspaceJobApplicationFavourite(userId, favouriteId) {
+async function deleteWorkspaceJobApplicationFavourite(userId, favouriteId, { signal } = {}) {
   assertUserId(userId, 'userId is required to delete a favourite.');
   if (!favouriteId) {
     throw new Error('favouriteId is required to delete a favourite.');
   }
-  return apiClient.delete(`/job-applications/favourites/${favouriteId}`, { params: { ownerId: userId } });
+  return apiClient.delete(`/job-applications/favourites/${favouriteId}`, {
+    signal,
+    body: { ownerId: userId },
+  });
 }
 
 async function createWorkspaceJobApplicationResponse(userId, applicationId, payload) {
@@ -214,13 +218,14 @@ async function updateWorkspaceJobApplicationResponse(userId, applicationId, resp
   });
 }
 
-async function deleteWorkspaceJobApplicationResponse(userId, applicationId, responseId) {
+async function deleteWorkspaceJobApplicationResponse(userId, applicationId, responseId, { signal } = {}) {
   assertUserId(userId, 'userId is required to delete a response.');
   if (!applicationId || !responseId) {
     throw new Error('applicationId and responseId are required to delete a response.');
   }
   return apiClient.delete(`/job-applications/${applicationId}/responses/${responseId}`, {
-    params: { ownerId: userId },
+    signal,
+    body: { ownerId: userId },
   });
 }
 
