@@ -13,7 +13,8 @@ import {
   updateSpend,
   deleteSpend,
 } from '../services/volunteeringService.js';
-import { ValidationError } from '../utils/errors.js';
+import { AuthorizationError, ValidationError } from '../utils/errors.js';
+import { resolveRequestUserId } from '../utils/requestContext.js';
 
 function parseId(value, fieldName) {
   if (value == null || value === '') {
@@ -26,89 +27,123 @@ function parseId(value, fieldName) {
   return parsed;
 }
 
+function resolveFreelancerId(req) {
+  return parseId(
+    req.params.freelancerId ?? req.body?.freelancerId ?? req.query?.freelancerId,
+    'freelancerId',
+  );
+}
+
+function assertCanManageFreelancer(req, freelancerId) {
+  const actorId = resolveRequestUserId(req);
+  if (actorId && Number(actorId) === Number(freelancerId)) {
+    return;
+  }
+  const actorRoles = Array.isArray(req.user?.roles)
+    ? req.user.roles.map((role) => `${role}`.trim().toLowerCase())
+    : [];
+  if (actorRoles.some((role) => ['admin', 'platform_admin', 'support', 'operations'].includes(role))) {
+    return;
+  }
+  throw new AuthorizationError('You are not authorised to manage this volunteering workspace.');
+}
+
 export async function workspace(req, res) {
-  const freelancerId = parseId(req.params.freelancerId ?? req.query.freelancerId, 'freelancerId');
+  const freelancerId = resolveFreelancerId(req);
+  assertCanManageFreelancer(req, freelancerId);
   const payload = await getVolunteeringWorkspace(freelancerId);
   res.json(payload);
 }
 
 export async function storeApplication(req, res) {
-  const freelancerId = parseId(req.params.freelancerId ?? req.body?.freelancerId, 'freelancerId');
+  const freelancerId = resolveFreelancerId(req);
+  assertCanManageFreelancer(req, freelancerId);
   const application = await createApplication(freelancerId, req.body ?? {});
   res.status(201).json(application);
 }
 
 export async function patchApplication(req, res) {
-  const freelancerId = parseId(req.params.freelancerId ?? req.body?.freelancerId, 'freelancerId');
+  const freelancerId = resolveFreelancerId(req);
+  assertCanManageFreelancer(req, freelancerId);
   const applicationId = parseId(req.params.applicationId, 'applicationId');
   const application = await updateApplication(freelancerId, applicationId, req.body ?? {});
   res.json(application);
 }
 
 export async function destroyApplication(req, res) {
-  const freelancerId = parseId(req.params.freelancerId ?? req.body?.freelancerId, 'freelancerId');
+  const freelancerId = resolveFreelancerId(req);
+  assertCanManageFreelancer(req, freelancerId);
   const applicationId = parseId(req.params.applicationId, 'applicationId');
   const result = await deleteApplication(freelancerId, applicationId);
   res.json(result);
 }
 
 export async function storeResponse(req, res) {
-  const freelancerId = parseId(req.params.freelancerId ?? req.body?.freelancerId, 'freelancerId');
+  const freelancerId = resolveFreelancerId(req);
+  assertCanManageFreelancer(req, freelancerId);
   const applicationId = parseId(req.params.applicationId ?? req.body?.applicationId, 'applicationId');
   const response = await createResponse(freelancerId, applicationId, req.body ?? {});
   res.status(201).json(response);
 }
 
 export async function patchResponse(req, res) {
-  const freelancerId = parseId(req.params.freelancerId ?? req.body?.freelancerId, 'freelancerId');
+  const freelancerId = resolveFreelancerId(req);
+  assertCanManageFreelancer(req, freelancerId);
   const responseId = parseId(req.params.responseId, 'responseId');
   const response = await updateResponse(freelancerId, responseId, req.body ?? {});
   res.json(response);
 }
 
 export async function destroyResponse(req, res) {
-  const freelancerId = parseId(req.params.freelancerId ?? req.body?.freelancerId, 'freelancerId');
+  const freelancerId = resolveFreelancerId(req);
+  assertCanManageFreelancer(req, freelancerId);
   const responseId = parseId(req.params.responseId, 'responseId');
   const result = await deleteResponse(freelancerId, responseId);
   res.json(result);
 }
 
 export async function storeContract(req, res) {
-  const freelancerId = parseId(req.params.freelancerId ?? req.body?.freelancerId, 'freelancerId');
+  const freelancerId = resolveFreelancerId(req);
+  assertCanManageFreelancer(req, freelancerId);
   const contract = await createContract(freelancerId, req.body ?? {});
   res.status(201).json(contract);
 }
 
 export async function patchContract(req, res) {
-  const freelancerId = parseId(req.params.freelancerId ?? req.body?.freelancerId, 'freelancerId');
+  const freelancerId = resolveFreelancerId(req);
+  assertCanManageFreelancer(req, freelancerId);
   const contractId = parseId(req.params.contractId, 'contractId');
   const contract = await updateContract(freelancerId, contractId, req.body ?? {});
   res.json(contract);
 }
 
 export async function destroyContract(req, res) {
-  const freelancerId = parseId(req.params.freelancerId ?? req.body?.freelancerId, 'freelancerId');
+  const freelancerId = resolveFreelancerId(req);
+  assertCanManageFreelancer(req, freelancerId);
   const contractId = parseId(req.params.contractId, 'contractId');
   const result = await deleteContract(freelancerId, contractId);
   res.json(result);
 }
 
 export async function storeSpend(req, res) {
-  const freelancerId = parseId(req.params.freelancerId ?? req.body?.freelancerId, 'freelancerId');
+  const freelancerId = resolveFreelancerId(req);
+  assertCanManageFreelancer(req, freelancerId);
   const contractId = parseId(req.params.contractId ?? req.body?.contractId, 'contractId');
   const spend = await createSpend(freelancerId, contractId, req.body ?? {});
   res.status(201).json(spend);
 }
 
 export async function patchSpend(req, res) {
-  const freelancerId = parseId(req.params.freelancerId ?? req.body?.freelancerId, 'freelancerId');
+  const freelancerId = resolveFreelancerId(req);
+  assertCanManageFreelancer(req, freelancerId);
   const spendId = parseId(req.params.spendId, 'spendId');
   const spend = await updateSpend(freelancerId, spendId, req.body ?? {});
   res.json(spend);
 }
 
 export async function destroySpend(req, res) {
-  const freelancerId = parseId(req.params.freelancerId ?? req.body?.freelancerId, 'freelancerId');
+  const freelancerId = resolveFreelancerId(req);
+  assertCanManageFreelancer(req, freelancerId);
   const spendId = parseId(req.params.spendId, 'spendId');
   const result = await deleteSpend(freelancerId, spendId);
   res.json(result);

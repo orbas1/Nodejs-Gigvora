@@ -48,19 +48,23 @@ export async function bootstrapDatabase({ logger: providedLogger } = {}) {
       error: null,
     });
     initialised = true;
-    await recordRuntimeSecurityEvent(
-      {
-        eventType: 'database.connection.established',
-        level: 'notice',
-        message: 'Primary database connection verified and pooled connections initialised.',
-        metadata: {
-          vendor: sequelize.getDialect(),
-          latencyMs: Number(latencyMs.toFixed(2)),
-          pool: capturePoolSnapshot(),
+    try {
+      await recordRuntimeSecurityEvent(
+        {
+          eventType: 'database.connection.established',
+          level: 'notice',
+          message: 'Primary database connection verified and pooled connections initialised.',
+          metadata: {
+            vendor: sequelize.getDialect(),
+            latencyMs: Number(latencyMs.toFixed(2)),
+            pool: capturePoolSnapshot(),
+          },
         },
-      },
-      { logger: log },
-    );
+        { logger: log },
+      );
+    } catch (auditError) {
+      log.warn({ err: auditError }, 'Failed to record database bootstrap audit event');
+    }
   } catch (error) {
     markDependencyUnavailable('database', error, { vendor: sequelize.getDialect() });
     log.error({ err: error }, 'Failed to establish primary database connection');
@@ -96,35 +100,43 @@ export async function shutdownDatabase({ reason = 'shutdown', logger: providedLo
       latencyMs: null,
       error: { message: 'Database shutdown complete' },
     });
-    await recordRuntimeSecurityEvent(
-      {
-        eventType: 'database.connection.closed',
-        level: 'info',
-        message: 'Database connection pool drained during runtime shutdown.',
-        metadata: {
-          reason,
-          durationMs: Number(durationMs.toFixed(2)),
-          poolBefore,
+    try {
+      await recordRuntimeSecurityEvent(
+        {
+          eventType: 'database.connection.closed',
+          level: 'info',
+          message: 'Database connection pool drained during runtime shutdown.',
+          metadata: {
+            reason,
+            durationMs: Number(durationMs.toFixed(2)),
+            poolBefore,
+          },
         },
-      },
-      { logger: log },
-    );
+        { logger: log },
+      );
+    } catch (auditError) {
+      log.warn({ err: auditError }, 'Failed to record database shutdown audit event');
+    }
     return { durationMs: Number(durationMs.toFixed(2)) };
   } catch (error) {
     log.error({ err: error }, 'Failed to close database connections gracefully');
-    await recordRuntimeSecurityEvent(
-      {
-        eventType: 'database.connection.shutdown_failed',
-        level: 'error',
-        message: 'Database pool did not close cleanly during shutdown.',
-        metadata: {
-          reason,
-          poolBefore,
-          error: error.message,
+    try {
+      await recordRuntimeSecurityEvent(
+        {
+          eventType: 'database.connection.shutdown_failed',
+          level: 'error',
+          message: 'Database pool did not close cleanly during shutdown.',
+          metadata: {
+            reason,
+            poolBefore,
+            error: error.message,
+          },
         },
-      },
-      { logger: log },
-    );
+        { logger: log },
+      );
+    } catch (auditError) {
+      log.warn({ err: auditError }, 'Failed to record database shutdown failure audit event');
+    }
     throw error;
   }
 }
