@@ -103,3 +103,46 @@ export function buildTagString(value) {
   }
   return String(value);
 }
+
+export function isValidHexColor(value) {
+  if (!value) {
+    return false;
+  }
+  const trimmed = String(value).trim();
+  if (trimmed.startsWith('var(')) {
+    return true;
+  }
+  return /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(trimmed);
+}
+
+export function normalizeExternalUrl(url) {
+  if (!url) {
+    return '';
+  }
+  const trimmed = String(url).trim();
+  if (!trimmed) {
+    return '';
+  }
+  try {
+    const hasProtocol = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed);
+    const normalized = hasProtocol ? trimmed : `https://${trimmed}`;
+    const parsed = new URL(normalized);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return '';
+    }
+    return parsed.toString();
+  } catch (error) {
+    return '';
+  }
+}
+
+export function buildTelHref(value) {
+  if (!value) {
+    return '';
+  }
+  const digits = String(value).replace(/[^+\d]/g, '');
+  if (!digits) {
+    return '';
+  }
+  return `tel:${digits}`;
+}
