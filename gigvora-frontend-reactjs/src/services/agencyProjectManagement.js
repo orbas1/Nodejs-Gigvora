@@ -12,6 +12,13 @@ export async function updateAgencyProject(projectId, payload) {
   return apiClient.put(`/agency/project-management/projects/${projectId}`, payload);
 }
 
+export async function deleteAgencyProject(projectId) {
+  if (!projectId) {
+    throw new Error('projectId is required');
+  }
+  return apiClient.delete(`/agency/project-management/projects/${projectId}`);
+}
+
 export async function updateAgencyProjectAutoMatchSettings(projectId, payload) {
   return apiClient.put(`/agency/project-management/projects/${projectId}/automatch-settings`, payload);
 }
@@ -27,11 +34,25 @@ export async function updateAgencyProjectAutoMatchFreelancer(projectId, entryId,
   );
 }
 
+export async function deleteAgencyProjectAutoMatchFreelancer(projectId, entryId) {
+  if (!projectId) {
+    throw new Error('projectId is required');
+  }
+  if (!entryId) {
+    throw new Error('entryId is required');
+  }
+  return apiClient.delete(
+    `/agency/project-management/projects/${projectId}/automatch/freelancers/${entryId}`,
+  );
+}
+
 export default {
   fetchAgencyProjectManagement,
   createAgencyProject,
   updateAgencyProject,
+  deleteAgencyProject,
   updateAgencyProjectAutoMatchSettings,
   upsertAgencyProjectAutoMatchFreelancer,
   updateAgencyProjectAutoMatchFreelancer,
+  deleteAgencyProjectAutoMatchFreelancer,
 };

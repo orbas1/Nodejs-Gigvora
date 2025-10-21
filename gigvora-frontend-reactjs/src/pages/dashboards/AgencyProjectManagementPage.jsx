@@ -8,9 +8,11 @@ import {
   fetchAgencyProjectManagement,
   createAgencyProject,
   updateAgencyProject,
+  deleteAgencyProject,
   updateAgencyProjectAutoMatchSettings,
   upsertAgencyProjectAutoMatchFreelancer,
   updateAgencyProjectAutoMatchFreelancer,
+  deleteAgencyProjectAutoMatchFreelancer,
 } from '../../services/agencyProjectManagement.js';
 import { AGENCY_AVAILABLE_DASHBOARDS, AGENCY_DASHBOARD_MENU } from '../../constants/agencyDashboardMenu.js';
 
@@ -38,6 +40,7 @@ export default function AgencyProjectManagementPage() {
   const [savingProjectId, setSavingProjectId] = useState(null);
   const [savingAutoMatchId, setSavingAutoMatchId] = useState(null);
   const [savingFreelancerKey, setSavingFreelancerKey] = useState(null);
+  const [deletingProjectId, setDeletingProjectId] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [view, setView] = useState('open');
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -178,6 +181,43 @@ export default function AgencyProjectManagementPage() {
         throw err;
       } finally {
         setSavingFreelancerKey(null);
+      }
+    },
+    [refresh],
+  );
+
+  const handleRemoveFreelancer = useCallback(
+    async (projectId, entryId) => {
+      const savingKey = `${projectId}:${entryId}`;
+      setSavingFreelancerKey(savingKey);
+      setError(null);
+      try {
+        await deleteAgencyProjectAutoMatchFreelancer(projectId, entryId);
+        await refresh();
+      } catch (err) {
+        console.error('Failed to remove auto-match freelancer', err);
+        setError(err);
+        throw err;
+      } finally {
+        setSavingFreelancerKey(null);
+      }
+    },
+    [refresh],
+  );
+
+  const handleDeleteProject = useCallback(
+    async (projectId) => {
+      setDeletingProjectId(projectId);
+      setError(null);
+      try {
+        await deleteAgencyProject(projectId);
+        await refresh();
+      } catch (err) {
+        console.error('Failed to delete project', err);
+        setError(err);
+        throw err;
+      } finally {
+        setDeletingProjectId(null);
       }
     },
     [refresh],
@@ -467,6 +507,7 @@ export default function AgencyProjectManagementPage() {
         project={detailsProject}
         onClose={() => setDetailsProject(null)}
         submitting={detailsProject ? savingProjectId === detailsProject.id : false}
+        deleting={detailsProject ? deletingProjectId === detailsProject.id : false}
         onSubmit={async (payload) => {
           if (!detailsProject) {
             return;
@@ -474,6 +515,15 @@ export default function AgencyProjectManagementPage() {
           await handleUpdateProject(detailsProject.id, payload);
           setDetailsProject(null);
         }}
+        onDelete={
+          detailsProject
+            ? async () => {
+                await handleDeleteProject(detailsProject.id);
+                setDetailsProject(null);
+                setRosterProject((current) => (current?.id === detailsProject.id ? null : current));
+              }
+            : undefined
+        }
       />
 
       <ProjectRosterDrawer
@@ -498,6 +548,12 @@ export default function AgencyProjectManagementPage() {
             return;
           }
           await handleUpdateFreelancer(rosterProject.id, entryId, payload);
+        }}
+        onRemoveFreelancer={async (entryId) => {
+          if (!rosterProject) {
+            return;
+          }
+          await handleRemoveFreelancer(rosterProject.id, entryId);
         }}
         savingFreelancerKey={savingFreelancerKey}
       />

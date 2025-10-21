@@ -62,7 +62,7 @@ function SkillChips({ skills, onRemove }) {
   );
 }
 
-export default function ProjectDetailsDrawer({ open, project, onClose, onSubmit, submitting }) {
+export default function ProjectDetailsDrawer({ open, project, onClose, onSubmit, onDelete, submitting, deleting }) {
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -77,6 +77,8 @@ export default function ProjectDetailsDrawer({ open, project, onClose, onSubmit,
     skills: [],
   });
   const [skillDraft, setSkillDraft] = useState('');
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
 
   useEffect(() => {
     if (!open || !project) {
@@ -96,7 +98,16 @@ export default function ProjectDetailsDrawer({ open, project, onClose, onSubmit,
       skills: Array.isArray(project.skills) ? project.skills : [],
     });
     setSkillDraft('');
+    setConfirmingDelete(false);
+    setDeleteError(null);
   }, [open, project]);
+
+  useEffect(() => {
+    if (!open) {
+      setConfirmingDelete(false);
+      setDeleteError(null);
+    }
+  }, [open]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -143,6 +154,19 @@ export default function ProjectDetailsDrawer({ open, project, onClose, onSubmit,
       skills: form.skills,
     };
     await onSubmit(payload);
+  };
+
+  const handleDelete = async () => {
+    if (!onDelete) {
+      return;
+    }
+    setDeleteError(null);
+    try {
+      await onDelete();
+    } catch (error) {
+      const message = error?.body?.message || error?.message || 'Unable to delete project. Please try again.';
+      setDeleteError(message);
+    }
   };
 
   return (
@@ -343,6 +367,49 @@ export default function ProjectDetailsDrawer({ open, project, onClose, onSubmit,
                           />
                         </label>
                       </div>
+
+                      {onDelete ? (
+                        <div className="mt-6 space-y-3 rounded-2xl border border-rose-200 bg-rose-50 p-4">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                              <h3 className="text-sm font-semibold text-rose-700">Danger zone</h3>
+                              <p className="text-xs text-rose-600">
+                                Removing this project will archive automations, rosters, and workspace history tied to it.
+                              </p>
+                            </div>
+                            {!confirmingDelete ? (
+                              <button
+                                type="button"
+                                onClick={() => setConfirmingDelete(true)}
+                                className="inline-flex items-center rounded-full border border-rose-200 px-4 py-2 text-xs font-semibold text-rose-600 transition hover:bg-rose-100"
+                              >
+                                Delete project
+                              </button>
+                            ) : (
+                              <div className="flex flex-wrap items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmingDelete(false)}
+                                  className="rounded-full border border-slate-200 px-4 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleDelete}
+                                  disabled={submitting || deleting}
+                                  className="rounded-full bg-rose-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {deleting ? 'Deleting…' : 'Confirm delete'}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                          {deleteError ? (
+                            <p className="text-xs font-semibold text-rose-600">{deleteError}</p>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
 
                     <footer className="flex items-center justify-end gap-3 border-t border-slate-200 px-6 py-4">
