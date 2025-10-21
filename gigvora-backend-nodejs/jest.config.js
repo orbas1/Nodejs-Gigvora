@@ -1,4 +1,8 @@
-const TEST_DIRECTORIES = ['<rootDir>/tests/controllers/**/*.test.js', '<rootDir>/tests/config/**/*.test.js'];
+const TEST_DIRECTORIES = [
+  '<rootDir>/tests/controllers/**/*.test.js',
+  '<rootDir>/tests/config/**/*.test.js',
+  '<rootDir>/tests/lifecycle/**/*.test.js',
+];
 
 if (typeof process.env.SKIP_SEQUELIZE_BOOTSTRAP === 'undefined') {
   process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'true';
