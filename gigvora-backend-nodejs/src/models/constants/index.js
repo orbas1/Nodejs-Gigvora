@@ -807,7 +807,7 @@ export const PIPELINE_FOLLOW_UP_STATUSES = ['scheduled', 'completed', 'cancelled
 export const PIPELINE_CAMPAIGN_STATUSES = ['draft', 'active', 'paused', 'completed'];
 export const PIPELINE_PROPOSAL_STATUSES = ['draft', 'sent', 'accepted', 'declined'];
 export const WORKSPACE_BUDGET_STATUSES = ['draft', 'approved', 'active', 'exhausted', 'closed'];
-export const WORKSPACE_OBJECT_TYPES = ['asset', 'deliverable', 'dependency', 'risk', 'note'];
+export const WORKSPACE_OBJECT_TYPES = ['asset', 'deliverable', 'dependency', 'risk', 'note', 'milestone'];
 export const WORKSPACE_OBJECT_STATUSES = ['draft', 'in_progress', 'completed', 'archived'];
 
 export const HEADHUNTER_PIPELINE_STAGE_TYPES = [

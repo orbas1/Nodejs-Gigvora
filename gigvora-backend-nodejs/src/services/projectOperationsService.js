@@ -20,6 +20,7 @@ import {
   ProjectWorkspaceConversation,
   ProjectWorkspaceFile,
   ProjectWorkspaceBrief,
+  WORKSPACE_MEETING_STATUSES,
 } from '../models/index.js';
 import { initializeWorkspaceForProject } from './projectWorkspaceService.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
@@ -142,6 +143,19 @@ function computeDurationMinutes(startedAt, endedAt) {
   }
   const diff = Math.max(0, end.getTime() - start.getTime());
   return Math.round(diff / (1000 * 60));
+}
+
+function ensureMeetingStatus(value) {
+  const normalized = normalizeText(value);
+  if (!normalized) {
+    return 'scheduled';
+  }
+  if (!WORKSPACE_MEETING_STATUSES.includes(normalized)) {
+    throw new ValidationError(
+      `status must be one of: ${WORKSPACE_MEETING_STATUSES.join(', ')}`,
+    );
+  }
+  return normalized;
 }
 
 async function touchWorkspace(workspace, { transaction, actorId } = {}) {
@@ -1460,14 +1474,15 @@ export async function createProjectMeeting(projectId, payload = {}, { actorId } 
         workspaceId: workspace.id,
         title: requireText(payload.title, 'title'),
         agenda: normalizeText(payload.agenda),
-        meetingType: normalizeText(payload.meetingType) ?? 'sync',
         location: normalizeText(payload.location),
+        meetingUrl: normalizeText(payload.meetingUrl),
         startAt: parseDateValue(payload.startAt, 'startAt', { allowNull: false }),
         endAt: parseDateValue(payload.endAt, 'endAt'),
         hostName: normalizeText(payload.hostName),
+        status: ensureMeetingStatus(payload.status),
         attendees: normalizeArray(payload.attendees),
-        actionItems: normalizeArray(payload.actionItems),
-        resources: normalizeArray(payload.resources),
+        notes: normalizeText(payload.notes),
+        recordingUrl: normalizeText(payload.recordingUrl),
       },
       { transaction },
     );
@@ -1498,11 +1513,11 @@ export async function updateProjectMeeting(projectId, meetingId, payload = {}, {
     if (payload.agenda !== undefined) {
       updates.agenda = normalizeText(payload.agenda);
     }
-    if (payload.meetingType !== undefined) {
-      updates.meetingType = requireText(payload.meetingType, 'meetingType');
-    }
     if (payload.location !== undefined) {
       updates.location = normalizeText(payload.location);
+    }
+    if (payload.meetingUrl !== undefined) {
+      updates.meetingUrl = normalizeText(payload.meetingUrl);
     }
     if (payload.startAt !== undefined) {
       updates.startAt = parseDateValue(payload.startAt, 'startAt', { allowNull: false });
@@ -1516,11 +1531,14 @@ export async function updateProjectMeeting(projectId, meetingId, payload = {}, {
     if (payload.attendees !== undefined) {
       updates.attendees = normalizeArray(payload.attendees);
     }
-    if (payload.actionItems !== undefined) {
-      updates.actionItems = normalizeArray(payload.actionItems);
+    if (payload.status !== undefined) {
+      updates.status = ensureMeetingStatus(payload.status);
     }
-    if (payload.resources !== undefined) {
-      updates.resources = normalizeArray(payload.resources);
+    if (payload.notes !== undefined) {
+      updates.notes = normalizeText(payload.notes);
+    }
+    if (payload.recordingUrl !== undefined) {
+      updates.recordingUrl = normalizeText(payload.recordingUrl);
     }
 
     if (Object.keys(updates).length > 0) {
