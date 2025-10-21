@@ -16,6 +16,23 @@ function buildFallback() {
     },
     pageContent: null,
     creations: [],
+    operationsSummary: {
+      escrowHealth: {
+        value: '99.2% uptime',
+        change: '+1.4%',
+        trend: [74, 82, 88, 91, 95, 98, 99],
+      },
+      disputeVelocity: {
+        value: '3.2 hrs median',
+        change: '-22%',
+        trend: [18, 16, 14, 12, 9, 7, 6],
+      },
+      evidencePipelines: {
+        value: '87% automated',
+        change: '+9%',
+        trend: [45, 48, 56, 62, 70, 78, 84],
+      },
+    },
   };
 }
 
@@ -83,10 +100,13 @@ export default function useHomeExperience({ enabled = true, limit = 6 } = {}) {
             ? creationsResult.value?.items ?? creationsResult.value ?? []
             : [];
 
+        const operationsSummary =
+          (settingsResult.status === 'fulfilled' && settingsResult.value?.operationsSummary) || buildFallback().operationsSummary;
+
         setState({
           loading: false,
           error: null,
-          data: { settings, pageContent, creations },
+          data: { settings, pageContent, creations, operationsSummary },
           fromCache: false,
           lastUpdated: new Date(),
         });
@@ -143,6 +163,7 @@ export default function useHomeExperience({ enabled = true, limit = 6 } = {}) {
           },
           pageContent: page,
           creations: creations?.items ?? creations ?? [],
+          operationsSummary: settings?.operationsSummary ?? data.operationsSummary ?? buildFallback().operationsSummary,
         },
         fromCache: false,
         lastUpdated: new Date(),

@@ -10,3 +10,4 @@ export { CreationStudioWorkflowSection } from './CreationStudioWorkflowSection.j
 export { JoinCommunitySection } from './JoinCommunitySection.jsx';
 export { CollaborationToolkitSection } from './CollaborationToolkitSection.jsx';
 export { ClosingConversionSection } from './ClosingConversionSection.jsx';
+export { OperationsTrustSection } from './OperationsTrustSection.jsx';
