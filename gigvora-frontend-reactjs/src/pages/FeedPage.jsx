@@ -2,18 +2,12 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowPathIcon,
-  BriefcaseIcon,
   ChatBubbleOvalLeftEllipsisIcon,
   ChatBubbleOvalLeftIcon,
   FaceSmileIcon,
-  HandRaisedIcon,
   HeartIcon,
   PaperAirplaneIcon,
-  PhotoIcon,
-  PresentationChartBarIcon,
-  RocketLaunchIcon,
   ShareIcon,
-  UsersIcon,
 } from '@heroicons/react/24/outline';
 import PageHeader from '../components/PageHeader.jsx';
 import DataStatus from '../components/DataStatus.jsx';
@@ -36,51 +30,12 @@ import {
   moderateFeedComposerPayload,
   sanitiseExternalLink,
 } from '../utils/contentModeration.js';
-
-const COMPOSER_OPTIONS = [
-  {
-    id: 'update',
-    label: 'Update',
-    description: 'Share wins, milestones, and shout-outs with your network.',
-    icon: FaceSmileIcon,
-  },
-  {
-    id: 'media',
-    label: 'Media',
-    description: 'Upload demos, decks, and reels directly to your feed.',
-    icon: PhotoIcon,
-  },
-  {
-    id: 'job',
-    label: 'Job',
-    description: 'List a permanent, contract, or interim opportunity.',
-    icon: BriefcaseIcon,
-  },
-  {
-    id: 'gig',
-    label: 'Gig',
-    description: 'Promote a specialist engagement with clear deliverables.',
-    icon: PresentationChartBarIcon,
-  },
-  {
-    id: 'project',
-    label: 'Project',
-    description: 'Rally collaborators around a multi-disciplinary brief.',
-    icon: UsersIcon,
-  },
-  {
-    id: 'volunteering',
-    label: 'Volunteering',
-    description: 'Mobilise talent towards purpose-led community missions.',
-    icon: HandRaisedIcon,
-  },
-  {
-    id: 'launchpad',
-    label: 'Launchpad',
-    description: 'Showcase cohort-based Experience Launchpad programmes.',
-    icon: RocketLaunchIcon,
-  },
-];
+import {
+  ALLOWED_FEED_MEMBERSHIPS,
+  COMPOSER_OPTIONS,
+  GIF_LIBRARY,
+  QUICK_EMOJIS,
+} from '../constants/feedMeta.js';
 
 const DEFAULT_EDIT_DRAFT = {
   title: '',
@@ -124,39 +79,11 @@ const POST_TYPE_META = {
   },
 };
 
-const ALLOWED_FEED_MEMBERSHIPS = new Set(['user', 'freelancer', 'agency', 'company', 'headhunter', 'mentor', 'admin']);
-const QUICK_EMOJIS = ['🚀', '🎉', '👏', '🤝', '🔥', '💡', '✅', '🙌', '🌍', '💬'];
 const QUICK_REPLY_SUGGESTIONS = [
   'This is a fantastic milestone – congratulations! 👏',
   'Looping the team so we can amplify this right away.',
   'Let’s sync offline about how we can support the rollout.',
   'Added this into the launch tracker so nothing slips.',
-];
-const GIF_LIBRARY = [
-  {
-    id: 'celebration',
-    label: 'Celebration',
-    url: 'https://media.giphy.com/media/5GoVLqeAOo6PK/giphy.gif',
-    tone: 'Celebrating big wins',
-  },
-  {
-    id: 'team-high-five',
-    label: 'Team high-five',
-    url: 'https://media.giphy.com/media/111ebonMs90YLu/giphy.gif',
-    tone: 'Recognising collaboration',
-  },
-  {
-    id: 'product-launch',
-    label: 'Product launch',
-    url: 'https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif',
-    tone: 'Shipping moments & go-lives',
-  },
-  {
-    id: 'inspiration',
-    label: 'Inspiration',
-    url: 'https://media.giphy.com/media/l0HUpt2s9Pclgt9Vm/giphy.gif',
-    tone: 'Ideas, creativity, momentum',
-  },
 ];
 const MAX_CONTENT_LENGTH = 2200;
 

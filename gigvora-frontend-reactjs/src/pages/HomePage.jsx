@@ -12,6 +12,7 @@ import {
   CreationStudioSection,
   FeesShowcaseSection,
   JoinCommunitySection,
+  CollaborationToolkitSection,
 } from './home/index.js';
 
 export default function HomePage() {
@@ -20,10 +21,29 @@ export default function HomePage() {
   const { data: homeData, loading: homeLoading, error: homeError, refresh, fromCache, lastUpdated } =
     useHomeExperience({ enabled: !isAuthenticated });
 
-  const heroHeadline = homeData?.settings?.heroHeadline ?? 'Build momentum with people who deliver.';
-  const heroSubheading =
-    homeData?.settings?.heroSubheading ??
-    'Gigvora unites clients, teams, and independent talent inside one calm workspace so every initiative moves forward with confidence.';
+  const heroHeadline = homeData?.settings?.heroHeadline?.trim() ? homeData.settings.heroHeadline : undefined;
+  const heroSubheading = homeData?.settings?.heroSubheading?.trim()
+    ? homeData.settings.heroSubheading
+    : undefined;
+
+  const heroKeywords = useMemo(() => {
+    if (!Array.isArray(homeData?.settings?.heroKeywords)) {
+      return undefined;
+    }
+
+    const items = homeData.settings.heroKeywords
+      .map((keyword) => {
+        if (!keyword) return null;
+        if (typeof keyword === 'string') return keyword;
+        if (typeof keyword === 'object') {
+          return keyword.label ?? keyword.title ?? keyword.keyword ?? keyword.name ?? null;
+        }
+        return null;
+      })
+      .filter(Boolean);
+
+    return items.length ? items : undefined;
+  }, [homeData?.settings?.heroKeywords]);
 
   const communityStats = useMemo(() => {
     if (!Array.isArray(homeData?.settings?.communityStats) || !homeData.settings.communityStats.length) {
@@ -55,7 +75,15 @@ export default function HomePage() {
 
   return (
     <div className="bg-white">
-      <HomeHeroSection headline={heroHeadline} subheading={heroSubheading} loading={homeLoading} error={homeError} />
+      <HomeHeroSection
+        headline={heroHeadline}
+        subheading={heroSubheading}
+        keywords={heroKeywords}
+        loading={homeLoading}
+        error={homeError}
+        onClaimWorkspace={() => navigate('/register')}
+        onBrowseOpportunities={() => navigate('/gigs')}
+      />
       <CommunityPulseSection
         loading={homeLoading}
         error={homeError}
@@ -63,6 +91,7 @@ export default function HomePage() {
         lastUpdated={lastUpdated}
         onRefresh={() => refresh().catch(() => {})}
         statusLabel={isAuthenticated ? 'Redirecting to live experience' : 'Live community snapshot'}
+        homeData={homeData}
       />
       <PersonaJourneysSection loading={homeLoading} error={homeError} />
       <CommunitySpotlightsSection loading={homeLoading} error={homeError} />
@@ -73,6 +102,7 @@ export default function HomePage() {
         communityStats={communityStats}
         trendingCreations={trendingCreations}
       />
+      <CollaborationToolkitSection />
       <CreationStudioSection loading={homeLoading} error={homeError} />
       <FeesShowcaseSection />
       <JoinCommunitySection />
