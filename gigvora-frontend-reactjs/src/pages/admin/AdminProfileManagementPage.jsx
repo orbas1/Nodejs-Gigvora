@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import AccessDeniedPanel from '../../components/dashboard/AccessDeniedPanel.jsx';
 import ProfileFilters from '../../components/admin/profile/ProfileFilters.jsx';
 import ProfileList from '../../components/admin/profile/ProfileList.jsx';
 import ProfileDetailDrawer from '../../components/admin/profile/ProfileDetailDrawer.jsx';
@@ -17,8 +18,9 @@ import {
   deleteAdminProfileNote,
 } from '../../services/adminProfiles.js';
 import useSession from '../../hooks/useSession.js';
+import { deriveAdminAccess } from '../../utils/adminAccess.js';
 
-const MENU_SECTIONS = [
+const BASE_MENU_SECTIONS = [
   {
     label: 'Profile workspace',
     items: [
@@ -66,8 +68,24 @@ function normaliseFilters(filters) {
   return payload;
 }
 
-export default function AdminProfileManagementPage() {
-  const { session } = useSession();
+function buildMenuSections() {
+  return BASE_MENU_SECTIONS.map((section) => ({
+    ...section,
+    items: Array.isArray(section.items) ? section.items.map((item) => ({ ...item })) : [],
+  }));
+}
+
+const SECTIONS = [
+  { id: 'profile-directory', title: 'Directory' },
+];
+
+function getUserScopes(session) {
+  const permissions = Array.isArray(session?.permissions) ? session.permissions : [];
+  const capabilities = Array.isArray(session?.capabilities) ? session.capabilities : [];
+  return [...permissions, ...capabilities];
+}
+
+function AdminProfileManagementPageContent() {
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [profiles, setProfiles] = useState([]);
   const [pagination, setPagination] = useState(null);
@@ -239,17 +257,7 @@ export default function AdminProfileManagementPage() {
   }, [pagination]);
 
   return (
-    <DashboardLayout
-      currentDashboard="admin"
-      title="Profile management"
-      subtitle="Curate member records, access, and trust signals"
-      description="Provision new accounts, ensure compliant profiles, and coordinate admin actions from one workspace."
-      menuSections={MENU_SECTIONS}
-      sections={[]}
-      availableDashboards={AVAILABLE_DASHBOARDS}
-      profile={session?.user ?? null}
-      adSurface="admin_dashboard"
-    >
+    <>
       <div className="space-y-8">
         <section id="profile-directory" className="space-y-6">
           <div className="flex flex-col gap-2">
@@ -307,6 +315,51 @@ export default function AdminProfileManagementPage() {
           error={createError}
         />
       </section>
+    </>
+  );
+}
+
+export default function AdminProfileManagementPage() {
+  const { session, isAuthenticated } = useSession();
+  const { hasAdminAccess } = useMemo(() => deriveAdminAccess(session), [session]);
+  const userScopes = useMemo(() => getUserScopes(session), [session]);
+  const menuSections = useMemo(() => buildMenuSections(), []);
+
+  if (!isAuthenticated || !hasAdminAccess) {
+    return (
+      <DashboardLayout
+        currentDashboard="admin"
+        title="Profile management"
+        subtitle="Curate member records, access, and trust signals"
+        description="Provision new accounts, ensure compliant profiles, and coordinate admin actions from one workspace."
+        menuSections={menuSections}
+        sections={[]}
+        availableDashboards={AVAILABLE_DASHBOARDS}
+        profile={session?.user ?? null}
+        adSurface="admin_dashboard"
+      >
+        <AccessDeniedPanel
+          role="admin"
+          availableDashboards={AVAILABLE_DASHBOARDS}
+          userScopes={userScopes}
+        />
+      </DashboardLayout>
+    );
+  }
+
+  return (
+    <DashboardLayout
+      currentDashboard="admin"
+      title="Profile management"
+      subtitle="Curate member records, access, and trust signals"
+      description="Provision new accounts, ensure compliant profiles, and coordinate admin actions from one workspace."
+      menuSections={menuSections}
+      sections={SECTIONS}
+      availableDashboards={AVAILABLE_DASHBOARDS}
+      profile={session?.user ?? null}
+      adSurface="admin_dashboard"
+    >
+      <AdminProfileManagementPageContent />
     </DashboardLayout>
   );
 }
