@@ -192,14 +192,70 @@ describe('project workspace management service', () => {
 });
 
 describe('support desk service', () => {
-  it('returns cached snapshot when present', async () => {
-    const cached = { tickets: 12 };
-    readCache.mockReturnValue({ data: cached, timestamp: new Date() });
+  it('rejects invalid user identifiers', async () => {
     const { getSupportDeskSnapshot } = await import('../supportDesk.js');
-    const result = await getSupportDeskSnapshot(88);
-    expect(result.fromCache).toBe(true);
+    await expect(getSupportDeskSnapshot('   ')).rejects.toThrow('userId');
+  });
+
+  it('returns cached snapshot when present without hitting the network', async () => {
+    const cached = { tickets: 12 };
+    const timestamp = new Date('2024-05-01T00:00:00Z');
+    readCache.mockReturnValue({ data: cached, timestamp });
+    const { getSupportDeskSnapshot } = await import('../supportDesk.js');
+    const result = await getSupportDeskSnapshot('88');
+    expect(result).toEqual({ data: cached, cachedAt: timestamp, fromCache: true, stale: false });
     expect(get).not.toHaveBeenCalled();
-    expect(result.data).toEqual(cached);
+  });
+
+  it('fetches fresh snapshots when forced and caches the response', async () => {
+    readCache.mockReturnValue(null);
+    const controller = new AbortController();
+    get.mockResolvedValue({ tickets: 4, agentsOnline: 2 });
+    const { getSupportDeskSnapshot } = await import('../supportDesk.js');
+    const result = await getSupportDeskSnapshot(' user-5 ', {
+      forceRefresh: true,
+      headers: { 'x-scope': 'admin' },
+      signal: controller.signal,
+    });
+    expect(get).toHaveBeenCalledWith(
+      '/users/user-5/support-desk',
+      { headers: { 'x-scope': 'admin' }, signal: controller.signal },
+    );
+    expect(writeCache).toHaveBeenCalledWith('support-desk:user-5', { tickets: 4, agentsOnline: 2 }, expect.any(Number));
+    expect(result.fromCache).toBe(false);
+  });
+
+  it('falls back to stale cache when requests fail and stale usage is allowed', async () => {
+    const staleData = { tickets: 9 };
+    readCache
+      .mockReturnValueOnce(null)
+      .mockReturnValueOnce({ data: staleData, timestamp: new Date('2024-05-02T10:00:00Z') });
+    get.mockRejectedValue(new Error('Network down'));
+    const { getSupportDeskSnapshot } = await import('../supportDesk.js');
+    const result = await getSupportDeskSnapshot('support-user');
+    expect(result.stale).toBe(true);
+    expect(result.data).toEqual(staleData);
+  });
+
+  it('invalidates cached snapshots on request', async () => {
+    const { invalidateSupportDeskSnapshot } = await import('../supportDesk.js');
+    invalidateSupportDeskSnapshot(' support-user ');
+    expect(removeCache).toHaveBeenCalledWith('support-desk:support-user');
+  });
+
+  it('validates knowledge base article payloads', async () => {
+    const { createKnowledgeBaseArticle } = await import('../supportDesk.js');
+    await expect(createKnowledgeBaseArticle('invalid')).rejects.toThrow('object');
+  });
+
+  it('normalises support playbook payloads before submission', async () => {
+    const { createSupportPlaybook } = await import('../supportDesk.js');
+    post.mockImplementation(async (path, body) => {
+      expect(path).toBe('/support/playbooks');
+      expect(body).toEqual({ title: 'Escalation', steps: ['Collect details', 'Assign specialist'] });
+      return { id: 'pb-1' };
+    });
+    await createSupportPlaybook({ title: ' Escalation ', steps: [' Collect details ', '', 'Assign specialist  '] });
   });
 });
 
@@ -370,7 +426,16 @@ describe('rbac service', () => {
 });
 
 describe('user service', () => {
-  it('encodes user identifiers and forwards headers', async () => {
+  it('returns cached users when available without performing a request', async () => {
+    readCache.mockReturnValue({ data: { id: 'user-1' }, timestamp: new Date() });
+    const { fetchUser } = await import('../user.js');
+    const result = await fetchUser(' user-1 ');
+    expect(result).toEqual({ id: 'user-1' });
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it('encodes user identifiers, forwards headers, and caches responses', async () => {
+    readCache.mockReturnValueOnce(null);
     const controller = new AbortController();
     get.mockResolvedValue({ id: 'user-1' });
     const { fetchUser } = await import('../user.js');
@@ -379,10 +444,33 @@ describe('user service', () => {
       '/users/user%2F1',
       { headers: { 'x-app': 'gigvora' }, signal: controller.signal },
     );
+    expect(writeCache).toHaveBeenCalledWith('users:account:user%2F1', { id: 'user-1' }, expect.any(Number));
+  });
+
+  it('bypasses cache when force is true', async () => {
+    readCache.mockReturnValue({ data: { id: 'cached-user' } });
+    get.mockResolvedValue({ id: 'fresh-user' });
+    const { fetchUser } = await import('../user.js');
+    const result = await fetchUser('user-2', { force: true });
+    expect(result).toEqual({ id: 'fresh-user' });
+    expect(get).toHaveBeenCalled();
   });
 
   it('rejects non-object payloads for account updates', async () => {
     const { updateUserAccount } = await import('../user.js');
     await expect(updateUserAccount('user-1', null)).rejects.toThrow('object');
+  });
+
+  it('writes updated accounts to the cache', async () => {
+    put.mockResolvedValue({ id: 'user-1', name: 'Updated' });
+    const { updateUserAccount } = await import('../user.js');
+    await updateUserAccount('user-1', { name: 'Updated' });
+    expect(writeCache).toHaveBeenCalledWith('users:account:user-1', { id: 'user-1', name: 'Updated' }, expect.any(Number));
+  });
+
+  it('clears cache entries on request', async () => {
+    const { clearUserCache } = await import('../user.js');
+    clearUserCache(' user-3 ');
+    expect(removeCache).toHaveBeenCalledWith('users:account:user-3');
   });
 });

@@ -1,6 +1,8 @@
 import apiClient from './apiClient.js';
 
 const USERS_BASE_PATH = '/users';
+const CACHE_NAMESPACE = 'users:account';
+const CACHE_TTL = 1000 * 60 * 5; // five minutes
 
 function ensureUserId(userId) {
   if (userId === null || userId === undefined) {
@@ -14,21 +16,31 @@ function ensureUserId(userId) {
 }
 
 function ensurePayload(payload) {
-  if (payload == null || typeof payload !== 'object') {
+  if (payload === null || payload === undefined) {
     throw new Error('Update payload must be an object.');
   }
-  return payload;
+  if (typeof payload !== 'object') {
+    throw new Error('Update payload must be an object.');
+  }
+  return { ...payload };
 }
 
-function ensureOptions(options) {
-  if (options === undefined || options === null) {
-    return {};
-  }
-  if (typeof options !== 'object') {
+function ensureOptions(options = {}) {
+  if (options === null || typeof options !== 'object') {
     throw new Error('Request options must be an object.');
   }
-  const { params: _ignoredParams, ...rest } = options;
-  return rest;
+
+  const { force = false, signal, headers } = options;
+
+  if (headers !== undefined && (headers === null || typeof headers !== 'object')) {
+    throw new Error('Request headers must be provided as an object when specified.');
+  }
+
+  return {
+    force: Boolean(force),
+    signal,
+    headers,
+  };
 }
 
 function buildUserPath(userId, ...segments) {
@@ -44,27 +56,64 @@ function buildUserPath(userId, ...segments) {
   return `${USERS_BASE_PATH}/${safeUserId}/${safeSegments.join('/')}`;
 }
 
-export async function fetchUser(userId, options = {}) {
-  const safeOptions = ensureOptions(options);
-  const { signal, ...rest } = safeOptions;
-  const requestOptions = { ...rest };
+function buildCacheKey(userId) {
+  return `${CACHE_NAMESPACE}:${encodeURIComponent(userId)}`;
+}
+
+function buildRequestOptions({ signal, headers }) {
+  const requestOptions = {};
   if (signal) {
     requestOptions.signal = signal;
   }
-  return apiClient.get(buildUserPath(userId), Object.keys(requestOptions).length ? requestOptions : undefined);
+  if (headers) {
+    requestOptions.headers = headers;
+  }
+  return requestOptions;
 }
 
-export async function updateUserAccount(userId, payload, options) {
+export async function fetchUser(userId, options = {}) {
+  const safeUserId = ensureUserId(userId);
+  const safeOptions = ensureOptions(options);
+  const cacheKey = buildCacheKey(safeUserId);
+
+  if (!safeOptions.force) {
+    const cached = apiClient.readCache(cacheKey);
+    if (cached?.data) {
+      return cached.data;
+    }
+  }
+
+  const requestOptions = buildRequestOptions(safeOptions);
+  const response = await apiClient.get(
+    buildUserPath(safeUserId),
+    Object.keys(requestOptions).length ? requestOptions : undefined,
+  );
+  apiClient.writeCache(cacheKey, response, CACHE_TTL);
+  return response;
+}
+
+export async function updateUserAccount(userId, payload, options = {}) {
+  const safeUserId = ensureUserId(userId);
   const body = ensurePayload(payload);
   const safeOptions = ensureOptions(options);
-  return apiClient.put(
-    buildUserPath(userId),
+  const requestOptions = buildRequestOptions(safeOptions);
+
+  const updated = await apiClient.put(
+    buildUserPath(safeUserId),
     body,
-    Object.keys(safeOptions).length ? safeOptions : undefined,
+    Object.keys(requestOptions).length ? requestOptions : undefined,
   );
+  apiClient.writeCache(buildCacheKey(safeUserId), updated, CACHE_TTL);
+  return updated;
+}
+
+export function clearUserCache(userId) {
+  const safeUserId = ensureUserId(userId);
+  apiClient.removeCache?.(buildCacheKey(safeUserId));
 }
 
 export default {
   fetchUser,
   updateUserAccount,
+  clearUserCache,
 };
