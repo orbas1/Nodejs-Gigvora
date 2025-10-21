@@ -1,16 +1,10 @@
 'use strict';
 
-const dropEnum = async (queryInterface, enumName) => {
-  const dialect = queryInterface.sequelize.getDialect();
-  if (dialect === 'postgres' || dialect === 'postgresql') {
-    await queryInterface.sequelize.query(`DROP TYPE IF EXISTS "${enumName}";`);
-  }
-};
+const { resolveJsonType, dropEnum } = require('../utils/migrationHelpers.cjs');
 
 module.exports = {
   async up(queryInterface, Sequelize) {
-    const dialect = queryInterface.sequelize.getDialect();
-    const jsonType = ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
+    const jsonType = resolveJsonType(queryInterface, Sequelize);
 
     await queryInterface.createTable('support_playbooks', {
       id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },

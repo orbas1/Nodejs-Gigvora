@@ -1,9 +1,5 @@
 import { DataTypes } from 'sequelize';
-import {
-  sequelize,
-  ProviderWorkspace,
-  ProviderWorkspaceMember,
-} from './index.js';
+import sequelize from './sequelizeClient.js';
 
 const dialect = sequelize.getDialect();
 const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB : DataTypes.JSON;
@@ -60,31 +56,57 @@ export const ProviderWellbeingLog = sequelize.define(
   },
 );
 
-ProviderWorkspace.hasMany(ProviderAvailabilityWindow, {
-  foreignKey: 'workspaceId',
-  as: 'availabilityWindows',
-});
-ProviderAvailabilityWindow.belongsTo(ProviderWorkspace, {
-  foreignKey: 'workspaceId',
-  as: 'workspace',
-});
-ProviderAvailabilityWindow.belongsTo(ProviderWorkspaceMember, {
-  foreignKey: 'memberId',
-  as: 'member',
-});
+function resolveModel(name) {
+  return sequelize.models[name];
+}
 
-ProviderWorkspace.hasMany(ProviderWellbeingLog, {
-  foreignKey: 'workspaceId',
-  as: 'wellbeingLogs',
-});
-ProviderWellbeingLog.belongsTo(ProviderWorkspace, {
-  foreignKey: 'workspaceId',
-  as: 'workspace',
-});
-ProviderWellbeingLog.belongsTo(ProviderWorkspaceMember, {
-  foreignKey: 'memberId',
-  as: 'member',
-});
+const providerWorkspace = () => resolveModel('ProviderWorkspace');
+const providerWorkspaceMember = () => resolveModel('ProviderWorkspaceMember');
+
+function registerAssociations() {
+  const workspace = providerWorkspace();
+  const member = providerWorkspaceMember();
+
+  if (workspace && !workspace.associations?.availabilityWindows) {
+    workspace.hasMany(ProviderAvailabilityWindow, {
+      foreignKey: 'workspaceId',
+      as: 'availabilityWindows',
+    });
+  }
+  if (workspace && !ProviderAvailabilityWindow.associations?.workspace) {
+    ProviderAvailabilityWindow.belongsTo(workspace, {
+      foreignKey: 'workspaceId',
+      as: 'workspace',
+    });
+  }
+  if (member && !ProviderAvailabilityWindow.associations?.member) {
+    ProviderAvailabilityWindow.belongsTo(member, {
+      foreignKey: 'memberId',
+      as: 'member',
+    });
+  }
+
+  if (workspace && !workspace.associations?.wellbeingLogs) {
+    workspace.hasMany(ProviderWellbeingLog, {
+      foreignKey: 'workspaceId',
+      as: 'wellbeingLogs',
+    });
+  }
+  if (workspace && !ProviderWellbeingLog.associations?.workspace) {
+    ProviderWellbeingLog.belongsTo(workspace, {
+      foreignKey: 'workspaceId',
+      as: 'workspace',
+    });
+  }
+  if (member && !ProviderWellbeingLog.associations?.member) {
+    ProviderWellbeingLog.belongsTo(member, {
+      foreignKey: 'memberId',
+      as: 'member',
+    });
+  }
+}
+
+registerAssociations();
 
 export default {
   ProviderAvailabilityWindow,

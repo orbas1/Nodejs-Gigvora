@@ -13,121 +13,119 @@ import {
   createClient,
   updateClient,
 } from '../services/agencyClientKanbanService.js';
-import { resolveRequestUserId } from '../utils/requestContext.js';
+import {
+  buildAgencyActorContext,
+  ensurePlainObject,
+  toPositiveInteger,
+} from '../utils/controllerUtils.js';
+import { resolveWorkspaceForActor, resolveWorkspaceIdentifiersFromRequest } from '../utils/agencyWorkspaceAccess.js';
 
-function parseWorkspaceId(value) {
-  if (value == null || value === '') {
-    return null;
+async function resolveContext(req, body = {}) {
+  const actor = buildAgencyActorContext(req);
+  const identifiers = resolveWorkspaceIdentifiersFromRequest(req, body, { required: false });
+  let workspaceId = identifiers.workspaceId ?? null;
+  if (workspaceId != null || identifiers.workspaceSlug) {
+    const { workspace } = await resolveWorkspaceForActor(identifiers, actor, { requireMembership: true });
+    workspaceId = workspace.id;
   }
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isInteger(parsed) || parsed < 0) {
-    return null;
-  }
-  return parsed;
-}
-
-function resolveContext(req) {
-  const ownerId = resolveRequestUserId(req) ?? req.user?.id ?? null;
-  if (!ownerId) {
-    throw new Error('Unable to resolve authenticated user.');
-  }
-  const workspaceId =
-    parseWorkspaceId(req.query?.workspaceId) ?? parseWorkspaceId(req.body?.workspaceId) ?? null;
-  return { ownerId, workspaceId };
+  return { actor, workspaceId };
 }
 
 export async function index(req, res) {
-  const context = resolveContext(req);
-  const snapshot = await getClientKanban(context);
+  const { actor, workspaceId } = await resolveContext(req, req.query ?? {});
+  const snapshot = await getClientKanban({ ownerId: actor.actorId, workspaceId });
   res.json(snapshot);
 }
 
 export async function storeColumn(req, res) {
-  const context = resolveContext(req);
-  const column = await createColumn(context.ownerId, context.workspaceId, req.body ?? {});
+  const { actor, workspaceId } = await resolveContext(req, req.body ?? {});
+  const payload = ensurePlainObject(req.body ?? {}, 'body');
+  const column = await createColumn(actor.actorId, workspaceId, payload);
   res.status(201).json(column);
 }
 
 export async function updateColumnController(req, res) {
-  const context = resolveContext(req);
-  const columnId = Number.parseInt(req.params?.columnId, 10);
-  const column = await updateColumn(context.ownerId, context.workspaceId, columnId, req.body ?? {});
+  const { actor, workspaceId } = await resolveContext(req, req.body ?? {});
+  const columnId = toPositiveInteger(req.params?.columnId, { fieldName: 'columnId' });
+  const payload = ensurePlainObject(req.body ?? {}, 'body');
+  const column = await updateColumn(actor.actorId, workspaceId, columnId, payload);
   res.json(column);
 }
 
 export async function destroyColumn(req, res) {
-  const context = resolveContext(req);
-  const columnId = Number.parseInt(req.params?.columnId, 10);
-  await deleteColumn(context.ownerId, context.workspaceId, columnId);
+  const { actor, workspaceId } = await resolveContext(req, req.query ?? {});
+  const columnId = toPositiveInteger(req.params?.columnId, { fieldName: 'columnId' });
+  await deleteColumn(actor.actorId, workspaceId, columnId);
   res.status(204).send();
 }
 
 export async function storeCard(req, res) {
-  const context = resolveContext(req);
-  const card = await createCard(context.ownerId, context.workspaceId, req.body ?? {});
+  const { actor, workspaceId } = await resolveContext(req, req.body ?? {});
+  const payload = ensurePlainObject(req.body ?? {}, 'body');
+  const card = await createCard(actor.actorId, workspaceId, payload);
   res.status(201).json(card);
 }
 
 export async function updateCardController(req, res) {
-  const context = resolveContext(req);
-  const cardId = Number.parseInt(req.params?.cardId, 10);
-  const card = await updateCard(context.ownerId, context.workspaceId, cardId, req.body ?? {});
+  const { actor, workspaceId } = await resolveContext(req, req.body ?? {});
+  const cardId = toPositiveInteger(req.params?.cardId, { fieldName: 'cardId' });
+  const payload = ensurePlainObject(req.body ?? {}, 'body');
+  const card = await updateCard(actor.actorId, workspaceId, cardId, payload);
   res.json(card);
 }
 
 export async function moveCardController(req, res) {
-  const context = resolveContext(req);
-  const cardId = Number.parseInt(req.params?.cardId, 10);
-  const card = await moveCard(context.ownerId, context.workspaceId, cardId, req.body ?? {});
+  const { actor, workspaceId } = await resolveContext(req, req.body ?? {});
+  const cardId = toPositiveInteger(req.params?.cardId, { fieldName: 'cardId' });
+  const payload = ensurePlainObject(req.body ?? {}, 'body');
+  const card = await moveCard(actor.actorId, workspaceId, cardId, payload);
   res.json(card);
 }
 
 export async function destroyCard(req, res) {
-  const context = resolveContext(req);
-  const cardId = Number.parseInt(req.params?.cardId, 10);
-  await deleteCard(context.ownerId, context.workspaceId, cardId);
+  const { actor, workspaceId } = await resolveContext(req, req.query ?? {});
+  const cardId = toPositiveInteger(req.params?.cardId, { fieldName: 'cardId' });
+  await deleteCard(actor.actorId, workspaceId, cardId);
   res.status(204).send();
 }
 
 export async function storeChecklistItem(req, res) {
-  const context = resolveContext(req);
-  const cardId = Number.parseInt(req.params?.cardId, 10);
-  const item = await createChecklistItem(context.ownerId, context.workspaceId, cardId, req.body ?? {});
+  const { actor, workspaceId } = await resolveContext(req, req.body ?? {});
+  const cardId = toPositiveInteger(req.params?.cardId, { fieldName: 'cardId' });
+  const payload = ensurePlainObject(req.body ?? {}, 'body');
+  const item = await createChecklistItem(actor.actorId, workspaceId, cardId, payload);
   res.status(201).json(item);
 }
 
 export async function updateChecklistItemController(req, res) {
-  const context = resolveContext(req);
-  const cardId = Number.parseInt(req.params?.cardId, 10);
-  const itemId = Number.parseInt(req.params?.itemId, 10);
-  const item = await updateChecklistItem(
-    context.ownerId,
-    context.workspaceId,
-    cardId,
-    itemId,
-    req.body ?? {},
-  );
+  const { actor, workspaceId } = await resolveContext(req, req.body ?? {});
+  const cardId = toPositiveInteger(req.params?.cardId, { fieldName: 'cardId' });
+  const itemId = toPositiveInteger(req.params?.itemId, { fieldName: 'itemId' });
+  const payload = ensurePlainObject(req.body ?? {}, 'body');
+  const item = await updateChecklistItem(actor.actorId, workspaceId, cardId, itemId, payload);
   res.json(item);
 }
 
 export async function destroyChecklistItem(req, res) {
-  const context = resolveContext(req);
-  const cardId = Number.parseInt(req.params?.cardId, 10);
-  const itemId = Number.parseInt(req.params?.itemId, 10);
-  await deleteChecklistItem(context.ownerId, context.workspaceId, cardId, itemId);
+  const { actor, workspaceId } = await resolveContext(req, req.query ?? {});
+  const cardId = toPositiveInteger(req.params?.cardId, { fieldName: 'cardId' });
+  const itemId = toPositiveInteger(req.params?.itemId, { fieldName: 'itemId' });
+  await deleteChecklistItem(actor.actorId, workspaceId, cardId, itemId);
   res.status(204).send();
 }
 
 export async function storeClient(req, res) {
-  const context = resolveContext(req);
-  const client = await createClient(context.ownerId, context.workspaceId, req.body ?? {});
+  const { actor, workspaceId } = await resolveContext(req, req.body ?? {});
+  const payload = ensurePlainObject(req.body ?? {}, 'body');
+  const client = await createClient(actor.actorId, workspaceId, payload);
   res.status(201).json(client);
 }
 
 export async function updateClientController(req, res) {
-  const context = resolveContext(req);
-  const clientId = Number.parseInt(req.params?.clientId, 10);
-  const client = await updateClient(context.ownerId, context.workspaceId, clientId, req.body ?? {});
+  const { actor, workspaceId } = await resolveContext(req, req.body ?? {});
+  const clientId = toPositiveInteger(req.params?.clientId, { fieldName: 'clientId' });
+  const payload = ensurePlainObject(req.body ?? {}, 'body');
+  const client = await updateClient(actor.actorId, workspaceId, clientId, payload);
   res.json(client);
 }
 
@@ -146,4 +144,3 @@ export default {
   storeClient,
   updateClientController,
 };
-

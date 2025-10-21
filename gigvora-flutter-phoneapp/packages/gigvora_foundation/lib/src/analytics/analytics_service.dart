@@ -24,6 +24,8 @@ class AnalyticsService {
   final int _flushThreshold;
   final String _queueKey;
 
+  Logger get logger => _logger;
+
   static const _maxQueueLength = 500;
 
   Future<bool> track(

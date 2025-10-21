@@ -586,6 +586,16 @@ class GigvoraLocalizations {
     },
   };
 
+  static GigvoraLocalizations of(BuildContext context) {
+    final localizations = maybeOf(context);
+    assert(localizations != null, 'GigvoraLocalizations not found in context');
+    return localizations!;
+  }
+
+  static GigvoraLocalizations? maybeOf(BuildContext context) {
+    return Localizations.of<GigvoraLocalizations>(context, GigvoraLocalizations);
+  }
+
   static Locale resolveLocales(List<Locale> locales) {
     for (final locale in locales) {
       final resolved = supportedLocaleFromCode(locale.languageCode);

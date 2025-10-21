@@ -43,6 +43,25 @@ function getActorId(req) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
+function parseRequiredPositiveInteger(value, fieldName) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new ValidationError(`${fieldName} must be a positive integer.`);
+  }
+  return parsed;
+}
+
+function parseOptionalPositiveInteger(value, fieldName) {
+  if (value == null || value === '') {
+    return undefined;
+  }
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new ValidationError(`${fieldName} must be a positive integer.`);
+  }
+  return parsed;
+}
+
 export async function workspace(req, res) {
   const ownerId = resolveOwnerId(req);
   if (!ownerId) {
@@ -50,7 +69,7 @@ export async function workspace(req, res) {
   }
   const payload = await getJobApplicationWorkspace(ownerId, {
     actorId: getActorId(req),
-    limit: req.query?.limit ? Number.parseInt(req.query.limit, 10) : undefined,
+    limit: parseOptionalPositiveInteger(req.query?.limit, 'limit'),
   });
   res.json(payload);
 }
@@ -69,7 +88,7 @@ export async function updateApplication(req, res) {
   if (!ownerId) {
     throw new ValidationError('ownerId is required to update a job application.');
   }
-  const { applicationId } = req.params;
+  const applicationId = parseRequiredPositiveInteger(req.params?.applicationId, 'applicationId');
   const application = await updateJobApplication(ownerId, applicationId, req.body ?? {}, { actorId: getActorId(req) });
   res.json(application);
 }
@@ -79,7 +98,7 @@ export async function removeApplication(req, res) {
   if (!ownerId) {
     throw new ValidationError('ownerId is required to archive a job application.');
   }
-  const { applicationId } = req.params;
+  const applicationId = parseRequiredPositiveInteger(req.params?.applicationId, 'applicationId');
   const result = await archiveJobApplication(ownerId, applicationId, { actorId: getActorId(req) });
   res.json(result);
 }
@@ -89,7 +108,7 @@ export async function storeInterview(req, res) {
   if (!ownerId) {
     throw new ValidationError('ownerId is required to create an interview.');
   }
-  const { applicationId } = req.params;
+  const applicationId = parseRequiredPositiveInteger(req.params?.applicationId, 'applicationId');
   const interview = await createJobApplicationInterview(ownerId, applicationId, req.body ?? {}, {
     actorId: getActorId(req),
   });
@@ -101,7 +120,8 @@ export async function updateInterview(req, res) {
   if (!ownerId) {
     throw new ValidationError('ownerId is required to update an interview.');
   }
-  const { applicationId, interviewId } = req.params;
+  const applicationId = parseRequiredPositiveInteger(req.params?.applicationId, 'applicationId');
+  const interviewId = parseRequiredPositiveInteger(req.params?.interviewId, 'interviewId');
   const interview = await updateJobApplicationInterview(ownerId, applicationId, interviewId, req.body ?? {}, {
     actorId: getActorId(req),
   });
@@ -113,7 +133,8 @@ export async function destroyInterview(req, res) {
   if (!ownerId) {
     throw new ValidationError('ownerId is required to delete an interview.');
   }
-  const { applicationId, interviewId } = req.params;
+  const applicationId = parseRequiredPositiveInteger(req.params?.applicationId, 'applicationId');
+  const interviewId = parseRequiredPositiveInteger(req.params?.interviewId, 'interviewId');
   const result = await deleteJobApplicationInterview(ownerId, applicationId, interviewId, {
     actorId: getActorId(req),
   });
@@ -134,7 +155,7 @@ export async function updateFavourite(req, res) {
   if (!ownerId) {
     throw new ValidationError('ownerId is required to update a favourite.');
   }
-  const { favouriteId } = req.params;
+  const favouriteId = parseRequiredPositiveInteger(req.params?.favouriteId, 'favouriteId');
   const favourite = await updateJobApplicationFavourite(ownerId, favouriteId, req.body ?? {}, {
     actorId: getActorId(req),
   });
@@ -146,7 +167,7 @@ export async function destroyFavourite(req, res) {
   if (!ownerId) {
     throw new ValidationError('ownerId is required to delete a favourite.');
   }
-  const { favouriteId } = req.params;
+  const favouriteId = parseRequiredPositiveInteger(req.params?.favouriteId, 'favouriteId');
   const result = await deleteJobApplicationFavourite(ownerId, favouriteId, { actorId: getActorId(req) });
   res.json(result);
 }
@@ -156,7 +177,7 @@ export async function storeResponse(req, res) {
   if (!ownerId) {
     throw new ValidationError('ownerId is required to log a response.');
   }
-  const { applicationId } = req.params;
+  const applicationId = parseRequiredPositiveInteger(req.params?.applicationId, 'applicationId');
   const responseRecord = await createJobApplicationResponse(ownerId, applicationId, req.body ?? {}, {
     actorId: getActorId(req),
   });
@@ -168,7 +189,8 @@ export async function updateResponse(req, res) {
   if (!ownerId) {
     throw new ValidationError('ownerId is required to update a response.');
   }
-  const { applicationId, responseId } = req.params;
+  const applicationId = parseRequiredPositiveInteger(req.params?.applicationId, 'applicationId');
+  const responseId = parseRequiredPositiveInteger(req.params?.responseId, 'responseId');
   const responseRecord = await updateJobApplicationResponse(ownerId, applicationId, responseId, req.body ?? {}, {
     actorId: getActorId(req),
   });
@@ -180,7 +202,8 @@ export async function destroyResponse(req, res) {
   if (!ownerId) {
     throw new ValidationError('ownerId is required to delete a response.');
   }
-  const { applicationId, responseId } = req.params;
+  const applicationId = parseRequiredPositiveInteger(req.params?.applicationId, 'applicationId');
+  const responseId = parseRequiredPositiveInteger(req.params?.responseId, 'responseId');
   const result = await deleteJobApplicationResponse(ownerId, applicationId, responseId, {
     actorId: getActorId(req),
   });

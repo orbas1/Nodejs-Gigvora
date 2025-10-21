@@ -1,12 +1,19 @@
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
 
 import '../../../core/providers.dart';
-import 'models/group_models.dart';
-import 'package:flutter/foundation.dart';
-import 'package:gigvora_foundation/gigvora_foundation.dart';
+import 'models/group.dart' as admin_models;
+import 'models/group_models.dart' as community_models;
 
-import 'models/group.dart';
+typedef GroupDirectory = community_models.GroupDirectory;
+typedef GroupSummary = community_models.GroupSummary;
+typedef GroupProfile = community_models.GroupProfile;
+typedef GroupNotificationPreferences = community_models.GroupNotificationPreferences;
+typedef AdminGroupSummary = admin_models.GroupSummary;
+typedef GroupMember = admin_models.GroupMember;
 
 class GroupRepository {
   GroupRepository(this._apiClient, this._cache);
@@ -16,8 +23,11 @@ class GroupRepository {
 
   static const _directoryCachePrefix = 'groups:directory:';
   static const _profileCachePrefix = 'groups:profile:';
+  static const _managedCacheKey = 'groups:managed';
   static const _directoryTtl = Duration(minutes: 2);
   static const _profileTtl = Duration(minutes: 5);
+  static const _managedCacheTtl = Duration(minutes: 2);
+
   final Map<int, Set<String>> _directoryCacheKeys = <int, Set<String>>{};
 
   Future<RepositoryResult<GroupDirectory>> fetchDirectory({
@@ -46,11 +56,11 @@ class GroupRepository {
 
     try {
       final response = await _apiClient.get(
-        '/groups',
+        '/groups/directory',
         query: {
           'actorId': actorId,
           if (normalizedQuery.isNotEmpty) 'query': normalizedQuery,
-          if (focus != null && focus.trim().isNotEmpty && normalizedFocus != 'all') 'focus': focus,
+          if (normalizedFocus != 'all') 'focus': focus,
           if (includeEmpty) 'includeEmpty': includeEmpty,
         },
       );
@@ -59,13 +69,29 @@ class GroupRepository {
       await _cache.write(cacheKey, directory.toJson(), ttl: _directoryTtl);
       return RepositoryResult<GroupDirectory>(
         data: directory,
-  static const _managedCacheKey = 'groups:managed';
-  static const _managedCacheTtl = Duration(minutes: 2);
+        fromCache: false,
+        lastUpdated: DateTime.now(),
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Failed to load group directory: $error\n$stackTrace');
+      if (cached != null) {
+        return RepositoryResult<GroupDirectory>(
+          data: cached.value,
+          fromCache: true,
+          lastUpdated: cached.storedAt,
+          error: error,
+        );
+      }
+      rethrow;
+    }
+  }
 
-  Future<RepositoryResult<List<GroupSummary>>> fetchManagedGroups({ bool forceRefresh = false }) async {
-    final cached = _readManagedCache();
-    if (!forceRefresh && cached != null) {
-      return RepositoryResult<List<GroupSummary>>(
+  Future<RepositoryResult<List<AdminGroupSummary>>> fetchManagedGroups({
+    bool forceRefresh = false,
+  }) async {
+    final cached = forceRefresh ? null : _readManagedCache();
+    if (cached != null) {
+      return RepositoryResult<List<AdminGroupSummary>>(
         data: cached.value,
         fromCache: true,
         lastUpdated: cached.storedAt,
@@ -73,30 +99,35 @@ class GroupRepository {
     }
 
     try {
-      final response = await _apiClient.get('/groups', query: {
-        'includeMembers': 'true',
-        'pageSize': '50',
-      }) as Map<String, dynamic>;
-      final data = response['data'];
-      final groups = data is List
-          ? data
-              .whereType<Map>()
-              .map((item) => GroupSummary.fromJson(Map<String, dynamic>.from(item)))
-              .toList(growable: false)
-          : const <GroupSummary>[];
-      await _cache.write(_managedCacheKey, response, ttl: _managedCacheTtl);
-      return RepositoryResult<List<GroupSummary>>(
+      final response = await _apiClient.get(
+        '/groups/managed',
+        query: const {
+          'includeMembers': 'true',
+          'pageSize': '50',
+        },
+      );
+
+      final groups = _parseManagedGroupsResponse(response);
+      await _cache.write(
+        _managedCacheKey,
+        {
+          'data': groups.map((item) => item.toJson()).toList(growable: false),
+        },
+        ttl: _managedCacheTtl,
+      );
+      return RepositoryResult<List<AdminGroupSummary>>(
         data: groups,
         fromCache: false,
         lastUpdated: DateTime.now(),
       );
-    } catch (error) {
-      if (cached != null) {
-        return RepositoryResult<GroupDirectory>(
-        return RepositoryResult<List<GroupSummary>>(
-          data: cached.value,
+    } catch (error, stackTrace) {
+      debugPrint('Failed to load managed groups: $error\n$stackTrace');
+      final fallback = cached ?? _readManagedCache();
+      if (fallback != null) {
+        return RepositoryResult<List<AdminGroupSummary>>(
+          data: fallback.value,
           fromCache: true,
-          lastUpdated: cached.storedAt,
+          lastUpdated: fallback.storedAt,
           error: error,
         );
       }
@@ -109,10 +140,9 @@ class GroupRepository {
     required int actorId,
     bool forceRefresh = false,
   }) async {
-    final cacheKey = '$_profileCachePrefix$actorId:${groupId.toLowerCase()}';
-    CacheEntry<GroupProfile>? cached;
+    final cacheKey = _profileCacheKey(actorId, groupId);
     if (!forceRefresh) {
-      cached = _cache.read<GroupProfile>(cacheKey, _parseProfileCache);
+      final cached = _cache.read<GroupProfile>(cacheKey, _parseProfileCache);
       if (cached != null && !cached.isExpired) {
         return cached.value;
       }
@@ -185,6 +215,42 @@ class GroupRepository {
     return profile;
   }
 
+  Future<AdminGroupSummary> createGroup(Map<String, dynamic> payload) async {
+    final response = await _apiClient.post('/groups', body: payload);
+    if (response is! Map && response is! Map<String, dynamic>) {
+      throw StateError('Unexpected create group response: $response');
+    }
+    await _cache.remove(_managedCacheKey);
+    return admin_models.GroupSummary.fromJson(_coerceMap(response));
+  }
+
+  Future<AdminGroupSummary> updateGroup(int groupId, Map<String, dynamic> payload) async {
+    final response = await _apiClient.put('/groups/$groupId', body: payload);
+    if (response is! Map && response is! Map<String, dynamic>) {
+      throw StateError('Unexpected update group response: $response');
+    }
+    await _cache.remove(_managedCacheKey);
+    return admin_models.GroupSummary.fromJson(_coerceMap(response));
+  }
+
+  Future<GroupMember> addMember(int groupId, Map<String, dynamic> payload) async {
+    final response = await _apiClient.post('/groups/$groupId/memberships', body: payload);
+    if (response is! Map && response is! Map<String, dynamic>) {
+      throw StateError('Unexpected add member response: $response');
+    }
+    await _cache.remove(_managedCacheKey);
+    return admin_models.GroupMember.fromJson(_coerceMap(response));
+  }
+
+  Future<GroupMember> updateMember(int groupId, int membershipId, Map<String, dynamic> payload) async {
+    final response = await _apiClient.patch('/groups/$groupId/memberships/$membershipId', body: payload);
+    if (response is! Map && response is! Map<String, dynamic>) {
+      throw StateError('Unexpected update member response: $response');
+    }
+    await _cache.remove(_managedCacheKey);
+    return admin_models.GroupMember.fromJson(_coerceMap(response));
+  }
+
   Future<void> _invalidateDirectory(int actorId) async {
     final keys = _directoryCacheKeys[actorId];
     if (keys == null || keys.isEmpty) {
@@ -196,114 +262,137 @@ class GroupRepository {
     keys.clear();
   }
 
+  CacheEntry<List<AdminGroupSummary>>? _readManagedCache() {
+    try {
+      return _cache.read<List<AdminGroupSummary>>(
+        _managedCacheKey,
+        (raw) {
+          final map = _coerceMap(raw);
+          final data = _coerceList(map['data'] ?? map['items'] ?? raw);
+          return data
+              .whereType<Map>()
+              .map((item) => admin_models.GroupSummary.fromJson(_coerceMap(item)))
+              .toList(growable: false);
+        },
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Failed to parse managed groups cache: $error\n$stackTrace');
+      return null;
+    }
+  }
+
   GroupDirectory _parseDirectoryResponse(dynamic response) {
     if (response is GroupDirectory) {
       return response;
     }
-    if (response is Map<String, dynamic>) {
-      return GroupDirectory.fromJson(response);
+    if (response is List) {
+      return community_models.GroupDirectory.fromJson({
+        'items': response,
+        'pagination': {
+          'total': response.length,
+          'limit': response.length,
+          'offset': 0,
+        },
+        'metadata': const <String, dynamic>{},
+      });
     }
-    if (response is Map) {
-      return GroupDirectory.fromJson(Map<String, dynamic>.from(response as Map));
-    }
-    throw StateError('Unexpected directory response: $response');
-  }
 
-  GroupProfile _parseProfileResponse(dynamic response) {
-    if (response is GroupProfile) {
-      return response;
-    }
-    if (response is Map<String, dynamic>) {
-      return GroupProfile.fromJson(response);
-    }
-    if (response is Map) {
-      return GroupProfile.fromJson(Map<String, dynamic>.from(response as Map));
-    }
-    throw StateError('Unexpected profile response: $response');
+    final map = _coerceMap(response);
+    final meta = _coerceMap(map['meta']);
+    final payload = <String, dynamic>{
+      'items': _coerceList(map['items'] ?? map['data'] ?? map['groups']),
+      'pagination': _coerceMap(map['pagination'] ?? meta['pagination']),
+      'metadata': _coerceMap(map['metadata'] ?? meta['metadata'] ?? map['context']),
+    };
+    return community_models.GroupDirectory.fromJson(payload);
   }
 
   GroupDirectory _parseDirectoryCache(dynamic raw) {
     if (raw is GroupDirectory) {
       return raw;
     }
-    if (raw is Map<String, dynamic>) {
-      return GroupDirectory.fromJson(raw);
+    final map = _coerceMap(raw);
+    return community_models.GroupDirectory.fromJson(map);
+  }
+
+  GroupProfile _parseProfileResponse(dynamic response) {
+    if (response is GroupProfile) {
+      return response;
     }
-    if (raw is Map) {
-      return GroupDirectory.fromJson(Map<String, dynamic>.from(raw as Map));
-    }
-    throw StateError('Invalid directory cache payload');
+    final map = _coerceMap(
+      response is Map && response.containsKey('data') ? response['data'] : response,
+    );
+    return community_models.GroupProfile.fromJson(map);
   }
 
   GroupProfile _parseProfileCache(dynamic raw) {
     if (raw is GroupProfile) {
       return raw;
     }
-    if (raw is Map<String, dynamic>) {
-      return GroupProfile.fromJson(raw);
+    final map = _coerceMap(raw);
+    return community_models.GroupProfile.fromJson(map);
+  }
+
+  List<AdminGroupSummary> _parseManagedGroupsResponse(dynamic response) {
+    if (response is List) {
+      return response
+          .whereType<Map>()
+          .map((item) => admin_models.GroupSummary.fromJson(_coerceMap(item)))
+          .toList(growable: false);
     }
-    if (raw is Map) {
-      return GroupProfile.fromJson(Map<String, dynamic>.from(raw as Map));
+    final map = _coerceMap(
+      response is Map && response.containsKey('data') ? response : {'data': response},
+    );
+    final data = _coerceList(map['data']);
+    return data
+        .whereType<Map>()
+        .map((item) => admin_models.GroupSummary.fromJson(_coerceMap(item)))
+        .toList(growable: false);
+  }
+
+  Map<String, dynamic> _coerceMap(dynamic value) {
+    if (value is Map<String, dynamic>) {
+      return value;
     }
-    throw StateError('Invalid profile cache payload');
+    if (value is Map) {
+      return Map<String, dynamic>.from(value as Map);
+    }
+    if (value is String && value.trim().isNotEmpty) {
+      final decoded = jsonDecode(value);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+      if (decoded is Map) {
+        return Map<String, dynamic>.from(decoded as Map);
+      }
+    }
+    return <String, dynamic>{};
+  }
+
+  List<dynamic> _coerceList(dynamic value) {
+    if (value is List<dynamic>) {
+      return value;
+    }
+    if (value is List) {
+      return List<dynamic>.from(value as List);
+    }
+    if (value is String && value.trim().isNotEmpty) {
+      final decoded = jsonDecode(value);
+      if (decoded is List<dynamic>) {
+        return decoded;
+      }
+      if (decoded is List) {
+        return List<dynamic>.from(decoded as List);
+      }
+    }
+    return const <dynamic>[];
   }
 
   String _profileCacheKey(int actorId, String slug) => '$_profileCachePrefix$actorId:${slug.toLowerCase()}';
 }
 
 final groupRepositoryProvider = Provider<GroupRepository>((ref) {
-  final api = ref.watch(apiClientProvider);
+  final apiClient = ref.watch(apiClientProvider);
   final cache = ref.watch(offlineCacheProvider);
-  return GroupRepository(api, cache);
+  return GroupRepository(apiClient, cache);
 });
-  Future<GroupSummary> createGroup(Map<String, dynamic> payload) async {
-    final response = await _apiClient.post('/groups', body: payload) as Map<String, dynamic>;
-    await _cache.remove(_managedCacheKey);
-    return GroupSummary.fromJson(response);
-  }
-
-  Future<GroupSummary> updateGroup(int groupId, Map<String, dynamic> payload) async {
-    final response = await _apiClient.put('/groups/$groupId', body: payload) as Map<String, dynamic>;
-    await _cache.remove(_managedCacheKey);
-    return GroupSummary.fromJson(response);
-  }
-
-  Future<GroupMember> addMember(int groupId, Map<String, dynamic> payload) async {
-    final response = await _apiClient.post('/groups/$groupId/memberships', body: payload) as Map<String, dynamic>;
-    await _cache.remove(_managedCacheKey);
-    return GroupMember.fromJson(response);
-  }
-
-  Future<GroupMember> updateMember(int groupId, int membershipId, Map<String, dynamic> payload) async {
-    final response = await _apiClient.patch(
-      '/groups/$groupId/memberships/$membershipId',
-      body: payload,
-    ) as Map<String, dynamic>;
-    await _cache.remove(_managedCacheKey);
-    return GroupMember.fromJson(response);
-  }
-
-  CacheEntry<List<GroupSummary>>? _readManagedCache() {
-    try {
-      final entry = _cache.read<List<GroupSummary>>(
-        _managedCacheKey,
-        (raw) {
-          if (raw is Map<String, dynamic>) {
-            final data = raw['data'];
-            if (data is List) {
-              return data
-                  .whereType<Map>()
-                  .map((item) => GroupSummary.fromJson(Map<String, dynamic>.from(item)))
-                  .toList(growable: false);
-            }
-          }
-          return const <GroupSummary>[];
-        },
-      );
-      return entry;
-    } catch (error) {
-      debugPrint('Failed to parse cached groups: $error');
-      return null;
-    }
-  }
-}

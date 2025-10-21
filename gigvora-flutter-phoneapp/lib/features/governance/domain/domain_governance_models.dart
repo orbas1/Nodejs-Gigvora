@@ -6,6 +6,13 @@ class DomainGovernanceSummaryResponse {
 
   final List<DomainGovernanceSummary> contexts;
   final DateTime generatedAt;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'contexts': contexts.map((context) => context.toJson()).toList(growable: false),
+      'generatedAt': generatedAt.toIso8601String(),
+    };
+  }
 }
 
 class DomainGovernanceSummary {
@@ -80,6 +87,24 @@ class DomainGovernanceSummary {
       remediationItems: parseInt(json['remediationItems']),
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'contextName': contextName,
+      'displayName': displayName,
+      if (description != null) 'description': description,
+      if (dataClassification != null) 'dataClassification': dataClassification,
+      if (ownerTeam != null) 'ownerTeam': ownerTeam,
+      if (dataSteward != null) 'dataSteward': dataSteward,
+      'piiModelCount': piiModelCount,
+      'piiFieldCount': piiFieldCount,
+      'reviewStatus': reviewStatus,
+      if (reviewedAt != null) 'reviewedAt': reviewedAt!.toIso8601String(),
+      if (nextReviewDueAt != null) 'nextReviewDueAt': nextReviewDueAt!.toIso8601String(),
+      if (automationCoverage != null) 'automationCoverage': automationCoverage,
+      if (remediationItems != null) 'remediationItems': remediationItems,
+    };
+  }
 }
 
 class DomainGovernanceDetail {
@@ -135,6 +160,24 @@ class DomainGovernanceDetail {
           : GovernanceReview.fromJson(json['review'] as Map<String, dynamic>),
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'context': context.toJson(),
+      'models': models.map((model) => model.toJson()).toList(growable: false),
+      if (ownerTeam != null) 'ownerTeam': ownerTeam,
+      if (dataSteward != null) 'dataSteward': dataSteward,
+      if (dataClassification != null) 'dataClassification': dataClassification,
+      if (businessCriticality != null) 'businessCriticality': businessCriticality,
+      if (defaultRetention != null) 'defaultRetention': defaultRetention,
+      if (dataResidency != null) 'dataResidency': dataResidency,
+      'regulatoryFrameworks': regulatoryFrameworks,
+      'qualityChecks': qualityChecks,
+      'piiModelCount': piiModelCount,
+      'piiFieldCount': piiFieldCount,
+      if (review != null) 'review': review!.toJson(),
+    };
+  }
 }
 
 class GovernanceContext {
@@ -157,6 +200,15 @@ class GovernanceContext {
       description: json['description'] as String?,
       metadata: json['metadata'] as Map<String, dynamic>?,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'displayName': displayName,
+      if (description != null) 'description': description,
+      if (metadata != null) 'metadata': metadata,
+    };
   }
 }
 
@@ -190,6 +242,17 @@ class GovernanceModel {
       classification: json['classification'] as String?,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      if (tableName != null) 'tableName': tableName,
+      'piiFields': piiFields,
+      'attributes': attributes.map((attribute) => attribute.toJson()).toList(growable: false),
+      if (retention != null) 'retention': retention,
+      if (classification != null) 'classification': classification,
+    };
+  }
 }
 
 class GovernanceAttribute {
@@ -218,6 +281,17 @@ class GovernanceAttribute {
       retention: json['retention'] as String?,
       description: json['description'] as String?,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      if (type != null) 'type': type,
+      'allowNull': allowNull,
+      'pii': pii,
+      if (retention != null) 'retention': retention,
+      if (description != null) 'description': description,
+    };
   }
 }
 
@@ -257,5 +331,17 @@ class GovernanceReview {
       scorecard: json['scorecard'] as Map<String, dynamic>?,
       notes: json['notes'] as String?,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'reviewStatus': reviewStatus,
+      if (ownerTeam != null) 'ownerTeam': ownerTeam,
+      if (dataSteward != null) 'dataSteward': dataSteward,
+      if (reviewedAt != null) 'reviewedAt': reviewedAt!.toIso8601String(),
+      if (nextReviewDueAt != null) 'nextReviewDueAt': nextReviewDueAt!.toIso8601String(),
+      if (scorecard != null) 'scorecard': scorecard,
+      if (notes != null) 'notes': notes,
+    };
   }
 }

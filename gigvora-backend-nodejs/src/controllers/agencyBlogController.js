@@ -15,63 +15,56 @@ import {
   createBlogMedia,
 } from '../services/blogService.js';
 import { ProviderWorkspace, ProviderWorkspaceMember } from '../models/index.js';
-import { AuthorizationError, NotFoundError, ValidationError } from '../utils/errors.js';
+import { ValidationError } from '../utils/errors.js';
+import {
+  buildAgencyActorContext,
+  ensurePlainObject,
+  mergeDefined,
+  toOptionalPositiveInteger,
+  toOptionalString,
+  toPositiveInteger,
+} from '../utils/controllerUtils.js';
+import {
+  resolveWorkspaceForActor,
+  resolveWorkspaceIdentifiersFromRequest,
+} from '../utils/agencyWorkspaceAccess.js';
 
-function parseNumeric(value) {
-  if (value == null || value === '') {
-    return undefined;
+function resolvePostIdentifier(rawId, { fieldName = 'postId' } = {}) {
+  if (rawId == null) {
+    throw new ValidationError(`${fieldName} is required.`);
   }
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : undefined;
+  const numeric = Number(rawId);
+  if (Number.isInteger(numeric) && numeric > 0) {
+    return numeric;
+  }
+  const text = `${rawId}`.trim();
+  if (!text) {
+    throw new ValidationError(`${fieldName} is required.`);
+  }
+  return text;
 }
 
-async function resolveWorkspaceContext({ workspaceId, workspaceSlug }, { actorId, actorRoles }) {
-  if (!actorId) {
-    throw new AuthorizationError('Authentication required.');
-  }
-  if (workspaceId == null && !workspaceSlug) {
-    throw new ValidationError('A workspaceId or workspaceSlug must be provided.');
-  }
-  const normalizedRoles = Array.isArray(actorRoles)
-    ? actorRoles.map((role) => `${role}`.toLowerCase())
-    : [];
-  const isAdmin = normalizedRoles.includes('admin');
+function normalisePostFilters(query = {}) {
+  const status = toOptionalString(query.status, { fieldName: 'status', maxLength: 40, lowercase: true });
+  const category = toOptionalString(query.category, { fieldName: 'category', maxLength: 120 });
+  const tag = toOptionalString(query.tag, { fieldName: 'tag', maxLength: 120 });
+  const search = toOptionalString(query.search, { fieldName: 'search', maxLength: 200 });
+  const page = toOptionalPositiveInteger(query.page, { fieldName: 'page', required: false });
+  const pageSize = toOptionalPositiveInteger(query.pageSize, { fieldName: 'pageSize', required: false });
+  return mergeDefined({}, { status, category, tag, search, page, pageSize });
+}
 
-  let workspace = null;
-  if (workspaceId != null) {
-    workspace = await ProviderWorkspace.findByPk(Number(workspaceId));
-  } else if (workspaceSlug) {
-    workspace = await ProviderWorkspace.findOne({ where: { slug: workspaceSlug } });
-  }
-
-  if (!workspace) {
-    throw new NotFoundError('Workspace could not be found.');
-  }
-
-  if (!isAdmin) {
-    const membership = await ProviderWorkspaceMember.findOne({
-      where: {
-        workspaceId: workspace.id,
-        userId: actorId,
-        status: 'active',
-      },
-    });
-    if (!membership) {
-      throw new AuthorizationError('You do not have access to this workspace.');
-    }
-  }
-
-  return workspace;
+async function resolveWorkspaceContext(req, body = {}, { requireMembership = true } = {}) {
+  const actor = buildAgencyActorContext(req);
+  const identifiers = resolveWorkspaceIdentifiersFromRequest(req, body, { required: true });
+  const { workspace } = await resolveWorkspaceForActor(identifiers, actor, { requireMembership });
+  return { actor, workspace };
 }
 
 export async function workspaces(req, res) {
-  const actorId = req.user?.id;
-  const actorRoles = req.user?.roles ?? [];
-  if (!actorId) {
-    throw new AuthorizationError('Authentication required.');
-  }
+  const actor = buildAgencyActorContext(req);
 
-  if (Array.isArray(actorRoles) && actorRoles.map((role) => `${role}`.toLowerCase()).includes('admin')) {
+  if (actor.isAdmin) {
     const workspaces = await ProviderWorkspace.findAll({
       where: { type: 'agency' },
       order: [['name', 'ASC']],
@@ -88,7 +81,7 @@ export async function workspaces(req, res) {
   }
 
   const memberships = await ProviderWorkspaceMember.findAll({
-    where: { userId: actorId, status: 'active' },
+    where: { userId: actor.actorId, status: 'active' },
     include: [
       {
         model: ProviderWorkspace,
@@ -118,24 +111,10 @@ export async function workspaces(req, res) {
 }
 
 export async function list(req, res) {
-  const actorId = req.user?.id;
-  const actorRoles = req.user?.roles ?? [];
-  const workspace = await resolveWorkspaceContext(
-    {
-      workspaceId: parseNumeric(req.query?.workspaceId),
-      workspaceSlug: req.query?.workspaceSlug,
-    },
-    { actorId, actorRoles },
-  );
-
-  const { status, page, pageSize, category, tag, search } = req.query ?? {};
+  const { workspace } = await resolveWorkspaceContext(req, req.query ?? {});
+  const filters = normalisePostFilters(req.query ?? {});
   const payload = await listBlogPosts({
-    status,
-    page,
-    pageSize,
-    category,
-    tag,
-    search,
+    ...filters,
     includeUnpublished: true,
     workspaceId: workspace.id,
   });
@@ -143,205 +122,98 @@ export async function list(req, res) {
 }
 
 export async function retrieve(req, res) {
-  const actorId = req.user?.id;
-  const actorRoles = req.user?.roles ?? [];
-  const workspace = await resolveWorkspaceContext(
-    {
-      workspaceId: parseNumeric(req.query?.workspaceId),
-      workspaceSlug: req.query?.workspaceSlug,
-    },
-    { actorId, actorRoles },
-  );
-
-  const { postId } = req.params;
-  const post = await getBlogPost(Number(postId) || postId, {
-    includeUnpublished: true,
-    workspaceId: workspace.id,
-  });
+  const { workspace } = await resolveWorkspaceContext(req, req.query ?? {});
+  const postId = resolvePostIdentifier(req.params?.postId, { fieldName: 'postId' });
+  const post = await getBlogPost(postId, { includeUnpublished: true, workspaceId: workspace.id });
   res.json(post);
 }
 
 export async function create(req, res) {
-  const actorId = req.user?.id;
-  const actorRoles = req.user?.roles ?? [];
-  const workspace = await resolveWorkspaceContext(
-    {
-      workspaceId: parseNumeric(req.body?.workspaceId ?? req.query?.workspaceId),
-      workspaceSlug: req.body?.workspaceSlug ?? req.query?.workspaceSlug,
-    },
-    { actorId, actorRoles },
-  );
-
-  const result = await createBlogPost(
-    { ...req.body, workspaceId: workspace.id },
-    { actorId, workspaceId: workspace.id },
-  );
+  const body = ensurePlainObject(req.body ?? {}, 'body');
+  const { actor, workspace } = await resolveWorkspaceContext(req, body);
+  const payload = { ...body, workspaceId: workspace.id };
+  delete payload.workspaceSlug;
+  const result = await createBlogPost(payload, { actorId: actor.actorId, workspaceId: workspace.id });
   res.status(201).json(result);
 }
 
 export async function update(req, res) {
-  const actorId = req.user?.id;
-  const actorRoles = req.user?.roles ?? [];
-  const workspace = await resolveWorkspaceContext(
-    {
-      workspaceId: parseNumeric(req.body?.workspaceId ?? req.query?.workspaceId),
-      workspaceSlug: req.body?.workspaceSlug ?? req.query?.workspaceSlug,
-    },
-    { actorId, actorRoles },
-  );
-
-  const { postId } = req.params;
-  const result = await updateBlogPost(Number(postId) || postId, req.body ?? {}, {
-    actorId,
-    workspaceId: workspace.id,
-  });
+  const body = ensurePlainObject(req.body ?? {}, 'body');
+  const { actor, workspace } = await resolveWorkspaceContext(req, body);
+  const postId = resolvePostIdentifier(req.params?.postId, { fieldName: 'postId' });
+  const payload = { ...body, workspaceId: workspace.id };
+  delete payload.workspaceSlug;
+  const result = await updateBlogPost(postId, payload, { actorId: actor.actorId, workspaceId: workspace.id });
   res.json(result);
 }
 
 export async function destroy(req, res) {
-  const actorId = req.user?.id;
-  const actorRoles = req.user?.roles ?? [];
-  const workspace = await resolveWorkspaceContext(
-    {
-      workspaceId: parseNumeric(req.query?.workspaceId),
-      workspaceSlug: req.query?.workspaceSlug,
-    },
-    { actorId, actorRoles },
-  );
-
-  const { postId } = req.params;
-  await deleteBlogPost(Number(postId) || postId, { workspaceId: workspace.id });
+  const { workspace } = await resolveWorkspaceContext(req, req.query ?? {});
+  const postId = resolvePostIdentifier(req.params?.postId, { fieldName: 'postId' });
+  await deleteBlogPost(postId, { workspaceId: workspace.id });
   res.status(204).send();
 }
 
 export async function categories(req, res) {
-  const actorId = req.user?.id;
-  const actorRoles = req.user?.roles ?? [];
-  const workspace = await resolveWorkspaceContext(
-    {
-      workspaceId: parseNumeric(req.query?.workspaceId),
-      workspaceSlug: req.query?.workspaceSlug,
-    },
-    { actorId, actorRoles },
-  );
-
+  const { workspace } = await resolveWorkspaceContext(req, req.query ?? {});
   const items = await listBlogCategories({ workspaceId: workspace.id, includeGlobal: true });
   res.json({ results: items });
 }
 
 export async function createCategory(req, res) {
-  const actorId = req.user?.id;
-  const actorRoles = req.user?.roles ?? [];
-  const workspace = await resolveWorkspaceContext(
-    {
-      workspaceId: parseNumeric(req.body?.workspaceId ?? req.query?.workspaceId),
-      workspaceSlug: req.body?.workspaceSlug ?? req.query?.workspaceSlug,
-    },
-    { actorId, actorRoles },
-  );
-
-  const category = await createBlogCategory(req.body ?? {}, { workspaceId: workspace.id });
+  const body = ensurePlainObject(req.body ?? {}, 'body');
+  const { actor, workspace } = await resolveWorkspaceContext(req, body);
+  const category = await createBlogCategory({ ...body, workspaceId: workspace.id }, { workspaceId: workspace.id });
   res.status(201).json(category);
 }
 
 export async function updateCategory(req, res) {
-  const actorId = req.user?.id;
-  const actorRoles = req.user?.roles ?? [];
-  const workspace = await resolveWorkspaceContext(
-    {
-      workspaceId: parseNumeric(req.body?.workspaceId ?? req.query?.workspaceId),
-      workspaceSlug: req.body?.workspaceSlug ?? req.query?.workspaceSlug,
-    },
-    { actorId, actorRoles },
-  );
-
-  const { categoryId } = req.params;
-  const category = await updateBlogCategory(Number(categoryId) || categoryId, req.body ?? {}, {
-    workspaceId: workspace.id,
-  });
+  const body = ensurePlainObject(req.body ?? {}, 'body');
+  const { actor, workspace } = await resolveWorkspaceContext(req, body);
+  const categoryId = toPositiveInteger(req.params?.categoryId, { fieldName: 'categoryId' });
+  const category = await updateBlogCategory(categoryId, { ...body, workspaceId: workspace.id }, { workspaceId: workspace.id });
   res.json(category);
 }
 
 export async function deleteCategory(req, res) {
-  const actorId = req.user?.id;
-  const actorRoles = req.user?.roles ?? [];
-  const workspace = await resolveWorkspaceContext(
-    {
-      workspaceId: parseNumeric(req.query?.workspaceId),
-      workspaceSlug: req.query?.workspaceSlug,
-    },
-    { actorId, actorRoles },
-  );
-
-  const { categoryId } = req.params;
-  await deleteBlogCategory(Number(categoryId) || categoryId, { workspaceId: workspace.id });
+  const { workspace } = await resolveWorkspaceContext(req, req.query ?? {});
+  const categoryId = toPositiveInteger(req.params?.categoryId, { fieldName: 'categoryId' });
+  await deleteBlogCategory(categoryId, { workspaceId: workspace.id });
   res.status(204).send();
 }
 
 export async function tags(req, res) {
-  const actorId = req.user?.id;
-  const actorRoles = req.user?.roles ?? [];
-  const workspace = await resolveWorkspaceContext(
-    {
-      workspaceId: parseNumeric(req.query?.workspaceId),
-      workspaceSlug: req.query?.workspaceSlug,
-    },
-    { actorId, actorRoles },
-  );
-
+  const { workspace } = await resolveWorkspaceContext(req, req.query ?? {});
   const items = await listBlogTags({ workspaceId: workspace.id, includeGlobal: true });
   res.json({ results: items });
 }
 
 export async function createTag(req, res) {
-  const actorId = req.user?.id;
-  const actorRoles = req.user?.roles ?? [];
-  const workspace = await resolveWorkspaceContext(
-    {
-      workspaceId: parseNumeric(req.body?.workspaceId ?? req.query?.workspaceId),
-      workspaceSlug: req.body?.workspaceSlug ?? req.query?.workspaceSlug,
-    },
-    { actorId, actorRoles },
-  );
-
-  const tag = await createBlogTag(req.body ?? {}, { workspaceId: workspace.id });
+  const body = ensurePlainObject(req.body ?? {}, 'body');
+  const { actor, workspace } = await resolveWorkspaceContext(req, body);
+  const tag = await createBlogTag({ ...body, workspaceId: workspace.id }, { workspaceId: workspace.id });
   res.status(201).json(tag);
 }
 
 export async function updateTag(req, res) {
-  const actorId = req.user?.id;
-  const actorRoles = req.user?.roles ?? [];
-  const workspace = await resolveWorkspaceContext(
-    {
-      workspaceId: parseNumeric(req.body?.workspaceId ?? req.query?.workspaceId),
-      workspaceSlug: req.body?.workspaceSlug ?? req.query?.workspaceSlug,
-    },
-    { actorId, actorRoles },
-  );
-
-  const { tagId } = req.params;
-  const tag = await updateBlogTag(Number(tagId) || tagId, req.body ?? {}, { workspaceId: workspace.id });
+  const body = ensurePlainObject(req.body ?? {}, 'body');
+  const { actor, workspace } = await resolveWorkspaceContext(req, body);
+  const tagId = toPositiveInteger(req.params?.tagId, { fieldName: 'tagId' });
+  const tag = await updateBlogTag(tagId, { ...body, workspaceId: workspace.id }, { workspaceId: workspace.id });
   res.json(tag);
 }
 
 export async function deleteTag(req, res) {
-  const actorId = req.user?.id;
-  const actorRoles = req.user?.roles ?? [];
-  const workspace = await resolveWorkspaceContext(
-    {
-      workspaceId: parseNumeric(req.query?.workspaceId),
-      workspaceSlug: req.query?.workspaceSlug,
-    },
-    { actorId, actorRoles },
-  );
-
-  const { tagId } = req.params;
-  await deleteBlogTag(Number(tagId) || tagId, { workspaceId: workspace.id });
+  const { workspace } = await resolveWorkspaceContext(req, req.query ?? {});
+  const tagId = toPositiveInteger(req.params?.tagId, { fieldName: 'tagId' });
+  await deleteBlogTag(tagId, { workspaceId: workspace.id });
   res.status(204).send();
 }
 
 export async function createMedia(req, res) {
-  const media = await createBlogMedia(req.body ?? {});
+  const actor = buildAgencyActorContext(req);
+  const body = ensurePlainObject(req.body ?? {}, 'body');
+  const media = await createBlogMedia(body, actor);
   res.status(201).json(media);
 }
 

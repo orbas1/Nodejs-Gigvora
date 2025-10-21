@@ -87,10 +87,27 @@ class ManagedJob {
   final String? highlight;
 }
 
+class JobApplicationActions {
+  const JobApplicationActions({
+    required this.onViewApplication,
+    required this.onUploadUpdate,
+    required this.onExploreJobs,
+  });
+
+  final void Function(JobApplication application) onViewApplication;
+  final void Function(JobApplication application) onUploadUpdate;
+  final VoidCallback onExploreJobs;
+}
+
 class JobApplicationsPanel extends StatelessWidget {
-  const JobApplicationsPanel({super.key, required this.applications});
+  const JobApplicationsPanel({
+    super.key,
+    required this.applications,
+    required this.actions,
+  });
 
   final List<JobApplication> applications;
+  final JobApplicationActions actions;
 
   int get _activeCount =>
       applications.where((application) => !application.stage.isClosed).length;
@@ -102,6 +119,7 @@ class JobApplicationsPanel extends StatelessWidget {
         icon: Icons.task_alt,
         message: 'You have not submitted any applications yet. Start from the jobs board to find a role that fits you.',
         actionLabel: 'Browse open jobs',
+        onActionPressed: actions.onExploreJobs,
       );
     }
 
@@ -186,10 +204,18 @@ class JobApplicationsPanel extends StatelessWidget {
               const SizedBox(height: 16),
               Row(
                 children: [
-                  ElevatedButton(onPressed: () {}, child: const Text('View application')),
+                  ElevatedButton(
+                    key: ValueKey('view_application_${application.id}'),
+                    onPressed: () => actions.onViewApplication(application),
+                    child: const Text('View application'),
+                  ),
                   const SizedBox(width: 12),
                   if (application.requiresAction)
-                    OutlinedButton(onPressed: () {}, child: const Text('Upload update')),
+                    OutlinedButton(
+                      key: ValueKey('upload_update_${application.id}'),
+                      onPressed: () => actions.onUploadUpdate(application),
+                      child: const Text('Upload update'),
+                    ),
                 ],
               ),
             ],
@@ -200,10 +226,27 @@ class JobApplicationsPanel extends StatelessWidget {
   }
 }
 
+class JobInterviewActions {
+  const JobInterviewActions({
+    required this.onAddToCalendar,
+    required this.onShareAvailability,
+    required this.onReviewApplications,
+  });
+
+  final void Function(JobInterview interview) onAddToCalendar;
+  final void Function(JobInterview interview) onShareAvailability;
+  final VoidCallback onReviewApplications;
+}
+
 class JobInterviewsPanel extends StatelessWidget {
-  const JobInterviewsPanel({super.key, required this.interviews});
+  const JobInterviewsPanel({
+    super.key,
+    required this.interviews,
+    required this.actions,
+  });
 
   final List<JobInterview> interviews;
+  final JobInterviewActions actions;
 
   @override
   Widget build(BuildContext context) {
@@ -212,6 +255,7 @@ class JobInterviewsPanel extends StatelessWidget {
         icon: Icons.video_camera_front,
         message: 'Interviews that you schedule or are invited to will appear here.',
         actionLabel: 'Review your applications',
+        onActionPressed: actions.onReviewApplications,
       );
     }
 
@@ -302,9 +346,17 @@ class JobInterviewsPanel extends StatelessWidget {
               const SizedBox(height: 16),
               Row(
                 children: [
-                  ElevatedButton(onPressed: () {}, child: const Text('Add to calendar')),
+                  ElevatedButton(
+                    key: ValueKey('add_to_calendar_${interview.id}'),
+                    onPressed: () => actions.onAddToCalendar(interview),
+                    child: const Text('Add to calendar'),
+                  ),
                   const SizedBox(width: 12),
-                  OutlinedButton(onPressed: () {}, child: const Text('Share availability')),
+                  OutlinedButton(
+                    key: ValueKey('share_availability_${interview.id}'),
+                    onPressed: () => actions.onShareAvailability(interview),
+                    child: const Text('Share availability'),
+                  ),
                 ],
               ),
             ],
@@ -315,10 +367,29 @@ class JobInterviewsPanel extends StatelessWidget {
   }
 }
 
+class ManagedJobActions {
+  const ManagedJobActions({
+    required this.onPostRole,
+    required this.onSyncAts,
+    required this.onReviewCandidates,
+    required this.onShareUpdate,
+  });
+
+  final VoidCallback onPostRole;
+  final VoidCallback onSyncAts;
+  final void Function(ManagedJob job) onReviewCandidates;
+  final void Function(ManagedJob job) onShareUpdate;
+}
+
 class JobsManagementPanel extends StatelessWidget {
-  const JobsManagementPanel({super.key, required this.jobs});
+  const JobsManagementPanel({
+    super.key,
+    required this.jobs,
+    required this.actions,
+  });
 
   final List<ManagedJob> jobs;
+  final ManagedJobActions actions;
 
   @override
   Widget build(BuildContext context) {
@@ -327,6 +398,7 @@ class JobsManagementPanel extends StatelessWidget {
         icon: Icons.work_outline,
         message: 'Roles that you publish across the network will show up here so you can track applicants end-to-end.',
         actionLabel: 'Post a role',
+        onActionPressed: actions.onPostRole,
       );
     }
 
@@ -349,9 +421,17 @@ class JobsManagementPanel extends StatelessWidget {
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    ElevatedButton(onPressed: () {}, child: const Text('Post a role')),
+                    ElevatedButton(
+                      key: const ValueKey('post_role_action'),
+                      onPressed: actions.onPostRole,
+                      child: const Text('Post a role'),
+                    ),
                     const SizedBox(width: 12),
-                    OutlinedButton(onPressed: () {}, child: const Text('Sync with ATS')),
+                    OutlinedButton(
+                      key: const ValueKey('sync_ats_action'),
+                      onPressed: actions.onSyncAts,
+                      child: const Text('Sync with ATS'),
+                    ),
                   ],
                 ),
               ],
@@ -417,9 +497,17 @@ class JobsManagementPanel extends StatelessWidget {
               const SizedBox(height: 16),
               Row(
                 children: [
-                  ElevatedButton(onPressed: () {}, child: const Text('Review candidates')),
+                  ElevatedButton(
+                    key: ValueKey('review_candidates_${job.id}'),
+                    onPressed: () => actions.onReviewCandidates(job),
+                    child: const Text('Review candidates'),
+                  ),
                   const SizedBox(width: 12),
-                  OutlinedButton(onPressed: () {}, child: const Text('Share update')),
+                  OutlinedButton(
+                    key: ValueKey('share_update_${job.id}'),
+                    onPressed: () => actions.onShareUpdate(job),
+                    child: const Text('Share update'),
+                  ),
                 ],
               ),
             ],
@@ -490,11 +578,13 @@ class _EmptyState extends StatelessWidget {
     required this.icon,
     required this.message,
     required this.actionLabel,
+    required this.onActionPressed,
   });
 
   final IconData icon;
   final String message;
   final String actionLabel;
+  final VoidCallback onActionPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -515,7 +605,11 @@ class _EmptyState extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 16),
-              OutlinedButton(onPressed: () {}, child: Text(actionLabel)),
+              OutlinedButton(
+                key: ValueKey('${actionLabel.toLowerCase().replaceAll(' ', '_')}_empty_state'),
+                onPressed: onActionPressed,
+                child: Text(actionLabel),
+              ),
             ],
           ),
         ),

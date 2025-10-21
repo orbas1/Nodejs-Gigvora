@@ -151,11 +151,14 @@ module.exports = {
       await queryInterface.dropTable('appearance_assets', { transaction });
       await queryInterface.dropTable('appearance_themes', { transaction });
 
-      await queryInterface.sequelize.query("DROP TYPE IF EXISTS \"enum_appearance_themes_status\"", { transaction });
-      await queryInterface.sequelize.query("DROP TYPE IF EXISTS \"enum_appearance_assets_type\"", { transaction });
-      await queryInterface.sequelize.query("DROP TYPE IF EXISTS \"enum_appearance_assets_status\"", { transaction });
-      await queryInterface.sequelize.query("DROP TYPE IF EXISTS \"enum_appearance_layouts_page\"", { transaction });
-      await queryInterface.sequelize.query("DROP TYPE IF EXISTS \"enum_appearance_layouts_status\"", { transaction });
+      const dialect = queryInterface.sequelize.getDialect();
+      if (dialect === 'postgres' || dialect === 'postgresql') {
+        await queryInterface.sequelize.query("DROP TYPE IF EXISTS \"enum_appearance_themes_status\"", { transaction });
+        await queryInterface.sequelize.query("DROP TYPE IF EXISTS \"enum_appearance_assets_type\"", { transaction });
+        await queryInterface.sequelize.query("DROP TYPE IF EXISTS \"enum_appearance_assets_status\"", { transaction });
+        await queryInterface.sequelize.query("DROP TYPE IF EXISTS \"enum_appearance_layouts_page\"", { transaction });
+        await queryInterface.sequelize.query("DROP TYPE IF EXISTS \"enum_appearance_layouts_status\"", { transaction });
+      }
     });
   },
 };

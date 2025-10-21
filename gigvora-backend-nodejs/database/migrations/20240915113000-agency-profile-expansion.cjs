@@ -3,11 +3,23 @@
 const followerPolicyEnum = 'enum_agency_profiles_followerPolicy';
 const connectionPolicyEnum = 'enum_agency_profiles_connectionPolicy';
 
+function resolveJsonType(queryInterface, Sequelize) {
+  const dialect = queryInterface.sequelize.getDialect();
+  return ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
+}
+
+async function dropEnumIfExists(queryInterface, enumName) {
+  const dialect = queryInterface.sequelize.getDialect();
+  if (['postgres', 'postgresql'].includes(dialect)) {
+    await queryInterface.sequelize.query(`DROP TYPE IF EXISTS "${enumName}";`);
+  }
+}
+
 module.exports = {
   async up(queryInterface, Sequelize) {
+    const jsonType = resolveJsonType(queryInterface, Sequelize);
     await queryInterface.sequelize.transaction(async (transaction) => {
       const table = 'agency_profiles';
-      const jsonType = Sequelize.JSONB ?? Sequelize.JSON;
 
       await queryInterface.addColumn(
         table,
@@ -150,19 +162,12 @@ module.exports = {
           allowNull: false,
           defaultValue: 'open',
         },
-        { transaction },
-      );
-
-      await queryInterface.addColumn(
-        table,
-        'connectionPolicy',
-        {
+        connectionPolicy: {
           type: Sequelize.ENUM('open', 'invite_only', 'manual_review'),
           allowNull: false,
           defaultValue: 'open',
         },
-        { transaction },
-      );
+      });
     });
   },
 
@@ -170,30 +175,30 @@ module.exports = {
     await queryInterface.sequelize.transaction(async (transaction) => {
       const table = 'agency_profiles';
 
-      await queryInterface.removeColumn(table, 'connectionPolicy', { transaction });
-      await queryInterface.removeColumn(table, 'followerPolicy', { transaction });
-      await queryInterface.removeColumn(table, 'defaultConnectionMessage', { transaction });
-      await queryInterface.removeColumn(table, 'autoAcceptFollowers', { transaction });
-      await queryInterface.removeColumn(table, 'avatarStorageKey', { transaction });
-      await queryInterface.removeColumn(table, 'avatarUrl', { transaction });
-      await queryInterface.removeColumn(table, 'bannerUrl', { transaction });
-      await queryInterface.removeColumn(table, 'brandColor', { transaction });
-      await queryInterface.removeColumn(table, 'primaryContactPhone', { transaction });
-      await queryInterface.removeColumn(table, 'primaryContactEmail', { transaction });
-      await queryInterface.removeColumn(table, 'primaryContactName', { transaction });
-      await queryInterface.removeColumn(table, 'foundedYear', { transaction });
-      await queryInterface.removeColumn(table, 'teamSize', { transaction });
-      await queryInterface.removeColumn(table, 'socialLinks', { transaction });
-      await queryInterface.removeColumn(table, 'awards', { transaction });
-      await queryInterface.removeColumn(table, 'clients', { transaction });
-      await queryInterface.removeColumn(table, 'industries', { transaction });
-      await queryInterface.removeColumn(table, 'services', { transaction });
-      await queryInterface.removeColumn(table, 'about', { transaction });
-      await queryInterface.removeColumn(table, 'summary', { transaction });
-      await queryInterface.removeColumn(table, 'tagline', { transaction });
+      await queryInterface.removeColumn(table, 'connectionPolicy', { transaction }).catch(() => {});
+      await queryInterface.removeColumn(table, 'followerPolicy', { transaction }).catch(() => {});
+      await queryInterface.removeColumn(table, 'defaultConnectionMessage', { transaction }).catch(() => {});
+      await queryInterface.removeColumn(table, 'autoAcceptFollowers', { transaction }).catch(() => {});
+      await queryInterface.removeColumn(table, 'avatarStorageKey', { transaction }).catch(() => {});
+      await queryInterface.removeColumn(table, 'avatarUrl', { transaction }).catch(() => {});
+      await queryInterface.removeColumn(table, 'bannerUrl', { transaction }).catch(() => {});
+      await queryInterface.removeColumn(table, 'brandColor', { transaction }).catch(() => {});
+      await queryInterface.removeColumn(table, 'primaryContactPhone', { transaction }).catch(() => {});
+      await queryInterface.removeColumn(table, 'primaryContactEmail', { transaction }).catch(() => {});
+      await queryInterface.removeColumn(table, 'primaryContactName', { transaction }).catch(() => {});
+      await queryInterface.removeColumn(table, 'foundedYear', { transaction }).catch(() => {});
+      await queryInterface.removeColumn(table, 'teamSize', { transaction }).catch(() => {});
+      await queryInterface.removeColumn(table, 'socialLinks', { transaction }).catch(() => {});
+      await queryInterface.removeColumn(table, 'awards', { transaction }).catch(() => {});
+      await queryInterface.removeColumn(table, 'clients', { transaction }).catch(() => {});
+      await queryInterface.removeColumn(table, 'industries', { transaction }).catch(() => {});
+      await queryInterface.removeColumn(table, 'services', { transaction }).catch(() => {});
+      await queryInterface.removeColumn(table, 'about', { transaction }).catch(() => {});
+      await queryInterface.removeColumn(table, 'summary', { transaction }).catch(() => {});
+      await queryInterface.removeColumn(table, 'tagline', { transaction }).catch(() => {});
     });
 
-    await queryInterface.sequelize.query(`DROP TYPE IF EXISTS "${connectionPolicyEnum}";`);
-    await queryInterface.sequelize.query(`DROP TYPE IF EXISTS "${followerPolicyEnum}";`);
+    await dropEnumIfExists(queryInterface, connectionPolicyEnum);
+    await dropEnumIfExists(queryInterface, followerPolicyEnum);
   },
 };

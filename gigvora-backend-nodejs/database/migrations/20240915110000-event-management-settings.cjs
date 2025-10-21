@@ -2,18 +2,11 @@
 
 const TABLE_NAME = 'user_event_workspace_settings';
 
-const dropEnum = async (queryInterface, enumName) => {
-  const dialect = queryInterface.sequelize.getDialect();
-  if (dialect === 'postgres' || dialect === 'postgresql') {
-    await queryInterface.sequelize.query(`DROP TYPE IF EXISTS "${enumName}";`);
-  }
-};
+const { resolveJsonType, dropEnum, safeRemoveIndex } = require('../utils/migrationHelpers.cjs');
 
 module.exports = {
   async up(queryInterface, Sequelize) {
-    const jsonType = ['postgres', 'postgresql'].includes(queryInterface.sequelize.getDialect())
-      ? Sequelize.JSONB
-      : Sequelize.JSON;
+    const jsonType = resolveJsonType(queryInterface, Sequelize);
 
     await queryInterface.createTable(TABLE_NAME, {
       id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
@@ -55,8 +48,11 @@ module.exports = {
   },
 
   async down(queryInterface) {
-    await queryInterface.dropTable(TABLE_NAME);
-    await dropEnum(queryInterface, 'enum_user_event_workspace_settings_defaultFormat');
-    await dropEnum(queryInterface, 'enum_user_event_workspace_settings_defaultVisibility');
+    await queryInterface.sequelize.transaction(async (transaction) => {
+      await safeRemoveIndex(queryInterface, TABLE_NAME, 'user_event_workspace_settings_owner_id_idx', { transaction });
+      await queryInterface.dropTable(TABLE_NAME, { transaction });
+      await dropEnum(queryInterface, 'enum_user_event_workspace_settings_defaultFormat', transaction);
+      await dropEnum(queryInterface, 'enum_user_event_workspace_settings_defaultVisibility', transaction);
+    });
   },
 };

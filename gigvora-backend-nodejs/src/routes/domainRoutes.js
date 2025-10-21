@@ -1,7 +1,12 @@
 import { Router } from 'express';
+import { authenticateRequest, requireRoles } from '../middleware/authentication.js';
 import domainIntrospectionService from '../services/domainIntrospectionService.js';
 
 const router = Router();
+const DOMAIN_ROLES = ['admin', 'developer', 'platform_ops'];
+
+router.use(authenticateRequest());
+router.use(requireRoles(...DOMAIN_ROLES));
 
 router.get('/registry', (req, res, next) => {
   try {

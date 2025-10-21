@@ -1,9 +1,53 @@
 {
-  "projects": {},
-  "gigs": {},
-  "talent": {},
-  "mentor": {},
-  "volunteering": {},
-  "job": {},
-  "launchpad": {}
+  "projects": {
+    "views": 18234,
+    "applications": 892,
+    "conversionRate": 0.0489,
+    "avgTimeOnPageSeconds": 214,
+    "topSearches": ["analytics", "marketplace revamp", "data"],
+    "lastUpdated": "2024-08-20T10:00:00.000Z"
+  },
+  "gigs": {
+    "views": 23781,
+    "checkouts": 1345,
+    "conversionRate": 0.0566,
+    "avgCartValue": 6120,
+    "topSearches": ["brand sprint", "fractional", "copywriting"],
+    "lastUpdated": "2024-08-20T10:00:00.000Z"
+  },
+  "talent": {
+    "profileViews": 41290,
+    "shortlists": 3211,
+    "messages": 1889,
+    "topFilters": ["remote", "platform engineer", "product lead"],
+    "lastUpdated": "2024-08-20T10:00:00.000Z"
+  },
+  "mentor": {
+    "views": 6214,
+    "bookings": 482,
+    "rebookRate": 0.36,
+    "topTopics": ["product leadership", "platform architecture", "growth"],
+    "lastUpdated": "2024-08-20T10:00:00.000Z"
+  },
+  "volunteering": {
+    "views": 4982,
+    "signUps": 326,
+    "conversionRate": 0.0654,
+    "topCauses": ["STEM", "climate", "education"],
+    "lastUpdated": "2024-08-20T10:00:00.000Z"
+  },
+  "job": {
+    "views": 15387,
+    "applications": 2789,
+    "interviews": 764,
+    "offerRate": 0.112,
+    "lastUpdated": "2024-08-20T10:00:00.000Z"
+  },
+  "launchpad": {
+    "views": 8123,
+    "waitlist": 547,
+    "activeCohorts": 4,
+    "topTracks": ["creator economy", "agency ops"],
+    "lastUpdated": "2024-08-20T10:00:00.000Z"
+  }
 }

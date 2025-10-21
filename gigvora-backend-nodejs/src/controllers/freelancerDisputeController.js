@@ -17,6 +17,27 @@ function parsePositiveInteger(value, fieldName) {
   return parsed;
 }
 
+function parseBoolean(value, fieldName) {
+  if (value == null || value === '') {
+    return undefined;
+  }
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'number') {
+    if (value === 1) return true;
+    if (value === 0) return false;
+  }
+  const normalised = `${value}`.trim().toLowerCase();
+  if (['true', '1', 'yes', 'y', 'on'].includes(normalised)) {
+    return true;
+  }
+  if (['false', '0', 'no', 'n', 'off'].includes(normalised)) {
+    return false;
+  }
+  throw new ValidationError(`${fieldName} must be a boolean value.`);
+}
+
 function normaliseRoleHeader(headerValue) {
   if (!headerValue) {
     return [];
@@ -37,8 +58,9 @@ function normaliseRoleHeader(headerValue) {
 }
 
 function resolveActorContext(req, fallbackId) {
-  const roles = normaliseRoleHeader(req.headers['x-roles'] ?? req.headers['x-role']);
-  const actorIdFromHeader = parsePositiveInteger(req.headers['x-user-id'], 'actorId');
+  const headers = req.headers ?? {};
+  const roles = normaliseRoleHeader(headers['x-roles'] ?? headers['x-role']);
+  const actorIdFromHeader = parsePositiveInteger(headers['x-user-id'], 'actorId');
   const actorId = actorIdFromHeader ?? parsePositiveInteger(req.query?.actorId, 'actorId') ?? fallbackId;
   return { actorId, roles };
 }
@@ -54,7 +76,7 @@ export async function listDisputes(req, res) {
   const dashboard = await getFreelancerDisputeDashboard(freelancerId, {
     stage: req.query?.stage,
     status: req.query?.status,
-    includeClosed: req.query?.includeClosed,
+    includeClosed: parseBoolean(req.query?.includeClosed, 'includeClosed'),
     limit: parsePositiveInteger(req.query?.limit, 'limit'),
     actorId,
     actorRoles: roles,

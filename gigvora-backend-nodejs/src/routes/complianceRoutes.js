@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
+import { authenticateRequest, requireRoles } from '../middleware/authentication.js';
 import complianceLockerController from '../controllers/complianceLockerController.js';
 import identityVerificationController from '../controllers/identityVerificationController.js';
 import validateRequest from '../middleware/validateRequest.js';
@@ -19,6 +20,16 @@ import {
 } from '../validation/schemas/complianceSchemas.js';
 
 const router = Router();
+const COMPLIANCE_ROLES = [
+  'admin',
+  'company_admin',
+  'compliance_officer',
+  'compliance_manager',
+  'legal',
+];
+
+router.use(authenticateRequest());
+router.use(requireRoles(...COMPLIANCE_ROLES));
 
 router.get(
   '/locker',
