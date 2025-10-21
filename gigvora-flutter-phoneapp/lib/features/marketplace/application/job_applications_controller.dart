@@ -6,11 +6,8 @@ import '../data/job_application_repository.dart';
 import '../data/models/job_application_record.dart';
 
 class JobApplicationsController extends StateNotifier<ResourceState<List<JobApplicationRecord>>> {
-  JobApplicationsController(
-    this.jobId,
-    this._repository,
-    this._analytics,
-  ) : super(ResourceState<List<JobApplicationRecord>>.loading(const <JobApplicationRecord>[], const {
+  JobApplicationsController(this.jobId, this._repository, this._analytics)
+      : super(ResourceState<List<JobApplicationRecord>>.loading(const <JobApplicationRecord>[], const {
           'saving': false,
           'lastAction': null,
         })) {
@@ -39,12 +36,11 @@ class JobApplicationsController extends StateNotifier<ResourceState<List<JobAppl
       );
       if (!forceRefresh) {
         await _analytics.track(
-          'mobile_job_applications_loaded',
+          'job_applications_loaded',
           context: {
             'jobId': jobId,
-            'applicationCount': records.length,
+            'count': records.length,
           },
-          metadata: const {'source': 'mobile_app'},
         );
       }
     } catch (error) {
@@ -53,11 +49,7 @@ class JobApplicationsController extends StateNotifier<ResourceState<List<JobAppl
   }
 
   Future<void> refresh() async {
-    await _analytics.track(
-      'mobile_job_applications_refreshed',
-      context: {'jobId': jobId},
-      metadata: const {'source': 'mobile_app'},
-    );
+    await _analytics.track('job_applications_refreshed', context: {'jobId': jobId});
     await _load(forceRefresh: true);
   }
 
@@ -66,18 +58,14 @@ class JobApplicationsController extends StateNotifier<ResourceState<List<JobAppl
     try {
       final record = await _repository.createApplication(jobId, draft);
       await _analytics.track(
-        'mobile_job_application_created',
+        'job_application_created',
         context: {
           'jobId': jobId,
           'applicationId': record.id,
-          'status': record.status.name,
         },
-        metadata: const {'source': 'mobile_app'},
       );
       await _load(forceRefresh: true);
       return record;
-    } catch (error) {
-      rethrow;
     } finally {
       _setSaving(false);
     }
@@ -88,13 +76,12 @@ class JobApplicationsController extends StateNotifier<ResourceState<List<JobAppl
     try {
       final updated = await _repository.saveApplication(record);
       await _analytics.track(
-        'mobile_job_application_updated',
+        'job_application_updated',
         context: {
           'jobId': jobId,
           'applicationId': record.id,
           'status': updated.status.name,
         },
-        metadata: const {'source': 'mobile_app'},
       );
       await _load(forceRefresh: true);
       return updated;
@@ -108,12 +95,11 @@ class JobApplicationsController extends StateNotifier<ResourceState<List<JobAppl
     try {
       await _repository.deleteApplication(jobId, applicationId);
       await _analytics.track(
-        'mobile_job_application_deleted',
+        'job_application_deleted',
         context: {
           'jobId': jobId,
           'applicationId': applicationId,
         },
-        metadata: const {'source': 'mobile_app'},
       );
       await _load(forceRefresh: true);
     } finally {
@@ -126,13 +112,12 @@ class JobApplicationsController extends StateNotifier<ResourceState<List<JobAppl
     try {
       await _repository.upsertInterview(jobId, applicationId, step);
       await _analytics.track(
-        'mobile_job_application_interview_scheduled',
+        'job_application_interview_scheduled',
         context: {
           'jobId': jobId,
           'applicationId': applicationId,
           'interviewId': step.id,
         },
-        metadata: const {'source': 'mobile_app'},
       );
       await _load(forceRefresh: true);
     } finally {
@@ -145,13 +130,12 @@ class JobApplicationsController extends StateNotifier<ResourceState<List<JobAppl
     try {
       await _repository.removeInterview(jobId, applicationId, interviewId);
       await _analytics.track(
-        'mobile_job_application_interview_cancelled',
+        'job_application_interview_cancelled',
         context: {
           'jobId': jobId,
           'applicationId': applicationId,
           'interviewId': interviewId,
         },
-        metadata: const {'source': 'mobile_app'},
       );
       await _load(forceRefresh: true);
     } finally {
@@ -164,13 +148,12 @@ class JobApplicationsController extends StateNotifier<ResourceState<List<JobAppl
     try {
       await _repository.updateStatus(jobId, applicationId, status);
       await _analytics.track(
-        'mobile_job_application_status_updated',
+        'job_application_status_updated',
         context: {
           'jobId': jobId,
           'applicationId': applicationId,
           'status': status.name,
         },
-        metadata: const {'source': 'mobile_app'},
       );
       await _load(forceRefresh: true);
     } finally {
