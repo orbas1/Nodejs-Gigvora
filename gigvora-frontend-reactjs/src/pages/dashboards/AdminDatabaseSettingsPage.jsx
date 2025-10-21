@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import AccessDeniedPanel from '../../components/dashboard/AccessDeniedPanel.jsx';
+import useSession from '../../hooks/useSession.js';
 import DatabaseConnectionList from '../../components/admin/database/DatabaseConnectionList.jsx';
 import DatabaseConnectionEditor from '../../components/admin/database/DatabaseConnectionEditor.jsx';
 import { ADMIN_DASHBOARD_MENU_SECTIONS } from '../../constants/adminDashboardMenu.js';
@@ -13,6 +15,9 @@ import {
   deleteDatabaseConnection,
   testDatabaseConnection,
 } from '../../services/databaseSettings.js';
+import { deriveAdminAccess } from '../../utils/adminAccess.js';
+
+const AVAILABLE_DASHBOARDS = ['admin', 'user', 'freelancer', 'company', 'agency', 'headhunter'];
 
 function buildErrorMessage(error) {
   if (!error) {
@@ -29,6 +34,8 @@ function buildErrorMessage(error) {
 
 export default function AdminDatabaseSettingsPage() {
   const navigate = useNavigate();
+  const { session } = useSession();
+  const { hasAdminAccess } = useMemo(() => deriveAdminAccess(session), [session]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [connections, setConnections] = useState([]);
@@ -42,6 +49,12 @@ export default function AdminDatabaseSettingsPage() {
   const [editorError, setEditorError] = useState('');
 
   const loadConnections = useCallback(async () => {
+    if (!hasAdminAccess) {
+      setConnections([]);
+      setSummary(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -53,7 +66,7 @@ export default function AdminDatabaseSettingsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [hasAdminAccess]);
 
   useEffect(() => {
     loadConnections();
@@ -250,12 +263,33 @@ export default function AdminDatabaseSettingsPage() {
 
   const listErrorMessage = buildErrorMessage(error);
 
+  if (!hasAdminAccess) {
+    return (
+      <DashboardLayout
+        currentDashboard="admin"
+        title="Database settings"
+        subtitle="Provision primary clusters, rotate credentials, and monitor connection health."
+        menuSections={ADMIN_DASHBOARD_MENU_SECTIONS}
+        availableDashboards={AVAILABLE_DASHBOARDS}
+        activeMenuItem="admin-database-settings"
+        onMenuItemSelect={handleMenuItemSelect}
+      >
+        <AccessDeniedPanel
+          role="admin"
+          availableDashboards={AVAILABLE_DASHBOARDS.filter((dashboard) => dashboard !== 'admin')}
+          onNavigate={(href) => navigate(href)}
+        />
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout
       currentDashboard="admin"
       title="Database settings"
       subtitle="Provision primary clusters, rotate credentials, and monitor connection health."
       menuSections={ADMIN_DASHBOARD_MENU_SECTIONS}
+      availableDashboards={AVAILABLE_DASHBOARDS}
       activeMenuItem="admin-database-settings"
       onMenuItemSelect={handleMenuItemSelect}
     >

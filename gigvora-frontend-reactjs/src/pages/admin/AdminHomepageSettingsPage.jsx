@@ -12,8 +12,8 @@ import HomepageFaqForm from '../../components/admin/homepage/HomepageFaqForm.jsx
 import HomepageQuickLinksForm from '../../components/admin/homepage/HomepageQuickLinksForm.jsx';
 import HomepageSeoForm from '../../components/admin/homepage/HomepageSeoForm.jsx';
 import ADMIN_MENU_SECTIONS from '../../constants/adminMenu.js';
-
-const ADMIN_ACCESS_ALIASES = new Set(['admin', 'administrator', 'super-admin', 'superadmin', 'platform_admin', 'platform-admin']);
+import AccessDeniedPanel from '../../components/dashboard/AccessDeniedPanel.jsx';
+import { deriveAdminAccess } from '../../utils/adminAccess.js';
 
 function cloneDeep(value) {
   if (value == null) {
@@ -25,11 +25,6 @@ function cloneDeep(value) {
     console.warn('Unable to clone value', error);
     return value;
   }
-}
-
-function normalizeToIdentifier(value) {
-  if (!value) return null;
-  return String(value).trim().toLowerCase().replace(/\s+/g, '-');
 }
 
 function formatRelativeTime(value) {
@@ -68,8 +63,29 @@ const HOMEPAGE_SECTION_ITEMS = [
   { id: 'admin-homepage-seo-nav', name: 'SEO metadata', sectionId: 'admin-homepage-seo' },
 ];
 
-export default function AdminHomepageSettingsPage() {
-  const { session, profile, isAuthenticated } = useSession();
+const AVAILABLE_DASHBOARDS = ['admin', 'user', 'freelancer', 'company', 'agency', 'headhunter'];
+
+const SECTIONS = HOMEPAGE_SECTION_ITEMS.map((item) => ({ id: item.sectionId, title: item.name }));
+
+function buildMenuSections() {
+  const baseSections = ADMIN_MENU_SECTIONS.map((section) => ({
+    ...section,
+    items: Array.isArray(section.items) ? section.items.map((item) => ({ ...item })) : [],
+  }));
+  baseSections.push({
+    label: 'Homepage builder',
+    items: HOMEPAGE_SECTION_ITEMS.map((item) => ({ ...item })),
+  });
+  return baseSections;
+}
+
+function getUserScopes(session) {
+  const permissions = Array.isArray(session?.permissions) ? session.permissions : [];
+  const capabilities = Array.isArray(session?.capabilities) ? session.capabilities : [];
+  return [...permissions, ...capabilities];
+}
+
+function AdminHomepageSettingsPageContent() {
   const [settings, setSettings] = useState(null);
   const [draft, setDraft] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -80,42 +96,7 @@ export default function AdminHomepageSettingsPage() {
   const [refreshIndex, setRefreshIndex] = useState(0);
   const [lastSyncedAt, setLastSyncedAt] = useState(null);
 
-  const membershipAliases = useMemo(() => {
-    const rawValues = [
-      ...(Array.isArray(session?.memberships) ? session.memberships : []),
-      ...(Array.isArray(session?.accountTypes) ? session.accountTypes : []),
-      ...(Array.isArray(session?.roles) ? session.roles : []),
-      session?.primaryDashboard,
-    ];
-    return rawValues
-      .map(normalizeToIdentifier)
-      .filter(Boolean);
-  }, [session]);
-
-  const hasAdminSeat = useMemo(
-    () => membershipAliases.some((value) => ADMIN_ACCESS_ALIASES.has(value)),
-    [membershipAliases],
-  );
-  const hasAccess = isAuthenticated && hasAdminSeat;
-
-  const menuSections = useMemo(() => {
-    const cloned = ADMIN_MENU_SECTIONS.map((section) => ({
-      ...section,
-      items: Array.isArray(section.items)
-        ? section.items.map((item) => ({ ...item }))
-        : [],
-    }));
-    cloned.push({
-      label: 'Homepage builder',
-      items: HOMEPAGE_SECTION_ITEMS,
-    });
-    return cloned;
-  }, []);
-
   const loadHomepageSettings = useCallback(async () => {
-    if (!hasAccess) {
-      return;
-    }
     setLoading(true);
     setError(null);
     setStatus('');
@@ -133,7 +114,7 @@ export default function AdminHomepageSettingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [hasAccess]);
+  }, []);
 
   useEffect(() => {
     loadHomepageSettings();
@@ -287,38 +268,7 @@ export default function AdminHomepageSettingsPage() {
 
   const statusLabel = lastSyncedAt ? `Last synced ${formatRelativeTime(lastSyncedAt)}` : 'Awaiting sync';
 
-  const availableDashboards = useMemo(
-    () => ['admin', 'user', 'freelancer', 'company', 'agency', 'headhunter'],
-    [],
-  );
-
-  const gatingMessage = (() => {
-    if (!isAuthenticated) {
-      return (
-        <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-soft">
-          <h2 className="text-2xl font-semibold text-slate-900">Sign in required</h2>
-          <p className="mt-3 text-sm text-slate-600">
-            Sign in with your Gigvora admin account to configure the homepage experience.
-          </p>
-        </div>
-      );
-    }
-    if (!hasAdminSeat) {
-      return (
-        <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-soft">
-          <h2 className="text-2xl font-semibold text-slate-900">Admin clearance required</h2>
-          <p className="mt-3 text-sm text-slate-600">
-            This workspace is restricted to platform administrators. Request elevated access from operations.
-          </p>
-        </div>
-      );
-    }
-    return null;
-  })();
-
-  const pageContent = gatingMessage ? (
-    gatingMessage
-  ) : (
+  return (
     <div className="space-y-8">
       <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg shadow-blue-100/40">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -383,6 +333,35 @@ export default function AdminHomepageSettingsPage() {
       <HomepageSeoForm value={seoValue} onChange={handleSeoChange} disabled={disableInputs} />
     </div>
   );
+}
+
+export default function AdminHomepageSettingsPage() {
+  const { session, profile, isAuthenticated } = useSession();
+  const { hasAdminAccess } = useMemo(() => deriveAdminAccess(session), [session]);
+  const userScopes = useMemo(() => getUserScopes(session), [session]);
+  const menuSections = useMemo(() => buildMenuSections(), []);
+
+  if (!isAuthenticated || !hasAdminAccess) {
+    return (
+      <DashboardLayout
+        currentDashboard="admin"
+        title="Gigvora Admin Control Tower"
+        subtitle="Enterprise governance & compliance"
+        description="Configure platform governance and the public homepage experience from one control tower."
+        menuSections={menuSections}
+        sections={[]}
+        profile={profile}
+        activeMenuItem="admin-homepage-settings"
+        availableDashboards={AVAILABLE_DASHBOARDS}
+      >
+        <AccessDeniedPanel
+          role="admin"
+          availableDashboards={AVAILABLE_DASHBOARDS}
+          userScopes={userScopes}
+        />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout
@@ -391,12 +370,12 @@ export default function AdminHomepageSettingsPage() {
       subtitle="Enterprise governance & compliance"
       description="Configure platform governance and the public homepage experience from one control tower."
       menuSections={menuSections}
-      sections={[]}
+      sections={SECTIONS}
       profile={profile}
       activeMenuItem="admin-homepage-settings"
-      availableDashboards={availableDashboards}
+      availableDashboards={AVAILABLE_DASHBOARDS}
     >
-      {pageContent}
+      <AdminHomepageSettingsPageContent />
     </DashboardLayout>
   );
 }
