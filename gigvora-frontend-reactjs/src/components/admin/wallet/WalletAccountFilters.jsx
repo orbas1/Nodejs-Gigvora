@@ -1,3 +1,5 @@
+import PropTypes from 'prop-types';
+
 const STATUS_OPTIONS = [
   { value: '', label: 'Any' },
   { value: 'active', label: 'Active' },
@@ -20,7 +22,14 @@ const PROVIDER_OPTIONS = [
   { value: 'escrow_com', label: 'Escrow' },
 ];
 
-export default function WalletAccountFilters({ filters, onChange, onReset, onRefresh, loading, variant = 'card' }) {
+export default function WalletAccountFilters({
+  filters,
+  onChange,
+  onReset,
+  onRefresh,
+  loading,
+  variant = 'card',
+}) {
   const handleChange = (event) => {
     const { name, value } = event.target;
     const nextValue = value === '' ? undefined : value;
@@ -153,3 +162,27 @@ export default function WalletAccountFilters({ filters, onChange, onReset, onRef
     </div>
   );
 }
+
+WalletAccountFilters.propTypes = {
+  filters: PropTypes.shape({
+    search: PropTypes.string,
+    status: PropTypes.string,
+    accountType: PropTypes.string,
+    custodyProvider: PropTypes.string,
+    currency: PropTypes.string,
+    page: PropTypes.number,
+  }).isRequired,
+  onChange: PropTypes.func,
+  onReset: PropTypes.func,
+  onRefresh: PropTypes.func,
+  loading: PropTypes.bool,
+  variant: PropTypes.oneOf(['card', 'drawer']),
+};
+
+WalletAccountFilters.defaultProps = {
+  onChange: undefined,
+  onReset: undefined,
+  onRefresh: undefined,
+  loading: false,
+  variant: 'card',
+};

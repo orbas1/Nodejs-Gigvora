@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import PropTypes from 'prop-types';
 
 const ACCOUNT_TYPES = ['user', 'freelancer', 'company', 'agency'];
 const STATUSES = ['active', 'pending', 'suspended', 'closed'];
@@ -258,3 +259,20 @@ export default function WalletAccountCreateForm({
     </div>
   );
 }
+
+WalletAccountCreateForm.propTypes = {
+  onSubmit: PropTypes.func.isRequired,
+  loading: PropTypes.bool,
+  error: PropTypes.string,
+  onCancel: PropTypes.func,
+  variant: PropTypes.oneOf(['card', 'drawer']),
+  resetKey: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+};
+
+WalletAccountCreateForm.defaultProps = {
+  loading: false,
+  error: '',
+  onCancel: undefined,
+  variant: 'card',
+  resetKey: undefined,
+};

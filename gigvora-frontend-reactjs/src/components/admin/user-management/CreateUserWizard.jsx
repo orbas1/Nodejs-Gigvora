@@ -1,4 +1,5 @@
 import { Fragment, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { Dialog, Transition, Tab } from '@headlessui/react';
 import {
   ArrowLeftIcon,
@@ -379,6 +380,23 @@ export default function CreateUserWizard({ open, onClose, metadata, onSubmit }) 
   );
 }
 
+CreateUserWizard.propTypes = {
+  open: PropTypes.bool,
+  onClose: PropTypes.func,
+  metadata: PropTypes.shape({
+    statuses: PropTypes.arrayOf(PropTypes.string),
+    memberships: PropTypes.arrayOf(PropTypes.string),
+    roles: PropTypes.arrayOf(PropTypes.string),
+  }),
+  onSubmit: PropTypes.func.isRequired,
+};
+
+CreateUserWizard.defaultProps = {
+  open: undefined,
+  onClose: undefined,
+  metadata: null,
+};
+
 function buildInitialForm() {
   return {
     firstName: '',
@@ -437,4 +455,16 @@ function Field({ label, required, className = '', children }) {
     </label>
   );
 }
+
+Field.propTypes = {
+  label: PropTypes.string.isRequired,
+  required: PropTypes.bool,
+  className: PropTypes.string,
+  children: PropTypes.node.isRequired,
+};
+
+Field.defaultProps = {
+  required: false,
+  className: '',
+};
 
