@@ -7,7 +7,7 @@ import useEngagementSignals from '../hooks/useEngagementSignals.js';
 import useConnectionNetwork from '../hooks/useConnectionNetwork.js';
 import { createConnectionRequest } from '../services/connections.js';
 
-function ConnectionCard({ node, onConnect, isSubmitting }) {
+export function ConnectionCard({ node, onConnect, isSubmitting }) {
   return (
     <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft transition hover:-translate-y-0.5 hover:border-accent/60">
       <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
@@ -75,7 +75,7 @@ function ConnectionCard({ node, onConnect, isSubmitting }) {
   );
 }
 
-function ConnectionSection({ title, description, nodes, emptyCta, onConnect, submittingId }) {
+export function ConnectionSection({ title, description, nodes, emptyCta, onConnect, submittingId }) {
   if (!nodes?.length) {
     return (
       <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500">

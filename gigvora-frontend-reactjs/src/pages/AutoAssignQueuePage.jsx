@@ -8,7 +8,7 @@ import { fetchFreelancerQueue } from '../services/autoAssign.js';
 import { formatRelativeTime } from '../utils/date.js';
 import useSession from '../hooks/useSession.js';
 
-const STATUS_STYLES = {
+export const STATUS_STYLES = {
   notified: 'bg-emerald-100 text-emerald-700 border-emerald-200',
   pending: 'bg-slate-100 text-slate-600 border-slate-200',
   accepted: 'bg-emerald-200 text-emerald-900 border-emerald-300',
@@ -18,7 +18,7 @@ const STATUS_STYLES = {
   completed: 'bg-blue-100 text-blue-700 border-blue-200',
 };
 
-function formatCurrency(value) {
+export function formatCurrency(value) {
   if (value == null) return '—';
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -27,7 +27,7 @@ function formatCurrency(value) {
   }).format(value);
 }
 
-function formatCountdown(expiresAt) {
+export function formatCountdown(expiresAt) {
   if (!expiresAt) return '—';
   const diffMs = new Date(expiresAt).getTime() - Date.now();
   if (diffMs <= 0) return 'Expired';

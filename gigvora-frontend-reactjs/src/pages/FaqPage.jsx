@@ -2,6 +2,8 @@ import SiteDocumentLayout from '../components/site/SiteDocumentLayout.jsx';
 import useSiteDocument from '../hooks/useSiteDocument.js';
 import faqContent from '../content/site/faq.js';
 
+export const FAQ_SLUG = faqContent.slug;
+
 export default function FaqPage() {
   const { page, sections, metadata, loading, error, refresh, usingFallback, hero } = useSiteDocument(
     faqContent.slug,

@@ -19,7 +19,7 @@ import {
   publishCreationStudioItem as publishCommunityCreationItem,
 } from '../services/creationStudio.js';
 
-const creationTracks = [
+export const creationTracks = [
   {
     id: 'cv',
     type: 'cv',
@@ -85,7 +85,7 @@ const creationTracks = [
   },
 ];
 
-const stats = [
+export const stats = [
   {
     label: 'Templates ready to deploy',
     value: '120+',

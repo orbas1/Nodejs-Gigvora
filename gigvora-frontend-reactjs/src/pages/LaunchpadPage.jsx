@@ -14,10 +14,22 @@ import useSession from '../hooks/useSession.js';
 import AccessRestricted from '../components/AccessRestricted.jsx';
 import { canAccessLaunchpad, getLaunchpadMemberships } from '../constants/access.js';
 
+export const LAUNCHPAD_LISTING_RESOURCE = 'launchpads';
+
+export function buildLaunchpadAccessLabel(memberships = []) {
+  if (!memberships.length) {
+    return null;
+  }
+  return memberships
+    .map((membership) => `${membership}`.replace(/_/g, ' '))
+    .map((label) => label.charAt(0).toUpperCase() + label.slice(1))
+    .join(' • ');
+}
+
 export default function LaunchpadPage() {
   const [query, setQuery] = useState('');
   const { data, error, loading, fromCache, lastUpdated, refresh, debouncedQuery } = useOpportunityListing(
-    'launchpads',
+    LAUNCHPAD_LISTING_RESOURCE,
     query,
     { pageSize: 25 },
   );
@@ -25,15 +37,7 @@ export default function LaunchpadPage() {
   const { session, isAuthenticated } = useSession();
   const hasLaunchpadAccess = useMemo(() => canAccessLaunchpad(session), [session]);
   const launchpadMemberships = useMemo(() => getLaunchpadMemberships(session), [session]);
-  const launchpadAccessLabel = useMemo(() => {
-    if (!launchpadMemberships.length) {
-      return null;
-    }
-    return launchpadMemberships
-      .map((membership) => membership.replace(/_/g, ' '))
-      .map((label) => label.charAt(0).toUpperCase() + label.slice(1))
-      .join(' • ');
-  }, [launchpadMemberships]);
+  const launchpadAccessLabel = useMemo(() => buildLaunchpadAccessLabel(launchpadMemberships), [launchpadMemberships]);
   const membershipSet = useMemo(
     () => new Set(Array.isArray(session?.memberships) ? session.memberships : []),
     [session?.memberships],

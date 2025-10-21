@@ -8,7 +8,7 @@ import analytics from '../services/analytics.js';
 import { formatRelativeTime } from '../utils/date.js';
 import useSession from '../hooks/useSession.js';
 
-function formatTagLabelFromSlug(slug) {
+export function formatTagLabelFromSlug(slug) {
   if (!slug) {
     return '';
   }
@@ -20,7 +20,7 @@ function formatTagLabelFromSlug(slug) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function formatNumber(value) {
+export function formatNumber(value) {
   if (value == null || Number.isNaN(Number(value))) {
     return '0';
   }

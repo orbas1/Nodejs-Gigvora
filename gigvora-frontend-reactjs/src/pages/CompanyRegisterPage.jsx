@@ -4,7 +4,7 @@ import PageHeader from '../components/PageHeader.jsx';
 import useSession from '../hooks/useSession.js';
 import { registerAgency, registerCompany } from '../services/auth.js';
 
-const INITIAL_FORM = {
+export const INITIAL_FORM = {
   companyName: '',
   contactName: '',
   email: '',
@@ -17,7 +17,7 @@ const INITIAL_FORM = {
   twoFactorEnabled: true,
 };
 
-const PARTNERSHIP_PILLARS = [
+export const PARTNERSHIP_PILLARS = [
   'Publish roles, gigs, and launchpad challenges with polished branding.',
   'Collaborate on inbound talent pipelines with shared scoring and notes.',
   'Co-create private groups and showcase culture to the Gigvora community.',

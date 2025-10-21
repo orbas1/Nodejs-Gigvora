@@ -11,43 +11,43 @@ import { formatAbsolute, formatRelativeTime } from '../utils/date.js';
 import { classNames } from '../utils/classNames.js';
 import JobManagementWorkspace from '../components/jobs/JobManagementWorkspace.jsx';
 
-const DEFAULT_USER_ID = 1;
-const JOB_ACCESS_MEMBERSHIPS = new Set(['user', 'freelancer']);
+export const DEFAULT_USER_ID = 1;
+export const JOB_ACCESS_MEMBERSHIPS = new Set(['user', 'freelancer']);
 
-const EMPLOYMENT_TYPE_OPTIONS = [
+export const EMPLOYMENT_TYPE_OPTIONS = [
   { id: 'full-time', label: 'Full-time', value: 'Full-time' },
   { id: 'contract', label: 'Contract', value: 'Contract' },
   { id: 'contract-to-hire', label: 'Contract-to-hire', value: 'Contract-to-hire' },
   { id: 'part-time', label: 'Part-time', value: 'Part-time' },
 ];
 
-const REMOTE_OPTIONS = [
+export const REMOTE_OPTIONS = [
   { id: 'any', label: 'All work styles', value: null },
   { id: 'remote', label: 'Remote only', value: true },
   { id: 'onsite', label: 'Onsite & hybrid', value: false },
 ];
 
-const FRESHNESS_OPTIONS = [
+export const FRESHNESS_OPTIONS = [
   { id: '24h', label: 'Last 24 hours' },
   { id: '7d', label: 'Last 7 days' },
   { id: '30d', label: 'Last 30 days' },
   { id: '90d', label: 'Last 90 days' },
 ];
 
-const JOB_TABS = [
+export const JOB_TABS = [
   { id: 'board', label: 'Jobs board' },
   { id: 'applications', label: 'Applications' },
   { id: 'interviews', label: 'Interviews' },
   { id: 'manage', label: 'Manage jobs' },
 ];
 
-const SORT_OPTIONS = [
+export const SORT_OPTIONS = [
   { id: 'default', label: 'Relevance' },
   { id: 'newest', label: 'Newest' },
   { id: 'alphabetical', label: 'A–Z' },
 ];
 
-function createDefaultFilters() {
+export function createDefaultFilters() {
   return {
     employmentTypes: [],
     isRemote: null,
@@ -55,7 +55,7 @@ function createDefaultFilters() {
   };
 }
 
-function formatNumber(value) {
+export function formatNumber(value) {
   if (value == null) return '0';
   try {
     return new Intl.NumberFormat('en-GB').format(Number(value));
@@ -64,7 +64,7 @@ function formatNumber(value) {
   }
 }
 
-function formatPercent(value) {
+export function formatPercent(value) {
   if (value == null || Number.isNaN(Number(value))) {
     return '0%';
   }
@@ -77,7 +77,7 @@ function formatPercent(value) {
   }
 }
 
-function formatStatusLabel(value) {
+export function formatStatusLabel(value) {
   if (!value) return 'Unknown';
   return `${value}`
     .split(/[_-]/)
@@ -86,7 +86,7 @@ function formatStatusLabel(value) {
     .join(' ');
 }
 
-function FilterPill({ active, label, onClick }) {
+export function FilterPill({ active, label, onClick }) {
   return (
     <button
       type="button"
