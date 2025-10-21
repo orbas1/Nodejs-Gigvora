@@ -28,6 +28,22 @@ export async function getSupportDeskSnapshot(userId, { forceRefresh = false } = 
   return { data, cachedAt: new Date(), fromCache: false };
 }
 
+export async function createKnowledgeBaseArticle(payload) {
+  if (!payload?.title) {
+    throw new Error('A title is required for knowledge base submissions.');
+  }
+  return apiClient.post('/support/knowledge-base', payload);
+}
+
+export async function createSupportPlaybook(payload) {
+  if (!payload?.title) {
+    throw new Error('A playbook title is required.');
+  }
+  return apiClient.post('/support/playbooks', payload);
+}
+
 export default {
   getSupportDeskSnapshot,
+  createKnowledgeBaseArticle,
+  createSupportPlaybook,
 };
