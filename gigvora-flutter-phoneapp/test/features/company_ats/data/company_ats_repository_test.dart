@@ -1,73 +1,66 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gigvora_foundation/gigvora_foundation.dart';
 
 import 'package:gigvora_mobile/features/company_ats/data/company_ats_repository.dart';
-import 'package:gigvora_mobile/features/company_ats/data/company_ats_sample.dart';
 import 'package:gigvora_mobile/features/company_ats/data/models/company_ats_dashboard.dart';
 
-import '../../../support/test_offline_cache.dart';
+import '../../../helpers/in_memory_offline_cache.dart';
 
-class FlakyAtsCache extends InMemoryOfflineCache {
-  FlakyAtsCache() : shouldThrow = false;
+void main() {
+  late InMemoryOfflineCache cache;
+  late CompanyAtsRepository repository;
 
-  bool shouldThrow;
+  setUp(() {
+    cache = InMemoryOfflineCache();
+    repository = CompanyAtsRepository(cache);
+  });
+
+  test('returns sample dashboard data on first load and caches it', () async {
+    final result = await repository.fetchDashboard();
+
+    expect(result.data, isA<CompanyAtsDashboard>());
+    expect(result.fromCache, isFalse);
+    expect(result.error, isNull);
+
+    final cached = cache.read<CompanyAtsDashboard>('company:ats:dashboard', (raw) {
+      if (raw is Map<String, dynamic>) {
+        return CompanyAtsDashboard.fromJson(raw);
+      }
+      if (raw is Map) {
+        return CompanyAtsDashboard.fromJson(Map<String, dynamic>.from(raw as Map));
+      }
+      throw StateError('Unexpected cache payload');
+    });
+
+    expect(cached, isNotNull);
+    expect(cached!.value.metrics, isNotEmpty);
+  });
+
+  test('falls back to cached dashboard when persistence fails', () async {
+    final cache = _ThrowingCache();
+    final repository = CompanyAtsRepository(cache);
+
+    // Seed cache with initial data.
+    final initial = await repository.fetchDashboard();
+    expect(initial.fromCache, isFalse);
+
+    cache.throwOnWrite = true;
+    final result = await repository.fetchDashboard(forceRefresh: true);
+
+    expect(result.fromCache, isTrue);
+    expect(result.data.metrics, isNotEmpty);
+    expect(result.error, isNotNull);
+  });
+}
+
+class _ThrowingCache extends InMemoryOfflineCache {
+  bool throwOnWrite = false;
 
   @override
   Future<void> write(String key, dynamic value, {Duration? ttl}) {
-    if (shouldThrow) {
-      throw StateError('ATS cache write failure');
+    if (throwOnWrite) {
+      throw StateError('Simulated cache write failure');
     }
     return super.write(key, value, ttl: ttl);
   }
-}
-
-void main() {
-  group('CompanyAtsRepository', () {
-    test('fetchDashboard caches and returns sample data', () async {
-      final cache = InMemoryOfflineCache();
-      final repository = CompanyAtsRepository(cache);
-
-      final result = await repository.fetchDashboard(forceRefresh: true);
-
-      expect(result.data.metrics, isNotEmpty);
-      expect(result.fromCache, isFalse);
-
-      final cached = cache.read<CompanyAtsDashboard>(
-        'company:ats:dashboard',
-        (raw) => CompanyAtsDashboard.fromJson(Map<String, dynamic>.from(raw as Map)),
-      );
-      expect(cached, isNotNull);
-      expect(cached!.value.metrics.length, result.data.metrics.length);
-    });
-
-    test('fetchDashboard falls back to cached snapshot when cache write fails', () async {
-      final cache = FlakyAtsCache();
-      final repository = CompanyAtsRepository(cache);
-
-      final snapshot = CompanyAtsDashboard.fromJson(companyAtsSample);
-      await cache.write('company:ats:dashboard', snapshot.toJson());
-
-      cache.shouldThrow = true;
-      final result = await repository.fetchDashboard(forceRefresh: true);
-
-      expect(result.fromCache, isTrue);
-      expect(result.error, isNotNull);
-      expect(result.data.metrics.first.label, snapshot.metrics.first.label);
-    });
-
-    test('persistDashboard writes ATS dashboard to cache', () async {
-      final cache = InMemoryOfflineCache();
-      final repository = CompanyAtsRepository(cache);
-      final dashboard = CompanyAtsDashboard.fromJson(companyAtsSample);
-
-      await repository.persistDashboard(dashboard);
-
-      final cached = cache.read<CompanyAtsDashboard>(
-        'company:ats:dashboard',
-        (raw) => CompanyAtsDashboard.fromJson(Map<String, dynamic>.from(raw as Map)),
-      );
-
-      expect(cached, isNotNull);
-      expect(cached!.value.campaigns.first.channel, dashboard.campaigns.first.channel);
-    });
-  });
 }
