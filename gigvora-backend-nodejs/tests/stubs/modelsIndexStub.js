@@ -13,4 +13,11 @@ export const sequelize = {
   close: async () => {},
 };
 
+export const USER_STATUSES = ['invited', 'active', 'suspended', 'archived'];
+
+export const domainRegistry = {
+  getContextModels: () => ({}),
+  transaction: async () => {},
+};
+
 export default stubModel;
