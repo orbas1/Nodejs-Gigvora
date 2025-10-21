@@ -1,9 +1,6 @@
 'use strict';
 
-function resolveJsonType(queryInterface, Sequelize) {
-  const dialect = queryInterface.sequelize.getDialect();
-  return ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
-}
+const { resolveJsonType, safeRemoveIndex } = require('../utils/migrationHelpers.cjs');
 
 module.exports = {
   async up(queryInterface, Sequelize) {
@@ -32,6 +29,9 @@ module.exports = {
   },
 
   async down(queryInterface) {
-    await queryInterface.dropTable('platform_settings');
+    await queryInterface.sequelize.transaction(async (transaction) => {
+      await safeRemoveIndex(queryInterface, 'platform_settings', 'platform_settings_key_unique', { transaction });
+      await queryInterface.dropTable('platform_settings', { transaction });
+    });
   },
 };
