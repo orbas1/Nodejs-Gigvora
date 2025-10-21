@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as searchController from '../controllers/searchController.js';
 import * as searchSubscriptionController from '../controllers/searchSubscriptionController.js';
 import validateRequest from '../middleware/validateRequest.js';
+import { authenticateRequest } from '../middleware/authentication.js';
 import {
   globalSearchQuerySchema,
   searchCollectionQuerySchema,
@@ -33,24 +34,32 @@ router.get(
   validateRequest({ query: searchCollectionQuerySchema }),
   asyncHandler(searchController.searchLaunchpad),
 );
-router.get('/subscriptions', asyncHandler(searchSubscriptionController.listSubscriptions));
+router.get(
+  '/subscriptions',
+  authenticateRequest(),
+  asyncHandler(searchSubscriptionController.listSubscriptions),
+);
 router.post(
   '/subscriptions',
+  authenticateRequest(),
   validateRequest({ body: createSubscriptionBodySchema }),
   asyncHandler(searchSubscriptionController.createSubscription),
 );
 router.patch(
   '/subscriptions/:id',
+  authenticateRequest(),
   validateRequest({ params: subscriptionParamsSchema, body: updateSubscriptionBodySchema }),
   asyncHandler(searchSubscriptionController.updateSubscription),
 );
 router.delete(
   '/subscriptions/:id',
+  authenticateRequest(),
   validateRequest({ params: subscriptionParamsSchema }),
   asyncHandler(searchSubscriptionController.deleteSubscription),
 );
 router.post(
   '/subscriptions/:id/run',
+  authenticateRequest(),
   validateRequest({ params: subscriptionParamsSchema }),
   asyncHandler(searchSubscriptionController.runSubscription),
 );

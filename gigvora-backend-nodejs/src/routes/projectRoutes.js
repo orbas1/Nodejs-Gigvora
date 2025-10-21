@@ -7,6 +7,7 @@ import projectOperationsController from '../controllers/projectOperationsControl
 import projectWorkspaceManagementController from '../controllers/projectWorkspaceManagementController.js';
 import { requireProjectManagementRole } from '../middleware/authorization.js';
 import validateRequest from '../middleware/validateRequest.js';
+import { authenticateRequest } from '../middleware/authentication.js';
 import {
   createProjectBodySchema,
   updateProjectBodySchema,
@@ -16,6 +17,8 @@ import {
 } from '../validation/schemas/projectSchemas.js';
 
 const router = Router();
+
+router.use(authenticateRequest());
 
 router.get('/blueprints', asyncHandler(projectBlueprintController.index));
 router.post(
