@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
+import PropTypes from 'prop-types';
 import { Dialog, Transition } from '@headlessui/react';
 import { PlusIcon } from '@heroicons/react/24/outline';
 
@@ -399,3 +400,34 @@ export default function EscrowReleasePolicies({ policies = [], onCreate, onUpdat
     </section>
   );
 }
+
+EscrowReleasePolicies.propTypes = {
+  policies: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      name: PropTypes.string,
+      policyType: PropTypes.string,
+      status: PropTypes.string,
+      thresholdAmount: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      thresholdHours: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      requiresComplianceHold: PropTypes.bool,
+      requiresManualApproval: PropTypes.bool,
+      notifyEmails: PropTypes.oneOfType([
+        PropTypes.arrayOf(PropTypes.string),
+        PropTypes.string,
+      ]),
+      description: PropTypes.string,
+      orderIndex: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    }),
+  ),
+  onCreate: PropTypes.func,
+  onUpdate: PropTypes.func,
+  onDelete: PropTypes.func,
+};
+
+EscrowReleasePolicies.defaultProps = {
+  policies: [],
+  onCreate: undefined,
+  onUpdate: undefined,
+  onDelete: undefined,
+};

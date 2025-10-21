@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
+import PropTypes from 'prop-types';
 import { Dialog, Transition } from '@headlessui/react';
 import { ArrowUpTrayIcon, DocumentArrowUpIcon } from '@heroicons/react/24/outline';
 
@@ -248,3 +249,24 @@ export default function DocumentUploadModal({ open, onClose, onUpload, collectio
     </Transition.Root>
   );
 }
+
+DocumentUploadModal.propTypes = {
+  open: PropTypes.bool,
+  onClose: PropTypes.func,
+  onUpload: PropTypes.func,
+  collections: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      name: PropTypes.string.isRequired,
+    }),
+  ),
+  uploading: PropTypes.bool,
+};
+
+DocumentUploadModal.defaultProps = {
+  open: false,
+  onClose: undefined,
+  onUpload: undefined,
+  collections: [],
+  uploading: false,
+};

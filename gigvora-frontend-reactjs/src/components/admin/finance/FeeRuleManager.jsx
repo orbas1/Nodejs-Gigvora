@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { PencilSquareIcon, PlusIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 const DEFAULT_RULE = {
@@ -15,6 +16,23 @@ const DEFAULT_RULE = {
   isActive: true,
   effectiveFrom: '',
   effectiveTo: '',
+};
+
+const defaultFormatCurrency = (amount, currency = 'USD') => {
+  const numeric = Number(amount ?? 0);
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: numeric >= 1000 ? 0 : 2,
+  }).format(Number.isFinite(numeric) ? numeric : 0);
+};
+
+const defaultFormatPercent = (value) => {
+  const numeric = Number(value ?? 0);
+  if (!Number.isFinite(numeric)) {
+    return '0%';
+  }
+  return `${numeric.toFixed(numeric >= 1 ? 1 : 2)}%`;
 };
 
 function RuleModal({ open, title, rule, onClose, onSubmit, saving, error }) {
@@ -270,7 +288,14 @@ function RuleModal({ open, title, rule, onClose, onSubmit, saving, error }) {
   );
 }
 
-export default function FeeRuleManager({ feeRules, onCreate, onUpdate, onDelete, formatCurrency, formatPercent }) {
+export default function FeeRuleManager({
+  feeRules,
+  onCreate,
+  onUpdate,
+  onDelete,
+  formatCurrency = defaultFormatCurrency,
+  formatPercent = defaultFormatPercent,
+}) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingRule, setEditingRule] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -453,3 +478,37 @@ export default function FeeRuleManager({ feeRules, onCreate, onUpdate, onDelete,
     </section>
   );
 }
+
+FeeRuleManager.propTypes = {
+  feeRules: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      name: PropTypes.string,
+      appliesTo: PropTypes.string,
+      percentageRate: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      flatAmount: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      currency: PropTypes.string,
+      minimumAmount: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      maximumAmount: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      tags: PropTypes.arrayOf(PropTypes.string),
+      priority: PropTypes.number,
+      isActive: PropTypes.bool,
+      effectiveFrom: PropTypes.string,
+      effectiveTo: PropTypes.string,
+    }),
+  ),
+  onCreate: PropTypes.func,
+  onUpdate: PropTypes.func,
+  onDelete: PropTypes.func,
+  formatCurrency: PropTypes.func,
+  formatPercent: PropTypes.func,
+};
+
+FeeRuleManager.defaultProps = {
+  feeRules: [],
+  onCreate: undefined,
+  onUpdate: undefined,
+  onDelete: undefined,
+  formatCurrency: defaultFormatCurrency,
+  formatPercent: defaultFormatPercent,
+};

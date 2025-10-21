@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import {
   ArrowDownTrayIcon,
   ArrowUpTrayIcon,
@@ -269,3 +270,44 @@ export default function DocumentRepositoryManager({
     </section>
   );
 }
+
+DocumentRepositoryManager.propTypes = {
+  documents: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      name: PropTypes.string.isRequired,
+      version: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      type: PropTypes.string,
+      owner: PropTypes.string,
+      tags: PropTypes.arrayOf(PropTypes.string),
+      status: PropTypes.string,
+      updatedAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    }),
+  ),
+  collections: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      name: PropTypes.string.isRequired,
+      documents: PropTypes.array,
+    }),
+  ),
+  onSearch: PropTypes.func,
+  onFilter: PropTypes.func,
+  onUploadClick: PropTypes.func,
+  onUpdateDocument: PropTypes.func,
+  onDeleteDocument: PropTypes.func,
+  onPublishDocument: PropTypes.func,
+  onDownloadDocument: PropTypes.func,
+};
+
+DocumentRepositoryManager.defaultProps = {
+  documents: [],
+  collections: [],
+  onSearch: undefined,
+  onFilter: undefined,
+  onUploadClick: undefined,
+  onUpdateDocument: undefined,
+  onDeleteDocument: undefined,
+  onPublishDocument: undefined,
+  onDownloadDocument: undefined,
+};
