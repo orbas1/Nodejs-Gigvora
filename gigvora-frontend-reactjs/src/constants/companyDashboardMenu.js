@@ -67,6 +67,13 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
         href: '/dashboard/company/job-management',
       },
       {
+        name: 'Launchpad jobs',
+        description: 'Pair Experience Launchpad cohorts with priority requisitions.',
+        sectionId: 'experience-launchpad-jobs',
+        href: '/dashboard/company/launchpad-jobs',
+        tags: ['launchpad'],
+      },
+      {
         name: 'Interviews',
         description: 'Panels, scorecards, and feedback.',
         sectionId: 'interview-excellence',
@@ -83,6 +90,19 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
   {
     label: 'Project ops',
     items: [
+      {
+        name: 'Orders',
+        sectionId: 'orders-control-center',
+        href: '/dashboard/company/orders',
+        tags: ['operations'],
+      },
+      {
+        name: 'Gigvora Ads',
+        description: 'Manage Gigvora Ads campaigns, creatives, and placements.',
+        sectionId: 'gigvora-ads',
+        href: '/dashboard/company/ads',
+        tags: ['marketing'],
+      },
       {
         name: 'Projects',
         sectionId: 'projects-open',
