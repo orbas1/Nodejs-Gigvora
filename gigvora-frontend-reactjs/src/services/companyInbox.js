@@ -1,18 +1,27 @@
 
 import { apiClient } from './apiClient.js';
 
+function ensureId(value, message) {
+  if (value === undefined || value === null || `${value}`.trim().length === 0) {
+    throw new Error(message);
+  }
+  return typeof value === 'string' ? value.trim() : value;
+}
+
 function toParams(params = {}) {
   return Object.fromEntries(
     Object.entries(params).filter(([, value]) => value !== undefined && value !== null && `${value}`.length > 0),
   );
 }
 
-export function fetchCompanyInboxOverview({ workspaceId, workspaceSlug, lookbackDays } = {}) {
+export function fetchCompanyInboxOverview({ workspaceId, workspaceSlug, lookbackDays, signal } = {}) {
   const params = toParams({ workspaceId, workspaceSlug, lookbackDays });
-  return apiClient.get('/company/inbox/overview', { params });
+  return apiClient.get('/company/inbox/overview', { params, signal });
 }
 
-export function fetchCompanyInboxThreads({ workspaceId, workspaceSlug, lookbackDays, filters = {}, pagination = {} } = {}) {
+export function fetchCompanyInboxThreads(
+  { workspaceId, workspaceSlug, lookbackDays, filters = {}, pagination = {}, signal } = {},
+) {
   const params = toParams({
     workspaceId,
     workspaceSlug,
@@ -36,61 +45,59 @@ export function fetchCompanyInboxThreads({ workspaceId, workspaceSlug, lookbackD
     params.supportStatuses = filters.supportStatuses.join(',');
   }
 
-  return apiClient.get('/company/inbox/threads', { params });
+  return apiClient.get('/company/inbox/threads', { params, signal });
 }
 
-export function fetchCompanyInboxThread(threadId, { workspaceId, workspaceSlug } = {}) {
-  if (!threadId) {
-    throw new Error('threadId is required to load a company inbox thread.');
-  }
+export function fetchCompanyInboxThread(threadId, { workspaceId, workspaceSlug, signal } = {}) {
+  const resolvedThreadId = ensureId(threadId, 'threadId is required to load a company inbox thread.');
   const params = toParams({ workspaceId, workspaceSlug });
-  return apiClient.get(`/company/inbox/threads/${threadId}`, { params });
+  return apiClient.get(`/company/inbox/threads/${resolvedThreadId}`, { params, signal });
 }
 
-export function fetchCompanyInboxLabels({ workspaceId, workspaceSlug, search } = {}) {
+export function fetchCompanyInboxLabels({ workspaceId, workspaceSlug, search, signal } = {}) {
   const params = toParams({ workspaceId, workspaceSlug, search });
-  return apiClient.get('/company/inbox/labels', { params });
+  return apiClient.get('/company/inbox/labels', { params, signal });
 }
 
-export function createCompanyInboxLabel({ workspaceId, workspaceSlug, name, color, description, metadata } = {}) {
-  if (!name) {
+export function createCompanyInboxLabel({ workspaceId, workspaceSlug, name, color, description, metadata, signal } = {}) {
+  if (!name || `${name}`.trim().length === 0) {
     throw new Error('name is required to create a label.');
   }
   const params = toParams({ workspaceId, workspaceSlug });
-  return apiClient.post('/company/inbox/labels', { name, color, description, metadata }, { params });
+  return apiClient.post('/company/inbox/labels', { name, color, description, metadata }, { params, signal });
 }
 
-export function updateCompanyInboxLabel(labelId, { workspaceId, workspaceSlug, name, color, description, metadata } = {}) {
-  if (!labelId) {
-    throw new Error('labelId is required to update a label.');
-  }
+export function updateCompanyInboxLabel(
+  labelId,
+  { workspaceId, workspaceSlug, name, color, description, metadata, signal } = {},
+) {
+  const resolvedLabelId = ensureId(labelId, 'labelId is required to update a label.');
   const params = toParams({ workspaceId, workspaceSlug });
-  return apiClient.patch(`/company/inbox/labels/${labelId}`, { name, color, description, metadata }, { params });
+  return apiClient.patch(`/company/inbox/labels/${resolvedLabelId}`, { name, color, description, metadata }, { params, signal });
 }
 
-export function deleteCompanyInboxLabel(labelId, { workspaceId, workspaceSlug } = {}) {
-  if (!labelId) {
-    throw new Error('labelId is required to delete a label.');
-  }
+export function deleteCompanyInboxLabel(labelId, { workspaceId, workspaceSlug, signal } = {}) {
+  const resolvedLabelId = ensureId(labelId, 'labelId is required to delete a label.');
   const params = toParams({ workspaceId, workspaceSlug });
-  return apiClient.delete(`/company/inbox/labels/${labelId}`, { params });
+  return apiClient.delete(`/company/inbox/labels/${resolvedLabelId}`, { params, signal });
 }
 
-export function setCompanyThreadLabels(threadId, { workspaceId, workspaceSlug, labelIds, actorId } = {}) {
-  if (!threadId) {
-    throw new Error('threadId is required to update thread labels.');
-  }
+export function setCompanyThreadLabels(
+  threadId,
+  { workspaceId, workspaceSlug, labelIds, actorId, signal } = {},
+) {
+  const resolvedThreadId = ensureId(threadId, 'threadId is required to update thread labels.');
   const params = toParams({ workspaceId, workspaceSlug });
   return apiClient.post(
-    `/company/inbox/threads/${threadId}/labels`,
+    `/company/inbox/threads/${resolvedThreadId}/labels`,
     { labelIds: Array.isArray(labelIds) ? labelIds : [], actorId },
-    { params },
+    { params, signal },
   );
 }
 
-export function fetchCompanyInboxMembers({ workspaceId, workspaceSlug } = {}) {
+export function fetchCompanyInboxMembers({ workspaceId, workspaceSlug, signal } = {}) {
   const params = toParams({ workspaceId, workspaceSlug });
-  return apiClient.get('/company/inbox/members', { params });
+  return apiClient.get('/company/inbox/members', { params, signal });
 }
 
 export default {
