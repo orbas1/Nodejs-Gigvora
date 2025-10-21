@@ -84,7 +84,46 @@ export default function NetworkingSection({
 
   const handleSuccess = async (message) => {
     setNotice({ tone: 'success', message });
-    await onRefresh?.({ force: true });
+    setPanel(null);
+    if (onRefresh) {
+      try {
+        await onRefresh({ force: true });
+      } catch (refreshError) {
+        const errorMessage = refreshError?.message ?? 'Unable to refresh networking data.';
+        setNotice({ tone: 'error', message: errorMessage });
+      }
+    }
+  };
+
+  const normalizeAmount = (value) => {
+    if (value === '' || value == null) {
+      return undefined;
+    }
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  };
+
+  const normalizeCurrency = (value) => {
+    if (!value) {
+      return undefined;
+    }
+    return value.trim().toUpperCase();
+  };
+
+  const normalizeNote = (value) => {
+    if (!value) {
+      return undefined;
+    }
+    const trimmed = value.trim();
+    return trimmed.length ? trimmed : undefined;
+  };
+
+  const normalizeSessionId = (value) => {
+    if (!value && value !== 0) {
+      return undefined;
+    }
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
   };
 
   const requireFreelancer = () => {
@@ -97,11 +136,15 @@ export default function NetworkingSection({
     requireFreelancer();
     setSaving(true);
     try {
-      await bookFreelancerNetworkingSession(freelancerId, form.sessionId, {
-        purchaseAmount: form.purchaseAmount,
-        purchaseCurrency: form.purchaseCurrency,
+      const sessionId = Number(form.sessionId);
+      if (!Number.isFinite(sessionId)) {
+        throw new Error('Select a session to reserve.');
+      }
+      await bookFreelancerNetworkingSession(freelancerId, sessionId, {
+        purchaseAmount: normalizeAmount(form.purchaseAmount),
+        purchaseCurrency: normalizeCurrency(form.purchaseCurrency),
         paymentStatus: form.paymentStatus,
-        note: form.note,
+        note: normalizeNote(form.note),
       });
       await handleSuccess('Booking saved.');
     } finally {
@@ -115,9 +158,9 @@ export default function NetworkingSection({
     try {
       await updateFreelancerNetworkingSignup(freelancerId, bookingId, {
         paymentStatus: form.paymentStatus,
-        purchaseAmount: form.purchaseAmount,
-        purchaseCurrency: form.purchaseCurrency,
-        note: form.note,
+        purchaseAmount: normalizeAmount(form.purchaseAmount),
+        purchaseCurrency: normalizeCurrency(form.purchaseCurrency),
+        note: normalizeNote(form.note),
       });
       await handleSuccess('Booking updated.');
     } finally {
@@ -129,7 +172,16 @@ export default function NetworkingSection({
     requireFreelancer();
     setSaving(true);
     try {
-      await createFreelancerNetworkingConnection(freelancerId, form);
+      const payload = {
+        sessionId: normalizeSessionId(form.sessionId),
+        counterpartName: form.counterpartName?.trim() || undefined,
+        counterpartEmail: form.counterpartEmail?.trim() || undefined,
+        connectionType: form.connectionType,
+        status: form.status,
+        followUpAt: form.followUpAt ? new Date(form.followUpAt).toISOString() : undefined,
+        notes: normalizeNote(form.notes),
+      };
+      await createFreelancerNetworkingConnection(freelancerId, payload);
       await handleSuccess('Contact saved.');
     } finally {
       setSaving(false);
@@ -140,7 +192,16 @@ export default function NetworkingSection({
     requireFreelancer();
     setSaving(true);
     try {
-      await updateFreelancerNetworkingConnection(freelancerId, connectionId, form);
+      const payload = {
+        sessionId: normalizeSessionId(form.sessionId),
+        counterpartName: form.counterpartName?.trim() || undefined,
+        counterpartEmail: form.counterpartEmail?.trim() || undefined,
+        connectionType: form.connectionType,
+        status: form.status,
+        followUpAt: form.followUpAt ? new Date(form.followUpAt).toISOString() : undefined,
+        notes: normalizeNote(form.notes),
+      };
+      await updateFreelancerNetworkingConnection(freelancerId, connectionId, payload);
       await handleSuccess('Contact updated.');
     } finally {
       setSaving(false);
@@ -151,7 +212,10 @@ export default function NetworkingSection({
     requireFreelancer();
     setSaving(true);
     try {
-      const reason = window.prompt('Reason for cancelling this booking? (optional)')?.trim();
+      const reason =
+        typeof window !== 'undefined' && typeof window.prompt === 'function'
+          ? window.prompt('Reason for cancelling this booking? (optional)')?.trim()
+          : '';
       const payload = reason ? { reason } : undefined;
       await deleteFreelancerNetworkingSignup(freelancerId, bookingId, payload);
       await handleSuccess('Booking removed.');

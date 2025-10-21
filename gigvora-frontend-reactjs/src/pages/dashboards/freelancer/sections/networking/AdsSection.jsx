@@ -268,9 +268,9 @@ export default function AdsSection({
     if (!campaign) {
       return;
     }
-    const confirmed = typeof window !== 'undefined'
-      ? window.confirm(`Delete ${campaign.name}? This cannot be undone.`)
-      : true;
+    const confirmed = typeof window === 'undefined'
+      ? true
+      : window.confirm(`Delete ${campaign.name}? This cannot be undone.`);
     if (!confirmed) {
       return;
     }

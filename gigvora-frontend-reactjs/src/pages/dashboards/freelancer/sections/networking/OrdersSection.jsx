@@ -71,7 +71,9 @@ export default function OrdersSection({
     if (!onDelete) {
       return;
     }
-    const confirmed = window.confirm('Delete this networking order? This cannot be undone.');
+    const confirmed = typeof window === 'undefined'
+      ? true
+      : window.confirm('Delete this networking order? This cannot be undone.');
     if (!confirmed) {
       return;
     }

@@ -242,7 +242,9 @@ export default function MentoringSessionsPanel({ sessions, mentorLookup, onUpdat
   const handleOpenMentor = (session) => {
     const mentorId = session.mentorId || session.mentor?.id;
     const target = mentorId ? `/mentors?mentorId=${mentorId}` : '/mentors';
-    window.open(target, '_blank', 'noopener');
+    if (typeof window !== 'undefined' && typeof window.open === 'function') {
+      window.open(target, '_blank', 'noopener');
+    }
   };
 
   return (
