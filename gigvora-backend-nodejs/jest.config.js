@@ -23,6 +23,8 @@ export default {
     '^express-rate-limit$': '<rootDir>/tests/stubs/expressRateLimitStub.js',
     '^zod$': '<rootDir>/tests/stubs/zodStub.js',
     '^compression$': '<rootDir>/tests/stubs/compressionStub.js',
+    '(.*/)?models/index\\.js$': '<rootDir>/tests/stubs/modelsIndexStub.js',
+    '(.*/)?models/constants/index\\.js$': '<rootDir>/tests/stubs/modelConstantsStub.js',
   },
   testMatch: TEST_DIRECTORIES,
   testPathIgnorePatterns: ['/node_modules/'],

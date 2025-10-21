@@ -4,6 +4,8 @@ import sequelize from './sequelizeClient.js';
 const dialect = sequelize.getDialect();
 const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB : DataTypes.JSON;
 
+export const POLICY_DECISIONS = Object.freeze(['allow', 'deny', 'challenge']);
+
 export const RbacPolicyAuditEvent = sequelize.define(
   'RbacPolicyAuditEvent',
   {
@@ -12,7 +14,13 @@ export const RbacPolicyAuditEvent = sequelize.define(
     persona: { type: DataTypes.STRING(60), allowNull: false },
     action: { type: DataTypes.STRING(60), allowNull: false },
     resource: { type: DataTypes.STRING(120), allowNull: false },
-    decision: { type: DataTypes.STRING(16), allowNull: false },
+    decision: {
+      type: DataTypes.STRING(16),
+      allowNull: false,
+      validate: {
+        isIn: [POLICY_DECISIONS],
+      },
+    },
     reason: { type: DataTypes.STRING(255), allowNull: true },
     actorId: { type: DataTypes.STRING(60), allowNull: true },
     actorType: { type: DataTypes.STRING(40), allowNull: true },
@@ -35,6 +43,7 @@ export const RbacPolicyAuditEvent = sequelize.define(
       { fields: ['persona'] },
       { fields: ['decision'] },
       { fields: ['occurredAt'] },
+      { fields: ['requestId'] },
     ],
   },
 );
@@ -56,7 +65,7 @@ RbacPolicyAuditEvent.prototype.toPublicObject = function toPublicObject() {
     ipAddress: plain.ipAddress ?? null,
     userAgent: plain.userAgent ?? null,
     responseStatus: plain.responseStatus ?? null,
-    metadata: plain.metadata ?? null,
+    metadata: plain.metadata ?? {},
     occurredAt: plain.occurredAt,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
