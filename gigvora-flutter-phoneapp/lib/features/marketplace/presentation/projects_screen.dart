@@ -7,6 +7,9 @@ import 'opportunity_list.dart';
 class ProjectsScreen extends StatelessWidget {
   const ProjectsScreen({super.key});
 
+  static const postProjectKey = Key('projects_post_project_button');
+  static const autoMatchKey = Key('projects_auto_match_button');
+
   @override
   Widget build(BuildContext context) {
     return OpportunityListScreen(
@@ -20,11 +23,13 @@ class ProjectsScreen extends StatelessWidget {
       emptySearchMessage: 'No projects matched your filters just yet. Try another keyword or refresh soon.',
       actions: [
         TextButton.icon(
+          key: postProjectKey,
           onPressed: () => context.push('/projects/new'),
           icon: const Icon(Icons.add),
           label: const Text('Post project'),
         ),
         TextButton.icon(
+          key: autoMatchKey,
           onPressed: () => context.push('/projects/1/auto-match'),
           icon: const Icon(Icons.auto_mode_outlined),
           label: const Text('Auto-match queue'),

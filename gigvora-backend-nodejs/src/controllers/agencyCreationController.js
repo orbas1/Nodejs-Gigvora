@@ -5,87 +5,61 @@ import {
   updateCreationItem,
   deleteCreationItem,
 } from '../services/agencyCreationStudioService.js';
+import {
+  buildAgencyActorContext,
+  ensurePlainObject,
+  mergeDefined,
+  toOptionalPositiveInteger,
+  toOptionalString,
+  toPositiveInteger,
+} from '../utils/controllerUtils.js';
 
-function parseInteger(value, fallback = null) {
-  if (value == null) {
-    return fallback;
-  }
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+function normaliseFilters(query = {}) {
+  const agencyProfileId = toOptionalPositiveInteger(query.agencyProfileId, {
+    fieldName: 'agencyProfileId',
+    required: false,
+  });
+  const targetType = toOptionalString(query.targetType, { fieldName: 'targetType', maxLength: 80, lowercase: true });
+  const status = toOptionalString(query.status, { fieldName: 'status', maxLength: 40, lowercase: true });
+  const search = toOptionalString(query.search, { fieldName: 'search', maxLength: 200 });
+  const page = toOptionalPositiveInteger(query.page, { fieldName: 'page', required: false });
+  const pageSize = toOptionalPositiveInteger(query.pageSize, { fieldName: 'pageSize', required: false });
+  return mergeDefined({}, { agencyProfileId, targetType, status, search, page, pageSize });
 }
 
 export async function overview(req, res) {
-  const { query, user } = req;
-  const actorId = user?.id ?? null;
-  const actorRole = user?.type ?? null;
-
-  const result = await getCreationStudioOverview(
-    {
-      agencyProfileId: query?.agencyProfileId ? Number.parseInt(query.agencyProfileId, 10) : null,
-      page: parseInteger(query?.page, 1),
-      pageSize: parseInteger(query?.pageSize, undefined),
-      targetType: query?.targetType ?? null,
-      status: query?.status ?? null,
-      search: query?.search ?? null,
-    },
-    { actorId, actorRole },
-  );
-
+  const actor = buildAgencyActorContext(req);
+  const params = normaliseFilters(req.query ?? {});
+  const result = await getCreationStudioOverview(params, actor);
   res.json(result);
 }
 
 export async function snapshot(req, res) {
-  const { query, user } = req;
-  const actorId = user?.id ?? null;
-  const actorRole = user?.type ?? null;
-
-  const result = await getCreationStudioSnapshot(
-    {
-      agencyProfileId: query?.agencyProfileId ? Number.parseInt(query.agencyProfileId, 10) : null,
-      targetType: query?.targetType ?? null,
-      status: query?.status ?? null,
-    },
-    { actorId, actorRole },
-  );
-
+  const actor = buildAgencyActorContext(req);
+  const params = normaliseFilters(req.query ?? {});
+  const result = await getCreationStudioSnapshot(params, actor);
   res.json(result);
 }
 
 export async function store(req, res) {
-  const { body, user } = req;
-  const actorId = user?.id ?? null;
-  const actorRole = user?.type ?? null;
-
-  const result = await createCreationItem(body ?? {}, { actorId, actorRole });
+  const actor = buildAgencyActorContext(req);
+  const payload = ensurePlainObject(req.body ?? {}, 'body');
+  const result = await createCreationItem(payload, actor);
   res.status(201).json(result);
 }
 
 export async function update(req, res) {
-  const { body, params, user } = req;
-  const actorId = user?.id ?? null;
-  const actorRole = user?.type ?? null;
-
-  const itemId = Number.parseInt(params?.itemId, 10);
-  if (!Number.isFinite(itemId)) {
-    res.status(400).json({ message: 'A valid creation item id is required.' });
-    return;
-  }
-
-  const result = await updateCreationItem(itemId, body ?? {}, { actorId, actorRole });
+  const actor = buildAgencyActorContext(req);
+  const payload = ensurePlainObject(req.body ?? {}, 'body');
+  const itemId = toPositiveInteger(req.params?.itemId, { fieldName: 'itemId' });
+  const result = await updateCreationItem(itemId, payload, actor);
   res.json(result);
 }
 
 export async function destroy(req, res) {
-  const { params, user } = req;
-  const actorId = user?.id ?? null;
-  const actorRole = user?.type ?? null;
-  const itemId = Number.parseInt(params?.itemId, 10);
-  if (!Number.isFinite(itemId)) {
-    res.status(400).json({ message: 'A valid creation item id is required.' });
-    return;
-  }
-
-  const result = await deleteCreationItem(itemId, { actorId, actorRole });
+  const actor = buildAgencyActorContext(req);
+  const itemId = toPositiveInteger(req.params?.itemId, { fieldName: 'itemId' });
+  const result = await deleteCreationItem(itemId, actor);
   res.status(200).json(result);
 }
 

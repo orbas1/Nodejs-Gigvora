@@ -2,6 +2,7 @@ import { Router } from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
 import validateRequest from '../middleware/validateRequest.js';
 import legalPolicyController from '../controllers/legalPolicyController.js';
+import { requireAdmin } from '../middleware/authenticate.js';
 import {
   legalDocumentQuerySchema,
   legalDocumentSlugParamSchema,
@@ -17,6 +18,8 @@ import {
 } from '../validation/schemas/legalPolicySchemas.js';
 
 const router = Router();
+
+router.use(requireAdmin);
 
 router.get(
   '/',

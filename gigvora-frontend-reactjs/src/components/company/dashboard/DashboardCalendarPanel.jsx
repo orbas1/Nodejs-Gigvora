@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { PlusIcon } from '@heroicons/react/24/outline';
 import CalendarSummary from '../../company/calendar/CalendarSummary.jsx';
 import CalendarUpcomingGrid from '../../company/calendar/CalendarUpcomingGrid.jsx';
@@ -274,5 +275,10 @@ export default function DashboardCalendarPanel({ workspaceId, workspaceSlug }) {
 DashboardCalendarPanel.defaultProps = {
   workspaceId: null,
   workspaceSlug: null,
+};
+
+DashboardCalendarPanel.propTypes = {
+  workspaceId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  workspaceSlug: PropTypes.string,
 };
 

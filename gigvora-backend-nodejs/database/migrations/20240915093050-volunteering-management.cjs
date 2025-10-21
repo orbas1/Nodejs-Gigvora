@@ -1,5 +1,7 @@
 'use strict';
 
+const { resolveJsonType, dropEnum } = require('../utils/migrationHelpers.cjs');
+
 const APPLICATION_STATUSES = [
   'draft',
   'submitted',
@@ -19,7 +21,7 @@ const REVIEW_VISIBILITIES = ['private', 'shared'];
 module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.sequelize.transaction(async (transaction) => {
-      const jsonType = Sequelize.JSONB ?? Sequelize.JSON;
+      const jsonType = resolveJsonType(queryInterface, Sequelize);
 
       await queryInterface.createTable(
         'volunteer_applications',
@@ -263,11 +265,7 @@ module.exports = {
         'enum_volunteer_applications_status',
       ];
 
-      await Promise.all(
-        enumNames.map((enumName) =>
-          queryInterface.sequelize.query(`DROP TYPE IF EXISTS "${enumName}";`, { transaction }),
-        ),
-      );
+      await Promise.all(enumNames.map((enumName) => dropEnum(queryInterface, enumName, transaction)));
     });
   },
 };

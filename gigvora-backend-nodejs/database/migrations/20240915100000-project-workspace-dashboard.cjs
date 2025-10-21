@@ -1,11 +1,12 @@
 'use strict';
 
+const { resolveJsonType, dropEnum, safeRemoveIndex } = require('../utils/migrationHelpers.cjs');
+
 module.exports = {
   async up(queryInterface, Sequelize) {
     const transaction = await queryInterface.sequelize.transaction();
     try {
-      const dialect = queryInterface.sequelize.getDialect();
-      const jsonType = ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
+      const jsonType = resolveJsonType(queryInterface, Sequelize);
 
       await queryInterface.createTable(
         'project_workspaces',
@@ -38,8 +39,16 @@ module.exports = {
             onUpdate: 'SET NULL',
             onDelete: 'SET NULL',
           },
-          createdAt: { type: Sequelize.DATE, allowNull: false },
-          updatedAt: { type: Sequelize.DATE, allowNull: false },
+          createdAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
+          updatedAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
         },
         { transaction },
       );
@@ -69,8 +78,16 @@ module.exports = {
             onUpdate: 'SET NULL',
             onDelete: 'SET NULL',
           },
-          updatedAt: { type: Sequelize.DATE, allowNull: false },
-          createdAt: { type: Sequelize.DATE, allowNull: false },
+          updatedAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
+          createdAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
         },
         { transaction },
       );
@@ -100,8 +117,16 @@ module.exports = {
           },
           activeCollaborators: { type: jsonType, allowNull: true },
           tags: { type: jsonType, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false },
-          updatedAt: { type: Sequelize.DATE, allowNull: false },
+          createdAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
+          updatedAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
         },
         { transaction },
       );
@@ -141,8 +166,16 @@ module.exports = {
             onDelete: 'SET NULL',
           },
           uploadedAt: { type: Sequelize.DATE, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false },
-          updatedAt: { type: Sequelize.DATE, allowNull: false },
+          createdAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
+          updatedAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
         },
         { transaction },
       );
@@ -173,8 +206,16 @@ module.exports = {
           lastReadAt: { type: Sequelize.DATE, allowNull: true },
           externalLink: { type: Sequelize.STRING(500), allowNull: true },
           participants: { type: jsonType, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false },
-          updatedAt: { type: Sequelize.DATE, allowNull: false },
+          createdAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
+          updatedAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
         },
         { transaction },
       );
@@ -183,6 +224,130 @@ module.exports = {
         'project_workspace_conversations',
         ['workspaceId', 'priority', 'updatedAt'],
         { name: 'workspace_conversations_workspace_priority_idx', transaction },
+      );
+
+      await queryInterface.createTable(
+        'project_workspace_dashboards',
+        {
+          id: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+          workspaceId: {
+            type: Sequelize.INTEGER,
+            allowNull: false,
+            references: { model: 'project_workspaces', key: 'id' },
+            onUpdate: 'CASCADE',
+            onDelete: 'CASCADE',
+          },
+          name: { type: Sequelize.STRING(160), allowNull: false },
+          description: { type: Sequelize.TEXT, allowNull: true },
+          layout: { type: jsonType, allowNull: true },
+          filters: { type: jsonType, allowNull: true },
+          status: { type: Sequelize.STRING(40), allowNull: false, defaultValue: 'active' },
+          publishedAt: { type: Sequelize.DATE, allowNull: true },
+          createdAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
+          updatedAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
+        },
+        { transaction },
+      );
+
+      await queryInterface.addIndex(
+        'project_workspace_dashboards',
+        ['workspaceId', 'status'],
+        { name: 'workspace_dashboards_workspace_status_idx', transaction },
+      );
+
+      await queryInterface.createTable(
+        'project_workspace_health_snapshots',
+        {
+          id: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+          workspaceId: {
+            type: Sequelize.INTEGER,
+            allowNull: false,
+            references: { model: 'project_workspaces', key: 'id' },
+            onUpdate: 'CASCADE',
+            onDelete: 'CASCADE',
+          },
+          capturedAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
+          healthScore: { type: Sequelize.DECIMAL(5, 2), allowNull: true },
+          riskLevel: { type: Sequelize.STRING(30), allowNull: false, defaultValue: 'low' },
+          statusSummary: { type: Sequelize.TEXT, allowNull: true },
+          metrics: { type: jsonType, allowNull: true },
+          createdAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
+          updatedAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
+        },
+        { transaction },
+      );
+
+      await queryInterface.addIndex(
+        'project_workspace_health_snapshots',
+        ['workspaceId', 'capturedAt'],
+        { name: 'workspace_health_snapshots_capture_idx', transaction },
+      );
+
+      await queryInterface.createTable(
+        'project_workspace_activity_logs',
+        {
+          id: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+          workspaceId: {
+            type: Sequelize.INTEGER,
+            allowNull: false,
+            references: { model: 'project_workspaces', key: 'id' },
+            onUpdate: 'CASCADE',
+            onDelete: 'CASCADE',
+          },
+          actorId: {
+            type: Sequelize.INTEGER,
+            allowNull: true,
+            references: { model: 'users', key: 'id' },
+            onUpdate: 'SET NULL',
+            onDelete: 'SET NULL',
+          },
+          actorType: { type: Sequelize.STRING(60), allowNull: false, defaultValue: 'user' },
+          actionType: { type: Sequelize.STRING(120), allowNull: false },
+          description: { type: Sequelize.TEXT, allowNull: true },
+          occurredAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
+          metadata: { type: jsonType, allowNull: true },
+          createdAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
+          updatedAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
+        },
+        { transaction },
+      );
+
+      await queryInterface.addIndex(
+        'project_workspace_activity_logs',
+        ['workspaceId', 'occurredAt'],
+        { name: 'workspace_activity_logs_workspace_occurred_idx', transaction },
       );
 
       await queryInterface.createTable(
@@ -211,8 +376,16 @@ module.exports = {
           decisionNotes: { type: Sequelize.TEXT, allowNull: true },
           attachments: { type: jsonType, allowNull: true },
           metadata: { type: jsonType, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false },
-          updatedAt: { type: Sequelize.DATE, allowNull: false },
+          createdAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
+          updatedAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
         },
         { transaction },
       );
@@ -233,26 +406,59 @@ module.exports = {
   async down(queryInterface) {
     const transaction = await queryInterface.sequelize.transaction();
     try {
-      await queryInterface.removeIndex('project_workspace_approvals', 'workspace_approvals_workspace_status_idx', { transaction });
-      await queryInterface.removeIndex(
+      await safeRemoveIndex(
+        queryInterface,
+        'project_workspace_approvals',
+        'workspace_approvals_workspace_status_idx',
+        { transaction },
+      );
+      await safeRemoveIndex(
+        queryInterface,
         'project_workspace_conversations',
         'workspace_conversations_workspace_priority_idx',
         { transaction },
       );
-      await queryInterface.removeIndex('project_workspace_files', 'workspace_files_workspace_category_idx', { transaction });
-      await queryInterface.removeIndex(
+      await safeRemoveIndex(
+        queryInterface,
+        'project_workspace_files',
+        'workspace_files_workspace_category_idx',
+        { transaction },
+      );
+      await safeRemoveIndex(
+        queryInterface,
         'project_workspace_whiteboards',
         'workspace_whiteboards_workspace_status_idx',
         { transaction },
       );
+      await safeRemoveIndex(
+        queryInterface,
+        'project_workspace_dashboards',
+        'workspace_dashboards_workspace_status_idx',
+        { transaction },
+      );
+      await safeRemoveIndex(
+        queryInterface,
+        'project_workspace_health_snapshots',
+        'workspace_health_snapshots_capture_idx',
+        { transaction },
+      );
+      await safeRemoveIndex(
+        queryInterface,
+        'project_workspace_activity_logs',
+        'workspace_activity_logs_workspace_occurred_idx',
+        { transaction },
+      );
 
       await queryInterface.dropTable('project_workspace_approvals', { transaction });
+      await queryInterface.dropTable('project_workspace_activity_logs', { transaction });
+      await queryInterface.dropTable('project_workspace_health_snapshots', { transaction });
+      await queryInterface.dropTable('project_workspace_dashboards', { transaction });
       await queryInterface.dropTable('project_workspace_conversations', { transaction });
       await queryInterface.dropTable('project_workspace_files', { transaction });
       await queryInterface.dropTable('project_workspace_whiteboards', { transaction });
       await queryInterface.dropTable('project_workspace_briefs', { transaction });
       await queryInterface.dropTable('project_workspaces', { transaction });
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_project_workspace_approvals_status"', { transaction });
+      await dropEnum(queryInterface, 'enum_project_workspace_approvals_status', transaction);
       await transaction.commit();
     } catch (error) {
       await transaction.rollback();

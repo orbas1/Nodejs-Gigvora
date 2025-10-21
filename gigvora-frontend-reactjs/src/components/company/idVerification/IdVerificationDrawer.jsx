@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { ArrowPathIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { formatAbsolute, formatRelativeTime } from '../../../utils/date.js';
 
@@ -124,6 +125,27 @@ function EventTimeline({ events = [] }) {
     </ul>
   );
 }
+
+EventTimeline.propTypes = {
+  events: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+      eventType: PropTypes.string,
+      notes: PropTypes.string,
+      metadata: PropTypes.object,
+      createdAt: PropTypes.string,
+      actor: PropTypes.shape({
+        firstName: PropTypes.string,
+        lastName: PropTypes.string,
+        email: PropTypes.string,
+      }),
+    }),
+  ),
+};
+
+EventTimeline.defaultProps = {
+  events: [],
+};
 
 export default function IdVerificationDrawer({
   open,
@@ -637,3 +659,60 @@ export default function IdVerificationDrawer({
     </div>
   );
 }
+
+IdVerificationDrawer.propTypes = {
+  open: PropTypes.bool.isRequired,
+  verification: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    status: PropTypes.string,
+    reviewer: PropTypes.shape({ id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]) }),
+    reviewerId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    reviewNotes: PropTypes.string,
+    declinedReason: PropTypes.string,
+    verificationProvider: PropTypes.string,
+    typeOfId: PropTypes.string,
+    idNumberLast4: PropTypes.string,
+    issuingCountry: PropTypes.string,
+    issuedAt: PropTypes.string,
+    expiresAt: PropTypes.string,
+    fullName: PropTypes.string,
+    dateOfBirth: PropTypes.string,
+    addressLine1: PropTypes.string,
+    addressLine2: PropTypes.string,
+    city: PropTypes.string,
+    state: PropTypes.string,
+    postalCode: PropTypes.string,
+    country: PropTypes.string,
+    documentFrontKey: PropTypes.string,
+    documentBackKey: PropTypes.string,
+    selfieKey: PropTypes.string,
+    metadata: PropTypes.object,
+    statusNotes: PropTypes.string,
+    submittedAt: PropTypes.string,
+    reviewedAt: PropTypes.string,
+    events: PropTypes.array,
+  }),
+  statusOptions: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.shape({
+    value: PropTypes.string,
+    label: PropTypes.string,
+  })])),
+  reviewerOptions: PropTypes.arrayOf(
+    PropTypes.shape({
+      value: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+      label: PropTypes.string.isRequired,
+    }),
+  ),
+  workspaceId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  onClose: PropTypes.func.isRequired,
+  onSubmit: PropTypes.func,
+  loading: PropTypes.bool,
+};
+
+IdVerificationDrawer.defaultProps = {
+  verification: null,
+  statusOptions: [],
+  reviewerOptions: [],
+  workspaceId: null,
+  onSubmit: undefined,
+  loading: false,
+};

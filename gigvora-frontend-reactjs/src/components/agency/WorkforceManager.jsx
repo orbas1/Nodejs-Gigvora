@@ -2,19 +2,20 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import PanelDialog from './PanelDialog.jsx';
 
 function normalizeSegment(segment = {}) {
+  const source = segment && typeof segment === 'object' ? segment : {};
   return {
-    id: segment.id ?? null,
-    segmentName: segment.segmentName ?? '',
-    specialization: segment.specialization ?? '',
-    availableCount: segment.availableCount ?? '',
-    totalCount: segment.totalCount ?? '',
-    deliveryModel: segment.deliveryModel ?? '',
-    location: segment.location ?? '',
-    availabilityNotes: segment.availabilityNotes ?? '',
-    averageBillRate: segment.averageBillRate ?? '',
-    currency: segment.currency ?? '',
-    leadTimeDays: segment.leadTimeDays ?? '',
-    position: segment.position ?? '',
+    id: source.id ?? null,
+    segmentName: source.segmentName ?? '',
+    specialization: source.specialization ?? '',
+    availableCount: source.availableCount ?? '',
+    totalCount: source.totalCount ?? '',
+    deliveryModel: source.deliveryModel ?? '',
+    location: source.location ?? '',
+    availabilityNotes: source.availabilityNotes ?? '',
+    averageBillRate: source.averageBillRate ?? '',
+    currency: source.currency ?? '',
+    leadTimeDays: source.leadTimeDays ?? '',
+    position: source.position ?? '',
   };
 }
 

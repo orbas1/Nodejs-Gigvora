@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import PropTypes from 'prop-types';
 import {
   MagnifyingGlassIcon,
   AdjustmentsHorizontalIcon,
@@ -254,3 +255,53 @@ export default function IdVerificationFilters({
     </>
   );
 }
+
+IdVerificationFilters.propTypes = {
+  workspaceOptions: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+      name: PropTypes.string,
+    }),
+  ),
+  currentWorkspaceId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  onWorkspaceChange: PropTypes.func,
+  segments: PropTypes.arrayOf(
+    PropTypes.shape({
+      key: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+      count: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    }),
+  ),
+  activeSegment: PropTypes.string,
+  onSegmentChange: PropTypes.func,
+  sortOptions: PropTypes.arrayOf(
+    PropTypes.shape({
+      value: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+    }),
+  ),
+  currentSort: PropTypes.string,
+  onSortChange: PropTypes.func,
+  searchValue: PropTypes.string,
+  onSearchChange: PropTypes.func,
+  onCreate: PropTypes.func,
+  onRefresh: PropTypes.func,
+  loading: PropTypes.bool,
+};
+
+IdVerificationFilters.defaultProps = {
+  workspaceOptions: [],
+  currentWorkspaceId: null,
+  onWorkspaceChange: undefined,
+  segments: [],
+  activeSegment: 'all',
+  onSegmentChange: undefined,
+  sortOptions: [],
+  currentSort: 'recent',
+  onSortChange: undefined,
+  searchValue: '',
+  onSearchChange: undefined,
+  onCreate: undefined,
+  onRefresh: undefined,
+  loading: false,
+};

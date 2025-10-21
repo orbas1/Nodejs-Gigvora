@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
 const STATUS_OPTIONS_DEFAULT = ['submitted', 'pending', 'in_review'];
@@ -537,3 +538,34 @@ export default function IdVerificationRequestModal({
     </div>
   );
 }
+
+IdVerificationRequestModal.propTypes = {
+  open: PropTypes.bool.isRequired,
+  workspaceId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  memberOptions: PropTypes.arrayOf(
+    PropTypes.shape({
+      userId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+      profileId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      name: PropTypes.string,
+      email: PropTypes.string,
+    }),
+  ),
+  reviewerOptions: PropTypes.arrayOf(
+    PropTypes.shape({
+      value: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+      label: PropTypes.string.isRequired,
+    }),
+  ),
+  statusOptions: PropTypes.arrayOf(PropTypes.string),
+  onClose: PropTypes.func,
+  onSubmit: PropTypes.func,
+};
+
+IdVerificationRequestModal.defaultProps = {
+  workspaceId: null,
+  memberOptions: [],
+  reviewerOptions: [],
+  statusOptions: STATUS_OPTIONS_DEFAULT,
+  onClose: undefined,
+  onSubmit: undefined,
+};

@@ -6,12 +6,12 @@ import { evaluateRequest } from '../security/webApplicationFirewall.js';
 
 export default function createWebApplicationFirewall({ logger: providedLogger, auditRecorder } = {}) {
   const log = providedLogger?.child ? providedLogger.child({ component: 'waf' }) : providedLogger || logger.child({ component: 'waf' });
-  let resolvedAuditRecorder = auditRecorder;
+  let resolvedAuditRecorder = typeof auditRecorder === 'function' ? auditRecorder : null;
 
   return async function webApplicationFirewallMiddleware(req, res, next) {
     let evaluation;
     try {
-      evaluation = evaluateRequest(req);
+      evaluation = await evaluateRequest(req);
     } catch (error) {
       log.error({ err: error, path: req.originalUrl || req.path }, 'Web application firewall evaluation failed');
       res.status(403).json({
@@ -64,7 +64,10 @@ export default function createWebApplicationFirewall({ logger: providedLogger, a
     try {
       if (!resolvedAuditRecorder) {
         const module = await import('../services/securityAuditService.js');
-        resolvedAuditRecorder = module.recordRuntimeSecurityEvent;
+        const candidate = module.recordRuntimeSecurityEvent ?? module.default;
+        if (typeof candidate === 'function') {
+          resolvedAuditRecorder = candidate;
+        }
       }
 
       const level = (() => {
@@ -80,24 +83,26 @@ export default function createWebApplicationFirewall({ logger: providedLogger, a
         return 'notice';
       })();
 
-      await resolvedAuditRecorder(
-        {
-          eventType: 'security.perimeter.request_blocked',
-          level,
-          message: `Blocked ${evaluation.method} ${evaluation.path} via web application firewall`,
-          metadata: {
-            ip: evaluation.ip,
-            origin: evaluation.origin,
-            userAgent: evaluation.userAgent,
-            matchedRules: evaluation.matchedRules,
-            referenceId,
-            detectedAt,
-            autoBlock: autoBlockMetadata,
+      if (resolvedAuditRecorder) {
+        await resolvedAuditRecorder(
+          {
+            eventType: 'security.perimeter.request_blocked',
+            level,
+            message: `Blocked ${evaluation.method} ${evaluation.path} via web application firewall`,
+            metadata: {
+              ip: evaluation.ip,
+              origin: evaluation.origin,
+              userAgent: evaluation.userAgent,
+              matchedRules: evaluation.matchedRules,
+              referenceId,
+              detectedAt,
+              autoBlock: autoBlockMetadata,
+            },
+            requestId: req.id,
           },
-          requestId: req.id,
-        },
-        { logger: log },
-      );
+          { logger: log },
+        );
+      }
     } catch (error) {
       log.error({ err: error, referenceId }, 'Failed to persist web application firewall audit event');
     }

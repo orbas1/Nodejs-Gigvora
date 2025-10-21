@@ -349,8 +349,52 @@ BlogComment.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
-export function registerBlogAssociations({ User }) {
-export function registerBlogAssociations({ User, ProviderWorkspace }) {
+let blogAssociationsRegistered = false;
+
+const BLOG_MODEL_REGISTRATION_RETURN = {
+  BlogCategory,
+  BlogTag,
+  BlogMedia,
+  BlogPost,
+  BlogPostTag,
+  BlogPostMedia,
+  BlogPostMetric,
+  BlogComment,
+};
+
+function assertSequelizeModel(model, name) {
+  if (!model || typeof model !== 'function' || !model.sequelize) {
+    throw new Error(`registerBlogAssociations requires a valid ${name} Sequelize model.`);
+  }
+}
+
+export function registerBlogAssociations(dependencies = {}) {
+  if (blogAssociationsRegistered) {
+    if (
+      dependencies.User &&
+      BlogPost.associations.author &&
+      BlogPost.associations.author.target !== dependencies.User
+    ) {
+      throw new Error('registerBlogAssociations has already been initialised with a different User model.');
+    }
+
+    if (
+      dependencies.ProviderWorkspace &&
+      BlogPost.associations.workspace &&
+      BlogPost.associations.workspace.target !== dependencies.ProviderWorkspace
+    ) {
+      throw new Error(
+        'registerBlogAssociations has already been initialised with a different ProviderWorkspace model.',
+      );
+    }
+
+    return BLOG_MODEL_REGISTRATION_RETURN;
+  }
+
+  const { User, ProviderWorkspace } = dependencies;
+
+  assertSequelizeModel(User, 'User');
+  assertSequelizeModel(ProviderWorkspace, 'ProviderWorkspace');
   BlogPost.belongsTo(User, { as: 'author', foreignKey: 'authorId' });
   BlogPost.belongsTo(BlogCategory, { as: 'category', foreignKey: 'categoryId' });
   BlogPost.belongsTo(BlogMedia, { as: 'coverImage', foreignKey: 'coverImageId' });
@@ -385,15 +429,8 @@ export function registerBlogAssociations({ User, ProviderWorkspace }) {
   BlogComment.belongsTo(User, { as: 'author', foreignKey: 'authorId' });
   BlogComment.belongsTo(BlogComment, { as: 'parent', foreignKey: 'parentId' });
   BlogComment.hasMany(BlogComment, { as: 'replies', foreignKey: 'parentId' });
+  blogAssociationsRegistered = true;
+  return BLOG_MODEL_REGISTRATION_RETURN;
 }
 
-export default {
-  BlogCategory,
-  BlogTag,
-  BlogMedia,
-  BlogPost,
-  BlogPostTag,
-  BlogPostMedia,
-  BlogPostMetric,
-  BlogComment,
-};
+export default BLOG_MODEL_REGISTRATION_RETURN;

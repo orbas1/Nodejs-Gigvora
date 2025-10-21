@@ -2,6 +2,7 @@ import { Router } from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
 import adminSpeedNetworkingController from '../controllers/adminSpeedNetworkingController.js';
 import validateRequest from '../middleware/validateRequest.js';
+import { requireAdmin } from '../middleware/authenticate.js';
 import {
   speedNetworkingListQuerySchema,
   speedNetworkingCreateBodySchema,
@@ -11,6 +12,8 @@ import {
 } from '../validation/schemas/speedNetworkingSchemas.js';
 
 const router = Router();
+
+router.use(requireAdmin);
 
 router.get('/catalog', asyncHandler(adminSpeedNetworkingController.catalog));
 

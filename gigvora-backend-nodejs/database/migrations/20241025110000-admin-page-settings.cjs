@@ -7,6 +7,9 @@ const VISIBILITY_ENUM = 'enum_page_settings_visibility';
 module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.sequelize.transaction(async (transaction) => {
+      const dialect = queryInterface.sequelize.getDialect();
+      const jsonType = ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
+
       await queryInterface.createTable(
         TABLE_NAME,
         {
@@ -30,16 +33,22 @@ module.exports = {
             defaultValue: 'private',
           },
           layout: { type: Sequelize.STRING(60), allowNull: false, defaultValue: 'standard' },
-          hero: { type: Sequelize.JSONB ?? Sequelize.JSON, allowNull: true },
-          seo: { type: Sequelize.JSONB ?? Sequelize.JSON, allowNull: true },
-          callToAction: { type: Sequelize.JSONB ?? Sequelize.JSON, allowNull: true },
-          navigation: { type: Sequelize.JSONB ?? Sequelize.JSON, allowNull: true },
-          sections: { type: Sequelize.JSONB ?? Sequelize.JSON, allowNull: true },
-          theme: { type: Sequelize.JSONB ?? Sequelize.JSON, allowNull: true },
-          roleAccess: { type: Sequelize.JSONB ?? Sequelize.JSON, allowNull: true },
-          media: { type: Sequelize.JSONB ?? Sequelize.JSON, allowNull: true },
+          hero: { type: jsonType, allowNull: false, defaultValue: {} },
+          seo: { type: jsonType, allowNull: false, defaultValue: {} },
+          callToAction: { type: jsonType, allowNull: false, defaultValue: {} },
+          navigation: { type: jsonType, allowNull: false, defaultValue: [] },
+          sections: { type: jsonType, allowNull: false, defaultValue: [] },
+          theme: { type: jsonType, allowNull: false, defaultValue: {} },
+          roleAccess: { type: jsonType, allowNull: false, defaultValue: [] },
+          media: { type: jsonType, allowNull: false, defaultValue: [] },
           lastPublishedAt: { type: Sequelize.DATE, allowNull: true },
-          updatedBy: { type: Sequelize.INTEGER, allowNull: true },
+          updatedBy: {
+            type: Sequelize.INTEGER,
+            allowNull: true,
+            references: { model: 'users', key: 'id' },
+            onDelete: 'SET NULL',
+            onUpdate: 'CASCADE',
+          },
           createdAt: { allowNull: false, type: Sequelize.DATE, defaultValue: Sequelize.literal('NOW()') },
           updatedAt: { allowNull: false, type: Sequelize.DATE, defaultValue: Sequelize.literal('NOW()') },
         },

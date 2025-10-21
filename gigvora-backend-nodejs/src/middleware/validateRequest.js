@@ -9,23 +9,36 @@ function formatZodIssues(issues = []) {
   }));
 }
 
+async function parseSection(schema, payload) {
+  if (!schema) {
+    return payload;
+  }
+
+  if (typeof schema.parseAsync === 'function') {
+    return schema.parseAsync(payload ?? {});
+  }
+
+  return schema.parse(payload ?? {});
+}
+
 export default function validateRequest({ body, query, params, headers, cookies } = {}) {
-  return (req, res, next) => {
+  return async (req, res, next) => {
     try {
       if (body) {
-        req.body = body.parse(req.body ?? {});
+        req.body = await parseSection(body, req.body);
       }
       if (query) {
-        req.query = query.parse(req.query ?? {});
+        req.query = await parseSection(query, req.query);
       }
       if (params) {
-        req.params = params.parse(req.params ?? {});
+        req.params = await parseSection(params, req.params);
       }
       if (headers) {
-        req.headers = { ...req.headers, ...headers.parse(req.headers ?? {}) };
+        const validatedHeaders = await parseSection(headers, req.headers);
+        req.headers = { ...(req.headers ?? {}), ...validatedHeaders };
       }
       if (cookies && req.cookies) {
-        req.cookies = cookies.parse(req.cookies ?? {});
+        req.cookies = await parseSection(cookies, req.cookies);
       }
       next();
     } catch (error) {

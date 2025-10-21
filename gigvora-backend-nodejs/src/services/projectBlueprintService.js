@@ -386,20 +386,45 @@ function buildBlueprintResponse(projectInstance, blueprintInstance) {
   return { project, blueprint, metrics };
 }
 
-export async function listProjectBlueprints() {
-  const records = await ProjectBlueprint.findAll({
-    include: [
-      { model: Project, as: 'project' },
-      { model: ProjectBlueprintSprint, as: 'sprints' },
-      { model: ProjectBlueprintDependency, as: 'dependencies' },
-      { model: ProjectBlueprintRisk, as: 'risks' },
-      { model: ProjectBillingCheckpoint, as: 'billingCheckpoints' },
-    ],
+export async function listProjectBlueprints(options = {}) {
+  const { ownerId, limit, offset } = options ?? {};
+
+  const ownerIdFilter = Number.parseInt(ownerId, 10);
+  const enforceOwnerScope = Number.isInteger(ownerIdFilter) && ownerIdFilter > 0;
+
+  const include = [
+    {
+      model: Project,
+      as: 'project',
+      ...(enforceOwnerScope
+        ? { where: { ownerId: ownerIdFilter }, required: true }
+        : {}),
+    },
+    { model: ProjectBlueprintSprint, as: 'sprints' },
+    { model: ProjectBlueprintDependency, as: 'dependencies' },
+    { model: ProjectBlueprintRisk, as: 'risks' },
+    { model: ProjectBillingCheckpoint, as: 'billingCheckpoints' },
+  ];
+
+  const query = {
+    include,
     order: [
       ['updatedAt', 'DESC'],
       [{ model: ProjectBlueprintSprint, as: 'sprints' }, 'sequence', 'ASC'],
     ],
-  });
+  };
+
+  const normalisedLimit = Number.parseInt(limit, 10);
+  if (Number.isInteger(normalisedLimit) && normalisedLimit > 0) {
+    query.limit = Math.min(normalisedLimit, 100);
+  }
+
+  const normalisedOffset = Number.parseInt(offset, 10);
+  if (Number.isInteger(normalisedOffset) && normalisedOffset >= 0) {
+    query.offset = normalisedOffset;
+  }
+
+  const records = await ProjectBlueprint.findAll(query);
 
   return records.map((record) => buildBlueprintResponse(record.project, record));
 }
@@ -419,7 +444,7 @@ export async function getProjectBlueprint(projectId) {
   return buildBlueprintResponse(project, blueprint);
 }
 
-export async function upsertProjectBlueprint(projectId, payload) {
+export async function upsertProjectBlueprint(projectId, payload, { actorId } = {}) {
   const normalizedId = normalizeId(projectId);
   if (!normalizedId) {
     throw new ValidationError('A valid project identifier is required.');
@@ -431,6 +456,10 @@ export async function upsertProjectBlueprint(projectId, payload) {
   }
 
   const { blueprintFields, sprints, dependencies, risks, billingCheckpoints } = sanitizeBlueprintPayload(payload ?? {});
+
+  if (actorId && !blueprintFields.lastReviewedAt) {
+    blueprintFields.lastReviewedAt = new Date();
+  }
 
   const result = await sequelize.transaction(async (transaction) => {
     const [blueprint] = await ProjectBlueprint.findOrCreate({

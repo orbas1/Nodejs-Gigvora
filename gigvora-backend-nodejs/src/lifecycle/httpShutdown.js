@@ -8,6 +8,7 @@ export async function orchestrateHttpShutdown({
   recordRuntimeSecurityEvent,
   markHttpServerStopped,
   onHttpServerClosed = () => {},
+  timeoutMs = 30000,
 }) {
   if (!httpServer) {
     markHttpServerStopped?.({ reason });
@@ -18,13 +19,15 @@ export async function orchestrateHttpShutdown({
   let databaseShutdownError = null;
 
   try {
-    await stopBackgroundWorkers({ logger });
+    if (typeof stopBackgroundWorkers === 'function') {
+      await stopBackgroundWorkers({ logger });
+    }
   } catch (error) {
     workerShutdownError = error;
     logger?.error?.({ err: error }, 'Failed to shut down one or more background workers');
   }
 
-  await new Promise((resolve, reject) => {
+  const closePromise = new Promise((resolve, reject) => {
     httpServer.close((error) => {
       if (error) {
         logger?.error?.({ err: error }, 'Error while shutting down HTTP server');
@@ -38,8 +41,25 @@ export async function orchestrateHttpShutdown({
     });
   });
 
+  if (Number.isFinite(timeoutMs) && timeoutMs > 0) {
+    await Promise.race([
+      closePromise,
+      new Promise((_, reject) =>
+        setTimeout(() => {
+          const timeoutError = new Error('HTTP server shutdown timed out');
+          logger?.error?.({ err: timeoutError, timeoutMs }, 'HTTP server close timed out');
+          reject(timeoutError);
+        }, timeoutMs),
+      ),
+    ]);
+  } else {
+    await closePromise;
+  }
+
   try {
-    await shutdownDatabase({ reason, logger });
+    if (typeof shutdownDatabase === 'function') {
+      await shutdownDatabase({ reason, logger });
+    }
   } catch (error) {
     logger?.error?.({ err: error }, 'Database shutdown encountered errors');
     if (!workerShutdownError) {
@@ -47,23 +67,27 @@ export async function orchestrateHttpShutdown({
     }
   }
 
-  recordRuntimeSecurityEvent(
-    {
-      eventType: 'runtime.http.stopped',
-      level: workerShutdownError ? 'warn' : 'info',
-      message: 'HTTP server shutdown sequence completed.',
-      metadata: {
-        reason,
-        workerShutdownError: workerShutdownError ? workerShutdownError.message : null,
+  if (typeof recordRuntimeSecurityEvent === 'function') {
+    recordRuntimeSecurityEvent(
+      {
+        eventType: 'runtime.http.stopped',
+        level: workerShutdownError ? 'warn' : 'info',
+        message: 'HTTP server shutdown sequence completed.',
+        metadata: {
+          reason,
+          workerShutdownError: workerShutdownError ? workerShutdownError.message : null,
+        },
       },
-    },
-    { logger },
-  ).catch((error) => {
-    logger?.warn?.({ err: error }, 'Failed to record runtime shutdown audit');
-  });
+      { logger },
+    ).catch((error) => {
+      logger?.warn?.({ err: error }, 'Failed to record runtime shutdown audit');
+    });
+  }
 
   try {
-    await drainDatabaseConnections({ logger, reason });
+    if (typeof drainDatabaseConnections === 'function') {
+      await drainDatabaseConnections({ logger, reason });
+    }
   } catch (error) {
     databaseShutdownError = error;
     logger?.error?.(

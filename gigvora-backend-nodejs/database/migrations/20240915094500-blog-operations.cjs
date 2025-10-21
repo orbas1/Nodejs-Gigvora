@@ -1,10 +1,14 @@
 'use strict';
 
+const { resolveJsonType, dropEnum } = require('../utils/migrationHelpers.cjs');
+
 const COMMENT_STATUSES = ['pending', 'approved', 'rejected', 'spam', 'archived'];
 
 module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.sequelize.transaction(async (transaction) => {
+      const jsonType = resolveJsonType(queryInterface, Sequelize);
+
       await queryInterface.createTable(
         'blog_post_metrics',
         {
@@ -28,7 +32,7 @@ module.exports = {
           subscriberConversions: { allowNull: false, type: Sequelize.INTEGER, defaultValue: 0 },
           commentCount: { allowNull: false, type: Sequelize.INTEGER, defaultValue: 0 },
           lastSyncedAt: { allowNull: true, type: Sequelize.DATE },
-          metadata: { allowNull: true, type: Sequelize.JSONB ?? Sequelize.JSON },
+          metadata: { allowNull: true, type: jsonType },
           createdAt: { allowNull: false, type: Sequelize.DATE, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
           updatedAt: { allowNull: false, type: Sequelize.DATE, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
         },
@@ -59,7 +63,7 @@ module.exports = {
           authorId: {
             allowNull: true,
             type: Sequelize.INTEGER,
-            references: { model: 'Users', key: 'id' },
+            references: { model: 'users', key: 'id' },
             onUpdate: 'CASCADE',
             onDelete: 'SET NULL',
           },
@@ -70,7 +74,7 @@ module.exports = {
           isPinned: { allowNull: false, type: Sequelize.BOOLEAN, defaultValue: false },
           likeCount: { allowNull: false, type: Sequelize.INTEGER, defaultValue: 0 },
           flagCount: { allowNull: false, type: Sequelize.INTEGER, defaultValue: 0 },
-          metadata: { allowNull: true, type: Sequelize.JSONB ?? Sequelize.JSON },
+          metadata: { allowNull: true, type: jsonType },
           publishedAt: { allowNull: true, type: Sequelize.DATE },
           editedAt: { allowNull: true, type: Sequelize.DATE },
           createdAt: { allowNull: false, type: Sequelize.DATE, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
@@ -94,7 +98,7 @@ module.exports = {
     await queryInterface.sequelize.transaction(async (transaction) => {
       await queryInterface.dropTable('blog_post_comments', { transaction });
       await queryInterface.dropTable('blog_post_metrics', { transaction });
-      await queryInterface.sequelize.query("DROP TYPE IF EXISTS \"enum_blog_post_comments_status\"", { transaction });
+      await dropEnum(queryInterface, 'enum_blog_post_comments_status', transaction);
     });
   },
 };
