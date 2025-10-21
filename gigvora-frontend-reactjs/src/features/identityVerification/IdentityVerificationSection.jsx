@@ -374,6 +374,3 @@ IdentityVerificationSection.propTypes = {
   }),
 };
 
-IdentityVerificationSection.defaultProps = {
-  identityResource: null,
-};
