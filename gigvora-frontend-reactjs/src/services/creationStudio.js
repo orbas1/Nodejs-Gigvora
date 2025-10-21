@@ -141,7 +141,7 @@ export function deleteCreationStudioItem(itemId, options = {}) {
   return apiClient.delete(`/creation-studio/items/${itemId}`, options);
 }
 
-export default {
+export const creationStudioApi = {
   fetchCompanyCreationStudioOverview,
   fetchCompanyCreationStudioItems,
   createCompanyCreationStudioItem,
@@ -162,38 +162,3 @@ export default {
   deleteCreationStudioItem,
 };
 
-const companyCreationStudio = {
-  fetchCompanyCreationStudioOverview,
-  fetchCompanyCreationStudioItems,
-  createCompanyCreationStudioItem,
-  updateCompanyCreationStudioItem,
-  publishCompanyCreationStudioItem,
-  deleteCompanyCreationStudioItem,
-};
-
-const userCreationStudio = {
-  fetchCreationWorkspace,
-  createCreationItem,
-  updateCreationItem,
-  saveCreationStep,
-  shareCreationItem,
-  archiveCreationItem,
-};
-
-const communityCreationStudio = {
-  listCreationStudioItems,
-  getCreationStudioItem,
-  createCreationStudioItem,
-  updateCreationStudioItem,
-  publishCreationStudioItem,
-  deleteCreationStudioItem,
-};
-
-export const creationStudioService = {
-  ...companyCreationStudio,
-  ...userCreationStudio,
-  ...communityCreationStudio,
-  company: companyCreationStudio,
-  user: userCreationStudio,
-  community: communityCreationStudio,
-};

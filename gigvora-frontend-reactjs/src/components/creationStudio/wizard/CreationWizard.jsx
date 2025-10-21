@@ -128,6 +128,7 @@ function CreationWizard({
 
   const preparePayload = () => {
     const metadata = sanitizeMetadata(draft);
+    const features = typeConfig?.features ?? {};
     const payload = {
       ...draft,
       ownerId: draft.ownerId ?? ownerId,
@@ -145,6 +146,36 @@ function CreationWizard({
       startAt: draft.startAt || null,
       endAt: draft.endAt || null,
     };
+    if (features.packages === false) {
+      payload.packages = [];
+      payload.faqs = [];
+      payload.metadata = { ...payload.metadata, packages: [], faqs: [] };
+    }
+    if (features.deliverables === false) {
+      payload.deliverables = [];
+    }
+    if (features.compensation === false) {
+      payload.compensationMin = null;
+      payload.compensationMax = null;
+    }
+    if (features.schedule === false) {
+      payload.applicationDeadline = null;
+      payload.startAt = null;
+      payload.endAt = null;
+    }
+    if (features.applications === false) {
+      payload.applicationType = draft.applicationType ?? 'internal';
+      payload.applicationUrl = draft.applicationUrl ?? '';
+      payload.applicationInstructions = draft.applicationInstructions ?? '';
+    }
+    if (features.heroMedia === false) {
+      payload.heroImageUrl = '';
+      payload.heroVideoUrl = '';
+      payload.thumbnailUrl = '';
+    }
+    if (features.gallery === false) {
+      payload.assets = [];
+    }
     return payload;
   };
 
@@ -269,7 +300,7 @@ function CreationWizard({
                   </nav>
 
                   <section className="max-h-[70vh] overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6">
-                    <StepComponent draft={draft} onChange={handlePatch} />
+          <StepComponent draft={draft} onChange={handlePatch} typeConfig={typeConfig} />
                   </section>
 
                   <footer className="flex items-center justify-between">

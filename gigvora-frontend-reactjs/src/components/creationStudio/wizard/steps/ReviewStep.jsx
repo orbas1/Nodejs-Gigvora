@@ -1,11 +1,45 @@
 import PropTypes from 'prop-types';
-import { CREATION_TYPES } from '../../config.js';
-import { extractPackages, extractFaqs } from '../../config.js';
+import { CREATION_TYPES, extractPackages, extractFaqs } from '../../config.js';
 
-export default function ReviewStep({ draft }) {
-  const type = CREATION_TYPES.find((entry) => entry.id === draft.type);
-  const packages = draft.packages ?? extractPackages(draft.metadata);
-  const faqs = draft.faqs ?? extractFaqs(draft.metadata);
+function SummaryTile({ label, value }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="text-base font-semibold text-slate-900">{value}</p>
+    </div>
+  );
+}
+
+SummaryTile.propTypes = {
+  label: PropTypes.string.isRequired,
+  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+};
+
+export default function ReviewStep({ draft, typeConfig }) {
+  const type = typeConfig ?? CREATION_TYPES.find((entry) => entry.id === draft.type);
+  const features = type?.features ?? {};
+  const packages = features.packages === false ? [] : draft.packages ?? extractPackages(draft.metadata);
+  const faqs = features.faqs === false ? [] : draft.faqs ?? extractFaqs(draft.metadata);
+  const metadata = draft.metadata ?? {};
+  const documentSections = features.documentOutline
+    ? (metadata.sections ?? []).filter((section) => section.heading || section.summary)
+    : [];
+  const keywords = Array.isArray(metadata.keywords) ? metadata.keywords : [];
+  const storyHighlights = Array.isArray(metadata.storyHighlights) ? metadata.storyHighlights : [];
+  const targetRoles = Array.isArray(metadata.targetRoles) ? metadata.targetRoles : [];
+
+  const summaryTiles = [
+    { key: 'status', label: 'Status', value: draft.status },
+    { key: 'visibility', label: 'Visibility', value: draft.visibility },
+  ];
+
+  if (features.packages !== false) {
+    summaryTiles.push({ key: 'packages', label: 'Packages', value: packages?.length ?? 0 });
+  }
+
+  if (features.gallery !== false) {
+    summaryTiles.push({ key: 'assets', label: 'Assets', value: draft.assets?.length ?? 0 });
+  }
 
   return (
     <div className="space-y-6">
@@ -16,22 +50,9 @@ export default function ReviewStep({ draft }) {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</p>
-          <p className="text-base font-semibold text-slate-900">{draft.status}</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Visibility</p>
-          <p className="text-base font-semibold text-slate-900">{draft.visibility}</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Packages</p>
-          <p className="text-base font-semibold text-slate-900">{packages?.length ?? 0}</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Assets</p>
-          <p className="text-base font-semibold text-slate-900">{draft.assets?.length ?? 0}</p>
-        </div>
+        {summaryTiles.map((tile) => (
+          <SummaryTile key={tile.key} label={tile.label} value={tile.value ?? '—'} />
+        ))}
       </div>
 
       {draft.summary ? (
@@ -45,6 +66,57 @@ export default function ReviewStep({ draft }) {
         <div className="space-y-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Details</p>
           <p className="whitespace-pre-line text-sm text-slate-700">{draft.description}</p>
+        </div>
+      ) : null}
+
+      {documentSections.length ? (
+        <div className="space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Document outline</p>
+          <div className="space-y-3">
+            {documentSections.map((section) => (
+              <div key={section.id ?? section.heading} className="space-y-1 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <p className="text-sm font-semibold text-slate-900">{section.heading || 'Section'}</p>
+                {section.summary ? <p className="text-sm text-slate-600 whitespace-pre-line">{section.summary}</p> : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {features.documentKeywords && keywords.length ? (
+        <div className="space-y-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Keywords</p>
+          <div className="flex flex-wrap gap-2 text-xs font-medium text-slate-700">
+            {keywords.map((keyword) => (
+              <span key={keyword} className="rounded-full bg-slate-100 px-3 py-1">
+                {keyword}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {targetRoles.length ? (
+        <div className="space-y-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Target roles</p>
+          <div className="flex flex-wrap gap-2 text-xs font-medium text-slate-700">
+            {targetRoles.map((role) => (
+              <span key={role} className="rounded-full bg-slate-100 px-3 py-1">
+                {role}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {storyHighlights.length ? (
+        <div className="space-y-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Highlights</p>
+          <ul className="space-y-1 text-sm text-slate-600">
+            {storyHighlights.map((highlight) => (
+              <li key={highlight}>• {highlight}</li>
+            ))}
+          </ul>
         </div>
       ) : null}
 
@@ -100,4 +172,12 @@ ReviewStep.propTypes = {
     assets: PropTypes.array,
     faqs: PropTypes.array,
   }).isRequired,
+  typeConfig: PropTypes.shape({
+    features: PropTypes.object,
+    name: PropTypes.string,
+  }),
+};
+
+ReviewStep.defaultProps = {
+  typeConfig: null,
 };

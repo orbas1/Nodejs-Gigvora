@@ -9,6 +9,10 @@ import {
   MegaphoneIcon,
   HeartIcon,
   UsersIcon,
+  DocumentArrowUpIcon,
+  EnvelopeOpenIcon,
+  DocumentTextIcon,
+  AcademicCapIcon,
 } from '@heroicons/react/24/outline';
 
 export const STATUS_OPTIONS = [
@@ -77,6 +81,26 @@ export const ROLE_OPTIONS = [
   { value: 'admin', label: 'Admin' },
 ];
 
+const DEFAULT_FEATURE_FLAGS = {
+  deliverables: true,
+  applications: true,
+  schedule: true,
+  compensation: true,
+  packages: true,
+  faqs: true,
+  heroMedia: true,
+  gallery: true,
+  experience: true,
+  documentOutline: false,
+  documentKeywords: false,
+  documentHeadline: false,
+  attachmentsLabel: 'Asset gallery',
+};
+
+function typeFeatures(overrides = {}) {
+  return { ...DEFAULT_FEATURE_FLAGS, ...overrides };
+}
+
 const baseDefaults = {
   status: 'draft',
   visibility: 'private',
@@ -95,15 +119,85 @@ const baseDefaults = {
     { role: 'admin', canView: true, canEdit: true, canPublish: true, canManageAssets: true },
   ],
   packages: [
-    { id: 'basic', name: 'Basic', price: '', deliveryTime: '', features: [] },
-    { id: 'standard', name: 'Standard', price: '', deliveryTime: '', features: [] },
-    { id: 'premium', name: 'Premium', price: '', deliveryTime: '', features: [] },
+  { id: 'basic', name: 'Basic', price: '', deliveryTime: '', features: [] },
+  { id: 'standard', name: 'Standard', price: '', deliveryTime: '', features: [] },
+  { id: 'premium', name: 'Premium', price: '', deliveryTime: '', features: [] },
   ],
   faqs: [],
   assets: [],
 };
 
 export const CREATION_TYPES = [
+  {
+    id: 'cv',
+    name: 'CV',
+    tagline: 'Craft ATS-ready resumes with reusable story blocks.',
+    icon: DocumentArrowUpIcon,
+    accent: 'text-slate-700',
+    defaults: {
+      ...baseDefaults,
+      payoutType: 'unpaid',
+      applicationType: 'internal',
+      metadata: {
+        category: 'cv',
+        template: 'modern',
+        sections: [],
+        keywords: [],
+        targetRoles: [],
+        storyHighlights: [],
+        tone: 'professional',
+      },
+      settings: { workflow: 'cv-document' },
+    },
+    features: typeFeatures({
+      deliverables: false,
+      applications: false,
+      schedule: false,
+      compensation: false,
+      packages: false,
+      faqs: false,
+      heroMedia: false,
+      documentOutline: true,
+      documentKeywords: true,
+      documentHeadline: true,
+      attachmentsLabel: 'Supporting materials',
+    }),
+  },
+  {
+    id: 'cover_letter',
+    name: 'Cover letter',
+    tagline: 'Generate tailored introductions for every opportunity.',
+    icon: EnvelopeOpenIcon,
+    accent: 'text-amber-600',
+    defaults: {
+      ...baseDefaults,
+      payoutType: 'unpaid',
+      applicationType: 'internal',
+      metadata: {
+        category: 'cover_letter',
+        template: 'story-led',
+        sections: [],
+        keywords: [],
+        targetRoles: [],
+        storyHighlights: [],
+        tone: 'confident',
+      },
+      settings: { workflow: 'cover-letter' },
+    },
+    features: typeFeatures({
+      deliverables: false,
+      applications: false,
+      schedule: false,
+      compensation: false,
+      packages: false,
+      faqs: false,
+      heroMedia: false,
+      documentOutline: true,
+      documentKeywords: true,
+      documentHeadline: true,
+      attachmentsLabel: 'Reference links',
+    }),
+  },
   {
     id: 'gig',
     name: 'Gig',
@@ -117,6 +211,7 @@ export const CREATION_TYPES = [
       settings: { workflow: 'gig', fulfillment: 'workspace' },
       metadata: { category: 'gig', packagesEnabled: true },
     },
+    features: typeFeatures(),
   },
   {
     id: 'job',
@@ -131,11 +226,12 @@ export const CREATION_TYPES = [
       settings: { workflow: 'job', review: 'talent-team' },
       metadata: { category: 'job' },
     },
+    features: typeFeatures(),
   },
   {
     id: 'launchpad_job',
-    name: 'Launchpad job',
-    tagline: 'Invite Launchpad talent.',
+    name: 'Experience Launchpad job',
+    tagline: 'Invite Launchpad fellows into experiential roles.',
     icon: RocketLaunchIcon,
     accent: 'text-indigo-600',
     defaults: {
@@ -145,6 +241,22 @@ export const CREATION_TYPES = [
       settings: { workflow: 'launchpad-job' },
       metadata: { category: 'launchpad_job', cohort: 'current' },
     },
+    features: typeFeatures({ schedule: true, applications: true, compensation: true }),
+  },
+  {
+    id: 'project',
+    name: 'Project',
+    tagline: 'Spin up a delivery workspace with milestones.',
+    icon: DocumentTextIcon,
+    accent: 'text-purple-600',
+    defaults: {
+      ...baseDefaults,
+      payoutType: 'fixed',
+      format: 'hybrid',
+      settings: { workflow: 'project', milestoneTracking: true },
+      metadata: { category: 'project', milestoneTemplates: [] },
+    },
+    features: typeFeatures(),
   },
   {
     id: 'launchpad_project',
@@ -159,6 +271,7 @@ export const CREATION_TYPES = [
       settings: { workflow: 'launchpad-project' },
       metadata: { category: 'launchpad_project' },
     },
+    features: typeFeatures(),
   },
   {
     id: 'volunteering',
@@ -173,6 +286,7 @@ export const CREATION_TYPES = [
       settings: { workflow: 'volunteer' },
       metadata: { category: 'volunteering' },
     },
+    features: typeFeatures({ compensation: false }),
   },
   {
     id: 'networking_session',
@@ -186,6 +300,7 @@ export const CREATION_TYPES = [
       settings: { workflow: 'networking', reminders: ['48h', '2h'] },
       metadata: { category: 'networking' },
     },
+    features: typeFeatures({ packages: false }),
   },
   {
     id: 'group',
@@ -199,6 +314,23 @@ export const CREATION_TYPES = [
       settings: { workflow: 'group', moderation: 'community-manager' },
       metadata: { category: 'community' },
     },
+    features: typeFeatures({ compensation: false }),
+  },
+  {
+    id: 'mentorship',
+    name: 'Mentorship offering',
+    tagline: 'Package mentoring tracks with billing preferences.',
+    icon: AcademicCapIcon,
+    accent: 'text-emerald-600',
+    defaults: {
+      ...baseDefaults,
+      format: 'virtual',
+      payoutType: 'hourly',
+      applicationType: 'gigvora',
+      settings: { workflow: 'mentorship', scheduling: 'calendar-sync' },
+      metadata: { category: 'mentorship', focusAreas: [], cohortBased: false },
+    },
+    features: typeFeatures({ schedule: true, compensation: true, packages: true }),
   },
   {
     id: 'page',
@@ -211,6 +343,7 @@ export const CREATION_TYPES = [
       settings: { workflow: 'page' },
       metadata: { category: 'page' },
     },
+    features: typeFeatures({ applications: false, schedule: false, compensation: false }),
   },
   {
     id: 'blog_post',
@@ -225,6 +358,7 @@ export const CREATION_TYPES = [
       settings: { workflow: 'editorial' },
       metadata: { category: 'blog' },
     },
+    features: typeFeatures({ compensation: false, applications: false }),
   },
   {
     id: 'ad',
@@ -239,11 +373,16 @@ export const CREATION_TYPES = [
       settings: { workflow: 'ads', review: 'marketing' },
       metadata: { category: 'ad' },
     },
+    features: typeFeatures({ packages: false }),
   },
 ];
 
 export function getTypeConfig(typeId) {
-  return CREATION_TYPES.find((type) => type.id === typeId) ?? null;
+  const type = CREATION_TYPES.find((entry) => entry.id === typeId);
+  if (!type) {
+    return null;
+  }
+  return { ...type, features: type.features ?? typeFeatures() };
 }
 
 export function buildInitialItem(typeId, ownerId, overrides = {}) {
