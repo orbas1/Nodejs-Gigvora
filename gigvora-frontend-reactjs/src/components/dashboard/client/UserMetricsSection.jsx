@@ -1,4 +1,6 @@
+import { useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
+import DataStatus from '../../DataStatus.jsx';
 
 function MetricCard({ label, value, hint }) {
   return (
@@ -79,7 +81,31 @@ ActivityItem.propTypes = {
   item: PropTypes.object.isRequired,
 };
 
-export default function UserMetricsSection({ metrics, quickMetrics, activity, currency }) {
+function filterActivityByRange(items, days) {
+  if (!Array.isArray(items) || !days) {
+    return Array.isArray(items) ? items : [];
+  }
+  const horizon = Date.now() - Number(days) * 24 * 60 * 60 * 1000;
+  return items.filter((item) => {
+    if (!item?.date) {
+      return true;
+    }
+    const timestamp = new Date(item.date).getTime();
+    return Number.isFinite(timestamp) ? timestamp >= horizon : true;
+  });
+}
+
+export default function UserMetricsSection({
+  metrics,
+  quickMetrics,
+  activity,
+  currency,
+  loading,
+  error,
+  lastUpdated,
+  fromCache,
+  onRefresh,
+}) {
   const metricEntries = [
     {
       label: 'Active projects',
@@ -113,20 +139,76 @@ export default function UserMetricsSection({ metrics, quickMetrics, activity, cu
     }
   });
 
-  const timelineItems = Array.isArray(activity) ? activity.slice(0, 8) : [];
+  const [range, setRange] = useState('30');
+
+  const filteredActivity = useMemo(() => filterActivityByRange(activity, Number(range)), [activity, range]);
+  const timelineItems = filteredActivity.slice(0, 8);
+
+  const handleDownload = () => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const snapshot = {
+      generatedAt: new Date().toISOString(),
+      rangeDays: Number(range),
+      quickMetrics,
+      metrics,
+      activity: filteredActivity,
+    };
+    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `gigvora-metrics-${Date.now()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <section
       id="client-metrics"
       className="space-y-6 rounded-3xl border border-blue-200 bg-gradient-to-br from-blue-50 via-white to-white p-6 shadow-sm"
     >
-      <header className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-500">Metrics</p>
           <h2 className="text-3xl font-semibold text-slate-900">Operational intelligence</h2>
           <p className="mt-2 max-w-3xl text-sm text-slate-500">
             Keep an eye on production health, response velocity, and commercial signals without leaving the dashboard.
           </p>
+        </div>
+        <div className="flex flex-col items-start gap-3">
+          <DataStatus
+            loading={loading}
+            error={error}
+            lastUpdated={lastUpdated}
+            fromCache={fromCache}
+            onRefresh={onRefresh}
+            statusLabel="Metrics refresh"
+          />
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Range
+              <select
+                value={range}
+                onChange={(event) => setRange(event.target.value)}
+                className="rounded-full border border-blue-200 bg-white px-3 py-1 text-xs font-semibold text-blue-600 shadow-sm focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              >
+                <option value="7">7 days</option>
+                <option value="30">30 days</option>
+                <option value="90">90 days</option>
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={handleDownload}
+              className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-blue-600 transition hover:border-blue-300 hover:text-blue-700"
+            >
+              Download snapshot
+            </button>
+          </div>
         </div>
       </header>
 
@@ -164,6 +246,11 @@ UserMetricsSection.propTypes = {
   }),
   activity: PropTypes.arrayOf(PropTypes.object),
   currency: PropTypes.string,
+  loading: PropTypes.bool,
+  error: PropTypes.oneOfType([PropTypes.object, PropTypes.string]),
+  lastUpdated: PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.instanceOf(Date)]),
+  fromCache: PropTypes.bool,
+  onRefresh: PropTypes.func,
 };
 
 UserMetricsSection.defaultProps = {
@@ -171,4 +258,9 @@ UserMetricsSection.defaultProps = {
   quickMetrics: {},
   activity: [],
   currency: 'USD',
+  loading: false,
+  error: null,
+  lastUpdated: null,
+  fromCache: false,
+  onRefresh: null,
 };

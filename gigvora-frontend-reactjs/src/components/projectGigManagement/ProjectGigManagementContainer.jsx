@@ -267,7 +267,7 @@ function resolveProjectId(project) {
   return project.project?.id ?? project.projectId ?? project.id ?? null;
 }
 
-export default function ProjectGigManagementContainer({ userId }) {
+export default function ProjectGigManagementContainer({ userId, resource }) {
   const { canManageProjects, denialReason } = useProjectManagementAccess();
   const { session } = useSession();
 
@@ -321,7 +321,8 @@ export default function ProjectGigManagementContainer({ userId }) {
     );
   }
 
-  const { data, loading, error, actions, reload } = useProjectGigManagement(userId);
+  const fallbackResource = useProjectGigManagement(userId, { enabled: !resource });
+  const { data, loading, error, actions, reload } = resource ?? fallbackResource;
   const [projectDrawerOpen, setProjectDrawerOpen] = useState(false);
   const [gigDrawerOpen, setGigDrawerOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
@@ -1075,6 +1076,16 @@ export default function ProjectGigManagementContainer({ userId }) {
 }
 
 ProjectGigManagementContainer.propTypes = {
-  userId: PropTypes.number,
   userId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  resource: PropTypes.shape({
+    data: PropTypes.object,
+    loading: PropTypes.bool,
+    error: PropTypes.oneOfType([PropTypes.object, PropTypes.string]),
+    actions: PropTypes.object,
+    reload: PropTypes.func,
+  }),
+};
+
+ProjectGigManagementContainer.defaultProps = {
+  resource: null,
 };

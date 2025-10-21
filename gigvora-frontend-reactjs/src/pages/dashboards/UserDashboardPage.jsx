@@ -360,7 +360,7 @@ function UserDashboardPage() {
             </div>
           </UserProjectWorkspaceSection>
 
-          <UserGigWorkspaceSection userId={userId} />
+          <UserGigWorkspaceSection userId={userId} initialWorkspace={projectGigManagement} />
 
           <UserInboxSection userId={userId} />
 
@@ -382,6 +382,11 @@ function UserDashboardPage() {
             mentoring={mentoring}
             community={communityManagement}
             websitePreferences={websitePreferences}
+            loading={loading}
+            error={error}
+            lastUpdated={lastUpdated}
+            fromCache={fromCache}
+            onRefresh={refresh}
           />
 
           <UserMetricsSection
@@ -389,6 +394,11 @@ function UserDashboardPage() {
             quickMetrics={quickActionMetrics}
             activity={activity}
             currency={quickActionMetrics.walletCurrency}
+            loading={loading}
+            error={error}
+            lastUpdated={lastUpdated}
+            fromCache={fromCache}
+            onRefresh={refresh}
           />
 
           <section id="mentors-booked" className="space-y-6">

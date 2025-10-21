@@ -1,4 +1,5 @@
 import PropTypes from 'prop-types';
+import DataStatus from '../../DataStatus.jsx';
 import ProfileHubQuickPanel from '../../profileHub/ProfileHubQuickPanel.jsx';
 
 function StatCard({ label, value, hint }) {
@@ -59,6 +60,11 @@ export default function UserHubSection({
   mentoring,
   community,
   websitePreferences,
+  loading,
+  error,
+  lastUpdated,
+  fromCache,
+  onRefresh,
 }) {
   const mentoringSummary = mentoring?.summary ?? {};
   const communitySummary = community?.summary ?? community ?? {};
@@ -109,7 +115,7 @@ export default function UserHubSection({
       id="client-hub"
       className="space-y-6 rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-white p-6 shadow-sm"
     >
-      <header className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Hub</p>
           <h2 className="text-3xl font-semibold text-slate-900">Profile, community, and talent HQ</h2>
@@ -117,6 +123,14 @@ export default function UserHubSection({
             Operate your brand, collaborations, and knowledge base in one hub with ready-to-share artefacts and live insights.
           </p>
         </div>
+        <DataStatus
+          loading={loading}
+          error={error}
+          lastUpdated={lastUpdated}
+          fromCache={fromCache}
+          onRefresh={onRefresh}
+          statusLabel="Hub telemetry"
+        />
       </header>
 
       <ProfileHubQuickPanel profileOverview={profileOverview} profileHub={profileHub} />
@@ -149,6 +163,11 @@ UserHubSection.propTypes = {
   mentoring: PropTypes.object,
   community: PropTypes.object,
   websitePreferences: PropTypes.object,
+  loading: PropTypes.bool,
+  error: PropTypes.oneOfType([PropTypes.object, PropTypes.string]),
+  lastUpdated: PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.instanceOf(Date)]),
+  fromCache: PropTypes.bool,
+  onRefresh: PropTypes.func,
 };
 
 UserHubSection.defaultProps = {
@@ -157,4 +176,9 @@ UserHubSection.defaultProps = {
   mentoring: null,
   community: null,
   websitePreferences: null,
+  loading: false,
+  error: null,
+  lastUpdated: null,
+  fromCache: false,
+  onRefresh: null,
 };
