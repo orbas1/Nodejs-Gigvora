@@ -1,36 +1,48 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
+import DataStatus from '../../DataStatus.jsx';
 import {
   fetchNotificationPreferences,
   updateNotificationPreferences,
 } from '../../../services/notificationCenter.js';
 import { fetchUser, updateUserAccount } from '../../../services/user.js';
-import {
-  fetchUserAiSettings,
-  updateUserAiSettings,
-} from '../../../services/userAiSettings.js';
-import AlertSettings from '../../notifications/AlertSettings.jsx';
-import DataStatus from '../../DataStatus.jsx';
+import { fetchUserAiSettings, updateUserAiSettings } from '../../../services/userAiSettings.js';
+
+const DIGEST_OPTIONS = [
+  { value: 'daily', label: 'Daily' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'never', label: 'Never' },
+];
 
 const CHANNEL_OPTIONS = [
   { value: 'direct', label: 'Direct messages' },
   { value: 'support', label: 'Support desk' },
   { value: 'project', label: 'Project rooms' },
   { value: 'contract', label: 'Contracts' },
-  { value: 'group', label: 'Group spaces' },
+  { value: 'group', label: 'Community groups' },
 ];
 
-const DEFAULT_ACCOUNT_FORM = {
+const DEFAULT_ACCOUNT = {
   firstName: '',
   lastName: '',
   email: '',
   phoneNumber: '',
   jobTitle: '',
   location: '',
-  address: '',
 };
 
-const DEFAULT_AI_SETTINGS = {
+const DEFAULT_NOTIFICATIONS = {
+  emailEnabled: true,
+  pushEnabled: true,
+  smsEnabled: false,
+  inAppEnabled: true,
+  digestFrequency: 'weekly',
+  quietHoursStart: '22:00',
+  quietHoursEnd: '07:00',
+};
+
+const DEFAULT_AI = {
   provider: 'openai',
   model: 'gpt-4o-mini',
   autoReplies: {
@@ -44,315 +56,763 @@ const DEFAULT_AI_SETTINGS = {
   workspaceId: null,
 };
 
-function normaliseAccountForm(account) {
-  if (!account) {
-    return { ...DEFAULT_ACCOUNT_FORM };
-  }
+function mergeAccount(payload) {
+  if (!payload) return { ...DEFAULT_ACCOUNT };
   return {
-    firstName: account.firstName ?? '',
-    lastName: account.lastName ?? '',
-    email: account.email ?? '',
-    phoneNumber: account.phoneNumber ?? '',
-    jobTitle: account.jobTitle ?? '',
-    location: account.location ?? '',
-    address: account.address ?? '',
+    ...DEFAULT_ACCOUNT,
+    firstName: payload.firstName ?? DEFAULT_ACCOUNT.firstName,
+    lastName: payload.lastName ?? DEFAULT_ACCOUNT.lastName,
+    email: payload.email ?? DEFAULT_ACCOUNT.email,
+    phoneNumber: payload.phoneNumber ?? DEFAULT_ACCOUNT.phoneNumber,
+    jobTitle: payload.jobTitle ?? DEFAULT_ACCOUNT.jobTitle,
+    location: payload.location ?? DEFAULT_ACCOUNT.location,
   };
 }
 
-function normaliseAiSettings(value) {
-  if (!value) {
-    return { ...DEFAULT_AI_SETTINGS };
-  }
-  const base = { ...DEFAULT_AI_SETTINGS, ...value };
-  const autoReplies = {
-    ...DEFAULT_AI_SETTINGS.autoReplies,
-    ...(value.autoReplies && typeof value.autoReplies === 'object' ? value.autoReplies : {}),
+function mergeNotifications(payload) {
+  if (!payload) return { ...DEFAULT_NOTIFICATIONS };
+  return {
+    emailEnabled: payload.emailEnabled !== false,
+    pushEnabled: payload.pushEnabled !== false,
+    smsEnabled: Boolean(payload.smsEnabled),
+    inAppEnabled: payload.inAppEnabled !== false,
+    digestFrequency: payload.digestFrequency ?? DEFAULT_NOTIFICATIONS.digestFrequency,
+    quietHoursStart: payload.quietHoursStart ?? DEFAULT_NOTIFICATIONS.quietHoursStart,
+    quietHoursEnd: payload.quietHoursEnd ?? DEFAULT_NOTIFICATIONS.quietHoursEnd,
   };
+}
+
+function mergeAi(payload) {
+  if (!payload) return { ...DEFAULT_AI };
+  const base = { ...DEFAULT_AI, ...payload };
+  const replies = {
+    ...DEFAULT_AI.autoReplies,
+    ...(payload.autoReplies && typeof payload.autoReplies === 'object' ? payload.autoReplies : {}),
+  };
+  replies.channels = Array.isArray(replies.channels) && replies.channels.length
+    ? Array.from(new Set(replies.channels.map((entry) => `${entry}`.trim()).filter(Boolean)))
+    : [...DEFAULT_AI.autoReplies.channels];
+  replies.temperature = Number.isFinite(Number(replies.temperature))
+    ? Math.min(2, Math.max(0, Number(replies.temperature)))
+    : DEFAULT_AI.autoReplies.temperature;
+  replies.instructions = replies.instructions ?? '';
+
   return {
     ...base,
-    autoReplies: {
-      ...autoReplies,
-      channels: Array.isArray(autoReplies.channels)
-        ? Array.from(new Set(autoReplies.channels.filter(Boolean)))
-        : DEFAULT_AI_SETTINGS.autoReplies.channels,
-      temperature:
-        typeof autoReplies.temperature === 'number'
-          ? Math.min(2, Math.max(0, Number(autoReplies.temperature)))
-          : DEFAULT_AI_SETTINGS.autoReplies.temperature,
-      instructions: autoReplies.instructions ?? '',
-      enabled: Boolean(autoReplies.enabled),
-    },
-    model: base.model || DEFAULT_AI_SETTINGS.model,
+    autoReplies: replies,
     provider: base.provider || 'openai',
+    model: base.model || DEFAULT_AI.model,
     apiKey: {
-      configured: Boolean(value.apiKey?.configured),
-      fingerprint: value.apiKey?.fingerprint ?? null,
-      updatedAt: value.apiKey?.updatedAt ?? null,
+      configured: Boolean(payload.apiKey?.configured),
+      fingerprint: payload.apiKey?.fingerprint ?? null,
+      updatedAt: payload.apiKey?.updatedAt ?? null,
     },
     connection: {
-      baseUrl: value.connection?.baseUrl || DEFAULT_AI_SETTINGS.connection.baseUrl,
-      lastTestedAt: value.connection?.lastTestedAt ?? null,
+      baseUrl: payload.connection?.baseUrl || DEFAULT_AI.connection.baseUrl,
+      lastTestedAt: payload.connection?.lastTestedAt ?? null,
     },
-    workspaceId: value.workspaceId ?? null,
+    workspaceId: payload.workspaceId ?? null,
   };
 }
 
-function AccountForm({ form, onChange, onSubmit, busy, feedback, error }) {
+function SectionHeader({ eyebrow, title, description, actions }) {
   return (
-    <form onSubmit={onSubmit} className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="flex flex-col gap-2 text-sm">
-          <span className="font-medium text-slate-700">First name</span>
-          <input
-            type="text"
-            name="firstName"
-            value={form.firstName}
-            onChange={onChange}
-            className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            required
-          />
-        </label>
-        <label className="flex flex-col gap-2 text-sm">
-          <span className="font-medium text-slate-700">Last name</span>
-          <input
-            type="text"
-            name="lastName"
-            value={form.lastName}
-            onChange={onChange}
-            className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            required
-          />
-        </label>
+    <header className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500">{eyebrow}</p>
+        <h2 className="mt-1 text-3xl font-semibold text-slate-900">{title}</h2>
+        {description ? <p className="mt-2 max-w-3xl text-sm text-slate-500">{description}</p> : null}
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="flex flex-col gap-2 text-sm">
-          <span className="font-medium text-slate-700">Email</span>
-          <input
-            type="email"
-            name="email"
-            value={form.email}
-            onChange={onChange}
-            className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            required
-          />
-        </label>
-        <label className="flex flex-col gap-2 text-sm">
-          <span className="font-medium text-slate-700">Phone</span>
-          <input
-            type="tel"
-            name="phoneNumber"
-            value={form.phoneNumber}
-            onChange={onChange}
-            placeholder="+44 20 7946 0958"
-            className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-          />
-        </label>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="flex flex-col gap-2 text-sm">
-          <span className="font-medium text-slate-700">Job title</span>
-          <input
-            type="text"
-            name="jobTitle"
-            value={form.jobTitle}
-            onChange={onChange}
-            placeholder="Product operations lead"
-            className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-          />
-        </label>
-        <label className="flex flex-col gap-2 text-sm">
-          <span className="font-medium text-slate-700">Location</span>
-          <input
-            type="text"
-            name="location"
-            value={form.location}
-            onChange={onChange}
-            placeholder="London, UK"
-            className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-          />
-        </label>
-      </div>
-      <label className="flex flex-col gap-2 text-sm">
-        <span className="font-medium text-slate-700">Address</span>
-        <textarea
-          name="address"
-          value={form.address}
-          onChange={onChange}
-          rows={3}
-          placeholder="Workspace mailing address for invoices and compliance."
-          className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-        />
-      </label>
-      {error ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-          {error}
-        </div>
-      ) : null}
-      {feedback ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          {feedback}
-        </div>
-      ) : null}
-      <div className="flex justify-end">
-        <button
-          type="submit"
-          className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300"
-          disabled={busy}
-        >
-          {busy ? 'Saving…' : 'Save account settings'}
-        </button>
-      </div>
-    </form>
+      {actions ? <div className="flex items-center gap-3">{actions}</div> : null}
+    </header>
   );
 }
 
-AccountForm.propTypes = {
-  form: PropTypes.object.isRequired,
-  onChange: PropTypes.func.isRequired,
-  onSubmit: PropTypes.func.isRequired,
-  busy: PropTypes.bool,
-  feedback: PropTypes.string,
-  error: PropTypes.string,
+SectionHeader.propTypes = {
+  eyebrow: PropTypes.string.isRequired,
+  title: PropTypes.string.isRequired,
+  description: PropTypes.node,
+  actions: PropTypes.node,
 };
 
-AccountForm.defaultProps = {
-  busy: false,
-  feedback: null,
-  error: null,
+SectionHeader.defaultProps = {
+  description: null,
+  actions: null,
 };
 
-function AiSettingsForm({ value, busy, error, onSubmit, onResetError }) {
-  const [form, setForm] = useState(() => normaliseAiSettings(value));
-  const [apiKeyMode, setApiKeyMode] = useState('hidden');
+function Toggle({ label, name, checked, onChange, description }) {
+  return (
+    <label className="flex items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 shadow-sm">
+      <div>
+        <p className="text-sm font-medium text-slate-900">{label}</p>
+        {description ? <p className="mt-1 text-xs text-slate-500">{description}</p> : null}
+      </div>
+      <input
+        type="checkbox"
+        name={name}
+        checked={checked}
+        onChange={(event) => onChange?.(event.target.checked, name)}
+        className="mt-1 h-5 w-5 rounded border-slate-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+      />
+    </label>
+  );
+}
+
+Toggle.propTypes = {
+  label: PropTypes.string.isRequired,
+  name: PropTypes.string.isRequired,
+  checked: PropTypes.bool,
+  onChange: PropTypes.func,
+  description: PropTypes.node,
+};
+
+Toggle.defaultProps = {
+  checked: false,
+  onChange: null,
+  description: null,
+};
+
+function ChannelCheckbox({ value, label, checked, onChange }) {
+  return (
+    <label className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition ${
+      checked
+        ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
+        : 'border-slate-200 bg-white text-slate-500 hover:border-emerald-200'
+    }`}
+    >
+      <input
+        type="checkbox"
+        className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+        checked={checked}
+        onChange={(event) => onChange?.(value, event.target.checked)}
+      />
+      {label}
+    </label>
+  );
+}
+
+ChannelCheckbox.propTypes = {
+  value: PropTypes.string.isRequired,
+  label: PropTypes.string.isRequired,
+  checked: PropTypes.bool,
+  onChange: PropTypes.func,
+};
+
+ChannelCheckbox.defaultProps = {
+  checked: false,
+  onChange: null,
+};
+
+function DigestSummary({ weeklyDigest }) {
+  const subscription = weeklyDigest?.subscription ?? null;
+  if (!subscription) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 text-xs text-slate-500">
+        Weekly digest is not active. Enable in notification preferences to receive curated updates.
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-xs text-slate-600">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="rounded-full bg-slate-900 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">
+          Digest active
+        </span>
+        <span>Frequency: {subscription.frequency}</span>
+        <span>Channels: {subscription.channels?.join(', ') || 'n/a'}</span>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Last sent</p>
+          <p className="text-sm text-slate-900">
+            {subscription.lastSentAt ? new Date(subscription.lastSentAt).toLocaleString() : 'Awaiting first send'}
+          </p>
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Next scheduled</p>
+          <p className="text-sm text-slate-900">
+            {subscription.nextScheduledAt ? new Date(subscription.nextScheduledAt).toLocaleString() : 'On demand'}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+DigestSummary.propTypes = {
+  weeklyDigest: PropTypes.object,
+};
+
+DigestSummary.defaultProps = {
+  weeklyDigest: null,
+};
+
+export default function UserSettingsSection({
+  userId,
+  session,
+  initialNotificationPreferences,
+  weeklyDigest,
+}) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [account, setAccount] = useState(() => mergeAccount(session?.user));
+  const [notifications, setNotifications] = useState(() => mergeNotifications(initialNotificationPreferences));
+  const [aiSettings, setAiSettings] = useState(() => mergeAi(null));
+
+  const [accountBusy, setAccountBusy] = useState(false);
+  const [accountFeedback, setAccountFeedback] = useState('');
+  const [accountError, setAccountError] = useState('');
+
+  const [notificationBusy, setNotificationBusy] = useState(false);
+  const [notificationFeedback, setNotificationFeedback] = useState('');
+  const [notificationError, setNotificationError] = useState('');
+  const [notificationStats, setNotificationStats] = useState(null);
+
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiFeedback, setAiFeedback] = useState('');
+  const [aiError, setAiError] = useState('');
+  const [aiApiKey, setAiApiKey] = useState('');
+
+  const refreshAll = useCallback(() => {
+    if (!userId) return () => {};
+
+    const controller = new AbortController();
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [accountResponse, notificationResponse, aiResponse] = await Promise.all([
+          fetchUser(userId, { signal: controller.signal }).catch(() => null),
+          fetchNotificationPreferences(userId, { signal: controller.signal }).catch(() => null),
+          fetchUserAiSettings(userId, { signal: controller.signal }).catch(() => null),
+        ]);
+        if (!controller.signal.aborted) {
+          setAccount(mergeAccount(accountResponse));
+          setNotifications(mergeNotifications(notificationResponse?.preferences ?? notificationResponse));
+          setNotificationStats(notificationResponse?.stats ?? null);
+          setAiSettings(mergeAi(aiResponse));
+          setLastUpdated(new Date());
+        }
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setError(err);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    })();
+    return () => controller.abort();
+  }, [userId]);
 
   useEffect(() => {
-    setForm(normaliseAiSettings(value));
-  }, [value]);
+    const abort = refreshAll();
+    return () => abort?.();
+  }, [refreshAll]);
 
-  const toggleChannel = useCallback((channel) => {
-    setForm((previous) => {
-      const channels = new Set(previous.autoReplies.channels);
-      if (channels.has(channel)) {
-        channels.delete(channel);
+  const handleAccountChange = useCallback((event) => {
+    const { name, value } = event.target;
+    setAccount((previous) => ({ ...previous, [name]: value }));
+  }, []);
+
+  const handleAccountSubmit = useCallback(
+    async (event) => {
+      event.preventDefault();
+      if (!userId) return;
+      setAccountBusy(true);
+      setAccountFeedback('');
+      setAccountError('');
+      try {
+        const payload = {
+          firstName: account.firstName.trim(),
+          lastName: account.lastName.trim(),
+          email: account.email.trim(),
+          phoneNumber: account.phoneNumber || null,
+          jobTitle: account.jobTitle || null,
+          location: account.location || null,
+        };
+        await updateUserAccount(userId, payload);
+        setAccountFeedback('Account profile updated successfully.');
+        setLastUpdated(new Date());
+      } catch (err) {
+        setAccountError(err?.message ?? 'Unable to save account changes.');
+      } finally {
+        setAccountBusy(false);
+      }
+    },
+    [account, userId],
+  );
+
+  const handleNotificationToggle = useCallback((checked, name) => {
+    setNotifications((previous) => ({ ...previous, [name]: checked }));
+  }, []);
+
+  const handleNotificationSubmit = useCallback(
+    async (event) => {
+      event.preventDefault();
+      if (!userId) return;
+      setNotificationBusy(true);
+      setNotificationFeedback('');
+      setNotificationError('');
+      try {
+        const payload = {
+          emailEnabled: Boolean(notifications.emailEnabled),
+          pushEnabled: Boolean(notifications.pushEnabled),
+          smsEnabled: Boolean(notifications.smsEnabled),
+          inAppEnabled: Boolean(notifications.inAppEnabled),
+          digestFrequency: notifications.digestFrequency,
+          quietHoursStart: notifications.quietHoursStart,
+          quietHoursEnd: notifications.quietHoursEnd,
+        };
+        const response = await updateNotificationPreferences(userId, payload);
+        const nextPreferences = response?.preferences ?? response;
+        const nextStats = response?.stats ?? null;
+        setNotifications(mergeNotifications(nextPreferences));
+        setNotificationStats(nextStats);
+        setNotificationFeedback('Notification preferences saved.');
+        setLastUpdated(new Date());
+      } catch (err) {
+        setNotificationError(err?.message ?? 'Unable to update notification preferences.');
+      } finally {
+        setNotificationBusy(false);
+      }
+    },
+    [notifications, userId],
+  );
+
+  const handleAiChannelChange = useCallback((channel, checked) => {
+    setAiSettings((previous) => {
+      const current = new Set(previous.autoReplies.channels);
+      if (checked) {
+        current.add(channel);
       } else {
-        channels.add(channel);
+        current.delete(channel);
       }
       return {
         ...previous,
-        autoReplies: { ...previous.autoReplies, channels: Array.from(channels) },
+        autoReplies: { ...previous.autoReplies, channels: Array.from(current) },
       };
     });
-    onResetError?.();
-  }, [onResetError]);
+  }, []);
 
-  const handleChange = useCallback((event) => {
-    const { name, value: rawValue, type, checked } = event.target;
-    setForm((previous) => {
-      if (name.startsWith('autoReplies.')) {
-        const field = name.split('.')[1];
-        let value = rawValue;
-        if (field === 'enabled') {
-          value = type === 'checkbox' ? checked : rawValue === 'true';
-        } else if (field === 'temperature') {
-          value = Number(rawValue);
-        }
-        return {
-          ...previous,
-          autoReplies: { ...previous.autoReplies, [field]: value },
-        };
-      }
-      if (name === 'workspaceId') {
-        return { ...previous, workspaceId: rawValue ? Number(rawValue) || rawValue : null };
-      }
-      if (name === 'apiKey') {
-        return { ...previous, apiKey: { ...previous.apiKey, pending: rawValue } };
-      }
-      if (name === 'baseUrl') {
-        return { ...previous, connection: { ...previous.connection, baseUrl: rawValue } };
-      }
-      return { ...previous, [name]: rawValue };
-    });
-    onResetError?.();
-  }, [onResetError]);
-
-  const handleSubmit = useCallback((event) => {
-    event.preventDefault();
-    const payload = {
-      provider: form.provider || 'openai',
-      model: form.model,
-      autoReplies: {
-        enabled: Boolean(form.autoReplies.enabled),
-        instructions: form.autoReplies.instructions ?? '',
-        temperature: Number.isFinite(Number(form.autoReplies.temperature))
-          ? Number(form.autoReplies.temperature)
-          : DEFAULT_AI_SETTINGS.autoReplies.temperature,
-        channels: form.autoReplies.channels.length
-          ? form.autoReplies.channels
-          : DEFAULT_AI_SETTINGS.autoReplies.channels,
-      },
-      connection: { baseUrl: form.connection?.baseUrl || DEFAULT_AI_SETTINGS.connection.baseUrl },
-      workspaceId:
-        form.workspaceId == null || form.workspaceId === '' ? null : Number(form.workspaceId) || form.workspaceId,
-    };
-    if (form.apiKey?.pending !== undefined) {
-      payload.apiKey = form.apiKey.pending;
+  const handleAiChange = useCallback((event) => {
+    const { name, value, type, checked } = event.target;
+    if (name === 'autoReplies.enabled') {
+      setAiSettings((previous) => ({
+        ...previous,
+        autoReplies: { ...previous.autoReplies, enabled: checked },
+      }));
+      return;
     }
-    onSubmit(payload).then(() => {
-      setApiKeyMode('hidden');
-    });
-  }, [form, onSubmit]);
+    if (name === 'autoReplies.temperature') {
+      const numeric = Number(value);
+      setAiSettings((previous) => ({
+        ...previous,
+        autoReplies: {
+          ...previous.autoReplies,
+          temperature: Number.isFinite(numeric) ? Math.min(2, Math.max(0, numeric)) : previous.autoReplies.temperature,
+        },
+      }));
+      return;
+    }
+    if (name === 'connection.baseUrl') {
+      setAiSettings((previous) => ({
+        ...previous,
+        connection: { ...previous.connection, baseUrl: value },
+      }));
+      return;
+    }
+    if (name === 'workspaceId') {
+      setAiSettings((previous) => ({
+        ...previous,
+        workspaceId: value ? Number(value) || value : null,
+      }));
+      return;
+    }
+    setAiSettings((previous) => ({ ...previous, [name]: type === 'checkbox' ? checked : value }));
+  }, []);
 
-  const fingerprint = value?.apiKey?.fingerprint;
+  const handleAiSubmit = useCallback(
+    async (event) => {
+      event.preventDefault();
+      if (!userId) return;
+      setAiBusy(true);
+      setAiFeedback('');
+      setAiError('');
+      try {
+        const payload = {
+          provider: aiSettings.provider,
+          model: aiSettings.model,
+          autoReplies: {
+            enabled: Boolean(aiSettings.autoReplies.enabled),
+            instructions: aiSettings.autoReplies.instructions?.trim() ?? '',
+            channels: aiSettings.autoReplies.channels,
+            temperature: aiSettings.autoReplies.temperature,
+          },
+          connection: { baseUrl: aiSettings.connection.baseUrl },
+          workspaceId: aiSettings.workspaceId || null,
+        };
+        if (aiApiKey.trim()) {
+          payload.apiKey = aiApiKey.trim();
+        }
+        const response = await updateUserAiSettings(userId, payload);
+        setAiSettings(mergeAi(response));
+        setAiApiKey('');
+        setAiFeedback('AI concierge preferences updated.');
+        setLastUpdated(new Date());
+      } catch (err) {
+        setAiError(err?.message ?? 'Unable to update AI concierge settings.');
+      } finally {
+        setAiBusy(false);
+      }
+    },
+    [aiApiKey, aiSettings, userId],
+  );
+
+  const digestIntegrations = useMemo(() => weeklyDigest?.integrations ?? [], [weeklyDigest]);
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2">
-        <label className="flex flex-col gap-2 text-sm">
-          <span className="font-medium text-slate-700">Model</span>
-          <input
-            type="text"
-            name="model"
-            value={form.model}
-            onChange={handleChange}
-            className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-          />
-        </label>
-        <label className="flex flex-col gap-2 text-sm">
-          <span className="font-medium text-slate-700">API base URL</span>
-          <input
-            type="url"
-            name="baseUrl"
-            value={form.connection?.baseUrl ?? ''}
-            onChange={handleChange}
-            className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-          />
-        </label>
-      </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-sm">
-          <p className="text-sm font-semibold text-slate-900">Auto replies</p>
-          <label className="mt-4 flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm font-medium text-slate-700">
-            <span>Enabled</span>
-            <input
-              type="checkbox"
-              name="autoReplies.enabled"
-              checked={Boolean(form.autoReplies.enabled)}
-              onChange={handleChange}
-              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-            />
-          </label>
-          <div className="mt-4 space-y-3">
+    <section id="user-settings" className="space-y-8 rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-white p-6 shadow-sm">
+      <SectionHeader
+        eyebrow="Account settings"
+        title="Operating profile & concierge controls"
+        description="Manage the human settings your client partners rely on: account identity, message delivery preferences, and AI concierge behaviour."
+        actions={
+          <button
+            type="button"
+            onClick={() => refreshAll()}
+            className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:border-slate-400 hover:text-slate-800"
+          >
+            Quick refresh
+          </button>
+        }
+      />
+
+      <DataStatus
+        loading={loading}
+        error={error}
+        fromCache={false}
+        lastUpdated={lastUpdated}
+        statusLabel="Settings synchronisation"
+      />
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <form onSubmit={handleAccountSubmit} className="space-y-5 rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-inner">
+          <div className="space-y-1">
+            <h3 className="text-lg font-semibold text-slate-900">Account profile</h3>
+            <p className="text-sm text-slate-500">Update your personal details so invoices, notifications, and programme managers are aligned.</p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
             <label className="flex flex-col gap-2 text-sm">
-              <span className="font-medium text-slate-700">Guidance</span>
-              <textarea
-                name="autoReplies.instructions"
-                value={form.autoReplies.instructions}
-                onChange={handleChange}
-                rows={4}
-                placeholder="Tone, escalation triggers, and brand guardrails."
-                className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              <span className="font-medium text-slate-700">First name</span>
+              <input
+                type="text"
+                name="firstName"
+                value={account.firstName}
+                onChange={handleAccountChange}
+                required
+                className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-500/20"
               />
             </label>
+            <label className="flex flex-col gap-2 text-sm">
+              <span className="font-medium text-slate-700">Last name</span>
+              <input
+                type="text"
+                name="lastName"
+                value={account.lastName}
+                onChange={handleAccountChange}
+                required
+                className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-500/20"
+              />
+            </label>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="flex flex-col gap-2 text-sm">
+              <span className="font-medium text-slate-700">Email</span>
+              <input
+                type="email"
+                name="email"
+                value={account.email}
+                onChange={handleAccountChange}
+                required
+                className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-500/20"
+              />
+            </label>
+            <label className="flex flex-col gap-2 text-sm">
+              <span className="font-medium text-slate-700">Phone</span>
+              <input
+                type="tel"
+                name="phoneNumber"
+                value={account.phoneNumber}
+                onChange={handleAccountChange}
+                placeholder="+44 20 7946 0958"
+                className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-500/20"
+              />
+            </label>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="flex flex-col gap-2 text-sm">
+              <span className="font-medium text-slate-700">Role / Title</span>
+              <input
+                type="text"
+                name="jobTitle"
+                value={account.jobTitle}
+                onChange={handleAccountChange}
+                placeholder="Client programmes lead"
+                className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-500/20"
+              />
+            </label>
+            <label className="flex flex-col gap-2 text-sm">
+              <span className="font-medium text-slate-700">Location</span>
+              <input
+                type="text"
+                name="location"
+                value={account.location}
+                onChange={handleAccountChange}
+                placeholder="London, United Kingdom"
+                className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-500/20"
+              />
+            </label>
+          </div>
+          {accountBusy ? (
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Saving account…</p>
+          ) : null}
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={accountBusy}
+              className="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              Save profile
+            </button>
+          </div>
+          {accountFeedback ? (
+            <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-700">{accountFeedback}</p>
+          ) : null}
+          {accountError ? (
+            <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-600">{accountError}</p>
+          ) : null}
+        </form>
+
+        <div className="space-y-5 rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-inner">
+          <div className="space-y-1">
+            <h3 className="text-lg font-semibold text-slate-900">Weekly digest</h3>
+            <p className="text-sm text-slate-500">Keep stakeholders in the loop with curated updates across bookings, orders, and interviews.</p>
+          </div>
+          <DigestSummary weeklyDigest={weeklyDigest} />
+          {digestIntegrations.length ? (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Connected integrations</p>
+              <ul className="mt-2 space-y-2 text-sm text-slate-600">
+                {digestIntegrations.map((integration) => (
+                  <li key={integration.id ?? integration.provider} className="flex items-center justify-between rounded-2xl border border-slate-200 px-3 py-2">
+                    <span>{integration.provider ?? 'Integration'} — {integration.status ?? 'active'}</span>
+                    <span className="text-xs text-slate-400">{integration.lastSyncAt ? new Date(integration.lastSyncAt).toLocaleString() : 'Awaiting sync'}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-xs text-slate-500">No automation integrations connected. Link your calendar or CRM from the integrations workspace to enrich digests.</p>
+          )}
+        </div>
+      </div>
+
+      <form onSubmit={handleNotificationSubmit} className="space-y-5 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-inner">
+        <div className="space-y-1">
+          <h3 className="text-lg font-semibold text-slate-900">Notification preferences</h3>
+          <p className="text-sm text-slate-500">Choose how the platform keeps you and your partners informed across devices.</p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Toggle
+            name="emailEnabled"
+            label="Email delivery"
+            description="Programme alerts, contract updates, and AI concierge transcripts delivered to your inbox."
+            checked={notifications.emailEnabled}
+            onChange={handleNotificationToggle}
+          />
+          <Toggle
+            name="pushEnabled"
+            label="Push notifications"
+            description="Realtime nudges for interviews, deliverables, and escalations."
+            checked={notifications.pushEnabled}
+            onChange={handleNotificationToggle}
+          />
+          <Toggle
+            name="smsEnabled"
+            label="SMS alerts"
+            description="Priority events such as payment releases or compliance actions."
+            checked={notifications.smsEnabled}
+            onChange={handleNotificationToggle}
+          />
+          <Toggle
+            name="inAppEnabled"
+            label="Inbox & in-app"
+            description="Keep the notification centre populated with mission critical updates."
+            checked={notifications.inAppEnabled}
+            onChange={handleNotificationToggle}
+          />
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <label className="flex flex-col gap-2 text-sm">
+            <span className="font-medium text-slate-700">Digest cadence</span>
+            <select
+              value={notifications.digestFrequency}
+              onChange={(event) => setNotifications((previous) => ({ ...previous, digestFrequency: event.target.value }))}
+              className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            >
+              {DIGEST_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-2 text-sm">
+            <span className="font-medium text-slate-700">Quiet hours start</span>
+            <input
+              type="time"
+              value={notifications.quietHoursStart}
+              onChange={(event) => setNotifications((previous) => ({ ...previous, quietHoursStart: event.target.value }))}
+              className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            />
+          </label>
+          <label className="flex flex-col gap-2 text-sm">
+            <span className="font-medium text-slate-700">Quiet hours end</span>
+            <input
+              type="time"
+              value={notifications.quietHoursEnd}
+              onChange={(event) => setNotifications((previous) => ({ ...previous, quietHoursEnd: event.target.value }))}
+              className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            />
+          </label>
+        </div>
+        {notificationStats ? (
+          <div className="grid gap-4 sm:grid-cols-4">
+            <div className="rounded-2xl border border-slate-200 bg-white/70 p-4 text-xs text-slate-600">
+              <p className="font-semibold uppercase tracking-wide text-slate-500">Unread</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-900">{notificationStats.unread}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white/70 p-4 text-xs text-slate-600">
+              <p className="font-semibold uppercase tracking-wide text-slate-500">Delivered</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-900">{notificationStats.delivered}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white/70 p-4 text-xs text-slate-600">
+              <p className="font-semibold uppercase tracking-wide text-slate-500">Dismissed</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-900">{notificationStats.dismissed}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white/70 p-4 text-xs text-slate-600">
+              <p className="font-semibold uppercase tracking-wide text-slate-500">Last activity</p>
+              <p className="mt-1 text-sm text-slate-900">
+                {notificationStats.lastActivityAt ? new Date(notificationStats.lastActivityAt).toLocaleString() : 'n/a'}
+              </p>
+            </div>
+          </div>
+        ) : null}
+        {notificationBusy ? (
+          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Saving notification preferences…</p>
+        ) : null}
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={notificationBusy}
+            className="rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-300"
+          >
+            Save notification preferences
+          </button>
+        </div>
+        {notificationFeedback ? (
+          <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-700">{notificationFeedback}</p>
+        ) : null}
+        {notificationError ? (
+          <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-600">{notificationError}</p>
+        ) : null}
+      </form>
+
+      <form onSubmit={handleAiSubmit} className="space-y-5 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-inner">
+        <div className="space-y-1">
+          <h3 className="text-lg font-semibold text-slate-900">AI concierge</h3>
+          <p className="text-sm text-slate-500">Control how the Launchpad concierge drafts replies, triages channels, and integrates with your workspace.</p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <label className="flex flex-col gap-2 text-sm">
+            <span className="font-medium text-slate-700">Provider</span>
+            <select
+              name="provider"
+              value={aiSettings.provider}
+              onChange={handleAiChange}
+              className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+            >
+              <option value="openai">OpenAI</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="azure_openai">Azure OpenAI</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-2 text-sm">
+            <span className="font-medium text-slate-700">Model</span>
+            <input
+              type="text"
+              name="model"
+              value={aiSettings.model}
+              onChange={handleAiChange}
+              placeholder="gpt-4o-mini"
+              className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+            />
+          </label>
+          <label className="flex flex-col gap-2 text-sm">
+            <span className="font-medium text-slate-700">Workspace ID</span>
+            <input
+              type="number"
+              name="workspaceId"
+              value={aiSettings.workspaceId ?? ''}
+              onChange={handleAiChange}
+              placeholder="Internal workspace mapping"
+              className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+            />
+          </label>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <label className="flex flex-col gap-2 text-sm">
+            <span className="font-medium text-slate-700">System instructions</span>
+            <textarea
+              name="autoReplies.instructions"
+              value={aiSettings.autoReplies.instructions}
+              onChange={(event) =>
+                setAiSettings((previous) => ({
+                  ...previous,
+                  autoReplies: { ...previous.autoReplies, instructions: event.target.value },
+                }))
+              }
+              rows={4}
+              placeholder="Tone, escalation rules, and guardrails for AI replies."
+              className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+            />
+          </label>
+          <div className="space-y-3 rounded-2xl border border-slate-200 bg-white/80 p-4">
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                name="autoReplies.enabled"
+                checked={aiSettings.autoReplies.enabled}
+                onChange={handleAiChange}
+                className="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+              />
+              Enable automatic replies across selected channels
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {CHANNEL_OPTIONS.map((channel) => (
+                <ChannelCheckbox
+                  key={channel.value}
+                  value={channel.value}
+                  label={channel.label}
+                  checked={aiSettings.autoReplies.channels.includes(channel.value)}
+                  onChange={handleAiChannelChange}
+                />
+              ))}
+            </div>
             <label className="flex flex-col gap-2 text-sm">
               <span className="font-medium text-slate-700">Creativity</span>
               <input
@@ -361,402 +821,89 @@ function AiSettingsForm({ value, busy, error, onSubmit, onResetError }) {
                 max="2"
                 step="0.05"
                 name="autoReplies.temperature"
-                value={form.autoReplies.temperature}
-                onChange={handleChange}
-                className="accent-indigo-600"
+                value={aiSettings.autoReplies.temperature}
+                onChange={handleAiChange}
+                className="h-2 rounded-full bg-slate-200 accent-violet-500"
               />
-              <span className="text-xs text-slate-500">
-                {Number(form.autoReplies.temperature).toFixed(2)} temperature — lower keeps replies precise; higher adds flair.
-              </span>
+              <span className="text-xs text-slate-500">{aiSettings.autoReplies.temperature.toFixed(2)} temperature</span>
             </label>
           </div>
         </div>
-        <div className="rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-sm">
-          <p className="text-sm font-semibold text-slate-900">Active channels</p>
-          <div className="mt-4 grid gap-3">
-            {CHANNEL_OPTIONS.map((option) => {
-              const checked = form.autoReplies.channels.includes(option.value);
-              return (
-                <label
-                  key={option.value}
-                  className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm font-medium text-slate-700"
-                >
-                  <span>{option.label}</span>
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => toggleChannel(option.value)}
-                    className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                </label>
-              );
-            })}
-          </div>
-          <label className="mt-4 flex flex-col gap-2 text-sm">
-            <span className="font-medium text-slate-700">Workspace routing (optional)</span>
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="flex flex-col gap-2 text-sm">
+            <span className="font-medium text-slate-700">API endpoint</span>
             <input
-              type="text"
-              name="workspaceId"
-              value={form.workspaceId ?? ''}
-              onChange={handleChange}
-              placeholder="Workspace ID for auto-replies"
-              className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              type="url"
+              name="connection.baseUrl"
+              value={aiSettings.connection.baseUrl}
+              onChange={handleAiChange}
+              className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
             />
           </label>
-        </div>
-      </div>
-      <div className="rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-sm">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-slate-900">API key</p>
-            {fingerprint ? (
-              <p className="text-xs text-slate-500">Fingerprint {fingerprint}</p>
-            ) : (
-              <p className="text-xs text-slate-500">No key configured — replies will remain in manual mode.</p>
-            )}
-          </div>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setApiKeyMode('update');
-                setForm((previous) => ({ ...previous, apiKey: { ...previous.apiKey, pending: '' } }));
-              }}
-              className="rounded-2xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-indigo-300 hover:text-indigo-600"
-            >
-              {fingerprint ? 'Rotate key' : 'Add key'}
-            </button>
-            {fingerprint ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setApiKeyMode('clear');
-                  setForm((previous) => ({ ...previous, apiKey: { ...previous.apiKey, pending: '' } }));
-                }}
-                className="rounded-2xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-600 transition hover:border-rose-300 hover:text-rose-700"
-              >
-                Remove
-              </button>
-            ) : null}
-          </div>
-        </div>
-        {apiKeyMode !== 'hidden' ? (
-          <label className="mt-4 flex flex-col gap-2 text-sm">
-            <span className="font-medium text-slate-700">
-              {apiKeyMode === 'clear' ? 'Confirm removal' : 'API key'}
-            </span>
+          <label className="flex flex-col gap-2 text-sm">
+            <span className="font-medium text-slate-700">Rotate API key</span>
             <input
               type="password"
               name="apiKey"
-              value={form.apiKey?.pending ?? ''}
-              onChange={handleChange}
-              placeholder={apiKeyMode === 'clear' ? 'Type REMOVE to confirm' : 'Paste the secret key'}
-              className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              value={aiApiKey}
+              onChange={(event) => setAiApiKey(event.target.value)}
+              placeholder={aiSettings.apiKey.configured ? '••••••••' : 'Paste secure token'}
+              className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
             />
           </label>
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="rounded-2xl border border-slate-200 bg-white/70 p-4 text-xs text-slate-600">
+            <p className="font-semibold uppercase tracking-wide text-slate-500">Key fingerprint</p>
+            <p className="mt-1 text-sm text-slate-900">{aiSettings.apiKey.fingerprint ?? '—'}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white/70 p-4 text-xs text-slate-600">
+            <p className="font-semibold uppercase tracking-wide text-slate-500">Key updated</p>
+            <p className="mt-1 text-sm text-slate-900">
+              {aiSettings.apiKey.updatedAt ? new Date(aiSettings.apiKey.updatedAt).toLocaleString() : 'Not configured'}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white/70 p-4 text-xs text-slate-600">
+            <p className="font-semibold uppercase tracking-wide text-slate-500">Connection tested</p>
+            <p className="mt-1 text-sm text-slate-900">
+              {aiSettings.connection.lastTestedAt
+                ? new Date(aiSettings.connection.lastTestedAt).toLocaleString()
+                : 'Pending test'}
+            </p>
+          </div>
+        </div>
+        {aiBusy ? (
+          <p className="text-xs font-semibold uppercase tracking-wide text-violet-600">Updating concierge preferences…</p>
         ) : null}
-      </div>
-      {error ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-          {error}
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={aiBusy}
+            className="rounded-2xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:bg-violet-300"
+          >
+            Save AI concierge settings
+          </button>
         </div>
-      ) : null}
-      <div className="flex justify-end">
-        <button
-          type="submit"
-          className="rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-300"
-          disabled={busy}
-        >
-          {busy ? 'Saving…' : 'Save AI workspace settings'}
-        </button>
-      </div>
-    </form>
-  );
-}
-
-AiSettingsForm.propTypes = {
-  value: PropTypes.object,
-  busy: PropTypes.bool,
-  error: PropTypes.string,
-  onSubmit: PropTypes.func.isRequired,
-  onResetError: PropTypes.func,
-};
-
-AiSettingsForm.defaultProps = {
-  value: null,
-  busy: false,
-  error: null,
-  onResetError: null,
-};
-
-export default function UserSettingsSection({
-  userId,
-  session,
-  initialNotificationPreferences,
-  initialAiSettings,
-  weeklyDigest,
-}) {
-  const [accountForm, setAccountForm] = useState(DEFAULT_ACCOUNT_FORM);
-  const [accountBusy, setAccountBusy] = useState(false);
-  const [accountFeedback, setAccountFeedback] = useState('');
-  const [accountError, setAccountError] = useState('');
-  const [accountLoaded, setAccountLoaded] = useState(false);
-
-  const [notificationPrefs, setNotificationPrefs] = useState(initialNotificationPreferences);
-  const [notificationBusy, setNotificationBusy] = useState(false);
-  const [notificationError, setNotificationError] = useState(null);
-
-  const [aiSettings, setAiSettings] = useState(initialAiSettings ?? DEFAULT_AI_SETTINGS);
-  const [aiBusy, setAiBusy] = useState(false);
-  const [aiError, setAiError] = useState(null);
-
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [loadedAt, setLoadedAt] = useState(null);
-
-  const fullName = useMemo(() => {
-    if (session?.user?.fullName) {
-      return session.user.fullName;
-    }
-    const first = accountForm.firstName || session?.user?.firstName || '';
-    const last = accountForm.lastName || session?.user?.lastName || '';
-    return [first, last].filter(Boolean).join(' ');
-  }, [accountForm.firstName, accountForm.lastName, session?.user?.firstName, session?.user?.fullName, session?.user?.lastName]);
-
-  const loadInitialData = useCallback(async () => {
-    if (!userId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const [accountResponse, preferencesResponse, aiResponse] = await Promise.all([
-        fetchUser(userId).catch(() => null),
-        fetchNotificationPreferences(userId).catch(() => initialNotificationPreferences ?? null),
-        fetchUserAiSettings(userId).catch(() => initialAiSettings ?? null),
-      ]);
-      if (accountResponse) {
-        setAccountForm(normaliseAccountForm(accountResponse));
-        setAccountLoaded(true);
-      }
-      if (preferencesResponse) {
-        setNotificationPrefs(preferencesResponse);
-      }
-      if (aiResponse) {
-        setAiSettings(normaliseAiSettings(aiResponse));
-      }
-      setLoadedAt(new Date());
-    } catch (err) {
-      setError(err?.message ?? 'Unable to load settings.');
-    } finally {
-      setLoading(false);
-    }
-  }, [userId, initialNotificationPreferences, initialAiSettings]);
-
-  useEffect(() => {
-    loadInitialData();
-  }, [loadInitialData]);
-
-  const handleAccountChange = useCallback((event) => {
-    const { name, value } = event.target;
-    setAccountForm((previous) => ({ ...previous, [name]: value }));
-  }, []);
-
-  const handleAccountSubmit = useCallback(
-    async (event) => {
-      event.preventDefault();
-      if (!userId) return;
-      setAccountBusy(true);
-      setAccountError('');
-      setAccountFeedback('');
-      try {
-        await updateUserAccount(userId, accountForm);
-        setAccountFeedback('Account settings saved.');
-        setLoadedAt(new Date());
-      } catch (err) {
-        setAccountError(err?.message ?? 'Unable to update account settings.');
-      } finally {
-        setAccountBusy(false);
-      }
-    },
-    [userId, accountForm],
-  );
-
-  const handleNotificationSubmit = useCallback(
-    async (payload) => {
-      if (!userId) {
-        return false;
-      }
-      setNotificationBusy(true);
-      setNotificationError(null);
-      try {
-        const response = await updateNotificationPreferences(userId, payload);
-        setNotificationPrefs(response);
-        setLoadedAt(new Date());
-        return true;
-      } catch (err) {
-        setNotificationError(err);
-        return false;
-      } finally {
-        setNotificationBusy(false);
-      }
-    },
-    [userId],
-  );
-
-  const handleAiSubmit = useCallback(
-    async (payload) => {
-      if (!userId) return;
-      setAiBusy(true);
-      setAiError(null);
-      try {
-        const response = await updateUserAiSettings(userId, payload);
-        setAiSettings(normaliseAiSettings(response));
-        setLoadedAt(new Date());
-      } catch (err) {
-        setAiError(err?.message ?? 'Unable to update AI settings.');
-        throw err;
-      } finally {
-        setAiBusy(false);
-      }
-    },
-    [userId],
-  );
-
-  const digestSummary = useMemo(() => {
-    if (!weeklyDigest) {
-      return null;
-    }
-    const subscription = weeklyDigest.subscription ?? null;
-    const integrations = weeklyDigest.integrations ?? [];
-    return {
-      cadence: subscription?.frequency ?? 'not scheduled',
-      channels: Array.isArray(subscription?.channels) && subscription.channels.length
-        ? subscription.channels.join(', ')
-        : 'Email',
-      nextSend: subscription?.nextScheduledAt ?? null,
-      integrationsCount: integrations.length,
-    };
-  }, [weeklyDigest]);
-
-  return (
-    <section
-      id="user-settings"
-      className="space-y-8 rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-white p-6 shadow-sm"
-    >
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500">Settings</p>
-          <h2 className="text-3xl font-semibold text-slate-900">Personal and automation controls</h2>
-          <p className="mt-2 max-w-3xl text-sm text-slate-500">
-            Keep account, notification, and AI concierge preferences aligned with your operating rhythm. Every change updates the
-            production workspace instantly.
-          </p>
-        </div>
-        <DataStatus
-          loading={loading}
-          error={error}
-          lastUpdated={loadedAt}
-          statusLabel="Settings sync"
-          onRefresh={loadInitialData}
-        />
-      </header>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
-          <div className="flex items-start justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900">Account profile</h3>
-              <p className="mt-1 text-sm text-slate-500">These details appear on invoices, invites, and compliance notices.</p>
-            </div>
-            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-600">
-              {fullName || 'Account'}
-            </span>
-          </div>
-          <div className="mt-6">
-            <AccountForm
-              form={accountForm}
-              onChange={handleAccountChange}
-              onSubmit={handleAccountSubmit}
-              busy={accountBusy}
-              feedback={accountFeedback}
-              error={accountError}
-            />
-          </div>
-        </div>
-        <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
-          <div className="flex items-start justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900">Notification preferences</h3>
-              <p className="mt-1 text-sm text-slate-500">
-                Choose delivery channels and quiet hours. Alerts stay aligned with your calendar and compliance policies.
-              </p>
-            </div>
-            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-600">
-              Signal hygiene
-            </span>
-          </div>
-          <div className="mt-6 space-y-6">
-            <AlertSettings
-              preferences={notificationPrefs}
-              busy={notificationBusy}
-              error={notificationError}
-              onSubmit={handleNotificationSubmit}
-              onResetError={() => setNotificationError(null)}
-            />
-            {digestSummary ? (
-              <div className="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-3 text-sm text-slate-600">
-                <p className="font-semibold text-slate-800">Weekly digest</p>
-                <p className="mt-1">Cadence: {digestSummary.cadence}</p>
-                <p className="mt-1">Channels: {digestSummary.channels}</p>
-                <p className="mt-1">
-                  {digestSummary.nextSend ? `Next send ${new Date(digestSummary.nextSend).toLocaleString()}` : 'Scheduling on demand.'}
-                </p>
-                <p className="mt-1">Calendar integrations: {digestSummary.integrationsCount}</p>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
-        <div className="flex flex-col gap-2">
-          <h3 className="text-lg font-semibold text-slate-900">AI concierge</h3>
-          <p className="text-sm text-slate-500">
-            Configure how the Gigvora co-pilot drafts responses across conversations. Keys are stored encrypted and requests stay
-            inside your workspace boundary.
-          </p>
-        </div>
-        <div className="mt-6">
-          <AiSettingsForm
-            value={aiSettings}
-            busy={aiBusy}
-            error={aiError}
-            onSubmit={handleAiSubmit}
-            onResetError={() => setAiError(null)}
-          />
-        </div>
-      </div>
-
-      {accountLoaded ? null : (
-        <div className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          We could not load some account fields from the profile service. Updates made here will still be saved to the primary
-          account record.
-        </div>
-      )}
+        {aiFeedback ? (
+          <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-700">{aiFeedback}</p>
+        ) : null}
+        {aiError ? (
+          <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-600">{aiError}</p>
+        ) : null}
+      </form>
     </section>
   );
 }
 
 UserSettingsSection.propTypes = {
-  userId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  userId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
   session: PropTypes.object,
   initialNotificationPreferences: PropTypes.object,
-  initialAiSettings: PropTypes.object,
   weeklyDigest: PropTypes.object,
 };
 
 UserSettingsSection.defaultProps = {
   session: null,
   initialNotificationPreferences: null,
-  initialAiSettings: null,
   weeklyDigest: null,
 };

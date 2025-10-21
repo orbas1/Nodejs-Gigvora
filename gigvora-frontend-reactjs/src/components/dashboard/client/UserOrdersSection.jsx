@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import useProjectGigManagement from '../../../hooks/useProjectGigManagement.js';
 
@@ -31,6 +31,22 @@ export default function UserOrdersSection({ userId, initialWorkspace }) {
   const [feedback, setFeedback] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
+  const [createOrderForm, setCreateOrderForm] = useState({
+    vendorName: '',
+    serviceName: '',
+    amount: '',
+    currency: 'USD',
+    kickoffAt: '',
+    dueAt: '',
+    orderNumber: '',
+    requirementTitle: '',
+    requirementDue: '',
+    requirementNotes: '',
+  });
+  const [createOrderBusy, setCreateOrderBusy] = useState(false);
+  const [createOrderFeedback, setCreateOrderFeedback] = useState('');
+  const [createOrderError, setCreateOrderError] = useState('');
+
   const orders = useMemo(() => {
     const allOrders = data?.purchasedGigs?.orders ?? [];
     const open = allOrders.filter((order) => ['requirements', 'in_delivery', 'in_revision'].includes(order.status));
@@ -49,6 +65,13 @@ export default function UserOrdersSection({ userId, initialWorkspace }) {
       currency: summary.currency ?? 'USD',
     };
   }, [data?.purchasedGigs?.stats, orders]);
+
+  useEffect(() => {
+    setCreateOrderForm((previous) => ({
+      ...previous,
+      currency: previous.currency || stats.currency || 'USD',
+    }));
+  }, [stats.currency]);
 
   const handleUpdateStatus = useCallback(
     async (orderId, status) => {
@@ -92,6 +115,63 @@ export default function UserOrdersSection({ userId, initialWorkspace }) {
       }
     },
     [actions, timelineForm],
+  );
+
+  const handleCreateOrderChange = useCallback((event) => {
+    const { name, value } = event.target;
+    setCreateOrderForm((previous) => ({ ...previous, [name]: value }));
+  }, []);
+
+  const handleCreateOrderSubmit = useCallback(
+    async (event) => {
+      event.preventDefault();
+      if (!createOrderForm.vendorName || !createOrderForm.serviceName) {
+        setCreateOrderError('Vendor name and service name are required.');
+        return;
+      }
+      setCreateOrderBusy(true);
+      setCreateOrderFeedback('');
+      setCreateOrderError('');
+      try {
+        const payload = {
+          vendorName: createOrderForm.vendorName.trim(),
+          serviceName: createOrderForm.serviceName.trim(),
+          amount: createOrderForm.amount ? Number(createOrderForm.amount) : 0,
+          currency: createOrderForm.currency || stats.currency || 'USD',
+          kickoffAt: createOrderForm.kickoffAt || undefined,
+          dueAt: createOrderForm.dueAt || undefined,
+          orderNumber: createOrderForm.orderNumber || undefined,
+        };
+        if (createOrderForm.requirementTitle) {
+          payload.requirements = [
+            {
+              title: createOrderForm.requirementTitle,
+              dueAt: createOrderForm.requirementDue || undefined,
+              notes: createOrderForm.requirementNotes || undefined,
+            },
+          ];
+        }
+        await actions.createGigOrder(payload);
+        setCreateOrderFeedback('Order created and routed to your gig workspace.');
+        setCreateOrderForm({
+          vendorName: '',
+          serviceName: '',
+          amount: '',
+          currency: payload.currency,
+          kickoffAt: '',
+          dueAt: '',
+          orderNumber: '',
+          requirementTitle: '',
+          requirementDue: '',
+          requirementNotes: '',
+        });
+      } catch (err) {
+        setCreateOrderError(err?.message ?? 'Unable to create order.');
+      } finally {
+        setCreateOrderBusy(false);
+      }
+    },
+    [actions, createOrderForm, stats.currency],
   );
 
   return (
@@ -199,6 +279,152 @@ export default function UserOrdersSection({ userId, initialWorkspace }) {
             </p>
           )}
         </div>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
+        <form onSubmit={handleCreateOrderSubmit} className="space-y-4">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900">Raise a new order</h3>
+            <p className="text-sm text-slate-500">Spin up delivery in minutes — gig managers receive the same structured briefing the vendor network expects.</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="flex flex-col gap-2 text-sm">
+              <span className="font-medium text-slate-700">Vendor</span>
+              <input
+                type="text"
+                name="vendorName"
+                value={createOrderForm.vendorName}
+                onChange={handleCreateOrderChange}
+                required
+                placeholder="Atlas Creative Studio"
+                className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+            </label>
+            <label className="flex flex-col gap-2 text-sm">
+              <span className="font-medium text-slate-700">Service name</span>
+              <input
+                type="text"
+                name="serviceName"
+                value={createOrderForm.serviceName}
+                onChange={handleCreateOrderChange}
+                required
+                placeholder="Growth launch blueprint"
+                className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+            </label>
+          </div>
+          <div className="grid gap-4 md:grid-cols-4">
+            <label className="flex flex-col gap-2 text-sm">
+              <span className="font-medium text-slate-700">Amount</span>
+              <input
+                type="number"
+                name="amount"
+                value={createOrderForm.amount}
+                onChange={handleCreateOrderChange}
+                min="0"
+                step="0.01"
+                placeholder="2500"
+                className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+            </label>
+            <label className="flex flex-col gap-2 text-sm">
+              <span className="font-medium text-slate-700">Currency</span>
+              <input
+                type="text"
+                name="currency"
+                value={createOrderForm.currency}
+                onChange={handleCreateOrderChange}
+                placeholder={stats.currency}
+                className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+            </label>
+            <label className="flex flex-col gap-2 text-sm">
+              <span className="font-medium text-slate-700">Kickoff date</span>
+              <input
+                type="date"
+                name="kickoffAt"
+                value={createOrderForm.kickoffAt}
+                onChange={handleCreateOrderChange}
+                className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+            </label>
+            <label className="flex flex-col gap-2 text-sm">
+              <span className="font-medium text-slate-700">Due date</span>
+              <input
+                type="date"
+                name="dueAt"
+                value={createOrderForm.dueAt}
+                onChange={handleCreateOrderChange}
+                className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+            </label>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <label className="flex flex-col gap-2 text-sm">
+              <span className="font-medium text-slate-700">Order reference</span>
+              <input
+                type="text"
+                name="orderNumber"
+                value={createOrderForm.orderNumber}
+                onChange={handleCreateOrderChange}
+                placeholder="ORD-2024-0098"
+                className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+            </label>
+            <label className="flex flex-col gap-2 text-sm md:col-span-2">
+              <span className="font-medium text-slate-700">Kickoff requirement</span>
+              <input
+                type="text"
+                name="requirementTitle"
+                value={createOrderForm.requirementTitle}
+                onChange={handleCreateOrderChange}
+                placeholder="Submit discovery questionnaire"
+                className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+            </label>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="flex flex-col gap-2 text-sm">
+              <span className="font-medium text-slate-700">Requirement due</span>
+              <input
+                type="date"
+                name="requirementDue"
+                value={createOrderForm.requirementDue}
+                onChange={handleCreateOrderChange}
+                className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+            </label>
+            <label className="flex flex-col gap-2 text-sm">
+              <span className="font-medium text-slate-700">Requirement notes</span>
+              <textarea
+                name="requirementNotes"
+                value={createOrderForm.requirementNotes}
+                onChange={handleCreateOrderChange}
+                rows={2}
+                placeholder="Access provided via secure vault."
+                className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+            </label>
+          </div>
+          {createOrderBusy ? (
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Creating order…</p>
+          ) : null}
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={createOrderBusy}
+              className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-300"
+            >
+              Raise order
+            </button>
+          </div>
+          {createOrderFeedback ? (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{createOrderFeedback}</div>
+          ) : null}
+          {createOrderError ? (
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{createOrderError}</div>
+          ) : null}
+        </form>
       </div>
 
       <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
