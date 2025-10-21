@@ -14,6 +14,7 @@ import {
   fetchCompanyCreationStudioItems,
   publishCompanyCreationStudioItem,
   deleteCompanyCreationStudioItem,
+  shareCompanyCreationStudioItem,
 } from '../../services/creationStudio.js';
 
 function toArray(value) {
@@ -198,6 +199,71 @@ export default function CreationStudioSection({
     setPreviewOpen(true);
   };
 
+  const copyShareLink = async (shareUrl) => {
+    if (!shareUrl) {
+      return false;
+    }
+    if (typeof navigator === 'undefined' || !navigator?.clipboard?.writeText) {
+      return false;
+    }
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      return true;
+    } catch (clipboardError) {
+      console.warn('Clipboard copy failed', clipboardError);
+      return false;
+    }
+  };
+
+  const handleShare = async (item, existingShareUrl = null) => {
+    if (!canManage || !item?.id) {
+      return;
+    }
+
+    if (existingShareUrl) {
+      const copied = await copyShareLink(existingShareUrl);
+      setFeedback(
+        copied
+          ? { type: 'success', message: 'Share link copied to clipboard.' }
+          : { type: 'success', message: `Share link ready: ${existingShareUrl}` },
+      );
+      return;
+    }
+
+    try {
+      const response = await shareCompanyCreationStudioItem(item.id, {
+        workspaceId: workspaceId ? Number(workspaceId) : undefined,
+      });
+      const shareUrl =
+        response?.shareUrl ??
+        response?.publicUrl ??
+        response?.url ??
+        (response?.shareSlug
+          ? typeof window !== 'undefined' && window.location?.origin
+            ? `${window.location.origin}/launch/${response.shareSlug}`
+            : `https://gigvora.com/launch/${response.shareSlug}`
+          : null);
+
+      if (shareUrl) {
+        const copied = await copyShareLink(shareUrl);
+        setFeedback(
+          copied
+            ? { type: 'success', message: 'Share link copied to clipboard.' }
+            : { type: 'success', message: `Share link ready: ${shareUrl}` },
+        );
+      } else {
+        setFeedback({ type: 'success', message: 'Share signal sent. Recipients will receive invites.' });
+      }
+
+      if (!shareUrl && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('creation-studio:refresh'));
+      }
+      loadItems();
+    } catch (shareError) {
+      setFeedback({ type: 'error', message: shareError?.message ?? 'Unable to generate share link.' });
+    }
+  };
+
   const subTypes = useMemo(() => {
     if (!activeGroup?.types) {
       return [];
@@ -280,6 +346,7 @@ export default function CreationStudioSection({
             onEdit={handleEdit}
             onPublish={handlePublish}
             onDelete={handleDelete}
+            onShare={handleShare}
             canManage={canManage}
             activeType={activeType}
             subTypes={subTypes}

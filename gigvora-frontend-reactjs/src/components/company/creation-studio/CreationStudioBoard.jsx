@@ -67,7 +67,26 @@ SubTypeTabs.defaultProps = {
   options: [],
 };
 
-function ItemCard({ item, onPreview, onEdit, onPublish, onDelete, canManage }) {
+function resolveShareUrl(item) {
+  if (!item) {
+    return null;
+  }
+  if (item.shareUrl) {
+    return item.shareUrl;
+  }
+  if (item.publicUrl) {
+    return item.publicUrl;
+  }
+  if (item.shareSlug) {
+    if (typeof window !== 'undefined' && window.location?.origin) {
+      return `${window.location.origin}/launch/${item.shareSlug}`;
+    }
+    return `https://gigvora.com/launch/${item.shareSlug}`;
+  }
+  return null;
+}
+
+function ItemCard({ item, onPreview, onEdit, onPublish, onDelete, onShare, canManage }) {
   const type = getCreationType(item.type);
   const status = getCreationStatus(item.status);
   const budget = item.budgetAmount && item.budgetCurrency ? `${item.budgetCurrency} ${item.budgetAmount}` : null;
@@ -75,15 +94,28 @@ function ItemCard({ item, onPreview, onEdit, onPublish, onDelete, canManage }) {
     item.compensationMin && item.compensationMax
       ? `${item.compensationCurrency ?? ''} ${item.compensationMin} - ${item.compensationMax}`.trim()
       : null;
+  const heroImage = item.heroImageUrl ?? item.imageUrl ?? null;
+  const shareUrl = resolveShareUrl(item);
+
   return (
-    <article className="flex h-full flex-col justify-between rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-sm">
-      <div className="space-y-3">
+    <article className="flex h-full flex-col justify-between overflow-hidden rounded-3xl border border-slate-200 bg-white/80 shadow-sm">
+      <div className="space-y-3 p-4">
+        {heroImage ? (
+          <div className="relative h-36 overflow-hidden rounded-2xl bg-slate-100">
+            <img src={heroImage} alt="" className="h-full w-full object-cover" loading="lazy" />
+            {status ? (
+              <span className={`absolute right-3 top-3 rounded-full px-3 py-1 text-xs font-semibold ${status.badge}`}>
+                {status.label}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-slate-500">{type?.label ?? item.type}</p>
             <h3 className="mt-1 text-lg font-semibold text-slate-900">{item.title}</h3>
           </div>
-          {status ? (
+          {!heroImage && status ? (
             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${status.badge}`}>{status.label}</span>
           ) : null}
         </div>
@@ -136,7 +168,7 @@ function ItemCard({ item, onPreview, onEdit, onPublish, onDelete, canManage }) {
           </div>
         ) : null}
       </div>
-      <div className="mt-4 flex flex-wrap items-center gap-2">
+      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 bg-slate-50/60 px-4 py-3">
         <button
           type="button"
           onClick={() => onPreview(item)}
@@ -164,6 +196,14 @@ function ItemCard({ item, onPreview, onEdit, onPublish, onDelete, canManage }) {
             ) : null}
             <button
               type="button"
+              onClick={() => onShare?.(item, shareUrl)}
+              className="rounded-full border border-indigo-200 px-3 py-1 text-xs font-semibold text-indigo-600 transition hover:border-indigo-300 hover:text-indigo-800 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={!onShare && !shareUrl}
+            >
+              {shareUrl ? 'Copy link' : 'Share'}
+            </button>
+            <button
+              type="button"
               onClick={() => onDelete(item)}
               className="rounded-full border border-rose-200 px-3 py-1 text-xs font-semibold text-rose-600 transition hover:border-rose-300 hover:text-rose-700"
             >
@@ -182,10 +222,12 @@ ItemCard.propTypes = {
   onEdit: PropTypes.func.isRequired,
   onPublish: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,
+  onShare: PropTypes.func,
   canManage: PropTypes.bool,
 };
 
 ItemCard.defaultProps = {
+  onShare: undefined,
   canManage: false,
 };
 
@@ -202,6 +244,7 @@ export default function CreationStudioBoard({
   onEdit,
   onPublish,
   onDelete,
+  onShare,
   canManage,
   activeType,
   subTypes,
@@ -264,6 +307,7 @@ export default function CreationStudioBoard({
             onEdit={onEdit}
             onPublish={onPublish}
             onDelete={onDelete}
+            onShare={onShare}
             canManage={canManage}
           />
         ))}
@@ -285,6 +329,7 @@ CreationStudioBoard.propTypes = {
   onEdit: PropTypes.func.isRequired,
   onPublish: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,
+  onShare: PropTypes.func,
   canManage: PropTypes.bool,
   activeType: PropTypes.string.isRequired,
   subTypes: PropTypes.arrayOf(
@@ -296,6 +341,7 @@ CreationStudioBoard.propTypes = {
 CreationStudioBoard.defaultProps = {
   items: [],
   loading: false,
+  onShare: undefined,
   canManage: false,
   subTypes: [],
 };
