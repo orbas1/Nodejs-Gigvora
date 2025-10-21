@@ -6,6 +6,8 @@ module.exports = {
       const dialect = queryInterface.sequelize.getDialect();
       const jsonType = ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
 
+      const timestampDefault = Sequelize.literal('CURRENT_TIMESTAMP');
+
       await queryInterface.createTable(
         'freelancer_timeline_workspaces',
         {
@@ -30,8 +32,8 @@ module.exports = {
           pinnedCampaigns: { type: jsonType, allowNull: true },
           cadenceGoal: { type: Sequelize.INTEGER, allowNull: true },
           lastSyncedAt: { type: Sequelize.DATE, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
         },
         { transaction },
       );
@@ -91,8 +93,8 @@ module.exports = {
             onDelete: 'SET NULL',
             onUpdate: 'CASCADE',
           },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
         },
         { transaction },
       );
@@ -157,8 +159,8 @@ module.exports = {
           location: { type: Sequelize.STRING(255), allowNull: true },
           tags: { type: jsonType, allowNull: true },
           metadata: { type: jsonType, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
         },
         { transaction },
       );
@@ -204,8 +206,8 @@ module.exports = {
           leads: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
           conversionRate: { type: Sequelize.DECIMAL(5, 2), allowNull: true },
           metadata: { type: jsonType, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
+          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: timestampDefault },
         },
         { transaction },
       );

@@ -1,24 +1,28 @@
+
 'use strict';
+
+const resolveJsonType = (queryInterface, Sequelize) => {
+  const dialect = queryInterface.sequelize.getDialect();
+  return ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
+};
+
+async function addColumnIfMissing(queryInterface, transaction, table, columnName, columnDefinition) {
+  const definition = await queryInterface.describeTable(table, { transaction });
+  if (!definition[columnName]) {
+    await queryInterface.addColumn(table, columnName, columnDefinition, { transaction });
+  }
+}
 
 module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.sequelize.transaction(async (transaction) => {
       const agencyProfilesTable = 'agency_profiles';
-      const jsonType = Sequelize.JSONB ?? Sequelize.JSON;
+      const jsonType = resolveJsonType(queryInterface, Sequelize);
 
-      await queryInterface.addColumn(
-        agencyProfilesTable,
-        'tagline',
-        { type: Sequelize.STRING(160), allowNull: true },
-        { transaction },
-      );
-
-      await queryInterface.addColumn(
-        agencyProfilesTable,
-        'description',
-        { type: Sequelize.TEXT, allowNull: true },
-        { transaction },
-      );
+      await addColumnIfMissing(queryInterface, transaction, agencyProfilesTable, 'description', {
+        type: Sequelize.TEXT,
+        allowNull: true,
+      });
 
       await queryInterface.addColumn(
         agencyProfilesTable,
@@ -78,8 +82,16 @@ module.exports = {
           description: { type: Sequelize.TEXT, allowNull: true },
           position: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
           metadata: { type: jsonType, allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
+          updatedAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
         },
         { transaction },
       );
@@ -109,8 +121,16 @@ module.exports = {
           experienceYears: { type: Sequelize.DECIMAL(5, 2), allowNull: true },
           isFeatured: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false },
           position: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
+          updatedAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
         },
         { transaction },
       );
@@ -142,8 +162,16 @@ module.exports = {
           description: { type: Sequelize.TEXT, allowNull: true },
           referenceId: { type: Sequelize.STRING(120), allowNull: true },
           verificationStatus: { type: Sequelize.STRING(60), allowNull: true },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
+          updatedAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
         },
         { transaction },
       );
@@ -177,8 +205,16 @@ module.exports = {
           tags: { type: jsonType, allowNull: true },
           heroImageUrl: { type: Sequelize.STRING(500), allowNull: true },
           position: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
+          updatedAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
         },
         { transaction },
       );
@@ -214,8 +250,16 @@ module.exports = {
           leadTimeDays: { type: Sequelize.INTEGER, allowNull: true },
           metadata: { type: jsonType, allowNull: true },
           position: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
-          createdAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-          updatedAt: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          createdAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
+          updatedAt: {
+            type: Sequelize.DATE,
+            allowNull: false,
+            defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+          },
         },
         { transaction },
       );
@@ -234,13 +278,12 @@ module.exports = {
       await queryInterface.dropTable('agency_profile_skills', { transaction });
       await queryInterface.dropTable('agency_profile_media', { transaction });
 
-      await queryInterface.removeColumn(agencyProfilesTable, 'workforceNotes', { transaction });
-      await queryInterface.removeColumn(agencyProfilesTable, 'workforceAvailable', { transaction });
-      await queryInterface.removeColumn(agencyProfilesTable, 'profileImageUrl', { transaction });
-      await queryInterface.removeColumn(agencyProfilesTable, 'bannerImageUrl', { transaction });
-      await queryInterface.removeColumn(agencyProfilesTable, 'introVideoUrl', { transaction });
-      await queryInterface.removeColumn(agencyProfilesTable, 'description', { transaction });
-      await queryInterface.removeColumn(agencyProfilesTable, 'tagline', { transaction });
+      await queryInterface.removeColumn(agencyProfilesTable, 'workforceNotes', { transaction }).catch(() => {});
+      await queryInterface.removeColumn(agencyProfilesTable, 'workforceAvailable', { transaction }).catch(() => {});
+      await queryInterface.removeColumn(agencyProfilesTable, 'profileImageUrl', { transaction }).catch(() => {});
+      await queryInterface.removeColumn(agencyProfilesTable, 'bannerImageUrl', { transaction }).catch(() => {});
+      await queryInterface.removeColumn(agencyProfilesTable, 'introVideoUrl', { transaction }).catch(() => {});
+      await queryInterface.removeColumn(agencyProfilesTable, 'description', { transaction }).catch(() => {});
     });
   },
 };
