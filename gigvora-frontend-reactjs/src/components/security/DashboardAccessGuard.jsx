@@ -2,28 +2,63 @@ import PropTypes from 'prop-types';
 import { ShieldCheckIcon } from '@heroicons/react/24/outline';
 import useSession from '../../hooks/useSession.js';
 
+function normaliseKey(value) {
+  if (value == null) {
+    return null;
+  }
+
+  if (typeof value === 'object' && 'key' in value) {
+    return normaliseKey(value.key);
+  }
+
+  const stringValue = typeof value === 'string' ? value : String(value);
+  const trimmed = stringValue.trim().toLowerCase();
+  if (!trimmed) {
+    return null;
+  }
+
+  return trimmed.replace(/[^a-z0-9]+/g, '_');
+}
+
 function normalizeRoles(session) {
   const roles = new Set();
   if (!session) {
     return roles;
   }
 
+  const register = (value) => {
+    const normalised = normaliseKey(value);
+    if (normalised) {
+      roles.add(normalised);
+    }
+  };
+
   if (Array.isArray(session.roles)) {
-    session.roles.filter(Boolean).forEach((role) => roles.add(role));
+    session.roles.forEach(register);
   }
 
-  if (typeof session.role === 'string' && session.role) {
-    roles.add(session.role);
+  if (typeof session.role === 'string') {
+    register(session.role);
   }
 
   if (Array.isArray(session.memberships)) {
-    session.memberships.filter(Boolean).forEach((role) => roles.add(role));
+    session.memberships.forEach(register);
+  }
+
+  if (Array.isArray(session.accountTypes)) {
+    session.accountTypes.forEach(register);
+  }
+
+  if (Array.isArray(session.roleKeys)) {
+    session.roleKeys.forEach(register);
   }
 
   if (session.dashboards && typeof session.dashboards === 'object') {
-    Object.keys(session.dashboards)
-      .filter(Boolean)
-      .forEach((role) => roles.add(role));
+    Object.keys(session.dashboards).forEach(register);
+  }
+
+  if (session.primaryDashboard) {
+    register(session.primaryDashboard);
   }
 
   return roles;
@@ -35,16 +70,35 @@ function normalizePermissions(session) {
     return permissions;
   }
 
+  const register = (value) => {
+    const normalised = normaliseKey(value);
+    if (normalised) {
+      permissions.add(normalised);
+    }
+  };
+
   if (Array.isArray(session.permissions)) {
-    session.permissions.filter(Boolean).forEach((perm) => permissions.add(perm));
+    session.permissions.forEach(register);
+  }
+
+  if (Array.isArray(session.permissionKeys)) {
+    session.permissionKeys.forEach(register);
   }
 
   if (session.capabilities && typeof session.capabilities === 'object') {
     Object.entries(session.capabilities).forEach(([key, value]) => {
       if (value) {
-        permissions.add(key);
+        register(key);
       }
     });
+  }
+
+  if (Array.isArray(session.features)) {
+    session.features.forEach(register);
+  }
+
+  if (Array.isArray(session.scopes)) {
+    session.scopes.forEach(register);
   }
 
   return permissions;
@@ -80,10 +134,17 @@ export default function DashboardAccessGuard({
   const normalizedRoles = normalizeRoles(session);
   const normalizedPermissions = normalizePermissions(session);
 
-  const hasRole = !requiredRoles?.length || requiredRoles.some((role) => normalizedRoles.has(role));
+  const requiredRoleKeys = (requiredRoles ?? [])
+    .map(normaliseKey)
+    .filter(Boolean);
+  const requiredPermissionKeys = (requiredPermissions ?? [])
+    .map(normaliseKey)
+    .filter(Boolean);
+
+  const hasRole = !requiredRoleKeys.length || requiredRoleKeys.some((role) => normalizedRoles.has(role));
   const hasPermission =
-    !requiredPermissions?.length ||
-    requiredPermissions.some((permission) => normalizedPermissions.has(permission));
+    !requiredPermissionKeys.length ||
+    requiredPermissionKeys.some((permission) => normalizedPermissions.has(permission));
 
   if (!hasRole || !hasPermission) {
     return (
