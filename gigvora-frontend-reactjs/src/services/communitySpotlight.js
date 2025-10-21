@@ -1,19 +1,24 @@
 import { apiClient } from './apiClient.js';
 
-export async function fetchCommunitySpotlight({ freelancerId, profileId, includeDraft = false, signal } = {}) {
-  if (!freelancerId) {
-    throw new Error('freelancerId is required to load the community spotlight.');
+function ensureId(value, message) {
+  if (value === undefined || value === null || `${value}`.trim().length === 0) {
+    throw new Error(message);
   }
+  return typeof value === 'string' ? value.trim() : value;
+}
+
+export async function fetchCommunitySpotlight({ freelancerId, profileId, includeDraft = false, signal } = {}) {
+  const resolvedFreelancerId = ensureId(freelancerId, 'freelancerId is required to load the community spotlight.');
 
   const params = {};
   if (profileId) {
-    params.profileId = profileId;
+    params.profileId = typeof profileId === 'string' ? profileId.trim() : profileId;
   }
   if (includeDraft) {
     params.includeDraft = 'true';
   }
 
-  return apiClient.get(`/freelancers/${freelancerId}/community-spotlight`, { params, signal });
+  return apiClient.get(`/freelancers/${resolvedFreelancerId}/community-spotlight`, { params, signal });
 }
 
 export default {
