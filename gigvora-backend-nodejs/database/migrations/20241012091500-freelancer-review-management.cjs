@@ -16,19 +16,27 @@ const dropEnum = async (queryInterface, enumName, transaction) => {
   }
 };
 
-const addRatingConstraint = async (queryInterface, transaction) => {
+const addRatingConstraint = async (queryInterface, Sequelize, transaction) => {
   const dialect = queryInterface.sequelize.getDialect();
-  if (['postgres', 'postgresql'].includes(dialect)) {
-    await queryInterface.sequelize.query(
-      `ALTER TABLE "${TABLE_NAME}" ADD CONSTRAINT "${RATING_CONSTRAINT}" CHECK (rating IS NULL OR (rating >= 0 AND rating <= 5));`,
-      { transaction },
-    );
-  } else {
-    await queryInterface.sequelize.query(
-      `ALTER TABLE \`${TABLE_NAME}\` ADD CONSTRAINT \`${RATING_CONSTRAINT}\` CHECK (rating IS NULL OR (rating >= 0 AND rating <= 5));`,
-      { transaction },
-    );
+
+  if (['sqlite', 'sqljs'].includes(dialect)) {
+    return;
   }
+
+  const { Op } = Sequelize;
+
+  await queryInterface.addConstraint(TABLE_NAME, {
+    type: 'check',
+    fields: ['rating'],
+    name: RATING_CONSTRAINT,
+    where: {
+      [Op.or]: [
+        { rating: null },
+        { rating: { [Op.between]: [0, 5] } },
+      ],
+    },
+    transaction,
+  });
 };
 
 module.exports = {
@@ -82,7 +90,7 @@ module.exports = {
         { transaction },
       );
 
-      await addRatingConstraint(queryInterface, transaction);
+      await addRatingConstraint(queryInterface, Sequelize, transaction);
 
       await queryInterface.addIndex(TABLE_NAME, ['freelancerId'], {
         transaction,
