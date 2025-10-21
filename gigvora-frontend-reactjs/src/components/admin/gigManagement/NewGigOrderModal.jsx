@@ -262,47 +262,55 @@ export default function NewGigOrderModal({ open, onClose, onSubmit, preset }) {
                         </button>
                       </div>
                       <div className="mt-3 space-y-3">
-                        {form.requirements.map((requirement) => (
-                          <div key={requirement.id} className="grid gap-3 rounded-2xl border border-slate-200 bg-white/80 px-4 py-4 sm:grid-cols-[2fr_1fr_1fr_auto]">
-                            <input
-                              value={requirement.title}
-                              onChange={(event) => updateRequirement(requirement.id, { title: event.target.value })}
-                              placeholder="Requirement"
-                              className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
-                            />
-                            <select
-                              value={requirement.status}
-                              onChange={(event) => updateRequirement(requirement.id, { status: event.target.value })}
-                              className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
-                            >
-                              <option value="pending">Pending</option>
-                              <option value="received">Received</option>
-                              <option value="approved">Approved</option>
-                            </select>
-                            <input
-                              type="date"
-                              value={requirement.dueAt}
-                              onChange={(event) => updateRequirement(requirement.id, { dueAt: event.target.value })}
-                              className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
-                            />
-                            <div className="flex items-center justify-end">
-                              <button
-                                type="button"
-                                onClick={() => removeRequirement(requirement.id)}
-                                className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-rose-500"
-                              >
-                                <TrashIcon className="h-4 w-4" />
-                              </button>
-                            </div>
-                            <textarea
-                              value={requirement.notes}
-                              onChange={(event) => updateRequirement(requirement.id, { notes: event.target.value })}
-                              rows={2}
-                              placeholder="Notes"
-                              className="sm:col-span-4 mt-3 rounded-2xl border border-slate-200 px-3 py-2 text-xs text-slate-600 shadow-sm focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
-                            />
-                          </div>
-                        ))}
+        {form.requirements.map((requirement, index) => (
+          <div
+            key={requirement.id}
+            className="grid gap-3 rounded-2xl border border-slate-200 bg-white/80 px-4 py-4 sm:grid-cols-[2fr_1fr_1fr_auto]"
+          >
+            <input
+              value={requirement.title}
+              onChange={(event) => updateRequirement(requirement.id, { title: event.target.value })}
+              placeholder="Requirement"
+              aria-label="Requirement title"
+              className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+            />
+            <select
+              value={requirement.status}
+              onChange={(event) => updateRequirement(requirement.id, { status: event.target.value })}
+              aria-label="Requirement status"
+              className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+            >
+              <option value="pending">Pending</option>
+              <option value="received">Received</option>
+              <option value="approved">Approved</option>
+            </select>
+            <input
+              type="date"
+              value={requirement.dueAt}
+              onChange={(event) => updateRequirement(requirement.id, { dueAt: event.target.value })}
+              aria-label="Requirement due date"
+              className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+            />
+            <div className="flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => removeRequirement(requirement.id)}
+                aria-label={`Remove requirement ${requirement.title || `#${index + 1}`}`}
+                className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-rose-500"
+              >
+                <TrashIcon className="h-4 w-4" />
+              </button>
+            </div>
+            <textarea
+              value={requirement.notes}
+              onChange={(event) => updateRequirement(requirement.id, { notes: event.target.value })}
+              rows={2}
+              placeholder="Notes"
+              aria-label="Requirement notes"
+              className="sm:col-span-4 mt-3 rounded-2xl border border-slate-200 px-3 py-2 text-xs text-slate-600 shadow-sm focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+            />
+          </div>
+        ))}
                       </div>
                     </div>
                   </div>
