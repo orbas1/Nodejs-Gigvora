@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../theme/widgets.dart';
 import '../application/mentorship_controller.dart';
@@ -15,6 +16,8 @@ class MentorshipScreen extends ConsumerStatefulWidget {
 
 class _MentorshipScreenState extends ConsumerState<MentorshipScreen> with TickerProviderStateMixin {
   late final TabController _tabController;
+
+  static const _defaultMentorProfileId = 'mentor-aurora';
 
   static const _tabs = [
     Tab(text: 'Performance'),
@@ -94,6 +97,14 @@ class _MentorshipScreenState extends ConsumerState<MentorshipScreen> with Ticker
                     ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
             ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: OutlinedButton.icon(
+              onPressed: () => context.push('/mentors/$_defaultMentorProfileId'),
+              icon: const Icon(Icons.person_pin_circle_outlined),
+              label: const Text('Open public mentor profile'),
+            ),
+          ),
           TabBar(
             controller: _tabController,
             isScrollable: true,

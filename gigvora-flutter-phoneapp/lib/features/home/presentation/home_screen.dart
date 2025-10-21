@@ -252,6 +252,8 @@ class HomeScreen extends ConsumerWidget {
             AdCouponStrip(surface: _surfaceForRole(activeRole)),
             const SizedBox(height: 16),
             const _NetworkCtaCard(),
+            const SizedBox(height: 16),
+            const _SupportAndInfoCard(),
             const SizedBox(height: 12),
           ],
         ),
@@ -769,6 +771,104 @@ class _NetworkCtaCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SupportAndInfoCard extends StatelessWidget {
+  const _SupportAndInfoCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final router = GoRouter.of(context);
+    return GigvoraCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Need help or context?', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          Text(
+            'Access live support, learn about Gigvora, or review our privacy commitments in a few taps.',
+            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 16),
+          _SupportTile(
+            icon: Icons.support_agent_outlined,
+            title: 'Support centre',
+            description: 'Escalate tickets, browse knowledge base articles, and manage SLAs.',
+            actionLabel: 'Open support',
+            onTap: () => router.go('/support'),
+          ),
+          const Divider(height: 28),
+          _SupportTile(
+            icon: Icons.info_outline,
+            title: 'About Gigvora',
+            description: 'Meet the team, explore our mission, and review partnership milestones.',
+            actionLabel: 'Explore story',
+            onTap: () => router.go('/about'),
+          ),
+          const Divider(height: 28),
+          _SupportTile(
+            icon: Icons.privacy_tip_outlined,
+            title: 'Privacy & compliance',
+            description: 'Manage consent, monitor request history, and download compliance docs.',
+            actionLabel: 'Privacy hub',
+            onTap: () => router.go('/privacy'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SupportTile extends StatelessWidget {
+  const _SupportTile({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.actionLabel,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+  final String actionLabel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primary.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Icon(icon, color: theme.colorScheme.primary),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 6),
+              Text(description, style: theme.textTheme.bodyMedium),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        FilledButton.tonal(
+          onPressed: onTap,
+          child: Text(actionLabel),
+        ),
+      ],
     );
   }
 }
