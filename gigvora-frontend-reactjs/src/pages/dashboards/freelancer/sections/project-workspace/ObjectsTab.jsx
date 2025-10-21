@@ -2,7 +2,7 @@ import PropTypes from 'prop-types';
 import ResourceManager from './ResourceManager.jsx';
 import { objectManagerConfig } from './config.js';
 
-export default function ObjectsTab({ objects, manager, disabled = false }) {
+export default function ObjectsTab({ objects, manager, disabled = false, readOnlyReason, loading = false }) {
   return (
     <ResourceManager
       title={objectManagerConfig.title}
@@ -14,6 +14,8 @@ export default function ObjectsTab({ objects, manager, disabled = false }) {
       emptyLabel={objectManagerConfig.emptyLabel}
       itemName={objectManagerConfig.itemName}
       disabled={disabled}
+      readOnlyMessage={readOnlyReason}
+      loading={loading}
       onCreate={(payload) => manager.createObject(payload)}
       onUpdate={(item, payload) => manager.updateObject(item.id, payload)}
       onDelete={(item) => manager.deleteObject(item.id)}
@@ -29,4 +31,6 @@ ObjectsTab.propTypes = {
     deleteObject: PropTypes.func.isRequired,
   }).isRequired,
   disabled: PropTypes.bool,
+  readOnlyReason: PropTypes.string,
+  loading: PropTypes.bool,
 };

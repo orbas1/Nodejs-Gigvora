@@ -8,7 +8,14 @@ const PANES = [
   { id: 'submissions', label: 'Submissions' },
 ];
 
-export default function DeliverablesPanel({ objects, submissions, manager, disabled = false }) {
+export default function DeliverablesPanel({
+  objects,
+  submissions,
+  manager,
+  disabled = false,
+  readOnlyReason,
+  loading = false,
+}) {
   const [activePane, setActivePane] = useState('objects');
 
   return (
@@ -31,9 +38,21 @@ export default function DeliverablesPanel({ objects, submissions, manager, disab
       </div>
 
       {activePane === 'objects' ? (
-        <ObjectsTab objects={objects} manager={manager} disabled={disabled} />
+        <ObjectsTab
+          objects={objects}
+          manager={manager}
+          disabled={disabled}
+          readOnlyReason={readOnlyReason}
+          loading={loading}
+        />
       ) : (
-        <SubmissionsTab submissions={submissions} manager={manager} disabled={disabled} />
+        <SubmissionsTab
+          submissions={submissions}
+          manager={manager}
+          disabled={disabled}
+          readOnlyReason={readOnlyReason}
+          loading={loading}
+        />
       )}
     </div>
   );
@@ -51,4 +70,6 @@ DeliverablesPanel.propTypes = {
     deleteSubmission: PropTypes.func.isRequired,
   }).isRequired,
   disabled: PropTypes.bool,
+  readOnlyReason: PropTypes.string,
+  loading: PropTypes.bool,
 };

@@ -13,6 +13,8 @@ export default function MeetingsCalendarTab({
   calendarEntries,
   manager,
   disabled = false,
+  readOnlyReason,
+  loading = false,
 }) {
   const [activeView, setActiveView] = useState('meetings');
 
@@ -24,6 +26,7 @@ export default function MeetingsCalendarTab({
             key={view.id}
             type="button"
             onClick={() => setActiveView(view.id)}
+            aria-pressed={activeView === view.id}
             className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
               activeView === view.id
                 ? 'bg-blue-600 text-white shadow-sm'
@@ -46,6 +49,8 @@ export default function MeetingsCalendarTab({
           emptyLabel={meetingsConfig.emptyLabel}
           itemName={meetingsConfig.itemName}
           disabled={disabled}
+          readOnlyMessage={readOnlyReason}
+          loading={loading}
           onCreate={(payload) => manager.createMeeting(payload)}
           onUpdate={(item, payload) => manager.updateMeeting(item.id, payload)}
           onDelete={(item) => manager.deleteMeeting(item.id)}
@@ -61,6 +66,8 @@ export default function MeetingsCalendarTab({
           emptyLabel={calendarConfig.emptyLabel}
           itemName={calendarConfig.itemName}
           disabled={disabled}
+          readOnlyMessage={readOnlyReason}
+          loading={loading}
           onCreate={(payload) => manager.createCalendarEntry(payload)}
           onUpdate={(item, payload) => manager.updateCalendarEntry(item.id, payload)}
           onDelete={(item) => manager.deleteCalendarEntry(item.id)}
@@ -82,4 +89,6 @@ MeetingsCalendarTab.propTypes = {
     deleteCalendarEntry: PropTypes.func.isRequired,
   }).isRequired,
   disabled: PropTypes.bool,
+  readOnlyReason: PropTypes.string,
+  loading: PropTypes.bool,
 };

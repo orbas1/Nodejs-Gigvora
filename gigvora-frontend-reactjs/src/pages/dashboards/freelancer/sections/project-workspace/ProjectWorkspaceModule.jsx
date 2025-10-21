@@ -21,6 +21,8 @@ import TargetsObjectivesTab from './TargetsObjectivesTab.jsx';
 import ChatTab from './ChatTab.jsx';
 
 const LOCAL_STORAGE_KEY = 'gigvora:web:freelancer:lastProjectWorkspaceId';
+const DEFAULT_PERMISSION_MESSAGE =
+  'Your current workspace role does not allow managing this area. Contact the project owner to request elevated permissions.';
 
 function readStoredProjectId() {
   if (typeof window === 'undefined') {
@@ -65,6 +67,108 @@ const NAV_ITEMS = [
   { id: 'files', label: 'Files', description: 'Store project files securely.' },
   { id: 'chat', label: 'Chat', description: 'Keep the conversation in one place.' },
 ];
+
+export function resolveAccessControl(accessControl, { fallback = true, defaultReason = DEFAULT_PERMISSION_MESSAGE } = {}) {
+  if (accessControl == null) {
+    return { allowed: fallback, reason: fallback ? null : defaultReason };
+  }
+  if (typeof accessControl === 'boolean') {
+    return { allowed: accessControl, reason: accessControl ? null : defaultReason };
+  }
+  if (typeof accessControl === 'string') {
+    const normalized = accessControl.trim().toLowerCase();
+    if (['manage', 'write', 'edit', 'owner', 'admin', 'full'].includes(normalized)) {
+      return { allowed: true, reason: null };
+    }
+    if (['deny', 'denied', 'forbidden', 'read', 'view', 'readonly', 'read-only', 'none', 'blocked'].includes(normalized)) {
+      return { allowed: false, reason: defaultReason };
+    }
+    return { allowed: fallback, reason: fallback ? null : defaultReason };
+  }
+  if (Array.isArray(accessControl)) {
+    const normalized = accessControl.map((value) => String(value).trim().toLowerCase());
+    const hasManage = normalized.some((value) => ['manage', 'write', 'edit', 'owner', 'admin'].includes(value));
+    const hasDeny = normalized.some((value) =>
+      ['deny', 'denied', 'forbidden', 'blocked', 'readonly', 'read-only', 'view', 'read', 'none'].includes(value),
+    );
+    if (hasManage) {
+      return { allowed: true, reason: null };
+    }
+    if (hasDeny) {
+      return { allowed: false, reason: defaultReason };
+    }
+    return { allowed: fallback, reason: fallback ? null : defaultReason };
+  }
+  if (typeof accessControl === 'object') {
+    if ('canManage' in accessControl) {
+      const allowed = accessControl.canManage !== false;
+      return { allowed, reason: allowed ? null : accessControl.reason ?? accessControl.message ?? defaultReason };
+    }
+    if ('write' in accessControl) {
+      const allowed = accessControl.write !== false;
+      return { allowed, reason: allowed ? null : accessControl.reason ?? defaultReason };
+    }
+    if ('mode' in accessControl) {
+      const mode = String(accessControl.mode).trim().toLowerCase();
+      const allowed = !['read', 'view', 'readonly', 'read-only', 'none'].includes(mode);
+      return { allowed, reason: allowed ? null : accessControl.reason ?? defaultReason };
+    }
+    if ('level' in accessControl) {
+      const level = String(accessControl.level).trim().toLowerCase();
+      const allowed = ['manage', 'write', 'edit', 'owner', 'admin', 'full'].includes(level);
+      return { allowed, reason: allowed ? null : accessControl.reason ?? defaultReason };
+    }
+    if ('permissions' in accessControl && Array.isArray(accessControl.permissions)) {
+      return resolveAccessControl(accessControl.permissions, { fallback, defaultReason });
+    }
+    if ('grants' in accessControl && Array.isArray(accessControl.grants)) {
+      return resolveAccessControl(accessControl.grants, { fallback, defaultReason });
+    }
+    const values = Object.values(accessControl);
+    if (values.some((value) => value === false)) {
+      return { allowed: false, reason: defaultReason };
+    }
+    if (values.some((value) => value === true)) {
+      return { allowed: true, reason: null };
+    }
+  }
+  return { allowed: fallback, reason: fallback ? null : defaultReason };
+}
+
+function AccessNotice({ message }) {
+  if (!message) {
+    return null;
+  }
+  return (
+    <div
+      className="rounded-3xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700 shadow-sm"
+      role="status"
+      aria-live="polite"
+    >
+      {message}
+    </div>
+  );
+}
+
+AccessNotice.propTypes = {
+  message: PropTypes.string,
+};
+
+const PERMISSION_MESSAGES = {
+  overview: 'Only workspace owners can adjust the delivery timeline.',
+  brief: 'Only project owners can update the workspace brief.',
+  budgets: 'Only finance or project leads can manage budget lines.',
+  objects: 'Only delivery leads can manage workspace objects and submissions.',
+  timeline: 'Only project leads can maintain the delivery timeline.',
+  schedule: 'Only project coordinators can manage meetings and calendar entries.',
+  roles: 'Only workspace owners can modify project roles.',
+  invites: 'Only workspace owners can send or revoke workspace invites.',
+  team: 'Only HR managers can update roster records.',
+  hours: 'Only project managers can edit time logs.',
+  goals: 'Only strategy owners can adjust targets and objectives.',
+  files: 'Only workspace owners can manage workspace files.',
+  chat: 'Only approved collaborators can post workspace chat updates.',
+};
 
 export default function ProjectWorkspaceModule({ defaultProjectId }) {
   const [projectId, setProjectId] = useState(defaultProjectId ?? null);
@@ -229,6 +333,64 @@ export default function ProjectWorkspaceModule({ defaultProjectId }) {
     ],
   );
 
+  const accessControls = useMemo(() => {
+    const raw = operations?.permissions ?? {};
+    return {
+      overview: resolveAccessControl(raw.overview ?? raw.timeline ?? raw.metrics, {
+        defaultReason: PERMISSION_MESSAGES.overview,
+      }),
+      brief: resolveAccessControl(raw.brief ?? raw.overview, {
+        defaultReason: PERMISSION_MESSAGES.brief,
+      }),
+      budgets: resolveAccessControl(raw.budgets ?? raw.finance, {
+        defaultReason: PERMISSION_MESSAGES.budgets,
+      }),
+      objects: resolveAccessControl(raw.objects ?? raw.assets, {
+        defaultReason: PERMISSION_MESSAGES.objects,
+      }),
+      timeline: resolveAccessControl(raw.timeline, {
+        defaultReason: PERMISSION_MESSAGES.timeline,
+      }),
+      schedule: resolveAccessControl(raw.schedule ?? raw.calendar, {
+        defaultReason: PERMISSION_MESSAGES.schedule,
+      }),
+      roles: resolveAccessControl(raw.roles ?? raw.access, {
+        defaultReason: PERMISSION_MESSAGES.roles,
+      }),
+      invites: resolveAccessControl(raw.invites ?? raw.access, {
+        defaultReason: PERMISSION_MESSAGES.invites,
+      }),
+      team: resolveAccessControl(raw.team ?? raw.hr, {
+        defaultReason: PERMISSION_MESSAGES.team,
+      }),
+      hours: resolveAccessControl(raw.hours ?? raw.timesheets, {
+        defaultReason: PERMISSION_MESSAGES.hours,
+      }),
+      goals: resolveAccessControl(raw.goals ?? raw.targets, {
+        defaultReason: PERMISSION_MESSAGES.goals,
+      }),
+      files: resolveAccessControl(raw.files ?? raw.storage, {
+        defaultReason: PERMISSION_MESSAGES.files,
+      }),
+      chat: resolveAccessControl(raw.chat ?? raw.conversations, {
+        defaultReason: PERMISSION_MESSAGES.chat,
+      }),
+    };
+  }, [operations?.permissions]);
+
+  const permissionState = useMemo(() => {
+    return Object.keys(PERMISSION_MESSAGES).reduce((accumulator, key) => {
+      const access = accessControls[key] ?? { allowed: true, reason: null };
+      const allowed = access.allowed !== false;
+      accumulator[key] = {
+        allowed,
+        disabled: !projectId || !allowed,
+        reason: !projectId ? null : access.reason ?? null,
+      };
+      return accumulator;
+    }, {});
+  }, [accessControls, projectId]);
+
   const handleLoadProject = async () => {
     if (!projectIdInput) {
       setProjectError('Enter a project ID to load the workspace.');
@@ -282,60 +444,200 @@ export default function ProjectWorkspaceModule({ defaultProjectId }) {
       return <LoadProjectNotice />;
     }
 
+    const fallbackGuard = { disabled: !projectId, reason: null };
+
     switch (activeView) {
-      case 'overview':
-        return <OverviewTab operations={operations} onUpdateTimeline={timelineUpdater} disabled={!projectId} />;
-      case 'brief':
-        return <BriefTab brief={operations?.brief} disabled={!projectId} onSave={handleBriefSave} />;
+      case 'overview': {
+        const guard = permissionState.overview ?? fallbackGuard;
+        return (
+          <>
+            {guard.reason ? <AccessNotice message={guard.reason} /> : null}
+            <OverviewTab
+              operations={operations}
+              onUpdateTimeline={timelineUpdater}
+              disabled={guard.disabled}
+              readOnlyReason={guard.reason}
+            />
+          </>
+        );
+      }
+      case 'brief': {
+        const guard = permissionState.brief ?? fallbackGuard;
+        return (
+          <>
+            {guard.reason ? <AccessNotice message={guard.reason} /> : null}
+            <BriefTab brief={operations?.brief} disabled={guard.disabled} onSave={handleBriefSave} />
+          </>
+        );
+      }
       case 'board':
         return (
           <div className="rounded-4xl border border-slate-200 bg-white p-4 shadow-sm">
             <ProjectOperationsSection projectId={projectId} />
           </div>
         );
-      case 'budget':
-        return <BudgetsTab budgets={operations?.budgets} manager={manager} disabled={!projectId} />;
-      case 'assets':
+      case 'budget': {
+        const guard = permissionState.budgets ?? fallbackGuard;
         return (
-          <DeliverablesPanel
-            objects={operations?.objects}
-            submissions={operations?.submissions}
-            manager={manager}
-            disabled={!projectId}
-          />
+          <>
+            {guard.reason ? <AccessNotice message={guard.reason} /> : null}
+            <BudgetsTab budgets={operations?.budgets} manager={manager} disabled={guard.disabled} loading={loading} />
+          </>
         );
-      case 'timeline':
-        return <TimelineEventsTab timelineEvents={operations?.timelineEvents} manager={manager} disabled={!projectId} />;
-      case 'schedule':
+      }
+      case 'assets': {
+        const guard = permissionState.objects ?? fallbackGuard;
         return (
-          <MeetingsCalendarTab
-            meetings={operations?.meetings}
-            calendarEntries={operations?.calendarEntries}
-            manager={manager}
-            disabled={!projectId}
-          />
+          <>
+            {guard.reason ? <AccessNotice message={guard.reason} /> : null}
+            <DeliverablesPanel
+              objects={operations?.objects}
+              submissions={operations?.submissions}
+              manager={manager}
+              disabled={guard.disabled}
+              loading={loading}
+              readOnlyReason={guard.reason}
+            />
+          </>
         );
-      case 'roles':
-        return <RolesTab roles={operations?.roles} manager={manager} disabled={!projectId} />;
-      case 'invites':
-        return <InvitesTab invites={operations?.invites} manager={manager} disabled={!projectId} />;
-      case 'team':
-        return <TeamTab records={operations?.hrRecords} manager={manager} disabled={!projectId} />;
-      case 'hours':
-        return <TimeLogsTab entries={operations?.timeLogs} manager={manager} disabled={!projectId} />;
-      case 'goals':
+      }
+      case 'timeline': {
+        const guard = permissionState.timeline ?? fallbackGuard;
         return (
-          <TargetsObjectivesTab
-            targets={operations?.targets}
-            objectives={operations?.objectives}
-            manager={manager}
-            disabled={!projectId}
-          />
+          <>
+            {guard.reason ? <AccessNotice message={guard.reason} /> : null}
+            <TimelineEventsTab
+              timelineEvents={operations?.timelineEvents}
+              manager={manager}
+              disabled={guard.disabled}
+              readOnlyReason={guard.reason}
+              loading={loading}
+            />
+          </>
         );
-      case 'files':
-        return <FilesTab files={operations?.files} manager={manager} disabled={!projectId} />;
-      case 'chat':
-        return <ChatTab conversations={operations?.conversations} manager={manager} disabled={!projectId} />;
+      }
+      case 'schedule': {
+        const guard = permissionState.schedule ?? fallbackGuard;
+        return (
+          <>
+            {guard.reason ? <AccessNotice message={guard.reason} /> : null}
+            <MeetingsCalendarTab
+              meetings={operations?.meetings}
+              calendarEntries={operations?.calendarEntries}
+              manager={manager}
+              disabled={guard.disabled}
+              readOnlyReason={guard.reason}
+              loading={loading}
+            />
+          </>
+        );
+      }
+      case 'roles': {
+        const guard = permissionState.roles ?? fallbackGuard;
+        return (
+          <>
+            {guard.reason ? <AccessNotice message={guard.reason} /> : null}
+            <RolesTab
+              roles={operations?.roles}
+              manager={manager}
+              disabled={guard.disabled}
+              readOnlyReason={guard.reason}
+              loading={loading}
+            />
+          </>
+        );
+      }
+      case 'invites': {
+        const guard = permissionState.invites ?? fallbackGuard;
+        return (
+          <>
+            {guard.reason ? <AccessNotice message={guard.reason} /> : null}
+            <InvitesTab
+              invites={operations?.invites}
+              manager={manager}
+              disabled={guard.disabled}
+              readOnlyReason={guard.reason}
+              loading={loading}
+            />
+          </>
+        );
+      }
+      case 'team': {
+        const guard = permissionState.team ?? fallbackGuard;
+        return (
+          <>
+            {guard.reason ? <AccessNotice message={guard.reason} /> : null}
+            <TeamTab
+              records={operations?.hrRecords}
+              manager={manager}
+              disabled={guard.disabled}
+              readOnlyReason={guard.reason}
+              loading={loading}
+            />
+          </>
+        );
+      }
+      case 'hours': {
+        const guard = permissionState.hours ?? fallbackGuard;
+        return (
+          <>
+            {guard.reason ? <AccessNotice message={guard.reason} /> : null}
+            <TimeLogsTab
+              entries={operations?.timeLogs}
+              manager={manager}
+              disabled={guard.disabled}
+              readOnlyReason={guard.reason}
+              loading={loading}
+            />
+          </>
+        );
+      }
+      case 'goals': {
+        const guard = permissionState.goals ?? fallbackGuard;
+        return (
+          <>
+            {guard.reason ? <AccessNotice message={guard.reason} /> : null}
+            <TargetsObjectivesTab
+              targets={operations?.targets}
+              objectives={operations?.objectives}
+              manager={manager}
+              disabled={guard.disabled}
+              readOnlyReason={guard.reason}
+              loading={loading}
+            />
+          </>
+        );
+      }
+      case 'files': {
+        const guard = permissionState.files ?? fallbackGuard;
+        return (
+          <>
+            {guard.reason ? <AccessNotice message={guard.reason} /> : null}
+            <FilesTab
+              files={operations?.files}
+              manager={manager}
+              disabled={guard.disabled}
+              readOnlyReason={guard.reason}
+              loading={loading}
+            />
+          </>
+        );
+      }
+      case 'chat': {
+        const guard = permissionState.chat ?? fallbackGuard;
+        return (
+          <>
+            {guard.reason ? <AccessNotice message={guard.reason} /> : null}
+            <ChatTab
+              conversations={operations?.conversations}
+              manager={manager}
+              disabled={guard.disabled}
+              loading={loading}
+              readOnlyReason={guard.reason}
+            />
+          </>
+        );
+      }
       default:
         return null;
     }

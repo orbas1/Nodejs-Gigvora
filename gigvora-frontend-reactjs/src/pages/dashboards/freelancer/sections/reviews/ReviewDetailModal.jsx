@@ -1,4 +1,5 @@
 import { Fragment, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import { Dialog, Transition } from '@headlessui/react';
 import { ArrowTopRightOnSquareIcon, StarIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import StatusBadge from './StatusBadge.jsx';
@@ -154,3 +155,27 @@ export default function ReviewDetailModal({ review, open, onClose, onEdit, onDel
     </Transition>
   );
 }
+
+ReviewDetailModal.propTypes = {
+  review: PropTypes.shape({
+    title: PropTypes.string,
+    reviewerName: PropTypes.string,
+    reviewerCompany: PropTypes.string,
+    status: PropTypes.string,
+    rating: PropTypes.number,
+    highlighted: PropTypes.bool,
+    body: PropTypes.string,
+    capturedAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    publishedAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    tags: PropTypes.arrayOf(PropTypes.string),
+    previewUrl: PropTypes.string,
+    heroImageUrl: PropTypes.string,
+    updatedAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    createdAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+  }),
+  open: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onEdit: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
+  deleting: PropTypes.bool,
+};

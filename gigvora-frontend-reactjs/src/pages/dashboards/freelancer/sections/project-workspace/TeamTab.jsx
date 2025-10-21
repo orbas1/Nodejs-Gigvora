@@ -2,7 +2,7 @@ import PropTypes from 'prop-types';
 import ResourceManager from './ResourceManager.jsx';
 import { hrConfig } from './config.js';
 
-export default function TeamTab({ records, manager, disabled = false }) {
+export default function TeamTab({ records, manager, disabled = false, readOnlyReason, loading = false }) {
   return (
     <ResourceManager
       title={hrConfig.title}
@@ -14,6 +14,8 @@ export default function TeamTab({ records, manager, disabled = false }) {
       emptyLabel={hrConfig.emptyLabel}
       itemName={hrConfig.itemName}
       disabled={disabled}
+      readOnlyMessage={readOnlyReason}
+      loading={loading}
       onCreate={(payload) => manager.createHrRecord(payload)}
       onUpdate={(item, payload) => manager.updateHrRecord(item.id, payload)}
       onDelete={(item) => manager.deleteHrRecord(item.id)}
@@ -29,4 +31,6 @@ TeamTab.propTypes = {
     deleteHrRecord: PropTypes.func.isRequired,
   }).isRequired,
   disabled: PropTypes.bool,
+  readOnlyReason: PropTypes.string,
+  loading: PropTypes.bool,
 };

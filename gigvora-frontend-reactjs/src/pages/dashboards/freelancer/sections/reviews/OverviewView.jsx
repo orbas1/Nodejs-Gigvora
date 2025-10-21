@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { StarIcon } from '@heroicons/react/24/solid';
 import { ArrowUpRightIcon } from '@heroicons/react/24/outline';
 import StatusBadge from './StatusBadge.jsx';
@@ -13,6 +14,12 @@ function MetricCard({ label, value, tone = 'slate' }) {
     </div>
   );
 }
+
+MetricCard.propTypes = {
+  label: PropTypes.string.isRequired,
+  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  tone: PropTypes.oneOf(['slate', 'emerald', 'amber', 'blue']),
+};
 
 function Distribution({ ratingDistribution }) {
   const totals = Object.values(ratingDistribution ?? {}).reduce((sum, count) => sum + count, 0);
@@ -40,6 +47,10 @@ function Distribution({ ratingDistribution }) {
     </div>
   );
 }
+
+Distribution.propTypes = {
+  ratingDistribution: PropTypes.object,
+};
 
 export default function OverviewView({ summary, reviews, ratingDistribution, onSelectReview }) {
   const featured = reviews.find((review) => review.highlighted) ?? reviews[0];
@@ -110,3 +121,17 @@ export default function OverviewView({ summary, reviews, ratingDistribution, onS
     </div>
   );
 }
+
+OverviewView.propTypes = {
+  summary: PropTypes.shape({
+    total: PropTypes.number,
+    published: PropTypes.number,
+    averageRating: PropTypes.number,
+    lastPublishedAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    draft: PropTypes.number,
+    pending: PropTypes.number,
+  }).isRequired,
+  reviews: PropTypes.arrayOf(PropTypes.object).isRequired,
+  ratingDistribution: PropTypes.object,
+  onSelectReview: PropTypes.func.isRequired,
+};

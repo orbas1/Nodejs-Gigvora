@@ -2,7 +2,7 @@ import PropTypes from 'prop-types';
 import ResourceManager from './ResourceManager.jsx';
 import { invitesConfig } from './config.js';
 
-export default function InvitesTab({ invites, manager, disabled = false }) {
+export default function InvitesTab({ invites, manager, disabled = false, readOnlyReason, loading = false }) {
   return (
     <ResourceManager
       title={invitesConfig.title}
@@ -14,6 +14,8 @@ export default function InvitesTab({ invites, manager, disabled = false }) {
       emptyLabel={invitesConfig.emptyLabel}
       itemName={invitesConfig.itemName}
       disabled={disabled}
+      readOnlyMessage={readOnlyReason}
+      loading={loading}
       onCreate={(payload) => manager.createInvite(payload)}
       onUpdate={(item, payload) => manager.updateInvite(item.id, payload)}
       onDelete={(item) => manager.deleteInvite(item.id)}
@@ -29,4 +31,6 @@ InvitesTab.propTypes = {
     deleteInvite: PropTypes.func.isRequired,
   }).isRequired,
   disabled: PropTypes.bool,
+  readOnlyReason: PropTypes.string,
+  loading: PropTypes.bool,
 };

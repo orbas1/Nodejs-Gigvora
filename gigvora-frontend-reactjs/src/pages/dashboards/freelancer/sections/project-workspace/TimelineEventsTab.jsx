@@ -2,7 +2,7 @@ import PropTypes from 'prop-types';
 import ResourceManager from './ResourceManager.jsx';
 import { timelineEventsConfig } from './config.js';
 
-export default function TimelineEventsTab({ timelineEvents, manager, disabled = false }) {
+export default function TimelineEventsTab({ timelineEvents, manager, disabled = false, readOnlyReason, loading = false }) {
   return (
     <ResourceManager
       title={timelineEventsConfig.title}
@@ -14,6 +14,8 @@ export default function TimelineEventsTab({ timelineEvents, manager, disabled = 
       emptyLabel={timelineEventsConfig.emptyLabel}
       itemName={timelineEventsConfig.itemName}
       disabled={disabled}
+      readOnlyMessage={readOnlyReason}
+      loading={loading}
       onCreate={(payload) => manager.createTimelineEvent(payload)}
       onUpdate={(item, payload) => manager.updateTimelineEvent(item.id, payload)}
       onDelete={(item) => manager.deleteTimelineEvent(item.id)}
@@ -29,4 +31,6 @@ TimelineEventsTab.propTypes = {
     deleteTimelineEvent: PropTypes.func.isRequired,
   }).isRequired,
   disabled: PropTypes.bool,
+  readOnlyReason: PropTypes.string,
+  loading: PropTypes.bool,
 };
