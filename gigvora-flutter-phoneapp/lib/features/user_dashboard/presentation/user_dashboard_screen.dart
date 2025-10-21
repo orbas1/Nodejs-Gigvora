@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../auth/application/session_controller.dart';
@@ -561,10 +560,10 @@ class _RemindersCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           if (pipeline.nextAudit != null)
-            Text(
-              'Next compliance audit ${DateFormat('EEE dd MMM').format(pipeline.nextAudit!)}.',
-              style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
-            ),
+          Text(
+            "Next compliance audit ${DateFormat('EEE dd MMM').format(pipeline.nextAudit!)}.",
+            style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+          ),
         ],
       ),
     );
@@ -623,7 +622,7 @@ class _InterviewsCard extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '${interview.panel}\n${interview.location}',
+                                  '${interview.panel}${String.fromCharCode(10)}${interview.location}',
                                   style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
                                 ),
                               ],
@@ -757,8 +756,11 @@ class _AffiliateProgramCard extends StatelessWidget {
           const SizedBox(height: 16),
           Text('Commission tiers', style: theme.textTheme.labelLarge),
           const SizedBox(height: 8),
-          ...affiliate.tiers.map(
-            (tier) => Padding(
+          ...affiliate.tiers.map((tier) {
+            final tierRange = tier.maxValue != null
+                ? '${currency.format(tier.minValue)} – ${currency.format(tier.maxValue!)}'
+                : '${currency.format(tier.minValue)}+';
+            return Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -770,14 +772,13 @@ class _AffiliateProgramCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '${tier.rate.toStringAsFixed(1)}% · ${currency.format(tier.minValue)}'
-                    '${tier.maxValue != null ? ' – ${currency.format(tier.maxValue!)}' : '+'}',
+                    '${tier.rate.toStringAsFixed(1)}% · $tierRange',
                     style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
                   ),
                 ],
               ),
-            ),
-          ),
+            );
+          }),
           const SizedBox(height: 16),
           Text('Top performing links', style: theme.textTheme.labelLarge),
           const SizedBox(height: 8),
