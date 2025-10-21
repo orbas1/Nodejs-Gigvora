@@ -28,13 +28,38 @@ workflows:
     cache:
       cache_paths:
         - ~/.pub-cache
+        - ~/.gradle/caches
+        - ~/.gradle/wrapper
+        - ~/Library/Caches/CocoaPods
         - gigvora-flutter-phoneapp/.dart_tool
         - gigvora-flutter-phoneapp/build
     scripts:
+      - name: Validate required environment variables
+        script: |
+          set -euo pipefail
+          required_vars=(APP_VERSION BUILD_NUMBER APP_STORE_CONNECT_KEY APP_STORE_CONNECT_ISSUER_ID APP_STORE_CONNECT_KEY_ID GOOGLE_SERVICE_ACCOUNT)
+          missing=()
+          for var in "${required_vars[@]}"; do
+            if [ -z "${!var:-}" ]; then
+              missing+=("$var")
+            fi
+          done
+          if [ ${#missing[@]} -ne 0 ]; then
+            echo "Required environment variables are missing: ${missing[*]}" >&2
+            exit 1
+          fi
+      - name: Flutter doctor
+        script: |
+          set -euo pipefail
+          flutter doctor -v
       - name: Install workspace tooling
         script: |
           dart pub global activate melos
           melos bootstrap
+      - name: Enforce formatting
+        script: |
+          set -euo pipefail
+          melos exec -- flutter format --set-exit-if-changed .
       - name: Static analysis
         script: |
           melos run analyze
