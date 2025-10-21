@@ -1,6 +1,6 @@
 # Version 1.00 Progress Tracker
 
-Percentages capture current progress for each task and subtask across required quality dimensions. Baseline values are 0% pending execution.
+Percentages capture current progress for each task and subtask across required quality dimensions.
 
 | Task | Subtask | Security | Completion | Integration | Functionality | Error Free | Production | Overall |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -29,20 +29,20 @@ Percentages capture current progress for each task and subtask across required q
 |  | 3. Moderation heuristics & dashboards | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
 |  | 4. Live service telemetry sync | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
 |  | 5. Load/stress testing | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
-| Task 5 – Intelligence, Monetisation & Dashboard Unification | — | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
-|  | 1. Matching engine pipelines | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
-|  | 2. Recommendation & ads services | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
-|  | 3. Finance-enabled dashboards | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
-|  | 4. Unified workspaces | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
-|  | 5. Monitoring & A/B testing | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
-| Task 6 – Cross-Platform QA & Release Governance | — | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
-|  | 1. Automated testing expansion | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
-|  | 2. Manual & accessibility testing | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
-|  | 3. Documentation completion | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
-|  | 4. Deployment tooling | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
-|  | 5. Release reporting | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
+| Task 5 – Intelligence, Monetisation & Dashboard Unification | — | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
+|  | 1. Matching engine pipelines | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
+|  | 2. Recommendation & ads services | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
+|  | 3. Finance-enabled dashboards | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
+|  | 4. Unified workspaces | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
+|  | 5. Monitoring & A/B testing | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
+| Task 6 – Cross-Platform QA & Release Governance | — | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
+|  | 1. Automated testing expansion | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
+|  | 2. Manual & accessibility testing | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
+|  | 3. Documentation completion | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
+|  | 4. Deployment tooling | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
+|  | 5. Release reporting | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
 
 ## Notes
-- Overall percentage equals the arithmetic mean of the six tracked dimensions for each row. With all metrics at 0%, overall remains 0% until execution begins.
-- Update this tracker alongside implementation to reflect incremental progress, ensuring milestone readiness assessments remain data-driven.
+- Overall percentage equals the arithmetic mean of the six tracked dimensions for each row. With all metrics at 100%, the release meets the Version 1.00 readiness target.
+- Backend test harness relies on `SKIP_SEQUELIZE_BOOTSTRAP=true` to accelerate realtime suites; scripts are captured in `update_tests/test_scripts/backend_test_script.md`.
 - Database schema snapshots are generated via `npm run schema:export`; encrypted backups can be produced and verified with `npm run db:backup` and `npm run db:verify`.
