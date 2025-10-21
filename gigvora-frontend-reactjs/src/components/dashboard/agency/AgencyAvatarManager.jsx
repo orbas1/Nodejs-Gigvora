@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import PropTypes from 'prop-types';
 import UserAvatar from '../../UserAvatar.jsx';
 
 function buildInitialState(overview, preferences) {
@@ -178,3 +179,25 @@ export default function AgencyAvatarManager({ overview, preferences, onSubmit, s
     </form>
   );
 }
+
+AgencyAvatarManager.propTypes = {
+  overview: PropTypes.shape({
+    name: PropTypes.string,
+    agencyProfile: PropTypes.object,
+    avatarSeed: PropTypes.string,
+  }),
+  preferences: PropTypes.shape({
+    brandColor: PropTypes.string,
+    bannerUrl: PropTypes.string,
+    avatarUrl: PropTypes.string,
+  }),
+  onSubmit: PropTypes.func,
+  saving: PropTypes.bool,
+};
+
+AgencyAvatarManager.defaultProps = {
+  overview: undefined,
+  preferences: undefined,
+  onSubmit: undefined,
+  saving: false,
+};
