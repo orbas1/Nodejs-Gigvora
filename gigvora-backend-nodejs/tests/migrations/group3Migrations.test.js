@@ -77,7 +77,17 @@ const migrationSpecs = [
   {
     key: 'projectWorkspaceDashboard',
     path: '../../database/migrations/20240915100000-project-workspace-dashboard.cjs',
-    expectedTables: ['project_workspace_dashboards', 'project_workspace_health_snapshots', 'project_workspace_activity_logs'],
+    expectedTables: [
+      'project_workspaces',
+      'project_workspace_briefs',
+      'project_workspace_whiteboards',
+      'project_workspace_files',
+      'project_workspace_conversations',
+      'project_workspace_dashboards',
+      'project_workspace_health_snapshots',
+      'project_workspace_activity_logs',
+      'project_workspace_approvals',
+    ],
   },
   {
     key: 'userDashboardOverview',
@@ -92,7 +102,15 @@ const migrationSpecs = [
   {
     key: 'financeControlTower',
     path: '../../database/migrations/20240915103000-finance-control-tower.cjs',
-    expectedTables: ['finance_control_tower_configs', 'finance_control_tower_snapshots', 'finance_payout_batches'],
+    expectedTables: [
+      'finance_revenue_entries',
+      'finance_expense_entries',
+      'finance_savings_goals',
+      'finance_payout_batches',
+      'finance_payout_splits',
+      'finance_forecast_scenarios',
+      'finance_tax_exports',
+    ],
   },
   {
     key: 'platformSettings',
@@ -139,7 +157,6 @@ async function createBaseTables() {
     'groups',
     'profiles',
     'projects',
-    'project_workspaces',
     'gigs',
     'interview_schedules',
   ];
