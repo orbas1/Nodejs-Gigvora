@@ -1,4 +1,6 @@
-export const communitySpotlights = [
+import { deepFreeze } from '../../constants/menuSchema.js';
+
+export const communitySpotlights = deepFreeze([
   {
     title: 'Atlas Labs partnership',
     category: 'Product launch',
@@ -17,4 +19,4 @@ export const communitySpotlights = [
     description: 'Scaled design, research, and client success pods to support enterprise wins worldwide.',
     image: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80',
   },
-];
+]);

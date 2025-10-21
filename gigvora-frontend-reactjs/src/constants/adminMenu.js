@@ -1,4 +1,6 @@
-export const ADMIN_DASHBOARD_MENU_SECTIONS = [
+import { createMenuRegistry } from './menuSchema.js';
+
+const dashboardSections = [
   {
     id: 'admin-pages',
     label: 'Dashboards',
@@ -11,7 +13,7 @@ export const ADMIN_DASHBOARD_MENU_SECTIONS = [
   },
 ];
 
-export const ADMIN_MENU_SECTIONS = [
+const menuSections = [
   {
     label: 'Command modules',
     items: [
@@ -131,5 +133,8 @@ export const ADMIN_MENU_SECTIONS = [
     ],
   },
 ];
+
+export const ADMIN_DASHBOARD_MENU_SECTIONS = createMenuRegistry(dashboardSections, { moduleName: 'adminDashboardShortcuts' });
+export const ADMIN_MENU_SECTIONS = createMenuRegistry(menuSections, { moduleName: 'adminMenu' });
 
 export default ADMIN_MENU_SECTIONS;

@@ -1,4 +1,6 @@
-export const ADMIN_BLOG_MENU_SECTIONS = [
+import { createMenuRegistry } from './menuSchema.js';
+
+const sections = [
   {
     label: 'Main',
     items: [
@@ -17,5 +19,7 @@ export const ADMIN_BLOG_MENU_SECTIONS = [
     ],
   },
 ];
+
+export const ADMIN_BLOG_MENU_SECTIONS = createMenuRegistry(sections, { moduleName: 'adminBlogMenu' });
 
 export default ADMIN_BLOG_MENU_SECTIONS;

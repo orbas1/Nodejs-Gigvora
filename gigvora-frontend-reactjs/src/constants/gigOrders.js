@@ -1,12 +1,14 @@
-export const GIG_ORDER_STATUSES = [
+import { deepFreeze } from './menuSchema.js';
+
+export const GIG_ORDER_STATUSES = deepFreeze([
   { value: 'requirements', label: 'Requirements' },
   { value: 'in_delivery', label: 'In delivery' },
   { value: 'in_revision', label: 'In revision' },
   { value: 'completed', label: 'Completed' },
   { value: 'cancelled', label: 'Cancelled' },
-];
+]);
 
-export const GIG_ACTIVITY_TYPES = [
+export const GIG_ACTIVITY_TYPES = deepFreeze([
   { value: 'order', label: 'Order event' },
   { value: 'requirement', label: 'Requirement' },
   { value: 'revision', label: 'Revision' },
@@ -14,9 +16,9 @@ export const GIG_ACTIVITY_TYPES = [
   { value: 'communication', label: 'Communication' },
   { value: 'note', label: 'Note' },
   { value: 'system', label: 'System' },
-];
+]);
 
-export const GIG_ESCROW_STATUSES = [
+export const GIG_ESCROW_STATUSES = deepFreeze([
   { value: 'funded', label: 'Funded' },
   { value: 'pending_release', label: 'Pending release' },
   { value: 'released', label: 'Released' },
@@ -24,7 +26,7 @@ export const GIG_ESCROW_STATUSES = [
   { value: 'refunded', label: 'Refunded' },
   { value: 'disputed', label: 'Disputed' },
   { value: 'cancelled', label: 'Cancelled' },
-];
+]);
 
 export default {
   GIG_ORDER_STATUSES,

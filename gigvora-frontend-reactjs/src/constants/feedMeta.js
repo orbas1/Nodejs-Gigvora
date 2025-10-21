@@ -8,7 +8,9 @@ import {
   UsersIcon,
 } from '@heroicons/react/24/outline';
 
-export const COMPOSER_OPTIONS = [
+import { deepFreeze } from './menuSchema.js';
+
+export const COMPOSER_OPTIONS = deepFreeze([
   {
     id: 'update',
     label: 'Update',
@@ -51,11 +53,11 @@ export const COMPOSER_OPTIONS = [
     description: 'Showcase cohort-based Experience Launchpad programmes.',
     icon: RocketLaunchIcon,
   },
-];
+]);
 
-export const QUICK_EMOJIS = ['🚀', '🎉', '👏', '🤝', '🔥', '💡', '✅', '🙌', '🌍', '💬'];
+export const QUICK_EMOJIS = Object.freeze(['🚀', '🎉', '👏', '🤝', '🔥', '💡', '✅', '🙌', '🌍', '💬']);
 
-export const GIF_LIBRARY = [
+export const GIF_LIBRARY = deepFreeze([
   {
     id: 'celebration',
     label: 'Celebration',
@@ -80,14 +82,16 @@ export const GIF_LIBRARY = [
     url: 'https://media.giphy.com/media/l0HUpt2s9Pclgt9Vm/giphy.gif',
     tone: 'Ideas, creativity, momentum',
   },
-];
-
-export const ALLOWED_FEED_MEMBERSHIPS = new Set([
-  'user',
-  'freelancer',
-  'agency',
-  'company',
-  'headhunter',
-  'mentor',
-  'admin',
 ]);
+
+const allowedMembershipValues = ['user', 'freelancer', 'agency', 'company', 'headhunter', 'mentor', 'admin'];
+const allowedMembershipSet = new Set(allowedMembershipValues);
+
+export const ALLOWED_FEED_MEMBERSHIPS = Object.freeze({
+  has(value) {
+    return allowedMembershipSet.has(`${value}`.toLowerCase());
+  },
+  [Symbol.iterator]() {
+    return allowedMembershipSet[Symbol.iterator]();
+  },
+});

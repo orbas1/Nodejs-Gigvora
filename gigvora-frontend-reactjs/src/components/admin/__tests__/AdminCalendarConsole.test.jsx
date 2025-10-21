@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
@@ -98,27 +98,42 @@ const emptyConsolePayload = {
   availability: {},
 };
 
-function renderConsole(props = {}) {
-  return render(
-    <MemoryRouter>
-      <AdminCalendarConsole {...props} />
-    </MemoryRouter>,
-  );
+async function renderConsole(props = {}) {
+  let view;
+
+  await act(async () => {
+    view = render(
+      <MemoryRouter>
+        <AdminCalendarConsole {...props} />
+      </MemoryRouter>,
+    );
+  });
+
+  return view;
 }
 
 describe('AdminCalendarConsole', () => {
+  let user;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    user = userEvent.setup({
+      eventWrapper: async (callback) => {
+        await act(async () => {
+          await callback();
+        });
+      },
+    });
   });
 
   it('renders loaded data and allows refreshing the console snapshot', async () => {
     fetchAdminCalendarConsole.mockImplementation(() => Promise.resolve(baseConsolePayload));
 
-    renderConsole();
+    await renderConsole();
 
     expect(await screen.findByRole('heading', { name: /calendar/i })).toBeInTheDocument();
     const refreshButton = await screen.findByRole('button', { name: /refresh/i });
-    await userEvent.click(refreshButton);
+    await user.click(refreshButton);
 
     await waitFor(() => {
       expect(fetchAdminCalendarConsole.mock.calls.length).toBeGreaterThanOrEqual(2);
@@ -129,20 +144,20 @@ describe('AdminCalendarConsole', () => {
     fetchAdminCalendarConsole.mockResolvedValue(emptyConsolePayload);
     createAdminCalendarAccount.mockResolvedValue({ id: 99 });
 
-    renderConsole();
+    await renderConsole();
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Accounts' }));
-    await userEvent.click(screen.getByRole('button', { name: /new account/i }));
+    await user.click(await screen.findByRole('button', { name: 'Accounts' }));
+    await user.click(screen.getByRole('button', { name: /new account/i }));
 
-    await userEvent.selectOptions(screen.getByLabelText('Provider'), 'google');
-    await userEvent.type(screen.getByLabelText('Account email'), 'admin-calendar@gigvora.com');
-    await userEvent.type(screen.getByLabelText('Display name'), 'Admin Calendar');
+    await user.selectOptions(screen.getByLabelText('Provider'), 'google');
+    await user.type(screen.getByLabelText('Account email'), 'admin-calendar@gigvora.com');
+    await user.type(screen.getByLabelText('Display name'), 'Admin Calendar');
     const timezoneField = screen.getByLabelText('Time zone');
-    await userEvent.clear(timezoneField);
-    await userEvent.type(timezoneField, 'UTC');
-    await userEvent.selectOptions(screen.getByLabelText('Sync status'), 'connected');
+    await user.clear(timezoneField);
+    await user.type(timezoneField, 'UTC');
+    await user.selectOptions(screen.getByLabelText('Sync status'), 'connected');
 
-    await userEvent.click(screen.getByRole('button', { name: /save account/i }));
+    await user.click(screen.getByRole('button', { name: /save account/i }));
 
     await waitFor(() => {
       expect(createAdminCalendarAccount).toHaveBeenCalledWith(
@@ -162,7 +177,7 @@ describe('AdminCalendarConsole', () => {
   it('surfaces backend failures while loading console data', async () => {
     fetchAdminCalendarConsole.mockRejectedValueOnce(new Error('calendar console offline'));
 
-    renderConsole();
+    await renderConsole();
 
     expect(await screen.findByText(/calendar console offline/i)).toBeInTheDocument();
   });
@@ -171,25 +186,27 @@ describe('AdminCalendarConsole', () => {
     fetchAdminCalendarConsole.mockImplementation(() => Promise.resolve(baseConsolePayload));
     updateAdminCalendarAvailability.mockResolvedValueOnce({ success: true });
 
-    renderConsole();
+    await renderConsole();
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Slots' }));
+    const navigation = await screen.findByRole('navigation');
+    const slotsNavButton = within(navigation).getByRole('button', { name: 'Slots' });
+    await user.click(slotsNavButton);
     expect(await screen.findByRole('heading', { name: 'Slots' })).toBeInTheDocument();
 
     const card = await screen.findByText('Operations Calendar');
     const slotsCard = card.closest('[class*="rounded-3xl"]');
     const slotsWithin = within(slotsCard);
-    await userEvent.click(slotsWithin.getByRole('button', { name: /edit slots/i }));
+    await user.click(slotsWithin.getByRole('button', { name: /edit slots/i }));
 
     const overrideField = await screen.findByLabelText('Time zone override');
-    await userEvent.clear(overrideField);
-    await userEvent.type(overrideField, 'Europe/Berlin');
-    await userEvent.clear(screen.getAllByLabelText('Start')[0]);
-    await userEvent.type(screen.getAllByLabelText('Start')[0], '08:00');
-    await userEvent.clear(screen.getAllByLabelText('End')[0]);
-    await userEvent.type(screen.getAllByLabelText('End')[0], '11:00');
+    await user.clear(overrideField);
+    await user.type(overrideField, 'Europe/Berlin');
+    await user.clear(screen.getAllByLabelText('Start')[0]);
+    await user.type(screen.getAllByLabelText('Start')[0], '08:00');
+    await user.clear(screen.getAllByLabelText('End')[0]);
+    await user.type(screen.getAllByLabelText('End')[0], '11:00');
 
-    await userEvent.click(screen.getByRole('button', { name: /save slots/i }));
+    await user.click(screen.getByRole('button', { name: /save slots/i }));
 
     await waitFor(() => {
       expect(updateAdminCalendarAvailability).toHaveBeenCalledWith(10, expect.any(Object));
@@ -203,17 +220,17 @@ describe('AdminCalendarConsole', () => {
     }));
     createAdminCalendarEvent.mockResolvedValueOnce({ id: 401 });
 
-    renderConsole();
+    await renderConsole();
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Events' }));
-    await userEvent.click(screen.getByRole('button', { name: /new event/i }));
+    await user.click(await screen.findByRole('button', { name: 'Events' }));
+    await user.click(screen.getByRole('button', { name: /new event/i }));
 
-    await userEvent.type(screen.getByLabelText('Title'), 'Launch rehearsal');
-    await userEvent.selectOptions(screen.getByLabelText('Account'), '10');
-    await userEvent.type(screen.getByLabelText('Starts'), '2024-11-05T09:30');
-    await userEvent.type(screen.getByLabelText('Ends'), '2024-11-05T10:00');
+    await user.type(screen.getByLabelText('Title'), 'Launch rehearsal');
+    await user.selectOptions(screen.getByLabelText('Account'), '10');
+    await user.type(screen.getByLabelText('Starts'), '2024-11-05T09:30');
+    await user.type(screen.getByLabelText('Ends'), '2024-11-05T10:00');
 
-    await userEvent.click(screen.getByRole('button', { name: /save event/i }));
+    await user.click(screen.getByRole('button', { name: /save event/i }));
 
     await waitFor(() => {
       expect(createAdminCalendarEvent).toHaveBeenCalledWith(
@@ -234,30 +251,30 @@ describe('AdminCalendarConsole', () => {
       }),
     );
 
-    renderConsole();
+    await renderConsole();
 
     const quickCard = await screen.findByTestId('calendar-quick-actions');
     const quickScope = within(quickCard);
 
-    await userEvent.click(quickScope.getByRole('button', { name: /new event/i }));
+    await user.click(quickScope.getByRole('button', { name: /new event/i }));
     expect(await screen.findByLabelText('Title')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: /close/i }));
+    await user.click(screen.getByRole('button', { name: /close/i }));
     await waitFor(() => {
       expect(screen.queryByLabelText('Title')).not.toBeInTheDocument();
     });
 
-    await userEvent.click(quickScope.getByRole('button', { name: /^slots$/i }));
+    await user.click(quickScope.getByRole('button', { name: /^slots$/i }));
     expect(await screen.findByLabelText('Time zone override')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: /close/i }));
+    await user.click(screen.getByRole('button', { name: /close/i }));
     await waitFor(() => {
       expect(screen.queryByLabelText('Time zone override')).not.toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Overview' }));
+    await user.click(screen.getByRole('button', { name: 'Overview' }));
     const refreshedQuick = screen.getByTestId('calendar-quick-actions');
     const refreshedScope = within(refreshedQuick);
 
-    await userEvent.click(refreshedScope.getByRole('button', { name: /new type/i }));
+    await user.click(refreshedScope.getByRole('button', { name: /new type/i }));
     expect(await screen.findByLabelText('Name')).toBeInTheDocument();
   });
 });

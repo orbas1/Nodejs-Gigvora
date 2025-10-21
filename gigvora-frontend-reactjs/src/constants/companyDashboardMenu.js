@@ -1,4 +1,6 @@
-export const COMPANY_DASHBOARD_MENU_SECTIONS = [
+import { createMenuRegistry } from './menuSchema.js';
+
+const companyDashboardMenuSections = [
   {
     label: 'Home',
     items: [
@@ -223,5 +225,9 @@ export const COMPANY_DASHBOARD_MENU_SECTIONS = [
     ],
   },
 ];
+
+export const COMPANY_DASHBOARD_MENU_SECTIONS = createMenuRegistry(companyDashboardMenuSections, {
+  moduleName: 'companyDashboardMenu',
+});
 
 export default COMPANY_DASHBOARD_MENU_SECTIONS;

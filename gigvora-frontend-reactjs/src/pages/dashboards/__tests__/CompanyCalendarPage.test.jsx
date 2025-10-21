@@ -1,6 +1,7 @@
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
+import { act, render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { vi } from 'vitest';
 import CompanyCalendarPage from '../CompanyCalendarPage.jsx';
 import useCompanyCalendar from '../../../hooks/useCompanyCalendar.js';
 import {
@@ -76,14 +77,20 @@ const baseCalendarState = {
   },
 };
 
-function renderPage(initialEntry = '/dashboard/company/calendar?workspaceId=101') {
-  return render(
-    <MemoryRouter initialEntries={[initialEntry]}>
-      <Routes>
-        <Route path="/dashboard/company/calendar" element={<CompanyCalendarPage />} />
-      </Routes>
-    </MemoryRouter>,
-  );
+async function renderPage(initialEntry = '/dashboard/company/calendar?workspaceId=101') {
+  let view;
+
+  await act(async () => {
+    view = render(
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <Routes>
+          <Route path="/dashboard/company/calendar" element={<CompanyCalendarPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+  });
+
+  return view;
 }
 
 describe('CompanyCalendarPage', () => {
@@ -96,8 +103,14 @@ describe('CompanyCalendarPage', () => {
   });
 
   it('creates a new calendar event through the drawer form', async () => {
-    const user = userEvent.setup();
-    renderPage();
+    const user = userEvent.setup({
+      eventWrapper: async (callback) => {
+        await act(async () => {
+          await callback();
+        });
+      },
+    });
+    await renderPage();
 
     const workspaceSelect = await screen.findByLabelText(/workspace/i);
     await waitFor(() => {
@@ -121,9 +134,13 @@ describe('CompanyCalendarPage', () => {
     await user.type(titleInput, 'Product analytics kickoff');
 
     const startsAtInput = screen.getByLabelText(/starts at/i);
-    fireEvent.change(startsAtInput, { target: { value: '2024-05-01T09:00' } });
+    await act(async () => {
+      fireEvent.change(startsAtInput, { target: { value: '2024-05-01T09:00' } });
+    });
     const endsAtInput = screen.getByLabelText(/ends at/i);
-    fireEvent.change(endsAtInput, { target: { value: '2024-05-01T10:00' } });
+    await act(async () => {
+      fireEvent.change(endsAtInput, { target: { value: '2024-05-01T10:00' } });
+    });
 
     const locationInput = screen.getByLabelText(/location/i);
     await user.type(locationInput, 'Hybrid meeting room');

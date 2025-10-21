@@ -1,50 +1,52 @@
-export const DISPUTE_STAGE_OPTIONS = [
+import { deepFreeze } from './menuSchema.js';
+
+export const DISPUTE_STAGE_OPTIONS = deepFreeze([
   { value: 'intake', label: 'Intake review' },
   { value: 'mediation', label: 'Mediation' },
   { value: 'arbitration', label: 'Arbitration' },
   { value: 'resolved', label: 'Resolved' },
-];
+]);
 
-export const DISPUTE_STATUS_OPTIONS = [
+export const DISPUTE_STATUS_OPTIONS = deepFreeze([
   { value: 'open', label: 'Open - awaiting triage' },
   { value: 'awaiting_customer', label: 'Waiting for customer' },
   { value: 'under_review', label: 'Under review' },
   { value: 'settled', label: 'Settled' },
   { value: 'closed', label: 'Closed' },
-];
+]);
 
-export const DISPUTE_PRIORITY_OPTIONS = [
+export const DISPUTE_PRIORITY_OPTIONS = deepFreeze([
   { value: 'low', label: 'Low' },
   { value: 'medium', label: 'Medium' },
   { value: 'high', label: 'High' },
   { value: 'urgent', label: 'Urgent' },
-];
+]);
 
-export const DISPUTE_ACTION_OPTIONS = [
+export const DISPUTE_ACTION_OPTIONS = deepFreeze([
   { value: 'comment', label: 'Comment / update' },
   { value: 'evidence_upload', label: 'Evidence upload' },
   { value: 'deadline_adjusted', label: 'Deadline adjusted' },
   { value: 'stage_advanced', label: 'Stage advanced' },
   { value: 'status_change', label: 'Status change' },
   { value: 'system_notice', label: 'System notice' },
-];
+]);
 
-export const DISPUTE_REASON_CODES = [
+export const DISPUTE_REASON_CODES = deepFreeze([
   { value: 'quality_issue', label: 'Quality concern', description: 'Customer disputes the quality or completeness of the deliverable.' },
   { value: 'missed_deadline', label: 'Missed deadline', description: 'Deliverable was late or project milestones were missed.' },
   { value: 'scope_disagreement', label: 'Scope disagreement', description: 'Customer and provider disagree on scope or inclusions.' },
   { value: 'billing_error', label: 'Billing error', description: 'Incorrect invoice amount, duplicate charge, or payment error.' },
   { value: 'fraud_concern', label: 'Fraud or policy concern', description: 'Potential fraud, impersonation, or policy breach.' },
   { value: 'other', label: 'Other', description: 'Use notes to specify the dispute reason.' },
-];
+]);
 
-export const DISPUTE_TRANSACTION_RESOLUTIONS = [
+export const DISPUTE_TRANSACTION_RESOLUTIONS = deepFreeze([
   { value: 'none', label: 'No fund movement' },
   { value: 'release', label: 'Release funds to provider' },
   { value: 'refund', label: 'Refund customer' },
-];
+]);
 
-export const DISPUTE_SORT_FIELDS = [
+export const DISPUTE_SORT_FIELDS = deepFreeze([
   { value: 'updatedAt', label: 'Last activity' },
   { value: 'openedAt', label: 'Date opened' },
   { value: 'priority', label: 'Priority' },
@@ -52,12 +54,12 @@ export const DISPUTE_SORT_FIELDS = [
   { value: 'status', label: 'Status' },
   { value: 'amount', label: 'Escrow amount' },
   { value: 'reference', label: 'Escrow reference' },
-];
+]);
 
-export const DISPUTE_SORT_DIRECTIONS = [
+export const DISPUTE_SORT_DIRECTIONS = deepFreeze([
   { value: 'DESC', label: 'Descending' },
   { value: 'ASC', label: 'Ascending' },
-];
+]);
 
 export function findDisputeOption(options, value) {
   if (!Array.isArray(options)) {

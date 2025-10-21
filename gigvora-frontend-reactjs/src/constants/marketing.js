@@ -1,4 +1,6 @@
-export const GIGVORA_PROFILE_BANNER = {
+import { deepFreeze } from './menuSchema.js';
+
+export const GIGVORA_PROFILE_BANNER = deepFreeze({
   eyebrow: 'Gigvora Ads Network',
   title: 'Premium placement for trusted profiles',
   description:
@@ -14,9 +16,9 @@ export const GIGVORA_PROFILE_BANNER = {
     href: '/launchpad',
     secondaryLabel: 'Verified advertisers only',
   },
-};
+});
 
-export const GIGVORA_PROFILE_ADS = [
+export const GIGVORA_PROFILE_ADS = deepFreeze([
   {
     id: 'profile-spotlight',
     title: 'Executive spotlight takeovers',
@@ -53,9 +55,9 @@ export const GIGVORA_PROFILE_ADS = [
       { label: 'Verified lifts', value: '31%' },
     ],
   },
-];
+]);
 
-export const GIGVORA_PAGES_BANNER = {
+export const GIGVORA_PAGES_BANNER = deepFreeze({
   eyebrow: 'Gigvora Ads Network',
   title: 'Brand pages with native conversion intelligence',
   description:
@@ -70,9 +72,9 @@ export const GIGVORA_PAGES_BANNER = {
     href: '/contact/sales',
     secondaryLabel: 'Dedicated strategist',
   },
-};
+});
 
-export const GIGVORA_PAGES_ADS = [
+export const GIGVORA_PAGES_ADS = deepFreeze([
   {
     id: 'pages-marquee',
     title: 'Explorer marquee modules',
@@ -109,9 +111,9 @@ export const GIGVORA_PAGES_ADS = [
       { label: 'Sync time', value: 'Instant' },
     ],
   },
-];
+]);
 
-export const GIGVORA_GROUPS_BANNER = {
+export const GIGVORA_GROUPS_BANNER = deepFreeze({
   eyebrow: 'Gigvora Ads Network',
   title: 'Community groups with precision sponsorships',
   description:
@@ -126,9 +128,9 @@ export const GIGVORA_GROUPS_BANNER = {
     href: '/community/partnerships',
     secondaryLabel: 'Sponsor governance playbook',
   },
-};
+});
 
-export const GIGVORA_GROUPS_ADS = [
+export const GIGVORA_GROUPS_ADS = deepFreeze([
   {
     id: 'groups-rituals',
     title: 'Ritual sponsor moments',
@@ -165,4 +167,4 @@ export const GIGVORA_GROUPS_ADS = [
       { label: 'Pipeline', value: '17 warm intros' },
     ],
   },
-];
+]);
