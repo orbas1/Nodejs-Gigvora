@@ -8,7 +8,7 @@ import {
   updateRoutingRule,
   deleteRoutingRule,
 } from '../services/inboxWorkspaceService.js';
-import { ValidationError } from '../utils/errors.js';
+import { AuthorizationError, ValidationError } from '../utils/errors.js';
 
 function resolveActorId(req) {
   const candidates = [
@@ -24,10 +24,61 @@ function resolveActorId(req) {
     }
     const parsed = Number(candidate);
     if (Number.isFinite(parsed) && parsed > 0) {
+      if (req.user?.id && Number.parseInt(req.user.id, 10) !== parsed) {
+        throw new AuthorizationError('You can only manage your own inbox workspace.');
+      }
       return parsed;
     }
   }
   throw new ValidationError('A valid userId is required to access the inbox workspace.');
+}
+
+function ensureObjectPayload(body, label) {
+  if (body == null) {
+    return {};
+  }
+  if (typeof body !== 'object' || Array.isArray(body)) {
+    throw new ValidationError(`${label} must be an object.`);
+  }
+  return JSON.parse(JSON.stringify(body));
+}
+
+function parsePositiveIdentifier(value, label) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new ValidationError(`${label} must be a positive integer.`);
+  }
+  return parsed;
+}
+
+function sanitizeReplyPayload(body = {}) {
+  const payload = ensureObjectPayload(body, 'saved reply');
+  if (payload.title != null) {
+    payload.title = String(payload.title).trim().slice(0, 200);
+  }
+  if (payload.body != null) {
+    payload.body = String(payload.body).trim();
+  }
+  if (payload.shortcuts != null) {
+    payload.shortcuts = Array.isArray(payload.shortcuts)
+      ? payload.shortcuts.map((shortcut) => String(shortcut).trim()).filter(Boolean)
+      : [];
+  }
+  return payload;
+}
+
+function sanitizeRulePayload(body = {}) {
+  const payload = ensureObjectPayload(body, 'routing rule');
+  if (payload.name != null) {
+    payload.name = String(payload.name).trim().slice(0, 160);
+  }
+  if (payload.conditions != null && !Array.isArray(payload.conditions)) {
+    throw new ValidationError('routing rule conditions must be an array.');
+  }
+  if (payload.actions != null && !Array.isArray(payload.actions)) {
+    throw new ValidationError('routing rule actions must be an array.');
+  }
+  return payload;
 }
 
 export async function workspace(req, res) {
@@ -40,47 +91,51 @@ export async function workspace(req, res) {
 
 export async function savePreferences(req, res) {
   const userId = resolveActorId(req);
-  const preferences = await updateInboxPreferences(userId, req.body ?? {});
+  const preferences = await updateInboxPreferences(userId, ensureObjectPayload(req.body, 'preferences update'));
   res.json(preferences);
 }
 
 export async function createReply(req, res) {
   const userId = resolveActorId(req);
-  const reply = await createSavedReply(userId, req.body ?? {});
+  const reply = await createSavedReply(userId, sanitizeReplyPayload(req.body));
   res.status(201).json(reply);
 }
 
 export async function updateReply(req, res) {
   const userId = resolveActorId(req);
   const { replyId } = req.params;
-  const reply = await updateSavedReply(userId, replyId, req.body ?? {});
+  const reply = await updateSavedReply(userId, parsePositiveIdentifier(replyId, 'replyId'), sanitizeReplyPayload(req.body));
   res.json(reply);
 }
 
 export async function removeReply(req, res) {
   const userId = resolveActorId(req);
   const { replyId } = req.params;
-  await deleteSavedReply(userId, replyId);
+  await deleteSavedReply(userId, parsePositiveIdentifier(replyId, 'replyId'));
   res.status(204).send();
 }
 
 export async function createRule(req, res) {
   const userId = resolveActorId(req);
-  const rule = await createRoutingRule(userId, req.body ?? {});
+  const rule = await createRoutingRule(userId, sanitizeRulePayload(req.body));
   res.status(201).json(rule);
 }
 
 export async function updateRule(req, res) {
   const userId = resolveActorId(req);
   const { ruleId } = req.params;
-  const rule = await updateRoutingRule(userId, ruleId, req.body ?? {});
+  const rule = await updateRoutingRule(
+    userId,
+    parsePositiveIdentifier(ruleId, 'ruleId'),
+    sanitizeRulePayload(req.body),
+  );
   res.json(rule);
 }
 
 export async function removeRule(req, res) {
   const userId = resolveActorId(req);
   const { ruleId } = req.params;
-  await deleteRoutingRule(userId, ruleId);
+  await deleteRoutingRule(userId, parsePositiveIdentifier(ruleId, 'ruleId'));
   res.status(204).send();
 }
 

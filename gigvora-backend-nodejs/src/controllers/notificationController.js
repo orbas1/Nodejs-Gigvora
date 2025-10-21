@@ -1,5 +1,6 @@
 import notificationService from '../services/notificationService.js';
-import { ValidationError } from '../utils/errors.js';
+import { AuthorizationError, ValidationError } from '../utils/errors.js';
+import { resolveRequestPermissions, resolveRequestUserId } from '../utils/requestContext.js';
 
 function normalizeUserId(value) {
   const numeric = Number.parseInt(value, 10);
@@ -7,6 +8,28 @@ function normalizeUserId(value) {
     throw new ValidationError('A valid userId is required.');
   }
   return numeric;
+}
+
+function ensureNotificationAccess(req, userId) {
+  const actorId = resolveRequestUserId(req);
+  const permissions = new Set(resolveRequestPermissions(req).map((permission) => permission.toLowerCase()));
+  const roles = Array.isArray(req.user?.roles) ? req.user.roles : [req.user?.role].filter(Boolean);
+  roles.map((role) => `${role}`.toLowerCase()).forEach((role) => permissions.add(role));
+
+  if (actorId && actorId === userId) {
+    return;
+  }
+
+  if (
+    permissions.has('admin') ||
+    permissions.has('notification.manage.any') ||
+    permissions.has('support') ||
+    permissions.has('support.manage.any')
+  ) {
+    return;
+  }
+
+  throw new AuthorizationError('You do not have permission to manage notifications for this user.');
 }
 
 function slugify(value, fallback = 'custom') {
@@ -74,6 +97,7 @@ function buildNotificationPayload(body, userId) {
 
 export async function listUserNotifications(req, res) {
   const userId = normalizeUserId(req.params.id);
+  ensureNotificationAccess(req, userId);
   const { status, category, page, pageSize } = req.query ?? {};
 
   const filters = {};
@@ -84,9 +108,17 @@ export async function listUserNotifications(req, res) {
     filters.category = category;
   }
 
+  const parsedPage = page ? Number.parseInt(page, 10) : 1;
+  const parsedPageSize = pageSize ? Number.parseInt(pageSize, 10) : 25;
+  if (!Number.isFinite(parsedPage) || parsedPage <= 0) {
+    throw new ValidationError('page must be a positive integer.');
+  }
+  if (!Number.isFinite(parsedPageSize) || parsedPageSize <= 0) {
+    throw new ValidationError('pageSize must be a positive integer.');
+  }
   const pagination = {
-    page: page ? Number.parseInt(page, 10) || 1 : 1,
-    pageSize: pageSize ? Number.parseInt(pageSize, 10) || 25 : 25,
+    page: parsedPage,
+    pageSize: Math.min(parsedPageSize, 100),
   };
 
   const [result, stats, preferences] = await Promise.all([
@@ -105,6 +137,7 @@ export async function listUserNotifications(req, res) {
 
 export async function createUserNotification(req, res) {
   const userId = normalizeUserId(req.params.id);
+  ensureNotificationAccess(req, userId);
   const payload = buildNotificationPayload(req.body ?? {}, userId);
   const bypassQuietHours = req.body?.sendDuringQuietHours === true;
 
@@ -118,6 +151,7 @@ export async function createUserNotification(req, res) {
 
 export async function updateUserNotification(req, res) {
   const userId = normalizeUserId(req.params.id);
+  ensureNotificationAccess(req, userId);
   const notificationId = Number.parseInt(req.params.notificationId, 10);
   if (!Number.isFinite(notificationId) || notificationId <= 0) {
     throw new ValidationError('notificationId must be a positive integer.');
@@ -140,12 +174,14 @@ export async function updateUserNotification(req, res) {
 
 export async function getUserNotificationPreferences(req, res) {
   const userId = normalizeUserId(req.params.id);
+  ensureNotificationAccess(req, userId);
   const preferences = await notificationService.getPreferences(userId);
   res.json(preferences);
 }
 
 export async function updateUserNotificationPreferences(req, res) {
   const userId = normalizeUserId(req.params.id);
+  ensureNotificationAccess(req, userId);
   const patch = req.body ?? {};
   const preferences = await notificationService.upsertPreferences(userId, patch);
   const stats = await notificationService.getStats(userId);
@@ -154,6 +190,7 @@ export async function updateUserNotificationPreferences(req, res) {
 
 export async function markAllUserNotificationsRead(req, res) {
   const userId = normalizeUserId(req.params.id);
+  ensureNotificationAccess(req, userId);
   const stats = await notificationService.markAllAsRead(userId);
   res.json({ stats });
 }
