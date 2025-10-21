@@ -298,14 +298,15 @@ export async function getWeatherSnapshot({
     appCache.delete(cacheKey);
   }
 
-  const payload = await appCache.remember(cacheKey, WEATHER_CACHE_TTL_SECONDS, async () => {
-    try {
-      return await fetchWeatherFromApi({ latitude: resolvedLatitude, longitude: resolvedLongitude, units: normalisedUnits });
-    } catch (error) {
-      logger.warn({ err: error, latitude: resolvedLatitude, longitude: resolvedLongitude }, 'Failed to load weather snapshot');
-      return null;
-    }
-  });
+  let payload;
+  try {
+    payload = await appCache.remember(cacheKey, WEATHER_CACHE_TTL_SECONDS, async () =>
+      fetchWeatherFromApi({ latitude: resolvedLatitude, longitude: resolvedLongitude, units: normalisedUnits })
+    );
+  } catch (error) {
+    logger.warn({ err: error, latitude: resolvedLatitude, longitude: resolvedLongitude }, 'Failed to load weather snapshot');
+    return null;
+  }
 
   if (!payload) {
     return null;
