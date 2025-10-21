@@ -5,17 +5,20 @@ import DataStatus from '../../components/DataStatus.jsx';
 import ProfileHubQuickPanel from '../../components/profileHub/ProfileHubQuickPanel.jsx';
 import UserDashboardOverviewSection from '../../components/userDashboard/UserDashboardOverviewSection.jsx';
 import ProfileSettingsSection from '../../components/profileSettings/ProfileSettingsSection.jsx';
-import ProjectGigManagementContainer from '../../components/projectGigManagement/ProjectGigManagementContainer.jsx';
 import EscrowManagementSection from '../../components/escrow/EscrowManagementSection.jsx';
-import WalletManagementSection from '../../components/wallet/WalletManagementSection.jsx';
 import UserMentoringSection from '../../components/mentoring/user/UserMentoringSection.jsx';
-import FinanceControlTowerFeature from '../../components/dashboard/FinanceControlTowerFeature.jsx';
 import UserDashboardQuickActions from '../../components/dashboard/UserDashboardQuickActions.jsx';
 import JobApplicationWorkspaceContainer from '../../components/jobApplications/JobApplicationWorkspaceContainer.jsx';
 import UserInterviewsSection from '../../components/dashboard/UserInterviewsSection.jsx';
 import UserCalendarSection from '../../components/calendar/UserCalendarSection.jsx';
 import SupportDeskPanel from '../../components/support/SupportDeskPanel.jsx';
 import UserProjectsWorkspace from './user/projects/UserProjectsWorkspace.jsx';
+import UserProjectWorkspaceSection from '../../components/dashboard/client/UserProjectWorkspaceSection.jsx';
+import UserGigWorkspaceSection from '../../components/dashboard/client/UserGigWorkspaceSection.jsx';
+import UserInboxSection from '../../components/dashboard/client/UserInboxSection.jsx';
+import UserWalletSection from '../../components/dashboard/client/UserWalletSection.jsx';
+import UserHubSection from '../../components/dashboard/client/UserHubSection.jsx';
+import UserMetricsSection from '../../components/dashboard/client/UserMetricsSection.jsx';
 import useSession from '../../hooks/useSession.js';
 import useCachedResource from '../../hooks/useCachedResource.js';
 import { fetchUserDashboard } from '../../services/userDashboard.js';
@@ -62,20 +65,32 @@ const MENU_SECTIONS = [
     ],
   },
   {
-    id: 'projects',
-    label: 'Projects & gigs',
+    id: 'client-operations',
+    label: 'Operations',
     items: [
       {
-        id: 'project-automation-section',
-        name: 'Project automation',
-        description: 'Launch projects, auto-match talent, and manage invites.',
-        sectionId: 'project-automation',
+        id: 'client-project-workspace',
+        name: 'Project workspace',
+        description: 'Provision projects, rituals, and risk controls.',
+        sectionId: 'client-project-workspace',
       },
       {
-        id: 'gig-management-section',
-        name: 'Gig workspaces',
-        description: 'Orders, submissions, and delivery tracking.',
-        sectionId: 'gig-management',
+        id: 'client-gig-workspace',
+        name: 'Gig workspace',
+        description: 'Orders, submissions, delivery, and reviews.',
+        sectionId: 'client-gig-workspace',
+      },
+      {
+        id: 'client-inbox',
+        name: 'Inbox',
+        description: 'Conversations, saved replies, and routing rules.',
+        sectionId: 'client-inbox',
+      },
+      {
+        id: 'client-wallet',
+        name: 'Wallet',
+        description: 'Treasury automation, ledgers, and payouts.',
+        sectionId: 'client-wallet',
       },
     ],
   },
@@ -92,18 +107,6 @@ const MENU_SECTIONS = [
     ],
   },
   {
-    id: 'finance-management',
-    label: 'Finance management',
-    items: [
-      {
-        id: 'finance-management-section',
-        name: 'Wallet & analytics',
-        description: 'Wallets, funding sources, and finance insights.',
-        sectionId: 'finance-management',
-      },
-    ],
-  },
-  {
     id: 'mentors-booked',
     label: 'Mentors booked',
     items: [
@@ -112,6 +115,24 @@ const MENU_SECTIONS = [
         name: 'Mentoring hub',
         description: 'Sessions, favourites, reviews, and packages.',
         sectionId: 'mentors-booked',
+      },
+    ],
+  },
+  {
+    id: 'client-intelligence',
+    label: 'Intelligence',
+    items: [
+      {
+        id: 'client-hub',
+        name: 'Hub',
+        description: 'Profile workspace, community moves, and brand assets.',
+        sectionId: 'client-hub',
+      },
+      {
+        id: 'client-metrics',
+        name: 'Metrics',
+        description: 'Delivery signals, health metrics, and activity.',
+        sectionId: 'client-metrics',
       },
     ],
   },
@@ -190,6 +211,8 @@ function UserDashboardPage() {
   const jobApplicationsWorkspace = data?.jobApplicationsWorkspace ?? null;
   const calendarInsights = data?.insights?.calendar ?? null;
   const supportDeskSnapshot = data?.insights?.supportDesk ?? null;
+  const communityManagement = data?.communityManagement ?? null;
+  const websitePreferences = data?.websitePreferences ?? null;
 
   const quickActionContext = useMemo(() => {
     const projects = normalizeArray(projectGigManagement.projects ?? projectGigManagement.workspaces);
@@ -323,27 +346,23 @@ function UserDashboardPage() {
 
           <UserInterviewsSection userId={userId} initialWorkspace={jobApplicationsWorkspace} />
 
-          <section id="project-automation" className="space-y-6">
-            <div className="flex flex-col gap-2">
-              <h2 className="text-3xl font-semibold text-slate-900">Project automation</h2>
-              <p className="text-sm text-slate-500">
-                Launch engagements, auto-match specialists, and coordinate invites without leaving the dashboard.
-              </p>
-            </div>
+          <UserProjectWorkspaceSection
+            userId={userId}
+            loading={loading}
+            error={error}
+            lastUpdated={lastUpdated}
+            fromCache={fromCache}
+            onRefresh={refresh}
+            session={session}
+          >
             <div className="rounded-3xl border border-slate-200 bg-white/95 p-4 shadow-sm sm:p-6">
               <UserProjectsWorkspace userId={userId} session={session} />
             </div>
-          </section>
+          </UserProjectWorkspaceSection>
 
-          <section id="gig-management" className="space-y-6">
-            <div className="flex flex-col gap-2">
-              <h2 className="text-3xl font-semibold text-slate-900">Gig management</h2>
-              <p className="text-sm text-slate-500">
-                Command fulfilment with full CRUD workflows for bids, orders, submissions, and reviews.
-              </p>
-            </div>
-            <ProjectGigManagementContainer userId={userId} />
-          </section>
+          <UserGigWorkspaceSection userId={userId} />
+
+          <UserInboxSection userId={userId} />
 
           <section id="escrow-management" className="space-y-6">
             <div className="flex flex-col gap-2">
@@ -355,16 +374,22 @@ function UserDashboardPage() {
             <EscrowManagementSection userId={userId} data={escrowManagement} onRefresh={refresh} />
           </section>
 
-          <section id="finance-management" className="space-y-6">
-            <div className="flex flex-col gap-2">
-              <h2 className="text-3xl font-semibold text-slate-900">Finance management</h2>
-              <p className="text-sm text-slate-500">
-                Manage wallets, funding sources, analytics, and treasury automations confidently.
-              </p>
-            </div>
-            <WalletManagementSection userId={userId} />
-            <FinanceControlTowerFeature userId={userId} currency={quickActionMetrics.walletCurrency} />
-          </section>
+          <UserWalletSection userId={userId} currency={quickActionMetrics.walletCurrency} />
+
+          <UserHubSection
+            profileOverview={profile}
+            profileHub={profileHub}
+            mentoring={mentoring}
+            community={communityManagement}
+            websitePreferences={websitePreferences}
+          />
+
+          <UserMetricsSection
+            metrics={data?.metrics ?? {}}
+            quickMetrics={quickActionMetrics}
+            activity={activity}
+            currency={quickActionMetrics.walletCurrency}
+          />
 
           <section id="mentors-booked" className="space-y-6">
             <div className="flex flex-col gap-2">

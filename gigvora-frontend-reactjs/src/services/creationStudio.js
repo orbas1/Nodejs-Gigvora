@@ -134,6 +134,13 @@ export function publishCreationStudioItem(itemId, payload = {}, options = {}) {
   return apiClient.post(`/creation-studio/items/${itemId}/publish`, payload, options);
 }
 
+export function deleteCreationStudioItem(itemId, options = {}) {
+  if (!itemId) {
+    throw new Error('itemId is required to delete a creation studio item.');
+  }
+  return apiClient.delete(`/creation-studio/items/${itemId}`, options);
+}
+
 export default {
   fetchCompanyCreationStudioOverview,
   fetchCompanyCreationStudioItems,
@@ -155,6 +162,33 @@ export default {
   deleteCreationStudioItem,
 };
 
+const companyCreationStudio = {
+  fetchCompanyCreationStudioOverview,
+  fetchCompanyCreationStudioItems,
+  createCompanyCreationStudioItem,
+  updateCompanyCreationStudioItem,
+  publishCompanyCreationStudioItem,
+  deleteCompanyCreationStudioItem,
+};
+
+const userCreationStudio = {
+  fetchCreationWorkspace,
+  createCreationItem,
+  updateCreationItem,
+  saveCreationStep,
+  shareCreationItem,
+  archiveCreationItem,
+};
+
+const communityCreationStudio = {
+  listCreationStudioItems,
+  getCreationStudioItem,
+  createCreationStudioItem,
+  updateCreationStudioItem,
+  publishCreationStudioItem,
+  deleteCreationStudioItem,
+};
+
 export const creationStudioService = {
   ...companyCreationStudio,
   ...userCreationStudio,
@@ -163,5 +197,3 @@ export const creationStudioService = {
   user: userCreationStudio,
   community: communityCreationStudio,
 };
-
-export default creationStudioService;
