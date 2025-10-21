@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { useState } from 'react';
 
 function normalizeUnique(values = []) {
@@ -112,3 +113,13 @@ export default function TagInput({
     </div>
   );
 }
+
+TagInput.propTypes = {
+  label: PropTypes.node,
+  items: PropTypes.arrayOf(PropTypes.string),
+  onChange: PropTypes.func.isRequired,
+  placeholder: PropTypes.string,
+  description: PropTypes.node,
+  addButtonLabel: PropTypes.string,
+  disabled: PropTypes.bool,
+};
