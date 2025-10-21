@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import useSession from '../../hooks/useSession.js';
 import useCachedResource from '../../hooks/useCachedResource.js';
 import {
@@ -20,6 +21,8 @@ const TABS = [
   { id: 'matches', label: 'Matches' },
   { id: 'history', label: 'History' },
 ];
+
+const ALLOWED_ROLES = ['freelancer'];
 
 function useFreelancerId(session) {
   if (!session) return null;
@@ -120,109 +123,111 @@ export default function FreelancerAutoMatchPage() {
   ];
 
   return (
-    <DashboardLayout
-      currentDashboard="freelancer"
-      title="Auto match"
-      subtitle="Availability and queue"
-      menuSections={MENU_GROUPS}
-      availableDashboards={AVAILABLE_DASHBOARDS}
-      activeMenuItem="auto"
-      onMenuItemSelect={handleMenuSelect}
-    >
-      <div className="mx-auto w-full max-w-6xl space-y-8 px-6 py-10">
-        <section className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-soft">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-semibold text-slate-900">Auto match</h1>
-              <p className="text-sm text-slate-500">Fast actions for invites</p>
+    <DashboardAccessGuard requiredRoles={ALLOWED_ROLES}>
+      <DashboardLayout
+        currentDashboard="freelancer"
+        title="Auto match"
+        subtitle="Availability and queue"
+        menuSections={MENU_GROUPS}
+        availableDashboards={AVAILABLE_DASHBOARDS}
+        activeMenuItem="auto"
+        onMenuItemSelect={handleMenuSelect}
+      >
+        <div className="mx-auto w-full max-w-6xl space-y-8 px-6 py-10">
+          <section className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-soft">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h1 className="text-2xl font-semibold text-slate-900">Auto match</h1>
+                <p className="text-sm text-slate-500">Fast actions for invites</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {summaryChips.map((chip) => {
+                  const formattedValue =
+                    typeof chip.value === 'number'
+                      ? chip.label === 'Accept %'
+                        ? `${Math.round(chip.value)}%`
+                        : chip.value
+                      : '—';
+                  return (
+                    <span
+                      key={chip.label}
+                      className="inline-flex min-w-[4.5rem] items-center justify-center rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700"
+                    >
+                      <span className="text-slate-400">{chip.label}</span>
+                      <span className="ml-2 text-slate-900">{formattedValue}</span>
+                    </span>
+                  );
+                })}
+              </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              {summaryChips.map((chip) => {
-                const formattedValue =
-                  typeof chip.value === 'number'
-                    ? chip.label === 'Accept %'
-                      ? `${Math.round(chip.value)}%`
-                      : chip.value
-                    : '—';
+              {TABS.map((item) => {
+                const isActive = tab === item.id;
                 return (
-                  <span
-                    key={chip.label}
-                    className="inline-flex min-w-[4.5rem] items-center justify-center rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700"
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setTab(item.id)}
+                    className={`rounded-full px-4 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-blue-200 ${
+                      isActive ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-blue-100 hover:text-blue-700'
+                    }`}
                   >
-                    <span className="text-slate-400">{chip.label}</span>
-                    <span className="ml-2 text-slate-900">{formattedValue}</span>
-                  </span>
+                    {item.label}
+                  </button>
                 );
               })}
             </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {TABS.map((item) => {
-              const isActive = tab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setTab(item.id)}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-blue-200 ${
-                    isActive ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-blue-100 hover:text-blue-700'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              );
-            })}
-          </div>
-        </section>
+          </section>
 
-        {freelancerId ? (
-          <>
-            {tab === 'overview' ? (
-              <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-                <OverviewPanel
-                  summary={overview?.summary}
-                  stats={overview?.stats}
-                  preference={overview?.preference}
-                  onToggleAvailability={handleToggleAvailability}
-                  loading={overviewLoading}
-                  error={overviewError}
-                  onRefresh={() => refreshOverview({ force: true })}
-                  lastUpdated={overviewUpdatedAt}
+          {freelancerId ? (
+            <>
+              {tab === 'overview' ? (
+                <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+                  <OverviewPanel
+                    summary={overview?.summary}
+                    stats={overview?.stats}
+                    preference={overview?.preference}
+                    onToggleAvailability={handleToggleAvailability}
+                    loading={overviewLoading}
+                    error={overviewError}
+                    onRefresh={() => refreshOverview({ force: true })}
+                    lastUpdated={overviewUpdatedAt}
+                  />
+                  <AvailabilityWizard
+                    preference={overview?.preference}
+                    onSubmit={handleSavePreferences}
+                    saving={saving}
+                    disabled={overviewLoading}
+                  />
+                </div>
+              ) : null}
+
+              {tab === 'matches' ? (
+                <MatchBoard
+                  entries={entries}
+                  loading={matchesLoading}
+                  error={matchesError}
+                  onRefresh={() => refreshMatches({ force: true })}
+                  onRespond={handleRespond}
                 />
-                <AvailabilityWizard
-                  preference={overview?.preference}
-                  onSubmit={handleSavePreferences}
-                  saving={saving}
-                  disabled={overviewLoading}
+              ) : null}
+
+              {tab === 'history' ? (
+                <ResponseHistory
+                  entries={entries}
+                  loading={matchesLoading}
+                  error={matchesError}
+                  onRefresh={() => refreshMatches({ force: true })}
                 />
-              </div>
-            ) : null}
-
-            {tab === 'matches' ? (
-              <MatchBoard
-                entries={entries}
-                loading={matchesLoading}
-                error={matchesError}
-                onRefresh={() => refreshMatches({ force: true })}
-                onRespond={handleRespond}
-              />
-            ) : null}
-
-            {tab === 'history' ? (
-              <ResponseHistory
-                entries={entries}
-                loading={matchesLoading}
-                error={matchesError}
-                onRefresh={() => refreshMatches({ force: true })}
-              />
-            ) : null}
-          </>
-        ) : (
-          <div className="rounded-3xl border border-amber-200 bg-amber-50 px-6 py-8 text-sm text-amber-700">
-            Freelancer profile not found.
-          </div>
-        )}
-      </div>
-    </DashboardLayout>
+              ) : null}
+            </>
+          ) : (
+            <div className="rounded-3xl border border-amber-200 bg-amber-50 px-6 py-8 text-sm text-amber-700">
+              Freelancer profile not found.
+            </div>
+          )}
+        </div>
+      </DashboardLayout>
+    </DashboardAccessGuard>
   );
 }

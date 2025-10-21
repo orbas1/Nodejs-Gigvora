@@ -11,6 +11,7 @@ import {
   UserCircleIcon,
 } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import useSession from '../../hooks/useSession.js';
 import useCachedResource from '../../hooks/useCachedResource.js';
 import useFreelancerProfileOverview from '../../hooks/useFreelancerProfileOverview.js';
@@ -134,6 +135,8 @@ const MENU_SECTIONS = [
   },
 ];
 
+const ALLOWED_ROLES = ['freelancer'];
+
 export default function FreelancerDashboardPage() {
   const { session } = useSession();
   const freelancerId = useMemo(() => resolveFreelancerId(session), [session]);
@@ -189,15 +192,16 @@ export default function FreelancerDashboardPage() {
   );
 
   return (
-    <DashboardLayout
-      currentDashboard="freelancer"
-      title="Freelancer mission control"
-      subtitle="Signals, revenue, and relationships"
-      description="Keep your Gigvora career in flow with a personalised control centre for operations, growth, and support."
-      menuSections={MENU_SECTIONS}
-      availableDashboards={AVAILABLE_DASHBOARDS}
-      activeMenuItem="mission-control"
-    >
+    <DashboardAccessGuard requiredRoles={ALLOWED_ROLES}>
+      <DashboardLayout
+        currentDashboard="freelancer"
+        title="Freelancer mission control"
+        subtitle="Signals, revenue, and relationships"
+        description="Keep your Gigvora career in flow with a personalised control centre for operations, growth, and support."
+        menuSections={MENU_SECTIONS}
+        availableDashboards={AVAILABLE_DASHBOARDS}
+        activeMenuItem="mission-control"
+      >
       <div className="mx-auto w-full max-w-7xl space-y-16 px-6 py-10">
         <OverviewSection
           overview={overviewData}
@@ -233,6 +237,7 @@ export default function FreelancerDashboardPage() {
         <SupportSection />
         <FreelancerWalletSection />
       </div>
-    </DashboardLayout>
+      </DashboardLayout>
+    </DashboardAccessGuard>
   );
 }

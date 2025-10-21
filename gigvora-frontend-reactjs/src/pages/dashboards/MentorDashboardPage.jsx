@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
+import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import { MENU_GROUPS, AVAILABLE_DASHBOARDS } from './mentor/menuConfig.js';
 import { DEFAULT_PROFILE, DEFAULT_DASHBOARD } from './mentor/sampleData.js';
 import {
@@ -103,6 +104,8 @@ const SECTION_COMPONENTS = {
   orders: MentorOrdersSection,
   ads: MentorAdsSection,
 };
+
+const ALLOWED_ROLES = ['mentor'];
 
 export default function MentorDashboardPage() {
   const [activeSection, setActiveSection] = useState('home-overview');
@@ -1347,17 +1350,18 @@ export default function MentorDashboardPage() {
   };
 
   return (
-    <DashboardLayout
-      currentDashboard="mentor"
-      title="Mentor mission control"
-      subtitle="Manage bookings, packages, and Explorer visibility"
-      description="A dedicated workspace for mentors to orchestrate sessions, automate rituals, and grow mentorship revenue."
-      menuSections={menuSections}
-      profile={profile}
-      availableDashboards={AVAILABLE_DASHBOARDS}
-      activeMenuItem={activeSection}
-      onMenuItemSelect={(itemId) => setActiveSection(itemId)}
-    >
+    <DashboardAccessGuard requiredRoles={ALLOWED_ROLES}>
+      <DashboardLayout
+        currentDashboard="mentor"
+        title="Mentor mission control"
+        subtitle="Manage bookings, packages, and Explorer visibility"
+        description="A dedicated workspace for mentors to orchestrate sessions, automate rituals, and grow mentorship revenue."
+        menuSections={menuSections}
+        profile={profile}
+        availableDashboards={AVAILABLE_DASHBOARDS}
+        activeMenuItem={activeSection}
+        onMenuItemSelect={(itemId) => setActiveSection(itemId)}
+      >
       <div className="mx-auto w-full max-w-6xl space-y-12 px-6 py-10">
         {error ? (
           <div className="rounded-3xl border border-rose-200 bg-rose-50 px-5 py-3 text-sm text-rose-700">
@@ -1382,6 +1386,7 @@ export default function MentorDashboardPage() {
         ) : null}
         {renderSection()}
       </div>
-    </DashboardLayout>
+      </DashboardLayout>
+    </DashboardAccessGuard>
   );
 }
