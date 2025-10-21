@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import PropTypes from 'prop-types';
 import { ArrowUpRightIcon, ArrowDownIcon, ArrowUturnLeftIcon, PlusIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 const TRANSACTION_TYPES = [
@@ -63,6 +64,19 @@ function SlideOut({ open, title, onClose, children, footer }) {
     </div>
   );
 }
+
+SlideOut.propTypes = {
+  open: PropTypes.bool.isRequired,
+  title: PropTypes.string.isRequired,
+  onClose: PropTypes.func.isRequired,
+  children: PropTypes.node,
+  footer: PropTypes.node,
+};
+
+SlideOut.defaultProps = {
+  children: null,
+  footer: null,
+};
 
 export default function EscrowTransactionsPanel({
   transactions,
@@ -511,3 +525,43 @@ export default function EscrowTransactionsPanel({
     </div>
   );
 }
+
+EscrowTransactionsPanel.propTypes = {
+  transactions: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+      reference: PropTypes.string.isRequired,
+      amount: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      feeAmount: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      currencyCode: PropTypes.string,
+      status: PropTypes.string,
+    }),
+  ),
+  releaseQueue: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+      reference: PropTypes.string.isRequired,
+      amount: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      currencyCode: PropTypes.string,
+      status: PropTypes.string,
+    }),
+  ),
+  accounts: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+      label: PropTypes.string,
+      currencyCode: PropTypes.string,
+    }),
+  ),
+  onInitiate: PropTypes.func.isRequired,
+  onRelease: PropTypes.func.isRequired,
+  onRefund: PropTypes.func.isRequired,
+  currentUserId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+};
+
+EscrowTransactionsPanel.defaultProps = {
+  transactions: [],
+  releaseQueue: [],
+  accounts: [],
+  currentUserId: null,
+};

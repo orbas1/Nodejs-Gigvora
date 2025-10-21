@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import PropTypes from 'prop-types';
 import { BanknotesIcon, PlusIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 const PROVIDERS = [
@@ -66,6 +67,21 @@ function SlideOut({ open, title, icon: Icon, onClose, children, footer }) {
     </div>
   );
 }
+
+SlideOut.propTypes = {
+  open: PropTypes.bool.isRequired,
+  title: PropTypes.string.isRequired,
+  icon: PropTypes.elementType,
+  onClose: PropTypes.func.isRequired,
+  children: PropTypes.node,
+  footer: PropTypes.node,
+};
+
+SlideOut.defaultProps = {
+  icon: null,
+  children: null,
+  footer: null,
+};
 
 export default function EscrowAccountsPanel({ accounts, members, onCreate, onUpdate }) {
   const memberOptions = useMemo(() => normaliseMembers(members), [members]);
@@ -468,3 +484,39 @@ export default function EscrowAccountsPanel({ accounts, members, onCreate, onUpd
     </div>
   );
 }
+
+EscrowAccountsPanel.propTypes = {
+  accounts: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+      label: PropTypes.string,
+      status: PropTypes.string,
+      provider: PropTypes.string,
+      currencyCode: PropTypes.string,
+      currentBalance: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      pendingReleaseTotal: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      logoUrl: PropTypes.string,
+      owner: PropTypes.shape({
+        name: PropTypes.string,
+      }),
+    }),
+  ),
+  members: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      user: PropTypes.shape({
+        id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+        name: PropTypes.string,
+        email: PropTypes.string,
+      }),
+      role: PropTypes.string,
+    }),
+  ),
+  onCreate: PropTypes.func.isRequired,
+  onUpdate: PropTypes.func.isRequired,
+};
+
+EscrowAccountsPanel.defaultProps = {
+  accounts: [],
+  members: [],
+};
