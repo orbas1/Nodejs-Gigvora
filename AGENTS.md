@@ -55,11 +55,11 @@
 50. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — newsAggregationService helpers strips html and decodes entities: TypeError sequelize.define is not a function.
 
 ## Group 3 (Items 51-58)
-51. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — newsAggregationService helpers normalises Guardian articles to internal schema: TypeError sequelize.define is not a function.
-52. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — notificationService helpers detects quiet hours based on timezone awareness: TypeError sequelize.define is not a function.
-53. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — notificationService helpers computes delivery channels with safe defaults: TypeError sequelize.define is not a function.
-54. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — pageService helpers normalizes post visibility and rejects invalid entries: TypeError sequelize.define is not a function.
-55. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — pageService helpers summarises page metadata and membership stats: TypeError sequelize.define is not a function.
-56. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — pageSettingsService helpers sanitises sections and removes invalid entries: TypeError sequelize.define is not a function.
-57. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — pageSettingsService helpers builds payload merging defaults: TypeError sequelize.define is not a function.
+51. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — newsAggregationService helpers normalises Guardian articles to internal schema: TypeError sequelize.define is not a function.
+52. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — notificationService helpers detects quiet hours based on timezone awareness: TypeError sequelize.define is not a function.
+53. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — notificationService helpers computes delivery channels with safe defaults: TypeError sequelize.define is not a function.
+54. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — pageService helpers normalizes post visibility and rejects invalid entries: TypeError sequelize.define is not a function.
+55. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — pageService helpers summarises page metadata and membership stats: TypeError sequelize.define is not a function.
+56. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — pageSettingsService helpers sanitises sections and removes invalid entries: TypeError sequelize.define is not a function.
+57. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — pageSettingsService helpers builds payload merging defaults: TypeError sequelize.define is not a function.
 58. [ ] `melos run ci:verify` — command failed to start because the `melos` CLI is not installed in the environment (bash reported "command not found: melos").

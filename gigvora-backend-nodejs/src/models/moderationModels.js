@@ -2,8 +2,22 @@ import { DataTypes } from 'sequelize';
 import sequelize from './sequelizeClient.js';
 
 export { sequelize } from './sequelizeClient.js';
+import * as messagingModels from './messagingModels.js';
+import sequelizeClient from './sequelizeClient.js';
 
-const dialect = sequelize.getDialect();
+// messagingModels re-exports the shared sequelize instance, but test suites
+// often stub the module with lightweight objects that only provide the bits
+// they need (for example just a `getDialect` implementation). In those
+// scenarios, attempting to call `.define` on the mocked value throws. We fall
+// back to the raw client instance so model definition still succeeds during
+// tests while continuing to share the same connection in production.
+const messagingSequelize =
+  messagingModels?.sequelize && typeof messagingModels.sequelize.define === 'function'
+    ? messagingModels.sequelize
+    : sequelizeClient;
+
+const sequelize = messagingSequelize;
+const dialect = typeof sequelize.getDialect === 'function' ? sequelize.getDialect() : 'postgres';
 const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB : DataTypes.JSON;
 
 export const ModerationEventActions = [
