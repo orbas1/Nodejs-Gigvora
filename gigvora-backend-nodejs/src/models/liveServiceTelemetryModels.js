@@ -1,5 +1,7 @@
 import { DataTypes } from 'sequelize';
-import { sequelize } from './messagingModels.js';
+import sequelize from './sequelizeClient.js';
+
+export { sequelize } from './sequelizeClient.js';
 
 const jsonType = ['postgres', 'postgresql'].includes(sequelize.getDialect()) ? DataTypes.JSONB : DataTypes.JSON;
 
