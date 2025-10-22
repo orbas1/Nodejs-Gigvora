@@ -1,4 +1,7 @@
 import { DataTypes } from 'sequelize';
+import sequelize from './sequelizeClient.js';
+
+export { sequelize } from './sequelizeClient.js';
 import * as messagingModels from './messagingModels.js';
 import sequelizeClient from './sequelizeClient.js';
 

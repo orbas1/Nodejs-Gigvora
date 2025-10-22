@@ -162,12 +162,19 @@ module.exports = {
           allowNull: false,
           defaultValue: 'open',
         },
-        connectionPolicy: {
+        { transaction },
+      );
+
+      await queryInterface.addColumn(
+        table,
+        'connectionPolicy',
+        {
           type: Sequelize.ENUM('open', 'invite_only', 'manual_review'),
           allowNull: false,
           defaultValue: 'open',
         },
-      });
+        { transaction },
+      );
     });
   },
 

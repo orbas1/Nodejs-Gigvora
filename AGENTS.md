@@ -28,31 +28,31 @@
 25. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31Services.test.js` — service index exports includes key domain services for the collaboration suite: The requested module '../models/index.js' does not provide an export named 'UserRole'.
 
 ## Group 2 (Items 26-50)
-26. [ ] `gigvora-backend-nodejs/tests/migrations/agencyProfileMigrations.test.js` — Agency profile migrations applies and rolls back the agency profile expansion safely across dialects: Jest encountered an unexpected token in 20240915113000-agency-profile-expansion.cjs.
-27. [ ] `gigvora-backend-nodejs/tests/migrations/agencyProfileMigrations.test.js` — Agency profile migrations runs management migration after expansion without duplicating schema artifacts: Jest encountered an unexpected token in 20240915113000-agency-profile-expansion.cjs.
-28. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — gigService helpers normalizes gig payloads with packages and availability: TypeError sequelize.define is not a function.
-29. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — gigService helpers rejects invalid highlight payloads: TypeError sequelize.define is not a function.
-30. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — groupService helpers computes engagement score using blueprint defaults: TypeError sequelize.define is not a function.
-31. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — groupService helpers ensures minutesFromNow returns ISO strings: TypeError sequelize.define is not a function.
-32. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — headhunterService helpers summarises pipeline activity and decision velocity: TypeError sequelize.define is not a function.
-33. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — headhunterService helpers builds candidate spotlight with recent touchpoints: TypeError sequelize.define is not a function.
-34. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — inboxWorkspaceService helpers normalizes working hours while preserving defaults: TypeError sequelize.define is not a function.
-35. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — inboxWorkspaceService helpers returns default preferences when missing: TypeError sequelize.define is not a function.
-36. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — jobApplicationService helpers prevents unsupported statuses: TypeError sequelize.define is not a function.
-37. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — jobApplicationService helpers extracts application detail with derived metadata: TypeError sequelize.define is not a function.
-38. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — launchpadService helpers normalises skills from comma separated strings: TypeError sequelize.define is not a function.
-39. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — launchpadService helpers evaluates candidate readiness with portfolio weighting: TypeError sequelize.define is not a function.
-40. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — learningHubService helpers sanitizes courses and sorts modules by sequence: TypeError sequelize.define is not a function.
-41. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — learningHubService helpers computes renewal insights for upcoming certifications: TypeError sequelize.define is not a function.
-42. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — legalPolicyService helpers normalizes keyword arrays and removes duplicates: TypeError sequelize.define is not a function.
-43. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — legalPolicyService helpers resolves document status based on versions: TypeError sequelize.define is not a function.
-44. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — liveServiceTelemetryService helpers coerces window minutes within bounds: TypeError sequelize.define is not a function.
-45. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — liveServiceTelemetryService helpers builds incident signals with severity escalation: TypeError sequelize.define is not a function.
-46. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — mentorshipService helpers validates availability slots and enforces overlap rules: TypeError sequelize.define is not a function.
-47. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — mentorshipService helpers parses package price and enforces upper limits: TypeError sequelize.define is not a function.
-48. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — networkingService helpers creates stable slugs with fallback: TypeError sequelize.define is not a function.
-49. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — networkingService helpers infers session length from start and end time: TypeError sequelize.define is not a function.
-50. [ ] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — newsAggregationService helpers strips html and decodes entities: TypeError sequelize.define is not a function.
+26. [x] `gigvora-backend-nodejs/tests/migrations/agencyProfileMigrations.test.js` — Agency profile migrations applies and rolls back the agency profile expansion safely across dialects: Jest encountered an unexpected token in 20240915113000-agency-profile-expansion.cjs.
+27. [x] `gigvora-backend-nodejs/tests/migrations/agencyProfileMigrations.test.js` — Agency profile migrations runs management migration after expansion without duplicating schema artifacts: Jest encountered an unexpected token in 20240915113000-agency-profile-expansion.cjs.
+28. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — gigService helpers normalizes gig payloads with packages and availability: TypeError sequelize.define is not a function.
+29. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — gigService helpers rejects invalid highlight payloads: TypeError sequelize.define is not a function.
+30. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — groupService helpers computes engagement score using blueprint defaults: TypeError sequelize.define is not a function.
+31. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — groupService helpers ensures minutesFromNow returns ISO strings: TypeError sequelize.define is not a function.
+32. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — headhunterService helpers summarises pipeline activity and decision velocity: TypeError sequelize.define is not a function.
+33. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — headhunterService helpers builds candidate spotlight with recent touchpoints: TypeError sequelize.define is not a function.
+34. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — inboxWorkspaceService helpers normalizes working hours while preserving defaults: TypeError sequelize.define is not a function.
+35. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — inboxWorkspaceService helpers returns default preferences when missing: TypeError sequelize.define is not a function.
+36. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — jobApplicationService helpers prevents unsupported statuses: TypeError sequelize.define is not a function.
+37. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — jobApplicationService helpers extracts application detail with derived metadata: TypeError sequelize.define is not a function.
+38. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — launchpadService helpers normalises skills from comma separated strings: TypeError sequelize.define is not a function.
+39. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — launchpadService helpers evaluates candidate readiness with portfolio weighting: TypeError sequelize.define is not a function.
+40. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — learningHubService helpers sanitizes courses and sorts modules by sequence: TypeError sequelize.define is not a function.
+41. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — learningHubService helpers computes renewal insights for upcoming certifications: TypeError sequelize.define is not a function.
+42. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — legalPolicyService helpers normalizes keyword arrays and removes duplicates: TypeError sequelize.define is not a function.
+43. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — legalPolicyService helpers resolves document status based on versions: TypeError sequelize.define is not a function.
+44. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — liveServiceTelemetryService helpers coerces window minutes within bounds: TypeError sequelize.define is not a function.
+45. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — liveServiceTelemetryService helpers builds incident signals with severity escalation: TypeError sequelize.define is not a function.
+46. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — mentorshipService helpers validates availability slots and enforces overlap rules: TypeError sequelize.define is not a function.
+47. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — mentorshipService helpers parses package price and enforces upper limits: TypeError sequelize.define is not a function.
+48. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — networkingService helpers creates stable slugs with fallback: TypeError sequelize.define is not a function.
+49. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — networkingService helpers infers session length from start and end time: TypeError sequelize.define is not a function.
+50. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — newsAggregationService helpers strips html and decodes entities: TypeError sequelize.define is not a function.
 
 ## Group 3 (Items 51-58)
 51. [x] `gigvora-backend-nodejs/src/services/__tests__/group31CoreLogic.test.js` — newsAggregationService helpers normalises Guardian articles to internal schema: TypeError sequelize.define is not a function.

@@ -17,17 +17,10 @@ async function removeColumnIfExists(queryInterface, transaction, table, column) 
   const columns = await queryInterface.describeTable(table, { transaction });
   if (columns[column]) {
     await queryInterface.removeColumn(table, column, { transaction });
-const resolveJsonType = (queryInterface, Sequelize) => {
-  const dialect = queryInterface.sequelize.getDialect();
-  return ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
-};
-
-async function addColumnIfMissing(queryInterface, transaction, table, columnName, columnDefinition) {
-  const definition = await queryInterface.describeTable(table, { transaction });
-  if (!definition[columnName]) {
-    await queryInterface.addColumn(table, columnName, columnDefinition, { transaction });
   }
 }
+
+
 
 module.exports = {
   async up(queryInterface, Sequelize) {
@@ -44,13 +37,6 @@ module.exports = {
         { type: Sequelize.TEXT, allowNull: true },
         columns,
       );
-      const jsonType = resolveJsonType(queryInterface, Sequelize);
-
-      await addColumnIfMissing(queryInterface, transaction, agencyProfilesTable, 'description', {
-        type: Sequelize.TEXT,
-        allowNull: true,
-      });
-
       await ensureColumn(
         queryInterface,
         transaction,
