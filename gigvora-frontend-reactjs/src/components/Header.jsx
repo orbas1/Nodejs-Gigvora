@@ -131,7 +131,7 @@ const INBOX_PREVIEW_THREADS = [
   },
   {
     id: 'thread-support',
-    title: 'Support · Chatwoot desk',
+    title: 'Support desk',
     snippet: 'Helena: “Your help centre access has been upgraded to steward tier.”',
     updatedAt: '2024-05-20T18:05:00Z',
   },

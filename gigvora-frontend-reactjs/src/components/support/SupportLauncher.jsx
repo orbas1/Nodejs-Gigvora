@@ -1,6 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
-import { PaperAirplaneIcon, ChatBubbleBottomCenterTextIcon, XMarkIcon, LifebuoyIcon } from '@heroicons/react/24/outline';
+import {
+  PaperAirplaneIcon,
+  ChatBubbleBottomCenterTextIcon,
+  XMarkIcon,
+  LifebuoyIcon,
+  ArrowLeftIcon,
+} from '@heroicons/react/24/outline';
 import useLocalCollection from '../../hooks/useLocalCollection.js';
 import randomId from '../../utils/randomId.js';
 import { formatRelativeTime } from '../../utils/date.js';
@@ -105,10 +111,17 @@ export default function SupportLauncher({ replyDelayMs = 1200 }) {
     seed: SEED_CONVERSATIONS,
   });
   const [open, setOpen] = useState(false);
-  const [activeContactId, setActiveContactId] = useState(SUPPORT_CONTACTS[0]?.id ?? null);
+  const [activeContactId, setActiveContactId] = useState(null);
   const [message, setMessage] = useState('');
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState('chat');
+  const [panelView, setPanelView] = useState('list');
+
+  useEffect(() => {
+    if (!open) {
+      setPanelView('list');
+    }
+  }, [open]);
 
   const activeConversation = useMemo(() => {
     const existing = conversations.find((conversation) => conversation.id === activeContactId);
@@ -164,14 +177,17 @@ export default function SupportLauncher({ replyDelayMs = 1200 }) {
     }, Math.max(0, replyDelayMs));
   };
 
+  const headerLabel = activeTab === 'help' ? 'Gigvora support' : 'Inbox';
+  const headerSubtitle = activeTab === 'help' ? 'How can we help?' : 'Messages & updates';
+
   return (
-    <div className="fixed bottom-6 right-6 z-[60] flex flex-col items-end gap-4">
+    <div className="fixed bottom-6 right-6 z-[60] flex flex-col items-end gap-4 max-sm:bottom-4 max-sm:right-4">
       {open ? (
-        <div className="w-[360px] overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-2xl">
+        <div className="w-[360px] max-w-[min(100vw-2rem,420px)] overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-2xl">
           <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-900 px-4 py-3 text-white">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-white/70">Gigvora support</p>
-              <p className="text-sm font-semibold">How can we help?</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-white/70">{headerLabel}</p>
+              <p className="text-sm font-semibold">{headerSubtitle}</p>
             </div>
             <button
               type="button"
@@ -185,17 +201,23 @@ export default function SupportLauncher({ replyDelayMs = 1200 }) {
           <div className="flex border-b border-slate-200">
             <button
               type="button"
-              onClick={() => setActiveTab('chat')}
+              onClick={() => {
+                setActiveTab('chat');
+                setPanelView(activeContactId ? 'conversation' : 'list');
+              }}
               className={classNames(
                 'flex-1 px-4 py-3 text-sm font-semibold transition',
                 activeTab === 'chat' ? 'text-accent border-b-2 border-accent' : 'text-slate-500 hover:text-slate-700',
               )}
             >
-              Community chat
+              Inbox
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab('help')}
+              onClick={() => {
+                setActiveTab('help');
+                setPanelView('list');
+              }}
               className={classNames(
                 'flex-1 px-4 py-3 text-sm font-semibold transition',
                 activeTab === 'help' ? 'text-accent border-b-2 border-accent' : 'text-slate-500 hover:text-slate-700',
@@ -208,8 +230,8 @@ export default function SupportLauncher({ replyDelayMs = 1200 }) {
           {activeTab === 'help' ? (
             <div className="space-y-4 px-4 py-5 text-sm text-slate-600">
               <p>
-                Explore step-by-step guides, onboarding wizards, and release notes in the Gigvora help centre. The help desk is
-                powered by Chatwoot and staffed 24/7.
+                Explore step-by-step guides, onboarding wizards, and release notes in the Gigvora help centre. Live agents take
+                over as soon as you launch a conversation.
               </p>
               <a
                 href="https://support.edulure.com"
@@ -220,71 +242,93 @@ export default function SupportLauncher({ replyDelayMs = 1200 }) {
                 <LifebuoyIcon className="h-4 w-4" /> Visit help centre ↗
               </a>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500">
-                <p className="font-semibold text-slate-700">Chatwoot workspace</p>
+                <p className="font-semibold text-slate-700">Human support coverage</p>
                 <p className="mt-2">
-                  For live agents, ping us via the help centre chat bubble — you will be routed to the right queue instantly.
+                  Our live desk routes every ticket to the right team instantly — operations, finance, and community each watch
+                  their own queue 24/7.
                 </p>
               </div>
             </div>
           ) : (
-            <div className="flex h-[420px] divide-x divide-slate-200">
-              <div className="flex w-40 flex-col border-r border-slate-200">
-                <div className="p-3">
-                  <input
-                    type="search"
-                    placeholder="Search contacts"
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    className="w-full rounded-full border border-slate-200 px-3 py-1.5 text-xs text-slate-600 shadow-inner focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                  />
-                </div>
-                <div className="flex-1 space-y-2 overflow-y-auto px-3 pb-3">
-                  {filteredContacts.map((contact) => {
-                    const conversation = conversations.find((entry) => entry.id === contact.id);
-                    const unread = conversation?.messages?.filter((msg) => msg.direction === 'incoming').length ?? 0;
-                    return (
-                      <ContactItem
-                        key={contact.id}
-                        contact={contact}
-                        unreadCount={unread}
-                        active={contact.id === activeContactId}
-                        onSelect={(id) => {
-                          setActiveContactId(id);
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="flex flex-1 flex-col">
-                <div className="border-b border-slate-200 p-3">
-                  <p className="text-sm font-semibold text-slate-900">{activeConversation?.metadata?.name ?? 'Support'}</p>
-                  <p className="text-xs text-slate-500">{activeConversation?.metadata?.role ?? 'Gigvora crew'}</p>
-                </div>
-                <div className="flex-1 space-y-3 overflow-y-auto bg-slate-50 px-4 py-4">
-                  {(activeConversation?.messages ?? []).map((entry) => (
-                    <MessageBubble key={entry.id} message={entry} />
-                  ))}
-                </div>
-                <form onSubmit={handleSendMessage} className="border-t border-slate-200 bg-white p-3">
-                  <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 shadow-inner">
+            <div className="flex h-[420px] flex-col">
+              {panelView === 'list' ? (
+                <div className="flex h-full flex-col">
+                  <div className="p-3">
                     <input
-                      type="text"
-                      value={message}
-                      onChange={(event) => setMessage(event.target.value)}
-                      placeholder="Write a message"
-                      className="flex-1 border-none bg-transparent text-sm text-slate-700 focus:outline-none"
+                      type="search"
+                      placeholder="Search conversations"
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                      className="w-full rounded-full border border-slate-200 px-3 py-2 text-sm text-slate-600 shadow-inner focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                     />
-                    <button
-                      type="submit"
-                      aria-label="Send message"
-                      className="inline-flex items-center justify-center rounded-full bg-accent px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-accentDark"
-                    >
-                      <PaperAirplaneIcon className="h-4 w-4" />
-                    </button>
                   </div>
-                </form>
-              </div>
+                  <div className="flex-1 space-y-2 overflow-y-auto px-3 pb-3">
+                    {filteredContacts.length === 0 ? (
+                      <p className="px-2 text-xs text-slate-500">No conversations yet. Start one to connect with the team.</p>
+                    ) : null}
+                    {filteredContacts.map((contact) => {
+                      const conversation = conversations.find((entry) => entry.id === contact.id);
+                      const unread = conversation?.messages?.filter((msg) => msg.direction === 'incoming').length ?? 0;
+                      return (
+                        <ContactItem
+                          key={contact.id}
+                          contact={contact}
+                          unreadCount={unread}
+                          active={contact.id === activeContactId}
+                          onSelect={(id) => {
+                            setActiveContactId(id);
+                            setMessage('');
+                            setPanelView('conversation');
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex h-full flex-col">
+                  <div className="flex items-center gap-3 border-b border-slate-200 p-3">
+                    <button
+                      type="button"
+                      onClick={() => setPanelView('list')}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+                    >
+                      <ArrowLeftIcon className="h-4 w-4" />
+                      <span className="sr-only">Back to conversation list</span>
+                    </button>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">{activeConversation?.metadata?.name ?? 'Support'}</p>
+                      <p className="text-xs text-slate-500">{activeConversation?.metadata?.role ?? 'Gigvora crew'}</p>
+                    </div>
+                  </div>
+                  <div className="flex-1 space-y-3 overflow-y-auto bg-slate-50 px-4 py-4">
+                    {(activeConversation?.messages ?? []).map((entry) => (
+                      <MessageBubble key={entry.id} message={entry} />
+                    ))}
+                    {(activeConversation?.messages ?? []).length === 0 ? (
+                      <p className="text-center text-xs text-slate-500">Start the conversation with a message.</p>
+                    ) : null}
+                  </div>
+                  <form onSubmit={handleSendMessage} className="border-t border-slate-200 bg-white p-3">
+                    <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 shadow-inner">
+                      <input
+                        type="text"
+                        value={message}
+                        onChange={(event) => setMessage(event.target.value)}
+                        placeholder="Write a message"
+                        className="flex-1 border-none bg-transparent text-sm text-slate-700 focus:outline-none"
+                      />
+                      <button
+                        type="submit"
+                        aria-label="Send message"
+                        className="inline-flex items-center justify-center rounded-full bg-accent px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-accentDark"
+                      >
+                        <PaperAirplaneIcon className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -293,10 +337,10 @@ export default function SupportLauncher({ replyDelayMs = 1200 }) {
       <button
         type="button"
         onClick={() => setOpen((previous) => !previous)}
-        className="inline-flex items-center gap-3 rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-2xl transition hover:bg-slate-800"
+        className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-white shadow-2xl transition hover:bg-slate-800"
       >
-        <ChatBubbleBottomCenterTextIcon className="h-5 w-5" />
-        Support
+        <ChatBubbleBottomCenterTextIcon className="h-6 w-6" />
+        <span className="sr-only">Toggle support inbox</span>
       </button>
     </div>
   );
