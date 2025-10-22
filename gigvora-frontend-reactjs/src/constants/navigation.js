@@ -15,13 +15,19 @@ import { deepFreeze } from './menuSchema.js';
 
 const marketingNavigationConfig = deepFreeze([
   {
-    id: 'solutions',
-    label: 'Solutions',
-    description: 'Role-specific workspaces, matching, and operations.',
+    id: 'explore',
+    label: 'Explore',
+    description: 'Search across talent, gigs, and community knowledge.',
     sections: [
       {
-        title: 'Talent & hiring',
+        title: 'Discovery',
         items: [
+          {
+            name: 'Explorer search',
+            description: 'Search people, opportunities, and groups with contextual filters and saved views.',
+            to: '/search',
+            icon: SwatchIcon,
+          },
           {
             name: 'Project & gig marketplace',
             description: 'Launch briefs, vet specialists, and manage milestones in one shared workspace.',
@@ -29,10 +35,21 @@ const marketingNavigationConfig = deepFreeze([
             icon: BriefcaseIcon,
           },
           {
-            name: 'Recruitment & ATS',
-            description: 'Synchronise company ATS pipelines with Gigvora interviews, evaluations, and decision logging.',
-            to: '/dashboard/company/ats',
+            name: 'Member profiles',
+            description: 'Deep dive into freelancer, mentor, and company work histories with live timelines.',
+            to: '/community/users/me',
             icon: UsersIcon,
+          },
+        ],
+      },
+      {
+        title: 'Community access',
+        items: [
+          {
+            name: 'Mentor guild & groups',
+            description: 'Host community groups, live sessions, and volunteering drives with moderation tooling.',
+            to: '/groups',
+            icon: GlobeAltIcon,
           },
           {
             name: 'Launchpad programmes',
@@ -40,10 +57,46 @@ const marketingNavigationConfig = deepFreeze([
             to: '/launchpad',
             icon: AcademicCapIcon,
           },
+          {
+            name: 'Timeline intelligence',
+            description: 'Role-aware timeline with recommendations, announcements, and live status banners.',
+            to: '/feed',
+            icon: SparklesIcon,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'operate',
+    label: 'Operate',
+    description: 'Run hiring, finance, and delivery operations in one workspace.',
+    sections: [
+      {
+        title: 'Hire & onboard',
+        items: [
+          {
+            name: 'Recruitment & ATS',
+            description: 'Synchronise company ATS pipelines with Gigvora interviews, evaluations, and decision logging.',
+            to: '/dashboard/company/ats',
+            icon: UsersIcon,
+          },
+          {
+            name: 'Creation Studio',
+            description: 'Publish jobs, gigs, and resources with autosave, compliance scoring, and collaboration.',
+            to: '/creation-studio',
+            icon: RocketLaunchIcon,
+          },
+          {
+            name: 'Admin operations',
+            description: 'Unify approvals, incidents, releases, and communication cadences for platform leads.',
+            to: '/dashboard/admin',
+            icon: BuildingOffice2Icon,
+          },
         ],
       },
       {
-        title: 'Operations & finance',
+        title: 'Finance & compliance',
         items: [
           {
             name: 'Finance & escrow hub',
@@ -58,68 +111,9 @@ const marketingNavigationConfig = deepFreeze([
             icon: ShieldCheckIcon,
           },
           {
-            name: 'Community programmes',
-            description: 'Host community groups, live sessions, and volunteering drives with moderation tooling.',
-            to: '/groups',
-            icon: GlobeAltIcon,
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'platform',
-    label: 'Platform',
-    description: 'Product capabilities powering hybrid teams.',
-    sections: [
-      {
-        title: 'Core experiences',
-        items: [
-          {
-            name: 'Timeline intelligence',
-            description: 'Role-aware timeline with ads, recommendations, and real-time status banners.',
-            to: '/feed',
-            icon: SparklesIcon,
-          },
-          {
-            name: 'Explorer search',
-            description: 'Search people, opportunities, and groups with contextual filters and saved views.',
-            to: '/search',
-            icon: SwatchIcon,
-          },
-          {
-            name: 'Creation Studio',
-            description: 'Publish jobs, gigs, and resources with autosave, compliance scoring, and collaboration.',
-            to: '/creation-studio',
-            icon: RocketLaunchIcon,
-          },
-          {
-            name: 'Member profiles',
-            description: 'Deep dive into freelancer, mentor, and company work histories with live timelines.',
-            to: '/community/users/me',
-            icon: UsersIcon,
-          },
-        ],
-      },
-      {
-        title: 'Dashboards',
-        items: [
-          {
-            name: 'Admin operations',
-            description: 'Unify approvals, incidents, releases, and communication cadences for platform leads.',
-            to: '/dashboard/admin',
-            icon: BuildingOffice2Icon,
-          },
-          {
-            name: 'Agency growth',
-            description: 'Manage pipelines, assignments, contracts, and cash flow with agency-specific automations.',
+            name: 'Agency & freelancer ops',
+            description: 'Track gigs, assignments, and wellbeing metrics with dashboards for every operator.',
             to: '/dashboard/agency',
-            icon: UsersIcon,
-          },
-          {
-            name: 'Freelancer cockpit',
-            description: 'Track gigs, deliverables, revenue, and wellbeing metrics in one secure hub.',
-            to: '/dashboard/freelancer',
             icon: BriefcaseIcon,
           },
         ],

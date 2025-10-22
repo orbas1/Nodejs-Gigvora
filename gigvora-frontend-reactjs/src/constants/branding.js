@@ -2,14 +2,14 @@ import { deepFreeze } from './menuSchema.js';
 
 export const BRAND_ASSETS = deepFreeze({
   logo: {
-    src: 'https://i.ibb.co/cnGdLYb/Gigvora-Logo.png',
+    src: 'https://i.ibb.co/kVrb4LjL/Gigvora-Logo.png',
     alt: 'Gigvora logo',
     type: 'image/png',
     width: 512,
     height: 164,
   },
   favicon: {
-    src: 'https://i.ibb.co/XrLy0pyZ/3.png',
+    src: 'https://i.ibb.co/DHNkxF5D/3.png',
     type: 'image/png',
     sizes: '64x64',
   },
