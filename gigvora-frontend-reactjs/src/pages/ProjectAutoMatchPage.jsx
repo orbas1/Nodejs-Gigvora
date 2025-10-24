@@ -9,6 +9,8 @@ import AccessRestricted from '../components/AccessRestricted.jsx';
 import { enqueueProjectAssignments, fetchProjectQueue } from '../services/autoAssign.js';
 import projectsService from '../services/projects.js';
 import analytics from '../services/analytics.js';
+import { ANALYTICS_EVENTS } from '../constants/analyticsEvents.js';
+import useJourneyProgress from '../hooks/useJourneyProgress.js';
 import { formatRelativeTime } from '../utils/date.js';
 
 const ALLOWED_MEMBERSHIPS = ['company', 'agency', 'admin'];
@@ -78,6 +80,7 @@ export default function ProjectAutoMatchPage() {
   });
   const canAdminister = Boolean(hasAccess);
   const canView = canAdminister && Boolean(projectId);
+  const { completeCheckpoint } = useJourneyProgress();
 
   const [formState, setFormState] = useState({
     limit: 6,
@@ -166,14 +169,20 @@ export default function ProjectAutoMatchPage() {
           },
         });
         analytics.track(
-          'web_project_auto_match_regenerated',
+          ANALYTICS_EVENTS.PROJECT_AUTO_MATCH_REGENERATED.name,
           {
             projectId,
             limit: Number(formState.limit) || null,
             ensureNewcomer: Boolean(formState.ensureNewcomer),
+            fairnessMaxAssignments: Number(formState.fairnessMaxAssignments) || null,
           },
           { source: 'web_app' },
         );
+        completeCheckpoint('auto_match_queue_regenerated', {
+          projectId,
+          sessionId: session?.id ?? session?.userId ?? null,
+          queueSize: queueEntries.length,
+        });
         await refreshQueue({ force: true });
         await refreshProject({ force: true });
         setFeedback({ type: 'success', message: 'Queue regenerated successfully.' });
@@ -186,7 +195,18 @@ export default function ProjectAutoMatchPage() {
         setSaving(false);
       }
     },
-    [canView, formState, normalizedWeights, projectId, refreshProject, refreshQueue],
+    [
+      canView,
+      completeCheckpoint,
+      formState,
+      normalizedWeights,
+      projectId,
+      queueEntries.length,
+      refreshProject,
+      refreshQueue,
+      session?.id,
+      session?.userId,
+    ],
   );
 
   const renderQueue = () => {

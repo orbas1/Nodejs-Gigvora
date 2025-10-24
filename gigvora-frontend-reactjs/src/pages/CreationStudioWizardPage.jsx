@@ -18,6 +18,10 @@ import {
   createCreationStudioItem as createCommunityCreationItem,
   publishCreationStudioItem as publishCommunityCreationItem,
 } from '../services/creationStudio.js';
+import analytics from '../services/analytics.js';
+import { ANALYTICS_EVENTS } from '../constants/analyticsEvents.js';
+import useJourneyProgress from '../hooks/useJourneyProgress.js';
+import JourneyProgressSummary from '../components/journey/JourneyProgressSummary.jsx';
 
 export const creationTracks = [
   {
@@ -145,6 +149,7 @@ export default function CreationStudioWizardPage() {
     autoPublish: false,
   });
   const [quickState, setQuickState] = useState({ status: 'idle', message: null });
+  const { completeCheckpoint } = useJourneyProgress();
 
   const authenticatedCopy = useMemo(
     () =>
@@ -177,6 +182,20 @@ export default function CreationStudioWizardPage() {
         if (quickDraft.autoPublish && created?.id) {
           await publishCommunityCreationItem(created.id, {});
         }
+        analytics.track(
+          ANALYTICS_EVENTS.CREATION_STUDIO_QUICK_LAUNCH.name,
+          {
+            type: quickDraft.type,
+            autoPublish: Boolean(quickDraft.autoPublish),
+            createdId: created?.id ?? null,
+          },
+          { source: 'web_app' },
+        );
+        completeCheckpoint('creation_studio_quick_launch', {
+          type: quickDraft.type,
+          autoPublish: Boolean(quickDraft.autoPublish),
+          draftId: created?.id ?? null,
+        });
         window.dispatchEvent(
           new CustomEvent('creation-studio:refresh', { detail: { type: quickDraft.type, id: created?.id } }),
         );
@@ -189,7 +208,7 @@ export default function CreationStudioWizardPage() {
         });
       }
     },
-    [quickDraft],
+    [completeCheckpoint, quickDraft],
   );
 
   return (
@@ -210,6 +229,14 @@ export default function CreationStudioWizardPage() {
           }
           meta="Autosave • Compliance scoring • Collaboration rooms"
         />
+
+        <div className="mt-8">
+          <JourneyProgressSummary
+            category="creation"
+            personas={['freelancer', 'agency', 'company']}
+            description="Follow the readiness steps to keep your publishing pipeline production-ready across personas."
+          />
+        </div>
 
         <div className="grid gap-6 md:grid-cols-3">
           {stats.map((item) => (

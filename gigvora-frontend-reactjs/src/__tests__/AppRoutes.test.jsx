@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { ROUTE_COLLECTIONS } from '../App.jsx';
 import {
-  ROUTE_COLLECTIONS,
   COMMUNITY_ACCESS_MEMBERSHIPS,
   VOLUNTEER_ACCESS_MEMBERSHIPS,
-  LAUNCHPAD_ROUTES,
-  SECURITY_ROUTES,
-} from '../App.jsx';
+  LAUNCHPAD_ALLOWED_MEMBERSHIPS,
+  SECURITY_ALLOWED_MEMBERSHIPS,
+  getRouteGroup,
+} from '../constants/routeRegistry.js';
 
 describe('App route configuration', () => {
   it('ensures every registered route exposes a unique path', () => {
@@ -44,7 +45,12 @@ describe('App route configuration', () => {
   });
 
   it('tracks sensitive launchpad and security routes explicitly', () => {
-    expect(LAUNCHPAD_ROUTES.every((route) => route.path.includes('launchpad'))).toBe(true);
-    expect(SECURITY_ROUTES.every((route) => route.path.includes('security'))).toBe(true);
+    const launchpadRoutes = getRouteGroup('launchpad');
+    const securityRoutes = getRouteGroup('security');
+
+    expect(launchpadRoutes.every((route) => route.path.includes('launchpad'))).toBe(true);
+    expect(securityRoutes.every((route) => route.path.includes('security'))).toBe(true);
+    expect(new Set(LAUNCHPAD_ALLOWED_MEMBERSHIPS).size).toBe(LAUNCHPAD_ALLOWED_MEMBERSHIPS.length);
+    expect(new Set(SECURITY_ALLOWED_MEMBERSHIPS).size).toBe(SECURITY_ALLOWED_MEMBERSHIPS.length);
   });
 });
