@@ -27,7 +27,8 @@ import {
   extractMediaAttachments,
 } from '../FeedPage.jsx';
 import { parseFinanceOverview } from '../FinanceHubPage.jsx';
-import { formatTagLabelFromSlug, formatNumber as formatGigNumber } from '../GigsPage.jsx';
+import { formatNumber as formatGigNumber } from '../GigsPage.jsx';
+import { formatTaxonomyLabelFromSlug } from '../../utils/taxonomy.js';
 import {
   formatPercent as formatGroupPercent,
   formatDate as formatGroupDate,
@@ -416,7 +417,7 @@ describe('Finance overview parsing', () => {
 
 describe('Gig listings helpers', () => {
   it('formats taxonomy labels and numbers', () => {
-    expect(formatTagLabelFromSlug('design-ops')).toBe('Design Ops');
+    expect(formatTaxonomyLabelFromSlug('design-ops')).toBe('Design Ops');
     expect(formatGigNumber(1500)).toBe('1,500');
   });
 });
