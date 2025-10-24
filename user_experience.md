@@ -689,7 +689,7 @@ This document catalogues the public marketing shell, pre-login journeys, and per
 
 ## 4. Opportunity Marketplaces & Workflows
 
-### 4.A. Jobs Marketplace & ATS Bridge
+### 4.A. Jobs Marketplace & ATS Bridge ✓
 
 **Components**
 
@@ -720,10 +720,10 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   24. **Design Duplication.** Align tab styling with gigs/projects for consistent marketplace cognition.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L37-L200】
   25. **Design framework.** Builds on PageHeader + DataStatus foundation shared by other opportunity surfaces.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1-L60】
   26. **Change Checklist Tracker Extensive.**
-      - [ ] Remove default user fallback and enforce auth redirect.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L129-L150】
-      - [ ] Extract shared filter UI with gigs/projects.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L89-L140】
-      - [ ] Ship saved searches and recommendation engine.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1-L200】
-      - [ ] Add inline ATS stage transitions and recruiter chat hook.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L37-L200】
+      - [x] Remove default user fallback and enforce auth redirect.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L129-L150】
+      - [x] Extract shared filter UI with gigs/projects.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L89-L140】
+      - [x] Ship saved searches and recommendation engine.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1-L200】
+      - [x] Add inline ATS stage transitions and recruiter chat hook.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L37-L200】
   27. **Full Upgrade Plan & Release Steps  Extensive.**
       1. Deploy shared marketplace filter kit, saved searches, and analytics instrumentation.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1-L200】
       2. Integrate inline ATS stages plus recruiter chat, piloting with select company dashboards.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L12-L200】

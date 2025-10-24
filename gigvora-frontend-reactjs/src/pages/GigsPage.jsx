@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
 import DataStatus from '../components/DataStatus.jsx';
+import OpportunityFilterPill from '../components/opportunity/OpportunityFilterPill.jsx';
 import GigLifecycleShowcase from '../components/gigs/GigLifecycleShowcase.jsx';
 import useOpportunityListing from '../hooks/useOpportunityListing.js';
 import analytics from '../services/analytics.js';
@@ -519,21 +520,14 @@ export default function GigsPage() {
                   {topTagOptions.map((tag) => {
                     const isActive = selectedTagSlugs.includes(tag.slug);
                     return (
-                      <button
+                      <OpportunityFilterPill
                         key={tag.slug}
-                        type="button"
+                        active={isActive}
+                        label={tag.label}
+                        badge={formatNumber(tag.count)}
                         onClick={() => handleToggleTag(tag.slug)}
-                        className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition ${
-                          isActive
-                            ? 'bg-accent text-white shadow-soft hover:bg-accentDark'
-                            : 'border border-slate-200 bg-slate-50 text-slate-600 hover:border-accent hover:text-accent'
-                        }`}
-                      >
-                        <span>{tag.label}</span>
-                        <span className="text-[10px] font-normal uppercase tracking-wide text-slate-400">
-                          {formatNumber(tag.count)}
-                        </span>
-                      </button>
+                        tone="accent"
+                      />
                     );
                   })}
                 </div>
