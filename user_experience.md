@@ -1461,7 +1461,17 @@ This document catalogues the public marketing shell, pre-login journeys, and per
 
 ## 10. Summary Insights
 
+### 10.A. Experience-Wide Strengths ✅
+1. **Unified assistance shell.** `MainLayout` wraps the entire app with skip links, persona-aware messaging, policy prompts, live support, toast context, and error boundaries so every route inherits the same accessibility and care experience.【F:gigvora-frontend-reactjs/src/layouts/MainLayout.jsx†L58-L93】
+2. **Persona-specific routing depth.** Route configuration and guards lazily load hundreds of persona dashboards while enforcing membership gates and a catch-all fallback, keeping the funnel cohesive from marketing pages to protected workspaces.【F:gigvora-frontend-reactjs/src/App.jsx†L102-L144】【F:gigvora-frontend-reactjs/src/routes/routeConfig.jsx†L29-L155】
+3. **Creation-led activation.** The Creation Studio wizard orchestrates quick drafts, collaborator invites, analytics refreshes, and recommended tracks that kickstart publishing across personas without leaving the marketing shell.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L146-L219】
 
+### 10.B. Systemic Gaps ✅
+1. **Utility duplication.** Panels such as the freelancer-agency collaboration dashboard still define bespoke `classNames` and formatter helpers instead of importing the shared utilities, bloating bundles and inviting drift.【F:gigvora-frontend-reactjs/src/components/freelancer/AgencyCollaborationsPanel.jsx†L16-L47】【F:gigvora-frontend-reactjs/src/utils/classNames.js†L1-L5】
+2. **Static queue feedback.** Auto-match empty states rely on static copy rather than telemetry from the regeneration job, leaving operators uncertain whether background refreshes are progressing.【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L192-L200】
+3. **Fragmented analytics coverage.** CTA instrumentation exists for regeneration and mentor bookings, but those isolated events lack companion route-level tracking to tell a cohesive journey story for marketing and product teams.【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L168-L175】【F:gigvora-frontend-reactjs/src/pages/MentorsPage.jsx†L217-L220】
 
-
-Across these experiences, the Gigvora frontend demonstrates a polished marketing funnel with floating assistance (messaging, support, policy) layered atop a powerful routing skeleton. Key next steps include unifying duplicated helpers, introducing lazy-loaded routes, connecting marketing content to CMS sources, and instrumenting analytics across persona journeys to inform iterative design. The floating messaging bubble already provides a strong baseline for real-time collaboration once backend services finalize.
+### 10.C. Recommended Next Steps ✅
+1. **Centralise helpers.** Replace bespoke formatter and `classNames` implementations with imports from the shared utility modules to shrink maintenance surfaces and guarantee consistent styling semantics.【F:gigvora-frontend-reactjs/src/components/freelancer/AgencyCollaborationsPanel.jsx†L16-L47】【F:gigvora-frontend-reactjs/src/utils/classNames.js†L1-L5】
+2. **Instrument queue states.** Connect the auto-match empty state to backend job status or websocket events so administrators receive trustworthy progress signals rather than static placeholders.【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L192-L200】
+3. **Layer navigation analytics.** Extend the existing lazy route infrastructure with global transition tracking and performance timing so persona funnels become measurable end-to-end.【F:gigvora-frontend-reactjs/src/App.jsx†L102-L144】【F:gigvora-frontend-reactjs/src/routes/routeConfig.jsx†L29-L155】
