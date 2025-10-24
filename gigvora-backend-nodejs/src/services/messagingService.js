@@ -6,6 +6,7 @@ import {
   MessageParticipant,
   Message,
   MessageAttachment,
+  MessageReadReceipt,
   MessageLabel,
   MessageThreadLabel,
   SupportCase,
@@ -273,6 +274,35 @@ function sanitizeAttachment(attachment) {
     fileSize: normalizedFileSize,
     storageKey: plain.storageKey,
     checksum: plain.checksum ?? null,
+    metadata: plain.metadata ?? null,
+  };
+}
+
+function sanitizeReadReceipt(receipt) {
+  if (!receipt) return null;
+  const plain = receipt.get ? receipt.get({ plain: true }) : receipt;
+  return {
+    id: plain.id,
+    messageId: plain.messageId,
+    participantId: plain.participantId,
+    userId: plain.userId,
+    deliveredAt: plain.deliveredAt ?? null,
+    readAt: plain.readAt ?? null,
+    metadata: plain.metadata ?? null,
+    participant: receipt.participant
+      ? {
+          id: receipt.participant.id,
+          userId: receipt.participant.userId,
+        }
+      : null,
+    user: receipt.user
+      ? {
+          id: receipt.user.id,
+          firstName: receipt.user.firstName,
+          lastName: receipt.user.lastName,
+          email: receipt.user.email,
+        }
+      : null,
   };
 }
 
@@ -283,6 +313,9 @@ export function sanitizeMessage(message) {
     ...base,
     attachments: Array.isArray(message.attachments)
       ? message.attachments.map((attachment) => sanitizeAttachment(attachment))
+      : [],
+    readReceipts: Array.isArray(message.readReceipts)
+      ? message.readReceipts.map((receipt) => sanitizeReadReceipt(receipt))
       : [],
     sender: message.sender
       ? {
@@ -688,11 +721,48 @@ export async function appendMessage(threadId, senderId, { messageType = 'text', 
               mimeType: mimeType ?? 'application/octet-stream',
               storageKey,
               fileSize: Number.isFinite(Number(fileSize)) ? Number(fileSize) : 0,
+              checksum: attachment.checksum ? String(attachment.checksum).slice(0, 128) : null,
+              metadata: attachment.metadata && typeof attachment.metadata === 'object' ? attachment.metadata : null,
             },
             { transaction: trx },
           );
         }),
       );
+    }
+
+    const participants = await MessageParticipant.findAll({
+      where: { threadId },
+      transaction: trx,
+      lock: trx.LOCK.UPDATE,
+    });
+
+    const now = new Date();
+    for (const participant of participants) {
+      const deliveredAt = now;
+      const readAt = participant.userId === senderId ? now : null;
+      const [receipt, created] = await MessageReadReceipt.findOrCreate({
+        where: { messageId: createdMessage.id, participantId: participant.id },
+        defaults: {
+          userId: participant.userId,
+          deliveredAt,
+          readAt,
+        },
+        transaction: trx,
+        lock: trx.LOCK.UPDATE,
+      });
+
+      if (!created) {
+        const updates = {};
+        if (!receipt.deliveredAt) {
+          updates.deliveredAt = deliveredAt;
+        }
+        if (readAt && !receipt.readAt) {
+          updates.readAt = readAt;
+        }
+        if (Object.keys(updates).length > 0) {
+          await receipt.update(updates, { transaction: trx });
+        }
+      }
     }
 
     thread.lastMessageAt = new Date();
@@ -705,6 +775,14 @@ export async function appendMessage(threadId, senderId, { messageType = 'text', 
     include: [
       { model: MessageAttachment, as: 'attachments' },
       { model: User, as: 'sender', attributes: ['id', 'firstName', 'lastName', 'email'] },
+      {
+        model: MessageReadReceipt,
+        as: 'readReceipts',
+        include: [
+          { model: MessageParticipant, as: 'participant', attributes: ['id', 'userId'] },
+          { model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email'] },
+        ],
+      },
     ],
   });
 
@@ -830,6 +908,14 @@ export async function listMessages(threadId, pagination = {}, { includeSystem = 
       include: [
         { model: MessageAttachment, as: 'attachments' },
         { model: User, as: 'sender', attributes: ['id', 'firstName', 'lastName', 'email'] },
+        {
+          model: MessageReadReceipt,
+          as: 'readReceipts',
+          include: [
+            { model: MessageParticipant, as: 'participant', attributes: ['id', 'userId'] },
+            { model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email'] },
+          ],
+        },
       ],
     });
 
@@ -1091,6 +1177,55 @@ export async function markThreadRead(threadId, userId) {
     const markTimestamp = thread?.lastMessageAt ? new Date(thread.lastMessageAt) : new Date();
     participant.lastReadAt = markTimestamp;
     await participant.save({ transaction: trx });
+
+    const existingReceipts = await MessageReadReceipt.findAll({
+      where: { participantId: participant.id },
+      attributes: ['messageId'],
+      transaction: trx,
+      lock: trx.LOCK.UPDATE,
+    });
+
+    const knownMessageIds = new Set(existingReceipts.map((receipt) => receipt.messageId));
+    const messageWhere = {
+      threadId,
+      createdAt: { [Op.lte]: markTimestamp },
+    };
+    if (knownMessageIds.size > 0) {
+      messageWhere.id = { [Op.notIn]: Array.from(knownMessageIds) };
+    }
+
+    const missingMessages = await Message.findAll({
+      where: messageWhere,
+      attributes: ['id', 'createdAt'],
+      transaction: trx,
+      lock: trx.LOCK.UPDATE,
+    });
+
+    if (missingMessages.length > 0) {
+      await MessageReadReceipt.bulkCreate(
+        missingMessages.map((message) => ({
+          messageId: message.id,
+          participantId: participant.id,
+          userId,
+          deliveredAt: message.createdAt,
+          readAt: markTimestamp,
+        })),
+        { transaction: trx },
+      );
+    }
+
+    await MessageReadReceipt.update(
+      { readAt: markTimestamp },
+      {
+        where: {
+          participantId: participant.id,
+          readAt: {
+            [Op.or]: [null, { [Op.lt]: markTimestamp }],
+          },
+        },
+        transaction: trx,
+      },
+    );
   });
 
   flushThreadCache(threadId, [userId]);

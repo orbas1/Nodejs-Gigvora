@@ -980,41 +980,41 @@ This document catalogues the public marketing shell, pre-login journeys, and per
 **Components**
 
 - **1.B.1. `Header.jsx`**
-  1. **Appraisal.** The header now streams production inbox previews wired through the hardened messaging service and schema alignment, so frontend analytics operate on the same payloads persisted in the database.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L249-L347】【F:gigvora-frontend-reactjs/src/services/messaging.js†L9-L41】【F:gigvora-backend-nodejs/src/services/messagingService.js†L35-L113】【F:gigvora-backend-nodejs/src/models/messagingModels.js†L120-L199】【F:gigvora-backend-nodejs/database/migrations/20241130120000-messaging-read-receipts.cjs†L3-L25】
-  2. **Functionality.** `MobileNavigation` powers the fly-out experience, `RoleSwitcher` governs persona pivots, and marketing mega menus remain available for visitors alongside locale switching.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L381-L470】
-  3. **Logic Usefulness.** `refreshInboxPreview` fetches, normalises, and caches threads with skeleton states, drawing on backend previews that now expose real message metadata like read receipts and attachment checksums.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L249-L347】【F:gigvora-backend-nodejs/src/services/messagingService.js†L220-L286】【F:gigvora-backend-nodejs/src/models/messagingModels.js†L137-L199】
-  4. **Redundancies.** Inbox preview mirrors portions of `MessagingDock`; keep utilities aligned to avoid divergent formatting.
-  5. **Placeholders / Stubs.** None—backend sanitizers and the read-receipt migration ensure preview fields surface real production data rather than mocked values.【F:gigvora-backend-nodejs/src/services/messagingService.js†L35-L113】【F:gigvora-backend-nodejs/database/migrations/20241130120000-messaging-read-receipts.cjs†L3-L25】
-  6. **Duplicate Functions.** Initial generation centralises via `resolveInitials` so avatars stay consistent across surfaces.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L64-L129】【F:gigvora-frontend-reactjs/src/utils/user.js†L1-L15】
-  7. **Improvements Needed.** Surface connection-state indicators on the inbox button to telegraph loading or offline states.
-  8. **Styling Improvements.** Continue auditing hover and focus treatments on translucent buttons to ensure WCAG contrast is maintained.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L392-L470】
-  9. **Efficiency.** Interval polling refreshes inbox previews every minute; future iterations could adopt background sync or web sockets to reduce requests.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L321-L331】
-  10. **Strengths to Keep.** Maintain the cohesive pill styling, analytics instrumentation, and marketing-to-auth parity now that the header handles both personas gracefully.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L381-L470】
-  11. **Weaknesses to Remove.** Large icon bundles inflate initial load; explore dynamic imports for seldom-used hero icons.
-  12. **Styling & Colour Review.** Continue leveraging border opacity tokens so header accents stay legible across hero imagery.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L392-L470】
-  13. **CSS, Orientation, Placement.** Layout keeps controls centred on desktop while mobile relies on the slide-over, preserving clarity.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L381-L470】
-  14. **Text Analysis.** Inbox copy sets expectations (“You’re all caught up”), but could expand on escalation pathways in future iterations.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L238-L240】
-  15. **Text Spacing.** Consistent tracking utilities maintain readability in uppercase microcopy and CTA buttons.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L441-L470】
-  16. **Shaping.** Rounded pills and avatars reinforce brand identity; maintain the geometry across states.
-  17. **Shadow / Hover / Glow.** Subtle transitions reinforce state changes without overwhelming marketing backgrounds.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L392-L470】
-  18. **Thumbnails.** Inbox preview relies on text-only entries; future enhancements could incorporate avatars once thread metadata supports it.
-  19. **Images & Media.** The logo remains crisp and accessible with appropriate alt text.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L402-L404】
-  20. **Button Styling.** Auth CTAs leverage accent fills while secondary actions use soft borders for hierarchy.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L439-L470】
-  21. **Interactiveness.** Keyboard-friendly menus, analytics callbacks, and live inbox previews keep users engaged and informed.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L132-L470】
-  22. **Missing Components.** Consider adding quick access to notification preferences directly from the header.
-  23. **Design Changes.** Evaluate sticky header variants with scroll-aware translucency for long-form dashboards.
-  24. **Design Duplication.** Shared classNames for CTAs continue to reinforce consistent styling across marketing sections.
-  25. **Design Framework.** Remains aligned with Tailwind-driven design tokens paired with Headless UI primitives.
+  1. **Appraisal.** The header now couples InboxPreview connection badges, offline detection, and analytics hooks with the read-receipt aware messaging service and seeded delivery data so marketing and authenticated shells share identical payloads.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L132-L415】【F:gigvora-backend-nodejs/src/services/messagingService.js†L281-L320】【F:gigvora-backend-nodejs/src/services/messagingService.js†L700-L797】【F:gigvora-backend-nodejs/database/seeders/20241220104500-messaging-read-receipts-seed.cjs†L1-L200】
+  2. **Functionality.** `MobileNavigation`, `RoleSwitcher`, and the status-aware `InboxPreview` keep persona switching, marketing mega menus, and inbox refresh controls within a unified pill layout while `fetchInbox` delivers hydrated threads for signed-in members.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L132-L556】【F:gigvora-frontend-reactjs/src/services/messaging.js†L1-L60】
+  3. **Logic Usefulness.** `refreshInboxPreview` respects navigator reachability, caches results, and downgrades gracefully on API errors, while backend sanitizers and `markThreadRead` guarantee per-participant delivery metadata is consistent across responses.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L357-L415】【F:gigvora-backend-nodejs/src/services/messagingService.js†L281-L320】【F:gigvora-backend-nodejs/src/services/messagingService.js†L1173-L1232】
+  4. **Redundancies.** Inbox preview formatting still overlaps `MessagingDock`; centralise helpers to keep empty states identical.
+  5. **Placeholders / Stubs.** Messaging seeds populate threads, participants, and receipts so preview payloads represent real journeys rather than mocked fixtures.【F:gigvora-backend-nodejs/database/seeders/20241220104500-messaging-read-receipts-seed.cjs†L1-L260】
+  6. **Duplicate Functions.** Initial generation remains centralised via `resolveInitials`, keeping avatar fallbacks aligned across surfaces.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L64-L129】【F:gigvora-frontend-reactjs/src/utils/user.js†L1-L20】
+  7. **Improvements Needed.** Extend analytics payloads with persona and connection status context to study offline recovery and navigation churn.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L357-L415】
+  8. **Styling Improvements.** Continue WCAG audits on translucent hover/focus states across the header pill controls.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L489-L560】
+  9. **Efficiency.** Interval polling still refreshes every minute; background sync or websockets would trim duplicate requests once backend streaming stabilises.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L424-L431】
+  10. **Strengths to Keep.** Maintain cohesive pill styling, analytics instrumentation, and marketing-to-auth parity now that the inbox badge conveys live status at a glance.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L489-L556】
+  11. **Weaknesses to Remove.** Large hero icon bundles inflate first paint; plan icon-level code splitting for infrequently used routes.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L445-L518】
+  12. **Styling & Colour Review.** Border opacity tokens keep header accents legible atop hero imagery—retain the palette while expanding dark-mode coverage.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L489-L560】
+  13. **CSS, Orientation, Placement.** Layout keeps controls centred on desktop with slide-over nav on mobile for clarity.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L477-L556】
+  14. **Text Analysis.** Inbox empty-state copy still encourages follow-up; consider referencing escalation paths in a tooltip for enterprise accounts.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L284-L288】
+  15. **Text Spacing.** Uppercase tracking and microcopy spacing remain balanced for readability across breakpoints.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L500-L556】
+  16. **Shaping.** Rounded pills and avatar badges reinforce brand identity across hover and focus states.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L489-L556】
+  17. **Shadow / Hover / Glow.** Subtle transitions communicate interactivity without overpowering marketing backdrops.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L489-L556】
+  18. **Thumbnails.** Preview items remain text-first until thread metadata surfaces participant avatars from the messaging service roadmap.【F:gigvora-backend-nodejs/src/services/messagingService.js†L700-L797】
+  19. **Images & Media.** Logo treatments stay accessible via alt text and consistent sizing within the header frame.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L499-L501】
+  20. **Button Styling.** Auth CTAs mix filled and outlined pills, while the inbox badge anchors status colours for quick scanning.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L489-L556】
+  21. **Interactiveness.** Keyboard-friendly menus, analytics callbacks, and live inbox previews keep members informed without leaving the page.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L132-L556】【F:gigvora-backend-nodejs/tests/messagingService.test.js†L60-L150】
+  22. **Missing Components.** Consider linking notification preference shortcuts directly from the inbox menu for power users.
+  23. **Design Changes.** Evaluate sticky translucency variants for long-form dashboards where persistent navigation is beneficial.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L477-L556】
+  24. **Design Duplication.** Shared `classNames` utilities continue to align CTA styling across marketing and authenticated shells.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L505-L525】
+  25. **Design Framework.** Tailwind tokens + Headless UI primitives still drive the responsive shell and menu behaviours.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L132-L556】
   26. **Change Checklist Tracker.**
-      - [x] Replace sample inbox data with live API feed.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L249-L333】【F:gigvora-frontend-reactjs/src/services/messaging.js†L1-L120】
-      - [x] Extract initial generation helper into shared util.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L64-L129】【F:gigvora-frontend-reactjs/src/utils/user.js†L1-L15】
-      - [x] Audit hover contrast ratios.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L392-L470】
-      - [x] Implement mobile fly-out navigation.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L381-L413】
+      - [x] Replace sample inbox data with live API feed.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L132-L201】【F:gigvora-frontend-reactjs/src/services/messaging.js†L1-L60】
+      - [x] Extract initial generation helper into shared util.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L64-L129】【F:gigvora-frontend-reactjs/src/utils/user.js†L1-L20】
+      - [x] Audit hover contrast ratios.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L489-L556】
+      - [x] Implement mobile fly-out navigation.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L477-L525】
+      - [x] Surface inbox connection-state indicator tied to offline detection and messaging read receipts.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L132-L415】【F:gigvora-backend-nodejs/src/services/messagingService.js†L700-L797】
   27. **Full Upgrade Plan & Release Steps.**
-      1. Layer notification state indicators and offline banners directly into the inbox preview trigger.
-      2. Extend analytics payloads to include persona and membership context for richer header engagement insights.
-      3. Localise header strings across supported languages and wire analytics to monitor adoption.
-      4. Pilot avatar support in inbox previews once messaging metadata exposes participant imagery.
+      1. Enrich analytics payloads with persona + connection context and ship reporting for offline recovery experiments.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L357-L415】
+      2. Localise header strings and status labels across supported languages, monitoring adoption via analytics.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L132-L556】
+      3. Pilot inbox avatar rendering once messaging metadata exposes participant imagery alongside seeded receipt data.【F:gigvora-backend-nodejs/src/services/messagingService.js†L700-L797】【F:gigvora-backend-nodejs/database/seeders/20241220104500-messaging-read-receipts-seed.cjs†L1-L200】
 
 - **1.B.2. `navigation/MegaMenu.jsx`**
   1. **Appraisal.** Mega menus now support roving focus, analytics hooks, and optional theming so marketing can tailor panel styling per campaign.【F:gigvora-frontend-reactjs/src/components/navigation/MegaMenu.jsx†L9-L148】

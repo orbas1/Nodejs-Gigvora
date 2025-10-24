@@ -65,6 +65,12 @@ describe('messagingService', () => {
           storageKey: 'workspace/briefs/discovery-brief.pdf',
         }),
       ],
+      readReceipts: expect.arrayContaining([
+        expect.objectContaining({
+          userId: owner.id,
+          readAt: expect.anything(),
+        }),
+      ]),
     });
 
     const messagePage = await listMessages(thread.id, { pageSize: 10 });
@@ -127,6 +133,13 @@ describe('messagingService', () => {
     const hydratedThread = await getThread(thread.id, { withParticipants: true });
     const requesterParticipant = hydratedThread.participants?.find((participant) => participant.userId === requester.id);
     expect(requesterParticipant?.lastReadAt).not.toBeNull();
+
+    const refreshedMessages = await listMessages(thread.id, { pageSize: 5 });
+    expect(refreshedMessages.data[0].readReceipts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ userId: requester.id, readAt: expect.anything() }),
+      ]),
+    );
 
     const requesterInbox = await listThreadsForUser(
       requester.id,
