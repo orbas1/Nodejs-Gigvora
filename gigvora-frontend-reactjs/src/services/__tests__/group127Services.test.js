@@ -327,12 +327,49 @@ describe('creationStudio service', () => {
 
   it('persists workspace context when saving creation steps', async () => {
     apiClient.post.mockResolvedValue({});
-    await creationStudio.saveCreationStep(' user-1 ', ' item-2 ', ' summary ', { progress: 0.5 }, {
-      workspaceSlug: ' guild ',
-    });
+    await creationStudio.saveCreationStep(
+      ' user-1 ',
+      ' item-2 ',
+      ' summary ',
+      { progress: 0.5 },
+      {
+        workspaceSlug: ' guild ',
+      },
+    );
     expect(apiClient.post).toHaveBeenCalledWith(
       '/users/user-1/creation-studio/item-2/steps/summary',
       { progress: 0.5, workspaceSlug: 'guild' },
+      {},
+    );
+  });
+
+  it('fetches analytics with trimmed workspace context', async () => {
+    apiClient.get.mockResolvedValue({ metrics: {} });
+    await creationStudio.fetchCreationStudioAnalytics({ workspaceId: ' ws-12 ', window: ' 30d ' }, { signal: undefined });
+    expect(apiClient.get).toHaveBeenCalledWith(
+      '/creation-studio/analytics',
+      expect.objectContaining({ params: { workspaceId: 'ws-12', window: '30d' } }),
+    );
+  });
+
+  it('requires an email when sending studio invites', async () => {
+    await expect(creationStudio.sendCreationStudioInvite({})).rejects.toThrow(/email is required/i);
+    apiClient.post.mockResolvedValue({ ok: true });
+    await creationStudio.sendCreationStudioInvite({
+      email: '  teammate@example.com ',
+      role: ' reviewer ',
+      message: ' Welcome aboard ',
+      preferredTrack: ' gig ',
+    });
+    expect(apiClient.post).toHaveBeenCalledWith(
+      '/creation-studio/invites',
+      {
+        email: 'teammate@example.com',
+        role: 'reviewer',
+        message: 'Welcome aboard',
+        preferredTrack: 'gig',
+        source: 'creation-studio',
+      },
       {},
     );
   });

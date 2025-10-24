@@ -2168,45 +2168,45 @@ This document catalogues the public marketing shell, pre-login journeys, and per
 
 ## 9. Creation Studio & Publishing
 
-### 9.A. Opportunity Launchpad
+### 9.A. Opportunity Launchpad ✅
 
 **Components**
 
 - **9.A.1. `CreationStudioWizardPage.jsx`**
-  1. **Appraisal.** Cross-persona studio enabling members to launch CVs, cover letters, gigs, projects, volunteering, launchpad jobs, and mentorship offerings with quick drafts and automation stats.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L1-L200】
-  2. **Functionality.** Provides track cards linking to appropriate dashboards, quick draft form with moderation, DataStatus telemetry, and event dispatch for downstream refresh.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L13-L195】
-  3. **Logic Usefulness.** Quick launch builder creates draft payloads, optionally auto-publishing, and dispatches events to update creation manager.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L149-L183】
-  4. **Redundancies.** Creation track metadata may duplicate other configs; centralise definitions for reuse in dashboards.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L22-L86】
-  5. **Placeholders Or Non-working Functions Or Stubs.** Stats and quick draft responses rely on placeholder values until analytics integrated.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L88-L112】【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L149-L190】
-  6. **Duplicate Functions.** Quick draft success handling similar to creation studio manager; share util functions.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L149-L190】
-  7. **Improvements need to make.** Add templated assets, AI prompts, and persona-specific best practices for each track.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L22-L200】
-  8. **Styling improvements.** Offer persona-themed backgrounds and highlight recommended tracks based on membership.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L195-L268】
-  9. **Effeciency analysis and improvement.** Debounce quick launch submissions and surface inline feedback without full page reload.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L149-L190】
-  10. **Strengths to Keep.** Unified creation entry point bridging social feed, gigs, projects, volunteering, launchpad, and mentorship offerings.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L22-L200】
-  11. **Weaknesses to remove.** Lack of draft visibility when auto-publish disabled—add status surface linking to manager.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L149-L195】
-  12. **Styling and Colour review changes.** Ensure gradient backgrounds maintain readability and accessible contrast.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L195-L268】
-  13. **Css, orientation, placement and arrangement changes.** Consider grid layout for track cards on large screens and horizontal carousel on mobile.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L115-L175】
-  14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Provide shorter, action-oriented summaries and highlight success metrics.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L22-L112】
-  15. **Text Spacing.** Maintain spacing but tighten long descriptions to avoid overflow on small screens.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L115-L175】
-  16. **Shaping.** Keep rounded cards; differentiate recommended tracks with accent borders or icons.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L22-L200】
-  17. **Shadow, hover, glow and effects.** Add hover elevation and CTA glow to emphasise interactive tracks.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L115-L175】
-  18. **Thumbnails.** Incorporate relevant imagery or iconography per track to improve recognition.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L22-L112】
-  19. **Images and media & Images and media previews.** Enable preview of existing drafts or templates before launching new items.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L149-L190】
-  20. **Button styling.** Quick launch CTA needs loading state and success indicator beyond message text.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L149-L190】
-  21. **Interactiveness.** Track cards, quick launch form, and creation manager integration make studio a dynamic publishing hub.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L22-L195】
-  22. **Missing Components.** Add collaboration invitations, template gallery, and analytics for track performance.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L22-L200】
-  23. **Design Changes.** Personalise recommended tracks based on membership, recent activity, and marketplace gaps.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L22-L200】
-  24. **Design Duplication.** Align creation stats with dashboard hero metrics for consistency.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L88-L112】【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L195-L239】
-  25. **Design framework.** Continues PageHeader + DataStatus design language while integrating creation studio manager below.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L195-L268】
+  1. **Appraisal.** Creation Studio now ships as an orchestration hub bundling track navigation, AI prompt library, template gallery, collaboration invites, analytics, and the embedded manager for every persona.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L131-L400】【F:gigvora-frontend-reactjs/src/constants/creationStudio.js†L11-L231】
+  2. **Functionality.** Track cards deep-link into dashboards, quick launch collects essentials with optimistic saves, progress bar, and event dispatch, invites call dedicated service helpers, and analytics refresh via `DataStatus` controls.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L161-L402】【F:gigvora-frontend-reactjs/src/services/creationStudio.js†L214-L275】
+  3. **Logic Usefulness.** Metadata includes prompt/template provenance, visibility, and optimistic refresh events so the manager reconciles new drafts without waiting on server responses.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L248-L323】
+  4. **Redundancies.** Track, prompt, and template copy moved into shared constants for reuse across pages and tests, eliminating inline duplication.【F:gigvora-frontend-reactjs/src/constants/creationStudio.js†L11-L231】【F:gigvora-frontend-reactjs/src/pages/__tests__/Group103Pages.test.jsx†L16-L20】
+  5. **Placeholders Or Non-working Functions Or Stubs.** Analytics normalisation now gracefully handles missing fields while waiting on backend, but DataStatus surfaces API errors instead of placeholder copy.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L161-L209】【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L368-L395】
+  6. **Duplicate Functions.** Quick launch dispatch mirrors manager refresh semantics, preventing divergent logic without reimplementing manager internals.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L279-L310】
+  7. **Improvements need to make.** Next iteration should surface prompt/template recommendations per membership tier and allow saving favourite prompts for reuse.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L208-L226】
+  8. **Styling improvements.** Gradient wrappers, rounded containers, and helper notices lift the experience; consider adaptive layouts for small screens where prompt/template columns get tall.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L333-L402】
+  9. **Effeciency analysis and improvement.** Progress timers, optimistic events, and abortable analytics fetch reduce perceived latency; future work could batch invite + draft creation flows.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L234-L323】【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L197-L226】
+  10. **Strengths to Keep.** Maintain the integrated narrative—stats, tracks, quick launch, manager, analytics, and concierge CTA deliver an end-to-end publishing runway.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L308-L420】
+  11. **Weaknesses to remove.** Provide direct links or toast actions to open the newly created item so users can jump straight into the manager after quick launch success.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L296-L323】
+  12. **Styling and Colour review changes.** Accent gradients and tonal stat cards remain legible; keep auditing against dark-mode overlays before rollout.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L333-L420】
+  13. **Css, orientation, placement and arrangement changes.** Two-column prompt/template section reads well on desktop; explore stacking order on tablets to avoid scrolling past long lists.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L333-L402】
+  14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Copy now emphasises action (“Quick launch an opportunity”, “Invite teammates or clients”) while helper chips communicate applied prompts/templates.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L333-L370】
+  15. **Text Spacing.** Pill labels, helper banners, and CTA spacing respect the 2–3rem rhythm; monitor stacked states to maintain breathing room.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L333-L402】
+  16. **Shaping.** Rounded 2.5rem shells with pill controls visually separate functional zones without needing extra dividers.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L333-L402】
+  17. **Shadow, hover, glow and effects.** Track cards and CTA buttons gain subtle lift/translate transforms reinforcing interactivity—retain these micro-interactions.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L308-L352】
+  18. **Thumbnails.** Icon badges sourced from Heroicons per track type keep recognition high until richer media lands.【F:gigvora-frontend-reactjs/src/constants/creationStudio.js†L11-L74】
+  19. **Images and media & Images and media previews.** Template highlight lists and prompt examples provide textual previews; next explore lightweight screenshots or GIFs within the gallery cards.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L333-L370】
+  20. **Button styling.** Quick launch, invite, and concierge CTAs all use rounded pills with disabled/loading states to communicate progress.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L254-L323】【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L370-L402】
+  21. **Interactiveness.** Prompt/template chips, helper notices, analytics refresh, and concierge CTA layer multiple interaction modes encouraging continued publishing momentum.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L248-L420】
+  22. **Missing Components.** Future additions: invite management surface showing pending collaborators and analytics drilldowns for each track.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L362-L402】
+  23. **Design Changes.** Consider dynamic ordering of track cards based on analytics conversions so members see high-impact paths first.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L308-L352】【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L368-L395】
+  24. **Design Duplication.** Stat cards mirror dashboard hero tiles ensuring analytics language stays consistent across personas.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L308-L333】【F:gigvora-frontend-reactjs/src/constants/creationStudio.js†L77-L93】
+  25. **Design framework.** Continues PageHeader + DataStatus composition while embedding CreationStudioManager for continuity with downstream workflows.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L333-L420】
   26. **Change Checklist Tracker Extensive.**
-      - [ ] Centralise creation track definitions and reuse across dashboards.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L22-L86】
-      - [ ] Add AI prompt library, template gallery, and collaboration invites.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L22-L200】
-      - [ ] Improve quick launch feedback with optimistic UI and progress indicators.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L149-L190】
-      - [ ] Surface analytics linking creation outputs to feed/marketplace performance.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L22-L200】
+      - [x] Centralise creation track definitions and reuse across dashboards.【F:gigvora-frontend-reactjs/src/constants/creationStudio.js†L11-L231】【F:gigvora-frontend-reactjs/src/pages/__tests__/Group103Pages.test.jsx†L16-L20】
+      - [x] Add AI prompt library, template gallery, and collaboration invites.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L208-L402】
+      - [x] Improve quick launch feedback with optimistic UI and progress indicators.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L234-L323】
+      - [x] Surface analytics linking creation outputs to feed/marketplace performance.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L161-L209】【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L368-L395】
   27. **Full Upgrade Plan & Release Steps  Extensive.**
-      1. Consolidate track definitions, add recommended track highlighting, and ship optimistic quick launch feedback.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L22-L195】
-      2. Integrate AI prompts, template gallery, and collaboration invites, measuring publishing velocity improvements.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L22-L200】
-      3. Launch analytics linking creation outputs to feed/jobs/gigs conversions, iterating with dashboard stakeholders.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L22-L200】
+      1. Experiment with personalised track ordering and responsive layout refinements informed by analytics engagement signals.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L308-L402】
+      2. Layer invite management dashboards plus favourite prompt collections to deepen collaboration loops.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L333-L402】
+      3. Extend analytics with comparative trends and per-track drilldowns, coordinating with dashboard stakeholders for parity.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L368-L395】
 
 ## 10. Summary Insights
 

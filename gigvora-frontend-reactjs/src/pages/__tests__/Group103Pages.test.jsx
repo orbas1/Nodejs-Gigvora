@@ -14,7 +14,7 @@ import { FilterPill as BlogFilterPill } from '../BlogPage.jsx';
 import { COMMUNITY_GUIDELINES_SLUG } from '../CommunityGuidelinesPage.jsx';
 import CompanyRegisterPage, { INITIAL_FORM, PARTNERSHIP_PILLARS } from '../CompanyRegisterPage.jsx';
 import { ConnectionCard } from '../ConnectionsPage.jsx';
-import { creationTracks, stats as creationStudioStats } from '../CreationStudioWizardPage.jsx';
+import { creationTracks, creationStudioStats } from '../../constants/creationStudio.js';
 import {
   buildHighlights as buildExplorerHighlights,
   CATEGORY_CONFIG as EXPLORER_CATEGORY_CONFIG,

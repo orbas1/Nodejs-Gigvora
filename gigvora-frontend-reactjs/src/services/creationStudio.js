@@ -295,6 +295,59 @@ export function deleteCreationStudioItem(itemId, options = {}) {
   );
 }
 
+export function fetchCreationStudioAnalytics(params = {}, options = {}) {
+  const resolvedParams = {};
+  const workspaceId = optionalString(params.workspaceId);
+  if (workspaceId) {
+    resolvedParams.workspaceId = workspaceId;
+  }
+  const workspaceSlug = optionalString(params.workspaceSlug);
+  if (workspaceSlug) {
+    resolvedParams.workspaceSlug = workspaceSlug;
+  }
+  const windowParam = optionalString(params.window);
+  if (windowParam) {
+    resolvedParams.window = windowParam;
+  }
+
+  return apiClient.get(
+    '/creation-studio/analytics',
+    combineRequestOptions({ params: resolvedParams }, options),
+  );
+}
+
+export function sendCreationStudioInvite(payload = {}, options = {}) {
+  const emailInput = payload?.email ?? payload?.contact?.email ?? '';
+  const email = typeof emailInput === 'string' ? emailInput.trim() : `${emailInput}`.trim();
+  if (!email) {
+    return Promise.reject(new Error('email is required to send a creation studio invite.'));
+  }
+  const role = optionalString(payload?.role);
+  const message = optionalString(payload?.message);
+  const preferredTrack = optionalString(payload?.preferredTrack);
+  const source = optionalString(payload?.source) ?? 'creation-studio';
+
+  const body = {
+    email,
+    source,
+  };
+  if (role) {
+    body.role = role;
+  }
+  if (message) {
+    body.message = message;
+  }
+  if (preferredTrack) {
+    body.preferredTrack = preferredTrack;
+  }
+
+  return apiClient.post(
+    '/creation-studio/invites',
+    body,
+    combineRequestOptions({}, options),
+  );
+}
+
 export const creationStudioApi = {
   fetchCompanyCreationStudioOverview,
   fetchCompanyCreationStudioItems,
@@ -315,6 +368,8 @@ export const creationStudioApi = {
   updateCreationStudioItem,
   publishCreationStudioItem,
   deleteCreationStudioItem,
+  fetchCreationStudioAnalytics,
+  sendCreationStudioInvite,
 };
 
 export default creationStudioApi;
