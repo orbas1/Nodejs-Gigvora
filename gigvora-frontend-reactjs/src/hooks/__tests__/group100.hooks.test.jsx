@@ -156,6 +156,17 @@ vi.mock('../../services/engagementService.js', () => ({
   ...engagementMocks,
 }));
 
+const mockFetchFeedInsights = vi.fn(async () => ({
+  interests: ['api-interest'],
+  connectionSuggestions: [{ id: 'api-conn' }],
+  groupSuggestions: [{ id: 'api-group' }],
+  liveMoments: [{ id: 'api-moment' }],
+}));
+vi.mock('../../services/feedInsights.js', () => ({
+  __esModule: true,
+  fetchFeedInsights: mockFetchFeedInsights,
+}));
+
 const financeMocks = {
   buildFinanceOverviewCacheKey: vi.fn(() => 'finance:key'),
   fetchControlTowerOverview: vi.fn(async () => ({ totals: { volume: 1000 } })),
@@ -514,15 +525,83 @@ describe('Group 100 hooks', () => {
   });
 
   it('derives engagement signals from helper services', async () => {
+    setNextResourceState(({ cacheKey }) => {
+      expect(cacheKey).toBe('feed:insights:viewer:user-1:limit:4');
+      return createResourceState({
+        data: {
+          interests: ['api-interest'],
+          connectionSuggestions: [{ id: 'api-conn' }],
+          groupSuggestions: [{ id: 'api-group' }],
+          liveMoments: [{ id: 'api-moment' }],
+        },
+      });
+    });
+
     const { default: useEngagementSignals } = await import('../useEngagementSignals.js');
     const { result } = renderHook(() => useEngagementSignals({ session: { id: 'user-1' }, feedPosts: [], limit: 4 }));
+
     expect(engagementMocks.resolveUserInterests).toHaveBeenCalled();
+    const [, fetcher] = mockUseCachedResource.mock.calls.at(-1);
+    await fetcher({ signal: 'sig' });
+    expect(mockFetchFeedInsights).toHaveBeenCalledWith({ limit: 4, signal: 'sig', viewerId: 'user-1' });
+
+    const [, , options] = mockUseCachedResource.mock.calls.at(-1);
+    expect(options.dependencies).toEqual(['user-1', 4]);
+    expect(options.ttl).toBe(1000 * 60 * 5);
+
     expect(result.current).toMatchObject({
-      interests: ['launchpad'],
-      connectionSuggestions: [{ id: 'conn' }],
-      groupSuggestions: [{ id: 'group' }],
-      liveMoments: [{ id: 'moment' }],
+      interests: ['api-interest'],
+      connectionSuggestions: [{ id: 'api-conn' }],
+      groupSuggestions: [{ id: 'api-group' }],
+      liveMoments: [{ id: 'api-moment' }],
+      usingFallback: false,
     });
+  });
+
+  it('returns empty insight arrays when the API responds without results', async () => {
+    setNextResourceState(() =>
+      createResourceState({
+        data: {
+          interests: [],
+          connectionSuggestions: [],
+          groupSuggestions: [],
+          liveMoments: [],
+        },
+      }),
+    );
+
+    const { default: useEngagementSignals } = await import('../useEngagementSignals.js');
+    const { result } = renderHook(() =>
+      useEngagementSignals({ session: { id: 'user-1' }, feedPosts: [], limit: 6 }),
+    );
+
+    expect(result.current).toMatchObject({
+      interests: [],
+      connectionSuggestions: [],
+      groupSuggestions: [],
+      liveMoments: [],
+      usingFallback: false,
+    });
+  });
+
+  it('falls back to generated insight helpers when the API errors', async () => {
+    setNextResourceState(() =>
+      createResourceState({
+        data: null,
+        error: new Error('network down'),
+      }),
+    );
+
+    const { default: useEngagementSignals } = await import('../useEngagementSignals.js');
+    const { result } = renderHook(() =>
+      useEngagementSignals({ session: { id: 'user-1' }, feedPosts: [{ id: 'post-1' }], limit: 5 }),
+    );
+
+    expect(result.current.usingFallback).toBe(true);
+    expect(result.current.interests).toEqual(['launchpad']);
+    expect(result.current.connectionSuggestions).toEqual([{ id: 'conn' }]);
+    expect(result.current.groupSuggestions).toEqual([{ id: 'group' }]);
+    expect(result.current.liveMoments).toEqual([{ id: 'moment' }]);
   });
 
   it('builds the finance control tower cache key and fetches data', async () => {

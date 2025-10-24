@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowPathIcon,
@@ -8,6 +9,9 @@ import {
   HeartIcon,
   PaperAirplaneIcon,
   ShareIcon,
+  SparklesIcon,
+  UserGroupIcon,
+  UserPlusIcon,
 } from '@heroicons/react/24/outline';
 import PageHeader from '../components/PageHeader.jsx';
 import DataStatus from '../components/DataStatus.jsx';
@@ -1163,7 +1167,7 @@ function FeedPostCard({
   );
 }
 
-function LiveMomentsTicker({ moments = [] }) {
+function LiveMomentsTicker({ moments = [], usingFallback = false }) {
   const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
@@ -1177,7 +1181,29 @@ function LiveMomentsTicker({ moments = [] }) {
   }, [moments]);
 
   if (!moments.length) {
-    return null;
+    return (
+      <div className="rounded-3xl border border-accent/30 bg-white/95 p-6 shadow-soft">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold text-accent">Live moments</p>
+          <span className="text-xs font-semibold uppercase tracking-wide text-accentDark">
+            {usingFallback ? 'Cached' : 'Calibrating'}
+          </span>
+        </div>
+        <div className="mt-4 rounded-2xl border border-dashed border-accent/30 bg-accentSoft/40 px-4 py-5 text-xs leading-relaxed text-accentDark">
+          <div className="flex items-center gap-3 text-accentDark">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-accent">
+              <SparklesIcon className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <p className="font-semibold">No live broadcasts just yet</p>
+          </div>
+          <p className="mt-3 text-accentDark/80">
+            {usingFallback
+              ? 'Signals are cached while we reconnect. Refresh once you are back online to pull the latest live activity.'
+              : 'As soon as teams share new launches or wins we will spotlight them here automatically.'}
+          </p>
+        </div>
+      </div>
+    );
   }
 
   const activeMoment = moments[activeIndex];
@@ -1324,13 +1350,48 @@ function FeedIdentityRail({ session, interests = [] }) {
   );
 }
 
-function FeedInsightsRail({ liveMoments = [], connectionSuggestions = [], groupSuggestions = [] }) {
+function FeedInsightsRail({
+  liveMoments = [],
+  connectionSuggestions = [],
+  groupSuggestions = [],
+  loading = false,
+  onRefresh,
+  lastUpdated,
+  error,
+  usingFallback = false,
+}) {
+  const fallbackActive = Boolean(error) || usingFallback;
   const hasSuggestions = connectionSuggestions.length || groupSuggestions.length;
+  const statusLabel = loading
+    ? 'Refreshing timeline insights…'
+    : fallbackActive
+    ? 'Cached insight copy active'
+    : lastUpdated
+    ? `Signals updated ${formatRelativeTime(lastUpdated)}`
+    : 'Signals calibrated';
 
   return (
     <aside className="order-3 space-y-6 xl:order-3">
-      <LiveMomentsTicker moments={liveMoments} />
-      {connectionSuggestions.length ? (
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-200/80 bg-white/95 px-5 py-4 text-xs text-slate-500 shadow-soft">
+        <span className="font-semibold text-slate-600">{statusLabel}</span>
+        <div className="flex items-center gap-2">
+          {fallbackActive ? (
+            <span className="text-[11px] font-semibold text-rose-500">Cached copy shown</span>
+          ) : null}
+          {onRefresh ? (
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={loading}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 font-semibold text-slate-500 transition hover:border-accent/60 hover:text-accent disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Refresh
+            </button>
+          ) : null}
+        </div>
+      </div>
+      <LiveMomentsTicker moments={liveMoments} usingFallback={fallbackActive} />
+      <div className="space-y-6">
         <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-soft">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-slate-900">Suggested connections</p>
@@ -1338,33 +1399,49 @@ function FeedInsightsRail({ liveMoments = [], connectionSuggestions = [], groupS
               View all
             </Link>
           </div>
-          <ul className="mt-4 space-y-3 text-sm">
-            {connectionSuggestions.slice(0, 4).map((connection) => (
-              <li key={connection.id} className="rounded-2xl border border-slate-200 px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <UserAvatar name={connection.name} seed={connection.name} size="xs" showGlow={false} />
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-slate-900">{connection.name}</p>
-                    <p className="text-xs text-slate-500">{connection.headline}</p>
-                  </div>
-                </div>
-                <p className="mt-3 text-xs text-slate-500">{connection.reason}</p>
-                <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
-                  <span>{connection.location}</span>
-                  <span>{connection.mutualConnections} mutual</span>
-                </div>
-                <button
-                  type="button"
-                  className="mt-3 inline-flex items-center gap-2 rounded-full border border-accent/30 px-4 py-2 text-xs font-semibold text-accent transition hover:border-accent hover:bg-accentSoft"
-                >
-                  Connect
-                </button>
-              </li>
-            ))}
-          </ul>
+          {connectionSuggestions.length ? (
+            <ul className="mt-4 space-y-3 text-sm">
+              {connectionSuggestions.slice(0, 4).map((connection) => {
+                const location = connection.location ?? connection.region ?? 'Across the network';
+                const mutual = connection.mutualConnections ?? connection.mutuals ?? 0;
+                return (
+                  <li key={connection.id} className="rounded-2xl border border-slate-200 px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <UserAvatar name={connection.name} seed={connection.name} size="xs" showGlow={false} />
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-slate-900">{connection.name}</p>
+                        <p className="text-xs text-slate-500">{connection.headline}</p>
+                      </div>
+                    </div>
+                    <p className="mt-3 text-xs text-slate-500">{connection.reason}</p>
+                    <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
+                      <span>{location}</span>
+                      <span>{mutual} mutual</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="mt-3 inline-flex items-center gap-2 rounded-full border border-accent/30 px-4 py-2 text-xs font-semibold text-accent transition hover:border-accent hover:bg-accentSoft"
+                    >
+                      Connect
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <InsightsEmptyMessage
+              icon={UserPlusIcon}
+              title={fallbackActive ? 'Using cached introductions' : 'All caught up on intros'}
+              description={
+                fallbackActive
+                  ? 'Signals are relying on cached data until we reconnect. Browse the directory to spark new conversations manually.'
+                  : 'We will surface fresh matches as members share overlapping goals. Browse the directory to spark connections meanwhile.'
+              }
+              actionLabel="Browse directory"
+              actionHref="/connections"
+            />
+          )}
         </div>
-      ) : null}
-      {groupSuggestions.length ? (
         <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-soft">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-slate-900">Groups to join</p>
@@ -1372,30 +1449,56 @@ function FeedInsightsRail({ liveMoments = [], connectionSuggestions = [], groupS
               Explore groups
             </Link>
           </div>
-          <ul className="mt-4 space-y-3 text-sm">
-            {groupSuggestions.slice(0, 4).map((group) => (
-              <li key={group.id} className="rounded-2xl border border-slate-200 px-4 py-3">
-                <p className="text-sm font-semibold text-slate-900">{group.name}</p>
-                <p className="mt-1 text-xs text-slate-500">{group.description}</p>
-                <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
-                  <span>{group.members} members</span>
-                  <span>{group.focus.slice(0, 2).join(' • ')}</span>
-                </div>
-                <button
-                  type="button"
-                  className="mt-3 inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
-                >
-                  Request invite
-                </button>
-              </li>
-            ))}
-          </ul>
+          {groupSuggestions.length ? (
+            <ul className="mt-4 space-y-3 text-sm">
+              {groupSuggestions.slice(0, 4).map((group) => {
+                const focus = Array.isArray(group.focus) ? group.focus.slice(0, 2).join(' • ') : group.focus;
+                const memberCount = group.memberCount ?? group.members ?? 0;
+                const location = group.location ?? 'Across the network';
+                const summary = group.summary ?? group.description;
+                return (
+                  <li key={group.id} className="rounded-2xl border border-slate-200 px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <UserAvatar name={group.name} seed={group.name} size="xs" showGlow={false} />
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-slate-900">{group.name}</p>
+                        <p className="text-xs text-slate-500">{focus}</p>
+                      </div>
+                    </div>
+                    <p className="mt-3 text-xs text-slate-500">{summary}</p>
+                    <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
+                      <span>{location}</span>
+                      <span>{memberCount} members</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="mt-3 inline-flex items-center gap-2 rounded-full border border-accent/30 px-4 py-2 text-xs font-semibold text-accent transition hover:border-accent hover:bg-accentSoft"
+                    >
+                      Request invite
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <InsightsEmptyMessage
+              icon={UserGroupIcon}
+              title={fallbackActive ? 'Groups paused while offline' : 'No new groups ready yet'}
+              description={
+                fallbackActive
+                  ? 'We are using cached insight copies while offline. Explore the community directory to continue discovering spaces manually.'
+                  : 'We will highlight new groups once they align with your memberships and activity. Explore the directory to find communities in the meantime.'
+              }
+              actionLabel="View communities"
+              actionHref="/groups"
+            />
+          )}
         </div>
-      ) : null}
+      </div>
       <div className="rounded-3xl border border-accent/30 bg-accentSoft/80 p-6 text-sm text-slate-700">
-        <p className="text-sm font-semibold text-accentDark">Explorer consolidation</p>
+        <p className="text-sm font-semibold text-accentDark">Explorer streamlines discovery</p>
         <p className="mt-2 text-sm text-slate-700">
-          Jobs, gigs, projects, Experience Launchpad cohorts, volunteer opportunities, and talent discovery now live inside the Explorer. Use filters to pivot between freelancers, companies, people, groups, headhunters, and agencies without leaving your flow.
+          Jobs, gigs, projects, Launchpad cohorts, and volunteer missions now sit in one search experience. Pivot between freelancers, companies, agencies, and headhunters without breaking your workflow.
         </p>
         <Link
           to="/search"
@@ -1407,10 +1510,35 @@ function FeedInsightsRail({ liveMoments = [], connectionSuggestions = [], groupS
       {!hasSuggestions ? (
         <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 text-sm text-slate-600 shadow-soft">
           <p className="text-sm font-semibold text-slate-900">No new suggestions just yet</p>
-          <p className="mt-2 text-sm">As soon as the community shifts, you’ll see fresh connections and groups to explore.</p>
+          <p className="mt-2 text-sm">We’ll surface fresh connections and groups as activity shifts. Try refreshing the signals above to nudge new matches.</p>
         </div>
       ) : null}
     </aside>
+  );
+}
+
+function InsightsEmptyMessage({ icon: Icon, title, description, actionLabel, actionHref }) {
+  return (
+    <div className="mt-4 rounded-2xl border border-dashed border-slate-200/80 bg-slate-50/70 px-4 py-5 text-left text-xs leading-relaxed text-slate-500">
+      <div className="flex items-center gap-3 text-slate-600">
+        {Icon ? (
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-500 shadow-soft">
+            <Icon className="h-5 w-5" aria-hidden="true" />
+          </span>
+        ) : null}
+        <span className="font-semibold text-slate-700">{title}</span>
+      </div>
+      <p className="mt-3 text-slate-500">{description}</p>
+      {actionLabel && actionHref ? (
+        <Link
+          to={actionHref}
+          className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-accent transition hover:text-accentDark"
+        >
+          {actionLabel}
+          <span aria-hidden="true">→</span>
+        </Link>
+      ) : null}
+    </div>
   );
 }
 
@@ -1459,13 +1587,35 @@ export default function FeedPage() {
     return deduped;
   }, [data, localPosts, session]);
 
-  const engagementSignals = useEngagementSignals({ session, feedPosts: posts });
+  const hasWindow = typeof window !== 'undefined';
+  const shouldVirtualize = hasWindow && posts.length > 10;
+  const getScrollElement = useCallback(() => (typeof window === 'undefined' ? null : window), []);
+  const feedVirtualizer = useVirtualizer({
+    count: shouldVirtualize ? posts.length : 0,
+    getScrollElement,
+    estimateSize: () => 580,
+    overscan: 6,
+  });
+  const virtualItems = shouldVirtualize ? feedVirtualizer.getVirtualItems() : [];
+
+  const engagementSignals = useEngagementSignals({ session, feedPosts: posts, limit: 8, enabled: hasFeedAccess });
   const {
     interests = [],
     connectionSuggestions = [],
     groupSuggestions = [],
     liveMoments = [],
+    loading: insightsLoading = false,
+    error: insightsError = null,
+    lastUpdated: insightsLastUpdated = null,
+    refresh: refreshEngagementSignals,
+    usingFallback: insightsUsingFallback = false,
   } = engagementSignals ?? {};
+
+  const handleRefreshInsights = useCallback(() => {
+    if (typeof refreshEngagementSignals === 'function') {
+      refreshEngagementSignals({ force: true });
+    }
+  }, [refreshEngagementSignals]);
 
   const membershipList = useMemo(() => {
     const memberships = new Set();
@@ -1824,6 +1974,52 @@ export default function FeedPage() {
       );
     }
 
+    if (shouldVirtualize && virtualItems.length) {
+      return (
+        <div className="relative" style={{ height: `${feedVirtualizer.getTotalSize()}px` }}>
+          {virtualItems.map((virtualItem) => {
+            const post = posts[virtualItem.index];
+            if (!post) {
+              return null;
+            }
+            return (
+              <div
+                key={post.id}
+                ref={feedVirtualizer.measureElement}
+                data-index={virtualItem.index}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualItem.start}px)`,
+                }}
+              >
+                <div className="pb-6">
+                  <FeedPostCard
+                    post={post}
+                    onShare={handleShareClick}
+                    canManage={canManagePost(post)}
+                    onEditStart={handleEditStart}
+                    onEditCancel={handleEditCancel}
+                    onDelete={handleDeletePost}
+                    isEditing={editingPostId === post.id}
+                    editDraft={editingPostId === post.id ? editingDraft : DEFAULT_EDIT_DRAFT}
+                    onEditDraftChange={handleEditDraftChange}
+                    onEditSubmit={handleEditSubmit}
+                    editSaving={editSaving}
+                    editError={editingPostId === post.id ? editingError : null}
+                    deleteLoading={removingPostId === post.id}
+                    onToggleReaction={handleToggleReaction}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-6">
         {posts.map((post) => (
@@ -1957,6 +2153,11 @@ export default function FeedPage() {
             liveMoments={liveMoments}
             connectionSuggestions={connectionSuggestions}
             groupSuggestions={groupSuggestions}
+            loading={insightsLoading}
+            lastUpdated={insightsLastUpdated}
+            onRefresh={handleRefreshInsights}
+            error={insightsError}
+            usingFallback={insightsUsingFallback}
           />
         </div>
       </div>

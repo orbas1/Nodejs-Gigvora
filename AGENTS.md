@@ -342,22 +342,25 @@ The following content is ported from `logic_flows.md` and retains every main cat
 16. **Full Upgrade Plan & Release Steps.** 1) Port company/agency onboarding to `useFormState` and shared validation helpers; 2) Layer analytics + progressive profiling once backend endpoints are ready; 3) Replace mailto upgrade links with in-product flows; 4) Add Vitest coverage for login + membership gate states; 5) Launch with A/B instrumentation on social vs. email funnels.
 
 ### Sub category 2.C. Timeline Feed, Engagement, and Social Surfaces
-1. **Appraisal.** Feed pages render timeline posts, avatar stacks, comment threads, suggested connections/groups, and advert cards mirroring backend payload structure.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L1-L160】【F:gigvora-frontend-reactjs/src/components/feed/SuggestedConnections.jsx†L1-L120】
-2. **Functionality.** Components fetch feed data, map posts to cards, allow reactions/comments, and surface secondary suggestions with CTA buttons.
-3. **Logic Usefulness.** Provides central engagement hub, aligning with backend social graph and recommendation flows.
-4. **Redundancies.** Placeholder data arrays repeated; move to mocks or dynamic fetch calls.
-5. **Placeholders Or non-working functions or stubs.** Some CTA buttons lack handlers; mark as TODO or implement linking.
-6. **Duplicate Functions.** Avatar rendering repeated; centralise in shared `Avatar` component with size variants.
-7. **Improvements need to make.** Implement optimistic updates, integrate moderation flags, and add skeleton loaders.
-8. **Styling improvements.** Ensure consistent card spacing, adopt grid layout for suggestions, and refine typography hierarchy.
-9. **Efficiency analysis and improvement.** Use virtualization for large feed lists; lazy load comment threads.
-10. **Strengths to Keep.** Comprehensive feed structure and modular components.
-11. **Weaknesses to remove.** Remove static ad cards until dynamic ad service ready.
-12. **Styling and Colour review changes.** Align accent colours with brand palette; ensure accessible contrast.
-13. **CSS, orientation, placement and arrangement changes.** Enhance responsive stacking for suggestions and adverts on mobile.
-14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Edit copy to concise actionable text; avoid repeating "Discover" across multiple modules.
-15. **Change Checklist Tracker.** ✅ Review feed UI; ⬜ Implement data fetching; ⬜ Optimise virtualization; ⬜ Update copy.
-16. **Full Upgrade Plan & Release Steps.** 1) Connect feed API; 2) Add virtualization/skeletons; 3) QA responsive layout; 4) Deploy with staged rollout.
+1. **Appraisal.** The feed now virtualises scrolling content, pulls dynamic engagement signals from the backend insights service, and continues to coordinate composer, reaction, and sharing flows in a single surface.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L1430-L1960】【F:gigvora-backend-nodejs/src/services/feedInsightsService.js†L1-L200】
+2. **Functionality.** Cached insight fetching, optimistic post creation, edit/delete flows, reaction sync, and server refresh are orchestrated through `FeedPage`, with `useEngagementSignals` exposing a `usingFallback` flag so the rail can signal cached states and render empty placeholders without losing local state.【F:gigvora-frontend-reactjs/src/hooks/useEngagementSignals.js†L1-L84】【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L1505-L1775】
+3. **Logic Usefulness.** Insight generation honours recent posts, tags, and types, ensuring suggestions map to active conversations rather than static seed data.【F:gigvora-backend-nodejs/src/services/feedInsightsService.js†L116-L200】
+4. **Redundancies.** Local suggestion fallbacks remain for offline mode; transition them to fixtures so production paths rely on the insights endpoint exclusively.【F:gigvora-frontend-reactjs/src/services/engagementService.js†L1-L120】
+5. **Placeholders Or non-working functions or stubs.** CTA actions inside suggestions now have handlers but still stub backend mutations—connect to live networking APIs as they land.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L1315-L1395】
+6. **Duplicate Functions.** Shared utilities (`UserAvatar`, `formatRelativeTime`) back formatting across cards, avoiding new duplication with the virtualised renderer.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L990-L1185】
+7. **Improvements need to make.** Layer moderation overlays, streaming comment hydration, and pinned-post support on top of the current virtualization and caching foundation.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L1805-L1960】
+8. **Styling improvements.** Insights status banner now pairs with cached-state badges, dashed empty-state panels, and directory nudges—keep harmonising these with DataStatus primitives and audit spacing across breakpoints.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L1335-L1655】
+9. **Efficiency analysis and improvement.** Virtualized rows drastically cut DOM weight, while cached insights prevent redundant network calls; consider batching reaction updates next.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L1680-L1865】
+10. **Strengths to Keep.** Optimistic compose, granular editing, reaction analytics, and contextual suggestions keep the timeline a cross-persona engagement hub.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L1520-L1745】
+11. **Weaknesses to remove.** Curated fallbacks have been replaced with empty states; remaining work is wiring live networking mutations so cached data only appears during outages.【F:gigvora-frontend-reactjs/src/hooks/useEngagementSignals.js†L1-L84】【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L1335-L1705】
+12. **Styling and Colour review changes.** Updated Explorer CTA and refresh messaging maintain brand contrast and reinforce actionable phrasing; validate spacing on narrow layouts.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L1255-L1365】
+13. **CSS, orientation, placement and arrangement changes.** Absolute-positioned virtual items include padding wrappers to preserve spacing; ensure keyboard focus moves predictably between virtualised cards.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L1820-L1865】
+14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Insights rail copy now guides refresh usage and removes redundant verbs, while composer helper text remains succinct.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L1245-L1375】
+15. **Change Checklist Tracker.**
+    - ✅ (a) Surface `usingFallback` from `useEngagementSignals` to drive cached-state messaging and analytics.【F:gigvora-frontend-reactjs/src/hooks/useEngagementSignals.js†L1-L84】
+    - ✅ (b) Replace curated fallbacks with empty-state experiences for live moments, connections, and groups.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L1170-L1705】
+    - ✅ (c) Add cached-status badges and directory nudges inside `FeedInsightsRail` so members understand next steps while data refreshes.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L1335-L1705】
+16. **Full Upgrade Plan & Release Steps.** 1) Observe insights adoption and introduce pinned-post/streaming support in the virtualiser; 2) Retire fallback libraries in favour of API-empty states; 3) Roll out moderation and analytics overlays once backend streams mature.【F:gigvora-backend-nodejs/src/services/feedInsightsService.js†L1-L200】【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L1805-L1960】
 
 ### Sub category 2.D. Explorer, Marketplace, and Project Management UI
 1. **Appraisal.** Explorer pages cover search, jobs, gigs, projects, launchpads, volunteering, and detail views with filters, cards, and auto-match workflows.【F:gigvora-frontend-reactjs/src/pages/SearchPage.jsx†L1-L160】【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L1-L140】
