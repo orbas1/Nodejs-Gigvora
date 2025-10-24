@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import {
   AdjustmentsHorizontalIcon,
@@ -353,10 +354,16 @@ function RoutingRuleForm({ initialValue, onCancel, onSave, saving }) {
   );
 }
 
-export default function InboxSection() {
+export default function InboxSection({ userId: userIdProp, freelancerId }) {
   const { session } = useSession();
-  const actorId = resolveActorId(session);
-  const hasMessagingAccess = canAccessMessaging(session);
+  const sessionActorId = useMemo(() => resolveActorId(session), [session]);
+  const actorId = useMemo(() => (userIdProp != null ? userIdProp : sessionActorId), [sessionActorId, userIdProp]);
+  const hasMessagingAccess = useMemo(() => {
+    if (userIdProp != null) {
+      return true;
+    }
+    return canAccessMessaging(session);
+  }, [session, userIdProp]);
   const memberships = useMemo(() => getMessagingMemberships(session), [session]);
   const {
     workspace,
@@ -1098,3 +1105,13 @@ export default function InboxSection() {
     </SectionShell>
   );
 }
+
+InboxSection.propTypes = {
+  userId: PropTypes.number,
+  freelancerId: PropTypes.number,
+};
+
+InboxSection.defaultProps = {
+  userId: null,
+  freelancerId: null,
+};

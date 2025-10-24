@@ -4,6 +4,8 @@ import { FunnelIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 const VIEW_OPTIONS = [
   { id: 'open', label: 'Open' },
   { id: 'closed', label: 'Closed' },
+  { id: 'kanban', label: 'Kanban' },
+  { id: 'timeline', label: 'Timeline' },
 ];
 
 export default function ProjectToolbar({
@@ -15,6 +17,8 @@ export default function ProjectToolbar({
   onStatusFilterChange,
   riskFilter,
   onRiskFilterChange,
+  sortKey,
+  onSortKeyChange,
 }) {
   return (
     <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
@@ -72,6 +76,19 @@ export default function ProjectToolbar({
             <option value="high">High</option>
           </select>
         </div>
+        <div className="flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-600">
+          <FunnelIcon className="h-4 w-4" />
+          <select
+            value={sortKey}
+            onChange={(event) => onSortKeyChange(event.target.value)}
+            className="border-none bg-transparent text-sm focus:outline-none"
+          >
+            <option value="updated">Recent</option>
+            <option value="due">Due date</option>
+            <option value="client">Client</option>
+            <option value="progress">Progress</option>
+          </select>
+        </div>
       </div>
     </div>
   );
@@ -80,10 +97,12 @@ export default function ProjectToolbar({
 ProjectToolbar.propTypes = {
   searchTerm: PropTypes.string.isRequired,
   onSearchTermChange: PropTypes.func.isRequired,
-  activeView: PropTypes.oneOf(['open', 'closed']).isRequired,
+  activeView: PropTypes.oneOf(['open', 'closed', 'kanban', 'timeline']).isRequired,
   onViewChange: PropTypes.func.isRequired,
   statusFilter: PropTypes.string.isRequired,
   onStatusFilterChange: PropTypes.func.isRequired,
   riskFilter: PropTypes.string.isRequired,
   onRiskFilterChange: PropTypes.func.isRequired,
+  sortKey: PropTypes.string.isRequired,
+  onSortKeyChange: PropTypes.func.isRequired,
 };

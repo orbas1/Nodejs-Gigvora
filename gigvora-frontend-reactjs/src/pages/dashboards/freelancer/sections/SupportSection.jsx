@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import PropTypes from 'prop-types';
 import useSession from '../../../../hooks/useSession.js';
 import { resolveActorId } from '../../../../utils/session.js';
 import SectionShell from '../SectionShell.jsx';
@@ -18,10 +19,12 @@ function resolveFreelancerId(session) {
   return null;
 }
 
-export default function SupportSection() {
+export default function SupportSection({ userId: userIdProp, freelancerId: freelancerIdProp }) {
   const { session } = useSession();
-  const userId = useMemo(() => resolveActorId(session), [session]);
-  const freelancerId = useMemo(() => resolveFreelancerId(session), [session]);
+  const sessionUserId = useMemo(() => resolveActorId(session), [session]);
+  const sessionFreelancerId = useMemo(() => resolveFreelancerId(session), [session]);
+  const userId = userIdProp ?? sessionUserId;
+  const freelancerId = freelancerIdProp ?? sessionFreelancerId;
 
   if (!userId) {
     return (
@@ -43,3 +46,13 @@ export default function SupportSection() {
     </section>
   );
 }
+
+SupportSection.propTypes = {
+  userId: PropTypes.number,
+  freelancerId: PropTypes.number,
+};
+
+SupportSection.defaultProps = {
+  userId: null,
+  freelancerId: null,
+};

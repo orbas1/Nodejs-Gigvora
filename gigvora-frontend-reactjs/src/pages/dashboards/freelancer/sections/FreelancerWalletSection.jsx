@@ -1,12 +1,14 @@
 import { useMemo } from 'react';
+import PropTypes from 'prop-types';
 import useSession from '../../../../hooks/useSession.js';
 import { resolveActorId } from '../../../../utils/session.js';
 import SectionShell from '../SectionShell.jsx';
 import WalletManagementSection from '../../../../components/wallet/WalletManagementSection.jsx';
 
-export default function FreelancerWalletSection() {
+export default function FreelancerWalletSection({ userId: userIdProp }) {
   const { session } = useSession();
-  const userId = useMemo(() => resolveActorId(session), [session]);
+  const sessionUserId = useMemo(() => resolveActorId(session), [session]);
+  const userId = userIdProp ?? sessionUserId;
 
   if (!userId) {
     return (
@@ -28,3 +30,11 @@ export default function FreelancerWalletSection() {
     </section>
   );
 }
+
+FreelancerWalletSection.propTypes = {
+  userId: PropTypes.number,
+};
+
+FreelancerWalletSection.defaultProps = {
+  userId: null,
+};
