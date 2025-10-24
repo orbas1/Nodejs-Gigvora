@@ -67,7 +67,11 @@ describe('companyOrdersController', () => {
 
     await dashboard(req, res);
 
-    expect(serviceMock.getCompanyOrdersDashboard).toHaveBeenCalledWith({ ownerId: 55, status: 'active' });
+    expect(serviceMock.getCompanyOrdersDashboard).toHaveBeenCalledWith({
+      ownerId: 55,
+      status: 'active',
+      accessContext: expect.objectContaining({ canManage: true, permissions: [] }),
+    });
     expect(res.json).toHaveBeenCalledWith(payload);
   });
 
@@ -79,7 +83,11 @@ describe('companyOrdersController', () => {
 
     await create(req, res);
 
-    expect(serviceMock.createCompanyOrder).toHaveBeenCalledWith({ ownerId: 77, payload: { vendorName: 'Atlas Advisory' } });
+    expect(serviceMock.createCompanyOrder).toHaveBeenCalledWith({
+      ownerId: 77,
+      payload: { vendorName: 'Atlas Advisory' },
+      accessContext: expect.objectContaining({ canManage: true, permissions: [] }),
+    });
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith(order);
   });
@@ -96,6 +104,7 @@ describe('companyOrdersController', () => {
       ownerId: 92,
       orderId: 15,
       payload: { status: 'completed' },
+      accessContext: expect.objectContaining({ canManage: true, permissions: [] }),
     });
     expect(res.json).toHaveBeenCalledWith(order);
   });
@@ -107,7 +116,11 @@ describe('companyOrdersController', () => {
 
     await remove(req, res);
 
-    expect(serviceMock.deleteCompanyOrder).toHaveBeenCalledWith({ ownerId: 61, orderId: 22 });
+    expect(serviceMock.deleteCompanyOrder).toHaveBeenCalledWith({
+      ownerId: 61,
+      orderId: 22,
+      accessContext: expect.objectContaining({ canManage: true, permissions: [] }),
+    });
     expect(res.status).toHaveBeenCalledWith(204);
   });
 
@@ -119,7 +132,11 @@ describe('companyOrdersController', () => {
 
     await detail(req, res);
 
-    expect(serviceMock.getCompanyOrderDetail).toHaveBeenCalledWith({ ownerId: 45, orderId: 33 });
+    expect(serviceMock.getCompanyOrderDetail).toHaveBeenCalledWith({
+      ownerId: 45,
+      orderId: 33,
+      accessContext: expect.objectContaining({ canView: true, permissions: [] }),
+    });
     expect(res.json).toHaveBeenCalledWith(detailPayload);
   });
 
@@ -128,11 +145,12 @@ describe('companyOrdersController', () => {
     serviceMock.createCompanyOrderTimeline.mockResolvedValueOnce({ id: 1 });
     serviceMock.updateCompanyOrderTimeline.mockResolvedValueOnce({ id: 2 });
 
-    await addTimelineEvent({ user: { id: 70 }, params: { orderId: '9' }, body: { title: 'Kick-off' } }, res);
+    await addTimelineEvent({ user: { id: 70, permissions: [] }, params: { orderId: '9' }, body: { title: 'Kick-off' } }, res);
     expect(serviceMock.createCompanyOrderTimeline).toHaveBeenCalledWith({
       ownerId: 70,
       orderId: 9,
       payload: { title: 'Kick-off' },
+      accessContext: expect.objectContaining({ canManage: true, permissions: [] }),
     });
     expect(res.status).toHaveBeenCalledWith(201);
 
@@ -141,7 +159,7 @@ describe('companyOrdersController', () => {
     serviceMock.updateCompanyOrderTimeline.mockResolvedValueOnce({ id: 2 });
 
     await updateTimelineEvent(
-      { user: { id: 70 }, params: { orderId: '9', eventId: '4' }, body: { title: 'Revised kick-off' } },
+      { user: { id: 70, permissions: [] }, params: { orderId: '9', eventId: '4' }, body: { title: 'Revised kick-off' } },
       updateRes,
     );
 
@@ -150,23 +168,33 @@ describe('companyOrdersController', () => {
       orderId: 9,
       eventId: 4,
       payload: { title: 'Revised kick-off' },
+      accessContext: expect.objectContaining({ canManage: true, permissions: [] }),
     });
     expect(updateRes.json).toHaveBeenCalledWith({ id: 2 });
   });
 
   it('removes a timeline event with validated ids', async () => {
-    const req = { user: { id: 52 }, params: { orderId: '14', eventId: '3' } };
+    const req = { user: { id: 52, permissions: [] }, params: { orderId: '14', eventId: '3' } };
     const res = createResponse();
     serviceMock.deleteCompanyOrderTimeline.mockResolvedValueOnce(undefined);
 
     await removeTimelineEvent(req, res);
 
-    expect(serviceMock.deleteCompanyOrderTimeline).toHaveBeenCalledWith({ ownerId: 52, orderId: 14, eventId: 3 });
+    expect(serviceMock.deleteCompanyOrderTimeline).toHaveBeenCalledWith({
+      ownerId: 52,
+      orderId: 14,
+      eventId: 3,
+      accessContext: expect.objectContaining({ canManage: true, permissions: [] }),
+    });
     expect(res.status).toHaveBeenCalledWith(204);
   });
 
   it('posts a message using the authenticated actor context', async () => {
-    const req = { user: { id: 81, email: 'ops@gigvora.test' }, params: { orderId: '8' }, body: { body: 'Update' } };
+    const req = {
+      user: { id: 81, email: 'ops@gigvora.test', permissions: [] },
+      params: { orderId: '8' },
+      body: { body: 'Update' },
+    };
     const res = createResponse();
     const message = { id: 5 };
     serviceMock.postCompanyOrderMessage.mockResolvedValueOnce(message);
@@ -178,6 +206,7 @@ describe('companyOrdersController', () => {
       orderId: 8,
       payload: { body: 'Update' },
       actor: { id: 81, name: 'ops@gigvora.test' },
+      accessContext: expect.objectContaining({ permissions: [] }),
     });
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith(message);
@@ -196,6 +225,7 @@ describe('companyOrdersController', () => {
       orderId: 4,
       payload: { body: 'Owner update' },
       actor: { id: 64, name: 'Company operator' },
+      accessContext: expect.objectContaining({ permissions: [] }),
     });
   });
 
@@ -210,14 +240,16 @@ describe('companyOrdersController', () => {
       ownerId: 90,
       orderId: 10,
       payload: { label: 'Kick-off' },
+      accessContext: expect.objectContaining({ canManage: true, permissions: [] }),
     });
     expect(createRes.status).toHaveBeenCalledWith(201);
 
-    await updateEscrowCheckpoint({ user: { id: 90 }, params: { checkpointId: '5' }, body: { status: 'released' } }, updateRes);
+    await updateEscrowCheckpoint({ user: { id: 90, permissions: [] }, params: { checkpointId: '5' }, body: { status: 'released' } }, updateRes);
     expect(serviceMock.updateCompanyOrderEscrow).toHaveBeenCalledWith({
       ownerId: 90,
       checkpointId: 5,
       payload: { status: 'released' },
+      accessContext: expect.objectContaining({ canManage: true, permissions: [] }),
     });
     expect(updateRes.json).toHaveBeenCalledWith({ id: 2 });
   });
@@ -234,6 +266,7 @@ describe('companyOrdersController', () => {
       ownerId: 41,
       orderId: 17,
       payload: { scorecard: { overallScore: 4 } },
+      accessContext: expect.objectContaining({ canManage: true, permissions: [] }),
     });
     expect(res.json).toHaveBeenCalledWith(order);
   });

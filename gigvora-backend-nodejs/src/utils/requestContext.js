@@ -6,6 +6,7 @@ export function resolveRequestUserId(req) {
   const candidates = [
     req.user?.id,
     req.userId,
+    req.auth?.userId,
     req.headers?.['x-user-id'],
     req.headers?.['x-actor-id'],
     req.headers?.['x-user'],

@@ -304,6 +304,7 @@ describe('companyOrdersService', () => {
           { title: 'Design system', amount: 1600 },
         ],
       },
+      accessContext: { canManage: true, canView: true, permissions: [], actorId: 17 },
     });
 
     expect(createGigOrder).toHaveBeenCalledWith(
@@ -359,11 +360,16 @@ describe('companyOrdersService', () => {
 
     const { getCompanyOrdersDashboard } = await import('../companyOrdersService.js');
 
-    const dashboard = await getCompanyOrdersDashboard({ ownerId: 22, status: 'open' });
+    const dashboard = await getCompanyOrdersDashboard({
+      ownerId: 22,
+      status: 'open',
+      accessContext: { canView: true, canManage: false, permissions: [], actorId: 22 },
+    });
     expect(getProjectGigManagementOverview).toHaveBeenCalledWith(22);
     expect(dashboard.metrics.totalOrders).toBe(1);
     expect(dashboard.metrics.valueInFlight).toBe(1200);
     expect(dashboard.summary.totalSpend).toBe(4500);
+    expect(dashboard.sla.counts.total).toBe(0);
   });
 });
 
@@ -838,11 +844,13 @@ describe('creationStudioService', () => {
       CreationStudioItem: {
         findAll: jest.fn().mockResolvedValue([record]),
       },
+      CreationStudioCollaborator: { findAll: jest.fn() },
       CreationStudioStep: {},
       CREATION_STUDIO_ITEM_TYPES: ['campaign', 'ad'],
       CREATION_STUDIO_ITEM_STATUSES: ['draft', 'published', 'archived'],
       CREATION_STUDIO_VISIBILITIES: ['private', 'public'],
       CREATION_STUDIO_STEPS: [],
+      CREATION_STUDIO_COLLABORATOR_STATUSES: ['invited', 'accepted', 'removed'],
     };
 
     jest.unstable_mockModule(
@@ -1057,8 +1065,11 @@ describe('discoveryService', () => {
       Project: {},
       ExperienceLaunchpad: {},
       Volunteering: {},
+      MentorProfile: { sequelize: { fn: jest.fn(() => 'fn'), col: jest.fn(() => 'col') } },
       OpportunityTaxonomyAssignment: { findAll: jest.fn() },
       OpportunityTaxonomy: { findAll: jest.fn() },
+      MENTOR_AVAILABILITY_STATUSES: ['open', 'waitlist', 'booked_out'],
+      MENTOR_PRICE_TIERS: ['tier_entry', 'tier_growth', 'tier_scale'],
     };
 
     jest.unstable_mockModule(resolveModule('../../models/index.js'), withDefaultExport(() => discoveryModels));
@@ -1076,7 +1087,8 @@ describe('discoveryService', () => {
       isRemoteRole: () => true,
     }));
 
-    const { toOpportunityDto } = await import('../discoveryService.js');
+    const discoveryModule = await import('../discoveryService.js');
+    const { toOpportunityDto } = discoveryModule.default ?? discoveryModule;
 
     const baseRecord = {
       id: 11,
