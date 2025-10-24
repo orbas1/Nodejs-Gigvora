@@ -8,6 +8,7 @@ import {
 } from '../models/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
 import logger from '../utils/logger.js';
+import { enforceFeedPostPolicies } from './contentModerationService.js';
 
 const ALLOWED_VISIBILITY = new Set(['public', 'connections', 'private']);
 const ALLOWED_POST_STATUS = new Set(['draft', 'scheduled', 'published', 'archived']);
@@ -814,12 +815,31 @@ export async function createTimelinePost(freelancerId, payload = {}, options = {
     throw new ValidationError('Invalid visibility provided.');
   }
 
+  const actorRole = Array.isArray(options.actorRoles) && options.actorRoles.length
+    ? `${options.actorRoles[0]}`.toLowerCase()
+    : options.actorRole || freelancer.userType || 'freelancer';
+
+  const sanitizedTitle = sanitizeString(payload.title, { allowNull: false, maxLength: 180 });
+  const sanitizedSummary = sanitizeText(payload.summary, { allowNull: true });
+  const sanitizedContent = sanitizeText(payload.content, { allowNull: true });
+  const sanitizedAttachments = normalizeAttachments(payload.attachments);
+  const moderationContext = enforceFeedPostPolicies(
+    {
+      content: sanitizedContent,
+      summary: sanitizedSummary,
+      title: sanitizedTitle,
+      link: null,
+      attachments: sanitizedAttachments,
+    },
+    { role: actorRole },
+  );
+
   const post = await FreelancerTimelinePost.create({
     freelancerId: normalizedId,
     workspaceId: workspace.id,
-    title: sanitizeString(payload.title, { allowNull: false, maxLength: 180 }),
-    summary: sanitizeText(payload.summary, { allowNull: true }),
-    content: sanitizeText(payload.content, { allowNull: true }),
+    title: moderationContext.title ?? sanitizedTitle,
+    summary: moderationContext.summary ?? sanitizedSummary,
+    content: moderationContext.content ?? sanitizedContent,
     status,
     visibility,
     scheduledAt: normalizeDate(payload.scheduledAt, { allowNull: true }),
@@ -828,7 +848,7 @@ export async function createTimelinePost(freelancerId, payload = {}, options = {
     heroImageUrl: sanitizeUrl(payload.heroImageUrl),
     allowComments: sanitizeBoolean(payload.allowComments, true),
     tags: normalizeTags(payload.tags),
-    attachments: normalizeAttachments(payload.attachments),
+    attachments: moderationContext.attachments ?? sanitizedAttachments,
     targetAudience: sanitizeAudience(payload.targetAudience),
     campaign: sanitizeString(payload.campaign, { allowNull: true, maxLength: 180 }),
     callToAction: sanitizeCallToAction(payload.callToAction),
@@ -837,7 +857,11 @@ export async function createTimelinePost(freelancerId, payload = {}, options = {
   });
 
   const loaded = await loadPost(post.id, normalizedId);
-  return mapPost(loaded);
+  const mapped = mapPost(loaded);
+  if (Array.isArray(moderationContext?.signals) && moderationContext.signals.length) {
+    mapped.moderation = { signals: moderationContext.signals };
+  }
+  return mapped;
 }
 
 export async function updateTimelinePost(freelancerId, postId, payload = {}, options = {}) {
@@ -845,16 +869,28 @@ export async function updateTimelinePost(freelancerId, postId, payload = {}, opt
   await ensureFreelancerExists(normalizedId);
   const post = await loadPost(postId, normalizedId);
 
+  let sanitizedTitle = post.title;
+  let sanitizedSummary = post.summary ?? null;
+  let sanitizedContent = post.content ?? null;
+  let sanitizedAttachments = Array.isArray(post.attachments) ? post.attachments : [];
+  let shouldModerate = false;
+
   if (payload.title != null) {
-    post.title = sanitizeString(payload.title, { allowNull: false, maxLength: 180 });
+    sanitizedTitle = sanitizeString(payload.title, { allowNull: false, maxLength: 180 });
+    post.title = sanitizedTitle;
+    shouldModerate = true;
   }
 
   if (payload.summary !== undefined) {
-    post.summary = sanitizeText(payload.summary, { allowNull: true });
+    sanitizedSummary = sanitizeText(payload.summary, { allowNull: true });
+    post.summary = sanitizedSummary;
+    shouldModerate = true;
   }
 
   if (payload.content !== undefined) {
-    post.content = sanitizeText(payload.content, { allowNull: true });
+    sanitizedContent = sanitizeText(payload.content, { allowNull: true });
+    post.content = sanitizedContent;
+    shouldModerate = true;
   }
 
   if (payload.status != null) {
@@ -898,7 +934,9 @@ export async function updateTimelinePost(freelancerId, postId, payload = {}, opt
   }
 
   if (payload.attachments !== undefined) {
-    post.attachments = normalizeAttachments(payload.attachments);
+    sanitizedAttachments = normalizeAttachments(payload.attachments);
+    post.attachments = sanitizedAttachments;
+    shouldModerate = true;
   }
 
   if (payload.targetAudience !== undefined) {
@@ -919,9 +957,34 @@ export async function updateTimelinePost(freelancerId, postId, payload = {}, opt
 
   post.lastEditedById = options.actorId ?? options.userId ?? post.lastEditedById;
 
+  let moderationContext = null;
+  if (shouldModerate) {
+    const actorRole = Array.isArray(options.actorRoles) && options.actorRoles.length
+      ? `${options.actorRoles[0]}`.toLowerCase()
+      : options.actorRole || post.get?.('ownerRole') || 'freelancer';
+    moderationContext = enforceFeedPostPolicies(
+      {
+        content: sanitizedContent,
+        summary: sanitizedSummary,
+        title: sanitizedTitle,
+        link: null,
+        attachments: sanitizedAttachments,
+      },
+      { role: actorRole },
+    );
+    post.title = moderationContext.title ?? sanitizedTitle;
+    post.summary = moderationContext.summary ?? sanitizedSummary;
+    post.content = moderationContext.content ?? sanitizedContent;
+    post.attachments = moderationContext.attachments ?? sanitizedAttachments;
+  }
+
   await post.save();
   const loaded = await loadPost(post.id, normalizedId);
-  return mapPost(loaded);
+  const mapped = mapPost(loaded);
+  if (Array.isArray(moderationContext?.signals) && moderationContext.signals.length) {
+    mapped.moderation = { signals: moderationContext.signals };
+  }
+  return mapped;
 }
 
 export async function deleteTimelinePost(freelancerId, postId) {

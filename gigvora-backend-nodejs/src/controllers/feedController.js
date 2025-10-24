@@ -1,5 +1,6 @@
 import { FeedPost, User, Profile } from '../models/index.js';
 import { enforceFeedPostPolicies } from '../services/contentModerationService.js';
+import feedSuggestionService from '../services/feedSuggestionService.js';
 import { ValidationError, AuthorizationError, AuthenticationError } from '../utils/errors.js';
 
 const ALLOWED_VISIBILITY = new Set(['public', 'connections']);
@@ -257,6 +258,21 @@ export async function createPost(req, res) {
     responsePayload.moderation = { signals: moderationContext.signals };
   }
   res.status(201).json(responsePayload);
+}
+
+export async function listSuggestions(req, res) {
+  if (!req.user?.id) {
+    res.json({ items: [], reason: 'anonymous' });
+    return;
+  }
+  const suggestions = await feedSuggestionService.getConnectionSuggestions({
+    viewerId: req.user.id,
+    limit: req.query?.limit,
+  });
+  res.json({
+    items: suggestions,
+    count: suggestions.length,
+  });
 }
 
 export { serialiseFeedPost };
