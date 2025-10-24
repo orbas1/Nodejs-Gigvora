@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ChatwootWidget from '../ChatwootWidget.jsx';
 import SupportDeskPanel from '../SupportDeskPanel.jsx';
@@ -115,10 +115,11 @@ function buildSnapshot() {
 }
 
 describe('Support suite components', () => {
-  beforeEach(() => {
-    vi.useRealTimers();
-    vi.clearAllMocks();
-  });
+beforeEach(() => {
+  vi.useRealTimers();
+  vi.clearAllMocks();
+  getSupportDeskSnapshot.mockResolvedValue({ data: { contacts: [] } });
+});
 
   it('enables Chatwoot when the user is authenticated', () => {
     useSession.mockReturnValue({ isAuthenticated: true });
@@ -140,7 +141,9 @@ describe('Support suite components', () => {
     useSession.mockReturnValue({ isAuthenticated: true });
     const snapshot = buildSnapshot();
 
-    render(<SupportDeskPanel userId={42} freelancerId={null} initialSnapshot={snapshot} />);
+    await act(async () => {
+      render(<SupportDeskPanel userId={42} freelancerId={null} initialSnapshot={snapshot} />);
+    });
 
     expect(
       await screen.findByRole('heading', { name: /resolution control centre/i }),
@@ -157,9 +160,13 @@ describe('Support suite components', () => {
 
     const user = userEvent.setup();
 
-    render(<SupportDeskPanel userId={55} initialSnapshot={snapshot} onClose={vi.fn()} />);
+    await act(async () => {
+      render(<SupportDeskPanel userId={55} initialSnapshot={snapshot} onClose={vi.fn()} />);
+    });
 
-    await user.click(screen.getByRole('button', { name: /refresh snapshot/i }));
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /refresh snapshot/i }));
+    });
 
     await waitFor(() => {
       expect(getSupportDeskSnapshot).toHaveBeenCalledWith(55, { forceRefresh: true });
@@ -169,7 +176,9 @@ describe('Support suite components', () => {
   it('shows a blocking error when the user context is missing', async () => {
     useSession.mockReturnValue({ isAuthenticated: true });
 
-    render(<SupportDeskPanel userId={null} freelancerId={null} />);
+    await act(async () => {
+      render(<SupportDeskPanel userId={null} freelancerId={null} />);
+    });
 
     expect(
       await screen.findByText(/we couldn’t load your resolution workspace/i),
@@ -183,7 +192,9 @@ describe('Support suite components', () => {
     useSession.mockReturnValue({ isAuthenticated: true });
     getSupportDeskSnapshot.mockRejectedValueOnce(new Error('Snapshot failed'));
 
-    render(<SupportDeskPanel userId={77} />);
+    await act(async () => {
+      render(<SupportDeskPanel userId={77} />);
+    });
 
     expect(
       await screen.findByText(/we couldn’t load your resolution workspace/i),
@@ -195,9 +206,15 @@ describe('Support suite components', () => {
     useSession.mockReturnValue({ isAuthenticated: true });
     const user = userEvent.setup();
 
-    render(<SupportLauncher replyDelayMs={50} />);
-
-    await user.click(screen.getByRole('button', { name: /support/i }));
+    await act(async () => {
+      render(<SupportLauncher replyDelayMs={50} />);
+    });
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /toggle support inbox/i }));
+    });
+    await act(async () => {
+      await user.click(await screen.findByRole('button', { name: /helena morris/i }));
+    });
 
     const input = await screen.findByPlaceholderText(/write a message/i);
     await user.type(input, 'Hello support');
@@ -208,5 +225,36 @@ describe('Support suite components', () => {
     expect(
       await screen.findByText(/thanks for the ping — we will follow up shortly/i, {}, { timeout: 2000 }),
     ).toBeInTheDocument();
+  });
+
+  it('renders knowledge base spotlights from the support snapshot', async () => {
+    useSession.mockReturnValue({ isAuthenticated: true, session: { id: 77 } });
+    getSupportDeskSnapshot.mockResolvedValueOnce({
+      data: {
+        contacts: [
+          { id: 'agent-1', name: 'Nova', role: 'Support lead', status: 'online' },
+        ],
+        knowledgeBase: [
+          { id: 'kb-10', title: 'Escalation playbook', summary: 'Steps to activate enterprise escalations.' },
+        ],
+      },
+      cachedAt: new Date(),
+    });
+
+    const user = userEvent.setup();
+    await act(async () => {
+      render(<SupportLauncher />);
+    });
+
+    await screen.findByRole('button', { name: /toggle support inbox/i });
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /toggle support inbox/i }));
+    });
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /help centre/i }));
+    });
+
+    expect(await screen.findByText(/escalation playbook/i)).toBeInTheDocument();
+    expect(screen.getByText(/steps to activate enterprise escalations/i)).toBeInTheDocument();
   });
 });

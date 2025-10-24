@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowPathIcon,
   ChatBubbleLeftRightIcon,
@@ -26,6 +26,9 @@ import AgoraCallPanel from './AgoraCallPanel.jsx';
 import ConversationMessage from './ConversationMessage.jsx';
 import { classNames } from '../../utils/classNames.js';
 import { canAccessMessaging } from '../../constants/access.js';
+import { useLanguage } from '../../context/LanguageContext.jsx';
+
+const THREAD_PAGE_SIZE = 20;
 
 function TabButton({ active, children, onClick }) {
   return (
@@ -82,6 +85,7 @@ function ThreadListItem({ thread, actorId, active, onSelect }) {
 
 export default function MessagingDock() {
   const { session, isAuthenticated } = useSession();
+  const { t } = useLanguage();
   const actorId = resolveActorId(session);
   const canUseMessaging = Boolean(isAuthenticated && actorId && canAccessMessaging(session));
 
@@ -92,7 +96,10 @@ export default function MessagingDock() {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState('inbox');
   const [threads, setThreads] = useState([]);
+  const [page, setPage] = useState(1);
+  const [hasMoreThreads, setHasMoreThreads] = useState(true);
   const [inboxLoading, setInboxLoading] = useState(false);
+  const [inboxAppending, setInboxAppending] = useState(false);
   const [inboxError, setInboxError] = useState(null);
   const [selectedThreadId, setSelectedThreadId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -103,31 +110,89 @@ export default function MessagingDock() {
   const [callSession, setCallSession] = useState(null);
   const [callLoading, setCallLoading] = useState(false);
   const [callError, setCallError] = useState(null);
+  const inboxDebounceTimer = useRef(null);
 
-  const loadInbox = useCallback(async () => {
+  const loadInbox = useCallback(async ({ page: requestedPage = 1, append = false, preserveSelection = true } = {}) => {
     if (!canUseMessaging) {
       return;
     }
-    setInboxLoading(true);
+    if (append) {
+      setInboxAppending(true);
+    } else {
+      setInboxLoading(true);
+    }
     setInboxError(null);
+    let nextThreads = [];
     try {
-      const response = await fetchInbox({ userId: actorId, includeParticipants: true, pageSize: 20 });
-      const data = Array.isArray(response?.data) ? response.data : [];
-      setThreads(data);
-      if (!selectedThreadId && data.length) {
-        setSelectedThreadId(data[0].id);
-      } else if (selectedThreadId) {
-        const exists = data.some((thread) => thread.id === selectedThreadId);
-        if (!exists && data.length) {
-          setSelectedThreadId(data[0].id);
-        }
+      const response = await fetchInbox({
+        userId: actorId,
+        includeParticipants: true,
+        page: requestedPage,
+        pageSize: THREAD_PAGE_SIZE,
+      });
+      const payload = Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(response?.threads)
+          ? response.threads
+          : [];
+      setHasMoreThreads(Boolean(response?.meta?.hasMore ?? (payload.length === THREAD_PAGE_SIZE)));
+      setThreads((previous) => {
+        const merged = append ? [...previous] : [];
+        const existingIds = new Set(append ? previous.map((thread) => thread.id) : []);
+        payload.forEach((thread) => {
+          if (!append) {
+            merged.push(thread);
+            existingIds.add(thread.id);
+            return;
+          }
+          if (!existingIds.has(thread.id)) {
+            merged.push(thread);
+            existingIds.add(thread.id);
+          } else {
+            const existingIndex = merged.findIndex((candidate) => candidate.id === thread.id);
+            if (existingIndex !== -1) {
+              merged.splice(existingIndex, 1, thread);
+            }
+          }
+        });
+        nextThreads = merged;
+        return merged;
+      });
+      setPage(requestedPage);
+      if (!nextThreads.length) {
+        return;
+      }
+      if (!preserveSelection || !selectedThreadId) {
+        setSelectedThreadId(nextThreads[0].id);
+        return;
+      }
+      const exists = nextThreads.some((thread) => thread.id === selectedThreadId);
+      if (!exists) {
+        setSelectedThreadId(nextThreads[0].id);
       }
     } catch (err) {
       setInboxError(err?.body?.message ?? err?.message ?? 'Unable to load inbox threads.');
     } finally {
       setInboxLoading(false);
+      setInboxAppending(false);
     }
   }, [actorId, canUseMessaging, selectedThreadId]);
+
+  const scheduleInboxLoad = useCallback(
+    (options = {}, delay = 250) => {
+      if (!canUseMessaging) {
+        return;
+      }
+      if (inboxDebounceTimer.current) {
+        clearTimeout(inboxDebounceTimer.current);
+      }
+      inboxDebounceTimer.current = window.setTimeout(() => {
+        inboxDebounceTimer.current = null;
+        loadInbox(options);
+      }, Math.max(0, delay));
+    },
+    [canUseMessaging, loadInbox],
+  );
 
   const loadMessages = useCallback(
     async (threadId) => {
@@ -158,8 +223,23 @@ export default function MessagingDock() {
     if (!canUseMessaging) {
       return;
     }
-    loadInbox();
-  }, [open, canUseMessaging, loadInbox]);
+    scheduleInboxLoad({ page: 1, append: false, preserveSelection: !threads.length }, open ? 150 : 0);
+  }, [open, canUseMessaging, scheduleInboxLoad, threads.length]);
+
+  useEffect(() => {
+    if (!open || tab !== 'inbox' || !canUseMessaging) {
+      return;
+    }
+    scheduleInboxLoad({ page: 1, append: false, preserveSelection: true });
+  }, [tab, open, canUseMessaging, scheduleInboxLoad]);
+
+  useEffect(() => {
+    return () => {
+      if (inboxDebounceTimer.current) {
+        clearTimeout(inboxDebounceTimer.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!selectedThreadId) {
@@ -190,14 +270,14 @@ export default function MessagingDock() {
         });
         setComposer('');
         setMessages((prev) => sortMessages([...prev, message]));
-        await loadInbox();
+        await loadInbox({ page, append: false, preserveSelection: true });
       } catch (err) {
         setMessagesError(err?.body?.message ?? err?.message ?? 'Unable to send message.');
       } finally {
         setSending(false);
       }
     },
-    [composer, selectedThreadId, canUseMessaging, actorId, loadInbox],
+    [composer, selectedThreadId, canUseMessaging, actorId, loadInbox, page],
   );
 
   const startCall = useCallback(
@@ -223,14 +303,14 @@ export default function MessagingDock() {
             return sortMessages([...prev, response.message]);
           });
         }
-        await loadInbox();
+        await loadInbox({ page, append: false, preserveSelection: true });
       } catch (err) {
         setCallError(err?.body?.message ?? err?.message ?? 'Unable to start call.');
       } finally {
         setCallLoading(false);
       }
     },
-    [selectedThreadId, canUseMessaging, actorId, loadInbox],
+    [selectedThreadId, canUseMessaging, actorId, loadInbox, page],
   );
 
   const handleJoinCall = useCallback(
@@ -249,6 +329,36 @@ export default function MessagingDock() {
       loadMessages(selectedThreadId);
     }
   }, [selectedThreadId, loadMessages]);
+  const unreadCount = useMemo(
+    () =>
+      threads.reduce((total, thread) => {
+        return total + (isThreadUnread(thread) ? 1 : 0);
+      }, 0),
+    [threads],
+  );
+
+  const loadMoreThreads = useCallback(() => {
+    if (!hasMoreThreads || inboxLoading || inboxAppending) {
+      return;
+    }
+    const nextPage = page + 1;
+    scheduleInboxLoad({ page: nextPage, append: true, preserveSelection: true }, 0);
+  }, [hasMoreThreads, inboxLoading, inboxAppending, page, scheduleInboxLoad]);
+
+  const refreshInbox = useCallback(() => {
+    scheduleInboxLoad({ page: 1, append: false, preserveSelection: true });
+  }, [scheduleInboxLoad]);
+
+  const inboxSubtitle =
+    tab === 'inbox'
+      ? t(
+          'assistants.messaging.subtitle',
+          'Secure messaging, calls, and files for every workspace.',
+        )
+      : t(
+          'assistants.messaging.supportSubtitle',
+          'Switch to the trust centre for ticket analytics and SLAs.',
+        );
 
   return (
     <div className="fixed bottom-6 right-6 z-[60] flex flex-col items-end gap-3">
@@ -257,13 +367,11 @@ export default function MessagingDock() {
           <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
             <div>
               <p className="text-sm font-semibold text-slate-800">
-                {tab === 'inbox' ? 'Inbox' : 'Support chat'}
-              </p>
-              <p className="text-xs text-slate-500">
                 {tab === 'inbox'
-                  ? 'Secure messaging, calls, and files for every workspace.'
-                  : 'Switch to the trust centre for ticket analytics and SLAs.'}
+                  ? t('assistants.messaging.inboxTab', 'Inbox')
+                  : t('assistants.messaging.supportTab', 'Support chat')}
               </p>
+              <p className="text-xs text-slate-500">{inboxSubtitle}</p>
             </div>
             <button
               type="button"
@@ -276,29 +384,38 @@ export default function MessagingDock() {
           </div>
           <div className="flex items-center gap-2 px-4 py-3">
             <TabButton active={tab === 'inbox'} onClick={() => setTab('inbox')}>
-              Inbox
+              {t('assistants.messaging.inboxTab', 'Inbox')}
             </TabButton>
             <TabButton active={tab === 'support'} onClick={() => setTab('support')}>
-              Support
+              {t('assistants.messaging.supportTab', 'Support')}
             </TabButton>
           </div>
           {tab === 'inbox' ? (
             <div className="px-4 pb-4">
               {canUseMessaging ? (
                 <div className="flex items-center justify-between">
-                  <p className="text-xs text-slate-500">Synced across dashboards for teams and partners.</p>
+                  <p className="text-xs text-slate-500">
+                    {t(
+                      'assistants.messaging.syncedCopy',
+                      'Synced across dashboards for teams and partners.',
+                    )}
+                  </p>
                   <button
                     type="button"
-                    onClick={loadInbox}
+                    onClick={refreshInbox}
                     className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 transition hover:border-accent/60 hover:text-accent"
                     disabled={inboxLoading}
                   >
-                    <ArrowPathIcon className={classNames('h-3.5 w-3.5', inboxLoading ? 'animate-spin' : '')} /> Refresh
+                    <ArrowPathIcon className={classNames('h-3.5 w-3.5', inboxLoading ? 'animate-spin' : '')} />
+                    {t('assistants.messaging.refresh', 'Refresh')}
                   </button>
                 </div>
               ) : (
                 <p className="text-xs text-slate-500">
-                  Sign in to view your organisation inbox, start calls, and collaborate in real time.
+                  {t(
+                    'assistants.messaging.signInPrompt',
+                    'Sign in to view your organisation inbox, start calls, and collaborate in real time.',
+                  )}
                 </p>
               )}
               <div className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,0.9fr),minmax(0,1.4fr)]">
@@ -306,7 +423,7 @@ export default function MessagingDock() {
                   {inboxError ? (
                     <p className="rounded-2xl bg-rose-50 px-4 py-3 text-xs text-rose-600">{inboxError}</p>
                   ) : null}
-                  {inboxLoading ? (
+                  {inboxLoading && !inboxAppending ? (
                     <div className="space-y-2">
                       {Array.from({ length: 3 }).map((_, index) => (
                         <div key={index} className="h-20 rounded-3xl bg-slate-100" />
@@ -324,16 +441,37 @@ export default function MessagingDock() {
                     ))
                   ) : (
                     <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
-                      Start a conversation with collaborators or clients. Threads appear here once you create them.
+                      {t(
+                        'assistants.messaging.emptyThreads',
+                        'Start a conversation with collaborators or clients. Threads appear here once you create them.',
+                      )}
                     </div>
                   )}
+                  {threads.length > 0 && hasMoreThreads ? (
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        onClick={loadMoreThreads}
+                        className="w-full rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent/60 hover:text-accent"
+                        disabled={inboxAppending}
+                      >
+                        <ArrowPathIcon
+                          className={classNames('mr-1 inline h-3.5 w-3.5 align-middle', inboxAppending ? 'animate-spin' : '')}
+                        />
+                        {inboxAppending
+                          ? t('assistants.messaging.loadingOlder', 'Loading more conversations…')
+                          : t('assistants.messaging.loadOlder', 'Load older conversations')}
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
                 <div className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-soft">
                   {selectedThread ? (
                     <div>
                       <p className="text-sm font-semibold text-slate-900">{buildThreadTitle(selectedThread, actorId)}</p>
                       <p className="text-xs text-slate-500">
-                        {formatThreadParticipants(selectedThread, actorId).join(', ') || 'Private notes'}
+                        {formatThreadParticipants(selectedThread, actorId).join(', ') ||
+                          t('assistants.messaging.privateNotes', 'Private notes')}
                       </p>
                     </div>
                   ) : null}
@@ -352,7 +490,8 @@ export default function MessagingDock() {
                           : 'border border-accent bg-accent text-white hover:border-accentDark hover:bg-accentDark',
                       )}
                     >
-                      <VideoCameraIcon className={classNames('h-4 w-4', callLoading ? 'animate-spin' : '')} /> Start video
+                      <VideoCameraIcon className={classNames('h-4 w-4', callLoading ? 'animate-spin' : '')} />
+                      {t('assistants.messaging.startVideo', 'Start video')}
                     </button>
                     <button
                       type="button"
@@ -365,7 +504,8 @@ export default function MessagingDock() {
                           : 'border border-slate-200 bg-white text-slate-700 hover:border-accent/60 hover:text-accent',
                       )}
                     >
-                      <PhoneIcon className={classNames('h-4 w-4', callLoading ? 'animate-spin' : '')} /> Start voice
+                      <PhoneIcon className={classNames('h-4 w-4', callLoading ? 'animate-spin' : '')} />
+                      {t('assistants.messaging.startVoice', 'Start voice')}
                     </button>
                   </div>
                   <div className="h-56 space-y-4 overflow-y-auto pr-2">
@@ -392,8 +532,11 @@ export default function MessagingDock() {
                     ) : (
                       <p className="text-sm text-slate-500">
                         {canUseMessaging
-                          ? 'Introduce the team, share files, and schedule calls – messages appear here in real time.'
-                          : 'Sign in to read and send messages.'}
+                          ? t(
+                              'assistants.messaging.emptyMessages',
+                              'Introduce the team, share files, and schedule calls – messages appear here in real time.',
+                            )
+                          : t('assistants.messaging.signInToRead', 'Sign in to read and send messages.')}
                       </p>
                     )}
                   </div>
@@ -405,14 +548,26 @@ export default function MessagingDock() {
                       onChange={(event) => setComposer(event.target.value)}
                       disabled={!canUseMessaging || !selectedThreadId || sending}
                       className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:bg-slate-100"
-                      placeholder={canUseMessaging ? 'Write your reply…' : 'Sign in to send messages'}
+                      placeholder={
+                        canUseMessaging
+                          ? t('assistants.messaging.composePlaceholder', 'Write your reply…')
+                          : t('assistants.messaging.composeDisabled', 'Sign in to send messages')
+                      }
                     />
                     <div className="flex items-center justify-between">
                       {messagesError ? (
                         <span className="text-xs text-rose-500">{messagesError}</span>
                       ) : (
                         <span className="text-xs text-slate-400">
-                          {selectedThread ? 'Files, reactions, and approvals sync across dashboards.' : 'Select a conversation to reply.'}
+                          {selectedThread
+                            ? t(
+                                'assistants.messaging.composeHintActive',
+                                'Files, reactions, and approvals sync across dashboards.',
+                              )
+                            : t(
+                                'assistants.messaging.composeHintEmpty',
+                                'Select a conversation to reply.',
+                              )}
                         </span>
                       )}
                       <button
@@ -426,7 +581,7 @@ export default function MessagingDock() {
                         )}
                       >
                         <PaperAirplaneIcon className={classNames('h-4 w-4', sending ? 'animate-spin' : '')} />
-                        Send
+                        {t('assistants.messaging.send', 'Send')}
                       </button>
                     </div>
                   </form>
@@ -436,19 +591,27 @@ export default function MessagingDock() {
           ) : (
             <div className="space-y-4 px-4 pb-5 text-sm text-slate-600">
               <p>
-                Our support specialists respond within minutes during UK and EU hours. Start a thread here or launch the full trust centre.
+                {t(
+                  'assistants.messaging.supportBody',
+                  'Our support specialists respond within minutes during UK and EU hours. Start a thread here or launch the full trust centre.',
+                )}
               </p>
               <button
                 type="button"
                 onClick={() => window.open('https://support.gigvora.com', '_blank', 'noreferrer')}
                 className="flex w-full items-center justify-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
               >
-                Visit support centre
+                {t('assistants.messaging.visitSupport', 'Visit support centre')}
               </button>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Latest tip</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  {t('assistants.messaging.tipTitle', 'Latest tip')}
+                </p>
                 <p className="mt-2 text-sm text-slate-600">
-                  Launch a video or voice call directly from any project thread – the audit log and recordings stay in sync.
+                  {t(
+                    'assistants.messaging.tipBody',
+                    'Launch a video or voice call directly from any project thread – the audit log and recordings stay in sync.',
+                  )}
                 </p>
               </div>
             </div>
@@ -458,11 +621,16 @@ export default function MessagingDock() {
       <button
         type="button"
         onClick={() => setOpen((previous) => !previous)}
-        className="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-soft transition hover:bg-accentDark"
+        className="relative flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-soft transition hover:bg-accentDark"
         aria-label={open ? 'Hide messages' : 'Show messages'}
         title={open ? 'Hide messages' : 'Show messages'}
       >
         <ChatBubbleLeftRightIcon className="h-6 w-6" />
+        {!open && unreadCount > 0 ? (
+          <span className="absolute -right-1 -top-1 inline-flex min-h-[1.5rem] min-w-[1.5rem] items-center justify-center rounded-full bg-rose-500 px-1 text-[0.7rem] font-semibold text-white shadow-md">
+            {Math.min(unreadCount, 99)}
+          </span>
+        ) : null}
       </button>
     </div>
   );

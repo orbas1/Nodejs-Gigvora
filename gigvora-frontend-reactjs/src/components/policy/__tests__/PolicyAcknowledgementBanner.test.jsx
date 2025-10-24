@@ -9,36 +9,65 @@ vi.mock('../../../hooks/useSession.js', () => ({
   default: vi.fn(),
 }));
 
+vi.mock('../../../services/policyUpdates.js', () => ({
+  fetchPolicyReleaseMetadata: vi.fn(),
+}));
+
+vi.mock('../../../services/analytics.js', () => ({
+  __esModule: true,
+  default: { track: vi.fn() },
+}));
+
 const mockUseSession = useSession;
+const { fetchPolicyReleaseMetadata } = await import('../../../services/policyUpdates.js');
+const analytics = (await import('../../../services/analytics.js')).default;
 
 function renderWithRouter(ui) {
   return render(ui, { wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter> });
 }
 
 beforeEach(() => {
+  vi.clearAllMocks();
   mockUseSession.mockReturnValue({ session: { id: '123' } });
+  fetchPolicyReleaseMetadata.mockResolvedValue(null);
+  analytics.track.mockResolvedValue();
   window.localStorage.clear();
 });
 
 describe('PolicyAcknowledgementBanner', () => {
   it('stores acknowledgement and hides banner', async () => {
     const user = userEvent.setup();
-    renderWithRouter(<PolicyAcknowledgementBanner />);
+    await act(async () => {
+      renderWithRouter(<PolicyAcknowledgementBanner />);
+    });
 
-    expect(screen.getByText(/Updated legal terms now live/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Updated legal terms now live/i)).toBeInTheDocument();
 
     await act(async () => {
       await user.click(screen.getByRole('button', { name: /acknowledge updates/i }));
     });
     expect(screen.queryByText(/Updated legal terms now live/i)).not.toBeInTheDocument();
 
-    const storedValue = window.localStorage.getItem('gv-policy-ack-2024-11:123');
+    const storedValue = window.localStorage.getItem('gv-policy-ack:2024.11:123');
     expect(storedValue).toBeTruthy();
+    const parsed = JSON.parse(storedValue ?? '{}');
+    expect(parsed.version).toBe('2024.11');
+    expect(analytics.track).toHaveBeenCalledWith(
+      'policy.acknowledged',
+      expect.objectContaining({ version: '2024.11' }),
+      expect.objectContaining({ userId: '123' }),
+    );
   });
 
   it('does not render when acknowledgement already exists', () => {
-    window.localStorage.setItem('gv-policy-ack-2024-11:123', new Date().toISOString());
-    renderWithRouter(<PolicyAcknowledgementBanner />);
+    const future = new Date(Date.now() + 1000 * 60 * 60).toISOString();
+    window.localStorage.setItem(
+      'gv-policy-ack:2024.11:123',
+      JSON.stringify({ version: '2024.11', acknowledgedAt: new Date().toISOString(), expiresAt: future }),
+    );
+    await act(async () => {
+      renderWithRouter(<PolicyAcknowledgementBanner />);
+    });
 
     expect(screen.queryByText(/Updated legal terms now live/i)).not.toBeInTheDocument();
   });

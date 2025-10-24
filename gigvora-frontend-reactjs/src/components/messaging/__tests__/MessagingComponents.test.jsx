@@ -5,6 +5,7 @@ import MessagingDock from '../MessagingDock.jsx';
 import ConversationMessage from '../ConversationMessage.jsx';
 import AgoraCallPanel from '../AgoraCallPanel.jsx';
 import useSession from '../../../hooks/useSession.js';
+import { LanguageProvider } from '../../../context/LanguageContext.jsx';
 import {
   fetchInbox,
   fetchThreadMessages,
@@ -74,6 +75,12 @@ vi.mock('agora-rtc-sdk-ng', () => ({
 }));
 
 const mockUseSession = useSession;
+
+function renderWithLanguage(ui) {
+  return render(ui, {
+    wrapper: ({ children }) => <LanguageProvider>{children}</LanguageProvider>,
+  });
+}
 
 const baseSession = {
   session: { id: 1, memberships: ['user'] },
@@ -240,16 +247,21 @@ describe('MessagingDock', () => {
 
   it('loads inbox, sends messages, and starts a call', async () => {
     const user = userEvent.setup();
-    render(<MessagingDock />);
+    await act(async () => {
+      renderWithLanguage(<MessagingDock />);
+    });
 
     await act(async () => {
       await user.click(screen.getByRole('button', { name: /show messages/i }));
     });
 
     await waitFor(() => expect(fetchInbox).toHaveBeenCalled());
+    expect(fetchInbox).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: expect.any(Number), includeParticipants: true, page: 1, pageSize: 20 }),
+    );
     expect(await screen.findByText('See you on the call')).toBeInTheDocument();
 
-    await waitFor(() => expect(fetchThreadMessages).toHaveBeenCalledWith('thread-1', expect.any(Object)));
+    await waitFor(() => expect(fetchThreadMessages).toHaveBeenCalled());
     expect(await screen.findByText('Ready when you are')).toBeInTheDocument();
 
     const textarea = screen.getByPlaceholderText(/write your reply/i);
@@ -271,9 +283,47 @@ describe('MessagingDock', () => {
     expect(await screen.findByText(/video call in progress/i)).toBeInTheDocument();
   });
 
-  it('hides dock when the user is signed out', () => {
+  it('hides dock when the user is signed out', async () => {
     mockUseSession.mockReturnValue({ session: null, isAuthenticated: false });
-    render(<MessagingDock />);
+    await act(async () => {
+      renderWithLanguage(<MessagingDock />);
+    });
     expect(screen.queryByRole('button', { name: /show messages/i })).not.toBeInTheDocument();
+  });
+
+  it('fetches older pages when load more is requested', async () => {
+    const olderThread = {
+      ...thread,
+      id: 'thread-2',
+      lastMessagePreview: 'Follow-up sync',
+      unreadCount: 0,
+    };
+    fetchInbox.mockReset();
+    fetchInbox
+      .mockResolvedValueOnce({ data: [thread], meta: { hasMore: true } })
+      .mockResolvedValueOnce({ data: [olderThread], meta: { hasMore: false } });
+    fetchThreadMessages.mockResolvedValue({ data: [message] });
+
+    const user = userEvent.setup();
+    await act(async () => {
+      renderWithLanguage(<MessagingDock />);
+    });
+
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /show messages/i }));
+    });
+
+    await screen.findByText('See you on the call');
+    const loadMoreButton = await screen.findByRole('button', { name: /load older conversations/i });
+    await act(async () => {
+      await user.click(loadMoreButton);
+    });
+
+    await waitFor(() =>
+      expect(fetchInbox).toHaveBeenLastCalledWith(
+        expect.objectContaining({ page: 2, pageSize: 20, includeParticipants: true }),
+      ),
+    );
+    expect(await screen.findByText('Follow-up sync')).toBeInTheDocument();
   });
 });
