@@ -30,11 +30,26 @@ const INITIAL_QUICK_DRAFT = {
   type: creationTracks[0]?.type ?? 'gig',
   title: '',
   summary: '',
-  audience: 'connections',
+  audience: 'workspace',
   autoPublish: false,
   promptId: null,
   templateId: null,
 };
+
+function normaliseAudience(value) {
+  switch (value) {
+    case 'connections':
+    case 'workspace':
+      return 'workspace';
+    case 'community':
+    case 'public':
+      return 'public';
+    case 'private':
+      return 'private';
+    default:
+      return 'private';
+  }
+}
 
 const numberFormatter = new Intl.NumberFormat('en-GB', {
   notation: 'compact',
@@ -273,7 +288,7 @@ export default function CreationStudioWizardPage() {
           type: quickDraft.type,
           title: quickDraft.title,
           summary: quickDraft.summary,
-          visibility: quickDraft.audience,
+          visibility: normaliseAudience(quickDraft.audience),
           status: 'draft',
           metadata,
         };
@@ -328,7 +343,7 @@ export default function CreationStudioWizardPage() {
       type: template.type,
       title: template.title,
       summary: template.summary,
-      audience: template.audience ?? current.audience,
+      audience: template.audience ? normaliseAudience(template.audience) : current.audience,
       templateId: template.id,
     }));
     setPromptTrack(template.type);
@@ -536,8 +551,8 @@ export default function CreationStudioWizardPage() {
                 onChange={(event) => setQuickDraft((current) => ({ ...current, audience: event.target.value }))}
                 className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-soft focus:border-accent focus:outline-none"
               >
-                <option value="connections">Connections</option>
-                <option value="community">Community</option>
+                <option value="workspace">Connections</option>
+                <option value="public">Community</option>
                 <option value="private">Private workspace</option>
               </select>
             </div>

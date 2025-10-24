@@ -7,6 +7,7 @@ import {
   CREATION_STUDIO_VISIBILITIES,
   CREATION_STUDIO_STEPS,
 } from '../models/creationStudioModels.js';
+import { ProviderWorkspace } from '../models/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
 
 function normaliseString(value) {
@@ -33,7 +34,16 @@ function normaliseArray(value) {
 }
 
 function normaliseVisibility(value) {
-  const candidate = normaliseString(value) ?? 'private';
+  const candidate = normaliseString(value);
+  if (!candidate) {
+    return 'private';
+  }
+  if (candidate === 'connections') {
+    return 'workspace';
+  }
+  if (candidate === 'community') {
+    return 'public';
+  }
   return CREATION_STUDIO_VISIBILITIES.includes(candidate) ? candidate : 'private';
 }
 
@@ -66,6 +76,66 @@ function normaliseNonNegativeInteger(value) {
     return null;
   }
   return numeric;
+}
+
+function normaliseBoolean(value, defaultValue = false) {
+  if (value === undefined || value === null) {
+    return defaultValue;
+  }
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  const stringValue = `${value}`.trim().toLowerCase();
+  if (!stringValue) {
+    return defaultValue;
+  }
+  if (['true', '1', 'yes', 'y'].includes(stringValue)) {
+    return true;
+  }
+  if (['false', '0', 'no', 'n'].includes(stringValue)) {
+    return false;
+  }
+  return defaultValue;
+}
+
+function normaliseDecimal(value) {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+  const numeric = Number.parseFloat(value);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+  return numeric;
+}
+
+function normaliseCurrency(value) {
+  const candidate = normaliseString(value);
+  if (!candidate) {
+    return null;
+  }
+  const upper = candidate.toUpperCase();
+  if (upper.length < 3 || upper.length > 6) {
+    return null;
+  }
+  return upper;
+}
+
+function normaliseJson(value, fallback = {}) {
+  if (value === undefined) {
+    return fallback;
+  }
+  if (value === null) {
+    return null;
+  }
+  if (typeof value === 'object') {
+    return value;
+  }
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    return fallback;
+  }
 }
 
 function requireType(value) {
@@ -146,10 +216,16 @@ function buildSummary(items) {
 
 function buildDefaultSettings(type) {
   switch (type) {
+    case 'cv':
+      return { requiresBrief: false, requiresAttachment: true };
+    case 'cover_letter':
+      return { requiresBrief: true, requiresAttachment: true };
     case 'job':
       return { requiresBrief: true, compensationType: 'salary' };
-    case 'volunteering':
-      return { requiresBrief: true, backgroundChecks: false };
+    case 'volunteer_opportunity':
+      return { requiresBrief: true, backgroundChecks: true };
+    case 'mentorship_offering':
+      return { requiresBrief: true, sessionLengthMinutes: 60 };
     case 'networking_session':
       return { requiresBrief: false, rsvpRequired: true };
     case 'launchpad_job':
@@ -168,18 +244,61 @@ function preparePayload(payload, { actorId, existing } = {}) {
   const summary = payload.summary !== undefined ? normaliseString(payload.summary) : existing?.summary ?? null;
   const description =
     payload.description !== undefined ? normaliseString(payload.description) : existing?.description ?? null;
+  const headline = payload.headline !== undefined ? normaliseString(payload.headline) : existing?.headline ?? null;
 
   const status = payload.status ? normaliseStatus(payload.status) : existing?.status ?? 'draft';
   const visibility = payload.visibility ? normaliseVisibility(payload.visibility) : existing?.visibility ?? 'private';
 
   const settings = payload.settings !== undefined ? { ...buildDefaultSettings(type), ...(payload.settings ?? {}) } : existing?.settings ?? buildDefaultSettings(type);
 
-  const metadata = payload.metadata !== undefined ? payload.metadata ?? {} : existing?.metadata ?? {};
+  const metadata = normaliseJson(payload.metadata, existing?.metadata ?? {});
   const shareTargets = payload.shareTargets !== undefined ? normaliseArray(payload.shareTargets) : existing?.shareTargets ?? [];
   const shareMessage =
     payload.shareMessage !== undefined ? normaliseString(payload.shareMessage) : existing?.shareMessage ?? null;
 
   const tags = payload.tags !== undefined ? normaliseArray(payload.tags) : existing?.tags ?? [];
+
+  const heroImageUrl =
+    payload.heroImageUrl !== undefined ? normaliseString(payload.heroImageUrl) : existing?.heroImageUrl ?? null;
+  const locationLabel =
+    payload.locationLabel !== undefined ? normaliseString(payload.locationLabel) : existing?.locationLabel ?? null;
+  const locationMode =
+    payload.locationMode !== undefined
+      ? normaliseString(payload.locationMode) ?? existing?.locationMode ?? 'hybrid'
+      : existing?.locationMode ?? 'hybrid';
+  const category = payload.category !== undefined ? normaliseString(payload.category) : existing?.category ?? null;
+  const targetAudience =
+    payload.targetAudience !== undefined ? normaliseString(payload.targetAudience) : existing?.targetAudience ?? null;
+  const schedule = normaliseJson(payload.schedule, existing?.schedule ?? null);
+
+  const budgetAmount =
+    payload.budgetAmount !== undefined ? normaliseDecimal(payload.budgetAmount) : existing?.budgetAmount ?? null;
+  const budgetCurrency =
+    payload.budgetCurrency !== undefined ? normaliseCurrency(payload.budgetCurrency) : existing?.budgetCurrency ?? null;
+  const compensationMin =
+    payload.compensationMin !== undefined
+      ? normaliseDecimal(payload.compensationMin)
+      : existing?.compensationMin ?? null;
+  const compensationMax =
+    payload.compensationMax !== undefined
+      ? normaliseDecimal(payload.compensationMax)
+      : existing?.compensationMax ?? null;
+  const compensationCurrency =
+    payload.compensationCurrency !== undefined
+      ? normaliseCurrency(payload.compensationCurrency)
+      : existing?.compensationCurrency ?? null;
+  const durationWeeks =
+    payload.durationWeeks !== undefined
+      ? normalisePositiveInteger(payload.durationWeeks, { min: 1, max: 520 })
+      : existing?.durationWeeks ?? null;
+  const commitmentHours =
+    payload.commitmentHours !== undefined
+      ? normaliseNonNegativeInteger(payload.commitmentHours)
+      : existing?.commitmentHours ?? null;
+  const remoteEligible =
+    payload.remoteEligible !== undefined
+      ? normaliseBoolean(payload.remoteEligible, true)
+      : existing?.remoteEligible ?? true;
 
   const publishAt = payload.publishAt ? new Date(payload.publishAt) : existing?.publishAt ?? null;
   if (publishAt && Number.isNaN(publishAt.getTime())) {
@@ -205,6 +324,20 @@ function preparePayload(payload, { actorId, existing } = {}) {
     shareTargets,
     shareMessage,
     tags,
+    heroImageUrl,
+    locationLabel,
+    locationMode,
+    category,
+    targetAudience,
+    schedule,
+    budgetAmount,
+    budgetCurrency,
+    compensationMin,
+    compensationMax,
+    compensationCurrency,
+    durationWeeks,
+    commitmentHours,
+    remoteEligible,
     publishAt: status === 'scheduled' ? publishAt : null,
     launchAt,
     updatedById: actorId ?? existing?.updatedById ?? null,
@@ -270,7 +403,21 @@ export async function listCreationStudioItems({
 }
 
 async function loadAvailableWorkspaces() {
-  return [];
+  const workspaces = await ProviderWorkspace.findAll({
+    attributes: ['id', 'name', 'slug', 'type', 'ownerId'],
+    where: { isActive: true },
+    order: [['name', 'ASC']],
+  });
+  return workspaces.map((workspace) => {
+    const plain = workspace.get({ plain: true });
+    return {
+      id: plain.id,
+      name: plain.name,
+      slug: plain.slug,
+      type: plain.type,
+      ownerId: plain.ownerId,
+    };
+  });
 }
 
 function buildOverviewSummaries(grouped) {

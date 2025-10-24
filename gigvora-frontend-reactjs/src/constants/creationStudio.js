@@ -166,7 +166,7 @@ export const creationStudioTemplates = [
     title: 'Go-to-market sprint pod',
     summary:
       'Coordinate a cross-functional squad delivering launch assets, activation campaigns, and executive reporting for a new product.',
-    audience: 'community',
+    audience: 'public',
     highlights: ['Weekly sprint rituals', 'Executive-ready reporting', 'Compliance-reviewed assets'],
   },
   {
@@ -175,7 +175,7 @@ export const creationStudioTemplates = [
     title: 'Service design discovery',
     summary:
       'Map customer journeys, facilitate stakeholder co-creation workshops, and deliver a prioritised roadmap with implementation phases.',
-    audience: 'connections',
+    audience: 'workspace',
     highlights: ['Hybrid workshops', 'Journey analytics', 'Implementation roadmap'],
   },
   {
@@ -193,7 +193,7 @@ export const creationStudioTemplates = [
     title: 'Launchpad studio',
     summary:
       'Accelerate student talent with mentor-matched squads, readiness diagnostics, and partner challenges.',
-    audience: 'community',
+    audience: 'public',
     highlights: ['Mentor pairing', 'Readiness diagnostics', 'Partner showcases'],
   },
 ];

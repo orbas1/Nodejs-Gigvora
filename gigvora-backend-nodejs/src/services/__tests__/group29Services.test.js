@@ -850,6 +850,11 @@ describe('creationStudioService', () => {
       withDefaultExport(() => creationModels),
     );
 
+    jest.unstable_mockModule(
+      resolveModule('../../models/index.js'),
+      withDefaultExport(() => ({ ProviderWorkspace: { findAll: jest.fn().mockResolvedValue([]) } })),
+    );
+
     const { listCreationStudioItems } = await import('../creationStudioService.js');
     const items = await listCreationStudioItems({ workspaceId: 15, type: 'Campaign' });
     expect(items).toEqual([{ id: 4, title: 'Hero Campaign', type: 'campaign', status: 'draft', steps: [] }]);
