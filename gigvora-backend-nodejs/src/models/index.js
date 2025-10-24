@@ -11154,6 +11154,31 @@ export const CandidateDemographicSnapshot = sequelize.define(
   },
 );
 
+export const AtsFairnessSnapshot = sequelize.define(
+  'AtsFairnessSnapshot',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
+    recordedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    fairnessScore: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
+    automationCoverage: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
+    newcomerShare: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
+    rotationHealthScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    biasAlertCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    flaggedStagesCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    departmentBreakdown: { type: jsonType, allowNull: true },
+    recruiterBreakdown: { type: jsonType, allowNull: true },
+    notes: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'ats_fairness_snapshots',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['recordedAt'] },
+    ],
+  },
+);
+
 export const CandidateSatisfactionSurvey = sequelize.define(
   'CandidateSatisfactionSurvey',
   {
@@ -22118,6 +22143,10 @@ ProviderWorkspace.hasMany(CandidateDemographicSnapshot, {
   foreignKey: 'workspaceId',
   as: 'candidateDemographics',
 });
+ProviderWorkspace.hasMany(AtsFairnessSnapshot, {
+  foreignKey: 'workspaceId',
+  as: 'fairnessSnapshots',
+});
 ProviderWorkspace.hasMany(CandidateSatisfactionSurvey, {
   foreignKey: 'workspaceId',
   as: 'candidateSurveys',
@@ -22415,6 +22444,7 @@ ProviderContactNote.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
 ProviderContactNote.belongsTo(User, { foreignKey: 'subjectUserId', as: 'subject' });
 HiringAlert.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 CandidateDemographicSnapshot.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
+AtsFairnessSnapshot.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 CandidateSatisfactionSurvey.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 InterviewPanelTemplate.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
 InterviewSchedule.belongsTo(ProviderWorkspace, { foreignKey: 'workspaceId', as: 'workspace' });
@@ -23002,6 +23032,7 @@ export default {
   WorkspaceTemplateResource,
   HiringAlert,
   CandidateDemographicSnapshot,
+  AtsFairnessSnapshot,
   CandidateSatisfactionSurvey,
   InterviewPanelTemplate,
   InterviewSchedule,

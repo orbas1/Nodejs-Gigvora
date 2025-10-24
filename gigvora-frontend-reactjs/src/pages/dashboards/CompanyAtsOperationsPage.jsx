@@ -77,6 +77,7 @@ function deriveFairnessAnalytics(data) {
     fairnessScore:
       fairnessSource.score ??
       fairnessSource.fairnessScore ??
+      atsHealth.fairnessScore ??
       atsHealth.inclusionScore ??
       jobLifecycle.enterpriseReadiness?.experience?.inclusionScore,
     fairnessTrend: normaliseTrend(fairnessTrendSource, { clampMinimum: 0 }),
@@ -86,9 +87,11 @@ function deriveFairnessAnalytics(data) {
     rotationHealth: fairnessSource.rotationHealth ?? atsHealth.rotationHealth,
     biasAlerts:
       fairnessSource.biasAlerts ??
+      atsHealth.biasAlerts ??
       stagePerformance.reduce((sum, stage) => sum + (Number(stage.biasAlerts ?? stage.fairnessAlerts) || 0), 0),
     flaggedStages:
       fairnessSource.flaggedStages ??
+      atsHealth.flaggedStages ??
       stagePerformance.filter((stage) => (stage.biasAlerts ?? stage.fairnessAlerts ?? 0) > 0).length,
     notes,
   };

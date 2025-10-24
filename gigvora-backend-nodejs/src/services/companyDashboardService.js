@@ -60,6 +60,7 @@ const {
   ApplicationReview,
   HiringAlert,
   CandidateDemographicSnapshot,
+  AtsFairnessSnapshot: AtsFairnessSnapshotRaw,
   CandidateSatisfactionSurvey,
   InterviewPanelTemplate,
   InterviewSchedule,
@@ -136,6 +137,7 @@ const ApplicationModel = withDefaultModel(Application);
 const ApplicationReviewModel = withDefaultModel(ApplicationReview);
 const HiringAlertModel = withDefaultModel(HiringAlert);
 const CandidateDemographicSnapshotModel = withDefaultModel(CandidateDemographicSnapshot);
+const AtsFairnessSnapshotModel = withDefaultModel(AtsFairnessSnapshotRaw);
 const CandidateSatisfactionSurveyModel = withDefaultModel(CandidateSatisfactionSurvey);
 const JobStageModel = withDefaultModel(JobStage);
 const JobApprovalWorkflowModel = withDefaultModel(JobApprovalWorkflow);
@@ -1074,6 +1076,19 @@ async function fetchCandidateSnapshots({ workspaceId, applicationIds, since }) {
   });
 }
 
+async function fetchFairnessSnapshots({ workspaceId, since }) {
+  const where = { workspaceId };
+  if (since) {
+    const windowStart = new Date(since.getTime() - 120 * 24 * 60 * 60 * 1000);
+    where.recordedAt = { [Op.gte]: windowStart };
+  }
+  return safeFindAll(AtsFairnessSnapshotModel, {
+    where,
+    order: [['recordedAt', 'ASC']],
+    limit: 24,
+  });
+}
+
 async function fetchCandidateSurveys({ workspaceId, since }) {
   const where = { workspaceId };
   if (since) {
@@ -1865,6 +1880,8 @@ function buildJobLifecycleInsights({
   evaluationWorkspace = {},
   offerBridge = {},
   candidateCareCenter = {},
+  demographicSnapshots = [],
+  fairnessSnapshots = [],
 }) {
   const now = new Date();
   const stageRecords = [...jobStages]
@@ -2007,6 +2024,20 @@ function buildJobLifecycleInsights({
   });
 
   const sortedStagePerformance = stagePerformance.sort((a, b) => a.orderIndex - b.orderIndex);
+
+  const fairnessAnalytics = buildFairnessAnalytics({
+    fairnessSnapshots,
+    demographicSnapshots,
+    stagePerformance: sortedStagePerformance,
+    candidateCareCenter,
+    applications: applicationRecords,
+    stageAutomationCoverage,
+  });
+
+  const lifecycleSegments = buildLifecycleSegments({
+    fairnessSnapshots,
+    applications: applicationRecords,
+  });
 
   const approvalQueueItems = pendingApprovals
     .slice()
@@ -2240,6 +2271,15 @@ function buildJobLifecycleInsights({
   if (dataFreshnessHours != null && dataFreshnessHours > 48) {
     readinessWatchouts.push('Lifecycle signals are older than 48 hours. Refresh integrations to improve data freshness.');
   }
+  if (fairnessAnalytics?.biasAlerts != null && fairnessAnalytics.biasAlerts > 5) {
+    readinessWatchouts.push('Bias alerts remain elevated. Audit screening rubrics and reviewer calibration.');
+  }
+  if (fairnessAnalytics?.newcomerShare != null && fairnessAnalytics.newcomerShare < 25) {
+    readinessWatchouts.push('Newcomer share dipped below 25%. Expand outreach programs to restore rotation commitments.');
+  }
+  if (fairnessAnalytics?.rotationHealth?.score != null && fairnessAnalytics.rotationHealth.score < 65) {
+    readinessWatchouts.push('Rotation health score is under 65. Rotate interviewers and rebalance panel coverage.');
+  }
 
   const enterpriseActions = [];
   if (!Number.isFinite(stageAutomationCoverage) || stageAutomationCoverage < 80) {
@@ -2329,6 +2369,25 @@ function buildJobLifecycleInsights({
   if (scoreConfidence != null && scoreConfidence >= 80) {
     readinessHighlights.push(`Readiness score confidence high with ${signalCount} lifecycle signals feeding the model.`);
   }
+  if (Number.isFinite(fairnessAnalytics?.fairnessScore)) {
+    readinessHighlights.push(`Fairness score holding at ${fairnessAnalytics.fairnessScore.toFixed(1)}.`);
+  }
+  if (Array.isArray(fairnessAnalytics?.notes) && fairnessAnalytics.notes.length) {
+    readinessHighlights.push(fairnessAnalytics.notes[0]);
+  }
+  if (
+    Array.isArray(fairnessAnalytics?.automationTrend) &&
+    fairnessAnalytics.automationTrend.length >= 2
+  ) {
+    const automationDelta =
+      fairnessAnalytics.automationTrend[fairnessAnalytics.automationTrend.length - 1] -
+      fairnessAnalytics.automationTrend[0];
+    if (Number.isFinite(automationDelta) && Math.abs(automationDelta) >= 1) {
+      readinessHighlights.push(
+        `Automation coverage shifted ${automationDelta > 0 ? 'up' : 'down'} ${Math.abs(automationDelta).toFixed(1)} pts across the lookback window.`,
+      );
+    }
+  }
 
   const lastUpdatedAt = lastUpdatedDate ? lastUpdatedDate.toISOString() : null;
 
@@ -2356,6 +2415,7 @@ function buildJobLifecycleInsights({
     scoreConfidence,
     dataFreshnessHours,
     lastUpdatedAt,
+    fairness: fairnessAnalytics,
     automation: {
       stageAutomationCoverage,
       instrumentedStages,
@@ -2434,6 +2494,7 @@ function buildJobLifecycleInsights({
       topChannels: campaignMetrics.slice(0, 5),
     },
     enterpriseReadiness,
+    fairnessAnalytics,
     atsHealth: {
       conversionRates: pipelineSummary?.conversionRates ?? {},
       velocity: pipelineSummary?.velocity ?? {},
@@ -2452,14 +2513,437 @@ function buildJobLifecycleInsights({
       measuredSignals: signalCount,
       ndaCompletionRate,
       inclusionScore,
+      fairnessScore: Number.isFinite(fairnessAnalytics?.fairnessScore)
+        ? fairnessAnalytics.fairnessScore
+        : null,
+      newcomerShare: Number.isFinite(fairnessAnalytics?.newcomerShare)
+        ? fairnessAnalytics.newcomerShare
+        : null,
+      biasAlerts: fairnessAnalytics?.biasAlerts ?? null,
+      flaggedStages: fairnessAnalytics?.flaggedStages ?? null,
+      fairnessTrend: fairnessAnalytics?.fairnessTrend ?? [],
+      automationTrend: fairnessAnalytics?.automationTrend ?? [],
     },
     funnel,
+    segments: lifecycleSegments,
     recentActivity: {
       approvalsCompleted,
       campaignsTracked: campaignRecords.length,
       interviewsScheduled: interviewRecords.length,
     },
   };
+}
+
+function buildFairnessAnalytics({
+  fairnessSnapshots,
+  demographicSnapshots,
+  stagePerformance,
+  candidateCareCenter,
+  applications,
+  stageAutomationCoverage,
+}) {
+  const plainSnapshots = (Array.isArray(fairnessSnapshots) ? fairnessSnapshots : [])
+    .map(toPlain)
+    .filter((snapshot) => snapshot && snapshot.recordedAt)
+    .sort((a, b) => new Date(a.recordedAt) - new Date(b.recordedAt));
+
+  const latestSnapshot = plainSnapshots[plainSnapshots.length - 1] ?? null;
+  const fairnessFromSnapshot = safeNumber(latestSnapshot?.fairnessScore, 1, null);
+  const fairnessFromDemographics = computeFairnessScoreFromDemographics(demographicSnapshots);
+  const fairnessScore = fairnessFromSnapshot ?? fairnessFromDemographics;
+
+  const automationFromSnapshot = safeNumber(latestSnapshot?.automationCoverage, 1, null);
+  const automationCoverage = automationFromSnapshot ?? (Number.isFinite(stageAutomationCoverage) ? stageAutomationCoverage : null);
+
+  const newcomerFromSnapshot = safeNumber(latestSnapshot?.newcomerShare, 1, null);
+  const newcomerShare = newcomerFromSnapshot ?? computeNewcomerShare(applications);
+
+  const rotationFromSnapshot = safeNumber(latestSnapshot?.rotationHealthScore, 1, null);
+  const rotationFromApplications = computeRotationHealthScore(applications);
+  const rotationHealthScore = rotationFromSnapshot ?? rotationFromApplications;
+  const rotationHealth = rotationHealthScore != null
+    ? {
+        score: Number(rotationHealthScore.toFixed(1)),
+        label: determineRotationHealthLabel(rotationHealthScore),
+      }
+    : null;
+
+  const biasAlerts = latestSnapshot?.biasAlertCount != null
+    ? Number(latestSnapshot.biasAlertCount)
+    : candidateCareCenter?.escalations ?? null;
+
+  const flaggedStages = latestSnapshot?.flaggedStagesCount != null
+    ? Number(latestSnapshot.flaggedStagesCount)
+    : computeFlaggedStageCount(stagePerformance);
+
+  const fairnessTrend = buildTrendSeries(plainSnapshots, 'fairnessScore', {
+    demographicSnapshots,
+  });
+  const automationTrend = buildTrendSeries(plainSnapshots, 'automationCoverage');
+
+  const snapshotNotes = Array.isArray(latestSnapshot?.notes)
+    ? latestSnapshot.notes
+    : latestSnapshot?.notes
+    ? [latestSnapshot.notes]
+    : [];
+
+  const normalisedSnapshotNotes = snapshotNotes
+    .map((entry) => {
+      if (typeof entry === 'string') {
+        return entry.trim();
+      }
+      if (entry && typeof entry === 'object') {
+        return (
+          entry.note ?? entry.summary ?? entry.title ?? entry.description ?? entry.message ?? null
+        );
+      }
+      return null;
+    })
+    .filter((value) => typeof value === 'string' && value.length);
+
+  const notes = Array.from(
+    new Set([
+      ...normalisedSnapshotNotes,
+      ...buildFairnessNotes({
+        fairnessScore,
+        newcomerShare,
+        rotationHealthScore,
+        biasAlerts,
+        flaggedStages,
+        fairnessTrend,
+      }),
+    ]),
+  )
+    .map((note) => note.trim())
+    .filter((note) => note.length)
+    .slice(0, 8);
+
+  return {
+    fairnessScore,
+    automationCoverage,
+    newcomerShare,
+    rotationHealth,
+    biasAlerts,
+    flaggedStages,
+    fairnessTrend,
+    automationTrend,
+    notes,
+  };
+}
+
+function buildLifecycleSegments({ fairnessSnapshots, applications }) {
+  const plainSnapshots = (Array.isArray(fairnessSnapshots) ? fairnessSnapshots : [])
+    .map(toPlain)
+    .filter((snapshot) => snapshot && snapshot.recordedAt)
+    .sort((a, b) => new Date(a.recordedAt) - new Date(b.recordedAt));
+  const latestSnapshot = plainSnapshots[plainSnapshots.length - 1] ?? null;
+
+  let departments = normaliseSegmentBreakdown(latestSnapshot?.departmentBreakdown, 'department');
+  if (!departments.length) {
+    departments = deriveSegmentsFromApplications(applications, 'department');
+  }
+
+  let recruiters = normaliseSegmentBreakdown(latestSnapshot?.recruiterBreakdown, 'recruiter');
+  if (!recruiters.length) {
+    recruiters = deriveSegmentsFromApplications(applications, 'recruiter');
+  }
+
+  return {
+    departments,
+    recruiters,
+  };
+}
+
+function buildTrendSeries(snapshots, key, { demographicSnapshots } = {}) {
+  const values = (snapshots ?? [])
+    .map((snapshot) => safeNumber(snapshot?.[key], 1, null))
+    .filter((value) => value != null);
+
+  if (values.length >= 2) {
+    return values;
+  }
+
+  if (key === 'fairnessScore' && demographicSnapshots) {
+    const demographicTrend = computeFairnessTrendFromDemographics(demographicSnapshots);
+    if (demographicTrend.length >= 2) {
+      return demographicTrend;
+    }
+  }
+
+  return values;
+}
+
+function computeFairnessScoreFromDemographics(snapshots) {
+  const plainSnapshots = (Array.isArray(snapshots) ? snapshots : []).map(toPlain);
+  const dimensions = ['genderIdentity', 'ethnicity', 'veteranStatus', 'disabilityStatus'];
+  const scores = [];
+
+  dimensions.forEach((dimension) => {
+    const counts = new Map();
+    plainSnapshots.forEach((snapshot) => {
+      const value = normalizeCategory(snapshot?.[dimension]);
+      if (!value) {
+        return;
+      }
+      counts.set(value, (counts.get(value) ?? 0) + 1);
+    });
+    if (counts.size <= 1) {
+      return;
+    }
+    const total = Array.from(counts.values()).reduce((sum, count) => sum + count, 0);
+    if (!total) {
+      return;
+    }
+    const shares = Array.from(counts.values()).map((count) => count / total);
+    const maxShare = Math.max(...shares);
+    const minShare = Math.min(...shares);
+    const parityScore = 100 - Math.min(100, Math.round((maxShare - minShare) * 100));
+    scores.push(parityScore);
+  });
+
+  if (!scores.length) {
+    return null;
+  }
+
+  return Number((scores.reduce((sum, value) => sum + value, 0) / scores.length).toFixed(1));
+}
+
+function computeFairnessTrendFromDemographics(snapshots) {
+  const grouped = new Map();
+  (Array.isArray(snapshots) ? snapshots : []).forEach((snapshot) => {
+    const plain = toPlain(snapshot);
+    const capturedAt = plain?.capturedAt ? new Date(plain.capturedAt) : null;
+    if (!capturedAt || Number.isNaN(capturedAt.getTime())) {
+      return;
+    }
+    const key = `${capturedAt.getUTCFullYear()}-${String(capturedAt.getUTCMonth() + 1).padStart(2, '0')}-01`;
+    const bucket = grouped.get(key) ?? [];
+    bucket.push(plain);
+    grouped.set(key, bucket);
+  });
+
+  return Array.from(grouped.entries())
+    .sort((a, b) => new Date(a[0]) - new Date(b[0]))
+    .map(([, group]) => computeFairnessScoreFromDemographics(group))
+    .filter((value) => value != null);
+}
+
+function computeNewcomerShare(applications) {
+  const records = Array.isArray(applications) ? applications : [];
+  if (!records.length) {
+    return null;
+  }
+  const applicantCounts = new Map();
+  records.forEach((application) => {
+    const id = application?.applicantId ?? application?.applicant?.id;
+    if (id == null) {
+      return;
+    }
+    const key = Number.isInteger(id) || typeof id === 'string' ? `${id}` : null;
+    if (!key) {
+      return;
+    }
+    applicantCounts.set(key, (applicantCounts.get(key) ?? 0) + 1);
+  });
+
+  if (!applicantCounts.size) {
+    return null;
+  }
+
+  const newcomers = Array.from(applicantCounts.values()).filter((count) => count === 1).length;
+  return Number(((newcomers / applicantCounts.size) * 100).toFixed(1));
+}
+
+function computeRotationHealthScore(applications) {
+  const segments = deriveSegmentsFromApplications(applications, 'department');
+  if (!segments.length) {
+    return null;
+  }
+  const shares = segments.map((segment) => segment.share ?? 0);
+  if (!shares.length) {
+    return null;
+  }
+  const maxShare = Math.max(...shares);
+  const minShare = Math.min(...shares);
+  return Number((100 - Math.min(100, maxShare - minShare)).toFixed(1));
+}
+
+function determineRotationHealthLabel(score) {
+  if (!Number.isFinite(score)) {
+    return 'Rotation steady';
+  }
+  if (score >= 80) {
+    return 'Rotation balanced';
+  }
+  if (score >= 65) {
+    return 'Monitor rotation';
+  }
+  return 'Rotation at risk';
+}
+
+function computeFlaggedStageCount(stagePerformance = []) {
+  return stagePerformance.filter((stage) => {
+    const slaDelta = safeNumber(stage?.slaDeltaHours, 1, null);
+    const pending = Number(stage?.pendingReviews ?? 0);
+    if (Number.isFinite(slaDelta) && slaDelta > 4) {
+      return true;
+    }
+    if (Number.isFinite(pending) && pending > Math.max(Number(stage?.throughput ?? 0) * 0.25, 5)) {
+      return true;
+    }
+    return false;
+  }).length;
+}
+
+function buildFairnessNotes({ fairnessScore, newcomerShare, rotationHealthScore, biasAlerts, flaggedStages, fairnessTrend }) {
+  const notes = [];
+  if (Number.isFinite(fairnessScore) && fairnessScore >= 80) {
+    notes.push('Fairness score meets the enterprise benchmark (≥80).');
+  }
+  if (Array.isArray(fairnessTrend) && fairnessTrend.length >= 2) {
+    const delta = fairnessTrend[fairnessTrend.length - 1] - fairnessTrend[0];
+    if (Number.isFinite(delta) && Math.abs(delta) >= 1) {
+      notes.push(
+        `Fairness score ${delta > 0 ? 'improved' : 'declined'} ${Math.abs(delta).toFixed(1)} pts across the lookback window.`,
+      );
+    }
+  }
+  if (Number.isFinite(newcomerShare) && newcomerShare >= 40) {
+    notes.push('Newcomer rotation target met with ≥40% first-time candidates.');
+  }
+  if (Number.isFinite(rotationHealthScore) && rotationHealthScore >= 75) {
+    notes.push('Rotation health stable across departments.');
+  }
+  if (biasAlerts != null && biasAlerts <= 2) {
+    notes.push('Bias alerts remain under control following recent calibrations.');
+  }
+  if (flaggedStages != null && flaggedStages === 0) {
+    notes.push('No lifecycle stages breaching SLA thresholds this period.');
+  }
+  return notes;
+}
+
+function normaliseSegmentBreakdown(source, type) {
+  if (!source) {
+    return [];
+  }
+  const entries = Array.isArray(source)
+    ? source
+    : typeof source === 'object'
+    ? Object.values(source)
+    : [];
+  if (!entries.length) {
+    return [];
+  }
+  const mapped = entries
+    .map((entry, index) => {
+      const plain = toPlain(entry);
+      const label = plain?.label ?? plain?.name ?? plain?.title ?? (typeof plain === 'string' ? plain : null);
+      if (!label) {
+        return null;
+      }
+      const count = Number(plain?.count ?? plain?.value ?? 0);
+      if (!Number.isFinite(count)) {
+        return null;
+      }
+      const share = plain?.share != null ? Number(plain.share) : null;
+      const id = plain?.id ?? toSegmentId(label, type, index);
+      return {
+        id,
+        label,
+        count,
+        share,
+      };
+    })
+    .filter(Boolean);
+
+  if (!mapped.length) {
+    return [];
+  }
+
+  if (!mapped.some((entry) => entry.share != null)) {
+    const total = mapped.reduce((sum, entry) => sum + entry.count, 0) || 1;
+    mapped.forEach((entry) => {
+      entry.share = Number(((entry.count / total) * 100).toFixed(1));
+    });
+  }
+
+  return mapped.sort((a, b) => b.count - a.count).slice(0, 12);
+}
+
+function deriveSegmentsFromApplications(applications, type) {
+  const records = Array.isArray(applications) ? applications : [];
+  if (!records.length) {
+    return [];
+  }
+
+  const counts = new Map();
+  records.forEach((application) => {
+    const metadata = normaliseMetadata(application?.metadata);
+    let label;
+    if (type === 'department') {
+      label =
+        metadata.department ??
+        metadata.departmentName ??
+        metadata.jobDepartment ??
+        metadata.team ??
+        metadata.teamName ??
+        metadata.orgUnit ??
+        metadata.businessUnit ??
+        null;
+      if (label) {
+        label = `${label}`.trim();
+      }
+      if (!label) {
+        label = 'Unassigned Department';
+      }
+    } else {
+      label =
+        metadata.recruiterName ??
+        metadata.recruiter ??
+        metadata.ownerName ??
+        metadata.recruiterEmail ??
+        metadata.ownerEmail ??
+        null;
+      if (label) {
+        label = `${label}`.trim();
+      }
+      if (!label) {
+        label = 'Unassigned Recruiter';
+      }
+    }
+
+    const existing = counts.get(label) ?? { label, count: 0 };
+    existing.count += 1;
+    counts.set(label, existing);
+  });
+
+  const list = Array.from(counts.values());
+  if (!list.length) {
+    return [];
+  }
+
+  const total = list.reduce((sum, entry) => sum + entry.count, 0) || 1;
+  return list
+    .map((entry, index) => ({
+      id: toSegmentId(entry.label, type, index),
+      label: entry.label,
+      count: entry.count,
+      share: Number(((entry.count / total) * 100).toFixed(1)),
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 12);
+}
+
+function toSegmentId(label, type, index) {
+  const base = `${label}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+  if (base) {
+    return base.length > 60 ? `${base.slice(0, 55)}-${index}` : base;
+  }
+  return `${type}-${index}`;
 }
 
 function buildJobDesignStudioSummary({ approvals, jobStages, jobSummary, alerts }) {
@@ -5656,6 +6140,7 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       interviewSchedules,
       hiringAlerts,
       candidateSurveys,
+      fairnessSnapshots,
       partnerEngagements,
       calendarEvents,
       brandAssets,
@@ -5695,6 +6180,7 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       fetchInterviewSchedules({ workspaceId: workspace.id, since }),
       fetchHiringAlerts({ workspaceId: workspace.id, since }),
       fetchCandidateSurveys({ workspaceId: workspace.id, since }),
+      fetchFairnessSnapshots({ workspaceId: workspace.id, since }),
       fetchPartnerEngagements({ workspaceId: workspace.id, since }),
       fetchCalendarEvents({ workspaceId: workspace.id, since }),
       fetchBrandAssets({ workspaceId: workspace.id }),
@@ -5885,6 +6371,8 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       evaluationWorkspace: evaluationWorkspaceSummary,
       offerBridge,
       candidateCareCenter,
+      demographicSnapshots,
+      fairnessSnapshots,
     });
     const partnerCollaborationDetails = buildPartnerCollaborationSummary({
       partnerSummary,
