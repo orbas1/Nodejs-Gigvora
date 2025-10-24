@@ -129,7 +129,16 @@ function UserMenu({ session, onLogout }) {
   );
 }
 
-function InboxPreview({ threads, loading, error, onRefresh, lastFetchedAt, onOpen, onThreadClick }) {
+function InboxPreview({
+  threads,
+  loading,
+  error,
+  onRefresh,
+  lastFetchedAt,
+  onOpen,
+  onThreadClick,
+  status = 'idle',
+}) {
   const handleAfterEnter = useCallback(() => {
     onOpen?.();
   }, [onOpen]);
@@ -145,14 +154,51 @@ function InboxPreview({ threads, loading, error, onRefresh, lastFetchedAt, onOpe
   const hasThreads = threads.length > 0;
   const skeletonItems = useMemo(() => Array.from({ length: 3 }), []);
   const lastUpdatedCopy = lastFetchedAt ? formatRelativeTime(lastFetchedAt) : null;
+  const statusLabelMap = useMemo(
+    () => ({
+      connected: 'Connected',
+      loading: 'Refreshing',
+      offline: 'Offline',
+      error: 'Connection issue',
+      idle: 'Idle',
+    }),
+    [],
+  );
+  const statusToneMap = useMemo(
+    () => ({
+      connected: 'bg-emerald-500',
+      loading: 'bg-amber-400',
+      offline: 'bg-slate-400',
+      error: 'bg-rose-500',
+      idle: 'bg-slate-300',
+    }),
+    [],
+  );
+  const resolvedStatus = statusLabelMap[status] ? status : 'idle';
+  const indicatorClass = classNames(
+    'h-2.5 w-2.5 rounded-full transition-all duration-150',
+    statusToneMap[resolvedStatus],
+    resolvedStatus === 'loading' ? 'animate-pulse' : '',
+  );
+  const ariaLabel = `Inbox menu, status ${statusLabelMap[resolvedStatus]}`;
 
   return (
     <Menu as="div" className="relative hidden lg:block">
       <Menu.Button
         className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-accent hover:bg-accent/10 hover:text-accent"
         onClick={onRefresh}
+        aria-label={ariaLabel}
       >
-        <ChatBubbleLeftRightIcon className="h-4 w-4" /> Inbox
+        <ChatBubbleLeftRightIcon className="h-4 w-4" />
+        <span className="inline-flex items-center gap-1">
+          <span className="relative inline-flex items-center gap-1" role="status" aria-live="polite">
+            <span className={indicatorClass} aria-hidden="true" />
+            <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+              {statusLabelMap[resolvedStatus]}
+            </span>
+          </span>
+          <span className="font-semibold text-slate-600">Inbox</span>
+        </span>
       </Menu.Button>
       <Transition
         as={Fragment}
@@ -258,10 +304,44 @@ export default function Header() {
     error: null,
     lastFetchedAt: null,
   });
+  const [connectionState, setConnectionState] = useState(() => {
+    if (typeof navigator === 'undefined') {
+      return 'idle';
+    }
+    return navigator.onLine ? 'idle' : 'offline';
+  });
+
+  const isNavigatorOnline = useCallback(() => {
+    if (typeof navigator === 'undefined') {
+      return true;
+    }
+    return navigator.onLine !== false;
+  }, []);
 
   useEffect(() => {
     return () => {
       isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const handleOnline = () => {
+      setConnectionState('connected');
+    };
+    const handleOffline = () => {
+      setConnectionState('offline');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
@@ -278,12 +358,26 @@ export default function Header() {
     if (!isAuthenticated) {
       if (isMountedRef.current) {
         setInboxPreview({ threads: [], loading: false, error: null, lastFetchedAt: null });
+        setConnectionState('idle');
+      }
+      return;
+    }
+
+    if (!isNavigatorOnline()) {
+      if (isMountedRef.current) {
+        setConnectionState('offline');
+        setInboxPreview((previous) => ({
+          ...previous,
+          loading: false,
+          error: previous.error ?? 'Offline mode: reconnect to refresh inbox.',
+        }));
       }
       return;
     }
 
     if (isMountedRef.current) {
       setInboxPreview((previous) => ({ ...previous, loading: true, error: null }));
+      setConnectionState('loading');
     }
 
     try {
@@ -306,6 +400,7 @@ export default function Header() {
         error: null,
         lastFetchedAt: new Date().toISOString(),
       });
+      setConnectionState('connected');
     } catch (error) {
       if (!isMountedRef.current) {
         return;
@@ -315,12 +410,14 @@ export default function Header() {
         loading: false,
         error: error?.body?.message ?? error?.message ?? 'Unable to load inbox preview.',
       }));
+      setConnectionState(isNavigatorOnline() ? 'error' : 'offline');
     }
-  }, [isAuthenticated, session?.id]);
+  }, [isAuthenticated, session?.id, isNavigatorOnline]);
 
   useEffect(() => {
     if (!isAuthenticated) {
       setInboxPreview({ threads: [], loading: false, error: null, lastFetchedAt: null });
+      setConnectionState('idle');
       return undefined;
     }
 
@@ -455,6 +552,7 @@ export default function Header() {
               onRefresh={refreshInboxPreview}
               onOpen={handleInboxMenuOpen}
               onThreadClick={handleInboxThreadClick}
+              status={connectionState}
             />
           ) : null}
           <LanguageSelector className="hidden sm:inline-flex" />

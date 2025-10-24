@@ -200,6 +200,27 @@ export const MessageAttachment = sequelize.define(
   },
 );
 
+export const MessageReadReceipt = sequelize.define(
+  'MessageReadReceipt',
+  {
+    messageId: { type: DataTypes.INTEGER, allowNull: false },
+    participantId: { type: DataTypes.INTEGER, allowNull: false },
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    deliveredAt: { type: DataTypes.DATE, allowNull: true },
+    readAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'message_read_receipts',
+    indexes: [
+      { unique: true, fields: ['messageId', 'participantId'] },
+      { fields: ['participantId'] },
+      { fields: ['userId'] },
+      { fields: ['readAt'] },
+    ],
+  },
+);
+
 export const SupportCase = sequelize.define(
   'SupportCase',
   {
@@ -599,6 +620,11 @@ Message.belongsTo(User, { as: 'sender', foreignKey: 'senderId' });
 
 Message.hasMany(MessageAttachment, { as: 'attachments', foreignKey: 'messageId' });
 MessageAttachment.belongsTo(Message, { as: 'message', foreignKey: 'messageId' });
+Message.hasMany(MessageReadReceipt, { as: 'readReceipts', foreignKey: 'messageId' });
+MessageReadReceipt.belongsTo(Message, { as: 'message', foreignKey: 'messageId' });
+MessageParticipant.hasMany(MessageReadReceipt, { as: 'readReceipts', foreignKey: 'participantId' });
+MessageReadReceipt.belongsTo(MessageParticipant, { as: 'participant', foreignKey: 'participantId' });
+MessageReadReceipt.belongsTo(User, { as: 'user', foreignKey: 'userId' });
 
 MessageThread.belongsToMany(MessageLabel, {
   through: MessageThreadLabel,
@@ -657,6 +683,7 @@ export default {
   MessageParticipant,
   Message,
   MessageAttachment,
+  MessageReadReceipt,
   MessageLabel,
   MessageThreadLabel,
   SupportCase,
