@@ -7,11 +7,22 @@ import {
   MapPinIcon,
   PencilSquareIcon,
   PhotoIcon,
+  PaperAirplaneIcon,
   PlayCircleIcon,
   PlusCircleIcon,
   TrashIcon,
 } from '@heroicons/react/24/outline';
 import SectionShell from '../SectionShell.jsx';
+import useAutoSave from '../../../../hooks/useAutoSave.js';
+import { trackDashboardEvent } from '../../../../utils/analytics.js';
+import classNames from '../../../../utils/classNames.js';
+import randomId from '../../../../utils/randomId.js';
+import {
+  validateMetricsDraft,
+  validateWeatherDraft,
+  validateRelationshipDraft,
+  validateHighlightDraft,
+} from '../../../../utils/dashboard/freelancerOverviewValidation.js';
 
 const TONE_STYLES = {
   slate: 'border-slate-200 bg-slate-50 text-slate-600',
@@ -61,17 +72,6 @@ const HIGHLIGHT_TYPES = [
   { value: 'article', label: 'Article' },
   { value: 'gallery', label: 'Gallery' },
 ];
-
-function classNames(...classes) {
-  return classes.filter(Boolean).join(' ');
-}
-
-function createId() {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  return Math.random().toString(36).slice(2, 10);
-}
 
 function formatTemperature(weather) {
   if (!weather || weather.temperature == null) {
@@ -212,7 +212,15 @@ function firstName(profile) {
   return profile.name.split(' ')[0] || profile.name;
 }
 
-export default function OverviewSection({ overview, loading, error, onRefresh, onSave, saving }) {
+export default function OverviewSection({
+  overview,
+  loading,
+  error,
+  onRefresh,
+  onSave,
+  saving,
+  autosaveEnabled = false,
+}) {
   const profile = overview?.profile ?? null;
   const currentDate = overview?.currentDate ?? null;
   const weather = overview?.weather ?? null;
@@ -398,6 +406,47 @@ export default function OverviewSection({ overview, loading, error, onRefresh, o
     }
   }, [openPanel, updateFormErrors]);
 
+  useAutoSave(profileDraft, {
+    enabled: autosaveEnabled && openPanel === 'profile' && !saving,
+    delay: 1800,
+    isDirty: () => {
+      if (!profile) {
+        return Boolean(profileDraft.headline || profileDraft.summary || profileDraft.avatarUrl || profileDraft.timezone);
+      }
+      return (
+        (profileDraft.headline ?? '') !== (profile.headline ?? '') ||
+        (profileDraft.summary ?? '') !== (profile.summary ?? '') ||
+        (profileDraft.avatarUrl ?? '') !== (profile.avatarUrl ?? '') ||
+        (profileDraft.timezone ?? '') !== (currentDate?.timezone ?? '')
+      );
+    },
+    onSave: async () => {
+      if (!onSave) {
+        return;
+      }
+      try {
+        await onSave({
+          headline: profileDraft.headline?.trim?.() ? profileDraft.headline.trim() : null,
+          summary: profileDraft.summary?.trim?.() ? profileDraft.summary.trim() : null,
+          avatarUrl: profileDraft.avatarUrl?.trim?.() ?? '',
+          timezone: profileDraft.timezone?.trim?.() ? profileDraft.timezone.trim() : null,
+        });
+        if (openPanel === 'profile') {
+          setStatusMessage({ type: 'success', text: 'Profile autosaved.' });
+        }
+        trackDashboardEvent('freelancer.overview.autosave', { scope: 'profile' });
+      } catch (autoError) {
+        setStatusMessage({
+          type: 'error',
+          text:
+            autoError instanceof Error
+              ? autoError.message
+              : 'Unable to autosave profile changes. Please retry.',
+        });
+      }
+    },
+  });
+
   const metricCards = useMemo(() => {
     return buildMetricDisplay({
       ...profile,
@@ -450,125 +499,41 @@ export default function OverviewSection({ overview, loading, error, onRefresh, o
     }
   };
 
+  const handleGenerateSummary = useCallback(() => {
+    const metrics = overview?.metrics ?? {};
+    const workstreams = overview?.workstreams ?? [];
+    const highlights = overview?.highlights ?? [];
+    const topHighlight = highlights[0]?.title ? `Latest win: ${highlights[0].title}.` : '';
+    const activeLanes = workstreams.length ? `${workstreams.length} active workstreams` : 'mission-critical programmes';
+    const revenue = metrics.earnings?.monthToDate ?? metrics.earnings ?? null;
+    const revenueFragment = revenue != null ? `Driving ${revenue.toLocaleString()} in monthly earnings while maintaining ` : '';
+    const trust = metrics.trustScore != null ? `a trust score of ${Math.round(metrics.trustScore)}` : 'trusted relationships';
+    const generated = `${revenueFragment}${trust} across ${activeLanes}. ${topHighlight}`.trim();
+    setProfileDraft((previous) => ({ ...previous, summary: generated }));
+    trackDashboardEvent('freelancer.overview.summary.ai', {
+      hasRevenue: revenue != null,
+      workstreams: workstreams.length,
+      highlights: highlights.length,
+    });
+  }, [overview?.highlights, overview?.metrics, overview?.workstreams]);
+
   const handleMetricsSubmit = async (event) => {
     event.preventDefault();
     if (!onSave) return;
-
-    const errors = {};
-
-    const followerCountInput = metricsDraft.followerCount?.trim?.() ?? '';
-    let followerCountValue;
-    if (!followerCountInput) {
-      errors['metrics.followerCount'] = 'Followers is required.';
-    } else {
-      const parsed = Number.parseInt(followerCountInput, 10);
-      if (Number.isNaN(parsed)) {
-        errors['metrics.followerCount'] = 'Followers must be a whole number.';
-      } else if (parsed < 0) {
-        errors['metrics.followerCount'] = 'Followers cannot be negative.';
-      } else if (parsed > 10_000_000) {
-        errors['metrics.followerCount'] = 'Followers cannot exceed 10,000,000.';
-      } else {
-        followerCountValue = parsed;
-      }
-    }
-
-    const followerGoalInput = metricsDraft.followerGoal?.trim?.() ?? '';
-    let followerGoalValue;
-    if (followerGoalInput) {
-      const parsed = Number.parseInt(followerGoalInput, 10);
-      if (Number.isNaN(parsed)) {
-        errors['metrics.followerGoal'] = 'Follower goal must be a whole number.';
-      } else if (parsed < 0) {
-        errors['metrics.followerGoal'] = 'Follower goal cannot be negative.';
-      } else if (parsed > 10_000_000) {
-        errors['metrics.followerGoal'] = 'Follower goal cannot exceed 10,000,000.';
-      } else {
-        followerGoalValue = parsed;
-      }
-    }
-
-    const trustScoreInput = metricsDraft.trustScore?.trim?.() ?? '';
-    let trustScoreValue = null;
-    if (trustScoreInput) {
-      const parsed = Number(trustScoreInput);
-      if (Number.isNaN(parsed)) {
-        errors['metrics.trustScore'] = 'Trust score must be a number.';
-      } else if (parsed < 0 || parsed > 100) {
-        errors['metrics.trustScore'] = 'Trust score must be between 0 and 100.';
-      } else {
-        trustScoreValue = parsed;
-      }
-    }
-
-    const trustScoreChangeInput = metricsDraft.trustScoreChange?.trim?.() ?? '';
-    let trustScoreChangeValue = null;
-    if (trustScoreChangeInput) {
-      const parsed = Number(trustScoreChangeInput);
-      if (Number.isNaN(parsed)) {
-        errors['metrics.trustScoreChange'] = 'Trust score change must be a number.';
-      } else if (parsed < -100 || parsed > 100) {
-        errors['metrics.trustScoreChange'] = 'Trust score change must be between -100 and 100.';
-      } else {
-        trustScoreChangeValue = parsed;
-      }
-    }
-
-    const ratingInput = metricsDraft.rating?.trim?.() ?? '';
-    let ratingValue = null;
-    if (ratingInput) {
-      const parsed = Number(ratingInput);
-      if (Number.isNaN(parsed)) {
-        errors['metrics.rating'] = 'Rating must be a number.';
-      } else if (parsed < 0 || parsed > 5) {
-        errors['metrics.rating'] = 'Rating must be between 0 and 5.';
-      } else {
-        ratingValue = parsed;
-      }
-    }
-
-    const ratingCountInput = metricsDraft.ratingCount?.trim?.() ?? '';
-    let ratingCountValue;
-    if (ratingCountInput) {
-      const parsed = Number.parseInt(ratingCountInput, 10);
-      if (Number.isNaN(parsed)) {
-        errors['metrics.ratingCount'] = 'Rating count must be a whole number.';
-      } else if (parsed < 0) {
-        errors['metrics.ratingCount'] = 'Rating count cannot be negative.';
-      } else if (parsed > 10_000_000) {
-        errors['metrics.ratingCount'] = 'Rating count cannot exceed 10,000,000.';
-      } else {
-        ratingCountValue = parsed;
-      }
-    }
-
-    if (Object.keys(errors).length) {
-      updateFormErrors(METRIC_FIELD_KEYS, errors);
-      setStatusMessage({ type: 'error', text: Object.values(errors)[0] });
+    const { errors: validation, payload } = validateMetricsDraft(metricsDraft);
+    if (Object.keys(validation).length) {
+      updateFormErrors(METRIC_FIELD_KEYS, validation);
+      setStatusMessage({ type: 'error', text: Object.values(validation)[0] });
       return;
     }
 
     updateFormErrors(METRIC_FIELD_KEYS);
 
     try {
-      const payload = {
-        followerCount: followerCountValue,
-        trustScore: trustScoreValue,
-        trustScoreChange: trustScoreChangeValue,
-        rating: ratingValue,
-      };
-
-      if (followerGoalValue !== undefined) {
-        payload.followerGoal = followerGoalValue;
-      }
-
-      if (ratingCountValue !== undefined) {
-        payload.ratingCount = ratingCountValue;
-      }
-
       await onSave(payload);
       setStatusMessage({ type: 'success', text: 'Metrics updated.' });
       setOpenPanel(null);
+      trackDashboardEvent('freelancer.overview.metrics.updated', payload);
     } catch (submitError) {
       setStatusMessage({
         type: 'error',
@@ -580,61 +545,20 @@ export default function OverviewSection({ overview, loading, error, onRefresh, o
   const handleWeatherSubmit = async (event) => {
     event.preventDefault();
     if (!onSave) return;
-
-    const errors = {};
-    const locationName = weatherDraft.locationName?.trim?.() ?? '';
-    const latitudeInput = weatherDraft.latitude?.trim?.() ?? '';
-    const longitudeInput = weatherDraft.longitude?.trim?.() ?? '';
-    const hasLatitude = Boolean(latitudeInput);
-    const hasLongitude = Boolean(longitudeInput);
-
-    let latitudeValue = null;
-    let longitudeValue = null;
-
-    if (hasLatitude !== hasLongitude) {
-      const message = 'Latitude and longitude must both be provided.';
-      errors['weather.latitude'] = message;
-      errors['weather.longitude'] = message;
-    } else if (hasLatitude && hasLongitude) {
-      const parsedLatitude = Number(latitudeInput);
-      const parsedLongitude = Number(longitudeInput);
-
-      if (Number.isNaN(parsedLatitude)) {
-        errors['weather.latitude'] = 'Latitude must be a number.';
-      } else if (parsedLatitude < -90 || parsedLatitude > 90) {
-        errors['weather.latitude'] = 'Latitude must be between -90 and 90.';
-      } else {
-        latitudeValue = parsedLatitude;
-      }
-
-      if (Number.isNaN(parsedLongitude)) {
-        errors['weather.longitude'] = 'Longitude must be a number.';
-      } else if (parsedLongitude < -180 || parsedLongitude > 180) {
-        errors['weather.longitude'] = 'Longitude must be between -180 and 180.';
-      } else {
-        longitudeValue = parsedLongitude;
-      }
-    }
-
-    if (Object.keys(errors).length) {
-      updateFormErrors(WEATHER_FIELD_KEYS, errors);
-      setStatusMessage({ type: 'error', text: Object.values(errors)[0] });
+    const { errors: validation, payload } = validateWeatherDraft(weatherDraft);
+    if (Object.keys(validation).length) {
+      updateFormErrors(WEATHER_FIELD_KEYS, validation);
+      setStatusMessage({ type: 'error', text: Object.values(validation)[0] });
       return;
     }
 
     updateFormErrors(WEATHER_FIELD_KEYS);
 
     try {
-      await onSave({
-        weather: {
-          locationName: locationName || null,
-          latitude: latitudeValue,
-          longitude: longitudeValue,
-          units: weatherDraft.units === 'imperial' ? 'imperial' : 'metric',
-        },
-      });
+      await onSave({ weather: payload });
       setStatusMessage({ type: 'success', text: 'Weather preferences saved.' });
       setOpenPanel(null);
+      trackDashboardEvent('freelancer.overview.weather.updated', payload);
     } catch (submitError) {
       setStatusMessage({
         type: 'error',
@@ -660,7 +584,7 @@ export default function OverviewSection({ overview, loading, error, onRefresh, o
     event.preventDefault();
     if (!onSave) return;
     const draft = {
-      id: editingWorkstreamId || createId(),
+      id: editingWorkstreamId || randomId('workstream'),
       label: workstreamDraft.label.trim() || 'Untitled lane',
       status: workstreamDraft.status?.trim() || '',
       dueDateLabel: workstreamDraft.dueDateLabel?.trim() || '',
@@ -720,7 +644,7 @@ export default function OverviewSection({ overview, loading, error, onRefresh, o
     event.preventDefault();
     if (!onSave) return;
     const draft = {
-      id: editingScheduleId || createId(),
+      id: editingScheduleId || randomId('schedule'),
       label: scheduleDraft.label.trim() || 'Untitled event',
       type: scheduleDraft.type?.trim() || 'Session',
       tone: scheduleDraft.tone || 'slate',
@@ -782,60 +706,10 @@ export default function OverviewSection({ overview, loading, error, onRefresh, o
     event.preventDefault();
     if (!onSave) return;
 
-    const errors = {};
-    const titleInput = highlightDraft.title?.trim?.() ?? '';
-    const summaryInput = highlightDraft.summary?.trim?.() ?? '';
-    const mediaUrlInput = highlightDraft.mediaUrl?.trim?.() ?? '';
-    const ctaUrlInput = highlightDraft.ctaUrl?.trim?.() ?? '';
-    const publishedInput = highlightDraft.publishedAt?.trim?.() ?? '';
-
-    if (!titleInput) {
-      errors['highlight.title'] = 'Title is required.';
-    }
-
-    if (!summaryInput) {
-      errors['highlight.summary'] = 'Add a short summary so clients understand the win.';
-    }
-
-    if (highlightDraft.type === 'video' && !mediaUrlInput) {
-      errors['highlight.mediaUrl'] = 'Video URL is required for video highlights.';
-    }
-
-    if (mediaUrlInput) {
-      try {
-        const url = new URL(mediaUrlInput);
-        if (!['http:', 'https:'].includes(url.protocol)) {
-          throw new Error('Invalid protocol');
-        }
-      } catch (error) {
-        errors['highlight.mediaUrl'] = 'Enter a valid URL (https://).';
-      }
-    }
-
-    if (ctaUrlInput) {
-      try {
-        const url = new URL(ctaUrlInput);
-        if (!['http:', 'https:'].includes(url.protocol)) {
-          throw new Error('Invalid protocol');
-        }
-      } catch (error) {
-        errors['highlight.ctaUrl'] = 'Enter a valid CTA link (https://).';
-      }
-    }
-
-    let publishedValue = null;
-    if (publishedInput) {
-      const parsedDate = new Date(publishedInput);
-      if (Number.isNaN(parsedDate.getTime())) {
-        errors['highlight.publishedAt'] = 'Publish timestamp must be valid.';
-      } else {
-        publishedValue = parsedDate.toISOString();
-      }
-    }
-
-    if (Object.keys(errors).length) {
-      updateFormErrors(HIGHLIGHT_FIELD_KEYS, errors);
-      const [[, firstMessage]] = Object.entries(errors);
+    const { errors: validation, payload } = validateHighlightDraft(highlightDraft);
+    if (Object.keys(validation).length) {
+      updateFormErrors(HIGHLIGHT_FIELD_KEYS, validation);
+      const [[, firstMessage]] = Object.entries(validation);
       setStatusMessage({ type: 'error', text: firstMessage });
       return;
     }
@@ -843,14 +717,8 @@ export default function OverviewSection({ overview, loading, error, onRefresh, o
     updateFormErrors(HIGHLIGHT_FIELD_KEYS);
 
     const nextHighlight = {
-      id: editingHighlightId || createId(),
-      title: titleInput,
-      summary: summaryInput,
-      type: highlightDraft.type || 'update',
-      mediaUrl: mediaUrlInput || null,
-      ctaLabel: highlightDraft.ctaLabel?.trim?.() || null,
-      ctaUrl: ctaUrlInput || null,
-      publishedAt: publishedValue,
+      id: editingHighlightId || randomId('highlight'),
+      ...payload,
     };
 
     const previous = highlightItems;
@@ -865,6 +733,7 @@ export default function OverviewSection({ overview, loading, error, onRefresh, o
       setStatusMessage({ type: 'success', text: 'Showcase updated.' });
       setOpenPanel(null);
       resetHighlightDraft();
+      trackDashboardEvent('freelancer.overview.highlight.updated', { id: nextHighlight.id, type: nextHighlight.type });
     } catch (submitError) {
       setHighlightItems(previous);
       setStatusMessage({
@@ -896,52 +765,20 @@ export default function OverviewSection({ overview, loading, error, onRefresh, o
   const handleRelationshipSubmit = async (event) => {
     event.preventDefault();
     if (!onSave) return;
-
-    const errors = {};
-    const retentionScoreInput = relationshipDraft.retentionScore?.trim?.() ?? '';
-    let retentionScoreValue = null;
-    if (retentionScoreInput) {
-      const parsed = Number(retentionScoreInput);
-      if (Number.isNaN(parsed)) {
-        errors['relationship.retentionScore'] = 'Retention score must be a number.';
-      } else if (parsed < 0 || parsed > 100) {
-        errors['relationship.retentionScore'] = 'Retention score must be between 0 and 100.';
-      } else {
-        retentionScoreValue = parsed;
-      }
-    }
-
-    const advocatesInput = relationshipDraft.advocacyInProgress?.trim?.() ?? '';
-    let advocatesValue = null;
-    if (advocatesInput) {
-      const parsed = Number.parseInt(advocatesInput, 10);
-      if (Number.isNaN(parsed) || parsed < 0) {
-        errors['relationship.advocacyInProgress'] = 'Active advocates must be zero or more.';
-      } else {
-        advocatesValue = parsed;
-      }
-    }
-
-    if (Object.keys(errors).length) {
-      updateFormErrors(RELATIONSHIP_FIELD_KEYS, errors);
-      setStatusMessage({ type: 'error', text: Object.values(errors)[0] });
+    const { errors: validation, payload } = validateRelationshipDraft(relationshipDraft);
+    if (Object.keys(validation).length) {
+      updateFormErrors(RELATIONSHIP_FIELD_KEYS, validation);
+      setStatusMessage({ type: 'error', text: Object.values(validation)[0] });
       return;
     }
 
     updateFormErrors(RELATIONSHIP_FIELD_KEYS);
 
     try {
-      await onSave({
-        relationshipHealth: {
-          retentionScore: retentionScoreValue,
-          retentionStatus: relationshipDraft.retentionStatus?.trim() || null,
-          retentionNotes: relationshipDraft.retentionNotes?.trim() || null,
-          advocacyInProgress: advocatesValue,
-          advocacyNotes: relationshipDraft.advocacyNotes?.trim() || null,
-        },
-      });
+      await onSave({ relationshipHealth: payload });
       setStatusMessage({ type: 'success', text: 'Client health updated.' });
       setOpenPanel(null);
+      trackDashboardEvent('freelancer.overview.relationship.updated', payload);
     } catch (submitError) {
       setStatusMessage({
         type: 'error',
@@ -991,7 +828,17 @@ export default function OverviewSection({ overview, loading, error, onRefresh, o
                     />
                   </label>
                   <label className="block text-sm font-medium text-slate-700">
-                    Summary
+                    <div className="flex items-center justify-between">
+                      <span>Summary</span>
+                      <button
+                        type="button"
+                        onClick={handleGenerateSummary}
+                        className="text-xs font-semibold text-blue-600 transition hover:text-blue-700"
+                        disabled={saving}
+                      >
+                        Generate with mission AI
+                      </button>
+                    </div>
                     <textarea
                       value={profileDraft.summary}
                       onChange={(event) => setProfileDraft((prev) => ({ ...prev, summary: event.target.value }))}
@@ -1855,20 +1702,20 @@ export default function OverviewSection({ overview, loading, error, onRefresh, o
         <div
           className={`rounded-2xl border px-4 py-3 text-sm ${
             statusMessage.type === 'error'
-              ? 'border-rose-200 bg-rose-50 text-rose-700'
-              : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+              ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/70 dark:bg-rose-500/10 dark:text-rose-200'
+              : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/70 dark:bg-emerald-500/10 dark:text-emerald-200'
           }`}
         >
           {statusMessage.text}
         </div>
       ) : null}
       {error ? (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/70 dark:bg-rose-500/10 dark:text-rose-200">
           {error.message ?? 'Unable to load overview data.'}
         </div>
       ) : null}
 
-      <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div className="rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900/60">
         <div className="grid gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_minmax(240px,1fr)]">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
             <div className="relative h-20 w-20 shrink-0">
@@ -1904,7 +1751,7 @@ export default function OverviewSection({ overview, loading, error, onRefresh, o
               </div>
             </div>
           </div>
-          <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-5 text-slate-700">
+          <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-5 text-slate-700 xl:sticky xl:top-6 dark:border-slate-600 dark:bg-slate-800/70 dark:text-slate-200">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold uppercase tracking-wide text-blue-500">Weather</p>
               <button
@@ -1936,7 +1783,7 @@ export default function OverviewSection({ overview, loading, error, onRefresh, o
             key={metric.label}
             type="button"
             onClick={() => setOpenPanel('metrics')}
-            className="group rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow"
+            className="group rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow dark:border-slate-700 dark:bg-slate-900/60"
           >
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{metric.label}</p>
             <p className="mt-2 text-2xl font-semibold text-slate-900">{metric.value}</p>
@@ -1951,7 +1798,7 @@ export default function OverviewSection({ overview, loading, error, onRefresh, o
 
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="space-y-6 xl:col-span-2">
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900/60">
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-lg font-semibold text-slate-900">Highlights</h3>
               <button
@@ -1972,11 +1819,18 @@ export default function OverviewSection({ overview, loading, error, onRefresh, o
                   const Icon = item.type === 'video' ? PlayCircleIcon : item.type === 'gallery' ? PhotoIcon : LinkIcon;
                   const publishedLabel = formatHighlightTimestamp(item.publishedAt);
                   return (
-                    <button
+                    <div
                       key={item.id ?? item.title ?? item.summary}
-                      type="button"
+                      role="button"
+                      tabIndex={0}
                       onClick={() => handleHighlightEdit(item)}
-                      className="group flex h-full flex-col rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow"
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          handleHighlightEdit(item);
+                        }
+                      }}
+                      className="group flex h-full flex-col rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow focus:outline-none focus:ring-2 focus:ring-blue-300 dark:border-slate-700 dark:bg-slate-900/50"
                     >
                       <div className={`flex items-start gap-3 rounded-2xl border p-4 ${highlightTone(item.type)}`}>
                         <span className="mt-1 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/70 text-slate-700 shadow">
@@ -2005,7 +1859,35 @@ export default function OverviewSection({ overview, loading, error, onRefresh, o
                       {item.mediaUrl ? (
                         <p className="mt-3 truncate text-[11px] text-slate-400 group-hover:text-slate-500">{item.mediaUrl}</p>
                       ) : null}
-                    </button>
+                      {item.mediaUrl ? (
+                        <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-inner dark:border-slate-700 dark:bg-slate-900/40">
+                          <div
+                            className={`h-32 w-full ${item.type === 'video' ? 'bg-slate-900/80 text-center text-xs font-semibold text-white/80' : ''}`}
+                            style={item.type === 'video' ? undefined : { backgroundImage: `url(${item.mediaUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                          >
+                            {item.type === 'video' ? 'Video preview ready once opened.' : null}
+                          </div>
+                        </div>
+                      ) : null}
+                      <div className="mt-4 flex items-center justify-between text-xs">
+                        <span className="text-slate-500">Tap to edit</span>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            const shareUrl = `/feed/new?source=highlight-${item.id ?? 'preview'}`;
+                            if (typeof window !== 'undefined') {
+                              window.open(shareUrl, '_blank', 'noopener,noreferrer');
+                            }
+                            trackDashboardEvent('freelancer.overview.highlight.share', { id: item.id, type: item.type });
+                          }}
+                          className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-white px-3 py-1 font-semibold text-blue-600 transition hover:border-blue-300 hover:text-blue-700"
+                        >
+                          Share to feed
+                          <PaperAirplaneIcon className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
@@ -2016,7 +1898,7 @@ export default function OverviewSection({ overview, loading, error, onRefresh, o
             )}
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900/60">
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-lg font-semibold text-slate-900">Work lanes</h3>
               <button
@@ -2054,7 +1936,7 @@ export default function OverviewSection({ overview, loading, error, onRefresh, o
             )}
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900/60">
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-lg font-semibold text-slate-900">Today</h3>
               <button
@@ -2099,7 +1981,7 @@ export default function OverviewSection({ overview, loading, error, onRefresh, o
           </div>
         </div>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900/60">
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-lg font-semibold text-slate-900">Clients</h3>
             <button

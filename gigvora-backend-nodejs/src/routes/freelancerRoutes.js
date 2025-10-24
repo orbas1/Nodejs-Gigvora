@@ -9,6 +9,7 @@ import * as freelancerAutoMatchController from '../controllers/freelancerAutoMat
 import * as freelancerPortfolioController from '../controllers/freelancerPortfolioController.js';
 import * as freelancerCalendarController from '../controllers/freelancerCalendarController.js';
 import * as freelancerDisputeController from '../controllers/freelancerDisputeController.js';
+import * as freelancerOperationsController from '../controllers/freelancerOperationsController.js';
 import freelancerNetworkingController from '../controllers/freelancerNetworkingController.js';
 import freelancerTimelineController from '../controllers/freelancerTimelineController.js';
 import volunteeringController from '../controllers/volunteeringController.js';
@@ -22,6 +23,14 @@ import {
   freelancerDashboardParamsSchema,
   freelancerDashboardOverviewUpdateSchema,
 } from '../validation/schemas/freelancerSchemas.js';
+import {
+  operationsParamsSchema,
+  operationsMembershipParamsSchema,
+  operationsMembershipRequestSchema,
+  operationsMembershipUpdateSchema,
+  operationsNoticeParamsSchema,
+  operationsSyncBodySchema,
+} from '../validation/schemas/freelancerOperationsSchemas.js';
 
 const router = Router();
 const ACTOR_ROLES = ['freelancer', 'agency', 'company', 'mentor', 'operations', 'admin'];
@@ -52,6 +61,43 @@ router.put(
     body: freelancerDashboardOverviewUpdateSchema,
   }),
   asyncHandler(updateFreelancerDashboardOverview),
+);
+
+router.get(
+  '/:freelancerId/operations/hq',
+  ...requireActor,
+  validateRequest({ params: operationsParamsSchema }),
+  asyncHandler(freelancerOperationsController.operationsHq),
+);
+router.post(
+  '/:freelancerId/operations/hq/sync',
+  ...requireActor,
+  validateRequest({ params: operationsParamsSchema, body: operationsSyncBodySchema }),
+  asyncHandler(freelancerOperationsController.syncOperations),
+);
+router.post(
+  '/:freelancerId/operations/memberships/:membershipId/requests',
+  ...requireActor,
+  validateRequest({
+    params: operationsMembershipParamsSchema,
+    body: operationsMembershipRequestSchema,
+  }),
+  asyncHandler(freelancerOperationsController.requestMembership),
+);
+router.put(
+  '/:freelancerId/operations/memberships/:membershipId',
+  ...requireActor,
+  validateRequest({
+    params: operationsMembershipParamsSchema,
+    body: operationsMembershipUpdateSchema,
+  }),
+  asyncHandler(freelancerOperationsController.updateMembership),
+);
+router.post(
+  '/:freelancerId/operations/notices/:noticeId/acknowledge',
+  ...requireActor,
+  validateRequest({ params: operationsNoticeParamsSchema }),
+  asyncHandler(freelancerOperationsController.acknowledgeNotice),
 );
 
 router.get('/order-pipeline', ...requireActor, asyncHandler(freelancerController.orderPipeline));

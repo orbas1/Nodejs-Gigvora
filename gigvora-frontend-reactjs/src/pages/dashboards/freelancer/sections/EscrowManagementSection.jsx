@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import SectionShell from '../SectionShell.jsx';
 import useSession from '../../../../hooks/useSession.js';
@@ -43,11 +44,15 @@ function hasFreelancerAccess(session) {
   return [role, workspace, ...memberships].some((value) => value.includes('freelancer'));
 }
 
-export default function EscrowManagementSection() {
+export default function EscrowManagementSection({ freelancerId: freelancerIdProp }) {
   const { session } = useSession();
   const [view, setView] = useState('accounts');
 
-  const freelancerId = useMemo(() => computeFreelancerId(session), [session]);
+  const sessionFreelancerId = useMemo(() => computeFreelancerId(session), [session]);
+  const freelancerId = useMemo(
+    () => (freelancerIdProp != null ? freelancerIdProp : sessionFreelancerId),
+    [freelancerIdProp, sessionFreelancerId],
+  );
   const accessGranted = useMemo(() => hasFreelancerAccess(session), [session]);
 
   const {
@@ -70,7 +75,7 @@ export default function EscrowManagementSection() {
     refundTransaction,
     openDispute,
     appendDisputeEvent,
-  } = useFreelancerEscrow({ freelancerId, enabled: accessGranted });
+  } = useFreelancerEscrow({ freelancerId, enabled: accessGranted && Boolean(freelancerId) });
 
   const currency = useMemo(() => {
     return (
@@ -83,7 +88,7 @@ export default function EscrowManagementSection() {
   }, [metrics?.currency, metrics?.accountsCurrency, accounts, transactions]);
 
   const body = useMemo(() => {
-    if (!accessGranted) {
+    if (!accessGranted || !freelancerId) {
       return (
         <div className="rounded-3xl border border-amber-200 bg-amber-50 p-8 text-sm text-amber-800">
           Switch to a freelancer workspace to manage escrow accounts.
@@ -222,3 +227,11 @@ export default function EscrowManagementSection() {
     </SectionShell>
   );
 }
+
+EscrowManagementSection.propTypes = {
+  freelancerId: PropTypes.number,
+};
+
+EscrowManagementSection.defaultProps = {
+  freelancerId: null,
+};

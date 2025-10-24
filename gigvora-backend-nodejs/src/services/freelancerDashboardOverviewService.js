@@ -13,6 +13,7 @@ import { ValidationError, NotFoundError } from '../utils/errors.js';
 const CACHE_NAMESPACE = 'dashboard:freelancer:overview';
 const CACHE_TTL_SECONDS = 60;
 const WEATHER_REFRESH_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
+const ALLOWED_HIGHLIGHT_TYPES = new Set(['update', 'video', 'article', 'gallery']);
 
 const WEATHER_CODE_DESCRIPTIONS = new Map([
   [0, { label: 'Clear sky', icon: 'sun' }],
@@ -97,6 +98,47 @@ function sanitizeWorkstreams(items = []) {
       };
     })
     .filter(Boolean);
+}
+
+function sanitizeHighlightType(value) {
+  if (!value || typeof value !== 'string') {
+    return 'update';
+  }
+  const normalized = value.trim().toLowerCase();
+  return ALLOWED_HIGHLIGHT_TYPES.has(normalized) ? normalized : 'update';
+}
+
+function sanitizeHighlights(items = []) {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+  return items
+    .map((item) => {
+      if (!item) {
+        return null;
+      }
+      const title = typeof item.title === 'string' && item.title.trim().length ? item.title.trim() : null;
+      const summary = typeof item.summary === 'string' && item.summary.trim().length ? item.summary.trim() : null;
+      if (!title || !summary) {
+        return null;
+      }
+      const publishedAt =
+        item.publishedAt && !Number.isNaN(new Date(item.publishedAt).getTime())
+          ? new Date(item.publishedAt).toISOString()
+          : null;
+      return {
+        id: typeof item.id === 'string' && item.id.trim().length ? item.id.trim() : createIdentifier(),
+        title,
+        summary,
+        type: sanitizeHighlightType(item.type),
+        mediaUrl: typeof item.mediaUrl === 'string' && item.mediaUrl.trim().length ? item.mediaUrl.trim() : null,
+        ctaLabel: typeof item.ctaLabel === 'string' && item.ctaLabel.trim().length ? item.ctaLabel.trim() : null,
+        ctaUrl: typeof item.ctaUrl === 'string' && item.ctaUrl.trim().length ? item.ctaUrl.trim() : null,
+        publishedAt,
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 12);
 }
 
 function sanitizeSchedule(items = []) {
@@ -348,6 +390,11 @@ function buildOverviewPayload({ user, overviewRecord, weather }) {
   const workstreams = sanitizeWorkstreams(overview.workstreams);
   const relationshipHealth = sanitizeRelationshipHealth(overview.relationshipHealth);
   const upcomingSchedule = sanitizeSchedule(overview.upcomingSchedule);
+  const highlights = sanitizeHighlights(overview.highlights);
+  const currency =
+    overview.metadata && typeof overview.metadata === 'object' && overview.metadata.currency
+      ? overview.metadata.currency
+      : 'USD';
 
   const timezone = resolveTimezone({ overview, profile, freelancerProfile });
   const now = new Date();
@@ -403,8 +450,10 @@ function buildOverviewPayload({ user, overviewRecord, weather }) {
       trustScoreChange: trustScoreChange != null ? Number(trustScoreChange) : null,
       rating: rating != null ? Number(rating) : null,
       ratingCount,
+      currency,
     },
     workstreams,
+    highlights,
     relationshipHealth,
     upcomingSchedule,
     weather: weatherPayload,
@@ -416,6 +465,7 @@ function buildOverviewPayload({ user, overviewRecord, weather }) {
     },
     metadata: {
       generatedAt: now.toISOString(),
+      currency,
     },
   };
 }
@@ -509,6 +559,10 @@ export async function updateFreelancerDashboardOverview(freelancerId, payload = 
 
   if (updates.workstreams !== undefined) {
     record.workstreams = sanitizeWorkstreams(updates.workstreams);
+  }
+
+  if (updates.highlights !== undefined) {
+    record.highlights = sanitizeHighlights(updates.highlights);
   }
 
   if (updates.relationshipHealth !== undefined) {

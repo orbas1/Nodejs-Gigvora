@@ -51,6 +51,37 @@ const scheduleSchema = z.object({
     .transform((value) => (value === '' ? undefined : value)),
 });
 
+const highlightSchema = z.object({
+  id: z.string().trim().min(1).max(120).optional(),
+  title: z.string().trim().min(1).max(255),
+  summary: z.string().trim().min(1).max(600),
+  type: z.enum(['update', 'video', 'article', 'gallery']).optional(),
+  mediaUrl: z
+    .string()
+    .trim()
+    .url({ message: 'Media URL must be valid' })
+    .max(2048)
+    .optional()
+    .or(z.literal(''))
+    .transform((value) => (value === '' ? undefined : value)),
+  ctaLabel: z.string().trim().max(120).optional().nullable(),
+  ctaUrl: z
+    .string()
+    .trim()
+    .url({ message: 'CTA URL must be valid' })
+    .max(2048)
+    .optional()
+    .or(z.literal(''))
+    .transform((value) => (value === '' ? undefined : value)),
+  publishedAt: z
+    .string()
+    .datetime({ message: 'publishedAt must be an ISO datetime string' })
+    .optional()
+    .or(z.literal(''))
+    .transform((value) => (value === '' ? undefined : value))
+    .nullable(),
+});
+
 const relationshipHealthSchema = z.object({
   retentionScore: z
     .number({ invalid_type_error: 'Retention score must be a number' })
@@ -141,6 +172,7 @@ export const freelancerDashboardOverviewUpdateSchema = z
       .max(10_000_000)
       .optional(),
     workstreams: z.array(workstreamSchema).max(50).optional(),
+    highlights: z.array(highlightSchema).max(12).optional(),
     relationshipHealth: relationshipHealthSchema.optional(),
     upcomingSchedule: z.array(scheduleSchema).max(50).optional(),
     weather: weatherSchema.optional(),

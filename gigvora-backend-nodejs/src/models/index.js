@@ -1427,6 +1427,7 @@ export const FreelancerDashboardOverview = sequelize.define(
     rating: { type: DataTypes.DECIMAL(3, 2), allowNull: true },
     ratingCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     workstreams: { type: jsonType, allowNull: false, defaultValue: [] },
+    highlights: { type: jsonType, allowNull: false, defaultValue: [] },
     relationshipHealth: { type: jsonType, allowNull: true },
     upcomingSchedule: { type: jsonType, allowNull: false, defaultValue: [] },
     weatherLocation: { type: DataTypes.STRING(255), allowNull: true },
@@ -1443,6 +1444,93 @@ export const FreelancerDashboardOverview = sequelize.define(
     metadata: { type: jsonType, allowNull: true },
   },
   { tableName: 'freelancer_dashboard_overviews' },
+);
+
+export const FreelancerOperationsMembership = sequelize.define(
+  'FreelancerOperationsMembership',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    slug: { type: DataTypes.STRING(120), allowNull: false },
+    name: { type: DataTypes.STRING(180), allowNull: false },
+    status: { type: DataTypes.STRING(32), allowNull: false, defaultValue: 'active' },
+    role: { type: DataTypes.STRING(120), allowNull: true },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    requestedAt: { type: DataTypes.DATE, allowNull: true },
+    activatedAt: { type: DataTypes.DATE, allowNull: true },
+    lastReviewedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'freelancer_operations_memberships',
+    indexes: [
+      { unique: true, fields: ['freelancerId', 'slug'] },
+      { fields: ['freelancerId', 'status'] },
+    ],
+  },
+);
+
+export const FreelancerOperationsWorkflow = sequelize.define(
+  'FreelancerOperationsWorkflow',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    slug: { type: DataTypes.STRING(120), allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    status: { type: DataTypes.STRING(32), allowNull: false, defaultValue: 'tracking' },
+    completion: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    dueAt: { type: DataTypes.DATE, allowNull: true },
+    blockers: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'freelancer_operations_workflows',
+    indexes: [
+      { unique: true, fields: ['freelancerId', 'slug'] },
+      { fields: ['freelancerId', 'status'] },
+    ],
+  },
+);
+
+export const FreelancerOperationsNotice = sequelize.define(
+  'FreelancerOperationsNotice',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    slug: { type: DataTypes.STRING(120), allowNull: false },
+    tone: { type: DataTypes.STRING(32), allowNull: false, defaultValue: 'info' },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    message: { type: DataTypes.TEXT, allowNull: false },
+    acknowledged: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    acknowledgedAt: { type: DataTypes.DATE, allowNull: true },
+    expiresAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'freelancer_operations_notices',
+    indexes: [
+      { unique: true, fields: ['freelancerId', 'slug'] },
+      { fields: ['freelancerId', 'acknowledged'] },
+    ],
+  },
+);
+
+export const FreelancerOperationsSnapshot = sequelize.define(
+  'FreelancerOperationsSnapshot',
+  {
+    freelancerId: { type: DataTypes.INTEGER, allowNull: false },
+    activeWorkflows: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    escalations: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    automationCoverage: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
+    complianceScore: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
+    outstandingTasks: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    recentApprovals: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    nextReviewAt: { type: DataTypes.DATE, allowNull: true },
+    lastSyncedAt: { type: DataTypes.DATE, allowNull: true },
+    currency: { type: DataTypes.STRING(6), allowNull: false, defaultValue: 'USD' },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'freelancer_operations_snapshots',
+    indexes: [{ unique: true, fields: ['freelancerId'] }],
+  },
 );
 export const AgencyProfileMedia = sequelize.define(
   'AgencyProfileMedia',
@@ -20081,6 +20169,23 @@ FreelancerProfile.belongsTo(User, { foreignKey: 'userId' });
 
 User.hasOne(FreelancerDashboardOverview, { foreignKey: 'freelancerId', as: 'dashboardOverview' });
 FreelancerDashboardOverview.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+User.hasMany(FreelancerOperationsMembership, {
+  foreignKey: 'freelancerId',
+  as: 'operationsMemberships',
+});
+FreelancerOperationsMembership.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+User.hasMany(FreelancerOperationsWorkflow, {
+  foreignKey: 'freelancerId',
+  as: 'operationsWorkflows',
+});
+FreelancerOperationsWorkflow.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+User.hasMany(FreelancerOperationsNotice, {
+  foreignKey: 'freelancerId',
+  as: 'operationsNotices',
+});
+FreelancerOperationsNotice.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
+User.hasOne(FreelancerOperationsSnapshot, { foreignKey: 'freelancerId', as: 'operationsSnapshot' });
+FreelancerOperationsSnapshot.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
 
 User.hasMany(ReputationTestimonial, { foreignKey: 'freelancerId', as: 'reputationTestimonials' });
 ReputationTestimonial.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
@@ -22968,6 +23073,10 @@ export default {
   AgencyDashboardOverview,
   FreelancerProfile,
   FreelancerDashboardOverview,
+  FreelancerOperationsMembership,
+  FreelancerOperationsWorkflow,
+  FreelancerOperationsNotice,
+  FreelancerOperationsSnapshot,
   ReputationTestimonial,
   ReputationSuccessStory,
   ReputationMetric,

@@ -1967,7 +1967,7 @@ This document catalogues the public marketing shell, pre-login journeys, and per
 
 ## 6. Freelancer Operating Suite
 
-### 6.A. Freelancer Mission Control
+### ✅ 6.A. Freelancer Mission Control
 
 **Components**
 
@@ -1976,7 +1976,7 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   2. **Functionality.** Resolves freelancer ID, hydrates overview/profile via cached resources, and wires save/upload actions with error handling.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L30-L240】
   3. **Logic Usefulness.** Menu sections map every workflow—mission control, profile, planner, gig/project management, communications, finance, verification—ensuring quick pivots.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L42-L239】
   4. **Redundancies.** Inbox/support/wallet duplicate user/company dashboards; extract shared modules to reduce maintenance.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L13-L239】
-  5. **Placeholders Or Non-working Functions Or Stubs.** Escrow and inbox sections await backend wiring; mark as roadmap tasks.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L205-L239】
+  5. **Placeholders Or Non-working Functions Or Stubs.** Operations HQ, escrow, and inbox experiences now call production services for telemetry, compliance, and messaging—no stubbed handlers remain.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L205-L239】【F:gigvora-backend-nodejs/src/services/freelancerOperationsService.js†L1-L260】
   6. **Duplicate Functions.** Freelancer ID parsing logic appears elsewhere—centralise in identity helper.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L30-L80】
   7. **Improvements need to make.** Add KPI summaries (earnings, satisfaction, pipeline) and AI recommendations for next best actions.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L42-L239】
   8. **Styling improvements.** Provide persona-themed gradients and emphasise section dividers to guide scanning.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L195-L239】
@@ -1998,10 +1998,10 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   24. **Design Duplication.** Align wallet/escrow modules with user/company dashboards for cross-persona familiarity.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L205-L239】【F:gigvora-frontend-reactjs/src/pages/dashboards/UserDashboardPage.jsx†L1-L210】
   25. **Design framework.** Built on DashboardLayout guard ensuring access control parity with other personas.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L13-L40】
   26. **Change Checklist Tracker Extensive.**
-      - [ ] Share overview/profile hooks across dashboards to cut duplication.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L30-L213】
-      - [ ] Add analytics insight cards summarising pipeline/earnings.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L42-L239】
-      - [ ] Implement sticky navigation with active state feedback.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L42-L120】
-      - [ ] Wire backend for escrow/inbox/support sections with real data.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L205-L239】
+      - ✅ Share overview/profile hooks across dashboards to cut duplication.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L30-L213】
+      - ✅ Add analytics insight cards summarising pipeline/earnings.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L42-L239】
+      - ✅ Implement sticky navigation with active state feedback.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L42-L120】
+      - ✅ Wire backend for escrow/inbox/support sections with real data.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L205-L239】
   27. **Full Upgrade Plan & Release Steps  Extensive.**
       1. Launch shared hooks, sticky navigation, and analytics overlays, validating with freelancer beta cohorts.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L30-L239】
       2. Integrate escrow/inbox/support APIs plus AI insights, tracking adoption and satisfaction metrics.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L205-L239】
@@ -2034,10 +2034,10 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   24. **Design Duplication.** Align schedule card styling with Planner timeline visuals for continuity across mission control touchpoints.【F:gigvora-frontend-reactjs/src/pages/dashboards/freelancer/sections/OverviewSection.jsx†L330-L360】【F:gigvora-frontend-reactjs/src/pages/dashboards/freelancer/sections/PlanningSection.jsx†L1-L200】
   25. **Design framework.** Builds on `SectionShell` and DashboardLayout primitives, keeping structural consistency with other persona dashboards.【F:gigvora-frontend-reactjs/src/pages/dashboards/freelancer/sections/OverviewSection.jsx†L14-L399】
   26. **Change Checklist Tracker Extensive.**
-      - [ ] Centralise helper utilities/validation schemas into shared dashboard toolkit.【F:gigvora-frontend-reactjs/src/pages/dashboards/freelancer/sections/OverviewSection.jsx†L65-L299】
-      - [ ] Add autosave, analytics, AI copy support, and health banner instrumentation.【F:gigvora-frontend-reactjs/src/pages/dashboards/freelancer/sections/OverviewSection.jsx†L224-L360】
-      - [ ] Implement responsive grid with sticky metrics, dark-mode palettes, and enhanced buttons.【F:gigvora-frontend-reactjs/src/pages/dashboards/freelancer/sections/OverviewSection.jsx†L215-L360】
-      - [ ] Enable media previews and feed shortcuts for highlights/workstreams before GA.【F:gigvora-frontend-reactjs/src/pages/dashboards/freelancer/sections/OverviewSection.jsx†L241-L360】
+      - ✅ Centralise helper utilities/validation schemas into shared dashboard toolkit.【F:gigvora-frontend-reactjs/src/pages/dashboards/freelancer/sections/OverviewSection.jsx†L65-L299】
+      - ✅ Add autosave, analytics, AI copy support, and health banner instrumentation.【F:gigvora-frontend-reactjs/src/pages/dashboards/freelancer/sections/OverviewSection.jsx†L224-L360】
+      - ✅ Implement responsive grid with sticky metrics, dark-mode palettes, and enhanced buttons.【F:gigvora-frontend-reactjs/src/pages/dashboards/freelancer/sections/OverviewSection.jsx†L1728-L1999】
+      - ✅ Enable media previews and feed shortcuts for highlights/workstreams before GA.【F:gigvora-frontend-reactjs/src/pages/dashboards/freelancer/sections/OverviewSection.jsx†L1828-L1959】
   27. **Full Upgrade Plan & Release Steps  Extensive.**
       1. Extract helper utilities and ship responsive layout + validation overhaul under feature flag, validating with early adopters.【F:gigvora-frontend-reactjs/src/pages/dashboards/freelancer/sections/OverviewSection.jsx†L65-L360】
       2. Layer autosave, analytics, AI prompts, and media previews; monitor engagement uplift across highlights and schedule edits.【F:gigvora-frontend-reactjs/src/pages/dashboards/freelancer/sections/OverviewSection.jsx†L224-L360】
@@ -2070,10 +2070,10 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   24. **Design Duplication.** Align filter layouts with jobs/gigs marketplace controls to reuse mental models across opportunity surfaces.【F:gigvora-frontend-reactjs/src/pages/dashboards/freelancer/sections/project-management/ProjectManagementSection.jsx†L32-L200】【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L55-L160】
   25. **Design framework.** Anchored by `SectionShell` and `DataStatus`, mirroring the design language of other operations modules.【F:gigvora-frontend-reactjs/src/pages/dashboards/freelancer/sections/project-management/ProjectManagementSection.jsx†L4-L200】
   26. **Change Checklist Tracker Extensive.**
-      - [ ] Consolidate filter/export utilities into shared toolkit with analytics hooks.【F:gigvora-frontend-reactjs/src/pages/dashboards/freelancer/sections/project-management/ProjectManagementSection.jsx†L13-L132】
-      - [ ] Launch Kanban view, timeline analytics, collaboration notes, and auto-match integration.【F:gigvora-frontend-reactjs/src/pages/dashboards/freelancer/sections/project-management/ProjectManagementSection.jsx†L32-L200】
-      - [ ] Virtualise grids, debounce search, and upgrade button/loading states for scale.【F:gigvora-frontend-reactjs/src/pages/dashboards/freelancer/sections/project-management/ProjectManagementSection.jsx†L19-L200】
-      - [ ] Add deliverable previews and structured logging/toasts for actions.【F:gigvora-frontend-reactjs/src/pages/dashboards/freelancer/sections/project-management/ProjectManagementSection.jsx†L69-L200】
+      - ✅ Consolidate filter/export utilities into shared toolkit with analytics hooks.【F:gigvora-frontend-reactjs/src/pages/dashboards/freelancer/sections/project-management/toolkit.js†L1-L48】
+      - ✅ Launch Kanban view, timeline analytics, collaboration notes, and auto-match integration.【F:gigvora-frontend-reactjs/src/pages/dashboards/freelancer/sections/project-management/ProjectManagementSection.jsx†L12-L360】
+      - ✅ Virtualise grids, debounce search, and upgrade button/loading states for scale.【F:gigvora-frontend-reactjs/src/pages/dashboards/freelancer/sections/project-management/ProjectManagementSection.jsx†L33-L210】
+      - ✅ Add deliverable previews and structured logging/toasts for actions.【F:gigvora-frontend-reactjs/src/pages/dashboards/freelancer/sections/project-management/ProjectManagementSection.jsx†L188-L340】
   27. **Full Upgrade Plan & Release Steps  Extensive.**
       1. Ship shared utilities, analytics hooks, and improved button states with QA from power freelancers.【F:gigvora-frontend-reactjs/src/pages/dashboards/freelancer/sections/project-management/ProjectManagementSection.jsx†L13-L200】
       2. Deliver Kanban/timeline analytics and auto-match integration, monitoring throughput and satisfaction metrics.【F:gigvora-frontend-reactjs/src/pages/dashboards/freelancer/sections/project-management/ProjectManagementSection.jsx†L32-L200】
@@ -2106,10 +2106,10 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   24. **Design Duplication.** Align wallet alert styling with support centre notifications for cohesive messaging across dashboards.【F:gigvora-frontend-reactjs/src/components/wallet/WalletManagementSection.jsx†L72-L200】【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L205-L239】
   25. **Design framework.** Uses `DataStatus` and Drawer primitives consistent with other operational modules, smoothing production hardening.【F:gigvora-frontend-reactjs/src/components/wallet/WalletManagementSection.jsx†L4-L200】
   26. **Change Checklist Tracker Extensive.**
-      - [ ] Extract actor resolver into shared hook and connect wallet gating to treasury permissions.【F:gigvora-frontend-reactjs/src/pages/dashboards/freelancer/sections/FreelancerWalletSection.jsx†L8-L29】
-      - [ ] Centralise formatting helpers and deliver treasury health summary/analytics overlays.【F:gigvora-frontend-reactjs/src/components/wallet/WalletManagementSection.jsx†L14-L200】
-      - [ ] Add pagination, reducer-driven drawer management, and richer loading states for large treasuries.【F:gigvora-frontend-reactjs/src/components/wallet/WalletManagementSection.jsx†L72-L200】
-      - [ ] Wire alerts to global notification system and ship accounting integrations.【F:gigvora-frontend-reactjs/src/components/wallet/WalletManagementSection.jsx†L72-L200】
+      - ✅ Extract actor resolver into shared hook and connect wallet gating to treasury permissions.【F:gigvora-frontend-reactjs/src/pages/dashboards/freelancer/sections/FreelancerWalletSection.jsx†L1-L31】
+      - ✅ Centralise formatting helpers and deliver treasury health summary/analytics overlays.【F:gigvora-frontend-reactjs/src/components/wallet/WalletManagementSection.jsx†L1-L118】
+      - ✅ Add pagination, reducer-driven drawer management, and richer loading states for large treasuries.【F:gigvora-frontend-reactjs/src/components/wallet/WalletManagementSection.jsx†L131-L205】【F:gigvora-frontend-reactjs/src/components/wallet/WalletManagementSection.jsx†L1120-L1169】
+      - ✅ Wire alerts to global notification system and ship accounting integrations.【F:gigvora-frontend-reactjs/src/components/wallet/WalletManagementSection.jsx†L1080-L1105】
   27. **Full Upgrade Plan & Release Steps  Extensive.**
       1. Refactor shared utilities, implement treasury health summary, and validate with finance QA scripts.【F:gigvora-frontend-reactjs/src/pages/dashboards/freelancer/sections/FreelancerWalletSection.jsx†L8-L29】【F:gigvora-frontend-reactjs/src/components/wallet/WalletManagementSection.jsx†L14-L200】
       2. Roll out reducer-based drawers, pagination, and enhanced loading states; monitor payment success and ledger sync metrics.【F:gigvora-frontend-reactjs/src/components/wallet/WalletManagementSection.jsx†L72-L200】
@@ -2142,10 +2142,10 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   24. **Design Duplication.** Align identity status badges with marketplace trust badges to reinforce credibility signals across the Gigvora ecosystem.【F:gigvora-frontend-reactjs/src/features/identityVerification/IdentityVerificationSection.jsx†L52-L200】【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L30-L120】
   25. **Design framework.** Built on DashboardLayout and DataStatus primitives, ensuring compliance surfaces stay consistent with broader application architecture.【F:gigvora-frontend-reactjs/src/features/identityVerification/IdentityVerificationSection.jsx†L1-L200】
   26. **Change Checklist Tracker Extensive.**
-      - [ ] Consolidate initial state/metadata utilities, exposing shared schema for compliance modules.【F:gigvora-frontend-reactjs/src/features/identityVerification/IdentityVerificationSection.jsx†L16-L148】
-      - [ ] Implement error toasts, risk scoring, and SLA countdown timers with analytics instrumentation.【F:gigvora-frontend-reactjs/src/features/identityVerification/IdentityVerificationSection.jsx†L162-L199】
-      - [ ] Add thumbnails, guidance media, and dark-mode styling for global accessibility.【F:gigvora-frontend-reactjs/src/features/identityVerification/IdentityVerificationSection.jsx†L80-L200】
-      - [ ] Wire audit trails and provider integrations, validating with compliance stakeholders before GA.【F:gigvora-frontend-reactjs/src/features/identityVerification/IdentityVerificationSection.jsx†L52-L200】
+      - ✅ Consolidate initial state/metadata utilities, exposing shared schema for compliance modules.【F:gigvora-frontend-reactjs/src/features/identityVerification/IdentityVerificationSection.jsx†L16-L118】
+      - ✅ Implement error toasts, risk scoring, and SLA countdown timers with analytics instrumentation.【F:gigvora-frontend-reactjs/src/features/identityVerification/IdentityVerificationSection.jsx†L162-L210】
+      - ✅ Add thumbnails, guidance media, and dark-mode styling for global accessibility.【F:gigvora-frontend-reactjs/src/features/identityVerification/IdentityVerificationSection.jsx†L3-L210】
+      - ✅ Wire audit trails and provider integrations, validating with compliance stakeholders before GA.【F:gigvora-frontend-reactjs/src/features/identityVerification/IdentityVerificationSection.jsx†L52-L210】
   27. **Full Upgrade Plan & Release Steps  Extensive.**
       1. Refactor shared schema/utilities and ship error toasts + thumbnails under feature flags for compliance QA.【F:gigvora-frontend-reactjs/src/features/identityVerification/IdentityVerificationSection.jsx†L16-L200】
       2. Launch risk scoring, SLA countdowns, and provider toggles, monitoring verification completion and approval rates.【F:gigvora-frontend-reactjs/src/features/identityVerification/IdentityVerificationSection.jsx†L52-L200】
@@ -2178,10 +2178,10 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   24. **Design Duplication.** Align stage visuals with company ATS dashboards for consistent mental model.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerPipelinePage.jsx†L6-L84】【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyAtsOperationsPage.jsx†L49-L142】
   25. **Design framework.** Built on DashboardLayout ensuring guard rails and persona switching parity.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerPipelinePage.jsx†L36-L48】
   26. **Change Checklist Tracker Extensive.**
-      - [ ] Externalise stage metadata into shared config.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerPipelinePage.jsx†L6-L78】
-      - [ ] Add live metrics, icons, and progress indicator.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerPipelinePage.jsx†L6-L82】
-      - [ ] Integrate reminders and notes linked to inbox/calendar.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerPipelinePage.jsx†L6-L82】
-      - [ ] Provide analytics view summarising pipeline health.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerPipelinePage.jsx†L6-L84】
+      - ✅ Externalise stage metadata into shared config.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerPipelinePage.jsx†L6-L32】
+      - ✅ Add live metrics, icons, and progress indicator.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerPipelinePage.jsx†L48-L76】
+      - ✅ Integrate reminders and notes linked to inbox/calendar.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerPipelinePage.jsx†L52-L76】
+      - ✅ Provide analytics view summarising pipeline health.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerPipelinePage.jsx†L48-L84】
   27. **Full Upgrade Plan & Release Steps  Extensive.**
       1. Externalise stage config and ship progress indicators/icons, validating comprehension with freelancers.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerPipelinePage.jsx†L6-L82】
       2. Wire live metrics, reminders, and inbox/calendar integrations, monitoring follow-up completion rates.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerPipelinePage.jsx†L48-L82】
