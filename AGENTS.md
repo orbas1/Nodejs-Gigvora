@@ -2210,7 +2210,47 @@ This document catalogues the public marketing shell, pre-login journeys, and per
 
 ## 10. Summary Insights
 
+### 10.A. Experience Architecture Synopsis
+- [x]
 
+Gigvora’s web experience maintains a dependable routing backbone that threads persona-specific layouts, floating support layers, and marketing shells into a cohesive whole. Priority actions include extracting shared route metadata so navigation, breadcrumbs, and guards stay synchronised as new dashboards land. Sustaining layout resilience further requires lazy-loading seldom visited consoles and introducing route-level error boundaries so the global shell remains responsive even when deeper modules fail.
 
+1. Maintain the MainLayout’s accessibility-first framing (skip links, support widgets) while deferring heavy chat/analytics payloads until users interact with them.
+2. Convert persona route tables into configuration-driven registries to remove import duplication and power CMS-managed navigation labels.
+3. Introduce a 404 and recovery screen pattern that doubles as a telemetry capture surface for broken deep links and expired invitations.
 
-Across these experiences, the Gigvora frontend demonstrates a polished marketing funnel with floating assistance (messaging, support, policy) layered atop a powerful routing skeleton. Key next steps include unifying duplicated helpers, introducing lazy-loaded routes, connecting marketing content to CMS sources, and instrumenting analytics across persona journeys to inform iterative design. The floating messaging bubble already provides a strong baseline for real-time collaboration once backend services finalize.
+### 10.B. Persona Journey Health
+- [x]
+
+Each vertical—from mentorship discovery through agency delivery—exposes strong individual flows, yet long-term retention depends on stitching these journeys together. Harmonised membership and progress indicators should travel with users as they hop between dashboards so cross-selling moments feel intentional rather than siloed. Shared completion metrics and badge states ought to live in a universal context provider, ensuring freelancers, agencies, and companies see consistent milestone language wherever they land.
+
+1. Align onboarding checklists across RegisterPage, creation studio tracks, and dashboard heroes so users always recognise how far they are from launch-readiness.
+2. Sync fairness analytics, payroll readiness, and project health badges so persona dashboards speak a common telemetry vocabulary.
+3. Feed marketplace feedback (e.g., success stories, testimonials) back into marketing shells to reinforce real outcomes during acquisition loops.
+
+### 10.C. Interaction & Accessibility Priorities
+- [x]
+
+The design language blends gradients, glassmorphism, and floating panels; however, deeper instrumentation is needed to guarantee accessibility as feature density grows. Every mission-critical screen should expose keyboard-first focus management, high-contrast modes, and text density controls—particularly across login, creation wizards, and analytics dashboards where form fatigue can creep in. Establishing a reusable accessibility checklist per module will keep component updates from regressing compliance.
+
+1. Audit component libraries for colour contrast and hover reliance, providing token-driven theming that cascades through marketing and dashboard shells alike.
+2. Expand inline helper text, tooltips, and status messaging while avoiding redundant phrasing so copy remains concise and supportive on mobile breakpoints.
+3. Integrate automated accessibility testing into CI, covering key flows such as authentication, project auto-match, and workforce analytics.
+
+### 10.D. Data, Analytics, and Automation Imperatives
+- [x]
+
+Nearly every surface highlights pending telemetry hooks—queue regeneration alerts, mentorship performance charts, fairness audits—yet many still rely on placeholders. A centralised analytics contract should document event names, payloads, and ownership so React, Node, and Flutter clients broadcast consistent signals. With that foundation, product teams can stitch together experience-wide scoreboards that surface launch velocity, staffing equity, and monetisation funnel health to leadership dashboards.
+
+1. Finalise shared telemetry utilities that power DataStatus components and ensure quick launch actions emit structured lifecycle events.
+2. Instrument notification pathways (toasts, emails, push) for critical automations like queue regeneration, contract approvals, and mentorship matches.
+3. Backfill historical analytics using staged warehouse jobs so early dashboards don’t ship empty—critical for operations adoption.
+
+### 10.E. Design System Maturation
+- [x]
+
+Design cohesion has improved, but marketplace surfaces still duplicate typography scales, badge colours, and icon packs. A refreshed design system release should catalogue button states, card treatments, and avatar usage across persona dashboards while publishing token definitions to shared packages. Doing so will accelerate feature delivery, shrink QA variance, and ensure agency/company-grade professionalism when enterprise buyers evaluate the platform.
+
+1. Publish a cross-platform component inventory highlighting reusable primitives (cards, pills, step indicators) with usage guidelines for web and mobile engineers.
+2. Consolidate gradient, shadow, and border radius tokens into shared theme modules so future experiments ship with minimal refactoring.
+3. Pair design documentation with sandbox stories (Storybook or similar) to encourage snapshot testing and visual regression coverage for high-stakes dashboards.
