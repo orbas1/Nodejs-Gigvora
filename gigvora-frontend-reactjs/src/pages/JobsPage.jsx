@@ -10,8 +10,9 @@ import { fetchUserDashboard } from '../services/userDashboard.js';
 import { formatAbsolute, formatRelativeTime } from '../utils/date.js';
 import { classNames } from '../utils/classNames.js';
 import JobManagementWorkspace from '../components/jobs/JobManagementWorkspace.jsx';
-
-export const DEFAULT_USER_ID = 1;
+import OpportunityFilterPill from '../components/opportunity/OpportunityFilterPill.jsx';
+import SavedSearchList from '../components/explorer/SavedSearchList.jsx';
+import useSavedSearches from '../hooks/useSavedSearches.js';
 export const JOB_ACCESS_MEMBERSHIPS = new Set(['user', 'freelancer']);
 
 export const EMPLOYMENT_TYPE_OPTIONS = [
@@ -86,21 +87,6 @@ export function formatStatusLabel(value) {
     .join(' ');
 }
 
-export function FilterPill({ active, label, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={classNames(
-        'inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
-        active ? 'border-accent bg-accentSoft text-accent shadow-soft' : 'border-slate-200 bg-white text-slate-600 hover:border-accent/60 hover:text-accent',
-      )}
-    >
-      {label}
-    </button>
-  );
-}
-
 function ActiveFilterTag({ label, onRemove }) {
   return (
     <button
@@ -133,13 +119,25 @@ export default function JobsPage() {
   const [filters, setFilters] = useState(() => createDefaultFilters());
   const [sort, setSort] = useState('default');
   const [activeTab, setActiveTab] = useState('board');
+  const [savedSearchName, setSavedSearchName] = useState('');
+  const [activeSavedSearchId, setActiveSavedSearchId] = useState(null);
+  const [applicationStages, setApplicationStages] = useState({});
 
   const memberships = useMemo(() => session?.memberships ?? [], [session?.memberships]);
   const canAccessJobs = useMemo(
     () => memberships.some((membership) => JOB_ACCESS_MEMBERSHIPS.has(membership)),
     [memberships],
   );
-  const userId = session?.id ?? session?.userId ?? DEFAULT_USER_ID;
+  const userId = session?.id ?? session?.userId ?? null;
+
+  const {
+    items: savedSearches,
+    loading: savedSearchesLoading,
+    createSavedSearch,
+    deleteSavedSearch,
+    runSavedSearch,
+    canUseServer: canSyncSavedSearches,
+  } = useSavedSearches({ enabled: isAuthenticated && canAccessJobs });
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -247,8 +245,13 @@ export default function JobsPage() {
     refresh: refreshDashboard,
   } = useCachedResource(
     `user-dashboard:${userId}`,
-    ({ signal }) => fetchUserDashboard(userId, { signal }),
-    { enabled: isAuthenticated && canAccessJobs },
+    ({ signal }) => {
+      if (!userId) {
+        return Promise.resolve(null);
+      }
+      return fetchUserDashboard(userId, { signal });
+    },
+    { enabled: isAuthenticated && canAccessJobs && Boolean(userId) },
   );
 
   const applicationSummary = dashboardData?.summary ?? {};
@@ -280,6 +283,87 @@ export default function JobsPage() {
   const guardrails = automation?.autoApply?.guardrails ?? {};
   const interviewReadiness = automation?.interviewCommandCenter?.readiness ?? {};
   const interviewSummary = automation?.interviewCommandCenter?.summary ?? {};
+
+  useEffect(() => {
+    setApplicationStages((current) => {
+      const next = {};
+      recentApplications.forEach((application) => {
+        if (application?.id == null) {
+          return;
+        }
+        const key = application.id;
+        next[key] = current[key] ?? application.status ?? 'applied';
+      });
+      return next;
+    });
+  }, [recentApplications]);
+
+  const stageOptions = useMemo(() => {
+    const options = new Set();
+    pipelineStatuses.forEach((status) => {
+      if (status?.status) {
+        options.add(`${status.status}`);
+      }
+    });
+    stageBuckets.forEach((stage) => {
+      if (stage?.id) {
+        options.add(`${stage.id}`);
+      }
+      if (stage?.name) {
+        options.add(`${stage.name}`);
+      }
+    });
+    recentApplications.forEach((application) => {
+      const stage = applicationStages[application.id] ?? application.status;
+      if (stage) {
+        options.add(`${stage}`);
+      }
+    });
+    const normalised = Array.from(options)
+      .map((entry) => `${entry}`.trim())
+      .filter((entry) => entry.length);
+    if (!normalised.length) {
+      return ['applied', 'screening', 'interview', 'offer', 'hired'];
+    }
+    return normalised.sort((a, b) => a.localeCompare(b));
+  }, [pipelineStatuses, stageBuckets, recentApplications, applicationStages]);
+
+  const pipelineStatusDisplay = useMemo(() => {
+    const base = new Map();
+    pipelineStatuses.forEach((status) => {
+      if (status?.status) {
+        base.set(`${status.status}`, Number(status.count) || 0);
+      }
+    });
+    if (!base.size) {
+      const fallback = new Map();
+      recentApplications.forEach((application) => {
+        const stage = applicationStages[application.id] ?? application.status;
+        if (!stage) {
+          return;
+        }
+        const key = `${stage}`;
+        fallback.set(key, (fallback.get(key) ?? 0) + 1);
+      });
+      return Array.from(fallback.entries()).map(([status, count]) => ({ status, count }));
+    }
+
+    const adjusted = new Map(base.entries());
+    recentApplications.forEach((application) => {
+      const original = application.status ? `${application.status}` : null;
+      const override = applicationStages[application.id] ?? original;
+      if (!override || override === original) {
+        return;
+      }
+      if (original && adjusted.has(original)) {
+        adjusted.set(original, Math.max(0, (adjusted.get(original) ?? 0) - 1));
+      }
+      const key = `${override}`;
+      adjusted.set(key, (adjusted.get(key) ?? 0) + 1);
+    });
+
+    return Array.from(adjusted.entries()).map(([status, count]) => ({ status, count }));
+  }, [pipelineStatuses, recentApplications, applicationStages]);
 
   const remoteStats = useMemo(() => {
     const facet = listing.facets?.isRemote ?? listing.facets?.isremote ?? {};
@@ -348,7 +432,26 @@ export default function JobsPage() {
 
   const hasActiveFilters = activeFilterBadges.length > 0 || sort !== 'default' || Boolean(debouncedQuery);
 
+  const mergeSavedSearchFilters = useCallback((source) => {
+    const base = createDefaultFilters();
+    if (!source) {
+      return base;
+    }
+    const next = { ...base };
+    if (Array.isArray(source.employmentTypes)) {
+      next.employmentTypes = source.employmentTypes.filter((entry) => Boolean(entry));
+    }
+    if (source.isRemote === true || source.isRemote === false || source.isRemote === null) {
+      next.isRemote = source.isRemote;
+    }
+    if (typeof source.updatedWithin === 'string' && source.updatedWithin.trim().length) {
+      next.updatedWithin = source.updatedWithin;
+    }
+    return next;
+  }, []);
+
   const handleToggleEmploymentType = useCallback((value) => {
+    setActiveSavedSearchId(null);
     setFilters((previous) => {
       const next = new Set(previous.employmentTypes);
       if (next.has(value)) {
@@ -361,16 +464,19 @@ export default function JobsPage() {
   }, []);
 
   const handleRemoteSelection = useCallback((value) => {
+    setActiveSavedSearchId(null);
     setFilters((previous) => ({ ...previous, isRemote: value }));
   }, []);
 
   const handleFreshnessSelection = useCallback((value) => {
+    setActiveSavedSearchId(null);
     setFilters((previous) => ({ ...previous, updatedWithin: value }));
   }, []);
 
   const handleResetFilters = useCallback(() => {
     setFilters(createDefaultFilters());
     setSort('default');
+    setActiveSavedSearchId(null);
     analytics.track(
       'web_job_filters_reset',
       {
@@ -395,6 +501,231 @@ export default function JobsPage() {
       );
     },
     [debouncedQuery, sort, filters],
+  );
+
+  const handleStageTransition = useCallback((application, nextStage) => {
+    if (!application?.id || !nextStage) {
+      return;
+    }
+    setApplicationStages((current) => {
+      const previousStage = current[application.id] ?? application.status ?? null;
+      if (previousStage === nextStage) {
+        return current;
+      }
+      analytics.track(
+        'web_job_application_stage_changed',
+        {
+          applicationId: application.id,
+          previousStage,
+          nextStage,
+          opportunityId: application.opportunityId ?? application.target?.id ?? null,
+        },
+        { source: 'web_app' },
+      );
+      return { ...current, [application.id]: nextStage };
+    });
+  }, []);
+
+  const handleContactRecruiter = useCallback(
+    (application) => {
+      if (!application) {
+        return;
+      }
+      const recruiterId = application.recruiter?.id ?? application.recruiterId ?? null;
+      const recruiterName = application.recruiter?.name ?? application.recruiterName ?? null;
+      const composeTarget = recruiterId ? `recruiter-${encodeURIComponent(String(recruiterId))}` : 'recruiter-outreach';
+      const url = `/inbox?compose=${composeTarget}`;
+      analytics.track(
+        'web_job_recruiter_chat_initiated',
+        {
+          applicationId: application.id,
+          recruiterId,
+          recruiterName,
+          opportunityId: application.opportunityId ?? application.target?.id ?? null,
+        },
+        { source: 'web_app' },
+      );
+      if (typeof window !== 'undefined') {
+        window.open(url, '_blank', 'noopener');
+      } else {
+        navigate('/inbox');
+      }
+    },
+    [navigate],
+  );
+
+  const handleSaveCurrentSearch = useCallback(
+    async (event) => {
+      event.preventDefault();
+      const trimmedName = savedSearchName.trim();
+      const trimmedQuery = query.trim();
+      const payload = {
+        name: trimmedName || (trimmedQuery ? `Jobs • ${trimmedQuery}` : 'Jobs saved search'),
+        category: 'jobs',
+        query: trimmedQuery || '',
+        filters,
+        sort,
+        notifyInApp: true,
+      };
+      try {
+        const created = await createSavedSearch(payload);
+        analytics.track(
+          'web_job_saved_search_created',
+          {
+            savedSearchId: created?.id ?? null,
+            query: payload.query || null,
+            sort: payload.sort,
+            filters: payload.filters,
+          },
+          { source: 'web_app' },
+        );
+        setActiveSavedSearchId(created?.id ?? null);
+        setSavedSearchName('');
+      } catch (error) {
+        console.error('Unable to create saved search', error);
+      }
+    },
+    [savedSearchName, query, filters, sort, createSavedSearch],
+  );
+
+  const handleApplySavedSearch = useCallback(
+    (search) => {
+      if (!search) {
+        return;
+      }
+      const normalisedFilters = mergeSavedSearchFilters(search.filters ?? null);
+      setActiveTab('board');
+      setActiveSavedSearchId(search.id ?? null);
+      setQuery(search.query ?? '');
+      setFilters(normalisedFilters);
+      setSort(search.sort ?? 'default');
+      analytics.track(
+        'web_job_saved_search_applied',
+        {
+          savedSearchId: search.id ?? null,
+          query: search.query ?? null,
+          sort: search.sort ?? 'default',
+          filters: normalisedFilters,
+        },
+        { source: 'web_app' },
+      );
+      runSavedSearch(search).catch((error) => {
+        console.warn('Failed to trigger saved search', error);
+      });
+    },
+    [mergeSavedSearchFilters, runSavedSearch],
+  );
+
+  const handleDeleteSavedSearch = useCallback(
+    async (search) => {
+      if (!search) {
+        return;
+      }
+      try {
+        await deleteSavedSearch(search);
+        analytics.track(
+          'web_job_saved_search_deleted',
+          {
+            savedSearchId: search.id ?? null,
+          },
+          { source: 'web_app' },
+        );
+        setActiveSavedSearchId((current) => (current === search.id ? null : current));
+      } catch (error) {
+        console.error('Unable to delete saved search', error);
+      }
+    },
+    [deleteSavedSearch],
+  );
+
+  const recommendations = useMemo(() => {
+    const direct = (() => {
+      if (Array.isArray(listing.recommendations)) {
+        return listing.recommendations;
+      }
+      if (Array.isArray(listing.recommendations?.jobs)) {
+        return listing.recommendations.jobs;
+      }
+      if (Array.isArray(dashboardData?.recommendations?.jobs)) {
+        return dashboardData.recommendations.jobs;
+      }
+      if (Array.isArray(dashboardData?.recommendations)) {
+        return dashboardData.recommendations;
+      }
+      return [];
+    })();
+    const sanitisedDirect = direct.filter((job) => job && (job.id != null || job.title));
+    if (sanitisedDirect.length) {
+      const uniqueMap = new Map();
+      sanitisedDirect.forEach((job) => {
+        const key = job.id ?? job.title;
+        if (!uniqueMap.has(key)) {
+          uniqueMap.set(key, job);
+        }
+      });
+      return Array.from(uniqueMap.values()).slice(0, 3);
+    }
+
+    const scored = items
+      .map((job) => {
+        const score = Number(job.matchScore ?? job.suitabilityScore ?? job.score ?? job.priority ?? 0);
+        const updatedAt = job.updatedAt ? new Date(job.updatedAt).getTime() : 0;
+        return {
+          job,
+          score: Number.isFinite(score) ? score : 0,
+          updatedAt: Number.isFinite(updatedAt) ? updatedAt : 0,
+        };
+      })
+      .sort((a, b) => {
+        if (b.score !== a.score) {
+          return b.score - a.score;
+        }
+        return b.updatedAt - a.updatedAt;
+      })
+      .map((entry) => entry.job);
+    if (scored.length) {
+      return scored.slice(0, 3);
+    }
+
+    const remotePreferred = items.filter((job) => job.isRemote).slice(0, 3);
+    if (remotePreferred.length) {
+      return remotePreferred;
+    }
+
+    return items.slice(0, 3);
+  }, [dashboardData?.recommendations, items, listing.recommendations]);
+
+  const handleRecommendationExplore = useCallback(
+    (job) => {
+      if (!job) {
+        return;
+      }
+      setActiveTab('board');
+      setActiveSavedSearchId(null);
+      if (job.title) {
+        setQuery(job.title);
+      }
+      setFilters((previous) => {
+        const next = { ...previous };
+        if (job.employmentType) {
+          next.employmentTypes = [job.employmentType];
+        }
+        if (job.isRemote) {
+          next.isRemote = true;
+        }
+        return next;
+      });
+      analytics.track(
+        'web_job_recommendation_selected',
+        {
+          opportunityId: job.id ?? null,
+          title: job.title ?? null,
+          source: job.source ?? listing.source ?? 'recommendation',
+        },
+        { source: 'web_app' },
+      );
+    },
+    [listing.source],
   );
 
   if (!isAuthenticated) {
@@ -465,206 +796,298 @@ export default function JobsPage() {
   ];
 
   const boardContent = (
-    <div className="space-y-8">
-      <div className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm backdrop-blur">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex-1">
-            <label htmlFor="job-search" className="sr-only">
-              Search jobs
-            </label>
-            <input
-              id="job-search"
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search by title, company, or keywords"
-              className="w-full rounded-full border border-slate-200 bg-white px-5 py-3 text-sm shadow-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
-            />
-          </div>
-          <div className="flex items-center gap-3">
-            <label htmlFor="job-sort" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Sort
-            </label>
-            <select
-              id="job-sort"
-              value={sort}
-              onChange={(event) => setSort(event.target.value)}
-              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
-            >
-              {SORT_OPTIONS.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div className="mt-6 space-y-6">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Work style</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {REMOTE_OPTIONS.map((option) => (
-                <FilterPill
-                  key={option.id}
-                  active={filters.isRemote === option.value}
-                  label={option.label}
-                  onClick={() => handleRemoteSelection(option.value)}
-                />
-              ))}
+    <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr),minmax(280px,1fr)]">
+      <div className="space-y-8">
+        <div className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm backdrop-blur">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex-1">
+              <label htmlFor="job-search" className="sr-only">
+                Search jobs
+              </label>
+              <input
+                id="job-search"
+                type="search"
+                value={query}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setActiveSavedSearchId(null);
+                }}
+                placeholder="Search by title, company, or keywords"
+                className="w-full rounded-full border border-slate-200 bg-white px-5 py-3 text-sm shadow-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <label htmlFor="job-sort" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Sort
+              </label>
+              <select
+                id="job-sort"
+                value={sort}
+                onChange={(event) => {
+                  setSort(event.target.value);
+                  setActiveSavedSearchId(null);
+                }}
+                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+              >
+                {SORT_OPTIONS.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Employment type</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {EMPLOYMENT_TYPE_OPTIONS.map((option) => (
-                <FilterPill
-                  key={option.id}
-                  active={filters.employmentTypes.includes(option.value)}
-                  label={option.label}
-                  onClick={() => handleToggleEmploymentType(option.value)}
-                />
-              ))}
-            </div>
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Freshness</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {FRESHNESS_OPTIONS.map((option) => (
-                <FilterPill
-                  key={option.id}
-                  active={filters.updatedWithin === option.id}
-                  label={option.label}
-                  onClick={() => handleFreshnessSelection(option.id)}
-                />
-              ))}
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            {hasActiveFilters ? (
-              <div className="flex flex-wrap gap-2">
-                {activeFilterBadges.map((badge) => {
-                  if (badge.key.startsWith('type:')) {
-                    const type = badge.key.slice('type:'.length);
-                    return (
-                      <ActiveFilterTag
-                        key={badge.key}
-                        label={badge.label}
-                        onRemove={() => handleToggleEmploymentType(type)}
-                      />
-                    );
-                  }
-                  if (badge.key === 'remote:true') {
-                    return (
-                      <ActiveFilterTag
-                        key={badge.key}
-                        label={badge.label}
-                        onRemove={() => handleRemoteSelection(null)}
-                      />
-                    );
-                  }
-                  if (badge.key === 'remote:false') {
-                    return (
-                      <ActiveFilterTag
-                        key={badge.key}
-                        label={badge.label}
-                        onRemove={() => handleRemoteSelection(null)}
-                      />
-                    );
-                  }
-                  return (
-                    <ActiveFilterTag
-                      key={badge.key}
-                      label={badge.label}
-                      onRemove={() => handleFreshnessSelection('30d')}
-                    />
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-xs text-slate-500">Refine the board with work style, employment type, and freshness filters.</p>
-            )}
-            <button
-              type="button"
-              onClick={handleResetFilters}
-              className="inline-flex items-center rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
-            >
-              Reset filters
-            </button>
-          </div>
-        </div>
-      </div>
-      {error ? (
-        <div className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-          Unable to load the latest roles. {error.message || 'Try refreshing to sync again.'}
-        </div>
-      ) : null}
-      {loading && !items.length ? (
-        <div className="space-y-4">
-          {Array.from({ length: 3 }).map((_, index) => (
-            <div key={index} className="animate-pulse rounded-3xl border border-slate-200 bg-white p-6">
-              <div className="h-3 w-1/3 rounded bg-slate-200" />
-              <div className="mt-3 h-4 w-1/2 rounded bg-slate-200" />
-              <div className="mt-2 h-3 w-full rounded bg-slate-200" />
-              <div className="mt-1 h-3 w-5/6 rounded bg-slate-200" />
-            </div>
-          ))}
-        </div>
-      ) : null}
-      {!loading && !items.length ? (
-        <div className="rounded-3xl border border-dashed border-slate-300 bg-white/80 p-10 text-center text-sm text-slate-500">
-          {debouncedQuery
-            ? 'No jobs matched your filters yet. Try broadening your search.'
-            : 'Jobs curated from trusted teams will appear here as we sync the marketplace.'}
-        </div>
-      ) : null}
-      <div className="space-y-6">
-        {items.map((job) => (
-          <article
-            key={job.id}
-            className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
-              <div className="flex flex-wrap items-center gap-2">
-                {job.location ? <span>{job.location}</span> : null}
-                {job.employmentType ? (
-                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-600">
-                    {job.employmentType}
-                  </span>
-                ) : null}
-                {job.isRemote ? (
-                  <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 font-semibold text-emerald-700">
-                    Remote
-                  </span>
-                ) : null}
-              </div>
-              <span className="text-slate-400">Updated {formatRelativeTime(job.updatedAt)}</span>
-            </div>
-            <h2 className="mt-3 text-xl font-semibold text-slate-900">{job.title}</h2>
-            <p className="mt-2 text-sm text-slate-600">{job.description}</p>
-            {Array.isArray(job.taxonomyLabels) && job.taxonomyLabels.length ? (
-              <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-slate-500">
-                {job.taxonomyLabels.slice(0, 3).map((label) => (
-                  <span key={label} className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 font-semibold">
-                    {label}
-                  </span>
+          <div className="mt-6 space-y-6">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Work style</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {REMOTE_OPTIONS.map((option) => (
+                  <OpportunityFilterPill
+                    key={option.id}
+                    active={filters.isRemote === option.value}
+                    label={option.label}
+                    onClick={() => handleRemoteSelection(option.value)}
+                  />
                 ))}
               </div>
-            ) : null}
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-              <div className="text-xs text-slate-500">
-                {job.geo?.country ? <span>{job.geo.country}</span> : null}
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Employment type</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {EMPLOYMENT_TYPE_OPTIONS.map((option) => (
+                  <OpportunityFilterPill
+                    key={option.id}
+                    active={filters.employmentTypes.includes(option.value)}
+                    label={option.label}
+                    onClick={() => handleToggleEmploymentType(option.value)}
+                  />
+                ))}
               </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Freshness</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {FRESHNESS_OPTIONS.map((option) => (
+                  <OpportunityFilterPill
+                    key={option.id}
+                    active={filters.updatedWithin === option.id}
+                    label={option.label}
+                    onClick={() => handleFreshnessSelection(option.id)}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {hasActiveFilters ? (
+                <div className="flex flex-wrap gap-2">
+                  {activeFilterBadges.map((badge) => {
+                    if (badge.key.startsWith('type:')) {
+                      const type = badge.key.slice('type:'.length);
+                      return (
+                        <ActiveFilterTag
+                          key={badge.key}
+                          label={badge.label}
+                          onRemove={() => handleToggleEmploymentType(type)}
+                        />
+                      );
+                    }
+                    if (badge.key === 'remote:true' || badge.key === 'remote:false') {
+                      return (
+                        <ActiveFilterTag
+                          key={badge.key}
+                          label={badge.label}
+                          onRemove={() => handleRemoteSelection(null)}
+                        />
+                      );
+                    }
+                    return (
+                      <ActiveFilterTag
+                        key={badge.key}
+                        label={badge.label}
+                        onRemove={() => handleFreshnessSelection('30d')}
+                      />
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500">
+                  Refine the board with work style, employment type, and freshness filters.
+                </p>
+              )}
               <button
                 type="button"
-                onClick={() => handleApply(job)}
-                className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-xs font-semibold text-white shadow-soft transition hover:bg-accentDark"
+                onClick={handleResetFilters}
+                className="inline-flex items-center rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
               >
-                Apply now <span aria-hidden="true">→</span>
+                Reset filters
               </button>
             </div>
-          </article>
-        ))}
+          </div>
+        </div>
+        {error ? (
+          <div className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            Unable to load the latest roles. {error.message || 'Try refreshing to sync again.'}
+          </div>
+        ) : null}
+        {loading && !items.length ? (
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="animate-pulse rounded-3xl border border-slate-200 bg-white p-6">
+                <div className="h-3 w-1/3 rounded bg-slate-200" />
+                <div className="mt-3 h-4 w-1/2 rounded bg-slate-200" />
+                <div className="mt-2 h-3 w-full rounded bg-slate-200" />
+                <div className="mt-1 h-3 w-5/6 rounded bg-slate-200" />
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {!loading && !items.length ? (
+          <div className="rounded-3xl border border-dashed border-slate-300 bg-white/80 p-10 text-center text-sm text-slate-500">
+            {debouncedQuery
+              ? 'No jobs matched your filters yet. Try broadening your search.'
+              : 'Jobs curated from trusted teams will appear here as we sync the marketplace.'}
+          </div>
+        ) : null}
+        <div className="space-y-6">
+          {items.map((job) => (
+            <article
+              key={job.id}
+              className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+                <div className="flex flex-wrap items-center gap-2">
+                  {job.location ? <span>{job.location}</span> : null}
+                  {job.employmentType ? (
+                    <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-600">
+                      {job.employmentType}
+                    </span>
+                  ) : null}
+                  {job.isRemote ? (
+                    <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 font-semibold text-emerald-700">
+                      Remote
+                    </span>
+                  ) : null}
+                </div>
+                <span className="text-slate-400">Updated {formatRelativeTime(job.updatedAt)}</span>
+              </div>
+              <h2 className="mt-3 text-xl font-semibold text-slate-900">{job.title}</h2>
+              <p className="mt-2 text-sm text-slate-600">{job.description}</p>
+              {Array.isArray(job.taxonomyLabels) && job.taxonomyLabels.length ? (
+                <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-slate-500">
+                  {job.taxonomyLabels.slice(0, 3).map((label) => (
+                    <span key={label} className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 font-semibold">
+                      {label}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+                <div className="text-xs text-slate-500">{job.geo?.country ? <span>{job.geo.country}</span> : null}</div>
+                <button
+                  type="button"
+                  onClick={() => handleApply(job)}
+                  className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-xs font-semibold text-white shadow-soft transition hover:bg-accentDark"
+                >
+                  Apply now <span aria-hidden="true">→</span>
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
       </div>
+      <aside className="space-y-6">
+        <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Saved searches</h3>
+          <p className="mt-2 text-xs text-slate-500">
+            Capture favourite filters to receive proactive ATS nudges and interview prep prompts.
+          </p>
+          <form onSubmit={handleSaveCurrentSearch} className="mt-4 flex flex-wrap gap-3">
+            <label htmlFor="jobs-saved-search-name" className="sr-only">
+              Name this search
+            </label>
+            <input
+              id="jobs-saved-search-name"
+              type="text"
+              value={savedSearchName}
+              onChange={(event) => setSavedSearchName(event.target.value)}
+              placeholder="Give it a name"
+              className="flex-1 min-w-[8rem] rounded-full border border-slate-200 bg-white px-4 py-2 text-sm shadow-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+            />
+            <button
+              type="submit"
+              className="inline-flex items-center rounded-full bg-accent px-5 py-2 text-xs font-semibold text-white shadow-soft transition hover:bg-accentDark disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={savedSearchesLoading}
+            >
+              Save search
+            </button>
+          </form>
+          <div className="mt-4">
+            <SavedSearchList
+              savedSearches={savedSearches}
+              onApply={handleApplySavedSearch}
+              onDelete={handleDeleteSavedSearch}
+              loading={savedSearchesLoading}
+              activeSearchId={activeSavedSearchId}
+              canManageServerSearches={canSyncSavedSearches}
+            />
+          </div>
+        </div>
+        <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Recommended roles</h3>
+          <p className="mt-2 text-xs text-slate-500">
+            Personalised suggestions blend marketplace trends with your recent applications.
+          </p>
+          {recommendations.length ? (
+            <ul className="mt-4 space-y-3">
+              {recommendations.map((job, index) => {
+                const companyName = job?.companyName ?? job?.company?.name ?? job?.organisation ?? null;
+                const score = job?.matchScore ?? job?.suitabilityScore ?? job?.score;
+                return (
+                  <li
+                    key={`recommendation-${job?.id ?? job?.title ?? index}`}
+                    className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{job?.title ?? 'Recommended role'}</p>
+                        {companyName ? <p className="mt-1 text-xs text-slate-500">{companyName}</p> : null}
+                        <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-500">
+                          {job?.isRemote ? (
+                            <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-1 font-semibold text-emerald-700">
+                              Remote-friendly
+                            </span>
+                          ) : null}
+                          {job?.employmentType ? (
+                            <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-600">
+                              {job.employmentType}
+                            </span>
+                          ) : null}
+                          {Number.isFinite(Number(score)) ? (
+                            <span className="inline-flex items-center rounded-full bg-accentSoft px-2 py-1 font-semibold text-accent">
+                              Match {Math.round(Number(score))}%
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRecommendationExplore(job)}
+                        className="inline-flex items-center rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+                      >
+                        Load filters
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-xs text-slate-500">
+              Track a few applications to unlock tailored job picks and recruiter-ready insights.
+            </p>
+          )}
+        </div>
+      </aside>
     </div>
   );
 
@@ -705,10 +1128,10 @@ export default function JobsPage() {
       <div className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Stage distribution</h3>
         <ul className="mt-4 space-y-3">
-          {pipelineStatuses.length ? (
-            pipelineStatuses.map((status) => (
-              <li key={status.status} className="flex items-center justify-between text-sm text-slate-600">
-                <span>{formatStatusLabel(status.status)}</span>
+          {pipelineStatusDisplay.length ? (
+            pipelineStatusDisplay.map((status) => (
+              <li key={status.status ?? status} className="flex items-center justify-between text-sm text-slate-600">
+                <span>{formatStatusLabel(status.status ?? status)}</span>
                 <span className="font-semibold text-slate-900">{formatNumber(status.count)}</span>
               </li>
             ))
@@ -734,29 +1157,60 @@ export default function JobsPage() {
             Submit applications to unlock conversion analytics and follow-up insights.
           </div>
         ) : null}
-        {recentApplications.map((application) => (
-          <article key={application.id} className="rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
-              <div className="flex flex-col gap-1 text-left">
-                <span className="text-sm font-semibold text-slate-900">
-                  {application.target?.title || `Application #${application.id}`}
-                </span>
-                {application.target?.companyName ? <span>{application.target.companyName}</span> : null}
+        {recentApplications.map((application) => {
+          const stageValue = applicationStages[application.id] ?? application.status ?? 'applied';
+          return (
+            <article key={application.id} className="rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+                <div className="flex flex-col gap-1 text-left">
+                  <span className="text-sm font-semibold text-slate-900">
+                    {application.target?.title || `Application #${application.id}`}
+                  </span>
+                  {application.target?.companyName ? <span>{application.target.companyName}</span> : null}
+                </div>
+                <div className="flex items-center gap-2">
+                  <label htmlFor={`application-stage-${application.id}`} className="sr-only">
+                    Update application stage
+                  </label>
+                  <select
+                    id={`application-stage-${application.id}`}
+                    value={stageValue}
+                    onChange={(event) => handleStageTransition(application, event.target.value)}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+                  >
+                    {stageOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {formatStatusLabel(option)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-600">
-                {formatStatusLabel(application.status)}
-              </span>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-500">
-              {application.submittedAt ? <span>Submitted {formatRelativeTime(application.submittedAt)}</span> : null}
-              {application.updatedAt ? <span>Updated {formatRelativeTime(application.updatedAt)}</span> : null}
-              {Number.isFinite(application.daysSinceUpdate) ? (
-                <span>{application.daysSinceUpdate} days since last activity</span>
-              ) : null}
-            </div>
-            {application.nextStep ? <p className="mt-3 text-sm text-slate-600">Next step: {application.nextStep}</p> : null}
-          </article>
-        ))}
+              <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-500">
+                {application.submittedAt ? <span>Submitted {formatRelativeTime(application.submittedAt)}</span> : null}
+                {application.updatedAt ? <span>Updated {formatRelativeTime(application.updatedAt)}</span> : null}
+                {Number.isFinite(application.daysSinceUpdate) ? (
+                  <span>{application.daysSinceUpdate} days since last activity</span>
+                ) : null}
+              </div>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                {application.nextStep ? (
+                  <p className="text-sm text-slate-600">Next step: {application.nextStep}</p>
+                ) : (
+                  <p className="text-xs text-slate-500">Track your follow-ups to keep recruiters engaged.</p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleContactRecruiter(application)}
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+                >
+                  Message recruiter
+                  <span aria-hidden="true">→</span>
+                </button>
+              </div>
+            </article>
+          );
+        })}
       </div>
     </div>
   );
