@@ -10,16 +10,19 @@ export const CREATION_STUDIO_ITEM_TYPES = Object.freeze([
   'project',
   'launchpad_job',
   'launchpad_project',
-  'volunteering',
+  'volunteer_opportunity',
+  'mentorship_offering',
   'networking_session',
   'blog_post',
   'group',
   'page',
   'ad',
   'event',
+  'cv',
+  'cover_letter',
 ]);
 
-export const CREATION_STUDIO_ITEM_STATUSES = Object.freeze(['draft', 'scheduled', 'published', 'archived']);
+export const CREATION_STUDIO_ITEM_STATUSES = Object.freeze(['draft', 'in_review', 'scheduled', 'published', 'archived']);
 export const CREATION_STUDIO_VISIBILITIES = Object.freeze(['private', 'workspace', 'connections', 'community', 'public']);
 export const CREATION_STUDIO_STEPS = Object.freeze(['type', 'basics', 'details', 'collaboration', 'settings', 'share']);
 export const CREATION_STUDIO_COLLABORATOR_STATUSES = Object.freeze([
@@ -44,7 +47,7 @@ export const CreationStudioItem = sequelize.define(
     summary: { type: DataTypes.TEXT, allowNull: true },
     description: { type: DataTypes.TEXT, allowNull: true },
     status: { type: DataTypes.ENUM(...CREATION_STUDIO_ITEM_STATUSES), allowNull: false, defaultValue: 'draft' },
-    visibility: { type: DataTypes.ENUM(...CREATION_STUDIO_VISIBILITIES), allowNull: false, defaultValue: 'private' },
+    visibility: { type: DataTypes.ENUM(...CREATION_STUDIO_VISIBILITIES), allowNull: false, defaultValue: 'workspace' },
     category: { type: DataTypes.STRING(120), allowNull: true },
     targetAudience: { type: DataTypes.STRING(255), allowNull: true },
     heroImageUrl: { type: DataTypes.STRING(500), allowNull: true },
