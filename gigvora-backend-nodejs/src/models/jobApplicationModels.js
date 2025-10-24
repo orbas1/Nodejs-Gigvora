@@ -235,8 +235,10 @@ JobApplicationDocument.prototype.toPublicObject = function toPublicObject() {
 export const JobApplicationInterview = sequelize.define(
   'JobApplicationInterview',
   {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
     applicationId: { type: DataTypes.INTEGER, allowNull: false },
     scheduledAt: { type: DataTypes.DATE, allowNull: false },
+    timezone: { type: DataTypes.STRING(120), allowNull: true },
     durationMinutes: { type: DataTypes.INTEGER, allowNull: true },
     type: { type: DataTypes.ENUM(...JOB_APPLICATION_INTERVIEW_TYPES), allowNull: false, defaultValue: 'video' },
     status: { type: DataTypes.ENUM(...JOB_APPLICATION_INTERVIEW_STATUSES), allowNull: false, defaultValue: 'scheduled' },
@@ -244,13 +246,16 @@ export const JobApplicationInterview = sequelize.define(
     meetingLink: { type: DataTypes.STRING(2048), allowNull: true },
     interviewerName: { type: DataTypes.STRING(180), allowNull: true },
     interviewerEmail: { type: DataTypes.STRING(255), allowNull: true },
+    feedbackScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
     notes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
     createdById: { type: DataTypes.INTEGER, allowNull: true },
     createdByName: { type: DataTypes.STRING(180), allowNull: true },
   },
   {
     tableName: 'job_application_interviews',
     indexes: [
+      { fields: ['userId'] },
       { fields: ['applicationId'] },
       { fields: ['scheduledAt'] },
       { fields: ['status'] },
@@ -262,8 +267,10 @@ JobApplicationInterview.prototype.toPublicObject = function toPublicObject() {
   const plain = this.get({ plain: true });
   return {
     id: plain.id,
+    userId: plain.userId,
     applicationId: plain.applicationId,
     scheduledAt: plain.scheduledAt,
+    timezone: plain.timezone,
     durationMinutes: plain.durationMinutes,
     type: plain.type,
     status: plain.status,
@@ -271,7 +278,9 @@ JobApplicationInterview.prototype.toPublicObject = function toPublicObject() {
     meetingLink: plain.meetingLink,
     interviewerName: plain.interviewerName,
     interviewerEmail: plain.interviewerEmail,
+    feedbackScore: plain.feedbackScore == null ? null : Number(plain.feedbackScore),
     notes: plain.notes,
+    metadata: plain.metadata ?? null,
     createdById: plain.createdById,
     createdByName: plain.createdByName,
     createdAt: plain.createdAt,

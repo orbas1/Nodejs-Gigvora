@@ -737,7 +737,7 @@ export async function createJobApplicationInterview(ownerId, applicationId, payl
     interviewerName: payload.interviewerName ? `${payload.interviewerName}`.trim() : null,
     interviewerEmail: payload.interviewerEmail ? `${payload.interviewerEmail}`.trim() : null,
     location: payload.location ? `${payload.location}`.trim() : null,
-    meetingUrl: payload.meetingUrl ? `${payload.meetingUrl}`.trim() : null,
+    meetingLink: payload.meetingLink ? `${payload.meetingLink}`.trim() : null,
     durationMinutes: payload.durationMinutes == null ? null : coerceNumber(payload.durationMinutes),
     feedbackScore: payload.feedbackScore == null ? null : coerceNumber(payload.feedbackScore),
     notes: payload.notes ? `${payload.notes}`.trim() : null,
@@ -786,8 +786,8 @@ export async function updateJobApplicationInterview(ownerId, applicationId, inte
   if (payload.location !== undefined) {
     interview.location = payload.location ? `${payload.location}`.trim() : null;
   }
-  if (payload.meetingUrl !== undefined) {
-    interview.meetingUrl = payload.meetingUrl ? `${payload.meetingUrl}`.trim() : null;
+  if (payload.meetingLink !== undefined) {
+    interview.meetingLink = payload.meetingLink ? `${payload.meetingLink}`.trim() : null;
   }
   if (payload.durationMinutes !== undefined) {
     interview.durationMinutes = payload.durationMinutes == null ? null : coerceNumber(payload.durationMinutes);
