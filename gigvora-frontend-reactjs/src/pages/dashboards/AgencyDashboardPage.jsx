@@ -8,6 +8,10 @@ import useProjectGigManagement from '../../hooks/useProjectGigManagement.js';
 import useGigOrderDetail from '../../hooks/useGigOrderDetail.js';
 import DataStatus from '../../components/DataStatus.jsx';
 import FinanceControlTowerFeature from '../../components/dashboard/FinanceControlTowerFeature.jsx';
+import DashboardInsightsBand from '../../components/dashboard/shared/DashboardInsightsBand.jsx';
+import DashboardAlertBanner from '../../components/dashboard/shared/DashboardAlertBanner.jsx';
+import DashboardWorkspaceModules from '../../components/dashboard/shared/DashboardWorkspaceModules.jsx';
+import DashboardCollapsibleSection from '../../components/dashboard/shared/DashboardCollapsibleSection.jsx';
 import {
   AgencyManagementSection,
   AgencyHrManagementSection,
@@ -22,10 +26,12 @@ import {
   GigSubmissionsSection,
   GigChatSection,
   AgencyGigWorkspaceSection,
-  AgencyInboxSection,
-  AgencyWalletSection,
   AgencyHubSection,
   AgencyCreationStudioWizardSection,
+  AgencyFairnessSection,
+  AgencySupportSection,
+  AgencyInboxSection,
+  AgencyWalletSection,
 } from './agency/sections/index.js';
 import OverviewSection from './agency/sections/OverviewSection.jsx';
 import { EscrowProvider } from './agency/escrow/EscrowContext.jsx';
@@ -108,6 +114,13 @@ function formatCurrency(amount, currency = 'USD') {
   } catch (error) {
     return `${currency} ${Math.round(numeric)}`;
   }
+}
+
+function formatNumber(value) {
+  if (value == null || Number.isNaN(Number(value))) {
+    return '0';
+  }
+  return new Intl.NumberFormat('en-US').format(Number(value));
 }
 
 export default function AgencyDashboardPage() {
@@ -339,6 +352,56 @@ export default function AgencyDashboardPage() {
   const gigSummary = studioInsights.summary ?? null;
   const gigDeliverables = studioInsights.deliverables ?? null;
   const financeSnapshot = agencyDashboard?.finance ?? {};
+  const gigStats = useMemo(() => {
+    const stats = projectGigData?.purchasedGigs?.stats ?? {};
+    const submissionStats = projectGigData?.purchasedGigs?.submissions?.stats ?? {};
+    return {
+      ...stats,
+      awaitingReview: stats.awaitingReview ?? submissionStats.pending ?? 0,
+      pendingClient: stats.pendingClient ?? submissionStats.pending ?? 0,
+    };
+  }, [projectGigData]);
+  const boardMetrics = useMemo(() => projectGigData?.board?.metrics ?? {}, [projectGigData]);
+  const autoMatchSnapshot = useMemo(() => {
+    const snapshot = projectGigData?.autoMatch ?? {};
+    if (snapshot.summary && typeof snapshot.readyCount !== 'number') {
+      return { ...snapshot, readyCount: snapshot.summary.readyCount ?? 0 };
+    }
+    return snapshot;
+  }, [projectGigData]);
+
+  const activeOrdersCount = useMemo(
+    () => orders.filter((order) => order?.status !== 'completed').length,
+    [orders],
+  );
+
+  const dueSoonCount = useMemo(() => {
+    const now = Date.now();
+    const sevenDays = 1000 * 60 * 60 * 24 * 7;
+    return orders.filter((order) => {
+      if (!order?.dueAt) {
+        return false;
+      }
+      const due = new Date(order.dueAt).getTime();
+      if (Number.isNaN(due)) {
+        return false;
+      }
+      return due - now <= sevenDays && due >= now && order?.status !== 'completed';
+    }).length;
+  }, [orders]);
+
+  const averageProgress = useMemo(() => {
+    const progressEntries = orders
+      .map((order) => Number(order?.progressPercent ?? order?.progress ?? 0))
+      .filter((value) => Number.isFinite(value));
+    if (!progressEntries.length) {
+      return 0;
+    }
+    const total = progressEntries.reduce((sum, value) => sum + value, 0);
+    return Math.round(total / progressEntries.length);
+  }, [orders]);
+
+  const pipelineCurrency = financeSnapshot.currency || agencyDashboard?.workspace?.currency || 'USD';
 
   const [activeMenuItem, setActiveMenuItem] = useState('agency-overview');
 
@@ -374,6 +437,179 @@ export default function AgencyDashboardPage() {
 
   const gigError = projectError || orderError;
 
+  const awaitingReviewCount = gigStats.awaitingReview ?? gigStats.pendingClient ?? 0;
+  const runRateDisplay = financeSnapshot.runRate != null
+    ? formatCurrency(financeSnapshot.runRate, pipelineCurrency)
+    : '—';
+
+  const pipelineInsights = useMemo(
+    () => [
+      {
+        id: 'active-gigs',
+        label: 'Active gigs',
+        value: formatNumber(activeOrdersCount),
+        description: 'Orders currently moving through delivery teams.',
+      },
+      {
+        id: 'due-soon',
+        label: 'Due within 7 days',
+        value: formatNumber(dueSoonCount),
+        description: 'Deliverables requiring attention this week.',
+      },
+      {
+        id: 'awaiting-review',
+        label: 'Awaiting review',
+        value: formatNumber(awaitingReviewCount),
+        description: 'Submissions awaiting agency approval.',
+      },
+      {
+        id: 'average-progress',
+        label: 'Average progress',
+        value: `${Math.max(0, Math.min(100, averageProgress))}%`,
+        description: 'Blended completion across live gig orders.',
+      },
+      {
+        id: 'revenue-run-rate',
+        label: 'Revenue run-rate',
+        value: runRateDisplay,
+        description: 'Annualised revenue for the selected workspace.',
+      },
+    ],
+    [activeOrdersCount, dueSoonCount, awaitingReviewCount, averageProgress, runRateDisplay],
+  );
+
+  const numericMargin = useMemo(() => {
+    if (financeSnapshot.margin == null) {
+      return null;
+    }
+    if (typeof financeSnapshot.margin === 'string') {
+      const parsed = Number.parseFloat(financeSnapshot.margin);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    const numeric = Number(financeSnapshot.margin);
+    return Number.isFinite(numeric) ? numeric : null;
+  }, [financeSnapshot.margin]);
+
+  const overdueInvoicesCount = useMemo(() => {
+    const candidates = [financeSnapshot.overdueInvoices, financeSnapshot.unpaidInvoices, financeSnapshot.awaitingPayment];
+    for (const candidate of candidates) {
+      if (candidate == null) {
+        continue;
+      }
+      const numeric = Number(candidate);
+      if (Number.isFinite(numeric) && numeric > 0) {
+        return numeric;
+      }
+    }
+    return 0;
+  }, [financeSnapshot.awaitingPayment, financeSnapshot.overdueInvoices, financeSnapshot.unpaidInvoices]);
+
+  const pipelineAlerts = useMemo(() => {
+    const alerts = [];
+    if (dueSoonCount > 0 && averageProgress < 60) {
+      alerts.push({
+        tone: 'warning',
+        title: 'Catch up on deliverables due this week',
+        message: `Average progress is ${Math.max(0, Math.min(100, averageProgress))}% with ${formatNumber(dueSoonCount)} deliverables approaching their deadlines.`,
+        actions: [
+          <a
+            key="gig-ops"
+            href="#agency-gig-management"
+            className="inline-flex items-center rounded-full border border-amber-200 bg-white/80 px-3 py-1 text-xs font-semibold text-amber-700 transition hover:border-amber-300 hover:text-amber-800"
+          >
+            Open gig management
+          </a>,
+        ],
+      });
+    }
+
+    if (numericMargin != null && numericMargin < 20) {
+      alerts.push({
+        tone: 'highlight',
+        title: 'Margin trending below target',
+        message: `Gross margin is ${numericMargin.toFixed(1)}%. Review pricing or delivery costs to protect profitability.`,
+        actions: [
+          <a
+            key="finance"
+            href="#agency-finance"
+            className="inline-flex items-center rounded-full border border-indigo-200 bg-white/80 px-3 py-1 text-xs font-semibold text-indigo-600 transition hover:border-indigo-300 hover:text-indigo-800"
+          >
+            Inspect finance controls
+          </a>,
+        ],
+      });
+    }
+
+    if (overdueInvoicesCount > 0) {
+      alerts.push({
+        tone: 'info',
+        title: `${formatNumber(overdueInvoicesCount)} invoices waiting on payment`,
+        message: 'Sync with clients and finance to accelerate collections and unblock payouts.',
+        actions: [
+          <a
+            key="payments"
+            href="#agency-payments"
+            className="inline-flex items-center rounded-full border border-sky-200 bg-white/80 px-3 py-1 text-xs font-semibold text-sky-600 transition hover:border-sky-300 hover:text-sky-800"
+          >
+            Review payment centre
+          </a>,
+        ],
+      });
+    }
+
+    return alerts;
+  }, [averageProgress, dueSoonCount, numericMargin, overdueInvoicesCount]);
+
+  const handleReviewPipeline = useCallback(() => {
+    if (typeof document === 'undefined') {
+      return;
+    }
+    const target = document.getElementById('agency-gig-management');
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
+  const workspaceIdentifier = workspace?.id ?? workspaceId;
+  const inboxSummary = agencyDashboard?.inbox?.summary ?? null;
+  const supportSnapshot = agencyDashboard?.support ?? undefined;
+
+  const workspaceModules = useMemo(
+    () => [
+      {
+        id: 'agency-inbox-module',
+        anchorId: 'agency-inbox',
+        title: 'Inbox orchestration',
+        badge: 'Collaboration',
+        tone: 'slate',
+        render: () => (
+          <AgencyInboxSection
+            workspaceId={workspaceIdentifier}
+            statusLabel="Inbox telemetry"
+            initialSummary={inboxSummary}
+          />
+        ),
+      },
+      {
+        id: 'agency-wallet-module',
+        anchorId: 'agency-wallet',
+        title: 'Wallet operations',
+        badge: 'Finance',
+        tone: 'emerald',
+        render: () => <AgencyWalletSection workspaceId={workspaceIdentifier} />,
+      },
+      {
+        id: 'agency-support-module',
+        anchorId: 'agency-support',
+        title: 'Support command desk',
+        badge: 'Experience',
+        tone: 'indigo',
+        render: () => (
+          <AgencySupportSection userId={ownerId} supportSnapshot={supportSnapshot} asModule />
+        ),
+      },
+    ],
+    [workspaceIdentifier, inboxSummary, supportSnapshot, ownerId],
+  );
+
   return (
     <DashboardLayout
       currentDashboard="agency"
@@ -404,6 +640,34 @@ export default function AgencyDashboardPage() {
           onWorkspaceChange={workspaceOptions.length > 1 ? handleWorkspaceChange : undefined}
           currentDate={overviewPayload?.currentDate}
         />
+
+        <DashboardCollapsibleSection
+          id="agency-analytics"
+          anchorId="agency-analytics"
+          title="Pipeline & finance health"
+          badge="Signals"
+          description="Monitor cross-functional delivery metrics and finance telemetry without leaving the control tower."
+        >
+          <DashboardInsightsBand
+            title="Delivery and revenue pulse"
+            subtitle="Live view across active gig programmes and billing."
+            insights={pipelineInsights}
+          />
+
+          {pipelineAlerts.length ? (
+            <div className="grid gap-4 lg:grid-cols-3">
+              {pipelineAlerts.map((alert) => (
+                <DashboardAlertBanner
+                  key={`${alert.tone}-${alert.title}`}
+                  tone={alert.tone}
+                  title={alert.title}
+                  message={alert.message}
+                  actions={alert.actions}
+                />
+              ))}
+            </div>
+          ) : null}
+        </DashboardCollapsibleSection>
 
         <AgencyManagementSection
           overview={overview}
@@ -490,6 +754,14 @@ export default function AgencyDashboardPage() {
           onCreated={handleRefreshGigData}
         />
 
+        <AgencyFairnessSection
+          orders={orders}
+          autoMatch={autoMatchSnapshot}
+          boardMetrics={boardMetrics}
+          gigStats={gigStats}
+          onReviewPipeline={handleReviewPipeline}
+        />
+
         <AgencyGigWorkspaceSection
           resource={projectGigResource}
           statusLabel="Gig marketplace sync"
@@ -545,13 +817,7 @@ export default function AgencyDashboardPage() {
           />
         </section>
 
-        <AgencyInboxSection
-          workspaceId={workspace?.id ?? workspaceId}
-          statusLabel="Inbox telemetry"
-          initialSummary={agencyDashboard?.inbox?.summary}
-        />
-
-        <AgencyWalletSection workspaceId={workspace?.id ?? workspaceId} />
+        <DashboardWorkspaceModules modules={workspaceModules} />
 
         <AgencyHubSection
           dashboard={agencyDashboard}

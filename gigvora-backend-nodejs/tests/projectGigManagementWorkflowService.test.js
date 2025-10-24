@@ -8,6 +8,10 @@ import {
   updateGigOrder,
   getProjectGigManagementOverview,
   getGigOrderDetail,
+  addGigTimelineEvent,
+  updateGigTimelineEvent,
+  createGigSubmission,
+  recordAutoMatchCandidate,
 } from '../src/services/projectGigManagementWorkflowService.js';
 
 const ownerId = 42;
@@ -55,37 +59,39 @@ describe('projectGigManagementWorkflowService', () => {
       mediaUrl: 'https://cdn.example.com/banner.png',
     });
 
+    const gigClasses = [
+      {
+        name: 'Starter',
+        summary: 'Core resume polish',
+        priceAmount: 1800,
+        priceCurrency: 'USD',
+        deliveryDays: 7,
+        inclusions: ['Initial consult', 'Resume draft'],
+      },
+      {
+        name: 'Growth',
+        summary: 'Adds LinkedIn refresh',
+        priceAmount: 2400,
+        priceCurrency: 'USD',
+        deliveryDays: 10,
+        inclusions: ['Consult', 'Resume draft', 'LinkedIn profile'],
+      },
+      {
+        name: 'Elite',
+        summary: 'Full executive kit',
+        priceAmount: 3200,
+        priceCurrency: 'USD',
+        deliveryDays: 14,
+        inclusions: ['Consult', 'Resume draft', 'LinkedIn profile', 'Cover letter'],
+      },
+    ];
+
     const order = await createGigOrder(ownerId, {
       vendorName: 'Resume Studio',
       serviceName: 'Executive resume refresh',
       progressPercent: 20,
       requirements: [{ title: 'Upload baseline resume', dueAt: new Date(Date.now() + 2 * 86400000) }],
-      classes: [
-        {
-          name: 'Starter',
-          summary: 'Core resume polish',
-          priceAmount: 1800,
-          priceCurrency: 'USD',
-          deliveryDays: 7,
-          inclusions: ['Initial consult', 'Resume draft'],
-        },
-        {
-          name: 'Growth',
-          summary: 'Adds LinkedIn refresh',
-          priceAmount: 2400,
-          priceCurrency: 'USD',
-          deliveryDays: 10,
-          inclusions: ['Consult', 'Resume draft', 'LinkedIn profile'],
-        },
-        {
-          name: 'Elite',
-          summary: 'Full executive kit',
-          priceAmount: 3200,
-          priceCurrency: 'USD',
-          deliveryDays: 14,
-          inclusions: ['Consult', 'Resume draft', 'LinkedIn profile', 'Cover letter'],
-        },
-      ],
+      classes: gigClasses,
       addons: [
         {
           name: 'Rush delivery',
@@ -113,13 +119,52 @@ describe('projectGigManagementWorkflowService', () => {
     });
 
     await updateGigOrder(ownerId, order.id, {
-      status: 'in_delivery',
+      status: 'in_revision',
       progressPercent: 55,
       newRevisions: [{ summary: 'Tone adjustments requested' }],
       scorecard: { overallScore: 4.5, communicationScore: 4.0 },
     });
 
     await updateProjectWorkspace(ownerId, project.id, { progressPercent: 48, riskLevel: 'medium' });
+
+    const completedOrder = await createGigOrder(ownerId, {
+      vendorName: 'Atlas Media Lab',
+      serviceName: 'Product sizzle reel',
+      status: 'in_delivery',
+      progressPercent: 90,
+      kickoffAt: new Date(Date.now() - 5 * 86400000),
+      dueAt: new Date(Date.now() - 1 * 86400000),
+      amount: 5400,
+      requirements: [{ title: 'Provide product storyboard', status: 'approved', dueAt: new Date(Date.now() - 4 * 86400000) }],
+      classes: gigClasses,
+      addons: [],
+      tags: ['video', 'product'],
+      media: [],
+      faqs: [],
+    });
+
+    await updateGigOrder(ownerId, completedOrder.id, { status: 'completed', progressPercent: 100 });
+
+    const handoffEvent = await addGigTimelineEvent(ownerId, completedOrder.id, {
+      eventType: 'handoff',
+      title: 'Client handoff',
+      occurredAt: new Date(Date.now() - 2 * 86400000),
+    });
+
+    await updateGigTimelineEvent(ownerId, completedOrder.id, handoffEvent.id, {
+      status: 'completed',
+      completedAt: new Date(Date.now() - 2 * 86400000),
+    });
+
+    await createGigSubmission(ownerId, completedOrder.id, {
+      title: 'Final motion deliverable',
+      status: 'approved',
+      approvedAt: new Date(Date.now() - 2 * 86400000),
+    });
+
+    await recordAutoMatchCandidate(ownerId, { freelancerName: 'Jordan UI', status: 'contacted', matchScore: 78.2 });
+    await recordAutoMatchCandidate(ownerId, { freelancerName: 'Skyler Ops', status: 'engaged', matchScore: 91.4 });
+    await recordAutoMatchCandidate(ownerId, { freelancerName: 'Emerson QA', status: 'suggested', matchScore: 66.1 });
 
     const snapshot = await getProjectGigManagementOverview(ownerId);
 
@@ -129,10 +174,19 @@ describe('projectGigManagementWorkflowService', () => {
     expect(snapshot.assets.summary.total).toBe(1);
     expect(snapshot.board.metrics.averageProgress).toBeGreaterThan(0);
 
-    expect(snapshot.purchasedGigs.orders).toHaveLength(1);
+    expect(snapshot.purchasedGigs.orders.length).toBeGreaterThanOrEqual(2);
     expect(snapshot.purchasedGigs.orders[0].classes.length).toBeGreaterThanOrEqual(3);
-    expect(snapshot.purchasedGigs.stats.totalOrders).toBe(1);
+    expect(snapshot.purchasedGigs.stats.totalOrders).toBeGreaterThanOrEqual(2);
     expect(snapshot.purchasedGigs.stats.averages.overall).toBeCloseTo(4.5);
+    expect(snapshot.purchasedGigs.stats.awaitingReview).toBeGreaterThanOrEqual(1);
+    expect(snapshot.purchasedGigs.stats.pendingClient).toBeGreaterThanOrEqual(1);
+    expect(snapshot.purchasedGigs.stats.averageTurnaroundHours).not.toBeNull();
+    expect(snapshot.purchasedGigs.stats.turnaroundSamples).toBeGreaterThan(0);
+    expect(snapshot.purchasedGigs.stats.onTimeDeliveryRate).not.toBeNull();
+
+    expect(snapshot.autoMatch.readyCount).toBe(2);
+    expect(snapshot.autoMatch.summary.readyRatio).toBeGreaterThan(0);
+    expect(snapshot.autoMatch.summary.suggested).toBeGreaterThanOrEqual(1);
 
     const detail = await getGigOrderDetail(ownerId, order.id);
     expect(detail.revisions).toHaveLength(1);

@@ -81,6 +81,17 @@ function ensureDate(value, { label } = {}) {
   return date;
 }
 
+function coerceDate(value) {
+  if (!value) {
+    return null;
+  }
+  const candidate = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(candidate.getTime())) {
+    return null;
+  }
+  return candidate;
+}
+
 function computeBudgetSnapshot(project) {
   const allocated = normalizeNumber(project.budgetAllocated);
   const spent = normalizeNumber(project.budgetSpent);
@@ -181,27 +192,56 @@ function buildInvitationStats(invitations = []) {
 
 function buildAutoMatchSummary(matches = []) {
   if (!matches.length) {
-    return { total: 0, averageScore: null, engaged: 0, contacted: 0 };
+    return {
+      total: 0,
+      averageScore: null,
+      engaged: 0,
+      contacted: 0,
+      suggested: 0,
+      dismissed: 0,
+      readyCount: 0,
+      readyRatio: 0,
+    };
   }
+
   const totals = matches.reduce(
     (acc, match) => {
       acc.total += 1;
       acc.score += Number(match.matchScore ?? 0);
-      if (match.status === 'engaged') {
-        acc.engaged += 1;
-      }
-      if (match.status === 'contacted') {
-        acc.contacted += 1;
+      const status = (match.status ?? '').toLowerCase();
+      switch (status) {
+        case 'engaged':
+          acc.engaged += 1;
+          acc.ready += 1;
+          break;
+        case 'contacted':
+          acc.contacted += 1;
+          acc.ready += 1;
+          break;
+        case 'dismissed':
+          acc.dismissed += 1;
+          break;
+        default:
+          acc.suggested += 1;
+          break;
       }
       return acc;
     },
-    { total: 0, score: 0, engaged: 0, contacted: 0 },
+    { total: 0, score: 0, engaged: 0, contacted: 0, suggested: 0, dismissed: 0, ready: 0 },
   );
+
+  const averageScore = totals.total ? totals.score / totals.total : null;
+  const readyRatio = totals.total ? (totals.ready / totals.total) * 100 : 0;
+
   return {
     total: totals.total,
-    averageScore: totals.total ? totals.score / totals.total : null,
+    averageScore,
     engaged: totals.engaged,
     contacted: totals.contacted,
+    suggested: totals.suggested,
+    dismissed: totals.dismissed,
+    readyCount: totals.ready,
+    readyRatio,
   };
 }
 
@@ -284,12 +324,19 @@ function buildVendorStats(orders) {
       completed: 0,
       averageProgress: 0,
       averages: { overall: null, quality: null, communication: null, reliability: null },
+      awaitingReview: 0,
+      pendingClient: 0,
+      averageTurnaroundHours: null,
+      turnaroundSamples: 0,
+      onTimeDeliveryRate: null,
     };
   }
+
   const active = orders.filter((order) => !['completed', 'cancelled'].includes(order.status)).length;
   const completed = orders.filter((order) => order.status === 'completed').length;
   const averageProgress =
     orders.reduce((total, order) => total + normalizeNumber(order.progressPercent), 0) / orders.length;
+  const awaitingReview = orders.filter((order) => order.status === 'in_revision').length;
 
   const aggregate = orders.reduce(
     (acc, order) => {
@@ -315,7 +362,77 @@ function buildVendorStats(orders) {
     Object.entries(aggregate).map(([key, { sum, count }]) => [key, count === 0 ? null : sum / count]),
   );
 
-  return { totalOrders: orders.length, active, completed, averageProgress, averages };
+  const completionEventTypes = new Set(['handoff', 'qa_review', 'milestone', 'retro']);
+  const turnaroundMetrics = orders.reduce(
+    (acc, order) => {
+      const start = coerceDate(order.kickoffAt) ?? coerceDate(order.createdAt);
+      if (!start) {
+        return acc;
+      }
+
+      const timelineEvents = Array.isArray(order.timelineEvents) ? order.timelineEvents : [];
+      const completionEvent = timelineEvents
+        .map((event) => ({
+          type: event.eventType ?? event.type ?? 'note',
+          status: event.status ?? null,
+          completedAt: coerceDate(event.completedAt ?? event.occurredAt ?? event.scheduledAt),
+        }))
+        .find((event) => event.status === 'completed' && event.completedAt && completionEventTypes.has(event.type));
+
+      const approvedSubmission = (Array.isArray(order.submissions) ? order.submissions : [])
+        .map((submission) => ({
+          status: submission.status ?? null,
+          approvedAt: coerceDate(submission.approvedAt ?? submission.submittedAt ?? null),
+        }))
+        .find((submission) => submission.status === 'approved' && submission.approvedAt);
+
+      const metadataCompletion = coerceDate(order.metadata?.completedAt);
+      const completion = completionEvent?.completedAt ?? approvedSubmission?.approvedAt ?? metadataCompletion;
+
+      if (!completion) {
+        return acc;
+      }
+
+      const hours = (completion.getTime() - start.getTime()) / (1000 * 60 * 60);
+      if (!Number.isFinite(hours) || hours < 0) {
+        return acc;
+      }
+
+      acc.samples += 1;
+      acc.totalHours += hours;
+
+      const due = coerceDate(order.dueAt);
+      if (due) {
+        acc.onTimeChecks += 1;
+        if (completion.getTime() <= due.getTime()) {
+          acc.onTimeHits += 1;
+        }
+      }
+
+      return acc;
+    },
+    { samples: 0, totalHours: 0, onTimeChecks: 0, onTimeHits: 0 },
+  );
+
+  const averageTurnaroundHours =
+    turnaroundMetrics.samples > 0 ? Math.round(((turnaroundMetrics.totalHours / turnaroundMetrics.samples) + Number.EPSILON) * 10) / 10 : null;
+  const onTimeDeliveryRate =
+    turnaroundMetrics.onTimeChecks > 0
+      ? Math.round(((turnaroundMetrics.onTimeHits / turnaroundMetrics.onTimeChecks) * 100 + Number.EPSILON) * 10) / 10
+      : null;
+
+  return {
+    totalOrders: orders.length,
+    active,
+    completed,
+    averageProgress,
+    averages,
+    awaitingReview,
+    pendingClient: awaitingReview,
+    averageTurnaroundHours,
+    turnaroundSamples: turnaroundMetrics.samples,
+    onTimeDeliveryRate,
+  };
 }
 
 function buildGigReminders(orders) {
@@ -1591,6 +1708,7 @@ export async function getProjectGigManagementOverview(ownerId) {
     .filter(Boolean);
 
   const autoMatchSettingsPlain = autoMatchSettings.get({ plain: true });
+  const autoMatchSummary = buildAutoMatchSummary(autoMatchEntries);
   const escrowAccountPlain = escrowAccount.get({ plain: true });
   const escrowTransactionEntries = escrowTransactions.map((transaction) => {
     const plain = transaction.get({ plain: true });
@@ -1631,7 +1749,9 @@ export async function getProjectGigManagementOverview(ownerId) {
     autoMatch: {
       settings: autoMatchSettingsPlain,
       matches: autoMatchEntries,
-      summary: buildAutoMatchSummary(autoMatchEntries),
+      summary: autoMatchSummary,
+      readyCount: autoMatchSummary.readyCount,
+      readyRatio: autoMatchSummary.readyRatio,
     },
     reviews: { entries: reviewEntries, summary: buildReviewSummary(reviewEntries) },
     assets: { items: assets, summary: assetSummary, brandAssets },

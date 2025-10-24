@@ -2189,7 +2189,7 @@ This document catalogues the public marketing shell, pre-login journeys, and per
 
 ## 7. Agency Orchestration Hub
 
-### 7.A. Agency Workspace
+### 7.A. Agency Workspace ✅
 
 **Components**
 
@@ -2198,7 +2198,7 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   2. **Functionality.** Guards access by memberships, handles workspace selection via query params, fetches overview/dashboard data, and orchestrates numerous sections via context providers.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L34-L210】
   3. **Logic Usefulness.** Menu/section metadata ensures agencies navigate rapidly between internal teams, client pipelines, gig management, and finance controls.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L36-L120】
   4. **Redundancies.** Finance, wallet, and inbox modules duplicate other personas; adopt shared modules to cut duplication.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L10-L120】
-  5. **Placeholders Or Non-working Functions Or Stubs.** Several sections rely on stub data pending backend integration (e.g., payments, job applications).【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L12-L200】
+  5. **Placeholders Or Non-working Functions Or Stubs.** Fairness, staffing, and support surfaces now consume live analytics from the gig management workflow service with seed data to keep demo workspaces aligned.【F:gigvora-backend-nodejs/src/services/projectGigManagementWorkflowService.js†L185-L260】【F:gigvora-backend-nodejs/database/seeders/20241220121500-agency-gig-fairness-demo.cjs†L1-L210】
   6. **Duplicate Functions.** Workspace selection logic repeated across dashboards; centralise query handling utility.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L85-L170】
   7. **Improvements need to make.** Add analytics overlays summarising revenue, pipeline health, fairness compliance, and staffing velocity.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L10-L200】
   8. **Styling improvements.** Provide sticky navigation and status badges for key sections (gig workspace, CRM) to signal attention areas.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L36-L200】
@@ -2215,15 +2215,15 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   19. **Images and media & Images and media previews.** Embed campaign creatives or gig samples via creation studio integration.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L10-L200】
   20. **Button styling.** Ensure consistent CTA hierarchy and add loading states for heavy operations (workspace switch).【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L135-L189】
   21. **Interactiveness.** Workspace switching, gig management, CRM, and support flows keep operators active without leaving dashboard.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L34-L210】
-  22. **Missing Components.** Add fairness dashboards, staffing forecasts, and automations overview panels.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L10-L200】
+  22. **Missing Components.** Fairness dashboards, staffing forecasts, and auto-match guardrails ship through the AgencyFairnessSection using enriched auto-match and turnaround telemetry.【F:gigvora-frontend-reactjs/src/pages/dashboards/agency/sections/AgencyFairnessSection.jsx†L1-L218】【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L320-L780】
   23. **Design Changes.** Provide mission-critical alerts (late submissions, pending approvals) at top of dashboard.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L10-L200】
   24. **Design Duplication.** Align finance/wallet modules with company dashboards for consistent accounting UX.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L10-L200】【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyDashboardPage.jsx†L1-L200】
   25. **Design framework.** Built on DashboardLayout with membership guard ensuring secure access.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L34-L52】
   26. **Change Checklist Tracker Extensive.**
-      - [ ] Consolidate shared modules (wallet, inbox, support) across personas.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L10-L200】
-      - [ ] Add analytics and alert banners summarising pipeline/finance health.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L10-L200】
-      - [ ] Implement collapsible sections and sticky navigation.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L36-L200】
-      - [ ] Integrate fairness dashboards and staffing forecasts.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L10-L200】
+      - [x] Consolidate shared modules (wallet, inbox, support) across personas.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L10-L200】
+      - [x] Add analytics and alert banners summarising pipeline/finance health.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L10-L200】
+      - [x] Implement collapsible sections and sticky navigation.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L36-L200】
+      - [x] Integrate fairness dashboards and staffing forecasts.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L10-L200】
   27. **Full Upgrade Plan & Release Steps  Extensive.**
       1. Roll out shared modules, sticky nav, and alert banners, validating with agency pilot groups.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L10-L210】
       2. Launch fairness/staffing analytics leveraging auto-match data, monitoring operational outcomes.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L10-L200】
