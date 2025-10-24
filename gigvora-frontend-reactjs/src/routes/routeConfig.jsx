@@ -1,10 +1,179 @@
 import { lazy, Suspense } from 'react';
 import RouteLoading from '../components/routing/RouteLoading.jsx';
 
+const ROUTE_COLLECTION_PERSONAS = Object.freeze({
+  public: 'public',
+  community: 'community',
+  volunteer: 'volunteer',
+  launchpad: 'launchpad',
+  security: 'security',
+  userDashboards: 'member',
+  freelancer: 'freelancer',
+  company: 'company',
+  agency: 'agency',
+  headhunter: 'headhunter',
+  mentor: 'mentor',
+  launchpadOps: 'launchpad-ops',
+  admin: 'admin',
+  standalone: 'public',
+});
+
+const ROUTE_COLLECTION_ICONS = Object.freeze({
+  public: 'globe-alt',
+  community: 'squares-2x2',
+  volunteer: 'heart',
+  launchpad: 'rocket-launch',
+  security: 'shield-check',
+  userDashboards: 'user-circle',
+  freelancer: 'briefcase',
+  company: 'building-office',
+  agency: 'users',
+  headhunter: 'magnifying-glass',
+  mentor: 'academic-cap',
+  launchpadOps: 'sparkles',
+  admin: 'shield-check',
+  standalone: 'home',
+});
+
+const ROUTE_META_OVERRIDES = Object.freeze({
+  'standalone:/': {
+    title: 'Home',
+    icon: 'home',
+    persona: 'public',
+  },
+  'standalone:/admin': {
+    title: 'Admin Login',
+    icon: 'shield-exclamation',
+    persona: 'admin',
+    featureFlag: 'admin.access',
+  },
+  'community:/feed': {
+    title: 'Community Feed',
+    icon: 'rss',
+  },
+  'launchpad:/experience-launchpad': {
+    title: 'Experience Launchpad',
+    icon: 'rocket-launch',
+    featureFlag: 'launchpad.beta',
+  },
+  'security:/security-operations': {
+    icon: 'shield-exclamation',
+    featureFlag: 'security.operations',
+    shellTheme: 'midnight',
+  },
+  'admin:/dashboard/admin': {
+    title: 'Admin Overview',
+    icon: 'shield-check',
+    featureFlag: 'admin.core',
+    shellTheme: 'midnight',
+  },
+});
+
 const pageModules = import.meta.glob('../pages/**/*.jsx');
 const layoutModules = import.meta.glob('../layouts/**/*.jsx');
 
 const lazyComponentCache = new Map();
+
+function normalisePath(path = '') {
+  return path.replace(/^\/+/, '').replace(/\/+$/, '');
+}
+
+function toAbsolutePath(path = '') {
+  const normalised = normalisePath(path);
+  return normalised ? `/${normalised}` : '/';
+}
+
+function normaliseLocation(pathname = '/') {
+  if (!pathname || pathname === '/') {
+    return '/';
+  }
+  return pathname.replace(/\/+$/, '') || '/';
+}
+
+function inferTitleFromPath(path = '') {
+  const normalised = normalisePath(path);
+  if (!normalised) {
+    return 'Home';
+  }
+  const segments = normalised.split('/').filter(Boolean);
+  let candidate = segments[segments.length - 1] || '';
+  if (candidate === '*' && segments.length > 1) {
+    candidate = segments[segments.length - 2];
+  }
+  if (candidate.startsWith(':')) {
+    candidate = segments[segments.length - 2] || candidate.slice(1);
+  }
+  const cleaned = candidate.replace(/[-_]+/g, ' ').trim();
+  if (!cleaned) {
+    return 'Overview';
+  }
+  return cleaned.replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function createRouteId(collectionKey, absolutePath) {
+  const cleanedCollection = collectionKey ?? 'route';
+  const cleanedPath = (absolutePath || '/').replace(/\*/g, 'wildcard').replace(/[:/]+/g, '_').replace(/^_+|_+$/g, '');
+  return cleanedPath ? `${cleanedCollection}.${cleanedPath}` : `${cleanedCollection}.root`;
+}
+
+function resolveRouteOverrides(collectionKey, absolutePath) {
+  const key = `${collectionKey}:${absolutePath}`;
+  return ROUTE_META_OVERRIDES[key] ?? null;
+}
+
+function createRouteMeta({
+  collectionKey,
+  absolutePath,
+  path,
+  override,
+}) {
+  const persona = override?.persona ?? ROUTE_COLLECTION_PERSONAS[collectionKey] ?? null;
+  const defaultIcon = ROUTE_COLLECTION_ICONS[collectionKey] ?? null;
+  const inferredTitle = inferTitleFromPath(path);
+  const shellTheme = override?.shellTheme ?? (collectionKey === 'admin' ? 'midnight' : null);
+
+  return Object.freeze({
+    id: override?.id ?? createRouteId(collectionKey, absolutePath),
+    persona,
+    title: override?.title ?? inferredTitle,
+    icon: override?.icon ?? defaultIcon,
+    featureFlag: override?.featureFlag ?? null,
+    shellTheme,
+  });
+}
+
+function createRouteEntry(route, collectionKey) {
+  const absolutePath = toAbsolutePath(route.path);
+  const override = resolveRouteOverrides(collectionKey, absolutePath);
+  return {
+    ...route,
+    absolutePath,
+    collection: collectionKey,
+    meta: createRouteMeta({ collectionKey, absolutePath, path: route.path, override }),
+  };
+}
+
+function createRoutePattern(absolutePath) {
+  if (absolutePath === '/') {
+    return /^\/$/;
+  }
+  const escaped = absolutePath
+    .replace(/\/+$/, '')
+    .replace(/([.+?^=!:${}()|\[\]\\])/g, '\\$1')
+    .replace(/\*/g, '.*')
+    .replace(/:[^/]+/g, '[^/]+');
+  return new RegExp(`^${escaped}\/?$`);
+}
+
+function buildRouteEntries(collections) {
+  const entries = [];
+  for (const [collectionKey, routes] of Object.entries(collections)) {
+    for (const route of routes) {
+      entries.push(createRouteEntry(route, collectionKey));
+    }
+  }
+  return entries;
+}
 
 function resolveModule(loader) {
   if (!loader) {
@@ -248,4 +417,52 @@ export const ROUTE_COLLECTIONS = Object.freeze({
   launchpadOps: LAUNCHPAD_ROUTES_PROTECTED,
   admin: ADMIN_ROUTES,
 });
+
+const RAW_STANDALONE_ROUTES = [
+  { key: 'home', path: '', module: 'pages/HomePage.jsx', index: true },
+  { key: 'adminLogin', path: 'admin', module: 'pages/AdminLoginPage.jsx' },
+];
+
+export const STANDALONE_ROUTES = Object.freeze(RAW_STANDALONE_ROUTES.map((route) => Object.freeze(route)));
+
+export const HOME_ROUTE = STANDALONE_ROUTES.find((route) => route.key === 'home');
+export const ADMIN_LOGIN_ROUTE = STANDALONE_ROUTES.find((route) => route.key === 'adminLogin');
+export const ADMIN_ROOT_ROUTE =
+  ADMIN_ROUTES.find((route) => route.index || route.relativePath === '' || route.relativePath == null) ?? ADMIN_ROUTES[0];
+
+const ROUTE_GROUPS_FOR_INDEX = { ...ROUTE_COLLECTIONS, standalone: STANDALONE_ROUTES };
+
+const ROUTE_ENTRIES = buildRouteEntries(ROUTE_GROUPS_FOR_INDEX);
+
+const ROUTE_LOOKUP = new Map(ROUTE_ENTRIES.map((entry) => [entry.absolutePath, entry]));
+
+const ROUTE_MATCHERS = ROUTE_ENTRIES.map((entry) => ({
+  entry,
+  pattern: createRoutePattern(entry.absolutePath),
+}));
+
+export const ROUTE_METADATA = Object.freeze(
+  ROUTE_ENTRIES.map(({ absolutePath, collection, meta, path }) => ({
+    path: absolutePath,
+    sourcePath: path,
+    collection,
+    meta,
+  })),
+);
+
+export function matchRouteByPath(pathname) {
+  const normalised = normaliseLocation(pathname);
+  const direct = ROUTE_LOOKUP.get(normalised);
+  if (direct) {
+    return direct;
+  }
+
+  for (const { entry, pattern } of ROUTE_MATCHERS) {
+    if (pattern.test(normalised)) {
+      return entry;
+    }
+  }
+
+  return null;
+}
 

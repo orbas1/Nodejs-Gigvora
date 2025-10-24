@@ -10,6 +10,7 @@ import SupportLauncher from '../components/support/SupportLauncher.jsx';
 import { LayoutProvider, useLayout } from '../context/LayoutContext.jsx';
 import AppErrorBoundary from '../components/routing/AppErrorBoundary.jsx';
 import { ToastProvider } from '../context/ToastContext.jsx';
+import RouteThemeSynchronizer from '../routes/RouteThemeSynchronizer.jsx';
 
 function ShellErrorFallback({ error, onRetry }) {
   return (
@@ -52,7 +53,8 @@ ShellErrorFallback.defaultProps = {
 
 function LayoutChrome() {
   const { isAuthenticated } = useSession();
-  const { isDesktop } = useLayout();
+  const { isDesktop, shellTheme } = useLayout();
+  const showDesktopOverlay = shellTheme?.options?.showDesktopOverlay !== false;
 
   return (
     <>
@@ -62,9 +64,10 @@ function LayoutChrome() {
       >
         Skip to main content
       </a>
-      <div className="gv-shell-background">
+      <div className="gv-shell-background" data-shell-theme={shellTheme?.name ?? 'daybreak'}>
+        <RouteThemeSynchronizer />
         <div className="gv-shell-overlay-primary" />
-        {isDesktop ? <div className="gv-shell-overlay-desktop" /> : null}
+        {isDesktop && showDesktopOverlay ? <div className="gv-shell-overlay-desktop" /> : null}
         <div className="relative z-10 flex min-h-screen flex-col">
           <Header />
           <main id="main-content" className="flex-1" tabIndex={-1}>

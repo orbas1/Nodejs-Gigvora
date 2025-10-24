@@ -13,6 +13,7 @@ import {
   COMMUNITY_ACCESS_MEMBERSHIPS,
   COMMUNITY_ROUTES,
   COMPANY_ROUTES,
+  HOME_ROUTE,
   FREELANCER_ROUTES,
   HEADHUNTER_ROUTES,
   LAUNCHPAD_ROUTES,
@@ -20,6 +21,8 @@ import {
   MainLayout,
   MENTOR_ROUTES,
   PUBLIC_ROUTES,
+  ADMIN_LOGIN_ROUTE,
+  ADMIN_ROOT_ROUTE,
   ROUTE_COLLECTIONS,
   SECURITY_ROUTES,
   USER_DASHBOARD_ROUTES,
@@ -69,7 +72,7 @@ export default function App() {
             </Suspense>
           }
         >
-          <Route index element={<LoadableRoute modulePath="pages/HomePage.jsx" />} />
+          <Route index element={<LoadableRoute modulePath={HOME_ROUTE.module} />} />
           {renderRoutes(PUBLIC_ROUTES)}
           <Route element={<ProtectedRoute requiredMemberships={COMMUNITY_ACCESS_MEMBERSHIPS} />}>
             {renderRoutes(COMMUNITY_ROUTES)}
@@ -129,7 +132,7 @@ export default function App() {
         {renderRequireRoleRoutes(LAUNCHPAD_ROUTES_PROTECTED)}
 
         <Route
-          path="dashboard/admin/*"
+          path={`${ADMIN_ROOT_ROUTE.path}/*`}
           element={
             <RequireRole allowedRoles={['admin']}>
               <Suspense fallback={<LoadableRoute.Fallback />}>
@@ -139,7 +142,7 @@ export default function App() {
           }
         />
 
-        <Route path="admin" element={<LoadableRoute modulePath="pages/AdminLoginPage.jsx" />} />
+        <Route path={ADMIN_LOGIN_ROUTE.path} element={<LoadableRoute modulePath={ADMIN_LOGIN_ROUTE.module} />} />
         <Route path="*" element={<LoadableRoute modulePath="pages/NotFoundPage.jsx" />} />
       </Routes>
     </>
