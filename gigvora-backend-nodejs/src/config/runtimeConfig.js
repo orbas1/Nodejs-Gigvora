@@ -271,6 +271,25 @@ export const runtimeConfigSchema = z.object({
     }),
 });
 
+export class RuntimeConfigValidationError extends Error {
+  constructor(zodError, rawConfig) {
+    const issues = Array.isArray(zodError?.issues) ? zodError.issues : [];
+    const formattedIssues = issues
+      .map((issue) => {
+        const path = Array.isArray(issue.path) && issue.path.length ? issue.path.join('.') : 'root';
+        return `• ${path}: ${issue.message}`;
+      })
+      .join('\n');
+    const message = formattedIssues
+      ? `Runtime configuration validation failed:\n${formattedIssues}`
+      : 'Runtime configuration validation failed.';
+    super(message);
+    this.name = 'RuntimeConfigValidationError';
+    this.issues = issues;
+    this.rawConfig = rawConfig;
+  }
+}
+
 const configEmitter = new EventEmitter();
 configEmitter.setMaxListeners(50);
 
@@ -344,7 +363,13 @@ function buildRawConfig(env) {
         windowMs: parseNumber(env.RATE_LIMIT_WINDOW_MS, 60_000),
         maxRequests: parseNumber(env.RATE_LIMIT_MAX_REQUESTS, 300),
         skipHealth: true,
-        skipPaths: ['/health', '/api/admin/runtime/health'],
+      skipPaths: [
+        '/health',
+        '/health/live',
+        '/health/ready',
+        '/health/metrics',
+        '/api/admin/runtime/health',
+      ],
       },
     },
     security: {
@@ -446,6 +471,14 @@ function buildRawConfig(env) {
   };
 }
 
+function parseRuntimeConfig(rawConfig) {
+  const result = runtimeConfigSchema.safeParse(rawConfig);
+  if (!result.success) {
+    throw new RuntimeConfigValidationError(result.error, rawConfig);
+  }
+  return result.data;
+}
+
 async function resolveConfig(env = process.env, overrides = {}) {
   const fileOverrides = await loadConfigFile(overrides.RUNTIME_CONFIG_FILE || env.RUNTIME_CONFIG_FILE);
   const mergedEnv = {
@@ -455,7 +488,7 @@ async function resolveConfig(env = process.env, overrides = {}) {
   };
 
   const rawConfig = buildRawConfig(mergedEnv);
-  return runtimeConfigSchema.parse(rawConfig);
+  return parseRuntimeConfig(rawConfig);
 }
 
 export function buildRuntimeConfigFromEnv(env = process.env) {
@@ -524,8 +557,7 @@ const initialConfigPromise = resolveConfig()
   })
   .catch((error) => {
     console.error('Failed to load runtime configuration', error);
-    cachedConfig = runtimeConfigSchema.parse(buildRawConfig(process.env));
-    return cachedConfig;
+    throw error;
   });
 
 export function whenRuntimeConfigReady() {

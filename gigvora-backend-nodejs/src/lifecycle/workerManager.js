@@ -89,8 +89,8 @@ async function startProfileEngagement(logger) {
       logger,
       intervalMs,
     });
-    registerWorkerStop('profileEngagement', () => {
-      stopProfileEngagementWorker();
+    registerWorkerStop('profileEngagement', async () => {
+      await stopProfileEngagementWorker({ logger });
       markWorkerStopped('profileEngagement');
     });
     registerWorkerTelemetry('profileEngagement', {
