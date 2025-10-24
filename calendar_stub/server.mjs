@@ -17,6 +17,28 @@ const SUPPORTED_EVENT_TYPES = ['project', 'interview', 'gig', 'mentorship', 'vol
 const DEFAULT_VIEW_ROLES = ['calendar:view', 'calendar:manage', 'platform:admin'];
 const DEFAULT_MANAGE_ROLES = ['calendar:manage', 'platform:admin'];
 
+export const CALENDAR_CONNECTOR_DOCUMENTATION = Object.freeze({
+  stub: {
+    id: 'calendar_stub',
+    baseUrl: 'http://localhost:4010/api/company/calendar',
+    authentication: 'x-api-key header (optional) with role headers for RBAC simulation.',
+    persistence: 'Volatile in-memory store seeded with sample events. Reset on every server restart.',
+    capabilities: ['Event CRUD', 'Role-based access control', 'Workspace scoping', 'CORS configuration'],
+  },
+  production: {
+    id: 'calendar_service',
+    baseUrl: 'https://api.gigvora.com/calendar',
+    authentication: 'OAuth 2.0 service accounts for Google/Microsoft providers with token rotation.',
+    persistence:
+      'Backed by provider connectors and mirrored in CandidateCalendarEvent records within the platform database.',
+    capabilities: ['Bi-directional sync', 'Provider webhooks', 'Availability reconciliation', 'Audit logging'],
+  },
+});
+
+export function describeCalendarConnectors() {
+  return CALENDAR_CONNECTOR_DOCUMENTATION;
+}
+
 const workspaces = [
   { id: 101, name: 'Acme Talent Hub', timezone: 'UTC' },
   { id: 202, name: 'Global Mentorship Guild', timezone: 'America/New_York' },

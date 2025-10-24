@@ -25,6 +25,13 @@ export async function deleteEvent(req, res) {
   res.status(204).send();
 }
 
+export async function exportEventsAsIcs(req, res) {
+  const ics = await calendarService.exportEventsAsIcs(Number(req.params.id), req.query ?? {});
+  res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="gigvora-events.ics"');
+  res.send(ics);
+}
+
 export async function listFocusSessions(req, res) {
   const sessions = await calendarService.listFocusSessions(Number(req.params.id), req.query ?? {});
   res.json({ items: sessions });
@@ -65,6 +72,7 @@ export default {
   createEvent,
   updateEvent,
   deleteEvent,
+  exportEventsAsIcs,
   listFocusSessions,
   createFocusSession,
   updateFocusSession,

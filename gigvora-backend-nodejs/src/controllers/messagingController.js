@@ -14,6 +14,8 @@ import {
   updateThreadSettings as updateThreadSettingsService,
   addParticipantsToThread,
   removeParticipantFromThread,
+  setTypingIndicator as setTypingIndicatorService,
+  listTypingIndicators as listTypingIndicatorsService,
 } from '../services/messagingService.js';
 import { AuthorizationError, ValidationError } from '../utils/errors.js';
 import { resolveRequestPermissions } from '../utils/requestContext.js';
@@ -118,6 +120,11 @@ function sanitiseMetadata(metadata) {
   return JSON.parse(JSON.stringify(metadata));
 }
 
+const ATTACHMENT_STORAGE_KEY_PATTERN = /^[A-Za-z0-9/_\-.]{3,255}$/;
+const ATTACHMENT_URL_PATTERN = /^(https?:\/\/)[^\s]+$/i;
+const MIME_TYPE_PATTERN = /^[a-z0-9.+-]+\/[a-z0-9.+-]+$/i;
+const MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024;
+
 function sanitiseAttachments(attachments) {
   if (attachments == null) {
     return [];
@@ -125,17 +132,55 @@ function sanitiseAttachments(attachments) {
   if (!Array.isArray(attachments)) {
     throw new ValidationError('attachments must be an array.');
   }
-  return attachments.slice(0, 25).map((attachment) => {
-    if (attachment == null || typeof attachment !== 'object') {
-      throw new ValidationError('Each attachment must be an object.');
+  return attachments.slice(0, 25).map((attachment, index) => {
+    if (attachment == null || typeof attachment !== 'object' || Array.isArray(attachment)) {
+      throw new ValidationError(`Attachment at index ${index} must be an object.`);
     }
+
     const normalised = { ...attachment };
-    if (normalised.url != null) {
-      normalised.url = String(normalised.url).trim();
+    const storageKey = normalised.storageKey != null ? String(normalised.storageKey).trim() : '';
+    const url = normalised.url != null ? String(normalised.url).trim() : '';
+
+    if (!storageKey) {
+      throw new ValidationError(`Attachment at index ${index} must include a storageKey.`);
     }
-    if (normalised.name != null) {
-      normalised.name = String(normalised.name).trim().slice(0, 200);
+    if (!ATTACHMENT_STORAGE_KEY_PATTERN.test(storageKey)) {
+      throw new ValidationError(`Attachment storageKey at index ${index} contains unsupported characters.`);
     }
+    if (url && !ATTACHMENT_URL_PATTERN.test(url)) {
+      throw new ValidationError(`Attachment url at index ${index} must be an absolute HTTP(S) URL.`);
+    }
+
+    normalised.storageKey = storageKey || undefined;
+    normalised.url = url || undefined;
+
+    if (normalised.fileName == null || normalised.fileName === '') {
+      throw new ValidationError(`Attachment fileName at index ${index} is required.`);
+    }
+    const trimmedName = String(normalised.fileName).trim();
+    if (!trimmedName) {
+      throw new ValidationError(`Attachment fileName at index ${index} cannot be empty.`);
+    }
+    normalised.fileName = trimmedName.slice(0, 255);
+
+    if (normalised.mimeType != null) {
+      const trimmedType = String(normalised.mimeType).trim();
+      if (!MIME_TYPE_PATTERN.test(trimmedType)) {
+        throw new ValidationError(`Attachment mimeType at index ${index} is invalid.`);
+      }
+      normalised.mimeType = trimmedType.toLowerCase();
+    }
+
+    if (normalised.fileSize != null && normalised.fileSize !== '') {
+      const numericSize = Number(normalised.fileSize);
+      if (!Number.isFinite(numericSize) || numericSize < 0 || numericSize > MAX_ATTACHMENT_BYTES) {
+        throw new ValidationError(`Attachment fileSize at index ${index} must be between 0 and ${MAX_ATTACHMENT_BYTES} bytes.`);
+      }
+      normalised.fileSize = numericSize;
+    }
+
+    normalised.name = normalised.name != null ? String(normalised.name).trim().slice(0, 200) : undefined;
+
     return normalised;
   });
 }
@@ -229,6 +274,27 @@ export async function postMessage(req, res) {
   });
 
   res.status(201).json(message);
+}
+
+export async function setTypingIndicator(req, res) {
+  const actorId = resolveActorId(req);
+  const threadId = parsePositiveInteger(req.params?.threadId, 'threadId');
+  const { isTyping, expiresInSeconds } = req.body ?? {};
+
+  const state = await setTypingIndicatorService(threadId, actorId, {
+    isTyping: isTyping !== false,
+    expiresInSeconds,
+  });
+
+  res.json({ items: state });
+}
+
+export async function listTypingIndicators(req, res) {
+  const actorId = resolveActorId(req, { required: false }) ?? (req.user?.id ? Number(req.user.id) : null);
+  const threadId = parsePositiveInteger(req.params?.threadId, 'threadId');
+
+  const state = await listTypingIndicatorsService(threadId, actorId);
+  res.json({ items: state });
 }
 
 export async function listThreadMessages(req, res) {
@@ -364,6 +430,8 @@ export default {
   openThread,
   createConversation,
   postMessage,
+  setTypingIndicator,
+  listTypingIndicators,
   listThreadMessages,
   acknowledgeThread,
   changeThreadState,

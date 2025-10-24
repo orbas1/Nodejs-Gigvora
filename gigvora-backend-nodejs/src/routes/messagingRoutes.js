@@ -20,6 +20,7 @@ import {
   addParticipantsBodySchema,
   participantParamsSchema,
   threadDetailQuerySchema,
+  typingIndicatorBodySchema,
 } from '../validation/schemas/messagingSchemas.js';
 
 const router = Router();
@@ -50,6 +51,16 @@ router.post(
   '/threads/:threadId/messages',
   validateRequest({ params: threadParamsSchema, body: createMessageBodySchema }),
   asyncHandler(messagingController.postMessage),
+);
+router.post(
+  '/threads/:threadId/typing',
+  validateRequest({ params: threadParamsSchema, body: typingIndicatorBodySchema }),
+  asyncHandler(messagingController.setTypingIndicator),
+);
+router.get(
+  '/threads/:threadId/typing',
+  validateRequest({ params: threadParamsSchema }),
+  asyncHandler(messagingController.listTypingIndicators),
 );
 router.post(
   '/threads/:threadId/calls',
