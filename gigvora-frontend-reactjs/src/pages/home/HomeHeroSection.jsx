@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowUpRightIcon, RocketLaunchIcon, SparklesIcon, UsersIcon } from '@heroicons/react/24/outline';
+import analytics from '../../services/analytics.js';
+import { HOME_GRADIENTS } from './homeThemeTokens.js';
 
 const DEFAULT_HEADLINE =
   'Freelancers, employers, agencies, mentors, volunteers, new grads & career changers, clients, and job seekers move forward together.';
@@ -17,6 +19,14 @@ const FALLBACK_KEYWORDS = [
   'UX research sprint recruiting · Explorer',
   'Community co-build in progress · Web3',
 ];
+
+const FALLBACK_MEDIA = {
+  imageUrl:
+    'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=800&q=80',
+  alt: 'Gigvora workspace preview with creators collaborating on launch milestones.',
+  posterUrl:
+    'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=800&q=80',
+};
 
 function normaliseKeywords(keywords) {
   if (!Array.isArray(keywords)) {
@@ -43,6 +53,7 @@ export function HomeHeroSection({
   error = null,
   onClaimWorkspace,
   onBrowseOpportunities,
+  productMedia,
 }) {
   const [reduceMotion, setReduceMotion] = useState(false);
 
@@ -76,28 +87,68 @@ export function HomeHeroSection({
       : subheading ?? DEFAULT_SUBHEADING;
 
   const resolvedKeywords = normaliseKeywords(keywords);
-  const tickerItems = resolvedKeywords.length ? resolvedKeywords : FALLBACK_KEYWORDS;
+  const hasCustomKeywords = resolvedKeywords.length > 0;
+  const showTickerSkeleton = loading && !hasCustomKeywords;
+  const tickerItems = showTickerSkeleton ? [] : hasCustomKeywords ? resolvedKeywords : FALLBACK_KEYWORDS;
   const doubledTickerItems = [...tickerItems, ...tickerItems];
   const tickerRenderList = reduceMotion ? tickerItems : doubledTickerItems;
 
+  const showCopySkeleton = loading && !headline && !error;
+  const heroMedia = { ...FALLBACK_MEDIA, ...(productMedia ?? {}) };
+  const hasProvidedVideo = Boolean(
+    (productMedia?.videoSources && Array.isArray(productMedia.videoSources) && productMedia.videoSources.length) ||
+      productMedia?.videoUrl,
+  );
+  const showMediaSkeleton = loading && !productMedia?.imageUrl && !hasProvidedVideo;
+  const hasVideo = Boolean(
+    (heroMedia.videoSources && Array.isArray(heroMedia.videoSources) && heroMedia.videoSources.length) || heroMedia.videoUrl,
+  );
+  const heroVideoSources = hasVideo
+    ? Array.isArray(heroMedia.videoSources) && heroMedia.videoSources.length
+      ? heroMedia.videoSources
+          .map((source) =>
+            source && (source.src || source.url)
+              ? { src: source.src ?? source.url, type: source.type ?? 'video/mp4' }
+              : null,
+          )
+          .filter(Boolean)
+      : [
+          {
+            src: heroMedia.videoUrl,
+            type: heroMedia.videoType ?? 'video/mp4',
+          },
+        ]
+    : [];
+  const canRenderVideo = hasVideo && heroVideoSources.length;
+
   const handleClaimWorkspace = () => {
+    analytics.track(
+      'web_home_hero_cta',
+      { action: 'claim_workspace', hasCustomHeadline: Boolean(headline) },
+      { source: 'web_marketing_site' },
+    );
     if (typeof onClaimWorkspace === 'function') {
       onClaimWorkspace();
     }
   };
 
   const handleBrowseOpportunities = () => {
+    analytics.track(
+      'web_home_hero_cta',
+      { action: 'browse_opportunities', hasCustomHeadline: Boolean(headline) },
+      { source: 'web_marketing_site' },
+    );
     if (typeof onBrowseOpportunities === 'function') {
       onBrowseOpportunities();
     }
   };
 
   return (
-    <section className="relative overflow-hidden bg-slate-950 text-white">
+    <section className={HOME_GRADIENTS.hero.background}>
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-1/4 top-[-10%] h-72 w-72 rounded-full bg-accent/40 blur-3xl" aria-hidden="true" />
-        <div className="absolute bottom-[-15%] right-[-10%] h-[28rem] w-[28rem] rounded-full bg-accentDark/30 blur-3xl" aria-hidden="true" />
-        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent" aria-hidden="true" />
+        {HOME_GRADIENTS.hero.overlays.map((className) => (
+          <div key={className} className={className} aria-hidden="true" />
+        ))}
       </div>
 
       <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-24 lg:flex lg:items-center lg:gap-16">
@@ -107,9 +158,19 @@ export function HomeHeroSection({
               Community OS
             </span>
             <h1 className="text-balance text-3xl font-semibold leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl">
-              {displayHeadline}
+              {showCopySkeleton ? (
+                <span className="block h-12 w-3/4 animate-pulse rounded-full bg-white/10 sm:h-16" />
+              ) : (
+                displayHeadline
+              )}
             </h1>
-            <p className="text-pretty text-base text-slate-200 sm:text-xl">{displaySubheading}</p>
+            <p className="text-pretty text-base text-slate-200 sm:text-xl">
+              {showCopySkeleton ? (
+                <span className="mt-2 block h-6 w-full max-w-md animate-pulse rounded-full bg-white/10" />
+              ) : (
+                displaySubheading
+              )}
+            </p>
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center lg:justify-start">
@@ -132,8 +193,8 @@ export function HomeHeroSection({
           </div>
 
           <div className="relative mt-8 h-auto min-h-[3.25rem] overflow-hidden rounded-full border border-white/10 bg-white/5 sm:mt-10 sm:h-14">
-            <div className="pointer-events-none absolute left-0 top-0 h-full w-24 bg-gradient-to-r from-slate-950 via-slate-950/50 to-transparent" aria-hidden="true" />
-            <div className="pointer-events-none absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-slate-950 via-slate-950/50 to-transparent" aria-hidden="true" />
+            <div className={HOME_GRADIENTS.hero.tickerFades.start} aria-hidden="true" />
+            <div className={HOME_GRADIENTS.hero.tickerFades.end} aria-hidden="true" />
             <div
               className={
                 reduceMotion
@@ -142,15 +203,25 @@ export function HomeHeroSection({
               }
               aria-hidden={reduceMotion ? undefined : true}
             >
-              {tickerRenderList.map((item, index) => (
-                <span
-                  key={`ticker-primary-${index}`}
-                  className="inline-flex min-w-max items-center gap-2 rounded-full border border-white/10 bg-white/10 px-5 py-1.5 text-sm font-medium text-white/90"
-                >
-                  <UsersIcon className="h-4 w-4" aria-hidden="true" />
-                  {item}
-                </span>
-              ))}
+              {showTickerSkeleton
+                ? Array.from({ length: 4 }).map((_, index) => (
+                    <span
+                      key={`ticker-skeleton-${index}`}
+                      className="inline-flex min-w-[7rem] items-center gap-2 rounded-full border border-white/10 bg-white/10 px-5 py-1.5 text-sm text-white/80"
+                    >
+                      <span className="h-4 w-4 animate-pulse rounded-full bg-white/20" aria-hidden="true" />
+                      <span className="h-3 w-24 animate-pulse rounded-full bg-white/20" aria-hidden="true" />
+                    </span>
+                  ))
+                : tickerRenderList.map((item, index) => (
+                    <span
+                      key={`ticker-primary-${index}`}
+                      className="inline-flex min-w-max items-center gap-2 rounded-full border border-white/10 bg-white/10 px-5 py-1.5 text-sm font-medium text-white/90"
+                    >
+                      <UsersIcon className="h-4 w-4" aria-hidden="true" />
+                      {item}
+                    </span>
+                  ))}
             </div>
           </div>
         </div>
@@ -219,6 +290,47 @@ export function HomeHeroSection({
                 <div className="rounded-2xl bg-white/10 p-4 text-xs text-slate-200">
                   Next session: Today · 18:30 UTC · collaborative whiteboard with volunteers & clients.
                 </div>
+              </div>
+
+              <div className="mt-6 overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+                {showMediaSkeleton ? (
+                  <div className="h-40 w-full animate-pulse bg-slate-800/50" aria-hidden="true" />
+                ) : canRenderVideo ? (
+                  <figure>
+                    <video
+                      className="h-40 w-full object-cover"
+                      poster={heroMedia.posterUrl ?? heroMedia.imageUrl}
+                      autoPlay={heroMedia.autoPlay ?? true}
+                      muted={heroMedia.muted ?? true}
+                      loop={heroMedia.loop ?? true}
+                      playsInline
+                      controls={heroMedia.controls ?? false}
+                      preload="metadata"
+                      aria-label={heroMedia.alt ?? 'Gigvora product preview'}
+                      data-testid="home-hero-media-video"
+                    >
+                      {heroVideoSources.map((source) => (
+                        <source key={`${source.src ?? source.url}-${source.type ?? 'video/mp4'}`} src={source.src ?? source.url} type={source.type ?? 'video/mp4'} />
+                      ))}
+                    </video>
+                    {heroMedia.caption ? (
+                      <figcaption className="px-4 py-3 text-xs text-slate-200/80">{heroMedia.caption}</figcaption>
+                    ) : null}
+                  </figure>
+                ) : (
+                  <figure>
+                    <img
+                      src={heroMedia.imageUrl}
+                      alt={heroMedia.alt ?? 'Gigvora product preview'}
+                      className="h-40 w-full object-cover"
+                      loading="lazy"
+                      data-testid="home-hero-media-image"
+                    />
+                    {heroMedia.caption ? (
+                      <figcaption className="px-4 py-3 text-xs text-slate-200/80">{heroMedia.caption}</figcaption>
+                    ) : null}
+                  </figure>
+                )}
               </div>
 
               <div className="mt-6 flex items-center justify-between">

@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { CommunityPulseSection } from '../CommunityPulseSection.jsx';
 import { CreationStudioWorkflowSection } from '../CreationStudioWorkflowSection.jsx';
 import { ExplorerShowcaseSection } from '../ExplorerShowcaseSection.jsx';
 import { FeesShowcaseSection } from '../FeesShowcaseSection.jsx';
@@ -10,6 +11,16 @@ import { MarketplaceLaunchesSection } from '../MarketplaceLaunchesSection.jsx';
 import { OperationsTrustSection } from '../OperationsTrustSection.jsx';
 import { PersonaJourneysSection } from '../PersonaJourneysSection.jsx';
 import { TestimonialsSection } from '../TestimonialsSection.jsx';
+
+const analyticsMock = vi.hoisted(() => ({
+  track: vi.fn(),
+}));
+
+vi.mock('../../../services/analytics.js', () => ({
+  __esModule: true,
+  default: analyticsMock,
+  analytics: analyticsMock,
+}));
 
 const originalMatchMedia = window.matchMedia;
 
@@ -31,6 +42,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.clearAllMocks();
+  analyticsMock.track.mockClear();
 });
 
 afterAll(() => {
@@ -69,6 +81,7 @@ describe('HomeHeroSection', () => {
 
     expect(claimSpy).toHaveBeenCalledTimes(1);
     expect(browseSpy).toHaveBeenCalledTimes(1);
+    expect(analyticsMock.track).toHaveBeenCalledTimes(2);
   });
 
   it('falls back gracefully when errored', () => {
@@ -76,6 +89,22 @@ describe('HomeHeroSection', () => {
 
     expect(screen.getByText('Stay tuned for what is next.')).toBeInTheDocument();
     expect(screen.getByText('Gathering the latest programmes…')).toBeInTheDocument();
+  });
+
+  it('renders video media when provided', () => {
+    renderWithRouter(
+      <HomeHeroSection
+        productMedia={{
+          videoUrl: 'https://cdn.example.com/hero.mp4',
+          posterUrl: 'https://cdn.example.com/poster.jpg',
+          caption: 'Live product walkthrough',
+          alt: 'Product tour video',
+        }}
+      />,
+    );
+
+    expect(screen.getByTestId('home-hero-media-video')).toBeInTheDocument();
+    expect(screen.queryByTestId('home-hero-media-image')).not.toBeInTheDocument();
   });
 });
 
@@ -220,6 +249,50 @@ describe('PersonaJourneysSection', () => {
     fireEvent.click(screen.getByRole('link', { name: /Enter freelancer HQ/i }));
     expect(handler).toHaveBeenCalledTimes(1);
     expect(handler.mock.calls[0][0]).toMatchObject({ key: 'freelancer' });
+  });
+
+  it('merges CMS personas and renders metrics', () => {
+    const handler = vi.fn();
+    const personas = [
+      {
+        key: 'freelancer',
+        title: 'Creator collective',
+        description: 'Custom copy from CMS',
+        ctaLabel: 'Explore creators',
+        metrics: [
+          { label: 'Active missions', value: '42' },
+          { label: 'Avg. payout', value: '36h' },
+        ],
+      },
+    ];
+
+    renderWithRouter(
+      <PersonaJourneysSection
+        personas={personas}
+        personaMetrics={[{ persona: 'mentor', label: 'Sessions queued', value: '12' }]}
+        onSelectPersona={handler}
+      />,
+    );
+
+    expect(screen.getByRole('heading', { name: /Creator collective/i })).toBeInTheDocument();
+    expect(screen.getByText('Active missions')).toBeInTheDocument();
+    expect(screen.getByText('42')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('link', { name: /Explore creators/i }));
+    expect(handler).toHaveBeenCalled();
+    expect(handler.mock.calls[0][0]).toMatchObject({
+      key: 'freelancer',
+      metrics: expect.arrayContaining([expect.objectContaining({ label: 'Active missions', value: '42' })]),
+    });
+  });
+});
+
+describe('CommunityPulseSection', () => {
+  it('renders skeleton placeholders while loading', () => {
+    const { container } = renderWithRouter(<CommunityPulseSection loading homeData={{}} />);
+
+    const skeletons = container.querySelectorAll('.animate-pulse');
+    expect(skeletons.length).toBeGreaterThan(0);
   });
 });
 
