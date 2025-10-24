@@ -1,4 +1,5 @@
 import { Dialog, Transition } from '@headlessui/react';
+import PropTypes from 'prop-types';
 import { Fragment, useMemo } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { SparklesIcon } from '@heroicons/react/24/outline';
@@ -15,6 +16,7 @@ export default function MobileNavigation({
   onLogout,
   roleOptions,
   currentRoleKey,
+  panelId,
 }) {
   const resolvedMarketingLinks = useMemo(() => marketingLinks ?? [], [marketingLinks]);
   const resolvedPrimaryNavigation = useMemo(() => primaryNavigation ?? [], [primaryNavigation]);
@@ -43,7 +45,10 @@ export default function MobileNavigation({
           leaveFrom="translate-x-0"
           leaveTo="-translate-x-full"
         >
-          <Dialog.Panel className="fixed inset-y-0 left-0 flex w-[min(22rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-r-3xl border border-slate-200/80 bg-white/95 p-4 shadow-2xl">
+          <Dialog.Panel
+            id={panelId}
+            className="fixed inset-y-0 left-0 flex w-[min(22rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-r-3xl border border-slate-200/80 bg-white/95 p-4 shadow-2xl"
+          >
             <div className="flex items-center justify-between px-1 pb-3">
               <Dialog.Title className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500">
                 Navigate
@@ -149,3 +154,43 @@ export default function MobileNavigation({
     </Transition>
   );
 }
+
+MobileNavigation.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  isAuthenticated: PropTypes.bool.isRequired,
+  primaryNavigation: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+      to: PropTypes.string.isRequired,
+      badge: PropTypes.string,
+    }),
+  ).isRequired,
+  marketingLinks: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+      description: PropTypes.string.isRequired,
+      to: PropTypes.string.isRequired,
+    }),
+  ),
+  onLogout: PropTypes.func,
+  roleOptions: PropTypes.arrayOf(
+    PropTypes.shape({
+      key: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+      to: PropTypes.string.isRequired,
+    }),
+  ),
+  currentRoleKey: PropTypes.string,
+  panelId: PropTypes.string,
+};
+
+MobileNavigation.defaultProps = {
+  marketingLinks: [],
+  onLogout: undefined,
+  roleOptions: [],
+  currentRoleKey: undefined,
+  panelId: undefined,
+};

@@ -1,4 +1,4 @@
-import { Fragment, useMemo } from 'react';
+import { Fragment, useCallback, useMemo } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { Menu, Transition } from '@headlessui/react';
 import {
@@ -7,8 +7,10 @@ import {
   BellIcon,
   BriefcaseIcon,
   BuildingOffice2Icon,
+  EnvelopeOpenIcon,
   ChartBarIcon,
   ChatBubbleLeftRightIcon,
+  ExclamationTriangleIcon,
   HomeIcon,
   PresentationChartBarIcon,
   RssIcon,
@@ -32,22 +34,14 @@ import {
 } from '../constants/navigation.js';
 import { formatRelativeTime } from '../utils/date.js';
 import { useLayout } from '../context/LayoutContext.jsx';
-
-function resolveInitials(name = '') {
-  const source = name.trim();
-  if (!source) {
-    return 'GV';
-  }
-  return source
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((part) => part[0]?.toUpperCase())
-    .join('')
-    .slice(0, 2);
-}
+import useInboxPreview from '../hooks/useInboxPreview.js';
+import { NavigationThemeProvider, darkNavigationTheme, lightNavigationTheme } from '../context/NavigationThemeContext.jsx';
+import usePrefersDarkMode from '../hooks/usePrefersDarkMode.js';
+import { classNames } from '../utils/classNames.js';
+import { getInitials } from '../utils/names.js';
 
 function UserMenu({ session, onLogout }) {
-  const initials = resolveInitials(session?.name ?? session?.email ?? 'GV');
+  const initials = getInitials(session?.name ?? session?.email ?? 'GV');
   const memberships = Array.isArray(session?.memberships) ? session.memberships : [];
 
   return (
@@ -114,35 +108,26 @@ function UserMenu({ session, onLogout }) {
   );
 }
 
-function classNames(...classes) {
-  return classes.filter(Boolean).join(' ');
-}
+function InboxPreview({ session, isAuthenticated }) {
+  const { threads, loading, error, refresh } = useInboxPreview({
+    limit: 3,
+    pollInterval: 60_000,
+    session,
+    isAuthenticated,
+  });
 
-const INBOX_PREVIEW_THREADS = [
-  {
-    id: 'thread-impact-ops',
-    title: 'Impact Ops · Volunteer mission intake',
-    snippet: 'Mae: “We have 4 new mission briefs ready for mentors. Need allocation today.”',
-    updatedAt: '2024-05-21T15:40:00Z',
-  },
-  {
-    id: 'thread-mentor-guild',
-    title: 'Mentor Guild Lounge',
-    snippet: 'Linh: “Dropped the new growth sprint template — keen for feedback.”',
-    updatedAt: '2024-05-21T12:10:00Z',
-  },
-  {
-    id: 'thread-support',
-    title: 'Support desk',
-    snippet: 'Helena: “Your help centre access has been upgraded to steward tier.”',
-    updatedAt: '2024-05-20T18:05:00Z',
-  },
-];
+  const hasThreads = threads.length > 0;
 
-function InboxPreview() {
+  const handleRefresh = useCallback(() => {
+    refresh();
+  }, [refresh]);
+
   return (
     <Menu as="div" className="relative hidden lg:block">
-      <Menu.Button className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-accent hover:text-accent">
+      <Menu.Button
+        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-white/90 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+        aria-busy={loading}
+      >
         <ChatBubbleLeftRightIcon className="h-4 w-4" /> Inbox
       </Menu.Button>
       <Transition
@@ -161,27 +146,74 @@ function InboxPreview() {
               Open inbox ↗
             </Link>
           </div>
-          {INBOX_PREVIEW_THREADS.map((thread) => (
-            <Menu.Item key={thread.id}>
-              {({ active }) => (
-                <Link
-                  to="/inbox"
-                  className={classNames(
-                    'block rounded-2xl border px-3 py-2 transition',
-                    active
-                      ? 'border-accent bg-accentSoft/70 text-slate-900 shadow-soft'
-                      : 'border-slate-200 bg-white text-slate-600',
-                  )}
+          {error ? (
+            <div className="space-y-2">
+              <div className="flex items-start gap-3 rounded-2xl border border-rose-200/80 bg-rose-50/80 px-3 py-2 text-xs text-rose-600">
+                <ExclamationTriangleIcon className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                <p>{error}</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleRefresh}
+                className="inline-flex items-center rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+              >
+                Retry
+              </button>
+            </div>
+          ) : null}
+          {loading ? (
+            <div className="space-y-2" role="status" aria-live="polite">
+              {[0, 1, 2].map((index) => (
+                <div
+                  // eslint-disable-next-line react/no-array-index-key
+                  key={index}
+                  className="animate-pulse rounded-2xl border border-slate-200/80 bg-white/70 px-3 py-3"
                 >
-                  <p className="text-sm font-semibold text-slate-900">{thread.title}</p>
-                  <p className="mt-1 text-xs text-slate-500 line-clamp-2">{thread.snippet}</p>
-                  <p className="mt-2 text-[0.65rem] uppercase tracking-wide text-slate-400">
-                    {formatRelativeTime(thread.updatedAt)}
-                  </p>
-                </Link>
-              )}
-            </Menu.Item>
-          ))}
+                  <div className="h-3 w-2/3 rounded-full bg-slate-200/70" />
+                  <div className="mt-2 h-3 w-full rounded-full bg-slate-200/70" />
+                  <div className="mt-2 h-2 w-24 rounded-full bg-slate-200/70" />
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {!loading && !error && hasThreads
+            ? threads.map((thread) => (
+                <Menu.Item key={thread.id}>
+                  {({ active }) => (
+                    <Link
+                      to="/inbox"
+                      className={classNames(
+                        'group block rounded-2xl border px-3 py-2 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
+                        active
+                          ? 'border-accent bg-accentSoft/70 text-slate-900 shadow-soft'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-white/95 hover:text-slate-900',
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="text-sm font-semibold text-slate-900 group-hover:text-slate-900">
+                          {thread.title}
+                        </p>
+                        {thread.unreadCount > 0 ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-900 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-white">
+                            <EnvelopeOpenIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                            {thread.unreadCount}
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500 line-clamp-2">{thread.snippet}</p>
+                      <p className="mt-2 text-[0.65rem] uppercase tracking-wide text-slate-400">
+                        {formatRelativeTime(thread.updatedAt)}
+                      </p>
+                    </Link>
+                  )}
+                </Menu.Item>
+              ))
+            : null}
+          {!loading && !error && !hasThreads ? (
+            <p className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-xs text-slate-500">
+              You're all caught up. New conversations will appear here as soon as they arrive.
+            </p>
+          ) : null}
         </Menu.Items>
       </Transition>
     </Menu>
@@ -193,6 +225,12 @@ export default function Header() {
   const { t } = useLanguage();
   const { session, isAuthenticated, logout } = useSession();
   const { navOpen, openNav, closeNav } = useLayout();
+  const prefersDarkMode = usePrefersDarkMode();
+
+  const navigationTheme = useMemo(
+    () => (prefersDarkMode ? darkNavigationTheme : lightNavigationTheme),
+    [prefersDarkMode],
+  );
 
   const handleLogout = () => {
     logout();
@@ -236,7 +274,8 @@ export default function Header() {
   }, []);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur">
+    <NavigationThemeProvider value={navigationTheme}>
+      <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur">
       <MobileNavigation
         open={navOpen}
         onClose={closeNav}
@@ -246,13 +285,16 @@ export default function Header() {
         onLogout={handleLogout}
         roleOptions={roleOptions}
         currentRoleKey={roleKey}
+        panelId="gigvora-mobile-navigation"
       />
       <div className="mx-auto flex w-full items-center gap-3 px-4 py-3 sm:h-20 sm:gap-4 sm:px-6 sm:py-0 lg:px-8">
         <div className="flex items-center gap-3 lg:flex-1">
           <button
             type="button"
             onClick={openNav}
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-slate-900 lg:hidden"
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-white hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white lg:hidden"
+            aria-expanded={navOpen}
+            aria-controls="gigvora-mobile-navigation"
           >
             <span className="sr-only">Open navigation</span>
             <Bars3Icon className="h-5 w-5" />
@@ -273,10 +315,10 @@ export default function Header() {
                   to={item.to}
                   className={({ isActive }) =>
                     classNames(
-                      'inline-flex items-center gap-2 rounded-full border px-4 py-2 transition',
+                      'inline-flex items-center gap-2 rounded-full border px-4 py-2 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
                       isActive
                         ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
-                        : 'border-transparent text-slate-600 hover:border-slate-300 hover:bg-white hover:text-slate-900',
+                        : 'border-transparent text-slate-600 hover:border-slate-300 hover:bg-slate-100/80 hover:text-slate-900',
                     )
                   }
                 >
@@ -304,7 +346,7 @@ export default function Header() {
               Demo tour
             </Link>
           ) : null}
-          {isAuthenticated ? <InboxPreview /> : null}
+          {isAuthenticated ? <InboxPreview session={session} isAuthenticated={isAuthenticated} /> : null}
           <LanguageSelector className="hidden sm:inline-flex" />
           {isAuthenticated ? (
             <div className="flex items-center gap-3">
@@ -335,6 +377,7 @@ export default function Header() {
           )}
         </div>
       </div>
-    </header>
+      </header>
+    </NavigationThemeProvider>
   );
 }

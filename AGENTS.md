@@ -976,6 +976,7 @@ This document catalogues the public marketing shell, pre-login journeys, and per
       4. Launch toast system leveraging existing support contexts.
 
 ### 1.B. Navigation Controls
+✅
 
 **Components**
 
@@ -1006,10 +1007,10 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   24. **Design Duplication.** Some CTA button styles replicate hero components; consolidate utility classes.
   25. **Design Framework.** Harmonizes with Tailwind/Tremor-like tokens already in use.
   26. **Change Checklist Tracker.**
-      - [ ] Replace sample inbox data with live API feed.
-      - [ ] Extract initial generation helper into shared util.
-      - [ ] Audit hover contrast ratios.
-      - [ ] Implement mobile fly-out navigation.
+      - [x] Replace sample inbox data with live API feed.
+      - [x] Extract initial generation helper into shared util.
+      - [x] Audit hover contrast ratios.
+      - [x] Implement mobile fly-out navigation.
   27. **Full Upgrade Plan & Release Steps.**
       1. Build inbox preview query using messaging service; test with seeded data.
       2. Introduce mobile slide-over nav and run usability testing.
@@ -1043,9 +1044,9 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   24. **Design Duplication.** Minimal duplication; relies on config.
   25. **Design Framework.** Aligns with Headless UI best practices.
   26. **Change Checklist Tracker.**
-      - [ ] Add arrow-key navigation.
-      - [ ] Provide analytics instrumentation.
-      - [ ] Expose theme overrides.
+      - [x] Add arrow-key navigation.
+      - [x] Provide analytics instrumentation.
+      - [x] Expose theme overrides.
   27. **Full Upgrade Plan & Release Steps.**
       1. Implement roving tabindex to support keyboard navigation.
       2. Wrap Popover events with analytics dispatch.
@@ -1078,9 +1079,9 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   24. **Design Duplication.** Minimal.
   25. **Design Framework.** Headless UI integration stays consistent.
   26. **Change Checklist Tracker.**
-      - [ ] Replace `No timeline` copy.
-      - [ ] Add persona icons.
-      - [ ] Centralize `classNames` helper.
+      - [x] Replace `No timeline` copy.
+      - [x] Add persona icons.
+      - [x] Centralize `classNames` helper.
   27. **Full Upgrade Plan & Release Steps.**
       1. Prototype expanded role descriptions and test comprehension.
       2. Roll out icon-enhanced menu with analytics tracking.
