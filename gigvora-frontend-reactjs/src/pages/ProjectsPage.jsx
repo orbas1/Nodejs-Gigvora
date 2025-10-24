@@ -7,6 +7,7 @@ import analytics from '../services/analytics.js';
 import { formatRelativeTime } from '../utils/date.js';
 import UserAvatar from '../components/UserAvatar.jsx';
 import { useProjectManagementAccess } from '../hooks/useAuthorization.js';
+import MarketplaceSearchInput from '../components/marketplace/MarketplaceSearchInput.jsx';
 
 function formatQueueStatus(status) {
   if (!status) return 'Inactive';
@@ -107,16 +108,12 @@ export default function ProjectsPage() {
           </div>
         ) : null}
         <div className="mb-6 max-w-xl">
-          <label className="sr-only" htmlFor="project-search">
-            Search projects
-          </label>
-          <input
+          <MarketplaceSearchInput
             id="project-search"
-            type="search"
+            label="Search projects"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search by domain, collaborators, or status"
-            className="w-full rounded-full border border-slate-200 bg-white px-5 py-3 text-sm shadow-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
           />
         </div>
         {error ? (
