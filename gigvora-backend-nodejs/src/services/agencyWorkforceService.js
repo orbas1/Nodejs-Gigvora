@@ -530,6 +530,11 @@ export async function createWorkforceMember(payload) {
   const body = pickAllowed(payload, MEMBER_FIELDS);
   body.startDate = normaliseDate(body.startDate);
   body.endDate = normaliseDate(body.endDate);
+  body.hourlyRate = normaliseNumber(body.hourlyRate, null);
+  body.billableRate = normaliseNumber(body.billableRate, null);
+  body.capacityHoursPerWeek = normaliseNumber(body.capacityHoursPerWeek, 0);
+  body.allocationPercent = normaliseNumber(body.allocationPercent, 0);
+  body.benchAllocationPercent = normaliseNumber(body.benchAllocationPercent, 0);
   const member = await AgencyWorkforceMember.create(body);
   return serialiseMember(member);
 }
@@ -539,6 +544,21 @@ export async function updateWorkforceMember(memberId, payload, { workspaceId } =
   const updates = pickAllowed(payload, MEMBER_FIELDS);
   if (updates.startDate) updates.startDate = normaliseDate(updates.startDate);
   if (updates.endDate) updates.endDate = normaliseDate(updates.endDate);
+  if (Object.prototype.hasOwnProperty.call(updates, 'hourlyRate')) {
+    updates.hourlyRate = normaliseNumber(updates.hourlyRate, null);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'billableRate')) {
+    updates.billableRate = normaliseNumber(updates.billableRate, null);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'capacityHoursPerWeek')) {
+    updates.capacityHoursPerWeek = normaliseNumber(updates.capacityHoursPerWeek, 0);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'allocationPercent')) {
+    updates.allocationPercent = normaliseNumber(updates.allocationPercent, 0);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'benchAllocationPercent')) {
+    updates.benchAllocationPercent = normaliseNumber(updates.benchAllocationPercent, 0);
+  }
   await member.update(updates);
   const fresh = await AgencyWorkforceMember.findByPk(member.id, {
     include: [
@@ -559,6 +579,7 @@ export async function deleteWorkforceMember(memberId, { workspaceId } = {}) {
 export async function createPayDelegation(payload) {
   const body = pickAllowed(payload, PAY_FIELDS);
   body.nextPayDate = normaliseDate(body.nextPayDate);
+  body.amount = normaliseNumber(body.amount, 0);
   const record = await AgencyPayDelegation.create(body);
   return serialisePayDelegation(record);
 }
@@ -568,6 +589,9 @@ export async function updatePayDelegation(id, payload, { workspaceId } = {}) {
   const updates = pickAllowed(payload, PAY_FIELDS);
   if (updates.nextPayDate) {
     updates.nextPayDate = normaliseDate(updates.nextPayDate);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'amount')) {
+    updates.amount = normaliseNumber(updates.amount, 0);
   }
   await record.update(updates);
   return serialisePayDelegation(record);
@@ -582,6 +606,8 @@ export async function createProjectDelegation(payload) {
   const body = pickAllowed(payload, PROJECT_FIELDS);
   body.startDate = normaliseDate(body.startDate);
   body.endDate = normaliseDate(body.endDate);
+  body.allocationPercent = normaliseNumber(body.allocationPercent, 0);
+  body.billableRate = normaliseNumber(body.billableRate, null);
   const record = await AgencyProjectDelegation.create(body);
   return serialiseProjectDelegation(record);
 }
@@ -591,6 +617,12 @@ export async function updateProjectDelegation(id, payload, { workspaceId } = {})
   const updates = pickAllowed(payload, PROJECT_FIELDS);
   if (updates.startDate) updates.startDate = normaliseDate(updates.startDate);
   if (updates.endDate) updates.endDate = normaliseDate(updates.endDate);
+  if (Object.prototype.hasOwnProperty.call(updates, 'allocationPercent')) {
+    updates.allocationPercent = normaliseNumber(updates.allocationPercent, 0);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'billableRate')) {
+    updates.billableRate = normaliseNumber(updates.billableRate, null);
+  }
   await record.update(updates);
   return serialiseProjectDelegation(record);
 }
@@ -604,6 +636,7 @@ export async function createGigDelegation(payload) {
   const body = pickAllowed(payload, GIG_FIELDS);
   body.startDate = normaliseDate(body.startDate);
   body.dueDate = normaliseDate(body.dueDate);
+  body.allocationPercent = normaliseNumber(body.allocationPercent, 0);
   const record = await AgencyGigDelegation.create(body);
   return serialiseGigDelegation(record);
 }
@@ -613,6 +646,9 @@ export async function updateGigDelegation(id, payload, { workspaceId } = {}) {
   const updates = pickAllowed(payload, GIG_FIELDS);
   if (updates.startDate) updates.startDate = normaliseDate(updates.startDate);
   if (updates.dueDate) updates.dueDate = normaliseDate(updates.dueDate);
+  if (Object.prototype.hasOwnProperty.call(updates, 'allocationPercent')) {
+    updates.allocationPercent = normaliseNumber(updates.allocationPercent, 0);
+  }
   await record.update(updates);
   return serialiseGigDelegation(record);
 }
@@ -624,7 +660,13 @@ export async function deleteGigDelegation(id, { workspaceId } = {}) {
 
 export async function recordCapacitySnapshot(payload) {
   const body = pickAllowed(payload, CAPACITY_FIELDS);
-  body.recordedFor = body.recordedFor ? body.recordedFor : new Date();
+  body.recordedFor = normaliseDate(body.recordedFor) ?? new Date();
+  body.totalHeadcount = normaliseNumber(body.totalHeadcount, 0);
+  body.activeAssignments = normaliseNumber(body.activeAssignments, 0);
+  body.availableHours = normaliseNumber(body.availableHours, 0);
+  body.allocatedHours = normaliseNumber(body.allocatedHours, 0);
+  body.benchHours = normaliseNumber(body.benchHours, 0);
+  body.utilizationPercent = normaliseNumber(body.utilizationPercent, 0);
   const record = await AgencyCapacitySnapshot.create(body);
   return serialiseCapacitySnapshot(record);
 }
@@ -633,7 +675,25 @@ export async function updateCapacitySnapshot(id, payload, { workspaceId } = {}) 
   const record = await findCapacitySnapshotOrFail(id, { workspaceId });
   const updates = pickAllowed(payload, CAPACITY_FIELDS);
   if (updates.recordedFor) {
-    updates.recordedFor = updates.recordedFor;
+    updates.recordedFor = normaliseDate(updates.recordedFor);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'totalHeadcount')) {
+    updates.totalHeadcount = normaliseNumber(updates.totalHeadcount, 0);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'activeAssignments')) {
+    updates.activeAssignments = normaliseNumber(updates.activeAssignments, 0);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'availableHours')) {
+    updates.availableHours = normaliseNumber(updates.availableHours, 0);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'allocatedHours')) {
+    updates.allocatedHours = normaliseNumber(updates.allocatedHours, 0);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'benchHours')) {
+    updates.benchHours = normaliseNumber(updates.benchHours, 0);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'utilizationPercent')) {
+    updates.utilizationPercent = normaliseNumber(updates.utilizationPercent, 0);
   }
   await record.update(updates);
   return serialiseCapacitySnapshot(record);
@@ -646,6 +706,8 @@ export async function deleteCapacitySnapshot(id, { workspaceId } = {}) {
 
 export async function createAvailabilityEntry(payload) {
   const body = pickAllowed(payload, AVAILABILITY_FIELDS);
+  body.date = normaliseDate(body.date) ?? new Date();
+  body.availableHours = normaliseNumber(body.availableHours, null);
   const record = await AgencyAvailabilityEntry.create(body);
   return serialiseAvailabilityEntry(record);
 }
@@ -653,6 +715,12 @@ export async function createAvailabilityEntry(payload) {
 export async function updateAvailabilityEntry(id, payload, { workspaceId } = {}) {
   const record = await findAvailabilityOrFail(id, { workspaceId });
   const updates = pickAllowed(payload, AVAILABILITY_FIELDS);
+  if (updates.date) {
+    updates.date = normaliseDate(updates.date);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'availableHours')) {
+    updates.availableHours = normaliseNumber(updates.availableHours, null);
+  }
   await record.update(updates);
   return serialiseAvailabilityEntry(record);
 }
