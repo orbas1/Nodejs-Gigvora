@@ -8,6 +8,9 @@ import useProjectGigManagement from '../../hooks/useProjectGigManagement.js';
 import useGigOrderDetail from '../../hooks/useGigOrderDetail.js';
 import DataStatus from '../../components/DataStatus.jsx';
 import FinanceControlTowerFeature from '../../components/dashboard/FinanceControlTowerFeature.jsx';
+import CollapsibleSection from '../../components/dashboard/shared/CollapsibleSection.jsx';
+import UnifiedCommunicationsSection from '../../components/dashboard/shared/UnifiedCommunicationsSection.jsx';
+import SupportDeskPanel from '../../components/support/SupportDeskPanel.jsx';
 import {
   AgencyManagementSection,
   AgencyHrManagementSection,
@@ -27,6 +30,8 @@ import {
   AgencyHubSection,
   AgencyCreationStudioWizardSection,
 } from './agency/sections/index.js';
+import AgencyOperationsAlertRail from './agency/sections/AgencyOperationsAlertRail.jsx';
+import AgencyFairnessForecastSection from './agency/sections/AgencyFairnessForecastSection.jsx';
 import OverviewSection from './agency/sections/OverviewSection.jsx';
 import { EscrowProvider } from './agency/escrow/EscrowContext.jsx';
 import EscrowShell from './agency/escrow/EscrowShell.jsx';
@@ -47,9 +52,12 @@ const MENU_SECTIONS = [
       { id: 'agency-gig-management', name: 'Gigs', sectionId: 'agency-gig-management' },
       { id: 'agency-escrow', name: 'Escrow', sectionId: 'agency-escrow' },
       { id: 'agency-finance', name: 'Finance', sectionId: 'agency-finance' },
+      { id: 'agency-fairness-forecast', name: 'Fairness & forecast', sectionId: 'agency-fairness-forecast' },
       { id: 'agency-gig-workspace', name: 'Gig workspace', sectionId: 'agency-gig-workspace' },
+      { id: 'agency-communications', name: 'Collaboration hub', sectionId: 'agency-communications' },
       { id: 'agency-inbox', name: 'Inbox', sectionId: 'agency-inbox' },
       { id: 'agency-wallet', name: 'Wallet', sectionId: 'agency-wallet' },
+      { id: 'agency-support', name: 'Support desk', sectionId: 'agency-support' },
       { id: 'agency-hub', name: 'Hub', sectionId: 'agency-hub' },
       { id: 'agency-creation-studio', name: 'Creation Studio', sectionId: 'agency-creation-studio' },
     ],
@@ -75,9 +83,12 @@ const SECTIONS = [
   { id: 'agency-gig-management', label: 'Gig management' },
   { id: 'agency-escrow', label: 'Escrow' },
   { id: 'agency-finance', label: 'Finance' },
+  { id: 'agency-fairness-forecast', label: 'Fairness & forecast' },
   { id: 'agency-gig-workspace', label: 'Gig workspace' },
+  { id: 'agency-communications', label: 'Collaboration hub' },
   { id: 'agency-inbox', label: 'Inbox' },
   { id: 'agency-wallet', label: 'Wallet' },
+  { id: 'agency-support', label: 'Support desk' },
   { id: 'agency-hub', label: 'Hub' },
   { id: 'agency-creation-studio', label: 'Creation Studio' },
 ];
@@ -342,6 +353,29 @@ export default function AgencyDashboardPage() {
 
   const [activeMenuItem, setActiveMenuItem] = useState('agency-overview');
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof IntersectionObserver === 'undefined') {
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visibleEntry = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (visibleEntry?.target?.id) {
+          setActiveMenuItem(visibleEntry.target.id);
+        }
+      },
+      { root: null, rootMargin: '-35% 0px -45% 0px', threshold: [0.1, 0.25, 0.5, 0.75] },
+    );
+
+    const elements = SECTIONS.map((section) => document.getElementById(section.id)).filter(Boolean);
+    elements.forEach((element) => observer.observe(element));
+
+    return () => observer.disconnect();
+  }, [overviewLoading, dashboardLoading, projectLoading, orders]);
+
   const handleMenuItemSelect = useCallback((itemId, item) => {
     setActiveMenuItem(itemId);
     if (item?.href) {
@@ -372,6 +406,79 @@ export default function AgencyDashboardPage() {
       }));
   }, [financeSnapshot, agencyDashboard?.workspace?.currency]);
 
+  const communicationsModules = useMemo(() => {
+    const currency = financeSnapshot.currency || agencyDashboard?.workspace?.currency || 'USD';
+    const inboxSummary = agencyDashboard?.inbox?.summary ?? null;
+    const inboxDescriptor = inboxSummary
+      ? `${inboxSummary.awaitingReply ?? 0} awaiting • ${inboxSummary.unreadThreads ?? 0} unread`
+      : 'Route automations, escalations, and real-time collaboration threads.';
+    const normalizedMargin = (() => {
+      if (typeof financeSnapshot.margin === 'string') {
+        return financeSnapshot.margin;
+      }
+      if (financeSnapshot.margin == null || Number.isNaN(Number(financeSnapshot.margin))) {
+        return '—';
+      }
+      return `${Math.round(Number(financeSnapshot.margin) * 100)}%`;
+    })();
+    const walletDescriptor = financeSnapshot
+      ? `Run-rate ${formatCurrency(financeSnapshot.runRate ?? 0, currency)} • Margin ${normalizedMargin}`
+      : 'Monitor balances, ledger integrity, and payout policies across workspaces.';
+    const supportMetrics = agencyDashboard?.supportDesk?.metrics ?? agencyDashboard?.support?.metrics ?? null;
+    const supportDescriptor = supportMetrics
+      ? `${supportMetrics.openCases ?? 0} open • SLA ${supportMetrics.avgResponseMinutes ?? '—'} mins`
+      : 'Escalate fairness, compliance, and dispute tickets with on-call coverage.';
+
+    return [
+      {
+        id: 'agency-inbox',
+        title: 'Inbox operations',
+        summary: inboxDescriptor,
+        component: (
+          <AgencyInboxSection
+            workspaceId={workspace?.id ?? workspaceId}
+            statusLabel="Inbox telemetry"
+            initialSummary={inboxSummary}
+          />
+        ),
+      },
+      {
+        id: 'agency-wallet',
+        title: 'Wallet & treasury',
+        summary: walletDescriptor,
+        component: (
+          <AgencyWalletSection
+            workspaceId={workspace?.id ?? workspaceId}
+            statusLabel="Wallet telemetry"
+          />
+        ),
+      },
+      {
+        id: 'agency-support',
+        title: 'Support desk',
+        summary: supportDescriptor,
+        component: (
+          <section
+            id="agency-support"
+            className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-soft"
+          >
+            <SupportDeskPanel userId={ownerId ?? session?.id ?? null} initialSnapshot={agencyDashboard?.supportDesk} />
+          </section>
+        ),
+      },
+    ];
+  }, [
+    agencyDashboard?.inbox?.summary,
+    agencyDashboard?.supportDesk,
+    agencyDashboard?.support?.metrics,
+    agencyDashboard?.workspace?.currency,
+    financeSnapshot,
+    ownerId,
+    session?.id,
+    workspace?.id,
+    workspaceId,
+  ]);
+
   const gigError = projectError || orderError;
 
   return (
@@ -388,6 +495,17 @@ export default function AgencyDashboardPage() {
       adSurface="agency_dashboard"
     >
       <div className="space-y-12">
+        <AgencyOperationsAlertRail
+          finance={financeSnapshot}
+          overview={agencyDashboard}
+          gigOrders={orders}
+          loading={dashboardLoading || projectLoading || orderLoading}
+          error={dashboardError || gigError}
+          fromCache={dashboardFromCache}
+          lastUpdated={dashboardLastUpdated}
+          onRefresh={handleRefreshGigData}
+        />
+
         <OverviewSection
           overview={overview}
           workspace={workspace}
@@ -424,99 +542,102 @@ export default function AgencyDashboardPage() {
 
         <AgencyJobApplicationsSection ownerId={ownerId} />
 
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Dashboard / Gigs</p>
-            <h2 className="text-3xl font-semibold text-slate-900">Gig operations</h2>
-          </div>
-          <DataStatus
-            loading={projectLoading || orderLoading || dashboardLoading}
-            error={gigError || dashboardError}
-            fromCache={dashboardFromCache}
-            lastUpdated={dashboardLastUpdated}
+        <CollapsibleSection
+          id="agency-gig-operations"
+          title="Gig operations"
+          description="Supervise orders, submissions, conversations, and launch pipelines without leaving the workspace."
+          badge="Dashboard / Gigs"
+          actions={(
+            <DataStatus
+              loading={projectLoading || orderLoading || dashboardLoading}
+              error={gigError || dashboardError}
+              fromCache={dashboardFromCache}
+              lastUpdated={dashboardLastUpdated}
+              onRefresh={handleRefreshGigData}
+              statusLabel="Gig data"
+            />
+          )}
+        >
+          <GigManagementSection
+            summary={gigSummary}
+            deliverables={gigDeliverables}
+            orders={orders}
+            selectedOrderId={selectedOrderId}
+            onSelectOrder={setSelectedOrderId}
             onRefresh={handleRefreshGigData}
-            statusLabel="Gig data"
+            loading={projectLoading || orderLoading || dashboardLoading}
+            detail={orderDetail}
           />
-        </div>
 
-        <GigManagementSection
-          summary={gigSummary}
-          deliverables={gigDeliverables}
-          orders={orders}
-          selectedOrderId={selectedOrderId}
-          onSelectOrder={setSelectedOrderId}
-          onRefresh={handleRefreshGigData}
-          loading={projectLoading || orderLoading || dashboardLoading}
-          detail={orderDetail}
-        />
+          <OpenGigsSection
+            orders={orders}
+            onUpdateOrder={handleUpdateOrder}
+            updatingOrderId={updatingOrderId}
+          />
 
-        <OpenGigsSection
-          orders={orders}
-          onUpdateOrder={handleUpdateOrder}
-          updatingOrderId={updatingOrderId}
-        />
+          <ClosedGigsSection
+            orders={orders}
+            onReopen={handleReopenOrder}
+            updatingOrderId={updatingOrderId}
+          />
 
-        <ClosedGigsSection
-          orders={orders}
-          onReopen={handleReopenOrder}
-          updatingOrderId={updatingOrderId}
-        />
+          <GigSubmissionsSection
+            orderDetail={orderDetail}
+            onCreateSubmission={handleCreateSubmission}
+            onUpdateSubmission={handleUpdateSubmission}
+            pending={pendingAction}
+          />
 
-        <GigSubmissionsSection
-          orderDetail={orderDetail}
-          onCreateSubmission={handleCreateSubmission}
-          onUpdateSubmission={handleUpdateSubmission}
-          pending={pendingAction}
-        />
+          <GigTimelineSection
+            orderDetail={orderDetail}
+            onAddEvent={handleAddTimelineEvent}
+            loading={orderLoading}
+            pending={pendingAction}
+          />
 
-        <GigTimelineSection
-          orderDetail={orderDetail}
-          onAddEvent={handleAddTimelineEvent}
-          loading={orderLoading}
-          pending={pendingAction}
-        />
+          <GigChatSection
+            orderDetail={orderDetail}
+            onSendMessage={handleSendMessage}
+            onAcknowledgeMessage={handleAcknowledgeMessage}
+            pending={pendingAction}
+          />
 
-        <GigChatSection
-          orderDetail={orderDetail}
-          onSendMessage={handleSendMessage}
-          onAcknowledgeMessage={handleAcknowledgeMessage}
-          pending={pendingAction}
-        />
+          <GigCreationSection
+            onCreate={handleCreateGig}
+            creating={creatingGig}
+            defaultCurrency={agencyDashboard?.workspace?.currency}
+            onCreated={handleRefreshGigData}
+          />
 
-        <GigCreationSection
-          onCreate={handleCreateGig}
-          creating={creatingGig}
-          defaultCurrency={agencyDashboard?.workspace?.currency}
-          onCreated={handleRefreshGigData}
-        />
+          <AgencyGigWorkspaceSection
+            resource={projectGigResource}
+            statusLabel="Gig marketplace sync"
+            onRefresh={handleRefreshGigData}
+          />
+        </CollapsibleSection>
 
-        <AgencyGigWorkspaceSection
-          resource={projectGigResource}
-          statusLabel="Gig marketplace sync"
-          onRefresh={handleRefreshGigData}
-        />
-
-        <section id="agency-escrow" className="space-y-6 rounded-4xl border border-slate-200 bg-white p-8 shadow-soft">
-          <header className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Dashboard / Escrow</p>
-              <h2 className="text-3xl font-semibold text-slate-900">Escrow management</h2>
-            </div>
+        <CollapsibleSection
+          id="agency-escrow"
+          title="Escrow management"
+          description="Secure funds, milestones, and dispute workflows with audit-ready transparency."
+          badge="Dashboard / Escrow"
+          actions={(
             <span className="rounded-full bg-slate-100 px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
               Secure
             </span>
-          </header>
+          )}
+        >
           <EscrowProvider workspaceId={workspaceId} workspaceSlug={workspaceSlugParam}>
             <EscrowShell />
           </EscrowProvider>
-        </section>
+        </CollapsibleSection>
 
-        <section id="agency-finance" className="space-y-6 rounded-4xl border border-slate-200 bg-white p-8 shadow-soft">
-          <header className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Dashboard / Finance</p>
-              <h2 className="text-3xl font-semibold text-slate-900">Finance management</h2>
-            </div>
+        <CollapsibleSection
+          id="agency-finance"
+          title="Finance management"
+          description="Model run-rate, payouts, and compliance readiness with centralised insights."
+          badge="Dashboard / Finance"
+          actions={(
             <DataStatus
               loading={dashboardLoading}
               error={dashboardError}
@@ -525,8 +646,8 @@ export default function AgencyDashboardPage() {
               onRefresh={() => refreshAgencyDashboard({ force: true })}
               statusLabel="Finance data"
             />
-          </header>
-
+          )}
+        >
           {financeHighlights.length ? (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {financeHighlights.map((item) => (
@@ -543,15 +664,16 @@ export default function AgencyDashboardPage() {
             userId={ownerId}
             currency={agencyDashboard?.workspace?.currency}
           />
-        </section>
+        </CollapsibleSection>
 
-        <AgencyInboxSection
-          workspaceId={workspace?.id ?? workspaceId}
-          statusLabel="Inbox telemetry"
-          initialSummary={agencyDashboard?.inbox?.summary}
+        <AgencyFairnessForecastSection orders={orders} overview={agencyDashboard} finance={financeSnapshot} />
+
+        <UnifiedCommunicationsSection
+          id="agency-communications"
+          title="Collaboration & support hub"
+          description="Unify inbox, treasury, and support desks for faster triage across personas."
+          modules={communicationsModules}
         />
-
-        <AgencyWalletSection workspaceId={workspace?.id ?? workspaceId} />
 
         <AgencyHubSection
           dashboard={agencyDashboard}

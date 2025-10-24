@@ -2075,10 +2075,10 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   24. **Design Duplication.** Align finance/wallet modules with company dashboards for consistent accounting UX.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L10-L200】【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyDashboardPage.jsx†L1-L200】
   25. **Design framework.** Built on DashboardLayout with membership guard ensuring secure access.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L34-L52】
   26. **Change Checklist Tracker Extensive.**
-      - [ ] Consolidate shared modules (wallet, inbox, support) across personas.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L10-L200】
-      - [ ] Add analytics and alert banners summarising pipeline/finance health.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L10-L200】
-      - [ ] Implement collapsible sections and sticky navigation.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L36-L200】
-      - [ ] Integrate fairness dashboards and staffing forecasts.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L10-L200】
+      - [x] Consolidate shared modules (wallet, inbox, support) across personas.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L10-L200】
+      - [x] Add analytics and alert banners summarising pipeline/finance health.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L10-L200】
+      - [x] Implement collapsible sections and sticky navigation.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L36-L200】
+      - [x] Integrate fairness dashboards and staffing forecasts.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L10-L200】
   27. **Full Upgrade Plan & Release Steps  Extensive.**
       1. Roll out shared modules, sticky nav, and alert banners, validating with agency pilot groups.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L10-L210】
       2. Launch fairness/staffing analytics leveraging auto-match data, monitoring operational outcomes.【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L10-L200】
