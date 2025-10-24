@@ -108,6 +108,10 @@ const {
   AgencyRateCardItem: AgencyRateCardItemRaw,
   AgencySlaSnapshot: AgencySlaSnapshotRaw,
   AgencyBillingEvent: AgencyBillingEventRaw,
+  AgencyMentoringSession: AgencyMentoringSessionRaw,
+  AgencyMentoringPurchase: AgencyMentoringPurchaseRaw,
+  AgencyMentorPreference: AgencyMentorPreferenceRaw,
+  MentorReview: MentorReviewRaw,
   EmployeeJourneyProgram: EmployeeJourneyProgramRaw,
   NetworkingSession: NetworkingSessionRaw,
   NetworkingSessionSignup: NetworkingSessionSignupRaw,
@@ -162,6 +166,10 @@ const AgencyCollaborationInvitationModel = withDefaultModel(AgencyCollaborationI
 const AgencyRateCardModel = withDefaultModel(AgencyRateCardRaw);
 const AgencySlaSnapshotModel = withDefaultModel(AgencySlaSnapshotRaw);
 const AgencyBillingEventModel = withDefaultModel(AgencyBillingEventRaw);
+const AgencyMentoringSessionModel = withDefaultModel(AgencyMentoringSessionRaw);
+const AgencyMentoringPurchaseModel = withDefaultModel(AgencyMentoringPurchaseRaw);
+const AgencyMentorPreferenceModel = withDefaultModel(AgencyMentorPreferenceRaw);
+const MentorReviewModel = withDefaultModel(MentorReviewRaw);
 const EmployeeJourneyProgramModel = withDefaultModel(EmployeeJourneyProgramRaw);
 const NetworkingSessionModel = withDefaultModel(NetworkingSessionRaw);
 const NetworkingSessionSignupModel = withDefaultModel(NetworkingSessionSignupRaw);
@@ -179,6 +187,10 @@ const CACHE_TTL_SECONDS = 45;
 const MIN_LOOKBACK_DAYS = 7;
 const MAX_LOOKBACK_DAYS = 180;
 const NETWORKING_DEFAULT_PENALTY_RULES = { noShowThreshold: 2, cooldownDays: 14 };
+
+function toPlainRecord(record) {
+  return record?.get ? record.get({ plain: true }) : record;
+}
 
 function clamp(value, { min, max, fallback }) {
   if (!Number.isFinite(Number(value))) {
@@ -1564,6 +1576,95 @@ async function fetchAgencyBillingEvents({ workspaceId, since }) {
     where,
     order: [['dueAt', 'ASC']],
     limit: 120,
+  });
+}
+
+async function fetchAgencyMentoringSessions({ workspaceId, since }) {
+  if (!workspaceId) {
+    return [];
+  }
+
+  const where = { workspaceId };
+  if (since) {
+    where.scheduledAt = { [Op.gte]: since };
+  }
+
+  const include = [
+    AgencyMentoringPurchaseRaw
+      ? {
+          model: AgencyMentoringPurchaseRaw,
+          as: 'purchase',
+          attributes: ['id', 'packageName', 'status', 'sessionsIncluded', 'sessionsUsed'],
+        }
+      : null,
+    { model: User, as: 'mentor', attributes: ['id', 'firstName', 'lastName', 'email'] },
+  ].filter(Boolean);
+
+  return safeFindAll(AgencyMentoringSessionModel, {
+    where,
+    include,
+    order: [
+      ['scheduledAt', 'ASC'],
+      ['createdAt', 'DESC'],
+    ],
+    limit: 180,
+  });
+}
+
+async function fetchAgencyMentoringPurchases({ workspaceId, since }) {
+  if (!workspaceId) {
+    return [];
+  }
+
+  const where = { workspaceId };
+  if (since) {
+    where.purchasedAt = { [Op.gte]: since };
+  }
+
+  const include = [
+    { model: User, as: 'mentor', attributes: ['id', 'firstName', 'lastName', 'email'] },
+  ];
+
+  return safeFindAll(AgencyMentoringPurchaseModel, {
+    where,
+    include,
+    order: [['purchasedAt', 'DESC']],
+    limit: 120,
+  });
+}
+
+async function fetchAgencyMentorPreferences({ workspaceId }) {
+  if (!workspaceId) {
+    return [];
+  }
+
+  const include = [
+    { model: User, as: 'mentor', attributes: ['id', 'firstName', 'lastName', 'email'] },
+  ];
+
+  return safeFindAll(AgencyMentorPreferenceModel, {
+    where: { workspaceId },
+    include,
+    order: [['preferenceLevel', 'ASC']],
+    limit: 120,
+  });
+}
+
+async function fetchMentorReviewsForMentors({ mentorIds, since }) {
+  if (!Array.isArray(mentorIds) || mentorIds.length === 0) {
+    return [];
+  }
+
+  const where = { mentorId: { [Op.in]: mentorIds } };
+  if (since) {
+    where.publishedAt = { [Op.gte]: since };
+  }
+
+  return safeFindAll(MentorReviewModel, {
+    where,
+    include: [{ model: User, as: 'mentor', attributes: ['id', 'firstName', 'lastName'] }],
+    order: [['publishedAt', 'DESC']],
+    limit: 160,
   });
 }
 
@@ -3224,6 +3325,256 @@ function buildCandidateCareSummary({ candidateExperience, alerts, candidateCareC
     followUpsPending: candidateExperience.followUpsPending,
     escalations: (candidateCareCenter?.escalations ?? 0) + escalations.length,
     openTickets: candidateCareCenter?.openTickets ?? null,
+  };
+}
+
+function collectMentorIdsForWorkspace({ sessions = [], purchases = [], preferences = [] }) {
+  const ids = new Set();
+  const register = (entry) => {
+    const plain = toPlainRecord(entry);
+    const mentorId = plain?.mentorId ?? plain?.mentor?.id ?? null;
+    const numeric = Number(mentorId);
+    if (Number.isInteger(numeric) && numeric > 0) {
+      ids.add(numeric);
+    }
+  };
+
+  sessions.forEach(register);
+  purchases.forEach(register);
+  preferences.forEach(register);
+
+  return Array.from(ids);
+}
+
+function registerMentorLabel(record, mentorLabels) {
+  const plain = toPlainRecord(record);
+  const mentor = plain?.mentor ?? {};
+  const mentorId = plain?.mentorId ?? mentor?.id ?? null;
+  const mentorEmail = plain?.mentorEmail ?? mentor?.email ?? null;
+  const mentorName = plain?.mentorName ?? [mentor?.firstName, mentor?.lastName].filter(Boolean).join(' ').trim();
+
+  if (mentorId != null && Number.isInteger(Number(mentorId))) {
+    const key = `id:${Number(mentorId)}`;
+    mentorLabels.set(key, mentorName || mentorEmail || `Mentor ${mentorId}`);
+    return key;
+  }
+  if (mentorEmail) {
+    const key = `email:${mentorEmail.toLowerCase()}`;
+    mentorLabels.set(key, mentorName || mentorEmail);
+    return key;
+  }
+  if (mentorName) {
+    const key = `name:${mentorName.toLowerCase()}`;
+    mentorLabels.set(key, mentorName);
+    return key;
+  }
+  return null;
+}
+
+function resolveMentorDisplay(record, mentorLabels, mentorKey) {
+  if (mentorKey && mentorLabels.has(mentorKey)) {
+    return mentorLabels.get(mentorKey);
+  }
+  const plain = toPlainRecord(record);
+  const mentor = plain?.mentor ?? {};
+  const name = plain?.mentorName ?? [mentor?.firstName, mentor?.lastName].filter(Boolean).join(' ').trim();
+  if (name) {
+    return name;
+  }
+  return plain?.mentorEmail ?? mentor?.email ?? null;
+}
+
+function truncateText(value, maxLength = 160) {
+  if (!value) {
+    return null;
+  }
+  const text = `${value}`.trim();
+  if (!text) {
+    return null;
+  }
+  return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
+}
+
+function buildMentorshipSummary({ sessions, purchases, preferences, reviews, lookbackDays }) {
+  const sessionRecords = Array.isArray(sessions) ? sessions.map(toPlainRecord) : [];
+  const purchaseRecords = Array.isArray(purchases) ? purchases.map(toPlainRecord) : [];
+  const preferenceRecords = Array.isArray(preferences) ? preferences.map(toPlainRecord) : [];
+  const reviewRecords = Array.isArray(reviews) ? reviews.map(toPlainRecord) : [];
+
+  const hasSignals =
+    sessionRecords.length > 0 || purchaseRecords.length > 0 || preferenceRecords.length > 0 || reviewRecords.length > 0;
+  if (!hasSignals) {
+    return null;
+  }
+
+  const mentorLabels = new Map();
+  const mentorPairings = new Set();
+  const now = new Date();
+  const upcomingSessions = [];
+  let completedSessions = 0;
+  let cancelledSessions = 0;
+
+  sessionRecords.forEach((session) => {
+    const mentorKey = registerMentorLabel(session, mentorLabels);
+    const status = `${session.status ?? ''}`.toLowerCase();
+    if (status === 'completed') {
+      completedSessions += 1;
+    } else if (status === 'cancelled' || status === 'no_show') {
+      cancelledSessions += 1;
+    }
+
+    if (mentorKey) {
+      const menteeIdentifier = session.clientEmail ?? session.clientName ?? session.menteeId ?? session.clientCompany;
+      if (menteeIdentifier) {
+        mentorPairings.add(`${mentorKey}:${menteeIdentifier}`);
+      }
+    }
+
+    const scheduledAt = session.scheduledAt ? new Date(session.scheduledAt) : null;
+    if (
+      scheduledAt &&
+      Number.isFinite(scheduledAt.getTime()) &&
+      scheduledAt >= now &&
+      (status === 'scheduled' || status === 'in_progress' || !status)
+    ) {
+      upcomingSessions.push({ session, mentorKey, scheduledAt });
+    }
+  });
+
+  purchaseRecords.forEach((purchase) => registerMentorLabel(purchase, mentorLabels));
+  preferenceRecords.forEach((preference) => registerMentorLabel(preference, mentorLabels));
+
+  const upcomingSessionsDetails = upcomingSessions
+    .sort((a, b) => a.scheduledAt - b.scheduledAt)
+    .slice(0, 6)
+    .map(({ session, mentorKey }) => ({
+      id: session.id,
+      title: session.focusArea ?? session.topic ?? session.agenda ?? 'Mentorship session',
+      startsAt: session.scheduledAt ?? null,
+      mentor: resolveMentorDisplay(session, mentorLabels, mentorKey),
+      client: session.clientName ?? session.clientCompany ?? session.clientEmail ?? null,
+      status: session.status ?? null,
+    }));
+
+  const activePrograms = purchaseRecords.filter(
+    (purchase) => `${purchase.status ?? ''}`.toLowerCase() === 'active',
+  ).length;
+  const mentorPool = mentorLabels.size;
+
+  const sessionsIncluded = purchaseRecords.reduce(
+    (total, purchase) => total + Number(purchase.sessionsIncluded ?? purchase.sessions ?? purchase.sessionsPurchased ?? 0),
+    0,
+  );
+  const sessionsUsed = purchaseRecords.reduce(
+    (total, purchase) => total + Number(purchase.sessionsUsed ?? purchase.sessionsRedeemed ?? 0),
+    0,
+  );
+
+  const ratingValues = reviewRecords
+    .map((review) => Number(review.rating))
+    .filter((value) => Number.isFinite(value) && value > 0);
+  const averageRating = ratingValues.length
+    ? ratingValues.reduce((sum, value) => sum + value, 0) / ratingValues.length
+    : null;
+  const satisfaction = averageRating != null ? Math.min(Math.max(averageRating / 5, 0), 1) : null;
+
+  let promoters = 0;
+  let detractors = 0;
+  ratingValues.forEach((value) => {
+    if (value >= 4) {
+      promoters += 1;
+    } else if (value <= 2) {
+      detractors += 1;
+    }
+  });
+  const nps = ratingValues.length ? Math.round(((promoters - detractors) / ratingValues.length) * 100) : null;
+
+  const highlights = [];
+  if (activePrograms) {
+    highlights.push(`${activePrograms} active mentorship ${activePrograms === 1 ? 'program' : 'programs'}.`);
+  }
+  if (mentorPool) {
+    highlights.push(`${mentorPool} mentors engaged across current programmes.`);
+  }
+  if (completedSessions) {
+    highlights.push(`${completedSessions} sessions completed in the last ${lookbackDays} days.`);
+  }
+  if (averageRating != null) {
+    highlights.push(
+      `Average rating ${averageRating.toFixed(1)}/5 (${Math.round((satisfaction ?? 0) * 100)}% satisfaction).`,
+    );
+  }
+  if (nps != null) {
+    highlights.push(`Mentor NPS ${nps >= 0 ? '+' : ''}${nps}.`);
+  }
+  if (!highlights.length && upcomingSessionsDetails.length) {
+    highlights.push('Upcoming mentorship sessions are scheduled and ready to run.');
+  }
+
+  const recentWins = reviewRecords
+    .filter((review) => review.headline || review.feedback)
+    .sort(
+      (a, b) =>
+        new Date(b.publishedAt ?? b.createdAt ?? 0).getTime() - new Date(a.publishedAt ?? a.createdAt ?? 0).getTime(),
+    )
+    .slice(0, 4)
+    .map((review) => review.headline ?? truncateText(review.feedback));
+
+  return {
+    activePrograms,
+    activePairings: mentorPairings.size || upcomingSessions.length,
+    mentorPool,
+    upcomingSessions: upcomingSessions.length,
+    upcomingSessionsDetails,
+    sessions: {
+      total: sessionRecords.length,
+      completed: completedSessions,
+      cancelled: cancelledSessions,
+      upcoming: upcomingSessions.length,
+    },
+    satisfaction,
+    averageRating,
+    nps,
+    highlights,
+    recentWins,
+    calendar: {
+      upcomingCount: upcomingSessions.length,
+      upcoming: upcomingSessionsDetails,
+    },
+    usage: {
+      sessionsIncluded: sessionsIncluded || null,
+      sessionsUsed: sessionsUsed || completedSessions || null,
+    },
+    lookbackDays,
+  };
+}
+
+function enrichCreationStudioOverview(overview) {
+  if (!overview) {
+    return null;
+  }
+  const plainItems = Array.isArray(overview.items) ? overview.items.map(toPlainRecord) : [];
+  const previewItems = plainItems
+    .slice()
+    .sort((a, b) => new Date(b.updatedAt ?? b.publishedAt ?? 0) - new Date(a.updatedAt ?? a.publishedAt ?? 0))
+    .slice(0, 6)
+    .map((item) => ({
+      id: item.id,
+      title: item.title,
+      type: item.type,
+      status: item.status,
+      updatedAt: item.updatedAt ?? item.publishedAt ?? null,
+      summary: item.summary ?? null,
+      typeLabel: item.type,
+    }));
+
+  const mentorshipAssets = plainItems.filter((item) => item.type === 'mentorship_offering');
+
+  return {
+    ...overview,
+    items: plainItems,
+    previewItems,
+    mentorshipAssets,
   };
 }
 
@@ -5684,6 +6035,9 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       talentPoolEngagements,
       agencyCollaborations,
       agencyBillingEvents,
+      agencyMentoringSessions,
+      agencyMentoringPurchases,
+      agencyMentorPreferences,
     ] = await Promise.all([
       fetchApplications({ workspaceId: workspace.id, since }),
       fetchJobs({ since }),
@@ -5723,6 +6077,9 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       fetchTalentPoolEngagements({ workspaceId: workspace.id, since }),
       fetchAgencyCollaborations({ workspaceId: workspace.id }),
       fetchAgencyBillingEvents({ workspaceId: workspace.id, since }),
+      fetchAgencyMentoringSessions({ workspaceId: workspace.id, since }),
+      fetchAgencyMentoringPurchases({ workspaceId: workspace.id, since }),
+      fetchAgencyMentorPreferences({ workspaceId: workspace.id }),
     ]);
 
     const agencyCollaborationIds = agencyCollaborations.map((collaboration) => collaboration.id).filter((id) => id != null);
@@ -5730,6 +6087,12 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       .map((collaboration) => collaboration.agencyWorkspaceId ?? collaboration.agencyWorkspace?.id)
       .filter((id) => Number.isInteger(Number(id)))
       .map((id) => Number(id));
+
+    const mentorshipMentorIds = collectMentorIdsForWorkspace({
+      sessions: agencyMentoringSessions,
+      purchases: agencyMentoringPurchases,
+      preferences: agencyMentorPreferences,
+    });
 
     const [
       agencyInvitations,
@@ -5752,6 +6115,7 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       calendarConnections,
       networkingSessions,
       networkingBusinessCards,
+      mentorReviews,
     ] = await Promise.all([
       fetchAgencyInvitations({ collaborationIds: agencyCollaborationIds }),
       fetchAgencyRateCards({ agencyWorkspaceIds }),
@@ -5773,6 +6137,7 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       fetchCalendarConnections({ workspaceId: workspace.id }),
       fetchNetworkingSessionsForWorkspace({ workspaceId: workspace.id, since }),
       fetchNetworkingBusinessCardsForWorkspace({ workspaceId: workspace.id }),
+      fetchMentorReviewsForMentors({ mentorIds: mentorshipMentorIds, since }),
     ]);
 
     const applicationIds = applications.map((application) => application.id);
@@ -5980,7 +6345,18 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       inviteSummary,
       alerts: alertsSummary,
     });
-    const creationStudio = await getCreationStudioOverview({ workspaceId: workspace.id, limit: 16 });
+    const mentorship = buildMentorshipSummary({
+      sessions: agencyMentoringSessions,
+      purchases: agencyMentoringPurchases,
+      preferences: agencyMentorPreferences,
+      reviews: mentorReviews,
+      lookbackDays: lookback,
+    });
+    const creationStudioRaw = await getCreationStudioOverview({ workspaceId: workspace.id, limit: 16 });
+    const creationStudio = enrichCreationStudioOverview(creationStudioRaw);
+    if (creationStudio && mentorship) {
+      creationStudio.mentorship = mentorship;
+    }
 
     const brandAndPeople = {
       employerBrandStudio,
@@ -6188,6 +6564,7 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       brandIntelligence,
       creationStudio,
       employerBrandWorkforce,
+      mentorship,
       governance,
       calendar: calendarDigest,
       networking,

@@ -102,7 +102,9 @@ function MentorshipConnections({ mentorship }) {
 
   const upcoming = Array.isArray(mentorship?.upcomingSessionsDetails)
     ? mentorship.upcomingSessionsDetails
-    : mentorship?.calendar?.upcoming ?? [];
+    : Array.isArray(mentorship?.calendar?.upcoming)
+    ? mentorship.calendar.upcoming
+    : [];
 
   return (
     <div className="space-y-4">
@@ -174,7 +176,15 @@ MentorshipConnections.defaultProps = {
 };
 
 export default function CreationStudioMentorshipPanel({ creationStudio, mentorship }) {
-  const previews = creationStudio?.previewItems ?? creationStudio?.recent ?? creationStudio?.spotlight ?? [];
+  const allItems = Array.isArray(creationStudio?.items) ? creationStudio.items : [];
+  const fallbackPreviewSource = Array.isArray(creationStudio?.recent)
+    ? creationStudio.recent
+    : Array.isArray(creationStudio?.spotlight)
+    ? creationStudio.spotlight
+    : allItems;
+  const previews = Array.isArray(creationStudio?.previewItems)
+    ? creationStudio.previewItems
+    : fallbackPreviewSource.slice(0, 6);
   const mentorshipData = mentorship ?? creationStudio?.mentorship ?? null;
 
   return (
