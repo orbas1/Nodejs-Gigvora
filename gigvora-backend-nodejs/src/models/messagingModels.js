@@ -113,7 +113,12 @@ export const MessageParticipant = sequelize.define(
   {
     threadId: { type: DataTypes.INTEGER, allowNull: false },
     userId: { type: DataTypes.INTEGER, allowNull: false },
-    role: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'participant' },
+    role: {
+      type: DataTypes.ENUM('owner', 'participant', 'support', 'system'),
+      allowNull: false,
+      defaultValue: 'participant',
+      validate: { isIn: [['owner', 'participant', 'support', 'system']] },
+    },
     notificationsEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
     mutedUntil: { type: DataTypes.DATE, allowNull: true },
     lastReadAt: { type: DataTypes.DATE, allowNull: true },
@@ -142,11 +147,15 @@ export const Message = sequelize.define(
     },
     body: { type: DataTypes.TEXT, allowNull: true },
     metadata: { type: jsonType, allowNull: true },
+    isEdited: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    editedAt: { type: DataTypes.DATE, allowNull: true },
+    deletedAt: { type: DataTypes.DATE, allowNull: true },
     deliveredAt: { type: DataTypes.DATE, allowNull: true },
     readAt: { type: DataTypes.DATE, allowNull: true },
   },
   {
     tableName: 'messages',
+    paranoid: true,
     indexes: [
       { fields: ['threadId', 'createdAt'] },
       { fields: ['senderId'] },
@@ -164,6 +173,9 @@ Message.prototype.toPublicObject = function toPublicObject() {
     messageType: plain.messageType,
     body: plain.body,
     metadata: plain.metadata,
+    isEdited: plain.isEdited,
+    editedAt: plain.editedAt,
+    deletedAt: plain.deletedAt,
     deliveredAt: plain.deliveredAt,
     readAt: plain.readAt,
     createdAt: plain.createdAt,
@@ -176,9 +188,10 @@ export const MessageAttachment = sequelize.define(
   {
     messageId: { type: DataTypes.INTEGER, allowNull: false },
     fileName: { type: DataTypes.STRING(255), allowNull: false },
-    mimeType: { type: DataTypes.STRING(120), allowNull: false, defaultValue: 'application/octet-stream' },
-    fileSize: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
-    storageKey: { type: DataTypes.STRING(255), allowNull: false },
+    mimeType: { type: DataTypes.STRING(128), allowNull: false, defaultValue: 'application/octet-stream' },
+    fileSize: { type: DataTypes.BIGINT, allowNull: false, defaultValue: 0 },
+    storageKey: { type: DataTypes.STRING(512), allowNull: false },
+    checksum: { type: DataTypes.STRING(128), allowNull: true },
     metadata: { type: jsonType, allowNull: true },
   },
   {
