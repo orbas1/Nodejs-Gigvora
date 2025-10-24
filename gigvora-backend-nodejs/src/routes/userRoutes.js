@@ -17,6 +17,10 @@ import userTimelineRoutes from './userTimelineRoutes.js';
 import * as notificationController from '../controllers/notificationController.js';
 import userGroupRoutes from './userGroupRoutes.js';
 import userPageRoutes from './userPageRoutes.js';
+import {
+  updateSecurityPreferencesSchema,
+  createDataExportRequestSchema,
+} from '../validation/schemas/privacySchemas.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -131,6 +135,32 @@ router.put(
   '/:id/ai-settings',
   authenticate({ roles: DASHBOARD_OWNER_ROLES, matchParam: 'id' }),
   asyncHandler(userController.updateUserAiSettings),
+);
+
+router.get(
+  '/:id/security-preferences',
+  authenticate({ roles: DASHBOARD_OWNER_ROLES, matchParam: 'id' }),
+  asyncHandler(userController.getUserSecurityPreferences),
+);
+
+router.put(
+  '/:id/security-preferences',
+  authenticate({ roles: DASHBOARD_OWNER_ROLES, matchParam: 'id' }),
+  validateRequest({ body: updateSecurityPreferencesSchema }),
+  asyncHandler(userController.updateUserSecurityPreferences),
+);
+
+router.get(
+  '/:id/data-exports',
+  authenticate({ roles: DASHBOARD_OWNER_ROLES, matchParam: 'id' }),
+  asyncHandler(userController.listUserDataExports),
+);
+
+router.post(
+  '/:id/data-exports',
+  authenticate({ roles: DASHBOARD_OWNER_ROLES, matchParam: 'id' }),
+  validateRequest({ body: createDataExportRequestSchema }),
+  asyncHandler(userController.createUserDataExportRequest),
 );
 
 router.get(

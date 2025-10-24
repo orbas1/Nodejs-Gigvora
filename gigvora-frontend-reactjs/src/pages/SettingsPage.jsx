@@ -12,6 +12,10 @@ import {
 import PageHeader from '../components/PageHeader.jsx';
 import useSession from '../hooks/useSession.js';
 import { fetchUserConsentSnapshot, updateUserConsent } from '../services/consent.js';
+import { fetchNotificationPreferences, updateNotificationPreferences } from '../services/notificationCenter.js';
+import { fetchSecurityPreferences, updateSecurityPreferences } from '../services/securityPreferences.js';
+import { fetchUserAiSettings, updateUserAiSettings } from '../services/userAiSettings.js';
+import { listDataExportRequests, createDataExportRequest } from '../services/privacy.js';
 import formatDateTime from '../utils/formatDateTime.js';
 import ConsentHistoryTimeline from '../components/compliance/ConsentHistoryTimeline.jsx';
 
@@ -118,7 +122,7 @@ function ConsentPreferenceRow({ policy, consent, auditTrail, updating, expanded,
   );
 }
 
-function PreferenceCard({ title, description, enabled, onToggle, customControl }) {
+function PreferenceCard({ title, description, enabled, onToggle, customControl, disabled = false }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white/95 p-5 shadow-sm transition hover:shadow-md dark:border-slate-700 dark:bg-slate-800/90">
       <div className="flex items-start justify-between gap-4">
@@ -131,8 +135,12 @@ function PreferenceCard({ title, description, enabled, onToggle, customControl }
         ) : (
           <Toggle
             enabled={Boolean(enabled)}
-            disabled={!onToggle}
-            onClick={() => onToggle?.(!enabled)}
+            disabled={disabled || !onToggle}
+            onClick={() => {
+              if (!disabled) {
+                onToggle?.(!enabled);
+              }
+            }}
             label={`Toggle ${title}`}
           />
         )}
@@ -174,20 +182,28 @@ export default function SettingsPage() {
   const toastTimeoutRef = useRef(null);
   const [selectedTab, setSelectedTab] = useState('privacy');
   const [notificationPrefs, setNotificationPrefs] = useState({
-    emailDigest: true,
+    emailDigest: false,
     smsSecurity: false,
-    slackAlerts: true,
+    slackAlerts: false,
+    digestFrequency: 'immediate',
+    metadata: {},
   });
+  const [notificationSaving, setNotificationSaving] = useState(false);
   const [securityPrefs, setSecurityPrefs] = useState({
-    sessionTimeout: '30',
-    biometrics: false,
-    deviceApprovals: true,
+    sessionTimeoutMinutes: 30,
+    biometricApprovalsEnabled: false,
+    deviceApprovalsEnabled: true,
   });
+  const [securitySaving, setSecuritySaving] = useState(false);
   const [aiPrefs, setAiPrefs] = useState({
     personalisedMatches: true,
-    aiSummaries: true,
-    dataSharing: false,
+    meetingSummaries: true,
+    anonymisedInsights: true,
   });
+  const [aiSaving, setAiSaving] = useState(false);
+  const [dataExports, setDataExports] = useState([]);
+  const [exportPending, setExportPending] = useState(false);
+  const [exportError, setExportError] = useState(null);
 
   const loadSnapshot = useCallback(async () => {
     if (!userId) {
@@ -200,23 +216,151 @@ export default function SettingsPage() {
     };
   }, [userId]);
 
+  const loadAccountPreferences = useCallback(async () => {
+    if (!userId) {
+      return {
+        notifications: null,
+        notificationError: null,
+        security: null,
+        securityError: null,
+        ai: null,
+        aiError: null,
+        exports: [],
+        exportError: null,
+      };
+    }
+
+    const [notificationResult, securityResult, aiResult, exportResult] = await Promise.allSettled([
+      fetchNotificationPreferences(userId),
+      fetchSecurityPreferences(userId),
+      fetchUserAiSettings(userId),
+      listDataExportRequests(userId),
+    ]);
+
+    const normaliseError = (result, fallback) => {
+      if (result.status !== 'rejected') {
+        return null;
+      }
+      const reason = result.reason;
+      if (reason?.name === 'AbortError') {
+        return null;
+      }
+      return reason?.message ?? fallback;
+    };
+
+    const notifications = notificationResult.status === 'fulfilled' ? notificationResult.value : null;
+    const notificationError = normaliseError(notificationResult, 'Unable to load notification preferences.');
+    const security = securityResult.status === 'fulfilled' ? securityResult.value : null;
+    const securityError = normaliseError(securityResult, 'Unable to load security preferences.');
+    const ai = aiResult.status === 'fulfilled' ? aiResult.value : null;
+    const aiError = normaliseError(aiResult, 'Unable to load AI preferences.');
+    const exportsPayload = exportResult.status === 'fulfilled' ? exportResult.value ?? {} : {};
+    const exports = Array.isArray(exportsPayload?.items) ? exportsPayload.items : [];
+    const exportError = normaliseError(exportResult, 'Unable to load data export history.');
+
+    return {
+      notifications,
+      notificationError,
+      security,
+      securityError,
+      ai,
+      aiError,
+      exports,
+      exportError,
+    };
+  }, [userId]);
+
+  const normaliseNotificationState = (payload) => {
+    if (!payload || typeof payload !== 'object') {
+      return {
+        emailDigest: false,
+        smsSecurity: false,
+        slackAlerts: false,
+        digestFrequency: 'immediate',
+        metadata: {},
+      };
+    }
+    const metadata = payload.metadata && typeof payload.metadata === 'object' ? payload.metadata : {};
+    const slackAlerts =
+      metadata.slackAlerts != null
+        ? Boolean(metadata.slackAlerts)
+        : Array.isArray(metadata.channels)
+          ? metadata.channels.includes('slack')
+          : false;
+    return {
+      emailDigest: String(payload.digestFrequency ?? '').toLowerCase() === 'weekly',
+      smsSecurity: payload.smsEnabled === true,
+      slackAlerts,
+      digestFrequency: payload.digestFrequency ?? 'immediate',
+      metadata,
+    };
+  };
+
+  const normaliseSecurityState = (payload) => ({
+    sessionTimeoutMinutes: Number.isFinite(payload?.sessionTimeoutMinutes)
+      ? payload.sessionTimeoutMinutes
+      : 30,
+    biometricApprovalsEnabled: Boolean(payload?.biometricApprovalsEnabled),
+    deviceApprovalsEnabled: payload?.deviceApprovalsEnabled !== false,
+  });
+
+  const normaliseAiState = (payload) => {
+    const experience = payload?.experiencePreferences && typeof payload.experiencePreferences === 'object'
+      ? payload.experiencePreferences
+      : {};
+    return {
+      personalisedMatches: experience.personalisedMatches !== false,
+      meetingSummaries: experience.meetingSummaries !== false,
+      anonymisedInsights: experience.anonymisedInsights !== false,
+    };
+  };
+
   useEffect(() => {
     let cancelled = false;
     async function hydrate() {
       setLoading(true);
       setError(null);
       try {
-        const snapshot = await loadSnapshot();
-        if (!cancelled) {
-          setConsentRows(snapshot.policies);
-          setOutstandingRequired(snapshot.outstandingRequired);
-          setExpandedRows((state) => {
-            const next = {};
-            snapshot.policies.forEach(({ policy }) => {
-              next[policy.code] = Boolean(state[policy.code]);
-            });
-            return next;
+        const [snapshot, preferencePayload] = await Promise.all([
+          loadSnapshot(),
+          loadAccountPreferences(),
+        ]);
+        if (cancelled) {
+          return;
+        }
+
+        setConsentRows(snapshot.policies);
+        setOutstandingRequired(snapshot.outstandingRequired);
+        setExpandedRows((state) => {
+          const next = {};
+          snapshot.policies.forEach(({ policy }) => {
+            next[policy.code] = Boolean(state[policy.code]);
           });
+          return next;
+        });
+
+        if (preferencePayload.notifications) {
+          setNotificationPrefs(normaliseNotificationState(preferencePayload.notifications));
+        }
+        if (preferencePayload.security) {
+          setSecurityPrefs(normaliseSecurityState(preferencePayload.security));
+        }
+        if (preferencePayload.ai) {
+          setAiPrefs(normaliseAiState(preferencePayload.ai));
+        }
+        setDataExports(preferencePayload.exports ?? []);
+        setExportError(preferencePayload.exportError);
+
+        const aggregatedErrors = [
+          preferencePayload.notificationError,
+          preferencePayload.securityError,
+          preferencePayload.aiError,
+        ].filter(Boolean);
+        if (aggregatedErrors.length) {
+          setError((prev) => prev ?? aggregatedErrors[0]);
+        }
+        if (preferencePayload.exportError && !aggregatedErrors.length) {
+          setError((prev) => prev ?? preferencePayload.exportError);
         }
       } catch (loadError) {
         if (!cancelled) {
@@ -224,6 +368,8 @@ export default function SettingsPage() {
           setConsentRows([]);
           setOutstandingRequired(0);
           setExpandedRows({});
+          setDataExports([]);
+          setExportError(loadError.message ?? 'Unable to load data export history.');
         }
       } finally {
         if (!cancelled) {
@@ -236,7 +382,7 @@ export default function SettingsPage() {
     return () => {
       cancelled = true;
     };
-  }, [loadSnapshot]);
+  }, [loadSnapshot, loadAccountPreferences]);
 
   const calculateOutstanding = useCallback((rows) => {
     if (!rows.length) return 0;
@@ -260,6 +406,112 @@ export default function SettingsPage() {
   const announcePreferenceUpdate = useCallback((message, tone = 'success') => {
     setToast({ tone, message });
   }, []);
+
+  const buildNotificationPayload = (state) => ({
+    digestFrequency: state.emailDigest ? 'weekly' : 'immediate',
+    smsEnabled: state.smsSecurity,
+    metadata: {
+      ...(state.metadata ?? {}),
+      slackAlerts: state.slackAlerts,
+    },
+  });
+
+  const handleNotificationToggle = async (key, nextValue, successMessage) => {
+    if (!userId) return;
+    const previous = notificationPrefs;
+    const updated = { ...previous, [key]: nextValue };
+    setNotificationPrefs(updated);
+    setNotificationSaving(true);
+    try {
+      const response = await updateNotificationPreferences(userId, buildNotificationPayload(updated));
+      setNotificationPrefs(normaliseNotificationState(response));
+      if (successMessage) {
+        announcePreferenceUpdate(successMessage, 'success');
+      }
+    } catch (prefError) {
+      setNotificationPrefs(previous);
+      setError(prefError.message ?? 'Unable to update notification preferences.');
+      announcePreferenceUpdate('We could not update notification preferences. Try again shortly.', 'error');
+    } finally {
+      setNotificationSaving(false);
+    }
+  };
+
+  const handleSecurityPreferenceChange = async (changes, successMessage) => {
+    if (!userId) return;
+    const previous = securityPrefs;
+    const updated = { ...previous, ...changes };
+    setSecurityPrefs(updated);
+    setSecuritySaving(true);
+    try {
+      const response = await updateSecurityPreferences(userId, {
+        sessionTimeoutMinutes: updated.sessionTimeoutMinutes,
+        biometricApprovalsEnabled: updated.biometricApprovalsEnabled,
+        deviceApprovalsEnabled: updated.deviceApprovalsEnabled,
+      });
+      setSecurityPrefs(normaliseSecurityState(response));
+      if (successMessage) {
+        announcePreferenceUpdate(successMessage, 'success');
+      }
+    } catch (securityError) {
+      setSecurityPrefs(previous);
+      setError(securityError.message ?? 'Unable to update security preferences.');
+      announcePreferenceUpdate('We could not update that security preference. Try again.', 'error');
+    } finally {
+      setSecuritySaving(false);
+    }
+  };
+
+  const handleAiToggle = async (key, nextValue, successMessage) => {
+    if (!userId) return;
+    const previous = aiPrefs;
+    const updated = { ...previous, [key]: nextValue };
+    setAiPrefs(updated);
+    setAiSaving(true);
+    try {
+      const response = await updateUserAiSettings(userId, {
+        experiencePreferences: {
+          personalisedMatches: updated.personalisedMatches,
+          meetingSummaries: updated.meetingSummaries,
+          anonymisedInsights: updated.anonymisedInsights,
+        },
+      });
+      setAiPrefs(normaliseAiState(response));
+      if (successMessage) {
+        announcePreferenceUpdate(successMessage, 'success');
+      }
+    } catch (aiError) {
+      setAiPrefs(previous);
+      setError(aiError.message ?? 'Unable to update AI preferences.');
+      announcePreferenceUpdate('We could not update that AI preference. Try again later.', 'error');
+    } finally {
+      setAiSaving(false);
+    }
+  };
+
+  const handleCreateExport = async () => {
+    if (!userId) return;
+    setExportPending(true);
+    setExportError(null);
+    try {
+      const request = await createDataExportRequest(userId, {
+        format: 'zip',
+        includeInvoices: true,
+        includeMessages: true,
+      });
+      setDataExports((previousRequests) => [request, ...previousRequests]);
+      announcePreferenceUpdate(
+        'Data export request submitted. We will email you when the archive is ready.',
+        'info',
+      );
+    } catch (exportErr) {
+      const message = exportErr?.message ?? 'Unable to request a data export right now.';
+      setExportError(message);
+      announcePreferenceUpdate('We could not queue a data export right now.', 'error');
+    } finally {
+      setExportPending(false);
+    }
+  };
 
   const handleConsentChange = async (policyCode, shouldGrant) => {
     if (!userId) return;
@@ -356,28 +608,40 @@ export default function SettingsPage() {
                 title="Weekly email digest"
                 description="Summaries of invitations, saved jobs, and marketplace insights delivered each Monday."
                 enabled={notificationPrefs.emailDigest}
-                onToggle={(value) => {
-                  setNotificationPrefs((prev) => ({ ...prev, emailDigest: value }));
-                  announcePreferenceUpdate(value ? 'Email digest enabled.' : 'Email digest disabled.');
-                }}
+                disabled={notificationSaving}
+                onToggle={(value) =>
+                  handleNotificationToggle(
+                    'emailDigest',
+                    value,
+                    value ? 'Email digest enabled.' : 'Email digest disabled.',
+                  )
+                }
               />
               <PreferenceCard
                 title="Security SMS alerts"
                 description="Receive text messages when a new device signs in or sensitive settings change."
                 enabled={notificationPrefs.smsSecurity}
-                onToggle={(value) => {
-                  setNotificationPrefs((prev) => ({ ...prev, smsSecurity: value }));
-                  announcePreferenceUpdate(value ? 'Security SMS alerts enabled.' : 'Security SMS alerts disabled.');
-                }}
+                disabled={notificationSaving}
+                onToggle={(value) =>
+                  handleNotificationToggle(
+                    'smsSecurity',
+                    value,
+                    value ? 'Security SMS alerts enabled.' : 'Security SMS alerts disabled.',
+                  )
+                }
               />
               <PreferenceCard
                 title="Slack workspace notifications"
                 description="Send high-priority project escalations into your linked Slack workspace."
                 enabled={notificationPrefs.slackAlerts}
-                onToggle={(value) => {
-                  setNotificationPrefs((prev) => ({ ...prev, slackAlerts: value }));
-                  announcePreferenceUpdate(value ? 'Slack alerts enabled.' : 'Slack alerts disabled.');
-                }}
+                disabled={notificationSaving}
+                onToggle={(value) =>
+                  handleNotificationToggle(
+                    'slackAlerts',
+                    value,
+                    value ? 'Slack alerts enabled.' : 'Slack alerts disabled.',
+                  )
+                }
               />
             </div>
           </div>
@@ -394,12 +658,16 @@ export default function SettingsPage() {
                 description="Automatically sign out after periods of inactivity to prevent misuse on shared devices."
                 customControl={
                   <select
-                    value={securityPrefs.sessionTimeout}
+                    value={String(securityPrefs.sessionTimeoutMinutes)}
                     onChange={(event) => {
-                      setSecurityPrefs((prev) => ({ ...prev, sessionTimeout: event.target.value }));
-                      announcePreferenceUpdate(`Session timeout set to ${event.target.value} minutes.`);
+                      const nextValue = Number(event.target.value);
+                      handleSecurityPreferenceChange(
+                        { sessionTimeoutMinutes: Number.isFinite(nextValue) ? nextValue : 30 },
+                        `Session timeout set to ${event.target.value} minutes.`,
+                      );
                     }}
                     className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                    disabled={securitySaving}
                   >
                     <option value="15">15 minutes</option>
                     <option value="30">30 minutes</option>
@@ -410,20 +678,26 @@ export default function SettingsPage() {
               <PreferenceCard
                 title="Biometric approvals"
                 description="Require Touch ID, Face ID, or Windows Hello confirmation before processing payouts or exporting data."
-                enabled={securityPrefs.biometrics}
-                onToggle={(value) => {
-                  setSecurityPrefs((prev) => ({ ...prev, biometrics: value }));
-                  announcePreferenceUpdate(value ? 'Biometric approvals enabled.' : 'Biometric approvals disabled.');
-                }}
+                enabled={securityPrefs.biometricApprovalsEnabled}
+                disabled={securitySaving}
+                onToggle={(value) =>
+                  handleSecurityPreferenceChange(
+                    { biometricApprovalsEnabled: value },
+                    value ? 'Biometric approvals enabled.' : 'Biometric approvals disabled.',
+                  )
+                }
               />
               <PreferenceCard
                 title="Trusted device approvals"
                 description="Receive a push notification when unknown browsers attempt to log in."
-                enabled={securityPrefs.deviceApprovals}
-                onToggle={(value) => {
-                  setSecurityPrefs((prev) => ({ ...prev, deviceApprovals: value }));
-                  announcePreferenceUpdate(value ? 'Trusted device alerts enabled.' : 'Trusted device alerts disabled.');
-                }}
+                enabled={securityPrefs.deviceApprovalsEnabled}
+                disabled={securitySaving}
+                onToggle={(value) =>
+                  handleSecurityPreferenceChange(
+                    { deviceApprovalsEnabled: value },
+                    value ? 'Trusted device alerts enabled.' : 'Trusted device alerts disabled.',
+                  )
+                }
               />
             </div>
           </div>
@@ -439,28 +713,42 @@ export default function SettingsPage() {
                 title="Personalised opportunity matches"
                 description="Use your skills, goals, and consented data to pre-rank gigs, projects, and launchpad roles."
                 enabled={aiPrefs.personalisedMatches}
-                onToggle={(value) => {
-                  setAiPrefs((prev) => ({ ...prev, personalisedMatches: value }));
-                  announcePreferenceUpdate(value ? 'Personalised matches enabled.' : 'Personalised matches disabled.');
-                }}
+                disabled={aiSaving}
+                onToggle={(value) =>
+                  handleAiToggle(
+                    'personalisedMatches',
+                    value,
+                    value ? 'Personalised matches enabled.' : 'Personalised matches disabled.',
+                  )
+                }
               />
               <PreferenceCard
                 title="AI meeting summaries"
                 description="Summaries appear after calls you join via Gigvora, helping keep your team aligned."
-                enabled={aiPrefs.aiSummaries}
-                onToggle={(value) => {
-                  setAiPrefs((prev) => ({ ...prev, aiSummaries: value }));
-                  announcePreferenceUpdate(value ? 'AI meeting summaries enabled.' : 'AI meeting summaries disabled.');
-                }}
+                enabled={aiPrefs.meetingSummaries}
+                disabled={aiSaving}
+                onToggle={(value) =>
+                  handleAiToggle(
+                    'meetingSummaries',
+                    value,
+                    value ? 'AI meeting summaries enabled.' : 'AI meeting summaries disabled.',
+                  )
+                }
               />
               <PreferenceCard
                 title="Share anonymised insights"
                 description="Allow Gigvora to contribute anonymised usage signals to improve fairness and quality."
-                enabled={aiPrefs.dataSharing}
-                onToggle={(value) => {
-                  setAiPrefs((prev) => ({ ...prev, dataSharing: value }));
-                  announcePreferenceUpdate(value ? 'Anonymised insights sharing enabled.' : 'Anonymised insights sharing disabled.');
-                }}
+                enabled={aiPrefs.anonymisedInsights}
+                disabled={aiSaving}
+                onToggle={(value) =>
+                  handleAiToggle(
+                    'anonymisedInsights',
+                    value,
+                    value
+                      ? 'Anonymised insights sharing enabled.'
+                      : 'Anonymised insights sharing disabled.',
+                  )
+                }
               />
             </div>
           </div>
@@ -471,28 +759,112 @@ export default function SettingsPage() {
             <p className="text-sm text-slate-600 dark:text-slate-300">
               Export your data or review how long Gigvora retains artefacts linked to your account. Requests generate compliance tickets automatically.
             </p>
-            <div className="space-y-4">
-              <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800/90">
-                <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Request data export</h3>
-                <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                  Download a portable archive that includes posts, messages, invoices, and telemetry trails. We will notify you via email when the archive is ready.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => announcePreferenceUpdate('Data export request submitted. Compliance will respond shortly.', 'info')}
-                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-accent-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                >
-                  <ArrowDownTrayIcon className="h-5 w-5" /> Submit request
-                </button>
+            {exportError ? (
+              <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-500/60 dark:bg-red-500/10 dark:text-red-200">
+                {exportError}
               </div>
-              <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800/90">
-                <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Retention schedule</h3>
-                <ul className="mt-3 space-y-2 text-sm text-slate-600 dark:text-slate-300">
-                  <li><span className="font-semibold text-slate-800 dark:text-slate-100">Invoices & escrow:</span> 7 years (financial regulations)</li>
-                  <li><span className="font-semibold text-slate-800 dark:text-slate-100">Messages & calls:</span> 24 months rolling window</li>
-                  <li><span className="font-semibold text-slate-800 dark:text-slate-100">AI training telemetry:</span> 18 months with anonymisation</li>
-                </ul>
-              </div>
+            ) : null}
+            <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800/90">
+              <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Request data export</h3>
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                Download a portable archive that includes posts, messages, invoices, and telemetry trails. We will notify you via email when the archive is ready.
+              </p>
+              <button
+                type="button"
+                onClick={handleCreateExport}
+                disabled={exportPending}
+                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-accent-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <ArrowDownTrayIcon className="h-5 w-5" /> {exportPending ? 'Submitting…' : 'Submit request'}
+              </button>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800/90">
+              <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Recent export requests</h3>
+              {dataExports.length ? (
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full divide-y divide-slate-200 text-left text-sm dark:divide-slate-700">
+                    <thead className="bg-slate-50 dark:bg-slate-800/60">
+                      <tr>
+                        <th scope="col" className="px-4 py-3 font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Status</th>
+                        <th scope="col" className="px-4 py-3 font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Format</th>
+                        <th scope="col" className="px-4 py-3 font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Requested</th>
+                        <th scope="col" className="px-4 py-3 font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Completed</th>
+                        <th scope="col" className="px-4 py-3 font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Download</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                      {dataExports.map((request) => {
+                        const statusLabel = request.status
+                          ? `${request.status.charAt(0).toUpperCase()}${request.status.slice(1).replace(/_/g, ' ')}`
+                          : 'Pending';
+                        const statusTone = request.status;
+                        let badgeClass = 'bg-slate-100 text-slate-600 dark:bg-slate-700/60 dark:text-slate-300';
+                        if (statusTone === 'ready') {
+                          badgeClass = 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200';
+                        } else if (statusTone === 'failed') {
+                          badgeClass = 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-200';
+                        } else if (statusTone === 'processing' || statusTone === 'queued') {
+                          badgeClass = 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200';
+                        }
+
+                        return (
+                          <tr key={`${request.id}-${request.requestedAt}`}>
+                            <td className="whitespace-nowrap px-4 py-3">
+                              <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${badgeClass}`}>
+                                {statusLabel}
+                              </span>
+                            </td>
+                            <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
+                              {(request.format ?? 'zip').toUpperCase()}
+                            </td>
+                            <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
+                              {request.requestedAt ? formatDateTime(request.requestedAt) : '—'}
+                            </td>
+                            <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
+                              {request.completedAt ? formatDateTime(request.completedAt) : 'Pending'}
+                              {request.expiresAt ? (
+                                <span className="block text-xs text-slate-400 dark:text-slate-500">
+                                  Expires {formatDateTime(request.expiresAt)}
+                                </span>
+                              ) : null}
+                            </td>
+                            <td className="whitespace-nowrap px-4 py-3 text-sm font-medium">
+                              {request.downloadUrl ? (
+                                <a
+                                  href={request.downloadUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-accent transition hover:text-accent-dark"
+                                >
+                                  Download
+                                </a>
+                              ) : (
+                                <span className="text-slate-400 dark:text-slate-500">Not ready</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-slate-500 dark:text-slate-300">You have not requested any exports yet.</p>
+              )}
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800/90">
+              <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Retention schedule</h3>
+              <ul className="mt-3 space-y-2 text-sm text-slate-600 dark:text-slate-300">
+                <li>
+                  <span className="font-semibold text-slate-800 dark:text-slate-100">Invoices & escrow:</span> 7 years (financial regulations)
+                </li>
+                <li>
+                  <span className="font-semibold text-slate-800 dark:text-slate-100">Messages & calls:</span> 24 months rolling window
+                </li>
+                <li>
+                  <span className="font-semibold text-slate-800 dark:text-slate-100">AI training telemetry:</span> 18 months with anonymisation
+                </li>
+              </ul>
             </div>
           </div>
         );

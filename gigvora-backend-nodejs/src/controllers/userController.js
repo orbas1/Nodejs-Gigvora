@@ -7,6 +7,14 @@ import catalogInsightsService from '../services/catalogInsightsService.js';
 import gigBuilderService from '../services/gigBuilderService.js';
 import gigManagerService from '../services/gigManagerService.js';
 import { getUserOpenAiSettings, updateUserOpenAiSettings } from '../services/aiAutoReplyService.js';
+import {
+  getUserSecurityPreferences as fetchUserSecurityPreferences,
+  upsertUserSecurityPreferences,
+} from '../services/securityPreferenceService.js';
+import {
+  listUserDataExports as fetchUserDataExports,
+  createDataExportRequest as queueDataExportRequest,
+} from '../services/dataExportService.js';
 import affiliateDashboardService from '../services/affiliateDashboardService.js';
 import userDashboardOverviewService from '../services/userDashboardOverviewService.js';
 import profileHubService from '../services/profileHubService.js';
@@ -219,6 +227,27 @@ export async function getUserAiSettings(req, res) {
 export async function updateUserAiSettings(req, res) {
   const settings = await updateUserOpenAiSettings(req.params.id, req.body ?? {});
   res.json(settings);
+}
+
+export async function getUserSecurityPreferences(req, res) {
+  const preferences = await fetchUserSecurityPreferences(req.params.id);
+  res.json(preferences);
+}
+
+export async function updateUserSecurityPreferences(req, res) {
+  const actorId = resolveRequestUserId(req);
+  const preferences = await upsertUserSecurityPreferences(req.params.id, req.body ?? {}, { actorId });
+  res.json(preferences);
+}
+
+export async function listUserDataExports(req, res) {
+  const exports = await fetchUserDataExports(req.params.id, req.query ?? {});
+  res.json({ items: exports });
+}
+
+export async function createUserDataExportRequest(req, res) {
+  const request = await queueDataExportRequest(req.params.id, req.body ?? {});
+  res.status(202).json(request);
 }
 
 export async function getWebsitePreferences(req, res) {
