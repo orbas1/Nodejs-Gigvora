@@ -9,7 +9,6 @@ import { MENU_GROUPS, AVAILABLE_DASHBOARDS } from './freelancer/menuConfig.js';
 import { FREELANCER_PIPELINE_STAGES } from '../../constants/freelancerPipelineStages.js';
 import { resolveFreelancerIdFromSession } from '../../utils/dashboard/freelancer.js';
 import { fetchFreelancerPipelineDashboard } from '../../services/pipeline.js';
-import { buildFreelancerPipelineSample } from './freelancer/pipelineSample.js';
 import { formatRelativeTime } from '../../utils/date.js';
 import { trackDashboardEvent } from '../../utils/analytics.js';
 
@@ -437,18 +436,7 @@ export default function FreelancerPipelinePage() {
       if (!freelancerId) {
         return null;
       }
-      try {
-        const response = await fetchFreelancerPipelineDashboard(freelancerId, { signal });
-        if (response && (Array.isArray(response.deals) ? response.deals.length > 0 : true)) {
-          return response;
-        }
-        const sample = buildFreelancerPipelineSample();
-        return { ...sample, __fallback: true };
-      } catch (error) {
-        console.warn('Unable to load freelancer pipeline dashboard, falling back to sample data.', error);
-        const sample = buildFreelancerPipelineSample();
-        return { ...sample, __fallback: true };
-      }
+      return fetchFreelancerPipelineDashboard(freelancerId, { signal });
     },
     [freelancerId],
   );
@@ -470,7 +458,59 @@ export default function FreelancerPipelinePage() {
     return normalisePipelineDashboard(pipelineResource.data);
   }, [pipelineResource.data]);
 
-  const effectivePipeline = pipeline ?? normalisePipelineDashboard({ ...buildFreelancerPipelineSample(), __fallback: true });
+  const currency = pipeline?.currency ?? 'USD';
+
+  const stageSummaries = useMemo(() => {
+    const base = FREELANCER_PIPELINE_STAGES.reduce((acc, stage) => {
+      acc[stage.id] = {
+        count: 0,
+        pipelineValue: 0,
+        weightedValue: 0,
+        aiCue: stage.coaching,
+        nextFollowUp: null,
+        reminders: [],
+        notes: [],
+      };
+      return acc;
+    }, {});
+
+    if (pipeline?.stageSummaries) {
+      Object.entries(pipeline.stageSummaries).forEach(([stageId, summary]) => {
+        base[stageId] = {
+          ...base[stageId],
+          ...summary,
+        };
+      });
+    }
+
+    return base;
+  }, [pipeline?.stageSummaries]);
+
+  const summary = useMemo(
+    () => ({
+      pipelineValue: pipeline?.summary?.pipelineValue ?? 0,
+      weightedPipelineValue: pipeline?.summary?.weightedPipelineValue ?? 0,
+      openDeals: pipeline?.summary?.openDeals ?? 0,
+      followUpsDue: pipeline?.summary?.followUpsDue ?? 0,
+      interviewsScheduled: pipeline?.summary?.interviewsScheduled ?? 0,
+      offers: pipeline?.summary?.offers ?? 0,
+      wonThisQuarter: pipeline?.summary?.wonThisQuarter ?? 0,
+    }),
+    [pipeline?.summary],
+  );
+
+  const analytics = useMemo(
+    () => ({
+      winRate: pipeline?.analytics?.winRate ?? null,
+      velocityDays: pipeline?.analytics?.velocityDays ?? null,
+      conversionTrend: pipeline?.analytics?.conversionTrend ?? null,
+      activeCampaigns: pipeline?.analytics?.activeCampaigns ?? null,
+    }),
+    [pipeline?.analytics],
+  );
+
+  const followUps = pipeline?.followUps ?? [];
+  const dealStageIndex = pipeline?.dealStageIndex ?? {};
 
   useEffect(() => {
     if (!pipeline || !freelancerId) {
@@ -487,84 +527,89 @@ export default function FreelancerPipelinePage() {
     });
   }, [freelancerId, pipeline]);
 
-  const totalPipelineCount = FREELANCER_PIPELINE_STAGES.reduce(
-    (sum, stage) => sum + (effectivePipeline.stageSummaries[stage.id]?.count ?? 0),
-    0,
+  const totalPipelineCount = useMemo(
+    () =>
+      FREELANCER_PIPELINE_STAGES.reduce(
+        (sum, stage) => sum + (stageSummaries[stage.id]?.count ?? 0),
+        0,
+      ),
+    [stageSummaries],
   );
 
-  const stageCards = FREELANCER_PIPELINE_STAGES.map((stage) => {
-    const summary = effectivePipeline.stageSummaries[stage.id] ?? {
-      count: 0,
-      pipelineValue: 0,
-      aiCue: stage.coaching,
-      nextFollowUp: null,
-      notes: [],
-    };
-    return {
-      stage,
-      summary: {
-        ...summary,
-        progress: totalPipelineCount ? summary.count / totalPipelineCount : 0,
-      },
-    };
-  });
+  const stageCards = useMemo(
+    () =>
+      FREELANCER_PIPELINE_STAGES.map((stage) => {
+        const summaryForStage = stageSummaries[stage.id] ?? {
+          count: 0,
+          pipelineValue: 0,
+          weightedValue: 0,
+          aiCue: stage.coaching,
+          nextFollowUp: null,
+          notes: [],
+        };
 
-  const summaryCards = [
-    {
-      id: 'pipeline-value',
-      label: 'Pipeline value',
-      value: formatCurrency(effectivePipeline.summary.pipelineValue, effectivePipeline.currency),
-      helper: `${formatNumber(effectivePipeline.summary.openDeals)} active deals`,
-    },
-    {
-      id: 'weighted',
-      label: 'Weighted pipeline',
-      value: formatCurrency(
-        effectivePipeline.summary.weightedPipelineValue,
-        effectivePipeline.currency,
-      ),
-      helper: 'Weighted by win probability',
-    },
-    {
-      id: 'win-rate',
-      label: 'Win rate',
-      value: formatPercent(effectivePipeline.analytics.winRate),
-      helper: 'Won vs lost opportunities',
-    },
-    {
-      id: 'velocity',
-      label: 'Avg days to close',
-      value:
-        effectivePipeline.analytics.velocityDays != null
-          ? `${effectivePipeline.analytics.velocityDays} days`
-          : '—',
-      helper: 'Based on expected close dates',
-    },
-    {
-      id: 'follow-ups',
-      label: 'Follow-ups due (48h)',
-      value: formatNumber(effectivePipeline.summary.followUpsDue ?? 0),
-      helper: 'Stay ahead of responses',
-    },
-    {
-      id: 'interviews',
-      label: 'Interviews scheduled',
-      value: formatNumber(effectivePipeline.summary.interviewsScheduled ?? 0),
-      helper: 'Coordinate with your talent partner',
-    },
-  ];
+        return {
+          stage,
+          summary: {
+            ...summaryForStage,
+            aiCue: summaryForStage.aiCue ?? stage.coaching,
+            progress: totalPipelineCount ? summaryForStage.count / totalPipelineCount : 0,
+          },
+        };
+      }),
+    [stageSummaries, totalPipelineCount],
+  );
+
+  const summaryCards = useMemo(
+    () => [
+      {
+        id: 'pipeline-value',
+        label: 'Pipeline value',
+        value: formatCurrency(summary.pipelineValue, currency),
+        helper: `${formatNumber(summary.openDeals)} active deals`,
+      },
+      {
+        id: 'weighted',
+        label: 'Weighted pipeline',
+        value: formatCurrency(summary.weightedPipelineValue, currency),
+        helper: 'Weighted by win probability',
+      },
+      {
+        id: 'win-rate',
+        label: 'Win rate',
+        value: formatPercent(analytics.winRate),
+        helper: 'Won vs lost opportunities',
+      },
+      {
+        id: 'velocity',
+        label: 'Avg days to close',
+        value: analytics.velocityDays != null ? `${analytics.velocityDays} days` : '—',
+        helper: 'Based on expected close dates',
+      },
+      {
+        id: 'follow-ups',
+        label: 'Follow-ups due (48h)',
+        value: formatNumber(summary.followUpsDue ?? 0),
+        helper: 'Stay ahead of responses',
+      },
+      {
+        id: 'interviews',
+        label: 'Interviews scheduled',
+        value: formatNumber(summary.interviewsScheduled ?? 0),
+        helper: 'Coordinate with your talent partner',
+      },
+    ],
+    [analytics.velocityDays, analytics.winRate, currency, summary],
+  );
 
   const reminderItems = useMemo(() => {
-    if (!effectivePipeline.followUps?.length) {
+    if (!followUps.length) {
       return [];
     }
-    return [...effectivePipeline.followUps]
+    return [...followUps]
       .map((reminder) => ({
         ...reminder,
-        stageId:
-          reminder.stageId ??
-          effectivePipeline.dealStageIndex?.[`${reminder.dealId ?? ''}`] ??
-          null,
+        stageId: reminder.stageId ?? dealStageIndex[`${reminder.dealId ?? ''}`] ?? null,
       }))
       .sort((a, b) => {
         const aDate = a.dueAt ? new Date(a.dueAt).getTime() : Number.POSITIVE_INFINITY;
@@ -572,16 +617,16 @@ export default function FreelancerPipelinePage() {
         return aDate - bDate;
       })
       .slice(0, 6);
-  }, [effectivePipeline.followUps, effectivePipeline.dealStageIndex]);
+  }, [followUps, dealStageIndex]);
 
   const noteItems = useMemo(() => {
     const notes = [];
     FREELANCER_PIPELINE_STAGES.forEach((stage) => {
-      const summary = effectivePipeline.stageSummaries[stage.id];
-      if (!summary?.notes?.length) {
+      const summaryForStage = stageSummaries[stage.id];
+      if (!summaryForStage?.notes?.length) {
         return;
       }
-      summary.notes.forEach((note) => {
+      summaryForStage.notes.forEach((note) => {
         notes.push({
           id: `${stage.id}-${note.id}`,
           stage,
@@ -590,7 +635,9 @@ export default function FreelancerPipelinePage() {
       });
     });
     return notes.slice(0, 6);
-  }, [effectivePipeline.stageSummaries]);
+  }, [stageSummaries]);
+
+  const showEmptyCallout = !pipeline && !pipelineResource.loading && !pipelineResource.error;
 
   const handleStageCta = useCallback(
     (stage) => {
@@ -631,11 +678,11 @@ export default function FreelancerPipelinePage() {
             lastUpdated={pipelineResource.lastUpdated}
             onRefresh={() => pipelineResource.refresh({ force: true })}
             error={pipelineResource.error}
-            statusLabel={effectivePipeline.fallback ? 'Sample data' : 'Live data'}
+            statusLabel="Live pipeline"
           >
-            {effectivePipeline.fallback ? (
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                Working from sample pipeline data while we connect to your live mission control. Refresh once your freelancer account is linked to applications.
+            {showEmptyCallout ? (
+              <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+                Live mission control will light up as soon as opportunities sync in. Connect your applications or share pipeline deals from your talent partner to populate this view.
               </div>
             ) : null}
 
@@ -667,7 +714,7 @@ export default function FreelancerPipelinePage() {
                     key={stage.id}
                     stage={stage}
                     summary={summary}
-                    currency={effectivePipeline.currency}
+                    currency={currency}
                     onTrack={handleStageCta}
                   />
                 ))}
@@ -687,7 +734,7 @@ export default function FreelancerPipelinePage() {
                         key={reminder.id}
                         reminder={reminder}
                         stage={FREELANCER_PIPELINE_STAGES.find((stage) => stage.id === reminder.stageId)}
-                        currency={effectivePipeline.currency}
+                        currency={currency}
                       />
                     ))}
                   </ul>
@@ -709,7 +756,7 @@ export default function FreelancerPipelinePage() {
                         <div className="flex items-center justify-between text-xs text-slate-500">
                           <span className="font-semibold text-slate-600">{item.stage.label}</span>
                           <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-500">
-                            {formatCurrency(effectivePipeline.stageSummaries[item.stage.id]?.pipelineValue ?? 0, effectivePipeline.currency)}
+                            {formatCurrency(stageSummaries[item.stage.id]?.pipelineValue ?? 0, currency)}
                           </span>
                         </div>
                         <p className="mt-2 font-semibold text-slate-900">{item.note.company}</p>
