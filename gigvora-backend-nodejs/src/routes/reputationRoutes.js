@@ -22,6 +22,18 @@ const freelancerReviewParamsSchema = freelancerParamsSchema
   })
   .strip();
 
+const widgetParamsSchema = freelancerParamsSchema
+  .extend({
+    slug: z.string().min(1, { message: 'slug must be provided.' }),
+  })
+  .strip();
+
+const widgetEmbedQuerySchema = z
+  .object({
+    preview: z.string().optional(),
+  })
+  .strip();
+
 router.get(
   '/freelancers/:freelancerId',
   validateRequest({ params: freelancerParamsSchema }),
@@ -61,6 +73,12 @@ router.post(
   requireReputationActor,
   validateRequest({ params: freelancerParamsSchema }),
   asyncHandler(reputationController.postReviewWidget),
+);
+
+router.get(
+  '/freelancers/:freelancerId/widgets/:slug/embed',
+  validateRequest({ params: widgetParamsSchema, query: widgetEmbedQuerySchema }),
+  asyncHandler(reputationController.getReviewWidgetEmbed),
 );
 
 router.get(

@@ -5,6 +5,7 @@ import {
   upsertMetric,
   createBadge,
   createReviewWidget,
+  generateReviewWidgetEmbed,
 } from '../services/reputationService.js';
 import {
   listFreelancerReviews,
@@ -221,6 +222,21 @@ export async function postReviewWidget(req, res) {
   respondWithAccess(res, { widget: result }, context, { status: 201 });
 }
 
+export async function getReviewWidgetEmbed(req, res) {
+  const freelancerId = parsePositiveInteger(req.params?.freelancerId, 'freelancerId');
+  const slug = `${req.params?.slug ?? ''}`.trim();
+  if (!slug) {
+    throw new ValidationError('slug is required.');
+  }
+
+  const preview = parseBoolean(req.query?.preview, false);
+  const { html } = await generateReviewWidgetEmbed(freelancerId, slug, { preview });
+
+  res.set('Content-Type', 'text/html; charset=utf-8');
+  res.set('Cache-Control', preview ? 'no-store' : 'public, max-age=300');
+  res.status(200).send(html);
+}
+
 export async function getFreelancerReviews(req, res) {
   const context = ensureReputationAccess(req, { manage: false });
   const freelancerId = parsePositiveInteger(req.params?.freelancerId, 'freelancerId');
@@ -270,6 +286,7 @@ export default {
   postMetric,
   postBadge,
   postReviewWidget,
+  getReviewWidgetEmbed,
   getFreelancerReviews,
   postFreelancerReview,
   putFreelancerReview,
