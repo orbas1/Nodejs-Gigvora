@@ -27,6 +27,45 @@ export default function ProjectsPage() {
   const listing = data ?? {};
   const items = useMemo(() => (Array.isArray(listing.items) ? listing.items : []), [listing.items]);
 
+  const derivedStats = useMemo(() => {
+    if (!items.length) {
+      return {
+        total: 0,
+        autoAssignEnabled: 0,
+        totalQueueEntries: 0,
+        averageQueueSize: 0,
+        newcomerGuarantees: 0,
+        latestQueueGeneratedAt: null,
+      };
+    }
+
+    const autoAssignProjects = items.filter((project) => project?.autoAssignEnabled);
+    const totalQueueEntries = autoAssignProjects.reduce(
+      (sum, project) => sum + Number(project?.autoAssignLastQueueSize ?? 0),
+      0,
+    );
+    const fairnessGuarantees = autoAssignProjects.filter(
+      (project) => project?.autoAssignSettings?.fairness?.ensureNewcomer !== false,
+    ).length;
+    const latestQueueGeneratedAt = autoAssignProjects
+      .map((project) => (project?.autoAssignLastRunAt ? new Date(project.autoAssignLastRunAt).getTime() : null))
+      .filter((timestamp) => Number.isFinite(timestamp))
+      .sort((a, b) => b - a)[0];
+
+    return {
+      total: items.length,
+      autoAssignEnabled: autoAssignProjects.length,
+      totalQueueEntries,
+      averageQueueSize: autoAssignProjects.length
+        ? Math.round(totalQueueEntries / autoAssignProjects.length)
+        : 0,
+      newcomerGuarantees: fairnessGuarantees,
+      latestQueueGeneratedAt: Number.isFinite(latestQueueGeneratedAt)
+        ? new Date(latestQueueGeneratedAt)
+        : null,
+    };
+  }, [items]);
+
   const handleJoin = (project) => {
     analytics.track(
       'web_project_join_cta',
@@ -74,10 +113,38 @@ export default function ProjectsPage() {
             </div>
           </div>
           <div className="flex flex-col items-start justify-between rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-inner">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Matching velocity</p>
-              <p className="mt-2 text-3xl font-bold text-slate-900">02:17:00</p>
-              <p className="mt-1 text-sm text-slate-500">Average time to confirm the top auto-assigned freelancer.</p>
+            <div className="space-y-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Active auto-match projects</p>
+                <p className="mt-2 text-3xl font-bold text-slate-900">{derivedStats.autoAssignEnabled}</p>
+                <p className="mt-1 text-sm text-slate-500">
+                  {derivedStats.total
+                    ? `Out of ${derivedStats.total} live projects, ${derivedStats.autoAssignEnabled} currently rotate invitations automatically.`
+                    : 'Enable auto-match to begin rotating curated freelancers into your workspace.'}
+                </p>
+              </div>
+              <dl className="grid gap-3 rounded-3xl border border-slate-200 bg-white/80 p-4 text-xs text-slate-500">
+                <div className="flex items-center justify-between">
+                  <dt>Queue entries live</dt>
+                  <dd className="font-semibold text-slate-800">{derivedStats.totalQueueEntries}</dd>
+                </div>
+                <div className="flex items-center justify-between">
+                  <dt>Average queue size</dt>
+                  <dd className="font-semibold text-slate-800">{derivedStats.averageQueueSize}</dd>
+                </div>
+                <div className="flex items-center justify-between">
+                  <dt>Newcomer guarantees</dt>
+                  <dd className="font-semibold text-slate-800">{derivedStats.newcomerGuarantees}</dd>
+                </div>
+                <div className="flex items-center justify-between">
+                  <dt>Latest regeneration</dt>
+                  <dd className="font-semibold text-slate-800">
+                    {derivedStats.latestQueueGeneratedAt
+                      ? formatRelativeTime(derivedStats.latestQueueGeneratedAt)
+                      : 'Awaiting first run'}
+                  </dd>
+                </div>
+              </dl>
             </div>
             {canManageProjects ? (
               <Link
@@ -151,6 +218,15 @@ export default function ProjectsPage() {
               </div>
               <h2 className="mt-3 text-xl font-semibold text-slate-900">{project.title}</h2>
               <p className="mt-2 text-sm text-slate-600">{project.description}</p>
+              {Array.isArray(project.taxonomyLabels) && project.taxonomyLabels.length ? (
+                <ul className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+                  {project.taxonomyLabels.slice(0, 4).map((label) => (
+                    <li key={label} className="rounded-full border border-slate-200 bg-white/80 px-3 py-1">
+                      {label}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
               <div className="mt-5 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500">
                 <div className="flex flex-1 flex-wrap items-center gap-2">
                   <div className="flex -space-x-3">
@@ -174,6 +250,11 @@ export default function ProjectsPage() {
                     {project.autoAssignEnabled ? (
                       <span className="rounded-full border border-slate-200 bg-surfaceMuted/70 px-3 py-1 text-slate-600">
                         Queue size {project.autoAssignLastQueueSize ?? 0}
+                      </span>
+                    ) : null}
+                    {project.autoAssignEnabled && project.autoAssignSettings?.limit ? (
+                      <span className="rounded-full border border-slate-200 bg-surfaceMuted/70 px-3 py-1 text-slate-600">
+                        Limit {project.autoAssignSettings.limit}
                       </span>
                     ) : null}
                   </div>
@@ -231,6 +312,11 @@ export default function ProjectsPage() {
                         ? 'Newcomers always secure the first slot.'
                         : 'Rotation only with weighted scoring.'}
                     </p>
+                    {project.autoAssignSettings?.fairness?.maxAssignments != null ? (
+                      <p className="mt-2 text-xs text-slate-500">
+                        {`Max ${project.autoAssignSettings.fairness.maxAssignments} assignments before rebalancing.`}
+                      </p>
+                    ) : null}
                   </div>
                 ) : null}
               </div>

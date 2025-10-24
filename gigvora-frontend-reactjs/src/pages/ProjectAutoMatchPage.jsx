@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { ArrowPathIcon, ClipboardDocumentIcon, UserCircleIcon } from '@heroicons/react/24/outline';
 import PageHeader from '../components/PageHeader.jsx';
 import DataStatus from '../components/DataStatus.jsx';
 import UserAvatar from '../components/UserAvatar.jsx';
@@ -10,6 +11,7 @@ import { enqueueProjectAssignments, fetchProjectQueue } from '../services/autoAs
 import projectsService from '../services/projects.js';
 import analytics from '../services/analytics.js';
 import { formatRelativeTime } from '../utils/date.js';
+import { formatCurrency } from '../utils/currency.js';
 
 const ALLOWED_MEMBERSHIPS = ['company', 'agency', 'admin'];
 const WEIGHT_PRESET = {
@@ -19,6 +21,14 @@ const WEIGHT_PRESET = {
   completionQuality: 20,
   earningsBalance: 12,
   inclusion: 10,
+};
+
+const EVENT_LABELS = {
+  created: 'Project created',
+  auto_assign_enabled: 'Auto-match enabled',
+  auto_assign_disabled: 'Auto-match disabled',
+  auto_assign_queue_generated: 'Queue regenerated',
+  auto_assign_queue_exhausted: 'Queue exhausted',
 };
 
 const STATUS_PRESETS = {
@@ -56,19 +66,77 @@ function ensureObject(value) {
 }
 
 function normalizeWeights(weights) {
-  const total = Object.values(weights).reduce((sum, value) => sum + Number(value || 0), 0) || 1;
+  const merged = { ...WEIGHT_PRESET, ...(weights || {}) };
+  const total = Object.values(merged).reduce((sum, value) => sum + Number(value || 0), 0) || 1;
   return Object.fromEntries(
-    Object.entries(weights).map(([key, value]) => [key, Math.max(0, Number(value || 0)) / total]),
+    Object.entries(merged).map(([key, value]) => [key, Math.max(0, Number(value || 0)) / total]),
   );
 }
 
-function formatCurrency(value, currency = 'USD') {
-  if (value == null) return '—';
-  try {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value);
-  } catch (error) {
-    return `${value} ${currency}`;
+function denormalizeWeights(weightConfig) {
+  if (!weightConfig || typeof weightConfig !== 'object') {
+    return null;
   }
+  const mapped = Object.entries(weightConfig).reduce((acc, [key, value]) => {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric) && numeric >= 0) {
+      acc[key] = numeric <= 1 ? Math.round(numeric * 100) : Math.round(numeric);
+    }
+    return acc;
+  }, {});
+  return Object.keys(mapped).length ? mapped : null;
+}
+
+function formatEventType(eventType) {
+  if (!eventType) {
+    return 'Project event';
+  }
+  if (EVENT_LABELS[eventType]) {
+    return EVENT_LABELS[eventType];
+  }
+  return eventType
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function describeEventDetails(event) {
+  const payload = ensureObject(event?.payload);
+  switch (event?.eventType) {
+    case 'created': {
+      const budget =
+        payload.budgetAmount != null
+          ? formatCurrency(payload.budgetAmount, payload.budgetCurrency ?? 'USD')
+          : null;
+      return [payload.status ? `Status ${payload.status}` : null, budget]
+        .filter(Boolean)
+        .join(' • ');
+    }
+    case 'auto_assign_enabled':
+    case 'auto_assign_queue_generated':
+    case 'auto_assign_queue_exhausted':
+    case 'auto_assign_disabled': {
+      const limit = payload.limit ?? payload.settings?.limit;
+      const expires = payload.expiresInMinutes ?? payload.settings?.expiresInMinutes;
+      const newcomerToggle = ensureObject(payload.fairness).ensureNewcomer === false ? 'Newcomer opt-out' : null;
+      const pieces = [
+        limit != null ? `Limit ${limit}` : null,
+        expires != null ? `Expires ${expires}m` : null,
+        newcomerToggle,
+      ].filter(Boolean);
+      return pieces.join(' • ');
+    }
+    default:
+      return null;
+  }
+}
+
+function toValidDate(value) {
+  if (!value) {
+    return null;
+  }
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 export default function ProjectAutoMatchPage() {
@@ -89,11 +157,14 @@ export default function ProjectAutoMatchPage() {
   const [weights, setWeights] = useState(WEIGHT_PRESET);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const [copiedEntryId, setCopiedEntryId] = useState(null);
+  const copyTimeoutRef = useRef(null);
 
   const normalizedWeights = useMemo(() => normalizeWeights(weights), [weights]);
 
   const projectKey = useMemo(() => `project:auto-match:${projectId}`, [projectId]);
   const queueKey = useMemo(() => `project:auto-match:${projectId}:queue`, [projectId]);
+  const eventsKey = useMemo(() => `project:auto-match:${projectId}:events`, [projectId]);
 
   const {
     data: projectData,
@@ -119,6 +190,21 @@ export default function ProjectAutoMatchPage() {
     { ttl: 1000 * 30, dependencies: [projectId], enabled: canView },
   );
 
+  const {
+    data: eventsData,
+    error: eventsError,
+    loading: eventsLoading,
+    lastUpdated: eventsUpdatedAt,
+    refresh: refreshEvents,
+  } = useCachedResource(
+    eventsKey,
+    ({ signal }) =>
+      projectsService
+        .fetchProjectEvents(projectId, { signal, limit: 40 })
+        .then((response) => response?.events ?? []),
+    { ttl: 1000 * 60, dependencies: [projectId], enabled: canView },
+  );
+
   const project = projectData ?? null;
   const queueEntries = Array.isArray(queueData) ? queueData : [];
   const sortedQueueEntries = useMemo(() => {
@@ -126,6 +212,18 @@ export default function ProjectAutoMatchPage() {
       .slice()
       .sort((a, b) => (a?.position ?? Number.POSITIVE_INFINITY) - (b?.position ?? Number.POSITIVE_INFINITY));
   }, [queueEntries]);
+  const events = useMemo(() => {
+    if (!Array.isArray(eventsData)) {
+      return [];
+    }
+    return eventsData
+      .slice()
+      .sort((a, b) => {
+        const aTime = toValidDate(a?.createdAt)?.getTime() ?? 0;
+        const bTime = toValidDate(b?.createdAt)?.getTime() ?? 0;
+        return bTime - aTime;
+      });
+  }, [eventsData]);
 
   const statusSummary = useMemo(() => {
     return queueEntries.reduce(
@@ -137,6 +235,98 @@ export default function ProjectAutoMatchPage() {
       {},
     );
   }, [queueEntries]);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!project) {
+      return;
+    }
+    const settings = ensureObject(project.autoAssignSettings);
+    const fairness = ensureObject(settings.fairness);
+    const resolvedProjectValueRaw =
+      settings.projectValue ?? project.autoAssignSettings?.projectValue ?? project.budgetAmount ?? null;
+    const numericProjectValue = Number(resolvedProjectValueRaw);
+
+    setFormState((prev) => {
+      const next = {
+        ...prev,
+        limit: settings.limit ?? prev.limit,
+        expiresInMinutes: settings.expiresInMinutes ?? prev.expiresInMinutes,
+        fairnessMaxAssignments:
+          fairness.maxAssignments != null ? fairness.maxAssignments : prev.fairnessMaxAssignments,
+        ensureNewcomer: fairness.ensureNewcomer !== false,
+      };
+      if ((!prev.projectValue || prev.projectValue === '') && Number.isFinite(numericProjectValue)) {
+        next.projectValue = String(Math.max(0, Math.round(numericProjectValue)));
+      }
+      return next;
+    });
+
+    const sliderWeights = denormalizeWeights(settings.weights);
+    if (sliderWeights) {
+      setWeights((prev) => ({ ...prev, ...sliderWeights }));
+    }
+  }, [project]);
+
+  const queueMetadata = useMemo(() => {
+    if (!sortedQueueEntries.length) {
+      return { generatedAt: null, expiresAt: null, generatedBy: null };
+    }
+    const generatedAtRaw = sortedQueueEntries
+      .map((entry) => entry?.metadata?.generatedAt)
+      .find((value) => value);
+    const expiresAtRaw = sortedQueueEntries.map((entry) => entry?.expiresAt).find((value) => value);
+    const generatedBy = sortedQueueEntries
+      .map((entry) => entry?.metadata?.generatedBy)
+      .find((value) => value != null);
+    return {
+      generatedAt: toValidDate(generatedAtRaw),
+      expiresAt: toValidDate(expiresAtRaw),
+      generatedBy: generatedBy ?? null,
+    };
+  }, [sortedQueueEntries]);
+
+  const fairnessSummary = useMemo(() => {
+    if (!sortedQueueEntries.length) {
+      return { ensured: 0, newcomers: 0, returning: 0, averageScore: 0, averageScoreLabel: '0.00' };
+    }
+    let ensured = 0;
+    let newcomers = 0;
+    let returning = 0;
+    let scoreTotal = 0;
+    sortedQueueEntries.forEach((entry) => {
+      const fairness = ensureObject(entry?.metadata?.fairness);
+      if (fairness.ensuredNewcomer) {
+        ensured += 1;
+      }
+      const assignmentCount = Number(entry?.breakdown?.totalAssigned ?? 0);
+      if (!Number.isFinite(assignmentCount) || assignmentCount <= 0) {
+        newcomers += 1;
+      } else {
+        returning += 1;
+      }
+      const scoreValue = Number(entry?.score ?? 0);
+      if (Number.isFinite(scoreValue)) {
+        scoreTotal += scoreValue;
+      }
+    });
+    const averageScoreRaw = sortedQueueEntries.length ? scoreTotal / sortedQueueEntries.length : 0;
+    const roundedAverage = Number(averageScoreRaw.toFixed(2));
+    return {
+      ensured,
+      newcomers,
+      returning,
+      averageScore: roundedAverage,
+      averageScoreLabel: averageScoreRaw.toFixed(2),
+    };
+  }, [sortedQueueEntries]);
 
   const handleWeightChange = (key) => (event) => {
     const value = Number(event.target.value);
@@ -189,12 +379,84 @@ export default function ProjectAutoMatchPage() {
     [canView, formState, normalizedWeights, projectId, refreshProject, refreshQueue],
   );
 
+  const handleCopyEmail = useCallback(
+    async (entry, entryKey) => {
+      const email = entry?.freelancer?.email?.trim();
+      if (!email) {
+        setFeedback({
+          type: 'error',
+          message: 'Freelancer contact information is unavailable for copying.',
+        });
+        return;
+      }
+
+      let copied = false;
+      if (typeof navigator !== 'undefined' && navigator?.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(email);
+          copied = true;
+        } catch (error) {
+          copied = false;
+        }
+      }
+
+      if (!copied && typeof document !== 'undefined') {
+        try {
+          const textarea = document.createElement('textarea');
+          textarea.value = email;
+          textarea.setAttribute('readonly', '');
+          textarea.style.position = 'absolute';
+          textarea.style.left = '-9999px';
+          document.body.appendChild(textarea);
+          textarea.select();
+          copied = document.execCommand('copy');
+          document.body.removeChild(textarea);
+        } catch (error) {
+          copied = false;
+        }
+      }
+
+      if (!copied) {
+        setFeedback({
+          type: 'error',
+          message: 'We could not copy the email address. Try copying it from the profile instead.',
+        });
+        return;
+      }
+
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+      setCopiedEntryId(entryKey);
+      copyTimeoutRef.current = setTimeout(() => {
+        setCopiedEntryId(null);
+      }, 3000);
+    },
+    [],
+  );
+
   const renderQueue = () => {
+    if (queueLoading && !queueEntries.length) {
+      return (
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="animate-pulse rounded-3xl border border-slate-200 bg-white p-6">
+              <div className="h-3 w-20 rounded bg-slate-200" />
+              <div className="mt-4 h-4 w-1/2 rounded bg-slate-200" />
+              <div className="mt-3 h-3 w-full rounded bg-slate-200" />
+            </div>
+          ))}
+        </div>
+      );
+    }
+
     if (!queueEntries.length) {
       return (
         <div className="rounded-3xl border border-dashed border-slate-300 bg-white/80 p-10 text-center text-sm text-slate-500">
           {queueLoading
             ? 'Rebalancing your queue…'
+            : events.length
+            ? 'No live invitations. The last regeneration exhausted the queue.'
             : 'No matches yet. Generate the queue to invite high-fit freelancers into rotation.'}
         </div>
       );
@@ -203,16 +465,22 @@ export default function ProjectAutoMatchPage() {
     return (
       <div className="space-y-4">
         {sortedQueueEntries.map((entry, index) => {
+          const entryKey = entry.id ?? `${entry.freelancerId}-${index}`;
           const statusKey = typeof entry?.status === 'string' ? entry.status.toLowerCase() : 'default';
           const statusPreset = STATUS_PRESETS[statusKey] ?? STATUS_PRESETS.default;
           const breakdown = ensureObject(entry?.breakdown);
           const metadata = ensureObject(entry?.metadata);
           const fairness = ensureObject(metadata.fairness);
           const projectName = entry.projectName ?? project?.title ?? `Project ${projectId}`;
+          const canViewProfile = Boolean(entry?.freelancerId);
+          const canViewQueue = Boolean(entry?.freelancerId);
+          const canCopyEmail = Boolean(entry?.freelancer?.email);
+          const showActions = canViewProfile || canViewQueue || canCopyEmail;
+          const isCopied = copiedEntryId === entryKey;
           return (
             <article
-              key={entry.id ?? `${entry.freelancerId}-${index}`}
-              className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft"
+              key={entryKey}
+              className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft focus-within:border-accent/60"
             >
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
@@ -229,11 +497,60 @@ export default function ProjectAutoMatchPage() {
                     </p>
                   </div>
                 </div>
-                <span
-                  className={`inline-flex items-center justify-center rounded-full border px-4 py-1 text-xs font-semibold uppercase tracking-wide ${statusPreset.badge}`}
-                >
-                  {statusPreset.label}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center justify-center rounded-full border px-4 py-1 text-xs font-semibold uppercase tracking-wide ${statusPreset.badge}`}
+                  >
+                    {statusPreset.label}
+                  </span>
+                  {showActions ? (
+                    <div className="flex items-center gap-2 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
+                      {canViewProfile ? (
+                        <div className="relative group/action">
+                          <Link
+                            to={`/profile/${entry.freelancerId}`}
+                            aria-label="View freelancer profile"
+                            className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white p-2 text-slate-500 shadow-sm transition hover:border-accent hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                          >
+                            <UserCircleIcon className="h-4 w-4" aria-hidden="true" />
+                          </Link>
+                          <span className="pointer-events-none absolute -top-9 left-1/2 hidden -translate-x-1/2 rounded-full bg-slate-900 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-white shadow-sm group-hover/action:block">
+                            View profile
+                          </span>
+                        </div>
+                      ) : null}
+                      {canViewQueue ? (
+                        <div className="relative group/action">
+                          <Link
+                            to={`/auto-assign/queue?freelancerId=${entry.freelancerId}`}
+                            aria-label="Open freelancer queue detail"
+                            className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white p-2 text-slate-500 shadow-sm transition hover:border-accent hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                          >
+                            <ArrowPathIcon className="h-4 w-4" aria-hidden="true" />
+                          </Link>
+                          <span className="pointer-events-none absolute -top-9 left-1/2 hidden -translate-x-1/2 rounded-full bg-slate-900 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-white shadow-sm group-hover/action:block">
+                            Queue overview
+                          </span>
+                        </div>
+                      ) : null}
+                      {canCopyEmail ? (
+                        <div className="relative group/action">
+                          <button
+                            type="button"
+                            onClick={() => handleCopyEmail(entry, entryKey)}
+                            className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white p-2 text-slate-500 shadow-sm transition hover:border-accent hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                            aria-label="Copy freelancer email"
+                          >
+                            <ClipboardDocumentIcon className="h-4 w-4" aria-hidden="true" />
+                          </button>
+                          <span className="pointer-events-none absolute -top-9 left-1/2 hidden -translate-x-1/2 rounded-full bg-slate-900 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-white shadow-sm group-hover/action:block">
+                            Copy email
+                          </span>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
               </div>
               <div className="mt-4 grid gap-4 text-xs text-slate-600 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="rounded-2xl border border-slate-200 bg-surfaceMuted/70 px-4 py-3">
@@ -261,9 +578,26 @@ export default function ProjectAutoMatchPage() {
                   </p>
                 </div>
               </div>
+              {isCopied ? (
+                <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-medium text-emerald-700">
+                  Email copied to clipboard.
+                </div>
+              ) : null}
             </article>
           );
         })}
+        <div className="rounded-3xl border border-slate-200 bg-surfaceMuted/60 px-4 py-3 text-xs text-slate-500">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span>
+              {queueMetadata.generatedAt
+                ? `Generated ${formatRelativeTime(queueMetadata.generatedAt)}`
+                : 'Awaiting first regeneration'}
+            </span>
+            {queueMetadata.expiresAt ? (
+              <span>Expires {formatRelativeTime(queueMetadata.expiresAt)}</span>
+            ) : null}
+          </div>
+        </div>
       </div>
     );
   };
@@ -303,12 +637,13 @@ export default function ProjectAutoMatchPage() {
           meta={
             canView ? (
               <DataStatus
-                loading={queueLoading}
+                loading={queueLoading || eventsLoading}
                 fromCache={false}
-                lastUpdated={queueUpdatedAt ?? projectUpdatedAt}
+                lastUpdated={queueUpdatedAt ?? eventsUpdatedAt ?? projectUpdatedAt}
                 onRefresh={() => {
                   refreshQueue({ force: true });
                   refreshProject({ force: true });
+                  refreshEvents({ force: true });
                 }}
               />
             ) : null
@@ -414,6 +749,9 @@ export default function ProjectAutoMatchPage() {
                       onChange={handleFieldChange('limit')}
                       className="w-full rounded-2xl border border-slate-200 px-4 py-2 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
                     />
+                    <p className="text-xs text-slate-500">
+                      Keeps the invitation wave actionable for operations. Most teams rotate 6–12 freelancers per cycle.
+                    </p>
                   </label>
                   <label className="space-y-1 text-sm text-slate-500">
                     <span className="font-semibold text-slate-900">Expires in (minutes)</span>
@@ -425,6 +763,9 @@ export default function ProjectAutoMatchPage() {
                       onChange={handleFieldChange('expiresInMinutes')}
                       className="w-full rounded-2xl border border-slate-200 px-4 py-2 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
                     />
+                    <p className="text-xs text-slate-500">
+                      Invitations auto-expire to make room for the next rotation once this window passes.
+                    </p>
                   </label>
                   <label className="space-y-1 text-sm text-slate-500">
                     <span className="font-semibold text-slate-900">Project value (optional)</span>
@@ -436,6 +777,9 @@ export default function ProjectAutoMatchPage() {
                       onChange={handleFieldChange('projectValue')}
                       className="w-full rounded-2xl border border-slate-200 px-4 py-2 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
                     />
+                    <p className="text-xs text-slate-500">
+                      Used when weighting earnings balance for freelancers who have not yet worked with this project cohort.
+                    </p>
                   </label>
                   <label className="space-y-1 text-sm text-slate-500">
                     <span className="font-semibold text-slate-900">Fairness cap</span>
@@ -447,6 +791,9 @@ export default function ProjectAutoMatchPage() {
                       onChange={handleFieldChange('fairnessMaxAssignments')}
                       className="w-full rounded-2xl border border-slate-200 px-4 py-2 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
                     />
+                    <p className="text-xs text-slate-500">
+                      Limits how many times the same freelancer can lead before another newcomer is prioritised.
+                    </p>
                   </label>
                 </div>
                 <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-surfaceMuted/60 px-4 py-3 text-sm text-slate-600">
@@ -518,6 +865,97 @@ export default function ProjectAutoMatchPage() {
                 </dl>
                 {queueError ? (
                   <p className="mt-4 text-sm text-rose-600">{queueError.message || 'Unable to sync queue status.'}</p>
+                ) : null}
+              </div>
+
+              <div className="rounded-4xl border border-slate-200 bg-white/95 p-6 shadow-soft">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Fairness signals</p>
+                    <h3 className="mt-2 text-lg font-semibold text-slate-900">Rotation safeguards</h3>
+                    <p className="mt-1 text-sm text-slate-600">
+                      Monitor how many newcomers were prioritised and whether scoring remains balanced across the wave.
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-slate-200 bg-surfaceMuted/70 px-3 py-1 text-xs font-semibold text-slate-600">
+                    Avg score {fairnessSummary.averageScoreLabel}
+                  </span>
+                </div>
+                <dl className="mt-6 grid gap-4 text-sm text-slate-600 sm:grid-cols-3">
+                  <div className="rounded-3xl border border-slate-200 bg-surfaceMuted/70 px-4 py-3">
+                    <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Ensured newcomers</dt>
+                    <dd className="mt-2 text-base font-semibold text-slate-900">{fairnessSummary.ensured}</dd>
+                  </div>
+                  <div className="rounded-3xl border border-slate-200 bg-surfaceMuted/70 px-4 py-3">
+                    <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">First-time invites</dt>
+                    <dd className="mt-2 text-base font-semibold text-slate-900">{fairnessSummary.newcomers}</dd>
+                  </div>
+                  <div className="rounded-3xl border border-slate-200 bg-surfaceMuted/70 px-4 py-3">
+                    <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Returning freelancers</dt>
+                    <dd className="mt-2 text-base font-semibold text-slate-900">{fairnessSummary.returning}</dd>
+                  </div>
+                </dl>
+                <p className="mt-4 text-xs text-slate-500">
+                  {fairnessSummary.ensured
+                    ? 'Newcomer guarantees were applied during the latest regeneration.'
+                    : 'No newcomer guarantee was applied during the latest regeneration.'}
+                </p>
+              </div>
+
+              <div className="rounded-4xl border border-slate-200 bg-white/95 p-6 shadow-soft">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Audit log</p>
+                    <h3 className="mt-2 text-lg font-semibold text-slate-900">Recent auto-assign activity</h3>
+                    <p className="mt-1 text-sm text-slate-600">
+                      Trace queue changes and configuration updates to maintain compliance visibility across operations.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => refreshEvents({ force: true })}
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+                    disabled={eventsLoading}
+                  >
+                    {eventsLoading ? 'Syncing…' : 'Refresh log'}
+                  </button>
+                </div>
+                {eventsError ? (
+                  <p className="mt-4 text-sm text-rose-600">{eventsError.message || 'Unable to load audit events.'}</p>
+                ) : null}
+                {eventsLoading && !events.length ? (
+                  <div className="mt-4 space-y-3">
+                    {Array.from({ length: 3 }).map((_, index) => (
+                      <div key={index} className="animate-pulse rounded-3xl border border-slate-200 bg-surfaceMuted/60 px-4 py-3">
+                        <div className="h-3 w-32 rounded bg-slate-200" />
+                        <div className="mt-2 h-3 w-20 rounded bg-slate-200" />
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {!eventsLoading && !events.length && !eventsError ? (
+                  <p className="mt-4 text-sm text-slate-500">
+                    Project events will appear once the workspace begins generating auto-match activity.
+                  </p>
+                ) : null}
+                {events.length ? (
+                  <ul className="mt-4 space-y-3">
+                    {events.slice(0, 6).map((event) => {
+                      const key = event.id ?? `${event.eventType}-${event.createdAt}`;
+                      const details = describeEventDetails(event);
+                      return (
+                        <li key={key} className="rounded-3xl border border-slate-200 bg-surfaceMuted/60 px-4 py-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-800">{formatEventType(event.eventType)}</p>
+                              {details ? <p className="mt-1 text-xs text-slate-500">{details}</p> : null}
+                            </div>
+                            <span className="text-xs text-slate-400">{formatRelativeTime(event.createdAt)}</span>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 ) : null}
               </div>
 

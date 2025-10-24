@@ -57,6 +57,9 @@ const autoAssignMocks = {
   resolveQueueEntry: jest.fn(),
   getProjectQueue: jest.fn(),
 };
+const notificationMocks = {
+  queueNotification: jest.fn(),
+};
 const blogMocks = {
   listBlogPosts: jest.fn(),
   getBlogPost: jest.fn(),
@@ -261,6 +264,10 @@ beforeAll(async () => {
   await mockModule('../../src/services/authService.js', () => ({ default: authMocks }));
   await mockModule('../../src/models/index.js', () => modelsMocks);
   await mockModule('../../src/services/autoAssignService.js', () => autoAssignMocks);
+  await mockModule('../../src/services/notificationService.js', () => ({
+    ...notificationMocks,
+    default: notificationMocks,
+  }));
   await mockModule('../../src/services/blogService.js', () => blogMocks);
   await mockModule('../../src/services/calendarService.js', () => ({
     ...calendarMocks,
@@ -321,6 +328,7 @@ beforeEach(() => {
     authMocks,
     modelsMocks,
     autoAssignMocks,
+    notificationMocks,
     blogMocks,
     calendarMocks,
     careerDocumentMocks,
@@ -463,6 +471,73 @@ describe('authController', () => {
 });
 
 describe('autoAssignController', () => {
+  it('regenerates project queues and notifies the actor on success', async () => {
+    const queueEntries = [
+      {
+        id: 91,
+        projectName: 'Atlas Rollout',
+        metadata: { fairness: { ensuredNewcomer: true } },
+      },
+    ];
+    autoAssignMocks.buildAssignmentQueue.mockResolvedValue(queueEntries);
+    notificationMocks.queueNotification.mockResolvedValue({ id: 1 });
+    const req = {
+      params: { projectId: '42' },
+      body: { limit: 6, expiresInMinutes: 120, fairness: { ensureNewcomer: true } },
+      user: { id: 77 },
+    };
+    const res = createMockResponse();
+
+    await autoAssignController.enqueueProjectAssignments(req, res);
+
+    expect(autoAssignMocks.buildAssignmentQueue).toHaveBeenCalledWith({
+      targetType: 'project',
+      targetId: 42,
+      projectValue: undefined,
+      limit: 6,
+      expiresInMinutes: 120,
+      actorId: 77,
+      weightOverrides: undefined,
+      fairnessConfig: { ensureNewcomer: true },
+    });
+    expect(notificationMocks.queueNotification).toHaveBeenCalledTimes(1);
+    expect(notificationMocks.queueNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 77,
+        type: 'auto-assign.queue-regenerated',
+        category: 'project',
+      }),
+      { bypassQuietHours: true },
+    );
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(res.json).toHaveBeenCalledWith({ entries: queueEntries });
+  });
+
+  it('notifies the actor when queue regeneration fails', async () => {
+    const failure = new Error('Service unavailable');
+    autoAssignMocks.buildAssignmentQueue.mockRejectedValue(failure);
+    notificationMocks.queueNotification.mockResolvedValue({ id: 2 });
+    const req = {
+      params: { projectId: '9' },
+      body: { fairness: { ensureNewcomer: false } },
+      user: { id: 55 },
+    };
+    const res = createMockResponse();
+
+    await expect(autoAssignController.enqueueProjectAssignments(req, res)).rejects.toThrow('Service unavailable');
+
+    expect(notificationMocks.queueNotification).toHaveBeenCalledTimes(1);
+    expect(notificationMocks.queueNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 55,
+        type: 'auto-assign.queue-failed',
+        priority: 'high',
+      }),
+      { bypassQuietHours: true },
+    );
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
   it('rejects unauthenticated queue access', async () => {
     await expect(autoAssignController.listQueue({ query: {} }, createMockResponse())).rejects.toMatchObject({
       name: 'AuthorizationError',
