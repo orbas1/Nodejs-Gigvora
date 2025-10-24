@@ -135,6 +135,19 @@ export async function fetchProjectBlueprint(projectId, options) {
   );
 }
 
+export async function fetchProjectRecommendations(projectId, options = {}) {
+  const safeOptions = ensureOptions(options);
+  const { signal, ...rest } = safeOptions;
+  const requestOptions = Object.keys(rest).length ? { ...rest } : {};
+  if (signal) {
+    requestOptions.signal = signal;
+  }
+  return apiClient.get(
+    buildProjectPath(projectId, 'recommendations'),
+    Object.keys(requestOptions).length ? requestOptions : undefined,
+  );
+}
+
 export async function upsertProjectBlueprint(projectId, payload, options) {
   return sendMutation('put', buildProjectPath(projectId, 'blueprint'), payload, options);
 }
@@ -385,6 +398,7 @@ export default {
   fetchProjectEvents,
   listProjectBlueprints,
   fetchProjectBlueprint,
+  fetchProjectRecommendations,
   upsertProjectBlueprint,
   fetchProjectWorkspace,
   updateProjectWorkspaceBrief,

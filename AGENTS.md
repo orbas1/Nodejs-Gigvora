@@ -1648,7 +1648,7 @@ This document catalogues the public marketing shell, pre-login journeys, and per
       2. Add budget/delivery filters plus chat CTA, piloting with agency dashboards for feedback.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1-L200】
       3. Expand lifecycle showcase with live stats and testimonials aligned with agency metrics.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L5-L200】
 
-### 4.C. Projects & Auto-Assignment
+### 4.C. Projects & Auto-Assignment ✅
 
 **Components**
 
@@ -1679,10 +1679,10 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   24. **Design Duplication.** Align access messaging with auto-match queue to maintain expectations.【F:gigvora-frontend-reactjs/src/pages/ProjectsPage.jsx†L81-L200】【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L74-L200】
   25. **Design framework.** Continues PageHeader + DataStatus convention consistent with other marketplaces.【F:gigvora-frontend-reactjs/src/pages/ProjectsPage.jsx†L37-L120】
   26. **Change Checklist Tracker Extensive.**
-      - [ ] Add filters/saved views and Kanban toggle.【F:gigvora-frontend-reactjs/src/pages/ProjectsPage.jsx†L1-L200】
-      - [ ] Wire hero metrics to live auto-assign telemetry.【F:gigvora-frontend-reactjs/src/pages/ProjectsPage.jsx†L53-L200】
-      - [ ] Recommend collaborators using mentor/freelancer data.【F:gigvora-frontend-reactjs/src/pages/ProjectsPage.jsx†L53-L200】
-      - [ ] Embed workspace chat/comment entry points.【F:gigvora-frontend-reactjs/src/pages/ProjectsPage.jsx†L29-L200】
+      - [x] Add filters/saved views and Kanban toggle.【F:gigvora-frontend-reactjs/src/pages/ProjectsPage.jsx†L205-L413】
+      - [x] Wire hero metrics to live auto-assign telemetry.【F:gigvora-frontend-reactjs/src/pages/ProjectsPage.jsx†L118-L204】
+      - [x] Recommend collaborators using mentor/freelancer data.【F:gigvora-frontend-reactjs/src/pages/ProjectsPage.jsx†L62-L116】
+      - [x] Embed workspace chat/comment entry points.【F:gigvora-frontend-reactjs/src/pages/ProjectsPage.jsx†L236-L272】
   27. **Full Upgrade Plan & Release Steps  Extensive.**
       1. Ship filters, saved views, and collaborator recommendations; monitor adoption in agency/company cohorts.【F:gigvora-frontend-reactjs/src/pages/ProjectsPage.jsx†L1-L200】
       2. Connect hero stats to auto-assign telemetry and launch analytics dashboards for operations leads.【F:gigvora-frontend-reactjs/src/pages/ProjectsPage.jsx†L53-L200】
@@ -1715,10 +1715,10 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   24. **Design Duplication.** Align fairness controls with agency dashboard gig management for consistent behaviour.【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L24-L200】【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L10-L120】
   25. **Design framework.** Uses DashboardLayout guard ensuring parity with other persona tools.【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L74-L120】
   26. **Change Checklist Tracker Extensive.**
-      - [ ] Pre-fill queue form defaults from project metadata.【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L82-L189】
-      - [ ] Add avatars, hover actions, and tooltips for queue entries.【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L192-L200】
-      - [ ] Instrument fairness dashboards and audit logs.【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L15-L200】
-      - [ ] Send notifications upon queue regeneration successes or failures.【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L151-L189】
+      - [x] Pre-fill queue form defaults from project metadata.【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L128-L210】
+      - [x] Add avatars, hover actions, and tooltips for queue entries.【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L243-L360】
+      - [x] Instrument fairness dashboards and audit logs.【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L212-L447】
+      - [x] Send notifications upon queue regeneration successes or failures.【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L95-L188】
   27. **Full Upgrade Plan & Release Steps  Extensive.**
       1. Auto-populate form defaults and release avatar-rich queue UI to agency/company beta groups.【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L82-L200】
       2. Launch fairness analytics dashboards plus audit log export for compliance reviews.【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L15-L200】
