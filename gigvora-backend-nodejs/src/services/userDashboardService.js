@@ -73,6 +73,7 @@ import { getJobApplicationWorkspace as getJobApplicationWorkspaceSnapshot } from
 import userNetworkingService from './userNetworkingService.js';
 import volunteeringManagementService from './volunteeringManagementService.js';
 import userMentoringService from './userMentoringService.js';
+import walletManagementService from './walletManagementService.js';
 import { getUserWebsitePreferences } from './userWebsitePreferenceService.js';
 import userDisputeService from './userDisputeService.js';
 import eventManagementService from './eventManagementService.js';
@@ -1033,6 +1034,7 @@ function buildEscrowManagementSection({
         : null,
       releaseQueueSize: releaseQueue.length,
       disputeCount: openDisputes.length,
+      openMilestones: releaseQueue.length,
     },
     accounts: sanitizedAccounts,
     transactions: {
@@ -1060,6 +1062,69 @@ function buildEscrowManagementSection({
     integrations: {
       trustCenterHref: '/trust-center',
       financeHubHref: '/finance-hub',
+    },
+  };
+}
+
+function buildFinanceSnapshot(walletOverview) {
+  if (!walletOverview) {
+    return {
+      totalBalance: 0,
+      availableBalance: 0,
+      pendingBalance: 0,
+      primaryCurrency: 'USD',
+      defaultCurrency: 'USD',
+      currencies: [],
+      supportedCurrencies: [],
+      wallets: { accounts: [], items: [], totals: {} },
+    };
+  }
+
+  const summary = walletOverview.summary ?? {};
+  const accounts = Array.isArray(walletOverview.accounts) ? walletOverview.accounts : [];
+  const currencySet = new Set();
+  if (summary.currency) {
+    currencySet.add(summary.currency);
+  }
+  accounts.forEach((account) => {
+    if (account?.currencyCode) {
+      currencySet.add(account.currencyCode);
+    } else if (account?.currency) {
+      currencySet.add(account.currency);
+    }
+  });
+
+  const currencies = Array.from(currencySet);
+  const primaryCurrency = summary.currency ?? currencies[0] ?? 'USD';
+
+  const totals = {
+    balance: normaliseMoney(summary.totalBalance ?? 0),
+    available: normaliseMoney(summary.availableBalance ?? summary.totalBalance ?? 0),
+    pending: normaliseMoney(summary.pendingHoldBalance ?? 0),
+    currency: primaryCurrency,
+    weeklyChange: null,
+    delta: null,
+    lastReconciledAt: summary.lastReconciledAt ?? null,
+    pendingTransferCount: summary.pendingTransferCount ?? 0,
+    nextScheduledTransferAt: summary.nextScheduledTransferAt ?? null,
+  };
+
+  return {
+    ...walletOverview,
+    totalBalance: totals.balance,
+    availableBalance: totals.available,
+    pendingBalance: totals.pending,
+    primaryCurrency,
+    defaultCurrency: primaryCurrency,
+    currencies,
+    supportedCurrencies: currencies,
+    wallets: {
+      accounts,
+      items: accounts,
+      totals,
+      currencies,
+      compliance: walletOverview.compliance ?? null,
+      transfers: walletOverview.transfers ?? null,
     },
   };
 }
@@ -1892,12 +1957,14 @@ function buildProjectGigManagementSection({ projects, templates, gigOrders, stor
   const storytelling = buildAchievementAssistant(projectEntries, gigOrders, storyBlocks);
 
   const totalBudget = projectEntries.reduce((sum, entry) => sum + (entry.budget.allocated ?? 0), 0);
+  const openGigOrders = gigOrders.filter((order) => !['completed', 'cancelled'].includes(order.status)).length;
   const summary = {
     totalProjects: projectEntries.length,
     activeProjects: projectEntries.filter((entry) => entry.workspace?.status !== 'completed').length,
     budgetInPlay: totalBudget,
     currency: projectEntries[0]?.budget?.currency ?? 'USD',
-    gigsInDelivery: gigOrders.filter((order) => !['completed', 'cancelled'].includes(order.status)).length,
+    gigsInDelivery: openGigOrders,
+    openGigOrders,
     templatesAvailable: templateRecords.length,
     assetsSecured: assetSummary.total,
     vendorSatisfaction: vendorInsights.summary.averages.overall,
@@ -2777,6 +2844,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     actorRoles: ['user'],
   });
   const networkingPromise = userNetworkingService.getOverview(userId);
+  const walletOverviewPromise = walletManagementService.getWalletOverview(userId, { bypassCache });
 
   const applicationQuery = Application.findAll({
     where: { applicantId: userId },
@@ -3081,6 +3149,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     notificationStats,
     topSearchModule,
     communityManagement,
+    walletOverview,
   ] = await Promise.all([
     applicationQuery,
     pipelineQuery,
@@ -3116,6 +3185,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     notificationService.getStats(userId),
     topSearchModulePromise,
     communityManagementPromise,
+    walletOverviewPromise,
   ]);
 
   const sanitizedStoryPrompts = storyBlocks.map((block) => sanitizeStoryBlock(block)).filter(Boolean);
@@ -3281,6 +3351,8 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     brandAssets: sanitizedBrandAssets,
   });
 
+  const finance = buildFinanceSnapshot(walletOverview);
+
   const projectWorkspaceSummary = await getProjectWorkspaceSummary(userId);
 
   const followUps = buildFollowUps(applications, targetMap);
@@ -3348,6 +3420,17 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     documents.lastUpdatedAt = null;
   }
 
+  const metricsSnapshot = {
+    projectsActive: projectGigManagement.summary?.activeProjects ?? 0,
+    gigOrdersOpen: projectGigManagement.summary?.openGigOrders ?? 0,
+    escrowInFlight:
+      escrowManagement.summary?.openMilestones ??
+      escrowManagement.summary?.releaseQueueSize ??
+      0,
+    walletBalance: finance.totalBalance,
+    walletCurrency: finance.primaryCurrency,
+  };
+
   const summary = {
     totalApplications: totals.total,
     activeApplications: totals.active,
@@ -3356,6 +3439,11 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     documentsUploaded: totals.documents,
     connections: profile.connectionsCount ?? profile.metrics?.connectionsCount ?? 0,
   };
+
+  summary.openGigOrders = summary.openGigOrders ?? metricsSnapshot.gigOrdersOpen;
+  summary.walletBalance = finance.totalBalance;
+  summary.walletCurrency = finance.primaryCurrency;
+  summary.escrowInFlight = metricsSnapshot.escrowInFlight;
 
   if (affiliateProgram?.overview) {
     summary.affiliateEarnings = affiliateProgram.overview.lifetimeEarnings ?? 0;
@@ -3409,9 +3497,8 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     }
   });
 
-  const [networking, ads] = await Promise.all([
+  const [networking, disputeOverview, ads] = await Promise.all([
     networkingPromise,
-  const [disputeOverview, ads] = await Promise.all([
     disputeOverviewPromise,
     getAdDashboardSnapshot({
       surfaces: ['user_dashboard', 'global_dashboard'],
@@ -3470,6 +3557,8 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     creationStudio,
     escrowManagement,
     projectGigManagement,
+    finance,
+    wallet: finance,
     projectWorkspace: {
       summary: projectWorkspaceSummary,
     },
@@ -3480,6 +3569,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     },
     jobApplicationsWorkspace,
     networking,
+    metrics: metricsSnapshot,
     insights: {
       careerAnalytics,
       weeklyDigest,
