@@ -20,6 +20,31 @@ import { AuthorizationError, NotFoundError, ValidationError } from '../utils/err
 const TERMINAL_STATUSES = new Set(['withdrawn', 'rejected', 'hired']);
 const OFFER_STATUSES = new Set(['offered', 'hired']);
 
+const APPLICATION_STAGE_VOCABULARY = Object.freeze(
+  APPLICATION_STATUSES.map((status) => {
+    const label = status
+      .split('_')
+      .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+      .join(' ');
+    const description = {
+      draft: 'Opportunities captured for later without triggering reminders or analytics.',
+      submitted: 'Applications formally sent to employers and awaiting acknowledgement.',
+      under_review: 'Hiring teams are actively reviewing your profile, resume, and supporting material.',
+      shortlisted: 'You are on a shortlist for next steps such as interviews or assessments.',
+      interview: 'Interviews are scheduled or in progress for this opportunity.',
+      offered: 'An offer has been extended and may require negotiation or acceptance tracking.',
+      hired: 'The opportunity has been won and onboarding or start-date coordination is underway.',
+      rejected: 'The employer has indicated you will not be progressing for this role.',
+      withdrawn: 'You have withdrawn or the role has been closed before completion.',
+    }[status];
+    return {
+      status,
+      label,
+      description: description ?? 'Status in the job application pipeline.',
+    };
+  }),
+);
+
 function normalisePositiveInteger(value, fieldName) {
   if (value == null) {
     throw new ValidationError(`${fieldName} is required.`);
@@ -84,6 +109,14 @@ function toCurrencyCode(value) {
     throw new ValidationError('currencyCode must be an ISO 4217 currency code.');
   }
   return trimmed;
+}
+
+function normaliseOptionalNote(value) {
+  if (value === undefined) {
+    return undefined;
+  }
+  const trimmed = `${value ?? ''}`.trim();
+  return trimmed.length ? trimmed : null;
 }
 
 function ensureStatus(value) {
@@ -239,7 +272,12 @@ function serialiseInterview(interview) {
 }
 
 function serialiseResponse(response) {
-  return response.toPublicObject();
+  const payload = response.toPublicObject();
+  const metadata = hydrateMetadata(payload.metadata);
+  return {
+    ...payload,
+    notes: metadata.notes ?? null,
+  };
 }
 
 function computeSummary(applications, interviews, favourites, responses) {
@@ -377,14 +415,73 @@ function mergeMetadata(existingMetadata, updates) {
   return metadata;
 }
 
-export async function getJobApplicationWorkspace(ownerId, { actorId = null, limit = 40 } = {}) {
+function parseWorkspaceCursor(cursor) {
+  if (!cursor) {
+    return null;
+  }
+  try {
+    const decoded = JSON.parse(Buffer.from(cursor, 'base64').toString('utf8'));
+    const id = Number.parseInt(decoded.id, 10);
+    const updatedAt = decoded.updatedAt ? new Date(decoded.updatedAt) : null;
+    if (!Number.isInteger(id) || id <= 0 || !updatedAt || Number.isNaN(updatedAt.getTime())) {
+      return null;
+    }
+    return { id, updatedAt: updatedAt.toISOString() };
+  } catch (error) {
+    return null;
+  }
+}
+
+function encodeWorkspaceCursor({ id, updatedAt }) {
+  if (!id || !updatedAt) {
+    return null;
+  }
+  return Buffer.from(
+    JSON.stringify({
+      id,
+      updatedAt: new Date(updatedAt).toISOString(),
+    }),
+  ).toString('base64');
+}
+
+function buildPaginationClause(cursorState) {
+  if (!cursorState) {
+    return null;
+  }
+  const updatedAt = new Date(cursorState.updatedAt);
+  if (Number.isNaN(updatedAt.getTime())) {
+    return null;
+  }
+  return {
+    [Op.or]: [
+      { updatedAt: { [Op.lt]: updatedAt } },
+      {
+        [Op.and]: [
+          { updatedAt: { [Op.eq]: updatedAt } },
+          { id: { [Op.lt]: cursorState.id } },
+        ],
+      },
+    ],
+  };
+}
+
+export async function getJobApplicationWorkspace(ownerId, { actorId = null, limit = 40, cursor } = {}) {
   const userId = normalisePositiveInteger(ownerId, 'ownerId');
   if (actorId && Number(actorId) !== userId) {
     throw new AuthorizationError('You can only view your own job application workspace.');
   }
 
-  const applications = await Application.findAll({
-    where: { applicantId: userId, isArchived: false },
+  const limitValue = Math.min(Math.max(Number(limit) || 40, 1), 80);
+  const cursorState = parseWorkspaceCursor(cursor);
+
+  const where = { applicantId: userId, isArchived: false };
+  const paginationClause = buildPaginationClause(cursorState);
+  if (paginationClause) {
+    where[Op.and] = [paginationClause];
+  }
+
+  const rawApplications = await Application.findAll({
+    where,
     include: [
       {
         model: ApplicationReview,
@@ -397,9 +494,11 @@ export async function getJobApplicationWorkspace(ownerId, { actorId = null, limi
       ['updatedAt', 'DESC'],
       ['id', 'DESC'],
     ],
-    limit: Math.min(Math.max(limit, 1), 80),
+    limit: limitValue + 1,
   });
 
+  const hasMore = rawApplications.length > limitValue;
+  const applications = hasMore ? rawApplications.slice(0, limitValue) : rawApplications;
   const applicationIds = applications.map((application) => application.id);
 
   const [favourites, interviews, responses] = await Promise.all([
@@ -438,6 +537,8 @@ export async function getJobApplicationWorkspace(ownerId, { actorId = null, limi
   const summary = computeSummary(applicationPayload, interviewPayload, favouritePayload, responsePayload);
   const statusBreakdown = buildStatusBreakdown(applicationPayload);
   const recommendedActions = buildRecommendedActions(summary);
+  const lastItem = applications.length ? applications[applications.length - 1] : null;
+  const nextCursor = hasMore && lastItem ? encodeWorkspaceCursor({ id: lastItem.id, updatedAt: lastItem.updatedAt }) : null;
 
   return {
     summary,
@@ -456,7 +557,15 @@ export async function getJobApplicationWorkspace(ownerId, { actorId = null, limi
       responseChannels: JOB_APPLICATION_RESPONSE_CHANNELS,
       responseStatuses: JOB_APPLICATION_RESPONSE_STATUSES,
     },
+    stageVocabulary: APPLICATION_STAGE_VOCABULARY,
     lastUpdated: new Date().toISOString(),
+    pageInfo: {
+      limit: limitValue,
+      cursor: cursorState,
+      nextCursor,
+      hasMore,
+      count: applications.length,
+    },
   };
 }
 
@@ -628,7 +737,7 @@ export async function createJobApplicationInterview(ownerId, applicationId, payl
     interviewerName: payload.interviewerName ? `${payload.interviewerName}`.trim() : null,
     interviewerEmail: payload.interviewerEmail ? `${payload.interviewerEmail}`.trim() : null,
     location: payload.location ? `${payload.location}`.trim() : null,
-    meetingUrl: payload.meetingUrl ? `${payload.meetingUrl}`.trim() : null,
+    meetingLink: payload.meetingLink ? `${payload.meetingLink}`.trim() : null,
     durationMinutes: payload.durationMinutes == null ? null : coerceNumber(payload.durationMinutes),
     feedbackScore: payload.feedbackScore == null ? null : coerceNumber(payload.feedbackScore),
     notes: payload.notes ? `${payload.notes}`.trim() : null,
@@ -677,8 +786,8 @@ export async function updateJobApplicationInterview(ownerId, applicationId, inte
   if (payload.location !== undefined) {
     interview.location = payload.location ? `${payload.location}`.trim() : null;
   }
-  if (payload.meetingUrl !== undefined) {
-    interview.meetingUrl = payload.meetingUrl ? `${payload.meetingUrl}`.trim() : null;
+  if (payload.meetingLink !== undefined) {
+    interview.meetingLink = payload.meetingLink ? `${payload.meetingLink}`.trim() : null;
   }
   if (payload.durationMinutes !== undefined) {
     interview.durationMinutes = payload.durationMinutes == null ? null : coerceNumber(payload.durationMinutes);
@@ -836,7 +945,14 @@ export async function createJobApplicationResponse(ownerId, applicationId, paylo
     body: payload.body ? `${payload.body}`.trim() : null,
     sentAt: payload.sentAt ? coerceDate(payload.sentAt) : new Date(),
     followUpRequiredAt: payload.followUpRequiredAt ? coerceDate(payload.followUpRequiredAt) : null,
-    metadata: payload.metadata ?? null,
+    metadata: (() => {
+      const metadata = hydrateMetadata(payload.metadata);
+      const note = normaliseOptionalNote(payload.notes);
+      if (note !== undefined) {
+        metadata.notes = note;
+      }
+      return Object.keys(metadata).length ? metadata : null;
+    })(),
   });
   return serialiseResponse(response);
 }
@@ -880,8 +996,13 @@ export async function updateJobApplicationResponse(ownerId, applicationId, respo
   if (payload.followUpRequiredAt !== undefined) {
     response.followUpRequiredAt = payload.followUpRequiredAt ? coerceDate(payload.followUpRequiredAt) : null;
   }
-  if (payload.metadata !== undefined) {
-    response.metadata = payload.metadata ?? null;
+  if (payload.metadata !== undefined || payload.notes !== undefined) {
+    const metadata = payload.metadata !== undefined ? hydrateMetadata(payload.metadata) : hydrateMetadata(response.metadata);
+    const note = normaliseOptionalNote(payload.notes);
+    if (note !== undefined) {
+      metadata.notes = note;
+    }
+    response.metadata = Object.keys(metadata).length ? metadata : null;
   }
 
   await response.save();

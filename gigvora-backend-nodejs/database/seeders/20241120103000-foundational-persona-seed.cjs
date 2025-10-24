@@ -510,6 +510,460 @@ module.exports = {
           ],
           { transaction },
         );
+
+        const jobSeeds = [
+          {
+            key: 'foundational-persona-jonah-job-flowpilot',
+            title: 'Principal Product Designer - Automation OS',
+            description:
+              '[seed-foundational-persona] Flowpilot Robotics automation OS modernization lead opportunity.',
+            location: 'Remote - North America',
+            employmentType: 'contract',
+          },
+          {
+            key: 'foundational-persona-jonah-job-atlas',
+            title: 'Product Design Lead - Strategic Initiatives',
+            description:
+              '[seed-foundational-persona] Atlas Cloud Services strategic initiatives design leadership role.',
+            location: 'New York, USA (Hybrid)',
+            employmentType: 'full_time',
+          },
+          {
+            key: 'foundational-persona-jonah-job-europa',
+            title: 'Design Systems Consultant - EMEA Expansion',
+            description:
+              '[seed-foundational-persona] Europa Mobility design systems consultant retained search.',
+            location: 'Berlin, Germany',
+            employmentType: 'contract',
+          },
+        ];
+
+        const jobIdByKey = new Map();
+        for (const jobSeed of jobSeeds) {
+          const [existingJob] = await queryInterface.sequelize.query(
+            "SELECT id FROM jobs WHERE title = :title AND COALESCE(location, '') = COALESCE(:locationNormalized, '') LIMIT 1",
+            {
+              type: QueryTypes.SELECT,
+              transaction,
+              replacements: {
+                title: jobSeed.title,
+                locationNormalized: jobSeed.location ?? '',
+              },
+            },
+          );
+
+          let jobId = existingJob?.id ?? null;
+          if (!jobId) {
+            await queryInterface.bulkInsert(
+              'jobs',
+              [
+                {
+                  title: jobSeed.title,
+                  description: jobSeed.description,
+                  location: jobSeed.location ?? null,
+                  employmentType: jobSeed.employmentType,
+                  createdAt: now,
+                  updatedAt: now,
+                },
+              ],
+              { transaction },
+            );
+
+            const [createdJob] = await queryInterface.sequelize.query(
+              "SELECT id FROM jobs WHERE title = :title AND COALESCE(location, '') = COALESCE(:locationNormalized, '') ORDER BY id DESC LIMIT 1",
+              {
+                type: QueryTypes.SELECT,
+                transaction,
+                replacements: {
+                  title: jobSeed.title,
+                  locationNormalized: jobSeed.location ?? '',
+                },
+              },
+            );
+            jobId = createdJob?.id ?? null;
+          }
+
+          if (jobId) {
+            jobIdByKey.set(jobSeed.key, jobId);
+          }
+        }
+
+        const applicationSeeds = [
+          {
+            seedKey: 'foundational-persona-jonah-application-flowpilot',
+            jobKey: 'foundational-persona-jonah-job-flowpilot',
+            status: 'interview',
+            sourceChannel: 'web',
+            submittedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 12),
+            rateExpectation: 150,
+            currencyCode: 'USD',
+            jobTitle: 'Principal Product Designer',
+            companyName: 'Flowpilot Robotics',
+            location: 'Remote - North America',
+            jobUrl: 'https://flowpilot.example/jobs/principal-product-designer',
+            salary: { min: 150000, max: 185000, currency: 'USD' },
+            notes:
+              'Panel interview next. Prepare automation OS case study recap and collaboration references.',
+            tags: ['Robotics', 'Systems Design', 'Automation'],
+            source: 'referral',
+          },
+          {
+            seedKey: 'foundational-persona-jonah-application-atlas',
+            jobKey: 'foundational-persona-jonah-job-atlas',
+            status: 'shortlisted',
+            sourceChannel: 'web',
+            submittedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 7),
+            rateExpectation: 0,
+            currencyCode: 'USD',
+            jobTitle: 'Product Design Lead',
+            companyName: 'Atlas Cloud Services',
+            location: 'New York, USA (Hybrid)',
+            jobUrl: 'https://atlascloud.example/careers/design-lead',
+            salary: { min: 0, max: 0, currency: 'USD' },
+            notes:
+              'Submitted portfolio and async product strategy prompt; awaiting calibration with hiring VP.',
+            tags: ['SaaS', 'AI Collaboration', 'Leadership'],
+            source: 'web',
+          },
+        ];
+
+        const applicationIdBySeedKey = new Map();
+        for (const seed of applicationSeeds) {
+          const jobId = jobIdByKey.get(seed.jobKey);
+          if (!jobId) continue;
+
+          const [existingApplication] = await queryInterface.sequelize.query(
+            'SELECT id FROM applications WHERE applicantId = :applicantId AND metadata->>:seedKey = :seed LIMIT 1',
+            {
+              type: QueryTypes.SELECT,
+              transaction,
+              replacements: {
+                applicantId: freelancerId,
+                seedKey: 'seedKey',
+                seed: seed.seedKey,
+              },
+            },
+          );
+
+          let applicationId = existingApplication?.id ?? null;
+          if (!applicationId) {
+            await queryInterface.bulkInsert(
+              'applications',
+              [
+                {
+                  applicantId: freelancerId,
+                  targetType: 'job',
+                  targetId: jobId,
+                  status: seed.status,
+                  sourceChannel: seed.sourceChannel,
+                  coverLetter: null,
+                  attachments: null,
+                  rateExpectation: seed.rateExpectation || null,
+                  currencyCode: seed.currencyCode,
+                  availabilityDate: null,
+                  isArchived: false,
+                  submittedAt: seed.submittedAt,
+                  decisionAt: null,
+                  metadata: {
+                    seedKey: seed.seedKey,
+                    jobTitle: seed.jobTitle,
+                    companyName: seed.companyName,
+                    location: seed.location,
+                    jobUrl: seed.jobUrl,
+                    salary: seed.salary,
+                    notes: seed.notes,
+                    source: seed.source,
+                    tags: seed.tags,
+                    jobRecordCreatedByUser: false,
+                    jobRecordId: jobId,
+                  },
+                  createdAt: now,
+                  updatedAt: now,
+                },
+              ],
+              { transaction },
+            );
+
+            const [createdApplication] = await queryInterface.sequelize.query(
+              'SELECT id FROM applications WHERE applicantId = :applicantId AND metadata->>:seedKey = :seed ORDER BY id DESC LIMIT 1',
+              {
+                type: QueryTypes.SELECT,
+                transaction,
+                replacements: {
+                  applicantId: freelancerId,
+                  seedKey: 'seedKey',
+                  seed: seed.seedKey,
+                },
+              },
+            );
+            applicationId = createdApplication?.id ?? null;
+          }
+
+          if (applicationId) {
+            applicationIdBySeedKey.set(seed.seedKey, applicationId);
+          }
+        }
+
+        const favouriteSeeds = [
+          {
+            seedKey: 'foundational-persona-jonah-favourite-europa',
+            jobKey: 'foundational-persona-jonah-job-europa',
+            title: 'Design Systems Consultant - EMEA Expansion',
+            companyName: 'Europa Mobility',
+            location: 'Berlin, Germany',
+            priority: 'warm',
+            tags: ['Mobility', 'Design Systems'],
+            salaryMin: 110000,
+            salaryMax: 0,
+            currencyCode: 'EUR',
+            sourceUrl: 'https://europa.example/design-systems-consultant',
+            notes: 'EMEA launch support, bilingual English/German preferred.',
+            savedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 2),
+          },
+          {
+            seedKey: 'foundational-persona-jonah-favourite-luminary',
+            jobKey: null,
+            title: 'Head of Product Design - Automation Guild',
+            companyName: 'Luminary Automation Collective',
+            location: 'Remote - Global',
+            priority: 'hot',
+            tags: ['Automation', 'Leadership', 'Collective'],
+            salaryMin: 0,
+            salaryMax: 0,
+            currencyCode: 'USD',
+            sourceUrl: 'https://automationcollective.example/opportunities/head-of-design',
+            notes: 'Collective leadership opportunity with revenue share potential.',
+            savedAt: new Date(now.getTime() - 1000 * 60 * 60 * 10),
+          },
+        ];
+
+        for (const favourite of favouriteSeeds) {
+          const jobId = favourite.jobKey ? jobIdByKey.get(favourite.jobKey) ?? null : null;
+
+          const [existingFavourite] = await queryInterface.sequelize.query(
+            'SELECT id FROM job_application_favourites WHERE userId = :userId AND metadata->>:seedKey = :seed LIMIT 1',
+            {
+              type: QueryTypes.SELECT,
+              transaction,
+              replacements: {
+                userId: freelancerId,
+                seedKey: 'seedKey',
+                seed: favourite.seedKey,
+              },
+            },
+          );
+
+          if (!existingFavourite?.id) {
+            await queryInterface.bulkInsert(
+              'job_application_favourites',
+              [
+                {
+                  userId: freelancerId,
+                  jobId,
+                  title: favourite.title,
+                  companyName: favourite.companyName,
+                  location: favourite.location,
+                  priority: favourite.priority,
+                  tags: favourite.tags,
+                  salaryMin: favourite.salaryMin || null,
+                  salaryMax: favourite.salaryMax || null,
+                  currencyCode: favourite.currencyCode,
+                  sourceUrl: favourite.sourceUrl,
+                  notes: favourite.notes,
+                  savedAt: favourite.savedAt,
+                  metadata: {
+                    seedKey: favourite.seedKey,
+                    source: 'foundational-persona-demo',
+                  },
+                  createdAt: now,
+                  updatedAt: now,
+                },
+              ],
+              { transaction },
+            );
+          }
+        }
+
+        const interviewSeeds = [
+          {
+            seedKey: 'foundational-persona-jonah-interview-flowpilot-panel',
+            applicationSeedKey: 'foundational-persona-jonah-application-flowpilot',
+            scheduledAt: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 2),
+            timezone: 'America/Los_Angeles',
+            durationMinutes: 75,
+            type: 'video',
+            status: 'scheduled',
+            location: 'Virtual',
+            meetingLink: 'https://meet.flowpilot.example/final-panel',
+            interviewerName: 'Allison Reyes',
+            interviewerEmail: 'areyes@flowpilot.example',
+            feedbackScore: null,
+            notes: 'Final panel with CTO, operations, and design leadership.',
+            metadata: {
+              seedKey: 'foundational-persona-jonah-interview-flowpilot-panel',
+              prepChecklist: ['Review automation OS metrics', 'Update systems thinking storyboard'],
+            },
+          },
+          {
+            seedKey: 'foundational-persona-jonah-interview-flowpilot-portfolio',
+            applicationSeedKey: 'foundational-persona-jonah-application-flowpilot',
+            scheduledAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 3),
+            timezone: 'America/Los_Angeles',
+            durationMinutes: 60,
+            type: 'video',
+            status: 'completed',
+            location: 'Virtual',
+            meetingLink: 'https://meet.flowpilot.example/portfolio',
+            interviewerName: 'Priya Menon',
+            interviewerEmail: 'pmenon@flowpilot.example',
+            feedbackScore: 4.6,
+            notes: 'Portfolio deep dive covering automation dashboards and design systems.',
+            metadata: {
+              seedKey: 'foundational-persona-jonah-interview-flowpilot-portfolio',
+              summary: 'Strong systems thinking, follow up with technical architect.',
+            },
+          },
+          {
+            seedKey: 'foundational-persona-jonah-interview-atlas-sync',
+            applicationSeedKey: 'foundational-persona-jonah-application-atlas',
+            scheduledAt: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 4),
+            timezone: 'America/New_York',
+            durationMinutes: 45,
+            type: 'video',
+            status: 'scheduled',
+            location: 'Virtual',
+            meetingLink: 'https://meet.atlascloud.example/leadership-sync',
+            interviewerName: 'Miguel Alvarez',
+            interviewerEmail: 'malvarez@atlascloud.example',
+            feedbackScore: null,
+            notes: 'Leadership sync to discuss AI collaboration roadmap.',
+            metadata: {
+              seedKey: 'foundational-persona-jonah-interview-atlas-sync',
+              prepChecklist: ['Gather AI collaboration case studies', 'Highlight remote leadership wins'],
+            },
+          },
+        ];
+
+        for (const interview of interviewSeeds) {
+          const applicationId = applicationIdBySeedKey.get(interview.applicationSeedKey);
+          if (!applicationId) continue;
+
+          const [existingInterview] = await queryInterface.sequelize.query(
+            'SELECT id FROM job_application_interviews WHERE userId = :userId AND metadata->>:seedKey = :seed LIMIT 1',
+            {
+              type: QueryTypes.SELECT,
+              transaction,
+              replacements: {
+                userId: freelancerId,
+                seedKey: 'seedKey',
+                seed: interview.seedKey,
+              },
+            },
+          );
+
+          if (!existingInterview?.id) {
+            await queryInterface.bulkInsert(
+              'job_application_interviews',
+              [
+                {
+                  userId: freelancerId,
+                  applicationId,
+                  scheduledAt: interview.scheduledAt,
+                  timezone: interview.timezone,
+                  durationMinutes: interview.durationMinutes,
+                  type: interview.type,
+                  status: interview.status,
+                  location: interview.location,
+                  meetingLink: interview.meetingLink,
+                  interviewerName: interview.interviewerName,
+                  interviewerEmail: interview.interviewerEmail,
+                  feedbackScore: interview.feedbackScore,
+                  notes: interview.notes,
+                  metadata: interview.metadata,
+                  createdAt: now,
+                  updatedAt: now,
+                },
+              ],
+              { transaction },
+            );
+          }
+        }
+
+        const responseSeeds = [
+          {
+            seedKey: 'foundational-persona-jonah-response-flowpilot-followup',
+            applicationSeedKey: 'foundational-persona-jonah-application-flowpilot',
+            direction: 'incoming',
+            channel: 'email',
+            status: 'acknowledged',
+            subject: 'Flowpilot interview follow-up',
+            body:
+              'Thanks for the automation OS walkthrough—looking forward to the panel. Sharing prep docs shortly.',
+            sentAt: new Date(now.getTime() - 1000 * 60 * 60 * 12),
+            followUpRequiredAt: new Date(now.getTime() + 1000 * 60 * 60 * 24),
+            metadata: {
+              seedKey: 'foundational-persona-jonah-response-flowpilot-followup',
+              notes: 'Draft panel prep recap and send updated automation dashboards.',
+            },
+          },
+          {
+            seedKey: 'foundational-persona-jonah-response-atlas-portfolio',
+            applicationSeedKey: 'foundational-persona-jonah-application-atlas',
+            direction: 'outgoing',
+            channel: 'portal',
+            status: 'sent',
+            subject: 'Portfolio case study submission',
+            body:
+              'Uploaded async strategy brief and linked the multi-brand design system artifacts for review.',
+            sentAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 4),
+            followUpRequiredAt: null,
+            metadata: {
+              seedKey: 'foundational-persona-jonah-response-atlas-portfolio',
+              notes: 'Set reminder to check portal messages after leadership sync.',
+            },
+          },
+        ];
+
+        for (const response of responseSeeds) {
+          const applicationId = applicationIdBySeedKey.get(response.applicationSeedKey);
+          if (!applicationId) continue;
+
+          const [existingResponse] = await queryInterface.sequelize.query(
+            'SELECT id FROM job_application_responses WHERE userId = :userId AND metadata->>:seedKey = :seed LIMIT 1',
+            {
+              type: QueryTypes.SELECT,
+              transaction,
+              replacements: {
+                userId: freelancerId,
+                seedKey: 'seedKey',
+                seed: response.seedKey,
+              },
+            },
+          );
+
+          if (!existingResponse?.id) {
+            await queryInterface.bulkInsert(
+              'job_application_responses',
+              [
+                {
+                  userId: freelancerId,
+                  applicationId,
+                  direction: response.direction,
+                  channel: response.channel,
+                  status: response.status,
+                  subject: response.subject,
+                  body: response.body,
+                  sentAt: response.sentAt,
+                  followUpRequiredAt: response.followUpRequiredAt,
+                  metadata: response.metadata,
+                  createdAt: now,
+                  updatedAt: now,
+                },
+              ],
+              { transaction },
+            );
+          }
+        }
       }
 
       const companyUserId = userIds.get('haruto.company.demo@gigvora.com');
@@ -1040,6 +1494,74 @@ module.exports = {
             { transaction },
           );
         }
+
+        const freelancerUser = users.find((user) => user.email === 'jonah.freelancer.demo@gigvora.com');
+        if (freelancerUser) {
+          const freelancerId = freelancerUser.id;
+          const applicationSeedKeys = [
+            'foundational-persona-jonah-application-flowpilot',
+            'foundational-persona-jonah-application-atlas',
+          ];
+          const favouriteSeedKeys = [
+            'foundational-persona-jonah-favourite-europa',
+            'foundational-persona-jonah-favourite-luminary',
+          ];
+          const interviewSeedKeys = [
+            'foundational-persona-jonah-interview-flowpilot-panel',
+            'foundational-persona-jonah-interview-flowpilot-portfolio',
+            'foundational-persona-jonah-interview-atlas-sync',
+          ];
+          const responseSeedKeys = [
+            'foundational-persona-jonah-response-flowpilot-followup',
+            'foundational-persona-jonah-response-atlas-portfolio',
+          ];
+
+          for (const seed of responseSeedKeys) {
+            await queryInterface.sequelize.query(
+              "DELETE FROM job_application_responses WHERE userId = :userId AND metadata->>'seedKey' = :seed",
+              {
+                transaction,
+                replacements: { userId: freelancerId, seed },
+              },
+            );
+          }
+
+          for (const seed of interviewSeedKeys) {
+            await queryInterface.sequelize.query(
+              "DELETE FROM job_application_interviews WHERE userId = :userId AND metadata->>'seedKey' = :seed",
+              {
+                transaction,
+                replacements: { userId: freelancerId, seed },
+              },
+            );
+          }
+
+          for (const seed of favouriteSeedKeys) {
+            await queryInterface.sequelize.query(
+              "DELETE FROM job_application_favourites WHERE userId = :userId AND metadata->>'seedKey' = :seed",
+              {
+                transaction,
+                replacements: { userId: freelancerId, seed },
+              },
+            );
+          }
+
+          for (const seed of applicationSeedKeys) {
+            await queryInterface.sequelize.query(
+              "DELETE FROM applications WHERE applicantId = :userId AND metadata->>'seedKey' = :seed",
+              {
+                transaction,
+                replacements: { userId: freelancerId, seed },
+              },
+            );
+          }
+        }
+
+        await queryInterface.bulkDelete(
+          'jobs',
+          { description: { [Op.like]: '[seed-foundational-persona]%' } },
+          { transaction },
+        );
 
         await queryInterface.bulkDelete('feed_posts', { userId: { [Op.in]: userIds }, content: feedPostContent }, { transaction });
         await queryInterface.bulkDelete('freelancer_operations_snapshots', { freelancerId: { [Op.in]: userIds } }, { transaction });

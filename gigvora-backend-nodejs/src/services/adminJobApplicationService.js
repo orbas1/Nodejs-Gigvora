@@ -783,6 +783,7 @@ export async function createJobApplicationInterview(applicationId, payload, acto
   const actorMeta = buildActorMetadata(actor);
 
   const interview = await JobApplicationInterview.create({
+    userId: application.applicantId,
     applicationId: application.id,
     scheduledAt,
     durationMinutes: payload?.durationMinutes ? coerceNumber(payload.durationMinutes, { min: 0 }) : null,

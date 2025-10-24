@@ -110,7 +110,7 @@ module.exports = {
           interviewerName: { type: Sequelize.STRING(180), allowNull: true },
           interviewerEmail: { type: Sequelize.STRING(255), allowNull: true },
           location: { type: Sequelize.STRING(255), allowNull: true },
-          meetingUrl: { type: Sequelize.STRING(500), allowNull: true },
+          meetingLink: { type: Sequelize.STRING(500), allowNull: true },
           durationMinutes: { type: Sequelize.INTEGER, allowNull: true },
           feedbackScore: { type: Sequelize.DECIMAL(5, 2), allowNull: true },
           notes: { type: Sequelize.TEXT, allowNull: true },
