@@ -44,6 +44,26 @@ function normalizeCurrency(input) {
   return trimmed;
 }
 
+function calculateMedian(values = []) {
+  if (!values.length) {
+    return null;
+  }
+  const sorted = values.slice().sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 0) {
+    return (sorted[middle - 1] + sorted[middle]) / 2;
+  }
+  return sorted[middle];
+}
+
+function roundNumber(value, precision = 2) {
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+  const factor = 10 ** precision;
+  return Math.round(value * factor) / factor;
+}
+
 function normaliseWeights(weights = {}) {
   if (!weights || typeof weights !== 'object') {
     return null;
@@ -559,10 +579,119 @@ export async function updateProjectDetails(projectId, payload = {}, { actorId } 
   });
 }
 
+export async function getAutoAssignCommandCenterMetrics() {
+  const [projects, statusRows, resolvedEntries] = await Promise.all([
+    Project.findAll({
+      attributes: [
+        'id',
+        'autoAssignEnabled',
+        'autoAssignStatus',
+        'autoAssignLastQueueSize',
+        'autoAssignLastRunAt',
+        'autoAssignSettings',
+      ],
+    }),
+    AutoAssignQueueEntry.findAll({
+      attributes: ['status', [sequelize.fn('COUNT', sequelize.col('status')), 'count']],
+      group: ['status'],
+      raw: true,
+    }),
+    AutoAssignQueueEntry.findAll({
+      attributes: ['status', 'notifiedAt', 'resolvedAt'],
+      where: {
+        status: { [Op.in]: ['accepted', 'completed', 'declined'] },
+        notifiedAt: { [Op.not]: null },
+        resolvedAt: { [Op.not]: null },
+      },
+      order: [['resolvedAt', 'DESC']],
+      limit: 200,
+    }),
+  ]);
+
+  const totals = {
+    totalProjects: projects.length,
+    autoAssignEnabled: 0,
+    totalQueueEntries: 0,
+    averageQueueSize: 0,
+    newcomerGuarantees: 0,
+    latestQueueGeneratedAt: null,
+  };
+
+  projects.forEach((project) => {
+    if (project.autoAssignEnabled) {
+      totals.autoAssignEnabled += 1;
+      totals.totalQueueEntries += Number(project.autoAssignLastQueueSize ?? 0);
+    }
+    const settings = project.autoAssignSettings ?? {};
+    const fairness = settings?.fairness ?? {};
+    if (fairness.ensureNewcomer !== false) {
+      totals.newcomerGuarantees += 1;
+    }
+    if (project.autoAssignLastRunAt) {
+      const timestamp = new Date(project.autoAssignLastRunAt).getTime();
+      if (Number.isFinite(timestamp)) {
+        if (!totals.latestQueueGeneratedAt || timestamp > totals.latestQueueGeneratedAt) {
+          totals.latestQueueGeneratedAt = timestamp;
+        }
+      }
+    }
+  });
+
+  totals.averageQueueSize = totals.autoAssignEnabled
+    ? Math.round(totals.totalQueueEntries / totals.autoAssignEnabled)
+    : 0;
+  totals.latestQueueGeneratedAt = totals.latestQueueGeneratedAt
+    ? new Date(totals.latestQueueGeneratedAt).toISOString()
+    : null;
+
+  const statusCounts = statusRows.reduce((acc, row) => {
+    const status = row.status ?? 'unknown';
+    acc[status] = Number(row.count ?? 0);
+    return acc;
+  }, {});
+
+  const durations = resolvedEntries
+    .map((entry) => {
+      const notified = entry.notifiedAt ? new Date(entry.notifiedAt).getTime() : null;
+      const resolved = entry.resolvedAt ? new Date(entry.resolvedAt).getTime() : null;
+      if (!Number.isFinite(notified) || !Number.isFinite(resolved) || resolved < notified) {
+        return null;
+      }
+      return (resolved - notified) / 60000;
+    })
+    .filter((value) => Number.isFinite(value) && value >= 0);
+
+  const averageResponseMinutes = durations.length
+    ? roundNumber(durations.reduce((sum, value) => sum + value, 0) / durations.length, 2)
+    : null;
+  const medianResponseMinutes = durations.length ? roundNumber(calculateMedian(durations), 2) : null;
+
+  const successfulCount = resolvedEntries.filter((entry) => ['accepted', 'completed'].includes(entry.status)).length;
+  const completionRate = resolvedEntries.length
+    ? roundNumber((successfulCount / resolvedEntries.length) * 100, 1)
+    : null;
+
+  return {
+    totals,
+    queue: {
+      statusCounts,
+      activeEntries: (statusCounts.pending ?? 0) + (statusCounts.notified ?? 0),
+    },
+    velocity: {
+      averageResponseMinutes,
+      medianResponseMinutes,
+      completionRate,
+      sampleSize: durations.length,
+    },
+    updatedAt: new Date().toISOString(),
+  };
+}
+
 export default {
   createProject,
   updateProjectAutoAssign,
   getProjectOverview,
   listProjectEvents,
   updateProjectDetails,
+  getAutoAssignCommandCenterMetrics,
 };

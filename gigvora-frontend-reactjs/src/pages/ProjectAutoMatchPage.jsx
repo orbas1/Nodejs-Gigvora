@@ -12,6 +12,8 @@ import projectsService from '../services/projects.js';
 import analytics from '../services/analytics.js';
 import { formatRelativeTime } from '../utils/date.js';
 import { formatCurrency } from '../utils/currency.js';
+import useProjectQueueStream from '../hooks/useProjectQueueStream.js';
+import { getAutoAssignStatusPreset, formatAutoAssignStatus } from '../utils/autoAssignStatus.js';
 
 const ALLOWED_MEMBERSHIPS = ['company', 'agency', 'admin'];
 const WEIGHT_PRESET = {
@@ -29,33 +31,6 @@ const EVENT_LABELS = {
   auto_assign_disabled: 'Auto-match disabled',
   auto_assign_queue_generated: 'Queue regenerated',
   auto_assign_queue_exhausted: 'Queue exhausted',
-};
-
-const STATUS_PRESETS = {
-  notified: {
-    label: 'Live invitation',
-    badge: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-  },
-  pending: {
-    label: 'Pending rotation',
-    badge: 'border-slate-200 bg-slate-100 text-slate-700',
-  },
-  completed: {
-    label: 'Completed rotation',
-    badge: 'border-blue-200 bg-blue-50 text-blue-700',
-  },
-  expired: {
-    label: 'Invitation expired',
-    badge: 'border-amber-200 bg-amber-50 text-amber-700',
-  },
-  dropped: {
-    label: 'Manually removed',
-    badge: 'border-rose-200 bg-rose-50 text-rose-700',
-  },
-  default: {
-    label: 'Queued',
-    badge: 'border-slate-200 bg-slate-100 text-slate-700',
-  },
 };
 
 function ensureObject(value) {
@@ -154,6 +129,7 @@ export default function ProjectAutoMatchPage() {
     fairnessMaxAssignments: 3,
     ensureNewcomer: true,
   });
+  const [queueSnapshot, setQueueSnapshot] = useState({ entries: [], summary: null, timestamp: null });
   const [weights, setWeights] = useState(WEIGHT_PRESET);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState(null);
@@ -186,7 +162,7 @@ export default function ProjectAutoMatchPage() {
     refresh: refreshQueue,
   } = useCachedResource(
     queueKey,
-    ({ signal }) => fetchProjectQueue(projectId, { signal }).then((result) => result.entries ?? []),
+    ({ signal }) => fetchProjectQueue(projectId, { signal }),
     { ttl: 1000 * 30, dependencies: [projectId], enabled: canView },
   );
 
@@ -206,7 +182,8 @@ export default function ProjectAutoMatchPage() {
   );
 
   const project = projectData ?? null;
-  const queueEntries = Array.isArray(queueData) ? queueData : [];
+  const queueEntries = Array.isArray(queueSnapshot.entries) ? queueSnapshot.entries : [];
+  const queueSummary = queueSnapshot.summary ?? null;
   const sortedQueueEntries = useMemo(() => {
     return queueEntries
       .slice()
@@ -225,7 +202,38 @@ export default function ProjectAutoMatchPage() {
       });
   }, [eventsData]);
 
+  useEffect(() => {
+    if (!queueData) {
+      if (!queueLoading && !queueError) {
+        setQueueSnapshot((prev) => ({ ...prev, entries: [], summary: null }));
+      }
+      return;
+    }
+    setQueueSnapshot({
+      entries: Array.isArray(queueData.entries) ? queueData.entries : [],
+      summary: queueData.summary ?? null,
+      timestamp: queueUpdatedAt ? toValidDate(queueUpdatedAt) ?? new Date() : null,
+    });
+  }, [queueData, queueLoading, queueError, queueUpdatedAt]);
+
+  useProjectQueueStream(projectId, {
+    enabled: canView,
+    onQueue: (payload) => {
+      if (!payload) {
+        return;
+      }
+      setQueueSnapshot((prev) => ({
+        entries: Array.isArray(payload.entries) ? payload.entries : prev.entries,
+        summary: payload.summary ?? prev.summary,
+        timestamp: toValidDate(payload.timestamp) ?? prev.timestamp ?? new Date(),
+      }));
+    },
+  });
+
   const statusSummary = useMemo(() => {
+    if (queueSummary?.statusCounts) {
+      return queueSummary.statusCounts;
+    }
     return queueEntries.reduce(
       (acc, entry) => {
         const statusKey = typeof entry?.status === 'string' ? entry.status.toLowerCase() : 'pending';
@@ -234,7 +242,7 @@ export default function ProjectAutoMatchPage() {
       },
       {},
     );
-  }, [queueEntries]);
+  }, [queueEntries, queueSummary]);
 
   useEffect(() => {
     return () => {
@@ -276,6 +284,13 @@ export default function ProjectAutoMatchPage() {
   }, [project]);
 
   const queueMetadata = useMemo(() => {
+    if (queueSummary) {
+      return {
+        generatedAt: toValidDate(queueSummary.generatedAt),
+        expiresAt: toValidDate(queueSummary.expiresAt),
+        generatedBy: queueSummary.generatedBy ?? null,
+      };
+    }
     if (!sortedQueueEntries.length) {
       return { generatedAt: null, expiresAt: null, generatedBy: null };
     }
@@ -291,42 +306,62 @@ export default function ProjectAutoMatchPage() {
       expiresAt: toValidDate(expiresAtRaw),
       generatedBy: generatedBy ?? null,
     };
-  }, [sortedQueueEntries]);
+  }, [queueSummary, sortedQueueEntries]);
 
   const fairnessSummary = useMemo(() => {
-    if (!sortedQueueEntries.length) {
-      return { ensured: 0, newcomers: 0, returning: 0, averageScore: 0, averageScoreLabel: '0.00' };
-    }
-    let ensured = 0;
-    let newcomers = 0;
-    let returning = 0;
-    let scoreTotal = 0;
-    sortedQueueEntries.forEach((entry) => {
-      const fairness = ensureObject(entry?.metadata?.fairness);
-      if (fairness.ensuredNewcomer) {
-        ensured += 1;
+    const fallback = () => {
+      if (!sortedQueueEntries.length) {
+        return { ensured: 0, newcomers: 0, returning: 0, averageScore: 0, averageScoreLabel: '0.00' };
       }
-      const assignmentCount = Number(entry?.breakdown?.totalAssigned ?? 0);
-      if (!Number.isFinite(assignmentCount) || assignmentCount <= 0) {
-        newcomers += 1;
-      } else {
-        returning += 1;
-      }
-      const scoreValue = Number(entry?.score ?? 0);
-      if (Number.isFinite(scoreValue)) {
-        scoreTotal += scoreValue;
-      }
-    });
-    const averageScoreRaw = sortedQueueEntries.length ? scoreTotal / sortedQueueEntries.length : 0;
-    const roundedAverage = Number(averageScoreRaw.toFixed(2));
-    return {
-      ensured,
-      newcomers,
-      returning,
-      averageScore: roundedAverage,
-      averageScoreLabel: averageScoreRaw.toFixed(2),
+      let ensured = 0;
+      let newcomers = 0;
+      let returning = 0;
+      let scoreTotal = 0;
+      sortedQueueEntries.forEach((entry) => {
+        const fairness = ensureObject(entry?.metadata?.fairness);
+        if (fairness.ensuredNewcomer) {
+          ensured += 1;
+        }
+        const assignmentCount = Number(entry?.breakdown?.totalAssigned ?? 0);
+        if (!Number.isFinite(assignmentCount) || assignmentCount <= 0) {
+          newcomers += 1;
+        } else {
+          returning += 1;
+        }
+        const scoreValue = Number(entry?.score ?? 0);
+        if (Number.isFinite(scoreValue)) {
+          scoreTotal += scoreValue;
+        }
+      });
+      const averageScoreRaw = sortedQueueEntries.length ? scoreTotal / sortedQueueEntries.length : 0;
+      const roundedAverage = Number(averageScoreRaw.toFixed(2));
+      return {
+        ensured,
+        newcomers,
+        returning,
+        averageScore: roundedAverage,
+        averageScoreLabel: averageScoreRaw.toFixed(2),
+      };
     };
-  }, [sortedQueueEntries]);
+
+    if (queueSummary) {
+      const baseAverage = Number(queueSummary.averageScore);
+      const resolvedAverage = Number.isFinite(baseAverage) ? Number(baseAverage.toFixed(2)) : null;
+      const fallbackSummary = fallback();
+      return {
+        ensured: queueSummary.ensuredNewcomers ?? fallbackSummary.ensured,
+        newcomers: queueSummary.newcomers ?? fallbackSummary.newcomers,
+        returning: queueSummary.returning ?? fallbackSummary.returning,
+        averageScore: resolvedAverage ?? fallbackSummary.averageScore,
+        averageScoreLabel:
+          resolvedAverage != null
+            ? resolvedAverage.toFixed(2)
+            : fallbackSummary.averageScoreLabel,
+      };
+    }
+
+    return fallback();
+  }, [queueSummary, sortedQueueEntries]);
 
   const handleWeightChange = (key) => (event) => {
     const value = Number(event.target.value);
@@ -467,7 +502,7 @@ export default function ProjectAutoMatchPage() {
         {sortedQueueEntries.map((entry, index) => {
           const entryKey = entry.id ?? `${entry.freelancerId}-${index}`;
           const statusKey = typeof entry?.status === 'string' ? entry.status.toLowerCase() : 'default';
-          const statusPreset = STATUS_PRESETS[statusKey] ?? STATUS_PRESETS.default;
+          const statusPreset = getAutoAssignStatusPreset(statusKey);
           const breakdown = ensureObject(entry?.breakdown);
           const metadata = ensureObject(entry?.metadata);
           const fairness = ensureObject(metadata.fairness);
@@ -499,7 +534,7 @@ export default function ProjectAutoMatchPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span
-                    className={`inline-flex items-center justify-center rounded-full border px-4 py-1 text-xs font-semibold uppercase tracking-wide ${statusPreset.badge}`}
+                    className={`inline-flex items-center justify-center rounded-full border px-4 py-1 text-xs font-semibold uppercase tracking-wide ${statusPreset.badgeClass}`}
                   >
                     {statusPreset.label}
                   </span>
@@ -639,7 +674,7 @@ export default function ProjectAutoMatchPage() {
               <DataStatus
                 loading={queueLoading || eventsLoading}
                 fromCache={false}
-                lastUpdated={queueUpdatedAt ?? eventsUpdatedAt ?? projectUpdatedAt}
+                lastUpdated={queueSnapshot.timestamp ?? queueUpdatedAt ?? eventsUpdatedAt ?? projectUpdatedAt}
                 onRefresh={() => {
                   refreshQueue({ force: true });
                   refreshProject({ force: true });
@@ -711,7 +746,7 @@ export default function ProjectAutoMatchPage() {
                     <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Queue status</dt>
                     <dd className="mt-2 text-base font-semibold text-slate-900">
                       {project?.autoAssignStatus
-                        ? project.autoAssignStatus.replace(/_/g, ' ')
+                        ? formatAutoAssignStatus(project.autoAssignStatus)
                         : 'Not generated'}
                     </dd>
                   </div>
