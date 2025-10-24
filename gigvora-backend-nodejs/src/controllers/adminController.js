@@ -43,6 +43,25 @@ function resolveActorId(user) {
   return Number.isFinite(candidate) ? candidate : undefined;
 }
 
+function resolveActorType(user) {
+  if (!user) {
+    return undefined;
+  }
+  if (typeof user.primaryRole === 'string' && user.primaryRole.trim()) {
+    return user.primaryRole.trim();
+  }
+  if (Array.isArray(user.roles) && user.roles.length > 0) {
+    const primaryRole = user.roles.find((role) => typeof role === 'string' && role.trim());
+    if (primaryRole) {
+      return primaryRole.trim();
+    }
+  }
+  if (typeof user.role === 'string' && user.role.trim()) {
+    return user.role.trim();
+  }
+  return undefined;
+}
+
 export async function dashboard(req, res) {
   const filters = sanitizeAdminDashboardFilters(req.query ?? {});
   const adminUserId = resolveActorId(req.user);
@@ -60,7 +79,9 @@ export async function fetchPlatformSettings(req, res) {
 
 export async function persistPlatformSettings(req, res) {
   const payload = sanitizePlatformSettingsInput(req.body ?? {});
-  const settings = await updatePlatformSettings(payload);
+  const actorId = resolveActorId(req.user);
+  const actorType = resolveActorType(req.user);
+  const settings = await updatePlatformSettings(payload, { actorId, actorType });
   res.json(settings);
 }
 
@@ -71,7 +92,9 @@ export async function fetchHomepageSettings(req, res) {
 
 export async function persistHomepageSettings(req, res) {
   const payload = sanitizeHomepageSettingsInput(req.body ?? {});
-  const settings = await updateHomepageSettings(payload);
+  const actorId = resolveActorId(req.user);
+  const actorType = resolveActorType(req.user);
+  const settings = await updateHomepageSettings(payload, { actorId, actorType });
   res.json(settings);
 }
 

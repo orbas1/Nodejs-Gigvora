@@ -1,12 +1,338 @@
 import { PlatformSetting } from '../models/platformSetting.js';
+import { PlatformSettingAudit } from '../models/platformSettingAudit.js';
 import { ESCROW_INTEGRATION_PROVIDERS } from '../models/constants/index.js';
 import { ValidationError } from '../utils/errors.js';
 import { syncCriticalDependencies } from '../observability/dependencyHealth.js';
+import { appCache } from '../utils/cache.js';
+import { encryptSecret, decryptSecret, isEncryptedSecret, maskSecret } from '../utils/secretStorage.js';
+import { UserRole } from '../models/index.js';
+import { Op } from 'sequelize';
 import logger from '../utils/logger.js';
 
 const PLATFORM_SETTINGS_KEY = 'platform';
 const PAYMENT_PROVIDERS = new Set(ESCROW_INTEGRATION_PROVIDERS);
 const SUBSCRIPTION_INTERVALS = ['weekly', 'monthly', 'quarterly', 'yearly', 'lifetime'];
+
+const PLATFORM_SETTINGS_CACHE_KEY = 'platform-settings:snapshot';
+const PLATFORM_SETTINGS_CACHE_TTL_SECONDS = 60;
+const RECIPIENT_CACHE_KEY = 'platform-settings:recipients';
+const RECIPIENT_CACHE_TTL_SECONDS = 300;
+
+const SECRET_FIELD_PATHS = [
+  ['payments', 'stripe', 'secretKey'],
+  ['payments', 'stripe', 'webhookSecret'],
+  ['payments', 'escrow_com', 'apiKey'],
+  ['payments', 'escrow_com', 'apiSecret'],
+  ['smtp', 'password'],
+  ['storage', 'cloudflare_r2', 'accessKeyId'],
+  ['storage', 'cloudflare_r2', 'secretAccessKey'],
+];
+
+const SECRET_FIELD_LOOKUP = new Set(SECRET_FIELD_PATHS.map((segments) => segments.join('.')));
+const NOTIFICATION_ROLE_KEYS = [
+  'platform_admin',
+  'admin',
+  'compliance',
+  'compliance_manager',
+  'finance',
+  'trust',
+];
+
+let notificationServicePromise = null;
+
+function deepClone(value) {
+  if (value == null) {
+    return value ?? null;
+  }
+  if (typeof structuredClone === 'function') {
+    return structuredClone(value);
+  }
+  return JSON.parse(JSON.stringify(value));
+}
+
+function getValueAtPath(object, pathSegments) {
+  return pathSegments.reduce((acc, segment) => {
+    if (acc == null) {
+      return undefined;
+    }
+    return acc[segment];
+  }, object);
+}
+
+function setValueAtPath(object, pathSegments, value) {
+  if (!Array.isArray(pathSegments) || pathSegments.length === 0) {
+    return object;
+  }
+  let cursor = object;
+  for (let index = 0; index < pathSegments.length; index += 1) {
+    const segment = pathSegments[index];
+    const isLast = index === pathSegments.length - 1;
+    if (isLast) {
+      cursor[segment] = value;
+    } else {
+      if (cursor[segment] == null || typeof cursor[segment] !== 'object') {
+        cursor[segment] = {};
+      }
+      cursor = cursor[segment];
+    }
+  }
+  return object;
+}
+
+function decryptSecretsInPlace(snapshot) {
+  SECRET_FIELD_PATHS.forEach((segments) => {
+    const currentValue = getValueAtPath(snapshot, segments);
+    if (isEncryptedSecret(currentValue)) {
+      setValueAtPath(snapshot, segments, decryptSecret(currentValue));
+    }
+  });
+  return snapshot;
+}
+
+function encryptSecretsForPersistence(snapshot) {
+  const clone = deepClone(snapshot) ?? {};
+  SECRET_FIELD_PATHS.forEach((segments) => {
+    const plainValue = getValueAtPath(snapshot, segments);
+    const normalized = typeof plainValue === 'string' ? plainValue.trim() : plainValue;
+    if (normalized == null || normalized === '') {
+      setValueAtPath(clone, segments, null);
+      return;
+    }
+    if (isEncryptedSecret(normalized)) {
+      setValueAtPath(clone, segments, normalized);
+      return;
+    }
+    setValueAtPath(clone, segments, encryptSecret(normalized));
+  });
+  return clone;
+}
+
+function pathToString(pathSegments = []) {
+  return pathSegments
+    .map((segment) => (typeof segment === 'number' ? `[${segment}]` : segment))
+    .filter((segment) => segment !== undefined && segment !== '')
+    .join('.');
+}
+
+function secretKeyFromSegments(pathSegments = []) {
+  return pathSegments.filter((segment) => typeof segment === 'string').join('.');
+}
+
+function flattenSnapshot(snapshot, pathSegments = []) {
+  if (Array.isArray(snapshot)) {
+    return snapshot.flatMap((value, index) => flattenSnapshot(value, [...pathSegments, index]));
+  }
+  if (snapshot && typeof snapshot === 'object') {
+    return Object.entries(snapshot).flatMap(([key, value]) =>
+      flattenSnapshot(value, [...pathSegments, key]),
+    );
+  }
+  return [
+    {
+      path: pathSegments,
+      field: pathToString(pathSegments),
+      secret: SECRET_FIELD_LOOKUP.has(secretKeyFromSegments(pathSegments)),
+      value: snapshot,
+    },
+  ];
+}
+
+function computeDiffEntries(beforeSnapshot, afterSnapshot) {
+  const beforeEntries = new Map();
+  flattenSnapshot(beforeSnapshot).forEach((entry) => {
+    if (entry.field) {
+      beforeEntries.set(entry.field, entry);
+    }
+  });
+
+  const afterEntries = new Map();
+  flattenSnapshot(afterSnapshot).forEach((entry) => {
+    if (entry.field) {
+      afterEntries.set(entry.field, entry);
+    }
+  });
+
+  const keys = new Set([...beforeEntries.keys(), ...afterEntries.keys()]);
+  const diff = [];
+
+  keys.forEach((key) => {
+    const beforeEntry = beforeEntries.get(key);
+    const afterEntry = afterEntries.get(key);
+    const beforeValue = beforeEntry?.value;
+    const afterValue = afterEntry?.value;
+    if (!Object.is(beforeValue, afterValue)) {
+      diff.push({
+        field: key,
+        segments: afterEntry?.path ?? beforeEntry?.path ?? [],
+        secret: afterEntry?.secret ?? beforeEntry?.secret ?? false,
+        before: beforeValue,
+        after: afterValue,
+      });
+    }
+  });
+
+  return diff;
+}
+
+function sanitizeDiffEntries(diffEntries = []) {
+  return diffEntries.map((entry) => ({
+    field: entry.field,
+    before: entry.secret ? maskSecret(entry.before) ?? null : entry.before ?? null,
+    after: entry.secret ? maskSecret(entry.after) ?? null : entry.after ?? null,
+  }));
+}
+
+function buildSnapshotFromDiff(diffEntries = [], key = 'before') {
+  return diffEntries.reduce((acc, entry) => {
+    const value = entry[key];
+    if (value !== undefined) {
+      acc[entry.field] = value;
+    }
+    return acc;
+  }, {});
+}
+
+function buildChangeSummary(diffEntries = []) {
+  if (!diffEntries.length) {
+    return 'No fields changed';
+  }
+  const fields = diffEntries.map((entry) => entry.field);
+  const headline = fields.slice(0, 5).join(', ');
+  return fields.length > 5 ? `${headline} +${fields.length - 5} more` : headline;
+}
+
+async function loadNotificationService() {
+  if (!notificationServicePromise) {
+    notificationServicePromise = import('./notificationService.js').catch((error) => {
+      logger.warn({ error }, 'Unable to load notification service for platform settings updates');
+      return null;
+    });
+  }
+  const module = await notificationServicePromise;
+  return module?.default ?? module;
+}
+
+async function resolveNotificationRecipients() {
+  return appCache.remember(RECIPIENT_CACHE_KEY, RECIPIENT_CACHE_TTL_SECONDS, async () => {
+    const rows = await UserRole.findAll({
+      attributes: ['userId'],
+      where: { role: { [Op.in]: NOTIFICATION_ROLE_KEYS } },
+      raw: true,
+    });
+    const unique = new Set();
+    rows.forEach((row) => {
+      const candidate = Number.parseInt(row.userId, 10);
+      if (Number.isFinite(candidate)) {
+        unique.add(candidate);
+      }
+    });
+    return Array.from(unique);
+  });
+}
+
+async function dispatchSettingsUpdateNotification({ actorId, diff }) {
+  if (!diff?.length) {
+    return;
+  }
+  const notificationService = await loadNotificationService();
+  if (!notificationService?.queueNotification) {
+    return;
+  }
+
+  const recipients = await resolveNotificationRecipients();
+  const summary = buildChangeSummary(diff);
+  const payload = {
+    changedFields: diff.map((entry) => entry.field),
+    summary,
+  };
+
+  await Promise.allSettled(
+    recipients
+      .filter((userId) => userId && userId !== actorId)
+      .map((userId) =>
+        notificationService.queueNotification(
+          {
+            userId,
+            category: 'compliance',
+            priority: 'high',
+            type: 'platform.settings.updated',
+            title: 'Platform settings updated',
+            body: `Updated fields: ${summary}`,
+            payload,
+          },
+          { bypassQuietHours: true },
+        ),
+      ),
+  );
+}
+
+async function recordPlatformSettingAudit({ actorId, actorType, diff }) {
+  if (!diff?.length) {
+    return null;
+  }
+
+  const sanitizedDiff = sanitizeDiffEntries(diff);
+  const summary = buildChangeSummary(sanitizedDiff);
+
+  try {
+    return await PlatformSettingAudit.create({
+      settingKey: PLATFORM_SETTINGS_KEY,
+      actorId: actorId ?? null,
+      actorType: actorType ?? null,
+      changeType: 'update',
+      summary,
+      diff: sanitizedDiff,
+      beforeSnapshot: buildSnapshotFromDiff(sanitizedDiff, 'before'),
+      afterSnapshot: buildSnapshotFromDiff(sanitizedDiff, 'after'),
+      metadata: {
+        changedFieldCount: sanitizedDiff.length,
+      },
+    });
+  } catch (error) {
+    logger.error({ error }, 'Failed to record platform setting audit entry');
+    return null;
+  }
+}
+
+function invalidatePlatformSettingsCache() {
+  appCache.delete(PLATFORM_SETTINGS_CACHE_KEY);
+}
+
+function cachePlatformSettingsSnapshot(snapshot) {
+  appCache.set(PLATFORM_SETTINGS_CACHE_KEY, deepClone(snapshot), PLATFORM_SETTINGS_CACHE_TTL_SECONDS);
+}
+
+function validateSettingsSnapshot(snapshot = {}) {
+  const provider = snapshot?.payments?.provider ?? 'stripe';
+  if (!PAYMENT_PROVIDERS.has(provider)) {
+    throw new ValidationError(`Unsupported payment provider: ${provider}`);
+  }
+
+  if (provider === 'stripe') {
+    const publishableKey = snapshot?.payments?.stripe?.publishableKey ?? '';
+    const secretKey = snapshot?.payments?.stripe?.secretKey ?? '';
+    if (!publishableKey.trim()) {
+      throw new ValidationError('Stripe publishable key is required when Stripe is the active payment provider.');
+    }
+    if (!secretKey.trim()) {
+      throw new ValidationError('Stripe secret key is required when Stripe is the active payment provider.');
+    }
+  }
+
+  if (provider === 'escrow_com') {
+    const apiKey = snapshot?.payments?.escrow_com?.apiKey ?? '';
+    const apiSecret = snapshot?.payments?.escrow_com?.apiSecret ?? '';
+    if (!apiKey.trim()) {
+      throw new ValidationError('Escrow.com API key is required when escrow_com is the active payment provider.');
+    }
+    if (!apiSecret.trim()) {
+      throw new ValidationError('Escrow.com API secret is required when escrow_com is the active payment provider.');
+    }
+    if (snapshot?.featureToggles?.escrow === false) {
+      throw new ValidationError('Escrow compliance toggle cannot be disabled while escrow_com payments are active.');
+    }
+  }
+}
 
 function coerceBoolean(value, fallback) {
   if (typeof value === 'boolean') {
@@ -961,51 +1287,99 @@ function mergeDefaults(defaults, stored) {
   };
 }
 
-export async function getPlatformSettings() {
-  const defaults = buildDefaultPlatformSettings();
-  const record = await PlatformSetting.findOne({ where: { key: PLATFORM_SETTINGS_KEY } });
-  return mergeDefaults(defaults, record?.value ?? {});
-}
-
-export async function updatePlatformSettings(payload = {}) {
-  const defaults = buildDefaultPlatformSettings();
-  const existing = await PlatformSetting.findOne({ where: { key: PLATFORM_SETTINGS_KEY } });
-  const baseline = mergeDefaults(defaults, existing?.value ?? {});
-  const normalized = normalizeSettings(payload, baseline);
-
-  if (existing) {
-    await existing.update({ value: normalized });
-  } else {
-    await PlatformSetting.create({ key: PLATFORM_SETTINGS_KEY, value: normalized });
-  }
-
-  const snapshot = mergeDefaults(defaults, normalized);
-  syncCriticalDependencies(snapshot, { logger: logger.child({ component: 'platform-settings' }) });
-  return snapshot;
-}
-
-export async function getHomepageSettings() {
+async function loadSettingsSnapshot() {
   const defaults = buildDefaultPlatformSettings();
   const record = await PlatformSetting.findOne({ where: { key: PLATFORM_SETTINGS_KEY } });
   const merged = mergeDefaults(defaults, record?.value ?? {});
-  return merged.homepage;
+  return decryptSecretsInPlace(merged);
 }
 
-export async function updateHomepageSettings(payload = {}) {
-  const defaults = buildDefaultPlatformSettings();
-  const existing = await PlatformSetting.findOne({ where: { key: PLATFORM_SETTINGS_KEY } });
-  const baseline = mergeDefaults(defaults, existing?.value ?? {});
-  const normalizedHomepage = normalizeHomepageSettings(payload, baseline.homepage ?? defaults.homepage);
-  const nextValue = { ...baseline, homepage: normalizedHomepage };
-
-  if (existing) {
-    await existing.update({ value: nextValue });
-  } else {
-    await PlatformSetting.create({ key: PLATFORM_SETTINGS_KEY, value: nextValue });
+export async function getPlatformSettings(options = {}) {
+  const { bypassCache = false } = options ?? {};
+  if (!bypassCache) {
+    const cached = appCache.get(PLATFORM_SETTINGS_CACHE_KEY);
+    if (cached) {
+      return deepClone(cached);
+    }
   }
 
-  const snapshot = mergeDefaults(defaults, nextValue);
+  const snapshot = await loadSettingsSnapshot();
+  cachePlatformSettingsSnapshot(snapshot);
+  return snapshot;
+}
+
+export async function updatePlatformSettings(payload = {}, options = {}) {
+  const defaults = buildDefaultPlatformSettings();
+  const existing = await PlatformSetting.findOne({ where: { key: PLATFORM_SETTINGS_KEY } });
+  const baseline = decryptSecretsInPlace(mergeDefaults(defaults, existing?.value ?? {}));
+  const normalized = normalizeSettings(payload, baseline);
+
+  validateSettingsSnapshot(normalized);
+  const encrypted = encryptSecretsForPersistence(normalized);
+
+  if (existing) {
+    await existing.update({ value: encrypted });
+  } else {
+    await PlatformSetting.create({ key: PLATFORM_SETTINGS_KEY, value: encrypted });
+  }
+
+  const snapshot = mergeDefaults(defaults, encrypted);
+  decryptSecretsInPlace(snapshot);
+
+  const diffEntries = computeDiffEntries(baseline, snapshot);
+  await recordPlatformSettingAudit({
+    actorId: options.actorId ?? null,
+    actorType: options.actorType ?? null,
+    diff: diffEntries,
+  });
+  await dispatchSettingsUpdateNotification({
+    actorId: options.actorId ?? null,
+    diff: sanitizeDiffEntries(diffEntries),
+  });
+
   syncCriticalDependencies(snapshot, { logger: logger.child({ component: 'platform-settings' }) });
+  invalidatePlatformSettingsCache();
+  cachePlatformSettingsSnapshot(snapshot);
+  return snapshot;
+}
+
+export async function getHomepageSettings(options = {}) {
+  const snapshot = await getPlatformSettings(options);
+  return snapshot.homepage;
+}
+
+export async function updateHomepageSettings(payload = {}, options = {}) {
+  const defaults = buildDefaultPlatformSettings();
+  const existing = await PlatformSetting.findOne({ where: { key: PLATFORM_SETTINGS_KEY } });
+  const storedValue = existing?.value ?? {};
+  const baseline = decryptSecretsInPlace(mergeDefaults(defaults, storedValue));
+  const normalizedHomepage = normalizeHomepageSettings(payload, baseline.homepage ?? defaults.homepage);
+  const nextPlain = { ...baseline, homepage: normalizedHomepage };
+  const encryptedNext = encryptSecretsForPersistence(nextPlain);
+
+  if (existing) {
+    await existing.update({ value: encryptedNext });
+  } else {
+    await PlatformSetting.create({ key: PLATFORM_SETTINGS_KEY, value: encryptedNext });
+  }
+
+  const snapshot = mergeDefaults(defaults, encryptedNext);
+  decryptSecretsInPlace(snapshot);
+
+  const diffEntries = computeDiffEntries(baseline, snapshot);
+  await recordPlatformSettingAudit({
+    actorId: options.actorId ?? null,
+    actorType: options.actorType ?? null,
+    diff: diffEntries,
+  });
+  await dispatchSettingsUpdateNotification({
+    actorId: options.actorId ?? null,
+    diff: sanitizeDiffEntries(diffEntries),
+  });
+
+  syncCriticalDependencies(snapshot, { logger: logger.child({ component: 'platform-settings' }) });
+  invalidatePlatformSettingsCache();
+  cachePlatformSettingsSnapshot(snapshot);
   return snapshot.homepage;
 }
 
