@@ -22,9 +22,13 @@ import AccessDeniedPanel from '../../components/dashboard/AccessDeniedPanel.jsx'
 import CompanyDashboardOverviewSection from '../../components/company/CompanyDashboardOverviewSection.jsx';
 import CompanyOperationalControlPanel from '../../components/company/CompanyOperationalControlPanel.jsx';
 import CompanyPagesManagementSection from '../../components/company/CompanyPagesManagementSection.jsx';
+import HiringHealthInsights from '../../components/company/HiringHealthInsights.jsx';
+import CompanyQuickLinks from '../../components/company/CompanyQuickLinks.jsx';
+import CreationStudioMentorshipPanel from '../../components/company/CreationStudioMentorshipPanel.jsx';
 import { useCompanyDashboard } from '../../hooks/useCompanyDashboard.js';
 import { useSession } from '../../context/SessionContext.jsx';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
+import { formatMetricCurrency, formatMetricNumber, formatMetricPercent } from '../../utils/metrics.js';
 import { COMPANY_DASHBOARD_MENU_SECTIONS } from '../../constants/companyDashboardMenu.js';
 import TimelineManagementSection from '../../components/company/TimelineManagementSection.jsx';
 
@@ -44,43 +48,6 @@ const SUMMARY_ICONS = [
   ChartBarIcon,
   ChatBubbleLeftRightIcon,
 ];
-
-function formatNumber(value, { fallback = '—', suffix = '', decimals = null } = {}) {
-  if (value == null || Number.isNaN(Number(value))) {
-    return fallback;
-  }
-  const numeric = Number(value);
-  const formatted =
-    decimals == null
-      ? numeric.toLocaleString()
-      : numeric.toLocaleString(undefined, {
-          minimumFractionDigits: decimals,
-          maximumFractionDigits: decimals,
-        });
-  return `${formatted}${suffix}`;
-}
-
-function formatPercent(value, { fallback = '—', decimals = 1 } = {}) {
-  if (value == null || Number.isNaN(Number(value))) {
-    return fallback;
-  }
-  return `${Number(value).toFixed(decimals)}%`;
-}
-
-function formatCurrency(value, currency = 'USD', { fallback = '—' } = {}) {
-  if (value == null || Number.isNaN(Number(value))) {
-    return fallback;
-  }
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) {
-    return fallback;
-  }
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: currency || 'USD',
-    maximumFractionDigits: numeric < 100 ? 2 : 0,
-  }).format(numeric);
-}
 
 function buildProfile(data, summaryCards) {
   const workspace = data?.workspace ?? {};
@@ -280,7 +247,7 @@ function buildSections(data) {
     : [];
 
   const diversityItems = diversityBreakdowns.length
-    ? diversityBreakdowns.map((item) => `${item.label}: ${formatPercent(item.percentage)}`)
+    ? diversityBreakdowns.map((item) => `${item.label}: ${formatMetricPercent(item.percentage)}`)
     : ['Capture voluntary demographic surveys to unlock representation insights.'];
 
   const alertItems = Array.isArray(alerts.items) && alerts.items.length
@@ -299,28 +266,28 @@ function buildSections(data) {
           name: 'Pipeline health',
           sectionId: 'hiring-overview',
           bulletPoints: [
-            `Open requisitions: ${formatNumber(data.jobSummary?.total ?? data.jobSummary?.active ?? 0)}`,
-            `Applications in flight: ${formatNumber(pipeline.totals?.applications)}`,
-            `Interviews scheduled: ${formatNumber(pipeline.totals?.interviews)}`,
-            `Offers extended: ${formatNumber(offer.openOffers)}`,
+            `Open requisitions: ${formatMetricNumber(data.jobSummary?.total ?? data.jobSummary?.active ?? 0)}`,
+            `Applications in flight: ${formatMetricNumber(pipeline.totals?.applications)}`,
+            `Interviews scheduled: ${formatMetricNumber(pipeline.totals?.interviews)}`,
+            `Offers extended: ${formatMetricNumber(offer.openOffers)}`,
           ],
         },
         {
           name: 'Conversion & velocity',
           sectionId: 'hiring-overview',
           bulletPoints: [
-            `Average days to decision: ${formatNumber(velocity.averageDaysToDecision, { suffix: ' days' })}`,
-            `Median days to interview: ${formatNumber(velocity.medianDaysToInterview, { suffix: ' days' })}`,
-            `Interview rate: ${formatPercent(conversions.interviewRate)}`,
-            `Offer-to-hire rate: ${formatPercent(conversions.hireRate)}`,
+            `Average days to decision: ${formatMetricNumber(velocity.averageDaysToDecision, { suffix: ' days' })}`,
+            `Median days to interview: ${formatMetricNumber(velocity.medianDaysToInterview, { suffix: ' days' })}`,
+            `Interview rate: ${formatMetricPercent(conversions.interviewRate)}`,
+            `Offer-to-hire rate: ${formatMetricPercent(conversions.hireRate)}`,
           ],
         },
         {
           name: 'Alerts & representation',
           sectionId: 'candidate-care-center',
           bulletPoints: [
-            `Open alerts: ${formatNumber(alerts.open)}`,
-            `Critical severity: ${formatNumber(alerts.bySeverity?.critical)}`,
+            `Open alerts: ${formatMetricNumber(alerts.open)}`,
+            `Critical severity: ${formatMetricNumber(alerts.bySeverity?.critical)}`,
             `Representation index: ${
               diversity.representationIndex != null
                 ? Number(diversity.representationIndex).toFixed(2)
@@ -359,30 +326,30 @@ function buildSections(data) {
           name: 'Job design studio',
           sectionId: 'job-design-studio',
           bulletPoints: [
-            `Approvals in flight: ${formatNumber(jobDesign.approvalsInFlight)}`,
-            `Co-author sessions: ${formatNumber(jobDesign.coAuthorSessions)}`,
-            `Structured stages: ${formatNumber(jobDesign.structuredStages)}`,
-            `Compliance alerts: ${formatNumber(jobDesign.complianceAlerts)}`,
+            `Approvals in flight: ${formatMetricNumber(jobDesign.approvalsInFlight)}`,
+            `Co-author sessions: ${formatMetricNumber(jobDesign.coAuthorSessions)}`,
+            `Structured stages: ${formatMetricNumber(jobDesign.structuredStages)}`,
+            `Compliance alerts: ${formatMetricNumber(jobDesign.complianceAlerts)}`,
           ],
         },
         {
           name: 'Multi-channel sourcing',
           sectionId: 'multi-channel-sourcing',
           bulletPoints: [
-            `Campaign applications: ${formatNumber(sourcing.campaignTotals?.applications)}`,
-            `Campaign hires: ${formatNumber(sourcing.campaignTotals?.hires)}`,
-            `Average CPA: ${formatCurrency(sourcing.averageCostPerApplication)}`,
-            `Hire contribution rate: ${formatPercent(sourcing.hireContributionRate)}`,
+            `Campaign applications: ${formatMetricNumber(sourcing.campaignTotals?.applications)}`,
+            `Campaign hires: ${formatMetricNumber(sourcing.campaignTotals?.hires)}`,
+            `Average CPA: ${formatMetricCurrency(sourcing.averageCostPerApplication)}`,
+            `Hire contribution rate: ${formatMetricPercent(sourcing.hireContributionRate)}`,
           ],
         },
         {
           name: 'Applicant relationship manager',
           sectionId: 'applicant-relationship-manager',
           bulletPoints: [
-            `Active candidates: ${formatNumber(applicantRelationshipManager.totalActiveCandidates)}`,
-            `Nurture campaigns: ${formatNumber(applicantRelationshipManager.nurtureCampaigns)}`,
-            `Follow-ups scheduled: ${formatNumber(applicantRelationshipManager.followUpsScheduled)}`,
-            `Compliance reviews: ${formatNumber(applicantRelationshipManager.complianceReviews)}`,
+            `Active candidates: ${formatMetricNumber(applicantRelationshipManager.totalActiveCandidates)}`,
+            `Nurture campaigns: ${formatMetricNumber(applicantRelationshipManager.nurtureCampaigns)}`,
+            `Follow-ups scheduled: ${formatMetricNumber(applicantRelationshipManager.followUpsScheduled)}`,
+            `Compliance reviews: ${formatMetricNumber(applicantRelationshipManager.complianceReviews)}`,
           ],
         },
       ],
@@ -396,29 +363,29 @@ function buildSections(data) {
           name: 'Forecasting signals',
           sectionId: 'analytics-forecasting',
           bulletPoints: [
-            `Projected hires: ${formatNumber(analyticsForecasting.projectedHires)}`,
-            `Estimated backlog: ${formatNumber(analyticsForecasting.backlog)}`,
-            `Time to fill: ${formatNumber(analyticsForecasting.timeToFillDays, { suffix: ' days' })}`,
-            `Projects at risk: ${formatNumber(analyticsForecasting.atRiskProjects)}`,
+            `Projected hires: ${formatMetricNumber(analyticsForecasting.projectedHires)}`,
+            `Estimated backlog: ${formatMetricNumber(analyticsForecasting.backlog)}`,
+            `Time to fill: ${formatMetricNumber(analyticsForecasting.timeToFillDays, { suffix: ' days' })}`,
+            `Projects at risk: ${formatMetricNumber(analyticsForecasting.atRiskProjects)}`,
           ],
         },
         {
           name: 'Workforce analytics',
           sectionId: 'workforce-analytics',
           bulletPoints: [
-            `Attrition risk score: ${formatPercent(workforce.attritionRiskScore)}`,
-            `Flight-risk employees: ${formatNumber(workforce.employeesAtRisk)}`,
-            `Hot skills tracked: ${formatNumber(workforce.hotSkillsTracked)}`,
-            `Mobility readiness: ${formatPercent(mobility.referralConversionRate)}`,
+            `Attrition risk score: ${formatMetricPercent(workforce.attritionRiskScore)}`,
+            `Flight-risk employees: ${formatMetricNumber(workforce.employeesAtRisk)}`,
+            `Hot skills tracked: ${formatMetricNumber(workforce.hotSkillsTracked)}`,
+            `Mobility readiness: ${formatMetricPercent(mobility.referralConversionRate)}`,
           ],
         },
         {
           name: 'Scenario planning',
           sectionId: 'scenario-planning',
           bulletPoints: [
-            `Draft scenarios: ${formatNumber(scenarioPlanning.total)}`,
-            `Active hiring freezes: ${formatNumber(scenarioPlanning.freezePlans)}`,
-            `Acceleration plans: ${formatNumber(scenarioPlanning.accelerationPlans)}`,
+            `Draft scenarios: ${formatMetricNumber(scenarioPlanning.total)}`,
+            `Active hiring freezes: ${formatMetricNumber(scenarioPlanning.freezePlans)}`,
+            `Acceleration plans: ${formatMetricNumber(scenarioPlanning.accelerationPlans)}`,
             scenarioPlanning.nextReviewAt
               ? `Next review: ${formatAbsolute(scenarioPlanning.nextReviewAt)}`
               : 'Schedule scenario reviews to align exec decisions.',
@@ -435,11 +402,11 @@ function buildSections(data) {
           name: 'Calendar & comms',
           sectionId: 'calendar-communications',
           bulletPoints: [
-            `Events this week: ${formatNumber(calendar.upcoming?.length)}`,
+            `Events this week: ${formatMetricNumber(calendar.upcoming?.length)}`,
             calendar.upcoming?.[0]?.startsAt
               ? `Next event: ${formatAbsolute(calendar.upcoming[0].startsAt)}`
               : 'Connect recruiting calendars to show upcoming milestones.',
-            `Pending escalations: ${formatNumber(calendar.pendingEscalations)}`,
+            `Pending escalations: ${formatMetricNumber(calendar.pendingEscalations)}`,
             calendar.weeklyDigest?.highlights?.[0] ?? 'Weekly digests summarise pipeline changes for stakeholders.',
           ],
         },
@@ -447,8 +414,8 @@ function buildSections(data) {
           name: 'Permissions & governance',
           sectionId: 'settings-governance',
           bulletPoints: [
-            `Pending approvals: ${formatNumber(governance.pendingApprovals)}`,
-            `Critical alerts: ${formatNumber(governance.criticalAlerts)}`,
+            `Pending approvals: ${formatMetricNumber(governance.pendingApprovals)}`,
+            `Critical alerts: ${formatMetricNumber(governance.criticalAlerts)}`,
             governance.timezone ? `Primary timezone: ${governance.timezone}` : 'Set a default timezone for scheduling.',
             `Workspace active: ${governance.workspaceActive ? 'Yes' : 'No'}`,
           ],
@@ -457,14 +424,14 @@ function buildSections(data) {
           name: 'Candidate care',
           sectionId: 'candidate-care-center',
           bulletPoints: [
-            `Survey responses: ${formatNumber(candidateExperience.responseCount)}`,
+            `Survey responses: ${formatMetricNumber(candidateExperience.responseCount)}`,
             `Candidate NPS: ${
               candidateExperience.nps != null && Number.isFinite(Number(candidateExperience.nps))
                 ? Number(candidateExperience.nps).toFixed(1)
                 : '—'
             }`,
-            `Open care tickets: ${formatNumber(candidateCare.escalations)}`,
-            `Follow-ups pending: ${formatNumber(candidateCare.followUpsPending)}`,
+            `Open care tickets: ${formatMetricNumber(candidateCare.escalations)}`,
+            `Follow-ups pending: ${formatMetricNumber(candidateCare.followUpsPending)}`,
           ],
         },
       ],
@@ -478,10 +445,10 @@ function buildSections(data) {
           name: 'Offer health',
           sectionId: 'offer-onboarding',
           bulletPoints: [
-            `Open offers: ${formatNumber(offer.openOffers)}`,
-            `Acceptance rate: ${formatPercent(offer.acceptanceRate)}`,
-            `Approvals pending: ${formatNumber(offer.approvalsPending)}`,
-            `Average days to start: ${formatNumber(offer.averageDaysToStart, { suffix: ' days' })}`,
+            `Open offers: ${formatMetricNumber(offer.openOffers)}`,
+            `Acceptance rate: ${formatMetricPercent(offer.acceptanceRate)}`,
+            `Approvals pending: ${formatMetricNumber(offer.approvalsPending)}`,
+            `Average days to start: ${formatMetricNumber(offer.averageDaysToStart, { suffix: ' days' })}`,
           ],
         },
       ],
@@ -502,63 +469,63 @@ function BrandAndPeopleSection({ data }) {
   const brandMetrics = [
     {
       label: 'Profile completeness',
-      value: formatPercent(employerBrandStudio?.profileCompleteness),
+      value: formatMetricPercent(employerBrandStudio?.profileCompleteness),
     },
     {
       label: 'Published assets',
-      value: formatNumber(employerBrandStudio?.publishedAssets),
+      value: formatMetricNumber(employerBrandStudio?.publishedAssets),
     },
     {
       label: 'Avg asset engagement',
-      value: formatNumber(employerBrandStudio?.averageAssetEngagement),
+      value: formatMetricNumber(employerBrandStudio?.averageAssetEngagement),
     },
     {
       label: 'Stories live',
-      value: formatNumber(employerBrandStudio?.stories?.published),
+      value: formatMetricNumber(employerBrandStudio?.stories?.published),
     },
   ];
 
   const journeyMetrics = [
     {
       label: 'Active programs',
-      value: formatNumber(employeeJourneys?.totalPrograms),
+      value: formatMetricNumber(employeeJourneys?.totalPrograms),
     },
     {
       label: 'Employees enrolled',
-      value: formatNumber(employeeJourneys?.activeEmployees),
+      value: formatMetricNumber(employeeJourneys?.activeEmployees),
     },
     {
       label: 'Avg completion',
-      value: formatPercent(employeeJourneys?.averageCompletionRate),
+      value: formatMetricPercent(employeeJourneys?.averageCompletionRate),
     },
     {
       label: 'Programs at risk',
-      value: formatNumber(employeeJourneys?.programsAtRisk),
+      value: formatMetricNumber(employeeJourneys?.programsAtRisk),
     },
   ];
 
   const governanceMetrics = [
     {
       label: 'Calendar connections',
-      value: `${formatNumber(settingsGovernance?.calendar?.connected)} / ${formatNumber(
+      value: `${formatMetricNumber(settingsGovernance?.calendar?.connected)} / ${formatMetricNumber(
         settingsGovernance?.calendar?.totalConnections,
       )}`,
       helper: 'Active / total connections',
     },
     {
       label: 'Integrations live',
-      value: `${formatNumber(settingsGovernance?.integrations?.connected)} / ${formatNumber(
+      value: `${formatMetricNumber(settingsGovernance?.integrations?.connected)} / ${formatMetricNumber(
         settingsGovernance?.integrations?.total,
       )}`,
       helper: 'Connected integrations',
     },
     {
       label: 'Pending invites',
-      value: formatNumber(settingsGovernance?.permissions?.pendingInvites),
+      value: formatMetricNumber(settingsGovernance?.permissions?.pendingInvites),
     },
     {
       label: 'Critical alerts',
-      value: formatNumber(settingsGovernance?.compliance?.criticalAlerts),
+      value: formatMetricNumber(settingsGovernance?.compliance?.criticalAlerts),
     },
   ];
 
@@ -701,8 +668,8 @@ function BrandAndPeopleSection({ data }) {
                           {program.healthStatus?.replace(/_/g, ' ') ?? 'unknown'}
                         </span>
                       </td>
-                      <td className="px-3 py-2">{formatNumber(program.activeEmployees)}</td>
-                      <td className="px-3 py-2">{formatPercent(program.completionRate)}</td>
+                      <td className="px-3 py-2">{formatMetricNumber(program.activeEmployees)}</td>
+                      <td className="px-3 py-2">{formatMetricPercent(program.completionRate)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -784,7 +751,7 @@ function BrandAndPeopleSection({ data }) {
                 {settingsGovernance.integrations.categories.map((category) => (
                   <li key={category.category} className="flex items-center justify-between rounded-xl bg-slate-50 p-3">
                     <span className="capitalize">{category.category.replace(/_/g, ' ')}</span>
-                    <span className="text-sm font-semibold text-slate-900">{formatNumber(category.count)}</span>
+                    <span className="text-sm font-semibold text-slate-900">{formatMetricNumber(category.count)}</span>
                   </li>
                 ))}
               </ul>
@@ -885,6 +852,43 @@ export default function CompanyDashboardPage() {
     label: 'Open networking command center',
   };
 
+  const mentorshipIntegration =
+    data?.mentorship ??
+    data?.talentPrograms?.mentorship ??
+    data?.employeeJourneys?.mentorship ??
+    null;
+
+  const quickLinks = useMemo(() => {
+    const baseLinks = [
+      { label: 'Overview', href: '#company-overview' },
+      { label: 'Health insights', href: '#hiring-health-insights' },
+      { label: 'Creation studio', href: '#creation-studio-previews' },
+      { label: 'Partnerships', href: '#partnerships-sourcing' },
+      { label: 'Networking', href: '#networking-session-management' },
+      { label: 'Interview excellence', href: '#interview-excellence' },
+      { label: 'Brand & people', href: '#brand-and-people' },
+      { label: 'Operational control', href: '#company-operational-control' },
+      { label: 'Timeline', href: '#timeline-management' },
+      { label: 'Partner timeline', href: '#partner-timeline' },
+    ];
+    const dynamicLinks = sections.map((section) => ({
+      label: section.title,
+      href: `#${section.id}`,
+    }));
+    const seen = new Set();
+    return [...baseLinks, ...dynamicLinks].filter((link) => {
+      if (!link?.href) {
+        return false;
+      }
+      const key = link.href.toLowerCase();
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+  }, [sections]);
+
   const handleWorkspaceChange = (event) => {
     const nextWorkspaceId = event.target.value;
     const next = new URLSearchParams(searchParams);
@@ -940,185 +944,220 @@ export default function CompanyDashboardPage() {
       profile={profile}
       availableDashboards={availableDashboards}
     >
-      <div className="space-y-10">
-        <div className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-wrap items-center gap-4">
-            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400" htmlFor="workspace-select">
-              Workspace
-            </label>
-            <select
-              id="workspace-select"
-              value={data?.meta?.selectedWorkspaceId ?? workspaceIdParam ?? ''}
-              onChange={handleWorkspaceChange}
-              className="min-w-[180px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-            >
-              <option value="">Select workspace</option>
-              {workspaceOptions.map((workspace) => (
-                <option key={workspace.id} value={workspace.id}>
-                  {workspace.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-4">
-            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400" htmlFor="lookback-select">
-              Lookback window
-            </label>
-            <select
-              id="lookback-select"
-              value={lookbackDays}
-              onChange={handleLookbackChange}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-            >
-              {LOOKBACK_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  Last {option} days
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <DataStatus
-            loading={loading}
-            fromCache={fromCache}
-            lastUpdated={lastUpdated}
-            onRefresh={() => refresh({ force: true })}
-          />
+      <div className="lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start lg:gap-8">
+        <div className="mb-6 lg:mb-0">
+          <CompanyQuickLinks links={quickLinks} />
         </div>
-
-        {error ? (
-          <div className="rounded-3xl border border-rose-200 bg-rose-50/70 p-6 text-sm text-rose-700">
-            {error.message || 'Unable to load company dashboard data.'}
-          </div>
-        ) : null}
-
-        <CompanyDashboardOverviewSection
-          overview={data?.overview}
-          profile={profile}
-          workspace={data?.workspace}
-          onOverviewUpdated={() => refresh({ force: true })}
-        />
-
-        <SummaryCardGrid cards={enrichedSummaryCards} />
-
-        {data?.creationStudio ? (
-          <CreationStudioSummary
-            overview={data.creationStudio}
-            ctaTo="/dashboard/company/creation-studio"
-            ctaLabel="Open creation studio"
-            compact
-          />
-        ) : null}
-
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">Workspace memberships</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            Cross-functional collaborators gain tailored permissions and dashboards per membership.
-          </p>
-          <div className="mt-4">
-            <MembershipHighlights memberships={memberships} />
-          </div>
-        </div>
-
-        <PartnershipsSourcingSection data={data?.partnerships} />
-
-        <section
-          id="networking-session-management"
-          className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-        >
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-2xl font-semibold text-slate-900">Networking sessions</h2>
-              <p className="text-sm text-slate-600">Plan, spend, and follow up from the streamlined workspace.</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <a
-                href="/dashboard/company/networking/sessions"
-                className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500"
-              >
-                Open sessions
-              </a>
-              <a
-                href="/dashboard/company/networking"
-                className="inline-flex items-center gap-2 rounded-full border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-600 transition hover:border-blue-400 hover:bg-blue-50"
-              >
-                Live hub
-              </a>
-            </div>
-          </div>
-        </section>
-
-        {data ? (
-          <JobLifecycleSection
-            jobLifecycle={data.jobLifecycle}
-            recommendations={data.recommendations}
-            lookbackDays={data?.meta?.lookbackDays ?? lookbackDays}
-          />
-        ) : null}
-
-        <section
-          id="interview-excellence"
-          className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_18px_40px_-24px_rgba(30,64,175,0.35)] sm:p-8"
-        >
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h2 className="text-2xl font-semibold text-slate-900">Interview excellence & candidate experience</h2>
-              <p className="mt-1 max-w-3xl text-sm text-slate-600">
-                Run structured interviews, automate reminders, manage prep portals, and monitor offer and care workflows.
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-600">
-                Interview workspace
-              </span>
-              <a
-                href={networkingCta.href}
-                className="inline-flex items-center gap-2 rounded-full border border-accent/40 px-4 py-2 text-xs font-semibold text-accent transition hover:border-accent hover:bg-accent/5"
-              >
-                {networkingCta.label}
-              </a>
-            </div>
-          </div>
-
-          <div className="mt-6">
-            <InterviewExperienceSection
-              data={data?.interviewExperience}
-              interviewOperations={data?.interviewOperations}
-              candidateExperience={data?.candidateExperience}
-              offerOnboarding={data?.offerOnboarding}
-            />
-          </div>
-        </section>
-
-        <TimelineManagementSection
-          id="timeline-management"
-          workspaceId={activeWorkspaceId}
-          lookbackDays={lookbackDays}
-          data={data?.timelineManagement}
-          onRefresh={refresh}
-        />
-
-        <BrandAndPeopleSection data={data} />
-
-        <CompanyOperationalControlPanel
-          workspaceId={companyWorkspaceId}
-          workspaceSlug={workspaceSlugParam ?? undefined}
-          lookbackDays={lookbackDays}
-          summaryCards={enrichedSummaryCards}
-          session={session}
-        />
-
-        {sections.map((section) => (
+        <div className="space-y-10">
           <section
-            key={section.id}
-            id={section.id}
+            id="workspace-controls"
+            className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between"
+          >
+            <div className="flex flex-wrap items-center gap-4">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-400" htmlFor="workspace-select">
+                Workspace
+              </label>
+              <select
+                id="workspace-select"
+                value={data?.meta?.selectedWorkspaceId ?? workspaceIdParam ?? ''}
+                onChange={handleWorkspaceChange}
+                className="min-w-[180px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+              >
+                <option value="">Select workspace</option>
+                {workspaceOptions.map((workspace) => (
+                  <option key={workspace.id} value={workspace.id}>
+                    {workspace.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-4">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-400" htmlFor="lookback-select">
+                Lookback window
+              </label>
+              <select
+                id="lookback-select"
+                value={lookbackDays}
+                onChange={handleLookbackChange}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+              >
+                {LOOKBACK_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    Last {option} days
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <DataStatus
+              loading={loading}
+              fromCache={fromCache}
+              lastUpdated={lastUpdated}
+              onRefresh={() => refresh({ force: true })}
+            />
+          </section>
+
+          {error ? (
+            <div className="rounded-3xl border border-rose-200 bg-rose-50/70 p-6 text-sm text-rose-700">
+              {error.message || 'Unable to load company dashboard data.'}
+            </div>
+          ) : null}
+
+          <CompanyDashboardOverviewSection
+            overview={data?.overview}
+            profile={profile}
+            workspace={data?.workspace}
+            onOverviewUpdated={() => refresh({ force: true })}
+          />
+
+          <SummaryCardGrid cards={enrichedSummaryCards} />
+
+          {data ? (
+            <HiringHealthInsights
+              pipelineSummary={data?.pipelineSummary}
+              candidateExperience={data?.candidateExperience}
+              alerts={data?.alerts}
+              offers={data?.offers ?? data?.offerOnboarding}
+              lookbackDays={lookbackDays}
+              recommendations={
+                Array.isArray(data?.recommendations)
+                  ? data.recommendations.map((item) => item.title ?? item.summary ?? item)
+                  : undefined
+              }
+            />
+          ) : null}
+
+          {data?.creationStudio ? (
+            <div id="creation-studio-summary">
+              <CreationStudioSummary
+                overview={data.creationStudio}
+                ctaTo="/dashboard/company/creation-studio"
+                ctaLabel="Open creation studio"
+                compact
+              />
+            </div>
+          ) : null}
+
+          {data?.creationStudio || mentorshipIntegration ? (
+            <CreationStudioMentorshipPanel
+              creationStudio={data?.creationStudio}
+              mentorship={mentorshipIntegration}
+            />
+          ) : null}
+
+          <section id="workspace-memberships" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">Workspace memberships</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Cross-functional collaborators gain tailored permissions and dashboards per membership.
+            </p>
+            <div className="mt-4">
+              <MembershipHighlights memberships={memberships} />
+            </div>
+          </section>
+
+          <div id="partnerships-sourcing">
+            <PartnershipsSourcingSection data={data?.partnerships} />
+          </div>
+
+          <section
+            id="networking-session-management"
+            className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+          >
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-2xl font-semibold text-slate-900">Networking sessions</h2>
+                <p className="text-sm text-slate-600">Plan, spend, and follow up from the streamlined workspace.</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <a
+                  href="/dashboard/company/networking/sessions"
+                  className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500"
+                >
+                  Open sessions
+                </a>
+                <a
+                  href="/dashboard/company/networking"
+                  className="inline-flex items-center gap-2 rounded-full border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-600 transition hover:border-blue-400 hover:bg-blue-50"
+                >
+                  Live hub
+                </a>
+              </div>
+            </div>
+          </section>
+
+          {data ? (
+            <JobLifecycleSection
+              jobLifecycle={data.jobLifecycle}
+              recommendations={data.recommendations}
+              lookbackDays={data?.meta?.lookbackDays ?? lookbackDays}
+            />
+          ) : null}
+
+          <section
+            id="interview-excellence"
             className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_18px_40px_-24px_rgba(30,64,175,0.35)] sm:p-8"
           >
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <h2 className="text-2xl font-semibold text-slate-900">{section.title}</h2>
-                {section.description ? (
+                <h2 className="text-2xl font-semibold text-slate-900">Interview excellence & candidate experience</h2>
+                <p className="mt-1 max-w-3xl text-sm text-slate-600">
+                  Run structured interviews, automate reminders, manage prep portals, and monitor offer and care workflows.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-600">
+                  Interview workspace
+                </span>
+                <a
+                  href={networkingCta.href}
+                  className="inline-flex items-center gap-2 rounded-full border border-accent/40 px-4 py-2 text-xs font-semibold text-accent transition hover:border-accent hover:bg-accent/5"
+                >
+                  {networkingCta.label}
+                </a>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <InterviewExperienceSection
+                data={data?.interviewExperience}
+                interviewOperations={data?.interviewOperations}
+                candidateExperience={data?.candidateExperience}
+                offerOnboarding={data?.offerOnboarding}
+              />
+            </div>
+          </section>
+
+          <TimelineManagementSection
+            id="timeline-management"
+            workspaceId={activeWorkspaceId}
+            lookbackDays={lookbackDays}
+            data={data?.timelineManagement}
+            onRefresh={refresh}
+          />
+
+          <BrandAndPeopleSection data={data} />
+
+          <section id="company-operational-control">
+            <CompanyOperationalControlPanel
+              workspaceId={companyWorkspaceId}
+              workspaceSlug={workspaceSlugParam ?? undefined}
+              lookbackDays={lookbackDays}
+              summaryCards={enrichedSummaryCards}
+              session={session}
+            />
+          </section>
+
+          {sections.map((section) => (
+            <section
+              key={section.id}
+              id={section.id}
+              className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_18px_40px_-24px_rgba(30,64,175,0.35)] sm:p-8"
+            >
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h2 className="text-2xl font-semibold text-slate-900">{section.title}</h2>
+                  {section.description ? (
                   <p className="mt-2 max-w-3xl text-sm text-slate-600">{section.description}</p>
                 ) : null}
               </div>
@@ -1183,15 +1222,19 @@ export default function CompanyDashboardPage() {
           </section>
         ))}
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-2xl font-semibold text-slate-900">Partner timeline</h2>
-            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-600">
-              Recent activity
-            </span>
-          </div>
-          <ActivityTimeline items={data?.recentNotes ?? []} />
-        </section>
+          <section
+            id="partner-timeline"
+            className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
+          >
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-2xl font-semibold text-slate-900">Partner timeline</h2>
+              <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-600">
+                Recent activity
+              </span>
+            </div>
+            <ActivityTimeline items={data?.recentNotes ?? []} />
+          </section>
+        </div>
       </div>
     </DashboardLayout>
   );

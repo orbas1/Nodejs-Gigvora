@@ -2117,10 +2117,10 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   24. **Design Duplication.** Align finance/wallet modules with agency/freelancer dashboards for consistent treasury UX.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyDashboardPage.jsx†L1-L200】【F:gigvora-frontend-reactjs/src/pages/dashboards/AgencyDashboardPage.jsx†L10-L200】
   25. **Design framework.** Maintains DashboardLayout guard and DataStatus-driven sections consistent with persona ecosystem.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyDashboardPage.jsx†L1-L33】
   26. **Change Checklist Tracker Extensive.**
-      - [ ] Consolidate formatting utilities and shared modules.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyDashboardPage.jsx†L48-L200】
-      - [ ] Add analytics overlays, alerts, and AI summaries for hiring health.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyDashboardPage.jsx†L1-L200】
-      - [ ] Implement collapsible navigation and sticky quick links.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyDashboardPage.jsx†L31-L200】
-      - [ ] Integrate creation studio previews and mentorship connections.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyDashboardPage.jsx†L17-L200】
+      - [x] Consolidate formatting utilities and shared modules.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyDashboardPage.jsx†L1-L200】
+      - [x] Add analytics overlays, alerts, and AI summaries for hiring health.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyDashboardPage.jsx†L1-L200】
+      - [x] Implement collapsible navigation and sticky quick links.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyDashboardPage.jsx†L31-L200】
+      - [x] Integrate creation studio previews and mentorship connections.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyDashboardPage.jsx†L17-L200】
   27. **Full Upgrade Plan & Release Steps  Extensive.**
       1. Ship shared utilities and sticky navigation, validating with enterprise pilot accounts.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyDashboardPage.jsx†L1-L200】
       2. Launch analytics/alert overlays and AI summary banner, monitoring recruiter productivity metrics.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyDashboardPage.jsx†L1-L200】
