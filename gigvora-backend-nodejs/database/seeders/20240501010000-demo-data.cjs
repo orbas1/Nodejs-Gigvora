@@ -190,6 +190,137 @@ const connectionSeeds = [
   },
 ];
 
+const messagingThreadSeeds = [
+  {
+    subject: '[demo] Workspace instrumentation rollout',
+    channelType: 'project',
+    state: 'active',
+    createdByEmail: 'mia@gigvora.com',
+    metadata: {
+      projectSlug: 'workspace-instrumentation-rollout',
+      focus: 'telemetry',
+    },
+    participants: [
+      {
+        email: 'mia@gigvora.com',
+        role: 'owner',
+        lastReadOffsetMinutes: 15,
+        metadata: { responsibility: 'operations_lead' },
+      },
+      {
+        email: 'leo@gigvora.com',
+        role: 'participant',
+        lastReadOffsetMinutes: 45,
+        metadata: { responsibility: 'engineering' },
+      },
+      {
+        email: 'ava@gigvora.com',
+        role: 'support',
+        lastReadOffsetMinutes: 5,
+        metadata: { responsibility: 'support_escalations' },
+      },
+    ],
+    messages: [
+      {
+        senderEmail: 'mia@gigvora.com',
+        minutesAgo: 540,
+        body:
+          'Daily recap: instrumentation dashboards deployed to QA. Review the attached event contract before tomorrow’s sync.',
+        metadata: { topic: 'instrumentation', cadence: 'daily_recap' },
+        readOffsetMinutes: 480,
+      },
+      {
+        senderEmail: 'leo@gigvora.com',
+        minutesAgo: 420,
+        body:
+          'QA verified. Mixpanel mapping doc uploaded to Drive and shared with ops. Updating the production change ticket now.',
+        metadata: { topic: 'instrumentation', artifact: 'mixpanel-mapping' },
+        readOffsetMinutes: 360,
+      },
+      {
+        senderEmail: 'ava@gigvora.com',
+        minutesAgo: 180,
+        body:
+          'Support instrumentation signals confirmed. Billing alerts trigger the correct escalation path in staging.',
+        metadata: { topic: 'instrumentation', alert: 'billing' },
+        readOffsetMinutes: 150,
+      },
+      {
+        senderEmail: 'mia@gigvora.com',
+        minutesAgo: 60,
+        body:
+          'Great work—locking the production launch window for Thursday 14:00 UTC. Confirm readiness by 18:00 today.',
+        metadata: { topic: 'instrumentation', action: 'confirm_launch' },
+        readOffsetMinutes: 30,
+      },
+    ],
+  },
+  {
+    subject: '[demo] Client onboarding Q&A — Northwind',
+    channelType: 'support',
+    state: 'active',
+    createdByEmail: 'ava@gigvora.com',
+    metadata: {
+      client: 'Northwind',
+      caseReference: 'SUP-204',
+    },
+    participants: [
+      {
+        email: 'ava@gigvora.com',
+        role: 'support',
+        lastReadOffsetMinutes: 10,
+        metadata: { responsibility: 'customer_success' },
+      },
+      {
+        email: 'mia@gigvora.com',
+        role: 'owner',
+        lastReadOffsetMinutes: 120,
+        metadata: { responsibility: 'client_onboarding' },
+      },
+      {
+        email: 'recruiter@gigvora.com',
+        role: 'participant',
+        lastReadOffsetMinutes: 25,
+        metadata: { responsibility: 'talent_ops' },
+      },
+    ],
+    messages: [
+      {
+        senderEmail: 'recruiter@gigvora.com',
+        minutesAgo: 360,
+        body:
+          'Northwind confirmed the onboarding schedule. Waiting on security approvals for sandbox access before granting invites.',
+        metadata: { topic: 'onboarding', pending: 'security_approvals' },
+        readOffsetMinutes: 300,
+      },
+      {
+        senderEmail: 'ava@gigvora.com',
+        minutesAgo: 210,
+        body:
+          'Security checklists uploaded. They requested a walkthrough of billing automation—looping Mia to confirm coverage.',
+        metadata: { topic: 'onboarding', task: 'billing_walkthrough' },
+        readOffsetMinutes: 200,
+      },
+      {
+        senderEmail: 'mia@gigvora.com',
+        minutesAgo: 135,
+        body:
+          'Billing automation docs updated with latest screenshots. Scheduling a 20-minute async review for their operations lead.',
+        metadata: { topic: 'onboarding', action: 'async_review' },
+        readOffsetMinutes: 90,
+      },
+      {
+        senderEmail: 'ava@gigvora.com',
+        minutesAgo: 30,
+        body:
+          'Pushed the onboarding checklist to their workspace. Monitoring adoption metrics in case the automation triggers issues.',
+        metadata: { topic: 'onboarding', followUp: 'monitor_metrics' },
+        readOffsetMinutes: 20,
+      },
+    ],
+  },
+];
+
 async function ensureUsers(queryInterface, transaction) {
   const now = new Date();
   const emails = baseUsers.map((user) => user.email);
@@ -477,6 +608,205 @@ module.exports = {
           { transaction },
         );
       }
+
+      for (const thread of messagingThreadSeeds) {
+        const createdBy = userIds.get(thread.createdByEmail);
+        if (!createdBy) continue;
+
+        const timeline = thread.messages
+          .map((message, index) => {
+            const senderId = userIds.get(message.senderEmail);
+            if (!senderId) {
+              return null;
+            }
+            const minutesAgo = typeof message.minutesAgo === 'number' ? message.minutesAgo : index * 15 + 10;
+            const createdAt = new Date(now.getTime() - minutesAgo * 60 * 1000);
+            const deliveredAt = new Date(createdAt.getTime() + 2 * 60 * 1000);
+            const readAt =
+              typeof message.readOffsetMinutes === 'number'
+                ? new Date(now.getTime() - message.readOffsetMinutes * 60 * 1000)
+                : null;
+            return {
+              senderId,
+              body: message.body,
+              messageType: message.messageType ?? 'text',
+              metadata: message.metadata ?? null,
+              isEdited: Boolean(message.isEdited ?? false),
+              editedAt: message.editedAt ?? null,
+              createdAt,
+              updatedAt: message.updatedMinutesAgo
+                ? new Date(now.getTime() - message.updatedMinutesAgo * 60 * 1000)
+                : createdAt,
+              deliveredAt,
+              readAt,
+            };
+          })
+          .filter(Boolean)
+          .sort((a, b) => a.createdAt - b.createdAt);
+
+        if (!timeline.length) {
+          continue;
+        }
+
+        const firstTimestamp = timeline[0].createdAt;
+        const lastEntry = timeline[timeline.length - 1];
+        const lastTimestamp = lastEntry.createdAt;
+        const lastPreview =
+          typeof lastEntry.body === 'string' && lastEntry.body.length
+            ? lastEntry.body.slice(0, 300)
+            : null;
+
+        let threadId;
+        const [existingThread] = await queryInterface.sequelize.query(
+          'SELECT id FROM message_threads WHERE subject = :subject AND createdBy = :createdBy LIMIT 1',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { subject: thread.subject, createdBy },
+          },
+        );
+
+        if (existingThread?.id) {
+          threadId = existingThread.id;
+          await queryInterface.bulkUpdate(
+            'message_threads',
+            {
+              state: thread.state ?? 'active',
+              metadata: thread.metadata ?? null,
+              lastMessageAt: lastTimestamp,
+              lastMessagePreview: lastPreview,
+              updatedAt: lastTimestamp,
+            },
+            { id: threadId },
+            { transaction },
+          );
+        } else {
+          await queryInterface.bulkInsert(
+            'message_threads',
+            [
+              {
+                subject: thread.subject,
+                channelType: thread.channelType ?? 'direct',
+                state: thread.state ?? 'active',
+                createdBy,
+                metadata: thread.metadata ?? null,
+                lastMessageAt: lastTimestamp,
+                lastMessagePreview: lastPreview,
+                createdAt: firstTimestamp,
+                updatedAt: lastTimestamp,
+              },
+            ],
+            { transaction },
+          );
+          const [insertedThread] = await queryInterface.sequelize.query(
+            'SELECT id FROM message_threads WHERE subject = :subject AND createdBy = :createdBy ORDER BY id DESC LIMIT 1',
+            {
+              type: QueryTypes.SELECT,
+              transaction,
+              replacements: { subject: thread.subject, createdBy },
+            },
+          );
+          threadId = insertedThread?.id;
+        }
+
+        if (!threadId) {
+          continue;
+        }
+
+        for (const participant of thread.participants) {
+          const userId = userIds.get(participant.email);
+          if (!userId) continue;
+          const lastReadAt =
+            typeof participant.lastReadOffsetMinutes === 'number'
+              ? new Date(now.getTime() - participant.lastReadOffsetMinutes * 60 * 1000)
+              : null;
+
+          const [existingParticipant] = await queryInterface.sequelize.query(
+            'SELECT id FROM message_participants WHERE threadId = :threadId AND userId = :userId LIMIT 1',
+            {
+              type: QueryTypes.SELECT,
+              transaction,
+              replacements: { threadId, userId },
+            },
+          );
+
+          const participantPayload = {
+            role: participant.role ?? 'participant',
+            notificationsEnabled: participant.notificationsEnabled ?? true,
+            mutedUntil: participant.mutedUntil ?? null,
+            lastReadAt,
+            metadata: participant.metadata ?? null,
+            updatedAt: lastTimestamp,
+          };
+
+          if (existingParticipant?.id) {
+            await queryInterface.bulkUpdate(
+              'message_participants',
+              participantPayload,
+              { threadId, userId },
+              { transaction },
+            );
+          } else {
+            await queryInterface.bulkInsert(
+              'message_participants',
+              [
+                {
+                  threadId,
+                  userId,
+                  ...participantPayload,
+                  createdAt: firstTimestamp,
+                },
+              ],
+              { transaction },
+            );
+          }
+        }
+
+        for (const entry of timeline) {
+          const [existingMessage] = await queryInterface.sequelize.query(
+            'SELECT id FROM messages WHERE threadId = :threadId AND senderId = :senderId AND body = :body LIMIT 1',
+            {
+              type: QueryTypes.SELECT,
+              transaction,
+              replacements: { threadId, senderId: entry.senderId, body: entry.body },
+            },
+          );
+
+          const messagePayload = {
+            messageType: entry.messageType,
+            metadata: entry.metadata,
+            isEdited: entry.isEdited,
+            editedAt: entry.editedAt,
+            deliveredAt: entry.deliveredAt,
+            readAt: entry.readAt,
+            updatedAt: entry.updatedAt,
+          };
+
+          if (existingMessage?.id) {
+            await queryInterface.bulkUpdate(
+              'messages',
+              messagePayload,
+              { id: existingMessage.id },
+              { transaction },
+            );
+            continue;
+          }
+
+          await queryInterface.bulkInsert(
+            'messages',
+            [
+              {
+                threadId,
+                senderId: entry.senderId,
+                body: entry.body,
+                createdAt: entry.createdAt,
+                ...messagePayload,
+              },
+            ],
+            { transaction },
+          );
+        }
+      }
     });
   },
 
@@ -492,6 +822,32 @@ module.exports = {
         },
       );
       const userIds = users.map((user) => user.id);
+      const userIdByEmail = new Map(users.map((user) => [user.email, user.id]));
+
+      const threadIdsToRemove = [];
+      for (const thread of messagingThreadSeeds) {
+        const createdBy = userIdByEmail.get(thread.createdByEmail);
+        if (!createdBy) continue;
+        const [existingThread] = await queryInterface.sequelize.query(
+          'SELECT id FROM message_threads WHERE subject = :subject AND createdBy = :createdBy LIMIT 1',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { subject: thread.subject, createdBy },
+          },
+        );
+        if (existingThread?.id) {
+          threadIdsToRemove.push(existingThread.id);
+        }
+      }
+
+      if (threadIdsToRemove.length) {
+        await queryInterface.bulkDelete(
+          'message_threads',
+          { id: { [Op.in]: threadIdsToRemove } },
+          { transaction },
+        );
+      }
 
       if (userIds.length) {
         await queryInterface.bulkDelete(

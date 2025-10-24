@@ -164,6 +164,7 @@ module.exports = {
             onDelete: 'CASCADE',
           },
           lastMessageAt: { type: Sequelize.DATE, allowNull: true },
+          lastMessagePreview: { type: Sequelize.STRING(500), allowNull: true },
           metadata: { type: jsonType, allowNull: true },
           createdAt: {
             type: Sequelize.DATE,
@@ -185,6 +186,14 @@ module.exports = {
       });
       await queryInterface.addIndex('message_threads', ['state'], {
         name: 'message_threads_state_idx',
+        transaction,
+      });
+      await queryInterface.addIndex('message_threads', ['createdBy'], {
+        name: 'message_threads_created_by_idx',
+        transaction,
+      });
+      await queryInterface.addIndex('message_threads', ['lastMessageAt'], {
+        name: 'message_threads_last_message_idx',
         transaction,
       });
 
@@ -306,6 +315,7 @@ module.exports = {
           mimeType: { type: Sequelize.STRING(128), allowNull: false },
           fileSize: { type: Sequelize.BIGINT, allowNull: false },
           checksum: { type: Sequelize.STRING(128), allowNull: true },
+          metadata: { type: jsonType, allowNull: true },
           createdAt: {
             type: Sequelize.DATE,
             allowNull: false,

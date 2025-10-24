@@ -12459,6 +12459,7 @@ export const MessageThread = sequelize.define(
     },
     createdBy: { type: DataTypes.INTEGER, allowNull: false },
     lastMessageAt: { type: DataTypes.DATE, allowNull: true },
+    lastMessagePreview: { type: DataTypes.STRING(500), allowNull: true },
     metadata: { type: jsonType, allowNull: true },
   },
   {
@@ -12466,6 +12467,12 @@ export const MessageThread = sequelize.define(
     scopes: {
       active: { where: { state: 'active' } },
     },
+    indexes: [
+      { fields: ['channelType'], name: 'message_threads_channel_idx' },
+      { fields: ['state'], name: 'message_threads_state_idx' },
+      { fields: ['createdBy'], name: 'message_threads_created_by_idx' },
+      { fields: ['lastMessageAt'], name: 'message_threads_last_message_idx' },
+    ],
   },
 );
 
@@ -12482,12 +12489,14 @@ export const MessageParticipant = sequelize.define(
     notificationsEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
     mutedUntil: { type: DataTypes.DATE, allowNull: true },
     lastReadAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
   },
   {
     tableName: 'message_participants',
     indexes: [
       { unique: true, fields: ['threadId', 'userId'] },
       { fields: ['userId'] },
+      { fields: ['threadId'] },
     ],
   },
 );
@@ -12508,6 +12517,7 @@ export const Message = sequelize.define(
     editedAt: { type: DataTypes.DATE, allowNull: true },
     deletedAt: { type: DataTypes.DATE, allowNull: true },
     deliveredAt: { type: DataTypes.DATE, allowNull: true },
+    readAt: { type: DataTypes.DATE, allowNull: true },
   },
   {
     tableName: 'messages',
@@ -12530,6 +12540,7 @@ export const MessageAttachment = sequelize.define(
     mimeType: { type: DataTypes.STRING(128), allowNull: false },
     fileSize: { type: DataTypes.BIGINT, allowNull: false },
     checksum: { type: DataTypes.STRING(128), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
   },
   {
     tableName: 'message_attachments',
@@ -12554,6 +12565,8 @@ Message.prototype.toPublicObject = function toPublicObject() {
     isEdited: plain.isEdited,
     editedAt: plain.editedAt,
     deliveredAt: plain.deliveredAt,
+    readAt: plain.readAt,
+    deletedAt: plain.deletedAt,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
     metadata: sanitizedMetadata,
