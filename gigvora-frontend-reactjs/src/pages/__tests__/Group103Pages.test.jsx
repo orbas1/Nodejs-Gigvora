@@ -14,7 +14,10 @@ import { FilterPill as BlogFilterPill } from '../BlogPage.jsx';
 import { COMMUNITY_GUIDELINES_SLUG } from '../CommunityGuidelinesPage.jsx';
 import CompanyRegisterPage, { INITIAL_FORM, PARTNERSHIP_PILLARS } from '../CompanyRegisterPage.jsx';
 import { ConnectionCard } from '../ConnectionsPage.jsx';
-import { creationTracks, stats as creationStudioStats } from '../CreationStudioWizardPage.jsx';
+import {
+  CREATION_STUDIO_TRACKS as creationTracks,
+  CREATION_STUDIO_STATS as creationStudioStats,
+} from '../../constants/creationStudio.js';
 import {
   buildHighlights as buildExplorerHighlights,
   CATEGORY_CONFIG as EXPLORER_CATEGORY_CONFIG,
@@ -354,7 +357,7 @@ describe('ConnectionsPage cards', () => {
 describe('Creation Studio wizard exports', () => {
   it('exposes creation tracks and stats', () => {
     expect(creationTracks.find((track) => track.id === 'gig')).toBeTruthy();
-    expect(creationStudioStats.map((entry) => entry.label)).toContain('Automation coverage');
+    expect(creationStudioStats.map((entry) => entry.label)).toContain('Templates with AI copilots');
   });
 });
 
