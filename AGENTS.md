@@ -1311,7 +1311,7 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   4. **Redundancies.** Social redirect handling duplicated in register page—extract common helper.
   5. **Placeholders.** None; flows call real services though backend may stub in dev.
   6. **Duplicate Functions.** `formatExpiry` shares logic with other time formatting utilities—centralize.
-  7. **Improvements Needed.** Add password visibility toggle and rate limit feedback.
+  7. **Improvements Needed.** Extend passkey/WebAuthn support and surface session history with device management controls following the new visibility toggle and resend countdown.
   8. **Styling Improvements.** Ensure form contrast accessible on gradient backgrounds.
   9. **Efficiency.** Debounce button states to prevent double submissions; currently relying on `status` flag.
   10. **Strengths.** Comprehensive error handling and multi-provider coverage inspire trust.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L80-L170】
@@ -1326,14 +1326,14 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   19. **Images & Media.** None; consider adding security badges.
   20. **Button Styling.** CTA buttons consistent with rest of site.
   21. **Interactiveness.** Clear step flow keeps users oriented.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L140-L200】
-  22. **Missing Components.** Provide “forgot password” link within form.
+  22. **Missing Components.** Layer contextual security reminders around the new "Forgot password?" entry, including links to reset 2FA devices and account recovery policies.
   23. **Design Changes.** Add step indicator for two-factor stage.
   24. **Design Duplication.** Social buttons reuse `SocialAuthButton`; keep consistent.
   25. **Design Framework.** Aligns with design system.
   26. **Change Checklist Tracker.**
-      - [ ] Extract shared auth helpers.
-      - [ ] Add password reset entry point.
-      - [ ] Implement resend countdown UI.
+      - [x] Extract shared auth helpers.
+      - [x] Add password reset entry point.
+      - [x] Implement resend countdown UI.
   27. **Full Upgrade Plan & Release Steps.**
       1. Integrate analytics for login outcomes.
       2. Launch improved 2FA UI with countdown and device management.
@@ -1346,7 +1346,7 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   4. **Redundancies.** Social redirect logic duplicates login; abstract to helper.
   5. **Placeholders.** Onboarding highlights static copy; consider CMS.
   6. **Duplicate Functions.** `resolveLanding` duplication (shared with login) should unify.
-  7. **Improvements Needed.** Add progressive disclosure (multi-step) for long form on mobile.
+  7. **Improvements Needed.** Add progressive disclosure (multi-step) for long form on mobile and recommend password managers alongside the new strength meter.
   8. **Styling Improvements.** Validate color contrast on gradient backgrounds.
   9. **Efficiency.** Uses `status` guard to prevent duplicate submissions—good.
   10. **Strengths.** Comprehensive error handling and success messaging boost confidence.【F:gigvora-frontend-reactjs/src/pages/RegisterPage.jsx†L80-L160】
@@ -1361,14 +1361,14 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   19. **Images & Media.** None; consider adding product imagery.
   20. **Button Styling.** Primary CTA uses accent pill consistent across site.
   21. **Interactiveness.** Validation messaging immediate; add inline success icons later.【F:gigvora-frontend-reactjs/src/pages/RegisterPage.jsx†L100-L180】
-  22. **Missing Components.** Provide password strength meter.
+  22. **Missing Components.** Offer optional passphrase generator and contextual guidance beyond the in-place strength meter.
   23. **Design Changes.** Add progress indicator or segmented steps for long forms.
   24. **Design Duplication.** Shares hero header with login—consistent.
   25. **Design Framework.** Aligns with rest of marketing flows.
   26. **Change Checklist Tracker.**
-      - [ ] Extract shared auth helpers.
-      - [ ] Add password strength + visibility toggle.
-      - [ ] Localize copy.
+      - [x] Extract shared auth helpers.
+      - [x] Add password strength + visibility toggle.
+      - [x] Localize copy.
   27. **Full Upgrade Plan & Release Steps.**
       1. Launch multi-step wizard for mobile.
       2. Add analytics for drop-off points.
@@ -1381,8 +1381,8 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   4. **Redundancies.** Form validation duplicates register page—factor shared hooks.
   5. **Placeholders.** Partnership pillars static copy; plan CMS integration.
   6. **Duplicate Functions.** None beyond shared register logic.
-  7. **Improvements Needed.** Add company logo upload and billing preferences to reduce follow-up steps.
-  8. **Styling Improvements.** Provide more visual distinction between company vs agency toggle states.
+  7. **Improvements Needed.** Add company logo upload and billing preferences to reduce follow-up steps, building on the richer confirmation checklist.
+  8. **Styling Improvements.** Provide more visual distinction between company vs agency toggle states and highlight CRM tracking status near the confirmation summary.
   9. **Efficiency.** Debounce submission via `status` flag; consider disabling fields during submission for clarity.【F:gigvora-frontend-reactjs/src/pages/CompanyRegisterPage.jsx†L60-L140】
   10. **Strengths.** Immediate login/hydration builds excitement and reduces friction.【F:gigvora-frontend-reactjs/src/pages/CompanyRegisterPage.jsx†L40-L120】
   11. **Weaknesses.** Error messaging generic; map backend codes to contextual guidance.
@@ -1401,9 +1401,9 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   24. **Design Duplication.** Shared page header with login/register ensures consistency.
   25. **Design Framework.** On-brand.
   26. **Change Checklist Tracker.**
-      - [ ] Share validation utilities with other forms.
-      - [ ] Expand success screen with next steps.
-      - [ ] Hook in CRM tracking for partner leads.
+      - [x] Share validation utilities with other forms.
+      - [x] Expand success screen with next steps.
+      - [x] Hook in CRM tracking for partner leads.
   27. **Full Upgrade Plan & Release Steps.**
       1. Launch enhanced confirmation with onboarding checklist.
       2. Integrate CRM event tracking for workspace signups.

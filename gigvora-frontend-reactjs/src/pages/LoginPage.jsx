@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 import PageHeader from '../components/PageHeader.jsx';
@@ -6,38 +6,17 @@ import useSession from '../hooks/useSession.js';
 import { loginWithPassword, verifyTwoFactor, resendTwoFactor, loginWithGoogle } from '../services/auth.js';
 import apiClient from '../services/apiClient.js';
 import SocialAuthButton, { SOCIAL_PROVIDERS } from '../components/SocialAuthButton.jsx';
+import {
+  DASHBOARD_ROUTES,
+  resolveLanding,
+  formatVerificationExpiry,
+  redirectToSocialProvider,
+  getProviderLabel,
+  RESEND_COOLDOWN_SECONDS,
+} from '../utils/authHelpers.js';
 
-export const DASHBOARD_ROUTES = {
-  admin: '/dashboard/admin',
-  agency: '/dashboard/agency',
-  company: '/dashboard/company',
-  freelancer: '/dashboard/freelancer',
-  headhunter: '/dashboard/headhunter',
-  mentor: '/dashboard/mentor',
-  user: '/feed',
-};
-
-export function resolveLanding(session) {
-  if (!session) {
-    return '/feed';
-  }
-  const key = session.primaryDashboard ?? session.memberships?.[0];
-  return DASHBOARD_ROUTES[key] ?? '/feed';
-}
-
-export function formatExpiry(timestamp) {
-  if (!timestamp) return null;
-  try {
-    const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
-    return new Intl.DateTimeFormat('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    }).format(date);
-  } catch (error) {
-    return null;
-  }
-}
+export { DASHBOARD_ROUTES, resolveLanding, formatVerificationExpiry };
+export { formatVerificationExpiry as formatExpiry };
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -47,13 +26,41 @@ export default function LoginPage() {
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState(null);
   const [info, setInfo] = useState(null);
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   const navigate = useNavigate();
   const { login } = useSession();
 
   const awaitingTwoFactor = Boolean(challenge?.tokenId);
-  const codeExpiresAt = useMemo(() => formatExpiry(challenge?.expiresAt), [challenge?.expiresAt]);
+  const browserLocale = typeof navigator !== 'undefined' && navigator.language ? navigator.language : 'en-US';
+  const codeExpiresAt = useMemo(
+    () => formatVerificationExpiry(challenge?.expiresAt, browserLocale),
+    [challenge?.expiresAt, browserLocale],
+  );
   const googleEnabled = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
+
+  useEffect(() => {
+    if (!awaitingTwoFactor) {
+      setResendCooldown(0);
+      return undefined;
+    }
+
+    setResendCooldown((current) => (current > 0 ? current : RESEND_COOLDOWN_SECONDS));
+    const timer = window.setInterval(() => {
+      setResendCooldown((value) => {
+        if (value <= 1) {
+          window.clearInterval(timer);
+          return 0;
+        }
+        return value - 1;
+      });
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [awaitingTwoFactor]);
 
   const handleCredentialsSubmit = async (event) => {
     event.preventDefault();
@@ -68,6 +75,7 @@ export default function LoginPage() {
         setChallenge(response.challenge);
         setCode('');
         setInfo('Check your email for the verification code to finish signing in.');
+        setResendCooldown(RESEND_COOLDOWN_SECONDS);
       } else if (response.session) {
         const sessionState = login(response.session);
         navigate(resolveLanding(sessionState), { replace: true });
@@ -110,7 +118,7 @@ export default function LoginPage() {
   };
 
   const handleResend = async () => {
-    if (!challenge?.tokenId || status !== 'idle') return;
+    if (!challenge?.tokenId || status !== 'idle' || resendCooldown > 0) return;
     setStatus('resending');
     setError(null);
     try {
@@ -118,6 +126,7 @@ export default function LoginPage() {
       setChallenge(nextChallenge);
       setCode('');
       setInfo(`New verification code sent to ${nextChallenge.maskedDestination}.`);
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
     } catch (resendError) {
       if (resendError instanceof apiClient.ApiError) {
         setError(resendError.body?.message || resendError.message);
@@ -163,23 +172,14 @@ export default function LoginPage() {
     }
 
     setError(null);
-    setInfo(`Redirecting to ${provider === 'x' ? 'X' : provider.charAt(0).toUpperCase() + provider.slice(1)} to continue.`);
+    setInfo(`Redirecting to ${getProviderLabel(provider)} to continue.`);
     setStatus('redirecting');
-    const apiBase = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api').replace(/\/$/, '');
-    const authBase = apiBase.replace(/\/api$/, '');
-    const routes = {
-      x: '/auth/x/login',
-      linkedin: '/auth/linkedin/login',
-      facebook: '/auth/facebook/login',
-    };
-
-    const next = routes[provider];
-    if (next) {
-      window.location.href = `${authBase}${next}`;
-    } else {
+    try {
+      redirectToSocialProvider(provider, 'login');
+    } catch (redirectError) {
       setStatus('idle');
       setInfo(null);
-      setError('Social sign-in is not available right now. Please try another option.');
+      setError(redirectError.message || 'Social sign-in is not available right now. Please try another option.');
     }
   };
 
@@ -217,17 +217,36 @@ export default function LoginPage() {
                     <label htmlFor="password" className="text-sm font-medium text-slate-700">
                       Password
                     </label>
-                    <input
-                      id="password"
-                      type="password"
-                      autoComplete="current-password"
-                      value={password}
-                      onChange={(event) => setPassword(event.target.value)}
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                      placeholder="••••••••"
-                      required
-                      minLength={8}
-                    />
+                    <div className="relative">
+                      <input
+                        id="password"
+                        type={isPasswordVisible ? 'text' : 'password'}
+                        autoComplete="current-password"
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 pr-12 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                        placeholder="••••••••"
+                        required
+                        minLength={8}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setIsPasswordVisible((current) => !current)}
+                        className="absolute inset-y-0 right-3 inline-flex items-center text-xs font-semibold text-slate-500 transition hover:text-accent"
+                      >
+                        {isPasswordVisible ? 'Hide' : 'Show'}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <button
+                      type="button"
+                      onClick={() => navigate('/forgot-password')}
+                      className="font-semibold text-accent transition hover:text-accentDark"
+                    >
+                      Forgot password?
+                    </button>
+                    <span className="text-slate-400">Minimum 8 characters</span>
                   </div>
                   {error ? <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{error}</p> : null}
                   {info ? <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-600">{info}</p> : null}
@@ -320,9 +339,9 @@ export default function LoginPage() {
                       type="button"
                       onClick={handleResend}
                       className="font-semibold text-accent transition hover:text-accentDark disabled:text-slate-400"
-                      disabled={status !== 'idle'}
+                      disabled={status !== 'idle' || resendCooldown > 0}
                     >
-                      Resend code
+                      {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend code'}
                     </button>
                     <button
                       type="button"
@@ -330,6 +349,7 @@ export default function LoginPage() {
                         setChallenge(null);
                         setCode('');
                         setInfo(null);
+                        setResendCooldown(0);
                       }}
                       className="font-semibold text-slate-500 transition hover:text-slate-700"
                     >

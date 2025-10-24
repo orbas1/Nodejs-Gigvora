@@ -4,6 +4,7 @@ import HomePage from './pages/HomePage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
 import CompanyRegisterPage from './pages/CompanyRegisterPage.jsx';
+import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx';
 import FeedPage from './pages/FeedPage.jsx';
 import ProfilePage from './pages/ProfilePage.jsx';
 import SearchPage from './pages/SearchPage.jsx';
@@ -173,6 +174,7 @@ export const PUBLIC_ROUTES = [
   { path: 'login', element: <LoginPage /> },
   { path: 'register', element: <RegisterPage /> },
   { path: 'register/company', element: <CompanyRegisterPage /> },
+  { path: 'forgot-password', element: <ForgotPasswordPage /> },
   { path: 'profile/:id', element: <ProfilePage /> },
   { path: 'terms', element: <TermsPage /> },
   { path: 'privacy', element: <PrivacyPage /> },

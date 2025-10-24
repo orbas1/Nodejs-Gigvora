@@ -67,6 +67,20 @@ export async function loginWithGoogle(idToken) {
   return apiClient.post('/auth/login/google', { idToken });
 }
 
+export async function requestPasswordReset(email) {
+  if (!email) {
+    throw new Error('Email is required to request a password reset.');
+  }
+  return apiClient.post('/auth/password/reset-request', { email });
+}
+
+export async function completePasswordReset({ token, password }) {
+  if (!token || !password) {
+    throw new Error('Token and new password are required to reset your password.');
+  }
+  return apiClient.post('/auth/password/reset', { token, password });
+}
+
 const authService = {
   requestAdminTwoFactor,
   verifyTwoFactorCode,
@@ -78,6 +92,8 @@ const authService = {
   verifyTwoFactor,
   resendTwoFactor,
   loginWithGoogle,
+  requestPasswordReset,
+  completePasswordReset,
 };
 
 export default authService;

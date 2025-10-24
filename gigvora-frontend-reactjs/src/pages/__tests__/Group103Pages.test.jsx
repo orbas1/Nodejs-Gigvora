@@ -102,6 +102,8 @@ const { mockRegisterCompany, mockRegisterAgency } = vi.hoisted(() => ({
   mockRegisterAgency: vi.fn(),
 }));
 
+const mockAnalyticsTrack = vi.fn();
+
 const agoraMocks = vi.hoisted(() => ({
   createClient: vi.fn(() => ({
     on: vi.fn(),
@@ -150,11 +152,17 @@ vi.mock('../../services/auth.js', async () => {
   };
 });
 
+vi.mock('../../services/analytics.js', () => ({
+  __esModule: true,
+  default: { track: (...args) => mockAnalyticsTrack(...args) },
+}));
+
 beforeEach(() => {
   mockUseCachedResource.mockReset();
   mockUseSession.mockReset();
   mockRegisterCompany.mockReset();
   mockRegisterAgency.mockReset();
+  mockAnalyticsTrack.mockReset();
 });
 
 describe('AutoAssignQueuePage helpers', () => {

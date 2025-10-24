@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
 import useSession from '../hooks/useSession.js';
 import { registerAgency, registerCompany } from '../services/auth.js';
+import { normaliseEmail } from '../utils/authHelpers.js';
+import { passwordsMatch } from '../utils/passwordUtils.js';
+import analytics from '../services/analytics.js';
 
 export const INITIAL_FORM = {
   companyName: '',
@@ -85,7 +88,7 @@ export default function CompanyRegisterPage() {
       setError('Add the workspace or company name so we can set things up.');
       return;
     }
-    if (form.password !== form.confirmPassword) {
+    if (!passwordsMatch(form.password, form.confirmPassword)) {
       setError('Passwords do not match.');
       return;
     }
@@ -97,7 +100,7 @@ export default function CompanyRegisterPage() {
     const payload = {
       companyName: form.companyName.trim(),
       contactName: form.contactName.trim() || 'Gigvora partner lead',
-      email: form.email.trim(),
+      email: normaliseEmail(form.email),
       password: form.password,
       website: form.website.trim() || undefined,
       focusArea: form.focusArea.trim() || undefined,
@@ -116,6 +119,11 @@ export default function CompanyRegisterPage() {
       setConfirmation({ name: payload.companyName, type: workspaceType });
       setSuccess('Workspace requested successfully. Check your inbox for the welcome email and 2FA setup link.');
       setForm(INITIAL_FORM);
+      analytics.track('partner_lead_submitted', {
+        workspaceType,
+        hasWebsite: Boolean(payload.website),
+        teamSize: payload.teamSize || null,
+      });
     } catch (submissionError) {
       setError(submissionError?.message || 'We could not create the workspace right now.');
     } finally {
@@ -167,16 +175,30 @@ export default function CompanyRegisterPage() {
         />
 
         {confirmation ? (
-          <div className="mt-10 overflow-hidden rounded-3xl border border-emerald-200 bg-emerald-50/70 p-6 shadow-soft backdrop-blur">
-            <div className="flex flex-col gap-4 text-sm text-emerald-900 md:flex-row md:items-center md:justify-between">
-              <div>
+          <div className="mt-10 overflow-hidden rounded-3xl border border-emerald-200 bg-emerald-50/80 p-6 shadow-soft backdrop-blur">
+            <div className="grid gap-4 md:grid-cols-[1.35fr,0.65fr] md:items-center">
+              <div className="space-y-3 text-sm text-emerald-900">
                 <p className="text-base font-semibold">Workspace request received</p>
-                <p className="mt-1 text-sm text-emerald-800">
+                <p className="text-sm text-emerald-800">
                   Our partnerships team will review {confirmation.name} and reach out within one business day with onboarding
-                  credentials and security provisioning.
+                  credentials, security provisioning, and success planning resources tailored to your goals.
                 </p>
+                <ol className="space-y-2 rounded-2xl border border-emerald-200 bg-white/70 p-4 text-xs text-emerald-700">
+                  <li className="flex items-start gap-3">
+                    <span className="mt-0.5 inline-flex h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
+                    <span>Invite core collaborators so they can complete security training before launch.</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="mt-0.5 inline-flex h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
+                    <span>Prepare brand assets (logo, colour palette) for your hiring microsite and gig templates.</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="mt-0.5 inline-flex h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
+                    <span>Share billing preferences so we can configure escrow, invoices, and compliance guardrails.</span>
+                  </li>
+                </ol>
               </div>
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex flex-wrap items-center justify-end gap-3">
                 <Link
                   to={confirmation.type === 'company' ? '/dashboard/company' : '/dashboard/agency'}
                   className="inline-flex items-center justify-center rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-emerald-700"
