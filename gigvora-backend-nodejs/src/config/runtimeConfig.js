@@ -4,6 +4,7 @@ import { watch } from 'node:fs';
 import path from 'node:path';
 import { parse as parseEnvFile } from 'dotenv';
 import { z } from 'zod';
+import { ensureEnvLoaded } from './envLoader.js';
 
 const DEFAULT_ALLOWED_ORIGINS = [
   'https://app.gigvora.com',
@@ -20,6 +21,21 @@ const DEFAULT_ALLOWED_ORIGINS = [
 ];
 
 const LOG_LEVELS = ['trace', 'debug', 'info', 'warn', 'error', 'fatal'];
+
+const HEALTH_CHECK_RATE_LIMIT_PATHS = [
+  '/health',
+  '/health/live',
+  '/health/ready',
+  '/health/metrics',
+];
+
+const CONTROL_PLANE_RATE_LIMIT_PATHS = ['/api/admin/runtime/health'];
+
+const DEFAULT_RATE_LIMIT_SKIP_PATHS = [
+  ...new Set([...HEALTH_CHECK_RATE_LIMIT_PATHS, ...CONTROL_PLANE_RATE_LIMIT_PATHS]),
+];
+
+ensureEnvLoaded({ silent: process.env.NODE_ENV === 'test' });
 
 function parseBoolean(value, fallback) {
   if (value === undefined || value === null || value === '') {
@@ -86,6 +102,34 @@ function parseOrigins(env) {
   return Array.from(resolved);
 }
 
+function normalizeSkipPath(path) {
+  if (typeof path !== 'string') {
+    return null;
+  }
+  const trimmed = path.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+}
+
+function normaliseRateLimitSkipPaths({ skipHealth = true, existingSkipPaths = [] } = {}) {
+  const entries = new Set(CONTROL_PLANE_RATE_LIMIT_PATHS);
+  const initialPaths = Array.isArray(existingSkipPaths) ? existingSkipPaths : [];
+  initialPaths.forEach((candidate) => {
+    const normalised = normalizeSkipPath(candidate);
+    if (normalised) {
+      entries.add(normalised);
+    }
+  });
+  if (skipHealth) {
+    HEALTH_CHECK_RATE_LIMIT_PATHS.forEach((path) => entries.add(path));
+  } else {
+    HEALTH_CHECK_RATE_LIMIT_PATHS.forEach((path) => entries.delete(path));
+  }
+  return Array.from(entries);
+}
+
 export const runtimeConfigSchema = z.object({
   env: z
     .enum(['development', 'test', 'staging', 'production', 'preview'])
@@ -100,7 +144,7 @@ export const runtimeConfigSchema = z.object({
       windowMs: z.number().int().positive().default(60_000),
       maxRequests: z.number().int().positive().default(300),
       skipHealth: z.boolean().default(true),
-      skipPaths: z.array(z.string()).default(['/health', '/api/admin/runtime/health']),
+      skipPaths: z.array(z.string()).default(DEFAULT_RATE_LIMIT_SKIP_PATHS),
     }),
   }),
   security: z.object({
@@ -351,6 +395,13 @@ function buildRawConfig(env) {
   const chatwootFirstResponseMinutes = parseNumber(env.CHATWOOT_SLA_FIRST_RESPONSE_MINUTES, 30);
   const chatwootResolutionMinutes = parseNumber(env.CHATWOOT_SLA_RESOLUTION_MINUTES, 720);
 
+  const rateLimitSkipHealth = parseBoolean(env.RATE_LIMIT_SKIP_HEALTH, true);
+  const configuredSkipPaths = parseList(env.RATE_LIMIT_SKIP_PATHS);
+  const resolvedSkipPaths = normaliseRateLimitSkipPaths({
+    skipHealth: rateLimitSkipHealth,
+    existingSkipPaths: configuredSkipPaths.length ? configuredSkipPaths : DEFAULT_RATE_LIMIT_SKIP_PATHS,
+  });
+
   return {
     env: env.NODE_ENV ?? 'development',
     serviceName: env.SERVICE_NAME || 'gigvora-backend',
@@ -362,14 +413,8 @@ function buildRawConfig(env) {
       rateLimit: {
         windowMs: parseNumber(env.RATE_LIMIT_WINDOW_MS, 60_000),
         maxRequests: parseNumber(env.RATE_LIMIT_MAX_REQUESTS, 300),
-        skipHealth: true,
-      skipPaths: [
-        '/health',
-        '/health/live',
-        '/health/ready',
-        '/health/metrics',
-        '/api/admin/runtime/health',
-      ],
+        skipHealth: rateLimitSkipHealth,
+        skipPaths: resolvedSkipPaths,
       },
     },
     security: {
@@ -493,6 +538,20 @@ async function resolveConfig(env = process.env, overrides = {}) {
 
 export function buildRuntimeConfigFromEnv(env = process.env) {
   return buildRawConfig(env);
+}
+
+export function resolveHttpRateLimitSettings(config = getRuntimeConfig()) {
+  const rateLimitConfig = config?.http?.rateLimit ?? {};
+  const skipHealth = rateLimitConfig.skipHealth !== false;
+  const skipPaths = normaliseRateLimitSkipPaths({
+    skipHealth,
+    existingSkipPaths: rateLimitConfig.skipPaths ?? DEFAULT_RATE_LIMIT_SKIP_PATHS,
+  });
+  return {
+    windowMs: rateLimitConfig.windowMs ?? 60_000,
+    maxRequests: rateLimitConfig.maxRequests ?? 300,
+    skipPaths,
+  };
 }
 
 export function getRuntimeConfig() {
