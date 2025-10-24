@@ -16,10 +16,10 @@ import {
   SUPPORT_CASE_STATUSES,
   SUPPORT_CASE_PRIORITIES,
 } from '../models/messagingModels.js';
-import { UserRole } from '../models/index.js';
 import { ApplicationError, ValidationError, NotFoundError, AuthorizationError } from '../utils/errors.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
 let notificationServicePromise = null;
+let userRoleModelPromise = null;
 
 async function loadNotificationService() {
   if (!notificationServicePromise) {
@@ -30,6 +30,24 @@ async function loadNotificationService() {
     return null;
   }
   return module.default ?? module;
+}
+
+async function loadUserRoleModel() {
+  if (!userRoleModelPromise) {
+    userRoleModelPromise = import('../models/index.js')
+      .then((module) => {
+        if (!module?.UserRole) {
+          throw new ApplicationError('UserRole model is unavailable.');
+        }
+        return module.UserRole;
+      })
+      .catch((error) => {
+        userRoleModelPromise = null;
+        throw error;
+      });
+  }
+
+  return userRoleModelPromise;
 }
 import { createCallTokens, getDefaultAgoraExpiry } from './agoraService.js';
 
@@ -75,6 +93,7 @@ async function ensureSupportAgentPermissions(agent, transaction) {
     return true;
   }
 
+  const UserRole = await loadUserRoleModel();
   const roleAssignments = await UserRole.findAll({
     where: { userId: agent.id },
     transaction,
@@ -236,12 +255,24 @@ export function sanitizeThread(thread) {
 function sanitizeAttachment(attachment) {
   if (!attachment) return null;
   const plain = attachment.get ? attachment.get({ plain: true }) : attachment;
+  const rawFileSize = plain.fileSize ?? 0;
+  let normalizedFileSize;
+  if (typeof rawFileSize === 'bigint') {
+    normalizedFileSize = Number(rawFileSize);
+  } else if (typeof rawFileSize === 'number') {
+    normalizedFileSize = rawFileSize;
+  } else {
+    const parsed = Number.parseInt(rawFileSize, 10);
+    normalizedFileSize = Number.isNaN(parsed) ? 0 : parsed;
+  }
+
   return {
     id: plain.id,
     fileName: plain.fileName,
     mimeType: plain.mimeType,
-    fileSize: Number(plain.fileSize ?? 0),
+    fileSize: normalizedFileSize,
     storageKey: plain.storageKey,
+    checksum: plain.checksum ?? null,
   };
 }
 

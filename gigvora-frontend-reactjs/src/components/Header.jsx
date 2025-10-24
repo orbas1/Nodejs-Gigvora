@@ -1,4 +1,4 @@
-import { Fragment, useMemo } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { Menu, Transition } from '@headlessui/react';
 import {
@@ -32,18 +32,33 @@ import {
 } from '../constants/navigation.js';
 import { formatRelativeTime } from '../utils/date.js';
 import { useLayout } from '../context/LayoutContext.jsx';
+import { fetchInbox } from '../services/messaging.js';
+import analytics from '../services/analytics.js';
+import { classNames } from '../utils/classNames.js';
+import { resolveInitials } from '../utils/user.js';
 
-function resolveInitials(name = '') {
-  const source = name.trim();
-  if (!source) {
-    return 'GV';
+function normaliseThreadPreview(thread) {
+  if (!thread) {
+    return null;
   }
-  return source
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((part) => part[0]?.toUpperCase())
-    .join('')
-    .slice(0, 2);
+
+  const title = thread.subject || thread.participantsLabel || 'Conversation';
+  const snippet =
+    thread.lastMessagePreview ||
+    thread.lastMessageBody ||
+    thread.preview ||
+    thread.lastMessage?.body ||
+    '';
+  const updatedAt = thread.updatedAt || thread.lastMessageAt || thread.lastActivityAt || thread.createdAt;
+  const unread = Boolean(thread.unreadCount > 0 || thread.isUnread || thread.unread);
+
+  return {
+    id: thread.id,
+    title,
+    snippet,
+    updatedAt,
+    unread,
+  };
 }
 
 function UserMenu({ session, onLogout }) {
@@ -52,7 +67,7 @@ function UserMenu({ session, onLogout }) {
 
   return (
     <Menu as="div" className="relative">
-      <Menu.Button className="flex items-center gap-3 rounded-full border border-slate-200/80 bg-white px-3 py-1.5 text-left text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-900">
+      <Menu.Button className="flex items-center gap-3 rounded-full border border-slate-200/80 bg-white px-3 py-1.5 text-left text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-400/80 hover:text-slate-900">
         <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold uppercase text-white">
           {initials}
         </span>
@@ -114,35 +129,29 @@ function UserMenu({ session, onLogout }) {
   );
 }
 
-function classNames(...classes) {
-  return classes.filter(Boolean).join(' ');
-}
+function InboxPreview({ threads, loading, error, onRefresh, lastFetchedAt, onOpen, onThreadClick }) {
+  const handleAfterEnter = useCallback(() => {
+    onOpen?.();
+  }, [onOpen]);
 
-const INBOX_PREVIEW_THREADS = [
-  {
-    id: 'thread-impact-ops',
-    title: 'Impact Ops · Volunteer mission intake',
-    snippet: 'Mae: “We have 4 new mission briefs ready for mentors. Need allocation today.”',
-    updatedAt: '2024-05-21T15:40:00Z',
-  },
-  {
-    id: 'thread-mentor-guild',
-    title: 'Mentor Guild Lounge',
-    snippet: 'Linh: “Dropped the new growth sprint template — keen for feedback.”',
-    updatedAt: '2024-05-21T12:10:00Z',
-  },
-  {
-    id: 'thread-support',
-    title: 'Support desk',
-    snippet: 'Helena: “Your help centre access has been upgraded to steward tier.”',
-    updatedAt: '2024-05-20T18:05:00Z',
-  },
-];
+  const handleRefresh = useCallback(
+    (event) => {
+      event.preventDefault();
+      onRefresh?.();
+    },
+    [onRefresh],
+  );
 
-function InboxPreview() {
+  const hasThreads = threads.length > 0;
+  const skeletonItems = useMemo(() => Array.from({ length: 3 }), []);
+  const lastUpdatedCopy = lastFetchedAt ? formatRelativeTime(lastFetchedAt) : null;
+
   return (
     <Menu as="div" className="relative hidden lg:block">
-      <Menu.Button className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-accent hover:text-accent">
+      <Menu.Button
+        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-accent hover:bg-accent/10 hover:text-accent"
+        onClick={onRefresh}
+      >
         <ChatBubbleLeftRightIcon className="h-4 w-4" /> Inbox
       </Menu.Button>
       <Transition
@@ -153,35 +162,84 @@ function InboxPreview() {
         leave="transition ease-in duration-75"
         leaveFrom="transform opacity-100 scale-100"
         leaveTo="transform opacity-0 scale-95"
+        afterEnter={handleAfterEnter}
       >
         <Menu.Items className="absolute right-0 z-50 mt-3 w-80 origin-top-right space-y-3 rounded-3xl border border-slate-200/80 bg-white/95 p-4 text-sm shadow-xl focus:outline-none">
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Latest messages</p>
-            <Link to="/inbox" className="text-xs font-semibold text-accent hover:text-accentDark">
+            {lastUpdatedCopy ? (
+              <span className="text-[0.65rem] uppercase tracking-[0.25em] text-slate-400">Updated {lastUpdatedCopy}</span>
+            ) : null}
+          </div>
+          <div className="flex items-center justify-between">
+            <Link to="/inbox" className="text-xs font-semibold text-accent hover:text-accent-strong">
               Open inbox ↗
             </Link>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              className="text-xs font-semibold text-slate-500 transition hover:text-slate-900"
+              disabled={loading}
+            >
+              {loading ? 'Refreshing…' : 'Refresh'}
+            </button>
           </div>
-          {INBOX_PREVIEW_THREADS.map((thread) => (
-            <Menu.Item key={thread.id}>
-              {({ active }) => (
-                <Link
-                  to="/inbox"
-                  className={classNames(
-                    'block rounded-2xl border px-3 py-2 transition',
-                    active
-                      ? 'border-accent bg-accentSoft/70 text-slate-900 shadow-soft'
-                      : 'border-slate-200 bg-white text-slate-600',
+          {loading
+            ? skeletonItems.map((_, index) => (
+                <div key={`skeleton-${index}`} className="animate-pulse rounded-2xl border border-slate-200 bg-white p-3">
+                  <div className="h-3 w-3/5 rounded-full bg-slate-200" />
+                  <div className="mt-2 h-2 w-full rounded-full bg-slate-100" />
+                  <div className="mt-1 h-2 w-4/5 rounded-full bg-slate-100" />
+                </div>
+              ))
+            : null}
+
+          {!loading && error ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+              {error}
+            </div>
+          ) : null}
+
+          {!loading && hasThreads
+            ? threads.map((thread) => (
+                <Menu.Item key={thread.id}>
+                  {({ active }) => (
+                    <Link
+                      to={`/inbox?thread=${thread.id}`}
+                      onClick={() => onThreadClick?.(thread)}
+                      className={classNames(
+                        'block rounded-2xl border px-3 py-2 transition',
+                        thread.unread
+                          ? 'border-accent bg-accent/10 text-slate-900'
+                          : 'border-slate-200 bg-white text-slate-600',
+                        active ? 'ring-2 ring-accent ring-offset-2 ring-offset-white' : null,
+                      )}
+                    >
+                      <p className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                        {thread.title}
+                        {thread.unread ? (
+                          <span className="inline-flex items-center rounded-full bg-accent px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-white">
+                            New
+                          </span>
+                        ) : null}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500 line-clamp-2">{thread.snippet || 'No messages yet'}</p>
+                      {thread.updatedAt ? (
+                        <p className="mt-2 text-[0.65rem] uppercase tracking-wide text-slate-400">
+                          {formatRelativeTime(thread.updatedAt)}
+                        </p>
+                      ) : null}
+                    </Link>
                   )}
-                >
-                  <p className="text-sm font-semibold text-slate-900">{thread.title}</p>
-                  <p className="mt-1 text-xs text-slate-500 line-clamp-2">{thread.snippet}</p>
-                  <p className="mt-2 text-[0.65rem] uppercase tracking-wide text-slate-400">
-                    {formatRelativeTime(thread.updatedAt)}
-                  </p>
-                </Link>
-              )}
-            </Menu.Item>
-          ))}
+                </Menu.Item>
+              ))
+            : null}
+
+          {!loading && !hasThreads && !error ? (
+            <div className="rounded-2xl border border-slate-200 bg-white px-3 py-4 text-center text-xs text-slate-500">
+              You’re all caught up. New messages will appear here.
+            </div>
+          ) : null}
         </Menu.Items>
       </Transition>
     </Menu>
@@ -193,6 +251,19 @@ export default function Header() {
   const { t } = useLanguage();
   const { session, isAuthenticated, logout } = useSession();
   const { navOpen, openNav, closeNav } = useLayout();
+  const isMountedRef = useRef(true);
+  const [inboxPreview, setInboxPreview] = useState({
+    threads: [],
+    loading: false,
+    error: null,
+    lastFetchedAt: null,
+  });
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -202,6 +273,77 @@ export default function Header() {
   const roleKey = resolvePrimaryRoleKey(session);
   const primaryNavigation = useMemo(() => resolvePrimaryNavigation(session), [session]);
   const roleOptions = useMemo(() => buildRoleOptions(session), [session]);
+
+  const refreshInboxPreview = useCallback(async () => {
+    if (!isAuthenticated) {
+      if (isMountedRef.current) {
+        setInboxPreview({ threads: [], loading: false, error: null, lastFetchedAt: null });
+      }
+      return;
+    }
+
+    if (isMountedRef.current) {
+      setInboxPreview((previous) => ({ ...previous, loading: true, error: null }));
+    }
+
+    try {
+      const response = await fetchInbox({
+        userId: session?.id,
+        includeParticipants: true,
+        includeSupport: true,
+        pageSize: 5,
+      });
+      const rawThreads = Array.isArray(response?.data) ? response.data : Array.isArray(response) ? response : [];
+      const threads = rawThreads.map(normaliseThreadPreview).filter(Boolean);
+
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      setInboxPreview({
+        threads,
+        loading: false,
+        error: null,
+        lastFetchedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      if (!isMountedRef.current) {
+        return;
+      }
+      setInboxPreview((previous) => ({
+        ...previous,
+        loading: false,
+        error: error?.body?.message ?? error?.message ?? 'Unable to load inbox preview.',
+      }));
+    }
+  }, [isAuthenticated, session?.id]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setInboxPreview({ threads: [], loading: false, error: null, lastFetchedAt: null });
+      return undefined;
+    }
+
+    refreshInboxPreview();
+    const interval = window.setInterval(refreshInboxPreview, 60_000);
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [isAuthenticated, refreshInboxPreview]);
+
+  const handleInboxMenuOpen = useCallback(() => {
+    analytics.track('web_header_inbox_preview_opened', {
+      threads: inboxPreview.threads.length,
+      unreadThreads: inboxPreview.threads.filter((thread) => thread.unread).length,
+    });
+  }, [inboxPreview.threads]);
+
+  const handleInboxThreadClick = useCallback((thread) => {
+    analytics.track('web_header_inbox_preview_selected', {
+      threadId: thread.id,
+      unread: thread.unread,
+    });
+  }, []);
 
   const iconMap = useMemo(
     () => ({
@@ -252,7 +394,7 @@ export default function Header() {
           <button
             type="button"
             onClick={openNav}
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-slate-900 lg:hidden"
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-600 shadow-sm transition hover:border-slate-400/80 hover:text-slate-900 lg:hidden"
           >
             <span className="sr-only">Open navigation</span>
             <Bars3Icon className="h-5 w-5" />
@@ -276,7 +418,7 @@ export default function Header() {
                       'inline-flex items-center gap-2 rounded-full border px-4 py-2 transition',
                       isActive
                         ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
-                        : 'border-transparent text-slate-600 hover:border-slate-300 hover:bg-white hover:text-slate-900',
+                        : 'border-transparent text-slate-600 hover:border-slate-400/80 hover:bg-white hover:text-slate-900',
                     )
                   }
                 >
@@ -298,13 +440,23 @@ export default function Header() {
           {!isAuthenticated ? (
             <Link
               to="/pages"
-              className="hidden items-center gap-1 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-500 transition hover:border-slate-300 hover:text-slate-900 lg:inline-flex"
+              className="hidden items-center gap-1 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-500 transition hover:border-slate-400/80 hover:text-slate-900 lg:inline-flex"
             >
               <ArrowTopRightOnSquareIcon className="h-4 w-4" />
               Demo tour
             </Link>
           ) : null}
-          {isAuthenticated ? <InboxPreview /> : null}
+          {isAuthenticated ? (
+            <InboxPreview
+              threads={inboxPreview.threads}
+              loading={inboxPreview.loading}
+              error={inboxPreview.error}
+              lastFetchedAt={inboxPreview.lastFetchedAt}
+              onRefresh={refreshInboxPreview}
+              onOpen={handleInboxMenuOpen}
+              onThreadClick={handleInboxThreadClick}
+            />
+          ) : null}
           <LanguageSelector className="hidden sm:inline-flex" />
           {isAuthenticated ? (
             <div className="flex items-center gap-3">
@@ -321,7 +473,7 @@ export default function Header() {
             <div className="flex items-center gap-3 sm:gap-4">
               <Link
                 to="/login"
-                className="rounded-full border border-slate-200/80 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+                className="rounded-full border border-slate-200/80 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400/80 hover:text-slate-900"
               >
                 {t('header.login', 'Log in')}
               </Link>

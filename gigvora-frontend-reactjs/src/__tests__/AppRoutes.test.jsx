@@ -16,8 +16,13 @@ describe('App route configuration', () => {
       expect(Array.isArray(routes)).toBe(true);
 
       routes.forEach((route) => {
+        if (route.index) {
+          expect(route.module, `${collection} index route must declare a module`).toBeTruthy();
+          return;
+        }
+
         expect(route?.path, `${collection} route missing path`).toBeTruthy();
-        expect(route?.element, `${route.path} should define an element`).toBeTruthy();
+        expect(route?.module, `${route.path} should declare a module to load`).toBeTruthy();
 
         if (seen.has(route.path)) {
           duplicates.push([route.path, seen.get(route.path), collection]);

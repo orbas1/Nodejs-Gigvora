@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { LOGO_URL } from '../constants/branding.js';
 import useSession from '../hooks/useSession.js';
 import { requestAdminTwoFactor, verifyTwoFactorCode } from '../services/auth.js';
+import { resolveInitials } from '../utils/user.js';
 
 const STEP = Object.freeze({
   CREDENTIALS: 'credentials',
@@ -28,19 +29,6 @@ function formatError(error) {
     return 'Your account does not have admin privileges. Contact the platform team for access.';
   }
   return error.message ?? 'Unexpected error. Please try again.';
-}
-
-function resolveInitials(name, email) {
-  const source = name?.trim() || email?.trim();
-  if (!source) {
-    return 'GV';
-  }
-  return source
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((part) => part[0]?.toUpperCase())
-    .join('')
-    .slice(0, 2);
 }
 
 export default function AdminLoginPage() {

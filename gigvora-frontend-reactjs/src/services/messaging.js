@@ -17,6 +17,7 @@ export function fetchInbox({
   includeLabels = false,
   page = 1,
   pageSize = 20,
+  signal,
 } = {}) {
   const params = sanitizeParams({
     userId,
@@ -36,7 +37,7 @@ export function fetchInbox({
     params.states = states.join(',');
   }
 
-  return apiClient.get('/messaging/threads', { params });
+  return apiClient.get('/messaging/threads', { params, signal });
 }
 
 export function fetchThread(threadId, { includeParticipants = true, includeSupport = true, includeLabels = false } = {}) {
