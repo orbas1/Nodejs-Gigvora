@@ -1716,9 +1716,9 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   25. **Design framework.** Uses DashboardLayout guard ensuring parity with other persona tools.【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L74-L120】
   26. **Change Checklist Tracker Extensive.**
       - [x] Pre-fill queue form defaults from project metadata.【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L236-L266】
-      - [ ] Add avatars, hover actions, and tooltips for queue entries.【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L400-L456】
+      - [x] Add avatars, hover actions, and tooltips for queue entries.【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L400-L456】
       - [x] Instrument fairness dashboards and audit logs.【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L744-L828】
-      - [ ] Send notifications upon queue regeneration successes or failures.【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L330-L368】
+      - [x] Send notifications upon queue regeneration successes or failures.【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L330-L368】
   27. **Full Upgrade Plan & Release Steps  Extensive.**
       1. Auto-populate form defaults and release avatar-rich queue UI to agency/company beta groups.【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L82-L200】
       2. Launch fairness analytics dashboards plus audit log export for compliance reviews.【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L15-L200】

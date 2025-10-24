@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { ArrowPathIcon, ClipboardDocumentIcon, UserCircleIcon } from '@heroicons/react/24/outline';
 import PageHeader from '../components/PageHeader.jsx';
 import DataStatus from '../components/DataStatus.jsx';
 import UserAvatar from '../components/UserAvatar.jsx';
@@ -156,6 +157,8 @@ export default function ProjectAutoMatchPage() {
   const [weights, setWeights] = useState(WEIGHT_PRESET);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const [copiedEntryId, setCopiedEntryId] = useState(null);
+  const copyTimeoutRef = useRef(null);
 
   const normalizedWeights = useMemo(() => normalizeWeights(weights), [weights]);
 
@@ -232,6 +235,14 @@ export default function ProjectAutoMatchPage() {
       {},
     );
   }, [queueEntries]);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!project) {
@@ -368,6 +379,62 @@ export default function ProjectAutoMatchPage() {
     [canView, formState, normalizedWeights, projectId, refreshProject, refreshQueue],
   );
 
+  const handleCopyEmail = useCallback(
+    async (entry, entryKey) => {
+      const email = entry?.freelancer?.email?.trim();
+      if (!email) {
+        setFeedback({
+          type: 'error',
+          message: 'Freelancer contact information is unavailable for copying.',
+        });
+        return;
+      }
+
+      let copied = false;
+      if (typeof navigator !== 'undefined' && navigator?.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(email);
+          copied = true;
+        } catch (error) {
+          copied = false;
+        }
+      }
+
+      if (!copied && typeof document !== 'undefined') {
+        try {
+          const textarea = document.createElement('textarea');
+          textarea.value = email;
+          textarea.setAttribute('readonly', '');
+          textarea.style.position = 'absolute';
+          textarea.style.left = '-9999px';
+          document.body.appendChild(textarea);
+          textarea.select();
+          copied = document.execCommand('copy');
+          document.body.removeChild(textarea);
+        } catch (error) {
+          copied = false;
+        }
+      }
+
+      if (!copied) {
+        setFeedback({
+          type: 'error',
+          message: 'We could not copy the email address. Try copying it from the profile instead.',
+        });
+        return;
+      }
+
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+      setCopiedEntryId(entryKey);
+      copyTimeoutRef.current = setTimeout(() => {
+        setCopiedEntryId(null);
+      }, 3000);
+    },
+    [],
+  );
+
   const renderQueue = () => {
     if (queueLoading && !queueEntries.length) {
       return (
@@ -398,16 +465,22 @@ export default function ProjectAutoMatchPage() {
     return (
       <div className="space-y-4">
         {sortedQueueEntries.map((entry, index) => {
+          const entryKey = entry.id ?? `${entry.freelancerId}-${index}`;
           const statusKey = typeof entry?.status === 'string' ? entry.status.toLowerCase() : 'default';
           const statusPreset = STATUS_PRESETS[statusKey] ?? STATUS_PRESETS.default;
           const breakdown = ensureObject(entry?.breakdown);
           const metadata = ensureObject(entry?.metadata);
           const fairness = ensureObject(metadata.fairness);
           const projectName = entry.projectName ?? project?.title ?? `Project ${projectId}`;
+          const canViewProfile = Boolean(entry?.freelancerId);
+          const canViewQueue = Boolean(entry?.freelancerId);
+          const canCopyEmail = Boolean(entry?.freelancer?.email);
+          const showActions = canViewProfile || canViewQueue || canCopyEmail;
+          const isCopied = copiedEntryId === entryKey;
           return (
             <article
-              key={entry.id ?? `${entry.freelancerId}-${index}`}
-              className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft"
+              key={entryKey}
+              className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft focus-within:border-accent/60"
             >
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
@@ -424,11 +497,60 @@ export default function ProjectAutoMatchPage() {
                     </p>
                   </div>
                 </div>
-                <span
-                  className={`inline-flex items-center justify-center rounded-full border px-4 py-1 text-xs font-semibold uppercase tracking-wide ${statusPreset.badge}`}
-                >
-                  {statusPreset.label}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center justify-center rounded-full border px-4 py-1 text-xs font-semibold uppercase tracking-wide ${statusPreset.badge}`}
+                  >
+                    {statusPreset.label}
+                  </span>
+                  {showActions ? (
+                    <div className="flex items-center gap-2 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
+                      {canViewProfile ? (
+                        <div className="relative group/action">
+                          <Link
+                            to={`/profile/${entry.freelancerId}`}
+                            aria-label="View freelancer profile"
+                            className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white p-2 text-slate-500 shadow-sm transition hover:border-accent hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                          >
+                            <UserCircleIcon className="h-4 w-4" aria-hidden="true" />
+                          </Link>
+                          <span className="pointer-events-none absolute -top-9 left-1/2 hidden -translate-x-1/2 rounded-full bg-slate-900 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-white shadow-sm group-hover/action:block">
+                            View profile
+                          </span>
+                        </div>
+                      ) : null}
+                      {canViewQueue ? (
+                        <div className="relative group/action">
+                          <Link
+                            to={`/auto-assign/queue?freelancerId=${entry.freelancerId}`}
+                            aria-label="Open freelancer queue detail"
+                            className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white p-2 text-slate-500 shadow-sm transition hover:border-accent hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                          >
+                            <ArrowPathIcon className="h-4 w-4" aria-hidden="true" />
+                          </Link>
+                          <span className="pointer-events-none absolute -top-9 left-1/2 hidden -translate-x-1/2 rounded-full bg-slate-900 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-white shadow-sm group-hover/action:block">
+                            Queue overview
+                          </span>
+                        </div>
+                      ) : null}
+                      {canCopyEmail ? (
+                        <div className="relative group/action">
+                          <button
+                            type="button"
+                            onClick={() => handleCopyEmail(entry, entryKey)}
+                            className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white p-2 text-slate-500 shadow-sm transition hover:border-accent hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                            aria-label="Copy freelancer email"
+                          >
+                            <ClipboardDocumentIcon className="h-4 w-4" aria-hidden="true" />
+                          </button>
+                          <span className="pointer-events-none absolute -top-9 left-1/2 hidden -translate-x-1/2 rounded-full bg-slate-900 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-white shadow-sm group-hover/action:block">
+                            Copy email
+                          </span>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
               </div>
               <div className="mt-4 grid gap-4 text-xs text-slate-600 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="rounded-2xl border border-slate-200 bg-surfaceMuted/70 px-4 py-3">
@@ -456,6 +578,11 @@ export default function ProjectAutoMatchPage() {
                   </p>
                 </div>
               </div>
+              {isCopied ? (
+                <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-medium text-emerald-700">
+                  Email copied to clipboard.
+                </div>
+              ) : null}
             </article>
           );
         })}
