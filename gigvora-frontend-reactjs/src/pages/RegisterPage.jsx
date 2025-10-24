@@ -6,6 +6,9 @@ import { registerUser, loginWithGoogle } from '../services/auth.js';
 import apiClient from '../services/apiClient.js';
 import useSession from '../hooks/useSession.js';
 import SocialAuthButton, { SOCIAL_PROVIDERS } from '../components/SocialAuthButton.jsx';
+import useFormState from '../hooks/useFormState.js';
+import FormStatusMessage from '../components/forms/FormStatusMessage.jsx';
+import { isValidEmail, validatePasswordStrength } from '../utils/validation.js';
 
 const DASHBOARD_ROUTES = {
   admin: '/dashboard/admin',
@@ -48,9 +51,7 @@ const onboardingHighlights = [
 
 export default function RegisterPage() {
   const [form, setForm] = useState(initialState);
-  const [status, setStatus] = useState('idle');
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
+  const { status, setStatus, setError, setInfo, setSuccess, clearMessage, message, messageType, feedbackProps } = useFormState();
   const navigate = useNavigate();
   const { login } = useSession();
 
@@ -64,6 +65,11 @@ export default function RegisterPage() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    clearMessage();
+    if (!isValidEmail(form.email)) {
+      setError('Enter a valid email address to continue.');
+      return;
+    }
     if (form.password !== form.confirmPassword) {
       setError('Passwords do not match.');
       return;
@@ -72,9 +78,13 @@ export default function RegisterPage() {
       setError('Please share your date of birth.');
       return;
     }
+    const passwordStrength = validatePasswordStrength(form.password);
+    if (!passwordStrength.valid) {
+      setError(`Choose a stronger password. ${passwordStrength.recommendations.join(' ')}`);
+      return;
+    }
     setStatus('submitting');
-    setError(null);
-    setSuccess(null);
+    clearMessage();
     try {
       const payload = {
         firstName: form.firstName,
@@ -104,11 +114,11 @@ export default function RegisterPage() {
     }
 
     setStatus('google');
-    setError(null);
-    setSuccess(null);
+    clearMessage();
     try {
       const result = await loginWithGoogle(response.credential);
       const sessionState = login(result.session);
+      setSuccess('Signed in with Google. Redirecting you now.');
       navigate(resolveLanding(sessionState), { replace: true });
     } catch (googleError) {
       if (googleError instanceof apiClient.ApiError) {
@@ -123,8 +133,8 @@ export default function RegisterPage() {
 
   const handleGoogleError = () => {
     setStatus('idle');
+    clearMessage();
     setError('Google sign up was cancelled. Please try again.');
-    setSuccess(null);
   };
 
   const handleSocialRedirect = (provider) => {
@@ -132,8 +142,8 @@ export default function RegisterPage() {
       return;
     }
 
-    setError(null);
-    setSuccess(null);
+    clearMessage();
+    setInfo(`Redirecting to ${provider === 'x' ? 'X' : provider.charAt(0).toUpperCase() + provider.slice(1)} to continue.`);
     setStatus('redirecting');
     const apiBase = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api').replace(/\/$/, '');
     const authBase = apiBase.replace(/\/api$/, '');
@@ -164,6 +174,11 @@ export default function RegisterPage() {
         />
         <div className="grid gap-10 lg:grid-cols-[1.25fr,0.75fr] lg:items-start">
           <form onSubmit={handleSubmit} className="space-y-6 rounded-3xl border border-slate-200 bg-white p-10 shadow-soft">
+            <FormStatusMessage
+              type={messageType ?? 'info'}
+              message={message}
+              {...feedbackProps}
+            />
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2">
                 <label htmlFor="firstName" className="text-sm font-medium text-slate-700">
@@ -249,8 +264,6 @@ export default function RegisterPage() {
                 />
               </div>
             </div>
-            {error ? <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{error}</p> : null}
-            {success ? <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-600">{success}</p> : null}
             <button
               type="submit"
               className="w-full rounded-full bg-accent px-8 py-3 text-base font-semibold text-white shadow-soft transition hover:bg-accentDark disabled:cursor-not-allowed disabled:bg-accent/60"

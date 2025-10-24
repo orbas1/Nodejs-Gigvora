@@ -23,6 +23,7 @@ import { useLanguage } from '../context/LanguageContext.jsx';
 import LanguageSelector from './LanguageSelector.jsx';
 import MegaMenu from './navigation/MegaMenu.jsx';
 import RoleSwitcher from './navigation/RoleSwitcher.jsx';
+import MobileNavigation from './navigation/MobileNavigation.jsx';
 import {
   marketingNavigation,
   resolvePrimaryNavigation,
@@ -30,6 +31,7 @@ import {
   resolvePrimaryRoleKey,
 } from '../constants/navigation.js';
 import { formatRelativeTime } from '../utils/date.js';
+import { useLayout } from '../context/LayoutContext.jsx';
 
 function resolveInitials(name = '') {
   const source = name.trim();
@@ -190,6 +192,7 @@ export default function Header() {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const { session, isAuthenticated, logout } = useSession();
+  const { navOpen, openNav, closeNav } = useLayout();
 
   const handleLogout = () => {
     logout();
@@ -234,106 +237,26 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur">
+      <MobileNavigation
+        open={navOpen}
+        onClose={closeNav}
+        isAuthenticated={isAuthenticated}
+        primaryNavigation={primaryNavigation}
+        marketingLinks={marketingLinks}
+        onLogout={handleLogout}
+        roleOptions={roleOptions}
+        currentRoleKey={roleKey}
+      />
       <div className="mx-auto flex w-full items-center gap-3 px-4 py-3 sm:h-20 sm:gap-4 sm:px-6 sm:py-0 lg:px-8">
         <div className="flex items-center gap-3 lg:flex-1">
-          <Menu as="div" className="relative lg:hidden">
-            <Menu.Button className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-slate-900">
-              <span className="sr-only">Open navigation</span>
-              <Bars3Icon className="h-5 w-5" />
-            </Menu.Button>
-            <Transition
-              as={Fragment}
-              enter="transition ease-out duration-100"
-              enterFrom="transform opacity-0 scale-95"
-              enterTo="transform opacity-100 scale-100"
-              leave="transition ease-in duration-75"
-              leaveFrom="transform opacity-100 scale-100"
-              leaveTo="transform opacity-0 scale-95"
-            >
-              <Menu.Items className="absolute left-0 z-50 mt-3 w-[min(20rem,calc(100vw-1.5rem))] origin-top-left space-y-2 overflow-hidden rounded-3xl border border-slate-200/80 bg-white/95 p-4 text-sm shadow-2xl focus:outline-none sm:w-72">
-                {isAuthenticated ? (
-                  primaryNavigation.map((item) => {
-                    const Icon = iconMap[item.id] ?? Squares2X2Icon;
-                    return (
-                      <Menu.Item key={item.id}>
-                        {({ active }) => (
-                          <NavLink
-                            to={item.to}
-                            className={({ isActive }) =>
-                              classNames(
-                                'flex items-center gap-3 rounded-2xl px-3 py-2 font-medium transition',
-                                isActive
-                                  ? 'bg-slate-900 text-white shadow-sm'
-                                  : active
-                                    ? 'bg-slate-100 text-slate-900'
-                                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
-                              )
-                            }
-                          >
-                            <Icon className="h-4 w-4" />
-                            {item.label}
-                          </NavLink>
-                        )}
-                      </Menu.Item>
-                    );
-                  })
-                ) : (
-                  marketingLinks.map((item) => (
-                    <Menu.Item key={item.id}>
-                      {({ active }) => (
-                        <Link
-                          to={item.to}
-                          className={classNames(
-                            'block rounded-2xl px-3 py-2 transition',
-                            active ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
-                          )}
-                        >
-                          <p className="font-semibold">{item.label}</p>
-                          <p className="text-xs text-slate-500">{item.description}</p>
-                        </Link>
-                      )}
-                    </Menu.Item>
-                  ))
-                )}
-                <div className="space-y-4 border-t border-slate-200/70 pt-4">
-                  <LanguageSelector variant="mobile" />
-                  {isAuthenticated ? (
-                    <div className="grid gap-2">
-                      <Link
-                        to="/dashboard/user/creation-studio"
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-accent px-5 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-accentDark"
-                      >
-                        <SparklesIcon className="h-4 w-4" />
-                        Launch Creation Studio
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={handleLogout}
-                        className="inline-flex w-full items-center justify-center rounded-full border border-slate-200/80 px-5 py-3 text-base font-semibold text-slate-700 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
-                      >
-                        Log out
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="grid gap-2">
-                      <Link
-                        to="/login"
-                        className="inline-flex w-full items-center justify-center rounded-full border border-slate-200/80 px-5 py-3 text-base font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-white hover:text-slate-900"
-                      >
-                        {t('header.login', 'Log in')}
-                      </Link>
-                      <Link
-                        to="/register"
-                        className="inline-flex w-full items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-slate-700"
-                      >
-                        {t('header.join', 'Join')}
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              </Menu.Items>
-            </Transition>
-          </Menu>
+          <button
+            type="button"
+            onClick={openNav}
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-slate-900 lg:hidden"
+          >
+            <span className="sr-only">Open navigation</span>
+            <Bars3Icon className="h-5 w-5" />
+          </button>
           <Link to="/" className="inline-flex items-center gap-2 shrink-0">
             <img src={LOGO_URL} alt="Gigvora" className="h-10 w-auto shrink-0 sm:h-12" />
           </Link>
