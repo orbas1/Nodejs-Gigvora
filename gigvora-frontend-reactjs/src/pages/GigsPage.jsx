@@ -44,6 +44,9 @@ function resolveBudgetAmount(gig) {
   if (!gig) {
     return null;
   }
+  if (gig.budgetAmount != null && Number.isFinite(Number(gig.budgetAmount))) {
+    return Number(gig.budgetAmount);
+  }
   if (typeof gig.budget === 'number') {
     return gig.budget;
   }
@@ -104,6 +107,13 @@ function resolveTrustBadges(gig) {
     return [];
   }
   const badges = [];
+  if (Array.isArray(gig.trustSignals)) {
+    gig.trustSignals.forEach((entry) => {
+      if (typeof entry === 'string' && entry.trim().length) {
+        badges.push(entry.trim());
+      }
+    });
+  }
   if (Array.isArray(gig.trustBadges)) {
     gig.trustBadges.forEach((entry) => {
       if (typeof entry === 'string' && entry.trim().length) {
@@ -118,7 +128,7 @@ function resolveTrustBadges(gig) {
     badges.push('ID verified');
   }
 
-  const rating = gig.rating ?? gig.reviewScore ?? gig.averageRating ?? null;
+  const rating = gig.rating ?? gig.reviewScore ?? gig.averageRating ?? gig.ratingAverage ?? null;
   if (Number.isFinite(Number(rating)) && Number(rating) > 0) {
     badges.push(`Rated ${Number(rating).toFixed(1)}/5`);
   }

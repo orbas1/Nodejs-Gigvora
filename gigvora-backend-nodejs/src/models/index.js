@@ -7248,9 +7248,16 @@ export const Gig = sequelize.define(
     deliveryModel: { type: DataTypes.STRING(160), allowNull: true },
     outcomePromise: { type: DataTypes.TEXT, allowNull: true },
     budget: { type: DataTypes.STRING(120), allowNull: true },
+    budgetAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    budgetCurrency: { type: DataTypes.STRING(6), allowNull: true },
     duration: { type: DataTypes.STRING(120), allowNull: true },
     location: { type: DataTypes.STRING(255), allowNull: true },
     geoLocation: { type: jsonType, allowNull: true },
+    workModel: { type: DataTypes.STRING(120), allowNull: true },
+    engagementModel: { type: DataTypes.STRING(120), allowNull: true },
+    deliverySpeedLabel: { type: DataTypes.STRING(120), allowNull: true },
+    deliverySpeedCategory: { type: DataTypes.STRING(40), allowNull: true },
+    deliveryLeadTimeDays: { type: DataTypes.INTEGER, allowNull: true },
     heroAccent: { type: DataTypes.STRING(20), allowNull: true },
     targetMetric: { type: DataTypes.INTEGER, allowNull: true },
     status: {
@@ -7270,6 +7277,19 @@ export const Gig = sequelize.define(
     availabilityLeadTimeDays: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 2 },
     publishedAt: { type: DataTypes.DATE, allowNull: true },
     archivedAt: { type: DataTypes.DATE, allowNull: true },
+    conversationId: { type: DataTypes.STRING(120), allowNull: true },
+    ratingAverage: { type: DataTypes.DECIMAL(3, 2), allowNull: true },
+    ratingCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    completedOrderCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    identityVerified: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    escrowReady: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    trustSignals: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    taxonomySlugs: { type: jsonType, allowNull: true },
+    taxonomyLabels: { type: jsonType, allowNull: true },
+    taxonomyTypes: { type: jsonType, allowNull: true },
+    searchBoost: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    savedCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   },
   { tableName: 'gigs' },
 );
@@ -7301,14 +7321,42 @@ Gig.prototype.toBuilderObject = function toBuilderObject() {
     summary: plain.summary,
     status: plain.status,
     budget: plain.budget,
+    budgetAmount: plain.budgetAmount == null ? null : Number(plain.budgetAmount),
+    budgetCurrency: plain.budgetCurrency ?? null,
     duration: plain.duration,
     location: plain.location,
     geoLocation: plain.geoLocation ?? null,
+    workModel: plain.workModel ?? null,
+    engagementModel: plain.engagementModel ?? null,
+    deliverySpeedLabel: plain.deliverySpeedLabel ?? null,
+    deliverySpeedCategory: plain.deliverySpeedCategory ?? null,
+    deliveryLeadTimeDays: plain.deliveryLeadTimeDays == null ? null : Number(plain.deliveryLeadTimeDays),
     sellingPoints: normalizeList(plain.sellingPoints),
     requirements: normalizeList(plain.requirements),
     faqs: normalizeList(plain.faqs),
     conversionCopy: plain.conversionCopy ?? {},
     analyticsSettings: plain.analyticsSettings ?? {},
+    trustSignals: Array.isArray(plain.trustSignals)
+      ? plain.trustSignals
+      : plain.trustSignals && typeof plain.trustSignals === 'object'
+      ? Object.values(plain.trustSignals)
+      : [],
+    metadata: plain.metadata ?? {},
+    taxonomySlugs: Array.isArray(plain.taxonomySlugs)
+      ? plain.taxonomySlugs
+      : plain.taxonomySlugs && typeof plain.taxonomySlugs === 'object'
+      ? Object.values(plain.taxonomySlugs)
+      : [],
+    taxonomyLabels: Array.isArray(plain.taxonomyLabels)
+      ? plain.taxonomyLabels
+      : plain.taxonomyLabels && typeof plain.taxonomyLabels === 'object'
+      ? Object.values(plain.taxonomyLabels)
+      : [],
+    taxonomyTypes: Array.isArray(plain.taxonomyTypes)
+      ? plain.taxonomyTypes
+      : plain.taxonomyTypes && typeof plain.taxonomyTypes === 'object'
+      ? Object.values(plain.taxonomyTypes)
+      : [],
     hero: {
       title: plain.heroTitle ?? plain.title,
       subtitle: plain.heroSubtitle ?? null,
@@ -7316,6 +7364,14 @@ Gig.prototype.toBuilderObject = function toBuilderObject() {
       theme: plain.heroTheme ?? null,
       badge: plain.heroBadge ?? null,
     },
+    conversationId: plain.conversationId ?? null,
+    ratingAverage: plain.ratingAverage == null ? null : Number(plain.ratingAverage),
+    ratingCount: plain.ratingCount ?? 0,
+    completedOrderCount: plain.completedOrderCount ?? 0,
+    identityVerified: Boolean(plain.identityVerified),
+    escrowReady: Boolean(plain.escrowReady),
+    searchBoost: plain.searchBoost ?? 0,
+    savedCount: plain.savedCount ?? 0,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };
@@ -7413,9 +7469,16 @@ Gig.prototype.toPublicObject = function toPublicObject() {
     deliveryModel: plain.deliveryModel,
     outcomePromise: plain.outcomePromise,
     budget: plain.budget,
+    budgetAmount: plain.budgetAmount == null ? null : Number(plain.budgetAmount),
+    budgetCurrency: plain.budgetCurrency ?? null,
     duration: plain.duration,
     location: plain.location,
     geoLocation: plain.geoLocation,
+    workModel: plain.workModel ?? null,
+    engagementModel: plain.engagementModel ?? null,
+    deliverySpeedLabel: plain.deliverySpeedLabel ?? null,
+    deliverySpeedCategory: plain.deliverySpeedCategory ?? null,
+    deliveryLeadTimeDays: plain.deliveryLeadTimeDays == null ? null : Number(plain.deliveryLeadTimeDays),
     heroAccent: plain.heroAccent,
     targetMetric: plain.targetMetric == null ? null : Number(plain.targetMetric),
     status: plain.status,
@@ -7426,6 +7489,35 @@ Gig.prototype.toPublicObject = function toPublicObject() {
       plain.availabilityLeadTimeDays == null ? null : Number(plain.availabilityLeadTimeDays),
     publishedAt: plain.publishedAt,
     archivedAt: plain.archivedAt,
+    conversationId: plain.conversationId ?? null,
+    ratingAverage: plain.ratingAverage == null ? null : Number(plain.ratingAverage),
+    ratingCount: plain.ratingCount ?? 0,
+    completedOrderCount: plain.completedOrderCount ?? 0,
+    identityVerified: Boolean(plain.identityVerified),
+    escrowReady: Boolean(plain.escrowReady),
+    trustSignals: Array.isArray(plain.trustSignals)
+      ? plain.trustSignals
+      : plain.trustSignals && typeof plain.trustSignals === 'object'
+      ? Object.values(plain.trustSignals)
+      : [],
+    metadata: plain.metadata ?? null,
+    taxonomySlugs: Array.isArray(plain.taxonomySlugs)
+      ? plain.taxonomySlugs
+      : plain.taxonomySlugs && typeof plain.taxonomySlugs === 'object'
+      ? Object.values(plain.taxonomySlugs)
+      : [],
+    taxonomyLabels: Array.isArray(plain.taxonomyLabels)
+      ? plain.taxonomyLabels
+      : plain.taxonomyLabels && typeof plain.taxonomyLabels === 'object'
+      ? Object.values(plain.taxonomyLabels)
+      : [],
+    taxonomyTypes: Array.isArray(plain.taxonomyTypes)
+      ? plain.taxonomyTypes
+      : plain.taxonomyTypes && typeof plain.taxonomyTypes === 'object'
+      ? Object.values(plain.taxonomyTypes)
+      : [],
+    searchBoost: plain.searchBoost ?? 0,
+    savedCount: plain.savedCount ?? 0,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
     packages,

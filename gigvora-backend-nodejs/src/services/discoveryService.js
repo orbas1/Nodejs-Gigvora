@@ -409,6 +409,53 @@ function extractTaxonomies(record) {
   return deduped;
 }
 
+function normaliseDeliveryCategory(label, leadTime) {
+  const text = (label ?? '').toLowerCase();
+  if (text.includes('express') || text.includes('rush') || text.includes('48') || text.includes('72')) {
+    return 'express';
+  }
+  if (text.includes('week') || text.includes('standard')) {
+    return 'standard';
+  }
+  if (text.includes('month') || text.includes('retainer') || text.includes('ongoing')) {
+    return 'extended';
+  }
+  if (Number.isFinite(Number(leadTime))) {
+    const days = Number(leadTime);
+    if (days <= 5) return 'express';
+    if (days <= 14) return 'standard';
+    return 'extended';
+  }
+  return text.length ? text.replace(/\s+/g, '_') : 'standard';
+}
+
+function buildGigTrustBadges({ trustSignals = [], identityVerified, ratingAverage, ratingCount, completedOrders, escrowReady }) {
+  const badges = new Set();
+  trustSignals
+    .map((entry) => (typeof entry === 'string' ? entry.trim() : null))
+    .filter(Boolean)
+    .forEach((entry) => badges.add(entry));
+
+  if (identityVerified) {
+    badges.add('ID verified');
+  }
+  if (ratingAverage != null && Number.isFinite(ratingAverage) && ratingAverage > 0) {
+    const formatted = ratingAverage.toFixed(1);
+    badges.add(`Rated ${formatted}/5`);
+  }
+  if (ratingCount != null && ratingCount > 0) {
+    badges.add(`${ratingCount}+ reviews`);
+  }
+  if (completedOrders != null && completedOrders > 0) {
+    badges.add(`${completedOrders}+ deliveries`);
+  }
+  if (escrowReady) {
+    badges.add('Escrow ready');
+  }
+
+  return Array.from(badges);
+}
+
 function buildFilterExpressions(category, filters = {}, viewport) {
   const expressions = [];
 
@@ -431,6 +478,32 @@ function buildFilterExpressions(category, filters = {}, viewport) {
   if (filters.durationCategories?.length && category === 'gig') {
     const group = buildEqualityGroup('durationCategory', filters.durationCategories);
     if (group) expressions.push(group);
+  }
+
+  if (filters.deliverySpeed && category === 'gig') {
+    const value = `${filters.deliverySpeed}`.trim();
+    if (value.length) {
+      expressions.push(`deliverySpeedCategory = "${value}"`);
+    }
+  }
+
+  if (filters.trustSignals?.verifiedOnly === true && category === 'gig') {
+    expressions.push('identityVerified = true');
+  }
+
+  if (filters.trustSignals?.escrowReady === true && category === 'gig') {
+    expressions.push('escrowReady = true');
+  }
+
+  if (filters.budget && category === 'gig') {
+    const min = Number.parseFloat(filters.budget.min);
+    const max = Number.parseFloat(filters.budget.max);
+    if (Number.isFinite(min)) {
+      expressions.push(`budgetValue >= ${min}`);
+    }
+    if (Number.isFinite(max)) {
+      expressions.push(`budgetValue <= ${max}`);
+    }
   }
 
   if (filters.budgetCurrencies?.length && category === 'gig') {
@@ -505,6 +578,32 @@ function applyStructuredFilters(where, category, filters = {}) {
 
   if (filters.employmentTypes?.length && category === 'job') {
     andConditions.push({ employmentType: { [Op.in]: filters.employmentTypes.map((value) => value.trim()).filter(Boolean) } });
+  }
+
+  if (filters.deliverySpeed && category === 'gig') {
+    const trimmed = `${filters.deliverySpeed}`.trim();
+    if (trimmed.length) {
+      andConditions.push({ deliverySpeedCategory: trimmed });
+    }
+  }
+
+  if (filters.trustSignals?.verifiedOnly === true && category === 'gig') {
+    andConditions.push({ identityVerified: true });
+  }
+
+  if (filters.trustSignals?.escrowReady === true && category === 'gig') {
+    andConditions.push({ escrowReady: true });
+  }
+
+  if (filters.budget && category === 'gig') {
+    const min = Number.parseFloat(filters.budget.min);
+    const max = Number.parseFloat(filters.budget.max);
+    if (Number.isFinite(min)) {
+      andConditions.push({ budgetAmount: { [Op.gte]: min } });
+    }
+    if (Number.isFinite(max)) {
+      andConditions.push({ budgetAmount: { [Op.lte]: max } });
+    }
   }
 
   if (filters.statuses?.length && category === 'project') {
@@ -599,12 +698,99 @@ export function toOpportunityDto(record, category) {
         isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
       };
     case 'gig':
-      return {
-        ...base,
-        budget: plain.budget ?? null,
-        duration: plain.duration ?? null,
-        isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
-      };
+      {
+        const packages = Array.isArray(record.packages)
+          ? record.packages.map((pkg) => (pkg.toPublicObject?.() ?? pkg))
+          : [];
+        const addOns = Array.isArray(record.addons)
+          ? record.addons.map((addon) => (addon.toPublicObject?.() ?? addon))
+          : Array.isArray(record.addOns)
+          ? record.addOns.map((addon) => (addon.toPublicObject?.() ?? addon))
+          : [];
+        const snapshot = Array.isArray(record.performanceSnapshots)
+          ? record.performanceSnapshots[0]
+          : null;
+        const normalizedSnapshot = snapshot
+          ? snapshot.toPublicObject?.() ?? snapshot.get?.({ plain: true }) ?? snapshot
+          : null;
+        const ratingAverage =
+          plain.ratingAverage != null
+            ? Number(plain.ratingAverage)
+            : normalizedSnapshot?.reviewScore != null
+            ? Number(normalizedSnapshot.reviewScore)
+            : null;
+        const ratingCount = plain.ratingCount ?? 0;
+        const completedOrders = plain.completedOrderCount ?? null;
+        const trustSignals = Array.isArray(plain.trustSignals)
+          ? plain.trustSignals
+          : plain.trustSignals && typeof plain.trustSignals === 'object'
+          ? Object.values(plain.trustSignals)
+          : [];
+        const trustBadges = buildGigTrustBadges({
+          trustSignals,
+          identityVerified: plain.identityVerified,
+          ratingAverage,
+          ratingCount,
+          completedOrders,
+          escrowReady: plain.escrowReady,
+        });
+
+        return {
+          ...base,
+          budget: plain.budget ?? null,
+          budgetAmount: plain.budgetAmount == null ? null : Number(plain.budgetAmount),
+          budgetCurrency: plain.budgetCurrency ?? null,
+          duration: plain.duration ?? null,
+          workModel: plain.workModel ?? null,
+          engagementModel: plain.engagementModel ?? null,
+          deliverySpeed: plain.deliverySpeedLabel ?? null,
+          deliverySpeedCategory:
+            plain.deliverySpeedCategory ??
+            normaliseDeliveryCategory(plain.deliverySpeedLabel, plain.deliveryLeadTimeDays),
+          deliveryLeadTimeDays:
+            plain.deliveryLeadTimeDays == null ? null : Number(plain.deliveryLeadTimeDays),
+          isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
+          conversationId: plain.conversationId ?? null,
+          rating: ratingAverage,
+          reviewCount: ratingCount,
+          completedOrders,
+          identityVerified: Boolean(plain.identityVerified),
+          escrowReady: Boolean(plain.escrowReady),
+          trustSignals,
+          trustBadges,
+          packages,
+          addOns,
+          metadata: plain.metadata ?? null,
+          owner:
+            record.owner && typeof record.owner.get === 'function'
+              ? record.owner.get({ plain: true })
+              : record.owner ?? null,
+          savedCount: plain.savedCount ?? 0,
+          searchBoost: plain.searchBoost ?? 0,
+          performance:
+            normalizedSnapshot && typeof normalizedSnapshot === 'object'
+              ? {
+                  reviewScore:
+                    normalizedSnapshot.reviewScore == null
+                      ? null
+                      : Number(normalizedSnapshot.reviewScore),
+                  bookingsLast30Days: normalizedSnapshot.bookingsLast30Days ?? null,
+                  conversionRate:
+                    normalizedSnapshot.conversionRate == null
+                      ? null
+                      : Number(normalizedSnapshot.conversionRate),
+                  averageOrderValue:
+                    normalizedSnapshot.averageOrderValue == null
+                      ? null
+                      : Number(normalizedSnapshot.averageOrderValue),
+                  completionRate:
+                    normalizedSnapshot.completionRate == null
+                      ? null
+                      : Number(normalizedSnapshot.completionRate),
+                }
+              : null,
+        };
+      }
     case 'project':
       return {
         ...base,
@@ -678,6 +864,68 @@ async function listOpportunities(category, { page, pageSize, query, filters, sor
   const includes = [];
   if (taxonomyInclude) {
     includes.push(taxonomyInclude);
+  }
+  if (category === 'gig') {
+    includes.push(
+      {
+        association: 'packages',
+        attributes: [
+          'id',
+          'gigId',
+          'packageKey',
+          'name',
+          'description',
+          'priceAmount',
+          'priceCurrency',
+          'deliveryDays',
+          'revisionLimit',
+          'highlights',
+          'recommendedFor',
+          'isPopular',
+          'position',
+        ],
+        separate: false,
+        order: [['position', 'ASC']],
+      },
+      {
+        association: 'addons',
+        attributes: [
+          'id',
+          'gigId',
+          'addOnKey',
+          'name',
+          'description',
+          'priceAmount',
+          'priceCurrency',
+          'isActive',
+          'position',
+        ],
+        separate: false,
+        order: [['position', 'ASC']],
+      },
+      {
+        association: 'performanceSnapshots',
+        attributes: [
+          'id',
+          'gigId',
+          'snapshotDate',
+          'periodLabel',
+          'conversionRate',
+          'averageOrderValue',
+          'completionRate',
+          'upsellTakeRate',
+          'reviewScore',
+          'bookingsLast30Days',
+        ],
+        limit: 1,
+        order: [['snapshotDate', 'DESC']],
+        separate: false,
+      },
+      {
+        association: 'owner',
+        attributes: ['id', 'firstName', 'lastName', 'email'],
+      },
+    );
   }
 
   const searchResult = await searchOpportunityIndex(

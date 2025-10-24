@@ -62,9 +62,13 @@ const opportunityIndexDefinitions = {
       'updatedAtDate',
       'taxonomySlugs',
       'taxonomyTypes',
+      'deliverySpeedCategory',
+      'identityVerified',
+      'escrowReady',
+      'ratingBucket',
     ],
-    sortableAttributes: ['freshnessScore', 'budgetValue', 'updatedAtTimestamp'],
-    customRanking: ['desc(freshnessScore)', 'desc(budgetValue)', 'desc(updatedAtTimestamp)'],
+    sortableAttributes: ['freshnessScore', 'budgetValue', 'ratingAverage', 'updatedAtTimestamp'],
+    customRanking: ['desc(freshnessScore)', 'desc(budgetValue)', 'desc(ratingAverage)', 'desc(updatedAtTimestamp)'],
     synonyms: {
       sprint: ['short project', 'mini project'],
       redesign: ['revamp', 'refresh'],
@@ -245,6 +249,39 @@ function extractCurrencyCode(budget) {
   return null;
 }
 
+function normaliseDeliverySpeedCategory(category, label, leadTime) {
+  if (category && typeof category === 'string' && category.trim().length) {
+    return category.trim();
+  }
+  const text = (label ?? '').toLowerCase();
+  if (text.includes('express') || text.includes('rush') || text.includes('48') || text.includes('72')) {
+    return 'express';
+  }
+  if (text.includes('week') || text.includes('standard')) {
+    return 'standard';
+  }
+  if (text.includes('month') || text.includes('retainer') || text.includes('ongoing')) {
+    return 'extended';
+  }
+  if (Number.isFinite(Number(leadTime))) {
+    const days = Number(leadTime);
+    if (days <= 5) return 'express';
+    if (days <= 14) return 'standard';
+    return 'extended';
+  }
+  return text.length ? text.replace(/\s+/g, '_') : 'standard';
+}
+
+function bucketRating(rating) {
+  if (!Number.isFinite(rating)) {
+    return null;
+  }
+  if (rating >= 4.5) return 'excellent';
+  if (rating >= 4.0) return 'strong';
+  if (rating >= 3.0) return 'developing';
+  return 'new';
+}
+
 function normaliseGeoLocation(geoLocation, fallbackLocation = null) {
   if (!geoLocation) {
     return null;
@@ -400,15 +437,50 @@ function mapRecordToDocument(category, record) {
         isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
       };
     case 'gig':
-      return {
-        ...baseDocument,
-        budget: plain.budget ?? null,
-        budgetValue: parseBudgetValue(plain.budget) ?? 0,
-        budgetCurrency: extractCurrencyCode(plain.budget),
-        duration: plain.duration ?? null,
-        durationCategory: determineDurationCategory(plain.duration),
-        isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
-      };
+      {
+        const budgetAmount =
+          plain.budgetAmount != null
+            ? Number(plain.budgetAmount)
+            : parseBudgetValue(plain.budget);
+        const deliverySpeedCategory = normaliseDeliverySpeedCategory(
+          plain.deliverySpeedCategory,
+          plain.deliverySpeedLabel,
+          plain.deliveryLeadTimeDays,
+        );
+        const snapshot = Array.isArray(plain.performanceSnapshots)
+          ? plain.performanceSnapshots[0]
+          : null;
+        const snapshotRating = snapshot?.reviewScore != null ? Number(snapshot.reviewScore) : null;
+        const ratingAverage =
+          plain.ratingAverage != null ? Number(plain.ratingAverage) : snapshotRating != null ? snapshotRating : null;
+        const trustSignals = Array.isArray(plain.trustSignals)
+          ? plain.trustSignals
+          : plain.trustSignals && typeof plain.trustSignals === 'object'
+          ? Object.values(plain.trustSignals)
+          : [];
+
+        return {
+          ...baseDocument,
+          budget: plain.budget ?? null,
+          budgetValue: budgetAmount ?? 0,
+          budgetCurrency: plain.budgetCurrency ?? extractCurrencyCode(plain.budget),
+          duration: plain.duration ?? null,
+          durationCategory: determineDurationCategory(plain.duration),
+          deliverySpeedCategory,
+          deliverySpeedLabel: plain.deliverySpeedLabel ?? null,
+          deliveryLeadTimeDays:
+            plain.deliveryLeadTimeDays == null ? null : Number(plain.deliveryLeadTimeDays),
+          isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
+          identityVerified: Boolean(plain.identityVerified),
+          escrowReady: Boolean(plain.escrowReady),
+          ratingAverage,
+          ratingCount: plain.ratingCount != null ? Number(plain.ratingCount) : null,
+          ratingBucket: bucketRating(ratingAverage),
+          completedOrderCount:
+            plain.completedOrderCount != null ? Number(plain.completedOrderCount) : null,
+          trustSignals,
+        };
+      }
     case 'project':
       return {
         ...baseDocument,

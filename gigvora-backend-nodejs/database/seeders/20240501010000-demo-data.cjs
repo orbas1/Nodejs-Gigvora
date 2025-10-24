@@ -137,17 +137,155 @@ const jobSeeds = [
 
 const gigSeeds = [
   {
+    slug: 'demo-launch-landing-page-optimisation',
+    ownerEmail: 'leo@gigvora.com',
     title: '[demo] Launch landing page optimisation sprint',
+    tagline: 'Ship experiment-ready landing pages with CRO analytics in 10 days.',
     description:
-      'Two-week engagement pairing UX research with CRO experiments. Includes experiment backlog and reporting template.',
+      'Two-week engagement pairing UX research with CRO experiments. Includes experiment backlog, QA playbooks, and reporting templates for repeatable execution.',
+    category: 'growth',
+    niche: 'conversion',
     budget: 'USD 4,800',
+    budgetAmount: 4800,
+    budgetCurrency: 'USD',
     duration: '2 weeks',
+    workModel: 'Remote-first',
+    engagementModel: 'Sprint',
+    deliverySpeedLabel: 'Standard delivery — 10 days',
+    deliverySpeedCategory: 'standard',
+    deliveryLeadTimeDays: 10,
+    identityVerified: true,
+    escrowReady: true,
+    ratingAverage: 4.8,
+    ratingCount: 37,
+    completedOrderCount: 58,
+    trustSignals: ['Top performer', 'Conversion lab certified'],
+    taxonomySlugs: ['growth-experiments', 'web-analytics', 'cro'],
+    taxonomyLabels: ['Growth experiments', 'Web analytics', 'Conversion optimisation'],
+    taxonomyTypes: ['capability', 'capability', 'discipline'],
+    searchBoost: 18,
+    savedCount: 42,
+    status: 'published',
+    visibility: 'public',
+    packages: [
+      {
+        packageKey: 'foundation',
+        name: 'Foundation sprint',
+        description: 'Audit analytics, prioritise experiments, and ship refreshed hero + pricing sections.',
+        priceAmount: 3200,
+        priceCurrency: 'USD',
+        deliveryDays: 10,
+        revisionLimit: 2,
+        highlights: ['Analytics audit', 'Prioritised backlog', 'Hero copy + layout refresh'],
+        recommendedFor: 'Seed to Series A growth teams',
+        isPopular: false,
+        position: 1,
+      },
+      {
+        packageKey: 'accelerate',
+        name: 'Accelerate program',
+        description: 'Layer personalised onboarding experiments and async enablement assets.',
+        priceAmount: 4800,
+        priceCurrency: 'USD',
+        deliveryDays: 14,
+        revisionLimit: 3,
+        highlights: ['Personalised onboarding', 'Enablement asset suite', 'Experiment analytics handover'],
+        recommendedFor: 'Scale-up product squads',
+        isPopular: true,
+        position: 2,
+      },
+    ],
+    addons: [
+      {
+        addOnKey: 'executive-report',
+        name: 'Executive experiment report',
+        description: 'Investor-ready deck summarising learnings, funnel impact, and next bets.',
+        priceAmount: 650,
+        priceCurrency: 'USD',
+        isActive: true,
+        position: 1,
+      },
+    ],
   },
   {
+    slug: 'demo-marketplace-trust-safety-audit',
+    ownerEmail: 'noah@gigvora.com',
     title: '[demo] Marketplace trust and safety audit',
-    description: 'Assess community guidelines, moderation queues, and automation coverage with actionable roadmap.',
+    tagline: 'Stabilise moderation, escalation, and compliance workflows in under a month.',
+    description:
+      'Assess community guidelines, moderation queues, and automation coverage with actionable roadmap. Includes executive debrief and roadmap workshop.',
+    category: 'operations',
+    niche: 'trust-and-safety',
     budget: 'USD 6,200',
+    budgetAmount: 6200,
+    budgetCurrency: 'USD',
     duration: '3 weeks',
+    workModel: 'Hybrid',
+    engagementModel: 'Program',
+    deliverySpeedLabel: 'Accelerated delivery — 3 weeks',
+    deliverySpeedCategory: 'express',
+    deliveryLeadTimeDays: 5,
+    identityVerified: true,
+    escrowReady: true,
+    ratingAverage: 4.9,
+    ratingCount: 41,
+    completedOrderCount: 73,
+    trustSignals: ['Policy automation ready', 'Escalation specialists'],
+    taxonomySlugs: ['trust-safety', 'compliance-audit', 'marketplace-ops'],
+    taxonomyLabels: ['Trust & safety', 'Compliance audit', 'Marketplace operations'],
+    taxonomyTypes: ['capability', 'service', 'persona'],
+    searchBoost: 20,
+    savedCount: 51,
+    status: 'published',
+    visibility: 'public',
+    packages: [
+      {
+        packageKey: 'assessment',
+        name: 'Trust readiness assessment',
+        description: 'Diagnostic across policy, tooling, SLAs, and escalation performance.',
+        priceAmount: 3900,
+        priceCurrency: 'USD',
+        deliveryDays: 12,
+        revisionLimit: 2,
+        highlights: ['Moderation workload analysis', 'Escalation workflow review', 'Executive risk briefing'],
+        recommendedFor: 'Marketplaces pre Series B+',
+        isPopular: true,
+        position: 1,
+      },
+      {
+        packageKey: 'roadmap',
+        name: 'Implementation roadmap',
+        description: 'Codify automation priorities, policy updates, and training cadence.',
+        priceAmount: 6200,
+        priceCurrency: 'USD',
+        deliveryDays: 18,
+        revisionLimit: 3,
+        highlights: ['Automation blueprint', 'Escalation simulator', 'Policy enablement toolkit'],
+        recommendedFor: 'Global marketplace operators',
+        isPopular: false,
+        position: 2,
+      },
+    ],
+    addons: [
+      {
+        addOnKey: 'workshop',
+        name: 'Executive workshop',
+        description: 'Half-day alignment session with leadership on trust roadmap and KPIs.',
+        priceAmount: 950,
+        priceCurrency: 'USD',
+        isActive: true,
+        position: 1,
+      },
+      {
+        addOnKey: 'playbooks',
+        name: 'Playbook localisation pack',
+        description: 'Translate and adapt moderation playbooks for three new markets.',
+        priceAmount: 1200,
+        priceCurrency: 'USD',
+        isActive: true,
+        position: 2,
+      },
+    ],
   },
 ];
 
@@ -330,16 +468,112 @@ module.exports = {
       }
 
       for (const gig of gigSeeds) {
-        const [existing] = await queryInterface.sequelize.query(
-          'SELECT id FROM gigs WHERE title = :title LIMIT 1',
+        const ownerId = gig.ownerEmail ? userIds.get(gig.ownerEmail) ?? null : null;
+        const packages = Array.isArray(gig.packages) ? gig.packages : [];
+        const addons = Array.isArray(gig.addons) ? gig.addons : [];
+        const publishedAt = gig.status === 'published' ? gig.publishedAt ?? now : null;
+
+        const gigRow = {
+          slug: gig.slug,
+          ownerId,
+          title: gig.title,
+          tagline: gig.tagline ?? null,
+          description: gig.description,
+          category: gig.category ?? null,
+          niche: gig.niche ?? null,
+          budget: gig.budget ?? null,
+          budgetAmount: gig.budgetAmount ?? null,
+          budgetCurrency: gig.budgetCurrency ?? null,
+          duration: gig.duration ?? null,
+          workModel: gig.workModel ?? null,
+          engagementModel: gig.engagementModel ?? null,
+          deliverySpeedLabel: gig.deliverySpeedLabel ?? null,
+          deliverySpeedCategory: gig.deliverySpeedCategory ?? null,
+          deliveryLeadTimeDays: gig.deliveryLeadTimeDays ?? null,
+          identityVerified: gig.identityVerified ?? false,
+          escrowReady: gig.escrowReady ?? false,
+          ratingAverage: gig.ratingAverage ?? null,
+          ratingCount: gig.ratingCount ?? 0,
+          completedOrderCount: gig.completedOrderCount ?? 0,
+          trustSignals: gig.trustSignals ?? [],
+          taxonomySlugs: gig.taxonomySlugs ?? [],
+          taxonomyLabels: gig.taxonomyLabels ?? [],
+          taxonomyTypes: gig.taxonomyTypes ?? [],
+          searchBoost: gig.searchBoost ?? 0,
+          savedCount: gig.savedCount ?? 0,
+          status: gig.status ?? 'draft',
+          visibility: gig.visibility ?? 'private',
+          publishedAt,
+          createdAt: now,
+          updatedAt: now,
+        };
+
+        const [existingGig] = await queryInterface.sequelize.query(
+          'SELECT id FROM gigs WHERE slug = :slug OR title = :title LIMIT 1',
           {
             type: QueryTypes.SELECT,
             transaction,
-            replacements: { title: gig.title },
+            replacements: { slug: gigRow.slug, title: gigRow.title },
           },
         );
-        if (existing?.id) continue;
-        await queryInterface.bulkInsert('gigs', [{ ...gig, createdAt: now, updatedAt: now }], { transaction });
+
+        let gigId = existingGig?.id ?? null;
+        if (gigId) {
+          const { createdAt, ...updates } = gigRow;
+          await queryInterface.bulkUpdate('gigs', updates, { id: gigId }, { transaction });
+        } else {
+          await queryInterface.bulkInsert('gigs', [gigRow], { transaction });
+          const [insertedGig] = await queryInterface.sequelize.query(
+            'SELECT id FROM gigs WHERE slug = :slug LIMIT 1',
+            {
+              type: QueryTypes.SELECT,
+              transaction,
+              replacements: { slug: gigRow.slug },
+            },
+          );
+          gigId = insertedGig?.id ?? null;
+        }
+
+        if (!gigId) continue;
+
+        await queryInterface.bulkDelete('gig_packages', { gigId }, { transaction });
+        await queryInterface.bulkDelete('gig_add_ons', { gigId }, { transaction });
+
+        if (packages.length) {
+          const packageRows = packages.map((pkg, index) => ({
+            gigId,
+            packageKey: pkg.packageKey,
+            name: pkg.name,
+            description: pkg.description ?? null,
+            priceAmount: pkg.priceAmount ?? 0,
+            priceCurrency: pkg.priceCurrency ?? 'USD',
+            deliveryDays: pkg.deliveryDays ?? null,
+            revisionLimit: pkg.revisionLimit ?? null,
+            highlights: pkg.highlights ?? [],
+            recommendedFor: pkg.recommendedFor ?? null,
+            isPopular: pkg.isPopular ?? false,
+            position: pkg.position ?? index + 1,
+            createdAt: now,
+            updatedAt: now,
+          }));
+          await queryInterface.bulkInsert('gig_packages', packageRows, { transaction });
+        }
+
+        if (addons.length) {
+          const addonRows = addons.map((addon, index) => ({
+            gigId,
+            addOnKey: addon.addOnKey,
+            name: addon.name,
+            description: addon.description ?? null,
+            priceAmount: addon.priceAmount ?? 0,
+            priceCurrency: addon.priceCurrency ?? 'USD',
+            isActive: addon.isActive ?? true,
+            position: addon.position ?? index + 1,
+            createdAt: now,
+            updatedAt: now,
+          }));
+          await queryInterface.bulkInsert('gig_add_ons', addonRows, { transaction });
+        }
       }
 
       for (const project of projectSeeds) {
@@ -519,7 +753,21 @@ module.exports = {
         { transaction },
       );
       await queryInterface.bulkDelete('jobs', { title: jobSeeds.map((job) => job.title) }, { transaction });
-      await queryInterface.bulkDelete('gigs', { title: gigSeeds.map((gig) => gig.title) }, { transaction });
+      const gigSlugs = gigSeeds.map((gig) => gig.slug);
+      const gigIdRows = await queryInterface.sequelize.query(
+        'SELECT id FROM gigs WHERE slug IN (:slugs)',
+        {
+          type: QueryTypes.SELECT,
+          transaction,
+          replacements: { slugs: gigSlugs },
+        },
+      );
+      const gigIds = gigIdRows.map((row) => row.id);
+      if (gigIds.length) {
+        await queryInterface.bulkDelete('gig_packages', { gigId: { [Op.in]: gigIds } }, { transaction });
+        await queryInterface.bulkDelete('gig_add_ons', { gigId: { [Op.in]: gigIds } }, { transaction });
+      }
+      await queryInterface.bulkDelete('gigs', { slug: gigSlugs }, { transaction });
       await queryInterface.bulkDelete('projects', { title: projectSeeds.map((project) => project.title) }, { transaction });
       await queryInterface.bulkDelete(
         'experience_launchpads',

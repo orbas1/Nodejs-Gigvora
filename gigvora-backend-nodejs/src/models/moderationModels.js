@@ -1,9 +1,8 @@
 import { DataTypes } from 'sequelize';
-import sequelize from './sequelizeClient.js';
+import baseSequelizeClient from './sequelizeClient.js';
 
 export { sequelize } from './sequelizeClient.js';
 import * as messagingModels from './messagingModels.js';
-import sequelizeClient from './sequelizeClient.js';
 
 // messagingModels re-exports the shared sequelize instance, but test suites
 // often stub the module with lightweight objects that only provide the bits
@@ -11,13 +10,14 @@ import sequelizeClient from './sequelizeClient.js';
 // scenarios, attempting to call `.define` on the mocked value throws. We fall
 // back to the raw client instance so model definition still succeeds during
 // tests while continuing to share the same connection in production.
-const messagingSequelize =
+const resolvedSequelize =
   messagingModels?.sequelize && typeof messagingModels.sequelize.define === 'function'
     ? messagingModels.sequelize
-    : sequelizeClient;
+    : baseSequelizeClient;
 
-const sequelize = messagingSequelize;
-const dialect = typeof sequelize.getDialect === 'function' ? sequelize.getDialect() : 'postgres';
+const dialect = typeof resolvedSequelize.getDialect === 'function'
+  ? resolvedSequelize.getDialect()
+  : 'postgres';
 const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB : DataTypes.JSON;
 
 export const ModerationEventActions = [
@@ -34,7 +34,7 @@ export const ModerationEventSeverities = ['low', 'medium', 'high', 'critical'];
 
 export const ModerationEventStatuses = ['open', 'acknowledged', 'resolved', 'dismissed'];
 
-export const ModerationEvent = sequelize.define(
+export const ModerationEvent = resolvedSequelize.define(
   'ModerationEvent',
   {
     threadId: { type: DataTypes.INTEGER, allowNull: false },
@@ -103,3 +103,5 @@ export default {
   ModerationEventSeverities,
   ModerationEventStatuses,
 };
+
+export const moderationSequelize = resolvedSequelize;
