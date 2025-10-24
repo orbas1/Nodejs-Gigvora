@@ -17,12 +17,25 @@ export default function useEngagementSignals({ session, feedPosts = [], limit = 
     return `feed:insights:${scope}:limit:${limit}`;
   }, [viewerId, limit]);
 
-  const fallback = useMemo(() => ({
-    interests: resolveUserInterests(session),
-    connectionSuggestions: generateConnectionSuggestions({ session, feedPosts, limit }),
-    groupSuggestions: generateGroupSuggestions({ session, limit: Math.max(3, Math.floor(limit / 2)) }),
-    liveMoments: generateLiveMoments({ session, feedPosts, limit: Math.max(4, Math.floor(limit * 0.75)) }),
-  }), [session, feedPosts, limit]);
+  const fallback = useMemo(() => {
+    const fallbackInterests = resolveUserInterests(session, { feedPosts });
+    return {
+      interests: fallbackInterests,
+      connectionSuggestions: generateConnectionSuggestions({
+        session,
+        feedPosts,
+        limit,
+        interests: fallbackInterests,
+      }),
+      groupSuggestions: generateGroupSuggestions({
+        session,
+        feedPosts,
+        limit: Math.max(3, Math.floor(limit / 2)),
+        interests: fallbackInterests,
+      }),
+      liveMoments: generateLiveMoments({ feedPosts, limit: Math.max(4, Math.floor(limit * 0.75)) }),
+    };
+  }, [session, feedPosts, limit]);
 
   const { data, error, loading, fromCache, lastUpdated, refresh } = useCachedResource(
     cacheKey,

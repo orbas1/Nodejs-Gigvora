@@ -9,6 +9,7 @@ const FEED_ROLES = ['user', 'freelancer', 'agency', 'company', 'mentor', 'admin'
 router.use(authenticateRequest({ optional: true }));
 
 router.get('/', asyncHandler(feedController.listFeed));
+router.get('/insights', asyncHandler(feedController.listInsights));
 router.post('/', authenticateRequest(), requireRoles(...FEED_ROLES), asyncHandler(feedController.createPost));
 
 export default router;

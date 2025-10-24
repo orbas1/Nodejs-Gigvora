@@ -108,14 +108,41 @@ const freelancerProfileSeeds = [
 const feedPosts = [
   {
     email: 'ava@gigvora.com',
+    type: 'project',
+    title: '[demo] Release candidate 1.50 ready for staging',
+    summary: 'Runtime security enhancements and analytics exports are rolling out this week.',
     content:
       '[demo] Platform release candidate 1.50 ships runtime security enhancements and workspace analytics exports.',
     visibility: 'public',
+    authorHeadline: 'Gigvora Platform Ops',
+    publishedAtOffsetMinutes: 12,
   },
   {
     email: 'leo@gigvora.com',
+    type: 'gig',
+    title: '[demo] Automation playbook beta is open',
+    summary: 'Shipping an onboarding automation template — DM if you need async walkthroughs.',
     content: '[demo] Shipping an onboarding automation template — DM if you need async walkthroughs.',
     visibility: 'public',
+    publishedAtOffsetMinutes: 28,
+  },
+  {
+    email: 'mia@gigvora.com',
+    type: 'volunteering',
+    title: '[demo] Purpose Lab opened 12 new mentoring slots',
+    summary: 'Support fellows in climate tech strategy sprints; add your availability in the dashboard.',
+    content: '[demo] Purpose Lab opened 12 new climate mentoring slots for the upcoming cohort. RSVP in volunteering ops.',
+    visibility: 'public',
+    publishedAtOffsetMinutes: 45,
+  },
+  {
+    email: 'mentor@gigvora.com',
+    type: 'launchpad',
+    title: '[demo] Launchpad alumni sync this Friday',
+    summary: 'Reviewing demo day decks and matching mentors with fresh partner requests.',
+    content: '[demo] Launchpad alumni sync this Friday. Bring demo day decks and partner intro requests so we can accelerate follow-ups.',
+    visibility: 'public',
+    publishedAtOffsetMinutes: 63,
   },
 ];
 
@@ -179,6 +206,38 @@ const groupSeeds = [
   {
     name: '[demo] Marketplace founders circle',
     description: 'Weekly async briefings for founders sharing acquisition, retention, and compliance playbooks.',
+    memberPolicy: 'invite',
+    metadata: {
+      focus: ['product strategy', 'marketplaces', 'operations'],
+      location: 'Remote-first',
+    },
+  },
+  {
+    name: '[demo] Launchpad alumni guild',
+    description: 'Demo day share-outs, templates, and curated partner requests for Experience Launchpad cohorts.',
+    memberPolicy: 'open',
+    metadata: {
+      focus: ['experience launchpad', 'mentoring', 'storytelling'],
+      location: 'Europe · Remote',
+    },
+  },
+  {
+    name: '[demo] Purpose lab climate alliance',
+    description: 'Climate volunteering coordination and analytics for mission-driven operators.',
+    memberPolicy: 'request',
+    metadata: {
+      focus: ['sustainability', 'volunteering', 'analytics'],
+      location: 'Global distributed',
+    },
+  },
+  {
+    name: '[demo] Automation builders collective',
+    description: 'Operators sharing automation runbooks, telemetry setups, and AI adoption playbooks.',
+    memberPolicy: 'open',
+    metadata: {
+      focus: ['automation', 'ai', 'operations'],
+      location: 'North America · Remote',
+    },
   },
 ];
 
@@ -187,6 +246,16 @@ const connectionSeeds = [
     requesterEmail: 'leo@gigvora.com',
     addresseeEmail: 'noah@gigvora.com',
     status: 'accepted',
+  },
+  {
+    requesterEmail: 'leo@gigvora.com',
+    addresseeEmail: 'mia@gigvora.com',
+    status: 'accepted',
+  },
+  {
+    requesterEmail: 'mentor@gigvora.com',
+    addresseeEmail: 'leo@gigvora.com',
+    status: 'pending',
   },
 ];
 
@@ -301,13 +370,24 @@ module.exports = {
           },
         );
         if (existing?.id) continue;
+        const publishedAt = post.publishedAt
+          ? new Date(post.publishedAt)
+          : new Date(now.getTime() - (post.publishedAtOffsetMinutes ?? 0) * 60000);
         await queryInterface.bulkInsert(
           'feed_posts',
           [
             {
               userId,
               content: post.content,
-              visibility: post.visibility,
+              visibility: post.visibility ?? 'public',
+              type: post.type ?? 'update',
+              title: post.title ?? null,
+              summary: post.summary ?? null,
+              link: post.link ?? null,
+              authorName: post.authorName ?? null,
+              authorHeadline: post.authorHeadline ?? null,
+              authorAvatarSeed: post.authorAvatarSeed ?? null,
+              publishedAt,
               createdAt: now,
               updatedAt: now,
             },
@@ -418,11 +498,16 @@ module.exports = {
       }
 
       if (groupIdByName.size) {
+        const membershipSeeds = [
+          { email: 'ava@gigvora.com', role: 'owner' },
+          { email: 'leo@gigvora.com', role: 'member' },
+          { email: 'mentor@gigvora.com', role: 'member' },
+        ];
         for (const group of groupSeeds) {
           const groupId = groupIdByName.get(group.name);
           if (!groupId) continue;
-          for (const email of ['ava@gigvora.com', 'leo@gigvora.com']) {
-            const userId = userIds.get(email);
+          for (const membershipSeed of membershipSeeds) {
+            const userId = userIds.get(membershipSeed.email);
             if (!userId) continue;
             const [membership] = await queryInterface.sequelize.query(
               'SELECT id FROM group_memberships WHERE groupId = :groupId AND userId = :userId LIMIT 1',
@@ -439,7 +524,9 @@ module.exports = {
                 {
                   groupId,
                   userId,
-                  role: email === 'ava@gigvora.com' ? 'owner' : 'member',
+                  role: membershipSeed.role,
+                  status: 'active',
+                  joinedAt: now,
                   createdAt: now,
                   updatedAt: now,
                 },

@@ -1,5 +1,6 @@
 import { FeedPost, User, Profile } from '../models/index.js';
 import { enforceFeedPostPolicies } from '../services/contentModerationService.js';
+import { getFeedInsights } from '../services/feedEngagementService.js';
 import { ValidationError, AuthorizationError, AuthenticationError } from '../utils/errors.js';
 
 const ALLOWED_VISIBILITY = new Set(['public', 'connections']);
@@ -123,6 +124,17 @@ function parseUserId(value) {
   return numeric;
 }
 
+function parseLimit(value) {
+  if (value == null || value === '') {
+    return undefined;
+  }
+  const numeric = Number.parseInt(value, 10);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    throw new ValidationError('limit must be a positive integer.');
+  }
+  return Math.min(numeric, 24);
+}
+
 function assertPublishPermissions(actor, role, targetUserId) {
   if (!role) {
     throw new AuthenticationError('A valid role is required to publish timeline updates.');
@@ -179,6 +191,14 @@ export async function listFeed(req, res) {
     order: [['createdAt', 'DESC']],
   });
   res.json(posts.map((post) => serialiseFeedPost(post)));
+}
+
+export async function listInsights(req, res) {
+  const actor = resolveActor(req);
+  const viewerId = parseUserId(req.query?.viewerId) ?? (actor?.id ? Number(actor.id) : null);
+  const limit = parseLimit(req.query?.limit);
+  const insights = await getFeedInsights({ viewerId, limit });
+  res.json(insights);
 }
 
 export async function createPost(req, res) {

@@ -40,6 +40,8 @@ import {
   GIF_LIBRARY,
   QUICK_EMOJIS,
 } from '../constants/feedMeta.js';
+import { createUserNetworkingConnection } from '../services/userNetworking.js';
+import { joinGroup } from '../services/groups.js';
 
 const DEFAULT_EDIT_DRAFT = {
   title: '',
@@ -1359,9 +1361,47 @@ function FeedInsightsRail({
   lastUpdated,
   error,
   usingFallback = false,
+  onConnect,
+  onJoinGroup,
+  connectingIds = new Set(),
+  joiningGroupIds = new Set(),
+  disableActions = false,
 }) {
   const fallbackActive = Boolean(error) || usingFallback;
+  const actionsDisabled = disableActions || fallbackActive;
   const hasSuggestions = connectionSuggestions.length || groupSuggestions.length;
+
+  const connectionBusyLookup = (identifier) => {
+    if (!identifier) {
+      return false;
+    }
+    if (connectingIds && typeof connectingIds.has === 'function') {
+      return connectingIds.has(identifier);
+    }
+    if (Array.isArray(connectingIds)) {
+      return connectingIds.includes(identifier);
+    }
+    if (connectingIds && typeof connectingIds === 'object') {
+      return Boolean(connectingIds[identifier]);
+    }
+    return false;
+  };
+
+  const groupBusyLookup = (identifier) => {
+    if (!identifier) {
+      return false;
+    }
+    if (joiningGroupIds && typeof joiningGroupIds.has === 'function') {
+      return joiningGroupIds.has(identifier);
+    }
+    if (Array.isArray(joiningGroupIds)) {
+      return joiningGroupIds.includes(identifier);
+    }
+    if (joiningGroupIds && typeof joiningGroupIds === 'object') {
+      return Boolean(joiningGroupIds[identifier]);
+    }
+    return false;
+  };
   const statusLabel = loading
     ? 'Refreshing timeline insights…'
     : fallbackActive
@@ -1404,8 +1444,23 @@ function FeedInsightsRail({
               {connectionSuggestions.slice(0, 4).map((connection) => {
                 const location = connection.location ?? connection.region ?? 'Across the network';
                 const mutual = connection.mutualConnections ?? connection.mutuals ?? 0;
+                const suggestionId =
+                  connection.id ??
+                  (connection.connectionUserId ? `user:${connection.connectionUserId}` : connection.name);
+                const busy = connectionBusyLookup(suggestionId);
+                const isConnected = connection.status === 'connected';
+                const isPending = connection.status === 'pending' || connection.status === 'requested';
+                const buttonDisabled =
+                  actionsDisabled || busy || isConnected || isPending || connection.connectable === false;
+                const buttonLabel = busy
+                  ? 'Sending…'
+                  : isConnected
+                  ? 'Connected'
+                  : isPending
+                  ? 'Requested'
+                  : 'Connect';
                 return (
-                  <li key={connection.id} className="rounded-2xl border border-slate-200 px-4 py-3">
+                  <li key={connection.id ?? suggestionId} className="rounded-2xl border border-slate-200 px-4 py-3">
                     <div className="flex items-center gap-3">
                       <UserAvatar name={connection.name} seed={connection.name} size="xs" showGlow={false} />
                       <div className="flex-1">
@@ -1420,9 +1475,11 @@ function FeedInsightsRail({
                     </div>
                     <button
                       type="button"
-                      className="mt-3 inline-flex items-center gap-2 rounded-full border border-accent/30 px-4 py-2 text-xs font-semibold text-accent transition hover:border-accent hover:bg-accentSoft"
+                      onClick={() => onConnect?.(connection)}
+                      disabled={buttonDisabled}
+                      className="mt-3 inline-flex items-center gap-2 rounded-full border border-accent/30 px-4 py-2 text-xs font-semibold text-accent transition hover:border-accent hover:bg-accentSoft disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
                     >
-                      Connect
+                      {buttonLabel}
                     </button>
                   </li>
                 );
@@ -1452,12 +1509,37 @@ function FeedInsightsRail({
           {groupSuggestions.length ? (
             <ul className="mt-4 space-y-3 text-sm">
               {groupSuggestions.slice(0, 4).map((group) => {
-                const focus = Array.isArray(group.focus) ? group.focus.slice(0, 2).join(' • ') : group.focus;
+                const focusTokens = Array.isArray(group.focus)
+                  ? group.focus.filter(Boolean)
+                  : group.focus
+                  ? [`${group.focus}`]
+                  : [];
+                const focus = focusTokens.slice(0, 2).join(' • ');
                 const memberCount = group.memberCount ?? group.members ?? 0;
                 const location = group.location ?? 'Across the network';
                 const summary = group.summary ?? group.description;
+                const suggestionId =
+                  group.id ?? (group.groupId ? `group:${group.groupId}` : group.name ?? focusTokens[0] ?? 'group');
+                const busy = groupBusyLookup(suggestionId);
+                const status = `${group.status ?? ''}`.toLowerCase();
+                const joinable = Boolean(group.groupId);
+                const isMember = ['member', 'active', 'joined', 'accepted', 'owner', 'admin'].includes(status);
+                const isPending = ['pending', 'requested', 'invited', 'awaiting_approval', 'review'].includes(status);
+                const requiresApproval = group.joinRequiresApproval ?? isPending;
+                const buttonDisabled = actionsDisabled || busy || !joinable || isMember || isPending;
+                const buttonLabel = busy
+                  ? 'Requesting…'
+                  : isMember
+                  ? 'Member'
+                  : isPending
+                  ? 'Requested'
+                  : requiresApproval
+                  ? 'Request invite'
+                  : 'Join group';
+                const exploreHref = `/groups?focus=${encodeURIComponent(focusTokens[0] ?? group.name ?? 'community')}`;
+
                 return (
-                  <li key={group.id} className="rounded-2xl border border-slate-200 px-4 py-3">
+                  <li key={suggestionId} className="rounded-2xl border border-slate-200 px-4 py-3">
                     <div className="flex items-center gap-3">
                       <UserAvatar name={group.name} seed={group.name} size="xs" showGlow={false} />
                       <div className="flex-1">
@@ -1465,17 +1547,31 @@ function FeedInsightsRail({
                         <p className="text-xs text-slate-500">{focus}</p>
                       </div>
                     </div>
-                    <p className="mt-3 text-xs text-slate-500">{summary}</p>
+                    {summary ? <p className="mt-3 text-xs text-slate-500">{summary}</p> : null}
+                    {group.reason ? (
+                      <p className="mt-2 text-[11px] font-medium text-slate-400">{group.reason}</p>
+                    ) : null}
                     <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
                       <span>{location}</span>
                       <span>{memberCount} members</span>
                     </div>
-                    <button
-                      type="button"
-                      className="mt-3 inline-flex items-center gap-2 rounded-full border border-accent/30 px-4 py-2 text-xs font-semibold text-accent transition hover:border-accent hover:bg-accentSoft"
-                    >
-                      Request invite
-                    </button>
+                    {joinable ? (
+                      <button
+                        type="button"
+                        onClick={() => onJoinGroup?.(group)}
+                        disabled={buttonDisabled}
+                        className="mt-3 inline-flex items-center gap-2 rounded-full border border-accent/30 px-4 py-2 text-xs font-semibold text-accent transition hover:border-accent hover:bg-accentSoft disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+                      >
+                        {buttonLabel}
+                      </button>
+                    ) : (
+                      <Link
+                        to={exploreHref}
+                        className="mt-3 inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent/40 hover:text-accent"
+                      >
+                        Explore topic
+                      </Link>
+                    )}
                   </li>
                 );
               })}
@@ -1553,6 +1649,11 @@ export default function FeedPage() {
   const [editingError, setEditingError] = useState(null);
   const [removingPostId, setRemovingPostId] = useState(null);
   const [feedActionError, setFeedActionError] = useState(null);
+  const [feedActionNotice, setFeedActionNotice] = useState(null);
+  const [connectingIds, setConnectingIds] = useState(() => new Set());
+  const [joiningGroupIds, setJoiningGroupIds] = useState(() => new Set());
+  const [dismissedConnectionIds, setDismissedConnectionIds] = useState(() => new Set());
+  const [dismissedGroupIds, setDismissedGroupIds] = useState(() => new Set());
   const { data, error, loading, fromCache, lastUpdated, refresh } = useCachedResource(
     'feed:posts',
     ({ signal }) => listFeedPosts({ signal }),
@@ -1564,6 +1665,16 @@ export default function FeedPage() {
       navigate('/login', { replace: true });
     }
   }, [isAuthenticated, navigate]);
+
+  useEffect(() => {
+    if (!feedActionNotice || typeof window === 'undefined') {
+      return undefined;
+    }
+    const timeout = window.setTimeout(() => {
+      setFeedActionNotice(null);
+    }, 5000);
+    return () => window.clearTimeout(timeout);
+  }, [feedActionNotice]);
 
   const posts = useMemo(() => {
     const fetched = Array.isArray(data) ? data : [];
@@ -1611,11 +1722,137 @@ export default function FeedPage() {
     usingFallback: insightsUsingFallback = false,
   } = engagementSignals ?? {};
 
+  const setConnectionBusy = useCallback((identifier, busy) => {
+    setConnectingIds((previous) => {
+      const next = new Set(previous);
+      if (!identifier) {
+        return next;
+      }
+      if (busy) {
+        next.add(identifier);
+      } else {
+        next.delete(identifier);
+      }
+      return next;
+    });
+  }, []);
+
+  const setGroupBusy = useCallback((identifier, busy) => {
+    setJoiningGroupIds((previous) => {
+      const next = new Set(previous);
+      if (!identifier) {
+        return next;
+      }
+      if (busy) {
+        next.add(identifier);
+      } else {
+        next.delete(identifier);
+      }
+      return next;
+    });
+  }, []);
+
   const handleRefreshInsights = useCallback(() => {
     if (typeof refreshEngagementSignals === 'function') {
       refreshEngagementSignals({ force: true });
     }
   }, [refreshEngagementSignals]);
+
+  const handleConnectSuggestion = useCallback(
+    async (suggestion) => {
+      if (!suggestion || suggestion.connectable === false) {
+        setFeedActionError('This connection suggestion is unavailable while offline.');
+        return;
+      }
+      const viewerId = session?.id ?? session?.userId ?? null;
+      if (!viewerId) {
+        setFeedActionError('You need to be signed in to send connection requests.');
+        return;
+      }
+      if (!suggestion.connectionUserId) {
+        setFeedActionError('This member cannot accept connection requests yet.');
+        return;
+      }
+
+      const suggestionId = suggestion.id ?? `user:${suggestion.connectionUserId}`;
+      setFeedActionError(null);
+      setFeedActionNotice(null);
+      setConnectionBusy(suggestionId, true);
+
+      try {
+        await createUserNetworkingConnection(viewerId, {
+          connectionName: suggestion.name,
+          connectionUserId: suggestion.connectionUserId,
+          connectionHeadline: suggestion.headline ?? suggestion.connectionHeadline ?? null,
+          connectionCompany: suggestion.connectionCompany ?? null,
+          followStatus: 'follow_up',
+        });
+        setFeedActionNotice(`Connection request sent to ${suggestion.name}.`);
+        setDismissedConnectionIds((previous) => {
+          const next = new Set(previous);
+          next.add(suggestionId);
+          return next;
+        });
+        if (typeof refreshEngagementSignals === 'function') {
+          refreshEngagementSignals({ force: true }).catch(() => {});
+        }
+      } catch (error) {
+        const message =
+          error?.response?.data?.message ??
+          error?.message ??
+          'Unable to send connection request. Please try again later.';
+        setFeedActionError(message);
+      } finally {
+        setConnectionBusy(suggestionId, false);
+      }
+    },
+    [session, refreshEngagementSignals, setConnectionBusy],
+  );
+
+  const handleJoinGroupSuggestion = useCallback(
+    async (suggestion) => {
+      if (!suggestion || !suggestion.groupId) {
+        setFeedActionError('This group is not available for membership requests yet.');
+        return;
+      }
+      if (suggestion.status && suggestion.status !== 'available') {
+        setFeedActionError('You have already interacted with this group.');
+        return;
+      }
+      const viewerId = session?.id ?? session?.userId ?? null;
+      if (!viewerId) {
+        setFeedActionError('You need to be signed in to request group access.');
+        return;
+      }
+
+      const suggestionId = suggestion.id ?? `group:${suggestion.groupId}`;
+      setFeedActionError(null);
+      setFeedActionNotice(null);
+      setGroupBusy(suggestionId, true);
+
+      try {
+        await joinGroup(suggestion.groupId, { source: 'feed_insight' });
+        setFeedActionNotice(`Membership request sent to ${suggestion.name}.`);
+        setDismissedGroupIds((previous) => {
+          const next = new Set(previous);
+          next.add(suggestionId);
+          return next;
+        });
+        if (typeof refreshEngagementSignals === 'function') {
+          refreshEngagementSignals({ force: true }).catch(() => {});
+        }
+      } catch (error) {
+        const message =
+          error?.response?.data?.message ??
+          error?.message ??
+          'Unable to request group membership at this time.';
+        setFeedActionError(message);
+      } finally {
+        setGroupBusy(suggestionId, false);
+      }
+    },
+    [session, refreshEngagementSignals, setGroupBusy],
+  );
 
   const membershipList = useMemo(() => {
     const memberships = new Set();
@@ -1636,6 +1873,22 @@ export default function FeedPage() {
     }
     return Array.from(memberships);
   }, [session]);
+
+  const filteredConnectionSuggestions = useMemo(() => {
+    return connectionSuggestions.filter((suggestion) => {
+      const key =
+        suggestion?.id ??
+        (suggestion?.connectionUserId ? `user:${suggestion.connectionUserId}` : suggestion?.name);
+      return key ? !dismissedConnectionIds.has(key) : true;
+    });
+  }, [connectionSuggestions, dismissedConnectionIds]);
+
+  const filteredGroupSuggestions = useMemo(() => {
+    return groupSuggestions.filter((suggestion) => {
+      const key = suggestion?.id ?? (suggestion?.groupId ? `group:${suggestion.groupId}` : suggestion?.name);
+      return key ? !dismissedGroupIds.has(key) : true;
+    });
+  }, [groupSuggestions, dismissedGroupIds]);
 
   const sessionIdentifier = useMemo(() => session?.userId ?? session?.id ?? null, [session?.id, session?.userId]);
 
@@ -2142,6 +2395,11 @@ export default function FeedPage() {
                 We’re showing the latest cached updates while we reconnect. {error.message || 'Please try again shortly.'}
               </div>
             ) : null}
+            {feedActionNotice ? (
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                {feedActionNotice}
+              </div>
+            ) : null}
             {feedActionError ? (
               <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
                 {feedActionError}
@@ -2151,13 +2409,18 @@ export default function FeedPage() {
           </div>
           <FeedInsightsRail
             liveMoments={liveMoments}
-            connectionSuggestions={connectionSuggestions}
-            groupSuggestions={groupSuggestions}
+            connectionSuggestions={filteredConnectionSuggestions}
+            groupSuggestions={filteredGroupSuggestions}
             loading={insightsLoading}
             lastUpdated={insightsLastUpdated}
             onRefresh={handleRefreshInsights}
             error={insightsError}
             usingFallback={insightsUsingFallback}
+            onConnect={handleConnectSuggestion}
+            onJoinGroup={handleJoinGroupSuggestion}
+            connectingIds={connectingIds}
+            joiningGroupIds={joiningGroupIds}
+            disableActions={insightsUsingFallback}
           />
         </div>
       </div>
