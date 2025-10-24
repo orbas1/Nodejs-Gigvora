@@ -68,9 +68,22 @@ export default function MentorProfileCard({
 }) {
   const expertise = Array.isArray(mentor.expertise) ? mentor.expertise.slice(0, 4) : [];
   const packages = Array.isArray(mentor.packages) ? mentor.packages.slice(0, 2) : [];
-  const responseTime = mentor.responseTime
-    ? formatRelativeTime(mentor.responseTime)
-    : 'Responds within a day';
+  const responseTimeHours = Number.isFinite(Number(mentor.responseTimeHours))
+    ? Math.max(0, Number(mentor.responseTimeHours))
+    : null;
+  let responseTimeLabel = 'Responds within a day';
+  if (responseTimeHours != null) {
+    if (responseTimeHours <= 1) {
+      responseTimeLabel = 'Responds within an hour';
+    } else if (responseTimeHours < 24) {
+      responseTimeLabel = `Responds within ${Math.round(responseTimeHours)} hours`;
+    } else {
+      const days = Math.ceil(responseTimeHours / 24);
+      responseTimeLabel = `Responds within ${days} day${days > 1 ? 's' : ''}`;
+    }
+  } else if (mentor.responseTime) {
+    responseTimeLabel = `Responds ${formatRelativeTime(mentor.responseTime, { numeric: 'auto' })}`;
+  }
   const safeRating = Number.isFinite(mentor.rating) ? mentor.rating.toFixed(1) : '5.0';
   const reviewLabel = Number.isFinite(mentor.reviews) ? `${mentor.reviews} reviews` : 'New mentor';
   const region = mentor.region || 'Global';
@@ -162,7 +175,8 @@ export default function MentorProfileCard({
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
         <p>
           {sessionCurrency}
-          {new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 }).format(sessionFee)} per session • {responseTime}
+          {new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 }).format(sessionFee)} per session •{' '}
+          {responseTimeLabel}
         </p>
         <div className="flex items-center gap-2">
           <button

@@ -505,6 +505,8 @@ export const VOLUNTEER_ASSIGNMENT_STATUSES = [
   'declined',
   'no_show',
 ];
+export const MENTOR_AVAILABILITY_STATUSES = ['open', 'waitlist', 'booked_out'];
+export const MENTOR_PRICE_TIERS = ['tier_entry', 'tier_growth', 'tier_scale'];
 export const COMPANY_TIMELINE_EVENT_STATUSES = ['planned', 'in_progress', 'completed', 'blocked'];
 export const COMPANY_TIMELINE_POST_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
 export const COMPANY_TIMELINE_POST_VISIBILITIES = ['workspace', 'public', 'private'];
@@ -8595,6 +8597,59 @@ Volunteering.searchByTerm = async function searchByTerm(term, options = {}) {
     order: [['title', 'ASC']],
   });
 };
+
+export const MentorProfile = sequelize.define(
+  'MentorProfile',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: true },
+    slug: { type: DataTypes.STRING(191), allowNull: false, unique: true },
+    name: { type: DataTypes.STRING(191), allowNull: false },
+    headline: { type: DataTypes.STRING(255), allowNull: true },
+    bio: { type: DataTypes.TEXT, allowNull: true },
+    region: { type: DataTypes.STRING(191), allowNull: true },
+    discipline: { type: DataTypes.STRING(120), allowNull: true },
+    expertise: { type: jsonType, allowNull: true },
+    searchVector: { type: DataTypes.TEXT, allowNull: true },
+    sessionFeeAmount: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+    sessionFeeCurrency: { type: DataTypes.STRING(3), allowNull: true },
+    sessionFeeUnit: { type: DataTypes.STRING(60), allowNull: true, defaultValue: 'session' },
+    priceTier: {
+      type: DataTypes.ENUM(...MENTOR_PRICE_TIERS),
+      allowNull: false,
+      defaultValue: 'tier_entry',
+      validate: { isIn: [MENTOR_PRICE_TIERS] },
+    },
+    availabilityStatus: {
+      type: DataTypes.ENUM(...MENTOR_AVAILABILITY_STATUSES),
+      allowNull: false,
+      defaultValue: 'open',
+      validate: { isIn: [MENTOR_AVAILABILITY_STATUSES] },
+    },
+    availabilityNotes: { type: DataTypes.TEXT, allowNull: true },
+    responseTimeHours: { type: DataTypes.INTEGER, allowNull: true, validate: { min: 0 } },
+    reviewCount: { type: DataTypes.INTEGER, allowNull: true, defaultValue: 0 },
+    rating: { type: DataTypes.DECIMAL(3, 2), allowNull: true },
+    verificationBadge: { type: DataTypes.STRING(191), allowNull: true },
+    testimonialHighlight: { type: DataTypes.TEXT, allowNull: true },
+    testimonialHighlightAuthor: { type: DataTypes.STRING(191), allowNull: true },
+    testimonials: { type: jsonType, allowNull: true },
+    packages: { type: jsonType, allowNull: true },
+    avatarUrl: { type: DataTypes.STRING(512), allowNull: true },
+    promoted: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    rankingScore: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
+    lastActiveAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'mentor_profiles',
+    indexes: [
+      { unique: true, fields: ['slug'] },
+      { fields: ['discipline'] },
+      { fields: ['priceTier'] },
+      { fields: ['availabilityStatus'] },
+      { fields: ['rankingScore', 'reviewCount'] },
+    ],
+  },
+);
 
 export const VolunteerContractSpend = sequelize.define(
   'VolunteerContractSpend',
@@ -22892,6 +22947,7 @@ export default {
   LearningCourseModule,
   LearningCourseEnrollment,
   PeerMentoringSession,
+  MentorProfile,
   MentorshipOrder,
   MentorFavourite,
   MentorRecommendation,

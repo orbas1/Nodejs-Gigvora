@@ -1771,10 +1771,10 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   24. **Design Duplication.** Align hero and grid with gigs/projects for consistent marketplace feel.【F:gigvora-frontend-reactjs/src/pages/MentorsPage.jsx†L37-L120】
   25. **Design framework.** Uses PageHeader + DataStatus pattern standard across opportunities.【F:gigvora-frontend-reactjs/src/pages/MentorsPage.jsx†L37-L52】
   26. **Change Checklist Tracker Extensive.**
-      - [x] Add filters and saved mentors.【F:gigvora-frontend-reactjs/src/pages/MentorsPage.jsx†L12-L124】
-      - [x] Integrate testimonial ribbons and verification badges.【F:gigvora-frontend-reactjs/src/pages/MentorsPage.jsx†L96-L120】
-      - [x] Share search component across marketplace surfaces.【F:gigvora-frontend-reactjs/src/pages/MentorsPage.jsx†L53-L64】
-      - [x] Implement pagination or infinite scroll.【F:gigvora-frontend-reactjs/src/pages/MentorsPage.jsx†L12-L124】
+      - [✓] Add filters and saved mentors.【F:gigvora-frontend-reactjs/src/pages/MentorsPage.jsx†L12-L124】
+      - [✓] Integrate testimonial ribbons and verification badges.【F:gigvora-frontend-reactjs/src/pages/MentorsPage.jsx†L96-L120】
+      - [✓] Share search component across marketplace surfaces.【F:gigvora-frontend-reactjs/src/pages/MentorsPage.jsx†L53-L64】
+      - [✓] Implement pagination or infinite scroll.【F:gigvora-frontend-reactjs/src/pages/MentorsPage.jsx†L12-L124】
   27. **Full Upgrade Plan & Release Steps  Extensive.**
       1. Deploy filters, saved mentors, and pagination; monitor conversion to bookings.【F:gigvora-frontend-reactjs/src/pages/MentorsPage.jsx†L12-L124】
       2. Add testimonials/verification data drawn from mentor dashboards and trust centre.【F:gigvora-frontend-reactjs/src/pages/MentorsPage.jsx†L96-L120】
