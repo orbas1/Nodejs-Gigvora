@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import DataStatus from '../../components/DataStatus.jsx';
@@ -27,6 +27,8 @@ import UserMetricsSection from '../../components/dashboard/client/UserMetricsSec
 import useSession from '../../hooks/useSession.js';
 import useCachedResource from '../../hooks/useCachedResource.js';
 import { fetchUserDashboard } from '../../services/userDashboard.js';
+import JourneyProgressSummary from '../../components/journey/JourneyProgressSummary.jsx';
+import useJourneyProgress from '../../hooks/useJourneyProgress.js';
 
 const DEFAULT_USER_ID = 1;
 const AVAILABLE_DASHBOARDS = ['user', 'freelancer', 'agency', 'company', 'headhunter'];
@@ -391,8 +393,15 @@ function scrollToSection(sectionId) {
 
 function UserDashboardPage() {
   const { session } = useSession();
+  const { completeCheckpoint } = useJourneyProgress();
   const userId = resolveUserId(session);
   const cacheKey = userId ? `dashboard:user:${userId}` : 'dashboard:user:guest';
+
+  useEffect(() => {
+    if (userId) {
+      completeCheckpoint('user_dashboard_reviewed', { persona: 'user', userId });
+    }
+  }, [completeCheckpoint, userId]);
 
   const { data, loading, error, refresh, fromCache, lastUpdated } = useCachedResource(
     cacheKey,
@@ -517,6 +526,11 @@ function UserDashboardPage() {
                 onRefresh={refresh}
               />
             </header>
+            <JourneyProgressSummary
+              title="Cross-journey checkpoints"
+              personas={['user', 'freelancer', 'agency', 'company']}
+              description="Track onboarding, creation, and operations progress in one place as you switch personas."
+            />
             <UserDashboardOverviewSection userId={userId} overview={overview} onOverviewUpdated={refresh} />
             <UserDashboardQuickActions
               userId={userId}

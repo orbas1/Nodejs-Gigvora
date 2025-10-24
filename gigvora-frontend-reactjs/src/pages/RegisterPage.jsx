@@ -9,6 +9,9 @@ import SocialAuthButton, { SOCIAL_PROVIDERS } from '../components/SocialAuthButt
 import useFormState from '../hooks/useFormState.js';
 import FormStatusMessage from '../components/forms/FormStatusMessage.jsx';
 import { isValidEmail, validatePasswordStrength } from '../utils/validation.js';
+import analytics from '../services/analytics.js';
+import { ANALYTICS_EVENTS } from '../constants/analyticsEvents.js';
+import useJourneyProgress from '../hooks/useJourneyProgress.js';
 
 const DASHBOARD_ROUTES = {
   admin: '/dashboard/admin',
@@ -54,6 +57,7 @@ export default function RegisterPage() {
   const { status, setStatus, setError, setInfo, setSuccess, clearMessage, message, messageType, feedbackProps } = useFormState();
   const navigate = useNavigate();
   const { login } = useSession();
+  const { completeCheckpoint } = useJourneyProgress();
 
   const googleEnabled = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
   const maxBirthDate = new Date().toISOString().split('T')[0];
@@ -97,6 +101,12 @@ export default function RegisterPage() {
       await registerUser(payload);
       setSuccess('Registration complete. You can now sign in and add any additional roles you need.');
       setForm(initialState);
+      analytics.track(
+        ANALYTICS_EVENTS.ACCOUNT_REGISTRATION_COMPLETED.name,
+        { method: 'email', email: form.email },
+        { actorType: 'anonymous', source: 'web_app' },
+      );
+      completeCheckpoint('account_registration_submitted', { method: 'email' });
     } catch (submissionError) {
       if (submissionError instanceof apiClient.ApiError) {
         setError(submissionError.body?.message || submissionError.message);
@@ -119,6 +129,12 @@ export default function RegisterPage() {
       const result = await loginWithGoogle(response.credential);
       const sessionState = login(result.session);
       setSuccess('Signed in with Google. Redirecting you now.');
+      analytics.track(
+        ANALYTICS_EVENTS.ACCOUNT_REGISTRATION_SOCIAL_COMPLETED.name,
+        { provider: 'google' },
+        { actorType: 'anonymous', source: 'web_app' },
+      );
+      completeCheckpoint('account_registration_submitted', { method: 'google' });
       navigate(resolveLanding(sessionState), { replace: true });
     } catch (googleError) {
       if (googleError instanceof apiClient.ApiError) {

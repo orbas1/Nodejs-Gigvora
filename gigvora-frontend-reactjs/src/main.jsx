@@ -5,6 +5,7 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import './index.css';
 import { SessionProvider } from './context/SessionContext.jsx';
 import { LanguageProvider } from './context/LanguageContext.jsx';
+import { JourneyProgressProvider } from './context/JourneyProgressContext.jsx';
 
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 const isStandaloneAdminProfile = import.meta.env.VITE_STANDALONE_ADMIN_PROFILE === 'true';
@@ -37,7 +38,9 @@ async function bootstrap() {
           <OAuthProvider clientId={googleClientId}>
             <LanguageProvider>
               <SessionProvider>
-                <AppComponent />
+                <JourneyProgressProvider>
+                  <AppComponent />
+                </JourneyProgressProvider>
               </SessionProvider>
             </LanguageProvider>
           </OAuthProvider>
