@@ -1086,118 +1086,118 @@ This document catalogues the public marketing shell, pre-login journeys, and per
       2. Experiment with personalised ordering based on recent activity.
       3. Extend messaging to surface persona-specific alerts (e.g., pending approvals).
 
-### 1.C. Floating Assistance Layers
+### 1.C. Floating Assistance Layers ✅
 
 **Components**
 
 - **1.C.1. `messaging/MessagingDock.jsx`**
-  1. **Appraisal.** Provides the floating message bubble with inbox list, live thread view, composer, and Agora-powered call handoff under a single dock UI.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L1-L140】
-  2. **Functionality.** Auth-gated by `useSession`, it fetches inbox threads, loads messages, sends posts, and launches calls when the user is permitted (`canAccessMessaging`).【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L49-L160】
-  3. **Logic Usefulness.** Custom sorting, unread detection, and last-activity descriptors ensure the dock mirrors primary inbox logic.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L20-L60】【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L140-L200】
-  4. **Redundancies.** Duplication with full `/inbox` page should be monitored; share utilities to avoid drift.
-  5. **Placeholders.** None—calls and messaging rely on actual services (though may require backend stubs in dev).
-  6. **Duplicate Functions.** Sorting/formatting functions exist in `utils/messaging.js`; reuse is sound.
-  7. **Improvements Needed.** Add pagination/virtualization for large thread counts and expose offline indicators.
-  8. **Styling Improvements.** Provide theme toggles for dark dashboards; lighten shadow intensity in bright contexts.
-  9. **Efficiency.** Debounce inbox refresh to avoid spamming API on tab toggles.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L100-L140】
-  10. **Strengths.** Consolidates inbox, calls, and quick replies in a single floating entry point.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L1-L200】
-  11. **Weaknesses.** Lacks unread badge on the bubble when dock closed.
-  12. **Styling & Colour Review.** Accent palette consistent; ensure accessible contrast on message text.
-  13. **CSS, Orientation, Placement.** Dock sticks to viewport corner; consider responsive reposition on mobile.
-  14. **Text Analysis.** Error/success messages could be localized.
-  15. **Text Spacing.** Chat bubble line heights comfortable; keep.
-  16. **Shaping.** Rounded-rectangle dock aligns with brand.
-  17. **Shadow / Hover / Glow.** Soft shadow emphasises float; maintain but audit for dark mode.
-  18. **Thumbnails.** Participant avatars should display once integrated.
-  19. **Images & Media.** Agora call panel likely surfaces video—ensure placeholders for offline states.
-  20. **Button Styling.** Pill buttons for tabs and call actions consistent with system.
-  21. **Interactiveness.** Rich interactions (send, call, refresh) promote stickiness.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L160-L200】
-  22. **Missing Components.** Typing indicators and read receipts absent; consider roadmap.
-  23. **Design Changes.** Add collapsed preview card for selected thread.
-  24. **Design Duplication.** Align message bubble styling with support launcher to avoid drift.
-  25. **Design Framework.** Built atop Tailwind & custom classNames—consistent.
+  1. **Appraisal.** The dock now layers inbox, support handoff, unread bubble badge, and call launchers inside a floating shell that mirrors enterprise messaging suites.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L96-L633】
+  2. **Functionality.** Authenticated members fetch paginated inbox pages, debounce refreshes, load thread messages, dispatch replies, and start Agora calls while persisting selection across page changes.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L115-L215】【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L400-L587】
+  3. **Logic Usefulness.** Thread list utilities compute titles, participants, unread flags, last-activity copy, and unread counts so the bubble mirrors `/inbox` expectations even when collapsed.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L48-L83】【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L214-L233】【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L622-L633】
+  4. **Redundancies.** Continue consolidating shared helpers with the full inbox surface so formatting doesn’t drift across assistants.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L18-L24】
+  5. **Placeholders.** UI is production ready; backend stubs may still simulate messaging APIs locally.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L127-L175】
+  6. **Duplicate Functions.** Reuses messaging utilities for title, participants, and message sorting, aligning logic with other inbox surfaces.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L18-L24】
+  7. **Improvements Needed.** Virtualize long message lists and add per-thread read receipts/typing indicators for parity with dedicated inbox tools.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L422-L523】
+  8. **Styling Improvements.** Consider dark-theme-aware tokens so accent soft backgrounds stay legible across dashboards.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L421-L468】
+  9. **Efficiency.** Debounced inbox loaders and append-aware pagination keep API calls tight during rapid tab toggles or “load older” sprees.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L181-L205】【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L450-L464】
+  10. **Strengths.** Multi-tab experience, localized messaging copy, and instant call launches make the dock a full-featured workspace entry point.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L343-L615】【F:gigvora-frontend-reactjs/src/i18n/translations.js†L81-L108】
+  11. **Weaknesses.** Test suite still needs deterministic control of debounced fetches to observe expected API invocations.【F:gigvora-frontend-reactjs/src/components/messaging/__tests__/MessagingComponents.test.jsx†L200-L326】
+  12. **Styling & Colour Review.** Accent shadows look polished; extend accessible focus states for keyboard users across thread cards and controls.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L421-L587】
+  13. **CSS, Orientation, Placement.** Corner placement works on desktop; add auto-centering or bottom-sheet layout for very small screens.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L618-L633】
+  14. **Text Analysis.** All surfaced copy routes through `useLanguage`, enabling translation coverage for prompts, hints, and CTAs.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L88-L615】【F:gigvora-frontend-reactjs/src/i18n/translations.js†L81-L108】
+  15. **Text Spacing.** Thread list and composer spacing maintain readability; continue auditing long translated strings.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L421-L587】
+  16. **Shaping.** Rounded dock and pills reinforce floating assistant aesthetic while keeping call-to-action prominence.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L421-L633】
+  17. **Shadow / Hover / Glow.** Soft drop shadows and hover borders provide depth without overwhelming minimal UI.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L421-L468】
+  18. **Thumbnails.** Participant avatar slots ready for service data; consider fallbacks for initial-based chips on message rows.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L48-L83】
+  19. **Images & Media.** Agora panel integration keeps space available for call previews—ensure call states degrade gracefully offline.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L458-L543】
+  20. **Button Styling.** Pill buttons, call CTAs, and load-more affordances mirror the product’s rounded style language.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L343-L633】
+  21. **Interactiveness.** Inbox refresh, support tab, call join, pagination, and localized composer hints sustain engagement across long sessions.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L343-L615】
+  22. **Missing Components.** Still lacks shared presence indicators and multi-select bulk actions for power users.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L400-L543】
+  23. **Design Changes.** Add quick filters (starred, unread) and smart suggestions sourced from analytics once backend ready.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L343-L468】
+  24. **Design Duplication.** Align bubble iconography and support tab palette with SupportLauncher to maintain assistant cohesion.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L343-L633】【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L383-L583】
+  25. **Design Framework.** Built with Tailwind utility composition and shared class helpers for predictable theming tweaks.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L33-L205】
   26. **Change Checklist Tracker.**
-      - [ ] Add unread badge to bubble icon.
-      - [ ] Debounce inbox refreshes.
-      - [ ] Implement pagination/virtual scroll.
-      - [ ] Localize user-facing copy.
+      - [x] Add unread badge to bubble icon.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L622-L633】
+      - [x] Debounce inbox refreshes.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L181-L205】
+      - [x] Implement pagination/virtual scroll.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L450-L466】
+      - [x] Localize user-facing copy.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L343-L615】【F:gigvora-frontend-reactjs/src/i18n/translations.js†L81-L108】
   27. **Full Upgrade Plan & Release Steps.**
-      1. Instrument messaging service for pagination and unread counts.
-      2. Roll out UI badge plus virtualization behind beta flag.
-      3. Capture telemetry on send/call usage.
-      4. Ship localization strings and QA across locales.
+      1. Monitor inbox API performance with pagination enabled and graduate to background refresh with optimistic updates.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L115-L205】
+      2. Prototype virtualization and quick filters before rolling out presence indicators to early adopters.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L421-L543】
+      3. Capture telemetry on unread badge interactions to refine notification strategies.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L622-L633】
+      4. Extend localization coverage beyond English by syncing translations with language ops pipeline.【F:gigvora-frontend-reactjs/src/i18n/translations.js†L81-L108】
 
 - **1.C.2. `support/SupportLauncher.jsx`**
-  1. **Appraisal.** Emulates concierge support bubble with seeded conversations, contact directory, quick replies, and knowledge tab toggles.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L1-L160】
-  2. **Functionality.** Persists conversations via `useLocalCollection`, seeds contacts, and handles outbound messages with simulated replies (`replyDelayMs`).【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L12-L160】【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L160-L240】
-  3. **Logic Usefulness.** Offers search, unread badges, tab toggles, and panel states to mirror help desk operations.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L120-L200】
-  4. **Redundancies.** Messaging bubble and support launcher both provide chat UIs—share styles to reduce duplication.
-  5. **Placeholders.** Conversations seeded with sample content; integrate with backend ticketing later.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L12-L80】
-  6. **Duplicate Functions.** Random ID helper reused appropriately.
-  7. **Improvements Needed.** Add escalation button for live agent plus analytics events.
-  8. **Styling Improvements.** Provide color overrides for dark dashboards.
-  9. **Efficiency.** Local storage updates already efficient; ensure cleanup of large histories.
-  10. **Strengths.** Multi-tab design (chat, knowledge, updates) signals enterprise support readiness.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L180-L260】
-  11. **Weaknesses.** No integration with actual support backend; purely cosmetic.
-  12. **Styling & Colour Review.** On-brand accent usage; add success/error states for message send results.
-  13. **CSS, Orientation, Placement.** Slide-over panel flows well; ensure responsive behavior on mobile (maybe full-screen).
-  14. **Text Analysis.** Copy is friendly and supportive; maintain tone.
-  15. **Text Spacing.** Chat bubble spacing fosters readability.
-  16. **Shaping.** Uses rounded panels consistent with brand.
-  17. **Shadow / Hover / Glow.** Subtle drop shadows maintain floating effect.
-  18. **Thumbnails.** Contact avatars load from Unsplash—replace with hosted assets.
-  19. **Images & Media.** Knowledge articles could embed images later; prepare for responsive scaling.
-  20. **Button Styling.** Toggle buttons, search input, and send button respect system style.
-  21. **Interactiveness.** Multi-view launcher keeps users engaged while awaiting support response.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L160-L240】
-  22. **Missing Components.** Add voice/video escalation to mirror messaging dock parity.
-  23. **Design Changes.** Introduce statuses (online/offline) for support agents.
-  24. **Design Duplication.** Align bubble iconography with messaging dock for coherence.
-  25. **Design Framework.** Works within Tailwind layout primitives.
+  1. **Appraisal.** Concierge launcher blends live contact directory, mobile-ready overlay, and knowledge spotlights into a branded gradient assistant that mirrors enterprise help desks.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L17-L583】
+  2. **Functionality.** Authenticated sessions fetch support snapshots, sync contact metadata into the local collection, expose unread badges, and simulate reply handling while knowledge-base articles hydrate the help tab.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L120-L376】【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L438-L587】
+  3. **Logic Usefulness.** Search, filtering, gradient avatars, availability badges, and tab routing model real ticket triage and guarantee contact consistency across sessions.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L17-L370】【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L492-L570】
+  4. **Redundancies.** Coordinate shared styling tokens with MessagingDock to avoid diverging surface treatments.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L383-L583】【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L343-L633】
+  5. **Placeholders.** Local seeded threads remain for offline bootstrapping but are now enriched by remote snapshot data when available.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L26-L120】【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L206-L322】
+  6. **Duplicate Functions.** Shared helpers (`randomId`, `resolveActorId`) are reused, reducing bespoke logic in support land.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L10-L15】
+  7. **Improvements Needed.** Wire analytics + escalation triggers to log concierge usage and capture response times across personas.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L344-L375】
+  8. **Styling Improvements.** Introduce dark-mode palettes and high-contrast focus rings for WCAG compliance on gradient avatars.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L383-L583】
+  9. **Efficiency.** Snapshot caching and metadata diffing prevent redundant storage writes while keeping conversations synced.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L206-L322】
+  10. **Strengths.** Knowledge base highlights, availability indicators, and list/conversation split maintain operational clarity for teams.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L438-L583】
+  11. **Weaknesses.** Needs error-path tests for failed snapshot fetches and mobile overlay interactions.【F:gigvora-frontend-reactjs/src/components/support/__tests__/SupportComponents.test.jsx†L1-L240】
+  12. **Styling & Colour Review.** Gradient avatars differentiate agents but require systematic tokens to guarantee contrast parity.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L17-L115】
+  13. **CSS, Orientation, Placement.** Expands to full-screen on small screens while staying a docked bubble on desktop, covering responsive expectations.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L383-L583】
+  14. **Text Analysis.** Conversational copy and help tab microcopy stay on-tone; layer localization next to align with messaging dock approach.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L438-L583】
+  15. **Text Spacing.** Chat bubbles and article cards keep tight, legible spacing; continue auditing after localization.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L492-L563】
+  16. **Shaping.** Rounded corners, pill toggles, and circular avatars reinforce floating assistant identity.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L401-L583】
+  17. **Shadow / Hover / Glow.** Elevated overlay and subtle hover states create premium feel without obscuring context behind blur scrim.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L383-L583】
+  18. **Thumbnails.** Gradient avatars replace external Unsplash imagery, removing CDN dependencies while staying brand-aligned.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L17-L115】
+  19. **Images & Media.** Knowledge spotlights prepare for inline media; ensure layout accommodates thumbnails once API expands.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L438-L487】
+  20. **Button Styling.** Tab toggles, search, and send buttons follow Tailwind utility styling consistent with messaging experiences.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L409-L570】
+  21. **Interactiveness.** List/conversation transitions, simulated replies, and help centre links keep members engaged while waiting on staff.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L438-L583】
+  22. **Missing Components.** Add escalation paths (call, screen share) to reach feature parity with messaging dock calls.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L401-L570】
+  23. **Design Changes.** Surface SLA timers and queue lengths per contact to set expectations before members engage.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L383-L570】
+  24. **Design Duplication.** Synchronize iconography and CTA hierarchy with MessagingDock bubble for brand cohesion.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L575-L583】【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L618-L633】
+  25. **Design Framework.** Built atop Tailwind primitives and local storage hooks, easing future integration with shared assistant framework.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L1-L210】
   26. **Change Checklist Tracker.**
-      - [ ] Replace seed data with API integration.
-      - [ ] Host avatars internally.
-      - [ ] Add agent availability indicators.
-      - [ ] Provide mobile full-screen variant.
+      - [x] Replace seed data with API integration.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L206-L292】
+      - [x] Host avatars internally.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L17-L115】
+      - [x] Add agent availability indicators.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L106-L207】
+      - [x] Provide mobile full-screen variant.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L383-L583】
   27. **Full Upgrade Plan & Release Steps.**
-      1. Integrate ticketing API and convert local storage to remote sync.
-      2. Launch agent status indicators and track usage analytics.
-      3. Deliver mobile optimization and monitor support CSAT feedback.
-      4. Iterate on shared styling with messaging dock to standardize components.
+      1. Layer analytics + SLA telemetry on top of snapshot fetches to monitor response time and tab usage.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L206-L375】
+      2. Pilot escalation controls (call/screen share) with internal teams to validate cross-assistant cohesion.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L401-L570】
+      3. Localize launcher copy and feed translations through shared language context alongside MessagingDock.【F:gigvora-frontend-reactjs/src/components/support/SupportLauncher.jsx†L438-L583】【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L88-L615】
+      4. Harden snapshot error handling and expand tests to cover offline fallbacks.【F:gigvora-frontend-reactjs/src/components/support/__tests__/SupportComponents.test.jsx†L1-L240】
 
 - **1.C.3. `policy/PolicyAcknowledgementBanner.jsx`**
-  1. **Appraisal.** Fixed bottom banner tracks legal acknowledgement per user via localStorage, ensuring compliance messaging surfaces post-updates.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L1-L60】
-  2. **Functionality.** Builds storage key from session ID, gracefully handles storage errors, and exposes CTA buttons linking to policy pages plus acknowledgement action.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L8-L60】
-  3. **Logic Usefulness.** Memoized storage key prevents cross-account leakage and respects multi-user devices.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L12-L24】
-  4. **Redundancies.** None; banner is unique.
-  5. **Placeholders.** Copy references Version 1.00; update for future releases.
-  6. **Duplicate Functions.** None.
-  7. **Improvements Needed.** Add expiry logic so banner reappears when policies change again.
-  8. **Styling Improvements.** Provide theme adaptation for dark dashboards.
-  9. **Efficiency.** Minimal; simple state machine.
-  10. **Strengths.** Clear compliance messaging with accessible buttons.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L36-L58】
-  11. **Weaknesses.** Does not capture acknowledgement analytics.
-  12. **Styling & Colour Review.** Neutral palette fits marketing theme; ensure text contrast remains high.
-  13. **CSS, Orientation, Placement.** Fixed bottom placement works but may overlap mobile nav—add safe-area awareness.
-  14. **Text Analysis.** Copy is concise; maintain but localize.
-  15. **Text Spacing.** Tight but readable; keep.
-  16. **Shaping.** Rounded-3xl align with brand.
-  17. **Shadow / Hover / Glow.** Soft shadow emphasises floating state.
-  18. **Thumbnails.** None.
-  19. **Images & Media.** None.
-  20. **Button Styling.** Border/filled mix aligns with rest of marketing CTAs.
-  21. **Interactiveness.** Buttons respond instantly; ensure keyboard focus order is intuitive.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L36-L58】
-  22. **Missing Components.** Consider “Remind me later” option.
-  23. **Design Changes.** Add small iconography to highlight legal nature.
-  24. **Design Duplication.** None.
-  25. **Design Framework.** Tailwind utilities keep layout tight.
+  1. **Appraisal.** Compliance banner now hydrates from remote policy metadata, displays latest headlines, and manages per-user acknowledgement state with expiry awareness.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L7-L148】
+  2. **Functionality.** Fetches release metadata, merges defaults, memoizes storage keys, persists acknowledgements, and fires analytics events while respecting safe-area padding on mobile.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L37-L176】
+  3. **Logic Usefulness.** Versioned storage keys and expiry computation ensure banner reappears when policies change or acknowledgements lapse.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L77-L131】
+  4. **Redundancies.** None—banner remains unique to floating assistance stack.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L141-L176】
+  5. **Placeholders.** Default metadata ships as fallback when remote fetch fails, preserving resilience during outages.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L7-L70】
+  6. **Duplicate Functions.** Storage + analytics code purpose-built; consider sharing telemetry helpers with other compliance surfaces.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L107-L129】
+  7. **Improvements Needed.** Add support for snooze/remind-later flows and multi-policy acknowledgement states.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L141-L176】
+  8. **Styling Improvements.** Provide dark-mode tokens and subtle iconography denoting legal updates.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L141-L176】
+  9. **Efficiency.** Metadata fetch runs once with cleanup guard; JSON payload kept minimal for storage writes.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L44-L131】
+  10. **Strengths.** Clear summary, action buttons, and analytics instrumentation keep compliance teams informed.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L151-L173】
+  11. **Weaknesses.** Needs tests for rejected metadata fetch + storage failures to guarantee resilience.【F:gigvora-frontend-reactjs/src/components/policy/__tests__/PolicyAcknowledgementBanner.test.jsx†L1-L77】
+  12. **Styling & Colour Review.** Neutral palette and blur background feel premium; ensure contrast persists in dark layouts.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L141-L176】
+  13. **CSS, Orientation, Placement.** Safe-area-aware padding prevents overlap with mobile nav bars and rounded corners echo assistant design language.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L141-L149】
+  14. **Text Analysis.** Summary copy ready for localization; integrate with translation map to align with other assistants.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L151-L173】
+  15. **Text Spacing.** Tight layout keeps focus on actions while leaving room for multi-line summaries.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L151-L173】
+  16. **Shaping.** Rounded-3xl silhouette matches floating assistance family.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L141-L176】
+  17. **Shadow / Hover / Glow.** Elevated shadow and hover states separate banner from content beneath without obstructing view.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L141-L176】
+  18. **Thumbnails.** None yet—reserve space for future policy icons or document previews.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L151-L173】
+  19. **Images & Media.** Text-focused banner keeps legal updates accessible; iconography can arrive later.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L151-L173】
+  20. **Button Styling.** Rounded buttons with border/solid pairings align with marketing CTAs and remain keyboard friendly.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L156-L173】
+  21. **Interactiveness.** Acknowledgement instantly persists, fires analytics, and dismisses banner for compliant sessions.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L107-L170】
+  22. **Missing Components.** Provide audit history view linking to legal portal for compliance teams.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L151-L173】
+  23. **Design Changes.** Introduce inline icon or highlight colour for critical updates vs. informational notices.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L141-L173】
+  24. **Design Duplication.** Maintain coherence with other floating layers by reusing spacing and typography tokens.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L141-L176】【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L343-L633】
+  25. **Design Framework.** Tailwind utility stack stays consistent with assistance components for predictable overrides.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L1-L176】
   26. **Change Checklist Tracker.**
-      - [ ] Add policy versioning/expiry.
-      - [ ] Track acknowledgement events.
-      - [ ] Respect mobile safe areas.
+      - [x] Add policy versioning/expiry.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L7-L131】
+      - [x] Track acknowledgement events.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L107-L130】
+      - [x] Respect mobile safe areas.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L141-L149】
   27. **Full Upgrade Plan & Release Steps.**
-      1. Introduce policy version from backend and auto-reset acknowledgement on bump.
-      2. Send analytics events upon acknowledgement for compliance logs.
-      3. QA mobile safe-area padding before production rollout.
+      1. Connect localization + iconography updates so legal copy adapts seamlessly across regions.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L151-L173】
+      2. Capture failure analytics for metadata fetches to alert compliance when remote source unavailable.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L44-L70】
+      3. Ship audit log UI or API integration for policy acknowledgement history accessible to operations leads.【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L151-L173】
 
 ## 2. Pre-Login Journeys & Marketing Landing
 
