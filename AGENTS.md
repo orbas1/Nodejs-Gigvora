@@ -1573,42 +1573,186 @@ This document catalogues the public marketing shell, pre-login journeys, and per
 **Components**
 
 - **4.A.1. `JobsPage.jsx`**
-  1. **Appraisal.** Blends curated job discovery with ATS-ready workflows, linking social engagement to recruiter pipelines.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1-L200】
-  2. **Functionality.** Handles search, filters, sorting, membership gating, analytics tracking, and workspace hand-offs for managing roles.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1-L200】
-  3. **Logic Usefulness.** Employment type, remote, freshness, and status helpers normalise company data for consistent UX.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L17-L120】
-  4. **Redundancies.** Filter pills duplicate gigs/projects; consolidate in shared marketplace UI kit.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L89-L140】
-  5. **Placeholders Or Non-working Functions Or Stubs.** Job management workspace still placeholder pending employer integrations.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L12-L40】
-  6. **Duplicate Functions.** Number/percent formatting repeats across surfaces; centralise utility.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L50-L120】
-  7. **Improvements need to make.** Add saved searches, recommendations, and inline ATS stage transitions.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1-L200】
-  8. **Styling improvements.** Provide sticky filter bar on desktop and collapsible drawers on mobile.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L37-L200】
-  9. **Effeciency analysis and improvement.** Debounce analytics and paginate beyond 25 results for enterprise scale.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L150-L200】
-  10. **Strengths to Keep.** Telemetry integration and membership gating align with hybrid social + hiring mission.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L129-L200】
-  11. **Weaknesses to remove.** Default user fallback should redirect to login rather than impersonating ID 1.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L129-L150】
-  12. **Styling and Colour review changes.** Balance accent usage across tabs to avoid saturation in long sessions.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L37-L120】
-  13. **Css, orientation, placement and arrangement changes.** Ensure metric cards wrap elegantly on narrow viewports.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L118-L130】
-  14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Streamline repetitive instructions within filter sections for clarity.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L48-L200】
-  15. **Text Spacing.** Prevent tab labels from wrapping by adjusting padding/letter spacing.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L37-L120】
-  16. **Shaping.** Keep pill-shaped filters but accentuate selected states for quick scanning.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L89-L140】
-  17. **Shadow, hover, glow and effects.** Extend hover elevation to job cards mirroring gig/project interactions.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L37-L200】
-  18. **Thumbnails.** Display company logos or hero art when available to humanise listings.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1-L200】
-  19. **Images and media & Images and media previews.** Support culture video embeds on detail overlay once data flows.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1-L200】
-  20. **Button styling.** Maintain pill CTAs but add loading feedback for heavy filters or management actions.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L89-L170】
-  21. **Interactiveness.** Tabs, filters, and analytics respond quickly, aligning with LinkedIn-to-ATS bridging vision.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L37-L200】
-  22. **Missing Components.** Add applied tracker, recruiter chat integration, and mentorship prep shortcuts.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1-L200】
-  23. **Design Changes.** Introduce pipeline visual to summarise application status without leaving the page.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1-L200】
-  24. **Design Duplication.** Align tab styling with gigs/projects for consistent marketplace cognition.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L37-L200】
-  25. **Design framework.** Builds on PageHeader + DataStatus foundation shared by other opportunity surfaces.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1-L60】
+  1. **Appraisal.** Fuses membership-gated discovery, saved searches, analytics, and recruiter workspace orchestration across board, applications, interviews, and management tabs so talent can progress from browsing to ATS actions in one surface.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L115-L210】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L798-L1092】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1094-L1442】
+  2. **Functionality.** `useOpportunityListing`, `useSavedSearches`, dashboard hydration, and tab-specific renders coordinate search, filter pills, saved search CRUD, recommendations, pipeline analytics, interview tracking, and embedded recruiter cockpit states.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L148-L210】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L800-L1034】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1094-L1382】
+  3. **Logic Usefulness.** Stage option normalisation, pipeline summarisation, automation guardrails, and interview reminders give actionable insight alongside application cards and ATS stage selectors.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L257-L357】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1129-L1188】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1310-L1374】
+  4. **Redundancies.** Local `formatNumber`/`formatPercent` mirrors shared utilities; centralise formatting to keep currency/locale handling consistent across marketplaces.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L59-L79】
+  5. **Placeholders Or Non-working Functions Or Stubs.** None—`JobManagementWorkspace` is embedded and powered by live ATS data rather than mock content.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1381-L1382】【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L78-L398】
+  6. **Duplicate Functions.** `metricCard` replicates analytics card markup used elsewhere; consider consolidating with dashboard card components for parity.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L104-L113】
+  7. **Improvements need to make.** Add virtualised or paginated rendering for the job list so large result sets do not re-render hundreds of cards per update.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L952-L996】
+  8. **Styling improvements.** Elevate the filter header with sticky positioning and responsive pill grouping to keep context visible while scrolling results.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L800-L876】
+  9. **Effeciency analysis and improvement.** Reuse cached listings between sort/filter toggles and stream batched analytics to avoid recomputing the entire list on each state change.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L148-L200】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L952-L996】
+  10. **Strengths to Keep.** Membership gating, analytics tracking, saved searches, and recommendation loops provide an end-to-end journey tightly aligned with Gigvora’s social-to-ATS vision.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L126-L210】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L800-L1034】
+  11. **Weaknesses to remove.** Stage option sorting is lexical; enforce canonical ordering from the ATS lookup to avoid jarring transitions for recruiters.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L301-L329】
+  12. **Styling and Colour review changes.** Audit accent usage across filter pills, cards, and badges to preserve contrast in long browsing sessions.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L800-L1034】
+  13. **Css, orientation, placement and arrangement changes.** Tune grid breakpoints for the board and sidebar to prevent cramped layouts on medium screens while retaining dual-column density.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L798-L1034】
+  14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Keep helper copy concise and data-driven so filter, recommendation, and reminder text remains skimmable.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L800-L1034】
+  15. **Text Spacing.** Monitor pill button padding and tab spacing to avoid wrapping labels once additional programmes or badges are introduced.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1413-L1435】
+  16. **Shaping.** Preserve pill and card silhouettes while harmonising border radii across filters, job cards, and analytics badges.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L842-L876】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L952-L983】
+  17. **Shadow, hover, glow and effects.** Expand hover feedback to recommendation tiles and saved search entries for consistent affordances with job cards.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L954-L996】
+  18. **Thumbnails.** Extend API integration to fetch company logos or hero imagery for cards currently rendering text-only listings.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L952-L983】
+  19. **Images and media & Images and media previews.** Reuse the recommendation pane to surface culture videos or media assets once provided by employers.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L952-L983】
+  20. **Button styling.** Maintain pill CTAs but add disabled/loading states for heavy actions like apply tracking to reinforce responsiveness.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L986-L992】
+  21. **Interactiveness.** Board filtering, saved search CRUD, pipeline updates, and recruiter cockpit embed deliver a rich interactive rhythm worth preserving.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L952-L1382】
+  22. **Missing Components.** Layer in inline company previews and mentorship prep shortcuts to deepen conversion pathways from listings and dashboards.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L952-L983】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1238-L1376】
+  23. **Design Changes.** Visualise application throughput with compact charts in the manage tab so recruiters grasp pipeline health at a glance.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1310-L1370】
+  24. **Design Duplication.** Align filter pills and badges with the shared opportunity kit to ensure consistent tactile feedback across gigs and projects.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L800-L1034】【F:gigvora-frontend-reactjs/src/components/opportunity/OpportunityFilterPill.jsx†L4-L39】
+  25. **Design framework.** Continues the PageHeader + DataStatus framing so marketplace telemetry stays coherent with other persona dashboards.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1392-L1444】
   26. **Change Checklist Tracker Extensive.**
-      - [x] Remove default user fallback and enforce auth redirect.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L129-L150】
-      - [x] Extract shared filter UI with gigs/projects.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L89-L140】
-      - [x] Ship saved searches and recommendation engine.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1-L200】
-      - [x] Add inline ATS stage transitions and recruiter chat hook.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L37-L200】
+      - [ ] Virtualise or paginate the job card list to sustain performance for large queries.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L952-L996】
+      - [ ] Inject company branding and avatars into listings and recommendations.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L952-L983】
+      - [ ] Render pipeline charts in the manage tab alongside guardrail metrics.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1310-L1370】
+      - [ ] Allow renaming and sharing of saved searches directly within the sidebar list.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1000-L1033】
   27. **Full Upgrade Plan & Release Steps  Extensive.**
-      1. Deploy shared marketplace filter kit, saved searches, and analytics instrumentation.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1-L200】
-      2. Integrate inline ATS stages plus recruiter chat, piloting with select company dashboards.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L12-L200】
-      3. Launch branding assets and mentorship prep shortcuts, measuring conversion to interviews.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1-L200】
+      1. Launch virtualised job feeds with company branding and enhanced recommendation cards, monitoring engagement uplift.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L952-L1092】
+      2. Ship pipeline visualisations, saved search management, and mentorship shortcuts to deepen application-to-interview conversion.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1094-L1382】
+      3. Iterate with recruiter cockpit metrics to align manage tab insights with ATS automation rollouts.【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L1310-L1382】
 
-### 4.B. Gigs Marketplace
+- **4.A.2. `JobManagementWorkspace.jsx`**
+  1. **Appraisal.** Delivers a recruiter-grade cockpit with workspace metadata, requisition lists, candidate pipelines, and activity timelines in one responsive module.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L78-L398】
+  2. **Functionality.** Fetches workspace operations, selects requisitions, updates stages, logs notes/outreach, and refreshes data with optimistic feedback tied to ATS responses.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L78-L226】【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L169-L226】【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L246-L470】
+  3. **Logic Usefulness.** Timeline grouping, keyword match surfacing, and automation metrics give recruiters signal-rich context for each candidate and job.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L48-L76】【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L320-L470】
+  4. **Redundancies.** Local number/currency helpers replicate shared formatters; align with global utilities to avoid divergence across recruiter tools.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L26-L45】
+  5. **Placeholders Or Non-working Functions Or Stubs.** None—the component gates access by membership, handles error/empty states, and commits changes through live services.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L228-L282】
+  6. **Duplicate Functions.** Timeline aggregation mirrors patterns in interview operations modules; evaluate extracting a shared event normaliser for consistency.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L48-L76】
+  7. **Improvements need to make.** Introduce bulk actions (e.g., multi-select stage moves) and workspace switching UI informed by the service payload.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L92-L98】【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L320-L470】
+  8. **Styling improvements.** Tighten spacing between panels and align card elevations with marketplace analytics to reinforce hierarchy.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L246-L400】
+  9. **Effeciency analysis and improvement.** Cache job selection state and defer full refreshes when only notes/responses mutate to reduce repeated workspace fetches.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L83-L226】【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L240-L398】
+  10. **Strengths to Keep.** Live ATS metrics, stage editing, and unified candidate context deliver a production-ready cockpit for recruiters.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L246-L398】
+  11. **Weaknesses to remove.** Requisition list ordering is purely date-based; add priority weighting or filters for large hiring programmes.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L240-L320】
+  12. **Styling and Colour review changes.** Review badge palettes for statuses and feedback alerts so they align with ATS dashboards without overpowering content.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L246-L398】
+  13. **Css, orientation, placement and arrangement changes.** Offer collapsible panes for candidate details to support smaller screens while preserving quick actions.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L284-L398】
+  14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Encourage succinct note/outreach prompts so recruiters capture structured insight without bloating the timeline.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L320-L470】
+  15. **Text Spacing.** Balance padding inside cards and forms to keep dense recruiter actions readable under time pressure.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L320-L398】
+  16. **Shaping.** Retain rounded card shells and pill controls while exploring tighter radii on nested buttons for clarity.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L286-L398】
+  17. **Shadow, hover, glow and effects.** Extend subtle hover cues to candidate timeline entries and requisition buttons to signal interactivity uniformly.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L246-L398】
+  18. **Thumbnails.** Pull through candidate avatars from profile metadata to accompany timeline items and pipeline rows.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L320-L398】
+  19. **Images and media & Images and media previews.** Enable resume/portfolio preview chips using the attachments metadata already returned by the service.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L320-L398】
+  20. **Button styling.** Add tertiary button states for logging outreach/notes so busy recruiters can distinguish destructive vs passive actions.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L320-L398】
+  21. **Interactiveness.** Job selection, stage updates, note logging, and feedback toasts create a responsive workflow worth retaining.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L246-L470】
+  22. **Missing Components.** Surface workspace switcher and recruiter activity leaderboards to capitalise on the service metadata already available.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L92-L95】【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L320-L398】
+  23. **Design Changes.** Add compact charts summarising stage throughput or automation coverage to contextualise metrics beyond raw numbers.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L246-L363】
+  24. **Design Duplication.** Align card layout and filters with company dashboard ATS modules for a seamless recruiter experience.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L246-L398】
+  25. **Design framework.** Continues Gigvora’s recruiter tooling language with DataStatus headers, rounded cards, and action forms.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L246-L398】
+  26. **Change Checklist Tracker Extensive.**
+      - [ ] Expose workspace switching controls leveraging `availableWorkspaces` from the API.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L83-L95】
+      - [ ] Add bulk stage transitions and batching for candidate pipelines.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L320-L398】
+      - [ ] Include candidate avatar and resume preview chips inside detail panels.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L320-L398】
+      - [ ] Surface ATS metric trends (coverage, SLA) with sparkline visuals next to summary stats.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L320-L363】
+  27. **Full Upgrade Plan & Release Steps  Extensive.**
+      1. Ship workspace switcher and avatar/timeline enhancements, validating recruiter adoption across pilots.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L78-L398】
+      2. Layer in bulk actions and ATS metric charts to streamline daily pipeline management.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L320-L398】
+      3. Iterate with recruiters on note/outreach UX and release to enterprise tenants once telemetry confirms efficiency gains.【F:gigvora-frontend-reactjs/src/components/jobs/JobManagementWorkspace.jsx†L169-L398】
+
+- **4.A.3. `companyJobManagementService.js`**
+  1. **Appraisal.** Aggregates company job workspaces, applicants, ATS stages, histories, responses, and metrics into a single payload powering recruiter experiences.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L84-L668】
+  2. **Functionality.** Resolves actor-aware workspaces, clamps lookbacks, pulls adverts/applications/interviews/notes, computes keyword matches, and exposes CRUD for postings, keywords, favourites, applications, interviews, and notes.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L401-L668】【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L672-L860】
+  3. **Logic Usefulness.** Default workspace resolution, ATS metrics synthesis, and kanban column construction give frontends rich state without extra queries.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L84-L150】【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L401-L668】
+  4. **Redundancies.** Sanitisation helpers (payload, keywords, notes, responses) mirror cross-service utilities—extract shared validators to reduce duplication.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L216-L399】
+  5. **Placeholders Or Non-working Functions Or Stubs.** None; every helper enforces validation, throws precise errors, and persists through Sequelize transactions.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L401-L790】
+  6. **Duplicate Functions.** Keyword and note sanitisation overlap with gig/project services; unify into common helpers for consistent metadata shaping.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L240-L370】
+  7. **Improvements need to make.** Introduce pagination for applications/responses and selective field fetching so large employers avoid heavy payloads.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L413-L599】
+  8. **Styling improvements.** Provide colour/status metadata (e.g., recommended badge tones) alongside status codes to keep frontend styling consistent.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L640-L666】
+  9. **Effeciency analysis and improvement.** Consolidate sequential queries and leverage batched includes or background refresh jobs for high-volume workspaces.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L413-L509】
+  10. **Strengths to Keep.** Comprehensive payload includes workspace meta, ATS lookups, candidate lists, kanban view, and metrics—exactly what recruiter UIs require.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L401-L668】
+  11. **Weaknesses to remove.** Keyword match scoring is proportional only to match count; extend weighting to include recency or applicant seniority for smarter prioritisation.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L159-L199】
+  12. **Styling and Colour review changes.** Document expected badge/label strings in lookups so frontend palettes can be standardised across company tools.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L640-L666】
+  13. **Css, orientation, placement and arrangement changes.** Keep API grouping (summary, jobAdverts, applications, kanban) stable so UI layouts remain predictable across viewports.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L401-L668】
+  14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Ensure note/response truncation preserves key context for downstream copywriters drafting notifications.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L368-L399】
+  15. **Text Spacing.** Keep summary counts and stage names concise to prevent overflow in compact analytics cards.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L613-L666】
+  16. **Shaping.** Maintain nested structures (jobAdverts with applicants, notes, responses) so frontends can render rich cards without additional stitching.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L541-L610】
+  17. **Shadow, hover, glow and effects.** Expose flags for highlight-worthy states (e.g., overdue reminders) so UIs can drive hover emphasis intentionally.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L640-L666】
+  18. **Thumbnails.** Provide avatar URLs when available by serialising applicant profile media to support recruiter visuals.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L621-L639】
+  19. **Images and media & Images and media previews.** Attach interview metadata (location, roster) enabling UI previews of meeting cards without extra fetches.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L529-L590】
+  20. **Button styling.** Return action eligibility flags (e.g., canUpdateStatus, canMessage) so frontends know when to enable CTAs.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L401-L668】
+  21. **Interactiveness.** Rich payload plus mutation helpers empower frontends to deliver instant recruiter feedback; keep optimistic refresh hooks in place.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L401-L860】
+  22. **Missing Components.** Add analytics on automation coverage trends and candidate response SLAs to round out recruiter dashboards.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L613-L666】
+  23. **Design Changes.** Include per-stage throughput and funnel conversion percentages to visualise recruitment velocity.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L613-L666】
+  24. **Design Duplication.** Align status constants and lookups with front-end enums (JobsPage tabs, OpportunityFilterPill) for a unified experience.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L26-L46】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L800-L1034】
+  25. **Design framework.** Service responses honour existing marketplace schema, ensuring interoperability across dashboards and marketplace pages.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L401-L668】
+  26. **Change Checklist Tracker Extensive.**
+      - [ ] Implement pagination/limits on applications, notes, and responses in `getCompanyJobOperations`.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L413-L599】
+      - [ ] Emit status/colour metadata to guide frontend badge theming.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L640-L666】
+      - [ ] Extend keyword scoring to weight recency and applicant seniority.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L159-L199】
+      - [ ] Extract shared sanitisation helpers with other opportunity services.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L216-L399】
+  27. **Full Upgrade Plan & Release Steps  Extensive.**
+      1. Refactor sanitisation and pagination, then roll updated payloads to recruiter cockpit experiments.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L401-L599】
+      2. Add enriched analytics (throughput, automation trends) and expose styling metadata for UI parity.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L613-L666】
+      3. Monitor enterprise adopters, optimise performance with caching/streaming, and graduate to default for company tenants.【F:gigvora-backend-nodejs/src/services/companyJobManagementService.js†L413-L668】
+
+- **4.A.4. `companyJobManagementController.js`**
+  1. **Appraisal.** Controller proxies expose the service with actor-aware workspace resolution and RESTful endpoints for recruiters and ops teams.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L1-L195】
+  2. **Functionality.** Parses numeric identifiers, forwards authenticated actor IDs, and handles operations for jobs, keywords, favourites, applications, interviews, responses, and notes.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L25-L195】
+  3. **Logic Usefulness.** Input coercion and workspace handling at the edge keep service signatures clean while enforcing membership context via `req.user?.id`.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L25-L135】
+  4. **Redundancies.** Manual `parseNumber` duplication echoes other controllers—centralise parsing helpers to simplify maintenance.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L17-L23】
+  5. **Placeholders Or Non-working Functions Or Stubs.** None; every route delegates to production-ready service mutations with appropriate HTTP codes.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L25-L195】
+  6. **Duplicate Functions.** Interview and note handlers mirror create/update flows; abstract repeated request parsing to reduce boilerplate.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L96-L195】
+  7. **Improvements need to make.** Add validation middleware and RBAC hooks to enforce recruiter vs admin permissions before hitting the service layer.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L25-L195】
+  8. **Styling improvements.** Document expected response schemas so frontend TypeScript definitions mirror casing and property names consistently.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L25-L195】
+  9. **Effeciency analysis and improvement.** Consider batching successive mutations (e.g., note + response) to minimise sequential HTTP calls when recruiters log activity.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L95-L195】
+  10. **Strengths to Keep.** Clean separation between parsing and service logic keeps endpoints predictable and easy to extend.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L25-L195】
+  11. **Weaknesses to remove.** Lack of granular error handling means validation errors surface generically; add contextual messages for better UX.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L25-L195】
+  12. **Styling and Colour review changes.** Provide standardised error codes for UI badge alignment when controller rejects a request.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L25-L195】
+  13. **Css, orientation, placement and arrangement changes.** N/A server-side, but ensure route naming matches frontend navigation (board/applications/interviews/manage) for cognitive alignment.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L25-L195】
+  14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Standardise success messages returned for create/update operations so notification copy is uniform.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L36-L195】
+  15. **Text Spacing.** Keep JSON payload keys concise to avoid verbose API docs and maintain readability.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L25-L195】
+  16. **Shaping.** Maintain restful route structure (e.g., `/company/jobs/:jobId/applications/:applicationId`) aligning with marketplace conventions.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L73-L195】
+  17. **Shadow, hover, glow and effects.** Expose metadata enabling frontends to highlight destructive actions (e.g., stage change) appropriately.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L73-L195】
+  18. **Thumbnails.** Pass through candidate/profile IDs so UIs can hydrate avatars without additional lookups.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L95-L195】
+  19. **Images and media & Images and media previews.** Ensure interview scheduling endpoints support attachments or links for briefing decks in future revisions.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L124-L149】
+  20. **Button styling.** Return capability flags (e.g., canEdit, canMessage) in responses to help UIs render enabled/disabled CTA states.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L25-L195】
+  21. **Interactiveness.** Lightweight JSON responses keep recruiter flows snappy when chaining updates or toggling workspace operations.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L25-L195】
+  22. **Missing Components.** Add deletion endpoints (e.g., remove notes/interviews) and timeline export routes to complete recruiter lifecycle support.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L95-L195】
+  23. **Design Changes.** Align status codes and payload shapes with shared API guidelines to simplify SDK generation.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L25-L195】
+  24. **Design Duplication.** Keep route naming consistent with company gig/project controllers for cross-team familiarity.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L25-L195】
+  25. **Design framework.** Controller adheres to Express handler conventions, supporting existing middleware chains (auth, logging, error handling).【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L25-L195】
+  26. **Change Checklist Tracker Extensive.**
+      - [ ] Introduce validation middleware (celebrate/zod) for request bodies and params.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L25-L195】
+      - [ ] Emit capability flags in responses to guide frontend CTA states.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L25-L195】
+      - [ ] Add delete endpoints for notes/interviews/favourites to round out CRUD coverage.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L73-L195】
+      - [ ] Standardise error handling with structured codes/messages for UX clarity.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L25-L195】
+  27. **Full Upgrade Plan & Release Steps  Extensive.**
+      1. Layer validation/error middleware and capability flags, then update frontend SDKs accordingly.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L25-L195】
+      2. Deliver delete/export endpoints and document payload schemas for partner integrations.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L73-L195】
+      3. Monitor recruiter adoption, refine rate limiting/batching, and graduate API set to enterprise SLA commitments.【F:gigvora-backend-nodejs/src/controllers/companyJobManagementController.js†L25-L195】
+
+- **4.A.5. `database/seeders/20240501010000-demo-data.cjs`**
+  1. **Appraisal.** Seeder provisions core demo users, company workspace, ATS configuration, job adverts, applications, notes, responses, interviews, and supporting marketplace content.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L300-L860】
+  2. **Functionality.** Ensures users/profiles, provider workspace, members, job adverts, keywords, history, stages, applications, notes, responses, and interviews exist with teardown coverage in `down`.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L332-L860】【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L997-L1104】
+  3. **Logic Usefulness.** Replicates realistic ATS data—including automation settings, stage templates, and candidate journeys—so the recruiter cockpit renders production-grade scenarios.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L332-L720】
+  4. **Redundancies.** Raw SQL checks for existing records repeat across entities; factor helper utilities to reduce boilerplate when extending seed data.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L319-L520】
+  5. **Placeholders Or Non-working Functions Or Stubs.** None; seeded values include authentic emails, compensation bands, automation metadata, and attachments for true-to-life demos.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L332-L720】
+  6. **Duplicate Functions.** Repeated `SELECT` checks and insert patterns could be wrapped in reusable helpers to simplify additional datasets.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L319-L520】
+  7. **Improvements need to make.** Parameterise seeds for multiple workspaces and expand candidate cohorts to stress-test analytics at scale.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L332-L720】
+  8. **Styling improvements.** Document seeded colour/branding expectations so frontend demos can mirror employer identity (e.g., workspace name/logo).【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L350-L368】
+  9. **Effeciency analysis and improvement.** Batch inserts where possible and reuse cached IDs to minimise repeated round-trips during seeding.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L332-L720】
+  10. **Strengths to Keep.** Comprehensive ATS bridge—including stages, automation guardrails, outreach, and interview schedules—enables end-to-end recruiter demos immediately after seeding.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L420-L860】
+  11. **Weaknesses to remove.** Stage templates and automation metadata are static; consider varying scenarios to highlight different hiring patterns.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L431-L520】
+  12. **Styling and Colour review changes.** Clarify seeded currency/timezone choices so UI themes (e.g., salary chips) can adapt accordingly.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L350-L520】
+  13. **Css, orientation, placement and arrangement changes.** While backend-focused, ensure seeded data supports board layouts (e.g., tags, statuses) showcased in JobsPage.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L332-L720】
+  14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Keep seeded summaries concise yet descriptive so demo copy mirrors production tone.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L440-L720】
+  15. **Text Spacing.** Ensure seeded descriptions and notes respect UI character limits to avoid overflow in demo environments.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L440-L720】
+  16. **Shaping.** Maintain realistic payload shapes (attachments, metadata arrays) so frontends can exercise full feature sets during demos.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L640-L720】
+  17. **Shadow, hover, glow and effects.** Provide metadata enabling UI emphasis (e.g., `stageTemplates` with SLA) when surfacing seeded data in recruiter cockpits.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L431-L520】
+  18. **Thumbnails.** Extend seeds with company logos or candidate avatars once media storage is available to humanise demo pipelines.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L332-L720】
+  19. **Images and media & Images and media previews.** Seed interview metadata (location, roster, calendar IDs) already supports UI previews—expand with deck links or recordings later.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L680-L720】
+  20. **Button styling.** Provide seeded permissions/role data so UIs know which actions to enable for demo users.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L332-L720】
+  21. **Interactiveness.** Demo data covers apply, interview, note, and response flows, allowing teams to exercise interactive recruiter journeys end-to-end.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L420-L720】
+  22. **Missing Components.** Add additional workspaces and cross-functional roles (e.g., finance approvers) to test expanded permission sets.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L332-L720】
+  23. **Design Changes.** Parameterise compensation bands and automation guardrails to demonstrate region-specific hiring strategies.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L431-L520】
+  24. **Design Duplication.** Keep taxonomy and status naming aligned with marketplace datasets so demos remain coherent.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L332-L720】【F:gigvora-frontend-reactjs/src/pages/JobsPage.jsx†L952-L996】
+  25. **Design framework.** Seeder adheres to transaction-safe inserts with corresponding teardown, matching existing demo provisioning standards.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L300-L1104】
+  26. **Change Checklist Tracker Extensive.**
+      - [ ] Support multi-workspace seeding to showcase enterprise switching scenarios.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L332-L720】
+      - [ ] Introduce varied candidate personas and stages to test analytics edge cases.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L431-L720】
+      - [ ] Seed media assets (logos, avatars) for richer demo storytelling.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L332-L720】
+      - [ ] Automate idempotent upserts to simplify repeated demo refreshes.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L319-L520】
+  27. **Full Upgrade Plan & Release Steps  Extensive.**
+      1. Generalise seeding helpers, add multi-workspace coverage, and document invocation scripts for teammates.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L319-L520】
+      2. Expand datasets with diverse candidates, automation states, and media assets, validating recruiter cockpit rendering end-to-end.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L431-L720】
+      3. Package demo teardown/upsert tooling for CI so preview environments stay aligned with production-like data.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L997-L1104】
+
+### 4.B. Gigs Marketplace### 4.B. Gigs Marketplace
 
 **Components**
 
