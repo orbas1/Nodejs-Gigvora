@@ -10,6 +10,213 @@ import { ValidationError, NotFoundError } from '../utils/errors.js';
 
 const SITE_SETTINGS_KEY = 'site:global';
 
+const DEFAULT_HERO_KEYWORDS = [
+  'Launchpad demo streaming · Creation Studio',
+  'Mentorship session going live · Design ops',
+  'Product squad aligning roadmap · Remote',
+  'Trust operations clearing escrow · Finance',
+  'Agency pods sharing wins · Atlas Collective',
+  'Volunteer mission kicking off · Impact hub',
+];
+
+const DEFAULT_HERO_MEDIA = {
+  imageUrl: 'https://cdn.gigvora.com/marketing/home/hero-still.jpg',
+  posterUrl: 'https://cdn.gigvora.com/marketing/home/hero-poster.jpg',
+  alt: 'Gigvora workspace with cross-functional collaborators reviewing milestones.',
+  caption: 'Operations, finance, and delivery stay in lockstep with Gigvora.',
+  autoPlay: true,
+  muted: true,
+  loop: true,
+  videoSources: [
+    {
+      src: 'https://cdn.gigvora.com/marketing/home/hero-preview.mp4',
+      type: 'video/mp4',
+    },
+    {
+      src: 'https://cdn.gigvora.com/marketing/home/hero-preview.webm',
+      type: 'video/webm',
+    },
+  ],
+};
+
+const DEFAULT_COMMUNITY_STATS = [
+  { label: 'Global specialists', value: '12,400+' },
+  { label: 'Average NPS', value: '68' },
+  { label: 'Completion rate', value: '97%' },
+];
+
+const DEFAULT_PERSONA_JOURNEYS = [
+  {
+    key: 'freelancer',
+    title: 'Freelancers',
+    description: 'Package your skills, auto-match to gigs, and get paid without the chase.',
+    icon: 'SparklesIcon',
+    route: '/dashboard/freelancer',
+    ctaLabel: 'Enter freelancer HQ',
+    tone: 'daylight',
+    steps: [
+      { label: 'Glow up your portfolio', icon: 'SparklesIcon' },
+      { label: 'Auto-match to gigs', icon: 'CursorArrowRaysIcon' },
+      { label: 'Celebrate payouts fast', icon: 'BanknotesIcon' },
+    ],
+    metrics: [
+      { label: 'Active missions', value: '1.8k' },
+      { label: 'Avg. payout speed', value: '48 hrs' },
+    ],
+  },
+  {
+    key: 'agency',
+    title: 'Agencies',
+    description: 'Run squads like clockwork with pods, CRM views, and predictable cash flow.',
+    icon: 'GlobeAltIcon',
+    route: '/dashboard/agency',
+    ctaLabel: 'Scale your agency ops',
+    tone: 'midnight',
+    steps: [
+      { label: 'Publish your service pods', icon: 'Squares2X2Icon' },
+      { label: 'Spin up collab rooms', icon: 'UserGroupIcon' },
+      { label: 'Track revenue pulses', icon: 'ChartBarIcon' },
+    ],
+    metrics: [
+      { label: 'Pods launched', value: '320' },
+      { label: 'Avg. cycle time', value: '6.5 days' },
+    ],
+  },
+  {
+    key: 'company',
+    title: 'Companies',
+    description: 'Brief the network, assemble dream teams, and follow delivery from hello to handoff.',
+    icon: 'BuildingOffice2Icon',
+    route: '/dashboard/company',
+    ctaLabel: 'Build your dream team',
+    tone: 'daylight',
+    steps: [
+      { label: 'Publish a playful brief', icon: 'MegaphoneIcon' },
+      { label: 'Auto-match experts', icon: 'BoltIcon' },
+      { label: 'Track delivery signals', icon: 'ClipboardDocumentCheckIcon' },
+    ],
+    metrics: [
+      { label: 'Teams assembled', value: '540' },
+      { label: 'Launch success rate', value: '96%' },
+    ],
+  },
+  {
+    key: 'mentor',
+    title: 'Mentors',
+    description: 'Host office hours, drop feedback, and keep mentees levelling up.',
+    icon: 'AcademicCapIcon',
+    route: '/dashboard/mentor',
+    ctaLabel: 'Host mentor magic',
+    tone: 'daylight',
+    steps: [
+      { label: 'Set your office hours', icon: 'CalendarDaysIcon' },
+      { label: 'Match with seekers', icon: 'LightBulbIcon' },
+      { label: 'Share feedback loops', icon: 'ChatBubbleBottomCenterTextIcon' },
+    ],
+    metrics: [
+      { label: 'Sessions hosted', value: '4.3k' },
+      { label: 'Avg. rating', value: '4.8/5' },
+    ],
+  },
+  {
+    key: 'launchpad',
+    title: 'Launchpad leads',
+    description: 'Kickstart cohorts, rally builders, and keep every sprint energised.',
+    icon: 'RocketLaunchIcon',
+    route: '/dashboard/launchpad',
+    ctaLabel: 'Launch a cohort',
+    tone: 'daylight',
+    steps: [
+      { label: 'Craft your cohort space', icon: 'SparklesIcon' },
+      { label: 'Invite your crew', icon: 'UserGroupIcon' },
+      { label: 'Track momentum arcs', icon: 'ChartBarSquareIcon' },
+    ],
+    metrics: [
+      { label: 'Cohorts active', value: '112' },
+      { label: 'Avg. completion', value: '89%' },
+    ],
+  },
+  {
+    key: 'volunteer',
+    title: 'Volunteers',
+    description: 'Find causes, join missions, and leave every community brighter.',
+    icon: 'HeartIcon',
+    route: '/search?category=volunteering',
+    ctaLabel: 'Find a mission',
+    tone: 'daylight',
+    steps: [
+      { label: 'Spot causes you love', icon: 'HeartIcon' },
+      { label: 'Join micro-sprints', icon: 'HandRaisedIcon' },
+      { label: 'Share ripple stories', icon: 'SparklesIcon' },
+    ],
+    metrics: [
+      { label: 'Missions joined', value: '780' },
+      { label: 'Impact hours', value: '26k' },
+    ],
+  },
+];
+
+const DEFAULT_PERSONA_METRICS = [
+  { persona: 'freelancer', label: 'Avg. satisfaction', value: '4.8/5' },
+  { persona: 'freelancer', label: 'Opportunities matched', value: '22 per member' },
+  { persona: 'agency', label: 'Pods launched last quarter', value: '320' },
+  { persona: 'company', label: 'Time-to-invite', value: '48 hrs' },
+  { persona: 'mentor', label: 'Office hours booked', value: '3.4k' },
+  { persona: 'launchpad', label: 'Launch velocity lift', value: '+34%' },
+  { persona: 'volunteer', label: 'Impact rating', value: '4.9/5' },
+];
+
+const DEFAULT_OPERATIONS_SUMMARY = {
+  escrowHealth: {
+    label: 'Escrow health',
+    value: '99.2% uptime',
+    change: '+1.4%',
+    trend: [74, 82, 88, 91, 95, 98, 99],
+  },
+  disputeVelocity: {
+    label: 'Dispute velocity',
+    value: '3.2 hrs median',
+    change: '-22%',
+    trend: [18, 16, 14, 12, 9, 7, 6],
+  },
+  evidencePipelines: {
+    label: 'Evidence pipelines',
+    value: '87% automated',
+    change: '+9%',
+    trend: [45, 48, 56, 62, 70, 78, 84],
+  },
+};
+
+const DEFAULT_RECENT_POSTS = [
+  {
+    id: 'ops-heartbeat',
+    title: 'Ops heartbeat: escrow clear and launches tracking green',
+    summary: 'Finance, trust, and delivery signals are trending up after this week’s velocity push.',
+    type: 'update',
+    authorName: 'Ops desk',
+    authorHeadline: 'Operations control tower',
+    createdAt: '2024-10-01T09:00:00.000Z',
+  },
+  {
+    id: 'mentor-lounge',
+    title: 'Mentor lounge: design ops AMA starting',
+    summary: 'Join the live design ops session—slots are filling fast with agency partners and mentees.',
+    type: 'launchpad',
+    authorName: 'Mentor guild',
+    authorHeadline: 'Community mentoring hub',
+    createdAt: '2024-10-02T11:00:00.000Z',
+  },
+  {
+    id: 'launchpad-demo',
+    title: 'Launchpad demo: product squad forming for robotics rollout',
+    summary: 'Case study cohort invites specialists in robotics, compliance, and data storytelling.',
+    type: 'project',
+    authorName: 'Launchpad studio',
+    authorHeadline: 'Creation studio spotlight',
+    createdAt: '2024-10-03T14:00:00.000Z',
+  },
+];
+
 function coerceString(value, fallback = '') {
   if (value == null) {
     return fallback;
@@ -45,6 +252,252 @@ function coerceInteger(value, fallback = 0) {
   }
   const numeric = Number.parseInt(value, 10);
   return Number.isNaN(numeric) ? fallback : numeric;
+}
+
+function coerceOptionalString(value, fallback = '') {
+  if (value == null) {
+    return fallback;
+  }
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return `${value}`;
+  }
+  return fallback;
+}
+
+function normalizeSlug(value) {
+  return coerceOptionalString(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 80);
+}
+
+function sanitizeStringArray(list, fallback = []) {
+  if (!Array.isArray(list)) {
+    return [...fallback];
+  }
+  const cleaned = list
+    .map((item) => coerceOptionalString(item))
+    .filter((item) => item.length > 0)
+    .slice(0, 12);
+  return cleaned.length ? cleaned : [...fallback];
+}
+
+function sanitizeHeroMedia(media = {}, fallback = {}) {
+  const source = media && typeof media === 'object' ? media : {};
+  const base = fallback && typeof fallback === 'object' ? fallback : {};
+  const merged = {
+    imageUrl: coerceOptionalString(source.imageUrl, base.imageUrl ?? ''),
+    posterUrl: coerceOptionalString(source.posterUrl, base.posterUrl ?? ''),
+    alt: coerceOptionalString(source.alt, base.alt ?? ''),
+    caption: coerceOptionalString(source.caption, base.caption ?? ''),
+    autoPlay: coerceBoolean(source.autoPlay, base.autoPlay ?? true),
+    muted: coerceBoolean(source.muted, base.muted ?? true),
+    loop: coerceBoolean(source.loop, base.loop ?? true),
+    controls: coerceBoolean(source.controls, base.controls ?? false),
+  };
+
+  const primaryVideoUrl = coerceOptionalString(source.videoUrl, base.videoUrl ?? '');
+  const primaryVideoType = coerceOptionalString(source.videoType, base.videoType ?? 'video/mp4');
+  if (primaryVideoUrl) {
+    merged.videoUrl = primaryVideoUrl;
+    merged.videoType = primaryVideoType || 'video/mp4';
+  }
+
+  const sources = Array.isArray(source.videoSources) ? source.videoSources : Array.isArray(base.videoSources) ? base.videoSources : [];
+  merged.videoSources = sources
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') {
+        return null;
+      }
+      const src = coerceOptionalString(entry.src ?? entry.url);
+      if (!src) {
+        return null;
+      }
+      const type = coerceOptionalString(entry.type, 'video/mp4');
+      return { src, type };
+    })
+    .filter(Boolean)
+    .slice(0, 4);
+
+  return merged;
+}
+
+function sanitizeCommunityStats(stats, fallback = []) {
+  const baseline = Array.isArray(fallback) ? fallback : [];
+  const incoming = Array.isArray(stats) ? stats : [];
+  const cleaned = incoming
+    .map((entry) => ({
+      label: coerceOptionalString(entry?.label ?? entry?.name, ''),
+      value: coerceOptionalString(entry?.value ?? entry?.metric, ''),
+    }))
+    .filter((entry) => entry.label && entry.value)
+    .slice(0, 6);
+  return cleaned.length ? cleaned : baseline;
+}
+
+function sanitizePersonaSteps(steps, fallback = []) {
+  const base = Array.isArray(fallback) ? fallback : [];
+  const source = Array.isArray(steps) ? steps : [];
+  if (!source.length) {
+    return base.map((step) => ({ label: step.label, icon: coerceOptionalString(step.icon) }));
+  }
+  return source
+    .map((step, index) => {
+      const fallbackStep = base[index] ?? base[0] ?? {};
+      const label = coerceOptionalString(step?.label ?? step?.title ?? step?.name, fallbackStep.label ?? '');
+      if (!label) {
+        return null;
+      }
+      const icon = coerceOptionalString(step?.icon ?? fallbackStep.icon ?? 'SparklesIcon');
+      return { label, icon };
+    })
+    .filter(Boolean)
+    .slice(0, 6);
+}
+
+function sanitizePersonaMetrics(metrics, fallback = []) {
+  if (!metrics) {
+    return Array.isArray(fallback) ? fallback : [];
+  }
+
+  const toArray = Array.isArray(metrics)
+    ? metrics
+    : Object.entries(metrics).flatMap(([key, value]) => {
+        const list = Array.isArray(value) ? value : [value];
+        return list.map((entry) => ({ ...entry, persona: entry?.persona ?? key }));
+      });
+
+  const cleaned = toArray
+    .map((entry) => {
+      const persona = normalizeSlug(entry?.persona ?? entry?.key ?? entry?.id);
+      const label = coerceOptionalString(entry?.label ?? entry?.title ?? entry?.name, '');
+      const value = coerceOptionalString(entry?.value ?? entry?.metric ?? entry?.copy, '');
+      const change = coerceOptionalString(entry?.change ?? entry?.delta, '');
+      if (!persona || !label || !value) {
+        return null;
+      }
+      const metric = { persona, label, value };
+      if (change) {
+        metric.change = change;
+      }
+      return metric;
+    })
+    .filter(Boolean)
+    .slice(0, 20);
+
+  return cleaned.length ? cleaned : Array.isArray(fallback) ? fallback : [];
+}
+
+function sanitizePersonaJourneys(journeys, fallback = []) {
+  const base = Array.isArray(fallback) ? fallback : [];
+  const source = Array.isArray(journeys) ? journeys : base;
+
+  const byKey = new Map();
+  base.forEach((entry) => {
+    const key = normalizeSlug(entry.key);
+    if (key) {
+      byKey.set(key, { ...entry });
+    }
+  });
+
+  source.forEach((entry, index) => {
+    const candidateKey = normalizeSlug(entry?.key ?? entry?.id ?? entry?.slug ?? entry?.persona ?? entry?.name);
+    if (!candidateKey) {
+      return;
+    }
+    const fallbackEntry = byKey.get(candidateKey) ?? base[index] ?? {};
+    const resolved = {
+      key: candidateKey,
+      title: coerceOptionalString(entry?.title ?? entry?.name, fallbackEntry?.title ?? ''),
+      description: coerceOptionalString(entry?.description ?? entry?.copy, fallbackEntry?.description ?? ''),
+      icon: coerceOptionalString(entry?.icon ?? fallbackEntry?.icon ?? 'SparklesIcon'),
+      route: coerceOptionalString(entry?.route ?? entry?.href ?? entry?.url, fallbackEntry?.route ?? `/dashboard/${candidateKey}`),
+      ctaLabel: coerceOptionalString(entry?.ctaLabel ?? entry?.cta ?? entry?.ctaText, fallbackEntry?.ctaLabel ?? ''),
+      tone: coerceOptionalString(entry?.tone ?? entry?.theme, fallbackEntry?.tone ?? 'daylight'),
+      steps: sanitizePersonaSteps(entry?.steps, fallbackEntry?.steps ?? []),
+      metrics: sanitizePersonaMetrics(entry?.metrics, fallbackEntry?.metrics ?? []),
+      source: coerceOptionalString(entry?.source, fallbackEntry?.source ?? 'settings'),
+    };
+    byKey.set(candidateKey, resolved);
+  });
+
+  return Array.from(byKey.values()).slice(0, base.length || 6);
+}
+
+function sanitizeOperationsSummary(summary, fallback = {}) {
+  const base = fallback && typeof fallback === 'object' ? fallback : {};
+  const source = summary && typeof summary === 'object' ? summary : {};
+
+  const sanitizeMetric = (metric, key) => {
+    const defaultMetric = base[key] ?? {};
+    const label = coerceOptionalString(metric?.label ?? defaultMetric.label, defaultMetric.label ?? '');
+    const value = coerceOptionalString(metric?.value ?? metric?.metric, defaultMetric.value ?? '');
+    const change = coerceOptionalString(metric?.change ?? metric?.delta, defaultMetric.change ?? '');
+    const trendSource = Array.isArray(metric?.trend) ? metric.trend : defaultMetric.trend;
+    const trend = Array.isArray(trendSource)
+      ? trendSource
+          .map((item) => {
+            const numeric = Number(item);
+            return Number.isFinite(numeric) ? numeric : null;
+          })
+          .filter((value) => value !== null)
+          .slice(0, 14)
+      : undefined;
+    return {
+      label,
+      value,
+      change,
+      trend: trend && trend.length ? trend : defaultMetric.trend ?? [],
+    };
+  };
+
+  return {
+    escrowHealth: sanitizeMetric(source.escrowHealth, 'escrowHealth'),
+    disputeVelocity: sanitizeMetric(source.disputeVelocity, 'disputeVelocity'),
+    evidencePipelines: sanitizeMetric(source.evidencePipelines, 'evidencePipelines'),
+  };
+}
+
+function sanitizeRecentPosts(posts, fallback = []) {
+  const base = Array.isArray(fallback) ? fallback : [];
+  const incoming = Array.isArray(posts) ? posts : [];
+  const cleaned = incoming
+    .map((post, index) => {
+      const fallbackPost = base[index] ?? {};
+      const id = coerceOptionalString(post?.id ?? fallbackPost.id ?? `post-${index + 1}`);
+      const title = coerceOptionalString(post?.title ?? post?.headline, fallbackPost.title ?? '');
+      const summary = coerceOptionalString(post?.summary ?? post?.content ?? post?.body, fallbackPost.summary ?? '');
+      const type = normalizeSlug(post?.type ?? post?.category ?? fallbackPost.type ?? 'update') || 'update';
+      const authorName = coerceOptionalString(post?.authorName ?? post?.author?.name, fallbackPost.authorName ?? '');
+      const authorHeadline = coerceOptionalString(
+        post?.authorHeadline ?? post?.author?.headline ?? post?.author?.title,
+        fallbackPost.authorHeadline ?? '',
+      );
+      const createdAt = coerceOptionalString(post?.createdAt ?? post?.publishedAt ?? fallbackPost.createdAt ?? '');
+      if (!title || !summary) {
+        return null;
+      }
+      return {
+        id,
+        title,
+        summary,
+        type,
+        authorName: authorName || 'Gigvora community',
+        authorHeadline: authorHeadline || 'Marketplace community update',
+        avatarUrl: coerceOptionalString(post?.avatarUrl ?? post?.author?.avatarUrl ?? fallbackPost.avatarUrl),
+        avatarSeed: coerceOptionalString(post?.avatarSeed ?? post?.author?.id ?? fallbackPost.avatarSeed ?? id),
+        createdAt: createdAt || fallbackPost.createdAt || null,
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 6);
+  return cleaned.length ? cleaned : base;
 }
 
 function normalizeRoles(value) {
@@ -135,6 +588,21 @@ function buildDefaultSiteSettings() {
       links: [],
       copyright: coerceString(process.env.SITE_FOOTER_COPYRIGHT, '© {year} Gigvora. All rights reserved.'),
     },
+    heroHeadline: coerceString(
+      process.env.SITE_HERO_HEADLINE,
+      'Freelancers, agencies, and companies build unstoppable momentum together.',
+    ),
+    heroSubheading: coerceString(
+      process.env.SITE_HERO_SUBHEADING,
+      'Gigvora orchestrates hiring, payments, and trust so every initiative ships without friction.',
+    ),
+    heroKeywords: [...DEFAULT_HERO_KEYWORDS],
+    heroMedia: { ...DEFAULT_HERO_MEDIA },
+    communityStats: [...DEFAULT_COMMUNITY_STATS],
+    personaJourneys: [...DEFAULT_PERSONA_JOURNEYS],
+    personaMetrics: [...DEFAULT_PERSONA_METRICS],
+    operationsSummary: { ...DEFAULT_OPERATIONS_SUMMARY },
+    recentPosts: [...DEFAULT_RECENT_POSTS],
   };
 }
 
@@ -171,6 +639,15 @@ function sanitizeSettingsCandidate(candidate = {}) {
   settings.announcement = { ...baseline.announcement, ...(candidate.announcement ?? {}) };
   settings.footer = { ...baseline.footer, ...(candidate.footer ?? {}) };
   settings.footer.links = sanitizeFooterLinks(settings.footer.links);
+  settings.heroHeadline = coerceString(candidate.heroHeadline, baseline.heroHeadline);
+  settings.heroSubheading = coerceString(candidate.heroSubheading, baseline.heroSubheading);
+  settings.heroKeywords = sanitizeStringArray(candidate.heroKeywords ?? candidate.hero?.keywords, baseline.heroKeywords);
+  settings.heroMedia = sanitizeHeroMedia(candidate.heroMedia ?? candidate.hero?.media, baseline.heroMedia);
+  settings.communityStats = sanitizeCommunityStats(candidate.communityStats, baseline.communityStats);
+  settings.personaJourneys = sanitizePersonaJourneys(candidate.personaJourneys, baseline.personaJourneys);
+  settings.personaMetrics = sanitizePersonaMetrics(candidate.personaMetrics, baseline.personaMetrics);
+  settings.operationsSummary = sanitizeOperationsSummary(candidate.operationsSummary, baseline.operationsSummary);
+  settings.recentPosts = sanitizeRecentPosts(candidate.recentPosts, baseline.recentPosts);
   return settings;
 }
 
@@ -298,7 +775,7 @@ export async function getSiteManagementOverview() {
 
 export async function getSiteSettings() {
   const model = await ensureSiteSetting();
-  return model.value ?? buildDefaultSiteSettings();
+  return sanitizeSettingsCandidate(model.value ?? {});
 }
 
 export async function getSiteNavigation({ menuKey } = {}) {
