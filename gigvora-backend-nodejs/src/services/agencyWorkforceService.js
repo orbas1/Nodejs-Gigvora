@@ -7,37 +7,16 @@ import {
   AgencyWorkforceMember,
 } from '../models/agencyWorkforceModels.js';
 import { NotFoundError } from '../utils/errors.js';
-
-function toPlain(record) {
-  if (!record) return null;
-  if (typeof record.get === 'function') {
-    return record.get({ plain: true });
-  }
-  return record;
-}
-
-function normaliseNumber(value, fallback = null) {
-  if (value == null) return fallback;
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : fallback;
-}
-
-function normaliseDate(value) {
-  if (!value) return null;
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-  return date;
-}
+import {
+  createScopedFinder,
+  normaliseDate,
+  normaliseNumber,
+  pickAllowedFields,
+  toPlain,
+} from '../utils/recordNormalisers.js';
 
 function pickAllowed(source, fields) {
-  return fields.reduce((acc, field) => {
-    if (Object.prototype.hasOwnProperty.call(source, field)) {
-      acc[field] = source[field];
-    }
-    return acc;
-  }, {});
+  return pickAllowedFields(source, fields);
 }
 
 const MEMBER_FIELDS = [
@@ -190,81 +169,188 @@ function serialiseAvailabilityEntry(record) {
   };
 }
 
-async function findMemberOrFail(memberId, { workspaceId } = {}) {
-  const where = { id: memberId };
-  if (workspaceId != null) {
-    where.workspaceId = workspaceId;
+const findMemberOrFail = createScopedFinder(AgencyWorkforceMember, {
+  errorFactory: () => new NotFoundError('Workforce member not found.'),
+});
+
+const findPayDelegationOrFail = createScopedFinder(AgencyPayDelegation, {
+  errorFactory: () => new NotFoundError('Pay delegation not found.'),
+});
+
+const findProjectDelegationOrFail = createScopedFinder(AgencyProjectDelegation, {
+  errorFactory: () => new NotFoundError('Project delegation not found.'),
+});
+
+const findGigDelegationOrFail = createScopedFinder(AgencyGigDelegation, {
+  errorFactory: () => new NotFoundError('Gig delegation not found.'),
+});
+
+const findAvailabilityOrFail = createScopedFinder(AgencyAvailabilityEntry, {
+  errorFactory: () => new NotFoundError('Availability record not found.'),
+});
+
+const findCapacitySnapshotOrFail = createScopedFinder(AgencyCapacitySnapshot, {
+  errorFactory: () => new NotFoundError('Capacity snapshot not found.'),
+});
+
+function normaliseCurrency(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed.toUpperCase() : null;
+}
+
+function resolveDelegationCurrency(delegation, fallbackCurrency = 'USD') {
+  if (!delegation) return fallbackCurrency;
+  const metadata = delegation.metadata ?? {};
+  return (
+    normaliseCurrency(delegation.currency) ||
+    normaliseCurrency(delegation.currencyCode) ||
+    normaliseCurrency(metadata.currency) ||
+    normaliseCurrency(metadata.currencyCode) ||
+    normaliseCurrency(metadata.billableCurrency) ||
+    fallbackCurrency
+  );
+}
+
+function detectBaseCurrency({ projectDelegations = [], payDelegations = [], fallback = 'USD' } = {}) {
+  const payCurrency = payDelegations
+    .map((delegation) => normaliseCurrency(delegation.currency))
+    .find((currency) => currency);
+  if (payCurrency) return payCurrency;
+
+  const projectCurrency = projectDelegations
+    .map((delegation) => resolveDelegationCurrency(delegation))
+    .find((currency) => currency);
+  return projectCurrency ?? fallback;
+}
+
+function buildCurrencyRates(currencyRates, baseCurrency) {
+  const rates = Object.entries(currencyRates ?? {}).reduce((acc, [currency, rate]) => {
+    const code = normaliseCurrency(currency);
+    const numeric = normaliseNumber(rate);
+    if (code && Number.isFinite(numeric)) {
+      acc[code] = numeric;
+    }
+    return acc;
+  }, {});
+  if (!rates[baseCurrency]) {
+    rates[baseCurrency] = 1;
   }
-  const member = await AgencyWorkforceMember.findOne({
-    where,
+  return rates;
+}
+
+function convertToBaseCurrency(amount, currency, baseCurrency, currencyRates) {
+  const numericAmount = normaliseNumber(amount);
+  if (!Number.isFinite(numericAmount)) {
+    return null;
+  }
+  const resolvedCurrency = normaliseCurrency(currency) ?? baseCurrency;
+  if (resolvedCurrency === baseCurrency) {
+    return numericAmount;
+  }
+  const factor = currencyRates[resolvedCurrency];
+  if (factor == null) {
+    return null;
+  }
+  return numericAmount * factor;
+}
+
+function computeBillableRateAverages(projectDelegations, { baseCurrency, currencyRates }) {
+  const perCurrency = new Map();
+  const unsupportedCurrencies = new Set();
+  let baseSum = 0;
+  let baseCount = 0;
+
+  projectDelegations.forEach((delegation) => {
+    const rate = normaliseNumber(delegation.billableRate);
+    if (!Number.isFinite(rate)) {
+      return;
+    }
+    const currency = resolveDelegationCurrency(delegation, baseCurrency);
+    const entry = perCurrency.get(currency) ?? { sum: 0, count: 0 };
+    entry.sum += rate;
+    entry.count += 1;
+    perCurrency.set(currency, entry);
+
+    const converted = convertToBaseCurrency(rate, currency, baseCurrency, currencyRates);
+    if (converted == null) {
+      if (currency !== baseCurrency) {
+        unsupportedCurrencies.add(currency);
+      }
+      return;
+    }
+    baseSum += converted;
+    baseCount += 1;
   });
-  if (!member) {
-    throw new NotFoundError('Workforce member not found.');
-  }
-  return member;
+
+  const perCurrencyAverages = {};
+  perCurrency.forEach((entry, currency) => {
+    perCurrencyAverages[currency] = Number((entry.sum / entry.count).toFixed(2));
+  });
+
+  const average = baseCount > 0 ? Number((baseSum / baseCount).toFixed(2)) : null;
+
+  return {
+    baseCurrency,
+    average,
+    perCurrency: perCurrencyAverages,
+    unsupportedCurrencies: Array.from(unsupportedCurrencies),
+    samples: baseCount,
+  };
 }
 
-async function findPayDelegationOrFail(id, { workspaceId } = {}) {
-  const where = { id };
-  if (workspaceId != null) {
-    where.workspaceId = workspaceId;
+function computeUtilizationForecast(capacitySnapshots, { lookbackPeriods = 6, forecastHorizon = 1 } = {}) {
+  const samples = (capacitySnapshots ?? [])
+    .map((snapshot) => ({
+      recordedFor: snapshot.recordedFor,
+      utilizationPercent: normaliseNumber(snapshot.utilizationPercent),
+    }))
+    .filter((entry) => Number.isFinite(entry.utilizationPercent))
+    .sort((a, b) => new Date(a.recordedFor) - new Date(b.recordedFor))
+    .slice(-lookbackPeriods);
+
+  if (samples.length === 0) {
+    return { forecastedUtilizationPercent: null, slopePerPeriod: 0, trend: 'flat', samples: 0 };
   }
-  const record = await AgencyPayDelegation.findOne({ where });
-  if (!record) {
-    throw new NotFoundError('Pay delegation not found.');
+
+  if (samples.length === 1) {
+    const value = Number(samples[0].utilizationPercent.toFixed(2));
+    return { forecastedUtilizationPercent: value, slopePerPeriod: 0, trend: 'flat', samples: 1 };
   }
-  return record;
+
+  const xValues = samples.map((_, index) => index + 1);
+  const yValues = samples.map((sample) => sample.utilizationPercent);
+
+  const sumX = xValues.reduce((sum, value) => sum + value, 0);
+  const sumY = yValues.reduce((sum, value) => sum + value, 0);
+  const sumXY = xValues.reduce((sum, value, index) => sum + value * yValues[index], 0);
+  const sumXX = xValues.reduce((sum, value) => sum + value * value, 0);
+  const n = samples.length;
+
+  const denominator = n * sumXX - sumX * sumX;
+  const slope = denominator === 0 ? 0 : (n * sumXY - sumX * sumY) / denominator;
+  const intercept = n === 0 ? 0 : (sumY - slope * sumX) / n;
+  const nextX = xValues[xValues.length - 1] + forecastHorizon;
+  let forecast = intercept + slope * nextX;
+  if (!Number.isFinite(forecast)) {
+    forecast = samples[samples.length - 1].utilizationPercent;
+  }
+  const boundedForecast = Math.min(100, Math.max(0, forecast));
+  const slopePerPeriod = Number(slope.toFixed(4));
+  const trend = slopePerPeriod > 0.5 ? 'upward' : slopePerPeriod < -0.5 ? 'downward' : 'flat';
+
+  return {
+    forecastedUtilizationPercent: Number(boundedForecast.toFixed(2)),
+    slopePerPeriod,
+    trend,
+    samples: n,
+  };
 }
 
-async function findProjectDelegationOrFail(id, { workspaceId } = {}) {
-  const where = { id };
-  if (workspaceId != null) {
-    where.workspaceId = workspaceId;
-  }
-  const record = await AgencyProjectDelegation.findOne({ where });
-  if (!record) {
-    throw new NotFoundError('Project delegation not found.');
-  }
-  return record;
-}
-
-async function findGigDelegationOrFail(id, { workspaceId } = {}) {
-  const where = { id };
-  if (workspaceId != null) {
-    where.workspaceId = workspaceId;
-  }
-  const record = await AgencyGigDelegation.findOne({ where });
-  if (!record) {
-    throw new NotFoundError('Gig delegation not found.');
-  }
-  return record;
-}
-
-async function findAvailabilityOrFail(id, { workspaceId } = {}) {
-  const where = { id };
-  if (workspaceId != null) {
-    where.workspaceId = workspaceId;
-  }
-  const record = await AgencyAvailabilityEntry.findOne({ where });
-  if (!record) {
-    throw new NotFoundError('Availability record not found.');
-  }
-  return record;
-}
-
-async function findCapacitySnapshotOrFail(id, { workspaceId } = {}) {
-  const where = { id };
-  if (workspaceId != null) {
-    where.workspaceId = workspaceId;
-  }
-  const record = await AgencyCapacitySnapshot.findOne({ where });
-  if (!record) {
-    throw new NotFoundError('Capacity snapshot not found.');
-  }
-  return record;
-}
-
-function computeSummary({ members, payDelegations, projectDelegations, gigDelegations, capacitySnapshots }) {
+function computeSummary(
+  { members, payDelegations, projectDelegations, gigDelegations, capacitySnapshots },
+  { baseCurrency, currencyRates, forecastOptions } = {},
+) {
   const totalMembers = members.length;
   const activeMembers = members.filter((member) => member.status === 'active').length;
   const onLeave = members.filter((member) => member.status === 'on_leave').length;
@@ -304,15 +390,14 @@ function computeSummary({ members, payDelegations, projectDelegations, gigDelega
   const latestSnapshot = capacitySnapshots[0] ?? null;
   const utilization = latestSnapshot?.utilizationPercent ?? 0;
 
-  const averageBillableRate = (() => {
-    const rates = projectDelegations
-      .map((delegation) => normaliseNumber(delegation.billableRate))
-      .filter((value) => Number.isFinite(value));
-    if (!rates.length) {
-      return null;
-    }
-    return rates.reduce((sum, value) => sum + value, 0) / rates.length;
-  })();
+  const resolvedBaseCurrency = baseCurrency ||
+    detectBaseCurrency({ projectDelegations, payDelegations, fallback: 'USD' });
+  const resolvedRates = buildCurrencyRates(currencyRates, resolvedBaseCurrency);
+  const billableRateSummary = computeBillableRateAverages(projectDelegations, {
+    baseCurrency: resolvedBaseCurrency,
+    currencyRates: resolvedRates,
+  });
+  const forecasting = computeUtilizationForecast(capacitySnapshots, forecastOptions);
 
   return {
     totalMembers,
@@ -322,11 +407,24 @@ function computeSummary({ members, payDelegations, projectDelegations, gigDelega
     benchHours: Number(benchHours.toFixed(2)),
     utilizationPercent: normaliseNumber(utilization, 0),
     upcomingPayouts,
-    averageBillableRate: averageBillableRate != null ? Number(averageBillableRate.toFixed(2)) : null,
+    averageBillableRate: billableRateSummary.average,
+    averageBillableRateCurrency: resolvedBaseCurrency,
+    averageBillableRateBreakdown: billableRateSummary,
+    forecasting,
   };
 }
 
-export async function getWorkforceDashboard({ workspaceId } = {}) {
+export async function getWorkforceDashboard({
+  workspaceId,
+  availabilityLimit,
+  baseCurrency,
+  currencyRates,
+  forecastOptions,
+} = {}) {
+  const parsedAvailabilityLimit = Number.isFinite(Number(availabilityLimit))
+    ? Number(availabilityLimit)
+    : 30;
+  const safeAvailabilityLimit = Math.max(5, Math.min(parsedAvailabilityLimit || 30, 120));
   const memberWhere = {};
   if (workspaceId != null) {
     memberWhere.workspaceId = workspaceId;
@@ -342,7 +440,7 @@ export async function getWorkforceDashboard({ workspaceId } = {}) {
         model: AgencyAvailabilityEntry,
         as: 'availabilityEntries',
         separate: true,
-        limit: 30,
+        limit: safeAvailabilityLimit + 1,
         order: [['date', 'DESC']],
       },
     ],
@@ -355,7 +453,25 @@ export async function getWorkforceDashboard({ workspaceId } = {}) {
     limit: 24,
   });
 
-  const serialisedMembers = members.map(serialiseMember);
+  const availabilityMeta = new Map();
+  const serialisedMembers = members.map((memberRecord) => {
+    const serialised = serialiseMember(memberRecord);
+    if (!serialised) return null;
+    const entries = Array.isArray(serialised.availabilityEntries)
+      ? [...serialised.availabilityEntries]
+      : [];
+    const hasMore = entries.length > safeAvailabilityLimit;
+    if (hasMore) {
+      serialised.availabilityEntries = entries.slice(0, safeAvailabilityLimit);
+    }
+    availabilityMeta.set(serialised.id, {
+      hasMore,
+      returned: serialised.availabilityEntries?.length ?? 0,
+      totalFetched: entries.length,
+      nextCursor: hasMore ? entries[safeAvailabilityLimit - 1]?.date ?? null : null,
+    });
+    return serialised;
+  }).filter(Boolean);
   const payDelegations = serialisedMembers.flatMap((member) => member.payDelegations ?? []);
   const projectDelegations = serialisedMembers.flatMap((member) => member.projectDelegations ?? []);
   const gigDelegations = serialisedMembers.flatMap((member) => member.gigDelegations ?? []);
@@ -368,6 +484,10 @@ export async function getWorkforceDashboard({ workspaceId } = {}) {
     projectDelegations,
     gigDelegations,
     capacitySnapshots: serialisedCapacity,
+  }, {
+    baseCurrency,
+    currencyRates,
+    forecastOptions,
   });
 
   const availabilityByMember = availabilityEntries.reduce((acc, entry) => {
@@ -382,7 +502,16 @@ export async function getWorkforceDashboard({ workspaceId } = {}) {
   const availability = Array.from(availabilityByMember.entries()).map(([memberId, entries]) => ({
     memberId,
     entries: entries.sort((a, b) => new Date(b.date) - new Date(a.date)),
+    hasMore: availabilityMeta.get(memberId)?.hasMore ?? false,
+    nextCursor: availabilityMeta.get(memberId)?.nextCursor ?? null,
   }));
+
+  const availabilityPagination = {
+    perMemberLimit: safeAvailabilityLimit,
+    membersWithAdditionalEntries: availability
+      .filter((entry) => entry.hasMore)
+      .map((entry) => ({ memberId: entry.memberId, nextCursor: entry.nextCursor })),
+  };
 
   return {
     workspaceId: workspaceId ?? null,
@@ -393,6 +522,7 @@ export async function getWorkforceDashboard({ workspaceId } = {}) {
     gigDelegations,
     capacitySnapshots: serialisedCapacity,
     availability,
+    availabilityPagination,
   };
 }
 
@@ -627,4 +757,21 @@ export default {
   listGigDelegations,
   listCapacitySnapshots,
   listAvailabilityEntries,
+};
+
+export const __internals = {
+  serialiseMember,
+  serialisePayDelegation,
+  serialiseProjectDelegation,
+  serialiseGigDelegation,
+  serialiseCapacitySnapshot,
+  serialiseAvailabilityEntry,
+  normaliseCurrency,
+  resolveDelegationCurrency,
+  detectBaseCurrency,
+  buildCurrencyRates,
+  convertToBaseCurrency,
+  computeBillableRateAverages,
+  computeUtilizationForecast,
+  computeSummary,
 };
