@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import { Sequelize as SequelizeLib, DataTypes } from 'sequelize';
 
 import homepageSettingsMigration from '../../database/migrations/20241022100000-admin-homepage-settings.cjs';
+import siteHomepageExperienceMigration from '../../database/migrations/20241205130000-site-homepage-experience.cjs';
 
 const { HOMEPAGE_DEFAULT } = homepageSettingsMigration;
 
@@ -17,8 +18,25 @@ const createPlatformSettingsTable = async (queryInterface) => {
   });
 };
 
+const createSiteSettingsTable = async (queryInterface) => {
+  await queryInterface.createTable('site_settings', {
+    id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+    key: { type: DataTypes.STRING(120), allowNull: false, unique: true },
+    value: { type: DataTypes.JSON, allowNull: false },
+    createdAt: { type: DataTypes.DATE, allowNull: false, defaultValue: SequelizeLib.literal('CURRENT_TIMESTAMP') },
+    updatedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: SequelizeLib.literal('CURRENT_TIMESTAMP') },
+  });
+};
+
 const fetchPlatformRow = async (sequelize) => {
   const [row] = await sequelize.query("SELECT key, value FROM platform_settings WHERE key = 'platform' LIMIT 1", {
+    type: SequelizeLib.QueryTypes.SELECT,
+  });
+  return row;
+};
+
+const fetchSiteRow = async (sequelize) => {
+  const [row] = await sequelize.query("SELECT key, value FROM site_settings WHERE key = 'site:global' LIMIT 1", {
     type: SequelizeLib.QueryTypes.SELECT,
   });
   return row;
@@ -39,6 +57,7 @@ describe('20241022100000-admin-homepage-settings.cjs', () => {
     sequelize = new SequelizeLib('sqlite::memory:', { logging: false });
     queryInterface = sequelize.getQueryInterface();
     await createPlatformSettingsTable(queryInterface);
+    await createSiteSettingsTable(queryInterface);
   });
 
   afterEach(async () => {
@@ -205,6 +224,105 @@ describe('20241022100000-admin-homepage-settings.cjs', () => {
 
     expect(parsed.homepage).toBeUndefined();
     expect(parsed.theme.color).toBe('#f00');
+  });
+});
+
+describe('20241205130000-site-homepage-experience.cjs', () => {
+  it('populates marketing experience defaults when none stored', async () => {
+    await siteHomepageExperienceMigration.up(queryInterface, SequelizeLib);
+
+    const row = await fetchSiteRow(sequelize);
+    expect(row).toBeDefined();
+
+    const parsed = parseValue(row.value);
+    expect(parsed.heroHeadline).toContain('Freelancers');
+    expect(parsed.heroMedia.imageUrl).toContain('https://');
+    expect(parsed.communityStats).toHaveLength(3);
+    expect(parsed.personaJourneys).toHaveLength(6);
+    expect(parsed.operationsSummary.escrowHealth.value).toBeDefined();
+    expect(parsed.recentPosts).toHaveLength(3);
+  });
+
+  it('sanitizes existing homepage settings and keeps safe overrides', async () => {
+    await queryInterface.bulkInsert(
+      'site_settings',
+      [
+        {
+          id: 1,
+          key: 'site:global',
+          value: JSON.stringify({
+            heroHeadline: '  ',
+            heroSubheading: ' Custom subheading ',
+            heroKeywords: [' Demo stream  ', '', null],
+            heroMedia: {
+              imageUrl: '   ',
+              posterUrl: 'https://cdn.gigvora.com/marketing/home/poster-override.jpg',
+              videoSources: [
+                { src: 'https://cdn.gigvora.com/video/preview.mp4', type: 'video/mp4' },
+                { src: 'javascript:alert(1)' },
+              ],
+            },
+            communityStats: [
+              { label: 'Members', value: '15000' },
+              { label: 'Invalid', value: '' },
+            ],
+            personaJourneys: [
+              {
+                key: 'Freelancer ',
+                title: ' Freelancers unite ',
+                metrics: [{ persona: 'Freelancer', label: 'Conversion', value: '78%' }],
+              },
+            ],
+            operationsSummary: {
+              escrowHealth: { label: 'Escrow uptime', value: '98%', trend: ['10', 'oops'] },
+            },
+            recentPosts: [
+              { id: 'feed', title: ' Title ', summary: ' Summary ', createdAt: '2024-01-01T00:00:00Z' },
+            ],
+          }),
+          ...baseTimestamps(),
+        },
+      ],
+    );
+
+    await siteHomepageExperienceMigration.up(queryInterface, SequelizeLib);
+
+    const row = await fetchSiteRow(sequelize);
+    const parsed = parseValue(row.value);
+
+    expect(parsed.heroHeadline).toContain('Freelancers');
+    expect(parsed.heroSubheading).toContain('Custom subheading');
+    expect(parsed.heroKeywords).toContain('Demo stream');
+    expect(parsed.heroMedia.posterUrl).toBe('https://cdn.gigvora.com/marketing/home/poster-override.jpg');
+    expect(parsed.heroMedia.videoSources).toEqual(
+      expect.arrayContaining([expect.objectContaining({ src: 'https://cdn.gigvora.com/video/preview.mp4' })]),
+    );
+    expect(parsed.communityStats.find((stat) => stat.label.includes('Members'))?.value).toBe('15000');
+    const freelancer = parsed.personaJourneys.find((persona) => persona.key === 'freelancer');
+    expect(freelancer.metrics.some((metric) => metric.label.includes('Conversion'))).toBe(true);
+    expect(parsed.operationsSummary.escrowHealth.trend.every((value) => typeof value === 'number')).toBe(true);
+    expect(parsed.recentPosts[0].title).toBe('Title');
+  });
+
+  it('removes marketing fragment on down migration', async () => {
+    await queryInterface.bulkInsert(
+      'site_settings',
+      [
+        {
+          id: 2,
+          key: 'site:global',
+          value: JSON.stringify({ heroHeadline: 'Keep me', heroMedia: { imageUrl: 'https://cdn.gigvora.com/image.jpg' } }),
+          ...baseTimestamps(),
+        },
+      ],
+    );
+
+    await siteHomepageExperienceMigration.down(queryInterface, SequelizeLib);
+
+    const row = await fetchSiteRow(sequelize);
+    const parsed = parseValue(row.value);
+    expect(parsed.heroHeadline).toBeUndefined();
+    expect(parsed.heroMedia).toBeUndefined();
   });
 });
 

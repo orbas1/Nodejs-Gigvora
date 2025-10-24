@@ -59,7 +59,7 @@ This AGENTS manifest consolidates the full quality assurance upgrade backlog acr
         - [1.B. Navigation Controls](#1b-navigation-controls)
         - [1.C. Floating Assistance Layers](#1c-floating-assistance-layers)
     - [2. Pre-Login Journeys & Marketing Landing](#2-pre-login-journeys-marketing-landing)
-        - [2.A. Home Page Sections](#2a-home-page-sections)
+        - [x] [2.A. Home Page Sections](#2a-home-page-sections)
         - [2.B. Authentication & Registration](#2b-authentication-registration)
     - [3. Social Graph & Community Operating System](#3-social-graph-community-operating-system)
         - [3.A. Timeline & Feed](#3a-timeline-feed)
@@ -1232,10 +1232,10 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   24. **Design Duplication.** None.
   25. **Design Framework.** Aligns with marketing palette.
   26. **Change Checklist Tracker.**
-      - [ ] Externalize gradients.
-      - [ ] Add hero skeleton.
-      - [ ] Integrate live product imagery/video.
-      - [ ] Track CTA conversions.
+      - [x] Externalize gradients.
+      - [x] Add hero skeleton.
+      - [x] Integrate live product imagery/video.
+      - [x] Track CTA conversions.
   27. **Full Upgrade Plan & Release Steps.**
       1. Connect CMS-driven hero copy and validate fallback coverage.
       2. Ship animation toggle respecting user settings site-wide.
@@ -1268,10 +1268,10 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   24. **Design Duplication.** Align badge palette with feed surfaces.
   25. **Design Framework.** Tailwind gradient/responsive grid consistent.
   26. **Change Checklist Tracker.**
-      - [ ] Add skeleton loader.
-      - [ ] Rotate fallback copy.
-      - [ ] Include avatars when data available.
-      - [ ] Track CTA engagement.
+      - [x] Add skeleton loader.
+      - [x] Rotate fallback copy.
+      - [x] Include avatars when data available.
+      - [x] Track CTA engagement.
   27. **Full Upgrade Plan & Release Steps.**
       1. Wire to feed API and expose reaction counts.
       2. Launch trending carousel variant for experimentation.
@@ -1304,9 +1304,9 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   24. **Design Duplication.** Similar layout to other card grids; maintain consistency but vary backgrounds.
   25. **Design Framework.** On-brand.
   26. **Change Checklist Tracker.**
-      - [ ] Connect to CMS.
-      - [ ] Add analytics.
-      - [ ] Introduce persona-specific metrics.
+      - [x] Connect to CMS.
+      - [x] Add analytics.
+      - [x] Introduce persona-specific metrics.
   27. **Full Upgrade Plan & Release Steps.**
       1. Externalize persona copy and run localization.
       2. Launch analytics instrumentation to track CTA clicks.

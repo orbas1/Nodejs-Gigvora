@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useSession from '../hooks/useSession.js';
 import useHomeExperience from '../hooks/useHomeExperience.js';
+import analytics from '../services/analytics.js';
 
 import {
   HomeHeroSection,
@@ -36,6 +37,7 @@ export default function HomePage() {
   const heroSubheading = homeData?.settings?.heroSubheading?.trim()
     ? homeData.settings.heroSubheading
     : undefined;
+  const heroMedia = homeData?.settings?.heroMedia;
 
   const heroKeywords = useMemo(() => {
     if (!Array.isArray(homeData?.settings?.heroKeywords)) {
@@ -65,6 +67,39 @@ export default function HomePage() {
       value: stat.value ?? stat.metric ?? '—',
     }));
   }, [homeData?.settings?.communityStats]);
+
+  const personaJourneys = useMemo(() => {
+    const settingsPersonas = Array.isArray(homeData?.settings?.personaJourneys)
+      ? homeData.settings.personaJourneys
+      : [];
+    const pagePersonas = Array.isArray(homeData?.pageContent?.personaJourneys)
+      ? homeData.pageContent.personaJourneys
+      : [];
+
+    if (settingsPersonas.length || pagePersonas.length) {
+      return [...settingsPersonas, ...pagePersonas].filter(Boolean);
+    }
+
+    const objectLike = homeData?.pageContent?.personaJourneys ?? homeData?.settings?.personaJourneys;
+    if (objectLike && typeof objectLike === 'object') {
+      return objectLike;
+    }
+
+    return undefined;
+  }, [homeData?.pageContent?.personaJourneys, homeData?.settings?.personaJourneys]);
+
+  const personaMetrics = useMemo(() => {
+    if (homeData?.settings?.personaMetrics) {
+      return homeData.settings.personaMetrics;
+    }
+    if (homeData?.pageContent?.personaMetrics) {
+      return homeData.pageContent.personaMetrics;
+    }
+    if (homeData?.metrics?.personas) {
+      return homeData.metrics.personas;
+    }
+    return undefined;
+  }, [homeData?.metrics?.personas, homeData?.pageContent?.personaMetrics, homeData?.settings?.personaMetrics]);
 
   const trendingCreations = useMemo(
     () =>
@@ -96,6 +131,20 @@ export default function HomePage() {
     navigate('/community-guidelines');
   }, [navigate]);
 
+  const handlePersonaSelect = useCallback((persona) => {
+    if (!persona?.key) {
+      return;
+    }
+    analytics.track(
+      'web_home_persona_card_clicked',
+      {
+        persona: persona.key,
+        route: persona.route,
+      },
+      { source: 'web_marketing_site' },
+    );
+  }, []);
+
   return (
     <main className="relative isolate bg-slate-950 text-white">
       <HomeHeroSection
@@ -106,6 +155,7 @@ export default function HomePage() {
         error={homeError}
         onClaimWorkspace={() => navigate('/register')}
         onBrowseOpportunities={() => navigate('/gigs')}
+        productMedia={heroMedia}
       />
 
       <div className="flex flex-col">
@@ -119,7 +169,13 @@ export default function HomePage() {
           homeData={homeData}
         />
         <OperationsTrustSection homeData={homeData} loading={homeLoading} error={homeError} />
-        <PersonaJourneysSection loading={homeLoading} error={homeError} />
+        <PersonaJourneysSection
+          loading={homeLoading}
+          error={homeError}
+          onSelectPersona={handlePersonaSelect}
+          personas={personaJourneys}
+          personaMetrics={personaMetrics}
+        />
         <CommunitySpotlightsSection loading={homeLoading} error={homeError} />
         <ExplorerShowcaseSection loading={homeLoading} error={homeError} creations={homeData?.creations} />
         <TestimonialsSection loading={homeLoading} error={homeError} />

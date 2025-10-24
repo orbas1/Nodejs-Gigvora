@@ -27,6 +27,7 @@ import RuntimeAnnouncement, {
   RUNTIME_ANNOUNCEMENT_SEVERITIES,
   RUNTIME_ANNOUNCEMENT_STATUSES,
 } from '../models/runtimeAnnouncement.js';
+import { getSiteSettings, saveSiteSettings } from '../services/siteManagementService.js';
 import {
   Project,
   ProjectWorkspace,
@@ -447,6 +448,74 @@ describe('SEO and site management models', () => {
   test('site navigation serialises safe arrays', async () => {
     const link = await SiteNavigationLink.create({ menuKey: 'primary', label: 'Docs', url: '/docs' });
     expect(link.toPublicObject()).toMatchObject({ label: 'Docs', allowedRoles: ['guest'] });
+  });
+
+  test('getSiteSettings hydrates homepage defaults with hero media and persona journeys', async () => {
+    await SiteSetting.destroy({ where: {} });
+    const settings = await getSiteSettings();
+
+    expect(settings.heroHeadline).toContain('Freelancers');
+    expect(settings.heroMedia).toMatchObject({ imageUrl: expect.stringContaining('https://') });
+    expect(Array.isArray(settings.heroKeywords)).toBe(true);
+    expect(settings.heroKeywords.length).toBeGreaterThan(0);
+    expect(Array.isArray(settings.communityStats)).toBe(true);
+    expect(settings.communityStats.length).toBeGreaterThanOrEqual(3);
+    expect(Array.isArray(settings.personaJourneys)).toBe(true);
+    expect(settings.personaJourneys.length).toBeGreaterThanOrEqual(6);
+    expect(settings.operationsSummary.escrowHealth.value).toBeTruthy();
+    expect(Array.isArray(settings.recentPosts)).toBe(true);
+    expect(settings.recentPosts.length).toBeGreaterThan(0);
+  });
+
+  test('saveSiteSettings sanitizes hero media, persona metrics, and operations summary overrides', async () => {
+    await SiteSetting.destroy({ where: {} });
+    await saveSiteSettings({
+      heroKeywords: ['  Demo stream  ', null, ''],
+      heroMedia: {
+        imageUrl: '   ',
+        posterUrl: 'https://cdn.gigvora.com/marketing/home/poster-new.jpg',
+        videoSources: [
+          { src: 'https://cdn.gigvora.com/video/preview.mp4', type: 'video/mp4' },
+          { src: 'javascript:alert(1)' },
+        ],
+      },
+      personaJourneys: [
+        {
+          key: 'Freelancer ',
+          title: '   Freelancers unite ',
+          metrics: [
+            { persona: 'Freelancer', label: 'Conversion', value: '78%', change: '+12%' },
+            { label: '', value: '' },
+          ],
+          steps: [
+            { label: '  Polish portfolio ', icon: 'SparklesIcon' },
+            { label: '', icon: '' },
+          ],
+        },
+      ],
+      operationsSummary: {
+        escrowHealth: { label: 'Escrow uptime', value: '98%', trend: ['10', 'oops', '30'] },
+      },
+      recentPosts: [
+        {
+          id: 'feed',
+          title: '  Title  ',
+          summary: '  Summary  ',
+          createdAt: '2024-01-01T00:00:00Z',
+        },
+      ],
+    });
+
+    const settings = await getSiteSettings();
+
+    expect(settings.heroKeywords).toContain('Demo stream');
+    expect(settings.heroMedia.videoSources).toEqual(
+      expect.arrayContaining([expect.objectContaining({ src: 'https://cdn.gigvora.com/video/preview.mp4' })]),
+    );
+    const freelancer = settings.personaJourneys.find((persona) => persona.key === 'freelancer');
+    expect(freelancer.metrics.some((metric) => metric.label.includes('Conversion'))).toBe(true);
+    expect(settings.operationsSummary.escrowHealth.trend.every((value) => typeof value === 'number')).toBe(true);
+    expect(settings.recentPosts[0].title).toBe('Title');
   });
 
   test('site navigation supports role filtered menu trees and reordering', async () => {
