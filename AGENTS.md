@@ -1531,40 +1531,40 @@ This document catalogues the public marketing shell, pre-login journeys, and per
 **Components**
 
 - **3.C.1. `SettingsPage.jsx`**
-  1. **Appraisal.** Provides enterprise consent orchestration aligning with trust requirements for social, mentorship, and ATS data flows.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L1-L210】
-  2. **Functionality.** Loads consent snapshots, tracks outstanding mandatory items, and posts updates back to compliance services with metadata.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L1-L176】
-  3. **Logic Usefulness.** Policy rows surface audience, region, and legal basis while exposing audit histories for every toggle.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L32-L120】
-  4. **Redundancies.** Toggle styling mirrors other dashboards; extract shared switch component with design tokens.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L9-L28】
-  5. **Placeholders Or Non-working Functions Or Stubs.** Consent timeline relies on placeholder data until backend logs integrate.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L32-L120】
-  6. **Duplicate Functions.** Date formatting duplicates utilities; reuse shared helpers to avoid drift.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L5-L75】
-  7. **Improvements need to make.** Add notification, AI assistant, ATS sharing, and device management preferences for full trust coverage.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L1-L210】
-  8. **Styling improvements.** Introduce dark-mode palette and emphasise warning state when required consents lapse.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L180-L210】
-  9. **Effeciency analysis and improvement.** Batch updates and show optimistic feedback when toggling multiple policies.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L152-L176】
-  10. **Strengths to Keep.** Clear segmentation of legal metadata fosters trust for agencies, companies, and freelancers.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L32-L120】
-  11. **Weaknesses to remove.** Outstanding required count only updates after reload; persist locally to reassure users.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L90-L151】
-  12. **Styling and Colour review changes.** Increase contrast between granted and withdrawn states beyond icon colour.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L48-L75】
-  13. **Css, orientation, placement and arrangement changes.** Optimise grid layout for mobile to avoid overflow of summary columns.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L32-L120】
-  14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Provide glossary links for legal terminology to aid comprehension.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L32-L120】
-  15. **Text Spacing.** Maintain comfortable spacing but condense long summaries for readability on small devices.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L32-L120】
-  16. **Shaping.** Keep rounded cards yet add icons or shields to signal compliance context.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L32-L120】
-  17. **Shadow, hover, glow and effects.** Add hover cues on “View history” to indicate interactivity.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L62-L80】
-  18. **Thumbnails.** Consider policy owner avatars or trust badges to humanise compliance messaging.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L32-L120】
-  19. **Images and media & Images and media previews.** Embed short explainer videos or diagrams for complex policies once available.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L196-L210】
-  20. **Button styling.** Toggle/CTA design aligns with brand; add disabled/loading states during updates.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L32-L120】
-  21. **Interactiveness.** Consent history expansion and outstanding counters create actionable trust workflows.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L90-L210】
-  22. **Missing Components.** Add data export/download, session management, and security device controls to match trust centre pages.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L1-L210】
-  23. **Design Changes.** Surface AI recommendations (e.g., enable ATS sharing to unlock company dashboards) alongside toggles.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L1-L210】
-  24. **Design Duplication.** Align compliance visuals with policy acknowledgement banner for consistent legal UX.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L32-L120】【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L1-L58】
-  25. **Design framework.** Extends the compliance-first design language already integrated into global shell and trust centre.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L1-L210】
+  1. **Appraisal.** Provides enterprise consent orchestration aligning with trust requirements for social, mentorship, and ATS data flows.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L1-L420】
+  2. **Functionality.** Loads consent snapshots, tracks outstanding mandatory items, and posts updates back to compliance services with metadata.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L68-L210】
+  3. **Logic Usefulness.** Policy rows surface audience, region, and legal basis while exposing audit histories for every toggle.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L40-L150】
+  4. **Redundancies.** Toggle styling mirrors other dashboards; extract shared switch component with design tokens.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L17-L70】
+  5. **Placeholders Or Non-working Functions Or Stubs.** Consent history still depends on future compliance logs; UI now handles empty states and glossary access gracefully.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L108-L210】
+  6. **Duplicate Functions.** Date formatting duplicates utilities; reuse shared helpers to avoid drift.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L33-L140】
+  7. **Improvements need to make.** Notification, security, AI, and data export controls now ship via tabbed panels, leaving deeper workspace integrations for later APIs.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L214-L420】
+  8. **Styling improvements.** Dark-mode palettes, compliance shields, and warning halos highlight lapsed required consents while preserving accessibility.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L48-L190】【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L300-L420】
+  9. **Effeciency analysis and improvement.** Optimistic consent mutations with auto-dismissing toasts reduce redundant reloads and reassure the operator immediately.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L165-L280】
+  10. **Strengths to Keep.** Clear segmentation of legal metadata and multi-tab preference architecture foster trust for agencies, companies, and freelancers.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L48-L420】
+  11. **Weaknesses to remove.** Outstanding required counters now update in-memory; remaining gap is backend delivery of live audit feeds without refresh.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L170-L260】
+  12. **Styling and Colour review changes.** Granted/withdrawn status chips now pair iconography with contrasting text across light and dark contexts.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L60-L130】
+  13. **Css, orientation, placement and arrangement changes.** Responsive tablist and panel spacing keep summaries readable on mobile while supporting multi-column cards on desktop.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L260-L360】
+  14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Inline glossary buttons and contextual helper copy demystify legal jargon without overwhelming the layout.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L46-L140】【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L270-L420】
+  15. **Text Spacing.** Updated tokens ensure summaries and retention notes stay legible across breakpoints.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L280-L420】
+  16. **Shaping.** Rounded compliance cards, tab badges, and support tiles retain brand softness while flagging alerts via accent rings.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L32-L420】
+  17. **Shadow, hover, glow and effects.** Hover cues reinforce interactivity on history toggles, support links, and preference tiles.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L120-L420】
+  18. **Thumbnails.** Support tiles substitute avatar needs by spotlighting key trust centre destinations; avatars remain optional for future iterations.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L360-L420】
+  19. **Images and media & Images and media previews.** Data export CTA supports compliance videos or diagrams later; existing copy guides expectations meanwhile.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L330-L360】
+  20. **Button styling.** Toggles expose disabled states, preference CTAs adopt focus-visible outlines, and export actions embrace branded fills.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L24-L360】
+  21. **Interactiveness.** Consent history, toast feedback, tabbed preferences, and quick support links create a comprehensive trust operations cockpit.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L140-L420】
+  22. **Missing Components.** Future releases should connect the workspace support cards to authenticated helpdesk flows and surface upcoming audit feed streaming.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L360-L420】
+  23. **Design Changes.** AI and security panels now contextualise recommendations inline, aligning with persona dashboards and guiding next best actions.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L240-L340】
+  24. **Design Duplication.** Consent shields and toasts mirror policy acknowledgement treatments ensuring legal UX consistency.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L32-L420】【F:gigvora-frontend-reactjs/src/components/policy/PolicyAcknowledgementBanner.jsx†L1-L58】
+  25. **Design framework.** Extends the compliance-first design language with modular preference cards and support tiles ready for reuse across dashboards.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L214-L420】
   26. **Change Checklist Tracker Extensive.**
-      - [ ] Add notification/security/AI tabs alongside consent controls.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L1-L210】
-      - [ ] Implement optimistic updates with inline success toasts.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L152-L210】
-      - [ ] Provide glossary/help links per policy row.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L32-L120】
-      - [ ] Ship dark-mode tokens and warning states for lapsed consents.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L180-L210】
+      - [x] Add notification/security/AI tabs alongside consent controls.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L214-L420】
+      - [x] Implement optimistic updates with inline success toasts.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L165-L280】
+      - [x] Provide glossary/help links per policy row.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L40-L120】
+      - [x] Ship dark-mode tokens and warning states for lapsed consents.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L24-L200】
   27. **Full Upgrade Plan & Release Steps  Extensive.**
-      1. Integrate consent APIs with optimistic UI, tracking grant/withdraw metrics in analytics dashboards.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L90-L176】
-      2. Launch expanded preference tabs and glossary support, validating accessibility and comprehension tests.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L1-L210】
-      3. Deliver dark-mode palette and security exports, aligning design with policy banner updates across the site.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L1-L210】
+      1. Integrate consent APIs with optimistic UI, tracking grant/withdraw metrics in analytics dashboards.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L140-L260】
+      2. Launch expanded preference tabs and glossary support, validating accessibility and comprehension tests.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L214-L360】
+      3. Deliver dark-mode palette and security exports, aligning design with policy banner updates across the site.【F:gigvora-frontend-reactjs/src/pages/SettingsPage.jsx†L24-L420】
 
 ## 4. Opportunity Marketplaces & Workflows
 
