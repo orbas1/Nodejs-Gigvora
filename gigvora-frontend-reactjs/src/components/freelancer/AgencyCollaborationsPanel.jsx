@@ -11,46 +11,42 @@ import {
   SparklesIcon,
   UsersIcon,
 } from '@heroicons/react/24/outline';
+import classNames from '../../utils/classNames.js';
 import { formatRelativeTime, formatAbsolute } from '../../utils/date.js';
-
-function classNames(...classes) {
-  return classes.filter(Boolean).join(' ');
-}
+import {
+  formatMetricCurrency,
+  formatMetricNumber,
+  formatMetricPercent,
+} from '../../utils/metrics.js';
 
 function formatCurrency(amount, currency = 'USD') {
-  if (amount == null || Number.isNaN(Number(amount))) {
-    return new Intl.NumberFormat('en-GB', {
-      style: 'currency',
-      currency,
-    }).format(0);
-  }
   const numeric = Number(amount);
-  return new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: Math.abs(numeric) >= 1000 ? 0 : 2,
-  }).format(numeric);
+  const safeCurrency = currency || 'USD';
+  if (!Number.isFinite(numeric)) {
+    return formatMetricCurrency(0, {
+      currency: safeCurrency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
+  }
+  const digits = Math.abs(numeric) >= 1000 ? 0 : 2;
+  return formatMetricCurrency(numeric, {
+    currency: safeCurrency,
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
 }
 
 function formatNumber(value) {
-  if (value == null || Number.isNaN(Number(value))) {
-    return '0';
-  }
-  return new Intl.NumberFormat('en-GB').format(Number(value));
+  return formatMetricNumber(value, { fallback: '0' });
 }
 
 function formatPercent(value) {
-  if (value == null || Number.isNaN(Number(value))) {
-    return '0%';
-  }
-  return `${Number(value).toFixed(1)}%`;
+  return formatMetricPercent(value, { fallback: '0%', decimals: 1 });
 }
 
 function formatHealth(value) {
-  if (value == null || Number.isNaN(Number(value))) {
-    return 'n/a';
-  }
-  return `${Math.round(Number(value))}%`;
+  return formatMetricPercent(value, { fallback: 'n/a', decimals: 0 });
 }
 
 function renderSkeletonRow(key) {

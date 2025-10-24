@@ -342,6 +342,41 @@ function sanitizeAssignmentPayload(payload = {}) {
   });
 }
 
+function sanitizeTelemetry(payload = {}, { projectId, targetType } = {}) {
+  const safePayload = ensurePlainObject(payload);
+  const counts = ensurePlainObject(safePayload.counts);
+  const sanitizedCounts = Object.fromEntries(
+    Object.entries(counts).map(([key, value]) => {
+      const numeric = Number(value);
+      return [key, Number.isFinite(numeric) ? numeric : 0];
+    }),
+  );
+
+  const totalEntries = Number.isFinite(Number(safePayload.totalEntries))
+    ? Number(safePayload.totalEntries)
+    : Object.values(sanitizedCounts).reduce((sum, value) => sum + Number(value || 0), 0);
+  const activeCount = Number.isFinite(Number(safePayload.activeCount))
+    ? Number(safePayload.activeCount)
+    : (sanitizedCounts.pending ?? 0) + (sanitizedCounts.notified ?? 0);
+
+  return {
+    projectId: projectId ?? coercePositiveInteger(safePayload.projectId) ?? null,
+    targetType: targetType ?? normalizeTargetType(safePayload.targetType),
+    enabled: Boolean(safePayload.enabled),
+    status: typeof safePayload.status === 'string' ? safePayload.status : 'inactive',
+    lastRunAt: normalizeDate(safePayload.lastRunAt),
+    lastQueueSize:
+      safePayload.lastQueueSize == null ? null : Number.isFinite(Number(safePayload.lastQueueSize))
+        ? Number(safePayload.lastQueueSize)
+        : null,
+    counts: sanitizedCounts,
+    totalEntries,
+    activeCount,
+    nextExpiryAt: normalizeDate(safePayload.nextExpiryAt),
+    lastNotifiedAt: normalizeDate(safePayload.lastNotifiedAt),
+  };
+}
+
 export async function enqueueProjectAssignments(projectId, payload = {}, { signal } = {}) {
   const resolvedProjectId = requirePositiveInteger(projectId, 'projectId');
   const body = sanitizeAssignmentPayload(payload);
@@ -419,9 +454,27 @@ export async function fetchProjectQueue(projectId, { targetType, signal } = {}) 
   }
 }
 
+export async function fetchProjectQueueTelemetry(projectId, { targetType, signal } = {}) {
+  const resolvedProjectId = requirePositiveInteger(projectId, 'projectId');
+  const normalizedTargetType = normalizeTargetType(targetType);
+
+  try {
+    const response = await apiClient.get(`/auto-assign/projects/${resolvedProjectId}/telemetry`, {
+      params: { targetType: normalizedTargetType },
+      signal,
+    });
+    const payload = response?.telemetry ?? response;
+    return sanitizeTelemetry(payload, { projectId: resolvedProjectId, targetType: normalizedTargetType });
+  } catch (error) {
+    handleServiceError(error, 'load the auto-assign telemetry');
+    return undefined;
+  }
+}
+
 export default {
   fetchFreelancerQueue,
   enqueueProjectAssignments,
   updateQueueEntry,
   fetchProjectQueue,
+  fetchProjectQueueTelemetry,
 };

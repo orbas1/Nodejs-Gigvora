@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
 import DataStatus from '../components/DataStatus.jsx';
@@ -6,7 +6,11 @@ import UserAvatar from '../components/UserAvatar.jsx';
 import useCachedResource from '../hooks/useCachedResource.js';
 import useRoleAccess from '../hooks/useRoleAccess.js';
 import AccessRestricted from '../components/AccessRestricted.jsx';
-import { enqueueProjectAssignments, fetchProjectQueue } from '../services/autoAssign.js';
+import {
+  enqueueProjectAssignments,
+  fetchProjectQueue,
+  fetchProjectQueueTelemetry,
+} from '../services/autoAssign.js';
 import projectsService from '../services/projects.js';
 import analytics from '../services/analytics.js';
 import { formatRelativeTime } from '../utils/date.js';
@@ -94,6 +98,7 @@ export default function ProjectAutoMatchPage() {
 
   const projectKey = useMemo(() => `project:auto-match:${projectId}`, [projectId]);
   const queueKey = useMemo(() => `project:auto-match:${projectId}:queue`, [projectId]);
+  const telemetryKey = useMemo(() => `project:auto-match:${projectId}:telemetry`, [projectId]);
 
   const {
     data: projectData,
@@ -119,8 +124,21 @@ export default function ProjectAutoMatchPage() {
     { ttl: 1000 * 30, dependencies: [projectId], enabled: canView },
   );
 
+  const {
+    data: telemetryData,
+    error: telemetryError,
+    loading: telemetryLoading,
+    lastUpdated: telemetryUpdatedAt,
+    refresh: refreshTelemetry,
+  } = useCachedResource(
+    telemetryKey,
+    ({ signal }) => fetchProjectQueueTelemetry(projectId, { signal }).then((result) => result ?? null),
+    { ttl: 1000 * 15, dependencies: [projectId], enabled: canView },
+  );
+
   const project = projectData ?? null;
   const queueEntries = Array.isArray(queueData) ? queueData : [];
+  const queueTelemetry = telemetryData ?? null;
   const sortedQueueEntries = useMemo(() => {
     return queueEntries
       .slice()
@@ -128,6 +146,9 @@ export default function ProjectAutoMatchPage() {
   }, [queueEntries]);
 
   const statusSummary = useMemo(() => {
+    if (queueTelemetry?.counts && Object.keys(queueTelemetry.counts).length) {
+      return queueTelemetry.counts;
+    }
     return queueEntries.reduce(
       (acc, entry) => {
         const statusKey = typeof entry?.status === 'string' ? entry.status.toLowerCase() : 'pending';
@@ -136,7 +157,48 @@ export default function ProjectAutoMatchPage() {
       },
       {},
     );
-  }, [queueEntries]);
+  }, [queueEntries, queueTelemetry]);
+
+  const totalQueueEntries = queueTelemetry?.totalEntries ?? queueEntries.length;
+  const activeQueueCount = queueTelemetry?.activeCount ?? (statusSummary.pending ?? 0) + (statusSummary.notified ?? 0);
+  const queueStatus = queueTelemetry?.status ?? project?.autoAssignStatus ?? (project?.autoAssignEnabled ? 'queue_pending' : 'inactive');
+  const queueStatusLabel = queueStatus.replace(/_/g, ' ');
+  const lastGeneratedLabel = queueTelemetry?.lastRunAt ? formatRelativeTime(queueTelemetry.lastRunAt) : null;
+  const nextExpiryLabel = queueTelemetry?.nextExpiryAt ? formatRelativeTime(queueTelemetry.nextExpiryAt) : null;
+  const queueStatusHelper = useMemo(() => {
+    if (!queueTelemetry?.enabled && queueStatus === 'inactive') {
+      return 'Enable auto-match to start building rotations.';
+    }
+    if (queueStatus === 'queue_pending') {
+      return 'Regenerating queue with the latest fairness weights.';
+    }
+    if (queueStatus === 'awaiting_candidates') {
+      return 'Waiting for eligible freelancers that meet fairness safeguards.';
+    }
+    if (lastGeneratedLabel) {
+      return `Last generated ${lastGeneratedLabel}.`;
+    }
+    return 'Queue has not been generated yet.';
+  }, [queueStatus, queueTelemetry?.enabled, lastGeneratedLabel]);
+
+  useEffect(() => {
+    if (!canView || typeof window === 'undefined') {
+      return undefined;
+    }
+    if (queueStatus !== 'queue_pending') {
+      return undefined;
+    }
+
+    const interval = window.setInterval(() => {
+      refreshTelemetry({ force: true });
+      refreshQueue({ force: true });
+      refreshProject({ force: true });
+    }, 5000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [canView, queueStatus, refreshProject, refreshQueue, refreshTelemetry]);
 
   const handleWeightChange = (key) => (event) => {
     const value = Number(event.target.value);
@@ -191,11 +253,44 @@ export default function ProjectAutoMatchPage() {
 
   const renderQueue = () => {
     if (!queueEntries.length) {
+      let message;
+      if (queueLoading) {
+        message = 'Rebalancing your queue…';
+      } else if (queueStatus === 'queue_pending') {
+        message = 'Regeneration in progress. We will refresh with new matches automatically.';
+      } else if (!queueTelemetry?.enabled || queueStatus === 'inactive') {
+        message = 'Auto-match is disabled. Enable it above to begin generating invitations.';
+      } else if (queueStatus === 'awaiting_candidates') {
+        message = 'Waiting for eligible freelancers to meet fairness safeguards before notifying freelancers.';
+      } else {
+        message = 'No matches yet. Generate the queue to invite high-fit freelancers into rotation.';
+      }
+
       return (
         <div className="rounded-3xl border border-dashed border-slate-300 bg-white/80 p-10 text-center text-sm text-slate-500">
-          {queueLoading
-            ? 'Rebalancing your queue…'
-            : 'No matches yet. Generate the queue to invite high-fit freelancers into rotation.'}
+          <p>{message}</p>
+          {lastGeneratedLabel ? (
+            <p className="mt-3 text-xs text-slate-400">
+              Last generated {lastGeneratedLabel}
+              {queueTelemetry?.lastQueueSize != null ? ` • ${queueTelemetry.lastQueueSize} entries created` : ''}.
+            </p>
+          ) : null}
+          {nextExpiryLabel ? (
+            <p className="mt-1 text-xs text-slate-400">Next invitation expires {nextExpiryLabel}.</p>
+          ) : null}
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-xs">
+            <button
+              type="button"
+              onClick={() => {
+                refreshTelemetry({ force: true });
+                refreshQueue({ force: true });
+              }}
+              disabled={queueLoading || telemetryLoading}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-600 transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {queueLoading || telemetryLoading ? 'Checking status…' : 'Check status now'}
+            </button>
+          </div>
         </div>
       );
     }
@@ -303,11 +398,12 @@ export default function ProjectAutoMatchPage() {
           meta={
             canView ? (
               <DataStatus
-                loading={queueLoading}
+                loading={queueLoading || telemetryLoading}
                 fromCache={false}
-                lastUpdated={queueUpdatedAt ?? projectUpdatedAt}
+                lastUpdated={telemetryUpdatedAt ?? queueUpdatedAt ?? projectUpdatedAt}
                 onRefresh={() => {
                   refreshQueue({ force: true });
+                  refreshTelemetry({ force: true });
                   refreshProject({ force: true });
                 }}
               />
@@ -375,10 +471,9 @@ export default function ProjectAutoMatchPage() {
                   <div className="rounded-3xl border border-slate-200 bg-surfaceMuted/80 px-4 py-3">
                     <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Queue status</dt>
                     <dd className="mt-2 text-base font-semibold text-slate-900">
-                      {project?.autoAssignStatus
-                        ? project.autoAssignStatus.replace(/_/g, ' ')
-                        : 'Not generated'}
+                      {queueStatusLabel}
                     </dd>
+                    <p className="mt-1 text-xs text-slate-500">{queueStatusHelper}</p>
                   </div>
                 </dl>
                 {projectError ? (
@@ -495,29 +590,46 @@ export default function ProjectAutoMatchPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => refreshQueue({ force: true })}
+                    onClick={() => {
+                      refreshTelemetry({ force: true });
+                      refreshQueue({ force: true });
+                    }}
                     className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
-                    disabled={queueLoading}
+                    disabled={queueLoading || telemetryLoading}
                   >
-                    {queueLoading ? 'Refreshing…' : 'Refresh queue'}
+                    {queueLoading || telemetryLoading ? 'Refreshing…' : 'Refresh telemetry'}
                   </button>
                 </div>
-                <dl className="mt-6 grid gap-4 text-sm text-slate-600 sm:grid-cols-3">
+                <dl className="mt-6 grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
                   <div className="rounded-3xl border border-slate-200 bg-surfaceMuted/70 px-4 py-3">
                     <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Total entries</dt>
-                    <dd className="mt-2 text-base font-semibold text-slate-900">{queueEntries.length}</dd>
+                    <dd className="mt-2 text-base font-semibold text-slate-900">{totalQueueEntries}</dd>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {queueTelemetry?.enabled ? 'Auto-match enabled' : 'Auto-match disabled'}
+                    </p>
                   </div>
                   <div className="rounded-3xl border border-slate-200 bg-surfaceMuted/70 px-4 py-3">
-                    <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Notified</dt>
-                    <dd className="mt-2 text-base font-semibold text-emerald-600">{statusSummary.notified ?? 0}</dd>
+                    <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Active invitations</dt>
+                    <dd className="mt-2 text-base font-semibold text-emerald-600">{activeQueueCount}</dd>
+                    <p className="mt-1 text-xs text-slate-500">{statusSummary.notified ?? 0} notified · {statusSummary.pending ?? 0} pending</p>
                   </div>
                   <div className="rounded-3xl border border-slate-200 bg-surfaceMuted/70 px-4 py-3">
-                    <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Pending</dt>
-                    <dd className="mt-2 text-base font-semibold text-slate-900">{statusSummary.pending ?? 0}</dd>
+                    <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Last generated</dt>
+                    <dd className="mt-2 text-base font-semibold text-slate-900">{lastGeneratedLabel ?? 'Never'}</dd>
+                    {queueTelemetry?.lastQueueSize != null ? (
+                      <p className="mt-1 text-xs text-slate-500">{queueTelemetry.lastQueueSize} entries produced</p>
+                    ) : null}
+                  </div>
+                  <div className="rounded-3xl border border-slate-200 bg-surfaceMuted/70 px-4 py-3">
+                    <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Next expiry</dt>
+                    <dd className="mt-2 text-base font-semibold text-slate-900">{nextExpiryLabel ?? 'Not scheduled'}</dd>
                   </div>
                 </dl>
                 {queueError ? (
                   <p className="mt-4 text-sm text-rose-600">{queueError.message || 'Unable to sync queue status.'}</p>
+                ) : null}
+                {telemetryError ? (
+                  <p className="mt-2 text-sm text-rose-600">{telemetryError.message || 'Telemetry failed to load.'}</p>
                 ) : null}
               </div>
 

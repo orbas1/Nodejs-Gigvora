@@ -3,6 +3,7 @@ import {
   listFreelancerQueue,
   resolveQueueEntry,
   getProjectQueue,
+  getProjectQueueTelemetry,
 } from '../services/autoAssignService.js';
 import { AuthorizationError, ValidationError } from '../utils/errors.js';
 
@@ -99,9 +100,17 @@ export async function projectQueue(req, res) {
   res.json({ entries: queue });
 }
 
+export async function projectQueueTelemetry(req, res) {
+  const { projectId } = req.params;
+  const { targetType } = req.query ?? {};
+  const telemetry = await getProjectQueueTelemetry(targetType ?? 'project', parseNumber(projectId, projectId));
+  res.json({ telemetry });
+}
+
 export default {
   enqueueProjectAssignments,
   listQueue,
   updateQueueEntryStatus,
   projectQueue,
+  projectQueueTelemetry,
 };

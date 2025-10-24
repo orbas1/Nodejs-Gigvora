@@ -23,6 +23,11 @@ router.patch(
   asyncHandler(autoAssignController.updateQueueEntryStatus),
 );
 router.get(
+  '/projects/:projectId/telemetry',
+  requireRoles('company', 'agency', 'admin'),
+  asyncHandler(autoAssignController.projectQueueTelemetry),
+);
+router.get(
   '/projects/:projectId/queue',
   requireRoles('company', 'agency', 'admin'),
   asyncHandler(autoAssignController.projectQueue),

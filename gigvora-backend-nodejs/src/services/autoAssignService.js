@@ -727,6 +727,78 @@ export async function getProjectQueue(targetType = 'project', targetId) {
   }));
 }
 
+export async function getProjectQueueTelemetry(targetType = 'project', targetId) {
+  if (!targetId) {
+    throw new ValidationError('targetId is required.');
+  }
+  if (!APPLICATION_TARGET_TYPES.includes(targetType)) {
+    throw new ValidationError(`Unsupported targetType "${targetType}".`);
+  }
+
+  const project = await Project.findByPk(targetId, {
+    attributes: [
+      'id',
+      'autoAssignEnabled',
+      'autoAssignStatus',
+      'autoAssignLastRunAt',
+      'autoAssignLastQueueSize',
+    ],
+  });
+
+  if (!project) {
+    throw new NotFoundError('Project not found.');
+  }
+
+  const [statusRows, nextExpiryEntry, latestNotifiedEntry] = await Promise.all([
+    AutoAssignQueueEntry.findAll({
+      attributes: [
+        'status',
+        [sequelize.fn('COUNT', sequelize.col('AutoAssignQueueEntry.id')), 'count'],
+      ],
+      where: { targetType, targetId },
+      group: ['status'],
+      raw: true,
+    }),
+    AutoAssignQueueEntry.findOne({
+      attributes: ['expiresAt'],
+      where: { targetType, targetId, expiresAt: { [Op.not]: null } },
+      order: [['expiresAt', 'ASC']],
+    }),
+    AutoAssignQueueEntry.findOne({
+      attributes: ['notifiedAt'],
+      where: { targetType, targetId, notifiedAt: { [Op.not]: null } },
+      order: [['notifiedAt', 'DESC']],
+    }),
+  ]);
+
+  const counts = statusRows.reduce((acc, row) => {
+    const status = typeof row.status === 'string' ? row.status.toLowerCase() : 'unknown';
+    const numeric = Number(row.count);
+    acc[status] = Number.isFinite(numeric) ? numeric : 0;
+    return acc;
+  }, {});
+
+  const totalEntries = Object.values(counts).reduce((sum, value) => sum + Number(value || 0), 0);
+  const activeCount = (counts.pending ?? 0) + (counts.notified ?? 0);
+
+  return {
+    projectId: project.id,
+    targetType,
+    enabled: Boolean(project.autoAssignEnabled),
+    status: project.autoAssignStatus ?? 'inactive',
+    lastRunAt: project.autoAssignLastRunAt ? project.autoAssignLastRunAt.toISOString() : null,
+    lastQueueSize:
+      project.autoAssignLastQueueSize == null ? null : Number(project.autoAssignLastQueueSize) || 0,
+    counts,
+    totalEntries,
+    activeCount,
+    nextExpiryAt: nextExpiryEntry?.expiresAt ? nextExpiryEntry.expiresAt.toISOString() : null,
+    lastNotifiedAt: latestNotifiedEntry?.notifiedAt
+      ? latestNotifiedEntry.notifiedAt.toISOString()
+      : null,
+  };
+}
+
 export async function getFreelancerAutoMatchOverview(freelancerId) {
   if (!freelancerId) {
     throw new ValidationError('freelancerId is required.');
@@ -944,6 +1016,7 @@ export default {
   listFreelancerMatches,
   resolveQueueEntry,
   getProjectQueue,
+  getProjectQueueTelemetry,
   getFreelancerAutoMatchOverview,
   updateFreelancerAutoMatchPreferences,
   scoreFreelancerForProject,
