@@ -43,9 +43,13 @@ import {
 } from './consentModels.js';
 import {
   CreationStudioItem,
+  CreationStudioCollaborator,
+  CreationStudioStep,
   CREATION_STUDIO_ITEM_TYPES,
   CREATION_STUDIO_ITEM_STATUSES,
   CREATION_STUDIO_VISIBILITIES,
+  CREATION_STUDIO_STEPS,
+  CREATION_STUDIO_COLLABORATOR_STATUSES,
 } from './creationStudioModels.js';
 
 import { buildLocationDetails } from '../utils/location.js';
@@ -566,9 +570,13 @@ export { SiteSetting, SitePage, SiteNavigationLink, SITE_PAGE_STATUSES } from '.
 export { EmailSmtpConfig, EmailTemplate } from './emailModels.js';
 export {
   CreationStudioItem,
+  CreationStudioCollaborator,
+  CreationStudioStep,
   CREATION_STUDIO_ITEM_TYPES,
   CREATION_STUDIO_ITEM_STATUSES,
   CREATION_STUDIO_VISIBILITIES,
+  CREATION_STUDIO_STEPS,
+  CREATION_STUDIO_COLLABORATOR_STATUSES,
 };
 export { AgencyAiConfiguration, AgencyAutoBidTemplate } from './agencyAiModels.js';
 

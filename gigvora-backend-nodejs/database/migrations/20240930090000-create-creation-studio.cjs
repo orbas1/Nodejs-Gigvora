@@ -16,7 +16,7 @@ const CREATION_STUDIO_TYPES = [
 ];
 
 const CREATION_STUDIO_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
-const CREATION_STUDIO_VISIBILITIES = ['private', 'connections', 'public'];
+const CREATION_STUDIO_VISIBILITIES = ['private', 'workspace', 'connections', 'community', 'public'];
 
 module.exports = {
   async up(queryInterface, Sequelize) {
@@ -29,14 +29,28 @@ module.exports = {
         'creation_studio_items',
         {
           id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
-          user_id: {
+          workspace_id: {
+            type: Sequelize.INTEGER,
+            allowNull: true,
+            references: { model: 'provider_workspaces', key: 'id' },
+            onUpdate: 'CASCADE',
+            onDelete: 'SET NULL',
+          },
+          owner_id: {
             type: Sequelize.INTEGER,
             allowNull: false,
             references: { model: 'users', key: 'id' },
             onUpdate: 'CASCADE',
             onDelete: 'CASCADE',
           },
-          last_edited_by: {
+          created_by_id: {
+            type: Sequelize.INTEGER,
+            allowNull: true,
+            references: { model: 'users', key: 'id' },
+            onUpdate: 'SET NULL',
+            onDelete: 'SET NULL',
+          },
+          updated_by_id: {
             type: Sequelize.INTEGER,
             allowNull: true,
             references: { model: 'users', key: 'id' },
@@ -45,8 +59,10 @@ module.exports = {
           },
           type: { type: Sequelize.ENUM(...CREATION_STUDIO_TYPES), allowNull: false },
           title: { type: Sequelize.STRING(200), allowNull: false },
-          tagline: { type: Sequelize.STRING(240), allowNull: true },
+          slug: { type: Sequelize.STRING(200), allowNull: true, unique: true },
+          headline: { type: Sequelize.STRING(240), allowNull: true },
           summary: { type: Sequelize.TEXT, allowNull: true },
+          description: { type: Sequelize.TEXT, allowNull: true },
           status: {
             type: Sequelize.ENUM(...CREATION_STUDIO_STATUSES),
             allowNull: false,
@@ -55,19 +71,30 @@ module.exports = {
           visibility: {
             type: Sequelize.ENUM(...CREATION_STUDIO_VISIBILITIES),
             allowNull: false,
-            defaultValue: 'private',
+            defaultValue: 'workspace',
           },
-          hero_image_url: { type: Sequelize.STRING(255), allowNull: true },
+          category: { type: Sequelize.STRING(120), allowNull: true },
+          target_audience: { type: Sequelize.STRING(255), allowNull: true },
+          hero_image_url: { type: Sequelize.STRING(500), allowNull: true },
           location_label: { type: Sequelize.STRING(180), allowNull: true },
           location_mode: { type: Sequelize.STRING(40), allowNull: false, defaultValue: 'hybrid' },
-          schedule: { type: jsonType, allowNull: true },
+          tags: { type: jsonType, allowNull: true },
           settings: { type: jsonType, allowNull: true },
           metadata: { type: jsonType, allowNull: true },
           share_targets: { type: jsonType, allowNull: true },
           share_message: { type: Sequelize.TEXT, allowNull: true },
-          tags: { type: jsonType, allowNull: true },
           launch_at: { type: Sequelize.DATE, allowNull: true },
-          share_slug: { type: Sequelize.STRING(80), allowNull: true, unique: true },
+          publish_at: { type: Sequelize.DATE, allowNull: true },
+          published_at: { type: Sequelize.DATE, allowNull: true },
+          archived_at: { type: Sequelize.DATE, allowNull: true },
+          budget_amount: { type: Sequelize.DECIMAL(12, 2), allowNull: true },
+          budget_currency: { type: Sequelize.STRING(6), allowNull: true },
+          compensation_min: { type: Sequelize.DECIMAL(12, 2), allowNull: true },
+          compensation_max: { type: Sequelize.DECIMAL(12, 2), allowNull: true },
+          compensation_currency: { type: Sequelize.STRING(6), allowNull: true },
+          duration_weeks: { type: Sequelize.INTEGER, allowNull: true },
+          commitment_hours: { type: Sequelize.INTEGER, allowNull: true },
+          remote_eligible: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: true },
           created_at: {
             type: Sequelize.DATE,
             allowNull: false,
@@ -120,9 +147,18 @@ module.exports = {
 
       await queryInterface.addIndex(
         'creation_studio_items',
-        ['user_id'],
+        ['owner_id'],
         {
-          name: 'creation_studio_items_user_idx',
+          name: 'creation_studio_items_owner_idx',
+          transaction,
+        },
+      );
+
+      await queryInterface.addIndex(
+        'creation_studio_items',
+        ['workspace_id'],
+        {
+          name: 'creation_studio_items_workspace_idx',
           transaction,
         },
       );
@@ -141,6 +177,15 @@ module.exports = {
         ['status'],
         {
           name: 'creation_studio_items_status_idx',
+          transaction,
+        },
+      );
+
+      await queryInterface.addIndex(
+        'creation_studio_items',
+        ['publish_at'],
+        {
+          name: 'creation_studio_items_publish_at_idx',
           transaction,
         },
       );
@@ -166,9 +211,11 @@ module.exports = {
     const transaction = await queryInterface.sequelize.transaction();
     try {
       await queryInterface.removeIndex('creation_studio_steps', 'creation_studio_steps_item_step_uq', { transaction });
+      await queryInterface.removeIndex('creation_studio_items', 'creation_studio_items_publish_at_idx', { transaction });
       await queryInterface.removeIndex('creation_studio_items', 'creation_studio_items_status_idx', { transaction });
       await queryInterface.removeIndex('creation_studio_items', 'creation_studio_items_type_idx', { transaction });
-      await queryInterface.removeIndex('creation_studio_items', 'creation_studio_items_user_idx', { transaction });
+      await queryInterface.removeIndex('creation_studio_items', 'creation_studio_items_workspace_idx', { transaction });
+      await queryInterface.removeIndex('creation_studio_items', 'creation_studio_items_owner_idx', { transaction });
 
       await queryInterface.dropTable('creation_studio_steps', { transaction });
       await queryInterface.dropTable('creation_studio_items', { transaction });

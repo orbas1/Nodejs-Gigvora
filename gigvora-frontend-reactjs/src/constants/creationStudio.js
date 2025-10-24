@@ -489,18 +489,18 @@ export const CREATION_STUDIO_TRACKS = [
 
 export const CREATION_STUDIO_STATS = [
   {
+    id: 'launched',
     label: 'Opportunities launched this week',
-    value: '86',
     tone: 'border-emerald-200 bg-emerald-50',
   },
   {
-    label: 'Templates with AI copilots',
-    value: '36',
+    id: 'active',
+    label: 'Active creation pipelines',
     tone: 'border-indigo-200 bg-indigo-50',
   },
   {
-    label: 'Feed to marketplace conversions',
-    value: '28%',
+    id: 'collaborators',
+    label: 'Collaborators invited',
     tone: 'border-sky-200 bg-sky-50',
   },
 ];

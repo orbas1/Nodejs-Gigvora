@@ -3,6 +3,7 @@ import {
   CREATION_STUDIO_ITEM_TYPES,
   CREATION_STUDIO_ITEM_STATUSES,
   CREATION_STUDIO_VISIBILITIES,
+  CREATION_STUDIO_COLLABORATOR_STATUSES,
 } from '../../models/creationStudioModels.js';
 import {
   optionalBoolean,
@@ -108,6 +109,57 @@ export const creationStudioOverviewQuerySchema = z
   })
   .strip();
 
+const collaboratorStatusEnum = z.enum([...CREATION_STUDIO_COLLABORATOR_STATUSES]);
+
+export const creationStudioCollaboratorQuerySchema = z
+  .object({
+    ownerId: optionalNumber({ min: 1, integer: true }).transform((value) => value ?? undefined),
+    trackType: optionalTrimmedString({ max: 80 })
+      .transform((value) => (value && CREATION_STUDIO_ITEM_TYPES.includes(value) ? value : undefined))
+      .optional(),
+  })
+  .strip();
+
+export const creationStudioCollaboratorBodySchema = z
+  .object({
+    ownerId: optionalNumber({ min: 1, integer: true }).transform((value) => value ?? undefined),
+    trackType: requiredTrimmedString({ max: 80 }).transform((value, ctx) => {
+      const normalised = value.trim();
+      if (!CREATION_STUDIO_ITEM_TYPES.includes(normalised)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Unsupported track type.' });
+        return z.NEVER;
+      }
+      return normalised;
+    }),
+    email: requiredTrimmedString({ max: 320 }).email(),
+    role: optionalTrimmedString({ max: 120 }).transform((value) => value ?? undefined),
+    status: collaboratorStatusEnum.optional(),
+    itemId: optionalNumber({ min: 1, integer: true }).transform((value) => value ?? undefined),
+    workspaceId: optionalNumber({ min: 1, integer: true }).transform((value) => value ?? undefined),
+    metadata: z.record(z.any()).optional(),
+  })
+  .strip();
+
+export const creationStudioCollaboratorParamsSchema = z.object({
+  collaboratorId: requiredTrimmedString({ min: 1, max: 40 }).transform((value, ctx) => {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'collaboratorId must be a positive integer.' });
+      return z.NEVER;
+    }
+    return parsed;
+  }),
+});
+
+export const creationStudioCollaboratorUpdateSchema = z
+  .object({
+    ownerId: optionalNumber({ min: 1, integer: true }).transform((value) => value ?? undefined),
+    status: collaboratorStatusEnum.optional(),
+    itemId: optionalNumber({ min: 1, integer: true }).transform((value) => value ?? undefined),
+    metadata: z.record(z.any()).optional(),
+  })
+  .strip();
+
 export default {
   creationStudioCreateSchema,
   creationStudioUpdateSchema,
@@ -115,4 +167,8 @@ export default {
   creationStudioPublishSchema,
   creationStudioListQuerySchema,
   creationStudioOverviewQuerySchema,
+  creationStudioCollaboratorQuerySchema,
+  creationStudioCollaboratorBodySchema,
+  creationStudioCollaboratorParamsSchema,
+  creationStudioCollaboratorUpdateSchema,
 };

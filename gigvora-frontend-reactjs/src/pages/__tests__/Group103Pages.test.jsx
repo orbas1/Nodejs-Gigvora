@@ -357,7 +357,7 @@ describe('ConnectionsPage cards', () => {
 describe('Creation Studio wizard exports', () => {
   it('exposes creation tracks and stats', () => {
     expect(creationTracks.find((track) => track.id === 'gig')).toBeTruthy();
-    expect(creationStudioStats.map((entry) => entry.label)).toContain('Templates with AI copilots');
+    expect(creationStudioStats.map((entry) => entry.label)).toContain('Active creation pipelines');
   });
 });
 

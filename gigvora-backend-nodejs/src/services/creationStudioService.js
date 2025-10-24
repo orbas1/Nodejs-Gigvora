@@ -2,10 +2,12 @@ import { Op, fn, col } from 'sequelize';
 import {
   CreationStudioItem,
   CreationStudioStep,
+  CreationStudioCollaborator,
   CREATION_STUDIO_ITEM_TYPES,
   CREATION_STUDIO_ITEM_STATUSES,
   CREATION_STUDIO_VISIBILITIES,
   CREATION_STUDIO_STEPS,
+  CREATION_STUDIO_COLLABORATOR_STATUSES,
 } from '../models/creationStudioModels.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
 
@@ -33,8 +35,20 @@ function normaliseArray(value) {
 }
 
 function normaliseVisibility(value) {
-  const candidate = normaliseString(value) ?? 'private';
-  return CREATION_STUDIO_VISIBILITIES.includes(candidate) ? candidate : 'private';
+  const candidate = normaliseString(value) ?? 'workspace';
+  if (!candidate) {
+    return 'workspace';
+  }
+  if (candidate === 'community') {
+    return CREATION_STUDIO_VISIBILITIES.includes('community') ? 'community' : 'public';
+  }
+  if (candidate === 'connections' || candidate === 'connection') {
+    return CREATION_STUDIO_VISIBILITIES.includes('connections') ? 'connections' : 'workspace';
+  }
+  if (CREATION_STUDIO_VISIBILITIES.includes(candidate)) {
+    return candidate;
+  }
+  return 'workspace';
 }
 
 function normaliseStatus(value) {
@@ -66,6 +80,40 @@ function normaliseNonNegativeInteger(value) {
     return null;
   }
   return numeric;
+}
+
+function normaliseDecimal(value, { min, max } = {}) {
+  if (value == null || value === '') {
+    return null;
+  }
+  const numeric = Number.parseFloat(value);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+  if (typeof min === 'number' && numeric < min) {
+    return min;
+  }
+  if (typeof max === 'number' && numeric > max) {
+    return max;
+  }
+  return numeric;
+}
+
+function normaliseCurrency(value) {
+  const code = normaliseString(value, { fallback: '' });
+  if (!code) {
+    return null;
+  }
+  return code.slice(0, 6).toUpperCase();
+}
+
+function normaliseEmail(value) {
+  const email = normaliseString(value);
+  if (!email) {
+    return null;
+  }
+  const regex = /^(?=.{3,254}$)[^@\s]+@[^@\s]+\.[^@\s]+$/;
+  return regex.test(email) ? email.toLowerCase() : null;
 }
 
 function requireType(value) {
@@ -117,6 +165,17 @@ function sanitiseItem(record) {
   };
 }
 
+function sanitiseCollaborator(record) {
+  if (!record) {
+    return null;
+  }
+  const plain = record.toPublicObject ? record.toPublicObject() : record;
+  return {
+    ...plain,
+    metadata: plain.metadata ?? {},
+  };
+}
+
 function buildSummary(items) {
   const summary = {
     total: items.length,
@@ -165,12 +224,14 @@ function buildDefaultSettings(type) {
 function preparePayload(payload, { actorId, existing } = {}) {
   const type = payload.type ? requireType(payload.type) : requireType(existing?.type ?? 'project');
   const title = normaliseString(payload.title) ?? existing?.title ?? `${type.replace(/_/g, ' ')} draft`;
+  const headline =
+    payload.headline !== undefined ? normaliseString(payload.headline) : existing?.headline ?? null;
   const summary = payload.summary !== undefined ? normaliseString(payload.summary) : existing?.summary ?? null;
   const description =
     payload.description !== undefined ? normaliseString(payload.description) : existing?.description ?? null;
 
   const status = payload.status ? normaliseStatus(payload.status) : existing?.status ?? 'draft';
-  const visibility = payload.visibility ? normaliseVisibility(payload.visibility) : existing?.visibility ?? 'private';
+  const visibility = payload.visibility ? normaliseVisibility(payload.visibility) : existing?.visibility ?? 'workspace';
 
   const settings = payload.settings !== undefined ? { ...buildDefaultSettings(type), ...(payload.settings ?? {}) } : existing?.settings ?? buildDefaultSettings(type);
 
@@ -192,10 +253,51 @@ function preparePayload(payload, { actorId, existing } = {}) {
   }
 
   const slug = payload.slug !== undefined ? normaliseString(payload.slug) : existing?.slug ?? null;
+  const category = payload.category !== undefined ? normaliseString(payload.category) : existing?.category ?? null;
+  const targetAudience =
+    payload.targetAudience !== undefined
+      ? normaliseString(payload.targetAudience)
+      : existing?.targetAudience ?? null;
+  const heroImageUrl =
+    payload.heroImageUrl !== undefined ? normaliseString(payload.heroImageUrl) : existing?.heroImageUrl ?? null;
+  const locationLabel =
+    payload.locationLabel !== undefined ? normaliseString(payload.locationLabel) : existing?.locationLabel ?? null;
+  const locationMode =
+    payload.locationMode !== undefined
+      ? normaliseString(payload.locationMode) ?? 'hybrid'
+      : existing?.locationMode ?? 'hybrid';
+
+  const budgetAmount =
+    payload.budgetAmount !== undefined ? normaliseDecimal(payload.budgetAmount, { min: 0 }) : existing?.budgetAmount ?? null;
+  const budgetCurrency =
+    payload.budgetCurrency !== undefined ? normaliseCurrency(payload.budgetCurrency) : existing?.budgetCurrency ?? null;
+  const compensationMin =
+    payload.compensationMin !== undefined
+      ? normaliseDecimal(payload.compensationMin, { min: 0 })
+      : existing?.compensationMin ?? null;
+  const compensationMax =
+    payload.compensationMax !== undefined
+      ? normaliseDecimal(payload.compensationMax, { min: compensationMin ?? 0 })
+      : existing?.compensationMax ?? null;
+  const compensationCurrency =
+    payload.compensationCurrency !== undefined
+      ? normaliseCurrency(payload.compensationCurrency)
+      : existing?.compensationCurrency ?? null;
+  const durationWeeks =
+    payload.durationWeeks !== undefined
+      ? normaliseNonNegativeInteger(payload.durationWeeks)
+      : existing?.durationWeeks ?? null;
+  const commitmentHours =
+    payload.commitmentHours !== undefined
+      ? normaliseNonNegativeInteger(payload.commitmentHours)
+      : existing?.commitmentHours ?? null;
+  const remoteEligible =
+    payload.remoteEligible !== undefined ? Boolean(payload.remoteEligible) : existing?.remoteEligible ?? true;
 
   return {
     type,
     title,
+    headline,
     summary,
     description,
     status,
@@ -209,6 +311,19 @@ function preparePayload(payload, { actorId, existing } = {}) {
     launchAt,
     updatedById: actorId ?? existing?.updatedById ?? null,
     slug,
+    category,
+    targetAudience,
+    heroImageUrl,
+    locationLabel,
+    locationMode,
+    budgetAmount,
+    budgetCurrency,
+    compensationMin,
+    compensationMax,
+    compensationCurrency,
+    durationWeeks,
+    commitmentHours,
+    remoteEligible,
   };
 }
 
@@ -444,6 +559,24 @@ export async function listItems(ownerId, { includeArchived = false } = {}) {
   return { items, summary: buildSummary(items) };
 }
 
+export async function listCollaborators(ownerId, { trackType } = {}) {
+  if (!ownerId) {
+    return [];
+  }
+  const where = { ownerId };
+  if (trackType) {
+    where.trackType = requireType(trackType);
+  }
+  const collaborators = await CreationStudioCollaborator.findAll({
+    where,
+    order: [
+      ['updatedAt', 'DESC'],
+      ['id', 'DESC'],
+    ],
+  });
+  return collaborators.map((record) => sanitiseCollaborator(record)).filter(Boolean);
+}
+
 export async function getDashboardSnapshot(ownerId) {
   const { items, summary } = await listItems(ownerId, { includeArchived: false });
   return {
@@ -548,7 +681,69 @@ export async function archiveItem(ownerId, itemId, { actorId } = {}) {
     archivedAt: new Date(),
     updatedById: actorId ?? ownerId,
   });
-  return true;
+  return { success: true };
+}
+
+export async function inviteCollaborator(ownerId, payload = {}, { actorId } = {}) {
+  if (!ownerId) {
+    throw new ValidationError('ownerId is required to invite collaborators.');
+  }
+  const email = normaliseEmail(payload.email ?? payload.invitee);
+  if (!email) {
+    throw new ValidationError('A valid collaborator email is required.');
+  }
+  const trackType = requireType(payload.trackType ?? payload.type ?? payload.targetType ?? 'project');
+  const role = normaliseString(payload.role, { fallback: 'Collaborator' }) || 'Collaborator';
+  const status = CREATION_STUDIO_COLLABORATOR_STATUSES.includes(payload.status)
+    ? payload.status
+    : 'invited';
+  const collaborator = await CreationStudioCollaborator.create({
+    ownerId,
+    workspaceId: payload.workspaceId ?? null,
+    itemId: payload.itemId ?? null,
+    trackType,
+    email,
+    role,
+    status,
+    invitedById: actorId ?? ownerId,
+    metadata: payload.metadata ?? {},
+  });
+  return sanitiseCollaborator(collaborator);
+}
+
+export async function updateCollaborator(ownerId, collaboratorId, payload = {}, { actorId } = {}) {
+  if (!ownerId) {
+    throw new ValidationError('ownerId is required to update collaborators.');
+  }
+  const collaborator = await CreationStudioCollaborator.findOne({ where: { id: collaboratorId, ownerId } });
+  if (!collaborator) {
+    return null;
+  }
+  const updates = {};
+  if (payload.status) {
+    if (!CREATION_STUDIO_COLLABORATOR_STATUSES.includes(payload.status)) {
+      throw new ValidationError('Unsupported collaborator status.');
+    }
+    updates.status = payload.status;
+    updates.respondedAt =
+      payload.status === 'accepted' || payload.status === 'declined'
+        ? payload.respondedAt
+          ? new Date(payload.respondedAt)
+          : new Date()
+        : collaborator.respondedAt;
+  }
+  if (payload.itemId !== undefined) {
+    updates.itemId = payload.itemId ?? null;
+  }
+  if (payload.metadata !== undefined) {
+    updates.metadata = payload.metadata ?? {};
+  }
+  if (Object.keys(updates).length === 0) {
+    return sanitiseCollaborator(collaborator);
+  }
+  updates.invitedById = collaborator.invitedById ?? actorId ?? ownerId;
+  await collaborator.update(updates);
+  return sanitiseCollaborator(collaborator);
 }
 
 export default {
@@ -559,6 +754,7 @@ export default {
   publishCreationStudioItem,
   deleteCreationStudioItem,
   listItems,
+  listCollaborators,
   getDashboardSnapshot,
   getWorkspace,
   createItem,
@@ -566,8 +762,11 @@ export default {
   recordStepProgress,
   shareItem,
   archiveItem,
+  inviteCollaborator,
+  updateCollaborator,
   CREATION_STUDIO_ITEM_TYPES,
   CREATION_STUDIO_ITEM_STATUSES,
   CREATION_STUDIO_VISIBILITIES,
   CREATION_STUDIO_STEPS,
+  CREATION_STUDIO_COLLABORATOR_STATUSES,
 };

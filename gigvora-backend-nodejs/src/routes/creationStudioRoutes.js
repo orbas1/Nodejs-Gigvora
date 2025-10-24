@@ -10,6 +10,10 @@ import {
   creationStudioPublishSchema,
   creationStudioListQuerySchema,
   creationStudioOverviewQuerySchema,
+  creationStudioCollaboratorQuerySchema,
+  creationStudioCollaboratorBodySchema,
+  creationStudioCollaboratorParamsSchema,
+  creationStudioCollaboratorUpdateSchema,
 } from '../validation/schemas/creationStudioSchemas.js';
 
 const router = Router();
@@ -52,6 +56,24 @@ router.delete(
   '/:itemId',
   validateRequest({ params: creationStudioItemParamsSchema }),
   asyncHandler(creationStudioController.destroy),
+);
+
+router.get(
+  '/collaborators',
+  validateRequest({ query: creationStudioCollaboratorQuerySchema }),
+  asyncHandler(creationStudioController.listCollaboratorsHandler),
+);
+
+router.post(
+  '/collaborators',
+  validateRequest({ body: creationStudioCollaboratorBodySchema }),
+  asyncHandler(creationStudioController.inviteCollaboratorHandler),
+);
+
+router.patch(
+  '/collaborators/:collaboratorId',
+  validateRequest({ params: creationStudioCollaboratorParamsSchema, body: creationStudioCollaboratorUpdateSchema }),
+  asyncHandler(creationStudioController.updateCollaboratorHandler),
 );
 
 export default router;

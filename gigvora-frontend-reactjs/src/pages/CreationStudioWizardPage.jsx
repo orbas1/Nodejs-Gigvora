@@ -15,6 +15,9 @@ import {
 import {
   createCreationStudioItem as createCommunityCreationItem,
   publishCreationStudioItem as publishCommunityCreationItem,
+  fetchCreationStudioOverview,
+  listCreationStudioCollaborators,
+  inviteCreationStudioCollaborator,
 } from '../services/creationStudio.js';
 
 export { CREATION_STUDIO_TRACKS as creationTracks, CREATION_STUDIO_STATS as stats } from '../constants/creationStudio.js';
@@ -131,7 +134,6 @@ export default function CreationStudioWizardPage() {
   const manualTrackSelectionRef = useRef(false);
   const submissionGuardRef = useRef(false);
   const copyTimeoutRef = useRef(null);
-  const inviteTimeoutRef = useRef(null);
 
   const [selectedTrackId, setSelectedTrackId] = useState(recommendedTrackId);
   const [quickDraft, setQuickDraft] = useState({
@@ -146,7 +148,44 @@ export default function CreationStudioWizardPage() {
   const [copiedPromptId, setCopiedPromptId] = useState(null);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteState, setInviteState] = useState({ status: 'idle', message: null });
-  const [collaborators, setCollaborators] = useState([]);
+  const [overviewState, setOverviewState] = useState({ status: 'loading', data: null, error: null });
+  const [collaboratorState, setCollaboratorState] = useState({ status: 'loading', data: [], error: null });
+
+  const refreshOverview = useCallback(
+    async ({ signal } = {}) => {
+      setOverviewState((current) => ({ ...current, status: 'loading', error: null }));
+      try {
+        const payload = await fetchCreationStudioOverview({}, { signal });
+        setOverviewState({ status: 'success', data: payload ?? null, error: null });
+      } catch (error) {
+        if (signal?.aborted) {
+          return;
+        }
+        setOverviewState({ status: 'error', data: null, error });
+      }
+    },
+    [],
+  );
+
+  const refreshCollaborators = useCallback(
+    async ({ signal } = {}) => {
+      setCollaboratorState((current) => ({ ...current, status: 'loading', error: null }));
+      try {
+        const response = await listCreationStudioCollaborators({}, { signal });
+        const list = Array.isArray(response?.collaborators) ? response.collaborators : response ?? [];
+        setCollaboratorState({ status: 'success', data: list, error: null });
+      } catch (error) {
+        if (signal?.aborted) {
+          return;
+        }
+        setCollaboratorState({ status: 'error', data: [], error });
+      }
+    },
+    [],
+  );
+
+  const overview = overviewState.data;
+  const collaborators = collaboratorState.data ?? [];
 
   useEffect(() => {
     if (!manualTrackSelectionRef.current) {
@@ -163,12 +202,25 @@ export default function CreationStudioWizardPage() {
     });
   }, [recommendedTrackId, recommendedTrackType]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    refreshOverview({ signal: controller.signal });
+    refreshCollaborators({ signal: controller.signal });
+    return () => controller.abort();
+  }, [refreshOverview, refreshCollaborators]);
+
+  useEffect(() => {
+    const handleRefresh = () => {
+      refreshOverview();
+      refreshCollaborators();
+    };
+    window.addEventListener('creation-studio:refresh', handleRefresh);
+    return () => window.removeEventListener('creation-studio:refresh', handleRefresh);
+  }, [refreshOverview, refreshCollaborators]);
+
   useEffect(() => () => {
     if (copyTimeoutRef.current) {
       clearTimeout(copyTimeoutRef.current);
-    }
-    if (inviteTimeoutRef.current) {
-      clearTimeout(inviteTimeoutRef.current);
     }
   }, []);
 
@@ -234,6 +286,63 @@ export default function CreationStudioWizardPage() {
     [isAuthenticated],
   );
 
+  const stats = useMemo(() => {
+    const base = CREATION_STUDIO_STATS;
+    const items = Array.isArray(overview?.items) ? overview.items : [];
+    const summary = overview?.summary ?? {};
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const launched = items.filter((item) => item.publishedAt && new Date(item.publishedAt).getTime() >= weekAgo).length;
+    const active = typeof summary.total === 'number' ? summary.total : items.length;
+    const collaboratorCount = collaborators.filter((collaborator) => collaborator.status !== 'removed').length;
+    const values = {
+      launched,
+      active,
+      collaborators: collaboratorCount,
+    };
+    return base.map((entry) => {
+      if (entry.id === 'collaborators' && collaboratorState.status === 'loading') {
+        return { ...entry, value: '—' };
+      }
+      if (entry.id !== 'collaborators' && overviewState.status === 'loading') {
+        return { ...entry, value: '—' };
+      }
+      const value = values[entry.id];
+      return { ...entry, value: value != null ? String(value) : '0' };
+    });
+  }, [overview, overviewState.status, collaborators, collaboratorState.status]);
+
+  const trackAnalytics = useMemo(() => {
+    if (!selectedTrack) {
+      return [];
+    }
+    const items = (overview?.items ?? []).filter((item) => item.type === selectedTrack.type);
+    const publishedCount = items.filter((item) => item.status === 'published').length;
+    const scheduledCount = items.filter((item) => item.status === 'scheduled').length;
+    const collaboratorCount = collaborators.filter(
+      (collaborator) => collaborator.trackType === selectedTrack.type && collaborator.status !== 'removed',
+    ).length;
+    return [
+      {
+        id: 'published',
+        label: 'Published experiences',
+        metric: overviewState.status === 'loading' ? '—' : String(publishedCount),
+        description: 'Live opportunities created with this track.',
+      },
+      {
+        id: 'scheduled',
+        label: 'Scheduled launches',
+        metric: overviewState.status === 'loading' ? '—' : String(scheduledCount),
+        description: 'Upcoming launches awaiting publish windows.',
+      },
+      {
+        id: 'collaborators',
+        label: 'Active collaborators',
+        metric: collaboratorState.status === 'loading' ? '—' : String(collaboratorCount),
+        description: 'Invited teammates linked to this opportunity type.',
+      },
+    ];
+  }, [selectedTrack, overview, overviewState.status, collaborators, collaboratorState.status]);
+
   const handleSelectTrack = useCallback((trackId) => {
     manualTrackSelectionRef.current = true;
     setSelectedTrackId(trackId);
@@ -283,7 +392,7 @@ export default function CreationStudioWizardPage() {
   );
 
   const handleInviteCollaborator = useCallback(
-    (event) => {
+    async (event) => {
       event.preventDefault();
       if (!selectedTrack) {
         setInviteState({ status: 'error', message: 'Select a track before inviting collaborators.' });
@@ -300,24 +409,28 @@ export default function CreationStudioWizardPage() {
         return;
       }
       setInviteState({ status: 'sending', message: 'Scheduling invite…' });
-      if (inviteTimeoutRef.current) {
-        clearTimeout(inviteTimeoutRef.current);
-      }
-      inviteTimeoutRef.current = setTimeout(() => {
-        setCollaborators((current) => [
-          ...current,
-          {
-            email: trimmed,
-            role: selectedTrack.collaborationRoles?.[0]?.role ?? 'Collaborator',
-            trackId: selectedTrack.id,
-            status: 'Pending acceptance',
-          },
-        ]);
+      try {
+        const collaborator = await inviteCreationStudioCollaborator({
+          trackType: selectedTrack.type,
+          email: trimmed,
+          role: selectedTrack.collaborationRoles?.[0]?.role ?? 'Collaborator',
+        });
         setInviteEmail('');
         setInviteState({ status: 'success', message: `Invite sent to ${trimmed}.` });
-      }, 450);
+        setCollaboratorState((current) => ({
+          status: 'success',
+          data: [collaborator, ...(current.data ?? [])],
+          error: null,
+        }));
+        refreshCollaborators();
+      } catch (error) {
+        setInviteState({
+          status: 'error',
+          message: error?.body?.message ?? error?.message ?? 'Unable to send invite.',
+        });
+      }
     },
-    [inviteEmail, selectedTrack],
+    [inviteEmail, selectedTrack, refreshCollaborators],
   );
 
   const handleQuickLaunch = useCallback(
@@ -365,6 +478,8 @@ export default function CreationStudioWizardPage() {
               : 'Workspace created. Continue in the manager below to refine details.',
         });
         setQuickDraft((current) => ({ ...current, title: '', summary: '' }));
+        refreshOverview();
+        refreshCollaborators();
       } catch (error) {
         setQuickState({
           status: 'error',
@@ -374,7 +489,7 @@ export default function CreationStudioWizardPage() {
         submissionGuardRef.current = false;
       }
     },
-    [quickDraft],
+    [quickDraft, refreshOverview, refreshCollaborators],
   );
 
   return (
@@ -397,8 +512,8 @@ export default function CreationStudioWizardPage() {
         />
 
         <div className="grid gap-6 md:grid-cols-3">
-          {CREATION_STUDIO_STATS.map((item) => (
-            <StatCard key={item.label} {...item} />
+          {stats.map((item) => (
+            <StatCard key={item.id} label={item.label} value={item.value} tone={item.tone} />
           ))}
         </div>
 
@@ -633,19 +748,26 @@ export default function CreationStudioWizardPage() {
                   {inviteState.status === 'success' ? (
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200">{inviteState.message}</p>
                   ) : null}
+                  {collaboratorState.status === 'error' ? (
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-rose-200">
+                      Unable to load collaborator invites. Try again.
+                    </p>
+                  ) : null}
                 </form>
                 <div className="space-y-3">
-                  {collaborators.length ? (
+                  {collaboratorState.status === 'loading' ? (
+                    <p className="text-sm text-slate-300">Loading collaborator invites…</p>
+                  ) : collaborators.length ? (
                     <ul className="space-y-3">
                       {collaborators.map((collaborator) => (
                         <li
-                          key={`${collaborator.email}-${collaborator.trackId}-${collaborator.status}`}
+                          key={`${collaborator.email}-${collaborator.trackType ?? collaborator.trackId}-${collaborator.status}`}
                           className="flex items-center justify-between rounded-2xl border border-white/20 bg-white/5 px-4 py-3"
                         >
                           <div>
                             <p className="text-sm font-semibold text-white">{collaborator.email}</p>
                             <p className="text-xs text-slate-300">
-                              {collaborator.role} • {collaborator.status}
+                              {collaborator.role} • {collaborator.status?.replace(/_/g, ' ')}
                             </p>
                           </div>
                           <span className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200">Invited</span>
@@ -675,7 +797,7 @@ export default function CreationStudioWizardPage() {
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Real-time telemetry from creation studio manager</p>
             </div>
             <div className="mt-8 grid gap-6 md:grid-cols-3">
-              {selectedTrack.analytics.map((item) => (
+              {trackAnalytics.map((item) => (
                 <div key={item.id} className="rounded-3xl border border-slate-200 bg-slate-50/70 p-6 shadow-soft">
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{item.label}</p>
                   <p className="mt-3 text-3xl font-semibold text-slate-900">{item.metric}</p>
