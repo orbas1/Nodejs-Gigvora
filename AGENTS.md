@@ -128,13 +128,13 @@ The following content is ported from `logic_flows.md` and retains every main cat
 16. **Full Upgrade Plan & Release Steps.** 1) Define config schema & validation; 2) Implement persisted-settings diffing and caching; 3) Document override priority; 4) Run staging soak test verifying hot reload; 5) Deploy with feature flag for persisted settings.
 
 ### Sub category 1.C. Authentication, Identity, and RBAC
-1. **Appraisal.** Auth flows span email/password, Google OAuth, 2FA, and refresh token rotation, with dedicated services orchestrating registration, login, and audit trails, aligning with security best practices.【F:gigvora-backend-nodejs/src/controllers/authController.js†L1-L64】【F:gigvora-backend-nodejs/src/services/authService.js†L1-L160】
-2. **Functionality.** Controllers register users, companies, agencies, linking to profile models; service enforces password strength, issues JWT access/refresh tokens, triggers 2FA challenges, integrates feature flag evaluations, and records login audits.【F:gigvora-backend-nodejs/src/services/authService.js†L62-L158】
-3. **Logic Usefulness.** Feature flag evaluation contextualises login state for clients, while audit logging and workspace-aware sessions support compliance needs.
+1. **Appraisal.** Auth flows span email/password, Google OAuth, 2FA, and refresh token rotation, with dedicated services orchestrating registration, login, and audit trails, aligning with security best practices.【F:gigvora-backend-nodejs/src/controllers/authController.js†L1-L83】【F:gigvora-backend-nodejs/src/services/authService.js†L82-L172】
+2. **Functionality.** Controllers register users, companies, agencies, linking to profile models; service enforces password strength, issues JWT access/refresh tokens, triggers 2FA challenges, integrates feature flag evaluations, and records login audits.【F:gigvora-backend-nodejs/src/services/authService.js†L104-L172】
+3. **Logic Usefulness.** Feature flag evaluation contextualises login state for clients, while audit logging and workspace-aware sessions support compliance needs.【F:gigvora-backend-nodejs/src/services/authService.js†L135-L168】
 4. **Redundancies.** Multiple controllers replicate location normalization logic; extract to shared helper to reduce duplication.【F:gigvora-backend-nodejs/src/controllers/authController.js†L9-L36】
-5. **Placeholders Or non-working functions or stubs.** Google login gracefully handles missing client ID but returns generic error—document fallback behaviour for operators.
+5. **Placeholders Or non-working functions or stubs.** Google login now emits an explicit support-facing message and structured log when OAuth credentials are missing, guiding operators toward email sign-in while configuration is restored.【F:gigvora-backend-nodejs/src/services/authService.js†L217-L238】
 6. **Duplicate Functions.** JWT secret resolution logic duplicated between access and refresh; consider single `resolveSecrets` utility returning both with validation (partially done but can centralise usage).【F:gigvora-backend-nodejs/src/services/authService.js†L34-L83】
-7. **Improvements need to make.** Add device fingerprinting, refresh token revocation lists, and admin-specific login rate limits; ensure sanitizeUser handles new profile attributes.
+7. **Improvements need to make.** Device fingerprinting and admin-specific login rate limits remain backlog items, but refresh token revocation now persists through a dedicated service and sanitizeUser emits enriched profile/organization context for downstream consumers.【F:gigvora-backend-nodejs/src/services/tokenRevocationService.js†L1-L76】【F:gigvora-backend-nodejs/src/services/authService.js†L289-L358】【F:gigvora-backend-nodejs/src/domains/auth/authDomainService.js†L42-L155】
 8. **Styling improvements.** Response payload formatting should be documented for frontend parity (camelCase vs snakeCase).
 9. **Efficiency analysis and improvement.** Cache Google OAuth client, already lazy; consider memoising feature flag evaluations where context identical.
 10. **Strengths to Keep.** Multi-channel registration, 2FA-first login flow, and audit logging underpin trust.
@@ -142,25 +142,25 @@ The following content is ported from `logic_flows.md` and retains every main cat
 12. **Styling and Colour review changes.** N/A.
 13. **CSS, orientation, placement and arrangement changes.** N/A.
 14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Expand error messages to actionable guidance while remaining secure (e.g., point to support rather than generic "invalid").
-15. **Change Checklist Tracker.** ✅ Review controllers/services; ⬜ Document Google fallback; ⬜ Add refresh revocation; ⬜ Expand sanitize coverage.
+15. **Change Checklist Tracker.** ✅ Review controllers/services; ✅ Document Google fallback; ✅ Add refresh revocation; ✅ Expand sanitize coverage.
 16. **Full Upgrade Plan & Release Steps.** 1) Implement refresh token blacklist with Redis; 2) Extend audit trail to include device metadata; 3) Update docs and client contracts; 4) Release with staged rollout and monitor login metrics.
 
 ### Sub category 1.D. User Profiles, Social Graph, and Timeline Feed
-1. **Appraisal.** Feed controllers compose timeline data, post creation, and social interactions, leveraging services for ranking, attachments, and notifications, while profile controllers unify member, company, and agency personas for consistent viewing experiences.【F:gigvora-backend-nodejs/src/controllers/feedController.js†L1-L160】【F:gigvora-backend-nodejs/src/controllers/profileController.js†L1-L180】
-2. **Functionality.** Endpoints fetch paginated feed entries, create posts, handle comments, suggestions, and highlight metrics; profile endpoints aggregate user info, teams, testimonials, and badges from models and services.
-3. **Logic Usefulness.** Ranking integrates contextual signals (membership, connections) while suggested connects/groups expand engagement; profile builder merges cross-domain data for single payload delivery.
-4. **Redundancies.** Recommendation logic partially duplicated between feed and networking services; unify algorithms to prevent divergence in suggestions.
-5. **Placeholders Or non-working functions or stubs.** Some feed enrichment functions reference TODO for media processing; confirm attachments pipeline is ready before enabling uploads.
-6. **Duplicate Functions.** Similar comment sanitization appears across feed and groups; refactor to shared utility.
-7. **Improvements need to make.** Add caching for feed queries, integrate content moderation hooks, and ensure timeline summarization handles multi-tenant isolation.
+1. **Appraisal.** Feed controllers compose timeline data, post creation, and social interactions, leveraging services for ranking, attachments, and notifications, while user controllers aggregate profile hubs, testimonials, and persona dashboards for consistent viewing experiences.【F:gigvora-backend-nodejs/src/controllers/feedController.js†L1-L206】【F:gigvora-backend-nodejs/src/controllers/userController.js†L20-L170】
+2. **Functionality.** Endpoints fetch paginated feed entries, create posts, surface suggestions, and expose moderation metadata; profile endpoints merge profile hubs, followers, alliances, and dashboards from underlying services for a unified payload.【F:gigvora-backend-nodejs/src/controllers/feedController.js†L177-L276】【F:gigvora-backend-nodejs/src/controllers/userController.js†L20-L195】
+3. **Logic Usefulness.** Ranking integrates contextual signals (membership, connections) while suggestion services expand networking reach; profile hub orchestration merges cross-domain data into a single response for clients.【F:gigvora-backend-nodejs/src/services/feedSuggestionService.js†L45-L135】【F:gigvora-backend-nodejs/src/controllers/userController.js†L34-L170】
+4. **Redundancies.** Feed recommendation logic now centralises in a dedicated suggestion service, but networking experiences should reuse the same helper to prevent divergence.【F:gigvora-backend-nodejs/src/services/feedSuggestionService.js†L1-L135】
+5. **Placeholders Or non-working functions or stubs.** Some feed enrichment functions reference TODO for media processing; confirm attachments pipeline is ready before enabling uploads.【F:gigvora-backend-nodejs/src/controllers/feedController.js†L211-L258】
+6. **Duplicate Functions.** Similar comment sanitization appears across feed and groups; refactor to shared utility.【F:gigvora-backend-nodejs/src/controllers/feedController.js†L198-L220】
+7. **Improvements need to make.** Caching and multi-tenant summarisation remain pending, yet timeline creation/update flows now pipe through shared moderation heuristics to block disallowed copy and attachments.【F:gigvora-backend-nodejs/src/services/freelancerTimelineService.js†L822-L978】
 8. **Styling improvements.** Provide consistent formatting for timestamps and CTA labels in responses for UI coherence.
-9. **Efficiency analysis and improvement.** Use streaming/pagination to avoid large payloads, add database indices on feed engagement columns.
-10. **Strengths to Keep.** Unified profile aggregator, suggestion surfaces, and social graph integration drive user retention.
-11. **Weaknesses to remove.** Remove static placeholder data in suggestions; replace with data-driven algorithms before production.
+9. **Efficiency analysis and improvement.** Use streaming/pagination to avoid large payloads, with new feed/timeline indexes reducing hot-path scans across author, visibility, and publish status columns.【F:gigvora-backend-nodejs/src/models/index.js†L3346-L3352】
+10. **Strengths to Keep.** Unified profile aggregator, suggestion surfaces, and social graph integration drive user retention.【F:gigvora-backend-nodejs/src/services/feedSuggestionService.js†L19-L129】【F:gigvora-backend-nodejs/src/controllers/userController.js†L34-L170】
+11. **Weaknesses to remove.** Static suggestion stubs have been replaced by a feed suggestions endpoint that composes dynamic connection candidates for authenticated members.【F:gigvora-backend-nodejs/src/controllers/feedController.js†L263-L276】
 12. **Styling and Colour review changes.** N/A.
 13. **CSS, orientation, placement and arrangement changes.** N/A.
 14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Review copywriting for feed prompts and success metrics to align with brand tone and avoid redundancy.
-15. **Change Checklist Tracker.** ✅ Audit feed/profile controllers; ⬜ Replace placeholder suggestion data; ⬜ Add moderation hooks; ⬜ Index database tables.
+15. **Change Checklist Tracker.** ✅ Audit feed/profile controllers; ✅ Replace placeholder suggestion data; ✅ Add moderation hooks; ✅ Index database tables.
 16. **Full Upgrade Plan & Release Steps.** 1) Implement recommendation microservice; 2) Add content moderation API integration; 3) Roll staging test with load/perf; 4) Deploy after verifying analytics uplift.
 
 ### Sub category 1.E. Marketplace Search, Projects, and Explorer Services

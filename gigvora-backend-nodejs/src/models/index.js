@@ -3279,7 +3279,15 @@ export const FeedPost = sequelize.define(
     authorHeadline: { type: DataTypes.STRING(255), allowNull: true },
     authorAvatarSeed: { type: DataTypes.STRING(255), allowNull: true },
   },
-  { tableName: 'feed_posts' },
+  {
+    tableName: 'feed_posts',
+    indexes: [
+      { fields: ['userId', 'createdAt'] },
+      { fields: ['createdAt'] },
+      { fields: ['visibility', 'createdAt'] },
+      { fields: ['type', 'createdAt'] },
+    ],
+  },
 );
 
 export const FreelancerTimelineWorkspace = sequelize.define(
@@ -3334,7 +3342,15 @@ export const FreelancerTimelinePost = sequelize.define(
     metricsSnapshot: { type: jsonType, allowNull: true },
     lastEditedById: { type: DataTypes.INTEGER, allowNull: true },
   },
-  { tableName: 'freelancer_timeline_posts' },
+  {
+    tableName: 'freelancer_timeline_posts',
+    indexes: [
+      { fields: ['freelancerId', 'status'] },
+      { fields: ['freelancerId', 'publishedAt'] },
+      { fields: ['workspaceId'] },
+      { fields: ['status', 'visibility'] },
+    ],
+  },
 );
 
 export const FreelancerTimelineEntry = sequelize.define(

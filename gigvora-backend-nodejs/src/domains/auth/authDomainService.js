@@ -69,6 +69,62 @@ function sanitizeUser(userInstance) {
     memberships.add('user');
   }
   const fullName = [plain.firstName, plain.lastName].filter(Boolean).join(' ').trim() || plain.email;
+  const profile = plain.Profile ?? plain.profile ?? null;
+  const companyProfile = plain.CompanyProfile ?? plain.companyProfile ?? null;
+  const agencyProfile = plain.AgencyProfile ?? plain.agencyProfile ?? null;
+  const sanitizeLinks = (value) => {
+    if (!value) {
+      return [];
+    }
+    if (Array.isArray(value)) {
+      return value;
+    }
+    if (typeof value === 'object') {
+      return Object.values(value);
+    }
+    return [];
+  };
+  const sanitizedProfile = profile
+    ? {
+        id: profile.id ?? null,
+        headline: profile.headline ?? null,
+        missionStatement: profile.missionStatement ?? profile.bio ?? null,
+        bio: profile.bio ?? null,
+        location: profile.location ?? plain.location ?? null,
+        geoLocation: profile.geoLocation ?? plain.geoLocation ?? null,
+        timezone: profile.timezone ?? null,
+        avatarUrl: profile.avatarUrl ?? plain.avatarUrl ?? null,
+        avatarSeed: profile.avatarSeed ?? null,
+        socialLinks: sanitizeLinks(profile.socialLinks),
+        tags: Array.isArray(profile.tags) ? profile.tags : [],
+      }
+    : null;
+  const sanitizedCompanyProfile = companyProfile
+    ? {
+        id: companyProfile.id ?? null,
+        companyName: companyProfile.companyName ?? null,
+        tagline: companyProfile.tagline ?? null,
+        location: companyProfile.location ?? null,
+        website: companyProfile.website ?? null,
+        logoUrl: companyProfile.logoUrl ?? null,
+        bannerUrl: companyProfile.bannerUrl ?? null,
+        socialLinks: sanitizeLinks(companyProfile.socialLinks),
+      }
+    : null;
+  const sanitizedAgencyProfile = agencyProfile
+    ? {
+        id: agencyProfile.id ?? null,
+        agencyName: agencyProfile.agencyName ?? null,
+        focusArea: agencyProfile.focusArea ?? null,
+        website: agencyProfile.website ?? null,
+        location: agencyProfile.location ?? null,
+        tagline: agencyProfile.tagline ?? null,
+        profileImageUrl: agencyProfile.profileImageUrl ?? null,
+        bannerUrl: agencyProfile.bannerUrl ?? null,
+        services: Array.isArray(agencyProfile.services) ? agencyProfile.services : [],
+        industries: Array.isArray(agencyProfile.industries) ? agencyProfile.industries : [],
+      }
+    : null;
   return {
     id: plain.id,
     email: plain.email,
@@ -92,6 +148,10 @@ function sanitizeUser(userInstance) {
     memberships: Array.from(memberships),
     roles: Array.from(roleSet),
     primaryDashboard: plain.primaryDashboard || plain.userType || 'user',
+    profileId: sanitizedProfile?.id ?? null,
+    profile: sanitizedProfile,
+    companyProfile: sanitizedCompanyProfile,
+    agencyProfile: sanitizedAgencyProfile,
   };
 }
 

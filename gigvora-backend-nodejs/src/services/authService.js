@@ -2,7 +2,9 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
 import twoFactorService from './twoFactorService.js';
+import tokenRevocationService from './tokenRevocationService.js';
 import { getAuthDomainService, getFeatureFlagService } from '../domains/serviceCatalog.js';
+import logger from '../utils/logger.js';
 
 const TOKEN_EXPIRY = process.env.JWT_EXPIRES_IN || '1h';
 const REFRESH_EXPIRY = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
@@ -218,7 +220,21 @@ async function loginWithGoogle(idToken, options = {}) {
   }
   const client = getGoogleClient();
   if (!client) {
-    throw buildError('Google login is not configured.', 503);
+    const error = buildError(
+      'Google login is not configured. Please sign in with email and password or contact support to enable Google OAuth.',
+      503,
+    );
+    error.code = 'GOOGLE_LOGIN_DISABLED';
+    error.details = { missingEnvironment: 'GOOGLE_CLIENT_ID' };
+    logger.warn(
+      {
+        module: 'authService',
+        reason: 'google_login_disabled',
+        missingEnvironment: 'GOOGLE_CLIENT_ID',
+      },
+      'Google login attempted without client configuration.',
+    );
+    throw error;
   }
 
   const ticket = await client.verifyIdToken({ idToken, audience: googleClientId });
@@ -271,11 +287,24 @@ async function loginWithGoogle(idToken, options = {}) {
 }
 
 async function refreshSession(refreshToken, options = {}) {
+  if (tokenRevocationService.isRevoked(refreshToken)) {
+    throw buildError('Refresh token has been revoked.', 401);
+  }
   const payload = verifyRefreshToken(refreshToken);
   const user = await authDomainService.findUserById(payload.id);
   if (!user) {
     throw buildError('Account not found.', 404);
   }
+
+  tokenRevocationService.revoke(refreshToken, {
+    expiresAt: payload.exp ? payload.exp * 1000 : null,
+    reason: 'rotation',
+    userId: payload.id,
+    context: {
+      ipAddress: options.context?.ipAddress ?? null,
+      userAgent: options.context?.userAgent ?? null,
+    },
+  });
 
   const session = await issueSession(user);
   const featureFlags = await featureFlagService.evaluateForUser(session.user, {
@@ -299,6 +328,26 @@ async function refreshSession(refreshToken, options = {}) {
   return { session };
 }
 
+function revokeRefreshToken(refreshToken, { userId = null, reason = 'manual', context = {}, expiresAt } = {}) {
+  if (!refreshToken) {
+    throw buildError('Refresh token is required.', 422);
+  }
+  let normalizedExpiry = expiresAt;
+  if (!normalizedExpiry) {
+    const decoded = jwt.decode(refreshToken);
+    if (decoded && typeof decoded === 'object' && decoded.exp) {
+      normalizedExpiry = decoded.exp * 1000;
+    }
+  }
+  tokenRevocationService.revoke(refreshToken, {
+    expiresAt: normalizedExpiry,
+    reason,
+    userId,
+    context,
+  });
+  return { revoked: true };
+}
+
 export default {
   register,
   login,
@@ -306,4 +355,5 @@ export default {
   resendTwoFactor,
   loginWithGoogle,
   refreshSession,
+  revokeRefreshToken,
 };
