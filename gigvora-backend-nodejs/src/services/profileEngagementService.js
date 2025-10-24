@@ -25,6 +25,12 @@ const STALE_AFTER_MS = 30 * 60 * 1000;
 
 let workerHandle = null;
 
+const WORKER_ID_PREFIX = 'profile-engagement-worker';
+
+function resolveWorkerId() {
+  return `${WORKER_ID_PREFIX}-${process.pid}`;
+}
+
 function normalizeProfileId(profileId) {
   const normalized = Number(profileId);
   if (!Number.isInteger(normalized) || normalized <= 0) {
@@ -385,7 +391,7 @@ async function markJobFailed(jobId, { attempts, error }) {
 }
 
 export async function processProfileEngagementQueue({ limit = 10, logger = console } = {}) {
-  const workerId = `profile-engagement-worker-${process.pid}`;
+  const workerId = resolveWorkerId();
   const claimedJobs = await claimJobBatch({ limit, workerId });
   if (!claimedJobs.length) {
     return 0;
@@ -433,10 +439,55 @@ export function startProfileEngagementWorker({ intervalMs = WORKER_INTERVAL_MS, 
   workerHandle.unref?.();
 }
 
-export function stopProfileEngagementWorker() {
+export async function drainProfileEngagementQueue({
+  logger = console,
+  workerId = resolveWorkerId(),
+  releaseStaleLocksAfterSeconds = LOCK_TIMEOUT_SECONDS,
+} = {}) {
+  const conditions = [{ lockedBy: workerId }];
+  if (Number.isFinite(releaseStaleLocksAfterSeconds) && releaseStaleLocksAfterSeconds > 0) {
+    const staleThreshold = new Date(Date.now() - releaseStaleLocksAfterSeconds * 1000);
+    conditions.push({ lockedAt: { [Op.lt]: staleThreshold } });
+  }
+
+  const whereClause = {
+    status: 'pending',
+    [Op.or]: conditions,
+  };
+
+  const [released] = await ProfileEngagementJob.update(
+    {
+      lockedAt: null,
+      lockedBy: null,
+    },
+    { where: whereClause },
+  );
+
+  if (released > 0) {
+    logger?.info?.(
+      {
+        released,
+        workerId,
+      },
+      'Released profile engagement queue locks during shutdown',
+    );
+  }
+
+  return released;
+}
+
+export async function stopProfileEngagementWorker({ drainQueue = true, logger = console } = {}) {
   if (workerHandle) {
     clearInterval(workerHandle);
     workerHandle = null;
+  }
+  if (!drainQueue) {
+    return;
+  }
+  try {
+    await drainProfileEngagementQueue({ logger });
+  } catch (error) {
+    logger?.error?.({ err: error }, 'Failed to release profile engagement queue locks during shutdown');
   }
 }
 
@@ -485,5 +536,6 @@ export default {
   shouldRefreshEngagementMetrics,
   startProfileEngagementWorker,
   stopProfileEngagementWorker,
+  drainProfileEngagementQueue,
   getProfileEngagementQueueSnapshot,
 };

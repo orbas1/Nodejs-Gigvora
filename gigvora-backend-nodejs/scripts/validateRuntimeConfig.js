@@ -6,6 +6,7 @@ import { parse as parseEnv } from 'dotenv';
 import {
   runtimeConfigSchema,
   buildRuntimeConfigFromEnv,
+  RuntimeConfigValidationError,
 } from '../src/config/runtimeConfig.js';
 
 async function loadEnvFile(filePath) {
@@ -40,9 +41,15 @@ async function main() {
     process.exit(0);
   } catch (error) {
     console.error('Runtime configuration validation failed.');
-    if (error.errors) {
+    if (error instanceof RuntimeConfigValidationError) {
+      for (const issue of error.issues ?? []) {
+        const path = Array.isArray(issue.path) && issue.path.length ? issue.path.join('.') : 'root';
+        console.error(` - ${path}: ${issue.message}`);
+      }
+    } else if (error.errors) {
       for (const issue of error.errors) {
-        console.error(` - ${issue.path.join('.')}: ${issue.message}`);
+        const path = Array.isArray(issue.path) && issue.path.length ? issue.path.join('.') : 'root';
+        console.error(` - ${path}: ${issue.message}`);
       }
     } else {
       console.error(error.message);

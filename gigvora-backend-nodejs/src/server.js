@@ -1,5 +1,4 @@
 import http from 'node:http';
-import dotenv from 'dotenv';
 import app from './app.js';
 import logger from './utils/logger.js';
 import { startBackgroundWorkers, stopBackgroundWorkers } from './lifecycle/workerManager.js';
@@ -26,8 +25,9 @@ import {
   onRuntimeConfigChange,
 } from './config/runtimeConfig.js';
 import { attachSocketServer, shutdownSocketServer } from './realtime/socketServer.js';
+import ensureEnvLoaded from './config/envLoader.js';
 
-dotenv.config();
+ensureEnvLoaded({ silent: process.env.NODE_ENV === 'test' });
 
 const DEFAULT_PORT = 4000;
 let httpServer = null;

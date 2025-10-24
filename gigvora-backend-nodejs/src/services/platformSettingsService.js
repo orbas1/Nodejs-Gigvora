@@ -77,6 +77,18 @@ function uniqueStringList(values = []) {
   return Array.from(new Set(normalized));
 }
 
+function coerceIsoDateString(value, fallback = null) {
+  if (value == null || value === '') {
+    return fallback;
+  }
+  if (value instanceof Date) {
+    const timestamp = value.getTime();
+    return Number.isNaN(timestamp) ? fallback : value.toISOString();
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? fallback : parsed.toISOString();
+}
+
 function ensureIdentifier(prefix, candidateId, fallbackId, index) {
   const candidate = coerceOptionalString(candidateId, '') || coerceOptionalString(fallbackId, '');
   if (candidate) {
@@ -587,6 +599,25 @@ function buildDefaultPlatformSettings() {
       },
       {},
     ),
+    security: {
+      tokens: {
+        metricsBearer: coerceOptionalString(process.env.METRICS_BEARER_TOKEN, ''),
+        rotatedBy: null,
+        lastRotatedAt: null,
+      },
+      rotation: {
+        contactEmails: uniqueStringList(
+          (process.env.SECURITY_ROTATION_CONTACTS ?? '')
+            .split(',')
+            .map((value) => value.trim())
+            .filter((value) => value.length > 0),
+        ),
+        reminderHours: coerceInteger(process.env.SECURITY_ROTATION_REMINDER_HOURS, 24 * 30, {
+          min: 24,
+          max: 24 * 180,
+        }),
+      },
+    },
   };
 }
 
@@ -896,6 +927,50 @@ function normalizeMaintenanceSettings(input = {}, fallback = {}) {
   };
 }
 
+function normalizeSecurityTokens(tokens = {}, fallback = {}) {
+  const metricsBearer = coerceOptionalString(tokens.metricsBearer, fallback.metricsBearer ?? '');
+  if (metricsBearer && metricsBearer.length < 16) {
+    throw new ValidationError('security.tokens.metricsBearer must be at least 16 characters when set.');
+  }
+
+  const rotatedBy = coerceOptionalString(tokens.rotatedBy, fallback.rotatedBy ?? '');
+  const lastRotatedAt =
+    tokens.lastRotatedAt != null
+      ? coerceIsoDateString(tokens.lastRotatedAt, fallback.lastRotatedAt ?? null)
+      : fallback.lastRotatedAt ?? null;
+
+  return {
+    metricsBearer,
+    rotatedBy: rotatedBy || null,
+    lastRotatedAt,
+  };
+}
+
+function normalizeSecurityRotation(rotation = {}, fallback = {}) {
+  const contacts = Array.isArray(rotation.contactEmails)
+    ? rotation.contactEmails
+    : Array.isArray(fallback.contactEmails)
+      ? fallback.contactEmails
+      : [];
+  const reminderHours = coerceInteger(rotation.reminderHours, fallback.reminderHours ?? 24 * 30, {
+    min: 24,
+    max: 24 * 180,
+  });
+
+  return {
+    contactEmails: uniqueStringList(contacts),
+    reminderHours,
+  };
+}
+
+function normalizeSecuritySettings(source = {}, baseline = {}) {
+  const fallback = baseline ?? {};
+  return {
+    tokens: normalizeSecurityTokens(source.tokens ?? {}, fallback.tokens ?? {}),
+    rotation: normalizeSecurityRotation(source.rotation ?? {}, fallback.rotation ?? {}),
+  };
+}
+
 function normalizeSettings(payload = {}, baseline = {}) {
   return {
     commissions: normalizeCommissionSettings(payload.commissions, baseline.commissions),
@@ -908,6 +983,7 @@ function normalizeSettings(payload = {}, baseline = {}) {
     featureToggles: normalizeFeatureToggles(payload.featureToggles, baseline.featureToggles),
     maintenance: normalizeMaintenanceSettings(payload.maintenance, baseline.maintenance),
     homepage: normalizeHomepageSettings(payload.homepage, baseline.homepage),
+    security: normalizeSecuritySettings(payload.security, baseline.security),
   };
 }
 
@@ -958,6 +1034,23 @@ function mergeDefaults(defaults, stored) {
     featureToggles: { ...defaults.featureToggles, ...(stored.featureToggles ?? {}) },
     maintenance: normalizeMaintenanceSettings(stored.maintenance, defaults.maintenance),
     homepage: normalizeHomepageSettings(stored.homepage, defaults.homepage),
+    security: {
+      tokens: {
+        metricsBearer:
+          stored.security?.tokens?.metricsBearer ?? defaults.security?.tokens?.metricsBearer ?? '',
+        rotatedBy: stored.security?.tokens?.rotatedBy ?? defaults.security?.tokens?.rotatedBy ?? null,
+        lastRotatedAt:
+          stored.security?.tokens?.lastRotatedAt ?? defaults.security?.tokens?.lastRotatedAt ?? null,
+      },
+      rotation: {
+        contactEmails: uniqueStringList([
+          ...(defaults.security?.rotation?.contactEmails ?? []),
+          ...(stored.security?.rotation?.contactEmails ?? []),
+        ]),
+        reminderHours:
+          stored.security?.rotation?.reminderHours ?? defaults.security?.rotation?.reminderHours ?? 24 * 30,
+      },
+    },
   };
 }
 

@@ -33,6 +33,13 @@ jest.unstable_mockModule('node:fs', () => ({
   watch: watchMock,
 }));
 
+const ensureEnvLoadedMock = jest.fn(() => process.env);
+
+jest.unstable_mockModule('../../src/config/envLoader.js', () => ({
+  ensureEnvLoaded: ensureEnvLoadedMock,
+  default: ensureEnvLoadedMock,
+}));
+
 const runtimeConfigModuleUrl = new URL('../../src/config/runtimeConfig.js', import.meta.url);
 const runtimeConfigModule = await import(runtimeConfigModuleUrl.pathname);
 
@@ -42,6 +49,7 @@ const {
   getRuntimeConfig,
   onRuntimeConfigChange,
   whenRuntimeConfigReady,
+  resolveHttpRateLimitSettings,
 } = runtimeConfigModule;
 
 describe('runtimeConfig', () => {
@@ -76,6 +84,15 @@ describe('runtimeConfig', () => {
     expect(config.realtime.connection.maxConnectionsPerUser).toBe(12);
     expect(config.support.chatwoot.enabled).toBe(true);
     expect(config.support.chatwoot.baseUrl).toBe('https://support.gigvora.com');
+    expect(config.http.rateLimit.skipPaths).toEqual(
+      expect.arrayContaining([
+        '/health',
+        '/health/live',
+        '/health/ready',
+        '/health/metrics',
+        '/api/admin/runtime/health',
+      ]),
+    );
   });
 
   test('refreshRuntimeConfig notifies listeners and registers file watchers', async () => {
@@ -114,5 +131,38 @@ describe('runtimeConfig', () => {
     expect(readFileMock).toHaveBeenCalledWith('/tmp/runtime.env', 'utf8');
 
     unsubscribe();
+  });
+
+  test('resolveHttpRateLimitSettings honours overrides and shared skip paths', async () => {
+    await whenRuntimeConfigReady();
+
+    const nextConfig = await refreshRuntimeConfig({
+      overrides: {
+        RATE_LIMIT_WINDOW_MS: '90000',
+        RATE_LIMIT_MAX_REQUESTS: '123',
+        RATE_LIMIT_SKIP_HEALTH: 'false',
+        RATE_LIMIT_SKIP_PATHS: '/status\n/status/ping',
+      },
+    });
+
+    expect(nextConfig.http.rateLimit.windowMs).toBe(90000);
+    expect(nextConfig.http.rateLimit.maxRequests).toBe(123);
+    expect(nextConfig.http.rateLimit.skipHealth).toBe(false);
+    expect(nextConfig.http.rateLimit.skipPaths).toEqual(
+      expect.arrayContaining(['/status', '/status/ping', '/api/admin/runtime/health']),
+    );
+    expect(nextConfig.http.rateLimit.skipPaths).not.toEqual(
+      expect.arrayContaining(['/health', '/health/ready']),
+    );
+
+    const resolved = resolveHttpRateLimitSettings(nextConfig);
+    expect(resolved.windowMs).toBe(90000);
+    expect(resolved.maxRequests).toBe(123);
+    expect(resolved.skipPaths).toEqual(
+      expect.arrayContaining(['/status', '/status/ping', '/api/admin/runtime/health']),
+    );
+    expect(resolved.skipPaths).not.toContain('/health');
+
+    await refreshRuntimeConfig();
   });
 });

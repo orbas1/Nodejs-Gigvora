@@ -11,6 +11,8 @@ import createWebApplicationFirewall from './middleware/webApplicationFirewall.js
 import {
   getRuntimeConfig,
   onRuntimeConfigChange,
+  resolveHttpRateLimitSettings,
+  whenRuntimeConfigReady,
 } from './config/runtimeConfig.js';
 
 const app = express();
@@ -28,10 +30,13 @@ app.use(
 
 let runtimeConfig = getRuntimeConfig();
 
-const buildHttpLogger = () =>
+const computeHttpLoggerSignature = (config) =>
+  String(config?.logging?.enableHttpLogging ?? process.env.NODE_ENV !== 'test');
+
+const buildHttpLogger = (config) =>
   pinoHttp({
     logger: logger.child({ component: 'http' }),
-    autoLogging: runtimeConfig?.logging?.enableHttpLogging ?? process.env.NODE_ENV !== 'test',
+    autoLogging: config?.logging?.enableHttpLogging ?? process.env.NODE_ENV !== 'test',
     genReqId: (req) => req.id,
     customProps: (req) => ({
       requestId: req.id,
@@ -49,9 +54,11 @@ const buildHttpLogger = () =>
     quietReqLogger: process.env.NODE_ENV === 'test',
   });
 
-const buildJsonParser = () =>
+const computeBodyParserSignature = (config) => config?.http?.requestBodyLimit ?? '1mb';
+
+const buildJsonParser = (config) =>
   express.json({
-    limit: runtimeConfig?.http?.requestBodyLimit || '1mb',
+    limit: computeBodyParserSignature(config),
     verify: (req, res, buf) => {
       const path = req.originalUrl || req.url || '';
       if (path.startsWith('/api/support/chatwoot/webhook')) {
@@ -59,42 +66,106 @@ const buildJsonParser = () =>
       }
     },
   });
-const buildUrlencodedParser = () =>
-  express.urlencoded({ extended: true, limit: runtimeConfig?.http?.requestBodyLimit || '1mb' });
+const buildUrlencodedParser = (config) =>
+  express.urlencoded({ extended: true, limit: computeBodyParserSignature(config) });
 
-let httpLogger = buildHttpLogger();
-let jsonParser = buildJsonParser();
-let urlencodedParser = buildUrlencodedParser();
+const resolveRequestPath = (req) => {
+  const base = req.baseUrl || '';
+  const path = req.path || req.originalUrl || '';
+  const combined = `${base}${path}`;
+  return combined.split('?')[0] || '';
+};
+
+const normalizeSkipPrefix = (prefix) => {
+  if (typeof prefix !== 'string') {
+    return null;
+  }
+  const trimmed = prefix.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+};
+
+const createShouldSkipRateLimit = (skipPaths) => {
+  const prefixes = Array.from(
+    new Set(
+      (skipPaths || [])
+        .map((prefix) => normalizeSkipPrefix(prefix))
+        .filter((prefix) => typeof prefix === 'string'),
+    ),
+  );
+  return (req) => {
+    const method = (req.method || 'GET').toUpperCase();
+    if (method === 'OPTIONS') {
+      return true;
+    }
+    const path = resolveRequestPath(req);
+    return prefixes.some((prefix) => path.startsWith(prefix));
+  };
+};
+
+const buildRateLimiterBundle = (config) => {
+  const { windowMs, maxRequests, skipPaths } = resolveHttpRateLimitSettings(config);
+  const signature = [windowMs, maxRequests, ...[...skipPaths].sort()].join(':');
+  return {
+    signature,
+    middleware: createInstrumentedRateLimiter({
+      windowMs,
+      max: maxRequests,
+      skip: createShouldSkipRateLimit(skipPaths),
+    }),
+  };
+};
+
+let httpLoggerSignature = computeHttpLoggerSignature(runtimeConfig);
+let httpLogger = buildHttpLogger(runtimeConfig);
+let bodyParserSignature = computeBodyParserSignature(runtimeConfig);
+let jsonParser = buildJsonParser(runtimeConfig);
+let urlencodedParser = buildUrlencodedParser(runtimeConfig);
+const initialRateLimiterBundle = buildRateLimiterBundle(runtimeConfig);
+let rateLimiter = initialRateLimiterBundle.middleware;
+let rateLimiterSignature = initialRateLimiterBundle.signature;
+
+const applyRuntimeConfig = (config) => {
+  runtimeConfig = config;
+
+  const nextHttpLoggerSignature = computeHttpLoggerSignature(config);
+  if (nextHttpLoggerSignature !== httpLoggerSignature) {
+    httpLoggerSignature = nextHttpLoggerSignature;
+    httpLogger = buildHttpLogger(config);
+  }
+
+  const nextBodyParserSignature = computeBodyParserSignature(config);
+  if (nextBodyParserSignature !== bodyParserSignature) {
+    bodyParserSignature = nextBodyParserSignature;
+    jsonParser = buildJsonParser(config);
+    urlencodedParser = buildUrlencodedParser(config);
+  }
+
+  const nextRateLimiterBundle = buildRateLimiterBundle(config);
+  if (nextRateLimiterBundle.signature !== rateLimiterSignature) {
+    rateLimiterSignature = nextRateLimiterBundle.signature;
+    rateLimiter = nextRateLimiterBundle.middleware;
+  }
+};
+
+whenRuntimeConfigReady()
+  .then(applyRuntimeConfig)
+  .catch((error) => {
+    logger.warn({ err: error }, 'Runtime configuration failed to warm before HTTP bootstrap');
+  });
 
 onRuntimeConfigChange(({ config }) => {
-  runtimeConfig = config;
-  httpLogger = buildHttpLogger();
-  jsonParser = buildJsonParser();
-  urlencodedParser = buildUrlencodedParser();
+  applyRuntimeConfig(config);
 });
 
 app.use((req, res, next) => httpLogger(req, res, next));
 app.use((req, res, next) => jsonParser(req, res, next));
 app.use((req, res, next) => urlencodedParser(req, res, next));
 
-const shouldSkipRateLimit = (req) => {
-  if (req.method && req.method.toUpperCase() === 'OPTIONS') {
-    return true;
-  }
-  const path = req.path || req.originalUrl || '';
-  const skipPrefixes = runtimeConfig?.http?.rateLimit?.skipPaths ?? ['/health'];
-  return skipPrefixes.some((prefix) => path.startsWith(prefix));
-};
-
-const resolveRateLimitWindow = () => runtimeConfig?.http?.rateLimit?.windowMs ?? 60_000;
-const resolveRateLimitMax = () => runtimeConfig?.http?.rateLimit?.maxRequests ?? 300;
-
 app.use(
-  createInstrumentedRateLimiter({
-    windowMs: resolveRateLimitWindow(),
-    max: resolveRateLimitMax(),
-    skip: shouldSkipRateLimit,
-  }),
+  (req, res, next) => rateLimiter(req, res, next),
 );
 
 app.use('/health', healthRouter);

@@ -1,9 +1,9 @@
 import fs from 'fs';
 import path from 'path';
-import dotenv from 'dotenv';
 import { z } from 'zod';
+import ensureEnvLoaded from './envLoader.js';
 
-dotenv.config();
+ensureEnvLoaded({ silent: process.env.NODE_ENV === 'test' });
 
 const envSchema = z
   .object({

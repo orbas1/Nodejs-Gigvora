@@ -1,11 +1,11 @@
-import dotenv from 'dotenv';
 import { sequelize } from '../src/models/index.js';
 import {
   syncOpportunityIndexes,
   ensureOpportunityIndexes,
 } from '../src/services/searchIndexService.js';
+import ensureEnvLoaded from '../src/config/envLoader.js';
 
-dotenv.config();
+ensureEnvLoaded({ silent: process.env.NODE_ENV === 'test' });
 
 async function run() {
   const start = Date.now();
