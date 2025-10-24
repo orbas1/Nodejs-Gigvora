@@ -11,6 +11,7 @@ import {
   ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
 import Modal from '../ui/Modal.jsx';
+import DashboardStatPill from './shared/DashboardStatPill.jsx';
 import {
   createProject,
   createGigOrder,
@@ -159,26 +160,6 @@ const TRANSFER_CADENCE_OPTIONS = [
   { value: 'weekly', label: 'Weekly automation' },
   { value: 'monthly', label: 'Monthly automation' },
 ];
-
-function QuickActionStat({ icon: Icon, label, value }) {
-  return (
-    <div className="flex items-center gap-3 rounded-3xl border border-slate-200 bg-white/80 px-4 py-3 shadow-soft">
-      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900/90 text-white">
-        <Icon className="h-5 w-5" />
-      </div>
-      <div className="min-w-0">
-        <p className="text-xs uppercase tracking-wide text-slate-400">{label}</p>
-        <p className="truncate text-lg font-semibold text-slate-900">{value}</p>
-      </div>
-    </div>
-  );
-}
-
-QuickActionStat.propTypes = {
-  icon: PropTypes.elementType.isRequired,
-  label: PropTypes.string.isRequired,
-  value: PropTypes.string.isRequired,
-};
 
 function Stepper({ steps, activeIndex }) {
   return (
@@ -1231,7 +1212,13 @@ export default function UserDashboardQuickActions({ userId, context, metrics, ac
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:w-[32rem]">
           {derivedMetrics.map((stat) => (
-            <QuickActionStat key={stat.label} icon={stat.icon} label={stat.label} value={stat.value} />
+            <DashboardStatPill
+              key={stat.label}
+              icon={stat.icon}
+              label={stat.label}
+              value={stat.value}
+              className="shadow-soft"
+            />
           ))}
         </div>
       </div>

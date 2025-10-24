@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { AcademicCapIcon, BanknotesIcon, BoltIcon, BriefcaseIcon } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
 import DataStatus from '../../components/DataStatus.jsx';
@@ -27,8 +28,8 @@ import UserMetricsSection from '../../components/dashboard/client/UserMetricsSec
 import useSession from '../../hooks/useSession.js';
 import useCachedResource from '../../hooks/useCachedResource.js';
 import { fetchUserDashboard } from '../../services/userDashboard.js';
+import DashboardInsightsBand from '../../components/dashboard/shared/DashboardInsightsBand.jsx';
 
-const DEFAULT_USER_ID = 1;
 const AVAILABLE_DASHBOARDS = ['user', 'freelancer', 'agency', 'company', 'headhunter'];
 const ALLOWED_ROLES = AVAILABLE_DASHBOARDS;
 
@@ -151,6 +152,12 @@ const MENU_SECTIONS = [
     id: 'client-intelligence',
     label: 'Intelligence',
     items: [
+      {
+        id: 'client-insights-band',
+        name: 'Cross-marketplace insights',
+        description: 'Unified analytics across jobs, gigs, mentors, and treasury.',
+        sectionId: 'cross-marketplace-insights',
+      },
       {
         id: 'client-hub',
         name: 'Hub',
@@ -364,9 +371,18 @@ export function buildProfileCard(data, summary = {}, session = null) {
 
 function resolveUserId(session) {
   if (!session) {
-    return DEFAULT_USER_ID;
+    return null;
   }
-  return session.userId ?? session.user?.id ?? session.id ?? DEFAULT_USER_ID;
+
+  const candidates = [session.userId, session.id, session.user?.id, session.user?.userId];
+  for (const candidate of candidates) {
+    const numeric = Number(candidate);
+    if (Number.isFinite(numeric) && numeric > 0) {
+      return numeric;
+    }
+  }
+
+  return null;
 }
 
 function normalizeArray(value) {
@@ -377,6 +393,44 @@ function normalizeArray(value) {
     return Object.values(value);
   }
   return [];
+}
+
+function parseNumber(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+  return numeric;
+}
+
+function formatCount(value) {
+  const numeric = parseNumber(value);
+  if (numeric == null) {
+    return '0';
+  }
+  if (Math.abs(numeric) >= 1000) {
+    return new Intl.NumberFormat(undefined, {
+      notation: 'compact',
+      maximumFractionDigits: 1,
+    }).format(numeric);
+  }
+  return numeric.toLocaleString();
+}
+
+function formatCurrency(value, currency = 'USD') {
+  const numeric = parseNumber(value);
+  if (numeric == null) {
+    return `${currency} 0`;
+  }
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: Math.abs(numeric) >= 1000 ? 0 : 2,
+    }).format(numeric);
+  } catch (error) {
+    return `${currency} ${numeric.toLocaleString()}`;
+  }
 }
 
 function scrollToSection(sectionId) {
@@ -417,6 +471,8 @@ function UserDashboardPage() {
   const volunteeringManagement = data?.volunteeringManagement ?? null;
   const notificationPreferences = data?.notifications?.preferences ?? null;
   const weeklyDigest = data?.insights?.weeklyDigest ?? null;
+
+  const menuSectionsWithBadges = useMemo(() => buildUserDashboardMenuSections(data), [data]);
 
   const quickActionContext = useMemo(() => {
     const projects = normalizeArray(projectGigManagement.projects ?? projectGigManagement.workspaces);
@@ -481,6 +537,137 @@ function UserDashboardPage() {
     quickActionContext.escrowAccounts.length,
   ]);
 
+  const crossMarketplaceInsights = useMemo(() => {
+    const summary = data?.summary ?? {};
+    const jobMetrics = data?.jobApplicationsWorkspace?.metrics ?? {};
+    const projectSummary = projectGigManagement?.summary ?? {};
+    const mentoringSummary = mentoring?.summary ?? {};
+    const walletTotals = finance?.wallets?.totals ?? {};
+
+    const walletBalance =
+      quickActionMetrics.walletBalance ??
+      finance?.totalBalance ??
+      walletTotals.balance ??
+      summary.walletBalance ??
+      null;
+
+    const walletCurrency =
+      quickActionMetrics.walletCurrency ??
+      walletTotals.currency ??
+      finance?.primaryCurrency ??
+      finance?.defaultCurrency ??
+      summary.walletCurrency ??
+      'USD';
+
+    const items = [];
+
+    const activeApplications =
+      parseNumber(
+        jobMetrics.open ??
+          jobMetrics.active ??
+          summary.openJobApplications ??
+          summary.jobApplicationsOpen ??
+          jobApplicationsWorkspace?.applications?.length,
+      );
+
+    if (activeApplications != null) {
+      const interviewsScheduled = parseNumber(
+        jobMetrics.interviewsScheduled ?? summary.interviewsScheduled ?? summary.interviews ?? null,
+      );
+
+      items.push({
+        id: 'insight-applications',
+        icon: BriefcaseIcon,
+        label: 'Active applications',
+        value: formatCount(activeApplications),
+        description: 'Roles in play across jobs & Launchpad.',
+        trend:
+          interviewsScheduled != null && interviewsScheduled >= 0
+            ? {
+                direction: interviewsScheduled > 0 ? 'increase' : 'neutral',
+                label: `${formatCount(interviewsScheduled)} interviews queued`,
+              }
+            : undefined,
+        iconBackgroundClassName: 'bg-sky-600/15 text-sky-700',
+      });
+    }
+
+    const activeProjects = parseNumber(
+      projectSummary.activeProjects ?? summary.activeProjects ?? projectGigManagement?.projects?.length,
+    );
+
+    if (activeProjects != null) {
+      const openGigOrders = parseNumber(
+        projectSummary.openGigOrders ?? summary.openGigOrders ?? projectGigManagement?.gigOrders?.length,
+      );
+
+      items.push({
+        id: 'insight-projects',
+        icon: BoltIcon,
+        label: 'Live projects',
+        value: formatCount(activeProjects),
+        description: 'Delivery pods operating right now.',
+        trend:
+          openGigOrders != null
+            ? { direction: 'neutral', label: `${formatCount(openGigOrders)} gig orders open` }
+            : undefined,
+        iconBackgroundClassName: 'bg-violet-600/15 text-violet-700',
+      });
+    }
+
+    const mentorSessions = parseNumber(
+      mentoringSummary.activeSessions ?? mentoringSummary.booked ?? mentoringSummary.current ?? mentoring?.sessions?.length,
+    );
+
+    if (mentorSessions != null) {
+      const upcomingMentors = parseNumber(
+        mentoringSummary.upcomingSessions ?? mentoringSummary.upcoming ?? mentoringSummary.scheduled ?? null,
+      );
+
+      items.push({
+        id: 'insight-mentors',
+        icon: AcademicCapIcon,
+        label: 'Mentor sessions',
+        value: formatCount(mentorSessions),
+        description: 'Expert engagements this cycle.',
+        trend:
+          upcomingMentors != null
+            ? { direction: 'increase', label: `${formatCount(upcomingMentors)} upcoming` }
+            : undefined,
+        iconBackgroundClassName: 'bg-indigo-600/15 text-indigo-700',
+      });
+    }
+
+    if (walletBalance != null) {
+      const walletChange = parseNumber(walletTotals.weeklyChange ?? walletTotals.delta ?? summary.walletChange ?? null);
+
+      items.push({
+        id: 'insight-wallet',
+        icon: BanknotesIcon,
+        label: 'Wallet balance',
+        value: formatCurrency(walletBalance, walletCurrency),
+        description: 'Treasury coverage across wallets.',
+        trend:
+          walletChange != null && walletChange !== 0
+            ? {
+                direction: walletChange > 0 ? 'increase' : 'decrease',
+                label: `${walletChange > 0 ? '+' : '-'}${formatCurrency(Math.abs(walletChange), walletCurrency)} week`,
+              }
+            : undefined,
+        iconBackgroundClassName: 'bg-emerald-600/15 text-emerald-700',
+      });
+    }
+
+    return items;
+  }, [
+    data,
+    finance,
+    jobApplicationsWorkspace,
+    mentoring,
+    projectGigManagement,
+    quickActionMetrics,
+  ]);
+
   const handleMenuSelect = (item) => {
     if (!item?.sectionId) {
       return;
@@ -495,7 +682,7 @@ function UserDashboardPage() {
         title="Client command center"
         subtitle="Oversee gigs, escrow, finances, and expert support from a single workspace."
         description="Every surface below stays wired into live services so your operations remain production-ready."
-        menuSections={MENU_SECTIONS}
+        menuSections={menuSectionsWithBadges}
         availableDashboards={AVAILABLE_DASHBOARDS}
         onMenuItemSelect={handleMenuSelect}
         adSurface="user_dashboard"
@@ -524,6 +711,15 @@ function UserDashboardPage() {
               metrics={quickActionMetrics}
               activity={activity}
               onCompleted={refresh}
+            />
+          </section>
+
+          <section id="cross-marketplace-insights" className="space-y-6">
+            <DashboardInsightsBand
+              insights={crossMarketplaceInsights}
+              loading={loading}
+              onRefresh={refresh}
+              subtitle="Unified telemetry spanning jobs, gigs, mentors, and treasury."
             />
           </section>
 

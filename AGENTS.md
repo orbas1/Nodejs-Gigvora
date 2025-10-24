@@ -1517,10 +1517,10 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   24. **Design Duplication.** Consolidate wallet/escrow widgets shared with freelancer/company suites via reusable modules.【F:gigvora-frontend-reactjs/src/pages/dashboards/UserDashboardPage.jsx†L1-L210】
   25. **Design framework.** Extends the DashboardLayout scaffolding ensuring guard rails and persona switching consistency.【F:gigvora-frontend-reactjs/src/pages/dashboards/UserDashboardPage.jsx†L1-L40】
   26. **Change Checklist Tracker Extensive.**
-      - [ ] Remove default user fallback and enforce session gating.【F:gigvora-frontend-reactjs/src/pages/dashboards/UserDashboardPage.jsx†L31-L60】
-      - [ ] Extract shared dashboard widgets into a persona-neutral package.【F:gigvora-frontend-reactjs/src/pages/dashboards/UserDashboardPage.jsx†L1-L210】
-      - [ ] Add analytics/insights band summarising cross-marketplace progress.【F:gigvora-frontend-reactjs/src/pages/dashboards/UserDashboardPage.jsx†L35-L210】
-      - [ ] Implement sticky quick menu or floating jump list.【F:gigvora-frontend-reactjs/src/pages/dashboards/UserDashboardPage.jsx†L35-L210】
+      - [✓] Remove default user fallback and enforce session gating.【F:gigvora-frontend-reactjs/src/pages/dashboards/UserDashboardPage.jsx†L31-L60】
+      - [✓] Extract shared dashboard widgets into a persona-neutral package.【F:gigvora-frontend-reactjs/src/pages/dashboards/UserDashboardPage.jsx†L1-L210】
+      - [✓] Add analytics/insights band summarising cross-marketplace progress.【F:gigvora-frontend-reactjs/src/pages/dashboards/UserDashboardPage.jsx†L35-L210】
+      - [✓] Implement sticky quick menu or floating jump list.【F:gigvora-frontend-reactjs/src/pages/dashboards/UserDashboardPage.jsx†L35-L210】
   27. **Full Upgrade Plan & Release Steps  Extensive.**
       1. Launch shared widget registry and sticky navigation across personas, validating with telemetry.【F:gigvora-frontend-reactjs/src/pages/dashboards/UserDashboardPage.jsx†L1-L210】
       2. Ship AI readiness insights and analytics band, then monitor engagement in experimentation cohorts.【F:gigvora-frontend-reactjs/src/pages/dashboards/UserDashboardPage.jsx†L35-L210】
