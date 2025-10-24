@@ -15,6 +15,8 @@ export { default as AgencyInboxSection } from './AgencyInboxSection.jsx';
 export { default as AgencyWalletSection } from './AgencyWalletSection.jsx';
 export { default as AgencyHubSection } from './AgencyHubSection.jsx';
 export { default as AgencyCreationStudioWizardSection } from './AgencyCreationStudioWizardSection.jsx';
+export { default as AgencyFairnessSection } from './AgencyFairnessSection.jsx';
+export { default as AgencySupportSection } from './AgencySupportSection.jsx';
 export { default as OverviewSection } from './OverviewSection.jsx';
 export { default as OverviewEditorDrawer } from './OverviewEditorDrawer.jsx';
 export { default as HighlightDetailDialog } from './HighlightDetailDialog.jsx';
