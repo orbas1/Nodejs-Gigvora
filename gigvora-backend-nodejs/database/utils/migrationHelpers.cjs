@@ -23,8 +23,18 @@ async function safeRemoveIndex(queryInterface, tableName, fields, options = {}) 
   }
 }
 
+async function tableHasColumn(queryInterface, tableName, columnName, options = {}) {
+  const description = await queryInterface.describeTable(tableName);
+  const candidates = [columnName, ...(options.aliases ?? [])];
+  return (
+    candidates.find((candidate) => Object.prototype.hasOwnProperty.call(description, candidate)) ??
+    null
+  );
+}
+
 module.exports = {
   resolveJsonType,
   dropEnum,
   safeRemoveIndex,
+  tableHasColumn,
 };

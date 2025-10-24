@@ -15,11 +15,18 @@
     "config:validate": "node scripts/validateRuntimeConfig.js .env.example",
     "schema:export": "node scripts/generateSchemaArtifacts.js",
     "db:backup": "node scripts/databaseBackup.js backup",
-    "db:verify": "node scripts/databaseBackup.js verify"
+    "db:verify": "node scripts/databaseBackup.js verify",
+    "observability:remediate": "node scripts/observability/remediateIncident.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.590.0",
     "@aws-sdk/s3-request-presigner": "^3.590.0",
+    "@opentelemetry/api": "^1.8.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.51.0",
+    "@opentelemetry/resources": "^1.24.0",
+    "@opentelemetry/sdk-trace-base": "^1.24.0",
+    "@opentelemetry/sdk-trace-node": "^1.24.0",
+    "@opentelemetry/semantic-conventions": "^1.24.0",
     "agora-access-token": "^2.0.4",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",

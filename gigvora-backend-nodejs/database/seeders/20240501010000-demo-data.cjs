@@ -109,26 +109,26 @@ const feedPosts = [
   {
     email: 'ava@gigvora.com',
     content:
-      '[demo] Platform release candidate 1.50 ships runtime security enhancements and workspace analytics exports.',
+      'Platform release candidate 1.50 ships runtime security enhancements and workspace analytics exports. Rollout notes and dashboards are live in the admin centre.',
     visibility: 'public',
   },
   {
     email: 'leo@gigvora.com',
-    content: '[demo] Shipping an onboarding automation template — DM if you need async walkthroughs.',
+    content: 'Shipping an onboarding automation template — DM if you need async walkthroughs or playbook reviews.',
     visibility: 'public',
   },
 ];
 
 const jobSeeds = [
   {
-    title: '[demo] Founding Product Operations Lead',
+    title: 'Founding Product Operations Lead',
     description:
       'Partner with founders to orchestrate product rituals, analytics instrumentation, and compliance checklists.',
     location: 'Remote · North America',
     employmentType: 'Full-time',
   },
   {
-    title: '[demo] Freelance Growth Analyst',
+    title: 'Freelance Growth Analyst',
     description: 'Build dashboards, experiments, and monthly insights for marketplace operators.',
     location: 'Remote · Europe',
     employmentType: 'Contract',
@@ -137,14 +137,14 @@ const jobSeeds = [
 
 const gigSeeds = [
   {
-    title: '[demo] Launch landing page optimisation sprint',
+    title: 'Launch landing page optimisation sprint',
     description:
       'Two-week engagement pairing UX research with CRO experiments. Includes experiment backlog and reporting template.',
     budget: 'USD 4,800',
     duration: '2 weeks',
   },
   {
-    title: '[demo] Marketplace trust and safety audit',
+    title: 'Marketplace trust and safety audit',
     description: 'Assess community guidelines, moderation queues, and automation coverage with actionable roadmap.',
     budget: 'USD 6,200',
     duration: '3 weeks',
@@ -153,7 +153,7 @@ const gigSeeds = [
 
 const projectSeeds = [
   {
-    title: '[demo] Workspace instrumentation rollout',
+    title: 'Workspace instrumentation rollout',
     description: 'Enable product squads with standardised dashboards and alerting across all environments.',
     status: 'in_progress',
   },
@@ -161,7 +161,7 @@ const projectSeeds = [
 
 const launchpadSeeds = [
   {
-    title: '[demo] Career accelerator — product cohort',
+    title: 'Career accelerator — product cohort',
     description: 'Four-week intensive pairing mentors with talent on storytelling, demos, and networking.',
     track: 'product',
   },
@@ -169,7 +169,7 @@ const launchpadSeeds = [
 
 const volunteeringSeeds = [
   {
-    title: '[demo] Climate tech strategy sprint mentor',
+    title: 'Climate tech strategy sprint mentor',
     organization: 'Remote Impact Alliance',
     description: 'Guide fellows through discovery workshops and narrative development for climate tech ventures.',
   },
@@ -177,7 +177,7 @@ const volunteeringSeeds = [
 
 const groupSeeds = [
   {
-    name: '[demo] Marketplace founders circle',
+    name: 'Marketplace founders circle',
     description: 'Weekly async briefings for founders sharing acquisition, retention, and compliance playbooks.',
   },
 ];

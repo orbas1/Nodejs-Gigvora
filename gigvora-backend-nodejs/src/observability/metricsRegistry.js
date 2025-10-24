@@ -4,6 +4,15 @@ import { getRateLimitSnapshot } from './rateLimitMetrics.js';
 import { getPerimeterSnapshot } from './perimeterMetrics.js';
 import { getWebApplicationFirewallSnapshot } from '../security/webApplicationFirewall.js';
 import { getDatabasePoolSnapshot } from '../services/databaseLifecycleService.js';
+import {
+  normaliseRateLimitSnapshot,
+  normalisePerimeterSnapshot,
+  normaliseWafSnapshot,
+  normaliseDatabasePoolSnapshot,
+  normaliseProfileEngagementQueueSnapshot,
+} from './snapshotFormatter.js';
+import { getQueueSnapshot } from './queueSnapshotCache.js';
+import { evaluateAndSendAlerts } from './alertAutomationService.js';
 
 const METRICS_ENDPOINT = '/health/metrics';
 const METRICS_PREFIX = 'gigvora_';
@@ -27,19 +36,6 @@ function createCounter(name, help) {
 
 function createGauge(name, help) {
   return new Gauge({ name: `${METRICS_PREFIX}${name}`, help, registers: [registry] });
-}
-
-function toNumber(value, fallback = 0) {
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : fallback;
-}
-
-function toTimestamp(value) {
-  if (!value) {
-    return null;
-  }
-  const parsed = Date.parse(value);
-  return Number.isFinite(parsed) ? parsed : null;
 }
 
 const metricsScrapesTotal = createCounter('metrics_scrapes_total', 'Total number of monitoring scrapes served.');
@@ -99,6 +95,23 @@ const databasePoolLastEventTimestamp = createGauge(
   'Unix timestamp of the last observed database pool event.',
 );
 
+const profileEngagementQueuePendingGauge = createGauge(
+  'worker_queue_profile_engagement_pending',
+  'Pending profile engagement jobs awaiting processing.',
+);
+const profileEngagementQueueStuckGauge = createGauge(
+  'worker_queue_profile_engagement_stuck',
+  'Profile engagement jobs with stale locks awaiting remediation.',
+);
+const profileEngagementQueueFailedGauge = createGauge(
+  'worker_queue_profile_engagement_failed',
+  'Profile engagement jobs marked as failed.',
+);
+const profileEngagementQueueOldestSecondsGauge = createGauge(
+  'worker_queue_profile_engagement_oldest_seconds',
+  'Seconds until the next scheduled profile engagement job executes.',
+);
+
 let previousRateLimitTotals = { hits: 0, allowed: 0, blocked: 0 };
 let previousWafTotals = { evaluated: 0, blocked: 0, autoBlocks: 0 };
 let previousPerimeterTotal = 0;
@@ -140,6 +153,15 @@ const metricsStatusCache = {
     lastEvent: null,
     updatedAt: null,
   },
+  workerQueues: {
+    profileEngagement: {
+      pending: 0,
+      stuck: 0,
+      failed: 0,
+      intervalSeconds: 0,
+      nextScheduledAt: null,
+    },
+  },
 };
 
 function incrementCounter(counter, currentValue, previousValue) {
@@ -159,14 +181,13 @@ function incrementCounter(counter, currentValue, previousValue) {
 function refreshMetricSnapshots({ updateCounters = false } = {}) {
   ensureInitialized();
 
-  const rateLimitSnapshot = getRateLimitSnapshot();
-  const lifetime = rateLimitSnapshot?.lifetime ?? {};
-  const hits = toNumber(lifetime.hits);
-  const allowed = toNumber(lifetime.allowed);
-  const blocked = toNumber(lifetime.blocked);
-  const activeKeys = toNumber(rateLimitSnapshot?.currentWindow?.activeKeys);
-  const blockedRatio = toNumber(rateLimitSnapshot?.currentWindow?.blockedRatio);
-  const requestsPerSecond = toNumber(rateLimitSnapshot?.currentWindow?.requestsPerSecond);
+  const rateLimitSnapshot = normaliseRateLimitSnapshot(getRateLimitSnapshot() ?? {});
+  const hits = rateLimitSnapshot.lifetime.hits;
+  const allowed = rateLimitSnapshot.lifetime.allowed;
+  const blocked = rateLimitSnapshot.lifetime.blocked;
+  const activeKeys = rateLimitSnapshot.currentWindow.activeKeys;
+  const blockedRatio = rateLimitSnapshot.currentWindow.blockedRatio;
+  const requestsPerSecond = rateLimitSnapshot.currentWindow.requestsPerSecond;
 
   if (updateCounters) {
     previousRateLimitTotals = {
@@ -188,14 +209,12 @@ function refreshMetricSnapshots({ updateCounters = false } = {}) {
     requestsPerSecond,
   };
 
-  const wafSnapshot = getWebApplicationFirewallSnapshot() ?? {};
-  const evaluatedRequests = toNumber(wafSnapshot.evaluatedRequests);
-  const blockedRequests = toNumber(wafSnapshot.blockedRequests);
-  const autoBlockEvents = toNumber(wafSnapshot.autoBlock?.totalTriggered);
-  const activeAutoBlocks = Array.isArray(wafSnapshot.autoBlock?.active)
-    ? wafSnapshot.autoBlock.active.length
-    : 0;
-  const lastWafBlockTimestamp = toTimestamp(wafSnapshot.lastBlockedAt);
+  const wafSnapshot = normaliseWafSnapshot(getWebApplicationFirewallSnapshot() ?? {});
+  const evaluatedRequests = wafSnapshot.evaluatedRequests;
+  const blockedRequests = wafSnapshot.blockedRequests;
+  const autoBlockEvents = wafSnapshot.autoBlock.totalTriggered;
+  const activeAutoBlocks = wafSnapshot.autoBlock.active.length;
+  const lastWafBlockTimestamp = wafSnapshot.lastBlockedAt ? Date.parse(wafSnapshot.lastBlockedAt) : null;
 
   if (updateCounters) {
     previousWafTotals = {
@@ -217,15 +236,15 @@ function refreshMetricSnapshots({ updateCounters = false } = {}) {
     blockedRequests,
     autoBlockEvents,
     activeAutoBlocks,
-    lastBlockedAt: lastWafBlockTimestamp ? new Date(lastWafBlockTimestamp).toISOString() : null,
+    lastBlockedAt: wafSnapshot.lastBlockedAt,
   };
 
-  const perimeterSnapshot = getPerimeterSnapshot() ?? {};
-  const totalBlocked = toNumber(perimeterSnapshot.totalBlocked);
-  const activeOrigins = Array.isArray(perimeterSnapshot.blockedOrigins)
-    ? perimeterSnapshot.blockedOrigins.length
-    : 0;
-  const lastPerimeterBlockTimestamp = toTimestamp(perimeterSnapshot.lastBlockedAt);
+  const perimeterSnapshot = normalisePerimeterSnapshot(getPerimeterSnapshot() ?? {});
+  const totalBlocked = perimeterSnapshot.totalBlocked;
+  const activeOrigins = perimeterSnapshot.blockedOrigins.length;
+  const lastPerimeterBlockTimestamp = perimeterSnapshot.lastBlockedAt
+    ? Date.parse(perimeterSnapshot.lastBlockedAt)
+    : null;
 
   if (updateCounters) {
     previousPerimeterTotal = incrementCounter(perimeterBlockedTotal, totalBlocked, previousPerimeterTotal);
@@ -241,22 +260,22 @@ function refreshMetricSnapshots({ updateCounters = false } = {}) {
   metricsStatusCache.perimeter = {
     totalBlocked,
     activeOrigins,
-    lastBlockedAt: lastPerimeterBlockTimestamp ? new Date(lastPerimeterBlockTimestamp).toISOString() : null,
+    lastBlockedAt: perimeterSnapshot.lastBlockedAt,
   };
 
-  const poolSnapshot = getDatabasePoolSnapshot() ?? {};
-  const poolSize = toNumber(poolSnapshot.size);
-  const poolAvailable = toNumber(poolSnapshot.available);
-  const poolBorrowed = toNumber(poolSnapshot.borrowed);
-  const poolPending = toNumber(poolSnapshot.pending);
-  const poolUpdatedAt = poolSnapshot.updatedAt ?? null;
+  const poolSnapshot = normaliseDatabasePoolSnapshot(getDatabasePoolSnapshot() ?? {});
+  const poolSize = poolSnapshot.size;
+  const poolAvailable = poolSnapshot.available;
+  const poolBorrowed = poolSnapshot.borrowed;
+  const poolPending = poolSnapshot.pending;
+  const poolUpdatedAt = poolSnapshot.updatedAt;
 
   databasePoolSizeGauge.set(poolSize);
   databasePoolAvailableGauge.set(poolAvailable);
   databasePoolBorrowedGauge.set(poolBorrowed);
   databasePoolPendingGauge.set(poolPending);
   if (poolSnapshot.lastEvent) {
-    const lastEventTimestamp = toTimestamp(poolSnapshot.updatedAt);
+    const lastEventTimestamp = poolSnapshot.updatedAt ? Date.parse(poolSnapshot.updatedAt) : null;
     if (lastEventTimestamp) {
       databasePoolLastEventTimestamp.set(lastEventTimestamp / 1000);
     }
@@ -273,6 +292,25 @@ function refreshMetricSnapshots({ updateCounters = false } = {}) {
     lastEvent: poolSnapshot.lastEvent ?? null,
     updatedAt: poolUpdatedAt,
   };
+
+  const cachedQueueSnapshot = getQueueSnapshot('profileEngagement');
+  const normalisedQueue = cachedQueueSnapshot
+    ? normaliseProfileEngagementQueueSnapshot(cachedQueueSnapshot)
+    : { pending: 0, stuck: 0, failed: 0, intervalSeconds: 0, nextScheduledAt: null };
+
+  profileEngagementQueuePendingGauge.set(normalisedQueue.pending);
+  profileEngagementQueueStuckGauge.set(normalisedQueue.stuck);
+  profileEngagementQueueFailedGauge.set(normalisedQueue.failed);
+  if (normalisedQueue.nextScheduledAt) {
+    const nextTimestamp = Date.parse(normalisedQueue.nextScheduledAt);
+    profileEngagementQueueOldestSecondsGauge.set(
+      Number.isFinite(nextTimestamp) ? Math.max(0, Math.round((nextTimestamp - Date.now()) / 1000)) : 0,
+    );
+  } else {
+    profileEngagementQueueOldestSecondsGauge.set(0);
+  }
+
+  metricsStatusCache.workerQueues.profileEngagement = normalisedQueue;
 }
 
 export async function collectMetrics() {
@@ -286,6 +324,8 @@ export async function collectMetrics() {
   metricsStatusCache.stale = false;
   metricsLastScrapeTimestamp.set(now / 1000);
   metricsSecondsSinceLastScrape.set(0);
+
+  await evaluateAndSendAlerts(metricsStatusCache, { now });
 
   return registry.metrics();
 }
@@ -355,6 +395,13 @@ export function resetMetricsForTesting() {
     pending: 0,
     lastEvent: null,
     updatedAt: null,
+  };
+  metricsStatusCache.workerQueues.profileEngagement = {
+    pending: 0,
+    stuck: 0,
+    failed: 0,
+    intervalSeconds: 0,
+    nextScheduledAt: null,
   };
 }
 

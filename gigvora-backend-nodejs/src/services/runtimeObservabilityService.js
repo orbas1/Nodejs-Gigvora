@@ -8,6 +8,15 @@ import { getDatabasePoolSnapshot } from './databaseLifecycleService.js';
 import { getRateLimitSnapshot } from '../observability/rateLimitMetrics.js';
 import { getPerimeterSnapshot } from '../observability/perimeterMetrics.js';
 import { getWebApplicationFirewallSnapshot } from '../security/webApplicationFirewall.js';
+import { getProfileEngagementQueueSnapshot } from './profileEngagementService.js';
+import {
+  normaliseRateLimitSnapshot,
+  normalisePerimeterSnapshot,
+  normaliseWafSnapshot,
+  normaliseDatabasePoolSnapshot,
+  normaliseProfileEngagementQueueSnapshot,
+} from '../observability/snapshotFormatter.js';
+import { getQueueSnapshot } from '../observability/queueSnapshotCache.js';
 import { getMetricsStatus } from '../observability/metricsRegistry.js';
 
 const SEVERITY_RANKING = {
@@ -165,7 +174,7 @@ function buildAnnouncementSummary(raw = {}) {
 }
 
 export async function getRuntimeOperationalSnapshot() {
-  const [readiness, liveness, maintenanceAnnouncements, settings, securityEvents] = await Promise.all([
+  const [readiness, liveness, maintenanceAnnouncements, settings, securityEvents, queueSnapshot] = await Promise.all([
     getReadinessReport(),
     Promise.resolve(getLivenessReport()),
     getVisibleAnnouncements({
@@ -177,18 +186,32 @@ export async function getRuntimeOperationalSnapshot() {
     }),
     getPlatformSettings(),
     getRecentRuntimeSecurityEvents({ limit: 12 }),
+    getProfileEngagementQueueSnapshot().catch((error) => {
+      console.warn('Failed to refresh profile engagement queue snapshot for operational report', error);
+      return null;
+    }),
   ]);
+
+  const rateLimit = normaliseRateLimitSnapshot(getRateLimitSnapshot() ?? {});
+  const perimeter = normalisePerimeterSnapshot(getPerimeterSnapshot() ?? {});
+  const waf = normaliseWafSnapshot(getWebApplicationFirewallSnapshot() ?? {});
+  const databasePool = normaliseDatabasePoolSnapshot(getDatabasePoolSnapshot() ?? {});
+  const cachedQueue = getQueueSnapshot('profileEngagement');
+  const profileEngagementQueue = normaliseProfileEngagementQueueSnapshot(queueSnapshot ?? cachedQueue ?? {});
 
   return {
     generatedAt: new Date().toISOString(),
     environment: getEnvironmentSnapshot(),
     readiness,
     liveness,
-    rateLimit: getRateLimitSnapshot(),
-    perimeter: getPerimeterSnapshot(),
-    waf: getWebApplicationFirewallSnapshot(),
-    databasePool: getDatabasePoolSnapshot(),
+    rateLimit,
+    perimeter,
+    waf,
+    databasePool,
     metrics: getMetricsStatus(),
+    workerQueues: {
+      profileEngagement: profileEngagementQueue,
+    },
     maintenance: buildAnnouncementSummary(maintenanceAnnouncements),
     scheduledMaintenance: buildScheduledMaintenanceSnapshot(settings),
     security: buildSecuritySnapshot(securityEvents),

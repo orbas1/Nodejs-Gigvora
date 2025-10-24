@@ -3,28 +3,10 @@ import {
   markDependencyUnavailable,
   markDependencyDegraded,
 } from '../lifecycle/runtimeHealth.js';
+import { coerceBoolean } from '../utils/boolean.js';
 
 function hasValue(value) {
   return typeof value === 'string' && value.trim().length > 0;
-}
-
-function toBoolean(value, fallback = false) {
-  if (typeof value === 'boolean') {
-    return value;
-  }
-  if (typeof value === 'string') {
-    const trimmed = value.trim().toLowerCase();
-    if (trimmed === 'true' || trimmed === '1') {
-      return true;
-    }
-    if (trimmed === 'false' || trimmed === '0') {
-      return false;
-    }
-  }
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value !== 0 : fallback;
-  }
-  return fallback;
 }
 
 function syncStripeDependency(stripeSettings = {}, logger) {
@@ -78,7 +60,7 @@ function syncEscrowDependency(escrowSettings = {}, logger) {
   markDependencyHealthy('paymentsCore', {
     provider: 'escrow_com',
     configured: true,
-    sandbox: toBoolean(escrowSettings.sandbox, true),
+    sandbox: coerceBoolean(escrowSettings.sandbox, { fallback: true }),
   });
   return { status: 'ok', provider: 'escrow_com' };
 }
@@ -102,7 +84,7 @@ function syncPaymentDependency(settings = {}, logger) {
 }
 
 function syncComplianceDependency(settings = {}, paymentsStatus = { status: 'unknown' }, logger) {
-  const escrowEnabled = settings?.featureToggles?.escrow !== false;
+  const escrowEnabled = coerceBoolean(settings?.featureToggles?.escrow, { fallback: true });
   const custodyProvider = settings?.payments?.provider ?? 'stripe';
 
   if (!escrowEnabled) {

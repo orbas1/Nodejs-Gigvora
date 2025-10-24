@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 
 import logger from '../utils/logger.js';
+import { coerceBoolean } from '../utils/boolean.js';
 
 const DEFAULT_BLOCKED_USER_AGENTS = [
   /sqlmap/i,
@@ -74,27 +75,6 @@ const DEFAULT_SUSPICIOUS_RULES = [
     pattern: /\btransfer-encoding\s*:\s*chunked/i,
   },
 ];
-
-function parseBoolean(value, fallback) {
-  if (typeof value === 'boolean') {
-    return value;
-  }
-  if (typeof value === 'string') {
-    const candidate = value.trim().toLowerCase();
-    if (['true', '1', 'yes', 'on'].includes(candidate)) {
-      return true;
-    }
-    if (['false', '0', 'no', 'off'].includes(candidate)) {
-      return false;
-    }
-  }
-  if (typeof value === 'number') {
-    if (Number.isFinite(value)) {
-      return value !== 0;
-    }
-  }
-  return fallback;
-}
 
 function parseInteger(value, fallback, { min, max } = {}) {
   if (value == null || value === '') {
@@ -199,15 +179,15 @@ function serialiseRecentBlock(entry) {
 }
 
 export function configureWebApplicationFirewall({ env = process.env } = {}) {
-  const disabled = `${env.WAF_DISABLED ?? env.DISABLE_WAF ?? 'false'}`.toLowerCase() === 'true';
+  const disabled = coerceBoolean(env.WAF_DISABLED ?? env.DISABLE_WAF, { fallback: false });
   const blockedIps = new Set(splitList(env.WAF_BLOCKED_IPS).map((value) => value.toLowerCase()));
   const trustedIps = new Set(splitList(env.WAF_TRUSTED_IPS).map((value) => value.toLowerCase()));
   const blockedAgents = splitList(env.WAF_BLOCKED_AGENTS)
     .map((candidate) => parseRegex(candidate))
     .filter(Boolean);
 
-  const autoBlockEnabled = parseBoolean(env.WAF_AUTO_BLOCK_ENABLED, true);
-  const autoBlockDisabled = parseBoolean(env.WAF_AUTO_BLOCK_DISABLED, false);
+  const autoBlockEnabled = coerceBoolean(env.WAF_AUTO_BLOCK_ENABLED, { fallback: true });
+  const autoBlockDisabled = coerceBoolean(env.WAF_AUTO_BLOCK_DISABLED, { fallback: false });
   const resolvedAutoBlockEnabled = autoBlockDisabled ? false : autoBlockEnabled;
   const autoBlockThreshold = parseInteger(env.WAF_AUTO_BLOCK_THRESHOLD, 8, { min: 1, max: 10_000 });
   const autoBlockWindowSeconds = parseInteger(env.WAF_AUTO_BLOCK_WINDOW_SECONDS, 300, {

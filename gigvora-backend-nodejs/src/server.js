@@ -20,6 +20,7 @@ import { syncCriticalDependencies } from './observability/dependencyHealth.js';
 import { recordRuntimeSecurityEvent } from './services/securityAuditService.js';
 import orchestrateHttpShutdown from './lifecycle/httpShutdown.js';
 import { getMetricsStatus } from './observability/metricsRegistry.js';
+import { initializeTracing, shutdownTracing } from './observability/tracing.js';
 import {
   getRuntimeConfig,
   whenRuntimeConfigReady,
@@ -32,6 +33,7 @@ dotenv.config();
 const DEFAULT_PORT = 4000;
 let httpServer = null;
 let runtimeConfig = getRuntimeConfig();
+let tracingStarted = false;
 
 onRuntimeConfigChange(({ config }) => {
   runtimeConfig = config;
@@ -44,6 +46,19 @@ export async function start({ port = DEFAULT_PORT } = {}) {
   }
 
   await whenRuntimeConfigReady();
+
+  if (!tracingStarted) {
+    try {
+      initializeTracing({
+        serviceName: 'gigvora-backend',
+        serviceVersion: runtimeConfig?.app?.version ?? process.env.APP_VERSION ?? 'unknown',
+        logger,
+      });
+      tracingStarted = true;
+    } catch (error) {
+      logger.warn({ err: error }, 'Failed to initialise tracing provider');
+    }
+  }
 
   markHttpServerStarting();
   await warmDatabaseConnections({ logger });
@@ -135,6 +150,10 @@ export async function start({ port = DEFAULT_PORT } = {}) {
 export async function stop({ reason = 'shutdown' } = {}) {
   if (!httpServer) {
     markHttpServerStopped({ reason });
+    if (tracingStarted) {
+      await shutdownTracing({ logger });
+      tracingStarted = false;
+    }
     return;
   }
 
@@ -159,6 +178,11 @@ export async function stop({ reason = 'shutdown' } = {}) {
       httpServer = null;
     },
   });
+
+  if (tracingStarted) {
+    await shutdownTracing({ logger });
+    tracingStarted = false;
+  }
 }
 
 function registerSignalHandlers() {

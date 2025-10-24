@@ -1,14 +1,14 @@
 'use strict';
 
+const { resolveJsonType } = require('../utils/migrationHelpers.cjs');
+
 const USER_TYPES = ['user', 'company', 'freelancer', 'agency', 'admin'];
 
 module.exports = {
   async up(queryInterface, Sequelize) {
     const transaction = await queryInterface.sequelize.transaction();
     try {
-      const jsonType = ['postgres', 'postgresql'].includes(queryInterface.sequelize.getDialect())
-        ? Sequelize.JSONB
-        : Sequelize.JSON;
+      const jsonType = resolveJsonType(queryInterface, Sequelize);
 
       await queryInterface.createTable(
         'users',

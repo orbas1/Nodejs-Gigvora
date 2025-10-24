@@ -14,6 +14,8 @@ import {
   recordEngagementRefresh,
   recordTargetingSnapshotChange,
 } from './profileAnalyticsService.js';
+import { updateQueueSnapshot } from '../observability/queueSnapshotCache.js';
+import { normaliseProfileEngagementQueueSnapshot } from '../observability/snapshotFormatter.js';
 
 const POSITIVE_APPRECIATION_TYPES = new Set(['like', 'celebrate', 'support', 'endorse', 'applause']);
 const ACTIVE_FOLLOWER_STATUS = 'active';
@@ -298,9 +300,11 @@ export async function queueProfileEngagementRecalculation(
 
   if (transaction) {
     await execute(transaction);
+    await refreshProfileEngagementQueueTelemetry({ transaction });
   } else {
     await sequelize.transaction(async (trx) => {
       await execute(trx);
+      await refreshProfileEngagementQueueTelemetry({ transaction: trx });
     });
   }
 }
@@ -367,6 +371,7 @@ async function markJobCompleted(jobId, { lastError = null } = {}) {
     },
     { where: { id: jobId } },
   );
+  await refreshProfileEngagementQueueTelemetry();
 }
 
 async function markJobFailed(jobId, { attempts, error }) {
@@ -382,6 +387,7 @@ async function markJobFailed(jobId, { attempts, error }) {
     updates.scheduledAt = new Date(Date.now() + computeRescheduleDelay(attempts));
   }
   await ProfileEngagementJob.update(updates, { where: { id: jobId } });
+  await refreshProfileEngagementQueueTelemetry();
 }
 
 export async function processProfileEngagementQueue({ limit = 10, logger = console } = {}) {
@@ -442,19 +448,21 @@ export function stopProfileEngagementWorker() {
 
 export async function getProfileEngagementQueueSnapshot({
   staleAfterSeconds = LOCK_TIMEOUT_SECONDS,
+  transaction = null,
 } = {}) {
   const now = new Date();
   const staleThreshold = new Date(now.getTime() - staleAfterSeconds * 1000);
 
   const [pending, stuck, failed, nextJob] = await Promise.all([
-    ProfileEngagementJob.count({ where: { status: 'pending' } }),
+    ProfileEngagementJob.count({ where: { status: 'pending' }, transaction }),
     ProfileEngagementJob.count({
       where: {
         status: 'pending',
         lockedAt: { [Op.not]: null, [Op.lt]: staleThreshold },
       },
+      transaction,
     }),
-    ProfileEngagementJob.count({ where: { status: 'failed' } }),
+    ProfileEngagementJob.count({ where: { status: 'failed' }, transaction }),
     ProfileEngagementJob.findOne({
       where: { status: 'pending' },
       order: [
@@ -462,10 +470,11 @@ export async function getProfileEngagementQueueSnapshot({
         ['id', 'ASC'],
       ],
       attributes: ['scheduledAt'],
+      transaction,
     }),
   ]);
 
-  return {
+  const snapshot = {
     pending,
     stuck,
     failed,
@@ -473,6 +482,17 @@ export async function getProfileEngagementQueueSnapshot({
     nextScheduledAt: nextJob?.scheduledAt ? new Date(nextJob.scheduledAt).toISOString() : null,
     generatedAt: new Date().toISOString(),
   };
+  updateQueueSnapshot('profileEngagement', normaliseProfileEngagementQueueSnapshot(snapshot));
+  return snapshot;
+}
+
+async function refreshProfileEngagementQueueTelemetry({ transaction = null } = {}) {
+  try {
+    return await getProfileEngagementQueueSnapshot({ transaction });
+  } catch (error) {
+    console.warn('Failed to refresh profile engagement queue telemetry', error);
+    return null;
+  }
 }
 
 export default {
@@ -487,3 +507,5 @@ export default {
   stopProfileEngagementWorker,
   getProfileEngagementQueueSnapshot,
 };
+
+refreshProfileEngagementQueueTelemetry().catch(() => {});
