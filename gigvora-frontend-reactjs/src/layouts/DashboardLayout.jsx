@@ -14,6 +14,7 @@ import gigvoraWordmark from '../../images/Gigvora Logo.png';
 import MessagingDock from '../components/messaging/MessagingDock.jsx';
 import AdPlacementRail from '../components/ads/AdPlacementRail.jsx';
 import DashboardAccessGuard from '../components/security/DashboardAccessGuard.jsx';
+import DashboardQuickNav from '../components/dashboard/shared/DashboardQuickNav.jsx';
 
 function slugify(value) {
   if (!value) {
@@ -84,6 +85,24 @@ function normalizeAvailableDashboards(availableDashboards) {
       return null;
     })
     .filter(Boolean);
+}
+
+function formatBadgeValue(value) {
+  if (value == null) {
+    return null;
+  }
+
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) {
+      return null;
+    }
+    if (value > 999) {
+      return `${Math.round(value / 100) / 10}k`;
+    }
+  }
+
+  const stringified = String(value).trim();
+  return stringified || null;
 }
 
 function loadStoredCustomization(key) {
@@ -206,6 +225,7 @@ function MenuSection({ section, isOpen, onToggle, onItemClick, activeItemId }) {
           {section.items.map((item) => {
             const Icon = item.icon;
             const isActive = activeItemId && item.id === activeItemId;
+            const badge = formatBadgeValue(item.badge);
             return (
               <button
                 key={item.id}
@@ -219,12 +239,23 @@ function MenuSection({ section, isOpen, onToggle, onItemClick, activeItemId }) {
                 aria-current={isActive ? 'page' : undefined}
               >
                 {Icon ? <Icon className="h-5 w-5 flex-shrink-0" /> : null}
-                <span className="flex flex-col">
-                  <span className="font-semibold leading-tight">{item.name}</span>
-                  {item.description ? (
-                    <span className={`text-xs ${isActive ? 'text-white/80' : 'text-slate-500'}`}>{item.description}</span>
+                <div className="flex flex-1 items-center gap-3">
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="font-semibold leading-tight">{item.name}</span>
+                    {item.description ? (
+                      <span className={`text-xs ${isActive ? 'text-white/80' : 'text-slate-500'}`}>{item.description}</span>
+                    ) : null}
+                  </span>
+                  {badge ? (
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
+                        isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      {badge}
+                    </span>
                   ) : null}
-                </span>
+                </div>
               </button>
             );
           })}
@@ -372,6 +403,7 @@ export default function DashboardLayout({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [customizerOpen, setCustomizerOpen] = useState(false);
   const [openSectionIds, setOpenSectionIds] = useState(() => new Set());
+  const [activeScrollItemId, setActiveScrollItemId] = useState(activeMenuItem ?? '');
 
   const normalizedSections = useMemo(
     () => normalizeMenuSections(menuSections?.length ? menuSections : sections),
@@ -381,6 +413,12 @@ export default function DashboardLayout({
   useEffect(() => {
     setOpenSectionIds(new Set(normalizedSections.map((section) => section.id)));
   }, [normalizedSections]);
+
+  useEffect(() => {
+    if (activeMenuItem) {
+      setActiveScrollItemId(activeMenuItem);
+    }
+  }, [activeMenuItem]);
 
   const allMenuItems = useMemo(() => normalizedSections.flatMap((section) => section.items), [normalizedSections]);
 
@@ -455,6 +493,70 @@ export default function DashboardLayout({
     }));
   }, [hiddenItemIds, menuItemLookup, normalizedSections, orderedMenuItems]);
 
+  const quickNavSections = useMemo(
+    () => customizedSections.filter((section) => section.items.length > 0),
+    [customizedSections],
+  );
+
+  const sectionItemMap = useMemo(() => {
+    const map = new Map();
+    quickNavSections.forEach((section) => {
+      section.items.forEach((item) => {
+        if (item.sectionId) {
+          map.set(item.sectionId, item);
+        }
+      });
+    });
+    return map;
+  }, [quickNavSections]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return undefined;
+    }
+
+    if (!sectionItemMap.size) {
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+
+        if (visible.length > 0) {
+          const item = sectionItemMap.get(visible[0].target.id);
+          if (item) {
+            setActiveScrollItemId((previous) => (previous === item.id ? previous : item.id));
+          }
+          return;
+        }
+
+        const nearest = entries
+          .map((entry) => ({ id: entry.target.id, distance: Math.abs(entry.boundingClientRect.top) }))
+          .sort((a, b) => a.distance - b.distance)[0];
+
+        if (nearest) {
+          const item = sectionItemMap.get(nearest.id);
+          if (item) {
+            setActiveScrollItemId((previous) => (previous === item.id ? previous : item.id));
+          }
+        }
+      },
+      { rootMargin: '-35% 0px -50% 0px', threshold: [0.1, 0.25, 0.5] },
+    );
+
+    sectionItemMap.forEach((_, sectionId) => {
+      const element = document.getElementById(sectionId);
+      if (element) {
+        observer.observe(element);
+      }
+    });
+
+    return () => observer.disconnect();
+  }, [sectionItemMap]);
+
   const dashboards = useMemo(
     () => normalizeAvailableDashboards(availableDashboards),
     [availableDashboards],
@@ -462,11 +564,16 @@ export default function DashboardLayout({
 
   const hasMenuCustomization = allMenuItems.length > 0;
 
+  const highlightedMenuItemId = activeMenuItem ?? activeScrollItemId;
+
   const handleMenuItemClick = useCallback(
     (item) => {
       if (!item) return;
       onMenuItemSelect?.(item.id, item);
       setMobileOpen(false);
+      if (item.id) {
+        setActiveScrollItemId(item.id);
+      }
 
       if (!item.href) {
         return;
@@ -619,7 +726,7 @@ export default function DashboardLayout({
                 isOpen={openSectionIds.has(section.id)}
                 onToggle={handleToggleSection}
                 onItemClick={handleMenuItemClick}
-                activeItemId={activeMenuItem}
+                activeItemId={highlightedMenuItemId}
               />
             ))}
           </div>
@@ -667,7 +774,14 @@ export default function DashboardLayout({
           <div className="mx-auto flex w-full max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:px-10">
             <div className="flex-1">{children}</div>
             <aside className="hidden w-72 flex-shrink-0 lg:block">
-              <AdPlacementRail surface={surface} variant="desktop" />
+              <div className="sticky top-24 space-y-6">
+                <DashboardQuickNav
+                  sections={quickNavSections}
+                  activeItemId={highlightedMenuItemId}
+                  onSelect={handleMenuItemClick}
+                />
+                <AdPlacementRail surface={surface} variant="desktop" />
+              </div>
             </aside>
           </div>
         </main>
