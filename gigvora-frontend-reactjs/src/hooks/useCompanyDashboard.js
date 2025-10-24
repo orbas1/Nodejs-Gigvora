@@ -1,24 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import useCachedResource from './useCachedResource.js';
 import { fetchCompanyDashboard } from '../services/company.js';
-
-function formatNumber(value) {
-  if (value == null) return '—';
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) {
-    return `${value}`;
-  }
-  return numeric.toLocaleString();
-}
-
-function formatPercentValue(value) {
-  if (value == null) return '—';
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) {
-    return '—';
-  }
-  return `${numeric.toFixed(1)}%`;
-}
+import { formatMetricNumber, formatMetricPercent } from '../utils/metrics.js';
 
 export function useCompanyDashboard({ workspaceId, workspaceSlug, lookbackDays = 30, enabled = true } = {}) {
   const cacheKey = useMemo(() => {
@@ -60,11 +43,11 @@ export function useCompanyDashboard({ workspaceId, workspaceSlug, lookbackDays =
     const cards = [
       {
         label: 'Open requisitions',
-        value: formatNumber(state.data.jobSummary?.total ?? 0),
+        value: formatMetricNumber(state.data.jobSummary?.total ?? 0),
       },
       {
         label: 'Active candidates',
-        value: formatNumber(pipelineSummary?.totals?.applications ?? 0),
+        value: formatMetricNumber(pipelineSummary?.totals?.applications ?? 0),
       },
       {
         label: 'Avg days to decision',
@@ -89,27 +72,27 @@ export function useCompanyDashboard({ workspaceId, workspaceSlug, lookbackDays =
       },
       {
         label: 'Upcoming interviews',
-        value: formatNumber(interviewOperations?.upcomingCount ?? 0),
+        value: formatMetricNumber(interviewOperations?.upcomingCount ?? 0),
       },
       {
         label: 'Open alerts',
-        value: formatNumber(alerts?.open ?? 0),
+        value: formatMetricNumber(alerts?.open ?? 0),
       },
       {
         label: 'Active recruiters',
-        value: formatNumber(memberSummary?.active ?? 0),
+        value: formatMetricNumber(memberSummary?.active ?? 0),
       },
       {
         label: 'Attrition risk',
-        value: formatPercentValue(attritionRisk),
+        value: formatMetricPercent(attritionRisk),
       },
       {
         label: 'Brand campaigns',
-        value: formatNumber(activeCampaigns ?? 0),
+        value: formatMetricNumber(activeCampaigns ?? 0),
       },
       {
         label: 'Referral conversion',
-        value: formatPercentValue(referralConversion),
+        value: formatMetricPercent(referralConversion),
       },
     ];
 
@@ -117,20 +100,20 @@ export function useCompanyDashboard({ workspaceId, workspaceSlug, lookbackDays =
     if (partnerships.headhunterProgram?.briefs) {
       cards.push({
         label: 'Active headhunter briefs',
-        value: formatNumber(partnerships.headhunterProgram.briefs.active ?? 0),
+        value: formatMetricNumber(partnerships.headhunterProgram.briefs.active ?? 0),
       });
     }
     if (partnerships.talentPools?.totals) {
       cards.push({
         label: 'Talent pool hires',
-        value: formatNumber(partnerships.talentPools.totals.hiresFromPools ?? 0),
+        value: formatMetricNumber(partnerships.talentPools.totals.hiresFromPools ?? 0),
       });
     }
     if (partnerships.agencyCollaboration?.billing) {
       cards.push({
         label: 'Agency billing outstanding',
         value: partnerships.agencyCollaboration.billing.outstandingAmount
-          ? formatNumber(partnerships.agencyCollaboration.billing.outstandingAmount)
+          ? formatMetricNumber(partnerships.agencyCollaboration.billing.outstandingAmount)
           : '—',
       });
     }
