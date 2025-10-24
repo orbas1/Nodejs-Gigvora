@@ -14,7 +14,7 @@ import {
   getRouteGroup,
 } from './constants/routeRegistry.js';
 
-const pageModules = import.meta.glob('./pages/**/*.jsx');
+const pageModules = import.meta.glob(['./pages/**/*.jsx', '!./pages/**/__tests__/**']);
 const layoutModules = import.meta.glob('./layouts/**/*.jsx');
 
 const mainLayoutLoader = layoutModules['./layouts/MainLayout.jsx'];
