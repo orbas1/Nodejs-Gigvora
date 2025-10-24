@@ -7,11 +7,14 @@ import {
   FaceSmileIcon,
   HeartIcon,
   PaperAirplaneIcon,
+  PhotoIcon,
   ShareIcon,
 } from '@heroicons/react/24/outline';
 import PageHeader from '../components/PageHeader.jsx';
 import DataStatus from '../components/DataStatus.jsx';
 import UserAvatar from '../components/UserAvatar.jsx';
+import EmojiQuickPickerPopover from '../components/popovers/EmojiQuickPickerPopover.jsx';
+import GifSuggestionPopover from '../components/popovers/GifSuggestionPopover.jsx';
 import useCachedResource from '../hooks/useCachedResource.js';
 import { apiClient } from '../services/apiClient.js';
 import {
@@ -20,6 +23,9 @@ import {
   updateFeedPost,
   deleteFeedPost,
   reactToFeedPost,
+  listFeedComments,
+  createFeedComment,
+  createFeedReply,
 } from '../services/liveFeed.js';
 import analytics from '../services/analytics.js';
 import { formatRelativeTime } from '../utils/date.js';
@@ -30,12 +36,7 @@ import {
   moderateFeedComposerPayload,
   sanitiseExternalLink,
 } from '../utils/contentModeration.js';
-import {
-  ALLOWED_FEED_MEMBERSHIPS,
-  COMPOSER_OPTIONS,
-  GIF_LIBRARY,
-  QUICK_EMOJIS,
-} from '../constants/feedMeta.js';
+import { ALLOWED_FEED_MEMBERSHIPS, COMPOSER_OPTIONS } from '../constants/feedMeta.js';
 
 const DEFAULT_EDIT_DRAFT = {
   title: '',
@@ -86,6 +87,8 @@ const QUICK_REPLY_SUGGESTIONS = [
   'Added this into the launch tracker so nothing slips.',
 ];
 const MAX_CONTENT_LENGTH = 2200;
+const FEED_PAGE_SIZE = 12;
+const OPPORTUNITY_POST_TYPES = new Set(['job', 'gig', 'project', 'launchpad', 'volunteering', 'mentorship']);
 
 export function resolveAuthor(post) {
   const directAuthor = post?.author ?? {};
@@ -201,162 +204,98 @@ export function normaliseFeedPost(post, fallbackSession) {
   return normalised;
 }
 
-function buildMockComments(post) {
-  return [
-    {
-      id: `${post.id}-c1`,
-      author: 'Anita Singh',
-      headline: 'Head of Product, Atlas Studio',
-      message: 'Love seeing this momentum – the community will be thrilled!',
-      createdAt: new Date(Date.now() - 1000 * 60 * 42).toISOString(),
-      replies: [
-        {
-          id: `${post.id}-r1`,
-          author: 'Marco Giordano',
-          headline: 'Growth Lead, Nova Labs',
-          message: 'Totally agree. Let’s cross-promote this with the Berlin crew.',
-          createdAt: new Date(Date.now() - 1000 * 60 * 21).toISOString(),
-        },
-      ],
-    },
-    {
-      id: `${post.id}-c2`,
-      author: 'Zoe North',
-      headline: 'Community Manager',
-      message: 'Adding this to the weekly wrap – congrats team! 🎉',
-      createdAt: new Date(Date.now() - 1000 * 60 * 11).toISOString(),
-      replies: [],
-    },
-  ];
-}
-
-function normaliseComments(post) {
-  if (Array.isArray(post?.comments) && post.comments.length) {
-    return post.comments.map((comment, index) => ({
-      id: comment.id ?? `${post.id}-comment-${index + 1}`,
-      author: comment.author ?? comment.user?.name ?? 'Community member',
-      headline: comment.authorHeadline ?? comment.user?.title ?? comment.user?.role ?? 'Gigvora member',
-      message: comment.body ?? comment.content ?? comment.message ?? '',
-      createdAt: comment.createdAt ?? new Date().toISOString(),
-      replies: Array.isArray(comment.replies)
-        ? comment.replies.map((reply, replyIndex) => ({
-            id: reply.id ?? `${post.id}-comment-${index + 1}-reply-${replyIndex + 1}`,
-            author: reply.author ?? reply.user?.name ?? 'Community member',
-            headline: reply.authorHeadline ?? reply.user?.title ?? reply.user?.role ?? 'Gigvora member',
-            message: reply.body ?? reply.content ?? reply.message ?? '',
-            createdAt: reply.createdAt ?? new Date().toISOString(),
-          }))
-        : [],
-    }));
-  }
-  return buildMockComments(post);
-}
-
-function EmojiPopover({ open, onSelect, onClose, labelledBy }) {
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    const handleKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        onClose?.();
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [open, onClose]);
-
-  if (!open) {
+function normaliseCommentEntry(comment, { index = 0, prefix, fallbackAuthor } = {}) {
+  if (!comment) {
     return null;
   }
 
-  return (
-    <div
-      role="dialog"
-      aria-modal="false"
-      aria-labelledby={labelledBy}
-      className="absolute z-30 mt-2 w-48 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl"
-    >
-      <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-slate-500">Quick emoji</p>
-      <div className="mt-2 grid grid-cols-6 gap-2">
-        {QUICK_EMOJIS.map((emoji) => (
-          <button
-            key={emoji}
-            type="button"
-            onClick={() => {
-              onSelect?.(emoji);
-              onClose?.();
-            }}
-            className="flex items-center justify-center rounded-full bg-slate-50 p-2 text-xl transition hover:bg-accentSoft"
-          >
-            <span aria-hidden="true">{emoji}</span>
-            <span className="sr-only">Insert emoji {emoji}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
+  const basePrefix = prefix || 'comment';
+  const user = comment.user ?? comment.User ?? {};
+  const profile = user.Profile ?? user.profile ?? {};
+  const id = comment.id ?? `${basePrefix}-${index + 1}`;
+  const author =
+    comment.author ??
+    comment.authorName ??
+    [user.firstName, user.lastName, user.name].filter(Boolean).join(' ') ||
+    fallbackAuthor?.name ||
+    'Community member';
+  const headline =
+    comment.authorHeadline ??
+    user.title ??
+    user.role ??
+    profile.headline ??
+    profile.bio ??
+    fallbackAuthor?.headline ??
+    'Gigvora member';
+  const message = (comment.body ?? comment.content ?? comment.message ?? comment.text ?? '').toString();
+  const createdAt = comment.createdAt ?? comment.updatedAt ?? new Date().toISOString();
+  const replies = Array.isArray(comment.replies)
+    ? comment.replies
+        .map((reply, replyIndex) =>
+          normaliseCommentEntry(reply, {
+            index: replyIndex,
+            prefix: `${id}-reply`,
+            fallbackAuthor: reply.user ?? fallbackAuthor ?? user,
+          }),
+        )
+        .filter(Boolean)
+    : [];
+
+  return {
+    id,
+    author,
+    headline,
+    message,
+    createdAt,
+    replies,
+  };
 }
 
-function GifSuggestionTray({ open, onSelect, onClose, labelledBy }) {
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    const handleKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        onClose?.();
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [open, onClose]);
-
-  if (!open) {
-    return null;
+function normaliseCommentList(comments, post) {
+  if (!Array.isArray(comments)) {
+    return [];
   }
+  const prefixBase = `${post?.id ?? 'feed-post'}-comment`;
+  return comments
+    .map((comment, index) => normaliseCommentEntry(comment, { index, prefix: prefixBase, fallbackAuthor: comment?.user }))
+    .filter(Boolean);
+}
 
-  return (
-    <div
-      role="dialog"
-      aria-modal="false"
-      aria-labelledby={labelledBy}
-      className="absolute z-30 mt-2 w-full max-w-md rounded-3xl border border-slate-200 bg-white p-4 shadow-xl"
-    >
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Trending GIFs</p>
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-xs font-semibold text-slate-400 transition hover:text-accent"
-        >
-          Close
-        </button>
-      </div>
-      <p className="mt-2 text-[0.65rem] text-slate-500">
-        Curated for enterprise-safe celebrations, launches, and collaboration moments.
-      </p>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        {GIF_LIBRARY.map((gif) => (
-          <button
-            key={gif.id}
-            type="button"
-            onClick={() => {
-              onSelect?.(gif);
-              onClose?.();
-            }}
-            className="overflow-hidden rounded-2xl border border-slate-200 text-left transition hover:border-accent"
-          >
-            <img src={gif.url} alt={gif.label} className="h-32 w-full object-cover" loading="lazy" />
-            <div className="px-3 py-2">
-              <p className="text-sm font-semibold text-slate-800">{gif.label}</p>
-              <p className="text-[0.65rem] uppercase tracking-wide text-slate-400">{gif.tone}</p>
-            </div>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
+function normaliseCommentsFromResponse(response, post) {
+  if (!response) {
+    return [];
+  }
+  if (Array.isArray(response)) {
+    return normaliseCommentList(response, post);
+  }
+  if (Array.isArray(response.items)) {
+    return normaliseCommentList(response.items, post);
+  }
+  if (Array.isArray(response.data)) {
+    return normaliseCommentList(response.data, post);
+  }
+  if (Array.isArray(response.results)) {
+    return normaliseCommentList(response.results, post);
+  }
+  if (Array.isArray(response.comments)) {
+    return normaliseCommentList(response.comments, post);
+  }
+  return [];
+}
+
+function normaliseSingleComment(response, post, fallbackAuthor, { prefix } = {}) {
+  const list = normaliseCommentsFromResponse(response, post);
+  if (list.length) {
+    return list[0];
+  }
+  if (response && typeof response === 'object') {
+    return normaliseCommentEntry(response, {
+      index: 0,
+      prefix: prefix ?? `${post?.id ?? 'feed-post'}-comment`,
+      fallbackAuthor,
+    });
+  }
+  return null;
 }
 
 function MediaAttachmentPreview({ attachment, onRemove }) {
@@ -552,7 +491,7 @@ function FeedComposer({ onCreate, session }) {
                   <FaceSmileIcon className="h-4 w-4" />
                   Emoji
                 </button>
-                <EmojiPopover
+                <EmojiQuickPickerPopover
                   open={showEmojiTray}
                   onClose={() => setShowEmojiTray(false)}
                   onSelect={(emoji) => setContent((previous) => `${previous}${emoji}`)}
@@ -571,7 +510,7 @@ function FeedComposer({ onCreate, session }) {
                   <PhotoIcon className="h-4 w-4" />
                   GIF & media
                 </button>
-                <GifSuggestionTray
+                <GifSuggestionPopover
                   open={showGifTray}
                   onClose={() => setShowGifTray(false)}
                   onSelect={(gif) => {
@@ -748,7 +687,7 @@ function FeedCommentThread({ comment, onReply }) {
                 <FaceSmileIcon className="h-4 w-4" />
                 Emoji
               </button>
-              <EmojiPopover
+              <EmojiQuickPickerPopover
                 open={showEmojiTray}
                 onClose={() => setShowEmojiTray(false)}
                 onSelect={(emoji) => setReplyDraft((previous) => `${previous}${emoji}`)}
@@ -820,6 +759,7 @@ function FeedPostCard({
   post,
   onShare,
   canManage = false,
+  viewer,
   onEditStart,
   onEditCancel,
   onDelete,
@@ -839,6 +779,9 @@ function FeedPostCard({
   const bodyText = isNewsPost ? post.summary || post.content || '' : post.content || '';
   const linkLabel = isNewsPost ? 'Read full story' : 'View attached resource';
   const publishedTimestamp = post.publishedAt || post.createdAt;
+  const viewerName = viewer?.name ?? 'You';
+  const viewerHeadline = viewer?.title ?? viewer?.headline ?? 'Shared via Gigvora';
+  const viewerAvatarSeed = viewer?.avatarSeed ?? viewer?.name ?? viewerName;
   const [liked, setLiked] = useState(Boolean(post.viewerHasLiked));
   const [likeCount, setLikeCount] = useState(() => {
     if (typeof post.reactions?.likes === 'number') {
@@ -849,7 +792,9 @@ function FeedPostCard({
     }
     return Math.max(7, Math.round(Math.random() * 32));
   });
-  const [comments, setComments] = useState(() => normaliseComments(post));
+  const [comments, setComments] = useState(() => normaliseCommentList(post?.comments ?? [], post));
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentsError, setCommentsError] = useState(null);
   const [commentDraft, setCommentDraft] = useState('');
 
   useEffect(() => {
@@ -867,6 +812,50 @@ function FeedPostCard({
       return Math.max(7, Math.round(Math.random() * 32));
     });
   }, [post.reactions?.likes, post.likes, post.id]);
+
+  useEffect(() => {
+    setComments(normaliseCommentList(post?.comments ?? [], post));
+  }, [post?.comments, post?.id]);
+
+  useEffect(() => {
+    if (!post?.id) {
+      setComments([]);
+      return undefined;
+    }
+    let ignore = false;
+    const controller = new AbortController();
+
+    const loadComments = async () => {
+      setCommentsLoading(true);
+      try {
+        const response = await listFeedComments(post.id, { signal: controller.signal });
+        if (ignore) {
+          return;
+        }
+        const fetched = normaliseCommentsFromResponse(response, post);
+        if (fetched.length) {
+          setComments(fetched);
+        }
+        setCommentsError(null);
+      } catch (error) {
+        if (ignore || controller.signal.aborted) {
+          return;
+        }
+        setCommentsError(error);
+      } finally {
+        if (!ignore) {
+          setCommentsLoading(false);
+        }
+      }
+    };
+
+    loadComments();
+
+    return () => {
+      ignore = true;
+      controller.abort();
+    };
+  }, [post?.id]);
 
   const totalConversationCount = useMemo(
     () =>
@@ -896,44 +885,117 @@ function FeedPostCard({
     });
   };
 
-  const handleCommentSubmit = (event) => {
+  const handleCommentSubmit = async (event) => {
     event.preventDefault();
-    if (!commentDraft.trim()) {
+    const trimmed = commentDraft.trim();
+    if (!trimmed) {
       return;
     }
-    const newComment = {
-      id: `${post.id}-draft-${Date.now()}`,
-      author: 'You',
-      headline: 'Shared via Gigvora',
-      message: commentDraft.trim(),
+    const optimisticId = `${post.id ?? 'feed-post'}-draft-${Date.now()}`;
+    const optimisticComment = {
+      id: optimisticId,
+      author: viewerName,
+      headline: viewerHeadline,
+      message: trimmed,
       createdAt: new Date().toISOString(),
       replies: [],
     };
-    setComments((previous) => [newComment, ...previous]);
+    setComments((previous) => [optimisticComment, ...previous]);
     setCommentDraft('');
+    setCommentsError(null);
     analytics.track('web_feed_comment_submit', { postId: post.id }, { source: 'web_app' });
+
+    try {
+      const response = await createFeedComment(post.id, { message: trimmed });
+      const persisted = normaliseSingleComment(response, post, {
+        name: viewerName,
+        headline: viewerHeadline,
+      });
+      if (persisted) {
+        setComments((previous) => {
+          const replaced = previous.map((existing) => (existing.id === optimisticId ? persisted : existing));
+          if (!replaced.some((comment) => comment.id === persisted.id)) {
+            return [persisted, ...replaced.filter((comment) => comment.id !== optimisticId)];
+          }
+          return replaced;
+        });
+      }
+    } catch (error) {
+      setComments((previous) => previous.filter((existing) => existing.id !== optimisticId));
+      setCommentsError(error);
+    }
   };
 
-  const handleAddReply = (commentId, replyMessage) => {
+  const handleAddReply = async (commentId, replyMessage) => {
+    const trimmed = (replyMessage ?? '').trim();
+    if (!trimmed) {
+      return;
+    }
+    const replyId = `${commentId}-reply-${Date.now()}`;
+    const optimisticReply = {
+      id: replyId,
+      author: viewerName,
+      headline: viewerHeadline,
+      message: trimmed,
+      createdAt: new Date().toISOString(),
+    };
+
     setComments((previous) =>
       previous.map((existing) => {
         if (existing.id !== commentId) {
           return existing;
         }
-        const reply = {
-          id: `${commentId}-reply-${Date.now()}`,
-          author: 'You',
-          headline: 'Shared via Gigvora',
-          message: replyMessage,
-          createdAt: new Date().toISOString(),
-        };
         return {
           ...existing,
-          replies: [reply, ...(existing.replies ?? [])],
+          replies: [optimisticReply, ...(existing.replies ?? [])],
         };
       }),
     );
+    setCommentsError(null);
     analytics.track('web_feed_reply_submit', { postId: post.id, commentId }, { source: 'web_app' });
+
+    try {
+      const response = await createFeedReply(post.id, commentId, { message: trimmed });
+      const persisted = normaliseSingleComment(
+        response,
+        post,
+        {
+          name: viewerName,
+          headline: viewerHeadline,
+        },
+        { prefix: `${commentId}-reply` },
+      );
+      if (persisted) {
+        setComments((previous) =>
+          previous.map((existing) => {
+            if (existing.id !== commentId) {
+              return existing;
+            }
+            const updatedReplies = (existing.replies ?? []).map((reply) =>
+              reply.id === replyId ? { ...persisted, id: persisted.id ?? replyId } : reply,
+            );
+            const hasPersisted = updatedReplies.some((reply) => reply.id === persisted.id);
+            return {
+              ...existing,
+              replies: hasPersisted ? updatedReplies : [persisted, ...updatedReplies.filter((reply) => reply.id !== replyId)],
+            };
+          }),
+        );
+      }
+    } catch (error) {
+      setComments((previous) =>
+        previous.map((existing) => {
+          if (existing.id !== commentId) {
+            return existing;
+          }
+          return {
+            ...existing,
+            replies: (existing.replies ?? []).filter((reply) => reply.id !== replyId),
+          };
+        }),
+      );
+      setCommentsError(error);
+    }
   };
 
   return (
@@ -1119,14 +1181,17 @@ function FeedPostCard({
             <label htmlFor={`comment-${post.id}`} className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Join the conversation
             </label>
-            <textarea
-              id={`comment-${post.id}`}
-              value={commentDraft}
-              onChange={(event) => setCommentDraft(event.target.value)}
-              rows={3}
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-inner focus:border-accent focus:ring-2 focus:ring-accent/20"
-              placeholder="Offer context, signal interest, or tag a collaborator…"
-            />
+            <div className="mt-2 flex gap-3">
+              <UserAvatar name={viewerName} seed={viewerAvatarSeed} size="sm" showGlow={false} />
+              <textarea
+                id={`comment-${post.id}`}
+                value={commentDraft}
+                onChange={(event) => setCommentDraft(event.target.value)}
+                rows={3}
+                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-inner focus:border-accent focus:ring-2 focus:ring-accent/20"
+                placeholder="Offer context, signal interest, or tag a collaborator…"
+              />
+            </div>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap gap-2 text-[0.65rem] uppercase tracking-wide text-slate-400">
                 {QUICK_REPLY_SUGGESTIONS.slice(0, 2).map((suggestion) => (
@@ -1152,10 +1217,26 @@ function FeedPostCard({
               </button>
             </div>
           </form>
+          {commentsError ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
+              {commentsError?.message || 'We could not load the latest conversation. Please try again soon.'}
+            </div>
+          ) : null}
+          {commentsLoading ? (
+            <div className="space-y-2 rounded-2xl border border-slate-200 bg-white/80 p-4 text-xs text-slate-500">
+              <div className="h-3 w-3/4 animate-pulse rounded bg-slate-200" />
+              <div className="h-3 w-1/2 animate-pulse rounded bg-slate-200" />
+            </div>
+          ) : null}
           <div className="space-y-3">
             {comments.map((comment) => (
               <FeedCommentThread key={comment.id} comment={comment} onReply={handleAddReply} />
             ))}
+            {!commentsLoading && !comments.length ? (
+              <p className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-xs text-slate-500">
+                Be the first to start the conversation.
+              </p>
+            ) : null}
           </div>
         </>
       )}
@@ -1419,15 +1500,20 @@ export default function FeedPage() {
   const navigate = useNavigate();
   const { session, isAuthenticated } = useSession();
   const [localPosts, setLocalPosts] = useState([]);
+  const [remotePosts, setRemotePosts] = useState([]);
   const [editingPostId, setEditingPostId] = useState(null);
   const [editingDraft, setEditingDraft] = useState(DEFAULT_EDIT_DRAFT);
   const [editSaving, setEditSaving] = useState(false);
   const [editingError, setEditingError] = useState(null);
   const [removingPostId, setRemovingPostId] = useState(null);
   const [feedActionError, setFeedActionError] = useState(null);
+  const [pagination, setPagination] = useState({ nextCursor: null, nextPage: null, hasMore: false });
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState(null);
+  const loadMoreRef = useRef(null);
   const { data, error, loading, fromCache, lastUpdated, refresh } = useCachedResource(
-    'feed:posts',
-    ({ signal }) => listFeedPosts({ signal }),
+    'feed:posts:v2',
+    ({ signal }) => listFeedPosts({ signal, params: { limit: FEED_PAGE_SIZE } }),
     { ttl: 1000 * 60 * 2 },
   );
 
@@ -1437,12 +1523,39 @@ export default function FeedPage() {
     }
   }, [isAuthenticated, navigate]);
 
+  useEffect(() => {
+    if (!data) {
+      if (!loading) {
+        setRemotePosts([]);
+        setPagination((previous) => ({ ...previous, nextCursor: null, nextPage: null, hasMore: false }));
+      }
+      return;
+    }
+
+    const items = Array.isArray(data.items)
+      ? data.items
+      : Array.isArray(data.data)
+      ? data.data
+      : Array.isArray(data.results)
+      ? data.results
+      : Array.isArray(data.feed)
+      ? data.feed
+      : Array.isArray(data)
+      ? data
+      : [];
+
+    const normalisedFetched = items.map((post) => normaliseFeedPost(post, session)).filter(Boolean);
+    setRemotePosts(normalisedFetched);
+    setPagination({
+      nextCursor: data.nextCursor ?? null,
+      nextPage: data.nextPage ?? null,
+      hasMore: Boolean(data.hasMore),
+    });
+    setLoadMoreError(null);
+  }, [data, loading, session]);
+
   const posts = useMemo(() => {
-    const fetched = Array.isArray(data) ? data : [];
-    const normalisedFetched = fetched
-      .map((post) => normaliseFeedPost(post, session))
-      .filter(Boolean);
-    const merged = [...localPosts, ...normalisedFetched];
+    const merged = [...localPosts, ...remotePosts];
     const deduped = [];
     const seen = new Set();
     merged.forEach((post) => {
@@ -1457,7 +1570,81 @@ export default function FeedPage() {
       deduped.push(post);
     });
     return deduped;
-  }, [data, localPosts, session]);
+  }, [localPosts, remotePosts]);
+
+  const fetchNextPage = useCallback(async () => {
+    if (loadingMore || !pagination.hasMore) {
+      return;
+    }
+    setLoadingMore(true);
+    setLoadMoreError(null);
+    try {
+      const params = { limit: FEED_PAGE_SIZE };
+      if (pagination.nextCursor) {
+        params.cursor = pagination.nextCursor;
+      }
+      if (pagination.nextPage != null) {
+        params.page = pagination.nextPage;
+      }
+      const response = await listFeedPosts({ params });
+      const items = Array.isArray(response.items)
+        ? response.items
+        : Array.isArray(response.data)
+        ? response.data
+        : Array.isArray(response.results)
+        ? response.results
+        : Array.isArray(response.feed)
+        ? response.feed
+        : Array.isArray(response)
+        ? response
+        : [];
+      const normalised = items.map((post) => normaliseFeedPost(post, session)).filter(Boolean);
+      setRemotePosts((previous) => {
+        const combined = [...previous, ...normalised];
+        const deduped = [];
+        const seen = new Set();
+        combined.forEach((post) => {
+          if (!post) {
+            return;
+          }
+          const identifier = post.id ?? `${post.createdAt}:${deduped.length}`;
+          if (identifier && !seen.has(identifier)) {
+            seen.add(identifier);
+            deduped.push(post);
+          }
+        });
+        return deduped;
+      });
+      setPagination({
+        nextCursor: response.nextCursor ?? null,
+        nextPage: response.nextPage ?? null,
+        hasMore: Boolean(response.hasMore),
+      });
+    } catch (loadError) {
+      setLoadMoreError(loadError);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, pagination.hasMore, pagination.nextCursor, pagination.nextPage, session]);
+
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target || !pagination.hasMore) {
+      return undefined;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            fetchNextPage();
+          }
+        });
+      },
+      { rootMargin: '200px' },
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [fetchNextPage, pagination.hasMore]);
 
   const engagementSignals = useEngagementSignals({ session, feedPosts: posts });
   const {
@@ -1536,6 +1723,30 @@ export default function FeedPage() {
     analytics.track('web_feed_share_click', { location: 'feed_page' }, { source: 'web_app' });
   }, []);
 
+  const trackOpportunityTelemetry = useCallback(
+    (phase, payload) => {
+      if (!payload?.type || !OPPORTUNITY_POST_TYPES.has(payload.type)) {
+        return;
+      }
+      analytics.track(
+        'web_feed_opportunity_composer',
+        {
+          phase,
+          type: payload.type,
+          hasLink: Boolean(payload.link),
+          hasMedia: Array.isArray(payload.mediaAttachments) && payload.mediaAttachments.length > 0,
+          viewerMembership:
+            session?.primaryMembership ??
+            session?.primaryDashboard ??
+            session?.userType ??
+            (Array.isArray(session?.memberships) && session.memberships.length ? session.memberships[0] : 'unknown'),
+        },
+        { source: 'web_app', userId: session?.id ?? session?.userId ?? undefined },
+      );
+    },
+    [session],
+  );
+
   const handleComposerCreate = useCallback(
     async (payload) => {
       if (!hasFeedAccess) {
@@ -1575,6 +1786,7 @@ export default function FeedPage() {
 
       setLocalPosts((previous) => [optimisticPost, ...previous]);
       analytics.track('web_feed_post_created', { type: payload.type, optimistic: true }, { source: 'web_app' });
+      trackOpportunityTelemetry('submitted', payload);
 
       try {
         const response = await createFeedPost(
@@ -1613,6 +1825,7 @@ export default function FeedPage() {
 
         analytics.track('web_feed_post_synced', { type: payload.type }, { source: 'web_app' });
         await refresh({ force: true });
+        trackOpportunityTelemetry('synced', payload);
       } catch (composerError) {
         setLocalPosts((previous) => previous.filter((post) => post.id !== optimisticId));
         analytics.track(
@@ -1624,6 +1837,7 @@ export default function FeedPage() {
           },
           { source: 'web_app' },
         );
+        trackOpportunityTelemetry('failed', payload);
 
         if (composerError instanceof ContentModerationError) {
           throw composerError;
@@ -1832,6 +2046,7 @@ export default function FeedPage() {
             post={post}
             onShare={handleShareClick}
             canManage={canManagePost(post)}
+            viewer={session}
             onEditStart={handleEditStart}
             onEditCancel={handleEditCancel}
             onDelete={handleDeletePost}
@@ -1845,6 +2060,42 @@ export default function FeedPage() {
             onToggleReaction={handleToggleReaction}
           />
         ))}
+        <div ref={loadMoreRef} aria-hidden="true" />
+        {loadingMore ? (
+          <div className="space-y-4">
+            {Array.from({ length: 2 }).map((_, index) => (
+              <article key={`loading-${index}`} className="animate-pulse rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="flex items-center justify-between text-xs text-slate-300">
+                  <span className="h-3 w-32 rounded bg-slate-200" />
+                  <span className="h-3 w-16 rounded bg-slate-200" />
+                </div>
+                <div className="mt-4 h-4 w-48 rounded bg-slate-200" />
+                <div className="mt-3 space-y-2">
+                  <div className="h-3 rounded bg-slate-200" />
+                  <div className="h-3 w-3/4 rounded bg-slate-200" />
+                  <div className="h-3 w-2/3 rounded bg-slate-200" />
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : null}
+        {loadMoreError ? (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
+            {loadMoreError?.message || 'We could not load more updates. Try again soon.'}
+            <button
+              type="button"
+              onClick={fetchNextPage}
+              className="ml-3 inline-flex items-center gap-2 rounded-full border border-amber-200 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-amber-700 transition hover:border-amber-300 hover:text-amber-600"
+            >
+              Retry
+            </button>
+          </div>
+        ) : null}
+        {!pagination.hasMore && posts.length ? (
+          <p className="text-center text-[0.7rem] font-semibold uppercase tracking-wide text-slate-400">
+            You’re all caught up.
+          </p>
+        ) : null}
       </div>
     );
   };

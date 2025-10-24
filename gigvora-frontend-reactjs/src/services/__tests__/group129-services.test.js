@@ -24,7 +24,13 @@ import {
 import { deleteInboxSavedReply } from '../inbox.js';
 import { submitTalentApplication } from '../launchpad.js';
 import { fetchFreelancerLearningHub } from '../learningHub.js';
-import { reactToFeedPost } from '../liveFeed.js';
+import {
+  reactToFeedPost,
+  listFeedPosts,
+  listFeedComments,
+  createFeedComment,
+  createFeedReply,
+} from '../liveFeed.js';
 import { scheduleMaintenanceWindow } from '../maintenanceMode.js';
 import { resolveModerationEvent } from '../moderation.js';
 import {
@@ -116,6 +122,33 @@ describe('live feed service', () => {
   it('requires reaction when reacting to feed post', async () => {
     await expect(reactToFeedPost('post-1')).rejects.toThrow(
       'A reaction is required to react to the feed entry.',
+    );
+  });
+
+  it('normalises list response when fetching posts', async () => {
+    apiClient.get.mockResolvedValue({ data: [{ id: 'p1' }], nextCursor: 'next', hasMore: true });
+
+    const result = await listFeedPosts({ params: { limit: 5 } });
+
+    expect(apiClient.get).toHaveBeenCalledWith('/feed', { params: { limit: 5 }, signal: undefined });
+    expect(result.items).toHaveLength(1);
+    expect(result.hasMore).toBe(true);
+    expect(result.nextCursor).toBe('next');
+  });
+
+  it('requires post id to list comments', async () => {
+    await expect(listFeedComments()).rejects.toThrow('A post identifier is required to list feed comments.');
+  });
+
+  it('requires message when creating feed comment', async () => {
+    await expect(createFeedComment('post-1', {})).rejects.toThrow(
+      'A message is required to create a feed comment.',
+    );
+  });
+
+  it('requires comment id when creating a reply', async () => {
+    await expect(createFeedReply('post-1')).rejects.toThrow(
+      'A comment identifier is required to create a feed reply.',
     );
   });
 });

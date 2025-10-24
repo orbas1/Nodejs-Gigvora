@@ -1477,10 +1477,10 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   24. **Design Duplication.** Align composer status badges with creation studio quick-launch banners for shared semantics.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L478-L575】【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L195-L268】
   25. **Design framework.** Leverages Tailwind layout primitives plus analytics instrumentation consistent with dashboards.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L1-L575】
   26. **Change Checklist Tracker Extensive.**
-      - [ ] Replace mock comments with live social graph service results.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L204-L253】
-      - [ ] Implement infinite scroll and skeleton loaders for enterprise feeds.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L15-L520】
-      - [ ] Extract emoji/GIF popovers into reusable UI package.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L255-L360】
-      - [ ] Wire composer telemetry to opportunity conversions (jobs, gigs, mentorship).【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L15-L520】
+      - [x] Replace mock comments with live social graph service results.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L202-L302】
+      - [x] Implement infinite scroll and skeleton loaders for enterprise feeds.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L1408-L1539】
+      - [x] Extract emoji/GIF popovers into reusable UI package.【F:gigvora-frontend-reactjs/src/components/popovers/EmojiQuickPickerPopover.jsx†L1-L56】【F:gigvora-frontend-reactjs/src/components/popovers/GifSuggestionPopover.jsx†L1-L68】
+      - [x] Wire composer telemetry to opportunity conversions (jobs, gigs, mentorship).【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L1721-L1843】
   27. **Full Upgrade Plan & Release Steps  Extensive.**
       1. Launch backend-backed comments/reactions with filter controls, monitoring moderation outcomes.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L15-L253】
       2. Roll out virtualised timelines and persona spotlights, measuring dwell time and conversion to dashboards.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L47-L575】
