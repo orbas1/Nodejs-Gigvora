@@ -7,6 +7,190 @@ import {
   SparklesIcon,
   UserGroupIcon,
 } from '@heroicons/react/24/outline';
+import { deepFreeze } from './menuSchema.js';
+
+export const CREATION_STUDIO_STATUSES = deepFreeze([
+  { id: 'draft', label: 'Draft', badge: 'bg-slate-100 text-slate-700' },
+  { id: 'review', label: 'In review', badge: 'bg-amber-100 text-amber-700' },
+  { id: 'scheduled', label: 'Scheduled', badge: 'bg-sky-100 text-sky-700' },
+  { id: 'published', label: 'Published', badge: 'bg-emerald-100 text-emerald-700' },
+  { id: 'archived', label: 'Archived', badge: 'bg-slate-200 text-slate-600' },
+]);
+
+export const CREATION_STUDIO_TYPES = deepFreeze([
+  {
+    id: 'job',
+    label: 'Job post',
+    shortLabel: 'Job',
+    groupId: 'opportunities',
+    description: 'Publish employment opportunities with salary, benefits, and review workflows.',
+    href: '/jobs',
+  },
+  {
+    id: 'gig',
+    label: 'Gig brief',
+    shortLabel: 'Gig',
+    groupId: 'opportunities',
+    description: 'Package fixed-scope engagements with tiered service levels and fulfilment playbooks.',
+    href: '/gigs',
+  },
+  {
+    id: 'project',
+    label: 'Project workspace',
+    shortLabel: 'Project',
+    groupId: 'opportunities',
+    description: 'Coordinate milestones, contributors, and reporting inside a structured delivery workspace.',
+    href: '/projects/new',
+  },
+  {
+    id: 'launchpad_job',
+    label: 'Launchpad job',
+    shortLabel: 'Launchpad job',
+    groupId: 'opportunities',
+    description: 'Invite Launchpad fellows into experiential roles with readiness scoring and automation.',
+    href: '/experience-launchpad/jobs',
+  },
+  {
+    id: 'launchpad_project',
+    label: 'Launchpad project',
+    shortLabel: 'Launchpad project',
+    groupId: 'opportunities',
+    description: 'Spin up Launchpad cohorts with milestone templates, analytics, and collaboration tooling.',
+    href: '/experience-launchpad/projects',
+  },
+  {
+    id: 'volunteer_opportunity',
+    label: 'Volunteering mission',
+    shortLabel: 'Volunteering',
+    groupId: 'opportunities',
+    description: 'Coordinate purpose-led initiatives with safeguarding, rota planning, and compliance.',
+    href: '/volunteering',
+  },
+  {
+    id: 'mentorship_offering',
+    label: 'Mentorship offering',
+    shortLabel: 'Mentorship',
+    groupId: 'programmes',
+    description: 'Package mentoring tracks with billing preferences, curriculum assets, and analytics.',
+    href: '/dashboard/mentor',
+  },
+  {
+    id: 'networking_session',
+    label: 'Networking session',
+    shortLabel: 'Networking',
+    groupId: 'programmes',
+    description: 'Plan community events with capacity management, reminders, and attendee workflows.',
+    href: '/dashboard/company/networking',
+  },
+  {
+    id: 'group',
+    label: 'Community group',
+    shortLabel: 'Group',
+    groupId: 'community',
+    description: 'Launch member spaces with moderation settings, access controls, and engagement rituals.',
+    href: '/groups',
+  },
+  {
+    id: 'page',
+    label: 'Landing page',
+    shortLabel: 'Page',
+    groupId: 'community',
+    description: 'Publish branded landing pages with hero messaging, CTAs, and SEO metadata.',
+    href: '/pages',
+  },
+  {
+    id: 'blog_post',
+    label: 'Blog update',
+    shortLabel: 'Blog',
+    groupId: 'content',
+    description: 'Share editorial updates with scheduling, localisation, and distribution controls.',
+    href: '/blog',
+  },
+  {
+    id: 'ad',
+    label: 'Ad campaign',
+    shortLabel: 'Ad',
+    groupId: 'content',
+    description: 'Launch multi-channel ad buys with budget governance and creative asset management.',
+    href: '/dashboard/agency/ads',
+  },
+  {
+    id: 'cv',
+    label: 'CV document',
+    shortLabel: 'CV',
+    groupId: 'documents',
+    description: 'Craft persona-aware CVs with reusable story blocks and approval workflows.',
+    href: '/dashboard/freelancer/documents',
+  },
+  {
+    id: 'cover_letter',
+    label: 'Cover letter',
+    shortLabel: 'Cover letter',
+    groupId: 'documents',
+    description: 'Generate tailored cover letters with guided prompts and collaboration controls.',
+    href: '/dashboard/freelancer/documents',
+  },
+]);
+
+export const CREATION_STUDIO_GROUPS = deepFreeze([
+  {
+    id: 'opportunities',
+    label: 'Opportunities & briefs',
+    description: 'Jobs, gigs, projects, volunteering missions, and Launchpad builds.',
+    defaultType: 'job',
+    types: ['job', 'gig', 'project', 'launchpad_job', 'launchpad_project', 'volunteer_opportunity'],
+  },
+  {
+    id: 'programmes',
+    label: 'Programmes & sessions',
+    description: 'Mentorship packages and networking events with scheduling support.',
+    defaultType: 'mentorship_offering',
+    types: ['mentorship_offering', 'networking_session'],
+  },
+  {
+    id: 'community',
+    label: 'Community hubs',
+    description: 'Spaces and pages that nurture ongoing member engagement.',
+    defaultType: 'group',
+    types: ['group', 'page'],
+  },
+  {
+    id: 'content',
+    label: 'Content & campaigns',
+    description: 'Editorial updates and paid campaigns amplified across Gigvora.',
+    defaultType: 'blog_post',
+    types: ['blog_post', 'ad'],
+  },
+  {
+    id: 'documents',
+    label: 'Documents & assets',
+    description: 'Personalised documents that feed portfolios and applications.',
+    defaultType: 'cv',
+    types: ['cv', 'cover_letter'],
+  },
+]);
+
+const CREATION_STUDIO_TYPE_LOOKUP = Object.freeze(
+  Object.fromEntries(CREATION_STUDIO_TYPES.map((type) => [type.id, type])),
+);
+
+const CREATION_STUDIO_STATUS_LOOKUP = Object.freeze(
+  Object.fromEntries(CREATION_STUDIO_STATUSES.map((status) => [status.id, status])),
+);
+
+export function getCreationType(typeId) {
+  if (!typeId) {
+    return null;
+  }
+  return CREATION_STUDIO_TYPE_LOOKUP[typeId] ?? null;
+}
+
+export function getCreationStatus(statusId) {
+  if (!statusId) {
+    return null;
+  }
+  return CREATION_STUDIO_STATUS_LOOKUP[statusId] ?? null;
+}
 
 export const CREATION_STUDIO_TRACKS = [
   {

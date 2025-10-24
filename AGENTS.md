@@ -2321,7 +2321,7 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   1. **Appraisal.** Cross-persona studio enabling members to launch CVs, cover letters, gigs, projects, volunteering, launchpad jobs, and mentorship offerings with quick drafts and automation stats.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L1-L200】
   2. **Functionality.** Provides track cards linking to appropriate dashboards, quick draft form with moderation, DataStatus telemetry, and event dispatch for downstream refresh.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L13-L195】
   3. **Logic Usefulness.** Quick launch builder creates draft payloads, optionally auto-publishing, and dispatches events to update creation manager.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L149-L183】
-  4. **Redundancies.** Creation track metadata may duplicate other configs; centralise definitions for reuse in dashboards.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L22-L86】
+  4. **Redundancies.** Creation track metadata now centralised via shared type/status/group registries—keep wizard config aligned with the canonical constants to avoid drift.【F:gigvora-frontend-reactjs/src/constants/creationStudio.js†L12-L193】
   5. **Placeholders Or Non-working Functions Or Stubs.** Stats and quick draft responses rely on placeholder values until analytics integrated.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L88-L112】【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L149-L190】
   6. **Duplicate Functions.** Quick draft success handling similar to creation studio manager; share util functions.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L149-L190】
   7. **Improvements need to make.** Add templated assets, AI prompts, and persona-specific best practices for each track.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L22-L200】
@@ -2344,7 +2344,7 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   24. **Design Duplication.** Align creation stats with dashboard hero metrics for consistency.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L88-L112】【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L195-L239】
   25. **Design framework.** Continues PageHeader + DataStatus design language while integrating creation studio manager below.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L195-L268】
   26. **Change Checklist Tracker Extensive.**
-      - [x] Centralise creation track definitions and reuse across dashboards.【F:gigvora-frontend-reactjs/src/constants/creationStudio.js†L1-L285】
+      - [x] Centralise creation track, status, and grouping registries for reuse across dashboards.【F:gigvora-frontend-reactjs/src/constants/creationStudio.js†L12-L193】
       - [x] Add AI prompt library, template gallery, and collaboration invites.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L195-L422】
       - [x] Improve quick launch feedback with optimistic UI and progress indicators.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L126-L222】
       - [x] Surface analytics linking creation outputs to feed/marketplace performance.【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L357-L394】
