@@ -3278,8 +3278,41 @@ export const FeedPost = sequelize.define(
     authorName: { type: DataTypes.STRING(180), allowNull: true },
     authorHeadline: { type: DataTypes.STRING(255), allowNull: true },
     authorAvatarSeed: { type: DataTypes.STRING(255), allowNull: true },
+    mediaAttachments: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
   },
   { tableName: 'feed_posts' },
+);
+
+export const FeedComment = sequelize.define(
+  'FeedComment',
+  {
+    postId: { type: DataTypes.INTEGER, allowNull: false },
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    parentId: { type: DataTypes.INTEGER, allowNull: true },
+    body: { type: DataTypes.TEXT, allowNull: false },
+    authorName: { type: DataTypes.STRING(180), allowNull: true },
+    authorHeadline: { type: DataTypes.STRING(255), allowNull: true },
+    authorAvatarSeed: { type: DataTypes.STRING(255), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'feed_comments' },
+);
+
+export const FeedReaction = sequelize.define(
+  'FeedReaction',
+  {
+    postId: { type: DataTypes.INTEGER, allowNull: false },
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    reactionType: {
+      type: DataTypes.ENUM('like', 'celebrate', 'support', 'love', 'insightful'),
+      allowNull: false,
+      defaultValue: 'like',
+    },
+    active: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'feed_reactions' },
 );
 
 export const FreelancerTimelineWorkspace = sequelize.define(
@@ -20513,6 +20546,14 @@ GigCatalogItem.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' })
 
 User.hasMany(FeedPost, { foreignKey: 'userId' });
 FeedPost.belongsTo(User, { foreignKey: 'userId' });
+FeedPost.hasMany(FeedComment, { foreignKey: 'postId', as: 'comments' });
+FeedComment.belongsTo(FeedPost, { foreignKey: 'postId', as: 'post' });
+FeedComment.belongsTo(User, { foreignKey: 'userId', as: 'author' });
+FeedComment.hasMany(FeedComment, { foreignKey: 'parentId', as: 'replies' });
+FeedComment.belongsTo(FeedComment, { foreignKey: 'parentId', as: 'parent' });
+FeedPost.hasMany(FeedReaction, { foreignKey: 'postId', as: 'reactions' });
+FeedReaction.belongsTo(FeedPost, { foreignKey: 'postId', as: 'post' });
+FeedReaction.belongsTo(User, { foreignKey: 'userId', as: 'actor' });
 
 User.hasOne(FreelancerTimelineWorkspace, { foreignKey: 'freelancerId', as: 'timelineWorkspace' });
 FreelancerTimelineWorkspace.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
@@ -22749,6 +22790,8 @@ export default {
   FreelancerPortfolioSetting,
   FreelancerCalendarEvent,
   FeedPost,
+  FeedComment,
+  FeedReaction,
   FreelancerTimelineWorkspace,
   FreelancerTimelinePost,
   FreelancerTimelineEntry,

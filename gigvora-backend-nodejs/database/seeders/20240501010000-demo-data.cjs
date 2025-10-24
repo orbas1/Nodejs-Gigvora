@@ -108,14 +108,42 @@ const freelancerProfileSeeds = [
 const feedPosts = [
   {
     email: 'ava@gigvora.com',
+    title: 'Release candidate 1.50 rolling out',
+    summary: 'Runtime security enhancements and analytics exports now live for enterprise workspaces.',
     content:
-      '[demo] Platform release candidate 1.50 ships runtime security enhancements and workspace analytics exports.',
+      '[demo] Platform release candidate 1.50 ships runtime security enhancements, hardened runtime policies, and workspace analytics exports. Early adopters get the rollout notes in their inbox today.',
     visibility: 'public',
+    type: 'update',
+    link: 'https://updates.gigvora.test/releases/1-50',
+    imageUrl: 'https://assets.gigvora.test/releases/1-50/cover.jpg',
+    mediaAttachments: [
+      {
+        id: 'release-1-50',
+        url: 'https://assets.gigvora.test/releases/1-50/dashboard.png',
+        type: 'image',
+        alt: 'Analytics dashboard preview for release 1.50',
+      },
+    ],
+    authorHeadline: 'Co-founder & CEO · Gigvora',
   },
   {
     email: 'leo@gigvora.com',
-    content: '[demo] Shipping an onboarding automation template — DM if you need async walkthroughs.',
+    title: 'Automation onboarding template available',
+    summary: 'Async playbooks ready for teams onboarding to workflow automation templates.',
+    content:
+      '[demo] Shipping an onboarding automation template — DM if you need async walkthroughs or want help mapping your workspace automations to the new playbooks.',
     visibility: 'public',
+    type: 'project',
+    link: 'https://workspace.gigvora.test/automation-template',
+    mediaAttachments: [
+      {
+        id: 'automation-preview',
+        url: 'https://assets.gigvora.test/templates/automation-preview.png',
+        type: 'image',
+        alt: 'Automation template cards and workflow preview',
+      },
+    ],
+    authorHeadline: 'Fractional Staff Engineer · Gigvora Network',
   },
 ];
 
@@ -292,6 +320,8 @@ module.exports = {
       for (const post of feedPosts) {
         const userId = userIds.get(post.email);
         if (!userId) continue;
+        const userSeed = baseUsers.find((seed) => seed.email === post.email) ?? {};
+        const profileSeed = profileSeeds.find((seed) => seed.email === post.email);
         const [existing] = await queryInterface.sequelize.query(
           'SELECT id FROM feed_posts WHERE userId = :userId AND content = :content LIMIT 1',
           {
@@ -301,13 +331,32 @@ module.exports = {
           },
         );
         if (existing?.id) continue;
+        const authorName =
+          post.authorName ||
+          [userSeed.firstName, userSeed.lastName].filter(Boolean).join(' ').trim() ||
+          userSeed.email ||
+          'Gigvora member';
+        const authorHeadline =
+          post.authorHeadline || profileSeed?.headline || profileSeed?.bio || 'Marketplace community update';
+        const authorAvatarSeed = post.authorAvatarSeed || userSeed.firstName || authorName;
         await queryInterface.bulkInsert(
           'feed_posts',
           [
             {
               userId,
               content: post.content,
-              visibility: post.visibility,
+              summary: post.summary ?? null,
+              title: post.title ?? null,
+              visibility: post.visibility ?? 'public',
+              type: post.type ?? 'update',
+              link: post.link ?? null,
+              imageUrl: post.imageUrl ?? null,
+              source: post.source ?? null,
+              mediaAttachments: post.mediaAttachments ?? null,
+              authorName,
+              authorHeadline,
+              authorAvatarSeed,
+              publishedAt: now,
               createdAt: now,
               updatedAt: now,
             },

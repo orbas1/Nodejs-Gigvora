@@ -37,7 +37,10 @@ const userSeeds = [
   },
 ];
 
+const feedPostTitle = 'Ops weekly snapshot';
+const feedPostSummary = 'Runtime health is green and our hiring backlog is cleared.';
 const feedPostContent = '[demo] Ops weekly: runtime health is green and hiring backlog cleared.';
+const feedPostLink = 'https://ops.gigvora.test/weekly-briefing';
 
 const hashedPassword = '$2b$10$URrfHgz0s1xu1vByrRl/h.STE7Z0O.STDnpCiMTGy66idi2EDmzJm';
 
@@ -202,6 +205,7 @@ module.exports = {
 
       const adminUserId = userIds.get('lara.ops.demo@gigvora.com');
       if (adminUserId) {
+        const adminSeed = userSeeds.find((seed) => seed.email === 'lara.ops.demo@gigvora.com') ?? {};
         const [existingPost] = await queryInterface.sequelize.query(
           'SELECT id FROM feed_posts WHERE userId = :userId AND content = :content LIMIT 1',
           {
@@ -216,8 +220,26 @@ module.exports = {
             [
               {
                 userId: adminUserId,
+                title: feedPostTitle,
+                summary: feedPostSummary,
                 content: feedPostContent,
                 visibility: 'public',
+                type: 'update',
+                link: feedPostLink,
+                mediaAttachments: [
+                  {
+                    id: 'ops-weekly-briefing',
+                    url: 'https://assets.gigvora.test/ops/weekly-briefing.png',
+                    type: 'image',
+                    alt: 'Operations weekly metrics snapshot',
+                  },
+                ],
+                authorName:
+                  [adminSeed.firstName, adminSeed.lastName].filter(Boolean).join(' ').trim() || adminSeed.email ||
+                  'Gigvora Ops',
+                authorHeadline: 'Director of Operations · Gigvora',
+                authorAvatarSeed: adminSeed.firstName || 'operations-team',
+                publishedAt: now,
                 createdAt: now,
                 updatedAt: now,
               },
