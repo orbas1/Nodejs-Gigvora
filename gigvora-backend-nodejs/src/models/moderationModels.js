@@ -16,8 +16,8 @@ const messagingSequelize =
     ? messagingModels.sequelize
     : sequelizeClient;
 
-const sequelize = messagingSequelize;
-const dialect = typeof sequelize.getDialect === 'function' ? sequelize.getDialect() : 'postgres';
+const activeSequelize = messagingSequelize;
+const dialect = typeof activeSequelize.getDialect === 'function' ? activeSequelize.getDialect() : 'postgres';
 const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB : DataTypes.JSON;
 
 export const ModerationEventActions = [
@@ -34,7 +34,7 @@ export const ModerationEventSeverities = ['low', 'medium', 'high', 'critical'];
 
 export const ModerationEventStatuses = ['open', 'acknowledged', 'resolved', 'dismissed'];
 
-export const ModerationEvent = sequelize.define(
+export const ModerationEvent = activeSequelize.define(
   'ModerationEvent',
   {
     threadId: { type: DataTypes.INTEGER, allowNull: false },

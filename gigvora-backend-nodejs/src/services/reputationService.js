@@ -15,6 +15,12 @@ import {
   REPUTATION_REVIEW_WIDGET_STATUSES,
 } from '../models/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
+import {
+  analyseTestimonial,
+  analyseSuccessStory,
+  verifyClientIdentity,
+} from './reputationModerationService.js';
+import { renderWidgetHtml } from './reputationWidgetRenderer.js';
 
 function normalizeFreelancerId(value) {
   const id = Number.parseInt(value, 10);
@@ -43,6 +49,18 @@ function sanitizeString(value, { maxLength = 255, allowNull = true } = {}) {
     return allowNull ? null : '';
   }
   return trimmed.slice(0, maxLength);
+}
+
+function sanitizeEmail(value) {
+  if (!value) {
+    return null;
+  }
+  const trimmed = `${value}`.trim().toLowerCase();
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailPattern.test(trimmed)) {
+    throw new ValidationError('clientEmail must be a valid email address');
+  }
+  return trimmed.slice(0, 320);
 }
 
 function sanitizeUrl(value) {
@@ -84,6 +102,22 @@ function parseDate(value, { allowNull = true } = {}) {
     throw new ValidationError('Invalid date provided');
   }
   return date;
+}
+
+function sanitizeThemeTokens(value) {
+  if (value == null) {
+    return null;
+  }
+  if (typeof value !== 'object' || Array.isArray(value)) {
+    throw new ValidationError('themeTokens must be an object if provided');
+  }
+  const tokens = ['background', 'border', 'text', 'accent', 'muted'].reduce((accumulator, key) => {
+    if (value[key] != null && `${value[key]}`.trim()) {
+      accumulator[key] = `${value[key]}`.trim();
+    }
+    return accumulator;
+  }, {});
+  return Object.keys(tokens).length ? tokens : null;
 }
 
 function generateSlug(value) {
@@ -278,6 +312,7 @@ export async function getFreelancerReputationOverview({
   const testimonialWhere = { freelancerId: id };
   if (!includeDrafts) {
     testimonialWhere.status = 'approved';
+    testimonialWhere.moderationStatus = 'approved';
   } else {
     testimonialWhere.status = { [Op.ne]: 'archived' };
   }
@@ -285,6 +320,7 @@ export async function getFreelancerReputationOverview({
   const successStoryWhere = { freelancerId: id };
   if (!includeDrafts) {
     successStoryWhere.status = 'published';
+    successStoryWhere.moderationStatus = 'approved';
   } else {
     successStoryWhere.status = { [Op.ne]: 'archived' };
   }
@@ -451,18 +487,39 @@ export async function createTestimonial(freelancerId, payload) {
     throw new ValidationError(`status must be one of: ${REPUTATION_TESTIMONIAL_STATUSES.join(', ')}`);
   }
 
+  const clientRole = sanitizeString(payload.clientRole);
+  const company = sanitizeString(payload.company);
+  const projectName = sanitizeString(payload.projectName);
+  const clientEmail = sanitizeEmail(payload.clientEmail);
+  const sourceUrl = payload.sourceUrl ? sanitizeUrl(payload.sourceUrl) : null;
+  const verification = verifyClientIdentity({ clientName, clientEmail, company, sourceUrl });
+  const moderation = analyseTestimonial({ comment, metadata: { rating } });
+  const moderationStatus = moderation.status ?? 'pending';
+  const moderatedAt = new Date();
+  const workflowStatus =
+    status === 'approved' && moderationStatus !== 'approved' ? 'pending' : status;
+
   const record = await ReputationTestimonial.create({
     freelancerId: id,
     clientName,
-    clientRole: sanitizeString(payload.clientRole),
-    company: sanitizeString(payload.company),
-    projectName: sanitizeString(payload.projectName),
+    clientRole,
+    company,
+    clientEmail,
+    projectName,
+    sourceUrl,
     rating,
     comment,
     capturedAt: parseDate(payload.capturedAt),
     deliveredAt: parseDate(payload.deliveredAt),
     source,
-    status,
+    status: workflowStatus,
+    moderationStatus,
+    moderationScore: moderation.score ?? null,
+    moderationSummary: moderation.summary ?? null,
+    moderationLabels: moderation.labels ?? null,
+    moderatedAt,
+    verifiedClient: Boolean(verification.verified),
+    verificationMetadata: verification.metadata ?? null,
     isFeatured: Boolean(payload.isFeatured),
     shareUrl: payload.shareUrl ? sanitizeUrl(payload.shareUrl) : null,
     media: payload.media ?? null,
@@ -494,6 +551,16 @@ export async function createSuccessStory(freelancerId, payload) {
   const desiredSlug = payload.slug ? generateSlug(payload.slug) : generateSlug(title);
   const slug = await ensureUniqueSlug(ReputationSuccessStory, id, desiredSlug);
 
+  const moderation = analyseSuccessStory({
+    summary,
+    content: payload.content ?? null,
+    metadata: { status },
+  });
+  const moderationStatus = moderation.status ?? 'pending';
+  const moderatedAt = new Date();
+  const workflowStatus =
+    status === 'published' && moderationStatus !== 'approved' ? 'in_review' : status;
+
   const record = await ReputationSuccessStory.create({
     freelancerId: id,
     title,
@@ -501,7 +568,12 @@ export async function createSuccessStory(freelancerId, payload) {
     summary,
     content: payload.content ?? null,
     heroImageUrl: payload.heroImageUrl ? sanitizeUrl(payload.heroImageUrl) : null,
-    status,
+    status: workflowStatus,
+    moderationStatus,
+    moderationScore: moderation.score ?? null,
+    moderationSummary: moderation.summary ?? null,
+    moderationLabels: moderation.labels ?? null,
+    moderatedAt,
     publishedAt: parseDate(payload.publishedAt, { allowNull: true }),
     featured: Boolean(payload.featured),
     impactMetrics: payload.impactMetrics ?? null,
@@ -616,21 +688,121 @@ export async function createReviewWidget(freelancerId, payload) {
   const desiredSlug = payload.slug ? generateSlug(payload.slug) : generateSlug(name);
   const slug = await ensureUniqueSlug(ReputationReviewWidget, id, desiredSlug);
 
+  const theme = sanitizeString(payload.theme, { allowNull: true, maxLength: 120 });
+  const themeTokens = sanitizeThemeTokens(payload.themeTokens);
+  const lastSyncedAt = parseDate(payload.lastSyncedAt);
+  const lastPublishedAtInput = parseDate(payload.lastPublishedAt);
+  const lastRenderedAtInput = parseDate(payload.lastRenderedAt);
+  const now = new Date();
+  const computedLastPublishedAt =
+    status === 'active' ? lastPublishedAtInput ?? now : lastPublishedAtInput ?? null;
+  const computedLastRenderedAt = lastRenderedAtInput ?? null;
+
   const record = await ReputationReviewWidget.create({
     freelancerId: id,
     name,
     slug,
     widgetType,
     status,
+    theme,
+    themeTokens,
     embedScript: payload.embedScript ?? null,
     config: payload.config ?? null,
     impressions: payload.impressions == null ? 0 : Math.max(0, Number.parseInt(payload.impressions, 10) || 0),
     ctaClicks: payload.ctaClicks == null ? 0 : Math.max(0, Number.parseInt(payload.ctaClicks, 10) || 0),
-    lastSyncedAt: parseDate(payload.lastSyncedAt),
+    lastSyncedAt,
+    lastPublishedAt: computedLastPublishedAt,
+    lastRenderedAt: computedLastRenderedAt,
     metadata: payload.metadata ?? null,
   });
 
   return record.toPublicObject();
+}
+
+export async function generateReviewWidgetEmbed(freelancerId, slug, { preview = false } = {}) {
+  const id = normalizeFreelancerId(freelancerId);
+  const widgetSlug = sanitizeString(slug, { allowNull: false, maxLength: 255 });
+  if (!widgetSlug) {
+    throw new ValidationError('slug is required');
+  }
+
+  const widget = await ReputationReviewWidget.findOne({ where: { freelancerId: id, slug: widgetSlug } });
+  if (!widget) {
+    throw new NotFoundError('Review widget not found');
+  }
+
+  if (!preview && widget.status !== 'active') {
+    throw new NotFoundError('Review widget is not published');
+  }
+
+  const freelancer = await User.findByPk(id, {
+    include: [
+      { model: Profile },
+      { model: FreelancerProfile },
+    ],
+  });
+
+  if (!freelancer) {
+    throw new NotFoundError('Freelancer profile not found');
+  }
+
+  const [testimonialRecords, metricRecords] = await Promise.all([
+    ReputationTestimonial.findAll({
+      where: {
+        freelancerId: id,
+        status: 'approved',
+        moderationStatus: 'approved',
+      },
+      order: [
+        ['isFeatured', 'DESC'],
+        ['capturedAt', 'DESC NULLS LAST'],
+        ['createdAt', 'DESC'],
+      ],
+      limit: 12,
+    }),
+    ReputationMetric.findAll({
+      where: { freelancerId: id },
+      order: [
+        ['trendDirection', 'DESC'],
+        ['updatedAt', 'DESC'],
+      ],
+      limit: 8,
+    }),
+  ]);
+
+  const now = new Date();
+  const updates = { lastRenderedAt: now };
+  if (widget.status === 'active' && !widget.lastPublishedAt) {
+    updates.lastPublishedAt = now;
+  }
+  await widget.update(updates);
+
+  const widgetPayload = widget.toPublicObject();
+  const freelancerPayload = mapFreelancerProfile(freelancer);
+  const testimonialPayload = testimonialRecords.map((record) => record.toPublicObject());
+  const metricPayload = metricRecords
+    .map((record) => record.toPublicObject())
+    .map((metric) => ({
+      label: metric.label,
+      value: formatMetricValue(metric.value, metric.unit),
+      trendLabel: formatTrendLabel(metric),
+    }))
+    .filter((metric) => metric.value != null);
+
+  const html = renderWidgetHtml({
+    freelancer: freelancerPayload,
+    widget: widgetPayload,
+    testimonials: testimonialPayload,
+    metrics: metricPayload,
+  });
+
+  return {
+    html,
+    widget: widgetPayload,
+    generatedAt: now,
+    testimonials: testimonialPayload,
+    metrics: metricPayload,
+  };
 }
 
 export default {
@@ -640,5 +812,6 @@ export default {
   upsertMetric,
   createBadge,
   createReviewWidget,
+  generateReviewWidgetEmbed,
 };
 

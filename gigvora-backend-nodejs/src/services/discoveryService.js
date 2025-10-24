@@ -16,11 +16,24 @@ import {
   searchAcrossOpportunityIndexes,
   isRemoteRole,
 } from './searchIndexService.js';
+import {
+  CATEGORY_FACETS,
+  CATEGORY_SORTS,
+  TAXONOMY_ENABLED_CATEGORIES,
+  parseFiltersInput,
+  normaliseViewport,
+  buildFilterExpressions,
+  applyStructuredFilters,
+  resolveSortExpressions,
+  normalisePage,
+  normalisePageSize,
+  normaliseLimit,
+  normaliseTaxonomyFilterTokens,
+} from './opportunityQueryNormaliser.js';
+import { annotateWithScores } from './opportunityScoringService.js';
 
 const DIALECT = sequelize.getDialect();
 const SNAPSHOT_CACHE_TTL_SECONDS = 60;
-const DEFAULT_PAGE_SIZE = 20;
-const MAX_PAGE_SIZE = 50;
 
 const opportunityModels = {
   job: Job,
@@ -30,219 +43,52 @@ const opportunityModels = {
   volunteering: Volunteering,
 };
 
-const TAXONOMY_ENABLED_CATEGORIES = new Set(['job', 'gig', 'launchpad', 'volunteering']);
-
-const CATEGORY_FACETS = {
-  job: [
-    'employmentType',
-    'employmentCategory',
-    'location',
-    'geoCountry',
-    'geoRegion',
-    'geoCity',
-    'isRemote',
-    'updatedAtDate',
-    'taxonomySlugs',
-    'taxonomyTypes',
-  ],
-  gig: [
-    'durationCategory',
-    'budgetCurrency',
-    'location',
-    'geoCountry',
-    'geoRegion',
-    'geoCity',
-    'updatedAtDate',
-    'taxonomySlugs',
-    'taxonomyTypes',
-  ],
-  project: ['status', 'location', 'geoCountry', 'geoRegion', 'geoCity', 'updatedAtDate'],
-  launchpad: [
-    'track',
-    'location',
-    'geoCountry',
-    'geoRegion',
-    'geoCity',
-    'updatedAtDate',
-    'taxonomySlugs',
-    'taxonomyTypes',
-  ],
-  volunteering: [
-    'organization',
-    'isRemote',
-    'location',
-    'geoCountry',
-    'geoRegion',
-    'geoCity',
-    'updatedAtDate',
-    'taxonomySlugs',
-    'taxonomyTypes',
-  ],
-};
-
-const CATEGORY_SORTS = {
-  job: {
-    default: ['freshnessScore:desc', 'updatedAtTimestamp:desc'],
-    newest: ['updatedAtTimestamp:desc'],
-    alphabetical: ['title:asc'],
-  },
-  gig: {
-    default: ['freshnessScore:desc', 'budgetValue:desc', 'updatedAtTimestamp:desc'],
-    budget: ['budgetValue:desc', 'freshnessScore:desc'],
-    newest: ['updatedAtTimestamp:desc'],
-  },
-  project: {
-    default: ['freshnessScore:desc', 'updatedAtTimestamp:desc'],
-    status: ['status:asc', 'freshnessScore:desc'],
-    alphabetical: ['title:asc'],
-  },
-  launchpad: {
-    default: ['freshnessScore:desc', 'updatedAtTimestamp:desc'],
-    alphabetical: ['title:asc'],
-  },
-  volunteering: {
-    default: ['freshnessScore:desc', 'updatedAtTimestamp:desc'],
-    alphabetical: ['title:asc'],
-  },
-};
-
-function parseFiltersInput(filters) {
-  if (!filters) {
-    return {};
+function coerceArray(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => (entry == null ? '' : `${entry}`.trim()))
+      .filter((entry) => entry.length > 0);
   }
+  if (value == null || value === '') {
+    return [];
+  }
+  const trimmed = `${value}`.trim();
+  return trimmed ? [trimmed] : [];
+}
 
-  if (typeof filters === 'string') {
-    try {
-      const parsed = JSON.parse(filters);
-      return parsed && typeof parsed === 'object' ? parsed : {};
-    } catch (error) {
-      throw new ValidationError('Filters must be valid JSON.', { cause: error });
+function normaliseClientFilters(raw = {}) {
+  const filters = {};
+
+  const assign = (sourceKeys, targetKey) => {
+    const values = sourceKeys.flatMap((key) => coerceArray(raw[key]));
+    if (values.length) {
+      filters[targetKey] = values;
     }
-  }
-
-  if (typeof filters === 'object') {
-    return filters;
-  }
-
-  return {};
-}
-
-function escapeFilterValue(value) {
-  if (typeof value !== 'string') {
-    return value;
-  }
-  return value.replace(/"/g, '\\"');
-}
-
-function buildEqualityGroup(field, values) {
-  const sanitised = Array.from(new Set(values.map((value) => `${value}`.trim()).filter(Boolean))).map((value) =>
-    `${field} = "${escapeFilterValue(value)}"`,
-  );
-  if (!sanitised.length) {
-    return null;
-  }
-  if (sanitised.length === 1) {
-    return sanitised[0];
-  }
-  return sanitised;
-}
-
-function computeUpdatedWithinExpression(token) {
-  const now = new Date();
-  let threshold;
-
-  switch (token) {
-    case '24h':
-      threshold = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-      break;
-    case '7d':
-      threshold = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      break;
-    case '30d':
-      threshold = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      break;
-    case '90d':
-      threshold = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-      break;
-    default:
-      return null;
-  }
-
-  const isoDay = threshold.toISOString().slice(0, 10);
-  return `updatedAtDate >= "${isoDay}"`;
-}
-
-function computeUpdatedWithinDate(token) {
-  const now = new Date();
-  switch (token) {
-    case '24h':
-      return new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    case '7d':
-      return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    case '30d':
-      return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    case '90d':
-      return new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-    default:
-      return null;
-  }
-}
-
-function normaliseViewport(viewport) {
-  if (!viewport) {
-    return null;
-  }
-
-  let raw = viewport;
-  if (typeof viewport === 'string') {
-    try {
-      raw = JSON.parse(viewport);
-    } catch (error) {
-      throw new ValidationError('Viewport must be valid JSON.', { cause: error });
-    }
-  }
-
-  if (!raw || typeof raw !== 'object') {
-    return null;
-  }
-
-  const box = raw.boundingBox ?? raw;
-  const { north, south, east, west } = box;
-  if (
-    [north, south, east, west].some(
-      (value) => typeof value !== 'number' || Number.isNaN(value) || !Number.isFinite(value),
-    )
-  ) {
-    throw new ValidationError('Viewport bounding box must include numeric north, south, east, and west values.');
-  }
-
-  return {
-    boundingBox: {
-      north,
-      south,
-      east,
-      west,
-    },
   };
-}
 
-function buildGeoBoundingBoxExpression(viewport) {
-  if (!viewport?.boundingBox) {
-    return null;
-  }
-  const { north, south, east, west } = viewport.boundingBox;
-  return `_geoBoundingBox(${north}, ${east}, ${south}, ${west})`;
-}
+  assign(['employmentType', 'employmentTypes'], 'employmentType');
+  assign(['employmentCategory', 'employmentCategories'], 'employmentCategory');
+  assign(['durationCategory', 'durationCategories'], 'durationCategory');
+  assign(['budgetCurrency', 'budgetCurrencies'], 'budgetCurrency');
+  assign(['status', 'statuses'], 'status');
+  assign(['track', 'tracks'], 'track');
+  assign(['organization', 'organizations'], 'organization');
+  assign(['location', 'locations'], 'location');
+  assign(['geoCountry', 'countries'], 'geoCountry');
+  assign(['geoRegion', 'regions'], 'geoRegion');
+  assign(['geoCity', 'cities'], 'geoCity');
+  assign(['taxonomySlugs'], 'taxonomySlugs');
+  assign(['taxonomyTypes'], 'taxonomyTypes');
 
-function resolveSortExpressions(category, sortKey) {
-  const map = CATEGORY_SORTS[category] ?? {};
-  if (sortKey) {
-    const candidate = map[sortKey];
-    if (candidate?.length) {
-      return candidate;
-    }
+  if (raw.isRemote !== undefined) {
+    filters.isRemote = raw.isRemote === true || raw.isRemote === 'true' || raw.isRemote === '1';
   }
-  return map.default ?? undefined;
+
+  if (raw.updatedWithin) {
+    filters.updatedWithin = `${raw.updatedWithin}`;
+  }
+
+  return filters;
 }
 
 function toGeoDto(geoLocation, fallbackLocation = null) {
@@ -275,18 +121,76 @@ function toGeoDto(geoLocation, fallbackLocation = null) {
   };
 }
 
-function normaliseTaxonomyFilterTokens(values = []) {
-  if (!Array.isArray(values)) {
-    return [];
+function toOpportunityDto(record, category) {
+  if (!record) {
+    return null;
   }
 
-  return Array.from(
-    new Set(
-      values
-        .flatMap((value) => `${value}`.split(',').map((part) => part.trim().toLowerCase()))
-        .filter(Boolean),
-    ),
-  );
+  const plain = typeof record.get === 'function' ? record.get({ plain: true }) : record;
+  const geo = toGeoDto(plain.geoLocation ?? plain.geo, plain.location);
+  const taxonomies = extractTaxonomies(plain);
+  const taxonomySlugs = Array.from(new Set(taxonomies.map((entry) => entry.slug).filter(Boolean)));
+  const taxonomyTypes = Array.from(new Set(taxonomies.map((entry) => entry.type).filter(Boolean)));
+  const taxonomyLabels = Array.from(new Set(taxonomies.map((entry) => entry.label).filter(Boolean)));
+
+  const base = {
+    id: plain.id,
+    category,
+    title: plain.title,
+    description: plain.description,
+    updatedAt: plain.updatedAt ?? plain.createdAt ?? new Date(),
+    location: plain.location ?? null,
+    geo,
+    taxonomies,
+    taxonomySlugs,
+    taxonomyTypes,
+    taxonomyLabels,
+    aiSignals: plain.aiSignals ?? null,
+  };
+
+  switch (category) {
+    case 'job':
+      return {
+        ...base,
+        employmentType: plain.employmentType ?? null,
+        employmentCategory: plain.employmentCategory ?? null,
+        isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
+      };
+    case 'gig':
+      return {
+        ...base,
+        budget: plain.budget ?? null,
+        budgetCurrency: plain.budgetCurrency ?? null,
+        duration: plain.duration ?? null,
+        durationCategory: plain.durationCategory ?? null,
+        isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
+      };
+    case 'project':
+      return {
+        ...base,
+        status: plain.status ?? null,
+        isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
+        autoAssignEnabled: plain.autoAssignEnabled == null ? null : Boolean(plain.autoAssignEnabled),
+        autoAssignStatus: plain.autoAssignStatus ?? null,
+        autoAssignLastQueueSize: plain.autoAssignLastQueueSize ?? null,
+        autoAssignLastRunAt: plain.autoAssignLastRunAt ?? null,
+        autoAssignSettings: plain.autoAssignSettings ?? null,
+      };
+    case 'launchpad':
+      return {
+        ...base,
+        track: plain.track ?? null,
+        isRemote: geo?.isRemote ?? false,
+      };
+    case 'volunteering':
+      return {
+        ...base,
+        organization: plain.organization ?? null,
+        isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
+      };
+    default:
+      throw new ValidationError(`Unsupported opportunity category "${category}".`);
+  }
 }
 
 function buildTaxonomyInclude(category, filters = {}) {
@@ -409,230 +313,6 @@ function extractTaxonomies(record) {
   return deduped;
 }
 
-function buildFilterExpressions(category, filters = {}, viewport) {
-  const expressions = [];
-
-  if (filters.isRemote === true) {
-    expressions.push('isRemote = true');
-  } else if (filters.isRemote === false) {
-    expressions.push('isRemote = false');
-  }
-
-  if (filters.employmentTypes?.length && category === 'job') {
-    const group = buildEqualityGroup('employmentType', filters.employmentTypes);
-    if (group) expressions.push(group);
-  }
-
-  if (filters.employmentCategories?.length && category === 'job') {
-    const group = buildEqualityGroup('employmentCategory', filters.employmentCategories);
-    if (group) expressions.push(group);
-  }
-
-  if (filters.durationCategories?.length && category === 'gig') {
-    const group = buildEqualityGroup('durationCategory', filters.durationCategories);
-    if (group) expressions.push(group);
-  }
-
-  if (filters.budgetCurrencies?.length && category === 'gig') {
-    const group = buildEqualityGroup('budgetCurrency', filters.budgetCurrencies);
-    if (group) expressions.push(group);
-  }
-
-  if (filters.statuses?.length && category === 'project') {
-    const group = buildEqualityGroup('status', filters.statuses);
-    if (group) expressions.push(group);
-  }
-
-  if (filters.tracks?.length && category === 'launchpad') {
-    const group = buildEqualityGroup('track', filters.tracks);
-    if (group) expressions.push(group);
-  }
-
-  if (filters.organizations?.length && category === 'volunteering') {
-    const group = buildEqualityGroup('organization', filters.organizations);
-    if (group) expressions.push(group);
-  }
-
-  if (filters.taxonomySlugs?.length && TAXONOMY_ENABLED_CATEGORIES.has(category)) {
-    const group = buildEqualityGroup('taxonomySlugs', filters.taxonomySlugs);
-    if (group) expressions.push(group);
-  }
-
-  if (filters.taxonomyTypes?.length && TAXONOMY_ENABLED_CATEGORIES.has(category)) {
-    const group = buildEqualityGroup('taxonomyTypes', filters.taxonomyTypes);
-    if (group) expressions.push(group);
-  }
-
-  if (filters.locations?.length) {
-    const group = buildEqualityGroup('location', filters.locations);
-    if (group) expressions.push(group);
-  }
-
-  if (filters.countries?.length) {
-    const group = buildEqualityGroup('geoCountry', filters.countries);
-    if (group) expressions.push(group);
-  }
-
-  if (filters.regions?.length) {
-    const group = buildEqualityGroup('geoRegion', filters.regions);
-    if (group) expressions.push(group);
-  }
-
-  if (filters.cities?.length) {
-    const group = buildEqualityGroup('geoCity', filters.cities);
-    if (group) expressions.push(group);
-  }
-
-  if (filters.updatedWithin) {
-    const freshnessExpression = computeUpdatedWithinExpression(filters.updatedWithin);
-    if (freshnessExpression) expressions.push(freshnessExpression);
-  }
-
-  const geoExpression = buildGeoBoundingBoxExpression(viewport);
-  if (geoExpression) {
-    expressions.push(geoExpression);
-  }
-
-  return expressions.length ? expressions : undefined;
-}
-
-function applyStructuredFilters(where, category, filters = {}) {
-  const andConditions = [];
-
-  if (filters.locations?.length) {
-    andConditions.push({ location: { [Op.in]: filters.locations.map((value) => value.trim()).filter(Boolean) } });
-  }
-
-  if (filters.employmentTypes?.length && category === 'job') {
-    andConditions.push({ employmentType: { [Op.in]: filters.employmentTypes.map((value) => value.trim()).filter(Boolean) } });
-  }
-
-  if (filters.statuses?.length && category === 'project') {
-    andConditions.push({ status: { [Op.in]: filters.statuses.map((value) => value.trim()).filter(Boolean) } });
-  }
-
-  if (filters.tracks?.length && category === 'launchpad') {
-    andConditions.push({ track: { [Op.in]: filters.tracks.map((value) => value.trim()).filter(Boolean) } });
-  }
-
-  if (filters.organizations?.length && category === 'volunteering') {
-    andConditions.push({ organization: { [Op.in]: filters.organizations.map((value) => value.trim()).filter(Boolean) } });
-  }
-
-  if (filters.isRemote === true) {
-    const remoteLike = buildLikeExpression('remote');
-    andConditions.push({
-      [Op.or]: [
-        { location: remoteLike },
-        { description: remoteLike },
-      ],
-    });
-  }
-
-  const updatedThreshold = computeUpdatedWithinDate(filters.updatedWithin);
-  if (updatedThreshold) {
-    andConditions.push({ updatedAt: { [Op.gte]: updatedThreshold } });
-  }
-
-  if (andConditions.length) {
-    if (!where[Op.and]) {
-      where[Op.and] = [];
-    }
-    where[Op.and].push(...andConditions);
-  }
-}
-
-function normalisePage(page) {
-  const parsed = Number.parseInt(page ?? '1', 10);
-  if (Number.isNaN(parsed) || parsed < 1) {
-    return 1;
-  }
-  return parsed;
-}
-
-function normalisePageSize(pageSize) {
-  const parsed = Number.parseInt(pageSize ?? `${DEFAULT_PAGE_SIZE}`, 10);
-  if (Number.isNaN(parsed)) {
-    return DEFAULT_PAGE_SIZE;
-  }
-  return Math.min(Math.max(parsed, 1), MAX_PAGE_SIZE);
-}
-
-function normaliseLimit(limit) {
-  const parsed = Number.parseInt(limit ?? `${DEFAULT_PAGE_SIZE}`, 10);
-  if (Number.isNaN(parsed) || parsed < 1) {
-    return DEFAULT_PAGE_SIZE;
-  }
-  return Math.min(parsed, MAX_PAGE_SIZE);
-}
-
-export function toOpportunityDto(record, category) {
-  if (!record) {
-    return null;
-  }
-
-  const plain = typeof record.get === 'function' ? record.get({ plain: true }) : record;
-  const geo = toGeoDto(plain.geoLocation, plain.location);
-  const taxonomies = extractTaxonomies(plain);
-  const taxonomySlugs = Array.from(new Set(taxonomies.map((entry) => entry.slug).filter(Boolean)));
-  const taxonomyTypes = Array.from(new Set(taxonomies.map((entry) => entry.type).filter(Boolean)));
-  const taxonomyLabels = Array.from(new Set(taxonomies.map((entry) => entry.label).filter(Boolean)));
-  const base = {
-    id: plain.id,
-    category,
-    title: plain.title,
-    description: plain.description,
-    updatedAt: plain.updatedAt ?? plain.createdAt ?? new Date(),
-    location: plain.location ?? null,
-    geo,
-    taxonomies,
-    taxonomySlugs,
-    taxonomyTypes,
-    taxonomyLabels,
-  };
-
-  switch (category) {
-    case 'job':
-      return {
-        ...base,
-        employmentType: plain.employmentType ?? null,
-        isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
-      };
-    case 'gig':
-      return {
-        ...base,
-        budget: plain.budget ?? null,
-        duration: plain.duration ?? null,
-        isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
-      };
-    case 'project':
-      return {
-        ...base,
-        status: plain.status ?? null,
-        isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
-        autoAssignEnabled: Boolean(plain.autoAssignEnabled),
-        autoAssignStatus: plain.autoAssignStatus ?? null,
-        autoAssignLastQueueSize: plain.autoAssignLastQueueSize ?? null,
-        autoAssignLastRunAt: plain.autoAssignLastRunAt ?? null,
-        autoAssignSettings: plain.autoAssignSettings ?? null,
-      };
-    case 'launchpad':
-      return {
-        ...base,
-        track: plain.track ?? null,
-        isRemote: geo?.isRemote ?? false,
-      };
-    case 'volunteering':
-      return {
-        ...base,
-        organization: plain.organization ?? null,
-        isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
-      };
-    default:
-      throw new ValidationError(`Unsupported opportunity category "${category}".`);
-  }
-}
-
 function buildLikeExpression(value) {
   if (DIALECT === 'postgres' || DIALECT === 'postgresql') {
     return { [Op.iLike]: `%${value}%` };
@@ -669,12 +349,13 @@ async function listOpportunities(category, { page, pageSize, query, filters, sor
 
   const searchQuery = query?.trim() ?? '';
 
-  const parsedFilters = parseFiltersInput(filters);
+  const rawFilters = parseFiltersInput(filters);
+  const normalisedFilters = normaliseClientFilters(rawFilters);
   const normalisedViewport = normaliseViewport(viewport);
-  const filterExpressions = buildFilterExpressions(category, parsedFilters, normalisedViewport);
+  const filterExpressions = buildFilterExpressions(category, normalisedFilters, normalisedViewport);
   const sortExpressions = Array.isArray(sort) ? sort : resolveSortExpressions(category, sort);
   const facetFields = includeFacets ? CATEGORY_FACETS[category] : undefined;
-  const taxonomyInclude = buildTaxonomyInclude(category, parsedFilters);
+  const taxonomyInclude = buildTaxonomyInclude(category, normalisedFilters);
   const includes = [];
   if (taxonomyInclude) {
     includes.push(taxonomyInclude);
@@ -694,8 +375,13 @@ async function listOpportunities(category, { page, pageSize, query, filters, sor
 
   if (searchResult) {
     const totalPages = Math.max(1, Math.ceil(searchResult.total / safeSize));
+    const items = annotateWithScores(
+      searchResult.hits.map((hit) => toOpportunityDto(hit, category)),
+      { query: searchQuery, filters: normalisedFilters, viewport: normalisedViewport, category },
+    );
+
     return {
-      items: searchResult.hits.map((hit) => toOpportunityDto(hit, category)),
+      items,
       total: searchResult.total,
       page: safePage,
       pageSize: safeSize,
@@ -706,13 +392,26 @@ async function listOpportunities(category, { page, pageSize, query, filters, sor
         processingTimeMs: searchResult.processingTimeMs ?? null,
         query: searchResult.query ?? searchQuery,
       },
-      appliedFilters: parsedFilters,
+      appliedFilters: normalisedFilters,
       viewport: normalisedViewport,
     };
   }
 
   const where = buildSearchWhereClause(category, query);
-  applyStructuredFilters(where, category, parsedFilters);
+  applyStructuredFilters(where, category, normalisedFilters);
+
+  if (normalisedFilters.isRemote === true || normalisedFilters.isRemote === 'true' || normalisedFilters.isRemote === '1') {
+    const remoteLike = buildLikeExpression('remote');
+    if (!where[Op.and]) {
+      where[Op.and] = [];
+    }
+    where[Op.and].push({
+      [Op.or]: [
+        { location: remoteLike },
+        { description: remoteLike },
+      ],
+    });
+  }
 
   let rows;
   let count;
@@ -737,15 +436,20 @@ async function listOpportunities(category, { page, pageSize, query, filters, sor
     });
   }
 
+  const items = annotateWithScores(
+    rows.map((row) => toOpportunityDto(row, category)),
+    { query: searchQuery, filters: normalisedFilters, viewport: normalisedViewport, category },
+  );
+
   return {
-    items: rows.map((row) => toOpportunityDto(row, category)),
+    items,
     total: count,
     page: safePage,
     pageSize: safeSize,
     totalPages: Math.ceil(count / safeSize) || 1,
     facets: null,
     metrics: { source: 'database' },
-    appliedFilters: parsedFilters,
+    appliedFilters: normalisedFilters,
     viewport: normalisedViewport,
   };
 }
@@ -810,12 +514,25 @@ export async function searchOpportunitiesAcrossCategories(query, { limit } = {})
 
   if (searchHits) {
     return {
-      jobs: (searchHits.job ?? []).map((hit) => toOpportunityDto(hit, 'job')),
-      gigs: (searchHits.gig ?? []).map((hit) => toOpportunityDto(hit, 'gig')),
-      projects: (searchHits.project ?? []).map((hit) => toOpportunityDto(hit, 'project')),
-      launchpads: (searchHits.launchpad ?? []).map((hit) => toOpportunityDto(hit, 'launchpad')),
-      volunteering: (searchHits.volunteering ?? []).map((hit) =>
-        toOpportunityDto(hit, 'volunteering'),
+      jobs: annotateWithScores(
+        (searchHits.job ?? []).map((hit) => toOpportunityDto(hit, 'job')),
+        { query: trimmed, filters: {}, category: 'job' },
+      ),
+      gigs: annotateWithScores(
+        (searchHits.gig ?? []).map((hit) => toOpportunityDto(hit, 'gig')),
+        { query: trimmed, filters: {}, category: 'gig' },
+      ),
+      projects: annotateWithScores(
+        (searchHits.project ?? []).map((hit) => toOpportunityDto(hit, 'project')),
+        { query: trimmed, filters: {}, category: 'project' },
+      ),
+      launchpads: annotateWithScores(
+        (searchHits.launchpad ?? []).map((hit) => toOpportunityDto(hit, 'launchpad')),
+        { query: trimmed, filters: {}, category: 'launchpad' },
+      ),
+      volunteering: annotateWithScores(
+        (searchHits.volunteering ?? []).map((hit) => toOpportunityDto(hit, 'volunteering')),
+        { query: trimmed, filters: {}, category: 'volunteering' },
       ),
     };
   }

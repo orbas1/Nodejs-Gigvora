@@ -807,6 +807,7 @@ export const COMPLIANCE_STORAGE_PROVIDERS = Object.freeze(['s3', 'r2', 'gcs', 'a
 
 export const REPUTATION_TESTIMONIAL_SOURCES = Object.freeze(['portal', 'manual', 'import', 'video', 'audio']);
 export const REPUTATION_TESTIMONIAL_STATUSES = Object.freeze(['pending', 'approved', 'rejected', 'archived']);
+export const REPUTATION_CONTENT_MODERATION_STATUSES = Object.freeze(['pending', 'approved', 'rejected', 'needs_review']);
 export const REPUTATION_SUCCESS_STORY_STATUSES = Object.freeze(['draft', 'in_review', 'published', 'archived']);
 export const REPUTATION_METRIC_TREND_DIRECTIONS = Object.freeze(['up', 'down', 'flat']);
 export const REPUTATION_REVIEW_WIDGET_STATUSES = Object.freeze(['draft', 'active', 'paused']);
