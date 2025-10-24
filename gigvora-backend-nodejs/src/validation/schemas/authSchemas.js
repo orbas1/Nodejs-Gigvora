@@ -22,6 +22,7 @@ const optionalTwoFactorMethod = optionalTrimmedString({ max: 32 }).transform((va
   const normalized = value.toLowerCase();
   return ['email', 'app', 'sms'].includes(normalized) ? normalized : undefined;
 });
+const resetTokenSchema = requiredTrimmedString({ min: 32, max: 256 });
 
 const baseRegistrationSchema = z
   .object({
@@ -123,6 +124,25 @@ export const googleLoginSchema = z
 export const refreshSessionSchema = z
   .object({
     refreshToken: requiredTrimmedString({ max: 4096 }),
+  })
+  .strip();
+
+export const requestPasswordResetSchema = z
+  .object({
+    email: emailSchema,
+  })
+  .strip();
+
+export const verifyPasswordResetTokenSchema = z
+  .object({
+    token: resetTokenSchema,
+  })
+  .strip();
+
+export const performPasswordResetSchema = z
+  .object({
+    token: resetTokenSchema,
+    password: passwordSchema,
   })
   .strip();
 

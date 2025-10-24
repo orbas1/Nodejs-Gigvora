@@ -11,6 +11,9 @@ import {
   registerUserSchema,
   resendTwoFactorSchema,
   refreshSessionSchema,
+  requestPasswordResetSchema,
+  verifyPasswordResetTokenSchema,
+  performPasswordResetSchema,
   verifyTwoFactorSchema,
 } from '../validation/schemas/authSchemas.js';
 
@@ -41,5 +44,20 @@ router.post(
 );
 router.post('/login/google', validateRequest({ body: googleLoginSchema }), asyncHandler(authController.googleLogin));
 router.post('/refresh', validateRequest({ body: refreshSessionSchema }), asyncHandler(authController.refreshSession));
+router.post(
+  '/password/forgot',
+  validateRequest({ body: requestPasswordResetSchema }),
+  asyncHandler(authController.requestPasswordReset),
+);
+router.post(
+  '/password/verify',
+  validateRequest({ body: verifyPasswordResetTokenSchema }),
+  asyncHandler(authController.verifyPasswordResetToken),
+);
+router.post(
+  '/password/reset',
+  validateRequest({ body: performPasswordResetSchema }),
+  asyncHandler(authController.resetPassword),
+);
 
 export default router;

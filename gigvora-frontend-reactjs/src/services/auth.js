@@ -33,6 +33,27 @@ export async function registerAgency(payload) {
   return apiClient.post('/auth/register/agency', payload);
 }
 
+export async function requestPasswordReset(email) {
+  if (!email) {
+    throw new Error('Email is required to request a password reset.');
+  }
+  return apiClient.post('/auth/password/forgot', { email });
+}
+
+export async function verifyPasswordResetToken(token) {
+  if (!token) {
+    throw new Error('A reset token is required to continue.');
+  }
+  return apiClient.post('/auth/password/verify', { token });
+}
+
+export async function resetPassword({ token, password }) {
+  if (!token || !password) {
+    throw new Error('Both the reset token and a new password are required.');
+  }
+  return apiClient.post('/auth/password/reset', { token, password });
+}
+
 export async function loginWithPassword({ email, password, scope } = {}) {
   if (!email || !password) {
     throw new Error('Email and password are required to sign in.');
@@ -78,6 +99,9 @@ const authService = {
   verifyTwoFactor,
   resendTwoFactor,
   loginWithGoogle,
+  requestPasswordReset,
+  verifyPasswordResetToken,
+  resetPassword,
 };
 
 export default authService;

@@ -15,6 +15,7 @@ const dialect = sequelize.getDialect();
 const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB : DataTypes.JSON;
 
 const TWO_FACTOR_METHODS = ['email', 'app', 'sms'];
+const USER_STATUSES = ['invited', 'active', 'suspended', 'archived', 'deleted'];
 
 export const User = sequelize.define(
   'User',
@@ -24,7 +25,19 @@ export const User = sequelize.define(
     email: { type: DataTypes.STRING(255), allowNull: false, unique: true, validate: { isEmail: true } },
     password: { type: DataTypes.STRING(255), allowNull: false },
     address: { type: DataTypes.STRING(255), allowNull: true },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    geoLocation: { type: jsonType, allowNull: true },
     age: { type: DataTypes.INTEGER, allowNull: true, validate: { min: 13 } },
+    phoneNumber: { type: DataTypes.STRING(30), allowNull: true },
+    jobTitle: { type: DataTypes.STRING(120), allowNull: true },
+    avatarUrl: { type: DataTypes.STRING(2048), allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...USER_STATUSES),
+      allowNull: false,
+      defaultValue: 'active',
+      validate: { isIn: [USER_STATUSES] },
+    },
+    lastSeenAt: { type: DataTypes.DATE, allowNull: true },
     userType: {
       type: DataTypes.ENUM('user', 'company', 'freelancer', 'agency', 'admin'),
       allowNull: false,
@@ -38,10 +51,16 @@ export const User = sequelize.define(
     },
     lastLoginAt: { type: DataTypes.DATE, allowNull: true },
     googleId: { type: DataTypes.STRING(255), allowNull: true },
+    memberships: { type: jsonType, allowNull: false, defaultValue: [] },
+    primaryDashboard: { type: DataTypes.STRING(60), allowNull: true },
   },
   {
     tableName: 'users',
-    indexes: [{ fields: ['email'] }],
+    indexes: [
+      { fields: ['email'] },
+      { fields: ['status'] },
+      { fields: ['userType'] },
+    ],
   },
 );
 

@@ -1314,22 +1314,22 @@ This document catalogues the public marketing shell, pre-login journeys, and per
 
 *(Additional home sections such as `CommunitySpotlightsSection`, `ExplorerShowcaseSection`, `TestimonialsSection`, `MarketplaceLaunchesSection`, `CreationStudioSection`, `CreationStudioWorkflowSection`, `FeesShowcaseSection`, `CollaborationToolkitSection`, `ClosingConversionSection`, `JoinCommunitySection`, and `OperationsTrustSection` follow similar analysis patterns: they present static-yet-polished marketing content with on-brand styling, rely on props from `HomePage.jsx`, and would benefit from CMS integration, skeleton loaders, analytics instrumentation, and localization to keep copy fresh while retaining strong visual identity.)*
 
-### 2.B. Authentication & Registration
+### ✅ 2.B. Authentication & Registration
 
 **Components**
 
 - **2.B.1. `LoginPage.jsx`**
-  1. **Appraisal.** Multi-step login handles password auth, two-factor challenges, Google OAuth, and social redirects with detailed status messaging.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L1-L120】
-  2. **Functionality.** Navigates to role-appropriate dashboard, manages resend cooldowns, and surfaces context-specific errors via shared API client handling.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L40-L120】【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L120-L200】
-  3. **Logic Usefulness.** `resolveLanding` keeps routing aligned with memberships, reducing drift between login and navigation.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L10-L36】
-  4. **Redundancies.** Social redirect handling duplicated in register page—extract common helper.
-  5. **Placeholders.** None; flows call real services though backend may stub in dev.
-  6. **Duplicate Functions.** `formatExpiry` shares logic with other time formatting utilities—centralize.
-  7. **Improvements Needed.** Add password visibility toggle and rate limit feedback.
-  8. **Styling Improvements.** Ensure form contrast accessible on gradient backgrounds.
-  9. **Efficiency.** Debounce button states to prevent double submissions; currently relying on `status` flag.
-  10. **Strengths.** Comprehensive error handling and multi-provider coverage inspire trust.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L80-L170】
-  11. **Weaknesses.** Two-factor screen lacks resend timer UI feedback beyond status copy.
+  1. **Appraisal.** Multi-step login now imports shared routing and cooldown helpers while layering password visibility toggles, countdown feedback, and a direct reset affordance that feeds the new recovery page.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L1-L200】【F:gigvora-frontend-reactjs/src/utils/authHelpers.js†L1-L60】【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L1-L112】
+  2. **Functionality.** Credential, Google, and social sign-ins hydrate the session, redirect to the correct dashboard, throttle resend calls, and surface inline errors with toast-grade messaging.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L48-L200】
+  3. **Logic Usefulness.** `resolveLanding` and `resolveResendCooldown` centralise navigation and timer logic, so rate limits and post-login routing stay consistent across experiences.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L10-L114】【F:gigvora-frontend-reactjs/src/utils/authHelpers.js†L1-L60】
+  4. **Redundancies.** Social redirect flows reuse `redirectToSocialAuth`; future work can collapse the status copy that still repeats between login and register.
+  5. **Placeholders.** None—the view now mounts production reset routing and API-backed 2FA flows.
+  6. **Duplicate Functions.** Remaining duplication sits in formatting helpers; consider promoting date utilities to a shared module later.
+  7. **Improvements Needed.** Layer passkey or WebAuthn options once backend support lands to reduce password dependence.
+  8. **Styling Improvements.** Ensure the countdown label inherits accessible contrast on all gradients.
+  9. **Efficiency.** Status guards prevent double submits; future optimisation could lazy-load third-party SDKs until needed.
+  10. **Strengths.** Inline countdown, helper-driven redirects, and the new recovery path strengthen trust while keeping the multi-step flow approachable.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L52-L352】【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L49-L109】
+  11. **Weaknesses.** Countdown remains text-only—consider visual progress and alerts for accessibility.
   12. **Styling & Colour Review.** Soft gradient ensures premium feel.
   13. **CSS, Orientation, Placement.** Two-column layout with supportive marketing copy aids comprehension.
   14. **Text Analysis.** Copy supportive and purposeful; maintain tone.
@@ -1339,32 +1339,32 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   18. **Thumbnails.** None.
   19. **Images & Media.** None; consider adding security badges.
   20. **Button Styling.** CTA buttons consistent with rest of site.
-  21. **Interactiveness.** Clear step flow keeps users oriented.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L140-L200】
-  22. **Missing Components.** Provide “forgot password” link within form.
+  21. **Interactiveness.** Two-factor timer, password toggle, and recovery entry keep the flow responsive.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L225-L352】
+  22. **Missing Components.** Add device-management UI for recent sessions alongside reset notifications.
   23. **Design Changes.** Add step indicator for two-factor stage.
   24. **Design Duplication.** Social buttons reuse `SocialAuthButton`; keep consistent.
   25. **Design Framework.** Aligns with design system.
   26. **Change Checklist Tracker.**
-      - [ ] Extract shared auth helpers.
-      - [ ] Add password reset entry point.
-      - [ ] Implement resend countdown UI.
+      - [x] Extract shared auth helpers.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L1-L167】【F:gigvora-frontend-reactjs/src/utils/authHelpers.js†L1-L60】
+      - [x] Add password reset entry point.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L249-L255】【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L49-L112】
+      - [x] Implement resend countdown UI.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L105-L187】【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L345-L352】
   27. **Full Upgrade Plan & Release Steps.**
       1. Integrate analytics for login outcomes.
       2. Launch improved 2FA UI with countdown and device management.
       3. Share login helpers with mobile app for parity.
 
 - **2.B.2. `RegisterPage.jsx`**
-  1. **Appraisal.** Guided registration collects core profile info, handles Google sign-up, and surfaces onboarding highlights for motivation.【F:gigvora-frontend-reactjs/src/pages/RegisterPage.jsx†L1-L100】
-  2. **Functionality.** Validates passwords, handles API errors gracefully, and reuses `resolveLanding` logic to route fresh sessions.【F:gigvora-frontend-reactjs/src/pages/RegisterPage.jsx†L40-L120】
-  3. **Logic Usefulness.** Maintains clean form state and resets upon success.【F:gigvora-frontend-reactjs/src/pages/RegisterPage.jsx†L60-L140】
-  4. **Redundancies.** Social redirect logic duplicates login; abstract to helper.
-  5. **Placeholders.** Onboarding highlights static copy; consider CMS.
-  6. **Duplicate Functions.** `resolveLanding` duplication (shared with login) should unify.
-  7. **Improvements Needed.** Add progressive disclosure (multi-step) for long form on mobile.
-  8. **Styling Improvements.** Validate color contrast on gradient backgrounds.
-  9. **Efficiency.** Uses `status` guard to prevent duplicate submissions—good.
-  10. **Strengths.** Comprehensive error handling and success messaging boost confidence.【F:gigvora-frontend-reactjs/src/pages/RegisterPage.jsx†L80-L160】
-  11. **Weaknesses.** Date picker uses native input; consider calendar overlay for clarity.
+  1. **Appraisal.** Guided registration now localises headings and CTAs through `LanguageContext`, shares auth helpers, and keeps motivational highlights configurable.【F:gigvora-frontend-reactjs/src/pages/RegisterPage.jsx†L1-L120】【F:gigvora-frontend-reactjs/src/i18n/translations.js†L40-L220】
+  2. **Functionality.** Enforces email, strength, and matching rules, renders password visibility controls, and routes Google sign-up to the correct dashboard with shared helpers.【F:gigvora-frontend-reactjs/src/pages/RegisterPage.jsx†L50-L200】
+  3. **Logic Usefulness.** Memoised strength scoring feeds the inline meter while translation-aware social labels keep copy in sync.【F:gigvora-frontend-reactjs/src/pages/RegisterPage.jsx†L50-L365】
+  4. **Redundancies.** Remaining duplication sits in static highlight fallback; consider sourcing from CMS for parity with marketing.
+  5. **Placeholders.** Highlights still static but now overridable per locale via translations.
+  6. **Duplicate Functions.** `validatePasswordStrength` reused consistently; no stray implementations remain.
+  7. **Improvements Needed.** Investigate multi-step or progressive disclosure on mobile to shorten initial perception of the form.
+  8. **Styling Improvements.** Validate gradient contrast in translated locales, especially RTL copy lengths.
+  9. **Efficiency.** Status guards prevent double submits; optional future enhancement is deferring Google SDK load until interaction.
+  10. **Strengths.** Inline meter, shared helpers, and locale-aware copy boost clarity and confidence during onboarding.【F:gigvora-frontend-reactjs/src/pages/RegisterPage.jsx†L35-L422】
+  11. **Weaknesses.** Date picker remains native; a calendar overlay could reduce formatting mistakes.
   12. **Styling & Colour Review.** Light gradient with accent highlight matches brand.
   13. **CSS, Orientation, Placement.** Two-column layout with highlight list fosters trust.
   14. **Text Analysis.** Friendly copy; ensure inclusive language.
@@ -1374,32 +1374,32 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   18. **Thumbnails.** None.
   19. **Images & Media.** None; consider adding product imagery.
   20. **Button Styling.** Primary CTA uses accent pill consistent across site.
-  21. **Interactiveness.** Validation messaging immediate; add inline success icons later.【F:gigvora-frontend-reactjs/src/pages/RegisterPage.jsx†L100-L180】
-  22. **Missing Components.** Provide password strength meter.
+  21. **Interactiveness.** Inline strength feedback, toggles, and translated social CTAs make the form more responsive.【F:gigvora-frontend-reactjs/src/pages/RegisterPage.jsx†L248-L422】
+  22. **Missing Components.** Add saved progress or resume links for longer completion journeys.
   23. **Design Changes.** Add progress indicator or segmented steps for long forms.
   24. **Design Duplication.** Shares hero header with login—consistent.
   25. **Design Framework.** Aligns with rest of marketing flows.
   26. **Change Checklist Tracker.**
-      - [ ] Extract shared auth helpers.
-      - [ ] Add password strength + visibility toggle.
-      - [ ] Localize copy.
+      - [x] Extract shared auth helpers.【F:gigvora-frontend-reactjs/src/pages/RegisterPage.jsx†L11-L200】【F:gigvora-frontend-reactjs/src/utils/authHelpers.js†L1-L60】
+      - [x] Add password strength + visibility toggle.【F:gigvora-frontend-reactjs/src/pages/RegisterPage.jsx†L35-L344】
+      - [x] Localize copy.【F:gigvora-frontend-reactjs/src/pages/RegisterPage.jsx†L40-L422】【F:gigvora-frontend-reactjs/src/i18n/translations.js†L40-L1040】
   27. **Full Upgrade Plan & Release Steps.**
       1. Launch multi-step wizard for mobile.
       2. Add analytics for drop-off points.
       3. Iterate with marketing to keep copy fresh.
 
 - **2.B.3. `CompanyRegisterPage.jsx`**
-  1. **Appraisal.** Dual-mode onboarding for companies and agencies with two-factor toggle, success confirmation, and membership hydration logic.【F:gigvora-frontend-reactjs/src/pages/CompanyRegisterPage.jsx†L1-L120】
-  2. **Functionality.** Registers workspace via API, updates session state, and handles post-registration confirmation messaging.【F:gigvora-frontend-reactjs/src/pages/CompanyRegisterPage.jsx†L60-L140】
-  3. **Logic Usefulness.** `hydrateSession` merges new memberships into existing session, ensuring instant dashboard access after signup.【F:gigvora-frontend-reactjs/src/pages/CompanyRegisterPage.jsx†L40-L80】
-  4. **Redundancies.** Form validation duplicates register page—factor shared hooks.
+  1. **Appraisal.** Dual-mode onboarding for companies and agencies now reuses shared validation helpers, normalises emails, and captures analytics for partner ops.【F:gigvora-frontend-reactjs/src/pages/CompanyRegisterPage.jsx†L1-L140】
+  2. **Functionality.** Registration guards against weak passwords, hydrates the session, logs CRM analytics, and presents a concierge checklist after submission.【F:gigvora-frontend-reactjs/src/pages/CompanyRegisterPage.jsx†L85-L235】
+  3. **Logic Usefulness.** `hydrateSession` merges memberships and the confirmation module lists next steps so teams know how to proceed while waiting on provisioning.【F:gigvora-frontend-reactjs/src/pages/CompanyRegisterPage.jsx†L52-L235】
+  4. **Redundancies.** Validation no longer duplicates register logic thanks to shared helpers; remaining overlap sits in static copy.
   5. **Placeholders.** Partnership pillars static copy; plan CMS integration.
-  6. **Duplicate Functions.** None beyond shared register logic.
-  7. **Improvements Needed.** Add company logo upload and billing preferences to reduce follow-up steps.
+  6. **Duplicate Functions.** Consolidated email normalisation removes bespoke helpers across flows.
+  7. **Improvements Needed.** Surface billing preferences or contract upload during submission to reduce follow-up tasks.
   8. **Styling Improvements.** Provide more visual distinction between company vs agency toggle states.
-  9. **Efficiency.** Debounce submission via `status` flag; consider disabling fields during submission for clarity.【F:gigvora-frontend-reactjs/src/pages/CompanyRegisterPage.jsx†L60-L140】
-  10. **Strengths.** Immediate login/hydration builds excitement and reduces friction.【F:gigvora-frontend-reactjs/src/pages/CompanyRegisterPage.jsx†L40-L120】
-  11. **Weaknesses.** Error messaging generic; map backend codes to contextual guidance.
+  9. **Efficiency.** Submission guards and shared helpers prevent duplicate requests; consider disabling inputs while submitting for clarity.【F:gigvora-frontend-reactjs/src/pages/CompanyRegisterPage.jsx†L85-L200】
+  10. **Strengths.** Immediate hydration, analytics instrumentation, and the richer confirmation checklist build trust and momentum.【F:gigvora-frontend-reactjs/src/pages/CompanyRegisterPage.jsx†L85-L235】
+  11. **Weaknesses.** Error messaging remains generic for backend validation errors; map codes to actionable copy.
   12. **Styling & Colour Review.** Soft gradient background matches brand.
   13. **CSS, Orientation, Placement.** Toggle plus form layout accessible; ensure mobile stacking tested.
   14. **Text Analysis.** Copy sets expectations well; maintain.
@@ -1409,25 +1409,25 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   18. **Thumbnails.** None.
   19. **Images & Media.** None; consider partner logos.
   20. **Button Styling.** CTA buttons align with marketing system.
-  21. **Interactiveness.** Toggle between workspace types fosters engagement.【F:gigvora-frontend-reactjs/src/pages/CompanyRegisterPage.jsx†L96-L140】
+  21. **Interactiveness.** Toggle between workspace types fosters engagement.【F:gigvora-frontend-reactjs/src/pages/CompanyRegisterPage.jsx†L96-L358】
   22. **Missing Components.** Provide link to enterprise concierge for larger teams.
   23. **Design Changes.** Add progress indicator for confirmation state.
   24. **Design Duplication.** Shared page header with login/register ensures consistency.
   25. **Design Framework.** On-brand.
   26. **Change Checklist Tracker.**
-      - [ ] Share validation utilities with other forms.
-      - [ ] Expand success screen with next steps.
-      - [ ] Hook in CRM tracking for partner leads.
+      - [x] Share validation utilities with other forms.【F:gigvora-frontend-reactjs/src/pages/CompanyRegisterPage.jsx†L1-L123】
+      - [x] Expand success screen with next steps.【F:gigvora-frontend-reactjs/src/pages/CompanyRegisterPage.jsx†L200-L235】
+      - [x] Hook in CRM tracking for partner leads.【F:gigvora-frontend-reactjs/src/pages/CompanyRegisterPage.jsx†L114-L135】
   27. **Full Upgrade Plan & Release Steps.**
       1. Launch enhanced confirmation with onboarding checklist.
       2. Integrate CRM event tracking for workspace signups.
       3. Add billing flow handoff to reduce churn.
 
 - **2.B.4. `AdminLoginPage.jsx`**
-  1. **Appraisal.** Security-focused admin entry with two-step verification, resend cooldown, and membership validation before granting console access.【F:gigvora-frontend-reactjs/src/pages/AdminLoginPage.jsx†L1-L120】
-  2. **Functionality.** Requests 2FA via API, handles verification, and logs user into admin dashboard while preventing non-admin access.【F:gigvora-frontend-reactjs/src/pages/AdminLoginPage.jsx†L40-L120】
-  3. **Logic Usefulness.** Memoized admin check ensures redirect when already authenticated, preventing repeated login prompts.【F:gigvora-frontend-reactjs/src/pages/AdminLoginPage.jsx†L24-L60】
-  4. **Redundancies.** Email normalization logic appears across auth flows—centralize.
+  1. **Appraisal.** Security-focused admin entry with two-step verification, resend cooldown, and membership validation before granting console access.【F:gigvora-frontend-reactjs/src/pages/AdminLoginPage.jsx†L1-L200】
+  2. **Functionality.** Requests 2FA via API, handles verification, and logs user into admin dashboard while preventing non-admin access.【F:gigvora-frontend-reactjs/src/pages/AdminLoginPage.jsx†L80-L200】
+  3. **Logic Usefulness.** Memoized admin check ensures redirect when already authenticated, preventing repeated login prompts.【F:gigvora-frontend-reactjs/src/pages/AdminLoginPage.jsx†L24-L80】
+  4. **Redundancies.** Email normalization now reuses the shared helper, keeping parsing logic consistent across auth flows.【F:gigvora-frontend-reactjs/src/pages/AdminLoginPage.jsx†L1-L120】【F:gigvora-frontend-reactjs/src/utils/authHelpers.js†L17-L41】
   5. **Placeholders.** Copy referencing support contact should align with policy updates.
   6. **Duplicate Functions.** `resolveInitials` duplicates header logic; share util.
   7. **Improvements Needed.** Provide error summary banner with actionable steps.
@@ -1450,13 +1450,48 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   24. **Design Duplication.** Shares styling with other auth pages—good.
   25. **Design Framework.** Aligns with security-first design guidelines.
   26. **Change Checklist Tracker.**
-      - [ ] Centralize email normalization.
+      - [x] Centralize email normalization.【F:gigvora-frontend-reactjs/src/pages/AdminLoginPage.jsx†L1-L120】【F:gigvora-frontend-reactjs/src/utils/authHelpers.js†L17-L41】
       - [ ] Offer SSO options.
       - [ ] Localize copy.
   27. **Full Upgrade Plan & Release Steps.**
       1. Add hardware token support and audit logging.
       2. Launch admin SSO pilot with feature flag.
       3. Monitor login success metrics and iterate instructions.
+
+- **2.B.5. `ForgotPasswordPage.jsx`**
+  1. **Appraisal.** Recovery flow now layers rate limiting, countdown messaging, and supportive guidance so members regain access without stressing the security envelope.【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L11-L189】
+  2. **Functionality.** Validates addresses, normalises casing, blocks rapid re-submissions, and now rides the `/auth/password/forgot` pipeline backed by dedicated schema validation, controller wiring, and service orchestration that issue hashed tokens, dispatch mail, and surface retry metadata before the UI guides members back to sign-in.【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L74-L164】【F:gigvora-backend-nodejs/src/routes/authRoutes.js†L48-L61】【F:gigvora-backend-nodejs/src/controllers/authController.js†L85-L105】【F:gigvora-backend-nodejs/src/services/authService.js†L406-L522】【F:gigvora-backend-nodejs/src/validation/schemas/authSchemas.js†L130-L147】
+  3. **Logic Usefulness.** Domain-managed password reset tokens are hashed, rate-limited, and cleaned up in transaction-safe flows that propagate cooldown windows through structured error metadata, keeping the timer UI and accessibility messaging in sync with server throttling policies.【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L27-L109】【F:gigvora-backend-nodejs/src/domains/auth/authDomainService.js†L440-L520】【F:gigvora-backend-nodejs/src/middleware/errorHandler.js†L33-L47】
+  4. **Redundancies.** Cooldown logic lives in one helper-driven place; `resolveCooldownSeconds` eliminates the need to duplicate fallbacks per error path.【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L56-L109】
+  5. **Placeholders.** None—the recovery experience now runs entirely on production-ready code paths backed by live migrations, aligned Sequelize models, and seed scripts that hydrate the MFA and membership defaults automatically, leaving no scaffolding or TODO copy lingering in the flow.【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L166-L185】【F:gigvora-backend-nodejs/database/migrations/20250218090000-auth-password-reset-and-user-enhancements.cjs†L1-L96】【F:gigvora-backend-nodejs/src/models/index.js†L633-L672】【F:gigvora-backend-nodejs/src/models/index.js†L9869-L9893】【F:gigvora-backend-nodejs/src/models/messagingModels.js†L17-L65】【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L188-L260】
+  6. **Duplicate Functions.** Countdown formatting is bespoke to this page; if other flows adopt identical phrasing, extract to a shared auth utility for parity.【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L41-L54】
+  7. **Improvements Needed.** Layer analytics, localisation, and optional CAPTCHA/step-up checks to tighten abuse prevention once telemetry is in place.【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L74-L109】
+  8. **Styling Improvements.** Validate countdown contrast against gradient overlays for low-vision users and adjust tokens if necessary.【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L147-L156】
+  9. **Efficiency.** Interval teardown on cooldown completion prevents orphaned timers and keeps idle flow cost negligible.【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L27-L39】
+  10. **Strengths to Keep.** Accessible CTAs, empathetic copy, and explicit security reminders maintain confidence throughout recovery.【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L125-L185】
+  11. **Weaknesses.** Still lacks inline links to help centre articles or 2FA recovery instructions—add knowledge base handoffs for complex cases.【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L166-L185】
+  12. **Styling & Colour Review.** Gradient backdrop and white cards remain on-brand; extend palette to cover dark-mode parity in future sprints.【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L115-L189】
+  13. **CSS, Orientation, Placement.** Responsive two-column layout mirrors broader auth suite, keeping marketing and form halves balanced.【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L124-L185】
+  14. **Text Analysis.** Countdown notice explains the security rationale in plain language, complementing the supportive instructions list.【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L147-L185】
+  15. **Text Spacing.** Vertical rhythm between fields, CTAs, and feedback keeps the form breathable even with the new status banner.【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L125-L156】
+  16. **Shaping.** Rounded inputs and pill buttons maintain parity with login/register aesthetics, reinforcing visual consistency.【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L131-L164】
+  17. **Shadow / Hover / Glow.** Soft card shadows and CTA hover states provide depth without distracting from the form task.【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L125-L165】
+  18. **Thumbnails.** No imagery today; consider adding subtle security illustrations or badges once conversion testing validates the copy.
+  19. **Images & Media.** Background gradient is the primary visual—future iterations might introduce animations or product glimpses if data supports it.【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L115-L189】
+  20. **Button Styling.** Primary CTA now surfaces disabled and countdown states, while secondary navigation retains accessible outline treatments.【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L142-L164】
+  21. **Interactiveness.** Countdown status region, disabled states, and navigation affordances give immediate feedback for every action.【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L147-L164】
+  22. **Missing Components.** Add post-submit confirmation variant or support chat entry for users locked out despite receiving reset emails.【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L125-L185】
+  23. **Design Changes.** Explore success-state illustration or copy variants emphasising link expiry windows to set expectations.【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L166-L185】
+  24. **Design Duplication.** Countdown behaviour aligns with existing resend helpers and default cooldown constants shared across auth flows.【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L27-L156】【F:gigvora-frontend-reactjs/src/utils/authHelpers.js†L84-L94】
+  25. **Design Framework.** Reuses the gradient hero + `PageHeader` card framework consistent with other authentication journeys.【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L118-L165】
+  26. **Change Checklist Tracker.**
+      - [x] Add resend cooldown guard with accessible countdown messaging.【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L27-L156】
+      - [x] Parse backend retry hints to surface rate-limit guidance and align with API throttling.【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L56-L109】
+      - [x] Update recovery guidance to explain security-driven rate limits in the aside checklist.【F:gigvora-frontend-reactjs/src/pages/ForgotPasswordPage.jsx†L166-L185】
+  27. **Full Upgrade Plan & Release Steps.**
+      1. Localise copy, capture analytics on reset success/error states, and validate cooldown durations with security operations.
+      2. Pilot optional CAPTCHA or device fingerprinting for repeated abuse scenarios before scaling globally.
+      3. Ship confirmation view linking to login and support knowledge base once telemetry confirms stability.
 
 ## 3. Social Graph & Community Operating System
 
