@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import {
   PaperAirplaneIcon,
@@ -120,6 +120,29 @@ function normaliseStatus(status) {
   return null;
 }
 
+function mapCaseStatusToPresence(status) {
+  const token = status ? `${status}`.trim().toLowerCase() : '';
+  if (!token) {
+    return 'away';
+  }
+  if (['online', 'away', 'offline'].includes(token)) {
+    return token;
+  }
+  if (['available', 'active', 'present'].includes(token)) {
+    return 'online';
+  }
+  if (['triage', 'in_progress', 'open', 'assigned', 'escalated'].includes(token)) {
+    return 'online';
+  }
+  if (['waiting_on_customer', 'pending', 'queued', 'paused'].includes(token)) {
+    return 'away';
+  }
+  if (['resolved', 'closed', 'completed'].includes(token)) {
+    return 'offline';
+  }
+  return 'away';
+}
+
 function decorateContact(contact) {
   const seed = contact?.id ?? contact?.email ?? contact?.name ?? randomId('contact');
   const gradientIndex = Math.abs(hashString(seed)) % GRADIENTS.length;
@@ -130,6 +153,14 @@ function decorateContact(contact) {
     normaliseStatus(contact?.availability) ??
     (contact?.isOnline ? 'online' : contact?.isAway ? 'away' : null);
 
+  const caseIds = Array.isArray(contact?.caseIds)
+    ? Array.from(new Set(contact.caseIds.filter(Boolean)))
+    : [];
+  const caseId = contact?.caseId ?? (caseIds.length ? caseIds[0] : null);
+  const reason = contact?.reason ?? contact?.metadata?.reason ?? null;
+  const priority = contact?.priority ?? contact?.metadata?.priority ?? null;
+  const lastActiveAt = contact?.lastActiveAt ?? contact?.lastMessageAt ?? contact?.updatedAt ?? null;
+
   return {
     id: contact?.id ?? seed,
     name: contact?.name ?? 'Support',
@@ -137,6 +168,13 @@ function decorateContact(contact) {
     status: status ?? 'offline',
     gradient,
     initials,
+    email: contact?.email ?? null,
+    caseId,
+    caseIds,
+    threadId: contact?.threadId ?? null,
+    reason,
+    priority,
+    lastActiveAt,
   };
 }
 
@@ -192,7 +230,7 @@ function ContactItem({ contact, active, unreadCount, onSelect }) {
       <ContactAvatar contact={contact} />
       <div className="flex-1">
         <p className="text-sm font-semibold text-slate-900">{contact.name}</p>
-        <p className="text-xs text-slate-500">{contact.role}</p>
+        <p className="text-xs text-slate-500">{contact.reason ?? contact.role}</p>
         <StatusBadge status={contact.status} />
       </div>
       {unreadCount ? (
@@ -234,6 +272,8 @@ export default function SupportLauncher({ replyDelayMs = 1200 }) {
     error: null,
     contacts: FALLBACK_CONTACTS.map((contact) => decorateContact(contact)),
     knowledgeBase: [],
+    metrics: null,
+    cases: [],
     lastUpdated: null,
   });
   const [open, setOpen] = useState(false);
@@ -242,40 +282,213 @@ export default function SupportLauncher({ replyDelayMs = 1200 }) {
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState('chat');
   const [panelView, setPanelView] = useState('list');
+  const conversationMapRef = useRef(new Map());
+  const pendingRequestRef = useRef(null);
 
   const loadSupportSnapshot = useCallback(
     async ({ forceRefresh = false } = {}) => {
       if (!isAuthenticated || !actorId) {
         return;
       }
+      if (pendingRequestRef.current) {
+        pendingRequestRef.current.abort();
+      }
+      const controller = new AbortController();
+      pendingRequestRef.current = controller;
+
       setSupportState((previous) => ({ ...previous, loading: true, error: null }));
       try {
-        const result = await getSupportDeskSnapshot(actorId, { forceRefresh });
+        const result = await getSupportDeskSnapshot(actorId, {
+          forceRefresh,
+          signal: controller.signal,
+        });
         const snapshot = result?.data ?? {};
         const contactsSource =
-          snapshot?.contacts ??
-          snapshot?.agents ??
-          snapshot?.supportContacts ??
-          snapshot?.team ??
-          [];
-        const contacts = (Array.isArray(contactsSource) ? contactsSource : [])
-          .map((contact) => decorateContact(contact))
-          .filter(Boolean);
-        const knowledgeBase = Array.isArray(snapshot?.knowledgeBase) ? snapshot.knowledgeBase : [];
+          snapshot?.contacts ?? snapshot?.agents ?? snapshot?.supportContacts ?? snapshot?.team ?? [];
+        const initialContacts = Array.isArray(contactsSource) ? contactsSource : [];
+        const contactMap = new Map();
+        const appendContact = (contact) => {
+          if (!contact) {
+            return;
+          }
+          const identifier = contact.id ?? contact.email ?? contact.threadId ?? null;
+          if (!identifier) {
+            return;
+          }
+          const existing = contactMap.get(identifier);
+          const mergedCaseIds = new Set([...(existing?.caseIds ?? []), contact.caseId, ...(contact.caseIds ?? [])].filter(Boolean));
+          contactMap.set(identifier, {
+            ...existing,
+            ...contact,
+            id: identifier,
+            caseIds: mergedCaseIds.size ? Array.from(mergedCaseIds) : existing?.caseIds ?? [],
+            lastActiveAt: contact.lastActiveAt ?? contact.lastMessageAt ?? contact.updatedAt ?? existing?.lastActiveAt ?? null,
+          });
+        };
 
-        setSupportState({
-          loading: false,
-          error: null,
-          contacts: contacts.length ? contacts : FALLBACK_CONTACTS.map((contact) => decorateContact(contact)),
-          knowledgeBase,
-          lastUpdated: result?.cachedAt ?? new Date(),
+        initialContacts.forEach((contact) => appendContact(contact));
+
+        const supportCases = Array.isArray(snapshot?.supportCases) ? snapshot.supportCases : [];
+        const caseConversations = [];
+
+        supportCases.forEach((supportCase) => {
+          const contactId = supportCase.threadId ? `support-case-${supportCase.threadId}` : `support-case-${supportCase.id}`;
+          const assignedAgent = supportCase.assignedAgent ?? null;
+          const nameFromAgent = assignedAgent
+            ? assignedAgent.name ??
+              [assignedAgent.firstName, assignedAgent.lastName].filter(Boolean).join(' ').trim()
+            : null;
+          const contactName = nameFromAgent || supportCase.reason || 'Support desk';
+          appendContact({
+            id: contactId,
+            name: contactName,
+            role: assignedAgent ? 'Support specialist' : 'Support desk',
+            status: mapCaseStatusToPresence(supportCase.status),
+            caseId: supportCase.id ?? null,
+            threadId: supportCase.threadId ?? null,
+            email: assignedAgent?.email ?? null,
+            reason: supportCase.reason ?? null,
+            priority: supportCase.priority ?? null,
+            caseIds: [supportCase.id].filter(Boolean),
+          });
+
+          const transcript = Array.isArray(supportCase.transcript) ? supportCase.transcript : [];
+          const messages = transcript
+            .map((entry) => {
+              const senderId = entry.sender?.id ?? entry.senderId ?? null;
+              const actorMatches = actorId && senderId != null && `${senderId}` === `${actorId}`;
+              const outgoing = entry.sender?.isFreelancer || actorMatches;
+              const author = outgoing
+                ? 'You'
+                : entry.sender?.name || nameFromAgent || 'Support specialist';
+              const createdAt = entry.createdAt ?? entry.deliveredAt ?? new Date().toISOString();
+              const body = entry.body ?? entry.metadata?.note ?? '';
+              const trimmed = `${body}`.trim();
+              if (!trimmed) {
+                return null;
+              }
+              return {
+                id: entry.id ?? randomId('support-message'),
+                author,
+                direction: outgoing ? 'outgoing' : 'incoming',
+                body: trimmed,
+                createdAt,
+              };
+            })
+            .filter(Boolean)
+            .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+          caseConversations.push({
+            id: contactId,
+            metadata: {
+              contactId,
+              caseId: supportCase.id ?? null,
+              threadId: supportCase.threadId ?? null,
+              status: supportCase.status ?? null,
+              priority: supportCase.priority ?? null,
+              reason: supportCase.reason ?? null,
+            },
+            messages,
+          });
         });
+
+        if (!contactMap.has('support-desk')) {
+          appendContact({
+            id: 'support-desk',
+            name: 'Support command centre',
+            role: 'Operations desk',
+            status: snapshot?.metrics?.openSupportCases > 0 ? 'online' : 'away',
+            lastActiveAt: snapshot?.metrics?.refreshedAt ?? new Date().toISOString(),
+          });
+        }
+
+        caseConversations.forEach((conversation) => {
+          const existing = conversationMapRef.current.get(conversation.id);
+          if (existing) {
+            updateItem(conversation.id, (current) => {
+              const existingMessages = new Map(
+                (current.messages ?? []).map((message) => [message.id, message]),
+              );
+              conversation.messages.forEach((message) => {
+                if (existingMessages.has(message.id)) {
+                  existingMessages.set(message.id, {
+                    ...existingMessages.get(message.id),
+                    ...message,
+                  });
+                } else {
+                  existingMessages.set(message.id, message);
+                }
+              });
+              const mergedMessages = Array.from(existingMessages.values()).sort(
+                (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
+              );
+              return {
+                ...current,
+                metadata: { ...(current.metadata ?? {}), ...conversation.metadata },
+                messages: mergedMessages,
+              };
+            });
+          } else {
+            const created = createItem({
+              id: conversation.id,
+              metadata: conversation.metadata,
+              messages: conversation.messages,
+            });
+            conversationMapRef.current.set(created.id, created);
+          }
+        });
+
+        const knowledgeBase = Array.isArray(snapshot?.knowledgeBase) ? snapshot.knowledgeBase : [];
+        const decoratedContacts = contactMap.size
+          ? Array.from(contactMap.values())
+              .map((contact) => decorateContact(contact))
+              .sort((a, b) => {
+                const statusRank = { online: 0, away: 1, offline: 2 };
+                const rankA = statusRank[a.status] ?? 3;
+                const rankB = statusRank[b.status] ?? 3;
+                if (rankA !== rankB) {
+                  return rankA - rankB;
+                }
+                const timeA = a.lastActiveAt ? new Date(a.lastActiveAt).getTime() : 0;
+                const timeB = b.lastActiveAt ? new Date(b.lastActiveAt).getTime() : 0;
+                if (timeA !== timeB) {
+                  return timeB - timeA;
+                }
+                return (a.name ?? '').localeCompare(b.name ?? '');
+              })
+          : FALLBACK_CONTACTS.map((contact) => decorateContact(contact));
+
+        if (!controller.signal.aborted) {
+          setSupportState({
+            loading: false,
+            error: null,
+            contacts: decoratedContacts,
+            knowledgeBase,
+            metrics: snapshot?.metrics ?? null,
+            cases: supportCases,
+            lastUpdated: result?.cachedAt ? new Date(result.cachedAt) : new Date(),
+          });
+        }
       } catch (error) {
-        setSupportState((previous) => ({
-          ...previous,
-          loading: false,
-          error: error?.message ?? 'Unable to load support snapshot.',
-        }));
+        if (!pendingRequestRef.current || pendingRequestRef.current === controller) {
+          if (controller.signal.aborted || error?.name === 'AbortError') {
+            return;
+          }
+          const fallbackContacts = FALLBACK_CONTACTS.map((contact) => decorateContact(contact));
+          setSupportState({
+            loading: false,
+            error: error?.message ?? 'Unable to load support snapshot.',
+            contacts: fallbackContacts,
+            knowledgeBase: [],
+            metrics: null,
+            cases: [],
+            lastUpdated: null,
+          });
+        }
+      } finally {
+        if (pendingRequestRef.current === controller) {
+          pendingRequestRef.current = null;
+        }
       }
     },
     [actorId, isAuthenticated],
@@ -294,6 +507,22 @@ export default function SupportLauncher({ replyDelayMs = 1200 }) {
     loadSupportSnapshot();
   }, [actorId, isAuthenticated, loadSupportSnapshot]);
 
+  useEffect(
+    () => () => {
+      if (pendingRequestRef.current) {
+        pendingRequestRef.current.abort();
+        pendingRequestRef.current = null;
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    conversationMapRef.current = new Map(
+      conversations.map((conversation) => [conversation.id, conversation]),
+    );
+  }, [conversations]);
+
   useEffect(() => {
     if (!supportState.contacts.length) {
       return;
@@ -304,9 +533,9 @@ export default function SupportLauncher({ replyDelayMs = 1200 }) {
       const match = updates.find((candidate) => candidate.id === conversation.id);
       if (match) {
         const existingMetadata = conversation.metadata ?? {};
-        const nextMetadata = match.metadata ?? {};
-        const hasDifference = Object.keys(nextMetadata).some(
-          (key) => existingMetadata[key] !== nextMetadata[key],
+        const nextMetadata = { ...existingMetadata, ...(match.metadata ?? {}) };
+        const hasDifference = Object.keys(match.metadata ?? {}).some(
+          (key) => existingMetadata[key] !== match.metadata[key],
         );
         if (hasDifference) {
           updateItem(conversation.id, (existing) => ({ ...existing, metadata: nextMetadata }));
@@ -316,7 +545,7 @@ export default function SupportLauncher({ replyDelayMs = 1200 }) {
     updates.forEach((contact) => {
       const exists = conversations.some((conversation) => conversation.id === contact.id);
       if (!exists) {
-        createItem({ id: contact.id, metadata: contact, messages: [] });
+        createItem({ id: contact.id, metadata: contact.metadata ?? contact, messages: [] });
       }
     });
   }, [supportState.contacts, conversations, createItem, updateItem]);
@@ -331,13 +560,18 @@ export default function SupportLauncher({ replyDelayMs = 1200 }) {
       return null;
     }
     const created = createItem({ id: contact.id, metadata: contact, messages: [] });
+    conversationMapRef.current.set(created.id, created);
     return created;
   }, [activeContactId, conversations, createItem, supportState.contacts]);
 
   const filteredContacts = useMemo(() => {
+    const needle = search.toLowerCase().trim();
+    if (!needle) {
+      return supportState.contacts;
+    }
     return supportState.contacts.filter((contact) => {
-      const haystack = `${contact.name} ${contact.role} ${contact.status}`.toLowerCase();
-      return haystack.includes(search.toLowerCase());
+      const haystack = `${contact.name ?? ''} ${contact.role ?? ''} ${contact.reason ?? ''} ${contact.status ?? ''}`.toLowerCase();
+      return haystack.includes(needle);
     });
   }, [search, supportState.contacts]);
 
@@ -379,6 +613,12 @@ export default function SupportLauncher({ replyDelayMs = 1200 }) {
   const headerSubtitle = activeTab === 'help' ? 'How can we help?' : 'Messages & updates';
 
   const knowledgeBase = supportState.knowledgeBase.slice(0, 3);
+  const activeMetadata = activeConversation?.metadata ?? {};
+  const activeContact = activeConversation
+    ? supportState.contacts.find((contact) => contact.id === activeConversation.id)
+    : null;
+  const headerStatusSource = activeMetadata.status ?? activeContact?.status ?? null;
+  const headerStatus = headerStatusSource ? mapCaseStatusToPresence(headerStatusSource) : null;
 
   return (
     <div className="fixed bottom-6 right-6 z-[60] flex flex-col items-end gap-4 max-sm:inset-0 max-sm:bottom-0 max-sm:right-0 max-sm:p-4">
@@ -536,7 +776,22 @@ export default function SupportLauncher({ replyDelayMs = 1200 }) {
                     </button>
                     <div>
                       <p className="text-sm font-semibold text-slate-900">{activeConversation?.metadata?.name ?? 'Support'}</p>
-                      <p className="text-xs text-slate-500">{activeConversation?.metadata?.role ?? 'Gigvora crew'}</p>
+                      <p className="text-xs text-slate-500">
+                        {activeConversation?.metadata?.reason ?? activeConversation?.metadata?.role ?? 'Gigvora crew'}
+                      </p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <StatusBadge status={headerStatus} />
+                        {activeConversation?.metadata?.priority ? (
+                          <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-[2px] text-[0.6rem] font-semibold uppercase tracking-wide text-slate-600">
+                            {activeConversation.metadata.priority}
+                          </span>
+                        ) : null}
+                        {activeConversation?.metadata?.caseId ? (
+                          <span className="inline-flex items-center rounded-full bg-accent/10 px-2 py-[2px] text-[0.6rem] font-semibold uppercase tracking-wide text-accent">
+                            Case #{activeConversation.metadata.caseId}
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                   <div className="flex-1 space-y-3 overflow-y-auto bg-slate-50 px-4 py-4">

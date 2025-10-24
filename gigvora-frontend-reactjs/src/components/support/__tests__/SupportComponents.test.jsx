@@ -217,14 +217,20 @@ beforeEach(() => {
     });
 
     const input = await screen.findByPlaceholderText(/write a message/i);
-    await user.type(input, 'Hello support');
-    await user.click(screen.getByRole('button', { name: /send message/i }));
+    await act(async () => {
+      await user.type(input, 'Hello support');
+      await user.click(screen.getByRole('button', { name: /send message/i }));
+    });
 
     expect(screen.getByText(/hello support/i)).toBeInTheDocument();
 
-    expect(
-      await screen.findByText(/thanks for the ping — we will follow up shortly/i, {}, { timeout: 2000 }),
-    ).toBeInTheDocument();
+    await act(async () => {
+      await new Promise((resolve) => {
+        setTimeout(resolve, 75);
+      });
+    });
+
+    expect(screen.getByText(/thanks for the ping — we will follow up shortly/i)).toBeInTheDocument();
   });
 
   it('renders knowledge base spotlights from the support snapshot', async () => {
@@ -256,5 +262,58 @@ beforeEach(() => {
 
     expect(await screen.findByText(/escalation playbook/i)).toBeInTheDocument();
     expect(screen.getByText(/steps to activate enterprise escalations/i)).toBeInTheDocument();
+  });
+
+  it('hydrates remote support cases with transcripts and metadata', async () => {
+    useSession.mockReturnValue({ isAuthenticated: true, session: { id: 200 } });
+    const now = new Date();
+    getSupportDeskSnapshot.mockResolvedValueOnce({
+      data: {
+        supportCases: [
+          {
+            id: 201,
+            status: 'in_progress',
+            priority: 'high',
+            reason: 'Floating assistance escalation',
+            threadId: 'case-201',
+            transcript: [
+              {
+                id: 'msg-1',
+                sender: { id: 200, isFreelancer: true, name: 'Member' },
+                body: 'Need help reviewing my workspace automations.',
+                createdAt: new Date(now.getTime() - 5 * 60 * 1000).toISOString(),
+              },
+              {
+                id: 'msg-2',
+                sender: { id: 502, name: 'Nova Hunt' },
+                body: 'On it — pushing the concierge playbook live now.',
+                createdAt: new Date(now.getTime() - 4 * 60 * 1000).toISOString(),
+              },
+            ],
+          },
+        ],
+      },
+      cachedAt: now.toISOString(),
+    });
+
+    const user = userEvent.setup();
+    await act(async () => {
+      render(<SupportLauncher />);
+    });
+
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /toggle support inbox/i }));
+    });
+
+    const remoteConversationButton = await screen.findByRole('button', {
+      name: /floating assistance escalation/i,
+    });
+    await act(async () => {
+      await user.click(remoteConversationButton);
+    });
+
+    expect(await screen.findByText(/pushing the concierge playbook live/i)).toBeInTheDocument();
+    expect(screen.getByText(/case #201/i)).toBeInTheDocument();
+    expect(screen.getByText(/high/i)).toBeInTheDocument();
   });
 });
