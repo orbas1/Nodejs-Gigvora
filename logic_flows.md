@@ -210,41 +210,48 @@
 
 ## Main Category: 2. Web Frontend (React)
 
-### Sub category 2.A. Application Shell, Routing, and Layouts
-1. **Appraisal.** React app uses `react-router-dom` with extensive route map covering home, auth, dashboards for user/freelancer/company/agency/admin, enabling comprehensive navigation through `MainLayout` shell.【F:gigvora-frontend-reactjs/src/App.jsx†L1-L200】
-2. **Functionality.** Protected routes enforce authentication, role checks, and membership gating; layouts provide navigation, sidebars, and consistent header/footer.
-3. **Logic Usefulness.** Centralised route definitions allow systematic RBAC and feature gating, aligning with backend permissions.
-4. **Redundancies.** Many dashboard routes map to placeholder components; evaluate consolidating using dynamic configs to reduce boilerplate.
-5. **Placeholders Or non-working functions or stubs.** Numerous pages display stub content awaiting real integrations (e.g., admin maintenance, networking sessions). Document status to avoid user confusion.
-6. **Duplicate Functions.** Role gating logic scattered across `ProtectedRoute`, `RoleProtectedRoute`, `RequireRole`; unify to single hook for maintainability.【F:gigvora-frontend-reactjs/src/components/auth/RoleProtectedRoute.jsx†L1-L80】
-7. **Improvements need to make.** Implement lazy loading for heavy dashboard bundles, add breadcrumb metadata, and unify layout states for desktop/mobile.
-8. **Styling improvements.** Ensure consistent spacing, use design tokens from Tailwind config, and avoid inconsistent card padding.
-9. **Efficiency analysis and improvement.** Adopt code splitting, prefetch critical data, and memoize layout-level contexts.
-10. **Strengths to Keep.** Comprehensive route coverage, membership gating, and modular layout components.
-11. **Weaknesses to remove.** Remove duplicated route declarations and reduce manual imports via dynamic route config arrays.
-12. **Styling and Colour review changes.** Align colour usage with branding palette defined in Tailwind config; ensure dark mode parity.
-13. **CSS, orientation, placement and arrangement changes.** Audit responsive breakpoints to ensure sidebars collapse gracefully on tablets.
-14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Standardise page titles and meta descriptions; avoid repeating marketing copy across dashboards.
-15. **Change Checklist Tracker.** ✅ Review routing; ⬜ Implement lazy loading; ⬜ Consolidate access components; ⬜ Update design tokens.
-16. **Full Upgrade Plan & Release Steps.** 1) Define route config schema; 2) Apply dynamic route rendering; 3) Introduce suspense/lazy; 4) Update navigation tests; 5) Release after smoke testing navigation.
+### ✅ Sub category 2.A. Application Shell, Routing, and Layouts
+1. **Appraisal.** The shell now lazy-loads every layout and page module through a caching `LoadableRoute`, letting `MainLayout` stream immediately inside `Suspense` without blocking navigation across the full dashboard matrix.【F:gigvora-frontend-reactjs/src/App.jsx†L1-L207】【F:gigvora-frontend-reactjs/src/layouts/MainLayout.jsx†L1-L49】
+2. **Functionality.** `LayoutProvider` centralises viewport detection and mobile navigation state so `Header` and the `MobileNavigation` drawer stay in sync while `RouteLoading` renders a branded skeleton during bundle fetches.【F:gigvora-frontend-reactjs/src/context/LayoutContext.jsx†L1-L68】【F:gigvora-frontend-reactjs/src/components/Header.jsx†L1-L210】【F:gigvora-frontend-reactjs/src/components/navigation/MobileNavigation.jsx†L1-L150】【F:gigvora-frontend-reactjs/src/components/routing/RouteLoading.jsx†L1-L10】
+3. **Logic Usefulness.** Route guards now delegate to `useAccessControl`, aligning layout-level RBAC with membership gates and allowing marketing-grade fallback copy without duplicating role math.【F:gigvora-frontend-reactjs/src/hooks/useAccessControl.js†L1-L164】【F:gigvora-frontend-reactjs/src/components/routing/ProtectedRoute.jsx†L1-L52】【F:gigvora-frontend-reactjs/src/components/auth/MembershipGate.jsx†L1-L142】
+4. **Redundancies.** Route arrays remain verbose; extract persona route presets into content configs to shrink future maintenance overhead.【F:gigvora-frontend-reactjs/src/App.jsx†L55-L207】
+5. **Placeholders Or non-working functions or stubs.** Many dashboard destinations still surface placeholder content until their verticals land; annotate empty states so lazy routes don't expose blank canvases.【F:gigvora-frontend-reactjs/src/App.jsx†L55-L207】
+6. **Duplicate Functions.** Guards now share the same hook, but we can collapse `RoleProtectedRoute` and `RequireRole` wrappers into a single variant to trim component sprawl.【F:gigvora-frontend-reactjs/src/components/auth/RoleProtectedRoute.jsx†L1-L40】【F:gigvora-frontend-reactjs/src/components/routing/RequireRole.jsx†L1-L42】
+7. **Improvements need to make.** Layer breadcrumb metadata onto route configs and prefetch adjacent dashboards based on active membership for smoother persona switching.【F:gigvora-frontend-reactjs/src/App.jsx†L55-L207】
+8. **Styling improvements.** Extend layout gradients and nav treatments into tablet breakpoints and align with updated brand tokens once design delivers new palette guidance.【F:gigvora-frontend-reactjs/src/layouts/MainLayout.jsx†L15-L39】【F:gigvora-frontend-reactjs/src/components/Header.jsx†L185-L210】
+9. **Efficiency analysis and improvement.** Explore route-level data preloading hooks paired with the lazy loader to avoid waterfall fetches on dashboard transitions.【F:gigvora-frontend-reactjs/src/App.jsx†L1-L207】
+10. **Strengths to Keep.** Maintain the universal skip link, responsive gradients, and membership-aware navigation controls as accessibility anchors for the shell.【F:gigvora-frontend-reactjs/src/layouts/MainLayout.jsx†L15-L39】【F:gigvora-frontend-reactjs/src/components/Header.jsx†L185-L210】
+11. **Weaknesses to remove.** Gradually retire manual route duplication by generating dashboards from CMS-backed definitions to reduce bundle churn.【F:gigvora-frontend-reactjs/src/App.jsx†L55-L207】
+12. **Styling and Colour review changes.** Audit Drawer overlays and gradient accents for contrast compliance, especially on the translucent mobile surface.【F:gigvora-frontend-reactjs/src/components/navigation/MobileNavigation.jsx†L22-L146】
+13. **CSS, orientation, placement and arrangement changes.** Continue tuning nav spacing so the desktop ribbon and mobile drawer share tokenised paddings at breakpoint boundaries.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L185-L210】【F:gigvora-frontend-reactjs/src/components/navigation/MobileNavigation.jsx†L60-L146】
+14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Keep skip links, CTA copy, and badge labelling concise while highlighting key persona actions inside the drawer and desktop nav.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L185-L210】【F:gigvora-frontend-reactjs/src/components/navigation/MobileNavigation.jsx†L60-L146】
+15. **Change Checklist Tracker Extensive.**
+    - ✅ Deploy lazy routing with Suspense fallbacks across all page modules.【F:gigvora-frontend-reactjs/src/App.jsx†L1-L207】【F:gigvora-frontend-reactjs/src/components/routing/RouteLoading.jsx†L1-L10】
+    - ✅ Consolidate membership and role enforcement through `useAccessControl`-backed guards.【F:gigvora-frontend-reactjs/src/hooks/useAccessControl.js†L1-L164】【F:gigvora-frontend-reactjs/src/components/routing/ProtectedRoute.jsx†L1-L52】
+    - ⬜ Roll updated design tokens into shell gradients, buttons, and drawers once brand palette lands.
+16. **Full Upgrade Plan & Release Steps.** 1) Generate persona route manifests from structured config to replace manual arrays; 2) Add breadcrumb metadata + analytics tags to the lazy route map; 3) Preload nearest-neighbour dashboards after first render; 4) Backfill integration tests covering mobile drawer + guard redirects; 5) Ship alongside design token refresh.
 
-### Sub category 2.B. Authentication, Onboarding, and Access Control UI
-1. **Appraisal.** Login, registration (user, company, agency), admin login, and membership gating components orchestrate forms, validation, and API integration with backend auth flows.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L1-L160】【F:gigvora-frontend-reactjs/src/components/auth/MembershipGate.jsx†L1-L120】
-2. **Functionality.** Forms capture credentials, trigger API calls, handle 2FA prompts, and render onboarding guidance; membership gate restricts features by subscription tier.
-3. **Logic Usefulness.** Aligns with backend RBAC and feature flags, ensuring consistent access experience.
-4. **Redundancies.** Form handling logic repeated across multiple pages; adopt reusable form hooks.
-5. **Placeholders Or non-working functions or stubs.** Some membership tiers render placeholder CTAs; ensure backend integration before launch.
-6. **Duplicate Functions.** Input validation duplicated; centralize in `utils/validation.js`.
-7. **Improvements need to make.** Add progressive profiling, third-party login buttons, and accessible error messaging.
-8. **Styling improvements.** Align form spacing, button hierarchy, and stateful styling (focus, disabled) with design system.
-9. **Efficiency analysis and improvement.** Debounce API calls, use React Query caching for session state.
-10. **Strengths to Keep.** Multi-tenant onboarding coverage and membership gating logic.
-11. **Weaknesses to remove.** Remove inline fetch calls; adopt service layer for readability.
-12. **Styling and Colour review changes.** Ensure 2FA modal and error banners use consistent colour tokens for status states.
-13. **CSS, orientation, placement and arrangement changes.** Optimise forms for mobile view, ensuring vertical rhythm and avoiding horizontal scrolling.
-14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Provide concise success/error messages with actionable guidance; avoid generic "Something went wrong".
-15. **Change Checklist Tracker.** ✅ Audit auth pages; ⬜ Implement shared form hook; ⬜ Add accessible messaging; ⬜ Integrate social login UI.
-16. **Full Upgrade Plan & Release Steps.** 1) Build form hook/service layer; 2) Integrate React Query; 3) Update copywriting; 4) QA flows across roles; 5) Release with analytics tracking.
+### ✅ Sub category 2.B. Authentication, Onboarding, and Access Control UI
+1. **Appraisal.** Authentication surfaces now share `useFormState` for status handling, piping into `FormStatusMessage` live regions so login and registration deliver accessible feedback while orchestrating password, 2FA, and social auth flows.【F:gigvora-frontend-reactjs/src/hooks/useFormState.js†L1-L50】【F:gigvora-frontend-reactjs/src/components/forms/FormStatusMessage.jsx†L1-L41】【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L1-L260】【F:gigvora-frontend-reactjs/src/pages/RegisterPage.jsx†L1-L220】
+2. **Functionality.** Login now guides users through credential, two-factor, resend, and Google/social auth branches with contextual copy, while registration validates strength, parity, and onboarding copy before hitting the service layer.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L45-L260】【F:gigvora-frontend-reactjs/src/pages/RegisterPage.jsx†L33-L220】
+3. **Logic Usefulness.** `useAccessControl` and the refreshed `MembershipGate` render precise upgrade messaging, redirect logic, and membership badges driven by shared dashboard metadata.【F:gigvora-frontend-reactjs/src/hooks/useAccessControl.js†L68-L164】【F:gigvora-frontend-reactjs/src/components/auth/MembershipGate.jsx†L25-L142】
+4. **Redundancies.** Company/agency registration flows should be refactored to reuse the shared hook and validation helpers to avoid regressing into bespoke status handling.【F:gigvora-frontend-reactjs/src/hooks/useFormState.js†L1-L50】
+5. **Placeholders Or non-working functions or stubs.** Membership upgrade CTAs still reference manual email links—wire to in-product support workflows when backend endpoints land.【F:gigvora-frontend-reactjs/src/components/auth/MembershipGate.jsx†L97-L128】
+6. **Duplicate Functions.** Legacy validation helpers outside `utils/validation.js` should be migrated to the shared module to keep strength heuristics aligned with login/register surfaces.【F:gigvora-frontend-reactjs/src/utils/validation.js†L1-L50】
+7. **Improvements need to make.** Add progressive profiling after initial registration plus analytics hooks to observe drop-off between credential and social flows.【F:gigvora-frontend-reactjs/src/pages/RegisterPage.jsx†L33-L220】
+8. **Styling improvements.** Sync CTA sizes and gradient accents across login, register, and membership gate to reinforce trust-state messaging once design refresh arrives.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L187-L260】【F:gigvora-frontend-reactjs/src/pages/RegisterPage.jsx†L140-L220】【F:gigvora-frontend-reactjs/src/components/auth/MembershipGate.jsx†L37-L139】
+9. **Efficiency analysis and improvement.** Consider deferring Google SDK loading until a user focuses the social auth area to reduce initial payload weight.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L136-L185】
+10. **Strengths to Keep.** Retain copy-driven guidance, dual-channel onboarding CTAs, and contextual status badges to keep security posture visible.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L187-L260】【F:gigvora-frontend-reactjs/src/components/auth/MembershipGate.jsx†L37-L139】
+11. **Weaknesses to remove.** Replace manual window redirects for social flows with router-aware handlers once OAuth proxy endpoints return completion URLs.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L161-L185】【F:gigvora-frontend-reactjs/src/pages/RegisterPage.jsx†L143-L201】
+12. **Styling and Colour review changes.** Audit contrast of amber upgrade banners and accent gradients against WCAG AA as part of the design token uplift.【F:gigvora-frontend-reactjs/src/components/auth/MembershipGate.jsx†L82-L139】
+13. **CSS, orientation, placement and arrangement changes.** Ensure multi-column layouts collapse cleanly below 1024px so form controls preserve tap targets without horizontal scrolling.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L197-L260】【F:gigvora-frontend-reactjs/src/pages/RegisterPage.jsx†L140-L220】
+14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Continue refining onboarding copy to stay action-oriented while surfacing security tips exactly where status messages render.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L200-L260】【F:gigvora-frontend-reactjs/src/components/auth/MembershipGate.jsx†L37-L139】
+15. **Change Checklist Tracker Extensive.**
+    - ✅ Introduce shared form state + live-region messaging across login and registration flows.【F:gigvora-frontend-reactjs/src/hooks/useFormState.js†L1-L50】【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L45-L260】【F:gigvora-frontend-reactjs/src/pages/RegisterPage.jsx†L33-L220】
+    - ✅ Wire accessible status banners and contextual guidance through `FormStatusMessage` in every auth surface.【F:gigvora-frontend-reactjs/src/components/forms/FormStatusMessage.jsx†L1-L41】【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L201-L260】
+    - ✅ Embed Google + social auth options with graceful fallback copy to keep onboarding pathways flexible.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L132-L185】【F:gigvora-frontend-reactjs/src/pages/RegisterPage.jsx†L143-L201】
+    - ⬜ Add progressive profiling + analytics instrumentation post-MVP registration.
+16. **Full Upgrade Plan & Release Steps.** 1) Port company/agency onboarding to `useFormState` and shared validation helpers; 2) Layer analytics + progressive profiling once backend endpoints are ready; 3) Replace mailto upgrade links with in-product flows; 4) Add Vitest coverage for login + membership gate states; 5) Launch with A/B instrumentation on social vs. email funnels.
 
 ### Sub category 2.C. Timeline Feed, Engagement, and Social Surfaces
 1. **Appraisal.** Feed pages render timeline posts, avatar stacks, comment threads, suggested connections/groups, and advert cards mirroring backend payload structure.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L1-L160】【F:gigvora-frontend-reactjs/src/components/feed/SuggestedConnections.jsx†L1-L120】

@@ -1,160 +1,43 @@
+import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
-import MainLayout from './layouts/MainLayout.jsx';
-import HomePage from './pages/HomePage.jsx';
-import LoginPage from './pages/LoginPage.jsx';
-import RegisterPage from './pages/RegisterPage.jsx';
-import CompanyRegisterPage from './pages/CompanyRegisterPage.jsx';
-import FeedPage from './pages/FeedPage.jsx';
-import ProfilePage from './pages/ProfilePage.jsx';
-import SearchPage from './pages/SearchPage.jsx';
-import ExplorerRecordPage from './pages/ExplorerRecordPage.jsx';
-import JobsPage from './pages/JobsPage.jsx';
-import GigsPage from './pages/GigsPage.jsx';
-import ProjectsPage from './pages/ProjectsPage.jsx';
-import CreationStudioWizardPage from './pages/CreationStudioWizardPage.jsx';
-import UserProfileViewPage from './pages/UserProfileViewPage.jsx';
-import ProjectCreatePage from './pages/ProjectCreatePage.jsx';
-import ProjectDetailPage from './pages/ProjectDetailPage.jsx';
-import ProjectAutoMatchPage from './pages/ProjectAutoMatchPage.jsx';
-import LaunchpadPage from './pages/LaunchpadPage.jsx';
-import MentorsPage from './pages/MentorsPage.jsx';
-import VolunteeringPage from './pages/VolunteeringPage.jsx';
-import GroupsPage from './pages/GroupsPage.jsx';
-import GroupProfilePage from './pages/GroupProfilePage.jsx';
-import PagesPage from './pages/PagesPage.jsx';
-import ConnectionsPage from './pages/ConnectionsPage.jsx';
-import NotificationsPage from './pages/NotificationsPage.jsx';
-import TrustCenterPage from './pages/TrustCenter.jsx';
-import AutoAssignQueuePage from './pages/AutoAssignQueuePage.jsx';
-import InboxPage from './pages/InboxPage.jsx';
-import TermsPage from './pages/TermsPage.jsx';
-import PrivacyPage from './pages/PrivacyPage.jsx';
-import RefundPolicyPage from './pages/RefundPolicyPage.jsx';
-import CommunityGuidelinesPage from './pages/CommunityGuidelinesPage.jsx';
-import FaqPage from './pages/FaqPage.jsx';
-import SettingsPage from './pages/SettingsPage.jsx';
-import FinanceHubPage from './pages/FinanceHubPage.jsx';
-import AboutPage from './pages/AboutPage.jsx';
-import BlogPage from './pages/BlogPage.jsx';
-import BlogArticlePage from './pages/BlogArticlePage.jsx';
-import SecurityOperationsPage from './pages/SecurityOperationsPage.jsx';
-import AdminLoginPage from './pages/AdminLoginPage.jsx';
-import UserDashboardPage from './pages/dashboards/UserDashboardPage.jsx';
-import UserProfileHubPage from './pages/dashboards/UserProfileHubPage.jsx';
-import UserCalendarPage from './pages/dashboards/user/UserCalendarPage.jsx';
-import UserCreationStudioPage from './pages/dashboards/UserCreationStudioPage.jsx';
-import UserProjectManagementPage from './pages/dashboards/UserProjectManagementPage.jsx';
-import UserDisputesPage from './pages/dashboards/UserDisputesPage.jsx';
-import FreelancerDashboardPage from './pages/dashboards/FreelancerDashboardPage.jsx';
-import FreelancerAutoMatchPage from './pages/dashboards/FreelancerAutoMatchPage.jsx';
-import FreelancerPlannerPage from './pages/dashboards/FreelancerPlannerPage.jsx';
-import FreelancerVolunteerPage from './pages/dashboards/FreelancerVolunteerPage.jsx';
-import FreelancerPipelinePage from './pages/dashboards/FreelancerPipelinePage.jsx';
-import FreelancerPortfolioPage from './pages/dashboards/FreelancerPortfolioPage.jsx';
-import FreelancerCreationStudioPage from './pages/dashboards/FreelancerCreationStudioPage.jsx';
-import FreelancerNetworkingPage from './pages/dashboards/freelancer/FreelancerNetworkingPage.jsx';
-import FreelancerDisputesPage from './pages/dashboards/freelancer/FreelancerDisputesPage.jsx';
-import FreelancerDocumentsPage from './pages/dashboards/freelancer/FreelancerDocumentsPage.jsx';
-import CompanyDashboardPage from './pages/dashboards/CompanyDashboardPage.jsx';
-import CompanyAtsOperationsPage from './pages/dashboards/CompanyAtsOperationsPage.jsx';
-import CompanyAnalyticsPage from './pages/dashboards/CompanyAnalyticsPage.jsx';
-import CompanyIntegrationsPage from './pages/dashboards/CompanyIntegrationsPage.jsx';
-import CompanyPagesManagementPage from './pages/dashboards/CompanyPagesManagementPage.jsx';
-import CompanyProfileWorkspacePage from './pages/dashboards/CompanyProfileWorkspacePage.jsx';
-import CompanyIdVerificationPage from './pages/dashboards/CompanyIdVerificationPage.jsx';
-import CompanyCalendarPage from './pages/dashboards/CompanyCalendarPage.jsx';
-import CompanyCreationStudioPage from './pages/dashboards/CompanyCreationStudioPage.jsx';
-import CompanyHubPage from './pages/dashboards/CompanyHubPage.jsx';
-import CompanyMetricsPage from './pages/dashboards/CompanyMetricsPage.jsx';
-import CompanySettingsPage from './pages/dashboards/CompanySettingsPage.jsx';
-import CompanySystemPreferencesPage from './pages/dashboards/CompanySystemPreferencesPage.jsx';
-import CompanyJobManagementPage from './pages/dashboards/CompanyJobManagementPage.jsx';
-import CompanyGroupManagementPage from './pages/dashboards/CompanyGroupManagementPage.jsx';
-import CompanyVolunteeringManagementPage from './pages/dashboards/CompanyVolunteeringManagementPage.jsx';
-import CompanyLaunchpadJobManagementPage from './pages/dashboards/CompanyLaunchpadJobManagementPage.jsx';
-import CompanyOrdersPage from './pages/dashboards/CompanyOrdersPage.jsx';
-import CompanyAdsPage from './pages/dashboards/CompanyAdsPage.jsx';
-import CompanyCrmIntegrationsPage from './pages/dashboards/CompanyCrmIntegrationsPage.jsx';
-import CompanyByokAutoReplyPage from './pages/dashboards/CompanyByokAutoReplyPage.jsx';
-import CompanyProjectWorkspacePage from './pages/dashboards/company/CompanyProjectWorkspacePage.jsx';
-import CompanyInboxPage from './pages/dashboards/CompanyInboxPage.jsx';
-import CompanyTimelineManagementPage from './pages/dashboards/CompanyTimelineManagementPage.jsx';
-import CompanyWalletManagementPage from './pages/dashboards/CompanyWalletManagementPage.jsx';
-import CompanyNetworkingHubPage from './pages/networking/CompanyNetworkingHubPage.jsx';
-import NetworkingSessionsPage from './pages/networking/NetworkingSessionsPage.jsx';
-import CompanyProjectManagementPage from './pages/dashboards/CompanyProjectManagementPage.jsx';
-import CompanyDisputeManagementPage from './pages/dashboards/company/CompanyDisputeManagementPage.jsx';
-import CompanyEscrowManagementPage from './pages/dashboards/CompanyEscrowManagementPage.jsx';
-import AgencyDashboardPage from './pages/dashboards/AgencyDashboardPage.jsx';
-import AgencyCalendarPage from './pages/dashboards/agency/AgencyCalendarPage.jsx';
-import AgencyEventManagementPage from './pages/dashboards/agency/AgencyEventManagementPage.jsx';
-import AgencyJobManagementPage from './pages/dashboards/agency/AgencyJobManagementPage.jsx';
-import AgencyInterviewsPage from './pages/dashboards/agency/AgencyInterviewsPage.jsx';
-import AgencyMentoringPage from './pages/dashboards/AgencyMentoringPage.jsx';
-import AgencyProjectManagementPage from './pages/dashboards/AgencyProjectManagementPage.jsx';
-import ProjectWorkspacePage from './pages/dashboards/agency/ProjectWorkspacePage.jsx';
-import AgencyInboxPage from './pages/dashboards/agency/AgencyInboxPage.jsx';
-import AgencyBlogManagementPage from './pages/dashboards/AgencyBlogManagementPage.jsx';
-import AgencyTimelineDashboardPage from './pages/dashboards/agency/AgencyTimelineDashboardPage.jsx';
-import AgencyWalletManagementPage from './pages/dashboards/agency/AgencyWalletManagementPage.jsx';
-import AgencyNetworkingManagementPage from './pages/dashboards/agency/AgencyNetworkingManagementPage.jsx';
-import DisputeManagementPage from './pages/dashboards/agency/DisputeManagementPage.jsx';
-import AgencyEscrowManagementPage from './pages/dashboards/agency/AgencyEscrowManagementPage.jsx';
-import AgencyCrmPipelinePage from './pages/dashboards/AgencyCrmPipelinePage.jsx';
-import AgencyIntegrationsPage from './pages/dashboards/AgencyIntegrationsPage.jsx';
-import AgencyAiAutomationPage from './pages/dashboards/AgencyAiAutomationPage.jsx';
-import AgencyProfileManagementPage from './pages/dashboards/AgencyProfileManagementPage.jsx';
-import AgencyClientKanbanPage from './pages/dashboards/AgencyClientKanbanPage.jsx';
-import AgencyIdVerificationPage from './pages/dashboards/agency/AgencyIdVerificationPage.jsx';
-import AgencySupportDeskPage from './pages/dashboards/agency/AgencySupportDeskPage.jsx';
-import HeadhunterDashboardPage from './pages/dashboards/HeadhunterDashboardPage.jsx';
-import MentorDashboardPage from './pages/dashboards/MentorDashboardPage.jsx';
-import LaunchpadOperationsPage from './pages/dashboards/LaunchpadOperationsPage.jsx';
-import AdminDashboardPage from './pages/dashboards/AdminDashboardPage.jsx';
-import AdminFinancialManagementPage from './pages/dashboards/admin/AdminFinancialManagementPage.jsx';
-import AdminInterviewManagementPage from './pages/dashboards/AdminInterviewManagementPage.jsx';
-import AdminInboxPage from './pages/dashboards/AdminInboxPage.jsx';
-import AdminTimelineManagementPage from './pages/dashboards/admin/AdminTimelineManagementPage.jsx';
-import AdminAppearanceManagementPage from './pages/dashboards/admin/AdminAppearanceManagementPage.jsx';
-import AdminStorageManagementPage from './pages/dashboards/admin/AdminStorageManagementPage.jsx';
-import AdminModerationDashboardPage from './pages/dashboards/admin/AdminModerationDashboardPage.jsx';
-import AdminDatabaseSettingsPage from './pages/dashboards/AdminDatabaseSettingsPage.jsx';
-import AdminGdprSettingsPage from './pages/dashboards/admin/AdminGdprSettingsPage.jsx';
-import AdminComplianceManagementPage from './pages/dashboards/admin/AdminComplianceManagementPage.jsx';
-import AdminMaintenanceModePage from './pages/dashboards/admin/AdminMaintenanceModePage.jsx';
-import AdminDocumentsManagementPage from './pages/dashboards/admin/AdminDocumentsManagementPage.jsx';
-import AdminAdsSettingsPage from './pages/dashboards/admin/AdminAdsSettingsPage.jsx';
-import AdminBlogManagementPage from './pages/admin/AdminBlogManagementPage.jsx';
-import AdminVolunteeringPage from './pages/dashboards/admin/AdminVolunteeringPage.jsx';
-import AdminProjectsPage from './pages/admin/AdminProjectsPage.jsx';
-import AdminGigManagementPage from './pages/admin/AdminGigManagementPage.jsx';
-import AdminJobPostManagementPage from './pages/dashboards/admin/AdminJobPostManagementPage.jsx';
-import AdminJobApplicationsPage from './pages/dashboards/admin/AdminJobApplicationsPage.jsx';
-import AdminCalendarPage from './pages/admin/AdminCalendarPage.jsx';
-import AdminIdentityVerificationPage from './pages/dashboards/admin/AdminIdentityVerificationPage.jsx';
-import AdminWalletManagementPage from './pages/dashboards/admin/AdminWalletManagementPage.jsx';
-import AdminDisputeManagementPage from './pages/dashboards/admin/AdminDisputeManagementPage.jsx';
-import AdminEscrowManagementPage from './pages/dashboards/admin/AdminEscrowManagementPage.jsx';
-import AdminMobileAppManagementPage from './pages/admin/AdminMobileAppManagementPage.jsx';
-import AdminSystemSettingsPage from './pages/dashboards/admin/SystemSettingsPage.jsx';
-import AdminHomepageSettingsPage from './pages/admin/AdminHomepageSettingsPage.jsx';
-import AdminPagesSettingsPage from './pages/dashboards/AdminPagesSettingsPage.jsx';
-import AdminUserManagementPage from './pages/dashboards/admin/AdminUserManagementPage.jsx';
-import AdminSiteManagementPage from './pages/dashboards/admin/AdminSiteManagementPage.jsx';
-import AdminPolicyManagementPage from './pages/dashboards/admin/AdminPolicyManagementPage.jsx';
-import AdminApiManagementPage from './pages/admin/AdminApiManagementPage.jsx';
-import AdminEmailManagementPage from './pages/dashboards/admin/email/AdminEmailManagementPage.jsx';
-import AdminTwoFactorManagementPage from './pages/dashboards/admin/AdminTwoFactorManagementPage.jsx';
-import AdminSeoSettingsPage from './pages/dashboards/admin/AdminSeoSettingsPage.jsx';
-import AdminProfileManagementPage from './pages/admin/AdminProfileManagementPage.jsx';
-import FreelancerReviewsPreviewPage from './pages/previews/FreelancerReviewsPreviewPage.jsx';
 import ProtectedRoute from './components/routing/ProtectedRoute.jsx';
 import RoleProtectedRoute from './components/auth/RoleProtectedRoute.jsx';
 import MembershipGate from './components/auth/MembershipGate.jsx';
 import RequireRole from './components/routing/RequireRole.jsx';
-import AdminMentoringSessionManagementPage from './pages/dashboards/admin/AdminMentoringSessionManagementPage.jsx';
-import AdminSpeedNetworkingManagementPage from './pages/dashboards/admin/AdminSpeedNetworkingManagementPage.jsx';
+import RouteLoading from './components/routing/RouteLoading.jsx';
 import { LAUNCHPAD_ALLOWED_MEMBERSHIPS, SECURITY_ALLOWED_MEMBERSHIPS } from './constants/access.js';
+
+const pageModules = import.meta.glob('./pages/**/*.jsx');
+const layoutModules = import.meta.glob('./layouts/**/*.jsx');
+
+const mainLayoutLoader = layoutModules['./layouts/MainLayout.jsx'];
+if (!mainLayoutLoader) {
+  throw new Error('MainLayout layout module is missing.');
+}
+
+const MainLayout = lazy(mainLayoutLoader);
+
+const lazyComponentCache = new Map();
+
+function resolveComponent(modulePath) {
+  const loader = pageModules[modulePath];
+  if (!loader) {
+    throw new Error(`Unknown page module: ${modulePath}`);
+  }
+  if (!lazyComponentCache.has(modulePath)) {
+    lazyComponentCache.set(modulePath, lazy(loader));
+  }
+  return lazyComponentCache.get(modulePath);
+}
+
+function LoadableRoute({ modulePath }) {
+  const Component = resolveComponent(modulePath);
+  return (
+    <Suspense fallback={<RouteLoading />}>
+      <Component />
+    </Suspense>
+  );
+}
 
 export const COMMUNITY_ACCESS_MEMBERSHIPS = Object.freeze([
   'user',
@@ -170,187 +53,277 @@ export const VOLUNTEER_ACCESS_MEMBERSHIPS = Object.freeze(['volunteer', 'mentor'
 const userRoles = Object.freeze(['user', 'freelancer', 'agency', 'company', 'headhunter']);
 
 export const PUBLIC_ROUTES = [
-  { path: 'login', element: <LoginPage /> },
-  { path: 'register', element: <RegisterPage /> },
-  { path: 'register/company', element: <CompanyRegisterPage /> },
-  { path: 'profile/:id', element: <ProfilePage /> },
-  { path: 'terms', element: <TermsPage /> },
-  { path: 'privacy', element: <PrivacyPage /> },
-  { path: 'refunds', element: <RefundPolicyPage /> },
-  { path: 'community-guidelines', element: <CommunityGuidelinesPage /> },
-  { path: 'faq', element: <FaqPage /> },
-  { path: 'about', element: <AboutPage /> },
-  { path: 'preview/freelancer-reviews', element: <FreelancerReviewsPreviewPage /> },
-  { path: 'blog', element: <BlogPage /> },
-  { path: 'blog/:slug', element: <BlogArticlePage /> },
-  { path: 'mentors', element: <MentorsPage /> },
+  { path: 'login', module: './pages/LoginPage.jsx' },
+  { path: 'register', module: './pages/RegisterPage.jsx' },
+  { path: 'register/company', module: './pages/CompanyRegisterPage.jsx' },
+  { path: 'profile/:id', module: './pages/ProfilePage.jsx' },
+  { path: 'terms', module: './pages/TermsPage.jsx' },
+  { path: 'privacy', module: './pages/PrivacyPage.jsx' },
+  { path: 'refunds', module: './pages/RefundPolicyPage.jsx' },
+  { path: 'community-guidelines', module: './pages/CommunityGuidelinesPage.jsx' },
+  { path: 'faq', module: './pages/FaqPage.jsx' },
+  { path: 'about', module: './pages/AboutPage.jsx' },
+  { path: 'preview/freelancer-reviews', module: './pages/previews/FreelancerReviewsPreviewPage.jsx' },
+  { path: 'blog', module: './pages/BlogPage.jsx' },
+  { path: 'blog/:slug', module: './pages/BlogArticlePage.jsx' },
+  { path: 'mentors', module: './pages/MentorsPage.jsx' },
 ];
 
 export const COMMUNITY_ROUTES = [
-  { path: 'feed', element: <FeedPage /> },
-  { path: 'search', element: <SearchPage /> },
-  { path: 'explorer/:category/:recordId', element: <ExplorerRecordPage /> },
-  { path: 'jobs', element: <JobsPage /> },
-  { path: 'gigs', element: <GigsPage /> },
-  { path: 'projects', element: <ProjectsPage /> },
-  { path: 'creation-studio', element: <CreationStudioWizardPage /> },
-  { path: 'users/:userId', element: <UserProfileViewPage /> },
-  { path: 'projects/new', element: <ProjectCreatePage /> },
-  { path: 'projects/:projectId', element: <ProjectDetailPage /> },
-  { path: 'projects/:projectId/auto-match', element: <ProjectAutoMatchPage /> },
-  { path: 'groups', element: <GroupsPage /> },
-  { path: 'groups/:groupId', element: <GroupProfilePage /> },
-  { path: 'pages', element: <PagesPage /> },
-  { path: 'connections', element: <ConnectionsPage /> },
-  { path: 'notifications', element: <NotificationsPage /> },
-  { path: 'trust-center', element: <TrustCenterPage /> },
-  { path: 'auto-assign', element: <AutoAssignQueuePage /> },
-  { path: 'inbox', element: <InboxPage /> },
-  { path: 'settings', element: <SettingsPage /> },
-  { path: 'finance', element: <FinanceHubPage /> },
+  { path: 'feed', module: './pages/FeedPage.jsx' },
+  { path: 'search', module: './pages/SearchPage.jsx' },
+  { path: 'explorer/:category/:recordId', module: './pages/ExplorerRecordPage.jsx' },
+  { path: 'jobs', module: './pages/JobsPage.jsx' },
+  { path: 'gigs', module: './pages/GigsPage.jsx' },
+  { path: 'projects', module: './pages/ProjectsPage.jsx' },
+  { path: 'creation-studio', module: './pages/CreationStudioWizardPage.jsx' },
+  { path: 'users/:userId', module: './pages/UserProfileViewPage.jsx' },
+  { path: 'projects/new', module: './pages/ProjectCreatePage.jsx' },
+  { path: 'projects/:projectId', module: './pages/ProjectDetailPage.jsx' },
+  { path: 'projects/:projectId/auto-match', module: './pages/ProjectAutoMatchPage.jsx' },
+  { path: 'groups', module: './pages/GroupsPage.jsx' },
+  { path: 'groups/:groupId', module: './pages/GroupProfilePage.jsx' },
+  { path: 'pages', module: './pages/PagesPage.jsx' },
+  { path: 'connections', module: './pages/ConnectionsPage.jsx' },
+  { path: 'notifications', module: './pages/NotificationsPage.jsx' },
+  { path: 'trust-center', module: './pages/TrustCenter.jsx' },
+  { path: 'auto-assign', module: './pages/AutoAssignQueuePage.jsx' },
+  { path: 'inbox', module: './pages/InboxPage.jsx' },
+  { path: 'settings', module: './pages/SettingsPage.jsx' },
+  { path: 'finance', module: './pages/FinanceHubPage.jsx' },
 ];
 
-export const VOLUNTEER_ROUTES = [{ path: 'volunteering', element: <VolunteeringPage /> }];
+export const VOLUNTEER_ROUTES = [{ path: 'volunteering', module: './pages/VolunteeringPage.jsx' }];
 
-export const LAUNCHPAD_ROUTES = [{ path: 'experience-launchpad', element: <LaunchpadPage /> }];
+export const LAUNCHPAD_ROUTES = [{ path: 'experience-launchpad', module: './pages/LaunchpadPage.jsx' }];
 
-export const SECURITY_ROUTES = [{ path: 'security-operations', element: <SecurityOperationsPage /> }];
+export const SECURITY_ROUTES = [{ path: 'security-operations', module: './pages/SecurityOperationsPage.jsx' }];
 
 export const userDashboardRoutes = [
-  { path: 'dashboard/user', element: <UserDashboardPage /> },
-  { path: 'dashboard/user/creation-studio', element: <UserCreationStudioPage /> },
-  { path: 'dashboard/user/projects', element: <UserProjectManagementPage /> },
-  { path: 'dashboard/user/disputes', element: <UserDisputesPage /> },
-  { path: 'dashboard/user/calendar', element: <UserCalendarPage /> },
-  { path: 'dashboard/user/profile', element: <UserProfileHubPage /> },
+  { path: 'dashboard/user', module: './pages/dashboards/UserDashboardPage.jsx' },
+  { path: 'dashboard/user/creation-studio', module: './pages/dashboards/UserCreationStudioPage.jsx' },
+  { path: 'dashboard/user/projects', module: './pages/dashboards/UserProjectManagementPage.jsx' },
+  { path: 'dashboard/user/disputes', module: './pages/dashboards/UserDisputesPage.jsx' },
+  { path: 'dashboard/user/calendar', module: './pages/dashboards/user/UserCalendarPage.jsx' },
+  { path: 'dashboard/user/profile', module: './pages/dashboards/UserProfileHubPage.jsx' },
 ];
 
 export const freelancerRoutes = [
-  { path: 'dashboard/freelancer', element: <FreelancerDashboardPage /> },
-  { path: 'dashboard/freelancer/volunteer', element: <FreelancerVolunteerPage /> },
-  { path: 'dashboard/freelancer/planner', element: <FreelancerPlannerPage /> },
-  { path: 'dashboard/freelancer/automatch', element: <FreelancerAutoMatchPage /> },
-  { path: 'dashboard/freelancer/pipeline', element: <FreelancerPipelinePage /> },
-  { path: 'dashboard/freelancer/portfolio', element: <FreelancerPortfolioPage /> },
-  { path: 'dashboard/freelancer/creation-studio', element: <FreelancerCreationStudioPage /> },
-  { path: 'dashboard/freelancer/documents', element: <FreelancerDocumentsPage /> },
-  { path: 'dashboard/freelancer/networking', element: <FreelancerNetworkingPage /> },
-  { path: 'dashboard/freelancer/disputes', element: <FreelancerDisputesPage /> },
+  { path: 'dashboard/freelancer', module: './pages/dashboards/FreelancerDashboardPage.jsx' },
+  { path: 'dashboard/freelancer/volunteer', module: './pages/dashboards/FreelancerVolunteerPage.jsx' },
+  { path: 'dashboard/freelancer/planner', module: './pages/dashboards/FreelancerPlannerPage.jsx' },
+  { path: 'dashboard/freelancer/automatch', module: './pages/dashboards/FreelancerAutoMatchPage.jsx' },
+  { path: 'dashboard/freelancer/pipeline', module: './pages/dashboards/FreelancerPipelinePage.jsx' },
+  { path: 'dashboard/freelancer/portfolio', module: './pages/dashboards/FreelancerPortfolioPage.jsx' },
+  { path: 'dashboard/freelancer/creation-studio', module: './pages/dashboards/FreelancerCreationStudioPage.jsx' },
+  { path: 'dashboard/freelancer/documents', module: './pages/dashboards/freelancer/FreelancerDocumentsPage.jsx' },
+  { path: 'dashboard/freelancer/networking', module: './pages/dashboards/freelancer/FreelancerNetworkingPage.jsx' },
+  { path: 'dashboard/freelancer/disputes', module: './pages/dashboards/freelancer/FreelancerDisputesPage.jsx' },
 ];
 
 export const companyRoutes = [
-  { path: 'dashboard/company', element: <CompanyDashboardPage /> },
-  { path: 'dashboard/company/profile', element: <CompanyProfileWorkspacePage /> },
-  { path: 'dashboard/company/creation-studio', element: <CompanyCreationStudioPage /> },
-  { path: 'dashboard/company/hub', element: <CompanyHubPage /> },
-  { path: 'dashboard/company/metrics', element: <CompanyMetricsPage /> },
-  { path: 'dashboard/company/wallets', element: <CompanyWalletManagementPage /> },
-  { path: 'dashboard/company/settings', element: <CompanySettingsPage /> },
-  { path: 'dashboard/company/system-preferences', element: <CompanySystemPreferencesPage /> },
-  { path: 'dashboard/company/analytics', element: <CompanyAnalyticsPage /> },
-  { path: 'dashboard/company/projects', element: <CompanyProjectManagementPage /> },
-  { path: 'dashboard/company/workspace', element: <CompanyProjectWorkspacePage /> },
-  { path: 'dashboard/company/inbox', element: <CompanyInboxPage /> },
-  { path: 'dashboard/company/timeline', element: <CompanyTimelineManagementPage /> },
-  { path: 'dashboard/company/ats', element: <CompanyAtsOperationsPage /> },
-  { path: 'dashboard/company/calendar', element: <CompanyCalendarPage /> },
-  { path: 'dashboard/company/job-management', element: <CompanyJobManagementPage /> },
-  { path: 'dashboard/company/launchpad-jobs', element: <CompanyLaunchpadJobManagementPage /> },
-  { path: 'dashboard/company/orders', element: <CompanyOrdersPage /> },
-  { path: 'dashboard/company/ads', element: <CompanyAdsPage /> },
-  { path: 'dashboard/company/groups', element: <CompanyGroupManagementPage /> },
-  { path: 'dashboard/company/integrations', element: <CompanyIntegrationsPage /> },
-  { path: 'dashboard/company/escrow', element: <CompanyEscrowManagementPage /> },
-  { path: 'dashboard/company/pages', element: <CompanyPagesManagementPage /> },
-  { path: 'dashboard/company/id-verification', element: <CompanyIdVerificationPage /> },
-  { path: 'dashboard/company/volunteering', element: <CompanyVolunteeringManagementPage /> },
-  { path: 'dashboard/company/integrations/crm', element: <CompanyCrmIntegrationsPage /> },
-  { path: 'dashboard/company/ai-auto-reply', element: <CompanyByokAutoReplyPage /> },
-  { path: 'dashboard/company/disputes', element: <CompanyDisputeManagementPage /> },
-  { path: 'dashboard/company/networking', element: <CompanyNetworkingHubPage /> },
-  { path: 'dashboard/company/networking/sessions', element: <NetworkingSessionsPage /> },
+  { path: 'dashboard/company', module: './pages/dashboards/CompanyDashboardPage.jsx' },
+  { path: 'dashboard/company/profile', module: './pages/dashboards/CompanyProfileWorkspacePage.jsx' },
+  { path: 'dashboard/company/creation-studio', module: './pages/dashboards/CompanyCreationStudioPage.jsx' },
+  { path: 'dashboard/company/hub', module: './pages/dashboards/CompanyHubPage.jsx' },
+  { path: 'dashboard/company/metrics', module: './pages/dashboards/CompanyMetricsPage.jsx' },
+  { path: 'dashboard/company/wallets', module: './pages/dashboards/CompanyWalletManagementPage.jsx' },
+  { path: 'dashboard/company/settings', module: './pages/dashboards/CompanySettingsPage.jsx' },
+  { path: 'dashboard/company/system-preferences', module: './pages/dashboards/CompanySystemPreferencesPage.jsx' },
+  { path: 'dashboard/company/analytics', module: './pages/dashboards/CompanyAnalyticsPage.jsx' },
+  { path: 'dashboard/company/projects', module: './pages/dashboards/CompanyProjectManagementPage.jsx' },
+  { path: 'dashboard/company/workspace', module: './pages/dashboards/company/CompanyProjectWorkspacePage.jsx' },
+  { path: 'dashboard/company/inbox', module: './pages/dashboards/CompanyInboxPage.jsx' },
+  { path: 'dashboard/company/timeline', module: './pages/dashboards/CompanyTimelineManagementPage.jsx' },
+  { path: 'dashboard/company/ats', module: './pages/dashboards/CompanyAtsOperationsPage.jsx' },
+  { path: 'dashboard/company/calendar', module: './pages/dashboards/CompanyCalendarPage.jsx' },
+  { path: 'dashboard/company/job-management', module: './pages/dashboards/CompanyJobManagementPage.jsx' },
+  { path: 'dashboard/company/launchpad-jobs', module: './pages/dashboards/CompanyLaunchpadJobManagementPage.jsx' },
+  { path: 'dashboard/company/orders', module: './pages/dashboards/CompanyOrdersPage.jsx' },
+  { path: 'dashboard/company/ads', module: './pages/dashboards/CompanyAdsPage.jsx' },
+  { path: 'dashboard/company/groups', module: './pages/dashboards/CompanyGroupManagementPage.jsx' },
+  { path: 'dashboard/company/integrations', module: './pages/dashboards/CompanyIntegrationsPage.jsx' },
+  { path: 'dashboard/company/escrow', module: './pages/dashboards/CompanyEscrowManagementPage.jsx' },
+  { path: 'dashboard/company/pages', module: './pages/dashboards/CompanyPagesManagementPage.jsx' },
+  { path: 'dashboard/company/id-verification', module: './pages/dashboards/CompanyIdVerificationPage.jsx' },
+  { path: 'dashboard/company/volunteering', module: './pages/dashboards/CompanyVolunteeringManagementPage.jsx' },
+  { path: 'dashboard/company/integrations/crm', module: './pages/dashboards/CompanyCrmIntegrationsPage.jsx' },
+  { path: 'dashboard/company/ai-auto-reply', module: './pages/dashboards/CompanyByokAutoReplyPage.jsx' },
+  { path: 'dashboard/company/disputes', module: './pages/dashboards/company/CompanyDisputeManagementPage.jsx' },
+  { path: 'dashboard/company/networking', module: './pages/networking/CompanyNetworkingHubPage.jsx' },
+  { path: 'dashboard/company/networking/sessions', module: './pages/networking/NetworkingSessionsPage.jsx' },
 ];
 
 export const agencyRoutes = [
-  { path: 'dashboard/agency', element: <AgencyDashboardPage />, roles: ['agency', 'agency_admin', 'admin'] },
-  { path: 'dashboard/agency/disputes', element: <DisputeManagementPage />, roles: ['agency'] },
-  { path: 'dashboard/agency/escrow', element: <AgencyEscrowManagementPage />, roles: ['agency'] },
-  { path: 'dashboard/agency/crm', element: <AgencyCrmPipelinePage />, roles: ['agency', 'agency_admin'] },
-  { path: 'dashboard/agency/integrations', element: <AgencyIntegrationsPage />, roles: ['agency', 'agency_admin', 'admin'] },
-  { path: 'dashboard/agency/ai', element: <AgencyAiAutomationPage />, roles: ['agency', 'agency_admin', 'admin'] },
-  { path: 'dashboard/agency/profile', element: <AgencyProfileManagementPage />, roles: ['agency', 'agency_admin'] },
-  { path: 'dashboard/agency/client-kanban', element: <AgencyClientKanbanPage />, roles: ['agency', 'agency_admin', 'admin'] },
-  { path: 'dashboard/agency/wallet', element: <AgencyWalletManagementPage />, roles: ['agency'] },
-  { path: 'dashboard/agency/timeline', element: <AgencyTimelineDashboardPage />, roles: ['agency', 'agency_admin', 'admin'] },
-  { path: 'dashboard/agency/blog', element: <AgencyBlogManagementPage />, roles: ['agency', 'agency_admin', 'admin'] },
-  { path: 'dashboard/agency/inbox', element: <AgencyInboxPage />, roles: ['agency'] },
-  { path: 'dashboard/agency/workspace', element: <ProjectWorkspacePage />, roles: ['agency'] },
-  { path: 'dashboard/agency/projects', element: <AgencyProjectManagementPage />, roles: ['agency'] },
-  { path: 'dashboard/agency/mentoring', element: <AgencyMentoringPage />, roles: ['agency'] },
-  { path: 'dashboard/agency/job-management', element: <AgencyJobManagementPage />, roles: ['agency'] },
-  { path: 'dashboard/agency/interviews', element: <AgencyInterviewsPage />, roles: ['agency', 'agency_admin', 'admin'] },
-  { path: 'dashboard/agency/calendar', element: <AgencyCalendarPage />, roles: ['agency'] },
-  { path: 'dashboard/agency/id-verification', element: <AgencyIdVerificationPage />, roles: ['agency', 'agency_admin', 'admin'] },
-  { path: 'dashboard/agency/support', element: <AgencySupportDeskPage />, roles: ['agency'] },
-  { path: 'dashboard/agency/events', element: <AgencyEventManagementPage />, roles: ['agency'] },
-  { path: 'dashboard/agency/networking', element: <AgencyNetworkingManagementPage />, roles: ['agency', 'agency_admin', 'admin'] },
+  {
+    path: 'dashboard/agency',
+    module: './pages/dashboards/AgencyDashboardPage.jsx',
+    roles: ['agency', 'agency_admin', 'admin'],
+  },
+  {
+    path: 'dashboard/agency/disputes',
+    module: './pages/dashboards/agency/DisputeManagementPage.jsx',
+    roles: ['agency'],
+  },
+  {
+    path: 'dashboard/agency/escrow',
+    module: './pages/dashboards/agency/AgencyEscrowManagementPage.jsx',
+    roles: ['agency'],
+  },
+  {
+    path: 'dashboard/agency/crm',
+    module: './pages/dashboards/AgencyCrmPipelinePage.jsx',
+    roles: ['agency', 'agency_admin'],
+  },
+  {
+    path: 'dashboard/agency/integrations',
+    module: './pages/dashboards/AgencyIntegrationsPage.jsx',
+    roles: ['agency', 'agency_admin', 'admin'],
+  },
+  {
+    path: 'dashboard/agency/ai',
+    module: './pages/dashboards/AgencyAiAutomationPage.jsx',
+    roles: ['agency', 'agency_admin', 'admin'],
+  },
+  {
+    path: 'dashboard/agency/profile',
+    module: './pages/dashboards/AgencyProfileManagementPage.jsx',
+    roles: ['agency', 'agency_admin'],
+  },
+  {
+    path: 'dashboard/agency/client-kanban',
+    module: './pages/dashboards/AgencyClientKanbanPage.jsx',
+    roles: ['agency', 'agency_admin', 'admin'],
+  },
+  {
+    path: 'dashboard/agency/wallet',
+    module: './pages/dashboards/agency/AgencyWalletManagementPage.jsx',
+    roles: ['agency'],
+  },
+  {
+    path: 'dashboard/agency/timeline',
+    module: './pages/dashboards/agency/AgencyTimelineDashboardPage.jsx',
+    roles: ['agency', 'agency_admin', 'admin'],
+  },
+  {
+    path: 'dashboard/agency/blog',
+    module: './pages/dashboards/AgencyBlogManagementPage.jsx',
+    roles: ['agency', 'agency_admin', 'admin'],
+  },
+  {
+    path: 'dashboard/agency/inbox',
+    module: './pages/dashboards/agency/AgencyInboxPage.jsx',
+    roles: ['agency'],
+  },
+  {
+    path: 'dashboard/agency/workspace',
+    module: './pages/dashboards/agency/ProjectWorkspacePage.jsx',
+    roles: ['agency'],
+  },
+  {
+    path: 'dashboard/agency/projects',
+    module: './pages/dashboards/AgencyProjectManagementPage.jsx',
+    roles: ['agency'],
+  },
+  {
+    path: 'dashboard/agency/mentoring',
+    module: './pages/dashboards/AgencyMentoringPage.jsx',
+    roles: ['agency'],
+  },
+  {
+    path: 'dashboard/agency/job-management',
+    module: './pages/dashboards/agency/AgencyJobManagementPage.jsx',
+    roles: ['agency'],
+  },
+  {
+    path: 'dashboard/agency/interviews',
+    module: './pages/dashboards/agency/AgencyInterviewsPage.jsx',
+    roles: ['agency', 'agency_admin', 'admin'],
+  },
+  {
+    path: 'dashboard/agency/calendar',
+    module: './pages/dashboards/agency/AgencyCalendarPage.jsx',
+    roles: ['agency'],
+  },
+  {
+    path: 'dashboard/agency/id-verification',
+    module: './pages/dashboards/agency/AgencyIdVerificationPage.jsx',
+    roles: ['agency', 'agency_admin', 'admin'],
+  },
+  {
+    path: 'dashboard/agency/support',
+    module: './pages/dashboards/agency/AgencySupportDeskPage.jsx',
+    roles: ['agency'],
+  },
+  {
+    path: 'dashboard/agency/events',
+    module: './pages/dashboards/agency/AgencyEventManagementPage.jsx',
+    roles: ['agency'],
+  },
+  {
+    path: 'dashboard/agency/networking',
+    module: './pages/dashboards/agency/AgencyNetworkingManagementPage.jsx',
+    roles: ['agency', 'agency_admin', 'admin'],
+  },
 ];
 
 export const headhunterRoutes = [
-  { path: 'dashboard/headhunter', element: <HeadhunterDashboardPage />, roles: ['headhunter'] },
+  { path: 'dashboard/headhunter', module: './pages/dashboards/HeadhunterDashboardPage.jsx', roles: ['headhunter'] },
 ];
 
-export const mentorRoutes = [{ path: 'dashboard/mentor', element: <MentorDashboardPage />, roles: ['mentor'] }];
+export const mentorRoutes = [
+  { path: 'dashboard/mentor', module: './pages/dashboards/MentorDashboardPage.jsx', roles: ['mentor'] },
+];
 
 export const launchpadRoutes = [
-  { path: 'dashboard/launchpad', element: <LaunchpadOperationsPage />, roles: ['admin', 'mentor'] },
+  { path: 'dashboard/launchpad', module: './pages/dashboards/LaunchpadOperationsPage.jsx', roles: ['admin', 'mentor'] },
 ];
 
 export const adminRoutes = [
-  { path: 'dashboard/admin', element: <AdminDashboardPage /> },
-  { path: 'dashboard/admin/finance', element: <AdminFinancialManagementPage /> },
-  { path: 'dashboard/admin/interviews', element: <AdminInterviewManagementPage /> },
-  { path: 'dashboard/admin/inbox', element: <AdminInboxPage /> },
-  { path: 'dashboard/admin/moderation', element: <AdminModerationDashboardPage /> },
-  { path: 'dashboard/admin/timelines', element: <AdminTimelineManagementPage /> },
-  { path: 'dashboard/admin/appearance', element: <AdminAppearanceManagementPage /> },
-  { path: 'dashboard/admin/storage', element: <AdminStorageManagementPage /> },
-  { path: 'dashboard/admin/database', element: <AdminDatabaseSettingsPage /> },
-  { path: 'dashboard/admin/gdpr', element: <AdminGdprSettingsPage /> },
-  { path: 'dashboard/admin/compliance', element: <AdminComplianceManagementPage /> },
-  { path: 'dashboard/admin/maintenance', element: <AdminMaintenanceModePage /> },
-  { path: 'dashboard/admin/documents', element: <AdminDocumentsManagementPage /> },
-  { path: 'dashboard/admin/ads-settings', element: <AdminAdsSettingsPage /> },
-  { path: 'dashboard/admin/blog', element: <AdminBlogManagementPage /> },
-  { path: 'dashboard/admin/volunteering', element: <AdminVolunteeringPage /> },
-  { path: 'dashboard/admin/projects', element: <AdminProjectsPage /> },
-  { path: 'dashboard/admin/gigs', element: <AdminGigManagementPage /> },
-  { path: 'dashboard/admin/jobs', element: <AdminJobPostManagementPage /> },
-  { path: 'dashboard/admin/job-applications', element: <AdminJobApplicationsPage /> },
-  { path: 'dashboard/admin/calendar', element: <AdminCalendarPage /> },
-  { path: 'dashboard/admin/identity-verification', element: <AdminIdentityVerificationPage /> },
-  { path: 'dashboard/admin/wallets', element: <AdminWalletManagementPage /> },
-  { path: 'dashboard/admin/disputes', element: <AdminDisputeManagementPage /> },
-  { path: 'dashboard/admin/escrow', element: <AdminEscrowManagementPage /> },
-  { path: 'dashboard/admin/mobile-apps', element: <AdminMobileAppManagementPage /> },
-  { path: 'dashboard/admin/system-settings', element: <AdminSystemSettingsPage /> },
-  { path: 'dashboard/admin/homepage', element: <AdminHomepageSettingsPage /> },
-  { path: 'dashboard/admin/pages', element: <AdminPagesSettingsPage /> },
-  { path: 'dashboard/admin/users', element: <AdminUserManagementPage /> },
-  { path: 'dashboard/admin/site', element: <AdminSiteManagementPage /> },
-  { path: 'dashboard/admin/policies', element: <AdminPolicyManagementPage /> },
-  { path: 'dashboard/admin/api-management', element: <AdminApiManagementPage /> },
-  { path: 'dashboard/admin/email', element: <AdminEmailManagementPage /> },
-  { path: 'dashboard/admin/security/two-factor', element: <AdminTwoFactorManagementPage /> },
-  { path: 'dashboard/admin/seo', element: <AdminSeoSettingsPage /> },
-  { path: 'dashboard/admin/profiles', element: <AdminProfileManagementPage /> },
-  { path: 'dashboard/admin/speed-networking', element: <AdminSpeedNetworkingManagementPage /> },
-  { path: 'dashboard/admin/mentoring', element: <AdminMentoringSessionManagementPage /> },
+  { path: 'dashboard/admin', module: './pages/dashboards/AdminDashboardPage.jsx' },
+  { path: 'dashboard/admin/finance', module: './pages/dashboards/admin/AdminFinancialManagementPage.jsx' },
+  { path: 'dashboard/admin/interviews', module: './pages/dashboards/AdminInterviewManagementPage.jsx' },
+  { path: 'dashboard/admin/inbox', module: './pages/dashboards/AdminInboxPage.jsx' },
+  { path: 'dashboard/admin/moderation', module: './pages/dashboards/admin/AdminModerationDashboardPage.jsx' },
+  { path: 'dashboard/admin/timelines', module: './pages/dashboards/admin/AdminTimelineManagementPage.jsx' },
+  { path: 'dashboard/admin/appearance', module: './pages/dashboards/admin/AdminAppearanceManagementPage.jsx' },
+  { path: 'dashboard/admin/storage', module: './pages/dashboards/admin/AdminStorageManagementPage.jsx' },
+  { path: 'dashboard/admin/database', module: './pages/dashboards/AdminDatabaseSettingsPage.jsx' },
+  { path: 'dashboard/admin/gdpr', module: './pages/dashboards/admin/AdminGdprSettingsPage.jsx' },
+  { path: 'dashboard/admin/compliance', module: './pages/dashboards/admin/AdminComplianceManagementPage.jsx' },
+  { path: 'dashboard/admin/maintenance', module: './pages/dashboards/admin/AdminMaintenanceModePage.jsx' },
+  { path: 'dashboard/admin/documents', module: './pages/dashboards/admin/AdminDocumentsManagementPage.jsx' },
+  { path: 'dashboard/admin/ads-settings', module: './pages/dashboards/admin/AdminAdsSettingsPage.jsx' },
+  { path: 'dashboard/admin/blog', module: './pages/admin/AdminBlogManagementPage.jsx' },
+  { path: 'dashboard/admin/volunteering', module: './pages/dashboards/admin/AdminVolunteeringPage.jsx' },
+  { path: 'dashboard/admin/projects', module: './pages/admin/AdminProjectsPage.jsx' },
+  { path: 'dashboard/admin/gigs', module: './pages/admin/AdminGigManagementPage.jsx' },
+  { path: 'dashboard/admin/jobs', module: './pages/dashboards/admin/AdminJobPostManagementPage.jsx' },
+  { path: 'dashboard/admin/job-applications', module: './pages/dashboards/admin/AdminJobApplicationsPage.jsx' },
+  { path: 'dashboard/admin/calendar', module: './pages/admin/AdminCalendarPage.jsx' },
+  { path: 'dashboard/admin/identity-verification', module: './pages/dashboards/admin/AdminIdentityVerificationPage.jsx' },
+  { path: 'dashboard/admin/wallets', module: './pages/dashboards/admin/AdminWalletManagementPage.jsx' },
+  { path: 'dashboard/admin/disputes', module: './pages/dashboards/admin/AdminDisputeManagementPage.jsx' },
+  { path: 'dashboard/admin/escrow', module: './pages/dashboards/admin/AdminEscrowManagementPage.jsx' },
+  { path: 'dashboard/admin/mobile-apps', module: './pages/admin/AdminMobileAppManagementPage.jsx' },
+  { path: 'dashboard/admin/system-settings', module: './pages/dashboards/admin/SystemSettingsPage.jsx' },
+  { path: 'dashboard/admin/homepage', module: './pages/admin/AdminHomepageSettingsPage.jsx' },
+  { path: 'dashboard/admin/pages', module: './pages/dashboards/AdminPagesSettingsPage.jsx' },
+  { path: 'dashboard/admin/users', module: './pages/dashboards/admin/AdminUserManagementPage.jsx' },
+  { path: 'dashboard/admin/site', module: './pages/dashboards/admin/AdminSiteManagementPage.jsx' },
+  { path: 'dashboard/admin/policies', module: './pages/dashboards/admin/AdminPolicyManagementPage.jsx' },
+  { path: 'dashboard/admin/api-management', module: './pages/admin/AdminApiManagementPage.jsx' },
+  { path: 'dashboard/admin/email', module: './pages/dashboards/admin/email/AdminEmailManagementPage.jsx' },
+  { path: 'dashboard/admin/security/two-factor', module: './pages/dashboards/admin/AdminTwoFactorManagementPage.jsx' },
+  { path: 'dashboard/admin/seo', module: './pages/dashboards/admin/AdminSeoSettingsPage.jsx' },
+  { path: 'dashboard/admin/profiles', module: './pages/admin/AdminProfileManagementPage.jsx' },
+  { path: 'dashboard/admin/speed-networking', module: './pages/dashboards/admin/AdminSpeedNetworkingManagementPage.jsx' },
+  { path: 'dashboard/admin/mentoring', module: './pages/dashboards/admin/AdminMentoringSessionManagementPage.jsx' },
 ];
 
 function renderRoutes(routes) {
   return routes.map((route) => (
-    <Route key={route.path} path={route.path} element={route.element} />
+    <Route key={route.path} path={route.path} element={<LoadableRoute modulePath={route.module} />} />
   ));
 }
 
@@ -359,7 +332,11 @@ function renderRequireRoleRoutes(routes) {
     <Route
       key={route.path}
       path={route.path}
-      element={<RequireRole allowedRoles={route.roles}>{route.element}</RequireRole>}
+      element={
+        <RequireRole allowedRoles={route.roles}>
+          <LoadableRoute modulePath={route.module} />
+        </RequireRole>
+      }
     />
   ));
 }
@@ -369,7 +346,11 @@ function renderAdminRoutes(routes) {
     <Route
       key={route.path}
       path={route.path}
-      element={<RequireRole allowedRoles={['admin']}>{route.element}</RequireRole>}
+      element={
+        <RequireRole allowedRoles={['admin']}>
+          <LoadableRoute modulePath={route.module} />
+        </RequireRole>
+      }
     />
   ));
 }
@@ -393,8 +374,14 @@ export const ROUTE_COLLECTIONS = Object.freeze({
 export default function App() {
   return (
     <Routes>
-      <Route element={<MainLayout />}>
-        <Route index element={<HomePage />} />
+      <Route
+        element={
+          <Suspense fallback={<RouteLoading />}>
+            <MainLayout />
+          </Suspense>
+        }
+      >
+        <Route index element={<LoadableRoute modulePath="./pages/HomePage.jsx" />} />
         {renderRoutes(PUBLIC_ROUTES)}
         <Route element={<ProtectedRoute requiredMemberships={COMMUNITY_ACCESS_MEMBERSHIPS} />}>
           {renderRoutes(COMMUNITY_ROUTES)}
@@ -416,7 +403,9 @@ export default function App() {
           path={route.path}
           element={
             <RoleProtectedRoute allowedRoles={userRoles}>
-              <MembershipGate allowedMemberships={userRoles}>{route.element}</MembershipGate>
+              <MembershipGate allowedMemberships={userRoles}>
+                <LoadableRoute modulePath={route.module} />
+              </MembershipGate>
             </RoleProtectedRoute>
           }
         />
@@ -426,7 +415,11 @@ export default function App() {
         <Route
           key={route.path}
           path={route.path}
-          element={<RequireRole allowedRoles={['freelancer']}>{route.element}</RequireRole>}
+          element={
+            <RequireRole allowedRoles={['freelancer']}>
+              <LoadableRoute modulePath={route.module} />
+            </RequireRole>
+          }
         />
       ))}
 
@@ -434,7 +427,11 @@ export default function App() {
         <Route
           key={route.path}
           path={route.path}
-          element={<RequireRole allowedRoles={['company']}>{route.element}</RequireRole>}
+          element={
+            <RequireRole allowedRoles={['company']}>
+              <LoadableRoute modulePath={route.module} />
+            </RequireRole>
+          }
         />
       ))}
 
@@ -444,7 +441,7 @@ export default function App() {
       {renderRequireRoleRoutes(launchpadRoutes)}
       {renderAdminRoutes(adminRoutes)}
 
-      <Route path="admin" element={<AdminLoginPage />} />
+      <Route path="admin" element={<LoadableRoute modulePath="./pages/AdminLoginPage.jsx" />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

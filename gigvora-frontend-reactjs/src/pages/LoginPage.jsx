@@ -6,6 +6,8 @@ import useSession from '../hooks/useSession.js';
 import { loginWithPassword, verifyTwoFactor, resendTwoFactor, loginWithGoogle } from '../services/auth.js';
 import apiClient from '../services/apiClient.js';
 import SocialAuthButton, { SOCIAL_PROVIDERS } from '../components/SocialAuthButton.jsx';
+import useFormState from '../hooks/useFormState.js';
+import FormStatusMessage from '../components/forms/FormStatusMessage.jsx';
 
 export const DASHBOARD_ROUTES = {
   admin: '/dashboard/admin',
@@ -44,9 +46,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [challenge, setChallenge] = useState(null);
-  const [status, setStatus] = useState('idle');
-  const [error, setError] = useState(null);
-  const [info, setInfo] = useState(null);
+  const { status, setStatus, setError, setInfo, setSuccess, clearMessage, message, messageType, feedbackProps } =
+    useFormState();
 
   const navigate = useNavigate();
   const { login } = useSession();
@@ -60,8 +61,7 @@ export default function LoginPage() {
     if (status !== 'idle') return;
 
     setStatus('submitting');
-    setError(null);
-    setInfo(null);
+    clearMessage();
     try {
       const response = await loginWithPassword({ email, password });
       if (response.requiresTwoFactor) {
@@ -70,6 +70,7 @@ export default function LoginPage() {
         setInfo('Check your email for the verification code to finish signing in.');
       } else if (response.session) {
         const sessionState = login(response.session);
+        setSuccess('Signed in successfully. Redirecting you now.');
         navigate(resolveLanding(sessionState), { replace: true });
       } else {
         throw new Error('Unexpected authentication response.');
@@ -90,13 +91,13 @@ export default function LoginPage() {
     if (!awaitingTwoFactor || status !== 'idle') return;
 
     setStatus('verifying');
-    setError(null);
-    setInfo(null);
+    clearMessage();
     try {
       const response = await verifyTwoFactor({ email, code, tokenId: challenge.tokenId });
       const sessionState = login(response.session);
       setChallenge(null);
       setCode('');
+      setSuccess('Verification complete. Redirecting you to your dashboard.');
       navigate(resolveLanding(sessionState), { replace: true });
     } catch (verificationError) {
       if (verificationError instanceof apiClient.ApiError) {
@@ -112,7 +113,7 @@ export default function LoginPage() {
   const handleResend = async () => {
     if (!challenge?.tokenId || status !== 'idle') return;
     setStatus('resending');
-    setError(null);
+    clearMessage();
     try {
       const nextChallenge = await resendTwoFactor(challenge.tokenId);
       setChallenge(nextChallenge);
@@ -134,11 +135,11 @@ export default function LoginPage() {
       return;
     }
     setStatus('google');
-    setError(null);
-    setInfo(null);
+    clearMessage();
     try {
       const result = await loginWithGoogle(response.credential);
       const sessionState = login(result.session);
+      setSuccess('Signed in with Google. Redirecting you now.');
       navigate(resolveLanding(sessionState), { replace: true });
     } catch (googleError) {
       if (googleError instanceof apiClient.ApiError) {
@@ -162,7 +163,7 @@ export default function LoginPage() {
       return;
     }
 
-    setError(null);
+    clearMessage();
     setInfo(`Redirecting to ${provider === 'x' ? 'X' : provider.charAt(0).toUpperCase() + provider.slice(1)} to continue.`);
     setStatus('redirecting');
     const apiBase = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api').replace(/\/$/, '');
@@ -178,7 +179,7 @@ export default function LoginPage() {
       window.location.href = `${authBase}${next}`;
     } else {
       setStatus('idle');
-      setInfo(null);
+      clearMessage();
       setError('Social sign-in is not available right now. Please try another option.');
     }
   };
@@ -198,6 +199,11 @@ export default function LoginPage() {
             <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
               {!awaitingTwoFactor ? (
                 <form onSubmit={handleCredentialsSubmit} className="space-y-6" noValidate>
+                  <FormStatusMessage
+                    type={messageType ?? 'info'}
+                    message={message}
+                    {...feedbackProps}
+                  />
                   <div className="space-y-2">
                     <label htmlFor="email" className="text-sm font-medium text-slate-700">
                       Email
@@ -229,8 +235,6 @@ export default function LoginPage() {
                       minLength={8}
                     />
                   </div>
-                  {error ? <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{error}</p> : null}
-                  {info ? <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-600">{info}</p> : null}
                   <button
                     type="submit"
                     className="w-full rounded-full bg-accent px-6 py-3 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark disabled:cursor-not-allowed disabled:bg-accent/60"
@@ -287,6 +291,11 @@ export default function LoginPage() {
                 </form>
               ) : (
                 <form onSubmit={handleVerify} className="space-y-6" noValidate>
+                  <FormStatusMessage
+                    type={messageType ?? 'info'}
+                    message={message}
+                    {...feedbackProps}
+                  />
                   <div className="space-y-2">
                     <label htmlFor="twoFactorCode" className="text-sm font-medium text-slate-700">
                       Enter the 6-digit verification code
@@ -306,8 +315,6 @@ export default function LoginPage() {
                       {codeExpiresAt ? ` • Expires around ${codeExpiresAt}` : ''}
                     </p>
                   </div>
-                  {error ? <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-600">{error}</p> : null}
-                  {info ? <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-600">{info}</p> : null}
                   <button
                     type="submit"
                     className="w-full rounded-full bg-accent px-6 py-3 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark disabled:cursor-not-allowed disabled:bg-accent/60"

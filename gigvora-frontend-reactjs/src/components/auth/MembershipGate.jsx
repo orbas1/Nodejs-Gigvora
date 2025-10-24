@@ -1,6 +1,6 @@
 import { ShieldCheckIcon, ShieldExclamationIcon } from '@heroicons/react/24/outline';
 import { Link, useLocation } from 'react-router-dom';
-import useSession from '../../hooks/useSession.js';
+import useAccessControl from '../../hooks/useAccessControl.js';
 import { DASHBOARD_LINKS } from '../../constants/dashboardLinks.js';
 import { classNames } from '../../utils/classNames.js';
 
@@ -24,14 +24,17 @@ function Badge({ label, tone = 'neutral' }) {
 
 export default function MembershipGate({ allowedMemberships = [], children }) {
   const location = useLocation();
-  const { session, isAuthenticated } = useSession();
+  const access = useAccessControl({
+    requireAuth: true,
+    allowedMemberships,
+    preferDashboardRedirect: false,
+  });
 
   const normalizedAllowed = Array.isArray(allowedMemberships) && allowedMemberships.length ? allowedMemberships : null;
-  const activeMemberships = Array.isArray(session?.memberships) ? session.memberships : [];
-  const hasAccess =
-    normalizedAllowed == null || normalizedAllowed.some((membership) => activeMemberships.includes(membership));
+  const activeMemberships = Array.isArray(access.session?.memberships) ? access.session.memberships : [];
+  const hasAccess = access.hasAccess;
 
-  if (!isAuthenticated) {
+  if (access.status === 'unauthenticated') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-white via-slate-50 to-accentSoft/60">
         <div className="mx-auto flex min-h-screen max-w-4xl flex-col justify-center gap-10 px-6 py-20">

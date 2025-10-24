@@ -1,50 +1,25 @@
 import PropTypes from 'prop-types';
 import { Navigate, useLocation } from 'react-router-dom';
-import useSession from '../../hooks/useSession.js';
-
-function normaliseRole(value) {
-  if (!value) return null;
-  return `${value}`.trim().toLowerCase().replace(/\s+/g, '-');
-}
-
-function collectRoles(session) {
-  const roles = new Set();
-  if (!session) {
-    return roles;
-  }
-  const candidates = [
-    session.userType,
-    session.primaryDashboard,
-    ...(Array.isArray(session.memberships) ? session.memberships : []),
-    ...(Array.isArray(session.accountTypes) ? session.accountTypes : []),
-    ...(Array.isArray(session.roles) ? session.roles : []),
-  ];
-  candidates.map(normaliseRole).forEach((role) => {
-    if (role) {
-      roles.add(role);
-    }
-  });
-  return roles;
-}
+import useAccessControl from '../../hooks/useAccessControl.js';
 
 export default function RequireRole({ allowedRoles, fallback = '/login', children }) {
   const location = useLocation();
-  const { session, isAuthenticated } = useSession();
-  const normalisedAllowed = (allowedRoles ?? []).map(normaliseRole).filter(Boolean);
+  const access = useAccessControl({
+    requireAuth: true,
+    allowedRoles,
+    fallbackPath: fallback,
+  });
 
-  if (!isAuthenticated) {
+  if (access.status === 'unauthenticated') {
     return <Navigate to={fallback} replace state={{ from: location }} />;
   }
 
-  if (!normalisedAllowed.length) {
+  if (!allowedRoles?.length) {
     return children;
   }
 
-  const availableRoles = collectRoles(session);
-  const hasAccess = normalisedAllowed.some((role) => availableRoles.has(role));
-
-  if (!hasAccess) {
-    const redirectTo = session?.primaryDashboard ? `/dashboard/${session.primaryDashboard}` : fallback;
+  if (access.status === 'forbidden') {
+    const redirectTo = access.redirectPath ?? fallback;
     return <Navigate to={redirectTo} replace state={{ from: location }} />;
   }
 

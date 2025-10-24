@@ -8,7 +8,7 @@ function classNames(...classes) {
   return classes.filter(Boolean).join(' ');
 }
 
-export default function RoleSwitcher({ options, currentKey }) {
+export default function RoleSwitcher({ options, currentKey, onSelect }) {
   if (!options.length) {
     return null;
   }
@@ -36,6 +36,7 @@ export default function RoleSwitcher({ options, currentKey }) {
               {({ active }) => (
                 <Link
                   to={option.to}
+                  onClick={onSelect}
                   className={classNames(
                     'flex items-center justify-between gap-3 rounded-2xl px-3 py-2 transition',
                     option.key === activeOption.key
@@ -71,9 +72,11 @@ RoleSwitcher.propTypes = {
     }),
   ),
   currentKey: PropTypes.string,
+  onSelect: PropTypes.func,
 };
 
 RoleSwitcher.defaultProps = {
   options: [],
   currentKey: undefined,
+  onSelect: undefined,
 };

@@ -1,15 +1,29 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import useSession from '../../hooks/useSession.js';
-import { hasAnyMembership } from '../../utils/session.js';
+import useAccessControl from '../../hooks/useAccessControl.js';
 
-function DefaultAccessDenied() {
+function DefaultAccessDenied({ missingMemberships = [] }) {
+  const hasMissing = Array.isArray(missingMemberships) && missingMemberships.length > 0;
   return (
     <div className="px-6 py-16">
       <div className="mx-auto max-w-xl rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-soft">
         <h1 className="text-2xl font-semibold text-slate-900">Community access locked</h1>
         <p className="mt-3 text-sm text-slate-600">
-          Switch to a community-enabled role or contact support to turn it on.
+          {hasMissing
+            ? 'This area is limited to the following memberships:'
+            : 'Switch to a community-enabled role or contact support to turn it on.'}
         </p>
+        {hasMissing ? (
+          <ul className="mt-3 flex flex-wrap items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            {missingMemberships.map((membership) => (
+              <li
+                key={membership}
+                className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-amber-600"
+              >
+                {membership}
+              </li>
+            ))}
+          </ul>
+        ) : null}
         <a
           href="https://support.gigvora.com"
           target="_blank"
@@ -24,15 +38,20 @@ function DefaultAccessDenied() {
 }
 
 export default function ProtectedRoute({ requiredMemberships = [], redirectTo = '/login', fallback = null }) {
-  const { session, isAuthenticated } = useSession();
   const location = useLocation();
+  const access = useAccessControl({
+    requireAuth: true,
+    allowedMemberships: requiredMemberships,
+    fallbackPath: redirectTo,
+    preferDashboardRedirect: false,
+  });
 
-  if (!isAuthenticated) {
+  if (access.status === 'unauthenticated') {
     return <Navigate to={redirectTo} replace state={{ from: location }} />;
   }
 
-  if (requiredMemberships.length && !hasAnyMembership(session, requiredMemberships)) {
-    return fallback ?? <DefaultAccessDenied />;
+  if (access.status === 'forbidden') {
+    return fallback ?? <DefaultAccessDenied missingMemberships={access.missingMemberships} />;
   }
 
   return <Outlet />;
