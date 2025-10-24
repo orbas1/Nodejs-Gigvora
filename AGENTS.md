@@ -2126,7 +2126,7 @@ This document catalogues the public marketing shell, pre-login journeys, and per
       2. Launch analytics/alert overlays and AI summary banner, monitoring recruiter productivity metrics.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyDashboardPage.jsx†L1-L200】
       3. Integrate creation studio previews and mentorship tie-ins, tracking candidate satisfaction improvements.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyDashboardPage.jsx†L17-L200】
 
-### 8.B. ATS Operations Command
+### ✅ 8.B. ATS Operations Command
 
 **Components**
 
@@ -2157,10 +2157,10 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   24. **Design Duplication.** Align metric styling with company dashboard summary cards for parity.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyAtsOperationsPage.jsx†L145-L173】【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyDashboardPage.jsx†L186-L200】
   25. **Design framework.** Built atop DashboardLayout ensuring guard rails and navigation parity.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyAtsOperationsPage.jsx†L12-L40】
   26. **Change Checklist Tracker Extensive.**
-      - [ ] Centralise formatting utilities with company dashboard.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyAtsOperationsPage.jsx†L24-L120】
-      - [ ] Add trend charts, fairness analytics, and SLA alerts.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyAtsOperationsPage.jsx†L80-L200】
-      - [ ] Implement segmentation filters and report export CTAs.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyAtsOperationsPage.jsx†L1-L200】
-      - [ ] Provide hover/drilldown interactions linking to detailed pipelines.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyAtsOperationsPage.jsx†L145-L173】
+      - ✅ Centralise formatting utilities with company dashboard.【F:gigvora-frontend-reactjs/src/utils/numberFormat.js†L1-L89】【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyAtsOperationsPage.jsx†L1-L200】【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyDashboardPage.jsx†L1-L120】【F:gigvora-frontend-reactjs/src/hooks/useCompanyDashboard.js†L1-L120】
+      - ✅ Add trend charts, fairness analytics, and SLA alerts.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyAtsOperationsPage.jsx†L120-L420】
+      - ✅ Implement segmentation filters and report export CTAs.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyAtsOperationsPage.jsx†L240-L420】
+      - ✅ Provide hover/drilldown interactions linking to detailed pipelines.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyAtsOperationsPage.jsx†L140-L210】
   27. **Full Upgrade Plan & Release Steps  Extensive.**
       1. Consolidate utilities and launch trend charts/alerts, validating with enterprise hiring teams.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyAtsOperationsPage.jsx†L1-L200】
       2. Add fairness analytics and segmentation filters, monitoring recruiter adoption and decision speed.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyAtsOperationsPage.jsx†L68-L200】

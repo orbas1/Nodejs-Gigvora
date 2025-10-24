@@ -1,24 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import useCachedResource from './useCachedResource.js';
 import { fetchCompanyDashboard } from '../services/company.js';
-
-function formatNumber(value) {
-  if (value == null) return '—';
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) {
-    return `${value}`;
-  }
-  return numeric.toLocaleString();
-}
-
-function formatPercentValue(value) {
-  if (value == null) return '—';
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) {
-    return '—';
-  }
-  return `${numeric.toFixed(1)}%`;
-}
+import { formatNumber, formatPercent } from '../utils/numberFormat.js';
 
 export function useCompanyDashboard({ workspaceId, workspaceSlug, lookbackDays = 30, enabled = true } = {}) {
   const cacheKey = useMemo(() => {
@@ -101,7 +84,7 @@ export function useCompanyDashboard({ workspaceId, workspaceSlug, lookbackDays =
       },
       {
         label: 'Attrition risk',
-        value: formatPercentValue(attritionRisk),
+        value: formatPercent(attritionRisk),
       },
       {
         label: 'Brand campaigns',
@@ -109,7 +92,7 @@ export function useCompanyDashboard({ workspaceId, workspaceSlug, lookbackDays =
       },
       {
         label: 'Referral conversion',
-        value: formatPercentValue(referralConversion),
+        value: formatPercent(referralConversion),
       },
     ];
 

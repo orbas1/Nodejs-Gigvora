@@ -25,6 +25,7 @@ import CompanyPagesManagementSection from '../../components/company/CompanyPages
 import { useCompanyDashboard } from '../../hooks/useCompanyDashboard.js';
 import { useSession } from '../../context/SessionContext.jsx';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
+import { formatNumber, formatPercent, formatCurrency } from '../../utils/numberFormat.js';
 import { COMPANY_DASHBOARD_MENU_SECTIONS } from '../../constants/companyDashboardMenu.js';
 import TimelineManagementSection from '../../components/company/TimelineManagementSection.jsx';
 
@@ -44,43 +45,6 @@ const SUMMARY_ICONS = [
   ChartBarIcon,
   ChatBubbleLeftRightIcon,
 ];
-
-function formatNumber(value, { fallback = '—', suffix = '', decimals = null } = {}) {
-  if (value == null || Number.isNaN(Number(value))) {
-    return fallback;
-  }
-  const numeric = Number(value);
-  const formatted =
-    decimals == null
-      ? numeric.toLocaleString()
-      : numeric.toLocaleString(undefined, {
-          minimumFractionDigits: decimals,
-          maximumFractionDigits: decimals,
-        });
-  return `${formatted}${suffix}`;
-}
-
-function formatPercent(value, { fallback = '—', decimals = 1 } = {}) {
-  if (value == null || Number.isNaN(Number(value))) {
-    return fallback;
-  }
-  return `${Number(value).toFixed(decimals)}%`;
-}
-
-function formatCurrency(value, currency = 'USD', { fallback = '—' } = {}) {
-  if (value == null || Number.isNaN(Number(value))) {
-    return fallback;
-  }
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) {
-    return fallback;
-  }
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: currency || 'USD',
-    maximumFractionDigits: numeric < 100 ? 2 : 0,
-  }).format(numeric);
-}
 
 function buildProfile(data, summaryCards) {
   const workspace = data?.workspace ?? {};
