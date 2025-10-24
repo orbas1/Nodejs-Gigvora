@@ -5,12 +5,21 @@ import {
   listProjects,
   listLaunchpads,
   listVolunteering,
+  listMentors,
 } from '../services/discoveryService.js';
 import { ValidationError } from '../utils/errors.js';
 
 const MAX_PAGE_SIZE = 50;
 const MAX_SNAPSHOT_LIMIT = 50;
-const SORT_OPTIONS = new Set(['default', 'newest', 'alphabetical', 'budget', 'status']);
+const SORT_OPTIONS = new Set([
+  'default',
+  'newest',
+  'alphabetical',
+  'budget',
+  'status',
+  'price_asc',
+  'price_desc',
+]);
 
 function normaliseBoolean(value) {
   if (value == null) {
@@ -140,6 +149,11 @@ export async function volunteering(req, res) {
   res.json(result);
 }
 
+export async function mentors(req, res) {
+  const result = await listMentors(buildSearchOptions(req));
+  res.json(result);
+}
+
 export default {
   snapshot,
   jobs,
@@ -147,4 +161,5 @@ export default {
   projects,
   launchpads,
   volunteering,
+  mentors,
 };

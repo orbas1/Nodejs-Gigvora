@@ -13,6 +13,7 @@ router.get('/jobs', asyncHandler(discoveryController.jobs));
 router.get('/gigs', asyncHandler(discoveryController.gigs));
 router.get('/projects', asyncHandler(discoveryController.projects));
 router.get('/launchpads', asyncHandler(discoveryController.launchpads));
+router.get('/mentors', asyncHandler(discoveryController.mentors));
 router.get(
   '/volunteering',
   authenticateRequest(),

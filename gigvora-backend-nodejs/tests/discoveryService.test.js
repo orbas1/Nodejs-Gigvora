@@ -5,12 +5,14 @@ import {
   Project,
   ExperienceLaunchpad,
   Volunteering,
+  MentorProfile,
 } from '../src/models/index.js';
 import {
   getDiscoverySnapshot,
   listJobs,
   listGigs,
   listProjects,
+  listMentors,
 } from '../src/services/discoveryService.js';
 
 function createDateOffset(minutes) {
@@ -66,6 +68,60 @@ describe('discoveryService', () => {
         createdAt: now,
         updatedAt: now,
       }),
+      MentorProfile.create({
+        slug: 'jordan-mentor',
+        name: 'Jordan Mentor',
+        headline: 'Product leadership mentor',
+        bio: 'Helps product leads align on strategy and storytelling.',
+        region: 'London, United Kingdom',
+        discipline: 'Product Leadership',
+        expertise: ['Roadmapping', 'Storytelling'],
+        sessionFeeAmount: 250,
+        sessionFeeCurrency: 'GBP',
+        priceTier: 'tier_growth',
+        availabilityStatus: 'open',
+        availabilityNotes: 'Tuesday deep dives, async Friday reviews.',
+        responseTimeHours: 6,
+        reviewCount: 28,
+        rating: 4.9,
+        verificationBadge: 'Verified mentor',
+        packages: [
+          {
+            name: 'Leadership Sprint',
+            description: 'Six-week programme with playbooks and async feedback.',
+            currency: 'GBP',
+            price: 1600,
+          },
+        ],
+        promoted: true,
+        rankingScore: 97.2,
+      }),
+      MentorProfile.create({
+        slug: 'amira-mentor',
+        name: 'Amira Mentor',
+        headline: 'Revenue operations coach',
+        bio: 'Coaches GTM leaders on forecasting and enablement.',
+        region: 'Singapore',
+        discipline: 'Revenue Operations',
+        expertise: ['Forecasting', 'Enablement'],
+        sessionFeeAmount: 140,
+        sessionFeeCurrency: 'USD',
+        priceTier: 'tier_entry',
+        availabilityStatus: 'waitlist',
+        responseTimeHours: 18,
+        reviewCount: 19,
+        rating: 4.8,
+        packages: [
+          {
+            name: 'GTM Diagnostic',
+            description: 'Four-week pipeline review and playbook design.',
+            currency: 'USD',
+            price: 3200,
+          },
+        ],
+        promoted: false,
+        rankingScore: 88.4,
+      }),
     ]);
   });
 
@@ -115,5 +171,37 @@ describe('discoveryService', () => {
       autoAssignLastQueueSize: null,
     });
     expect(projects.items[0].autoAssignSettings).toBeNull();
+  });
+
+  it('lists mentors with filters, pagination metadata, and facets', async () => {
+    const mentors = await listMentors({
+      query: 'mentor',
+      filters: { priceTier: ['tier_growth'], availability: ['open'] },
+      includeFacets: true,
+      pageSize: 5,
+    });
+
+    expect(mentors.items).toHaveLength(1);
+    expect(mentors.total).toBe(1);
+    expect(mentors.meta.hasMore).toBe(false);
+    expect(mentors.items[0]).toMatchObject({
+      name: 'Jordan Mentor',
+      priceTier: 'tier_growth',
+      availabilityStatus: 'open',
+      sessionFee: { amount: 250, currency: '£' },
+      isVerified: true,
+    });
+    expect(mentors.facets.discipline).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ value: 'Product Leadership' }),
+      ]),
+    );
+    expect(mentors.facets.priceTier).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ value: 'tier_entry' }),
+        expect.objectContaining({ value: 'tier_growth' }),
+      ]),
+    );
+    expect(mentors.appliedFilters.priceTier).toEqual(['tier_growth']);
   });
 });

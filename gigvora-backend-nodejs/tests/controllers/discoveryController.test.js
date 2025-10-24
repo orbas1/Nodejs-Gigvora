@@ -12,12 +12,13 @@ const serviceMock = {
   listProjects: jest.fn(),
   listLaunchpads: jest.fn(),
   listVolunteering: jest.fn(),
+  listMentors: jest.fn(),
 };
 
 await jest.unstable_mockModule(serviceModuleUrl.pathname, () => ({ __esModule: true, ...serviceMock }));
 
 const controllerModule = await import('../../src/controllers/discoveryController.js');
-const { snapshot, jobs, gigs, projects, launchpads, volunteering } = controllerModule;
+const { snapshot, jobs, gigs, projects, launchpads, volunteering, mentors } = controllerModule;
 const { ValidationError } = await import('../../src/utils/errors.js');
 
 function createResponse() {
@@ -91,11 +92,13 @@ describe('discoveryController', () => {
     serviceMock.listProjects.mockResolvedValueOnce(payload);
     serviceMock.listLaunchpads.mockResolvedValueOnce(payload);
     serviceMock.listVolunteering.mockResolvedValueOnce(payload);
+    serviceMock.listMentors.mockResolvedValueOnce(payload);
 
     await gigs(req, res);
     await projects(req, res);
     await launchpads(req, res);
     await volunteering(req, res);
+    await mentors(req, res);
 
     expect(serviceMock.listGigs).toHaveBeenCalledWith(
       expect.objectContaining({ page: 2, pageSize: 10, sort: 'alphabetical' }),
@@ -103,5 +106,8 @@ describe('discoveryController', () => {
     expect(serviceMock.listProjects).toHaveBeenCalled();
     expect(serviceMock.listLaunchpads).toHaveBeenCalled();
     expect(serviceMock.listVolunteering).toHaveBeenCalled();
+    expect(serviceMock.listMentors).toHaveBeenCalledWith(
+      expect.objectContaining({ page: 2, pageSize: 10, sort: 'alphabetical' }),
+    );
   });
 });
