@@ -81,3 +81,25 @@ export async function refreshSession(req, res) {
   });
   res.json(response);
 }
+
+export async function requestPasswordReset(req, res) {
+  const { email } = req.body;
+  const result = await authService.requestPasswordReset(email, {
+    context: { ipAddress: req.ip, userAgent: req.get('user-agent'), requestUrl: req.originalUrl },
+  });
+  res.status(202).json(result);
+}
+
+export async function verifyPasswordResetToken(req, res) {
+  const { token } = req.body;
+  const result = await authService.verifyPasswordResetToken(token);
+  res.json(result);
+}
+
+export async function resetPassword(req, res) {
+  const { token, password } = req.body;
+  const result = await authService.resetPassword(token, password, {
+    context: { ipAddress: req.ip, userAgent: req.get('user-agent'), requestUrl: req.originalUrl },
+  });
+  res.json(result);
+}

@@ -30,5 +30,19 @@ export default function errorHandler(err, req, res, next) {
     responseBody.details = err.details;
   }
 
+  if (err.meta && typeof err.meta === 'object') {
+    responseBody.meta = err.meta;
+  }
+  if (err.cooldownSeconds != null) {
+    responseBody.cooldownSeconds = err.cooldownSeconds;
+  }
+  if (err.retryAfterSeconds != null) {
+    responseBody.retryAfterSeconds = err.retryAfterSeconds;
+    res.setHeader('Retry-After', `${Math.ceil(Number(err.retryAfterSeconds))}`);
+  }
+  if (err.retryAfter && !responseBody.retryAfter) {
+    responseBody.retryAfter = err.retryAfter;
+  }
+
   res.status(status).json(responseBody);
 }

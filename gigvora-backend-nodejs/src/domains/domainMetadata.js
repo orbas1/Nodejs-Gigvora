@@ -59,6 +59,11 @@ export const domainMetadata = {
         retention: '30 days',
         justification: 'Temporary cache to rate limit OTP delivery.',
       },
+      PasswordResetToken: {
+        fields: ['requestedFromIp', 'requestedUserAgent', 'metadata'],
+        retention: '90 days',
+        justification: 'Audit trail for password reset requests and abuse investigations.',
+      },
       TwoFactorPolicy: {
         fields: ['allowedMethods', 'ipAllowlist', 'notes'],
         retention: 'Policy lifetime + 3 years',
@@ -96,6 +101,7 @@ export const domainMetadata = {
       },
       TwoFactorBypass: {
         reason: 'Business justification captured when issuing temporary MFA bypass tokens.',
+      },
       IdentityVerificationEvent: {
         metadata: 'Structured payload with reviewer assignments, file references, and automation signals.',
       },

@@ -584,7 +584,7 @@ export { AgencyAiConfiguration, AgencyAutoBidTemplate } from './agencyAiModels.j
 
 const PIPELINE_OWNER_TYPES = ['freelancer', 'agency', 'company'];
 const TWO_FACTOR_METHODS = ['email', 'app', 'sms'];
-export const USER_STATUSES = ['invited', 'active', 'suspended', 'archived'];
+export const USER_STATUSES = ['invited', 'active', 'suspended', 'archived', 'deleted'];
 const TWO_FACTOR_POLICY_ROLES = ['admin', 'staff', 'company', 'freelancer', 'agency', 'mentor', 'headhunter', 'all'];
 const TWO_FACTOR_ENFORCEMENT_LEVELS = ['optional', 'recommended', 'required'];
 const TWO_FACTOR_ENROLLMENT_METHODS = ['email', 'app', 'sms', 'security_key'];
@@ -9865,6 +9865,32 @@ export const TwoFactorToken = sequelize.define(
     ],
   },
 );
+
+export const PasswordResetToken = sequelize.define(
+  'PasswordResetToken',
+  {
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    tokenHash: { type: DataTypes.STRING(128), allowNull: false, unique: true },
+    requestedFromIp: { type: DataTypes.STRING(64), allowNull: true },
+    requestedUserAgent: { type: DataTypes.STRING(255), allowNull: true },
+    attempts: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    metadata: { type: jsonType, allowNull: true },
+    expiresAt: { type: DataTypes.DATE, allowNull: false },
+    consumedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'password_reset_tokens',
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['expiresAt'] },
+      { fields: ['consumedAt'] },
+    ],
+  },
+);
+
+PasswordResetToken.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(PasswordResetToken, { foreignKey: 'userId', as: 'passwordResetTokens' });
 
 export const TwoFactorPolicy = sequelize.define(
   'TwoFactorPolicy',
@@ -23489,6 +23515,7 @@ domainRegistry.registerContext({
       /^Identity/.test(modelName) ||
       /^Corporate/.test(modelName) ||
       /^TwoFactor/.test(modelName) ||
+      /^PasswordReset/.test(modelName) ||
       /^AccountRecovery/.test(modelName) ||
       /^UserLogin/.test(modelName),
   ],

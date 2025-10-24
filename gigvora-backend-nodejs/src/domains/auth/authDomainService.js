@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import { Op } from 'sequelize';
 import { normalizeLocationPayload } from '../../utils/location.js';
@@ -23,6 +24,12 @@ const KNOWN_USER_ROLES = Object.freeze([
   'partner',
   'volunteer',
 ]);
+
+const PASSWORD_RESET_DEFAULT_EXPIRY_MINUTES = 30;
+const PASSWORD_RESET_MAX_EXPIRY_MINUTES = 180;
+const PASSWORD_RESET_DEFAULT_COOLDOWN_SECONDS = 120;
+const PASSWORD_RESET_MAX_COOLDOWN_SECONDS = 900;
+const PASSWORD_RESET_MAX_ATTEMPTS = 5;
 
 function createLogger(logger) {
   if (!logger) {
@@ -131,6 +138,32 @@ function normalizeStatusValue(value) {
   return KNOWN_USER_STATUSES.includes(normalized) ? normalized : 'active';
 }
 
+function resolvePasswordResetExpiryMinutes() {
+  const raw = Number.parseInt(
+    process.env.PASSWORD_RESET_EXPIRY_MINUTES ?? `${PASSWORD_RESET_DEFAULT_EXPIRY_MINUTES}`,
+    10,
+  );
+  if (!Number.isFinite(raw) || raw < 5) {
+    return PASSWORD_RESET_DEFAULT_EXPIRY_MINUTES;
+  }
+  return Math.min(raw, PASSWORD_RESET_MAX_EXPIRY_MINUTES);
+}
+
+function resolvePasswordResetCooldownSeconds() {
+  const raw = Number.parseInt(
+    process.env.PASSWORD_RESET_COOLDOWN_SECONDS ?? `${PASSWORD_RESET_DEFAULT_COOLDOWN_SECONDS}`,
+    10,
+  );
+  if (!Number.isFinite(raw) || raw < 30) {
+    return PASSWORD_RESET_DEFAULT_COOLDOWN_SECONDS;
+  }
+  return Math.min(raw, PASSWORD_RESET_MAX_COOLDOWN_SECONDS);
+}
+
+function hashToken(token) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
 export class AuthDomainService {
   constructor({ domainRegistry, logger }) {
     this.registry = domainRegistry;
@@ -144,6 +177,7 @@ export class AuthDomainService {
     this.UserLoginAudit = this.models.UserLoginAudit;
     this.UserRole = this.models.UserRole;
     this.UserNote = this.models.UserNote;
+    this.PasswordResetToken = this.models.PasswordResetToken;
   }
 
   validateEmail(email) {
@@ -403,6 +437,152 @@ export class AuthDomainService {
     return record.get({ plain: true });
   }
 
+  async purgeExpiredPasswordResets({ transaction } = {}) {
+    if (!this.PasswordResetToken) {
+      return 0;
+    }
+    return this.PasswordResetToken.destroy({ where: { expiresAt: { [Op.lt]: new Date() } }, transaction });
+  }
+
+  async createPasswordResetToken(
+    userInstance,
+    { context = {}, metadata = null, transaction: externalTransaction } = {},
+  ) {
+    if (!this.PasswordResetToken) {
+      throw new Error('Password reset tokens are not enabled in the current configuration.');
+    }
+    const userId = userInstance?.id ?? userInstance?.get?.('id');
+    if (!userId) {
+      throw new ValidationError('A valid account is required to create a password reset token.');
+    }
+
+    const cooldownSeconds = resolvePasswordResetCooldownSeconds();
+    const expiryMinutes = resolvePasswordResetExpiryMinutes();
+    const now = new Date();
+
+    const perform = async (transaction) => {
+      await this.PasswordResetToken.destroy({
+        where: { userId, expiresAt: { [Op.lt]: now } },
+        transaction,
+      });
+
+      const recent = await this.PasswordResetToken.findOne({
+        where: { userId, consumedAt: { [Op.is]: null } },
+        order: [['createdAt', 'DESC']],
+        transaction,
+        lock: transaction?.LOCK?.UPDATE,
+      });
+
+      if (recent) {
+        const availableAt = new Date(recent.createdAt.getTime() + cooldownSeconds * 1000);
+        if (availableAt > now) {
+          const retryAfterSeconds = Math.max(1, Math.ceil((availableAt.getTime() - now.getTime()) / 1000));
+          return {
+            rateLimited: true,
+            cooldownSeconds: retryAfterSeconds,
+            retryAvailableAt: availableAt.toISOString(),
+            record: recent,
+          };
+        }
+      }
+
+      const token = crypto.randomBytes(32).toString('hex');
+      const record = await this.PasswordResetToken.create(
+        {
+          userId,
+          tokenHash: hashToken(token),
+          requestedFromIp: context.ipAddress ?? null,
+          requestedUserAgent: context.userAgent ?? null,
+          metadata: metadata && typeof metadata === 'object' ? metadata : null,
+          expiresAt: new Date(now.getTime() + expiryMinutes * 60 * 1000),
+        },
+        { transaction },
+      );
+
+      this.logger.info({ userId }, 'Issued password reset token.');
+      return {
+        rateLimited: false,
+        token,
+        expiresAt: record.expiresAt,
+        cooldownSeconds,
+        record,
+      };
+    };
+
+    if (externalTransaction) {
+      return perform(externalTransaction);
+    }
+    return this.registry.transaction('auth', ({ transaction }) => perform(transaction));
+  }
+
+  async findPasswordResetToken(token, { transaction } = {}) {
+    if (!this.PasswordResetToken) {
+      return null;
+    }
+    if (!token || typeof token !== 'string') {
+      return null;
+    }
+    const trimmed = token.trim();
+    if (trimmed.length < 16) {
+      return null;
+    }
+
+    const record = await this.PasswordResetToken.findOne({
+      where: { tokenHash: hashToken(trimmed) },
+      transaction,
+      lock: transaction?.LOCK?.UPDATE,
+    });
+    if (!record) {
+      return null;
+    }
+    if (record.consumedAt || record.expiresAt < new Date()) {
+      await record.destroy({ transaction });
+      return null;
+    }
+    const user = await this.User.findByPk(record.userId, { transaction });
+    if (!user) {
+      await record.destroy({ transaction });
+      return null;
+    }
+    return { record, user };
+  }
+
+  async incrementPasswordResetAttempt(record, { transaction } = {}) {
+    if (!this.PasswordResetToken || !record) {
+      return null;
+    }
+    const attempts = (record.attempts ?? 0) + 1;
+    await record.update({ attempts }, { transaction });
+    if (attempts >= PASSWORD_RESET_MAX_ATTEMPTS) {
+      await record.destroy({ transaction });
+      return null;
+    }
+    return attempts;
+  }
+
+  async consumePasswordResetToken(record, { metadata = {}, transaction } = {}) {
+    if (!this.PasswordResetToken || !record) {
+      return null;
+    }
+    const updates = {
+      consumedAt: new Date(),
+      attempts: (record.attempts ?? 0) + 1,
+    };
+    if (metadata && typeof metadata === 'object' && Object.keys(metadata).length > 0) {
+      updates.metadata = { ...(record.metadata ?? {}), ...metadata };
+    }
+    await record.update(updates, { transaction });
+    await this.PasswordResetToken.destroy({
+      where: {
+        userId: record.userId,
+        consumedAt: { [Op.is]: null },
+        id: { [Op.ne]: record.id },
+      },
+      transaction,
+    });
+    return record;
+  }
+
   describeCapabilities() {
     return {
       key: 'auth',
@@ -425,6 +605,11 @@ export class AuthDomainService {
         'removeRole',
         'recordUserNote',
         'listUserNotes',
+        'purgeExpiredPasswordResets',
+        'createPasswordResetToken',
+        'findPasswordResetToken',
+        'incrementPasswordResetAttempt',
+        'consumePasswordResetToken',
       ],
       models: Object.keys(this.models),
     };
