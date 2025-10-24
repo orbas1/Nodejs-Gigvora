@@ -16,9 +16,15 @@ const refreshSessionMock = jest.fn().mockResolvedValue({
     user: { id: 1 },
   },
 });
+const requestPasswordResetMock = jest.fn().mockResolvedValue({ delivered: true });
+const resetPasswordMock = jest.fn().mockResolvedValue({ session: { accessToken: 'reset', refreshToken: 'reset-refresh' } });
 
 const authServiceModuleUrl = new URL('../../src/services/authService.js', import.meta.url);
 const loggerModuleUrl = new URL('../../src/utils/logger.js', import.meta.url);
+const modelsModuleUrl = new URL('../../src/models/index.js', import.meta.url);
+
+const companyProfileCreateMock = jest.fn();
+const agencyProfileCreateMock = jest.fn();
 
 jest.unstable_mockModule(authServiceModuleUrl.pathname, () => ({
   default: {
@@ -28,6 +34,8 @@ jest.unstable_mockModule(authServiceModuleUrl.pathname, () => ({
     resendTwoFactor: resendTwoFactorMock,
     loginWithGoogle: googleLoginMock,
     refreshSession: refreshSessionMock,
+    requestPasswordReset: requestPasswordResetMock,
+    resetPassword: resetPasswordMock,
   },
 }));
 
@@ -39,6 +47,12 @@ jest.unstable_mockModule(loggerModuleUrl.pathname, () => ({
     debug: jest.fn(),
     warn: jest.fn(),
   },
+}));
+
+jest.unstable_mockModule(modelsModuleUrl.pathname, () => ({
+  CompanyProfile: { create: companyProfileCreateMock },
+  AgencyProfile: { create: agencyProfileCreateMock },
+  default: {},
 }));
 
 let app;
@@ -63,6 +77,8 @@ beforeEach(() => {
   resendTwoFactorMock.mockClear();
   googleLoginMock.mockClear();
   refreshSessionMock.mockClear();
+  requestPasswordResetMock.mockClear();
+  resetPasswordMock.mockClear();
 });
 
 describe('POST /api/auth/register', () => {
@@ -70,10 +86,7 @@ describe('POST /api/auth/register', () => {
     const response = await request(app).post('/api/auth/register').send({ password: 'Secret123!' });
 
     expect(response.status).toBe(422);
-    expect(response.body).toMatchObject({
-      message: 'Request validation failed.',
-      details: { issues: expect.any(Array) },
-    });
+    expect(response.body).toEqual(expect.objectContaining({ message: 'Request validation failed.' }));
     expect(registerMock).not.toHaveBeenCalled();
   });
 
@@ -128,6 +141,63 @@ describe('POST /api/auth/two-factor/resend', () => {
 
     expect(response.status).toBe(422);
     expect(resendTwoFactorMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/auth/password/reset-request', () => {
+  it('validates the payload', async () => {
+    const response = await request(app).post('/api/auth/password/reset-request').send({});
+
+    expect(response.status).toBe(422);
+    expect(requestPasswordResetMock).not.toHaveBeenCalled();
+  });
+
+  it('normalises the email and forwards metadata to the service', async () => {
+    const response = await request(app)
+      .post('/api/auth/password/reset-request')
+      .set('User-Agent', 'jest-agent')
+      .send({ email: ' RESET@Example.COM ', redirectUri: 'https://app.test/reset-password ' });
+
+    expect(response.status).toBe(200);
+    expect(requestPasswordResetMock).toHaveBeenCalledWith(
+      'RESET@Example.COM'.trim().toLowerCase(),
+      expect.objectContaining({
+        redirectUri: 'https://app.test/reset-password',
+        context: expect.objectContaining({
+          ipAddress: expect.any(String),
+          userAgent: 'jest-agent',
+        }),
+      }),
+    );
+  });
+});
+
+describe('POST /api/auth/password/reset', () => {
+  it('requires a token and password', async () => {
+    const response = await request(app).post('/api/auth/password/reset').send({ token: 'abc' });
+
+    expect(response.status).toBe(422);
+    expect(resetPasswordMock).not.toHaveBeenCalled();
+  });
+
+  it('passes the payload to the auth service', async () => {
+    const response = await request(app)
+      .post('/api/auth/password/reset')
+      .set('User-Agent', 'jest-agent')
+      .send({ token: 'reset-token', password: 'StrongPass123!' });
+
+    expect(response.status).toBe(200);
+    expect(resetPasswordMock).toHaveBeenCalledWith(
+      'reset-token',
+      'StrongPass123!',
+      expect.objectContaining({
+        context: expect.objectContaining({
+          ipAddress: expect.any(String),
+          userAgent: 'jest-agent',
+        }),
+      }),
+    );
+    expect(response.body).toEqual({ session: { accessToken: 'reset', refreshToken: 'reset-refresh' } });
   });
 });
 

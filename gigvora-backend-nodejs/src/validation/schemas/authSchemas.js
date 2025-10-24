@@ -22,6 +22,22 @@ const optionalTwoFactorMethod = optionalTrimmedString({ max: 32 }).transform((va
   const normalized = value.toLowerCase();
   return ['email', 'app', 'sms'].includes(normalized) ? normalized : undefined;
 });
+const optionalResetRedirect = optionalTrimmedString({ max: 2048 }).transform((value) => {
+  if (!value) {
+    return undefined;
+  }
+  try {
+    return new URL(value).toString();
+  } catch (error) {
+    throw new z.ZodError([
+      {
+        code: z.ZodIssueCode.custom,
+        message: 'redirectUri must be a valid URL.',
+        path: ['redirectUri'],
+      },
+    ]);
+  }
+});
 
 const baseRegistrationSchema = z
   .object({
@@ -123,6 +139,20 @@ export const googleLoginSchema = z
 export const refreshSessionSchema = z
   .object({
     refreshToken: requiredTrimmedString({ max: 4096 }),
+  })
+  .strip();
+
+export const passwordResetRequestSchema = z
+  .object({
+    email: emailSchema,
+    redirectUri: optionalResetRedirect,
+  })
+  .strip();
+
+export const passwordResetSchema = z
+  .object({
+    token: requiredTrimmedString({ max: 512 }),
+    password: passwordSchema,
   })
   .strip();
 

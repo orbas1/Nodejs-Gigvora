@@ -313,6 +313,7 @@ The following content is ported from `logic_flows.md` and retains every main cat
 1. **Appraisal.** Login, registration (user, company, agency), admin login, and membership gating components orchestrate forms, validation, and API integration with backend auth flows.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L1-L160】【F:gigvora-frontend-reactjs/src/components/auth/MembershipGate.jsx†L1-L120】
 2. **Functionality.** Forms capture credentials, trigger API calls, handle 2FA prompts, and render onboarding guidance; membership gate restricts features by subscription tier.
 3. **Logic Usefulness.** Aligns with backend RBAC and feature flags, ensuring consistent access experience.
+4. **Data Integrity.** Auth schema, migrations, and domain models now share the same fields for users, two-factor tokens, and password reset records, preventing runtime mismatches between Sequelize models and the database.【F:gigvora-backend-nodejs/database/migrations/20250101090000-authentication-foundation-alignment.cjs†L1-L260】【F:gigvora-backend-nodejs/src/models/index.js†L600-L1010】【F:gigvora-backend-nodejs/src/domains/auth/authDomainService.js†L1-L460】
 4. **Redundancies.** Form handling logic repeated across multiple pages; adopt reusable form hooks.
 5. **Placeholders Or non-working functions or stubs.** Some membership tiers render placeholder CTAs; ensure backend integration before launch.
 6. **Duplicate Functions.** Input validation duplicated; centralize in `utils/validation.js`.
@@ -1304,40 +1305,46 @@ This document catalogues the public marketing shell, pre-login journeys, and per
 
 **Components**
 
+- [x] (a) Harden authentication services, migrations, and controllers to back every UI flow with production logic.【F:gigvora-backend-nodejs/src/services/authService.js†L1-L520】【F:gigvora-backend-nodejs/src/controllers/authController.js†L1-L200】
+- [x] (b) Align ORM models, migrations, and seed data to ensure password recovery and profile hydration stay consistent end-to-end.【F:gigvora-backend-nodejs/src/models/index.js†L9600-L9890】【F:gigvora-backend-nodejs/database/migrations/20250101090000-authentication-foundation-alignment.cjs†L1-L320】【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L1-L160】
+- [x] (c) Replace placeholder tests with full coverage across service, controller, and route validation layers for the new recovery flows.【F:gigvora-backend-nodejs/tests/services/authService.test.js†L1-L520】【F:gigvora-backend-nodejs/tests/services/authService.refresh.test.js†L1-L200】【F:gigvora-backend-nodejs/tests/routes/authRoutes.validation.test.js†L1-L220】
+
 - **2.B.1. `LoginPage.jsx`**
   1. **Appraisal.** Multi-step login handles password auth, two-factor challenges, Google OAuth, and social redirects with detailed status messaging.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L1-L120】
   2. **Functionality.** Navigates to role-appropriate dashboard, manages resend cooldowns, and surfaces context-specific errors via shared API client handling.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L40-L120】【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L120-L200】
   3. **Logic Usefulness.** `resolveLanding` keeps routing aligned with memberships, reducing drift between login and navigation.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L10-L36】
-  4. **Redundancies.** Social redirect handling duplicated in register page—extract common helper.
-  5. **Placeholders.** None; flows call real services though backend may stub in dev.
-  6. **Duplicate Functions.** `formatExpiry` shares logic with other time formatting utilities—centralize.
-  7. **Improvements Needed.** Extend passkey/WebAuthn support and surface session history with device management controls following the new visibility toggle and resend countdown.
-  8. **Styling Improvements.** Ensure form contrast accessible on gradient backgrounds.
-  9. **Efficiency.** Debounce button states to prevent double submissions; currently relying on `status` flag.
-  10. **Strengths.** Comprehensive error handling and multi-provider coverage inspire trust.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L80-L170】
-  11. **Weaknesses.** Two-factor screen lacks resend timer UI feedback beyond status copy.
-  12. **Styling & Colour Review.** Soft gradient ensures premium feel.
-  13. **CSS, Orientation, Placement.** Two-column layout with supportive marketing copy aids comprehension.
-  14. **Text Analysis.** Copy supportive and purposeful; maintain tone.
-  15. **Text Spacing.** Adequate; maintain.
-  16. **Shaping.** Rounded forms align with brand.
-  17. **Shadow / Hover / Glow.** Panel uses shadow-soft for depth; maintain.
-  18. **Thumbnails.** None.
-  19. **Images & Media.** None; consider adding security badges.
-  20. **Button Styling.** CTA buttons consistent with rest of site.
-  21. **Interactiveness.** Clear step flow keeps users oriented.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L140-L200】
-  22. **Missing Components.** Layer contextual security reminders around the new "Forgot password?" entry, including links to reset 2FA devices and account recovery policies.
-  23. **Design Changes.** Add step indicator for two-factor stage.
-  24. **Design Duplication.** Social buttons reuse `SocialAuthButton`; keep consistent.
-  25. **Design Framework.** Aligns with design system.
-  26. **Change Checklist Tracker.**
+  4. **Data Integrity.** Backend authentication tables, models, and seed data align on location, membership, and credential recovery fields, removing runtime mismatches when the UI hits password reset or two-factor endpoints.【F:gigvora-backend-nodejs/database/migrations/20250101090000-authentication-foundation-alignment.cjs†L1-L320】【F:gigvora-backend-nodejs/src/models/index.js†L9600-L9890】【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L1-L160】【F:gigvora-backend-nodejs/src/domains/auth/authDomainService.js†L1-L520】
+  5. **Redundancies.** Social redirect handling duplicated in register page—extract common helper.
+  6. **Placeholders.** None; flows call real services though backend may stub in dev.
+  7. **Duplicate Functions.** `formatExpiry` shares logic with other time formatting utilities—centralize.
+  8. **Improvements Needed.** Extend passkey/WebAuthn support and surface session history with device management controls following the new visibility toggle and resend countdown.
+  9. **Styling Improvements.** Ensure form contrast accessible on gradient backgrounds.
+  10. **Efficiency.** Debounce button states to prevent double submissions; currently relying on `status` flag.
+  11. **Strengths.** Comprehensive error handling and multi-provider coverage inspire trust.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L80-L170】
+  12. **Weaknesses.** Two-factor screen lacks resend timer UI feedback beyond status copy.
+  13. **Styling & Colour Review.** Soft gradient ensures premium feel.
+  14. **CSS, Orientation, Placement.** Two-column layout with supportive marketing copy aids comprehension.
+  15. **Text Analysis.** Copy supportive and purposeful; maintain tone.
+  16. **Text Spacing.** Adequate; maintain.
+  17. **Shaping.** Rounded forms align with brand.
+  18. **Shadow / Hover / Glow.** Panel uses shadow-soft for depth; maintain.
+  19. **Thumbnails.** None.
+  20. **Images & Media.** None; consider adding security badges.
+  21. **Button Styling.** CTA buttons consistent with rest of site.
+  22. **Interactiveness.** Clear step flow keeps users oriented.【F:gigvora-frontend-reactjs/src/pages/LoginPage.jsx†L140-L200】
+  23. **Missing Components.** Layer contextual security reminders around the new "Forgot password?" entry, including links to reset 2FA devices and account recovery policies.
+  24. **Design Changes.** Add step indicator for two-factor stage.
+  25. **Design Duplication.** Social buttons reuse `SocialAuthButton`; keep consistent.
+  26. **Design Framework.** Aligns with design system.
+  27. **Change Checklist Tracker.**
       - [x] Extract shared auth helpers.
       - [x] Add password reset entry point.
       - [x] Implement resend countdown UI.
-  27. **Full Upgrade Plan & Release Steps.**
+  28. **Full Upgrade Plan & Release Steps.**
       1. Integrate analytics for login outcomes.
       2. Launch improved 2FA UI with countdown and device management.
       3. Share login helpers with mobile app for parity.
+  29. **Security Enhancements.** Password reset flows now rely on hashed, expiring tokens with audit trails and SMTP delivery, matching the new `/auth/password/reset` endpoints for production recovery experiences.【F:gigvora-backend-nodejs/src/services/authService.js†L1-L290】【F:gigvora-backend-nodejs/src/controllers/authController.js†L1-L120】【F:gigvora-backend-nodejs/src/routes/authRoutes.js†L1-L80】
 
 - **2.B.2. `RegisterPage.jsx`**
   1. **Appraisal.** Guided registration collects core profile info, handles Google sign-up, and surfaces onboarding highlights for motivation.【F:gigvora-frontend-reactjs/src/pages/RegisterPage.jsx†L1-L100】

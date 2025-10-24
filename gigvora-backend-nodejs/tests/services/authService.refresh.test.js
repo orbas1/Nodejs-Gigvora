@@ -11,6 +11,8 @@ const recordLoginAuditMock = jest.fn().mockResolvedValue();
 const sanitizeUserMock = jest.fn();
 const findUserByIdMock = jest.fn();
 const evaluateForUserMock = jest.fn().mockResolvedValue({ runtime: true });
+const sendMailMock = jest.fn();
+const createTransportMock = jest.fn(() => ({ sendMail: sendMailMock }));
 
 const serviceCatalogModuleUrl = new URL('../../src/domains/serviceCatalog.js', import.meta.url);
 const twoFactorModuleUrl = new URL('../../src/services/twoFactorService.js', import.meta.url);
@@ -43,7 +45,13 @@ jest.unstable_mockModule(twoFactorModuleUrl.pathname, () => ({
     sendToken: jest.fn(),
     verifyToken: jest.fn(),
     resendTwoFactor: jest.fn(),
+    invalidateExisting: jest.fn(),
   },
+}));
+
+jest.unstable_mockModule('nodemailer', () => ({
+  default: { createTransport: createTransportMock },
+  createTransport: createTransportMock,
 }));
 
 let authService;
@@ -65,6 +73,8 @@ beforeEach(() => {
   }));
   findUserByIdMock.mockReset();
   evaluateForUserMock.mockClear();
+  sendMailMock.mockResolvedValue();
+  createTransportMock.mockReturnValue({ sendMail: sendMailMock });
 });
 
 describe('authService.refreshSession', () => {

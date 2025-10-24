@@ -144,6 +144,7 @@ export class AuthDomainService {
     this.UserLoginAudit = this.models.UserLoginAudit;
     this.UserRole = this.models.UserRole;
     this.UserNote = this.models.UserNote;
+    this.PasswordResetToken = this.models.PasswordResetToken;
   }
 
   validateEmail(email) {
@@ -403,6 +404,75 @@ export class AuthDomainService {
     return record.get({ plain: true });
   }
 
+  async invalidatePasswordResetTokens(userId, { transaction } = {}) {
+    if (!this.PasswordResetToken) {
+      return 0;
+    }
+    return this.PasswordResetToken.destroy({ where: { userId }, transaction });
+  }
+
+  async issuePasswordResetToken(
+    userId,
+    { tokenHash, expiresAt, ipAddress = null, userAgent = null, metadata = null, transaction } = {},
+  ) {
+    if (!this.PasswordResetToken) {
+      throw new ValidationError('Password reset tokens are not supported in the current configuration.');
+    }
+    if (!tokenHash || typeof tokenHash !== 'string') {
+      throw new ValidationError('A token hash is required to issue a password reset.');
+    }
+    if (!expiresAt || Number.isNaN(new Date(expiresAt).getTime())) {
+      throw new ValidationError('A valid expiration timestamp is required.');
+    }
+
+    await this.invalidatePasswordResetTokens(userId, { transaction });
+    const token = await this.PasswordResetToken.create(
+      {
+        userId,
+        tokenHash,
+        expiresAt: new Date(expiresAt),
+        ipAddress,
+        userAgent,
+        metadata: metadata ?? null,
+      },
+      { transaction },
+    );
+    this.logger.debug({ userId }, 'Issued password reset token.');
+    return token.get({ plain: true });
+  }
+
+  async findPasswordResetTokenByHash(tokenHash, { transaction } = {}) {
+    if (!this.PasswordResetToken) {
+      return null;
+    }
+    if (!tokenHash) {
+      return null;
+    }
+    const record = await this.PasswordResetToken.findOne({ where: { tokenHash }, transaction });
+    return record ? record.get({ plain: true }) : null;
+  }
+
+  async consumePasswordResetToken(tokenId, { transaction } = {}) {
+    if (!this.PasswordResetToken) {
+      return null;
+    }
+    const [updated] = await this.PasswordResetToken.update(
+      { consumedAt: new Date() },
+      { where: { id: tokenId }, transaction },
+    );
+    return updated;
+  }
+
+  async updateUserPassword(userId, password, { transaction } = {}) {
+    if (!this.User) {
+      throw new ValidationError('User model unavailable.');
+    }
+    const hashed = await this.hashPassword(password);
+    await this.User.update({ password: hashed }, { where: { id: userId }, transaction });
+    this.logger.info({ userId }, 'Updated user password through AuthDomainService.');
+    return hashed;
+  }
+
   describeCapabilities() {
     return {
       key: 'auth',
@@ -425,6 +495,11 @@ export class AuthDomainService {
         'removeRole',
         'recordUserNote',
         'listUserNotes',
+        'invalidatePasswordResetTokens',
+        'issuePasswordResetToken',
+        'findPasswordResetTokenByHash',
+        'consumePasswordResetToken',
+        'updateUserPassword',
       ],
       models: Object.keys(this.models),
     };

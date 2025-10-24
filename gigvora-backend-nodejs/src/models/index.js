@@ -9631,6 +9631,28 @@ export const TwoFactorToken = sequelize.define(
   },
 );
 
+export const PasswordResetToken = sequelize.define(
+  'PasswordResetToken',
+  {
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    tokenHash: { type: DataTypes.STRING(128), allowNull: false, unique: true },
+    expiresAt: { type: DataTypes.DATE, allowNull: false },
+    consumedAt: { type: DataTypes.DATE, allowNull: true },
+    ipAddress: { type: DataTypes.STRING(120), allowNull: true },
+    userAgent: { type: DataTypes.STRING(500), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'password_reset_tokens',
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['tokenHash'], unique: true },
+      { fields: ['expiresAt'] },
+    ],
+  },
+);
+
 export const TwoFactorPolicy = sequelize.define(
   'TwoFactorPolicy',
   {
@@ -19726,6 +19748,7 @@ User.hasMany(CorporateVerification, { foreignKey: 'userId', as: 'corporateVerifi
 User.hasMany(CorporateVerification, { foreignKey: 'reviewerId', as: 'reviewedCorporateVerifications' });
 
 User.hasMany(UserLoginAudit, { foreignKey: 'userId', as: 'loginAudits', onDelete: 'CASCADE' });
+User.hasMany(PasswordResetToken, { foreignKey: 'userId', as: 'passwordResetTokens', onDelete: 'CASCADE' });
 User.hasMany(UserRole, { foreignKey: 'userId', as: 'roleAssignments', onDelete: 'CASCADE' });
 UserRole.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 UserRole.belongsTo(User, { foreignKey: 'assignedBy', as: 'assignedBy' });
@@ -19757,6 +19780,7 @@ TwoFactorAuditLog.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
 User.hasMany(UserConsent, { foreignKey: 'userId', as: 'consents', onDelete: 'CASCADE' });
 UserConsent.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 UserLoginAudit.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+PasswordResetToken.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 FeatureFlag.hasMany(FeatureFlagAssignment, {
   foreignKey: 'flagId',
@@ -22863,6 +22887,7 @@ export default {
   GroupMembership,
   Connection,
   TwoFactorToken,
+  PasswordResetToken,
   Application,
   ApplicationReview,
   MessageThread,

@@ -81,3 +81,20 @@ export async function refreshSession(req, res) {
   });
   res.json(response);
 }
+
+export async function requestPasswordReset(req, res) {
+  const { email, redirectUri } = req.body;
+  await authService.requestPasswordReset(email, {
+    redirectUri,
+    context: { ipAddress: req.ip, userAgent: req.get('user-agent') },
+  });
+  res.json({ message: 'If an account exists for this email, a reset link has been sent.' });
+}
+
+export async function completePasswordReset(req, res) {
+  const { token, password } = req.body;
+  const response = await authService.resetPassword(token, password, {
+    context: { ipAddress: req.ip, userAgent: req.get('user-agent') },
+  });
+  res.json(response);
+}

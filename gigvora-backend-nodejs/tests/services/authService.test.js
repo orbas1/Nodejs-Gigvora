@@ -7,18 +7,31 @@ process.env.LOG_LEVEL = 'silent';
 process.env.JWT_SECRET = 'test-access-secret';
 process.env.JWT_REFRESH_SECRET = 'test-refresh-secret';
 process.env.GOOGLE_CLIENT_ID = 'test-google-client-id';
+process.env.SMTP_HOST = 'smtp.test';
+process.env.SMTP_PORT = '587';
+process.env.PASSWORD_RESET_URL = 'https://app.test/reset-password';
 
 const registerUserMock = jest.fn();
 const findUserByEmailMock = jest.fn();
+const findUserByIdMock = jest.fn();
 const comparePasswordMock = jest.fn();
 const updateLastLoginMock = jest.fn();
 const recordLoginAuditMock = jest.fn();
 const sanitizeUserMock = jest.fn();
+const issuePasswordResetTokenMock = jest.fn();
+const invalidatePasswordResetTokensMock = jest.fn();
+const findPasswordResetTokenByHashMock = jest.fn();
+const consumePasswordResetTokenMock = jest.fn();
+const updateUserPasswordMock = jest.fn();
 const evaluateForUserMock = jest.fn();
 
 const sendTokenMock = jest.fn();
 const verifyTokenMock = jest.fn();
 const resendTokenMock = jest.fn();
+const invalidateExistingMock = jest.fn();
+
+const sendMailMock = jest.fn();
+const createTransportMock = jest.fn(() => ({ sendMail: sendMailMock }));
 
 const verifyIdTokenMock = jest.fn();
 const oauthClientInstance = { verifyIdToken: verifyIdTokenMock };
@@ -46,10 +59,16 @@ jest.unstable_mockModule(serviceCatalogModuleUrl.pathname, () => ({
   getAuthDomainService: () => ({
     registerUser: registerUserMock,
     findUserByEmail: findUserByEmailMock,
+    findUserById: findUserByIdMock,
     comparePassword: comparePasswordMock,
     updateLastLogin: updateLastLoginMock,
     recordLoginAudit: recordLoginAuditMock,
     sanitizeUser: sanitizeUserMock,
+    issuePasswordResetToken: issuePasswordResetTokenMock,
+    invalidatePasswordResetTokens: invalidatePasswordResetTokensMock,
+    findPasswordResetTokenByHash: findPasswordResetTokenByHashMock,
+    consumePasswordResetToken: consumePasswordResetTokenMock,
+    updateUserPassword: updateUserPasswordMock,
   }),
   getFeatureFlagService: () => ({
     evaluateForUser: evaluateForUserMock,
@@ -61,7 +80,13 @@ jest.unstable_mockModule(twoFactorModuleUrl.pathname, () => ({
     sendToken: sendTokenMock,
     verifyToken: verifyTokenMock,
     resendToken: resendTokenMock,
+    invalidateExisting: invalidateExistingMock,
   },
+}));
+
+jest.unstable_mockModule('nodemailer', () => ({
+  default: { createTransport: createTransportMock },
+  createTransport: createTransportMock,
 }));
 
 let authService;
@@ -83,6 +108,15 @@ beforeEach(() => {
   }));
   resendTokenMock.mockResolvedValue({ tokenId: 'retry-token', delivered: true });
   OAuth2ClientMock.mockImplementation(() => oauthClientInstance);
+  findUserByIdMock.mockResolvedValue(null);
+  issuePasswordResetTokenMock.mockResolvedValue({ id: 'prt-1', expiresAt: new Date().toISOString() });
+  invalidatePasswordResetTokensMock.mockResolvedValue(0);
+  findPasswordResetTokenByHashMock.mockResolvedValue(null);
+  consumePasswordResetTokenMock.mockResolvedValue(1);
+  updateUserPasswordMock.mockResolvedValue();
+  invalidateExistingMock.mockResolvedValue();
+  sendMailMock.mockResolvedValue();
+  createTransportMock.mockReturnValue({ sendMail: sendMailMock });
 });
 
 describe('authService.register', () => {
@@ -298,6 +332,153 @@ describe('authService.resendTwoFactor', () => {
     const response = await authService.resendTwoFactor('token-22');
     expect(resendTokenMock).toHaveBeenCalledWith('token-22');
     expect(response).toEqual({ tokenId: 'token-22', delivered: true });
+  });
+});
+
+describe('authService.requestPasswordReset', () => {
+  it('issues a token, sends an email, and audits the request', async () => {
+    const user = { id: 41, email: 'reset@example.com', userType: 'user', twoFactorEnabled: false };
+    findUserByEmailMock.mockResolvedValue(user);
+
+    const result = await authService.requestPasswordReset('reset@example.com', {
+      redirectUri: 'https://app.test/reset-password?utm_source=test',
+      context: { ipAddress: '198.51.100.5', userAgent: 'jest-test' },
+    });
+
+    expect(issuePasswordResetTokenMock).toHaveBeenCalledWith(
+      user.id,
+      expect.objectContaining({
+        tokenHash: expect.any(String),
+        expiresAt: expect.any(Date),
+        ipAddress: '198.51.100.5',
+        userAgent: 'jest-test',
+      }),
+    );
+    expect(createTransportMock).toHaveBeenCalled();
+    expect(sendMailMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: user.email,
+        subject: 'Reset your Gigvora password',
+      }),
+    );
+    expect(recordLoginAuditMock).toHaveBeenCalledWith(
+      user.id,
+      expect.objectContaining({ eventType: 'password_reset_requested' }),
+      {},
+    );
+    expect(result).toMatchObject({ delivered: true });
+  });
+
+  it('silently succeeds when the account does not exist', async () => {
+    findUserByEmailMock.mockResolvedValue(null);
+
+    const response = await authService.requestPasswordReset('ghost@example.com');
+
+    expect(issuePasswordResetTokenMock).not.toHaveBeenCalled();
+    expect(sendMailMock).not.toHaveBeenCalled();
+    expect(recordLoginAuditMock).not.toHaveBeenCalled();
+    expect(response).toEqual({ delivered: true });
+  });
+
+  it('bubbles SMTP failures to the caller', async () => {
+    const user = { id: 52, email: 'smtp-fail@example.com', userType: 'user', twoFactorEnabled: false };
+    findUserByEmailMock.mockResolvedValue(user);
+    sendMailMock.mockRejectedValue(new Error('smtp down'));
+
+    await expect(authService.requestPasswordReset(user.email)).rejects.toMatchObject({
+      message: 'Unable to send password reset email.',
+      status: 500,
+    });
+    expect(recordLoginAuditMock).not.toHaveBeenCalledWith(
+      user.id,
+      expect.objectContaining({ eventType: 'password_reset_requested' }),
+      {},
+    );
+  });
+});
+
+describe('authService.resetPassword', () => {
+  it('validates the token, updates the password, and returns a session', async () => {
+    const rawToken = 'reset-token-value';
+    const expectedHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const tokenRecord = {
+      id: 'prt-1',
+      userId: 77,
+      tokenHash: expectedHash,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+      consumedAt: null,
+    };
+    const user = {
+      id: 77,
+      email: 'reset@example.com',
+      userType: 'user',
+      twoFactorEnabled: false,
+      twoFactorMethod: 'email',
+    };
+    findPasswordResetTokenByHashMock.mockResolvedValue(tokenRecord);
+    findUserByIdMock.mockResolvedValue(user);
+    evaluateForUserMock.mockResolvedValue({ runtime: ['password-reset'] });
+
+    const response = await authService.resetPassword(rawToken, 'NewPassword123!', {
+      context: { ipAddress: '203.0.113.10', userAgent: 'jest-suite' },
+    });
+
+    expect(findPasswordResetTokenByHashMock).toHaveBeenCalledWith(expectedHash);
+    expect(updateUserPasswordMock).toHaveBeenCalledWith(user.id, 'NewPassword123!');
+    expect(consumePasswordResetTokenMock).toHaveBeenCalledWith(tokenRecord.id);
+    expect(invalidatePasswordResetTokensMock).toHaveBeenCalledWith(user.id);
+    expect(invalidateExistingMock).toHaveBeenCalledWith(user.email);
+    expect(recordLoginAuditMock).toHaveBeenCalledWith(
+      user.id,
+      expect.objectContaining({ eventType: 'password_reset_completed' }),
+      {},
+    );
+    expect(response.session).toBeDefined();
+    expect(response.session.user).toMatchObject({ email: user.email, featureFlags: { runtime: ['password-reset'] } });
+  });
+
+  it('rejects invalid or missing tokens', async () => {
+    findPasswordResetTokenByHashMock.mockResolvedValue(null);
+
+    await expect(authService.resetPassword('invalid-token', 'Password123!')).rejects.toMatchObject({
+      message: 'Reset token is invalid or has expired.',
+      status: 401,
+    });
+    expect(updateUserPasswordMock).not.toHaveBeenCalled();
+  });
+
+  it('invalidates stale tokens and rejects when expired', async () => {
+    const tokenRecord = {
+      id: 'prt-expired',
+      userId: 91,
+      tokenHash: 'hash',
+      expiresAt: new Date(Date.now() - 60 * 1000).toISOString(),
+      consumedAt: null,
+    };
+    findPasswordResetTokenByHashMock.mockResolvedValue(tokenRecord);
+
+    await expect(authService.resetPassword('expired', 'Password123!')).rejects.toMatchObject({
+      message: 'Reset token is invalid or has expired.',
+      status: 401,
+    });
+    expect(invalidatePasswordResetTokensMock).toHaveBeenCalledWith(tokenRecord.userId);
+  });
+
+  it('rejects when the user cannot be located', async () => {
+    const tokenRecord = {
+      id: 'prt-orphaned',
+      userId: 104,
+      tokenHash: 'hash',
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+      consumedAt: null,
+    };
+    findPasswordResetTokenByHashMock.mockResolvedValue(tokenRecord);
+    findUserByIdMock.mockResolvedValue(null);
+
+    await expect(authService.resetPassword('token', 'Password123!')).rejects.toMatchObject({
+      message: 'Account not found.',
+      status: 404,
+    });
   });
 });
 
