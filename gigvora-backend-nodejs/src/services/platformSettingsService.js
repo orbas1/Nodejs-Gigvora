@@ -1,6 +1,5 @@
 import { PlatformSetting } from '../models/platformSetting.js';
 import { PlatformSettingAudit } from '../models/platformSettingAudit.js';
-import { ESCROW_INTEGRATION_PROVIDERS } from '../models/constants/index.js';
 import { ValidationError } from '../utils/errors.js';
 import { syncCriticalDependencies } from '../observability/dependencyHealth.js';
 import { appCache } from '../utils/cache.js';
@@ -8,10 +7,15 @@ import { encryptSecret, decryptSecret, isEncryptedSecret, maskSecret } from '../
 import { UserRole } from '../models/index.js';
 import { Op } from 'sequelize';
 import logger from '../utils/logger.js';
+import {
+  SUBSCRIPTION_INTERVALS,
+  sanitiseNotificationsConfig,
+  validatePlatformSettingsSnapshot,
+  platformSettingsConstants,
+} from '../validation/platformSettingsSchema.js';
 
 const PLATFORM_SETTINGS_KEY = 'platform';
-const PAYMENT_PROVIDERS = new Set(ESCROW_INTEGRATION_PROVIDERS);
-const SUBSCRIPTION_INTERVALS = ['weekly', 'monthly', 'quarterly', 'yearly', 'lifetime'];
+const { PAYMENT_PROVIDERS } = platformSettingsConstants;
 
 const PLATFORM_SETTINGS_CACHE_KEY = 'platform-settings:snapshot';
 const PLATFORM_SETTINGS_CACHE_TTL_SECONDS = 60;
@@ -230,7 +234,12 @@ async function resolveNotificationRecipients() {
   });
 }
 
-async function dispatchSettingsUpdateNotification({ actorId, diff }) {
+async function dispatchSettingsUpdateNotification({
+  actorId,
+  diff,
+  watchers = [],
+  escalationPolicies = [],
+}) {
   if (!diff?.length) {
     return;
   }
@@ -239,31 +248,89 @@ async function dispatchSettingsUpdateNotification({ actorId, diff }) {
     return;
   }
 
+  const notificationsConfig = sanitiseNotificationsConfig({ watchers, escalationPolicies });
+  const watcherMap = new Map(
+    notificationsConfig.watchers.map((watcher, index) => [watcher.userId, { ...watcher, index }]),
+  );
+
   const recipients = await resolveNotificationRecipients();
   const summary = buildChangeSummary(diff);
   const payload = {
     changedFields: diff.map((entry) => entry.field),
     summary,
+    watchers: notificationsConfig.watchers,
+    escalationPolicies: notificationsConfig.escalationPolicies,
   };
 
-  await Promise.allSettled(
+  const immediateRecipients = new Set(
     recipients
-      .filter((userId) => userId && userId !== actorId)
-      .map((userId) =>
-        notificationService.queueNotification(
-          {
-            userId,
-            category: 'compliance',
-            priority: 'high',
-            type: 'platform.settings.updated',
-            title: 'Platform settings updated',
-            body: `Updated fields: ${summary}`,
-            payload,
-          },
-          { bypassQuietHours: true },
-        ),
-      ),
+      .filter((userId) => Number.isInteger(userId) && userId > 0)
+      .map((userId) => Number.parseInt(userId, 10)),
   );
+
+  watcherMap.forEach((watcher, userId) => {
+    if (watcher.notifyDelayMinutes === 0) {
+      immediateRecipients.add(userId);
+    }
+  });
+
+  if (actorId != null) {
+    immediateRecipients.delete(actorId);
+  }
+
+  const queueNotification = (userId, metadata = {}) =>
+    notificationService.queueNotification(
+      {
+        userId,
+        category: 'compliance',
+        priority: 'high',
+        type: 'platform.settings.updated',
+        title: 'Platform settings updated',
+        body: `Updated fields: ${summary}`,
+        payload: { ...payload, metadata },
+      },
+      { bypassQuietHours: true },
+    );
+
+  await Promise.allSettled(
+    Array.from(immediateRecipients).map((userId) => queueNotification(userId, { delivery: 'immediate' })),
+  );
+
+  const delayedWatchers = Array.from(watcherMap.values()).filter(
+    (watcher) => watcher.notifyDelayMinutes > 0 && watcher.userId !== actorId,
+  );
+
+  delayedWatchers.forEach((watcher) => {
+    const delayMs = watcher.notifyDelayMinutes * 60 * 1000;
+    const timer = setTimeout(() => {
+      queueNotification(watcher.userId, { delivery: 'delayed', watcher }).catch((error) =>
+        logger.error({ error, watcher }, 'Failed to dispatch delayed platform settings notification'),
+      );
+    }, delayMs);
+    if (typeof timer.unref === 'function') {
+      timer.unref();
+    }
+  });
+
+  notificationsConfig.escalationPolicies
+    .filter((policy) => policy.active !== false)
+    .forEach((policy) => {
+      const targets = policy.watcherUserIds.filter((userId) => userId && userId !== actorId);
+      if (!targets.length) {
+        return;
+      }
+      const delayMs = policy.notifyAfterMinutes * 60 * 1000;
+      const timer = setTimeout(() => {
+        targets.forEach((userId) => {
+          queueNotification(userId, { delivery: 'escalation', policy }).catch((error) => {
+            logger.error({ error, userId, policy }, 'Failed to dispatch escalation notification for platform settings change');
+          });
+        });
+      }, delayMs);
+      if (typeof timer.unref === 'function') {
+        timer.unref();
+      }
+    });
 }
 
 async function recordPlatformSettingAudit({ actorId, actorType, diff }) {
@@ -300,38 +367,6 @@ function invalidatePlatformSettingsCache() {
 
 function cachePlatformSettingsSnapshot(snapshot) {
   appCache.set(PLATFORM_SETTINGS_CACHE_KEY, deepClone(snapshot), PLATFORM_SETTINGS_CACHE_TTL_SECONDS);
-}
-
-function validateSettingsSnapshot(snapshot = {}) {
-  const provider = snapshot?.payments?.provider ?? 'stripe';
-  if (!PAYMENT_PROVIDERS.has(provider)) {
-    throw new ValidationError(`Unsupported payment provider: ${provider}`);
-  }
-
-  if (provider === 'stripe') {
-    const publishableKey = snapshot?.payments?.stripe?.publishableKey ?? '';
-    const secretKey = snapshot?.payments?.stripe?.secretKey ?? '';
-    if (!publishableKey.trim()) {
-      throw new ValidationError('Stripe publishable key is required when Stripe is the active payment provider.');
-    }
-    if (!secretKey.trim()) {
-      throw new ValidationError('Stripe secret key is required when Stripe is the active payment provider.');
-    }
-  }
-
-  if (provider === 'escrow_com') {
-    const apiKey = snapshot?.payments?.escrow_com?.apiKey ?? '';
-    const apiSecret = snapshot?.payments?.escrow_com?.apiSecret ?? '';
-    if (!apiKey.trim()) {
-      throw new ValidationError('Escrow.com API key is required when escrow_com is the active payment provider.');
-    }
-    if (!apiSecret.trim()) {
-      throw new ValidationError('Escrow.com API secret is required when escrow_com is the active payment provider.');
-    }
-    if (snapshot?.featureToggles?.escrow === false) {
-      throw new ValidationError('Escrow compliance toggle cannot be disabled while escrow_com payments are active.');
-    }
-  }
 }
 
 function coerceBoolean(value, fallback) {
@@ -621,6 +656,25 @@ function normalizeHomepageSettings(input = {}, fallback = {}) {
 }
 
 function buildDefaultPlatformSettings() {
+  const watcherEnv = (process.env.PLATFORM_SETTINGS_WATCHERS ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+  const defaultWatchers = watcherEnv
+    .map((entry) => {
+      const [idPart, delayPart] = entry.split(':');
+      const userId = Number.parseInt(idPart, 10);
+      if (!Number.isInteger(userId) || userId <= 0) {
+        return null;
+      }
+      const delay = Number.parseInt(delayPart ?? '0', 10);
+      return {
+        userId,
+        notifyDelayMinutes: Number.isFinite(delay) && delay >= 0 ? delay : 0,
+      };
+    })
+    .filter(Boolean);
+
   return {
     commissions: {
       enabled: coerceBoolean(process.env.PLATFORM_COMMISSIONS_ENABLED, true),
@@ -723,6 +777,10 @@ function buildDefaultPlatformSettings() {
       subscriptions: coerceBoolean(process.env.FEATURE_SUBSCRIPTIONS_ENABLED, true),
       commissions: coerceBoolean(process.env.FEATURE_COMMISSIONS_ENABLED, true),
     },
+    notifications: sanitiseNotificationsConfig({
+      watchers: defaultWatchers,
+      escalationPolicies: [],
+    }),
     maintenance: {
       windows: [],
       statusPageUrl: coerceOptionalString(process.env.MAINTENANCE_STATUS_URL),
@@ -1222,6 +1280,14 @@ function normalizeMaintenanceSettings(input = {}, fallback = {}) {
   };
 }
 
+function normalizeNotificationSettings(input = undefined, fallback = {}) {
+  const base = fallback && typeof fallback === 'object' ? fallback : {};
+  if (input == null) {
+    return sanitiseNotificationsConfig(base);
+  }
+  return sanitiseNotificationsConfig({ ...base, ...input });
+}
+
 function normalizeSettings(payload = {}, baseline = {}) {
   return {
     commissions: normalizeCommissionSettings(payload.commissions, baseline.commissions),
@@ -1233,6 +1299,7 @@ function normalizeSettings(payload = {}, baseline = {}) {
     database: normalizeDatabaseSettings(payload.database, baseline.database),
     featureToggles: normalizeFeatureToggles(payload.featureToggles, baseline.featureToggles),
     maintenance: normalizeMaintenanceSettings(payload.maintenance, baseline.maintenance),
+    notifications: normalizeNotificationSettings(payload.notifications, baseline.notifications),
     homepage: normalizeHomepageSettings(payload.homepage, baseline.homepage),
   };
 }
@@ -1283,6 +1350,7 @@ function mergeDefaults(defaults, stored) {
     database: { ...defaults.database, ...(stored.database ?? {}) },
     featureToggles: { ...defaults.featureToggles, ...(stored.featureToggles ?? {}) },
     maintenance: normalizeMaintenanceSettings(stored.maintenance, defaults.maintenance),
+    notifications: normalizeNotificationSettings(stored.notifications, defaults.notifications),
     homepage: normalizeHomepageSettings(stored.homepage, defaults.homepage),
   };
 }
@@ -1335,6 +1403,8 @@ export async function updatePlatformSettings(payload = {}, options = {}) {
   await dispatchSettingsUpdateNotification({
     actorId: options.actorId ?? null,
     diff: sanitizeDiffEntries(diffEntries),
+    watchers: snapshot.notifications?.watchers ?? [],
+    escalationPolicies: snapshot.notifications?.escalationPolicies ?? [],
   });
 
   syncCriticalDependencies(snapshot, { logger: logger.child({ component: 'platform-settings' }) });
@@ -1375,6 +1445,8 @@ export async function updateHomepageSettings(payload = {}, options = {}) {
   await dispatchSettingsUpdateNotification({
     actorId: options.actorId ?? null,
     diff: sanitizeDiffEntries(diffEntries),
+    watchers: snapshot.notifications?.watchers ?? [],
+    escalationPolicies: snapshot.notifications?.escalationPolicies ?? [],
   });
 
   syncCriticalDependencies(snapshot, { logger: logger.child({ component: 'platform-settings' }) });
@@ -1383,9 +1455,14 @@ export async function updateHomepageSettings(payload = {}, options = {}) {
   return snapshot.homepage;
 }
 
+export function __setNotificationServiceForTests(mockService) {
+  notificationServicePromise = Promise.resolve(mockService);
+}
+
 export default {
   getPlatformSettings,
   updatePlatformSettings,
   getHomepageSettings,
   updateHomepageSettings,
+  __setNotificationServiceForTests,
 };

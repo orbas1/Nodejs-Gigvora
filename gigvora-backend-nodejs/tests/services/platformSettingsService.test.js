@@ -4,6 +4,7 @@ import {
   updatePlatformSettings,
   getHomepageSettings,
   updateHomepageSettings,
+  __setNotificationServiceForTests,
 } from '../../src/services/platformSettingsService.js';
 import { PlatformSetting } from '../../src/models/platformSetting.js';
 import { PlatformSettingAudit } from '../../src/models/platformSettingAudit.js';
@@ -12,27 +13,31 @@ import { appCache } from '../../src/utils/cache.js';
 import { ValidationError } from '../../src/utils/errors.js';
 
 let originalEnv;
+let notificationMock;
 
 beforeEach(() => {
   originalEnv = { ...process.env };
 });
 
-afterEach(() => {
-  Object.keys(process.env).forEach((key) => {
-    if (!(key in originalEnv)) {
-      delete process.env[key];
-    }
+  afterEach(() => {
+    Object.keys(process.env).forEach((key) => {
+      if (!(key in originalEnv)) {
+        delete process.env[key];
+      }
+    });
+    Object.assign(process.env, originalEnv);
+    jest.restoreAllMocks();
+    jest.useRealTimers();
+    appCache.flushByPrefix('');
   });
-  Object.assign(process.env, originalEnv);
-  jest.restoreAllMocks();
-  appCache.flushByPrefix('');
-});
 
 describe('platformSettingsService', () => {
   beforeEach(async () => {
     await PlatformSetting.sync({ force: true });
     await PlatformSettingAudit.sync({ force: true });
     jest.spyOn(UserRole, 'findAll').mockResolvedValue([]);
+    notificationMock = { queueNotification: jest.fn().mockResolvedValue({ id: 'notif-1' }) };
+    __setNotificationServiceForTests(notificationMock);
     appCache.flushByPrefix('');
   });
 
@@ -65,6 +70,8 @@ describe('platformSettingsService', () => {
   });
 
   it('normalizes and persists administrative updates', async () => {
+    process.env.STRIPE_PUBLISHABLE_KEY = 'pk_test_default';
+    process.env.STRIPE_SECRET_KEY = 'sk_test_default';
     const updated = await updatePlatformSettings({
       commissions: {
         enabled: true,
@@ -179,6 +186,58 @@ describe('platformSettingsService', () => {
     await expect(
       updatePlatformSettings({ commissions: { rate: 80, servicemanMinimumRate: 40 } }),
     ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it('routes notifications to explicit watchers and escalation policies', async () => {
+    process.env.STRIPE_PUBLISHABLE_KEY = 'pk_test_default';
+    process.env.STRIPE_SECRET_KEY = 'sk_test_default';
+    jest.useFakeTimers();
+
+    await updatePlatformSettings(
+      {
+        notifications: {
+          watchers: [
+            { userId: 77, notifyDelayMinutes: 0 },
+            { userId: 88, notifyDelayMinutes: 5, channels: ['email', 'sms'] },
+            { userId: 77, notifyDelayMinutes: 0 },
+          ],
+          escalationPolicies: [
+            {
+              name: 'Finance Escalation',
+              notifyAfterMinutes: 10,
+              watcherUserIds: [99, 99],
+              channels: ['email'],
+            },
+          ],
+        },
+      },
+      { actorId: 42, actorType: 'platform_admin' },
+    );
+
+    expect(notificationMock.queueNotification).toHaveBeenCalledTimes(1);
+    expect(notificationMock.queueNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 77 }),
+      expect.objectContaining({ bypassQuietHours: true }),
+    );
+
+    jest.advanceTimersByTime(5 * 60 * 1000);
+    await Promise.resolve();
+    expect(notificationMock.queueNotification).toHaveBeenCalledTimes(2);
+    expect(notificationMock.queueNotification).toHaveBeenLastCalledWith(
+      expect.objectContaining({ userId: 88 }),
+      expect.objectContaining({ bypassQuietHours: true }),
+    );
+
+    jest.advanceTimersByTime(5 * 60 * 1000);
+    await Promise.resolve();
+    expect(notificationMock.queueNotification).toHaveBeenCalledTimes(3);
+    expect(notificationMock.queueNotification).toHaveBeenLastCalledWith(
+      expect.objectContaining({ userId: 99 }),
+      expect.objectContaining({ bypassQuietHours: true }),
+    );
+
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
   });
 
   describe('homepage settings', () => {

@@ -52,6 +52,14 @@ This reference explains each configurable section exposed through the admin plat
 - **Purpose:** Enables or disables major subsystems (escrow, subscriptions, commissions).
 - **Impact:** Immediate gating of UI routes and backend services. Escrow toggle cannot be disabled when `escrow_com` is the active payment provider, ensuring compliance coverage remains in place.
 
+## Notifications & Escalations
+- **Purpose:** Coordinates high-priority alerts to the correct operations, finance, and compliance contacts without relying solely on role membership.
+- **Key Fields:**
+  - `watchers` accepts explicit `userId` entries plus channel preferences and optional `notifyDelayMinutes` values for delayed follow-ups.
+  - `escalationPolicies` describe named rotations (e.g., finance on-call) with `watcherUserIds`, notification channels, and `notifyAfterMinutes` thresholds.
+- **Impact:** Immediate watchers receive in-app notifications on save, delayed watchers are queued automatically after their configured delay, and escalation policies schedule additional alerts if changes remain unacknowledged.
+- **Admin Tips:** Environment variable `PLATFORM_SETTINGS_WATCHERS` seeds default watchers (comma-separated `userId:delay` pairs). Updates through the admin console persist to the shared configuration document and appear in audit diffs.
+
 ## Maintenance Windows
 - **Purpose:** Communicates planned downtime and support contacts.
 - **Key Fields:** Window list with start/end timestamps, impact level, timezone, contact, status page URL.
@@ -63,7 +71,7 @@ This reference explains each configurable section exposed through the admin plat
 
 ## Audit & Notification Workflow
 - Every update produces a `platform_setting_audits` row summarising changed fields, masked before/after snapshots, actor metadata, and the total change count.
-- Notifications are queued for platform, compliance, finance, and trust roles so relevant admins receive high-priority alerts describing the modified fields.
+- Notifications are queued for platform, compliance, finance, and trust roles plus any explicit watchers or escalation policies so relevant admins receive high-priority alerts describing the modified fields at the correct cadence.
 - Cached snapshots are invalidated and rebuilt to guarantee deterministic reads from `getPlatformSettings()` across services.
 
 ## Operational Notes

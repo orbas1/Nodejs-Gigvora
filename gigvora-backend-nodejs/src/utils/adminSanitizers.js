@@ -1,4 +1,5 @@
 import { ValidationError } from './errors.js';
+import { sanitiseNotificationsConfig } from '../validation/platformSettingsSchema.js';
 
 function buildIssue(path, message, code = 'invalid_input') {
   return { path, message, code };
@@ -323,6 +324,9 @@ export function sanitizePlatformSettingsInput(body = {}) {
   if (body.database != null) sanitized.database = body.database;
   if (body.featureToggles != null) sanitized.featureToggles = body.featureToggles;
   if (body.maintenance != null) sanitized.maintenance = body.maintenance;
+  if (body.notifications != null) {
+    sanitized.notifications = sanitiseNotificationsConfig(body.notifications);
+  }
   return sanitized;
 }
 
