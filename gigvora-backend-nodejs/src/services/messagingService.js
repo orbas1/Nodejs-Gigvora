@@ -45,6 +45,120 @@ const SHOULD_QUEUE_SUPPORT_NOTIFICATIONS =
   String(process.env.SUPPRESS_SUPPORT_NOTIFICATIONS ?? '').toLowerCase() !== 'true' &&
   process.env.NODE_ENV !== 'test';
 
+const PREVIEW_DISPLAY_LIMIT = 180;
+const PREVIEW_STORAGE_LIMIT = 500;
+const PREVIEW_FALLBACK = 'New activity';
+
+function normalisePreviewText(value) {
+  if (value == null) {
+    return null;
+  }
+  const text = value
+    .toString()
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!text) {
+    return null;
+  }
+  if (text.length <= PREVIEW_DISPLAY_LIMIT) {
+    return text;
+  }
+  return `${text.slice(0, PREVIEW_DISPLAY_LIMIT - 1).trim()}…`;
+}
+
+function clampPreviewForStorage(value) {
+  if (!value) {
+    return null;
+  }
+  const text = value
+    .toString()
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!text) {
+    return null;
+  }
+  if (text.length <= PREVIEW_STORAGE_LIMIT) {
+    return text;
+  }
+  return text.slice(0, PREVIEW_STORAGE_LIMIT);
+}
+
+function buildThreadPreviewFromMessage({ messageType, body, metadata = {}, attachments = [] }) {
+  const normalisedBody = normalisePreviewText(body);
+  const attachmentList = Array.isArray(attachments) ? attachments : [];
+
+  if (messageType === 'file') {
+    if (attachmentList.length > 0) {
+      const firstAttachment = attachmentList[0] ?? {};
+      const name = firstAttachment.fileName ?? firstAttachment.name ?? 'attachment';
+      if (attachmentList.length === 1) {
+        return normalisePreviewText(`Shared ${name}`) ?? PREVIEW_FALLBACK;
+      }
+      return (
+        normalisePreviewText(
+          `Shared ${attachmentList.length} files (latest: ${name})`,
+        ) ?? PREVIEW_FALLBACK
+      );
+    }
+    if (normalisedBody) {
+      return normalisedBody;
+    }
+  }
+
+  if (messageType === 'event') {
+    const callType = metadata?.call?.type;
+    if (callType) {
+      const formatted = `${callType.toString().replace(/_/g, ' ')} call`;
+      return normalisePreviewText(formatted) ?? normalisedBody ?? PREVIEW_FALLBACK;
+    }
+    const eventType = metadata?.eventType ?? metadata?.event;
+    if (eventType) {
+      return normalisePreviewText(eventType.toString().replace(/_/g, ' ')) ?? PREVIEW_FALLBACK;
+    }
+    if (normalisedBody) {
+      return normalisedBody;
+    }
+  }
+
+  if (messageType === 'system') {
+    const statusSummary =
+      normalisePreviewText(metadata?.summary) ??
+      normalisePreviewText(metadata?.status) ??
+      normalisePreviewText(metadata?.title);
+    if (statusSummary) {
+      return statusSummary;
+    }
+    if (normalisedBody) {
+      return normalisedBody;
+    }
+  }
+
+  const metadataSummary =
+    normalisePreviewText(metadata?.summary) ??
+    normalisePreviewText(metadata?.title) ??
+    normalisePreviewText(metadata?.description);
+  if (metadataSummary) {
+    return metadataSummary;
+  }
+
+  if (normalisedBody) {
+    return normalisedBody;
+  }
+
+  if (attachmentList.length > 0) {
+    if (attachmentList.length === 1) {
+      const attachmentName =
+        attachmentList[0]?.fileName ?? attachmentList[0]?.name ?? 'attachment';
+      return normalisePreviewText(`Shared ${attachmentName}`) ?? PREVIEW_FALLBACK;
+    }
+    return (
+      normalisePreviewText(`Shared ${attachmentList.length} attachments`) ?? PREVIEW_FALLBACK
+    );
+  }
+
+  return PREVIEW_FALLBACK;
+}
+
 function toNormalizedList(value, fallback = []) {
   if (Array.isArray(value)) {
     return value.map((entry) => entry?.toString().trim().toLowerCase()).filter(Boolean);
@@ -210,6 +324,13 @@ export function sanitizeThread(thread) {
   const participantsSource = thread.participants ?? plain.participants;
   const labelsSource = thread.labels ?? plain.labels;
   const supportCaseSource = thread.supportCase ?? plain.supportCase;
+  const previewValue =
+    typeof plain.lastMessagePreview === 'string' ? plain.lastMessagePreview.trim() : null;
+  const resolvedPreview = previewValue && previewValue.length
+    ? previewValue.slice(0, PREVIEW_STORAGE_LIMIT)
+    : plain.lastMessageAt
+      ? PREVIEW_FALLBACK
+      : null;
   return {
     id: plain.id,
     subject: plain.subject,
@@ -217,7 +338,7 @@ export function sanitizeThread(thread) {
     state: plain.state,
     createdBy: plain.createdBy,
     lastMessageAt: plain.lastMessageAt,
-    lastMessagePreview: plain.lastMessagePreview,
+    lastMessagePreview: resolvedPreview,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
     metadata: plain.metadata && typeof plain.metadata === 'object'
@@ -458,25 +579,38 @@ async function createSystemMessage(threadId, body, metadata = {}, trx) {
     },
     'Message',
   );
+  const sanitizedBody = body?.trim() || 'Support update';
+  const previewText = clampPreviewForStorage(
+    buildThreadPreviewFromMessage({
+      messageType: 'system',
+      body: sanitizedBody,
+      metadata: normalized,
+    }),
+  );
+  const timestamp = new Date();
 
   await Message.create(
     {
       threadId,
       senderId: null,
       messageType: 'system',
-      body: body?.trim() || 'Support update',
+      body: sanitizedBody,
       metadata: normalized,
-      deliveredAt: new Date(),
+      deliveredAt: timestamp,
     },
     { transaction: trx },
   );
 
   if (trx) {
-    await MessageThread.update({ lastMessageAt: new Date() }, { where: { id: threadId }, transaction: trx });
+    await MessageThread.update(
+      { lastMessageAt: timestamp, lastMessagePreview: previewText },
+      { where: { id: threadId }, transaction: trx },
+    );
   } else {
     const thread = await MessageThread.findByPk(threadId);
     if (thread) {
-      thread.lastMessageAt = new Date();
+      thread.lastMessageAt = timestamp;
+      thread.lastMessagePreview = previewText;
       await thread.save();
     }
   }
@@ -616,6 +750,14 @@ export async function createThread({ subject, channelType = 'direct', createdBy,
 export async function appendMessage(threadId, senderId, { messageType = 'text', body, attachments = [], metadata = {} }) {
   assertMessageType(messageType);
   const normalizedMetadata = normalizeMetadata(metadata, 'Message');
+  const previewText = clampPreviewForStorage(
+    buildThreadPreviewFromMessage({
+      messageType,
+      body,
+      metadata: normalizedMetadata,
+      attachments,
+    }),
+  );
 
   const message = await sequelize.transaction(async (trx) => {
     const thread = await MessageThread.findByPk(threadId, { transaction: trx, lock: trx.LOCK.UPDATE });
@@ -664,7 +806,9 @@ export async function appendMessage(threadId, senderId, { messageType = 'text', 
       );
     }
 
-    thread.lastMessageAt = new Date();
+    const messageTimestamp = createdMessage.createdAt ? new Date(createdMessage.createdAt) : new Date();
+    thread.lastMessageAt = messageTimestamp;
+    thread.lastMessagePreview = previewText;
     await thread.save({ transaction: trx });
 
     return createdMessage;

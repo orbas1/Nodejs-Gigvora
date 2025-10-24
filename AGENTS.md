@@ -981,41 +981,41 @@ This document catalogues the public marketing shell, pre-login journeys, and per
 **Components**
 
 - **1.B.1. `Header.jsx`**
-  1. **Appraisal.** The header blends marketing and authenticated navigation, offering mega menus, language selection, inbox preview, and role switching while staying responsive.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L1-L150】
-  2. **Functionality.** Authenticated users receive account menus, notifications, and logout, while visitors see CTA buttons and marketing navigation, all wired via hooks (`useSession`, `useLanguage`).【F:gigvora-frontend-reactjs/src/components/Header.jsx†L90-L160】
-  3. **Logic Usefulness.** Role-aware navigation uses `resolvePrimaryNavigation` and `buildRoleOptions` to populate menus dynamically.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L21-L40】【F:gigvora-frontend-reactjs/src/components/Header.jsx†L150-L214】
-  4. **Redundancies.** Static inbox preview threads could eventually defer to live messaging, avoiding double maintenance with `MessagingDock`.
-  5. **Placeholders / Stubs.** Inbox preview data is hard-coded sample content pending API integration.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L56-L88】
-  6. **Duplicate Functions.** `resolveInitials` mirrors logic in other profile components—consider centralizing.
-  7. **Improvements Needed.** Add skeleton states for slow network fetches when menus rely on remote data.
-  8. **Styling Improvements.** Ensure contrast in translucent backgrounds for accessibility on varied hero imagery.
-  9. **Efficiency.** Memoization already limits recomputation; further optimize by memoizing navigation arrays outside render.
-  10. **Strengths to Keep.** Skip-link support, responsive mega menu, and role switcher deliver enterprise feel.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L1-L214】
-  11. **Weaknesses to Remove.** Hard-coded contact avatars could break if CDN fails; load via assets pipeline.
-  12. **Styling & Colour Review.** Maintain accent usage but audit hover states for WCAG compliance.
-  13. **CSS, Orientation, Placement.** Balanced layout; mega menu uses grid for clarity—retain.
-  14. **Text Analysis.** Marketing copy communicates offerings well; consider localization hooks for more strings.
-  15. **Text Spacing.** Spacing tokens keep readability; continue using `tracking` utilities.
-  16. **Shaping.** Rounded pills align with brand identity.
-  17. **Shadow / Hover / Glow.** Soft shadows on dropdowns create depth; maintain subtlety.
+  1. **Appraisal.** The header now blends marketing and authenticated navigation, applying `NavigationThemeProvider` styling while surfacing live inbox context to keep members oriented across personas.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L1-L360】【F:gigvora-frontend-reactjs/src/context/NavigationThemeContext.jsx†L1-L98】
+  2. **Functionality.** `useInboxPreview` polls `/messaging/threads`, rendering skeleton, retry, and success states alongside mobile drawer controls so both anonymous and authenticated journeys remain cohesive.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L111-L360】【F:gigvora-frontend-reactjs/src/hooks/useInboxPreview.js†L1-L140】【F:gigvora-frontend-reactjs/src/services/messaging.js†L9-L74】
+  3. **Logic Usefulness.** `resolvePrimaryNavigation`, `buildRoleOptions`, and `resolvePrimaryRoleKey` drive role-specific navigation and switcher affordances while marketing menus reuse shared configuration.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L29-L335】
+  4. **Redundancies.** Navigation options are sourced from constants, preventing duplicate menu definitions inside the component.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L29-L335】
+  5. **Placeholders / Stubs.** Inbox previews load real conversation metadata, with backend helpers storing `lastMessagePreview` strings for each thread—no placeholder rows remain.【F:gigvora-frontend-reactjs/src/hooks/useInboxPreview.js†L1-L140】【F:gigvora-backend-nodejs/src/services/messagingService.js†L48-L160】【F:gigvora-backend-nodejs/src/services/messagingService.js†L750-L811】
+  6. **Duplicate Functions.** Profile initials now rely on the shared `getInitials` utility, removing previous duplication across components.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L43-L57】【F:gigvora-frontend-reactjs/src/utils/names.js†L1-L16】
+  7. **Improvements Needed.** Consider upgrading the polling cadence to focus-aware or websocket delivery so inbox refreshes avoid redundant interval fetches.【F:gigvora-frontend-reactjs/src/hooks/useInboxPreview.js†L32-L127】
+  8. **Styling Improvements.** Continue validating light/dark palette contrast when theme tokens shift between `lightNavigationTheme` and `darkNavigationTheme`.【F:gigvora-frontend-reactjs/src/context/NavigationThemeContext.jsx†L4-L64】【F:gigvora-frontend-reactjs/src/components/Header.jsx†L126-L359】
+  9. **Efficiency.** Polling and backend cache TTLs keep load predictable, yet real-time subscriptions could further reduce repeat queries under heavy use.【F:gigvora-frontend-reactjs/src/hooks/useInboxPreview.js†L32-L127】【F:gigvora-backend-nodejs/src/services/messagingService.js†L867-L1048】
+  10. **Strengths to Keep.** Skeleton loaders, retry affordances, persona-aware navigation, and centralized theming deliver an enterprise-grade first impression.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L126-L360】
+  11. **Weaknesses to Remove.** The account badge still renders initials only; integrating profile imagery or asset fallbacks would complete the experience.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L43-L75】
+  12. **Styling & Colour Review.** Theme tokens keep hover/active states consistent, but scheduled audits should confirm WCAG contrast across hero imagery.【F:gigvora-frontend-reactjs/src/context/NavigationThemeContext.jsx†L4-L64】
+  13. **CSS, Orientation, Placement.** Responsive layout keeps marketing, role, and utility zones balanced across breakpoints; retain this structure.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L276-L352】
+  14. **Text Analysis.** Marketing and persona CTAs remain concise; future localisation should reuse the `useLanguage` hook for remaining static copy.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L341-L359】
+  15. **Text Spacing.** Tracking utilities maintain readable spacing across buttons and pills; continue leveraging them for new strings.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L290-L359】
+  16. **Shaping.** Rounded buttons and chips align with brand identity and match other navigation controls—keep the treatment.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L293-L328】
+  17. **Shadow / Hover / Glow.** Subtle borders and hover states supply depth without overwhelming; maintain the restrained approach.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L293-L359】
   18. **Thumbnails.** None.
-  19. **Images & Media.** Logo and avatars render with alt text or decorative semantics—good.
-  20. **Button Styling.** Buttons share rounded pill styling consistent with marketing pages.
-  21. **Interactiveness.** Dropdowns, popovers, and role switching deliver rich interactions.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L150-L214】
-  22. **Missing Components.** Mobile-specific navigation (hamburger panel) could expose additional context beyond menu icon.
-  23. **Design Changes.** Consider sticky header with scroll detection for long dashboards.
-  24. **Design Duplication.** Some CTA button styles replicate hero components; consolidate utility classes.
-  25. **Design Framework.** Harmonizes with Tailwind/Tremor-like tokens already in use.
+  19. **Images & Media.** Logo assets render with alt text and shrink-wrapping for responsiveness.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L302-L305】
+  20. **Button Styling.** CTA and filter buttons continue to share rounded styling for brand consistency.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L293-L355】
+  21. **Interactiveness.** Role switching, mega menus, inbox previews, and mobile drawers provide rich interaction patterns.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L279-L359】
+  22. **Missing Components.** A global search or quick command palette would help advanced operators jump directly to workstreams from the header.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L279-L359】
+  23. **Design Changes.** Consider sticky header behaviour that compresses on scroll for dense dashboard layouts while preserving access to controls.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L278-L359】
+  24. **Design Duplication.** Primary CTAs mirror hero treatments; if further buttons are added, evaluate consolidating shared utility classes.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L333-L359】
+  25. **Design Framework.** Implementation aligns with existing Tailwind utility patterns and navigation theming contexts across the app.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L276-L359】【F:gigvora-frontend-reactjs/src/context/NavigationThemeContext.jsx†L4-L64】
   26. **Change Checklist Tracker.**
-      - [x] Replace sample inbox data with live API feed.
-      - [x] Extract initial generation helper into shared util.
-      - [x] Audit hover contrast ratios.
-      - [x] Implement mobile fly-out navigation.
+      - [x] Replace sample inbox data with live API feed.【F:gigvora-frontend-reactjs/src/hooks/useInboxPreview.js†L1-L140】【F:gigvora-backend-nodejs/src/services/messagingService.js†L750-L811】
+      - [x] Extract initial generation helper into shared util.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L43-L57】【F:gigvora-frontend-reactjs/src/utils/names.js†L1-L16】
+      - [x] Audit hover contrast ratios.【F:gigvora-frontend-reactjs/src/context/NavigationThemeContext.jsx†L4-L64】【F:gigvora-frontend-reactjs/src/components/Header.jsx†L293-L359】
+      - [x] Implement mobile fly-out navigation.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L279-L335】
   27. **Full Upgrade Plan & Release Steps.**
-      1. Build inbox preview query using messaging service; test with seeded data.
-      2. Introduce mobile slide-over nav and run usability testing.
-      3. Localize header strings across supported languages.
-      4. Release updates with analytics to monitor menu engagement.
+      1. Introduce preference-aware or websocket inbox delivery and verify cache eviction behaves correctly with live previews.【F:gigvora-frontend-reactjs/src/hooks/useInboxPreview.js†L32-L127】【F:gigvora-backend-nodejs/src/services/messagingService.js†L48-L160】
+      2. Localize remaining static header strings via `useLanguage` and extend analytics to measure persona switching behaviour.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L333-L359】【F:gigvora-frontend-reactjs/src/services/analytics.js†L1-L120】
+      3. Roll out avatar asset ingestion so account badges gracefully handle profile photos and fallbacks.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L43-L75】
+      4. Monitor engagement metrics for navigation interactions and iterate on global search concepts with power users.【F:gigvora-frontend-reactjs/src/components/navigation/MegaMenu.jsx†L10-L160】【F:gigvora-frontend-reactjs/src/services/analytics.js†L1-L120】
 
 - **1.B.2. `navigation/MegaMenu.jsx`**
   1. **Appraisal.** Mega menu organizes multi-column navigation with Headless UI transitions, keeping focus styling accessible.【F:gigvora-frontend-reactjs/src/components/navigation/MegaMenu.jsx†L1-L70】
@@ -1024,11 +1024,11 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   4. **Redundancies.** None; component is focused.
   5. **Placeholders.** Dependent on parent-provided content; no stubs inside.
   6. **Duplicate Functions.** Shares `classNames` pattern with other files—consider centralizing.
-  7. **Improvements Needed.** Add keyboard arrow navigation between columns for power users.
+  7. **Improvements Needed.** Layer quick filtering or shortcut cues for large information architectures so power users can jump to destinations faster.【F:gigvora-frontend-reactjs/src/components/navigation/MegaMenu.jsx†L27-L160】
   8. **Styling Improvements.** Support theme variations (dark mode) with context-provided classes.
   9. **Efficiency.** Lightweight; renders only when Popover open.
   10. **Strengths.** Strong information architecture with clear headings and iconography.【F:gigvora-frontend-reactjs/src/components/navigation/MegaMenu.jsx†L35-L64】
-  11. **Weaknesses.** Lacks analytics hooks to track menu usage.
+  11. **Weaknesses.** Analytics events fire on open/navigate, but consider piping aggregates into dashboards to monitor discoverability trends.【F:gigvora-frontend-reactjs/src/components/navigation/MegaMenu.jsx†L17-L80】
   12. **Styling & Colour Review.** Soft backgrounds and accent icons align with brand.
   13. **CSS, Orientation, Placement.** Grid layout handles multi-column sections gracefully.
   14. **Text Analysis.** Copy inherits from config; ensure upstream text is proofed.
@@ -1044,13 +1044,13 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   24. **Design Duplication.** Minimal duplication; relies on config.
   25. **Design Framework.** Aligns with Headless UI best practices.
   26. **Change Checklist Tracker.**
-      - [x] Add arrow-key navigation.
-      - [x] Provide analytics instrumentation.
-      - [x] Expose theme overrides.
+      - [x] Add arrow-key navigation.【F:gigvora-frontend-reactjs/src/components/navigation/MegaMenu.jsx†L27-L69】
+      - [x] Provide analytics instrumentation.【F:gigvora-frontend-reactjs/src/components/navigation/MegaMenu.jsx†L17-L80】
+      - [x] Expose theme overrides.【F:gigvora-frontend-reactjs/src/components/navigation/MegaMenu.jsx†L83-L105】
   27. **Full Upgrade Plan & Release Steps.**
-      1. Implement roving tabindex to support keyboard navigation.
-      2. Wrap Popover events with analytics dispatch.
-      3. QA dark-mode variants and release with header refresh.
+      1. Prototype inline search or quick filter surface and validate with enterprise IA tests.【F:gigvora-frontend-reactjs/src/components/navigation/MegaMenu.jsx†L132-L159】
+      2. Route analytics payloads into reporting so product teams can monitor section engagement.【F:gigvora-frontend-reactjs/src/components/navigation/MegaMenu.jsx†L17-L81】【F:gigvora-frontend-reactjs/src/services/analytics.js†L1-L120】
+      3. Extend dark/light theming QA across new search/filter experiences before release.【F:gigvora-frontend-reactjs/src/components/navigation/MegaMenu.jsx†L83-L105】【F:gigvora-frontend-reactjs/src/context/NavigationThemeContext.jsx†L4-L64】
 
 - **1.B.3. `navigation/RoleSwitcher.jsx`**
   1. **Appraisal.** Offers persona pivot inside the header, exposing timeline availability and deep links per role.【F:gigvora-frontend-reactjs/src/components/navigation/RoleSwitcher.jsx†L1-L70】
@@ -1058,12 +1058,12 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   3. **Logic Usefulness.** Finds active option via `currentKey` and gracefully falls back to first entry when undefined.【F:gigvora-frontend-reactjs/src/components/navigation/RoleSwitcher.jsx†L11-L20】
   4. **Redundancies.** None.
   5. **Placeholders.** Timeline labels read from config; no stub logic.
-  6. **Duplicate Functions.** `classNames` duplication noted—centralize.
-  7. **Improvements Needed.** Indicate current workspace with checkmark icon for clarity.
+  6. **Duplicate Functions.** `classNames` already centralised, keeping styling helpers consistent across navigation surfaces.【F:gigvora-frontend-reactjs/src/components/navigation/RoleSwitcher.jsx†L16-L70】【F:gigvora-frontend-reactjs/src/utils/classNames.js†L1-L5】
+  7. **Improvements Needed.** Surface workspace context (e.g., unread badge counts or pending approvals) to add operational awareness when switching personas.【F:gigvora-frontend-reactjs/src/components/navigation/RoleSwitcher.jsx†L32-L105】
   8. **Styling Improvements.** Provide focus outline contrast for accessibility on dark backgrounds.
   9. **Efficiency.** Minimal; only renders when options exist.
   10. **Strengths.** Clear segmentation between roles and timeline support messaging.【F:gigvora-frontend-reactjs/src/components/navigation/RoleSwitcher.jsx†L32-L60】
-  11. **Weaknesses.** `No timeline` label might confuse; replace with actionable guidance.
+  11. **Weaknesses.** Copy now differentiates `Timeline live` vs `Request timeline access`; adding inline links to supporting docs could reduce confusion.【F:gigvora-frontend-reactjs/src/components/navigation/RoleSwitcher.jsx†L74-L95】
   12. **Styling & Colour Review.** Light pill aesthetic matches header.
   13. **CSS, Orientation, Placement.** Inline with header controls; consider responsive adjustments for mobile.
   14. **Text Analysis.** Uppercase microcopy emphasises operations; evaluate readability.
@@ -1075,17 +1075,17 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   20. **Button Styling.** Border and accent states align with rest of header.
   21. **Interactiveness.** Immediate route navigation fosters quick persona switching.【F:gigvora-frontend-reactjs/src/components/navigation/RoleSwitcher.jsx†L32-L60】
   22. **Missing Components.** Could show quick description per role in menu.
-  23. **Design Changes.** Add iconography per persona for faster scanning.
+  23. **Design Changes.** Instrument analytics on persona switches to monitor adoption and identify underused roles.【F:gigvora-frontend-reactjs/src/components/navigation/RoleSwitcher.jsx†L36-L105】【F:gigvora-frontend-reactjs/src/services/analytics.js†L1-L120】
   24. **Design Duplication.** Minimal.
   25. **Design Framework.** Headless UI integration stays consistent.
   26. **Change Checklist Tracker.**
-      - [x] Replace `No timeline` copy.
-      - [x] Add persona icons.
-      - [x] Centralize `classNames` helper.
+      - [x] Replace `No timeline` copy.【F:gigvora-frontend-reactjs/src/components/navigation/RoleSwitcher.jsx†L74-L96】
+      - [x] Add persona icons.【F:gigvora-frontend-reactjs/src/components/navigation/RoleSwitcher.jsx†L18-L88】
+      - [x] Centralize `classNames` helper.【F:gigvora-frontend-reactjs/src/components/navigation/RoleSwitcher.jsx†L16-L70】【F:gigvora-frontend-reactjs/src/utils/classNames.js†L1-L5】
   27. **Full Upgrade Plan & Release Steps.**
-      1. Prototype expanded role descriptions and test comprehension.
-      2. Roll out icon-enhanced menu with analytics tracking.
-      3. Ship helper refactor to shared util, ensuring zero regression via unit tests.
+      1. Prototype expanded role descriptions and test comprehension with persona leads.【F:gigvora-frontend-reactjs/src/components/navigation/RoleSwitcher.jsx†L74-L100】
+      2. Capture analytics events on persona selection to inform roadmap priorities.【F:gigvora-frontend-reactjs/src/components/navigation/RoleSwitcher.jsx†L36-L105】【F:gigvora-frontend-reactjs/src/services/analytics.js†L1-L120】
+      3. Explore contextual badges (e.g., unread counts) and validate accessibility before rollout.【F:gigvora-frontend-reactjs/src/components/navigation/RoleSwitcher.jsx†L72-L105】
 
 ### 1.C. Floating Assistance Layers
 

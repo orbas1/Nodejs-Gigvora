@@ -12510,6 +12510,7 @@ export const MessageThread = sequelize.define(
     },
     createdBy: { type: DataTypes.INTEGER, allowNull: false },
     lastMessageAt: { type: DataTypes.DATE, allowNull: true },
+    lastMessagePreview: { type: DataTypes.STRING(500), allowNull: true },
     metadata: { type: jsonType, allowNull: true },
   },
   {
