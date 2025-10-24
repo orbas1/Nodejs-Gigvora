@@ -11,7 +11,7 @@ import { deepFreeze } from './menuSchema.js';
 
 export const CREATION_STUDIO_STATUSES = deepFreeze([
   { id: 'draft', label: 'Draft', badge: 'bg-slate-100 text-slate-700' },
-  { id: 'review', label: 'In review', badge: 'bg-amber-100 text-amber-700' },
+  { id: 'in_review', label: 'In review', badge: 'bg-amber-100 text-amber-700' },
   { id: 'scheduled', label: 'Scheduled', badge: 'bg-sky-100 text-sky-700' },
   { id: 'published', label: 'Published', badge: 'bg-emerald-100 text-emerald-700' },
   { id: 'archived', label: 'Archived', badge: 'bg-slate-200 text-slate-600' },
@@ -83,6 +83,14 @@ export const CREATION_STUDIO_TYPES = deepFreeze([
     href: '/dashboard/company/networking',
   },
   {
+    id: 'event',
+    label: 'Event experience',
+    shortLabel: 'Event',
+    groupId: 'community',
+    description: 'Host flagship events with ticketing, waitlists, and automation-ready agendas.',
+    href: '/events',
+  },
+  {
     id: 'group',
     label: 'Community group',
     shortLabel: 'Group',
@@ -150,9 +158,9 @@ export const CREATION_STUDIO_GROUPS = deepFreeze([
   {
     id: 'community',
     label: 'Community hubs',
-    description: 'Spaces and pages that nurture ongoing member engagement.',
+    description: 'Spaces, events, and pages that nurture ongoing member engagement.',
     defaultType: 'group',
-    types: ['group', 'page'],
+    types: ['group', 'page', 'event'],
   },
   {
     id: 'content',
@@ -530,6 +538,74 @@ export const CREATION_STUDIO_TRACKS = [
         label: 'Feed amplification',
         metric: '2.4×',
         description: 'Boost in feed engagement when stories are shared from mission dashboards.',
+      },
+    ],
+  },
+  {
+    id: 'event',
+    type: 'event',
+    title: 'Event experience builder',
+    description:
+      'Design ticketed experiences with automation-ready agendas, sponsor playbooks, and attendee analytics.',
+    icon: SparklesIcon,
+    to: '/events',
+    recommendedFor: ['company', 'agency'],
+    prompts: [
+      {
+        id: 'event-agenda',
+        title: 'Design the agenda',
+        prompt:
+          'Outline keynote slots, breakout tracks, and networking rituals that reinforce the event narrative.',
+      },
+      {
+        id: 'event-sponsors',
+        title: 'Highlight partners',
+        prompt:
+          'List sponsor activations, deliverables, and success metrics to align internal and external teams.',
+      },
+    ],
+    templates: [
+      {
+        id: 'event-summit',
+        title: 'Product summit',
+        summary:
+          'Full-day summit template with main-stage programming, workshop rotations, and VIP briefings.',
+      },
+      {
+        id: 'event-community',
+        title: 'Community lab day',
+        summary:
+          'Hands-on community showcase featuring maker pods, lightning talks, and collaboration corners.',
+      },
+    ],
+    collaborationRoles: [
+      {
+        role: 'Production lead',
+        benefit: 'Oversees venue logistics, supplier coordination, and real-time run of show updates.',
+      },
+      {
+        role: 'Community host',
+        benefit: 'Amplifies attendee energy, manages waitlists, and surfaces wins across social channels.',
+      },
+    ],
+    analytics: [
+      {
+        id: 'event-capacity',
+        label: 'Capacity filled',
+        metric: '94%',
+        description: 'Average seat utilisation when automation handles waitlists and reminders.',
+      },
+      {
+        id: 'event-sponsors',
+        label: 'Sponsor renewals',
+        metric: '3.4×',
+        description: 'Increase in sponsor retention with structured deliverable tracking inside the studio.',
+      },
+      {
+        id: 'event-feedback',
+        label: 'Attendee rating',
+        metric: '4.8/5',
+        description: 'Post-event satisfaction when agendas and resources are shared through the workspace.',
       },
     ],
   },

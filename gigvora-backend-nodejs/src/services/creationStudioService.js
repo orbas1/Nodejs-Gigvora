@@ -203,22 +203,30 @@ function buildSummary(items) {
   return summary;
 }
 
+const DEFAULT_SETTINGS_BY_TYPE = Object.freeze({
+  job: { requiresBrief: true, compensationType: 'salary', approvalWorkflow: 'hiring_manager' },
+  gig: { requiresBrief: true, billingModel: 'fixed_price', complianceChecklist: true },
+  project: { requiresBrief: true, milestoneCadence: 'biweekly', stakeholderReviews: true },
+  launchpad_job: { requiresBrief: true, launchpadOnly: true, readinessScoring: true },
+  launchpad_project: { requiresBrief: true, launchpadOnly: true, readinessScoring: true },
+  volunteer_opportunity: { requiresBrief: true, safeguardingChecks: true, onboardingBriefing: true },
+  mentorship_offering: { requiresBrief: true, sessionLengthMinutes: 60, billingMode: 'subscription' },
+  networking_session: { requiresBrief: false, rsvpRequired: true, breakoutRotationMinutes: 8 },
+  blog_post: { requiresBrief: false, scheduleDistribution: true, proofingWorkflow: 'editorial' },
+  group: { requiresBrief: false, moderationRequired: true, autoApproveMembers: false },
+  page: { requiresBrief: false, requiresSeoReview: true, translationWorkflow: 'auto' },
+  ad: { requiresBrief: true, budget: { minimum: 25, currency: 'USD' }, creativeApprovals: true },
+  event: { requiresBrief: true, rsvpRequired: true, capacityLimit: 100 },
+  cv: { requiresBrief: false, templateLibrary: true, aiAssistEnabled: true },
+  cover_letter: { requiresBrief: false, templateLibrary: true, aiAssistEnabled: true },
+});
+
 function buildDefaultSettings(type) {
-  switch (type) {
-    case 'job':
-      return { requiresBrief: true, compensationType: 'salary' };
-    case 'volunteering':
-      return { requiresBrief: true, backgroundChecks: false };
-    case 'networking_session':
-      return { requiresBrief: false, rsvpRequired: true };
-    case 'launchpad_job':
-    case 'launchpad_project':
-      return { requiresBrief: true, launchpadOnly: true };
-    case 'ad':
-      return { requiresBrief: true, budget: { minimum: 25, currency: 'USD' } };
-    default:
-      return { requiresBrief: true };
+  const defaults = DEFAULT_SETTINGS_BY_TYPE[type];
+  if (defaults) {
+    return { ...defaults };
   }
+  return { requiresBrief: true };
 }
 
 function preparePayload(payload, { actorId, existing } = {}) {

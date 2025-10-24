@@ -7,6 +7,9 @@ const creationTitles = [
   'Demo: Senior Product Designer',
   'Demo: Workspace Automation Blueprint',
   'Demo: Founders & Talent Speed Networking',
+  'Demo: Mentorship Growth Sprint',
+  'Demo: Product Strategist CV',
+  'Demo: Strategic Cover Letter',
 ];
 
 async function findUserId(queryInterface, transaction, email) {
@@ -145,11 +148,64 @@ module.exports = {
           commitment_hours: 2,
           remote_eligible: true,
         },
+        {
+          type: 'mentorship_offering',
+          title: creationTitles[3],
+          headline: 'Guide product leaders through a structured mentorship sprint.',
+          summary:
+            'Six-session mentorship programme pairing seasoned operators with emerging product strategists.',
+          status: 'in_review',
+          visibility: 'connections',
+          category: 'Mentorship',
+          target_audience: 'Product leaders and senior mentors',
+          launch_at: new Date('2024-11-12T17:00:00Z'),
+          hero_image_url: 'https://cdn.gigvora.example.com/assets/mentorship-growth.jpg',
+          location_label: 'Hybrid · London, United Kingdom',
+          location_mode: 'hybrid',
+          tags: ['mentorship', 'product', 'growth'],
+          settings: { sessionLengthMinutes: 60, billingMode: 'subscription', cohortSize: 12 },
+          metadata: { origin: 'seed-demo', programmeCode: 'MENTOR-GROWTH' },
+          commitment_hours: 4,
+          remote_eligible: true,
+        },
+        {
+          type: 'cv',
+          title: creationTitles[4],
+          headline: 'Showcase strategic product wins across global launches.',
+          summary:
+            'AI-assisted CV template highlighting launch metrics, leadership impact, and cross-functional excellence.',
+          status: 'draft',
+          visibility: 'workspace',
+          category: 'Documents',
+          target_audience: 'Product strategists preparing executive-ready profiles',
+          hero_image_url: 'https://cdn.gigvora.example.com/assets/cv-product-strategist.png',
+          tags: ['cv', 'product', 'executive'],
+          settings: { templateLibrary: true, aiAssistEnabled: true },
+          metadata: { origin: 'seed-demo', template: 'portfolio-first' },
+          remote_eligible: true,
+        },
+        {
+          type: 'cover_letter',
+          title: creationTitles[5],
+          headline: 'Tailored narrative for enterprise transformation roles.',
+          summary: 'Guided cover letter draft weaving measurable impact with culture fit talking points.',
+          status: 'published',
+          visibility: 'private',
+          category: 'Documents',
+          target_audience: 'Senior consultants pursuing enterprise engagements',
+          publish_at: new Date('2024-10-28T09:30:00Z'),
+          published_at: new Date('2024-10-28T09:45:00Z'),
+          hero_image_url: 'https://cdn.gigvora.example.com/assets/cover-letter-strategic.jpg',
+          tags: ['cover-letter', 'consulting', 'storytelling'],
+          settings: { aiAssistEnabled: true, templateLibrary: true },
+          metadata: { origin: 'seed-demo', template: 'strategic-narrative' },
+          remote_eligible: true,
+        },
       ];
 
       for (const item of items) {
         const [existing] = await queryInterface.sequelize.query(
-          'SELECT id FROM creation_studio_items WHERE workspaceId = :workspaceId AND title = :title LIMIT 1',
+          'SELECT id FROM creation_studio_items WHERE workspace_id = :workspaceId AND title = :title LIMIT 1',
           {
             type: QueryTypes.SELECT,
             transaction,
@@ -186,6 +242,7 @@ module.exports = {
 
       if (seededItems?.length) {
         const projectItem = seededItems.find((entry) => entry.type === 'project');
+        const mentorshipItem = seededItems.find((entry) => entry.type === 'mentorship_offering');
         const collaborators = [
           {
             owner_id: ownerId,
@@ -207,6 +264,19 @@ module.exports = {
             track_type: 'job',
             email: 'talent.ops@gigvora.example',
             role: 'Hiring partner',
+            status: 'invited',
+            invited_by_id: ownerId,
+            metadata: { origin: 'seed-demo' },
+            created_at: now,
+            updated_at: now,
+          },
+          {
+            owner_id: ownerId,
+            workspace_id: workspaceId,
+            item_id: mentorshipItem?.id ?? null,
+            track_type: 'mentorship_offering',
+            email: 'mentorship.lead@gigvora.example',
+            role: 'Programme coordinator',
             status: 'invited',
             invited_by_id: ownerId,
             metadata: { origin: 'seed-demo' },
@@ -238,7 +308,11 @@ module.exports = {
         {
           workspace_id: workspaceId,
           email: {
-            [Op.in]: ['automation.partner@gigvora.example', 'talent.ops@gigvora.example'],
+            [Op.in]: [
+              'automation.partner@gigvora.example',
+              'talent.ops@gigvora.example',
+              'mentorship.lead@gigvora.example',
+            ],
           },
         },
         { transaction },

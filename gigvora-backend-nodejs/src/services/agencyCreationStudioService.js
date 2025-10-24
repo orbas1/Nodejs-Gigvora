@@ -36,11 +36,15 @@ const TYPE_LABELS = {
   launchpad_job: 'Launchpad job',
   launchpad_project: 'Launchpad project',
   volunteer_opportunity: 'Volunteering opportunity',
+  mentorship_offering: 'Mentorship offering',
   networking_session: 'Networking session',
   blog_post: 'Blog post',
   group: 'Community group',
   page: 'Landing page',
   ad: 'Gigvora ad',
+  event: 'Event experience',
+  cv: 'CV document',
+  cover_letter: 'Cover letter',
 };
 
 const STATUS_LABELS = {

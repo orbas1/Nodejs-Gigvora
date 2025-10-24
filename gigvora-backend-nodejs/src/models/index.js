@@ -609,11 +609,15 @@ export const AGENCY_CREATION_TARGET_TYPES = [
   'launchpad_job',
   'launchpad_project',
   'volunteer_opportunity',
+  'mentorship_offering',
   'networking_session',
   'blog_post',
   'group',
   'page',
   'ad',
+  'event',
+  'cv',
+  'cover_letter',
 ];
 
 export const AGENCY_CREATION_STATUSES = ['draft', 'in_review', 'scheduled', 'published', 'archived'];

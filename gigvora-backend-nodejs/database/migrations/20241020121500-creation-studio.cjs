@@ -10,6 +10,13 @@ async function ensureEnumValue(queryInterface, enumName, value) {
   if (!['postgres', 'postgresql'].includes(dialect)) {
     return;
   }
+  const [[typeExists]] = await queryInterface.sequelize.query(
+    'SELECT 1 FROM pg_type WHERE typname = :enumName LIMIT 1',
+    { replacements: { enumName } },
+  );
+  if (!typeExists) {
+    return;
+  }
   const [[existing]] = await queryInterface.sequelize.query(
     'SELECT 1 FROM pg_enum WHERE enumlabel = :value AND enumtypid = :enumName::regtype',
     { replacements: { value, enumName } },
@@ -26,6 +33,15 @@ module.exports = {
     await Promise.all([
       ensureEnumValue(queryInterface, 'enum_creation_studio_items_visibility', 'connections'),
       ensureEnumValue(queryInterface, 'enum_creation_studio_items_visibility', 'community'),
+      ensureEnumValue(queryInterface, 'enum_creation_studio_items_status', 'in_review'),
+      ensureEnumValue(queryInterface, 'enum_creation_studio_items_type', 'volunteer_opportunity'),
+      ensureEnumValue(queryInterface, 'enum_creation_studio_items_type', 'mentorship_offering'),
+      ensureEnumValue(queryInterface, 'enum_creation_studio_items_type', 'cv'),
+      ensureEnumValue(queryInterface, 'enum_creation_studio_items_type', 'cover_letter'),
+      ensureEnumValue(queryInterface, 'enum_creation_studio_collaborators_track_type', 'volunteer_opportunity'),
+      ensureEnumValue(queryInterface, 'enum_creation_studio_collaborators_track_type', 'mentorship_offering'),
+      ensureEnumValue(queryInterface, 'enum_creation_studio_collaborators_track_type', 'cv'),
+      ensureEnumValue(queryInterface, 'enum_creation_studio_collaborators_track_type', 'cover_letter'),
     ]);
 
     const table = await queryInterface.describeTable('creation_studio_items').catch(() => null);
@@ -141,6 +157,17 @@ module.exports = {
       if (operations.length) {
         await Promise.all(operations);
       }
+
+      await queryInterface.sequelize.query(
+        "UPDATE creation_studio_items SET type = 'volunteer_opportunity' WHERE type = 'volunteering'",
+      );
+
+      const collaboratorTable = await queryInterface.describeTable('creation_studio_collaborators').catch(() => null);
+      if (collaboratorTable) {
+        await queryInterface.sequelize.query(
+          "UPDATE creation_studio_collaborators SET track_type = 'volunteer_opportunity' WHERE track_type = 'volunteering'",
+        );
+      }
     }
 
     await queryInterface.createTable('creation_studio_collaborators', {
@@ -173,13 +200,16 @@ module.exports = {
           'job',
           'launchpad_job',
           'launchpad_project',
-          'volunteering',
+          'volunteer_opportunity',
+          'mentorship_offering',
           'networking_session',
+          'blog_post',
           'group',
           'page',
           'ad',
-          'blog_post',
           'event',
+          'cv',
+          'cover_letter',
         ),
         allowNull: false,
       },

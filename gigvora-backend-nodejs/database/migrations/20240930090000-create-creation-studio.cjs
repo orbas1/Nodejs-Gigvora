@@ -6,16 +6,19 @@ const CREATION_STUDIO_TYPES = [
   'job',
   'launchpad_job',
   'launchpad_project',
-  'volunteering',
+  'volunteer_opportunity',
+  'mentorship_offering',
   'networking_session',
+  'blog_post',
   'group',
   'page',
   'ad',
-  'blog_post',
   'event',
+  'cv',
+  'cover_letter',
 ];
 
-const CREATION_STUDIO_STATUSES = ['draft', 'scheduled', 'published', 'archived'];
+const CREATION_STUDIO_STATUSES = ['draft', 'in_review', 'scheduled', 'published', 'archived'];
 const CREATION_STUDIO_VISIBILITIES = ['private', 'workspace', 'connections', 'community', 'public'];
 
 module.exports = {
