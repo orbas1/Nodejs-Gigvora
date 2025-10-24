@@ -11,6 +11,9 @@ import {
   recordStepProgress,
   shareItem,
   archiveItem,
+  listCollaborators,
+  inviteCollaborator,
+  updateCollaborator,
   CREATION_STUDIO_ITEM_TYPES,
   CREATION_STUDIO_ITEM_STATUSES,
 } from '../services/creationStudioService.js';
@@ -198,6 +201,40 @@ export async function archiveItemHandler(req, res) {
   return res.status(204).end();
 }
 
+export async function listCollaboratorsHandler(req, res) {
+  const actorId = resolveActorId(req, { required: false });
+  const ownerId = parseOptionalPositiveInt(req.query.ownerId) ?? actorId;
+  if (!ownerId) {
+    throw new AuthorizationError('Authenticated actor required.');
+  }
+  const collaborators = await listCollaborators(ownerId, { trackType: req.query.trackType });
+  res.json({ collaborators });
+}
+
+export async function inviteCollaboratorHandler(req, res) {
+  const actorId = resolveActorId(req);
+  const ownerId = parseOptionalPositiveInt(req.body?.ownerId) ?? actorId;
+  if (!ownerId) {
+    throw new AuthorizationError('ownerId is required.');
+  }
+  const collaborator = await inviteCollaborator(ownerId, req.body ?? {}, { actorId });
+  res.status(201).json(collaborator);
+}
+
+export async function updateCollaboratorHandler(req, res) {
+  const actorId = resolveActorId(req, { required: false });
+  const ownerId = parseOptionalPositiveInt(req.body?.ownerId ?? req.query?.ownerId) ?? actorId;
+  if (!ownerId) {
+    throw new AuthorizationError('ownerId is required.');
+  }
+  const collaboratorId = parsePositiveInt(req.params.collaboratorId, 'collaboratorId');
+  const collaborator = await updateCollaborator(ownerId, collaboratorId, req.body ?? {}, { actorId: actorId ?? ownerId });
+  if (!collaborator) {
+    return res.status(404).json({ message: 'Collaborator not found' });
+  }
+  return res.json(collaborator);
+}
+
 export default {
   overview,
   index,
@@ -211,4 +248,7 @@ export default {
   recordStep,
   shareItem: shareItemHandler,
   archiveItem: archiveItemHandler,
+  listCollaborators: listCollaboratorsHandler,
+  inviteCollaborator: inviteCollaboratorHandler,
+  updateCollaborator: updateCollaboratorHandler,
 };

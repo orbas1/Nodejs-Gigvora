@@ -257,6 +257,17 @@ export function listCreationStudioItems(filters = {}, options = {}) {
   );
 }
 
+export function fetchCreationStudioOverview(params = {}, options = {}) {
+  const query = { ...params };
+  if (params.workspaceId) {
+    query.workspaceId = params.workspaceId;
+  }
+  return apiClient.get(
+    '/creation-studio/overview',
+    combineRequestOptions({ params: query }, options),
+  );
+}
+
 export function getCreationStudioItem(itemId, options = {}) {
   const resolvedItemId = requireIdentifier(itemId, 'itemId');
   return apiClient.get(
@@ -295,6 +306,33 @@ export function deleteCreationStudioItem(itemId, options = {}) {
   );
 }
 
+export function listCreationStudioCollaborators(filters = {}, options = {}) {
+  const params = {};
+  if (filters.ownerId) {
+    params.ownerId = filters.ownerId;
+  }
+  if (filters.trackType) {
+    params.trackType = filters.trackType;
+  }
+  return apiClient.get(
+    '/creation-studio/collaborators',
+    combineRequestOptions({ params }, options),
+  );
+}
+
+export function inviteCreationStudioCollaborator(payload = {}, options = {}) {
+  return apiClient.post('/creation-studio/collaborators', payload ?? {}, combineRequestOptions({}, options));
+}
+
+export function updateCreationStudioCollaborator(collaboratorId, payload = {}, options = {}) {
+  const resolvedId = requireIdentifier(collaboratorId, 'collaboratorId');
+  return apiClient.patch(
+    `/creation-studio/collaborators/${resolvedId}`,
+    payload ?? {},
+    combineRequestOptions({}, options),
+  );
+}
+
 export const creationStudioApi = {
   fetchCompanyCreationStudioOverview,
   fetchCompanyCreationStudioItems,
@@ -310,11 +348,15 @@ export const creationStudioApi = {
   shareCreationItem,
   archiveCreationItem,
   listCreationStudioItems,
+  fetchCreationStudioOverview,
   getCreationStudioItem,
   createCreationStudioItem,
   updateCreationStudioItem,
   publishCreationStudioItem,
   deleteCreationStudioItem,
+  listCreationStudioCollaborators,
+  inviteCreationStudioCollaborator,
+  updateCreationStudioCollaborator,
 };
 
 export default creationStudioApi;

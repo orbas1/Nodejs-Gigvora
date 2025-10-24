@@ -83,20 +83,22 @@ module.exports = {
           status: 'published',
           visibility: 'public',
           category: 'Design',
-          location: 'Hybrid · Berlin, Germany',
-          targetAudience: 'Seasoned product designers with marketplace experience',
-          launchDate: new Date('2024-10-01T09:00:00Z'),
-          publishedAt: new Date('2024-10-02T08:30:00Z'),
-          imageUrl: 'https://cdn.gigvora.example.com/assets/design-lead.jpg',
+          target_audience: 'Seasoned product designers with marketplace experience',
+          launch_at: new Date('2024-10-01T09:00:00Z'),
+          published_at: new Date('2024-10-02T08:30:00Z'),
+          hero_image_url: 'https://cdn.gigvora.example.com/assets/design-lead.jpg',
+          location_label: 'Hybrid · Berlin, Germany',
+          location_mode: 'hybrid',
           tags: ['design', 'product', 'leadership'],
           settings: { employmentType: 'full_time', hiringManager: 'Avery Chen' },
-          budgetAmount: 165000,
-          budgetCurrency: 'EUR',
-          compensationMin: 150000,
-          compensationMax: 180000,
-          compensationCurrency: 'EUR',
-          commitmentHours: 40,
-          remoteEligible: true,
+          metadata: { origin: 'seed-demo', launchpad: false },
+          budget_amount: 165000,
+          budget_currency: 'EUR',
+          compensation_min: 150000,
+          compensation_max: 180000,
+          compensation_currency: 'EUR',
+          commitment_hours: 40,
+          remote_eligible: true,
         },
         {
           type: 'project',
@@ -106,21 +108,23 @@ module.exports = {
           status: 'scheduled',
           visibility: 'workspace',
           category: 'Automation',
-          location: 'Remote · Global',
-          targetAudience: 'Change enablement and RevOps champions',
-          launchDate: new Date('2024-10-18T15:00:00Z'),
-          publishedAt: new Date('2024-10-17T13:00:00Z'),
-          imageUrl: 'https://cdn.gigvora.example.com/assets/automation-blueprint.png',
+          target_audience: 'Change enablement and RevOps champions',
+          launch_at: new Date('2024-10-18T15:00:00Z'),
+          publish_at: new Date('2024-10-17T13:00:00Z'),
+          hero_image_url: 'https://cdn.gigvora.example.com/assets/automation-blueprint.png',
+          location_label: 'Remote · Global',
+          location_mode: 'remote',
           tags: ['automation', 'workspace', 'launchpad'],
           settings: {
             deliverables: 'Automation workbook, enablement workshops, reporting pack',
             mentorLead: 'Zuri Patel',
           },
-          budgetAmount: 24000,
-          budgetCurrency: 'USD',
-          durationWeeks: 6,
-          commitmentHours: 10,
-          remoteEligible: true,
+          metadata: { origin: 'seed-demo', launchpad: true },
+          budget_amount: 24000,
+          budget_currency: 'USD',
+          duration_weeks: 6,
+          commitment_hours: 10,
+          remote_eligible: true,
         },
         {
           type: 'networking_session',
@@ -128,16 +132,18 @@ module.exports = {
           headline: 'Match founders with recruiting leaders for rapid ideation.',
           summary: '45-minute networking session with rotating breakouts and digital business card swap.',
           status: 'draft',
-          visibility: 'workspace',
+          visibility: 'community',
           category: 'Community',
-          location: 'Virtual',
-          targetAudience: 'Founders and recruiting leaders',
-          launchDate: new Date('2024-11-05T17:00:00Z'),
-          imageUrl: 'https://cdn.gigvora.example.com/assets/networking-session.jpg',
+          target_audience: 'Founders and recruiting leaders',
+          launch_at: new Date('2024-11-05T17:00:00Z'),
+          hero_image_url: 'https://cdn.gigvora.example.com/assets/networking-session.jpg',
+          location_label: 'Virtual',
+          location_mode: 'remote',
           tags: ['networking', 'community', 'talent'],
           settings: { sessionFormat: 'virtual', capacity: 60, rotationMinutes: 8 },
-          commitmentHours: 2,
-          remoteEligible: true,
+          metadata: { origin: 'seed-demo', launchpad: false },
+          commitment_hours: 2,
+          remote_eligible: true,
         },
       ];
 
@@ -155,16 +161,61 @@ module.exports = {
           'creation_studio_items',
           [
             {
-              workspaceId,
-              createdById: ownerId,
+              workspace_id: workspaceId,
+              owner_id: ownerId,
+              created_by_id: ownerId,
+              updated_by_id: ownerId,
               ...item,
-              metadata: { seed: 'creation-studio-demo' },
-              createdAt: now,
-              updatedAt: now,
+              metadata: { ...(item.metadata ?? {}), seed: 'creation-studio-demo' },
+              created_at: now,
+              updated_at: now,
             },
           ],
           { transaction },
         );
+      }
+
+      const seededItems = await queryInterface.sequelize.query(
+        'SELECT id, type FROM creation_studio_items WHERE workspace_id = :workspaceId AND metadata->>:seedKey = :seed',
+        {
+          type: QueryTypes.SELECT,
+          transaction,
+          replacements: { workspaceId, seed: 'creation-studio-demo', seedKey: 'seed' },
+        },
+      );
+
+      if (seededItems?.length) {
+        const projectItem = seededItems.find((entry) => entry.type === 'project');
+        const collaborators = [
+          {
+            owner_id: ownerId,
+            workspace_id: workspaceId,
+            item_id: projectItem?.id ?? null,
+            track_type: 'project',
+            email: 'automation.partner@gigvora.example',
+            role: 'Delivery lead',
+            status: 'sent',
+            invited_by_id: ownerId,
+            metadata: { origin: 'seed-demo' },
+            created_at: now,
+            updated_at: now,
+          },
+          {
+            owner_id: ownerId,
+            workspace_id: workspaceId,
+            item_id: null,
+            track_type: 'job',
+            email: 'talent.ops@gigvora.example',
+            role: 'Hiring partner',
+            status: 'invited',
+            invited_by_id: ownerId,
+            metadata: { origin: 'seed-demo' },
+            created_at: now,
+            updated_at: now,
+          },
+        ];
+
+        await queryInterface.bulkInsert('creation_studio_collaborators', collaborators, { transaction });
       }
     });
   },
@@ -183,8 +234,19 @@ module.exports = {
       if (!workspaceId) return;
 
       await queryInterface.bulkDelete(
+        'creation_studio_collaborators',
+        {
+          workspace_id: workspaceId,
+          email: {
+            [Op.in]: ['automation.partner@gigvora.example', 'talent.ops@gigvora.example'],
+          },
+        },
+        { transaction },
+      );
+
+      await queryInterface.bulkDelete(
         'creation_studio_items',
-        { workspaceId, title: { [Op.in]: creationTitles } },
+        { workspace_id: workspaceId, title: { [Op.in]: creationTitles } },
         { transaction },
       );
 
