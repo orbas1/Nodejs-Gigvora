@@ -8,6 +8,7 @@ import {
   ShieldCheckIcon,
   SparklesIcon,
   SwatchIcon,
+  UserCircleIcon,
   UsersIcon,
 } from '@heroicons/react/24/outline';
 
@@ -223,6 +224,17 @@ export const roleDashboardMapping = deepFreeze({
   admin: '/dashboard/admin',
 });
 
+export const roleIconMapping = deepFreeze({
+  user: UserCircleIcon,
+  freelancer: SparklesIcon,
+  agency: BriefcaseIcon,
+  company: BuildingOffice2Icon,
+  mentor: AcademicCapIcon,
+  headhunter: UsersIcon,
+  launchpad: RocketLaunchIcon,
+  admin: ShieldCheckIcon,
+});
+
 export const timelineAccessRoles = Object.freeze([
   'user',
   'freelancer',
@@ -298,6 +310,7 @@ export function buildRoleOptions(session) {
         label,
         to,
         timelineEnabled,
+        icon: roleIconMapping[key] ?? UsersIcon,
       };
     })
     .filter(Boolean);
