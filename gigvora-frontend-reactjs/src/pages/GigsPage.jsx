@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { BookmarkIcon, BookmarkSlashIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
 import DataStatus from '../components/DataStatus.jsx';
@@ -7,17 +8,194 @@ import useOpportunityListing from '../hooks/useOpportunityListing.js';
 import analytics from '../services/analytics.js';
 import { formatRelativeTime } from '../utils/date.js';
 import useSession from '../hooks/useSession.js';
+import useSavedGigs from '../hooks/useSavedGigs.js';
+import {
+  aggregateTaxonomyCounts,
+  buildTaxonomyDirectory,
+  resolveTaxonomyLabel,
+  resolveTaxonomyLabels,
+} from '../utils/taxonomy.js';
 
-export function formatTagLabelFromSlug(slug) {
-  if (!slug) {
+const PAGE_SIZE = 20;
+
+const DELIVERY_SPEED_OPTIONS = [
+  { id: 'any', label: 'All delivery speeds' },
+  { id: 'express', label: 'Express (1–3 days)' },
+  { id: 'standard', label: 'Standard (1 week)' },
+  { id: 'extended', label: 'Extended engagements' },
+];
+
+function sanitiseBudgetInput(value) {
+  if (typeof value !== 'string') {
     return '';
   }
+  return value.replace(/[^0-9]/g, '');
+}
 
-  return `${slug}`
-    .replace(/[_-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+function parseBudgetFilterValue(value) {
+  if (!value) {
+    return null;
+  }
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function resolveBudgetAmount(gig) {
+  if (!gig) {
+    return null;
+  }
+  if (typeof gig.budget === 'number') {
+    return gig.budget;
+  }
+  if (gig.budget && typeof gig.budget === 'object') {
+    const numeric = gig.budget.amount ?? gig.budget.value ?? null;
+    if (Number.isFinite(Number(numeric))) {
+      return Number(numeric);
+    }
+  }
+  const sources = [gig.budget, gig.price, gig.pricing, gig.startingPrice];
+  const raw = sources.find((entry) => typeof entry === 'string' && entry.trim().length);
+  if (!raw) {
+    return null;
+  }
+  const digits = raw.replace(/[^0-9.]/g, '');
+  const parsed = Number.parseFloat(digits);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function resolveDeliverySpeedLabel(gig) {
+  const candidates = [gig.deliverySpeed, gig.deliveryTimeline, gig.delivery, gig.turnaround, gig.timeline];
+  const label = candidates.find((value) => typeof value === 'string' && value.trim().length);
+  if (label) {
+    return label.trim();
+  }
+  if (typeof gig.deliverySpeed === 'number') {
+    return `${gig.deliverySpeed} days`;
+  }
+  return null;
+}
+
+function resolveDeliverySpeedCategory(gig) {
+  if (!gig) {
+    return 'unknown';
+  }
+  const explicit = gig.deliverySpeedCategory ?? gig.deliverySpeedTier ?? null;
+  if (explicit && typeof explicit === 'string') {
+    return explicit.trim().toLowerCase();
+  }
+  const label = (resolveDeliverySpeedLabel(gig) ?? '').toLowerCase();
+  if (!label) {
+    return 'unknown';
+  }
+  if (label.includes('hour') || (/\b(1|2|3|24|48|72)\b/.test(label) && label.includes('day'))) {
+    return 'express';
+  }
+  if (label.includes('week') || label.includes('5-day') || label.includes('7-day')) {
+    return 'standard';
+  }
+  if (label.includes('month') || label.includes('retainer') || label.includes('ongoing')) {
+    return 'extended';
+  }
+  return 'standard';
+}
+
+function resolveTrustBadges(gig) {
+  if (!gig) {
+    return [];
+  }
+  const badges = [];
+  if (Array.isArray(gig.trustBadges)) {
+    gig.trustBadges.forEach((entry) => {
+      if (typeof entry === 'string' && entry.trim().length) {
+        badges.push(entry.trim());
+      } else if (entry && typeof entry.label === 'string' && entry.label.trim().length) {
+        badges.push(entry.label.trim());
+      }
+    });
+  }
+
+  if (gig.identityVerified || gig.owner?.identityVerified || gig.agency?.verified) {
+    badges.push('ID verified');
+  }
+
+  const rating = gig.rating ?? gig.reviewScore ?? gig.averageRating ?? null;
+  if (Number.isFinite(Number(rating)) && Number(rating) > 0) {
+    badges.push(`Rated ${Number(rating).toFixed(1)}/5`);
+  }
+
+  const completedOrders = gig.completedOrders ?? gig.ordersCompleted ?? gig.deliveryCount ?? null;
+  if (Number.isFinite(Number(completedOrders)) && Number(completedOrders) > 0) {
+    badges.push(`${Number(completedOrders)}+ deliveries`);
+  }
+
+  if (gig.escrowReady || gig.escrowEnabled) {
+    badges.push('Escrow ready');
+  }
+
+  const seen = new Set();
+  return badges
+    .map((badge) => badge.trim())
+    .filter((badge) => {
+      const key = badge.toLowerCase();
+      if (!key || seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+}
+
+function resolveItemKey(item) {
+  if (!item) {
+    return null;
+  }
+  return item.id ?? item.slug ?? item.handle ?? null;
+}
+
+function mergeOpportunityItems(existing = [], incoming = []) {
+  if (!incoming.length) {
+    return existing;
+  }
+  const map = new Map();
+  existing.forEach((item) => {
+    const key = resolveItemKey(item);
+    map.set(key ?? Symbol('fallback'), item);
+  });
+  incoming.forEach((item) => {
+    const key = resolveItemKey(item);
+    if (key && map.has(key)) {
+      map.set(key, { ...map.get(key), ...item });
+    } else {
+      map.set(key ?? Symbol('fallback'), item);
+    }
+  });
+  return Array.from(map.values());
+}
+
+function computeHasMore(listing, aggregatedCount, pageSize, currentPage) {
+  if (!listing) {
+    return false;
+  }
+  if (typeof listing.hasMore === 'boolean') {
+    return listing.hasMore;
+  }
+  if (listing.nextPage != null || listing.meta?.nextPage != null) {
+    return true;
+  }
+  const total = listing.total ?? listing.meta?.total ?? null;
+  if (Number.isFinite(Number(total))) {
+    return Number(total) > aggregatedCount;
+  }
+  const totalPages = listing.totalPages ?? listing.pageCount ?? listing.meta?.totalPages ?? null;
+  const resolvedPage = listing.page ?? listing.meta?.page ?? currentPage;
+  if (Number.isFinite(Number(totalPages)) && Number.isFinite(Number(resolvedPage))) {
+    return Number(resolvedPage) < Number(totalPages);
+  }
+  const latestLength = Array.isArray(listing.items) ? listing.items.length : 0;
+  if (currentPage > 1 && latestLength === 0) {
+    return false;
+  }
+  return latestLength >= pageSize;
 }
 
 export function formatNumber(value) {
@@ -26,17 +204,43 @@ export function formatNumber(value) {
   }
   return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Number(value));
 }
-
 export default function GigsPage() {
   const [query, setQuery] = useState('');
   const [selectedTagSlugs, setSelectedTagSlugs] = useState([]);
+  const [budgetFilter, setBudgetFilter] = useState({ min: '', max: '' });
+  const [deliverySpeed, setDeliverySpeed] = useState('any');
+  const [trustedOnly, setTrustedOnly] = useState(false);
+  const [page, setPage] = useState(1);
+  const [resultsState, setResultsState] = useState({ key: '', items: [] });
+  const loadMoreRef = useRef(null);
   const navigate = useNavigate();
   const { session, isAuthenticated } = useSession();
+  const { items: savedGigs, toggleGig, removeGig, isGigSaved } = useSavedGigs();
   const hasFreelancerAccess = Boolean(session?.memberships?.includes('freelancer'));
-  const activeFilters = useMemo(
-    () => (selectedTagSlugs.length ? { taxonomySlugs: selectedTagSlugs } : null),
-    [selectedTagSlugs],
-  );
+
+  const parsedMinBudget = useMemo(() => parseBudgetFilterValue(budgetFilter.min), [budgetFilter.min]);
+  const parsedMaxBudget = useMemo(() => parseBudgetFilterValue(budgetFilter.max), [budgetFilter.max]);
+
+  const activeFilters = useMemo(() => {
+    const filters = {};
+    if (selectedTagSlugs.length) {
+      filters.taxonomySlugs = selectedTagSlugs;
+    }
+    if (parsedMinBudget != null || parsedMaxBudget != null) {
+      filters.budget = {
+        min: parsedMinBudget ?? undefined,
+        max: parsedMaxBudget ?? undefined,
+      };
+    }
+    if (deliverySpeed !== 'any') {
+      filters.deliverySpeed = deliverySpeed;
+    }
+    if (trustedOnly) {
+      filters.trustSignals = { verifiedOnly: true };
+    }
+    return Object.keys(filters).length ? filters : null;
+  }, [selectedTagSlugs, parsedMinBudget, parsedMaxBudget, deliverySpeed, trustedOnly]);
+
   const {
     data,
     error,
@@ -46,130 +250,87 @@ export default function GigsPage() {
     refresh,
     debouncedQuery,
   } = useOpportunityListing('gigs', query, {
-    pageSize: 25,
+    page,
+    pageSize: PAGE_SIZE,
     filters: activeFilters,
     includeFacets: true,
     enabled: isAuthenticated && hasFreelancerAccess,
   });
 
   const listing = data ?? {};
-  const items = useMemo(() => (Array.isArray(listing.items) ? listing.items : []), [listing.items]);
-  const tagDirectory = useMemo(() => {
-    if (!items.length) {
-      return new Map();
+  const filtersKey = useMemo(() => JSON.stringify(activeFilters ?? {}), [activeFilters]);
+  const resultKey = useMemo(() => `${debouncedQuery || ''}::${filtersKey}`, [debouncedQuery, filtersKey]);
+  const resolvedPage = listing.page ?? listing.meta?.page ?? page;
+
+  useEffect(() => {
+    setResultsState((current) => (current.key === resultKey ? current : { key: resultKey, items: [] }));
+    setPage(1);
+  }, [resultKey]);
+
+  const incomingItems = useMemo(() => (Array.isArray(listing.items) ? listing.items : null), [listing.items]);
+
+  useEffect(() => {
+    if (!incomingItems) {
+      return;
     }
-
-    const directory = new Map();
-    items.forEach((gig) => {
-      if (Array.isArray(gig.taxonomies)) {
-        gig.taxonomies.forEach((taxonomy) => {
-          if (!taxonomy?.slug) {
-            return;
-          }
-          const key = `${taxonomy.slug}`.toLowerCase();
-          if (!directory.has(key) || !directory.get(key)) {
-            const label = typeof taxonomy.label === 'string' && taxonomy.label.trim().length
-              ? taxonomy.label
-              : formatTagLabelFromSlug(taxonomy.slug);
-            directory.set(key, label);
-          }
-        });
-      }
-
-      if (Array.isArray(gig.taxonomySlugs)) {
-        gig.taxonomySlugs.forEach((slug, index) => {
-          if (!slug) {
-            return;
-          }
-          const key = `${slug}`.toLowerCase();
-          if (!directory.has(key) || !directory.get(key)) {
-            const labelCandidate = Array.isArray(gig.taxonomyLabels) ? gig.taxonomyLabels[index] : null;
-            const label = typeof labelCandidate === 'string' && labelCandidate.trim().length
-              ? labelCandidate
-              : formatTagLabelFromSlug(slug);
-            directory.set(key, label);
-          }
-        });
-      }
-    });
-    return directory;
-  }, [items]);
-  const facetTags = useMemo(() => {
-    const tagMap = new Map();
-
-    const registerTag = (slug, label, increment = 1) => {
-      if (!slug) {
-        return;
-      }
-      const key = `${slug}`.toLowerCase();
-      const current = tagMap.get(key);
-      const resolvedLabel =
-        (label && label.trim().length ? label : null) || current?.label || tagDirectory.get(key) || formatTagLabelFromSlug(slug);
-      const currentCount = current?.count ?? 0;
-      tagMap.set(key, {
-        slug,
-        label: resolvedLabel,
-        count: currentCount + increment,
-      });
-    };
-
-    if (listing?.facets && typeof listing.facets === 'object' && listing.facets !== null) {
-      const taxonomyFacet = listing.facets.taxonomySlugs;
-      if (taxonomyFacet && typeof taxonomyFacet === 'object') {
-        Object.entries(taxonomyFacet).forEach(([slug, rawCount]) => {
-          const count = Number(rawCount);
-          if (!slug || Number.isNaN(count)) {
-            return;
-          }
-          registerTag(slug, tagDirectory.get(`${slug}`.toLowerCase()) ?? null, Math.max(count, 1));
-        });
-      }
+    if (resolvedPage !== page) {
+      return;
     }
-
-    items.forEach((gig) => {
-      if (Array.isArray(gig.taxonomies) && gig.taxonomies.length) {
-        gig.taxonomies.forEach((taxonomy) => {
-          if (!taxonomy?.slug) {
-            return;
-          }
-          registerTag(taxonomy.slug, taxonomy.label ?? null, 1);
-        });
-      } else if (Array.isArray(gig.taxonomySlugs)) {
-        gig.taxonomySlugs.forEach((slug, index) => {
-          if (!slug) {
-            return;
-          }
-          const labelCandidate = Array.isArray(gig.taxonomyLabels) ? gig.taxonomyLabels[index] : null;
-          registerTag(slug, labelCandidate ?? null, 1);
-        });
+    setResultsState((current) => {
+      if (current.key !== resultKey) {
+        return current;
       }
+      if (page <= 1) {
+        return { key: resultKey, items: incomingItems };
+      }
+      return { key: resultKey, items: mergeOpportunityItems(current.items, incomingItems) };
     });
+  }, [incomingItems, page, resolvedPage, resultKey]);
 
-    return Array.from(tagMap.values())
-      .filter((entry) => entry.label && entry.label.trim().length)
-      .sort((a, b) => {
-        if (b.count !== a.count) {
-          return b.count - a.count;
-        }
-        return a.label.localeCompare(b.label);
-      });
-  }, [items, listing?.facets, tagDirectory]);
+  const aggregatedItems = useMemo(
+    () => (resultsState.key === resultKey ? resultsState.items : []),
+    [resultsState, resultKey],
+  );
+
+  const taxonomyDirectory = useMemo(() => buildTaxonomyDirectory(aggregatedItems), [aggregatedItems]);
+  const facetTags = useMemo(
+    () => aggregateTaxonomyCounts(aggregatedItems, listing?.facets ?? null, taxonomyDirectory),
+    [aggregatedItems, listing?.facets, taxonomyDirectory],
+  );
   const topTagOptions = useMemo(() => facetTags.slice(0, 10), [facetTags]);
+
   const activeTagDetails = useMemo(
     () =>
-      selectedTagSlugs.map((slug) => {
-        const label = tagDirectory.get(`${slug}`.toLowerCase()) ?? formatTagLabelFromSlug(slug);
-        return { slug, label };
-      }),
-    [selectedTagSlugs, tagDirectory],
+      selectedTagSlugs.map((slug) => ({
+        slug,
+        label: resolveTaxonomyLabel(slug, taxonomyDirectory),
+      })),
+    [selectedTagSlugs, taxonomyDirectory],
   );
+
+  const visibleItems = useMemo(() => {
+    if (!aggregatedItems.length) {
+      return [];
+    }
+    return aggregatedItems.filter((gig) => {
+      const matchesDelivery = deliverySpeed === 'any' || resolveDeliverySpeedCategory(gig) === deliverySpeed;
+      const badges = resolveTrustBadges(gig);
+      const matchesTrust = !trustedOnly || badges.length > 0;
+      const amount = resolveBudgetAmount(gig);
+      const minPass = parsedMinBudget == null || (amount != null && amount >= parsedMinBudget);
+      const maxPass = parsedMaxBudget == null || (amount != null && amount <= parsedMaxBudget);
+      return matchesDelivery && matchesTrust && minPass && maxPass;
+    });
+  }, [aggregatedItems, deliverySpeed, parsedMinBudget, parsedMaxBudget, trustedOnly]);
+
   const derivedSignals = useMemo(() => {
-    if (!items.length) {
+    if (!aggregatedItems.length) {
       return {
         total: 0,
         fresh: 0,
         remoteFriendly: 0,
         withBudgets: 0,
+        trusted: 0,
       };
     }
 
@@ -178,8 +339,9 @@ export default function GigsPage() {
     let fresh = 0;
     let remoteFriendly = 0;
     let withBudgets = 0;
+    let trusted = 0;
 
-    items.forEach((gig) => {
+    aggregatedItems.forEach((gig) => {
       if (gig?.updatedAt) {
         const updated = new Date(gig.updatedAt).getTime();
         if (!Number.isNaN(updated) && now - updated <= sevenDaysMs) {
@@ -198,60 +360,182 @@ export default function GigsPage() {
       if (typeof gig?.budget === 'string' ? gig.budget.trim().length > 0 : Boolean(gig?.budget)) {
         withBudgets += 1;
       }
+
+      if (resolveTrustBadges(gig).length) {
+        trusted += 1;
+      }
     });
 
     return {
-      total: items.length,
+      total: aggregatedItems.length,
       fresh,
       remoteFriendly,
       withBudgets,
+      trusted,
     };
-  }, [items]);
+  }, [aggregatedItems]);
 
-  const handlePitch = (gig) => {
-    analytics.track(
-      'web_gig_pitch_cta',
-      {
-        id: gig.id,
-        title: gig.title,
-        query: debouncedQuery || null,
-        seoTags: Array.isArray(gig.taxonomySlugs) ? gig.taxonomySlugs : [],
-        activeFilters,
-      },
-      { source: 'web_app' },
-    );
-  };
+  const savedGigPreview = useMemo(() => savedGigs.slice(0, 4), [savedGigs]);
+  const filtersActive = useMemo(
+    () =>
+      Boolean(
+        selectedTagSlugs.length ||
+          parsedMinBudget != null ||
+          parsedMaxBudget != null ||
+          deliverySpeed !== 'any' ||
+          trustedOnly,
+      ),
+    [selectedTagSlugs.length, parsedMinBudget, parsedMaxBudget, deliverySpeed, trustedOnly],
+  );
 
-  const handleToggleTag = (slug) => {
+  const hasMore = useMemo(
+    () => computeHasMore(listing, aggregatedItems.length, PAGE_SIZE, page),
+    [listing, aggregatedItems.length, page],
+  );
+  const isInitialLoading = loading && page === 1 && aggregatedItems.length === 0;
+  const isLoadingMore = loading && page > 1;
+  const handlePitch = useCallback(
+    (gig) => {
+      analytics.track(
+        'web_gig_pitch_cta',
+        {
+          id: gig.id,
+          title: gig.title,
+          query: debouncedQuery || null,
+          seoTags: Array.isArray(gig.taxonomySlugs) ? gig.taxonomySlugs : [],
+          activeFilters,
+        },
+        { source: 'web_app' },
+      );
+    },
+    [activeFilters, debouncedQuery],
+  );
+
+  const handleToggleTag = useCallback((slug) => {
     if (!slug) {
       return;
     }
-    setSelectedTagSlugs((current) => {
-      if (current.includes(slug)) {
-        return current.filter((entry) => entry !== slug);
-      }
-      return [...current, slug];
-    });
-  };
+    setSelectedTagSlugs((current) => (current.includes(slug) ? current.filter((entry) => entry !== slug) : [...current, slug]));
+  }, []);
 
-  const handleClearTags = () => {
+  const handleClearTags = useCallback(() => {
     setSelectedTagSlugs([]);
-  };
+  }, []);
 
-  const handleSignIn = () => {
+  const handleResetFilters = useCallback(() => {
+    setSelectedTagSlugs([]);
+    setBudgetFilter({ min: '', max: '' });
+    setDeliverySpeed('any');
+    setTrustedOnly(false);
+  }, []);
+
+  const handleSignIn = useCallback(() => {
     analytics.track('web_gig_access_prompt', { state: 'signin_required' }, { source: 'web_app' });
     navigate('/login');
-  };
+  }, [navigate]);
 
-  const handleRequestAccess = () => {
+  const handleRequestAccess = useCallback(() => {
     analytics.track(
       'web_gig_access_prompt',
       { state: 'freelancer_membership_required' },
       { source: 'web_app' },
     );
     navigate('/register');
-  };
+  }, [navigate]);
 
+  const handleToggleSaved = useCallback(
+    (gig) => {
+      const result = toggleGig(gig);
+      analytics.track(
+        result.saved ? 'web_gig_saved' : 'web_gig_unsaved',
+        {
+          id: gig.id,
+          title: gig.title,
+          query: debouncedQuery || null,
+        },
+        { source: 'web_app' },
+      );
+    },
+    [toggleGig, debouncedQuery],
+  );
+
+  const handleRemoveSaved = useCallback(
+    (id) => {
+      removeGig(id);
+      analytics.track(
+        'web_gig_saved_removed',
+        {
+          id,
+        },
+        { source: 'web_app' },
+      );
+    },
+    [removeGig],
+  );
+
+  const handleChat = useCallback(
+    (gig) => {
+      analytics.track(
+        'web_gig_chat_cta',
+        {
+          id: gig.id,
+          title: gig.title,
+          query: debouncedQuery || null,
+        },
+        { source: 'web_app' },
+      );
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('gigvora:messagingDock', {
+            detail: {
+              action: 'open',
+              origin: 'gigs_marketplace',
+              context: {
+                gigId: gig.id ?? null,
+                gigTitle: gig.title ?? null,
+              },
+              threadId: gig.conversationId ?? null,
+            },
+          }),
+        );
+      }
+    },
+    [debouncedQuery],
+  );
+
+  const handleLoadMore = useCallback(() => {
+    if (loading || !hasMore) {
+      return;
+    }
+    setPage((previous) => previous + 1);
+  }, [hasMore, loading]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+    if (!hasMore) {
+      return undefined;
+    }
+    const sentinel = loadMoreRef.current;
+    if (!sentinel) {
+      return undefined;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            handleLoadMore();
+          }
+        });
+      },
+      { rootMargin: '200px' },
+    );
+    observer.observe(sentinel);
+    return () => {
+      observer.disconnect();
+    };
+  }, [handleLoadMore, hasMore]);
   if (!isAuthenticated) {
     return (
       <section className="relative overflow-hidden py-20">
@@ -348,7 +632,6 @@ export default function GigsPage() {
       </section>
     );
   }
-
   return (
     <section className="relative overflow-hidden py-20">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,_rgba(191,219,254,0.35),_transparent_65%)]" aria-hidden="true" />
@@ -380,6 +663,76 @@ export default function GigsPage() {
                 placeholder="Search by client, deliverable, or scope"
                 className="w-full rounded-full border border-slate-200 bg-white px-5 py-3 text-sm shadow-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
               />
+            </div>
+            <div className="mb-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-soft">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Marketplace filters</p>
+                {filtersActive ? (
+                  <button
+                    type="button"
+                    onClick={handleResetFilters}
+                    className="text-xs font-semibold text-accent transition hover:text-accentDark"
+                  >
+                    Reset filters
+                  </button>
+                ) : null}
+              </div>
+              <div className="mt-4 grid gap-4 md:grid-cols-3">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="gig-budget-min">
+                    Budget min
+                  </label>
+                  <input
+                    id="gig-budget-min"
+                    type="text"
+                    inputMode="numeric"
+                    value={budgetFilter.min}
+                    onChange={(event) => setBudgetFilter((prev) => ({ ...prev, min: sanitiseBudgetInput(event.target.value) }))}
+                    placeholder="500"
+                    className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm text-slate-700 shadow-sm transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="gig-budget-max">
+                    Budget max
+                  </label>
+                  <input
+                    id="gig-budget-max"
+                    type="text"
+                    inputMode="numeric"
+                    value={budgetFilter.max}
+                    onChange={(event) => setBudgetFilter((prev) => ({ ...prev, max: sanitiseBudgetInput(event.target.value) }))}
+                    placeholder="5000"
+                    className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm text-slate-700 shadow-sm transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="gig-delivery-speed">
+                    Delivery speed
+                  </label>
+                  <select
+                    id="gig-delivery-speed"
+                    value={deliverySpeed}
+                    onChange={(event) => setDeliverySpeed(event.target.value)}
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  >
+                    {DELIVERY_SPEED_OPTIONS.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <label className="mt-4 inline-flex items-center gap-2 text-sm text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={trustedOnly}
+                  onChange={(event) => setTrustedOnly(event.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent/40"
+                />
+                Trusted sellers only
+              </label>
             </div>
             {activeTagDetails.length ? (
               <div className="mb-6 flex flex-wrap items-center gap-3">
@@ -413,7 +766,7 @@ export default function GigsPage() {
                 Showing cached results while we refresh live briefs in the background.
               </div>
             ) : null}
-            {loading && !items.length ? (
+            {isInitialLoading ? (
               <div className="space-y-4">
                 {Array.from({ length: 3 }).map((_, index) => (
                   <div key={index} className="animate-pulse rounded-3xl border border-slate-200 bg-white p-6">
@@ -425,64 +778,123 @@ export default function GigsPage() {
                 ))}
               </div>
             ) : null}
-            {!loading && !items.length ? (
+            {!loading && !visibleItems.length ? (
               <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
-                {debouncedQuery
+                {debouncedQuery || filtersActive
                   ? 'No gigs currently match your filters. Try exploring adjacent skills or timelines.'
                   : 'Freshly vetted gigs will appear here as clients publish briefs.'}
               </div>
             ) : null}
             <div className="space-y-6">
-              {items.map((gig) => (
-                <article
-                  key={gig.id}
-                  className="rounded-3xl border border-slate-200 bg-white p-6 transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {gig.duration ? (
-                        <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-600">
-                          {gig.duration}
-                        </span>
-                      ) : null}
-                      {gig.budget ? (
-                        <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 font-semibold text-emerald-600">
-                          {gig.budget}
-                        </span>
-                      ) : null}
-                    </div>
-                    <span className="text-slate-400">Updated {formatRelativeTime(gig.updatedAt)}</span>
-                  </div>
-                  <h2 className="mt-3 text-xl font-semibold text-slate-900">{gig.title}</h2>
-                  <p className="mt-2 text-sm text-slate-600">{gig.description}</p>
-                  {Array.isArray(gig.taxonomyLabels) && gig.taxonomyLabels.length ? (
-                    <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-wide text-indigo-600">
-                      {gig.taxonomyLabels.slice(0, 4).map((label) => (
-                        <span key={label} className="rounded-full bg-indigo-50 px-3 py-1 text-indigo-600">
-                          {label}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                  {Array.isArray(gig.skills) && gig.skills.length ? (
-                    <div className="mt-4 flex flex-wrap gap-2 text-[11px] uppercase tracking-wide text-slate-400">
-                      {gig.skills.slice(0, 6).map((skill) => (
-                        <span key={skill} className="rounded-full border border-slate-200 px-3 py-1 text-slate-500">
-                          {skill}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={() => handlePitch(gig)}
-                    className="mt-5 inline-flex items-center gap-2 rounded-full border border-slate-200 px-5 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+              {visibleItems.map((gig) => {
+                const taxonomyLabels = resolveTaxonomyLabels(gig, taxonomyDirectory);
+                const trustBadges = resolveTrustBadges(gig);
+                const saved = isGigSaved(gig);
+                const deliveryLabel = resolveDeliverySpeedLabel(gig);
+                return (
+                  <article
+                    key={gig.id ?? gig.slug ?? gig.title}
+                    className="rounded-3xl border border-slate-200 bg-white p-6 transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft"
                   >
-                    Pitch this gig <span aria-hidden="true">→</span>
-                  </button>
-                </article>
-              ))}
+                    <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {gig.duration ? (
+                          <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-600">
+                            {gig.duration}
+                          </span>
+                        ) : null}
+                        {gig.budget ? (
+                          <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 font-semibold text-emerald-600">
+                            {gig.budget}
+                          </span>
+                        ) : null}
+                        {deliveryLabel ? (
+                          <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 font-semibold text-slate-500">
+                            {deliveryLabel}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleSaved(gig)}
+                          className={`inline-flex items-center gap-1 rounded-full px-3 py-1 font-semibold transition ${
+                            saved
+                              ? 'border border-accent bg-accentSoft text-accent'
+                              : 'border border-slate-200 bg-white text-slate-600 hover:border-accent hover:text-accent'
+                          }`}
+                        >
+                          {saved ? <BookmarkSlashIcon className="h-4 w-4" /> : <BookmarkIcon className="h-4 w-4" />}
+                          {saved ? 'Saved' : 'Save gig'}
+                        </button>
+                        <span className="text-slate-400">Updated {formatRelativeTime(gig.updatedAt)}</span>
+                      </div>
+                    </div>
+                    <h2 className="mt-3 text-xl font-semibold text-slate-900">{gig.title}</h2>
+                    <p className="mt-2 text-sm text-slate-600">{gig.description}</p>
+                    {taxonomyLabels.length ? (
+                      <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-wide text-indigo-600">
+                        {taxonomyLabels.slice(0, 4).map((label) => (
+                          <span key={label} className="rounded-full bg-indigo-50 px-3 py-1 text-indigo-600">
+                            {label}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                    {Array.isArray(gig.skills) && gig.skills.length ? (
+                      <div className="mt-4 flex flex-wrap gap-2 text-[11px] uppercase tracking-wide text-slate-400">
+                        {gig.skills.slice(0, 6).map((skill) => (
+                          <span key={skill} className="rounded-full border border-slate-200 px-3 py-1 text-slate-500">
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                    {trustBadges.length ? (
+                      <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-wide text-emerald-600">
+                        {trustBadges.map((badge) => (
+                          <span key={badge} className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-emerald-600">
+                            <ShieldCheckIcon className="h-4 w-4" />
+                            {badge}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                    <div className="mt-5 flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handlePitch(gig)}
+                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-5 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+                      >
+                        Pitch this gig <span aria-hidden="true">→</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleChat(gig)}
+                        className="inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accentSoft px-5 py-2 text-xs font-semibold text-accentDark transition hover:border-accent hover:bg-accent/10"
+                      >
+                        Chat with client
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+              <div ref={loadMoreRef} className="h-1 w-full" aria-hidden="true" />
             </div>
+            {isLoadingMore ? (
+              <div className="mt-6 text-center text-xs text-slate-500">Loading more gigs…</div>
+            ) : null}
+            {hasMore && !loading ? (
+              <div className="mt-6 flex justify-center">
+                <button
+                  type="button"
+                  onClick={handleLoadMore}
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-5 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+                >
+                  Load more gigs
+                </button>
+              </div>
+            ) : null}
           </div>
           <aside className="space-y-6">
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
@@ -503,6 +915,10 @@ export default function GigsPage() {
                 <div className="flex items-center justify-between gap-4">
                   <dt className="text-slate-500">Transparent budgets</dt>
                   <dd className="text-base font-semibold text-slate-900">{formatNumber(derivedSignals.withBudgets)}</dd>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <dt className="text-slate-500">Trusted sellers</dt>
+                  <dd className="text-base font-semibold text-slate-900">{formatNumber(derivedSignals.trusted)}</dd>
                 </div>
               </dl>
               <p className="mt-4 text-xs text-slate-500">
@@ -544,6 +960,37 @@ export default function GigsPage() {
                 ) : null}
               </div>
             ) : null}
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Saved gigs</h3>
+                <span className="text-xs text-slate-400">{formatNumber(savedGigs.length)}</span>
+              </div>
+              {savedGigPreview.length ? (
+                <ul className="mt-4 space-y-3 text-sm text-slate-600">
+                  {savedGigPreview.map((gig) => (
+                    <li key={gig.id} className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-slate-900">{gig.title}</p>
+                        {gig.budget ? <p className="text-xs text-slate-500">{gig.budget}</p> : null}
+                        {gig.deliverySpeed ? <p className="text-xs text-slate-400">{gig.deliverySpeed}</p> : null}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSaved(gig.id)}
+                        className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-[11px] font-semibold text-slate-500 transition hover:border-rose-400 hover:text-rose-500"
+                      >
+                        <BookmarkSlashIcon className="h-4 w-4" />
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-4 text-xs text-slate-500">
+                  Save gigs to compare scopes, budgets, and delivery expectations before pitching.
+                </p>
+              )}
+            </div>
             <div className="rounded-3xl border border-accent/40 bg-accentSoft p-6 shadow-soft">
               <h3 className="text-sm font-semibold text-accentDark">Best pitch practices</h3>
               <ul className="mt-3 space-y-2 text-xs text-accentDark">

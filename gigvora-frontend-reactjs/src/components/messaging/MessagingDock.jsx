@@ -26,6 +26,7 @@ import AgoraCallPanel from './AgoraCallPanel.jsx';
 import ConversationMessage from './ConversationMessage.jsx';
 import { classNames } from '../../utils/classNames.js';
 import { canAccessMessaging } from '../../constants/access.js';
+import analytics from '../../services/analytics.js';
 
 function TabButton({ active, children, onClick }) {
   return (
@@ -103,6 +104,48 @@ export default function MessagingDock() {
   const [callSession, setCallSession] = useState(null);
   const [callLoading, setCallLoading] = useState(false);
   const [callError, setCallError] = useState(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+    const handleExternalEvent = (event) => {
+      const detail = event?.detail ?? {};
+      if (detail.action === 'open') {
+        setOpen(true);
+        if (detail.threadId) {
+          setSelectedThreadId(detail.threadId);
+        }
+        analytics.track(
+          'web_messaging_dock_opened',
+          {
+            origin: detail.origin ?? 'external',
+            context: detail.context ?? {},
+            threadId: detail.threadId ?? null,
+          },
+          { source: 'web_app' },
+        );
+      }
+      if (detail.action === 'close') {
+        setOpen(false);
+        analytics.track(
+          'web_messaging_dock_closed',
+          {
+            origin: detail.origin ?? 'external',
+            context: detail.context ?? {},
+          },
+          { source: 'web_app' },
+        );
+      }
+      if (detail.action === 'track' && detail.eventName) {
+        analytics.track(detail.eventName, detail.payload ?? {}, { source: 'web_app' });
+      }
+    };
+    window.addEventListener('gigvora:messagingDock', handleExternalEvent);
+    return () => {
+      window.removeEventListener('gigvora:messagingDock', handleExternalEvent);
+    };
+  }, []);
 
   const loadInbox = useCallback(async () => {
     if (!canUseMessaging) {
@@ -250,6 +293,33 @@ export default function MessagingDock() {
     }
   }, [selectedThreadId, loadMessages]);
 
+  const handleToggleDock = useCallback(() => {
+    setOpen((previous) => {
+      const next = !previous;
+      analytics.track(
+        'web_messaging_dock_toggled',
+        {
+          nextState: next ? 'open' : 'closed',
+          origin: 'floating_button',
+        },
+        { source: 'web_app' },
+      );
+      return next;
+    });
+  }, []);
+
+  const handleCloseDock = useCallback(() => {
+    setOpen(false);
+    analytics.track(
+      'web_messaging_dock_toggled',
+      {
+        nextState: 'closed',
+        origin: 'close_button',
+      },
+      { source: 'web_app' },
+    );
+  }, []);
+
   return (
     <div className="fixed bottom-6 right-6 z-[60] flex flex-col items-end gap-3">
       {open ? (
@@ -267,7 +337,7 @@ export default function MessagingDock() {
             </div>
             <button
               type="button"
-              onClick={() => setOpen(false)}
+              onClick={handleCloseDock}
               className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
               aria-label="Close messaging"
             >
@@ -457,7 +527,7 @@ export default function MessagingDock() {
       ) : null}
       <button
         type="button"
-        onClick={() => setOpen((previous) => !previous)}
+        onClick={handleToggleDock}
         className="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-soft transition hover:bg-accentDark"
         aria-label={open ? 'Hide messages' : 'Show messages'}
         title={open ? 'Hide messages' : 'Show messages'}

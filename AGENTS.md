@@ -1639,10 +1639,10 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   24. **Design Duplication.** Align hero layout with projects page for consistent cognitive model.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L30-L200】
   25. **Design framework.** Shares PageHeader + DataStatus pattern across opportunity experiences.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1-L60】
   26. **Change Checklist Tracker Extensive.**
-      - [ ] Implement pagination/infinite scroll and saved gigs.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1-L200】
-      - [ ] Extract shared taxonomy utilities with projects/jobs.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L11-L160】
-      - [ ] Launch trust badges and budget/delivery filters.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1-L200】
-      - [ ] Hook chat CTA into messaging dock telemetry.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1-L200】
+      - [x] Implement pagination/infinite scroll and saved gigs.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1-L200】
+      - [x] Extract shared taxonomy utilities with projects/jobs.【F:gigvora-frontend-reactjs/src/utils/taxonomy.js†L1-L200】
+      - [x] Launch trust badges and budget/delivery filters.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1-L200】
+      - [x] Hook chat CTA into messaging dock telemetry.【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L1-L400】
   27. **Full Upgrade Plan & Release Steps  Extensive.**
       1. Release shared taxonomy service, pagination, and trust badges, measuring conversion to gig orders.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1-L200】
       2. Add budget/delivery filters plus chat CTA, piloting with agency dashboards for feedback.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1-L200】

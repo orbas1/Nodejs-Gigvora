@@ -10,6 +10,7 @@ import { fetchUserDashboard } from '../services/userDashboard.js';
 import { formatAbsolute, formatRelativeTime } from '../utils/date.js';
 import { classNames } from '../utils/classNames.js';
 import JobManagementWorkspace from '../components/jobs/JobManagementWorkspace.jsx';
+import { resolveTaxonomyLabels } from '../utils/taxonomy.js';
 
 export const DEFAULT_USER_ID = 1;
 export const JOB_ACCESS_MEMBERSHIPS = new Set(['user', 'freelancer']);
@@ -618,11 +619,13 @@ export default function JobsPage() {
         </div>
       ) : null}
       <div className="space-y-6">
-        {items.map((job) => (
-          <article
-            key={job.id}
-            className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft"
-          >
+        {items.map((job) => {
+          const jobTaxonomyLabels = resolveTaxonomyLabels(job);
+          return (
+            <article
+              key={job.id}
+              className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft"
+            >
             <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
               <div className="flex flex-wrap items-center gap-2">
                 {job.location ? <span>{job.location}</span> : null}
@@ -641,9 +644,9 @@ export default function JobsPage() {
             </div>
             <h2 className="mt-3 text-xl font-semibold text-slate-900">{job.title}</h2>
             <p className="mt-2 text-sm text-slate-600">{job.description}</p>
-            {Array.isArray(job.taxonomyLabels) && job.taxonomyLabels.length ? (
+            {jobTaxonomyLabels.length ? (
               <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-slate-500">
-                {job.taxonomyLabels.slice(0, 3).map((label) => (
+                {jobTaxonomyLabels.slice(0, 3).map((label) => (
                   <span key={label} className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 font-semibold">
                     {label}
                   </span>
@@ -663,7 +666,8 @@ export default function JobsPage() {
               </button>
             </div>
           </article>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
