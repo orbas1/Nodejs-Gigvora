@@ -6,6 +6,9 @@ import {
   updateHomepageSettings,
 } from '../../src/services/platformSettingsService.js';
 import { PlatformSetting } from '../../src/models/platformSetting.js';
+import { PlatformSettingAudit } from '../../src/models/platformSettingAudit.js';
+import { UserRole } from '../../src/models/index.js';
+import { appCache } from '../../src/utils/cache.js';
 import { ValidationError } from '../../src/utils/errors.js';
 
 let originalEnv;
@@ -21,11 +24,16 @@ afterEach(() => {
     }
   });
   Object.assign(process.env, originalEnv);
+  jest.restoreAllMocks();
+  appCache.flushByPrefix('');
 });
 
 describe('platformSettingsService', () => {
   beforeEach(async () => {
     await PlatformSetting.sync({ force: true });
+    await PlatformSettingAudit.sync({ force: true });
+    jest.spyOn(UserRole, 'findAll').mockResolvedValue([]);
+    appCache.flushByPrefix('');
   });
 
   it('returns environment-derived defaults when no override exists', async () => {
@@ -110,7 +118,7 @@ describe('platformSettingsService', () => {
         subscriptions: false,
         escrow: true,
       },
-    });
+    }, { actorId: 42, actorType: 'platform_admin' });
 
     expect(updated.commissions.rate).toBe(12.5);
     expect(updated.commissions.minimumFee).toBe(5);
@@ -129,11 +137,38 @@ describe('platformSettingsService', () => {
     expect(updated.storage.cloudflare_r2.bucket).toBe('gigvora-live');
     expect(updated.featureToggles.subscriptions).toBe(false);
 
-    const fetched = await getPlatformSettings();
+    const fetched = await getPlatformSettings({ bypassCache: true });
     expect(fetched.subscriptions.enabled).toBe(false);
     expect(fetched.payments.provider).toBe('escrow_com');
     expect(fetched.storage.cloudflare_r2.publicBaseUrl).toBe('https://cdn.gigvora.dev');
     expect(fetched.homepage.hero.title).toContain('Build resilient');
+
+    const record = await PlatformSetting.findOne({ where: { key: 'platform' } });
+    expect(record.value.payments.escrow_com.apiKey).toMatch(/^enc:v1:/);
+    expect(record.value.payments.escrow_com.apiSecret).toMatch(/^enc:v1:/);
+    expect(record.value.smtp.password).toMatch(/^enc:v1:/);
+
+    const audits = await PlatformSettingAudit.findAll();
+    expect(audits).toHaveLength(1);
+    const audit = audits[0].get({ plain: true });
+    expect(audit.actorId).toBe(42);
+    expect(audit.actorType).toBe('platform_admin');
+    const changedFields = audit.diff.map((entry) => entry.field);
+    expect(changedFields).toEqual(
+      expect.arrayContaining([
+        'payments.provider',
+        'payments.escrow_com.apiKey',
+        'payments.escrow_com.apiSecret',
+        'smtp.password',
+      ]),
+    );
+    const secretDiff = audit.diff.find((entry) => entry.field === 'payments.escrow_com.apiSecret');
+    expect(secretDiff).toBeDefined();
+    expect(secretDiff.after).not.toBe('escrow-secret');
+    expect(secretDiff.after.endsWith('cret')).toBe(true);
+    expect(secretDiff.after.includes('*')).toBe(true);
+
+    expect(UserRole.findAll).toHaveBeenCalled();
   });
 
   it('throws when commission percentages exceed policy boundaries', async () => {
