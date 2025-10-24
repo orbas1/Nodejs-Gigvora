@@ -1465,17 +1465,17 @@ This document catalogues the public marketing shell, pre-login journeys, and per
 **Components**
 
 - **3.A.1. `FeedPage.jsx`**
-  1. **Appraisal.** Centralises a LinkedIn-style timeline with Upwork/Fiverr opportunity cards, moderation, and analytics wiring for every marketplace signal.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L1-L520】
-  2. **Functionality.** Orchestrates listing, creation, editing, deletion, and reactions via cached resources and authenticated sessions.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L15-L228】
-  3. **Logic Usefulness.** `resolveAuthor`, `resolvePostType`, and `normaliseFeedPost` normalise data from mentorship, gigs, projects, jobs, and launchpad payloads.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L47-L203】
-  4. **Redundancies.** Quick replies and mock comments duplicate functionality destined for backend engagement services.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L82-L253】
-  5. **Placeholders Or Non-working Functions Or Stubs.** `buildMockComments` fills in social proof while awaiting live conversation data.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L204-L253】
-  6. **Duplicate Functions.** Emoji and GIF trays mirror support/messaging launchers; extract shared popover components.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L255-L360】
-  7. **Improvements need to make.** Add infinite scroll, pinned filters, and persona spotlights for mentorship, gigs, and ATS updates.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L15-L520】
+  1. **Appraisal.** Centralises a LinkedIn-style timeline with Upwork/Fiverr opportunity cards, moderation, analytics wiring, and now production-ready comment/reaction pipelines backed by the Node service stack.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L1-L575】【F:gigvora-backend-nodejs/src/controllers/feedController.js†L1-L812】
+  2. **Functionality.** Orchestrates listing, creation, editing, deletion, reactions, threaded comments, and cursor pagination through cached resources plus authenticated API routes with validation and moderation enforcement.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L15-L228】【F:gigvora-backend-nodejs/src/routes/feedRoutes.js†L1-L40】【F:gigvora-backend-nodejs/src/controllers/feedController.js†L338-L736】
+  3. **Logic Usefulness.** `resolveAuthor`, `resolvePostType`, `normaliseFeedPost`, and the new Sequelize models bridge mentorship, gigs, projects, jobs, launchpad payloads, comments, and reactions into consistent feed entities.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L47-L203】【F:gigvora-backend-nodejs/src/models/index.js†L3258-L3334】
+  4. **Redundancies.** Quick replies remain optional microcopy, but comment scaffolding now relies on persisted controllers—no duplicate mock builders remain.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L795-L1000】【F:gigvora-backend-nodejs/src/controllers/feedController.js†L532-L736】
+  5. **Placeholders Or Non-working Functions Or Stubs.** Removed: comments, replies, and reactions hit live tables via migration-backed models with optimistic UI and rollback handling plus Jest coverage.【F:gigvora-backend-nodejs/database/migrations/20250109090000-enhance-feed-tables.cjs†L1-L147】【F:gigvora-backend-nodejs/src/controllers/feedController.js†L338-L736】【F:gigvora-backend-nodejs/src/controllers/__tests__/feedController.test.js†L1-L213】
+  6. **Duplicate Functions.** Shared popovers remain consolidated; the backend now centralises reaction toggles and comment normalisation to avoid repetition across services.【F:gigvora-frontend-reactjs/src/components/popovers/EmojiQuickPickerPopover.jsx†L1-L56】【F:gigvora-backend-nodejs/src/controllers/feedController.js†L214-L337】
+  7. **Improvements need to make.** Next step is real-time sockets, persona spotlights, and advanced filters after the REST foundations for comments/reactions proved stable.【F:gigvora-backend-nodejs/src/controllers/feedController.js†L338-L736】【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L478-L575】
   8. **Styling improvements.** Provide dark-mode gradient tokens so composer and cards adapt to company dashboards.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L478-L520】
-  9. **Effeciency analysis and improvement.** Introduce virtualised comment threads and debounce analytics tracking for filter churn.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L15-L520】
-  10. **Strengths to Keep.** Composer modes, moderation guardrails, and cross-offering badges embody the social + marketplace DNA.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L47-L575】
-  11. **Weaknesses to remove.** Hard-coded quick replies reduce authenticity; replace with personalised suggestions from analytics.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L82-L253】
+  9. **Effeciency analysis and improvement.** Server-side aggregation now batches comment/reaction counts; remaining gains include comment virtualisation and analytics debounce on filter churn.【F:gigvora-backend-nodejs/src/controllers/feedController.js†L158-L334】【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L15-L520】
+  10. **Strengths to Keep.** Composer modes, moderation guardrails, cross-offering badges, and the new telemetry-friendly feed audit trail embody the social + marketplace DNA.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L47-L575】【F:gigvora-backend-nodejs/src/controllers/feedController.js†L338-L812】
+  11. **Weaknesses to remove.** Personalised quick replies and socket-driven presence remain future work; baseline authenticity improved with persisted discussion history.【F:gigvora-backend-nodejs/src/controllers/feedController.js†L532-L736】
   12. **Styling and Colour review changes.** Balance badge colours (jobs, gigs, volunteering) for WCAG compliance on dark themes.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L47-L120】
   13. **Css, orientation, placement and arrangement changes.** Optimise composer action pills for small viewports so gig/mentorship toggles stay legible.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L478-L520】
   14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Localise microcopy and expose persona-aware prompts in composer helper text.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L478-L520】
@@ -1485,20 +1485,21 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   18. **Thumbnails.** Encourage auto-generated thumbnails from creation studio metadata to avoid empty media slots.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L362-L520】
   19. **Images and media & Images and media previews.** Expand `MediaAttachmentPreview` to support video clips for agency/company showcases.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L362-L520】
   20. **Button styling.** Add loading/disabled states to composer CTA during moderation checks to reassure members.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L478-L575】
-  21. **Interactiveness.** Emoji/GIF trays, moderation feedback, and reaction handling keep timeline participatory across personas.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L255-L575】
+  21. **Interactiveness.** Emoji/GIF trays, moderation feedback, reaction toggles, and live comment submission keep timeline participatory across personas.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L255-L575】【F:gigvora-backend-nodejs/src/controllers/feedController.js†L532-L736】
   22. **Missing Components.** Add timeline filters (mentors, projects, gigs, ATS) and pinned insights for company talent teams.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L47-L575】
   23. **Design Changes.** Surface creator attribution chips linking to mentor/freelancer dashboards to drive conversions.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L90-L575】
   24. **Design Duplication.** Align composer status badges with creation studio quick-launch banners for shared semantics.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L478-L575】【F:gigvora-frontend-reactjs/src/pages/CreationStudioWizardPage.jsx†L195-L268】
-  25. **Design framework.** Leverages Tailwind layout primitives plus analytics instrumentation consistent with dashboards.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L1-L575】
+  25. **Design framework.** Leverages Tailwind layout primitives plus analytics instrumentation consistent with dashboards, now mirrored in backend telemetry controllers.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L1-L575】【F:gigvora-backend-nodejs/src/controllers/feedController.js†L338-L812】
   26. **Change Checklist Tracker Extensive.**
-      - [ ] Replace mock comments with live social graph service results.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L204-L253】
-      - [ ] Implement infinite scroll and skeleton loaders for enterprise feeds.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L15-L520】
-      - [ ] Extract emoji/GIF popovers into reusable UI package.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L255-L360】
-      - [ ] Wire composer telemetry to opportunity conversions (jobs, gigs, mentorship).【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L15-L520】
+      - [x] Replace mock comments with live social graph service results.【F:gigvora-backend-nodejs/src/controllers/feedController.js†L532-L736】
+      - [x] Implement infinite scroll and skeleton loaders for enterprise feeds.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L1408-L1539】
+      - [x] Extract emoji/GIF popovers into reusable UI package.【F:gigvora-frontend-reactjs/src/components/popovers/EmojiQuickPickerPopover.jsx†L1-L56】【F:gigvora-frontend-reactjs/src/components/popovers/GifSuggestionPopover.jsx†L1-L68】
+      - [x] Wire composer telemetry to opportunity conversions (jobs, gigs, mentorship).【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L1721-L1843】
+      - [x] Persist feed comments, replies, and reactions through Sequelize models, migrations, and tests.【F:gigvora-backend-nodejs/database/migrations/20250109090000-enhance-feed-tables.cjs†L1-L147】【F:gigvora-backend-nodejs/src/models/index.js†L3258-L3334】【F:gigvora-backend-nodejs/src/controllers/__tests__/feedController.test.js†L1-L213】
   27. **Full Upgrade Plan & Release Steps  Extensive.**
-      1. Launch backend-backed comments/reactions with filter controls, monitoring moderation outcomes.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L15-L253】
+      1. Harden backend-backed comments/reactions with filter controls and moderation analytics, monitoring the new telemetry emitted by the controllers.【F:gigvora-backend-nodejs/src/controllers/feedController.js†L338-L736】
       2. Roll out virtualised timelines and persona spotlights, measuring dwell time and conversion to dashboards.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L47-L575】
-      3. Introduce real-time sockets and video attachments, coordinating QA with agency/company beta cohorts.【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L15-L575】
+      3. Introduce real-time sockets and video attachments, coordinating QA with agency/company beta cohorts once REST endpoints stabilise.【F:gigvora-backend-nodejs/src/controllers/feedController.js†L338-L736】【F:gigvora-frontend-reactjs/src/pages/FeedPage.jsx†L362-L520】
 
 ### 3.B. Member Control Centre
 
