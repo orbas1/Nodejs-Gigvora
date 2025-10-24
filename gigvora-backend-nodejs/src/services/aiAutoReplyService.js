@@ -17,6 +17,11 @@ const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
 const VALID_CHANNELS = new Set(['direct', 'support', 'project', 'contract', 'group']);
 const DEFAULT_TEMPERATURE = 0.35;
 const MAX_INSTRUCTIONS_LENGTH = 2000;
+const DEFAULT_EXPERIENCE_PREFERENCES = Object.freeze({
+  personalisedMatches: true,
+  meetingSummaries: true,
+  anonymisedInsights: true,
+});
 
 let cachedFetch = null;
 
@@ -111,14 +116,54 @@ function extractAutoReplySettings(record) {
   };
 }
 
+function extractExperiencePreferences(record) {
+  const metadata = record?.metadata && typeof record.metadata === 'object' ? record.metadata : {};
+  const source = metadata.experiencePreferences && typeof metadata.experiencePreferences === 'object'
+    ? metadata.experiencePreferences
+    : {};
+  return {
+    personalisedMatches:
+      source.personalisedMatches != null ? coerceBoolean(source.personalisedMatches, true) : true,
+    meetingSummaries:
+      source.meetingSummaries != null ? coerceBoolean(source.meetingSummaries, true) : true,
+    anonymisedInsights:
+      source.anonymisedInsights != null ? coerceBoolean(source.anonymisedInsights, true) : true,
+  };
+}
+
+function normaliseExperiencePreferences(input = {}, fallback = DEFAULT_EXPERIENCE_PREFERENCES) {
+  const base = {
+    personalisedMatches: fallback.personalisedMatches ?? DEFAULT_EXPERIENCE_PREFERENCES.personalisedMatches,
+    meetingSummaries: fallback.meetingSummaries ?? DEFAULT_EXPERIENCE_PREFERENCES.meetingSummaries,
+    anonymisedInsights: fallback.anonymisedInsights ?? DEFAULT_EXPERIENCE_PREFERENCES.anonymisedInsights,
+  };
+
+  return {
+    personalisedMatches: coerceBoolean(
+      input.personalisedMatches ?? input.personalised ?? input.personalisedRecommendations,
+      base.personalisedMatches,
+    ),
+    meetingSummaries: coerceBoolean(
+      input.meetingSummaries ?? input.aiSummaries ?? input.calls,
+      base.meetingSummaries,
+    ),
+    anonymisedInsights: coerceBoolean(
+      input.anonymisedInsights ?? input.dataSharing ?? input.shareAnonymisedInsights,
+      base.anonymisedInsights,
+    ),
+  };
+}
+
 function sanitizeSetting(record) {
   const autoReplies = extractAutoReplySettings(record);
+  const experiencePreferences = extractExperiencePreferences(record);
   return {
     id: record.id,
     userId: record.userId,
     provider: record.provider,
     model: record.model || DEFAULT_MODEL,
     autoReplies,
+    experiencePreferences,
     apiKey: {
       configured: Boolean(record.apiKey),
       fingerprint: record.apiKey ? fingerprintSecret(record.apiKey) : null,
@@ -142,6 +187,7 @@ function buildDefaultResponse() {
       channels: DEFAULT_CHANNELS,
       temperature: DEFAULT_TEMPERATURE,
     },
+    experiencePreferences: { ...DEFAULT_EXPERIENCE_PREFERENCES },
     apiKey: {
       configured: false,
       fingerprint: null,
@@ -234,7 +280,9 @@ export async function updateUserOpenAiSettings(userId, payload = {}) {
   const provider = normalizeProvider(payload.provider, 'openai');
   const existing = await UserAiProviderSetting.findOne({ where: { userId: numericId, provider } });
   const fallback = extractAutoReplySettings(existing);
+  const experienceFallback = extractExperiencePreferences(existing);
   const autoReplies = normalizeAutoReplyPayload(payload.autoReplies ?? {}, fallback);
+  const experience = normaliseExperiencePreferences(payload.experiencePreferences ?? {}, experienceFallback);
   const model = coerceModel(payload.model, existing?.model ?? DEFAULT_MODEL);
   const baseUrl = normalizeBaseUrl(payload.connection?.baseUrl ?? existing?.metadata?.baseUrl, DEFAULT_BASE_URL);
   const workspaceIdValue = payload.workspaceId ?? payload.connection?.workspaceId ?? existing?.metadata?.workspaceId;
@@ -256,6 +304,7 @@ export async function updateUserOpenAiSettings(userId, payload = {}) {
       autoReplyChannels: autoReplies.channels,
       autoReplyTemperature: autoReplies.temperature,
       baseUrl,
+      experiencePreferences: experience,
     },
   };
 

@@ -7,6 +7,8 @@ Gigvora operates in regulated markets, requiring rigorous handling of personal d
 - **Audit trails:** Metadata columns such as `lastStatusReason`, `archivedBy`, and `lastUpdatedBy` persist actor IDs for every application state transition, ensuring traceable hiring decisions.【F:gigvora-backend-nodejs/src/services/applicationService.js†L221-L307】
 - **Cache eviction discipline:** In-memory caches flush on every mutation, preventing stale or unauthorised data from being served after privilege changes.【F:gigvora-backend-nodejs/src/services/messagingService.js†L90-L117】【F:gigvora-backend-nodejs/src/services/notificationService.js†L34-L47】
 - **Freelancer pipeline gatekeeping:** Order lifecycle mutations validate stage transitions, enforce enum constraints, and persist actor-annotated timestamps so fulfilment history remains auditable.【F:gigvora-backend-nodejs/src/services/freelancerOrderPipelineService.js†L159-L618】
+- **Account hardening:** User-level security preferences enforce session timeout ranges, biometric confirmations, and device approval alerts while emitting runtime audit events for SOC monitoring.【F:gigvora-backend-nodejs/src/services/securityPreferenceService.js†L7-L106】
+- **Export intake guardrails:** Data export requests throttle duplicate submissions, stamp metadata, and trigger compliance notifications before any archive is generated.【F:gigvora-backend-nodejs/src/services/dataExportService.js†L1-L103】
 
 ## Retention Windows
 | Dataset | Retention | Enforcement |
@@ -15,10 +17,12 @@ Gigvora operates in regulated markets, requiring rigorous handling of personal d
 | Applications & Reviews | 7 years post engagement for compliance. | Archival metadata captured by `archiveApplication`; scheduled jobs export closed records for cold storage (to be executed via ops automation). |
 | Messaging Threads | 24 months of history; system messages pruned after 90 days. | `Message` model uses `paranoid` soft-deletes and scheduled purge tasks filter by `deletedAt`. |
 | Notifications | 180 days for delivered events, 30 days for pending/dismissed. | `queueNotification` populates `expiresAt`; background workers must purge expired rows nightly. |
+| Data Export Requests & Archives | Requests retained for 24 months; download links expire 7 days after completion. | `dataExportService` timestamps fulfilment, enforces duplicate throttling, and seeds demo data for compliance rehearsals.【F:gigvora-backend-nodejs/src/services/dataExportService.js†L1-L103】【F:gigvora-backend-nodejs/database/seeders/20241120103000-foundational-persona-seed.cjs†L80-L149】 |
 | Analytics Events | 25 months for trend analysis. | Aggregated into `analytics_daily_rollups`; raw events older than 25 months are anonymised then truncated. |
 
 ## Data Quality & Masking
 - **Sanitised public objects:** Model helper methods strip internal keys before serialisation, ensuring UI layers and public APIs expose only approved fields.【F:gigvora-backend-nodejs/src/models/index.js†L120-L186】【F:gigvora-backend-nodejs/src/services/messagingService.js†L35-L84】
+- **Security & export objects:** `UserSecurityPreference` and `DataExportRequest` serializers clamp numeric ranges, normalise booleans, and surface metadata without leaking secrets or download tokens.【F:gigvora-backend-nodejs/src/models/index.js†L13469-L13517】
 - **Sensitive attachment handling:** Upload metadata enforces MIME validation and size limits before persistence; storage keys always reference signed URL buckets controlled by infrastructure policies.【F:gigvora-backend-nodejs/src/services/messagingService.js†L217-L238】【F:gigvora-backend-nodejs/src/services/applicationService.js†L78-L109】
 - **Escrow milestone hygiene:** Escrow checkpoints normalise currency/amount inputs, restrict statuses to approved enums, and capture release actors to avoid payout tampering.【F:gigvora-backend-nodejs/src/services/freelancerOrderPipelineService.js†L420-L618】
 - **Seed data hygiene:** Demo data uses non-routable email domains and bcrypt-hashed passwords, preventing accidental outbound communication from test environments.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L5-L120】
@@ -34,6 +38,6 @@ Gigvora operates in regulated markets, requiring rigorous handling of personal d
 | Engineering | Maintain migrations, tests, and cache policies; ensure new features respect sanitisation helpers and metadata audits. |
 | Compliance | Review retention exports quarterly, confirm quiet-hour enforcement and notification preference handling. |
 | Data & Analytics | Monitor rollup integrity, anonymise aged events, and validate instrumentation coverage against the taxonomy. |
-| Support & Success | Use provider contact notes and notification audit history for incident resolution; escalate anomalies via incident response playbooks. |
+| Support & Success | Use provider contact notes, export queue telemetry, and notification audit history for incident resolution; escalate anomalies via incident response playbooks. |
 
 This policy must be revisited every release candidate to incorporate new entities, regulatory updates, and customer commitments.

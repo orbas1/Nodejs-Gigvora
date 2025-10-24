@@ -79,6 +79,112 @@ module.exports = {
 
       const userIds = await findExistingUsers(queryInterface, transaction, emails);
 
+      const securityPreferenceSeeds = [
+        {
+          email: 'lara.ops.demo@gigvora.com',
+          sessionTimeoutMinutes: 45,
+          biometricApprovalsEnabled: true,
+          deviceApprovalsEnabled: true,
+        },
+        {
+          email: 'jonah.freelancer.demo@gigvora.com',
+          sessionTimeoutMinutes: 30,
+          biometricApprovalsEnabled: false,
+          deviceApprovalsEnabled: true,
+        },
+      ];
+
+      for (const seed of securityPreferenceSeeds) {
+        const userId = userIds.get(seed.email);
+        if (!userId) continue;
+
+        const [existingSecurity] = await queryInterface.sequelize.query(
+          'SELECT id FROM user_security_preferences WHERE userId = :userId LIMIT 1',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { userId },
+          },
+        );
+
+        if (!existingSecurity?.id) {
+          await queryInterface.bulkInsert(
+            'user_security_preferences',
+            [
+              {
+                userId,
+                sessionTimeoutMinutes: seed.sessionTimeoutMinutes,
+                biometricApprovalsEnabled: seed.biometricApprovalsEnabled,
+                deviceApprovalsEnabled: seed.deviceApprovalsEnabled,
+                createdAt: now,
+                updatedAt: now,
+              },
+            ],
+            { transaction },
+          );
+        }
+      }
+
+      const dataExportSeeds = [
+        {
+          email: 'lara.ops.demo@gigvora.com',
+          status: 'ready',
+          format: 'zip',
+          type: 'account_archive',
+          requestedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 3),
+          completedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 2),
+          downloadUrl: 'https://downloads.demo.gigvora.com/exports/lara-ops.zip',
+        },
+        {
+          email: 'jonah.freelancer.demo@gigvora.com',
+          status: 'processing',
+          format: 'json',
+          type: 'communications',
+          requestedAt: new Date(now.getTime() - 1000 * 60 * 45),
+          completedAt: null,
+          downloadUrl: null,
+        },
+      ];
+
+      for (const seed of dataExportSeeds) {
+        const userId = userIds.get(seed.email);
+        if (!userId) continue;
+
+        const [existingExport] = await queryInterface.sequelize.query(
+          'SELECT id FROM data_export_requests WHERE userId = :userId AND type = :type LIMIT 1',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { userId, type: seed.type },
+          },
+        );
+
+        if (!existingExport?.id) {
+          await queryInterface.bulkInsert(
+            'data_export_requests',
+            [
+              {
+                userId,
+                status: seed.status,
+                format: seed.format,
+                type: seed.type,
+                requestedAt: seed.requestedAt,
+                completedAt: seed.completedAt,
+                downloadUrl: seed.downloadUrl,
+                expiresAt: seed.completedAt
+                  ? new Date(seed.completedAt.getTime() + 1000 * 60 * 60 * 24 * 7)
+                  : null,
+                notes: seed.status === 'processing' ? 'Compiling workspace messages and invoices.' : null,
+                metadata: { priority: 'standard', seeded: true },
+                createdAt: now,
+                updatedAt: now,
+              },
+            ],
+            { transaction },
+          );
+        }
+      }
+
       const profileRecords = [
         {
           email: 'jonah.freelancer.demo@gigvora.com',

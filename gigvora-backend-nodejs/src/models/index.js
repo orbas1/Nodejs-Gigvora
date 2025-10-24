@@ -4945,7 +4945,7 @@ export const GigOrderRevision = sequelize.define(
     },
     focusAreas: { type: jsonType, allowNull: true },
     summary: { type: DataTypes.TEXT, allowNull: true },
-    requestedAt: { type: DataTypes.DATE, allowNull: false },
+    requestedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
     dueAt: { type: DataTypes.DATE, allowNull: true },
     submittedAt: { type: DataTypes.DATE, allowNull: true },
     approvedAt: { type: DataTypes.DATE, allowNull: true },
@@ -13633,6 +13633,76 @@ export const NotificationPreference = sequelize.define(
   { tableName: 'notification_preferences' },
 );
 
+export const UserSecurityPreference = sequelize.define(
+  'UserSecurityPreference',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false, unique: true },
+    sessionTimeoutMinutes: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 30 },
+    biometricApprovalsEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    deviceApprovalsEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+  },
+  { tableName: 'user_security_preferences' },
+);
+
+UserSecurityPreference.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    sessionTimeoutMinutes: Number.isFinite(plain.sessionTimeoutMinutes)
+      ? Math.max(5, Math.min(plain.sessionTimeoutMinutes, 1440))
+      : 30,
+    biometricApprovalsEnabled: Boolean(plain.biometricApprovalsEnabled),
+    deviceApprovalsEnabled: Boolean(plain.deviceApprovalsEnabled),
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const DataExportRequest = sequelize.define(
+  'DataExportRequest',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    status: {
+      type: DataTypes.ENUM('queued', 'processing', 'ready', 'failed', 'expired'),
+      allowNull: false,
+      defaultValue: 'queued',
+    },
+    format: {
+      type: DataTypes.ENUM('zip', 'json', 'csv', 'pdf'),
+      allowNull: false,
+      defaultValue: 'zip',
+    },
+    type: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'account_archive' },
+    requestedAt: { type: DataTypes.DATE, allowNull: false },
+    completedAt: { type: DataTypes.DATE, allowNull: true },
+    expiresAt: { type: DataTypes.DATE, allowNull: true },
+    downloadUrl: { type: DataTypes.STRING(2048), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'data_export_requests' },
+);
+
+DataExportRequest.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    status: plain.status,
+    format: plain.format,
+    type: plain.type,
+    requestedAt: plain.requestedAt,
+    completedAt: plain.completedAt ?? null,
+    expiresAt: plain.expiresAt ?? null,
+    downloadUrl: plain.downloadUrl ?? null,
+    notes: plain.notes ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 export const UserWebsitePreference = sequelize.define(
   'UserWebsitePreference',
   {
@@ -21617,6 +21687,15 @@ User.hasMany(ComplianceDocument, { foreignKey: 'ownerId', as: 'complianceDocumen
 Notification.belongsTo(User, { foreignKey: 'userId', as: 'recipient' });
 NotificationPreference.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasOne(NotificationPreference, { foreignKey: 'userId', as: 'notificationPreference' });
+User.hasOne(UserSecurityPreference, {
+  foreignKey: 'userId',
+  as: 'securityPreference',
+  onDelete: 'CASCADE',
+});
+UserSecurityPreference.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+User.hasMany(DataExportRequest, { foreignKey: 'userId', as: 'dataExportRequests', onDelete: 'CASCADE' });
+DataExportRequest.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 UserWebsitePreference.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasOne(UserWebsitePreference, { foreignKey: 'userId', as: 'websitePreferences' });
 
