@@ -352,9 +352,23 @@ export default function AgencyDashboardPage() {
   const gigSummary = studioInsights.summary ?? null;
   const gigDeliverables = studioInsights.deliverables ?? null;
   const financeSnapshot = agencyDashboard?.finance ?? {};
-  const gigStats = useMemo(() => projectGigData?.purchasedGigs?.stats ?? {}, [projectGigData]);
+  const gigStats = useMemo(() => {
+    const stats = projectGigData?.purchasedGigs?.stats ?? {};
+    const submissionStats = projectGigData?.purchasedGigs?.submissions?.stats ?? {};
+    return {
+      ...stats,
+      awaitingReview: stats.awaitingReview ?? submissionStats.pending ?? 0,
+      pendingClient: stats.pendingClient ?? submissionStats.pending ?? 0,
+    };
+  }, [projectGigData]);
   const boardMetrics = useMemo(() => projectGigData?.board?.metrics ?? {}, [projectGigData]);
-  const autoMatchSnapshot = useMemo(() => projectGigData?.autoMatch ?? {}, [projectGigData]);
+  const autoMatchSnapshot = useMemo(() => {
+    const snapshot = projectGigData?.autoMatch ?? {};
+    if (snapshot.summary && typeof snapshot.readyCount !== 'number') {
+      return { ...snapshot, readyCount: snapshot.summary.readyCount ?? 0 };
+    }
+    return snapshot;
+  }, [projectGigData]);
 
   const activeOrdersCount = useMemo(
     () => orders.filter((order) => order?.status !== 'completed').length,

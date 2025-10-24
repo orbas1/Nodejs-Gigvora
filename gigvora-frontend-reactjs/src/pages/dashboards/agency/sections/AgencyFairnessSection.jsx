@@ -43,7 +43,19 @@ export default function AgencyFairnessSection({
   gigStats,
   onReviewPipeline,
 }) {
-  const activeOrders = useMemo(() => orders.filter((order) => order?.status !== 'completed'), [orders]);
+  const activeOrders = useMemo(
+    () => orders.filter((order) => !['completed', 'cancelled'].includes(order?.status)),
+    [orders],
+  );
+  const candidatePool = useMemo(() => {
+    if (Array.isArray(autoMatch?.matches)) {
+      return autoMatch.matches;
+    }
+    if (Array.isArray(autoMatch?.candidates)) {
+      return autoMatch.candidates;
+    }
+    return [];
+  }, [autoMatch?.candidates, autoMatch?.matches]);
   const newcomerEligible = useMemo(
     () =>
       activeOrders.filter((order) => {
@@ -69,7 +81,17 @@ export default function AgencyFairnessSection({
     });
   }, [activeOrders]);
 
-  const readyCount = autoMatch?.readyCount ?? (Array.isArray(autoMatch?.candidates) ? autoMatch.candidates.length : 0);
+  const readyCount = useMemo(() => {
+    if (typeof autoMatch?.readyCount === 'number') {
+      return autoMatch.readyCount;
+    }
+    if (typeof autoMatch?.summary?.readyCount === 'number') {
+      return autoMatch.summary.readyCount;
+    }
+    return candidatePool.filter((candidate) =>
+      ['contacted', 'engaged'].includes((candidate?.status ?? '').toLowerCase()),
+    ).length;
+  }, [autoMatch?.readyCount, autoMatch?.summary?.readyCount, candidatePool]);
   const atRiskCount = boardMetrics?.atRisk ?? boardMetrics?.riskHigh ?? 0;
   const averageTurnaround = gigStats?.averageTurnaroundHours ?? gigStats?.averageTurnaround ?? null;
 
@@ -146,15 +168,15 @@ export default function AgencyFairnessSection({
         message: `Only ${formatPercentage(staffingCoverage)} of deliverables due this week have matching specialists queued.`,
       });
     }
-    if ((gigStats?.awaitingReview ?? 0) > 0) {
+    if ((gigStats?.awaitingReview ?? gigStats?.pendingClient ?? 0) > 0) {
       list.push({
         tone: 'info',
-        title: `${formatNumber(gigStats.awaitingReview)} submissions await agency review`,
+        title: `${formatNumber(gigStats.awaitingReview ?? gigStats.pendingClient ?? 0)} submissions await agency review`,
         message: 'Approve or request revisions promptly to keep auto-match fairness signals fresh.',
       });
     }
     return list;
-  }, [atRiskCount, staffingCoverage, dueSoon.length, gigStats?.awaitingReview]);
+  }, [atRiskCount, staffingCoverage, dueSoon.length, gigStats?.awaitingReview, gigStats?.pendingClient]);
 
   return (
     <DashboardCollapsibleSection
