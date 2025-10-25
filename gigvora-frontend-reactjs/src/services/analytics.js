@@ -5,6 +5,61 @@ const storage = (typeof window !== 'undefined' && window.localStorage) || null;
 const MAX_QUEUE_SIZE = 500;
 const FLUSH_RETRY_INTERVAL = 1000 * 10; // 10 seconds
 
+function serialiseContextValue(value) {
+  if (value == null) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (Array.isArray(value)) {
+    const serialisedItems = value
+      .map((item) => serialiseContextValue(item))
+      .filter((item) => item !== undefined && item !== null);
+
+    return serialisedItems.length ? serialisedItems : null;
+  }
+
+  if (typeof value === 'object') {
+    const serialisedObject = Object.fromEntries(
+      Object.entries(value)
+        .filter(([key]) => key != null && key !== '')
+        .map(([key, item]) => [key, serialiseContextValue(item)])
+        .filter(([, item]) => item !== undefined && item !== null),
+    );
+
+    return Object.keys(serialisedObject).length ? serialisedObject : null;
+  }
+
+  if (['string', 'number', 'boolean'].includes(typeof value)) {
+    return value;
+  }
+
+  return undefined;
+}
+
+function normaliseContext(context) {
+  if (!context || typeof context !== 'object') {
+    return {};
+  }
+
+  const normalisedEntries = Object.entries(context)
+    .filter(([key]) => key != null && key !== '')
+    .map(([key, value]) => {
+      const serialised = serialiseContextValue(value);
+      if (serialised === undefined) {
+        return null;
+      }
+      return [key, serialised];
+    })
+    .filter(Boolean)
+    .filter(([, value]) => value !== undefined && value !== null);
+
+  return normalisedEntries.length ? Object.fromEntries(normalisedEntries) : {};
+}
+
 function sanitizeEventPayload(event) {
   if (!event || typeof event !== 'object') {
     return null;
@@ -97,6 +152,7 @@ class AnalyticsClient {
   constructor() {
     this._flushTimer = null;
     this._isFlushing = false;
+    this._globalContext = {};
     if (typeof window !== 'undefined') {
       window.addEventListener('online', () => {
         this.scheduleFlush(0);
@@ -115,14 +171,20 @@ class AnalyticsClient {
       return;
     }
 
+    const mergedContext = {
+      ...this._globalContext,
+      ...normaliseContext(context),
+    };
+
     const payload = sanitizeEventPayload({
       eventName,
-      actorType: metadata.actorType || 'anonymous',
+      actorType:
+        metadata.actorType || (metadata.userId != null ? 'user' : 'anonymous'),
       userId: metadata.userId ?? null,
       entityType: metadata.entityType ?? null,
       entityId: metadata.entityId ?? null,
       source: metadata.source || 'web',
-      context: context ?? {},
+      context: mergedContext,
       occurredAt: new Date().toISOString(),
     });
 
@@ -189,6 +251,37 @@ class AnalyticsClient {
       clearTimeout(this._flushTimer);
       this._flushTimer = null;
     }
+  }
+
+  setGlobalContext(context) {
+    if (!context || typeof context !== 'object') {
+      return;
+    }
+
+    this._globalContext = {
+      ...this._globalContext,
+      ...normaliseContext(context),
+    };
+  }
+
+  clearGlobalContext(keys) {
+    if (keys == null) {
+      this._globalContext = {};
+      return;
+    }
+
+    const toRemove = Array.isArray(keys) ? keys : [keys];
+    if (!toRemove.length) {
+      return;
+    }
+
+    const nextContext = { ...this._globalContext };
+    for (const key of toRemove) {
+      if (key == null) continue;
+      delete nextContext[key];
+    }
+
+    this._globalContext = nextContext;
   }
 }
 

@@ -1,10 +1,70 @@
 import { trackEvent, listEvents } from '../services/analyticsService.js';
 
-function toPlainObject(value) {
-  if (!value || typeof value !== 'object') {
+function normaliseNumber(value) {
+  if (value == null) {
     return null;
   }
-  return Object.fromEntries(Object.entries(value));
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+  return Math.trunc(parsed);
+}
+
+function serialiseContextValue(value) {
+  if (value == null) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (Array.isArray(value)) {
+    const serialised = value
+      .map((item) => serialiseContextValue(item))
+      .filter((item) => item !== undefined && item !== null);
+
+    return serialised.length ? serialised : null;
+  }
+
+  if (typeof value === 'object') {
+    const serialisedEntries = Object.entries(value)
+      .filter(([key]) => key != null && key !== '')
+      .map(([key, item]) => [key, serialiseContextValue(item)])
+      .filter(([, item]) => item !== undefined && item !== null);
+
+    if (!serialisedEntries.length) {
+      return null;
+    }
+
+    return Object.fromEntries(serialisedEntries);
+  }
+
+  if (['string', 'number', 'boolean'].includes(typeof value)) {
+    return value;
+  }
+
+  return undefined;
+}
+
+function normaliseContext(value) {
+  if (!value || typeof value !== 'object') {
+    return {};
+  }
+
+  const entries = Object.entries(value)
+    .filter(([key]) => key != null && key !== '')
+    .map(([key, item]) => {
+      const serialised = serialiseContextValue(item);
+      if (serialised === undefined || serialised === null) {
+        return null;
+      }
+      return [key, serialised];
+    })
+    .filter(Boolean);
+
+  return entries.length ? Object.fromEntries(entries) : {};
 }
 
 function sanitizeEventPayload(body = {}) {
@@ -19,18 +79,26 @@ function sanitizeEventPayload(body = {}) {
     occurredAt = null,
   } = body ?? {};
 
-  const safeContext = toPlainObject(context) ?? {};
+  const safeContext = normaliseContext(context);
   const safeSource = typeof source === 'string' && source.trim().length ? source.trim() : null;
+  const safeActor = typeof actorType === 'string' && actorType.trim().length
+    ? actorType.trim().toLowerCase()
+    : 'anonymous';
+  const safeEntityType = typeof entityType === 'string' && entityType.trim().length
+    ? entityType.trim()
+    : null;
+  const safeEventName = typeof eventName === 'string' ? eventName.trim() : eventName;
+  const safeOccurredAt = occurredAt ? new Date(occurredAt).toISOString() : null;
 
   return {
-    eventName: typeof eventName === 'string' ? eventName.trim() : eventName,
-    actorType: typeof actorType === 'string' ? actorType.trim() : actorType,
-    userId,
-    entityType: typeof entityType === 'string' ? entityType.trim() : entityType,
-    entityId: typeof entityId === 'string' ? entityId.trim() : entityId,
+    eventName: safeEventName,
+    actorType: safeActor,
+    userId: normaliseNumber(userId),
+    entityType: safeEntityType,
+    entityId: normaliseNumber(entityId),
     source: safeSource,
     context: safeContext,
-    occurredAt: occurredAt ?? null,
+    occurredAt: safeOccurredAt,
   };
 }
 

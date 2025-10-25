@@ -351,6 +351,7 @@ describe('analytics service', () => {
       writable: true,
       value: originalSendBeacon,
     });
+    analyticsService.analytics.clearGlobalContext();
     vi.useRealTimers();
   });
 
@@ -381,6 +382,85 @@ describe('analytics service', () => {
     await vi.advanceTimersByTimeAsync(10000);
     expect(mockApiClient.post).toHaveBeenCalledTimes(2);
     expect(localStorage.getItem('gigvora:web:analytics:queue')).toBeNull();
+  });
+
+  it('merges global context with event payloads while preserving overrides', async () => {
+    analyticsService.analytics.setGlobalContext({
+      journeySegment: 'freelancer.dashboard',
+      routePersona: 'freelancer',
+    });
+
+    window.navigator.sendBeacon.mockReturnValueOnce(false);
+    mockApiClient.post.mockResolvedValueOnce({ ok: true });
+
+    const occurredAt = new Date('2024-05-01T12:00:00.000Z');
+
+    await analyticsService.analytics.track(
+      'event-with-context',
+      {
+        action: 'cta_click',
+        routePersona: 'override-persona',
+        occurredAt,
+        omit: undefined,
+        nested: { stamp: occurredAt, skip: undefined },
+        arrayValues: ['keep', occurredAt, undefined],
+      },
+      { userId: 42 },
+    );
+
+    expect(mockApiClient.post).toHaveBeenCalledWith(
+      '/analytics/events',
+      expect.objectContaining({
+        context: expect.objectContaining({
+          action: 'cta_click',
+          journeySegment: 'freelancer.dashboard',
+          routePersona: 'override-persona',
+          occurredAt: occurredAt.toISOString(),
+          nested: { stamp: occurredAt.toISOString() },
+          arrayValues: ['keep', occurredAt.toISOString()],
+        }),
+        actorType: 'user',
+        userId: 42,
+      }),
+    );
+  });
+
+  it('defaults actorType to anonymous when no user id provided', async () => {
+    window.navigator.sendBeacon.mockReturnValueOnce(false);
+    mockApiClient.post.mockResolvedValueOnce({ ok: true });
+
+    await analyticsService.analytics.track('event-anonymous', { foo: 'bar' });
+
+    expect(mockApiClient.post).toHaveBeenCalledWith(
+      '/analytics/events',
+      expect.objectContaining({
+        eventName: 'event-anonymous',
+        actorType: 'anonymous',
+        userId: null,
+        context: expect.objectContaining({ foo: 'bar' }),
+      }),
+    );
+  });
+
+  it('clears global context entries by key', async () => {
+    analyticsService.analytics.setGlobalContext({
+      journeySegment: 'company.operations',
+      routeCollection: 'company',
+    });
+
+    analyticsService.analytics.clearGlobalContext('journeySegment');
+
+    window.navigator.sendBeacon.mockReturnValueOnce(false);
+    mockApiClient.post.mockResolvedValueOnce({ ok: true });
+
+    await analyticsService.analytics.track('event-after-clear', {});
+
+    expect(mockApiClient.post).toHaveBeenCalledWith(
+      '/analytics/events',
+      expect.objectContaining({
+        context: expect.not.objectContaining({ journeySegment: expect.anything() }),
+      }),
+    );
   });
 });
 
