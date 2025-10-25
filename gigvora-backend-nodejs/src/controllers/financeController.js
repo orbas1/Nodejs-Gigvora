@@ -1,4 +1,9 @@
-import { getFinanceControlTowerOverview } from '../services/financeService.js';
+import {
+  getFinanceControlTowerOverview,
+  recordFinanceReleaseAction,
+  recordFinanceDisputeAction,
+  recordFinanceComplianceAction,
+} from '../services/financeService.js';
 import { getFreelancerFinanceInsights } from '../services/financeInsightsService.js';
 import { ValidationError } from '../utils/errors.js';
 
@@ -61,7 +66,34 @@ export async function showFreelancerInsights(req, res) {
   res.json(insights);
 }
 
+export async function handleReleaseAction(req, res) {
+  const userId = resolveUserId(req);
+  const releaseId = parsePositiveInteger(req.params?.releaseId);
+  const { action, note } = req.body ?? {};
+  const release = await recordFinanceReleaseAction(userId, releaseId, { action, note });
+  res.json({ release });
+}
+
+export async function handleDisputeAction(req, res) {
+  const userId = resolveUserId(req);
+  const disputeId = parsePositiveInteger(req.params?.disputeId);
+  const { action, note } = req.body ?? {};
+  const dispute = await recordFinanceDisputeAction(userId, disputeId, { action, note });
+  res.json({ dispute });
+}
+
+export async function handleComplianceAction(req, res) {
+  const userId = resolveUserId(req);
+  const obligationId = parsePositiveInteger(req.params?.obligationId);
+  const { action, note } = req.body ?? {};
+  const task = await recordFinanceComplianceAction(userId, obligationId, { action, note });
+  res.json({ task });
+}
+
 export default {
   controlTowerOverview,
   showFreelancerInsights,
+  handleReleaseAction,
+  handleDisputeAction,
+  handleComplianceAction,
 };

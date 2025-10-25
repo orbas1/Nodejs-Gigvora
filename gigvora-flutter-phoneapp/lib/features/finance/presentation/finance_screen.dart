@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../theme/widgets.dart';
+import '../../analytics/utils/formatters.dart';
+import '../../analytics/widgets/analytics_metric_grid.dart';
 import '../../auth/application/session_controller.dart';
 import '../../auth/domain/session.dart';
 import '../../services/data/models/dispute_case.dart';
@@ -296,46 +298,90 @@ class _FinanceMetricsGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
-    final metrics = [
-      _MetricCard(
+    String revenueChangeCopy(double change) {
+      if (change.isNaN) {
+        return '—';
+      }
+      final rounded = change.toStringAsFixed(1);
+      final prefix = change > 0 ? '+' : '';
+      return '$prefix$rounded%';
+    }
+
+    final summaryMetrics = [
+      AnalyticsDatum(
         label: 'Funds in escrow',
-        value: formatCurrency(summary.inEscrow, summary.currency),
-        caption: 'Safeguarded across regulated partners.',
+        value: formatCurrency(summary.inEscrow, currency: summary.currency),
+        caption: 'Safeguarded across regulated payment partners.',
       ),
-      _MetricCard(
+      AnalyticsDatum(
         label: 'Pending release',
-        value: formatCurrency(summary.pendingRelease, summary.currency),
+        value: formatCurrency(summary.pendingRelease, currency: summary.currency),
         caption: 'Awaiting milestone approvals or automation windows.',
       ),
-      _MetricCard(
+      AnalyticsDatum(
         label: 'Held in disputes',
-        value: formatCurrency(summary.disputeHold, summary.currency),
+        value: formatCurrency(summary.disputeHold, currency: summary.currency),
         caption: 'Frozen while trust & safety mediates counter-parties.',
       ),
-      _MetricCard(
+      AnalyticsDatum(
         label: 'Released this week',
-        value: formatCurrency(summary.releasedThisWeek, summary.currency),
+        value: formatCurrency(summary.releasedThisWeek, currency: summary.currency),
         caption: 'Cleared to providers over the last seven days.',
+      ),
+      AnalyticsDatum(
+        label: 'Month-to-date revenue',
+        value: formatCurrency(
+          summary.monthToDateRevenue.amount,
+          currency: summary.monthToDateRevenue.currency,
+        ),
+        caption:
+            'Previous ${formatCurrency(summary.monthToDateRevenue.previousAmount, currency: summary.monthToDateRevenue.currency)} • ${revenueChangeCopy(summary.monthToDateRevenue.changePercentage)} vs prior period.',
+      ),
+      AnalyticsDatum(
+        label: 'Tax reserve FY${summary.taxReadyBalance.fiscalYear}',
+        value: formatCurrency(
+          summary.taxReadyBalance.amount,
+          currency: summary.taxReadyBalance.currency,
+        ),
+        caption: summary.taxReadyBalance.latestExport != null
+            ? 'Latest export ${formatDate(summary.taxReadyBalance.latestExport!.generatedAt)} • ${summary.taxReadyBalance.latestExport!.status.toUpperCase()}'
+            : 'Reconcile filings before quarter close.',
+      ),
+      AnalyticsDatum(
+        label: 'Tracked expenses',
+        value: formatCurrency(
+          summary.trackedExpenses.amount,
+          currency: summary.trackedExpenses.currency,
+        ),
+        caption: '${summary.trackedExpenses.count} entries logged this month.',
+      ),
+      AnalyticsDatum(
+        label: 'Savings runway',
+        value: summary.savingsRunway.months != null
+            ? '${summary.savingsRunway.months!.toStringAsFixed(1)} months'
+            : '—',
+        caption:
+            'Reserve ${formatCurrency(summary.savingsRunway.reserveAmount, currency: summary.savingsRunway.currency)} • Burn ${summary.savingsRunway.monthlyBurn != null ? formatCurrency(summary.savingsRunway.monthlyBurn!, currency: summary.savingsRunway.currency) : '—'}',
       ),
     ];
 
-    final automationCards = [
-      _MetricCard(
+    final automationMetrics = [
+      AnalyticsDatum(
         label: 'Auto-release rate',
         value: formatPercent(automation.autoReleaseRate),
         caption: 'Payouts cleared straight through automations.',
       ),
-      _MetricCard(
+      AnalyticsDatum(
         label: 'Manual review',
         value: formatPercent(automation.manualReviewRate),
         caption: 'Queued for finance analyst validation.',
       ),
-      _MetricCard(
+      AnalyticsDatum(
         label: 'Avg clearance',
         value: '${automation.averageClearanceHours.toStringAsFixed(1)} hrs',
         caption: 'Time from approval to release.',
       ),
-      _MetricCard(
+      AnalyticsDatum(
         label: 'Flagged transactions',
         value: automation.flaggedTransactions.toString(),
         caption: 'Escrows escalated by anomaly detection.',
@@ -347,82 +393,17 @@ class _FinanceMetricsGrid extends StatelessWidget {
       children: [
         Text('Financial posture', style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
         const SizedBox(height: 16),
-        Wrap(
-          spacing: 16,
-          runSpacing: 16,
-          children: metrics
-              .map(
-                (metric) => SizedBox(
-                  width: MediaQuery.of(context).size.width / 2 - 32,
-                  child: GigvoraCard(child: _MetricView(metric: metric)),
-                ),
-              )
-              .toList(),
-        ),
+        AnalyticsMetricGrid(metrics: summaryMetrics),
         const SizedBox(height: 24),
         Text('Automation health', style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
         const SizedBox(height: 16),
-        Wrap(
-          spacing: 16,
-          runSpacing: 16,
-          children: automationCards
-              .map(
-                (metric) => SizedBox(
-                  width: MediaQuery.of(context).size.width / 2 - 32,
-                  child: GigvoraCard(child: _MetricView(metric: metric)),
-                ),
-              )
-              .toList(),
+        AnalyticsMetricGrid(
+          metrics: automationMetrics,
+          variant: AnalyticsMetricVariant.gradient,
         ),
         const SizedBox(height: 12),
         Text(
-          'Net cashflow (7d): ${formatCurrency(summary.netCashFlow7d, summary.currency)} • Forecast (30d): ${formatCurrency(summary.forecast30d, summary.currency)}',
-          style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
-        ),
-      ],
-    );
-  }
-}
-
-class _MetricCard {
-  const _MetricCard({
-    required this.label,
-    required this.value,
-    required this.caption,
-  });
-
-  final String label;
-  final String value;
-  final String caption;
-}
-
-class _MetricView extends StatelessWidget {
-  const _MetricView({required this.metric});
-
-  final _MetricCard metric;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final colorScheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          metric.label,
-          style: textTheme.labelLarge?.copyWith(
-            letterSpacing: 0.6,
-            color: colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          metric.value,
-          style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          metric.caption,
+          'Net cashflow (7d): ${formatCurrency(summary.netCashFlow7d, currency: summary.currency)} • Forecast (30d): ${formatCurrency(summary.forecast30d, currency: summary.currency)}',
           style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
         ),
       ],
@@ -506,15 +487,15 @@ class _AccountTile extends StatelessWidget {
             children: [
               _InfoPill(
                 label: 'Balance',
-                value: formatCurrency(account.balance, account.currency),
+                value: formatCurrency(account.balance, currency: account.currency),
               ),
               _InfoPill(
                 label: 'Safeguarding',
-                value: formatCurrency(account.safeguarding, account.currency),
+                value: formatCurrency(account.safeguarding, currency: account.currency),
               ),
               _InfoPill(
                 label: 'Pending transfers',
-                value: formatCurrency(account.pendingTransfers, account.currency),
+                value: formatCurrency(account.pendingTransfers, currency: account.currency),
               ),
             ],
           ),
@@ -647,7 +628,7 @@ class _ReleaseTile extends StatelessWidget {
               children: [
                 _InfoPill(label: 'Reference', value: release.reference),
                 _InfoPill(label: 'Scheduled', value: formatDateTime(release.scheduledAt)),
-                _InfoPill(label: 'Amount', value: formatCurrency(release.amount, release.currency)),
+                _InfoPill(label: 'Amount', value: formatCurrency(release.amount, currency: release.currency)),
               ],
             ),
             const SizedBox(height: 12),
@@ -756,7 +737,7 @@ class _DisputeTile extends StatelessWidget {
                 _InfoPill(label: 'Priority', value: dispute.priority.name),
                 _InfoPill(
                   label: 'Amount',
-                  value: formatCurrency(dispute.amount ?? 0, dispute.currencyCode ?? 'USD'),
+                  value: formatCurrency(dispute.amount ?? 0, currency: dispute.currencyCode ?? 'USD'),
                 ),
               ],
             ),
@@ -924,7 +905,7 @@ class _CashflowSection extends StatelessWidget {
                     children: [
                       Text(bucket.label, style: Theme.of(context).textTheme.titleSmall),
                       Text(
-                        formatCurrency(bucket.net, currency),
+                        formatCurrency(bucket.net, currency: currency),
                         style: Theme.of(context)
                             .textTheme
                             .bodyLarge
@@ -954,12 +935,12 @@ class _CashflowSection extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Inflow ${formatCurrency(bucket.inflow, currency)}',
+                      Text('Inflow ${formatCurrency(bucket.inflow, currency: currency)}',
                           style: Theme.of(context)
                               .textTheme
                               .bodySmall
                               ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                      Text('Outflow ${formatCurrency(bucket.outflow, currency)}',
+                      Text('Outflow ${formatCurrency(bucket.outflow, currency: currency)}',
                           style: Theme.of(context)
                               .textTheme
                               .bodySmall
@@ -1017,39 +998,3 @@ void _showSnack(BuildContext context, String message) {
   );
 }
 
-String formatCurrency(num value, String currency) {
-  final amount = value.toDouble();
-  final sign = amount < 0 ? '-' : '';
-  final absValue = amount.abs();
-  final parts = absValue.toStringAsFixed(2).split('.');
-  final whole = parts[0].replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (match) => '${match[1]},');
-  return '$sign$currency $whole.${parts[1]}';
-}
-
-String formatPercent(double value) {
-  return '${(value * 100).toStringAsFixed(1)}%';
-}
-
-String formatDate(DateTime? date) {
-  if (date == null) return 'Pending';
-  return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-}
-
-String formatDateTime(DateTime? date) {
-  if (date == null) {
-    return 'Ready now';
-  }
-  final local = date.toLocal();
-  return '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')} · '
-      '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
-}
-
-String formatRelativeTime(DateTime timestamp) {
-  final now = DateTime.now();
-  final difference = now.difference(timestamp);
-  if (difference.inMinutes < 1) return 'just now';
-  if (difference.inMinutes < 60) return '${difference.inMinutes}m ago';
-  if (difference.inHours < 24) return '${difference.inHours}h ago';
-  if (difference.inDays < 7) return '${difference.inDays}d ago';
-  return '${timestamp.month}/${timestamp.day}/${timestamp.year}';
-}

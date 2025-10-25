@@ -43,7 +43,58 @@ export const financeFreelancerParamsSchema = z
   })
   .strip();
 
+export const financeReleaseActionParamsSchema = z
+  .object({
+    releaseId: z
+      .any()
+      .transform((value, ctx) => toPositiveInteger(value, ctx, { fieldName: 'releaseId' })),
+  })
+  .strip();
+
+export const financeReleaseActionBodySchema = z
+  .object({
+    action: z.enum(['manual_release', 'evidence_requested']),
+    note: optionalTrimmedString({ max: 500 }).transform((value) => value ?? undefined),
+  })
+  .strip();
+
+export const financeDisputeActionParamsSchema = z
+  .object({
+    disputeId: z
+      .any()
+      .transform((value, ctx) => toPositiveInteger(value, ctx, { fieldName: 'disputeId' })),
+  })
+  .strip();
+
+export const financeDisputeActionBodySchema = z
+  .object({
+    action: z.enum(['escalate', 'add_evidence']),
+    note: optionalTrimmedString({ max: 500 }).transform((value) => value ?? undefined),
+  })
+  .strip();
+
+export const financeComplianceActionParamsSchema = z
+  .object({
+    obligationId: z
+      .any()
+      .transform((value, ctx) => toPositiveInteger(value, ctx, { fieldName: 'obligationId' })),
+  })
+  .strip();
+
+export const financeComplianceActionBodySchema = z
+  .object({
+    action: z.enum(['complete']),
+    note: optionalTrimmedString({ max: 500 }).transform((value) => value ?? undefined),
+  })
+  .strip();
+
 export default {
   financeOverviewQuerySchema,
   financeFreelancerParamsSchema,
+  financeReleaseActionParamsSchema,
+  financeReleaseActionBodySchema,
+  financeDisputeActionParamsSchema,
+  financeDisputeActionBodySchema,
+  financeComplianceActionParamsSchema,
+  financeComplianceActionBodySchema,
 };

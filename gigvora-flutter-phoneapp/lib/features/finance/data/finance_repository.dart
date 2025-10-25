@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:gigvora_foundation/gigvora_foundation.dart';
 
-import 'finance_control_tower_sample.dart';
 import 'models/finance_overview.dart';
 
 class FinanceRepository {
@@ -65,14 +64,46 @@ class FinanceRepository {
         );
       }
 
-      final fallback = FinanceOverview.fromJson(financeControlTowerSample);
-      unawaited(_cache.write(_cacheKey, fallback.toJson(), ttl: _ttl));
-      return RepositoryResult(
-        data: fallback,
-        fromCache: true,
-        lastUpdated: DateTime.now(),
-        error: error,
-      );
+      rethrow;
     }
+  }
+
+  Future<void> recordReleaseAction(
+    String releaseId, {
+    required String action,
+    String? note,
+  }) async {
+    final payload = <String, dynamic>{'action': action};
+    if (note != null && note.isNotEmpty) {
+      payload['note'] = note;
+    }
+    await _apiClient.post('/finance/releases/$releaseId/actions', data: payload);
+    await _cache.remove(_cacheKey);
+  }
+
+  Future<void> recordDisputeAction(
+    String disputeId, {
+    required String action,
+    String? note,
+  }) async {
+    final payload = <String, dynamic>{'action': action};
+    if (note != null && note.isNotEmpty) {
+      payload['note'] = note;
+    }
+    await _apiClient.post('/finance/disputes/$disputeId/actions', data: payload);
+    await _cache.remove(_cacheKey);
+  }
+
+  Future<void> recordComplianceAction(
+    String obligationId, {
+    required String action,
+    String? note,
+  }) async {
+    final payload = <String, dynamic>{'action': action};
+    if (note != null && note.isNotEmpty) {
+      payload['note'] = note;
+    }
+    await _apiClient.post('/finance/compliance/$obligationId/actions', data: payload);
+    await _cache.remove(_cacheKey);
   }
 }

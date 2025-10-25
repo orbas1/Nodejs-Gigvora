@@ -6,8 +6,9 @@ import 'company_analytics_sample.dart';
 import 'models/company_analytics_dashboard.dart';
 
 class CompanyAnalyticsRepository {
-  CompanyAnalyticsRepository(this._cache);
+  CompanyAnalyticsRepository(this._apiClient, this._cache);
 
+  final ApiClient _apiClient;
   final OfflineCache _cache;
 
   static const _cacheKey = 'company:analytics:dashboard';
@@ -38,14 +39,17 @@ class CompanyAnalyticsRepository {
     }
 
     try {
-      await Future<void>.delayed(const Duration(milliseconds: 200));
-      final dashboard = CompanyAnalyticsDashboard.fromJson(companyAnalyticsSample);
-      await _cache.write(_cacheKey, dashboard.toJson(), ttl: _ttl);
-      return RepositoryResult(
-        data: dashboard,
-        fromCache: false,
-        lastUpdated: DateTime.now(),
-      );
+      final response = await _apiClient.get('/analytics/company/dashboard');
+      if (response is Map<String, dynamic>) {
+        final dashboard = CompanyAnalyticsDashboard.fromJson(response);
+        unawaited(_cache.write(_cacheKey, dashboard.toJson(), ttl: _ttl));
+        return RepositoryResult(
+          data: dashboard,
+          fromCache: false,
+          lastUpdated: DateTime.now(),
+        );
+      }
+      throw const FormatException('Unexpected payload when loading company analytics dashboard');
     } catch (error) {
       final fallback = _cache.read<CompanyAnalyticsDashboard>(
         _cacheKey,
@@ -69,7 +73,14 @@ class CompanyAnalyticsRepository {
         );
       }
 
-      rethrow;
+      final sample = CompanyAnalyticsDashboard.fromJson(companyAnalyticsSample);
+      unawaited(_cache.write(_cacheKey, sample.toJson(), ttl: _ttl));
+      return RepositoryResult(
+        data: sample,
+        fromCache: true,
+        lastUpdated: DateTime.now(),
+        error: error,
+      );
     }
   }
 
