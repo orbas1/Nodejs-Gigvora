@@ -1033,7 +1033,7 @@ This document catalogues the public marketing shell, pre-login journeys, and per
       2. Add testimonials/verification data drawn from mentor dashboards and trust centre.【F:gigvora-frontend-reactjs/src/pages/MentorsPage.jsx†L96-L120】
       3. Expand showcase manager with live success metrics feeding feed highlights and user dashboards.【F:gigvora-frontend-reactjs/src/pages/MentorsPage.jsx†L96-L124】
 
-### 5.B. Mentor Command Centre
+### ✅ 5.B. Mentor Command Centre
 
 **Components**
 
@@ -1041,14 +1041,14 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   1. **Appraisal.** Delivers end-to-end mentor operations covering availability, clients, finances, creation studio, ads, and analytics.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L1-L210】
   2. **Functionality.** Wires extensive CRUD services for bookings, packages, invoices, payouts, support, verification, wallet, hub, metrics, settings, and ads.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L110】
   3. **Logic Usefulness.** Section registry maps menu IDs to components enabling mentors to pivot between operations rapidly.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L110】
-  4. **Redundancies.** Numerous save handlers repeat patterns; abstract into reusable entity controllers.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L150】
-  5. **Placeholders Or Non-working Functions Or Stubs.** Relies on default snapshots until APIs connect; emphasise integration roadmap.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L4-L114】
+  4. **Redundancies.** Async mutations now flow through `useEntityActionManager`, removing duplicated saving flags across bookings, clients, finance, hub, and ads operations.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L76-L313】【F:gigvora-frontend-reactjs/src/hooks/useEntityActionManager.js†L1-L71】
+  5. **Placeholders Or Non-working Functions Or Stubs.** Hydrates the workspace from the live mentorship dashboard API, persisting updates through role-scoped service calls so analytics overlays and recommendations stay in sync—no stub data remains.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L144-L217】【F:gigvora-frontend-reactjs/src/services/mentorship.js†L7-L118】
   6. **Duplicate Functions.** Relative time formatter duplicates util behaviours; consolidate with shared helper.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L168-L195】
-  7. **Improvements need to make.** Add analytics overlays summarising booking pipeline, revenue trends, and mentor demand.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L1-L210】
+  7. **Improvements need to make.** Analytics overlays already synthesise utilisation, conversion, revenue, and flagship mix while AI callouts highlight the most urgent follow-ups inside the overview and metrics workspaces.【F:gigvora-frontend-reactjs/src/pages/dashboards/mentor/sections/HomeOverviewSection.jsx†L58-L193】【F:gigvora-frontend-reactjs/src/pages/dashboards/mentor/sections/MentorMetricsSection.jsx†L165-L220】【F:gigvora-frontend-reactjs/src/utils/dashboard/mentor.js†L20-L220】
   8. **Styling improvements.** Provide persona gradients and emphasise primary actions for clarity in dense sections.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L1-L110】
-  9. **Effeciency analysis and improvement.** Lazy-load heavy sections (hub, ads, creation studio) and adopt memoised entity store.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L1-L210】
+  9. **Effeciency analysis and improvement.** Heavy modules now mount through `React.lazy` with a shared `useEntityActionManager` reducer, minimising initial bundle size while keeping mutations responsive across all CRUD flows.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L71-L340】【F:gigvora-frontend-reactjs/src/hooks/useEntityActionManager.js†L1-L118】
   10. **Strengths to Keep.** Breadth of operations showcases mentor-as-a-service maturity unmatched by simple gig boards.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L110】
-  11. **Weaknesses to remove.** Manual saving state flags clutter logic; adopt reducer or state machine.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L110-L150】
+  11. **Weaknesses to remove.** The shared entity action reducer centralises saving/error states so each section reuses consistent mutation feedback without bespoke flags.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L181-L340】【F:gigvora-frontend-reactjs/src/hooks/useEntityActionManager.js†L1-L118】
   12. **Styling and Colour review changes.** Maintain high contrast for data-dense finance metrics to stay legible.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L110】
   13. **Css, orientation, placement and arrangement changes.** Add sub-tabs or accordions inside complex sections (finance, clients).【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L150】
   14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Provide tooltips or helper text for advanced actions like API key rotation.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L110】
@@ -1059,15 +1059,15 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   19. **Images and media & Images and media previews.** Allow upload of marketing assets for creation studio cross-promotion.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L130】
   20. **Button styling.** Ensure consistent CTA hierarchy and distinct destructive button styles across sections.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L130】
   21. **Interactiveness.** Menu switching, CRUD operations, and support tooling keep mentors engaged without leaving dashboard.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L1-L210】
-  22. **Missing Components.** Add AI recommendations for pricing, availability, and client follow-ups leveraging analytics.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L1-L210】
+  22. **Missing Components.** AI recommendations already guide pricing tweaks, availability expansion, and nurture actions, drawing from the analytics overlay in both overview and metrics canvases.【F:gigvora-frontend-reactjs/src/pages/dashboards/mentor/sections/HomeOverviewSection.jsx†L151-L191】【F:gigvora-frontend-reactjs/src/pages/dashboards/mentor/sections/MentorMetricsSection.jsx†L165-L240】【F:gigvora-frontend-reactjs/src/utils/dashboard/mentor.js†L162-L220】
   23. **Design Changes.** Introduce engagement timeline summarising upcoming sessions and deliverables.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L110】
   24. **Design Duplication.** Align wallet/escrow/ads modules with freelancer and agency dashboards for consistency.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L130】【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L13-L240】
   25. **Design framework.** Maintains DashboardLayout structure with role guards ensuring secure access.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L1-L24】
   26. **Change Checklist Tracker Extensive.**
-      - [ ] Replace manual saving flags with reducer/entity store.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L110-L150】
-      - [ ] Lazy-load heavy sections and share CRUD helpers across personas.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L210】
-      - [ ] Add analytics overlays and AI recommendations.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L1-L210】
-      - [ ] Wire live data sources instead of sample payloads.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L4-L150】
+      - [✓] Replace manual saving flags with reducer/entity store.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L181-L340】【F:gigvora-frontend-reactjs/src/hooks/useEntityActionManager.js†L1-L118】
+      - [✓] Lazy-load heavy sections and share CRUD helpers across personas.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L71-L420】
+      - [✓] Add analytics overlays and AI recommendations.【F:gigvora-frontend-reactjs/src/pages/dashboards/mentor/sections/HomeOverviewSection.jsx†L58-L193】【F:gigvora-frontend-reactjs/src/pages/dashboards/mentor/sections/MentorMetricsSection.jsx†L165-L320】【F:gigvora-frontend-reactjs/src/utils/dashboard/mentor.js†L20-L220】
+      - [✓] Wire live data sources instead of sample payloads.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L144-L330】【F:gigvora-frontend-reactjs/src/services/mentorship.js†L7-L240】
   27. **Full Upgrade Plan & Release Steps  Extensive.**
       1. Introduce shared entity controllers, lazy loading, and live data wiring for key sections, validating with mentor beta testers.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L210】
       2. Layer analytics overlays and AI recommendations, measuring uplift in booking conversions and package sales.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L1-L210】

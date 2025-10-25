@@ -8,6 +8,7 @@ import {
   SparklesIcon,
   TrophyIcon,
 } from '@heroicons/react/24/outline';
+import { formatRelativeTime } from '../../../utils/date.js';
 
 const DEFAULT_WIDGET = {
   name: '',
@@ -19,6 +20,20 @@ const DEFAULT_WIDGET = {
 };
 
 const TIMEFRAMES = ['Last 7 days', 'Last 30 days', 'Last quarter', 'Last 12 months'];
+
+const insightToneStyles = {
+  positive: 'border-emerald-200 bg-emerald-50/70',
+  warning: 'border-amber-200 bg-amber-50/70',
+  negative: 'border-rose-200 bg-rose-50/70',
+  critical: 'border-rose-200 bg-rose-50/70',
+  info: 'border-blue-200 bg-blue-50/70',
+};
+
+const recommendationConfidenceLabels = {
+  high: 'High confidence',
+  medium: 'Medium confidence',
+  low: 'Exploratory insight',
+};
 
 function normaliseWidget(widget = {}) {
   return {
@@ -152,6 +167,8 @@ export default function MentorMetricsSection({
   cohorts,
   reporting,
   saving,
+  insightOverlay,
+  aiRecommendations,
   onCreateWidget,
   onUpdateWidget,
   onDeleteWidget,
@@ -164,6 +181,9 @@ export default function MentorMetricsSection({
   const [timeframeFilter, setTimeframeFilter] = useState('all');
   const [metricSearch, setMetricSearch] = useState('');
   const [cohortFocus, setCohortFocus] = useState('all');
+  const overlayCards = useMemo(() => insightOverlay?.cards ?? [], [insightOverlay]);
+  const overlayGeneratedAt = insightOverlay?.generatedAt ?? null;
+  const recommendationList = useMemo(() => aiRecommendations ?? [], [aiRecommendations]);
 
   useEffect(() => {
     if (!editingWidgetId) {
@@ -269,6 +289,89 @@ export default function MentorMetricsSection({
           <p className="text-xs">Recipients: {(reporting?.recipients ?? []).join(', ') || 'Add recipients below'}</p>
         </div>
       </header>
+
+      {overlayCards.length ? (
+        <div className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Performance highlights</h3>
+              <p className="text-xs text-slate-500">Auto-generated overlays summarising demand, utilisation, and revenue.</p>
+            </div>
+            {overlayGeneratedAt ? (
+              <p className="text-xs text-slate-500">Updated {formatRelativeTime(overlayGeneratedAt)}</p>
+            ) : null}
+          </div>
+          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {overlayCards.map((card) => {
+              const toneClass = insightToneStyles[card.tone] ?? 'border-slate-200 bg-slate-50/70';
+              const trend = Number.isFinite(card?.trend) ? Number(card.trend) : null;
+              const trendClass = trend == null ? 'text-slate-500' : trend >= 0 ? 'text-emerald-600' : 'text-rose-600';
+              return (
+                <div key={card.id} className={`flex flex-col gap-3 rounded-3xl border px-5 py-4 shadow-sm ${toneClass}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">{card.label}</p>
+                    {trend != null ? (
+                      <span className={`inline-flex items-center gap-1 text-xs font-semibold ${trendClass}`}>
+                        <ArrowPathIcon className="h-4 w-4" />
+                        {`${trend >= 0 ? '+' : ''}${trend}%`}
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="text-2xl font-semibold text-slate-900">{card.displayValue ?? card.value ?? '—'}</p>
+                  {card.deltaLabel ? (
+                    <p className="text-xs font-semibold text-slate-500">{card.deltaLabel}</p>
+                  ) : null}
+                  <p className="text-xs text-slate-600">{card.insight}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
+      {recommendationList.length ? (
+        <div className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-accent/10 text-accent">
+                <SparklesIcon className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">AI recommendations</h3>
+                <p className="text-xs text-slate-500">Actions prioritised from current analytics snapshot.</p>
+              </div>
+            </div>
+            <DocumentArrowDownIcon className="h-5 w-5 text-slate-300" />
+          </div>
+          <ul className="mt-4 space-y-4">
+            {recommendationList.map((recommendation) => (
+              <li key={recommendation.id} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-semibold text-slate-900">{recommendation.title}</p>
+                  <span className="rounded-full bg-white px-3 py-0.5 text-xs font-semibold text-slate-500">
+                    {recommendationConfidenceLabels[recommendation.confidence] ?? 'AI insight'}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm text-slate-600">{recommendation.summary}</p>
+                {recommendation.metricLabel ? (
+                  <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-accent">
+                    {recommendation.metricLabel}
+                  </p>
+                ) : null}
+                {Array.isArray(recommendation.actions) && recommendation.actions.length ? (
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+                    {recommendation.actions.map((action) => (
+                      <span key={action} className="rounded-full bg-white px-3 py-1 font-semibold shadow-sm">
+                        {action}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {feedback ? (
         <div
@@ -533,6 +636,31 @@ MentorMetricsSection.propTypes = {
     recipients: PropTypes.arrayOf(PropTypes.string),
   }),
   saving: PropTypes.bool,
+  insightOverlay: PropTypes.shape({
+    generatedAt: PropTypes.string,
+    cards: PropTypes.arrayOf(
+      PropTypes.shape({
+        id: PropTypes.string.isRequired,
+        label: PropTypes.string.isRequired,
+        value: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+        displayValue: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+        insight: PropTypes.string,
+        tone: PropTypes.string,
+        trend: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+        deltaLabel: PropTypes.string,
+      }),
+    ),
+  }),
+  aiRecommendations: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      title: PropTypes.string.isRequired,
+      summary: PropTypes.string,
+      actions: PropTypes.arrayOf(PropTypes.string),
+      confidence: PropTypes.string,
+      metricLabel: PropTypes.string,
+    }),
+  ),
   onCreateWidget: PropTypes.func,
   onUpdateWidget: PropTypes.func,
   onDeleteWidget: PropTypes.func,
@@ -544,6 +672,8 @@ MentorMetricsSection.defaultProps = {
   cohorts: [],
   reporting: undefined,
   saving: false,
+  insightOverlay: undefined,
+  aiRecommendations: undefined,
   onCreateWidget: undefined,
   onUpdateWidget: undefined,
   onDeleteWidget: undefined,

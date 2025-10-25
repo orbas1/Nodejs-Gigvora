@@ -2,6 +2,7 @@ import PropTypes from 'prop-types';
 import { useMemo } from 'react';
 import {
   ArrowTopRightOnSquareIcon,
+  ArrowTrendingUpIcon,
   CalendarIcon,
   CurrencyPoundIcon,
   SparklesIcon,
@@ -40,6 +41,20 @@ StatCard.defaultProps = {
   icon: undefined,
 };
 
+const overlayToneStyles = {
+  positive: 'border-emerald-200 bg-emerald-50/70',
+  warning: 'border-amber-200 bg-amber-50/70',
+  negative: 'border-rose-200 bg-rose-50/70',
+  critical: 'border-rose-200 bg-rose-50/70',
+  info: 'border-blue-200 bg-blue-50/70',
+};
+
+const confidenceLabels = {
+  high: 'High confidence',
+  medium: 'Medium confidence',
+  low: 'Exploratory insight',
+};
+
 export default function HomeOverviewSection({
   stats,
   conversion,
@@ -47,6 +62,8 @@ export default function HomeOverviewSection({
   explorerPlacement,
   feedback,
   finance,
+  analyticsOverlay,
+  aiRecommendations,
   onRequestNewBooking,
 }) {
   const upcomingSessions = useMemo(() => {
@@ -66,6 +83,8 @@ export default function HomeOverviewSection({
   }, [bookings]);
 
   const financeSummary = finance?.summary ?? {};
+  const overlayCards = analyticsOverlay?.cards ?? [];
+  const highlightedRecommendations = useMemo(() => (aiRecommendations ?? []).slice(0, 3), [aiRecommendations]);
 
   return (
     <section className="space-y-8 rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-slate-100 p-8 shadow-sm">
@@ -100,6 +119,78 @@ export default function HomeOverviewSection({
           </ul>
         </div>
       </header>
+
+      {overlayCards.length ? (
+        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
+          {overlayCards.map((card) => {
+            const toneClass = overlayToneStyles[card.tone] ?? 'border-slate-200 bg-slate-50/70';
+            const trend = Number.isFinite(card?.trend) ? Number(card.trend) : null;
+            const trendClass = trend == null ? 'text-slate-500' : trend >= 0 ? 'text-emerald-600' : 'text-rose-600';
+            return (
+              <div key={card.id} className={`flex flex-col gap-3 rounded-3xl border px-5 py-4 shadow-sm ${toneClass}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">{card.label}</p>
+                  {trend != null ? (
+                    <span className={`inline-flex items-center gap-1 text-xs font-semibold ${trendClass}`}>
+                      <ArrowTrendingUpIcon className="h-3.5 w-3.5" />
+                      {`${trend >= 0 ? '+' : ''}${trend}%`}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="text-2xl font-semibold text-slate-900">{card.displayValue ?? card.value ?? '—'}</p>
+                {card.deltaLabel ? (
+                  <p className="text-xs font-semibold text-slate-500">{card.deltaLabel}</p>
+                ) : null}
+                <p className="text-xs text-slate-600">{card.insight}</p>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {highlightedRecommendations.length ? (
+        <div className="rounded-3xl border border-accent/30 bg-white/90 p-6 shadow-sm">
+          <div className="flex flex-wrap items-start gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-accent/10 text-accent">
+              <SparklesIcon className="h-5 w-5" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">AI opportunities</p>
+              <p className="text-sm text-slate-600">Personalised next steps to lift booking velocity this week.</p>
+            </div>
+          </div>
+          <ul className="mt-4 space-y-4">
+            {highlightedRecommendations.map((recommendation) => (
+              <li
+                key={recommendation.id}
+                className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-700 shadow-sm"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-semibold text-slate-900">{recommendation.title}</p>
+                  <span className="rounded-full bg-white px-3 py-0.5 text-xs font-semibold text-slate-500">
+                    {confidenceLabels[recommendation.confidence] ?? 'AI assist'}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm text-slate-600">{recommendation.summary}</p>
+                {recommendation.metricLabel ? (
+                  <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-accent">
+                    {recommendation.metricLabel}
+                  </p>
+                ) : null}
+                {Array.isArray(recommendation.actions) && recommendation.actions.length ? (
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+                    {recommendation.actions.map((action) => (
+                      <span key={action} className="rounded-full bg-white px-3 py-1 font-semibold shadow-sm">
+                        {action}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       <div className="grid gap-5 lg:grid-cols-4">
         <StatCard label="Active mentees" value={stats?.activeMentees ?? 0} delta={stats?.activeMenteesChange} icon={UsersIcon} />
@@ -225,15 +316,42 @@ HomeOverviewSection.propTypes = {
   explorerPlacement: PropTypes.object,
   feedback: PropTypes.arrayOf(PropTypes.object),
   finance: PropTypes.shape({ summary: PropTypes.object }),
+  analyticsOverlay: PropTypes.shape({
+    generatedAt: PropTypes.string,
+    cards: PropTypes.arrayOf(
+      PropTypes.shape({
+        id: PropTypes.string.isRequired,
+        label: PropTypes.string.isRequired,
+        value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+        displayValue: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+        insight: PropTypes.string,
+        tone: PropTypes.string,
+        trend: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+        deltaLabel: PropTypes.string,
+      }),
+    ),
+  }),
+  aiRecommendations: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      title: PropTypes.string.isRequired,
+      summary: PropTypes.string,
+      actions: PropTypes.arrayOf(PropTypes.string),
+      confidence: PropTypes.string,
+      metricLabel: PropTypes.string,
+    }),
+  ),
   onRequestNewBooking: PropTypes.func,
 };
 
 HomeOverviewSection.defaultProps = {
-  stats: {},
-  conversion: [],
-  bookings: [],
-  explorerPlacement: {},
-  feedback: [],
-  finance: { summary: {} },
+  stats: undefined,
+  conversion: undefined,
+  bookings: undefined,
+  explorerPlacement: undefined,
+  feedback: undefined,
+  finance: undefined,
+  analyticsOverlay: undefined,
+  aiRecommendations: undefined,
   onRequestNewBooking: undefined,
 };
