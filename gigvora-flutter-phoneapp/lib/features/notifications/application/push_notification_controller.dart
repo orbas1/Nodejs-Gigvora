@@ -1,9 +1,12 @@
 import 'dart:async';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
 
 import '../../../core/providers.dart';
+import '../data/notification_schedule_repository.dart';
+import '../domain/notification_schedule.dart';
 
 class PushNotificationState {
   const PushNotificationState({
@@ -14,6 +17,8 @@ class PushNotificationState {
     this.isSupported = true,
     this.error,
     this.lastUpdated,
+    this.schedule = const NotificationSchedule(),
+    this.isSavingSchedule = false,
   });
 
   factory PushNotificationState.initial() {
@@ -27,6 +32,8 @@ class PushNotificationState {
   final bool isSupported;
   final Object? error;
   final DateTime? lastUpdated;
+  final NotificationSchedule schedule;
+  final bool isSavingSchedule;
 
   bool get hasError => error != null;
 
@@ -39,6 +46,8 @@ class PushNotificationState {
     Object? error,
     bool resetError = false,
     DateTime? lastUpdated,
+    NotificationSchedule? schedule,
+    bool? isSavingSchedule,
   }) {
     return PushNotificationState(
       status: status ?? this.status,
@@ -48,25 +57,31 @@ class PushNotificationState {
       isSupported: isSupported ?? this.isSupported,
       error: resetError ? null : (error ?? this.error),
       lastUpdated: lastUpdated ?? this.lastUpdated,
+      schedule: schedule ?? this.schedule,
+      isSavingSchedule: isSavingSchedule ?? this.isSavingSchedule,
     );
   }
 }
 
 class PushNotificationController extends StateNotifier<PushNotificationState> {
-  PushNotificationController(this._service) : super(PushNotificationState.initial()) {
+  PushNotificationController(this._service, this._scheduleRepository)
+      : super(PushNotificationState.initial()) {
     unawaited(_bootstrap());
   }
 
   final PushNotificationService _service;
+  final NotificationScheduleRepository _scheduleRepository;
 
   Future<void> _bootstrap() async {
     try {
       final status = await _service.getStatus();
+      final schedule = await _scheduleRepository.load();
       state = state.copyWith(
         status: status,
         isSupported: status != PushPermissionStatus.notSupported,
         resetError: true,
         lastUpdated: DateTime.now(),
+        schedule: schedule,
       );
     } catch (error) {
       state = state.copyWith(
@@ -167,10 +182,50 @@ class PushNotificationController extends StateNotifier<PushNotificationState> {
       );
     }
   }
+
+  Future<void> toggleQuietHours(bool enabled) {
+    return _updateSchedule((schedule) => schedule.copyWith(quietHoursEnabled: enabled));
+  }
+
+  Future<void> updateQuietHoursStart(TimeOfDay start) {
+    return _updateSchedule((schedule) => schedule.copyWith(quietHoursStart: start));
+  }
+
+  Future<void> updateQuietHoursEnd(TimeOfDay end) {
+    return _updateSchedule((schedule) => schedule.copyWith(quietHoursEnd: end));
+  }
+
+  Future<void> toggleDigest(bool enabled) {
+    return _updateSchedule((schedule) => schedule.copyWith(digestEnabled: enabled));
+  }
+
+  Future<void> updateDigestTime(TimeOfDay time) {
+    return _updateSchedule((schedule) => schedule.copyWith(digestTime: time));
+  }
+
+  Future<void> _updateSchedule(NotificationSchedule Function(NotificationSchedule) transform) async {
+    state = state.copyWith(isSavingSchedule: true, resetError: true);
+    try {
+      final updated = transform(state.schedule);
+      final persisted = await _scheduleRepository.save(updated);
+      state = state.copyWith(
+        schedule: persisted,
+        isSavingSchedule: false,
+        lastUpdated: DateTime.now(),
+      );
+    } catch (error) {
+      state = state.copyWith(
+        isSavingSchedule: false,
+        error: error,
+        lastUpdated: DateTime.now(),
+      );
+    }
+  }
 }
 
 final pushNotificationControllerProvider =
     StateNotifierProvider<PushNotificationController, PushNotificationState>((ref) {
   final service = ref.watch(pushNotificationServiceProvider);
-  return PushNotificationController(service);
+  final scheduleRepository = ref.watch(notificationScheduleRepositoryProvider);
+  return PushNotificationController(service, scheduleRepository);
 });

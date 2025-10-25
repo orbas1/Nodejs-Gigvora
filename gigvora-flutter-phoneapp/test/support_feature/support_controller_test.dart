@@ -94,6 +94,16 @@ SupportSnapshot _buildSnapshot() {
     ],
     firstResponseMinutes: 42,
     satisfactionScore: 4.6,
+    incidents: const [
+      SupportIncident(
+        id: 'trust-incident',
+        title: 'Realtime alerts delayed',
+        status: 'monitoring',
+        severity: 'medium',
+        summary: 'Push notifications delayed in EU region while infrastructure recovers.',
+        openedAt: DateTime(2024, 1, 4, 10),
+      ),
+    ],
   );
 }
 

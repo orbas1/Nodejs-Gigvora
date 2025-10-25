@@ -1,12 +1,20 @@
+import 'dart:async';
+
 import 'package:gigvora_foundation/gigvora_foundation.dart';
 
 import '../../../core/providers.dart';
 import 'models/support_models.dart';
 
 class SupportRepository {
-  SupportRepository(this._cache);
+  SupportRepository(
+    this._cache, {
+    ApiClient? apiClient,
+    this.remoteEndpoint = '/governance/support/mobile/snapshot',
+  }) : _apiClient = apiClient;
 
   final OfflineCache _cache;
+  final ApiClient? _apiClient;
+  final String remoteEndpoint;
 
   static const _cacheKey = 'support:snapshot';
   static const _cacheTtl = Duration(minutes: 4);
@@ -35,12 +43,47 @@ class SupportRepository {
       );
     }
 
-    final seeded = _seedSnapshot();
-    await _writeSnapshot(seeded);
+    if (_apiClient != null) {
+      try {
+        final response = await _apiClient!.get(remoteEndpoint);
+        if (response is! Map<String, dynamic>) {
+          throw const FormatException('Unexpected support snapshot payload');
+        }
+        final snapshot = _snapshotFromRemote(response);
+        unawaited(_writeSnapshot(snapshot));
+        return RepositoryResult<SupportSnapshot>(
+          data: snapshot,
+          fromCache: false,
+          lastUpdated: DateTime.now(),
+        );
+      } catch (error) {
+        if (cached != null) {
+          return RepositoryResult<SupportSnapshot>(
+            data: cached.value,
+            fromCache: true,
+            lastUpdated: cached.storedAt,
+            error: error,
+          );
+        }
+        final fallback = _seedSnapshot();
+        unawaited(_writeSnapshot(fallback));
+        return RepositoryResult<SupportSnapshot>(
+          data: fallback,
+          fromCache: true,
+          lastUpdated: DateTime.now(),
+          error: error,
+        );
+      }
+    }
+
+    final seeded = cached?.value ?? _seedSnapshot();
+    if (cached == null) {
+      await _writeSnapshot(seeded);
+    }
     return RepositoryResult<SupportSnapshot>(
       data: seeded,
-      fromCache: false,
-      lastUpdated: DateTime.now(),
+      fromCache: cached != null,
+      lastUpdated: cached?.storedAt ?? DateTime.now(),
     );
   }
 
@@ -202,12 +245,26 @@ class SupportRepository {
       ...tickets,
     ];
 
+    final incidents = [
+      SupportIncident(
+        id: 'trust-1001',
+        title: 'Realtime alerts delayed in EU region',
+        status: 'monitoring',
+        severity: 'medium',
+        summary: 'Push notification fan-out is recovering after scheduled infrastructure changes. Alerts will resume shortly.',
+        openedAt: now.subtract(const Duration(hours: 5)),
+        nextUpdateAt: now.add(const Duration(hours: 1)),
+        impactedSurfaces: const ['Push notifications', 'Realtime analytics'],
+      ),
+    ];
+
     return SupportSnapshot(
       openTickets: tickets,
       recentTickets: recent,
       articles: articles,
       firstResponseMinutes: 8,
       satisfactionScore: 4.8,
+      incidents: incidents,
     );
   }
 
@@ -218,6 +275,7 @@ class SupportRepository {
       'articles': snapshot.articles.map((article) => article.toJson()).toList(growable: false),
       'firstResponseMinutes': snapshot.firstResponseMinutes,
       'satisfactionScore': snapshot.satisfactionScore,
+      'incidents': snapshot.incidents.map((incident) => incident.toJson()).toList(growable: false),
     };
   }
 
@@ -240,17 +298,72 @@ class SupportRepository {
     final satisfaction = json['satisfactionScore'] is num
         ? (json['satisfactionScore'] as num).toDouble()
         : double.tryParse('${json['satisfactionScore']}') ?? 4.7;
+    final incidents = (json['incidents'] as List<dynamic>? ?? const [])
+        .whereType<Map>()
+        .map((entry) => SupportIncident.fromJson(Map<String, dynamic>.from(entry)))
+        .toList(growable: false);
     return SupportSnapshot(
       openTickets: openTickets,
       recentTickets: recentTickets,
       articles: articles,
       firstResponseMinutes: firstResponse,
       satisfactionScore: satisfaction,
+      incidents: incidents,
+    );
+  }
+
+  SupportSnapshot _snapshotFromRemote(Map<String, dynamic> payload) {
+    final supportSection = payload['support'] is Map
+        ? Map<String, dynamic>.from(payload['support'] as Map)
+        : payload;
+    final metrics = supportSection['metrics'] is Map
+        ? Map<String, dynamic>.from(supportSection['metrics'] as Map)
+        : supportSection;
+    final ticketSource = supportSection['openTickets'] ??
+        supportSection['tickets'] ??
+        payload['openTickets'] ??
+        payload['tickets'];
+    final recentSource = supportSection['recentTickets'] ?? payload['recentTickets'];
+    final articlesSource = supportSection['articles'] ?? payload['articles'];
+    final incidentSource = payload['incidents'] ?? supportSection['incidents'] ?? payload['statuspage'];
+
+    final openTickets = (ticketSource as List<dynamic>? ?? const [])
+        .whereType<Map>()
+        .map((entry) => SupportTicket.fromJson(Map<String, dynamic>.from(entry)))
+        .toList(growable: false);
+    final recentTickets = (recentSource as List<dynamic>? ?? const [])
+        .whereType<Map>()
+        .map((entry) => SupportTicket.fromJson(Map<String, dynamic>.from(entry)))
+        .toList(growable: false);
+    final articles = (articlesSource as List<dynamic>? ?? const [])
+        .whereType<Map>()
+        .map((entry) => SupportArticle.fromJson(Map<String, dynamic>.from(entry)))
+        .toList(growable: false);
+    final incidents = (incidentSource as List<dynamic>? ?? const [])
+        .whereType<Map>()
+        .map((entry) => SupportIncident.fromJson(Map<String, dynamic>.from(entry)))
+        .toList(growable: false);
+
+    final firstResponse = metrics['firstResponseMinutes'] is num
+        ? (metrics['firstResponseMinutes'] as num).toInt()
+        : int.tryParse('${metrics['firstResponseMinutes'] ?? metrics['firstResponse']}') ?? 12;
+    final satisfaction = metrics['satisfactionScore'] is num
+        ? (metrics['satisfactionScore'] as num).toDouble()
+        : double.tryParse('${metrics['satisfactionScore'] ?? metrics['satisfaction']}') ?? 4.6;
+
+    return SupportSnapshot(
+      openTickets: openTickets,
+      recentTickets: recentTickets,
+      articles: articles,
+      firstResponseMinutes: firstResponse,
+      satisfactionScore: satisfaction,
+      incidents: incidents,
     );
   }
 }
 
 final supportRepositoryProvider = Provider<SupportRepository>((ref) {
   final cache = ref.watch(offlineCacheProvider);
-  return SupportRepository(cache);
+  final apiClient = ref.watch(apiClientProvider);
+  return SupportRepository(cache, apiClient: apiClient);
 });

@@ -44,6 +44,7 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
     }
 
     final tickets = snapshot?.openTickets ?? const <SupportTicket>[];
+    final incidents = snapshot?.incidents ?? const <SupportIncident>[];
     final search = (state.metadata['search'] as String? ?? '').toLowerCase().trim();
     final statusFilter = state.metadata['statusFilter'] as String? ?? 'all';
     final categoryFilter = state.metadata['categoryFilter'] as String? ?? 'all';
@@ -61,7 +62,8 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
 
     return GigvoraScaffold(
       title: 'Support centre',
-      subtitle: 'Resolve incidents and collaborate with Gigvora specialists.',
+      subtitle:
+          'Resolve incidents, request accessibility assistance, and collaborate with Gigvora specialists.',
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openTicketSheet(context, controller),
         icon: const Icon(Icons.add),
@@ -74,6 +76,10 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
           children: [
             _SupportHealthHeader(snapshot: snapshot),
             const SizedBox(height: 24),
+            if (incidents.isNotEmpty) ...[
+              _IncidentFeed(incidents: incidents),
+              const SizedBox(height: 24),
+            ],
             _Filters(
               controller: controller,
               searchController: _searchController,
@@ -101,6 +107,8 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
                   )),
             const SizedBox(height: 24),
             if (snapshot != null) _KnowledgeBaseSection(articles: snapshot.articles),
+            const SizedBox(height: 24),
+            const _AccessibilityResourcesCard(),
           ],
         ),
       ),
@@ -148,6 +156,7 @@ class _SupportHealthHeader extends StatelessWidget {
     final responseMinutes = snapshot?.firstResponseMinutes ?? 12;
     final satisfaction = snapshot?.satisfactionScore ?? 4.7;
     final openCount = snapshot?.openTickets.length ?? 0;
+    final incidentCount = snapshot?.incidents.length ?? 0;
     final formatter = NumberFormat.compact();
 
     return GigvoraCard(
@@ -158,9 +167,12 @@ class _SupportHealthHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Live support metrics', style: Theme.of(context).textTheme.titleMedium),
+                Text('Live support health', style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 8),
-                Text('We reply within ${responseMinutes.toString()} minutes on average.'),
+                Text(
+                  'First response in $responseMinutes minutes on average. '
+                  '${incidentCount == 0 ? 'No active incidents.' : 'Incident feed reports $incidentCount open ${incidentCount == 1 ? 'case' : 'cases'}.'}',
+                ),
               ],
             ),
           ),
@@ -171,6 +183,99 @@ class _SupportHealthHeader extends StatelessWidget {
               Text('CSAT ${formatter.format(satisfaction)}/5'),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _IncidentFeed extends StatelessWidget {
+  const _IncidentFeed({required this.incidents});
+
+  final List<SupportIncident> incidents;
+
+  Color _resolveTone(ColorScheme scheme, String severity) {
+    switch (severity.toLowerCase()) {
+      case 'critical':
+      case 'high':
+        return scheme.error;
+      case 'medium':
+        return scheme.tertiary;
+      default:
+        return scheme.primary;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final timestampFormat = DateFormat('MMM d, HH:mm');
+    return GigvoraCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Trust & incident updates', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 12),
+          ...incidents.map((incident) {
+            final tone = _resolveTone(colorScheme, incident.severity);
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceVariant.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          incident.title,
+                          style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      Chip(
+                        label: Text(incident.status.toUpperCase()),
+                        backgroundColor: tone.withOpacity(0.14),
+                        labelStyle: theme.textTheme.labelSmall?.copyWith(color: tone, fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    incident.summary,
+                    style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    children: [
+                      Text(
+                        'Opened ${timestampFormat.format(incident.openedAt.toLocal())}',
+                        style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                      ),
+                      if (incident.nextUpdateAt != null)
+                        Text(
+                          'Next update ${timestampFormat.format(incident.nextUpdateAt!.toLocal())}',
+                          style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                        ),
+                      if (incident.impactedSurfaces.isNotEmpty)
+                        Text(
+                          'Impact: ${incident.impactedSurfaces.join(', ')}',
+                          style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }),
         ],
       ),
     );
@@ -402,6 +507,62 @@ class _KnowledgeBaseSection extends StatelessWidget {
               onTap: () => launchUrl(Uri.parse(article.url), mode: LaunchMode.externalApplication),
             );
           }),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccessibilityResourcesCard extends StatelessWidget {
+  const _AccessibilityResourcesCard();
+
+  Future<void> _openMailClient() {
+    final uri = Uri(
+      scheme: 'mailto',
+      path: 'accessibility@gigvora.com',
+      query: Uri(queryParameters: const {
+        'subject': 'Accessibility support request',
+      }).query,
+    );
+    return launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return GigvoraCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Need accessible assistance?', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          Text(
+            'Request screen-reader friendly transcripts, ASL interpreters, or alternative contact methods. Our accessibility '
+            'advocates respond within 12 business hours.',
+            style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              FilledButton.icon(
+                onPressed: _openMailClient,
+                icon: const Icon(Icons.mail_outline),
+                label: const Text('Email accessibility desk'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => launchUrl(
+                  Uri.parse('https://support.gigvora.com/articles/accessibility-handbook'),
+                  mode: LaunchMode.externalApplication,
+                ),
+                icon: const Icon(Icons.menu_book_outlined),
+                label: const Text('View accessible support guide'),
+              ),
+            ],
+          ),
         ],
       ),
     );

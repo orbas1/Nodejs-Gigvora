@@ -5,6 +5,7 @@ import 'package:gigvora_foundation/gigvora_foundation.dart';
 
 import '../../../theme/widgets.dart';
 import '../application/push_notification_controller.dart';
+import '../domain/push_permission_messaging.dart';
 
 class NotificationsScreen extends ConsumerWidget {
   const NotificationsScreen({super.key});
@@ -15,7 +16,9 @@ class NotificationsScreen extends ConsumerWidget {
     final controller = ref.read(pushNotificationControllerProvider.notifier);
     final theme = Theme.of(context);
 
-    final statusMessage = _buildStatusMessage(context, state);
+    final permissionMessaging = const PushPermissionMessaging();
+    final permissionMessage = permissionMessaging.describe(state);
+    final statusMessage = _buildStatusMessage(context, permissionMessage);
     final isBusy = state.isRequesting || state.isRegistering;
     final canRequest = state.isSupported && state.status != PushPermissionStatus.granted;
 
@@ -74,17 +77,6 @@ class NotificationsScreen extends ConsumerWidget {
                   const SizedBox(height: 12),
                   statusMessage,
                 ],
-                if (state.hasError)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Text(
-                      'Something went wrong while enabling push alerts.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.error,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
                 const SizedBox(height: 16),
                 Row(
                   children: [
@@ -117,6 +109,8 @@ class NotificationsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 24),
+          _NotificationSchedulingCard(state: state, controller: controller),
+          const SizedBox(height: 24),
           Expanded(
             child: _NotificationTimeline(),
           ),
@@ -126,53 +120,162 @@ class NotificationsScreen extends ConsumerWidget {
   }
 }
 
-Widget? _buildStatusMessage(BuildContext context, PushNotificationState state) {
+Widget _buildStatusMessage(BuildContext context, PushPermissionMessage message) {
   final textTheme = Theme.of(context).textTheme;
   final colorScheme = Theme.of(context).colorScheme;
-
-  if (state.isRequesting) {
-    return Text(
-      'Requesting permission…',
-      style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600),
-    );
-  }
-
-  if (state.isRegistering) {
-    return Text(
-      'Registering this device for alerts…',
-      style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600),
-    );
-  }
-
-  if (!state.isSupported) {
-    return Text(
-      'Push notifications are not supported on this device.',
-      style: textTheme.bodySmall?.copyWith(color: colorScheme.tertiary, fontWeight: FontWeight.w600),
-    );
-  }
-
-  return switch (state.status) {
-    PushPermissionStatus.granted => Text(
-        'Push alerts enabled for this device.',
-        style: textTheme.bodySmall?.copyWith(color: const Color(0xFF047857), fontWeight: FontWeight.w600),
-      ),
-    PushPermissionStatus.provisional => Text(
-        'Time-sensitive alerts enabled. Promote to full alerts in system settings for rich updates.',
-        style: textTheme.bodySmall?.copyWith(color: const Color(0xFF0F172A), fontWeight: FontWeight.w600),
-      ),
-    PushPermissionStatus.denied => Text(
-        'Notifications are disabled. Enable them in system settings to receive real-time alerts.',
-        style: textTheme.bodySmall?.copyWith(color: colorScheme.error, fontWeight: FontWeight.w600),
-      ),
-    PushPermissionStatus.unknown => Text(
-        'Push alerts are ready when you are. Enable them to stay connected in real-time.',
-        style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600),
-      ),
-    PushPermissionStatus.notSupported => Text(
-        'Push notifications are not supported on this device.',
-        style: textTheme.bodySmall?.copyWith(color: colorScheme.tertiary, fontWeight: FontWeight.w600),
-      ),
+  final toneColor = switch (message.tone) {
+    PushPermissionTone.success => const Color(0xFF047857),
+    PushPermissionTone.warning => colorScheme.tertiary,
+    PushPermissionTone.danger => colorScheme.error,
+    PushPermissionTone.unsupported => colorScheme.tertiary,
+    PushPermissionTone.progress => colorScheme.onSurfaceVariant,
+    PushPermissionTone.info => colorScheme.onSurfaceVariant,
   };
+
+  final children = <Widget>[
+    Text(
+      message.message,
+      style: textTheme.bodySmall?.copyWith(color: toneColor, fontWeight: FontWeight.w600),
+    ),
+  ];
+
+  if (message.hasQuietHours && message.quietHoursStart != null && message.quietHoursEnd != null) {
+    final formatter = MaterialLocalizations.of(context);
+    children.add(
+      Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Text(
+          'Quiet hours ${formatter.formatTimeOfDay(message.quietHoursStart!)} — ${formatter.formatTimeOfDay(message.quietHoursEnd!)}',
+          style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+        ),
+      ),
+    );
+  }
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: children,
+  );
+}
+
+class _NotificationSchedulingCard extends StatelessWidget {
+  const _NotificationSchedulingCard({required this.state, required this.controller});
+
+  final PushNotificationState state;
+  final PushNotificationController controller;
+
+  Future<void> _pickTime(
+    BuildContext context,
+    TimeOfDay initial,
+    Future<void> Function(TimeOfDay time) onSelected,
+  ) async {
+    final picked = await showTimePicker(context: context, initialTime: initial);
+    if (picked != null) {
+      await onSelected(picked);
+    }
+  }
+
+  String _formatTime(BuildContext context, TimeOfDay time) {
+    return MaterialLocalizations.of(context).formatTimeOfDay(time);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final schedule = state.schedule;
+    final saving = state.isSavingSchedule;
+    return GigvoraCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Scheduling preferences', style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Control quiet hours and daily digests so alerts arrive when they’re most helpful.',
+                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: saving
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            value: schedule.quietHoursEnabled,
+            onChanged: saving ? null : (value) => controller.toggleQuietHours(value),
+            title: const Text('Quiet hours'),
+            subtitle: Text(
+              schedule.quietHoursEnabled
+                  ? 'Mute alerts overnight.'
+                  : 'Deliver alerts at any time. Enable quiet hours to mute overnight notifications.',
+            ),
+          ),
+          if (schedule.quietHoursEnabled)
+            Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 16),
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: saving
+                        ? null
+                        : () => _pickTime(context, schedule.quietHoursStart, controller.updateQuietHoursStart),
+                    icon: const Icon(Icons.nightlight_round),
+                    label: Text('Start ${_formatTime(context, schedule.quietHoursStart)}'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: saving
+                        ? null
+                        : () => _pickTime(context, schedule.quietHoursEnd, controller.updateQuietHoursEnd),
+                    icon: const Icon(Icons.wb_twilight),
+                    label: Text('End ${_formatTime(context, schedule.quietHoursEnd)}'),
+                  ),
+                ],
+              ),
+            ),
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            value: schedule.digestEnabled,
+            onChanged: saving ? null : (value) => controller.toggleDigest(value),
+            title: const Text('Daily digest'),
+            subtitle: Text(
+              schedule.digestEnabled
+                  ? 'Daily summary at ${_formatTime(context, schedule.digestTime)}.'
+                  : 'Send a daily digest with highlights and mentions.',
+            ),
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: saving || !schedule.digestEnabled
+                  ? null
+                  : () => _pickTime(context, schedule.digestTime, controller.updateDigestTime),
+              icon: const Icon(Icons.schedule_outlined),
+              label: Text('Digest time ${_formatTime(context, schedule.digestTime)}'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _NotificationTimeline extends ConsumerWidget {
