@@ -29,6 +29,7 @@ function readLocalSavedSearches() {
       frequency: entry?.frequency ?? 'daily',
       notifyByEmail: Boolean(entry?.notifyByEmail),
       notifyInApp: entry?.notifyInApp === undefined ? true : Boolean(entry.notifyInApp),
+      mapViewport: normaliseViewport(entry?.mapViewport),
     }));
   } catch (error) {
     console.warn('Failed to read saved searches from local storage', error);
@@ -61,6 +62,24 @@ function computeNextRunAt(frequency) {
     default:
       return new Date(now.getTime() + 24 * 60 * 60 * 1000);
   }
+}
+
+function normaliseViewport(value) {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const coords = ['north', 'south', 'east', 'west'].reduce((acc, key) => {
+    const raw = value[key];
+    if (raw == null || raw === '') {
+      return acc;
+    }
+    const numeric = Number(raw);
+    if (Number.isFinite(numeric)) {
+      acc[key] = numeric;
+    }
+    return acc;
+  }, {});
+  return Object.keys(coords).length === 4 ? coords : null;
 }
 
 function buildActorHeaders() {
@@ -137,6 +156,7 @@ export default function useSavedSearches({ enabled = true } = {}) {
           frequency,
           notifyByEmail: payload.notifyByEmail ?? false,
           notifyInApp: payload.notifyInApp ?? true,
+          mapViewport: normaliseViewport(payload.mapViewport),
           createdAt: new Date().toISOString(),
           lastTriggeredAt: null,
           nextRunAt,
@@ -180,6 +200,10 @@ export default function useSavedSearches({ enabled = true } = {}) {
 
         if (changes.notifyInApp !== undefined) {
           updated.notifyInApp = Boolean(changes.notifyInApp);
+        }
+
+        if (changes.mapViewport !== undefined) {
+          updated.mapViewport = normaliseViewport(changes.mapViewport);
         }
 
         return updated;

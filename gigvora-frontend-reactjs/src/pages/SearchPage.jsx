@@ -114,6 +114,128 @@ const CATEGORIES = [
   },
 ];
 
+const QUICK_FILTER_PRESETS = {
+  job: [
+    {
+      id: 'remote',
+      label: 'Remote friendly',
+      filters: { isRemote: true },
+    },
+    {
+      id: 'recent',
+      label: 'Fresh in 7 days',
+      filters: { updatedWithin: '7d' },
+    },
+    {
+      id: 'contract',
+      label: 'Contract roles',
+      filters: { employmentTypes: ['contract', 'fixed_term'] },
+    },
+  ],
+  gig: [
+    {
+      id: 'remote',
+      label: 'Remote delivery',
+      filters: { isRemote: true },
+    },
+    {
+      id: 'budget',
+      label: 'High budget',
+      filters: { budgetCurrencies: ['USD', 'GBP', 'EUR'] },
+    },
+    {
+      id: 'recent',
+      label: 'Updated 30 days',
+      filters: { updatedWithin: '30d' },
+    },
+  ],
+  project: [
+    {
+      id: 'inflight',
+      label: 'In-flight',
+      filters: { statuses: ['active', 'in_progress'] },
+    },
+    {
+      id: 'longterm',
+      label: 'Long term',
+      filters: { durationCategories: ['long_term'] },
+    },
+    {
+      id: 'remote',
+      label: 'Remote team',
+      filters: { isRemote: true },
+    },
+  ],
+  mentor: [
+    {
+      id: 'top_rated',
+      label: 'Top rated',
+      filters: { statuses: ['featured', 'verified'], sort: 'rating' },
+    },
+    {
+      id: 'growth',
+      label: 'Growth clinics',
+      filters: { tracks: ['growth', 'product'] },
+    },
+    {
+      id: 'availability',
+      label: 'Available now',
+      filters: { availability: 'immediate' },
+    },
+  ],
+  talent: [
+    {
+      id: 'platform',
+      label: 'Platform engineering',
+      filters: { employmentCategories: ['platform engineering'] },
+    },
+    {
+      id: 'remote',
+      label: 'Remote talent',
+      filters: { isRemote: true },
+    },
+    {
+      id: 'available',
+      label: 'Available this week',
+      filters: { availability: 'immediate' },
+    },
+  ],
+  volunteering: [
+    {
+      id: 'stemed',
+      label: 'STEM causes',
+      filters: { tags: ['STEM', 'STEM education'] },
+    },
+    {
+      id: 'remote',
+      label: 'Remote friendly',
+      filters: { isRemote: true },
+    },
+    {
+      id: 'weekend',
+      label: 'Weekend missions',
+      filters: { durationCategories: ['short_term'], availability: 'weekend' },
+    },
+  ],
+  launchpad: [
+    {
+      id: 'product',
+      label: 'Product tracks',
+      filters: { tracks: ['product leadership', 'product'] },
+    },
+    {
+      id: 'remote',
+      label: 'Remote cohorts',
+      filters: { isRemote: true },
+    },
+    {
+      id: 'soon',
+      label: 'Starting soon',
+      filters: { statuses: ['enrolling', 'upcoming'], updatedWithin: '30d' },
+    },
+  ],
+};
+
 const SORT_OPTIONS = {
   job: [
     { id: 'default', label: 'Relevance' },
@@ -192,6 +314,7 @@ const DEFAULT_FILTERS = {
   organizations: [],
   statuses: [],
   isRemote: null,
+  availability: null,
   updatedWithin: '30d',
 };
 
@@ -273,6 +396,27 @@ function buildCacheKey({ category, query, page, sort, filters, viewport, pageSiz
     viewport ? JSON.stringify(viewport) : '∅',
     pageSize ?? '∅',
   ].join('::');
+}
+
+function isPresetActive(currentFilters, preset) {
+  if (!preset?.filters) {
+    return false;
+  }
+  const normalised = normaliseFilters(currentFilters);
+  return Object.entries(preset.filters).every(([key, value]) => {
+    if (Array.isArray(value)) {
+      const current = Array.isArray(normalised[key]) ? normalised[key] : [];
+      if (current.length !== value.length) {
+        return false;
+      }
+      const lookup = new Set(current.map((entry) => `${entry}`.toLowerCase()));
+      return value.every((entry) => lookup.has(`${entry}`.toLowerCase()));
+    }
+    if (typeof value === 'boolean') {
+      return normalised[key] === value;
+    }
+    return `${normalised[key] ?? ''}`.toLowerCase() === `${value ?? ''}`.toLowerCase();
+  });
 }
 
 function toResultMeta(item) {
@@ -471,6 +615,10 @@ export default function SearchPage() {
     setIsManagementPanelOpen(false);
   }, [selectedCategory]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [viewMode]);
+
   const searchKey = useMemo(
     () =>
       buildCacheKey({
@@ -547,6 +695,68 @@ export default function SearchPage() {
     ({ signal }) => apiClient.get('/discovery/snapshot', { signal, params: { limit: 6 } }),
     { ttl: 120_000, enabled: explorerAccessEnabled },
   );
+
+  useEffect(() => {
+    if (!explorerAccessEnabled || viewMode === 'map') {
+      return undefined;
+    }
+
+    const cacheKey = buildCacheKey({
+      category: selectedCategory,
+      query: debouncedQuery,
+      page,
+      sort,
+      filters: cleanedFilters,
+      viewport: viewportBounds,
+      pageSize: MAP_PAGE_SIZE,
+    });
+
+    if (apiClient.readCache(cacheKey)) {
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const params = {
+      q: debouncedQuery || undefined,
+      page,
+      pageSize: MAP_PAGE_SIZE,
+      sort,
+      filters: filtersParam,
+      viewport: viewportParam,
+    };
+
+    const request = isManagedCategory
+      ? apiClient.get(`/explorer/${selectedCategory}`, { signal: controller.signal, params })
+      : apiClient.get('/search/opportunities', {
+          signal: controller.signal,
+          params: { ...params, category: selectedCategory, includeFacets: true },
+        });
+
+    request
+      .then((payload) => {
+        apiClient.writeCache(cacheKey, payload, 60_000);
+      })
+      .catch((error) => {
+        if (controller.signal.aborted || error?.name === 'AbortError') {
+          return;
+        }
+        console.warn('Failed to prefetch explorer map dataset', error);
+      });
+
+    return () => controller.abort();
+  }, [
+    explorerAccessEnabled,
+    viewMode,
+    selectedCategory,
+    debouncedQuery,
+    page,
+    sort,
+    cleanedFilters,
+    filtersParam,
+    viewportBounds,
+    viewportParam,
+    isManagedCategory,
+  ]);
 
   useEffect(() => {
     if (!debouncedQuery || !searchState.data) {
@@ -666,36 +876,62 @@ export default function SearchPage() {
       if (!snapshot?.items?.length) {
         return;
       }
-      const cacheKey = buildCacheKey({
+
+      const defaultKey = buildCacheKey({
         category: category.id,
         query: '',
         page: 1,
         sort: SORT_OPTIONS[category.id]?.[0]?.id ?? 'default',
         filters: {},
         viewport: null,
+        pageSize: DEFAULT_PAGE_SIZE,
       });
-      const existing = apiClient.readCache(cacheKey);
-      if (existing) {
-        return;
+
+      const mapKey = buildCacheKey({
+        category: category.id,
+        query: '',
+        page: 1,
+        sort: SORT_OPTIONS[category.id]?.[0]?.id ?? 'default',
+        filters: {},
+        viewport: null,
+        pageSize: MAP_PAGE_SIZE,
+      });
+
+      const total = snapshot.total ?? snapshot.items.length;
+      const defaultItems = snapshot.items.slice(0, DEFAULT_PAGE_SIZE);
+      const mapItems = snapshot.items.slice(0, MAP_PAGE_SIZE);
+
+      if (!apiClient.readCache(defaultKey)) {
+        apiClient.writeCache(
+          defaultKey,
+          {
+            items: defaultItems,
+            total,
+            totalPages: Math.max(1, Math.ceil(total / DEFAULT_PAGE_SIZE)),
+            page: 1,
+            pageSize: DEFAULT_PAGE_SIZE,
+            facets: snapshot.facets ?? {},
+            metrics: { source: 'snapshot', processingTimeMs: 0 },
+          },
+          60_000,
+        );
       }
 
-      const items = snapshot.items.slice(0, DEFAULT_PAGE_SIZE);
-      const total = snapshot.total ?? items.length;
-      const totalPages = Math.max(1, Math.ceil(total / DEFAULT_PAGE_SIZE));
-
-      apiClient.writeCache(
-        cacheKey,
-        {
-          items,
-          total,
-          totalPages,
-          page: 1,
-          pageSize: DEFAULT_PAGE_SIZE,
-          facets: snapshot.facets ?? {},
-          metrics: { source: 'snapshot', processingTimeMs: 0 },
-        },
-        60_000,
-      );
+      if (!apiClient.readCache(mapKey)) {
+        apiClient.writeCache(
+          mapKey,
+          {
+            items: mapItems,
+            total,
+            totalPages: Math.max(1, Math.ceil(total / MAP_PAGE_SIZE)),
+            page: 1,
+            pageSize: MAP_PAGE_SIZE,
+            facets: snapshot.facets ?? {},
+            metrics: { source: 'snapshot', processingTimeMs: 0 },
+          },
+          60_000,
+        );
+      }
     });
   }, [explorerAccessEnabled, resolveSnapshotItems, snapshotState.data]);
 
@@ -910,6 +1146,7 @@ export default function SearchPage() {
       sort,
       notifyByEmail: saveModalState.draft.notifyByEmail,
       notifyInApp: saveModalState.draft.notifyInApp,
+      mapViewport: viewportBounds ?? null,
     };
 
     try {
@@ -945,7 +1182,13 @@ export default function SearchPage() {
       setFilters(normaliseFilters(search.filters));
       setSort(search.sort ?? 'default');
       setActiveSavedSearchId(search.id);
-      setViewportBounds(null);
+      if (search.mapViewport) {
+        setViewportBounds(search.mapViewport);
+        setViewMode('map');
+      } else {
+        setViewportBounds(null);
+        setViewMode('list');
+      }
       setPage(1);
       lastTrackedQueryRef.current = null;
       analytics.track('web_explorer_saved_search_applied', { id: search.id, category: search.category });
@@ -1260,6 +1503,29 @@ export default function SearchPage() {
               </div>
 
               <p className="mt-6 text-xs text-slate-500">{currentCategory.tagline}</p>
+
+              {quickFilterPresets.length ? (
+                <div className="mt-5 flex flex-wrap gap-2" aria-label="Quick filter presets">
+                  {quickFilterPresets.map((preset) => {
+                    const isActive = activeQuickFilters.includes(preset.id);
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => handleQuickFilterToggle(preset)}
+                        className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
+                          isActive
+                            ? 'bg-accent text-white shadow-soft'
+                            : 'border border-slate-200 text-slate-600 hover:border-accent hover:text-accent'
+                        }`}
+                        aria-pressed={isActive}
+                      >
+                        {preset.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
 
               <div className="mt-6 flex flex-wrap items-center gap-3">
                 <button
