@@ -108,6 +108,47 @@ describe('messagingController HTTP flow', () => {
       expect(joinResponse.body.isNew).toBe(false);
       expect(joinResponse.body.callId).toBe(callResponse.body.callId);
 
+      const typingResponse = await request(app)
+        .post(`/api/messaging/threads/${threadId}/typing`)
+        .set('Authorization', `Bearer ${collaboratorToken}`)
+        .send({
+          userId: collaborator.id,
+          typing: true,
+          displayName: 'Collab',
+        })
+        .expect(200);
+
+      expect(typingResponse.body).toMatchObject({
+        threadId,
+        userId: collaborator.id,
+        typing: true,
+      });
+      expect(typingResponse.body.participants).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            userId: collaborator.id,
+            displayName: 'Collab',
+            expiresAt: expect.any(String),
+          }),
+        ]),
+      );
+
+      const stopTypingResponse = await request(app)
+        .post(`/api/messaging/threads/${threadId}/typing`)
+        .set('Authorization', `Bearer ${collaboratorToken}`)
+        .send({
+          userId: collaborator.id,
+          typing: false,
+        })
+        .expect(200);
+
+      expect(stopTypingResponse.body).toMatchObject({
+        threadId,
+        userId: collaborator.id,
+        typing: false,
+        participants: [],
+      });
+
       const messages = await request(app)
         .get(`/api/messaging/threads/${threadId}/messages`)
         .set('Authorization', `Bearer ${requesterToken}`)

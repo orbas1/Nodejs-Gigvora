@@ -14,6 +14,7 @@ import {
   updateThreadSettings as updateThreadSettingsService,
   addParticipantsToThread,
   removeParticipantFromThread,
+  updateTypingState as updateTypingStateService,
 } from '../services/messagingService.js';
 import { AuthorizationError, ValidationError } from '../utils/errors.js';
 import { resolveRequestPermissions } from '../utils/requestContext.js';
@@ -322,6 +323,19 @@ export async function createCallSession(req, res) {
   });
 
   res.status(session.isNew ? 201 : 200).json(session);
+}
+
+export async function updateTypingState(req, res) {
+  const userId = resolveActorId(req);
+  const threadId = parsePositiveInteger(req.params?.threadId, 'threadId');
+  const { typing, displayName } = req.body ?? {};
+
+  const state = await updateTypingStateService(threadId, userId, {
+    typing: typing != null ? Boolean(typing) : true,
+    displayName,
+  });
+
+  res.json(state);
 }
 
 export async function updateThreadSettings(req, res) {

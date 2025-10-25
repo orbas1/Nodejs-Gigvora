@@ -81,6 +81,13 @@ export const callSessionBodySchema = z
   })
   .strip();
 
+export const typingStateBodySchema = z
+  .object({
+    typing: optionalBoolean(),
+    displayName: optionalTrimmedString({ max: 160 }).transform((value) => value ?? undefined),
+  })
+  .strip();
+
 export const muteThreadBodySchema = z
   .object({
     until: optionalTrimmedString({ max: 40 }).transform((value) => value ?? undefined),
@@ -189,6 +196,7 @@ export default {
   createThreadBodySchema,
   createMessageBodySchema,
   callSessionBodySchema,
+  typingStateBodySchema,
   muteThreadBodySchema,
   escalateThreadBodySchema,
   assignSupportBodySchema,
