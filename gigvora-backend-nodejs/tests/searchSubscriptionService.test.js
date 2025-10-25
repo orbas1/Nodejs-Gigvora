@@ -136,6 +136,7 @@ describe('searchSubscriptionService', () => {
         locations: ['Berlin'],
         isRemote: 'true',
         updatedWithin: '7d',
+        taxonomySlugs: ['marketplace', 'marketplace', 'ai-services'],
       },
       frequency: 'weekly',
       mapViewport: { boundingBox: { north: 53.1, south: 52.3, east: 13.9, west: 13.1 } },
@@ -146,6 +147,7 @@ describe('searchSubscriptionService', () => {
     expect(subscription.name).toBe('Berlin Remote Designers');
     expect(subscription.filters.employmentTypes).toEqual(['Full-time']);
     expect(subscription.filters.isRemote).toBe(true);
+    expect(subscription.filters.taxonomySlugs).toEqual(['marketplace', 'ai-services']);
     expect(subscription.mapViewport.boundingBox.north).toBeCloseTo(53.1);
     expect(subscription.frequency).toBe('weekly');
     expect(subscription.notifyByEmail).toBe(false);

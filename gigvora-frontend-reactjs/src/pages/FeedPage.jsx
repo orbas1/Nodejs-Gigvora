@@ -213,20 +213,31 @@ function normaliseCommentEntry(comment, { index = 0, prefix, fallbackAuthor } = 
   const user = comment.user ?? comment.User ?? {};
   const profile = user.Profile ?? user.profile ?? {};
   const id = comment.id ?? `${basePrefix}-${index + 1}`;
-  const author =
+  const candidateAuthor =
     comment.author ??
     comment.authorName ??
-    [user.firstName, user.lastName, user.name].filter(Boolean).join(' ') ||
-    fallbackAuthor?.name ||
-    'Community member';
-  const headline =
+    [user.firstName, user.lastName, user.name].filter(Boolean).join(' ');
+  const author = (() => {
+    if (typeof candidateAuthor === 'string' && candidateAuthor.trim().length) {
+      return candidateAuthor.trim();
+    }
+    if (typeof fallbackAuthor?.name === 'string' && fallbackAuthor.name.trim().length) {
+      return fallbackAuthor.name.trim();
+    }
+    return 'Community member';
+  })();
+
+  const candidateHeadline =
     comment.authorHeadline ??
     user.title ??
     user.role ??
     profile.headline ??
     profile.bio ??
-    fallbackAuthor?.headline ??
-    'Gigvora member';
+    fallbackAuthor?.headline;
+  const headline =
+    typeof candidateHeadline === 'string' && candidateHeadline.trim().length
+      ? candidateHeadline.trim()
+      : 'Gigvora member';
   const message = (comment.body ?? comment.content ?? comment.message ?? comment.text ?? '').toString();
   const createdAt = comment.createdAt ?? comment.updatedAt ?? new Date().toISOString();
   const replies = Array.isArray(comment.replies)

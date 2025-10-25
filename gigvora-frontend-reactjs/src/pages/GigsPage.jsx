@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
 import DataStatus from '../components/DataStatus.jsx';
@@ -8,6 +8,10 @@ import useOpportunityListing from '../hooks/useOpportunityListing.js';
 import analytics from '../services/analytics.js';
 import { formatRelativeTime } from '../utils/date.js';
 import useSession from '../hooks/useSession.js';
+import useSitePage from '../hooks/useSitePage.js';
+import useSavedSearches from '../hooks/useSavedSearches.js';
+import SavedSearchList from '../components/explorer/SavedSearchList.jsx';
+import { formatInteger } from '../utils/number.js';
 
 export function formatTagLabelFromSlug(slug) {
   if (!slug) {
@@ -21,18 +25,241 @@ export function formatTagLabelFromSlug(slug) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-export function formatNumber(value) {
-  if (value == null || Number.isNaN(Number(value))) {
-    return '0';
+export { formatInteger as formatNumber };
+
+const FALLBACK_GIGS_PAGE_CONTENT = {
+  hero: {
+    eyebrow: 'Gigs',
+    title: 'High-impact collaborations for independents',
+    description: 'Short-term missions from agencies, startups, and companies ready for agile execution.',
+  },
+  metrics: {
+    caption: 'Metrics update as new gigs sync from agencies and founders across the network.',
+  },
+  pitchGuidance: {
+    title: 'Best pitch practices',
+    description: 'Differentiate your proposal with data-rich delivery evidence and proactive communication.',
+    items: [
+      'Reference similar wins with measurable outcomes.',
+      'Include timeline assumptions and collaboration cadence.',
+      'Confirm availability so clients can fast-track approvals.',
+    ],
+  },
+};
+
+function findFirstDefined(...candidates) {
+  return candidates.find((candidate) => candidate !== undefined && candidate !== null) ?? null;
+}
+
+function findPageBlock(page, keys) {
+  if (!page) {
+    return null;
   }
-  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Number(value));
+  const keyList = (Array.isArray(keys) ? keys : [keys]).map((key) => `${key}`.toLowerCase());
+  const collections = ['blocks', 'sections', 'contentBlocks', 'cards'];
+  for (const collectionKey of collections) {
+    const collection = page?.[collectionKey];
+    if (!Array.isArray(collection)) {
+      continue;
+    }
+    const match = collection.find((entry) => {
+      if (!entry || typeof entry !== 'object') {
+        return false;
+      }
+      const descriptors = [entry.key, entry.id, entry.slug, entry.sectionId, entry.type, entry.name, entry.handle]
+        .filter(Boolean)
+        .map((descriptor) => `${descriptor}`.toLowerCase());
+      return descriptors.some((descriptor) => keyList.includes(descriptor));
+    });
+    if (match) {
+      return match;
+    }
+  }
+  return null;
+}
+
+function extractPitchItems(source) {
+  if (!source) {
+    return [];
+  }
+  const possibleLists = [
+    Array.isArray(source) ? source : null,
+    Array.isArray(source?.items) ? source.items : null,
+    Array.isArray(source?.tips) ? source.tips : null,
+    Array.isArray(source?.bullets) ? source.bullets : null,
+    Array.isArray(source?.points) ? source.points : null,
+    Array.isArray(source?.value) ? source.value : null,
+  ].filter(Boolean);
+
+  const entries = possibleLists.length ? possibleLists.flat() : [];
+  const resolved = entries
+    .map((entry) => {
+      if (!entry) {
+        return null;
+      }
+      if (typeof entry === 'string') {
+        const trimmed = entry.trim();
+        return trimmed.length ? trimmed : null;
+      }
+      if (typeof entry === 'object') {
+        const text = findFirstDefined(
+          entry.description,
+          entry.text,
+          entry.body,
+          entry.content,
+          entry.label,
+          entry.title,
+        );
+        if (typeof text === 'string') {
+          const trimmed = text.trim();
+          return trimmed.length ? trimmed : null;
+        }
+      }
+      return null;
+    })
+    .filter(Boolean);
+
+  if (!resolved.length) {
+    return [];
+  }
+
+  return Array.from(new Set(resolved));
+}
+
+function resolveGigPageContent(page) {
+  const heroSource = findFirstDefined(
+    page?.hero,
+    page?.content?.hero,
+    page?.settings?.hero,
+    findPageBlock(page, ['gigs-hero', 'gig-hero', 'hero']),
+  );
+  const heroFallbackSource = heroSource ?? {
+    eyebrow: page?.heroEyebrow ?? page?.heroMeta ?? page?.summary ?? null,
+    title: page?.heroTitle ?? page?.title ?? null,
+    description: page?.heroSubtitle ?? page?.summary ?? null,
+  };
+  const hero = {
+    eyebrow:
+      typeof heroFallbackSource?.eyebrow === 'string' && heroFallbackSource.eyebrow.trim().length
+        ? heroFallbackSource.eyebrow.trim()
+        : FALLBACK_GIGS_PAGE_CONTENT.hero.eyebrow,
+    title:
+      typeof heroFallbackSource?.title === 'string' && heroFallbackSource.title.trim().length
+        ? heroFallbackSource.title.trim()
+        : typeof heroSource?.heading === 'string' && heroSource.heading.trim().length
+        ? heroSource.heading.trim()
+        : FALLBACK_GIGS_PAGE_CONTENT.hero.title,
+    description:
+      typeof heroFallbackSource?.description === 'string' && heroFallbackSource.description.trim().length
+        ? heroFallbackSource.description.trim()
+        : typeof heroSource?.description === 'string' && heroSource.description.trim().length
+        ? heroSource.description.trim()
+        : typeof heroSource?.subtitle === 'string' && heroSource.subtitle.trim().length
+        ? heroSource.subtitle.trim()
+        : FALLBACK_GIGS_PAGE_CONTENT.hero.description,
+  };
+
+  const metricsSource = findFirstDefined(
+    page?.metrics,
+    page?.content?.metrics,
+    page?.settings?.metrics,
+    findPageBlock(page, ['gig-metrics', 'marketplace-metrics']),
+  );
+  const metricsCaptionCandidate = findFirstDefined(
+    metricsSource?.caption,
+    metricsSource?.description,
+    page?.metricsCaption,
+    page?.content?.metricsCaption,
+    page?.meta?.metricsCaption,
+    page?.heroMeta,
+    page?.summary,
+  );
+  const metricsCaption =
+    typeof metricsCaptionCandidate === 'string' && metricsCaptionCandidate.trim().length
+      ? metricsCaptionCandidate.trim()
+      : FALLBACK_GIGS_PAGE_CONTENT.metrics.caption;
+
+  const pitchSource = findFirstDefined(
+    page?.pitchGuidance,
+    page?.content?.pitchGuidance,
+    page?.settings?.pitchGuidance,
+    findPageBlock(page, ['pitch-guidance', 'pitchGuidance', 'pitch-tips', 'bestPitchPractices']),
+    Array.isArray(page?.featureHighlights) && page.featureHighlights.length
+      ? { items: page.featureHighlights }
+      : null,
+    page?.body ? { description: page.body } : null,
+  );
+
+  const pitchTitleCandidate = findFirstDefined(
+    pitchSource?.title,
+    pitchSource?.heading,
+    pitchSource?.name,
+    page?.ctaLabel,
+    page?.title,
+  );
+  const pitchDescriptionCandidate = findFirstDefined(
+    pitchSource?.description,
+    pitchSource?.subtitle,
+    pitchSource?.summary,
+    page?.heroMeta,
+    page?.summary,
+  );
+
+  const pitchItems = extractPitchItems(pitchSource);
+
+  return {
+    hero,
+    metrics: {
+      caption: metricsCaption,
+    },
+    pitchGuidance: {
+      title:
+        typeof pitchTitleCandidate === 'string' && pitchTitleCandidate.trim().length
+          ? pitchTitleCandidate.trim()
+          : FALLBACK_GIGS_PAGE_CONTENT.pitchGuidance.title,
+      description:
+        typeof pitchDescriptionCandidate === 'string' && pitchDescriptionCandidate.trim().length
+          ? pitchDescriptionCandidate.trim()
+          : FALLBACK_GIGS_PAGE_CONTENT.pitchGuidance.description,
+      items: pitchItems.length ? pitchItems : FALLBACK_GIGS_PAGE_CONTENT.pitchGuidance.items,
+    },
+  };
+}
+
+function normaliseGigSavedSearchFilters(filters) {
+  if (!filters) {
+    return [];
+  }
+  if (Array.isArray(filters)) {
+    return filters.filter((entry) => typeof entry === 'string' && entry.trim().length);
+  }
+  const taxonomy = filters.taxonomySlugs ?? filters['taxonomy-slugs'] ?? null;
+  if (Array.isArray(taxonomy)) {
+    return taxonomy.filter((entry) => typeof entry === 'string' && entry.trim().length);
+  }
+  if (taxonomy && typeof taxonomy === 'object') {
+    const maybeIn = taxonomy.$in ?? taxonomy.in ?? taxonomy.values ?? null;
+    if (Array.isArray(maybeIn)) {
+      return maybeIn.filter((entry) => typeof entry === 'string' && entry.trim().length);
+    }
+  }
+  return [];
 }
 
 export default function GigsPage() {
   const [query, setQuery] = useState('');
   const [selectedTagSlugs, setSelectedTagSlugs] = useState([]);
+  const [savedSearchName, setSavedSearchName] = useState('');
+  const [activeSavedSearchId, setActiveSavedSearchId] = useState(null);
   const navigate = useNavigate();
   const { session, isAuthenticated } = useSession();
+  const {
+    page: gigSitePage,
+    loading: gigSiteLoading,
+    error: gigSiteError,
+    usingFallback: gigSiteUsingFallback,
+  } = useSitePage('gigs-marketplace', { fallback: FALLBACK_GIGS_PAGE_CONTENT });
+  const gigContent = useMemo(() => resolveGigPageContent(gigSitePage), [gigSitePage]);
   const hasFreelancerAccess = Boolean(session?.memberships?.includes('freelancer'));
   const activeFilters = useMemo(
     () => (selectedTagSlugs.length ? { taxonomySlugs: selectedTagSlugs } : null),
@@ -52,6 +279,16 @@ export default function GigsPage() {
     includeFacets: true,
     enabled: isAuthenticated && hasFreelancerAccess,
   });
+
+  const {
+    items: savedSearches,
+    loading: savedSearchesLoading,
+    error: savedSearchesError,
+    canUseServer: canSyncSavedSearches,
+    createSavedSearch,
+    deleteSavedSearch,
+    runSavedSearch,
+  } = useSavedSearches({ enabled: isAuthenticated && hasFreelancerAccess });
 
   const listing = data ?? {};
   const items = useMemo(() => (Array.isArray(listing.items) ? listing.items : []), [listing.items]);
@@ -95,6 +332,7 @@ export default function GigsPage() {
     });
     return directory;
   }, [items]);
+
   const facetTags = useMemo(() => {
     const tagMap = new Map();
 
@@ -155,6 +393,7 @@ export default function GigsPage() {
         return a.label.localeCompare(b.label);
       });
   }, [items, listing?.facets, tagDirectory]);
+
   const topTagOptions = useMemo(() => facetTags.slice(0, 10), [facetTags]);
   const activeTagDetails = useMemo(
     () =>
@@ -164,6 +403,7 @@ export default function GigsPage() {
       }),
     [selectedTagSlugs, tagDirectory],
   );
+
   const derivedSignals = useMemo(() => {
     if (!items.length) {
       return {
@@ -223,21 +463,31 @@ export default function GigsPage() {
     );
   };
 
-  const handleToggleTag = (slug) => {
-    if (!slug) {
-      return;
-    }
-    setSelectedTagSlugs((current) => {
-      if (current.includes(slug)) {
-        return current.filter((entry) => entry !== slug);
+  const handleToggleTag = useCallback(
+    (slug) => {
+      if (!slug) {
+        return;
       }
-      return [...current, slug];
-    });
-  };
+      setActiveSavedSearchId(null);
+      setSelectedTagSlugs((current) => {
+        if (current.includes(slug)) {
+          return current.filter((entry) => entry !== slug);
+        }
+        return [...current, slug];
+      });
+    },
+    [],
+  );
 
-  const handleClearTags = () => {
+  const handleClearTags = useCallback(() => {
+    setActiveSavedSearchId(null);
     setSelectedTagSlugs([]);
-  };
+  }, []);
+
+  const handleSearchInputChange = useCallback((event) => {
+    setActiveSavedSearchId(null);
+    setQuery(event.target.value);
+  }, []);
 
   const handleSignIn = () => {
     analytics.track('web_gig_access_prompt', { state: 'signin_required' }, { source: 'web_app' });
@@ -252,6 +502,91 @@ export default function GigsPage() {
     );
     navigate('/register');
   };
+
+  const currentFiltersPayload = useMemo(
+    () => (selectedTagSlugs.length ? { taxonomySlugs: selectedTagSlugs } : {}),
+    [selectedTagSlugs],
+  );
+
+  const handleSaveCurrentSearch = useCallback(
+    async (event) => {
+      event.preventDefault();
+      const trimmedName = savedSearchName.trim();
+      const trimmedQuery = query.trim();
+      const payload = {
+        name: trimmedName || (trimmedQuery ? `Gigs • ${trimmedQuery}` : 'Gigs saved search'),
+        category: 'gig',
+        query: trimmedQuery || '',
+        filters: currentFiltersPayload,
+        notifyInApp: true,
+      };
+
+      try {
+        const created = await createSavedSearch(payload);
+        analytics.track(
+          'web_gig_saved_search_created',
+          {
+            savedSearchId: created?.id ?? null,
+            query: payload.query || null,
+            filters: payload.filters,
+          },
+          { source: 'web_app' },
+        );
+        setActiveSavedSearchId(created?.id ?? null);
+        setSavedSearchName('');
+      } catch (saveError) {
+        console.error('Unable to create gig saved search', saveError);
+      }
+    },
+    [savedSearchName, query, currentFiltersPayload, createSavedSearch],
+  );
+
+  const handleApplySavedSearch = useCallback(
+    (search) => {
+      if (!search) {
+        return;
+      }
+      const resolvedSlugs = normaliseGigSavedSearchFilters(search.filters ?? {});
+      setSelectedTagSlugs(resolvedSlugs);
+      setQuery(search.query ?? '');
+      setActiveSavedSearchId(search.id ?? null);
+      analytics.track(
+        'web_gig_saved_search_applied',
+        {
+          savedSearchId: search.id ?? null,
+          query: search.query ?? null,
+          filters: search.filters ?? null,
+        },
+        { source: 'web_app' },
+      );
+      runSavedSearch(search).catch((runError) => {
+        console.warn('Failed to trigger gig saved search', runError);
+      });
+    },
+    [runSavedSearch],
+  );
+
+  const handleDeleteSavedSearch = useCallback(
+    async (search) => {
+      if (!search) {
+        return;
+      }
+      try {
+        await deleteSavedSearch(search);
+        analytics.track(
+          'web_gig_saved_search_deleted',
+          {
+            savedSearchId: search.id ?? null,
+          },
+          { source: 'web_app' },
+        );
+        setActiveSavedSearchId((current) => (current === search.id ? null : current));
+      } catch (deleteError) {
+        console.error('Unable to delete gig saved search', deleteError);
+      }
+    },
+    [deleteSavedSearch],
+  );
 
   if (!isAuthenticated) {
     return (
@@ -355,15 +690,16 @@ export default function GigsPage() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,_rgba(191,219,254,0.35),_transparent_65%)]" aria-hidden="true" />
       <div className="relative mx-auto max-w-5xl px-6">
         <PageHeader
-          eyebrow="Gigs"
-          title="High-impact collaborations for independents"
-          description="Short-term missions from agencies, startups, and companies ready for agile execution."
+          eyebrow={gigContent.hero.eyebrow}
+          title={gigContent.hero.title}
+          description={gigContent.hero.description}
           meta={
             <DataStatus
-              loading={loading}
+              loading={loading || gigSiteLoading}
               fromCache={fromCache}
               lastUpdated={lastUpdated}
               onRefresh={() => refresh({ force: true })}
+              error={gigSiteError}
             />
           }
         />
@@ -377,7 +713,7 @@ export default function GigsPage() {
                 id="gig-search"
                 type="search"
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={handleSearchInputChange}
                 placeholder="Search by client, deliverable, or scope"
                 className="w-full rounded-full border border-slate-200 bg-white px-5 py-3 text-sm shadow-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
               />
@@ -491,24 +827,63 @@ export default function GigsPage() {
               <dl className="mt-4 space-y-4 text-sm">
                 <div className="flex items-center justify-between gap-4">
                   <dt className="text-slate-500">Live briefs</dt>
-                  <dd className="text-base font-semibold text-slate-900">{formatNumber(derivedSignals.total)}</dd>
+                  <dd className="text-base font-semibold text-slate-900">{formatInteger(derivedSignals.total)}</dd>
                 </div>
                 <div className="flex items-center justify-between gap-4">
                   <dt className="text-slate-500">Published this week</dt>
-                  <dd className="text-base font-semibold text-slate-900">{formatNumber(derivedSignals.fresh)}</dd>
+                  <dd className="text-base font-semibold text-slate-900">{formatInteger(derivedSignals.fresh)}</dd>
                 </div>
                 <div className="flex items-center justify-between gap-4">
                   <dt className="text-slate-500">Remote-friendly</dt>
-                  <dd className="text-base font-semibold text-slate-900">{formatNumber(derivedSignals.remoteFriendly)}</dd>
+                  <dd className="text-base font-semibold text-slate-900">{formatInteger(derivedSignals.remoteFriendly)}</dd>
                 </div>
                 <div className="flex items-center justify-between gap-4">
                   <dt className="text-slate-500">Transparent budgets</dt>
-                  <dd className="text-base font-semibold text-slate-900">{formatNumber(derivedSignals.withBudgets)}</dd>
+                  <dd className="text-base font-semibold text-slate-900">{formatInteger(derivedSignals.withBudgets)}</dd>
                 </div>
               </dl>
-              <p className="mt-4 text-xs text-slate-500">
-                Metrics update as new gigs sync from agencies and founders across the network.
+              <p className="mt-4 text-xs text-slate-500">{gigContent.metrics.caption}</p>
+            </div>
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Saved search alerts</h3>
+              <p className="mt-2 text-xs text-slate-500">
+                Stay ahead of new briefs by saving your favourite filters for instant notifications.
               </p>
+              {savedSearchesError ? (
+                <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-700">
+                  Unable to sync saved searches right now. Using local workspace data.
+                </div>
+              ) : null}
+              <form onSubmit={handleSaveCurrentSearch} className="mt-4 flex flex-wrap gap-3">
+                <label htmlFor="gig-saved-search-name" className="sr-only">
+                  Name this search
+                </label>
+                <input
+                  id="gig-saved-search-name"
+                  type="text"
+                  value={savedSearchName}
+                  onChange={(event) => setSavedSearchName(event.target.value)}
+                  placeholder="Give it a name"
+                  className="flex-1 min-w-[8rem] rounded-full border border-slate-200 bg-white px-4 py-2 text-sm shadow-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+                />
+                <button
+                  type="submit"
+                  className="inline-flex items-center rounded-full bg-accent px-5 py-2 text-xs font-semibold text-white shadow-soft transition hover:bg-accentDark disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={savedSearchesLoading}
+                >
+                  Save search
+                </button>
+              </form>
+              <div className="mt-4">
+                <SavedSearchList
+                  savedSearches={savedSearches}
+                  onApply={handleApplySavedSearch}
+                  onDelete={handleDeleteSavedSearch}
+                  loading={savedSearchesLoading}
+                  activeSearchId={activeSavedSearchId}
+                  canManageServerSearches={canSyncSavedSearches}
+                />
+              </div>
             </div>
             {topTagOptions.length ? (
               <div className="rounded-3xl border border-indigo-100 bg-white p-6 shadow-soft">
@@ -524,7 +899,7 @@ export default function GigsPage() {
                         key={tag.slug}
                         active={isActive}
                         label={tag.label}
-                        badge={formatNumber(tag.count)}
+                        badge={formatInteger(tag.count)}
                         onClick={() => handleToggleTag(tag.slug)}
                         tone="accent"
                       />
@@ -539,12 +914,18 @@ export default function GigsPage() {
               </div>
             ) : null}
             <div className="rounded-3xl border border-accent/40 bg-accentSoft p-6 shadow-soft">
-              <h3 className="text-sm font-semibold text-accentDark">Best pitch practices</h3>
+              <h3 className="text-sm font-semibold text-accentDark">{gigContent.pitchGuidance.title}</h3>
+              <p className="mt-2 text-xs text-accentDark/80">{gigContent.pitchGuidance.description}</p>
               <ul className="mt-3 space-y-2 text-xs text-accentDark">
-                <li>• Reference similar wins with measurable outcomes.</li>
-                <li>• Include timeline assumptions and collaboration cadence.</li>
-                <li>• Confirm availability so clients can fast-track approvals.</li>
+                {gigContent.pitchGuidance.items.map((item) => (
+                  <li key={item}>• {item}</li>
+                ))}
               </ul>
+              {gigSiteError && gigSiteUsingFallback ? (
+                <p className="mt-3 text-[11px] text-accentDark/70">
+                  Showing cached pitch guidance while the content hub reloads.
+                </p>
+              ) : null}
             </div>
           </aside>
         </div>
