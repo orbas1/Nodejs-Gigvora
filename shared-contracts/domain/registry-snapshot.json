@@ -232,6 +232,7 @@
         "Gig",
         "GigPackage",
         "GigAddOn",
+        "GigCustomRequest",
         "GigAvailabilitySlot",
         "WorkspaceIntegration",
         "WorkspaceCalendarConnection",

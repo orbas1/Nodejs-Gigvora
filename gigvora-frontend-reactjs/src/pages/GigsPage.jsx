@@ -9,6 +9,7 @@ import analytics from '../services/analytics.js';
 import { formatRelativeTime } from '../utils/date.js';
 import useSession from '../hooks/useSession.js';
 import useSavedGigs from '../hooks/useSavedGigs.js';
+import { submitCustomGigRequest } from '../services/gigs.js';
 import {
   aggregateTaxonomyCounts,
   buildTaxonomyDirectory,
@@ -17,6 +18,23 @@ import {
 } from '../utils/taxonomy.js';
 
 const PAGE_SIZE = 20;
+const PACKAGE_ORDER = ['basic', 'standard', 'premium'];
+const PACKAGE_TIER_LABELS = {
+  basic: 'Basic',
+  standard: 'Standard',
+  premium: 'Premium',
+};
+const INITIAL_CUSTOM_REQUEST_STATE = {
+  openGigId: null,
+  tier: 'standard',
+  summary: '',
+  budget: '',
+  deliveryDays: '',
+  startDate: '',
+  submitting: false,
+  error: null,
+  success: false,
+};
 
 const DELIVERY_SPEED_OPTIONS = [
   { id: 'any', label: 'All delivery speeds' },
@@ -64,6 +82,57 @@ function resolveBudgetAmount(gig) {
   const digits = raw.replace(/[^0-9.]/g, '');
   const parsed = Number.parseFloat(digits);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatPackagePrice(amount, currency = 'USD') {
+  if (amount == null) {
+    return 'Custom pricing';
+  }
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
+    }).format(Number(amount));
+  } catch (error) {
+    return `${Number(amount).toLocaleString()} ${currency}`;
+  }
+}
+
+function buildPackageSummary(packages = []) {
+  if (!Array.isArray(packages)) {
+    return [];
+  }
+  const normalised = packages
+    .map((pkg) => {
+      const tier = (pkg.tier ?? pkg.key ?? pkg.packageKey ?? '').toString().toLowerCase();
+      const deliverables = Array.isArray(pkg.deliverables)
+        ? pkg.deliverables.filter((item) => typeof item === 'string' && item.trim().length > 0)
+        : Array.isArray(pkg.highlights)
+        ? pkg.highlights.filter((item) => typeof item === 'string' && item.trim().length > 0)
+        : [];
+      return {
+        ...pkg,
+        tier,
+        name: pkg.name ?? PACKAGE_TIER_LABELS[tier] ?? 'Package',
+        priceAmount: pkg.priceAmount == null ? null : Number(pkg.priceAmount),
+        priceCurrency: pkg.priceCurrency ?? 'USD',
+        deliverables,
+        position: Number.isFinite(Number(pkg.position)) ? Number(pkg.position) : undefined,
+      };
+    })
+    .filter((pkg) => PACKAGE_ORDER.includes(pkg.tier));
+
+  normalised.sort((a, b) => {
+    const orderA = PACKAGE_ORDER.indexOf(a.tier);
+    const orderB = PACKAGE_ORDER.indexOf(b.tier);
+    if (orderA === orderB) {
+      return (a.position ?? orderA) - (b.position ?? orderB);
+    }
+    return orderA - orderB;
+  });
+
+  return normalised;
 }
 
 function resolveDeliverySpeedLabel(gig) {
@@ -222,6 +291,7 @@ export default function GigsPage() {
   const [trustedOnly, setTrustedOnly] = useState(false);
   const [page, setPage] = useState(1);
   const [resultsState, setResultsState] = useState({ key: '', items: [] });
+  const [customRequestState, setCustomRequestState] = useState(INITIAL_CUSTOM_REQUEST_STATE);
   const loadMoreRef = useRef(null);
   const navigate = useNavigate();
   const { session, isAuthenticated } = useSession();
@@ -438,6 +508,120 @@ export default function GigsPage() {
     setDeliverySpeed('any');
     setTrustedOnly(false);
   }, []);
+
+  const handleToggleCustomRequest = useCallback((gig, packagesForGig = []) => {
+    if (!gig?.id) {
+      return;
+    }
+    const fallbackTier =
+      packagesForGig.find((pkg) => pkg.tier === 'standard')?.tier ??
+      packagesForGig[0]?.tier ??
+      'standard';
+    setCustomRequestState((current) => {
+      if (current.openGigId === gig.id) {
+        return { ...INITIAL_CUSTOM_REQUEST_STATE };
+      }
+      const inferredBudget = gig.startingPrice?.amount != null
+        ? String(Math.round(Number(gig.startingPrice.amount)))
+        : '';
+      const inferredDelivery =
+        gig.deliveryLeadTimeDays != null ? String(gig.deliveryLeadTimeDays) : '';
+      return {
+        ...INITIAL_CUSTOM_REQUEST_STATE,
+        openGigId: gig.id,
+        tier: fallbackTier,
+        budget: inferredBudget,
+        deliveryDays: inferredDelivery,
+      };
+    });
+  }, []);
+
+  const handleCustomRequestFieldChange = useCallback((field, value) => {
+    setCustomRequestState((current) => ({
+      ...current,
+      [field]: value,
+      error: field === 'summary' || field === 'budget' || field === 'deliveryDays' || field === 'startDate' ? null : current.error,
+      success: field === 'summary' || field === 'budget' || field === 'deliveryDays' || field === 'startDate' ? false : current.success,
+    }));
+  }, []);
+
+  const handleSubmitCustomRequest = useCallback(
+    async (gig) => {
+      if (!gig?.id || customRequestState.openGigId !== gig.id) {
+        return;
+      }
+      const summary = customRequestState.summary.trim();
+      if (summary.length < 10) {
+        setCustomRequestState((current) => ({
+          ...current,
+          error: 'Share at least 10 characters about the outcomes you need.',
+          success: false,
+        }));
+        return;
+      }
+
+      const budgetDigits = customRequestState.budget
+        ? Number.parseFloat(customRequestState.budget.replace(/[^0-9.]/g, ''))
+        : undefined;
+      const budgetAmount = Number.isFinite(budgetDigits) && budgetDigits > 0 ? budgetDigits : undefined;
+
+      const deliveryValue = customRequestState.deliveryDays
+        ? Number.parseInt(customRequestState.deliveryDays, 10)
+        : undefined;
+      if (deliveryValue != null && (!Number.isFinite(deliveryValue) || deliveryValue <= 0)) {
+        setCustomRequestState((current) => ({
+          ...current,
+          error: 'Delivery days must be a positive number.',
+          success: false,
+        }));
+        return;
+      }
+
+      setCustomRequestState((current) => ({ ...current, submitting: true, error: null, success: false }));
+      try {
+        const payload = {
+          title: `${gig.title} — custom request`,
+          summary,
+          preferredPackageTier: customRequestState.tier,
+          budgetAmount,
+          budgetCurrency: gig.startingPrice?.currency ?? gig.budgetCurrency ?? 'USD',
+          deliveryDays: deliveryValue,
+          preferredStartDate: customRequestState.startDate || undefined,
+          metadata: { source: 'web_app' },
+        };
+
+        await submitCustomGigRequest(gig.id, payload);
+        analytics.track(
+          'web_gig_custom_request_submit',
+          {
+            id: gig.id,
+            tier: payload.preferredPackageTier,
+            budgetAmount: payload.budgetAmount ?? null,
+          },
+          { source: 'web_app' },
+        );
+
+        setCustomRequestState((current) => ({
+          ...current,
+          summary: '',
+          submitting: false,
+          success: true,
+          error: null,
+        }));
+      } catch (error) {
+        setCustomRequestState((current) => ({
+          ...current,
+          submitting: false,
+          success: false,
+          error:
+            error?.response?.data?.message ??
+            error?.message ??
+            'Unable to submit a custom request right now. Please try again shortly.',
+        }));
+      }
+    },
+    [analytics, customRequestState],
+  );
 
   const handleSignIn = useCallback(() => {
     analytics.track('web_gig_access_prompt', { state: 'signin_required' }, { source: 'web_app' });
@@ -801,6 +985,13 @@ export default function GigsPage() {
                 const trustBadges = resolveTrustBadges(gig);
                 const saved = isGigSaved(gig);
                 const deliveryLabel = resolveDeliverySpeedLabel(gig);
+                const packages = buildPackageSummary(gig.packages);
+                const customRequestOpen = customRequestState.openGigId === gig.id;
+                const defaultTierForRequest =
+                  packages.find((pkg) => pkg.tier === 'standard')?.tier ?? packages[0]?.tier ?? 'standard';
+                const formattedStartingPrice =
+                  gig.startingPrice?.formatted ??
+                  (packages[0] ? formatPackagePrice(packages[0].priceAmount, packages[0].priceCurrency) : null);
                 return (
                   <article
                     key={gig.id ?? gig.slug ?? gig.title}
@@ -842,6 +1033,49 @@ export default function GigsPage() {
                     </div>
                     <h2 className="mt-3 text-xl font-semibold text-slate-900">{gig.title}</h2>
                     <p className="mt-2 text-sm text-slate-600">{gig.description}</p>
+                    {packages.length ? (
+                      <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Package tiers</p>
+                          {formattedStartingPrice ? (
+                            <span className="text-xs font-semibold text-slate-600">Starting at {formattedStartingPrice}</span>
+                          ) : null}
+                        </div>
+                        <div className="mt-3 grid gap-3 md:grid-cols-3">
+                          {packages.map((pkg) => (
+                            <div
+                              key={pkg.tier}
+                              className={`rounded-2xl border ${
+                                pkg.tier === defaultTierForRequest ? 'border-accent/40' : 'border-slate-200'
+                              } bg-white p-4 shadow-sm transition`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <h3 className="text-sm font-semibold text-slate-900">{pkg.name}</h3>
+                                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                                  {PACKAGE_TIER_LABELS[pkg.tier] ?? pkg.tier}
+                                </span>
+                              </div>
+                              <p className="mt-1 text-sm font-semibold text-slate-700">
+                                {formatPackagePrice(pkg.priceAmount, pkg.priceCurrency)}
+                              </p>
+                              <ul className="mt-2 space-y-1 text-xs text-slate-600">
+                                {pkg.deliverables.slice(0, 3).map((item) => (
+                                  <li key={item} className="flex gap-2">
+                                    <span aria-hidden="true">•</span>
+                                    <span>{item}</span>
+                                  </li>
+                                ))}
+                                {pkg.deliverables.length > 3 ? (
+                                  <li className="text-[11px] uppercase tracking-wide text-slate-400">
+                                    + {pkg.deliverables.length - 3} more
+                                  </li>
+                                ) : null}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                     {taxonomyLabels.length ? (
                       <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-wide text-indigo-600">
                         {taxonomyLabels.slice(0, 4).map((label) => (
@@ -885,7 +1119,112 @@ export default function GigsPage() {
                       >
                         Chat with client
                       </button>
+                      {gig.customRequestEnabled ? (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleCustomRequest(gig, packages)}
+                          className={`inline-flex items-center gap-2 rounded-full px-5 py-2 text-xs font-semibold transition ${
+                            customRequestOpen
+                              ? 'border border-rose-200 bg-rose-50 text-rose-600 hover:border-rose-300'
+                              : 'border border-slate-200 bg-white text-slate-600 hover:border-accent hover:text-accent'
+                          }`}
+                        >
+                          {customRequestOpen ? 'Close custom request' : 'Request custom offer'}
+                        </button>
+                      ) : null}
                     </div>
+                    {gig.customRequestEnabled && customRequestOpen ? (
+                      <form
+                        className="mt-4 space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          handleSubmitCustomRequest(gig);
+                        }}
+                      >
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Preferred tier
+                            <select
+                              value={customRequestState.tier}
+                              onChange={(event) => handleCustomRequestFieldChange('tier', event.target.value)}
+                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+                            >
+                              {packages.map((pkg) => (
+                                <option key={pkg.tier} value={pkg.tier}>
+                                  {PACKAGE_TIER_LABELS[pkg.tier] ?? pkg.tier}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Target budget (USD)
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={customRequestState.budget}
+                              onChange={(event) =>
+                                handleCustomRequestFieldChange('budget', sanitiseBudgetInput(event.target.value))
+                              }
+                              placeholder="5000"
+                              className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+                            />
+                          </label>
+                          <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Delivery days
+                            <input
+                              type="number"
+                              min="1"
+                              value={customRequestState.deliveryDays}
+                              onChange={(event) => handleCustomRequestFieldChange('deliveryDays', event.target.value)}
+                              placeholder="14"
+                              className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+                            />
+                          </label>
+                          <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Preferred start date
+                            <input
+                              type="date"
+                              value={customRequestState.startDate}
+                              onChange={(event) => handleCustomRequestFieldChange('startDate', event.target.value)}
+                              className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+                            />
+                          </label>
+                        </div>
+                        <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          What outcomes do you need?
+                          <textarea
+                            value={customRequestState.summary}
+                            onChange={(event) => handleCustomRequestFieldChange('summary', event.target.value)}
+                            rows={4}
+                            placeholder="Share the deliverables, stakeholders, and context for this engagement."
+                            className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+                            required
+                          />
+                        </label>
+                        {customRequestState.error ? (
+                          <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">
+                            {customRequestState.error}
+                          </div>
+                        ) : null}
+                        {customRequestState.success ? (
+                          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+                            Custom request sent. We’ll notify you as soon as the client responds.
+                          </div>
+                        ) : null}
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <p className="text-[11px] text-slate-500">
+                            We share your pitch profile and recent reviews so clients can respond with a tailored brief.
+                          </p>
+                          <button
+                            type="submit"
+                            className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-xs font-semibold text-white shadow-soft transition hover:bg-accentDark disabled:cursor-not-allowed disabled:opacity-60"
+                            disabled={customRequestState.submitting}
+                          >
+                            {customRequestState.submitting ? 'Sending…' : 'Send custom request'}
+                          </button>
+                        </div>
+                      </form>
+                    ) : null}
                   </article>
                 );
               })}

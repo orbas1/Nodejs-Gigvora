@@ -19,5 +19,10 @@ router.get(
   requireMembership(['volunteer', 'mentor', 'admin'], { allowAdmin: true }),
   asyncHandler(discoveryController.volunteering),
 );
+router.post(
+  '/gigs/:gigId/custom-requests',
+  authenticateRequest(),
+  asyncHandler(discoveryController.customGigRequest),
+);
 
 export default router;

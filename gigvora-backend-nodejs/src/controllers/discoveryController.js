@@ -6,6 +6,7 @@ import {
   listLaunchpads,
   listVolunteering,
 } from '../services/discoveryService.js';
+import { submitCustomGigRequest } from '../services/gigService.js';
 import { ValidationError } from '../utils/errors.js';
 
 const MAX_PAGE_SIZE = 50;
@@ -104,6 +105,14 @@ function parseQueryParams(req) {
   return parsed;
 }
 
+function requirePositiveInteger(name, value) {
+  const parsed = parsePositiveInteger(value, { min: 1 });
+  if (!parsed) {
+    throw new ValidationError(`${name} must be a positive integer.`);
+  }
+  return parsed;
+}
+
 export async function snapshot(req, res) {
   const { limit = 12 } = parseQueryParams(req);
   const result = await getDiscoverySnapshot({ limit });
@@ -125,6 +134,13 @@ export async function gigs(req, res) {
   res.json(result);
 }
 
+export async function customGigRequest(req, res) {
+  const gigId = requirePositiveInteger('gigId', req.params?.gigId);
+  const payload = req.body ? { ...req.body } : {};
+  const result = await submitCustomGigRequest(gigId, payload, { actorId: req.user?.id });
+  res.status(201).json(result);
+}
+
 export async function projects(req, res) {
   const result = await listProjects(buildSearchOptions(req));
   res.json(result);
@@ -144,6 +160,7 @@ export default {
   snapshot,
   jobs,
   gigs,
+  customGigRequest,
   projects,
   launchpads,
   volunteering,

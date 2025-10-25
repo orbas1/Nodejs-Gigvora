@@ -5,6 +5,7 @@ import {
   GigPackage,
   GigAddOn,
   GigAvailabilitySlot,
+  GigCustomRequest,
   GIG_STATUSES,
   GIG_VISIBILITY_OPTIONS,
 } from '../models/index.js';
@@ -12,6 +13,12 @@ import { ValidationError, NotFoundError, AuthorizationError } from '../utils/err
 
 const HEX_COLOR_PATTERN = /^#?[0-9a-fA-F]{6}$/;
 const TIME_PATTERN = /^([01]?\d|2[0-3]):([0-5]\d)$/;
+const PACKAGE_TIERS = ['basic', 'standard', 'premium'];
+const PACKAGE_LABELS = {
+  basic: 'Basic',
+  standard: 'Standard',
+  premium: 'Premium',
+};
 
 function slugify(value) {
   return value
@@ -113,8 +120,8 @@ function normalizePrice(value, { fieldName }) {
     throw new ValidationError(`${fieldName} is required.`);
   }
   const numeric = Number(value);
-  if (!Number.isFinite(numeric) || numeric < 0) {
-    throw new ValidationError(`${fieldName} must be a positive number.`);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    throw new ValidationError(`${fieldName} must be greater than zero.`);
   }
   return Number(numeric.toFixed(2));
 }
@@ -137,13 +144,154 @@ function sanitizeHighlights(value) {
   throw new ValidationError('highlights must be provided as an array or newline separated string.');
 }
 
-function normalizePackage(packageInput, index) {
-  const name = packageInput?.name?.trim();
-  if (!name) {
-    throw new ValidationError(`Package #${index + 1} is missing a name.`);
+function sanitizeDeliverables(value, { fieldName }) {
+  if (!value) {
+    return [];
   }
-  const key = packageInput?.key?.trim() || slugify(name) || `package-${index + 1}`;
-  const priceAmount = normalizePrice(packageInput?.priceAmount, { fieldName: `priceAmount for package ${name}` });
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === 'string' ? item.trim() : ''))
+      .filter((item) => item.length > 0)
+      .slice(0, 20);
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(/[\n\r]+/)
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0)
+      .slice(0, 20);
+  }
+  throw new ValidationError(`${fieldName} must be provided as an array or newline separated string.`);
+}
+
+function resolvePackageTier(input, index) {
+  if (input == null || input === '') {
+    if (PACKAGE_TIERS[index]) {
+      return PACKAGE_TIERS[index];
+    }
+    throw new ValidationError('Each package must specify a tier.');
+  }
+
+  const candidate = input
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z]/g, '');
+
+  if (PACKAGE_TIERS.includes(candidate)) {
+    return candidate;
+  }
+
+  if (PACKAGE_TIERS[index]) {
+    return PACKAGE_TIERS[index];
+  }
+
+  throw new ValidationError(
+    `package tier must be one of ${PACKAGE_TIERS.join(', ')}. Received "${input}".`,
+  );
+}
+
+function sanitizeRequirementList(value) {
+  if (!value) {
+    return [];
+  }
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === 'string' ? item.trim() : ''))
+      .filter((item) => item.length > 0)
+      .slice(0, 20);
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(/[\n\r]+/)
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0)
+      .slice(0, 20);
+  }
+  throw new ValidationError('requirements must be provided as an array or newline separated string.');
+}
+
+function normaliseOptionalDate(value, { fieldName }) {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new ValidationError(`${fieldName} must be a valid date.`);
+  }
+  return date.toISOString().split('T')[0];
+}
+
+function normalizeCustomRequestPayload(payload = {}, { gig, actorId }) {
+  const requesterId = normalizeInteger(payload.requesterId ?? actorId, {
+    min: 1,
+    fieldName: 'requesterId',
+  });
+  if (!requesterId) {
+    throw new ValidationError('requesterId is required for custom requests.');
+  }
+
+  const title = payload.title?.toString().trim();
+  if (!title || title.length < 4) {
+    throw new ValidationError('title must be at least four characters long.');
+  }
+
+  const summary = payload.summary?.toString().trim() || null;
+  const packageTierRaw = payload.preferredPackageTier ?? payload.packageTier ?? payload.packageKey;
+  const packageTier = packageTierRaw ? resolvePackageTier(packageTierRaw, 0) : null;
+
+  if (packageTier && !gig.packages?.some((pkg) => pkg.packageKey === packageTier)) {
+    throw new ValidationError('Selected package tier is not offered by this gig.');
+  }
+
+  let budgetAmount = null;
+  let budgetCurrency = null;
+  if (payload.budgetAmount != null && payload.budgetAmount !== '') {
+    budgetAmount = normalizePrice(payload.budgetAmount, { fieldName: 'budgetAmount' });
+    budgetCurrency = normalizeCurrency(payload.budgetCurrency ?? gig.budgetCurrency ?? 'USD');
+  }
+
+  const deliveryDays = payload.deliveryDays != null && payload.deliveryDays !== ''
+    ? normalizeInteger(payload.deliveryDays, {
+        min: 1,
+        max: 365,
+        fieldName: 'deliveryDays',
+      })
+    : null;
+
+  const requirements = sanitizeRequirementList(payload.requirements ?? payload.requirementNotes);
+  const preferredStartDate = normaliseOptionalDate(payload.preferredStartDate, {
+    fieldName: 'preferredStartDate',
+  });
+  const communicationChannel = payload.communicationChannel
+    ? payload.communicationChannel.toString().trim().slice(0, 120) || null
+    : 'gigvora_chat';
+
+  const metadata = payload.metadata && typeof payload.metadata === 'object' ? { ...payload.metadata } : {};
+  metadata.source = metadata.source ?? 'marketplace';
+
+  return {
+    requesterId,
+    title,
+    summary,
+    packageTier,
+    budgetAmount,
+    budgetCurrency,
+    deliveryDays,
+    requirements,
+    preferredStartDate,
+    communicationChannel,
+    metadata,
+  };
+}
+
+function normalizePackage(packageInput, index) {
+  const providedTier = packageInput?.tier ?? packageInput?.packageKey ?? packageInput?.key ?? null;
+  const tier = resolvePackageTier(providedTier, index);
+  const name = packageInput?.name?.trim() || PACKAGE_LABELS[tier] || PACKAGE_LABELS.basic;
+  const priceAmount = normalizePrice(packageInput?.priceAmount, {
+    fieldName: `priceAmount for the ${name} package`,
+  });
   const priceCurrency = normalizeCurrency(packageInput?.priceCurrency);
   const deliveryDays = normalizeInteger(packageInput?.deliveryDays, {
     min: 0,
@@ -158,9 +306,16 @@ function normalizePackage(packageInput, index) {
   const recommendedFor = packageInput?.recommendedFor?.trim() || null;
   const description = packageInput?.description?.trim() || null;
   const highlights = sanitizeHighlights(packageInput?.highlights);
+  const deliverables = sanitizeDeliverables(packageInput?.deliverables, {
+    fieldName: `deliverables for package ${name}`,
+  });
+  if (!deliverables.length) {
+    throw new ValidationError(`At least one deliverable is required for the ${name} package.`);
+  }
 
   return {
-    packageKey: key,
+    packageKey: tier,
+    tier,
     name,
     description,
     priceAmount,
@@ -168,9 +323,10 @@ function normalizePackage(packageInput, index) {
     deliveryDays,
     revisionLimit,
     highlights,
+    deliverables,
     recommendedFor,
-    isPopular: Boolean(packageInput?.isPopular),
-    position: index,
+    isPopular: packageInput?.isPopular != null ? Boolean(packageInput.isPopular) : tier === 'standard',
+    position: PACKAGE_TIERS.indexOf(tier) === -1 ? index : PACKAGE_TIERS.indexOf(tier),
   };
 }
 
@@ -308,6 +464,17 @@ function normalizeGigPayload(payload = {}, { actorId } = {}) {
     uniquePackageKeys.add(normalized.packageKey);
     return normalized;
   });
+
+  const missingTiers = PACKAGE_TIERS.filter((tier) => !uniquePackageKeys.has(tier));
+  if (missingTiers.length) {
+    throw new ValidationError(
+      `Packages must include the ${PACKAGE_TIERS.map((tier) => PACKAGE_LABELS[tier]).join(', ')} tiers. Missing: ${missingTiers
+        .map((tier) => PACKAGE_LABELS[tier])
+        .join(', ')}.`,
+    );
+  }
+
+  packages.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
 
   const addOnsInput = Array.isArray(payload.addOns) ? payload.addOns : [];
   const uniqueAddOnKeys = new Set();
@@ -516,6 +683,65 @@ export async function publishGig(gigId, { actorId, visibility } = {}) {
   return gig.toPublicObject();
 }
 
+export async function submitCustomGigRequest(gigId, payload, { actorId } = {}) {
+  const id = normalizeInteger(gigId, { fieldName: 'gigId', min: 1 });
+  if (!id) {
+    throw new ValidationError('gigId must be a positive integer.');
+  }
+
+  const authenticatedId = normalizeInteger(actorId ?? payload?.requesterId, {
+    fieldName: 'actorId',
+    min: 1,
+  });
+  if (!authenticatedId) {
+    throw new AuthorizationError('You must be signed in to submit a custom request.');
+  }
+
+  if (payload?.requesterId) {
+    const requestedId = normalizeInteger(payload.requesterId, { fieldName: 'requesterId', min: 1 });
+    if (requestedId !== authenticatedId) {
+      throw new AuthorizationError('requesterId does not match the authenticated user.');
+    }
+  }
+
+  const gig = await Gig.findByPk(id, {
+    include: [{ model: GigPackage, as: 'packages', attributes: ['packageKey', 'tier', 'name'] }],
+  });
+  if (!gig) {
+    throw new NotFoundError('Gig could not be found.');
+  }
+  if (!gig.customRequestEnabled) {
+    throw new ValidationError('This gig is not currently accepting custom requests.');
+  }
+
+  const normalized = normalizeCustomRequestPayload({ ...payload, requesterId: authenticatedId }, {
+    gig,
+    actorId: authenticatedId,
+  });
+
+  return sequelize.transaction(async (transaction) => {
+    const request = await GigCustomRequest.create(
+      {
+        gigId: gig.id,
+        requesterId: normalized.requesterId,
+        packageTier: normalized.packageTier,
+        title: normalized.title,
+        summary: normalized.summary,
+        requirements: normalized.requirements,
+        budgetAmount: normalized.budgetAmount,
+        budgetCurrency: normalized.budgetCurrency,
+        deliveryDays: normalized.deliveryDays,
+        preferredStartDate: normalized.preferredStartDate,
+        communicationChannel: normalized.communicationChannel,
+        metadata: normalized.metadata,
+        status: 'pending',
+      },
+      { transaction },
+    );
+    return request.toPublicObject();
+  });
+}
+
 export const __testing = {
   slugify,
   normalizeGigPayload,
@@ -530,6 +756,10 @@ export const __testing = {
   normalizeCurrency,
   normalizePrice,
   sanitizeHighlights,
+  sanitizeDeliverables,
+  resolvePackageTier,
+  sanitizeRequirementList,
+  normalizeCustomRequestPayload,
 };
 
 export default {
@@ -538,4 +768,5 @@ export default {
   createGigBlueprint,
   updateGigBlueprint,
   publishGig,
+  submitCustomGigRequest,
 };

@@ -169,29 +169,56 @@ const gigSeeds = [
     visibility: 'public',
     packages: [
       {
-        packageKey: 'foundation',
-        name: 'Foundation sprint',
-        description: 'Audit analytics, prioritise experiments, and ship refreshed hero + pricing sections.',
-        priceAmount: 3200,
+        packageKey: 'basic',
+        tier: 'basic',
+        name: 'Launch essentials',
+        description: 'Kickstart CRO improvements with an analytics audit and refreshed key pages.',
+        priceAmount: 2800,
         priceCurrency: 'USD',
-        deliveryDays: 10,
-        revisionLimit: 2,
-        highlights: ['Analytics audit', 'Prioritised backlog', 'Hero copy + layout refresh'],
+        deliveryDays: 7,
+        revisionLimit: 1,
+        highlights: ['Analytics audit', 'Backlog of 10 experiments', 'Hero copy refresh'],
+        deliverables: ['CRO analytics audit deck', 'Prioritised experiment backlog', 'Hero + pricing page updates'],
         recommendedFor: 'Seed to Series A growth teams',
         isPopular: false,
-        position: 1,
+        position: 0,
       },
       {
-        packageKey: 'accelerate',
-        name: 'Accelerate program',
-        description: 'Layer personalised onboarding experiments and async enablement assets.',
+        packageKey: 'standard',
+        tier: 'standard',
+        name: 'Growth accelerator',
+        description: 'Pair experimentation with onboarding upgrades and async enablement assets.',
         priceAmount: 4800,
         priceCurrency: 'USD',
         deliveryDays: 14,
         revisionLimit: 3,
-        highlights: ['Personalised onboarding', 'Enablement asset suite', 'Experiment analytics handover'],
+        highlights: ['Personalised onboarding flows', 'Async enablement assets', 'Experiment analytics handover'],
+        deliverables: [
+          'Interactive onboarding funnel prototypes',
+          'Enablement asset bundle (loom + templates)',
+          'Experiment analytics report + implementation guide',
+        ],
         recommendedFor: 'Scale-up product squads',
         isPopular: true,
+        position: 1,
+      },
+      {
+        packageKey: 'premium',
+        tier: 'premium',
+        name: 'Velocity retainer',
+        description: 'High-touch experimentation pod covering analytics, copy, and async reporting.',
+        priceAmount: 7200,
+        priceCurrency: 'USD',
+        deliveryDays: 21,
+        revisionLimit: 4,
+        highlights: ['Fractional experimentation lead', 'Async stakeholder reporting', 'QA + design polish'],
+        deliverables: [
+          'Weekly experimentation pod stand-ups',
+          'Stakeholder-ready velocity and impact dashboard',
+          'QA + design polish sprint with annotated recordings',
+        ],
+        recommendedFor: 'Growth teams running concurrent experiments',
+        isPopular: false,
         position: 2,
       },
     ],
@@ -204,6 +231,23 @@ const gigSeeds = [
         priceCurrency: 'USD',
         isActive: true,
         position: 1,
+      },
+    ],
+    customRequestEnabled: true,
+    customRequestInstructions:
+      'Outline your growth KPIs, current tooling, and decision cadence so we can shape a bespoke experimentation pod.',
+    customRequests: [
+      {
+        requesterEmail: 'ava@gigvora.com',
+        title: 'Custom growth analytics retainer',
+        summary: 'Looking to extend experimentation to lifecycle emails with a monthly analytics cadence.',
+        preferredPackageTier: 'premium',
+        budgetAmount: 8500,
+        budgetCurrency: 'USD',
+        deliveryDays: 28,
+        requirements: ['Monthly executive reporting', 'Lifecycle experiment backlog', 'Async Slack updates'],
+        preferredStartDate: '2024-05-20',
+        communicationChannel: 'gigvora_chat',
       },
     ],
   },
@@ -240,27 +284,58 @@ const gigSeeds = [
     visibility: 'public',
     packages: [
       {
-        packageKey: 'assessment',
-        name: 'Trust readiness assessment',
-        description: 'Diagnostic across policy, tooling, SLAs, and escalation performance.',
-        priceAmount: 3900,
+        packageKey: 'basic',
+        tier: 'basic',
+        name: 'Policy pulse check',
+        description: 'Rapid diagnostic across guidelines, queues, and escalation coverage.',
+        priceAmount: 3200,
         priceCurrency: 'USD',
-        deliveryDays: 12,
-        revisionLimit: 2,
-        highlights: ['Moderation workload analysis', 'Escalation workflow review', 'Executive risk briefing'],
+        deliveryDays: 10,
+        revisionLimit: 1,
+        highlights: ['Policy + tooling audit', 'Queue throughput assessment', 'Risk register snapshot'],
+        deliverables: [
+          'Policy + tooling diagnostic summary',
+          'Escalation throughput assessment',
+          'Executive risk briefing (30 min)',
+        ],
         recommendedFor: 'Marketplaces pre Series B+',
+        isPopular: false,
+        position: 0,
+      },
+      {
+        packageKey: 'standard',
+        tier: 'standard',
+        name: 'Trust readiness assessment',
+        description: 'Deep-dive across moderation queues, automation coverage, and SLAs.',
+        priceAmount: 5200,
+        priceCurrency: 'USD',
+        deliveryDays: 14,
+        revisionLimit: 2,
+        highlights: ['Moderation workload analysis', 'Escalation workflow review', 'Executive playbook'],
+        deliverables: [
+          'Moderation workload report with heatmaps',
+          'Escalation workflow redesign and training agenda',
+          'Executive trust + safety playbook for next quarter',
+        ],
+        recommendedFor: 'Marketplaces scaling internationally',
         isPopular: true,
         position: 1,
       },
       {
-        packageKey: 'roadmap',
-        name: 'Implementation roadmap',
-        description: 'Codify automation priorities, policy updates, and training cadence.',
-        priceAmount: 6200,
+        packageKey: 'premium',
+        tier: 'premium',
+        name: 'Automation rollout program',
+        description: 'Codify automation priorities, policy updates, and training cadence with on-call enablement.',
+        priceAmount: 7600,
         priceCurrency: 'USD',
-        deliveryDays: 18,
-        revisionLimit: 3,
+        deliveryDays: 21,
+        revisionLimit: 4,
         highlights: ['Automation blueprint', 'Escalation simulator', 'Policy enablement toolkit'],
+        deliverables: [
+          'Automation roadmap with phased ROI modelling',
+          'Escalation simulator workshop and recordings',
+          'Policy enablement toolkit with localisation guidelines',
+        ],
         recommendedFor: 'Global marketplace operators',
         isPopular: false,
         position: 2,
@@ -284,6 +359,23 @@ const gigSeeds = [
         priceCurrency: 'USD',
         isActive: true,
         position: 2,
+      },
+    ],
+    customRequestEnabled: true,
+    customRequestInstructions:
+      'Share escalation volumes, tooling stack, and regulatory commitments to scope an automation + policy program.',
+    customRequests: [
+      {
+        requesterEmail: 'leo@gigvora.com',
+        title: 'Emerging market escalation coverage',
+        summary: 'Need bilingual moderation pods and compliance checkpoints for LATAM expansion.',
+        preferredPackageTier: 'standard',
+        budgetAmount: 6800,
+        budgetCurrency: 'USD',
+        deliveryDays: 18,
+        requirements: ['Bilingual moderators', 'Escalation SLA simulator', 'Board-ready compliance memo'],
+        preferredStartDate: '2024-06-01',
+        communicationChannel: 'gigvora_chat',
       },
     ],
   },
@@ -471,6 +563,7 @@ module.exports = {
         const ownerId = gig.ownerEmail ? userIds.get(gig.ownerEmail) ?? null : null;
         const packages = Array.isArray(gig.packages) ? gig.packages : [];
         const addons = Array.isArray(gig.addons) ? gig.addons : [];
+        const customRequests = Array.isArray(gig.customRequests) ? gig.customRequests : [];
         const publishedAt = gig.status === 'published' ? gig.publishedAt ?? now : null;
 
         const gigRow = {
@@ -503,6 +596,8 @@ module.exports = {
           savedCount: gig.savedCount ?? 0,
           status: gig.status ?? 'draft',
           visibility: gig.visibility ?? 'private',
+          customRequestEnabled: gig.customRequestEnabled ?? true,
+          customRequestInstructions: gig.customRequestInstructions ?? null,
           publishedAt,
           createdAt: now,
           updatedAt: now,
@@ -538,6 +633,7 @@ module.exports = {
 
         await queryInterface.bulkDelete('gig_packages', { gigId }, { transaction });
         await queryInterface.bulkDelete('gig_add_ons', { gigId }, { transaction });
+        await queryInterface.bulkDelete('gig_custom_requests', { gigId }, { transaction });
 
         if (packages.length) {
           const packageRows = packages.map((pkg, index) => ({
@@ -573,6 +669,52 @@ module.exports = {
             updatedAt: now,
           }));
           await queryInterface.bulkInsert('gig_add_ons', addonRows, { transaction });
+        }
+
+        if (customRequests.length) {
+          const requestRows = customRequests
+            .map((request) => {
+              const requesterId = request.requesterEmail ? userIds.get(request.requesterEmail) ?? null : null;
+              if (!requesterId) {
+                return null;
+              }
+              const requirements = Array.isArray(request.requirements)
+                ? request.requirements
+                : typeof request.requirements === 'string'
+                ? request.requirements
+                    .split(/[,\n\r]+/)
+                    .map((entry) => entry.trim())
+                    .filter(Boolean)
+                : [];
+              const preferredStartDate = request.preferredStartDate
+                ? new Date(request.preferredStartDate)
+                : null;
+              return {
+                gigId,
+                requesterId,
+                packageTier: request.preferredPackageTier ?? request.packageTier ?? null,
+                title: request.title,
+                summary: request.summary ?? null,
+                requirements,
+                budgetAmount: request.budgetAmount ?? null,
+                budgetCurrency: request.budgetCurrency ?? null,
+                deliveryDays: request.deliveryDays ?? null,
+                preferredStartDate:
+                  preferredStartDate && !Number.isNaN(preferredStartDate.getTime())
+                    ? preferredStartDate.toISOString().split('T')[0]
+                    : null,
+                communicationChannel: request.communicationChannel ?? 'gigvora_chat',
+                status: request.status ?? 'pending',
+                metadata: request.metadata ?? { seed: true },
+                createdAt: now,
+                updatedAt: now,
+              };
+            })
+            .filter(Boolean);
+
+          if (requestRows.length) {
+            await queryInterface.bulkInsert('gig_custom_requests', requestRows, { transaction });
+          }
         }
       }
 

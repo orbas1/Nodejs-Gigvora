@@ -21,6 +21,7 @@ const DIALECT = sequelize.getDialect();
 const SNAPSHOT_CACHE_TTL_SECONDS = 60;
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
+const PACKAGE_TIERS = ['basic', 'standard', 'premium'];
 
 const opportunityModels = {
   job: Job,
@@ -734,6 +735,39 @@ export function toOpportunityDto(record, category) {
           completedOrders,
           escrowReady: plain.escrowReady,
         });
+        const startingPrice = packages.reduce((accumulator, pkg) => {
+          if (pkg?.priceAmount == null) {
+            return accumulator;
+          }
+          const amount = Number(pkg.priceAmount);
+          if (!Number.isFinite(amount)) {
+            return accumulator;
+          }
+          if (!accumulator || amount < accumulator.amount) {
+            return { amount, currency: pkg.priceCurrency ?? 'USD' };
+          }
+          return accumulator;
+        }, null);
+        let startingPriceFormatted = null;
+        if (startingPrice) {
+          try {
+            startingPriceFormatted = new Intl.NumberFormat('en-US', {
+              style: 'currency',
+              currency: startingPrice.currency,
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 0,
+            }).format(startingPrice.amount);
+          } catch (error) {
+            startingPriceFormatted = `${startingPrice.amount}`;
+          }
+        }
+        const availableTiers = Array.from(
+          new Set(
+            packages
+              .map((pkg) => (pkg.tier ?? pkg.key ?? pkg.packageKey ?? '')?.toString().toLowerCase())
+              .filter((tier) => tier && PACKAGE_TIERS.includes(tier)),
+          ),
+        );
 
         return {
           ...base,
@@ -760,6 +794,16 @@ export function toOpportunityDto(record, category) {
           trustBadges,
           packages,
           addOns,
+          startingPrice: startingPrice
+            ? {
+                amount: startingPrice.amount,
+                currency: startingPrice.currency,
+                formatted: startingPriceFormatted,
+              }
+            : null,
+          availableTiers,
+          customRequestEnabled: plain.customRequestEnabled !== false,
+          customRequestInstructions: plain.customRequestInstructions ?? null,
           metadata: plain.metadata ?? null,
           owner:
             record.owner && typeof record.owner.get === 'function'
@@ -873,6 +917,7 @@ async function listOpportunities(category, { page, pageSize, query, filters, sor
           'id',
           'gigId',
           'packageKey',
+          'tier',
           'name',
           'description',
           'priceAmount',
@@ -880,6 +925,7 @@ async function listOpportunities(category, { page, pageSize, query, filters, sor
           'deliveryDays',
           'revisionLimit',
           'highlights',
+          'deliverables',
           'recommendedFor',
           'isPopular',
           'position',

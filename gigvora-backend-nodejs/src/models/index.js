@@ -7290,6 +7290,8 @@ export const Gig = sequelize.define(
     taxonomyTypes: { type: jsonType, allowNull: true },
     searchBoost: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     savedCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    customRequestEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    customRequestInstructions: { type: DataTypes.TEXT, allowNull: true },
   },
   { tableName: 'gigs' },
 );
@@ -7357,6 +7359,8 @@ Gig.prototype.toBuilderObject = function toBuilderObject() {
       : plain.taxonomyTypes && typeof plain.taxonomyTypes === 'object'
       ? Object.values(plain.taxonomyTypes)
       : [],
+    customRequestEnabled: Boolean(plain.customRequestEnabled),
+    customRequestInstructions: plain.customRequestInstructions ?? null,
     hero: {
       title: plain.heroTitle ?? plain.title,
       subtitle: plain.heroSubtitle ?? null,
@@ -7518,6 +7522,8 @@ Gig.prototype.toPublicObject = function toPublicObject() {
       : [],
     searchBoost: plain.searchBoost ?? 0,
     savedCount: plain.savedCount ?? 0,
+    customRequestEnabled: Boolean(plain.customRequestEnabled),
+    customRequestInstructions: plain.customRequestInstructions ?? null,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
     packages,
@@ -7548,6 +7554,7 @@ export const GigPackage = sequelize.define(
   {
     gigId: { type: DataTypes.INTEGER, allowNull: false },
     packageKey: { type: DataTypes.STRING(80), allowNull: false },
+    tier: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'basic' },
     name: { type: DataTypes.STRING(160), allowNull: false },
     description: { type: DataTypes.TEXT, allowNull: true },
     priceAmount: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
@@ -7555,6 +7562,7 @@ export const GigPackage = sequelize.define(
     deliveryDays: { type: DataTypes.INTEGER, allowNull: true },
     revisionLimit: { type: DataTypes.INTEGER, allowNull: true },
     highlights: { type: jsonType, allowNull: true },
+    deliverables: { type: jsonType, allowNull: false, defaultValue: [] },
     recommendedFor: { type: DataTypes.STRING(255), allowNull: true },
     isPopular: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     position: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
@@ -7575,10 +7583,14 @@ GigPackage.prototype.toPublicObject = function toPublicObject() {
   const highlights = Array.isArray(plain.highlights)
     ? plain.highlights.filter((item) => typeof item === 'string' && item.trim().length > 0)
     : [];
+  const deliverables = Array.isArray(plain.deliverables)
+    ? plain.deliverables.filter((item) => typeof item === 'string' && item.trim().length > 0)
+    : [];
   return {
     id: plain.id,
     gigId: plain.gigId,
     key: plain.packageKey,
+    tier: plain.tier ?? plain.packageKey,
     name: plain.name,
     description: plain.description,
     priceAmount: Number(plain.priceAmount ?? 0),
@@ -7586,6 +7598,7 @@ GigPackage.prototype.toPublicObject = function toPublicObject() {
     deliveryDays: plain.deliveryDays == null ? null : Number(plain.deliveryDays),
     revisionLimit: plain.revisionLimit == null ? null : Number(plain.revisionLimit),
     highlights,
+    deliverables,
     recommendedFor: plain.recommendedFor,
     isPopular: Boolean(plain.isPopular),
     position: plain.position ?? 0,
@@ -7601,10 +7614,16 @@ GigPackage.prototype.toBuilderObject = function toBuilderObject() {
     : plain.highlights && typeof plain.highlights === 'object'
     ? Object.values(plain.highlights)
     : [];
+  const deliverables = Array.isArray(plain.deliverables)
+    ? plain.deliverables
+    : plain.deliverables && typeof plain.deliverables === 'object'
+    ? Object.values(plain.deliverables)
+    : [];
   return {
     id: plain.id,
     gigId: plain.gigId,
     key: plain.packageKey,
+    tier: plain.tier ?? plain.packageKey,
     name: plain.name,
     description: plain.description,
     priceAmount: plain.priceAmount == null ? null : Number(plain.priceAmount),
@@ -7612,6 +7631,7 @@ GigPackage.prototype.toBuilderObject = function toBuilderObject() {
     deliveryDays: plain.deliveryDays == null ? null : Number(plain.deliveryDays),
     revisionLimit: plain.revisionLimit == null ? null : Number(plain.revisionLimit),
     highlights,
+    deliverables,
     recommendedFor: plain.recommendedFor,
     isPopular: Boolean(plain.isPopular),
     position: plain.position ?? 0,
@@ -7655,6 +7675,55 @@ GigAddOn.prototype.toPublicObject = function toPublicObject() {
     priceCurrency: plain.priceCurrency ?? 'USD',
     isActive: Boolean(plain.isActive),
     position: plain.position ?? 0,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const GigCustomRequest = sequelize.define(
+  'GigCustomRequest',
+  {
+    gigId: { type: DataTypes.INTEGER, allowNull: false },
+    requesterId: { type: DataTypes.INTEGER, allowNull: false },
+    packageTier: { type: DataTypes.STRING(40), allowNull: true },
+    title: { type: DataTypes.STRING(200), allowNull: false },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    requirements: { type: jsonType, allowNull: true },
+    budgetAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    budgetCurrency: { type: DataTypes.STRING(6), allowNull: true },
+    deliveryDays: { type: DataTypes.INTEGER, allowNull: true },
+    preferredStartDate: { type: DataTypes.DATEONLY, allowNull: true },
+    communicationChannel: { type: DataTypes.STRING(120), allowNull: true },
+    status: {
+      type: DataTypes.ENUM('pending', 'in_progress', 'responded', 'declined', 'cancelled'),
+      allowNull: false,
+      defaultValue: 'pending',
+    },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'gig_custom_requests' },
+);
+
+GigCustomRequest.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const requirements = Array.isArray(plain.requirements)
+    ? plain.requirements.filter((item) => typeof item === 'string' && item.trim().length > 0)
+    : [];
+  return {
+    id: plain.id,
+    gigId: plain.gigId,
+    requesterId: plain.requesterId,
+    packageTier: plain.packageTier ?? null,
+    title: plain.title,
+    summary: plain.summary,
+    requirements,
+    budgetAmount: plain.budgetAmount == null ? null : Number(plain.budgetAmount),
+    budgetCurrency: plain.budgetCurrency ?? null,
+    deliveryDays: plain.deliveryDays == null ? null : Number(plain.deliveryDays),
+    preferredStartDate: plain.preferredStartDate ?? null,
+    communicationChannel: plain.communicationChannel ?? null,
+    status: plain.status,
+    metadata: plain.metadata ?? null,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };
@@ -20580,12 +20649,16 @@ Gig.hasMany(GigMediaAsset, { foreignKey: 'gigId', as: 'mediaAssets', onDelete: '
 Gig.hasMany(GigCallToAction, { foreignKey: 'gigId', as: 'callToActions', onDelete: 'CASCADE' });
 Gig.hasMany(GigPreviewLayout, { foreignKey: 'gigId', as: 'previewLayouts', onDelete: 'CASCADE' });
 Gig.hasMany(GigPerformanceSnapshot, { foreignKey: 'gigId', as: 'performanceSnapshots', onDelete: 'CASCADE' });
+Gig.hasMany(GigCustomRequest, { foreignKey: 'gigId', as: 'customRequests', onDelete: 'CASCADE' });
 GigPackage.belongsTo(Gig, { foreignKey: 'gigId', as: 'gig' });
 GigAddon.belongsTo(Gig, { foreignKey: 'gigId', as: 'gig' });
 GigMediaAsset.belongsTo(Gig, { foreignKey: 'gigId', as: 'gig' });
 GigCallToAction.belongsTo(Gig, { foreignKey: 'gigId', as: 'gig' });
 GigPreviewLayout.belongsTo(Gig, { foreignKey: 'gigId', as: 'gig' });
 GigPerformanceSnapshot.belongsTo(Gig, { foreignKey: 'gigId', as: 'gig' });
+GigCustomRequest.belongsTo(Gig, { foreignKey: 'gigId', as: 'gig' });
+GigCustomRequest.belongsTo(User, { foreignKey: 'requesterId', as: 'requester' });
+User.hasMany(GigCustomRequest, { foreignKey: 'requesterId', as: 'gigCustomRequests' });
 User.hasMany(Gig, { foreignKey: 'freelancerId', as: 'gigs' });
 Gig.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
 
@@ -22856,6 +22929,7 @@ export default {
   GigPerformanceSnapshot,
   GigAddOn,
   GigAvailabilitySlot,
+  GigCustomRequest,
   GigOrder,
   GigOrderRequirement,
   GigOrderRevision,
