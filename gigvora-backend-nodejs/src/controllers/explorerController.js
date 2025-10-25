@@ -247,37 +247,6 @@ function normaliseUpdatePayload(payload) {
   return result;
 }
 
-function textMatches(record, query) {
-  if (!query) {
-    return true;
-  }
-  const haystack = [
-    record.title,
-    record.summary,
-    record.description,
-    record.organization,
-    record.location,
-    ...(record.skills ?? []),
-    ...(record.tags ?? []),
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
-  return haystack.includes(query.toLowerCase());
-}
-
-function filterByArray(recordValues, filterValues) {
-  if (!filterValues?.length) {
-    return true;
-  }
-  if (!recordValues?.length) {
-    return false;
-  }
-  return filterValues.every((value) =>
-    recordValues.some((recordValue) => `${recordValue}`.toLowerCase() === `${value}`.toLowerCase()),
-  );
-}
-
 function buildFilters(filters) {
   if (!filters) {
     return {};
@@ -299,34 +268,6 @@ function buildFilters(filters) {
   return {};
 }
 
-function recordMatchesFilters(record, filters) {
-  const { locations, countries, regions, cities, skills, statuses, employmentTypes, isRemote } = filters;
-  if (isRemote != null) {
-    if (Boolean(record.isRemote) !== Boolean(isRemote)) {
-      return false;
-    }
-  }
-  if (statuses?.length && !statuses.includes(record.status)) {
-    return false;
-  }
-  if (employmentTypes?.length && !employmentTypes.includes(record.employmentType)) {
-    return false;
-  }
-  const locationFilters = [...(locations ?? []), ...(countries ?? []), ...(regions ?? []), ...(cities ?? [])].filter(Boolean);
-  if (
-    locationFilters.length &&
-    !locationFilters.some((candidate) =>
-      `${record.location ?? ''}`.toLowerCase().includes(`${candidate}`.toLowerCase()),
-    )
-  ) {
-    return false;
-  }
-  if (!filterByArray(record.skills, skills)) {
-    return false;
-  }
-  return true;
-}
-
 const SORT_HANDLERS = {
   default: (a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0),
   newest: (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0),
@@ -337,11 +278,6 @@ const SORT_HANDLERS = {
   availability: (a, b) => (a.status === 'available' ? -1 : 1) - (b.status === 'available' ? -1 : 1),
   status: (a, b) => (a.status || '').localeCompare(b.status || ''),
 };
-
-function sortRecords(records, sort) {
-  const handler = SORT_HANDLERS[sort] ?? SORT_HANDLERS.default;
-  return [...records].sort(handler);
-}
 
 function normalisePage(value) {
   const parsed = Number.parseInt(value ?? '1', 10);
@@ -437,16 +373,16 @@ export async function listExplorer(req, res, next) {
     const page = normalisePage(req.query.page);
     const filters = buildFilters(req.query.filters);
 
-    const records = await listRecords(collection);
-    const filtered = records
-      .filter((record) => textMatches(record, query))
-      .filter((record) => recordMatchesFilters(record, filters));
-
-    const sorted = sortRecords(filtered, sort);
-    const total = sorted.length;
+    const result = await listRecords(collection, {
+      query,
+      filters,
+      sort,
+      page,
+      pageSize,
+    });
+    const items = result.items ?? [];
+    const total = typeof result.total === 'number' ? result.total : items.length;
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
-    const offset = (page - 1) * pageSize;
-    const items = sorted.slice(offset, offset + pageSize);
 
     const duration = performance.now() - start;
 
@@ -460,7 +396,7 @@ export async function listExplorer(req, res, next) {
         processingTimeMs: Math.round(duration),
         source: 'explorer-dataset',
       },
-      facets: buildFacets(filtered),
+      facets: buildFacets(result.facetSource ?? items),
       appliedFilters: filters,
       sort,
     });

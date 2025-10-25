@@ -15,6 +15,7 @@ import PageHeader from '../components/PageHeader.jsx';
 import DataStatus from '../components/DataStatus.jsx';
 import ExplorerMap from '../components/explorer/ExplorerMap.jsx';
 import ExplorerFilterDrawer from '../components/explorer/ExplorerFilterDrawer.jsx';
+import ExplorerResultCard from '../components/explorer/ExplorerResultCard.jsx';
 import SavedSearchList from '../components/explorer/SavedSearchList.jsx';
 import ExplorerManagementPanel from '../components/explorer/ExplorerManagementPanel.jsx';
 import UserAvatar from '../components/UserAvatar.jsx';
@@ -576,6 +577,49 @@ export default function SearchPage() {
       }));
     });
   }, [resolveSnapshotItems]);
+
+  useEffect(() => {
+    if (!explorerAccessEnabled || !snapshotState.data) {
+      return;
+    }
+
+    CATEGORIES.forEach((category) => {
+      const snapshot = resolveSnapshotItems(category.id);
+      if (!snapshot?.items?.length) {
+        return;
+      }
+      const cacheKey = buildCacheKey({
+        category: category.id,
+        query: '',
+        page: 1,
+        sort: SORT_OPTIONS[category.id]?.[0]?.id ?? 'default',
+        filters: {},
+        viewport: null,
+      });
+      const existing = apiClient.readCache(cacheKey);
+      if (existing) {
+        return;
+      }
+
+      const items = snapshot.items.slice(0, PAGE_SIZE);
+      const total = snapshot.total ?? items.length;
+      const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+      apiClient.writeCache(
+        cacheKey,
+        {
+          items,
+          total,
+          totalPages,
+          page: 1,
+          pageSize: PAGE_SIZE,
+          facets: snapshot.facets ?? {},
+          metrics: { source: 'snapshot', processingTimeMs: 0 },
+        },
+        60_000,
+      );
+    });
+  }, [explorerAccessEnabled, resolveSnapshotItems, snapshotState.data]);
 
   const handleCategoryChange = useCallback((categoryId) => {
     analytics.track('web_explorer_category_selected', { category: categoryId }, { source: 'web_app' });
@@ -1229,7 +1273,7 @@ export default function SearchPage() {
 
               {!searchState.loading && !results.length ? (
                 <div className="mt-8 rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-10 text-center text-sm text-slate-500">
-                  No results match your filters yet. Try adjusting the filters or expanding the map view.
+                  No results match these filters yet. Adjust the filters or pan the map to broaden your search.
                 </div>
               ) : null}
 
@@ -1238,86 +1282,39 @@ export default function SearchPage() {
                   <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
                     <ExplorerMap items={results} onViewportChange={handleViewportChange} className="h-[520px]" />
                     <div className="max-h-[520px] space-y-4 overflow-y-auto pr-1">
-                      {results.map((item) => (
-                        <article
-                          key={`${item.category}-${item.id}`}
-                          className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-accent"
-                        >
-                          <span className="text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-accentDark">
-                            {getCategoryById(item.category).label}
-                          </span>
-                          <h2 className="mt-2 text-base font-semibold text-slate-900">{item.title}</h2>
-                          <p className="mt-1 line-clamp-3 text-xs text-slate-500">{item.description}</p>
-                          <div className="mt-3 flex flex-wrap gap-2 text-[0.65rem] text-slate-500">
-                            {toResultMeta(item).map((meta) => (
-                              <span key={meta} className="rounded-full border border-slate-200 px-3 py-1">
-                                {meta}
-                              </span>
-                            ))}
-                          </div>
-                          <div className="mt-4 flex items-center justify-between text-[0.6rem] text-slate-400">
-                            <span>Updated {formatRelativeTime(item.updatedAt)}</span>
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={() => handleResultClick(item)}
-                                className="text-slate-400 underline-offset-2 transition hover:text-accent hover:underline"
-                              >
-                                Preview
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenRecordPage(item)}
-                                className="text-accent hover:text-accentDark"
-                              >
-                                Open profile →
-                              </button>
-                            </div>
-                          </div>
-                        </article>
-                      ))}
+                      {results.map((item) => {
+                        const category = getCategoryById(item.category);
+                        return (
+                          <ExplorerResultCard
+                            key={`${item.category}-${item.id}`}
+                            item={item}
+                            categoryLabel={category.label}
+                            metaTokens={toResultMeta(item)}
+                            onPreview={handleResultClick}
+                            onOpen={handleOpenRecordPage}
+                            previewLabel="Preview"
+                            openLabel="Open profile →"
+                            variant="compact"
+                          />
+                        );
+                      })}
                     </div>
                   </div>
                 ) : (
                   <div className="mt-8 grid gap-5 lg:grid-cols-2">
-                    {results.map((item) => (
-                      <article
-                        key={`${item.category}-${item.id}`}
-                        className="flex h-full flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-accent hover:shadow-soft"
-                      >
-                        <span className="text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-accentDark">
-                          {getCategoryById(item.category).label}
-                        </span>
-                        <h2 className="mt-3 text-lg font-semibold text-slate-900">{item.title}</h2>
-                        <p className="mt-2 flex-1 text-sm text-slate-600">{item.description}</p>
-                        <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
-                          {toResultMeta(item).map((meta) => (
-                            <span key={meta} className="rounded-full border border-slate-200 px-3 py-1">
-                              {meta}
-                            </span>
-                          ))}
-                        </div>
-                        <div className="mt-4 flex items-center justify-between text-xs text-slate-400">
-                          <span>Updated {formatRelativeTime(item.updatedAt)}</span>
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handleResultClick(item)}
-                              className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
-                            >
-                              Quick preview
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenRecordPage(item)}
-                              className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-xs font-semibold text-white shadow-soft transition hover:bg-accentDark"
-                            >
-                              Open profile <span aria-hidden="true">→</span>
-                            </button>
-                          </div>
-                        </div>
-                      </article>
-                    ))}
+                    {results.map((item) => {
+                      const category = getCategoryById(item.category);
+                      return (
+                        <ExplorerResultCard
+                          key={`${item.category}-${item.id}`}
+                          item={item}
+                          categoryLabel={category.label}
+                          metaTokens={toResultMeta(item)}
+                          onPreview={handleResultClick}
+                          onOpen={handleOpenRecordPage}
+                        />
+                      );
+                    })}
                   </div>
                 )
               ) : null}

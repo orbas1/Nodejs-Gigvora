@@ -1,4 +1,5 @@
 import { jest } from '@jest/globals';
+import { Op } from 'sequelize';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -147,122 +148,250 @@ describe('companyLaunchpadService', () => {
 });
 
 describe('explorerStore', () => {
-  it('initialises a missing dataset and returns empty collections', async () => {
-    const pathExists = jest.fn().mockResolvedValue(false);
-    const ensureFile = jest.fn().mockResolvedValue();
-    const writeJson = jest.fn().mockResolvedValue();
-    const readJson = jest.fn();
-
-    jest.unstable_mockModule(resolveModule('fs-extra'), () => ({
-      default: { pathExists, ensureFile, writeJson, readJson },
-      pathExists,
-      ensureFile,
-      writeJson,
-      readJson,
-    }));
-
-    jest.unstable_mockModule(resolveModule('../../utils/explorerCollections.js'), () => ({
-      CATEGORY_COLLECTION_MAP: { marketing: 'marketing' },
-      getExplorerCollections: () => ['marketing', 'sales'],
-      inferExplorerCategoryFromCollection: (collection) => collection,
-    }));
-
-    const { listRecords } = await import('../explorerStore.js');
-
-    const marketing = await listRecords('marketing');
-    expect(marketing).toEqual([]);
-    expect(pathExists).toHaveBeenCalled();
-    expect(ensureFile).toHaveBeenCalled();
-    expect(writeJson).toHaveBeenCalledWith(expect.any(String), expect.any(Object), { spaces: 2 });
+  afterEach(() => {
+    jest.resetModules();
   });
 
-  it('creates and updates records with category inference', async () => {
-    const dataset = { marketing: [], sales: [] };
-    const pathExists = jest.fn().mockResolvedValue(true);
-    const ensureFile = jest.fn();
-    const writeJson = jest.fn().mockImplementation(async (_, data) => {
-      Object.assign(dataset, data);
-    });
-    const readJson = jest.fn().mockResolvedValue(dataset);
+  it('lists, creates, updates, fetches, and deletes explorer records', async () => {
+    const dataset = [
+      {
+        id: 'rec-1',
+        collection: 'projects',
+        category: 'project',
+        title: 'Existing project',
+        summary: 'Summary',
+        description: 'Description',
+        status: 'active',
+        updatedAt: new Date().toISOString(),
+      },
+    ];
 
-    jest.unstable_mockModule(resolveModule('fs-extra'), () => ({
-      default: { pathExists, ensureFile, writeJson, readJson },
-      pathExists,
-      ensureFile,
-      writeJson,
-      readJson,
+    const findAndCountAll = jest.fn().mockResolvedValue({
+      rows: dataset.map((record) => ({ toPublicObject: () => record })),
+      count: dataset.length,
+    });
+    const findAll = jest.fn().mockResolvedValue(dataset.map((record) => ({ toPublicObject: () => record })));
+    const create = jest.fn().mockImplementation(async (payload) => {
+      const record = { ...payload };
+      dataset.push(record);
+      return { toPublicObject: () => record };
+    });
+    const findOne = jest.fn().mockImplementation(async ({ where }) => {
+      const record = dataset.find((entry) => entry.id === where.id && entry.collection === where.collection);
+      if (!record) {
+        return null;
+      }
+      return Object.assign(record, {
+        toPublicObject: () => record,
+        set: (attrs) => Object.assign(record, attrs),
+        save: jest.fn().mockResolvedValue(record),
+      });
+    });
+    const destroy = jest.fn().mockImplementation(async ({ where }) => {
+      const index = dataset.findIndex((entry) => entry.id === where.id && entry.collection === where.collection);
+      if (index === -1) {
+        return 0;
+      }
+      dataset.splice(index, 1);
+      return 1;
+    });
+
+    jest.unstable_mockModule(resolveModule('../../models/index.js'), () => ({
+      ExplorerRecord: {
+        findAndCountAll,
+        findAll,
+        create,
+        findOne,
+        destroy,
+        sequelize: { getDialect: () => 'postgres' },
+      },
+      ExplorerInteraction: {
+        findAll: jest.fn(),
+        findOne: jest.fn(),
+        create: jest.fn(),
+        destroy: jest.fn(),
+      },
     }));
 
     jest.unstable_mockModule(resolveModule('../../utils/explorerCollections.js'), () => ({
-      CATEGORY_COLLECTION_MAP: { marketing: 'marketing' },
-      getExplorerCollections: () => ['marketing', 'sales'],
-      inferExplorerCategoryFromCollection: (collection) => `${collection}-fallback`,
+      getExplorerCollections: () => ['projects'],
+      inferExplorerCategoryFromCollection: () => 'project',
     }));
 
-    const { createRecord, updateRecord, getRecord } = await import('../explorerStore.js');
+    const { listRecords, createRecord, updateRecord, getRecord, deleteRecord } = await import('../explorerStore.js');
 
-    const created = await createRecord('marketing', { title: 'Launch kit' });
-    expect(created.id).toBeDefined();
-    expect(created.category).toBe('marketing');
+    const filters = {
+      statuses: ['active'],
+      employmentTypes: ['Fixed project'],
+      employmentCategories: ['project'],
+      durationCategories: ['short_term', 'long_term'],
+      budgetCurrencies: ['gbp'],
+      organizations: ['Gigvora Studios'],
+      tracks: ['Product'],
+      locations: ['London'],
+      skills: ['React'],
+      tags: ['Realtime'],
+      updatedWithin: '7d',
+    };
 
-    const updated = await updateRecord('marketing', created.id, { title: 'Launch kit v2' });
-    expect(updated.title).toBe('Launch kit v2');
+    const listed = await listRecords('projects', { page: 1, pageSize: 10, query: 'marketplace', filters });
+    expect(listed.items).toHaveLength(1);
+    expect(listed.total).toBe(1);
+    expect(findAndCountAll).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ collection: 'projects' }) }),
+    );
 
-    const fetched = await getRecord('marketing', created.id);
-    expect(fetched.title).toBe('Launch kit v2');
-    expect(writeJson).toHaveBeenCalledTimes(2);
+    const where = findAndCountAll.mock.calls[0][0].where;
+    expect(where.collection).toBe('projects');
+    const andConditions = where[Op.and];
+    expect(Array.isArray(andConditions)).toBe(true);
+
+    const statusCondition = andConditions.find((condition) => condition.status);
+    expect(statusCondition.status[Op.in]).toContain('active');
+
+    const employmentTypeCondition = andConditions.find((condition) => condition.employmentType);
+    expect(employmentTypeCondition.employmentType[Op.in]).toContain('Fixed project');
+
+    const organizationCondition = andConditions.find((condition) => condition.organization);
+    expect(organizationCondition.organization[Op.in]).toContain('Gigvora Studios');
+
+    const trackCondition = andConditions.find((condition) => condition.track);
+    expect(trackCondition.track[Op.in]).toContain('Product');
+
+    const priceCurrencyCondition = andConditions.find((condition) => condition.priceCurrency);
+    expect(priceCurrencyCondition.priceCurrency[Op.in]).toContain('GBP');
+
+    const skillsCondition = andConditions.find((condition) => condition.skills);
+    expect(skillsCondition.skills[Op.contains]).toContain('React');
+
+    const tagsCondition = andConditions.find((condition) => condition.tags);
+    expect(tagsCondition.tags[Op.contains]).toContain('Realtime');
+
+    const updatedCondition = andConditions.find((condition) => condition.updatedAt);
+    expect(updatedCondition.updatedAt[Op.gte]).toBeInstanceOf(Date);
+
+    const orConditions = andConditions.filter((condition) =>
+      Object.getOwnPropertySymbols(condition).includes(Op.or),
+    );
+    expect(
+      orConditions.some((condition) =>
+        condition[Op.or].some((entry) => entry.employmentType || entry.category || entry.track),
+      ),
+    ).toBe(true);
+    expect(orConditions.some((condition) => condition[Op.or].some((entry) => entry.duration))).toBe(true);
+
+    const created = await createRecord('projects', {
+      title: 'New project',
+      summary: 'New summary',
+      description: 'New description',
+      status: 'draft',
+    });
+    expect(created.title).toBe('New project');
+    expect(create).toHaveBeenCalled();
+
+    const updated = await updateRecord('projects', 'rec-1', { title: 'Existing project updated' });
+    expect(updated.title).toBe('Existing project updated');
+
+    const fetched = await getRecord('projects', 'rec-1');
+    expect(fetched.title).toBe('Existing project updated');
+
+    const removed = await deleteRecord('projects', 'rec-1');
+    expect(removed).toBe(true);
+    expect(destroy).toHaveBeenCalledWith({ where: { id: 'rec-1', collection: 'projects' } });
+
+    expect(findAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ collection: 'projects' }),
+        limit: 5000,
+      }),
+    );
   });
 });
 
 describe('explorerEngagementStore', () => {
-  it('records and retrieves interactions per collection and record', async () => {
-    const dataset = { marketing: {}, sales: {} };
-    const pathExists = jest.fn().mockResolvedValue(true);
-    const ensureFile = jest.fn();
-    const writeJson = jest.fn().mockImplementation(async (_, data) => {
-      Object.assign(dataset, data);
-    });
-    const readJson = jest.fn().mockResolvedValue(dataset);
+  afterEach(() => {
+    jest.resetModules();
+  });
 
-    jest.unstable_mockModule(resolveModule('fs-extra'), () => ({
-      default: { pathExists, ensureFile, writeJson, readJson },
-      pathExists,
-      ensureFile,
-      writeJson,
-      readJson,
+  it('creates, lists, updates, and deletes interactions', async () => {
+    const interactions = [];
+    const findAll = jest.fn().mockImplementation(async ({ where }) =>
+      interactions
+        .filter((entry) => entry.collection === where.collection && entry.recordId === where.recordId)
+        .map((entry) => ({ toPublicObject: () => entry })),
+    );
+    const findOne = jest.fn().mockImplementation(async ({ where }) => {
+      const entry = interactions.find(
+        (item) => item.collection === where.collection && item.recordId === where.recordId && item.id === where.id,
+      );
+      if (!entry) {
+        return null;
+      }
+      return Object.assign(entry, {
+        toPublicObject: () => entry,
+        save: jest.fn().mockResolvedValue(entry),
+      });
+    });
+    const create = jest.fn().mockImplementation(async (payload) => {
+      const entry = { ...payload };
+      interactions.push(entry);
+      return { toPublicObject: () => entry };
+    });
+    const destroy = jest.fn().mockImplementation(async ({ where }) => {
+      const index = interactions.findIndex(
+        (item) => item.collection === where.collection && item.recordId === where.recordId && item.id === where.id,
+      );
+      if (index === -1) {
+        return 0;
+      }
+      interactions.splice(index, 1);
+      return 1;
+    });
+
+    jest.unstable_mockModule(resolveModule('../../models/index.js'), () => ({
+      ExplorerRecord: {
+        findAndCountAll: jest.fn(),
+        findAll: jest.fn(),
+        create: jest.fn(),
+        findOne: jest.fn(),
+        destroy: jest.fn(),
+        sequelize: { getDialect: () => 'postgres' },
+      },
+      ExplorerInteraction: {
+        findAll,
+        findOne,
+        create,
+        destroy,
+      },
     }));
 
     jest.unstable_mockModule(resolveModule('../../utils/explorerCollections.js'), () => ({
-      getExplorerCollections: () => ['marketing', 'sales'],
+      getExplorerCollections: () => ['projects'],
+      inferExplorerCategoryFromCollection: () => 'project',
     }));
 
-    const {
-      createInteraction,
-      listInteractions,
-      updateInteraction,
-      deleteInteraction,
-    } = await import('../explorerEngagementStore.js');
+    const { createInteraction, listInteractions, updateInteraction, deleteInteraction } = await import(
+      '../explorerEngagementStore.js'
+    );
 
-    const created = await createInteraction('marketing', 'record-1', {
-      type: 'view',
-      metadata: { source: 'email' },
+    const created = await createInteraction('projects', 'rec-55', {
+      type: 'application',
+      name: 'Jess',
+      email: 'jess@example.com',
+      message: 'Interested in collaborating',
     });
+    expect(created.type).toBe('application');
+    expect(create).toHaveBeenCalled();
 
-    expect(created.id).toBeDefined();
-    expect(created.categoryCollection).toBe('marketing');
+    const listed = await listInteractions('projects', 'rec-55');
+    expect(listed).toHaveLength(1);
 
-    const updated = await updateInteraction('marketing', 'record-1', created.id, {
-      status: 'engaged',
-    });
-    expect(updated.status).toBe('engaged');
+    const updated = await updateInteraction('projects', 'rec-55', created.id, { status: 'in_review' });
+    expect(updated.status).toBe('in_review');
 
-    const interactions = await listInteractions('marketing', 'record-1');
-    expect(interactions).toHaveLength(1);
-    expect(interactions[0].status).toBe('engaged');
-
-    const deleted = await deleteInteraction('marketing', 'record-1', created.id);
-    expect(deleted).toBe(true);
-    expect(writeJson).toHaveBeenCalledTimes(3);
+    const removed = await deleteInteraction('projects', 'rec-55', created.id);
+    expect(removed).toBe(true);
+    expect(destroy).toHaveBeenCalledWith({ where: { collection: 'projects', recordId: 'rec-55', id: created.id } });
   });
 });
 
@@ -839,10 +968,12 @@ describe('creationStudioService', () => {
         findAll: jest.fn().mockResolvedValue([record]),
       },
       CreationStudioStep: {},
+      CreationStudioCollaborator: {},
       CREATION_STUDIO_ITEM_TYPES: ['campaign', 'ad'],
       CREATION_STUDIO_ITEM_STATUSES: ['draft', 'published', 'archived'],
       CREATION_STUDIO_VISIBILITIES: ['private', 'public'],
       CREATION_STUDIO_STEPS: [],
+      CREATION_STUDIO_COLLABORATOR_STATUSES: ['invited', 'active', 'removed'],
     };
 
     jest.unstable_mockModule(
@@ -1057,8 +1188,11 @@ describe('discoveryService', () => {
       Project: {},
       ExperienceLaunchpad: {},
       Volunteering: {},
+      MentorProfile: {},
       OpportunityTaxonomyAssignment: { findAll: jest.fn() },
       OpportunityTaxonomy: { findAll: jest.fn() },
+      MENTOR_AVAILABILITY_STATUSES: ['available', 'limited', 'booked'],
+      MENTOR_PRICE_TIERS: ['standard', 'premium'],
     };
 
     jest.unstable_mockModule(resolveModule('../../models/index.js'), withDefaultExport(() => discoveryModels));
@@ -1076,7 +1210,9 @@ describe('discoveryService', () => {
       isRemoteRole: () => true,
     }));
 
-    const { toOpportunityDto } = await import('../discoveryService.js');
+    const discoveryModule = await import('../discoveryService.js');
+    const toOpportunityDto = discoveryModule.toOpportunityDto ?? discoveryModule.default?.toOpportunityDto;
+    expect(typeof toOpportunityDto).toBe('function');
 
     const baseRecord = {
       id: 11,

@@ -88,6 +88,9 @@ const QUICK_REPLY_SUGGESTIONS = [
 ];
 const MAX_CONTENT_LENGTH = 2200;
 const FEED_PAGE_SIZE = 12;
+const FEED_VIRTUAL_CHUNK_SIZE = 5;
+const FEED_VIRTUAL_THRESHOLD = 14;
+const DEFAULT_CHUNK_ESTIMATE = 420;
 const OPPORTUNITY_POST_TYPES = new Set(['job', 'gig', 'project', 'launchpad', 'volunteering', 'mentorship']);
 
 export function resolveAuthor(post) {
@@ -766,6 +769,105 @@ function MediaAttachmentGrid({ attachments }) {
   );
 }
 
+function VirtualFeedChunk({
+  chunk,
+  chunkIndex,
+  renderPost,
+  estimatedHeight,
+  onHeightChange,
+  forceVisible = false,
+}) {
+  const wrapperRef = useRef(null);
+  const [inView, setInView] = useState(forceVisible);
+  const lastReportedHeightRef = useRef(estimatedHeight ?? DEFAULT_CHUNK_ESTIMATE);
+
+  useEffect(() => {
+    if (forceVisible) {
+      setInView(true);
+      return undefined;
+    }
+    if (typeof window === 'undefined') {
+      setInView(true);
+      return undefined;
+    }
+    const element = wrapperRef.current;
+    if (!element) {
+      return undefined;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.target === element) {
+            setInView(entry.isIntersecting);
+          }
+        });
+      },
+      { rootMargin: '600px 0px' },
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [forceVisible]);
+
+  useEffect(() => {
+    const element = wrapperRef.current;
+    if (!element) {
+      return undefined;
+    }
+    if (!inView && !forceVisible) {
+      if (estimatedHeight && lastReportedHeightRef.current !== estimatedHeight) {
+        lastReportedHeightRef.current = estimatedHeight;
+      }
+      onHeightChange(chunkIndex, estimatedHeight ?? chunk.length * DEFAULT_CHUNK_ESTIMATE);
+      return undefined;
+    }
+
+    const reportHeight = () => {
+      if (!element) {
+        return;
+      }
+      const height = element.offsetHeight || estimatedHeight || chunk.length * DEFAULT_CHUNK_ESTIMATE;
+      if (!Number.isFinite(height)) {
+        return;
+      }
+      if (Math.abs((lastReportedHeightRef.current ?? 0) - height) > 4) {
+        lastReportedHeightRef.current = height;
+        onHeightChange(chunkIndex, height);
+      }
+    };
+
+    reportHeight();
+
+    if (typeof window === 'undefined' || typeof ResizeObserver === 'undefined') {
+      return undefined;
+    }
+
+    const resizeObserver = new ResizeObserver(reportHeight);
+    resizeObserver.observe(element);
+    return () => resizeObserver.disconnect();
+  }, [chunk.length, chunkIndex, estimatedHeight, forceVisible, inView, onHeightChange]);
+
+  const shouldRender = forceVisible || inView;
+  const placeholderHeight = estimatedHeight ?? chunk.length * DEFAULT_CHUNK_ESTIMATE;
+
+  return (
+    <div
+      ref={wrapperRef}
+      className={shouldRender ? 'space-y-6' : 'rounded-3xl border border-slate-200/60 bg-white/60'}
+      style={shouldRender ? undefined : { minHeight: placeholderHeight }}
+      data-chunk-index={chunkIndex}
+      aria-busy={!shouldRender}
+    >
+      {shouldRender ? (
+        chunk.map((post) => renderPost(post))
+      ) : (
+        <div className="flex h-full min-h-[inherit] items-center justify-center px-6 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-400">
+          Feed updates load as you approach
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FeedPostCard({
   post,
   onShare,
@@ -1245,7 +1347,7 @@ function FeedPostCard({
             ))}
             {!commentsLoading && !comments.length ? (
               <p className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-xs text-slate-500">
-                Be the first to start the conversation.
+                Spark the conversation with the first reply.
               </p>
             ) : null}
           </div>
@@ -1445,12 +1547,12 @@ function FeedInsightsRail({ liveMoments = [], connectionSuggestions = [], groupS
                   <span>{connection.location}</span>
                   <span>{connection.mutualConnections} mutual</span>
                 </div>
-                <button
-                  type="button"
+                <Link
+                  to={`/connections?suggested=${encodeURIComponent(connection.id)}`}
                   className="mt-3 inline-flex items-center gap-2 rounded-full border border-accent/30 px-4 py-2 text-xs font-semibold text-accent transition hover:border-accent hover:bg-accentSoft"
                 >
-                  Connect
-                </button>
+                  Start introduction
+                </Link>
               </li>
             ))}
           </ul>
@@ -1473,12 +1575,12 @@ function FeedInsightsRail({ liveMoments = [], connectionSuggestions = [], groupS
                   <span>{group.members} members</span>
                   <span>{group.focus.slice(0, 2).join(' • ')}</span>
                 </div>
-                <button
-                  type="button"
+                <Link
+                  to={`/groups/${encodeURIComponent(group.id)}?ref=feed-suggestion`}
                   className="mt-3 inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
                 >
                   Request invite
-                </button>
+                </Link>
               </li>
             ))}
           </ul>
@@ -1582,6 +1684,73 @@ export default function FeedPage() {
     });
     return deduped;
   }, [localPosts, remotePosts]);
+
+  const virtualizationEnabled = posts.length > FEED_VIRTUAL_THRESHOLD;
+
+  const feedChunks = useMemo(() => {
+    if (!posts.length) {
+      return [];
+    }
+    const chunkSize = virtualizationEnabled ? FEED_VIRTUAL_CHUNK_SIZE : posts.length;
+    const chunks = [];
+    for (let index = 0; index < posts.length; index += chunkSize) {
+      chunks.push({
+        startIndex: index,
+        posts: posts.slice(index, index + chunkSize),
+      });
+    }
+    return chunks;
+  }, [posts, virtualizationEnabled]);
+
+  const [chunkHeights, setChunkHeights] = useState({});
+
+  useEffect(() => {
+    if (!virtualizationEnabled) {
+      setChunkHeights({});
+      return;
+    }
+    setChunkHeights((previous) => {
+      const next = {};
+      feedChunks.forEach((_, index) => {
+        if (previous[index]) {
+          next[index] = previous[index];
+        }
+      });
+      return next;
+    });
+  }, [feedChunks, virtualizationEnabled]);
+
+  const updateChunkHeight = useCallback(
+    (index, height) => {
+      if (!virtualizationEnabled || !Number.isFinite(height)) {
+        return;
+      }
+      setChunkHeights((previous) => {
+        const current = previous[index];
+        if (current && Math.abs(current - height) < 4) {
+          return previous;
+        }
+        return { ...previous, [index]: height };
+      });
+    },
+    [virtualizationEnabled],
+  );
+
+  const forcedChunkIndices = useMemo(() => {
+    if (!virtualizationEnabled) {
+      return new Set();
+    }
+    const forced = new Set([0]);
+    if (editingPostId) {
+      const editingIndex = feedChunks.findIndex((chunk) =>
+        chunk.posts.some((post) => post.id === editingPostId),
+      );
+      if (editingIndex >= 0) {
+        forced.add(editingIndex);
+      }
+    }
+    return forced;
+  }, [virtualizationEnabled, feedChunks, editingPostId]);
 
   const fetchNextPage = useCallback(async () => {
     if (loadingMore || !pagination.hasMore) {
@@ -2040,6 +2209,45 @@ export default function FeedPage() {
     </div>
   );
 
+  const renderFeedPost = useCallback(
+    (post) => (
+      <FeedPostCard
+        key={post.id}
+        post={post}
+        onShare={handleShareClick}
+        canManage={canManagePost(post)}
+        viewer={session}
+        onEditStart={handleEditStart}
+        onEditCancel={handleEditCancel}
+        onDelete={handleDeletePost}
+        isEditing={editingPostId === post.id}
+        editDraft={editingPostId === post.id ? editingDraft : DEFAULT_EDIT_DRAFT}
+        onEditDraftChange={handleEditDraftChange}
+        onEditSubmit={handleEditSubmit}
+        editSaving={editSaving}
+        editError={editingPostId === post.id ? editingError : null}
+        deleteLoading={removingPostId === post.id}
+        onToggleReaction={handleToggleReaction}
+      />
+    ),
+    [
+      canManagePost,
+      editSaving,
+      editingDraft,
+      editingError,
+      editingPostId,
+      handleDeletePost,
+      handleEditCancel,
+      handleEditDraftChange,
+      handleEditStart,
+      handleEditSubmit,
+      handleShareClick,
+      handleToggleReaction,
+      removingPostId,
+      session,
+    ],
+  );
+
   const renderPosts = () => {
     if (!posts.length) {
       return (
@@ -2049,28 +2257,65 @@ export default function FeedPage() {
       );
     }
 
+    if (!virtualizationEnabled) {
+      return (
+        <div className="space-y-6">
+          {posts.map((post) => renderFeedPost(post))}
+          <div ref={loadMoreRef} aria-hidden="true" />
+          {loadingMore ? (
+            <div className="space-y-4">
+              {Array.from({ length: 2 }).map((_, index) => (
+                <article key={`loading-${index}`} className="animate-pulse rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="flex items-center justify-between text-xs text-slate-300">
+                    <span className="h-3 w-32 rounded bg-slate-200" />
+                    <span className="h-3 w-16 rounded bg-slate-200" />
+                  </div>
+                  <div className="mt-4 h-4 w-48 rounded bg-slate-200" />
+                  <div className="mt-3 space-y-2">
+                    <div className="h-3 rounded bg-slate-200" />
+                    <div className="h-3 w-3/4 rounded bg-slate-200" />
+                    <div className="h-3 w-2/3 rounded bg-slate-200" />
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : null}
+          {loadMoreError ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
+              {loadMoreError?.message || 'We could not load more updates. Try again soon.'}
+              <button
+                type="button"
+                onClick={fetchNextPage}
+                className="ml-3 inline-flex items-center gap-2 rounded-full border border-amber-200 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-amber-700 transition hover:border-amber-300 hover:text-amber-600"
+              >
+                Retry
+              </button>
+            </div>
+          ) : null}
+          {!pagination.hasMore && posts.length ? (
+            <p className="text-center text-[0.7rem] font-semibold uppercase tracking-wide text-slate-400">
+              You’re all caught up.
+            </p>
+          ) : null}
+        </div>
+      );
+    }
+
+    const virtualisedChunks = feedChunks.map((chunk, chunkIndex) => (
+      <VirtualFeedChunk
+        key={`feed-chunk-${chunk.startIndex}`}
+        chunk={chunk.posts}
+        chunkIndex={chunkIndex}
+        renderPost={renderFeedPost}
+        estimatedHeight={chunkHeights[chunkIndex] ?? chunk.posts.length * DEFAULT_CHUNK_ESTIMATE}
+        onHeightChange={updateChunkHeight}
+        forceVisible={forcedChunkIndices.has(chunkIndex)}
+      />
+    ));
+
     return (
       <div className="space-y-6">
-        {posts.map((post) => (
-          <FeedPostCard
-            key={post.id}
-            post={post}
-            onShare={handleShareClick}
-            canManage={canManagePost(post)}
-            viewer={session}
-            onEditStart={handleEditStart}
-            onEditCancel={handleEditCancel}
-            onDelete={handleDeletePost}
-            isEditing={editingPostId === post.id}
-            editDraft={editingPostId === post.id ? editingDraft : DEFAULT_EDIT_DRAFT}
-            onEditDraftChange={handleEditDraftChange}
-            onEditSubmit={handleEditSubmit}
-            editSaving={editSaving}
-            editError={editingPostId === post.id ? editingError : null}
-            deleteLoading={removingPostId === post.id}
-            onToggleReaction={handleToggleReaction}
-          />
-        ))}
+        {virtualisedChunks}
         <div ref={loadMoreRef} aria-hidden="true" />
         {loadingMore ? (
           <div className="space-y-4">
