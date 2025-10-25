@@ -1,11 +1,41 @@
-import { Fragment } from 'react';
+import { Fragment, useCallback, useRef } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
 export default function WorkspaceModuleDialog({ open, onClose, title, subtitle, children, footer }) {
+  const closingRef = useRef(false);
+
+  const scheduleReset = useCallback(() => {
+    const reset = () => {
+      closingRef.current = false;
+    };
+    if (typeof queueMicrotask === 'function') {
+      queueMicrotask(reset);
+    } else {
+      Promise.resolve().then(reset);
+    }
+  }, []);
+
+  const handleClose = useCallback(
+    (...args) => {
+      if (closingRef.current) {
+        return;
+      }
+      closingRef.current = true;
+      try {
+        if (typeof onClose === 'function') {
+          onClose(...args);
+        }
+      } finally {
+        scheduleReset();
+      }
+    },
+    [onClose, scheduleReset],
+  );
+
   return (
     <Transition.Root show={open} as={Fragment}>
-      <Dialog as="div" className="relative z-50" onClose={onClose}>
+      <Dialog as="div" className="relative z-50" onClose={handleClose}>
         <Transition.Child
           as={Fragment}
           enter="ease-out duration-200"
@@ -37,7 +67,7 @@ export default function WorkspaceModuleDialog({ open, onClose, title, subtitle, 
                   </div>
                   <button
                     type="button"
-                    onClick={onClose}
+                    onClick={handleClose}
                     className="ml-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2"
                   >
                     <span className="sr-only">Close</span>

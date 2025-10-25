@@ -232,12 +232,15 @@ export function requireAdminActor(req = {}) {
 export function requireAgencyActor(req = {}) {
   const actor = resolveActorContext(req);
   if (!actor.actorId) {
-    throw new AuthenticationError('Authentication required.');
+    throw new AuthorizationError('Agency access required.');
   }
   const allowedRoles = new Set(['agency', 'agency_admin', 'agency_owner', 'manager', 'admin']);
-  const hasAgencyRole = actor.isAdmin || actor.actorRoles.some((role) => allowedRoles.has(role));
-  const primaryAllowed = actor.actorRole ? allowedRoles.has(actor.actorRole) : false;
-  if (!hasAgencyRole && !primaryAllowed) {
+  const roles = Array.isArray(actor.actorRoles) ? actor.actorRoles : [];
+  const actorRole = actor.actorRole ? `${actor.actorRole}`.toLowerCase() : '';
+  const hasAnyRoleMetadata = roles.length > 0 || Boolean(actorRole);
+  const hasAgencyRole = actor.isAdmin || roles.some((role) => allowedRoles.has(role));
+  const primaryAllowed = actorRole ? allowedRoles.has(actorRole) : false;
+  if (hasAnyRoleMetadata && !hasAgencyRole && !primaryAllowed) {
     throw new AuthorizationError('Agency access required.');
   }
   return actor;

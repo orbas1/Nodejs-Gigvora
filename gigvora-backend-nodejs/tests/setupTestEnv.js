@@ -4,6 +4,10 @@ import { PlatformSetting } from '../src/models/platformSetting.js';
 import { markDependencyHealthy } from '../src/lifecycle/runtimeHealth.js';
 import { appCache } from '../src/utils/cache.js';
 
+if (!global.__mockSequelizeModels || typeof global.__mockSequelizeModels !== 'object') {
+  global.__mockSequelizeModels = {};
+}
+
 if (typeof process.env.SKIP_SEQUELIZE_BOOTSTRAP === 'undefined') {
   process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'false';
 }

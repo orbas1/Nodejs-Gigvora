@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import WorkspaceDialog from '../WorkspaceDialog.jsx';
 
@@ -35,6 +35,34 @@ export default function ProjectTasksTab({ project, actions, canManage }) {
   const [feedback, setFeedback] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const createFormPrefix = useId();
+  const editFormPrefix = useId();
+
+  const createFieldIds = useMemo(
+    () => ({
+      title: `${createFormPrefix}-title`,
+      description: `${createFormPrefix}-description`,
+      status: `${createFormPrefix}-status`,
+      priority: `${createFormPrefix}-priority`,
+      startDate: `${createFormPrefix}-start`,
+      dueDate: `${createFormPrefix}-due`,
+      estimatedHours: `${createFormPrefix}-estimated-hours`,
+    }),
+    [createFormPrefix],
+  );
+
+  const editFieldIds = useMemo(
+    () => ({
+      title: `${editFormPrefix}-title`,
+      description: `${editFormPrefix}-description`,
+      status: `${editFormPrefix}-status`,
+      priority: `${editFormPrefix}-priority`,
+      startDate: `${editFormPrefix}-start`,
+      dueDate: `${editFormPrefix}-due`,
+      estimatedHours: `${editFormPrefix}-estimated-hours`,
+    }),
+    [editFormPrefix],
+  );
 
   const stats = useMemo(() => {
     return STATUS_OPTIONS.map((option) => ({
@@ -239,9 +267,12 @@ export default function ProjectTasksTab({ project, actions, canManage }) {
         size="lg"
       >
         <form onSubmit={handleCreate} className="space-y-4">
-          <label className="flex flex-col gap-2 text-sm text-slate-700">
-            Title
+          <div className="flex flex-col gap-2 text-sm text-slate-700">
+            <label htmlFor={createFieldIds.title} className="font-medium text-slate-900">
+              Title
+            </label>
             <input
+              id={createFieldIds.title}
               name="title"
               value={form.title}
               onChange={(event) => handleChange(event, setForm)}
@@ -249,10 +280,13 @@ export default function ProjectTasksTab({ project, actions, canManage }) {
               disabled={!canManage || submitting}
               required
             />
-          </label>
-          <label className="flex flex-col gap-2 text-sm text-slate-700">
-            Description
+          </div>
+          <div className="flex flex-col gap-2 text-sm text-slate-700">
+            <label htmlFor={createFieldIds.description} className="font-medium text-slate-900">
+              Description
+            </label>
             <textarea
+              id={createFieldIds.description}
               name="description"
               rows={3}
               value={form.description}
@@ -261,11 +295,14 @@ export default function ProjectTasksTab({ project, actions, canManage }) {
               disabled={!canManage || submitting}
               required
             />
-          </label>
+          </div>
           <div className="grid gap-4 md:grid-cols-2">
-            <label className="flex flex-col gap-2 text-sm text-slate-700">
-              Status
+            <div className="flex flex-col gap-2 text-sm text-slate-700">
+              <label htmlFor={createFieldIds.status} className="font-medium text-slate-900">
+                Status
+              </label>
               <select
+                id={createFieldIds.status}
                 name="status"
                 value={form.status}
                 onChange={(event) => handleChange(event, setForm)}
@@ -278,10 +315,13 @@ export default function ProjectTasksTab({ project, actions, canManage }) {
                   </option>
                 ))}
               </select>
-            </label>
-            <label className="flex flex-col gap-2 text-sm text-slate-700">
-              Priority
+            </div>
+            <div className="flex flex-col gap-2 text-sm text-slate-700">
+              <label htmlFor={createFieldIds.priority} className="font-medium text-slate-900">
+                Priority
+              </label>
               <select
+                id={createFieldIds.priority}
                 name="priority"
                 value={form.priority}
                 onChange={(event) => handleChange(event, setForm)}
@@ -294,10 +334,13 @@ export default function ProjectTasksTab({ project, actions, canManage }) {
                   </option>
                 ))}
               </select>
-            </label>
-            <label className="flex flex-col gap-2 text-sm text-slate-700">
-              Start
+            </div>
+            <div className="flex flex-col gap-2 text-sm text-slate-700">
+              <label htmlFor={createFieldIds.startDate} className="font-medium text-slate-900">
+                Start
+              </label>
               <input
+                id={createFieldIds.startDate}
                 type="date"
                 name="startDate"
                 value={form.startDate}
@@ -305,10 +348,13 @@ export default function ProjectTasksTab({ project, actions, canManage }) {
                 className="rounded-xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
                 disabled={!canManage || submitting}
               />
-            </label>
-            <label className="flex flex-col gap-2 text-sm text-slate-700">
-              Due
+            </div>
+            <div className="flex flex-col gap-2 text-sm text-slate-700">
+              <label htmlFor={createFieldIds.dueDate} className="font-medium text-slate-900">
+                Due
+              </label>
               <input
+                id={createFieldIds.dueDate}
                 type="date"
                 name="dueDate"
                 value={form.dueDate}
@@ -316,11 +362,14 @@ export default function ProjectTasksTab({ project, actions, canManage }) {
                 className="rounded-xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
                 disabled={!canManage || submitting}
               />
-            </label>
+            </div>
           </div>
-          <label className="flex flex-col gap-2 text-sm text-slate-700">
-            Estimated hours
+          <div className="flex flex-col gap-2 text-sm text-slate-700">
+            <label htmlFor={createFieldIds.estimatedHours} className="font-medium text-slate-900">
+              Estimated hours
+            </label>
             <input
+              id={createFieldIds.estimatedHours}
               type="number"
               name="estimatedHours"
               value={form.estimatedHours}
@@ -329,7 +378,7 @@ export default function ProjectTasksTab({ project, actions, canManage }) {
               disabled={!canManage || submitting}
               min="0"
             />
-          </label>
+          </div>
           <div className="flex justify-end gap-2">
             <button
               type="button"
@@ -365,9 +414,12 @@ export default function ProjectTasksTab({ project, actions, canManage }) {
         size="lg"
       >
         <form onSubmit={handleUpdate} className="space-y-4">
-          <label className="flex flex-col gap-2 text-sm text-slate-700">
-            Title
+          <div className="flex flex-col gap-2 text-sm text-slate-700">
+            <label htmlFor={editFieldIds.title} className="font-medium text-slate-900">
+              Title
+            </label>
             <input
+              id={editFieldIds.title}
               name="title"
               value={editingForm.title}
               onChange={(event) => handleChange(event, setEditingForm)}
@@ -375,10 +427,13 @@ export default function ProjectTasksTab({ project, actions, canManage }) {
               disabled={!canManage || submitting}
               required
             />
-          </label>
-          <label className="flex flex-col gap-2 text-sm text-slate-700">
-            Description
+          </div>
+          <div className="flex flex-col gap-2 text-sm text-slate-700">
+            <label htmlFor={editFieldIds.description} className="font-medium text-slate-900">
+              Description
+            </label>
             <textarea
+              id={editFieldIds.description}
               name="description"
               rows={3}
               value={editingForm.description}
@@ -387,11 +442,14 @@ export default function ProjectTasksTab({ project, actions, canManage }) {
               disabled={!canManage || submitting}
               required
             />
-          </label>
+          </div>
           <div className="grid gap-4 md:grid-cols-2">
-            <label className="flex flex-col gap-2 text-sm text-slate-700">
-              Status
+            <div className="flex flex-col gap-2 text-sm text-slate-700">
+              <label htmlFor={editFieldIds.status} className="font-medium text-slate-900">
+                Status
+              </label>
               <select
+                id={editFieldIds.status}
                 name="status"
                 value={editingForm.status}
                 onChange={(event) => handleChange(event, setEditingForm)}
@@ -404,10 +462,13 @@ export default function ProjectTasksTab({ project, actions, canManage }) {
                   </option>
                 ))}
               </select>
-            </label>
-            <label className="flex flex-col gap-2 text-sm text-slate-700">
-              Priority
+            </div>
+            <div className="flex flex-col gap-2 text-sm text-slate-700">
+              <label htmlFor={editFieldIds.priority} className="font-medium text-slate-900">
+                Priority
+              </label>
               <select
+                id={editFieldIds.priority}
                 name="priority"
                 value={editingForm.priority}
                 onChange={(event) => handleChange(event, setEditingForm)}
@@ -420,10 +481,13 @@ export default function ProjectTasksTab({ project, actions, canManage }) {
                   </option>
                 ))}
               </select>
-            </label>
-            <label className="flex flex-col gap-2 text-sm text-slate-700">
-              Start
+            </div>
+            <div className="flex flex-col gap-2 text-sm text-slate-700">
+              <label htmlFor={editFieldIds.startDate} className="font-medium text-slate-900">
+                Start
+              </label>
               <input
+                id={editFieldIds.startDate}
                 type="date"
                 name="startDate"
                 value={editingForm.startDate}
@@ -431,10 +495,13 @@ export default function ProjectTasksTab({ project, actions, canManage }) {
                 className="rounded-xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
                 disabled={!canManage || submitting}
               />
-            </label>
-            <label className="flex flex-col gap-2 text-sm text-slate-700">
-              Due
+            </div>
+            <div className="flex flex-col gap-2 text-sm text-slate-700">
+              <label htmlFor={editFieldIds.dueDate} className="font-medium text-slate-900">
+                Due
+              </label>
               <input
+                id={editFieldIds.dueDate}
                 type="date"
                 name="dueDate"
                 value={editingForm.dueDate}
@@ -442,11 +509,14 @@ export default function ProjectTasksTab({ project, actions, canManage }) {
                 className="rounded-xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
                 disabled={!canManage || submitting}
               />
-            </label>
+            </div>
           </div>
-          <label className="flex flex-col gap-2 text-sm text-slate-700">
-            Estimated hours
+          <div className="flex flex-col gap-2 text-sm text-slate-700">
+            <label htmlFor={editFieldIds.estimatedHours} className="font-medium text-slate-900">
+              Estimated hours
+            </label>
             <input
+              id={editFieldIds.estimatedHours}
               type="number"
               name="estimatedHours"
               value={editingForm.estimatedHours}
@@ -455,7 +525,7 @@ export default function ProjectTasksTab({ project, actions, canManage }) {
               disabled={!canManage || submitting}
               min="0"
             />
-          </label>
+          </div>
           <div className="flex justify-end gap-2">
             <button
               type="button"

@@ -8,6 +8,20 @@ const stubModel = new Proxy(
   },
 );
 
+const VOLUNTEER_ASSIGNMENT_STATUSES = Object.freeze([
+  'invited',
+  'accepted',
+  'active',
+  'completed',
+  'withdrawn',
+]);
+
+const NETWORKING_CONNECTION_FOLLOW_STATUSES = Object.freeze([
+  'pending',
+  'following',
+  'ignored',
+]);
+
 export const sequelize = {
   define: () => stubModel,
   models: {},
@@ -22,6 +36,7 @@ let FeedReaction = stubModel;
 let User = stubModel;
 let Profile = stubModel;
 let Connection = stubModel;
+let FreelancerCostBreakdown = stubModel;
 
 export const __setModelStubs = (overrides = {}) => {
   if (overrides.FeedPost) {
@@ -42,8 +57,21 @@ export const __setModelStubs = (overrides = {}) => {
   if (overrides.Connection) {
     Connection = overrides.Connection;
   }
+  if (overrides.FreelancerCostBreakdown) {
+    FreelancerCostBreakdown = overrides.FreelancerCostBreakdown;
+  }
 };
 
-export { FeedPost, FeedComment, FeedReaction, User, Profile, Connection };
+export {
+  FeedPost,
+  FeedComment,
+  FeedReaction,
+  User,
+  Profile,
+  Connection,
+  FreelancerCostBreakdown,
+  VOLUNTEER_ASSIGNMENT_STATUSES,
+  NETWORKING_CONNECTION_FOLLOW_STATUSES,
+};
 
 export default stubModel;

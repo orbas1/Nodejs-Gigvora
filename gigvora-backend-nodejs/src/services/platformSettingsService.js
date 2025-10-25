@@ -39,8 +39,22 @@ function cloneSettings(value) {
   }
 }
 
+function toPathSegments(path) {
+  if (Array.isArray(path)) {
+    return path;
+  }
+  if (typeof path === 'string') {
+    return path
+      .split('.')
+      .map((segment) => segment.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
 function getNested(source, path) {
-  return path.reduce((acc, segment) => {
+  const segments = toPathSegments(path);
+  return segments.reduce((acc, segment) => {
     if (acc == null || typeof acc !== 'object') {
       return undefined;
     }
@@ -49,23 +63,25 @@ function getNested(source, path) {
 }
 
 function setNested(target, path, value) {
-  if (!path.length) {
+  const segments = toPathSegments(path);
+  if (!segments.length) {
     return;
   }
   let cursor = target;
-  for (let index = 0; index < path.length - 1; index += 1) {
-    const segment = path[index];
+  for (let index = 0; index < segments.length - 1; index += 1) {
+    const segment = segments[index];
     if (cursor[segment] == null || typeof cursor[segment] !== 'object') {
       cursor[segment] = {};
     }
     cursor = cursor[segment];
   }
-  cursor[path[path.length - 1]] = value;
+  cursor[segments[segments.length - 1]] = value;
 }
 
 function hasNested(source, path) {
+  const segments = toPathSegments(path);
   let cursor = source;
-  for (const segment of path) {
+  for (const segment of segments) {
     if (cursor == null || typeof cursor !== 'object' || !Object.prototype.hasOwnProperty.call(cursor, segment)) {
       return false;
     }
