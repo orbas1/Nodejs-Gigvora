@@ -20,24 +20,28 @@ class FinanceController extends StateNotifier<ResourceState<FinanceOverview>> {
     state = state.copyWith(loading: true, error: null);
     try {
       final result = await _repository.fetchOverview(forceRefresh: forceRefresh);
+      final overview = result.data;
       state = ResourceState<FinanceOverview>(
-        data: result.data,
+        data: overview,
         loading: false,
         error: result.error,
         fromCache: result.fromCache,
         lastUpdated: result.lastUpdated,
       );
 
-      if (!_viewTracked && !result.data.isEmpty) {
+      if (!_viewTracked && !overview.isEmpty) {
         _viewTracked = true;
         await _analytics.track(
           'mobile_finance_control_tower_viewed',
           context: {
-            'accounts': result.data.accounts.length,
-            'releases': result.data.releases.length,
-            'disputes': result.data.disputes.length,
-            'tasks': result.data.complianceTasks.length,
+            'accounts': overview.accounts.length,
+            'releases': overview.releases.length,
+            'disputes': overview.disputes.length,
+            'tasks': overview.complianceTasks.length,
             'fromCache': result.fromCache,
+            'escrow': overview.summary.inEscrow,
+            'pendingRelease': overview.summary.pendingRelease,
+            'autoReleaseRate': overview.automation.autoReleaseRate,
           },
           metadata: const {'source': 'mobile_app'},
         );
@@ -77,6 +81,9 @@ class FinanceController extends StateNotifier<ResourceState<FinanceOverview>> {
         'automation': release.automation,
         'risk': release.risk,
         'action': action,
+        'amount': release.amount,
+        'currency': release.currency,
+        'timestamp': DateTime.now().toIso8601String(),
       },
       metadata: const {'source': 'mobile_app'},
     );
@@ -91,6 +98,9 @@ class FinanceController extends StateNotifier<ResourceState<FinanceOverview>> {
         'stage': dispute.stage.name,
         'priority': dispute.priority.name,
         'action': action,
+        'amount': dispute.amount,
+        'currency': dispute.currencyCode,
+        'timestamp': DateTime.now().toIso8601String(),
       },
       metadata: const {'source': 'mobile_app'},
     );
@@ -104,6 +114,8 @@ class FinanceController extends StateNotifier<ResourceState<FinanceOverview>> {
         'severity': task.severity,
         'status': task.status,
         'action': action,
+        'dueDate': task.dueDate?.toIso8601String(),
+        'timestamp': DateTime.now().toIso8601String(),
       },
       metadata: const {'source': 'mobile_app'},
     );

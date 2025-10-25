@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../theme/widgets.dart';
+import '../../analytics/utils/formatters.dart';
+import '../../analytics/widgets/analytics_metric_grid.dart';
 import '../application/company_analytics_controller.dart';
 import '../data/models/company_analytics_dashboard.dart';
 
@@ -49,7 +51,7 @@ class CompanyAnalyticsScreen extends ConsumerWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),
                 child: Text(
-                  'Last updated ${_formatRelativeTime(state.lastUpdated!)}',
+                  'Last updated ${formatRelativeTime(state.lastUpdated!)}',
                   style: Theme.of(context)
                       .textTheme
                       .bodySmall
@@ -118,77 +120,33 @@ class _SummaryMetrics extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (metrics.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    final theme = Theme.of(context);
-    final textTheme = theme.textTheme;
+    final items = metrics
+        .map(
+          (metric) => AnalyticsDatum(
+            label: metric.label,
+            value: metric.value,
+            delta: metric.delta,
+            trend: _mapTrend(metric.trend),
+          ),
+        )
+        .toList();
 
-    return Wrap(
-      spacing: 16,
-      runSpacing: 16,
-      children: metrics
-          .map(
-            (metric) => SizedBox(
-              width: 240,
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF0F172A), Color(0xFF1D4ED8)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 16,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      metric.label,
-                      style: textTheme.labelSmall?.copyWith(
-                        color: Colors.white70,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.6,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      metric.value,
-                      style: textTheme.headlineSmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    if (metric.delta != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          metric.delta!,
-                          style: textTheme.bodySmall?.copyWith(
-                            color: metric.trend == 'down'
-                                ? const Color(0xFFFECACA)
-                                : metric.trend == 'up'
-                                    ? const Color(0xFFBBF7D0)
-                                    : Colors.white70,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          )
-          .toList(),
+    return AnalyticsMetricGrid(
+      metrics: items,
+      variant: AnalyticsMetricVariant.gradient,
     );
+  }
+
+  AnalyticsTrend? _mapTrend(String? trend) {
+    switch (trend) {
+      case 'up':
+        return AnalyticsTrend.up;
+      case 'down':
+        return AnalyticsTrend.down;
+      case 'neutral':
+        return AnalyticsTrend.neutral;
+    }
+    return null;
   }
 }
 
@@ -226,7 +184,7 @@ class _ForecastPanel extends StatelessWidget {
               _ForecastTile(label: 'Projects at risk', value: _formatDouble(forecast.atRiskProjects)),
               _ForecastTile(label: 'Confidence', value: _formatDouble(forecast.confidence, suffix: '%')),
               if (forecast.lastSynced != null)
-                _ForecastTile(label: 'Synced', value: _formatRelativeTime(forecast.lastSynced!)),
+              _ForecastTile(label: 'Synced', value: formatRelativeTime(forecast.lastSynced!)),
             ],
           ),
           if (forecast.signals.isNotEmpty) ...[
@@ -446,14 +404,6 @@ class _WorkforcePanel extends StatelessWidget {
     return '${value.toStringAsFixed(1)}$suffix';
   }
 
-  String _formatCurrency(double? value) {
-    if (value == null) {
-      return '—';
-    }
-    final compact = NumberFormat.compactCurrency(symbol: r'$');
-    return compact.format(value);
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -477,12 +427,15 @@ class _WorkforcePanel extends StatelessWidget {
                 label: 'Headcount variance',
                 value: alignment?.variance != null ? alignment!.variance!.toStringAsFixed(0) : '—',
               ),
-              _ForecastTile(
-                label: 'Budget variance',
-                value: alignment?.budgetActual != null && alignment?.budgetPlan != null
-                    ? _formatCurrency(alignment!.budgetActual! - alignment.budgetPlan!)
-                    : '—',
-              ),
+          _ForecastTile(
+            label: 'Budget variance',
+            value: alignment?.budgetActual != null && alignment?.budgetPlan != null
+                ? formatCurrency(
+                    alignment!.budgetActual! - alignment.budgetPlan!,
+                    currency: 'USD',
+                  )
+                : '—',
+          ),
             ],
           ),
           if (workforce.signals.isNotEmpty) ...[
@@ -606,9 +559,9 @@ class _AlertingPanel extends StatelessWidget {
                           const SizedBox(height: 4),
                           Text(
                             alert.owner != null
-                                ? '${alert.owner} • ${alert.detectedAt != null ? _formatRelativeTime(alert.detectedAt!) : 'Recently'}'
+                                ? '${alert.owner} • ${alert.detectedAt != null ? formatRelativeTime(alert.detectedAt!) : 'Recently'}'
                                 : alert.detectedAt != null
-                                    ? _formatRelativeTime(alert.detectedAt!)
+                                    ? formatRelativeTime(alert.detectedAt!)
                                     : 'Recently',
                             style: textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                           ),
@@ -626,20 +579,3 @@ class _AlertingPanel extends StatelessWidget {
   }
 }
 
-String _formatRelativeTime(DateTime dateTime) {
-  final now = DateTime.now();
-  final difference = now.difference(dateTime);
-  if (difference.inSeconds < 60) {
-    return 'just now';
-  }
-  if (difference.inMinutes < 60) {
-    return '${difference.inMinutes} minute${difference.inMinutes == 1 ? '' : 's'} ago';
-  }
-  if (difference.inHours < 24) {
-    return '${difference.inHours} hour${difference.inHours == 1 ? '' : 's'} ago';
-  }
-  if (difference.inDays < 7) {
-    return '${difference.inDays} day${difference.inDays == 1 ? '' : 's'} ago';
-  }
-  return '${difference.inDays ~/ 7} week${difference.inDays ~/ 7 == 1 ? '' : 's'} ago';
-}

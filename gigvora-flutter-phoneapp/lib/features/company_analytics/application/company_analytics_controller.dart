@@ -70,8 +70,9 @@ class CompanyAnalyticsController extends StateNotifier<ResourceState<CompanyAnal
 }
 
 final companyAnalyticsRepositoryProvider = Provider<CompanyAnalyticsRepository>((ref) {
+  final apiClient = ref.watch(apiClientProvider);
   final cache = ref.watch(offlineCacheProvider);
-  return CompanyAnalyticsRepository(cache);
+  return CompanyAnalyticsRepository(apiClient, cache);
 });
 
 final companyAnalyticsControllerProvider =
