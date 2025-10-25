@@ -6,6 +6,7 @@ const ALLOWED_FILTER_KEYS = [
   'employmentCategories',
   'durationCategories',
   'budgetCurrencies',
+  'taxonomySlugs',
   'statuses',
   'tracks',
   'organizations',

@@ -133,19 +133,26 @@ function resolveGigPageContent(page) {
     page?.settings?.hero,
     findPageBlock(page, ['gigs-hero', 'gig-hero', 'hero']),
   );
+  const heroFallbackSource = heroSource ?? {
+    eyebrow: page?.heroEyebrow ?? page?.heroMeta ?? page?.summary ?? null,
+    title: page?.heroTitle ?? page?.title ?? null,
+    description: page?.heroSubtitle ?? page?.summary ?? null,
+  };
   const hero = {
     eyebrow:
-      typeof heroSource?.eyebrow === 'string' && heroSource.eyebrow.trim().length
-        ? heroSource.eyebrow.trim()
+      typeof heroFallbackSource?.eyebrow === 'string' && heroFallbackSource.eyebrow.trim().length
+        ? heroFallbackSource.eyebrow.trim()
         : FALLBACK_GIGS_PAGE_CONTENT.hero.eyebrow,
     title:
-      typeof heroSource?.title === 'string' && heroSource.title.trim().length
-        ? heroSource.title.trim()
+      typeof heroFallbackSource?.title === 'string' && heroFallbackSource.title.trim().length
+        ? heroFallbackSource.title.trim()
         : typeof heroSource?.heading === 'string' && heroSource.heading.trim().length
         ? heroSource.heading.trim()
         : FALLBACK_GIGS_PAGE_CONTENT.hero.title,
     description:
-      typeof heroSource?.description === 'string' && heroSource.description.trim().length
+      typeof heroFallbackSource?.description === 'string' && heroFallbackSource.description.trim().length
+        ? heroFallbackSource.description.trim()
+        : typeof heroSource?.description === 'string' && heroSource.description.trim().length
         ? heroSource.description.trim()
         : typeof heroSource?.subtitle === 'string' && heroSource.subtitle.trim().length
         ? heroSource.subtitle.trim()
@@ -164,6 +171,8 @@ function resolveGigPageContent(page) {
     page?.metricsCaption,
     page?.content?.metricsCaption,
     page?.meta?.metricsCaption,
+    page?.heroMeta,
+    page?.summary,
   );
   const metricsCaption =
     typeof metricsCaptionCandidate === 'string' && metricsCaptionCandidate.trim().length
@@ -175,13 +184,25 @@ function resolveGigPageContent(page) {
     page?.content?.pitchGuidance,
     page?.settings?.pitchGuidance,
     findPageBlock(page, ['pitch-guidance', 'pitchGuidance', 'pitch-tips', 'bestPitchPractices']),
+    Array.isArray(page?.featureHighlights) && page.featureHighlights.length
+      ? { items: page.featureHighlights }
+      : null,
+    page?.body ? { description: page.body } : null,
   );
 
-  const pitchTitleCandidate = findFirstDefined(pitchSource?.title, pitchSource?.heading, pitchSource?.name);
+  const pitchTitleCandidate = findFirstDefined(
+    pitchSource?.title,
+    pitchSource?.heading,
+    pitchSource?.name,
+    page?.ctaLabel,
+    page?.title,
+  );
   const pitchDescriptionCandidate = findFirstDefined(
     pitchSource?.description,
     pitchSource?.subtitle,
     pitchSource?.summary,
+    page?.heroMeta,
+    page?.summary,
   );
 
   const pitchItems = extractPitchItems(pitchSource);
@@ -494,7 +515,7 @@ export default function GigsPage() {
       const trimmedQuery = query.trim();
       const payload = {
         name: trimmedName || (trimmedQuery ? `Gigs • ${trimmedQuery}` : 'Gigs saved search'),
-        category: 'gigs',
+        category: 'gig',
         query: trimmedQuery || '',
         filters: currentFiltersPayload,
         notifyInApp: true,
