@@ -51,24 +51,18 @@ export function useCompanyDashboard({ workspaceId, workspaceSlug, lookbackDays =
       },
       {
         label: 'Avg days to decision',
-        value:
-          pipelineSummary?.velocity?.averageDaysToDecision != null
-            ? `${pipelineSummary.velocity.averageDaysToDecision}`
-            : '—',
+        value: formatMetricNumber(pipelineSummary?.velocity?.averageDaysToDecision, {
+          fallback: '—',
+          maximumFractionDigits: 1,
+        }),
       },
       {
         label: 'Candidate NPS',
-        value:
-          candidateExperience?.nps != null && Number.isFinite(Number(candidateExperience.nps))
-            ? `${Number(candidateExperience.nps).toFixed(1)}`
-            : '—',
+        value: formatMetricNumber(candidateExperience?.nps, { fallback: '—', maximumFractionDigits: 1 }),
       },
       {
         label: 'Offer win rate',
-        value:
-          offers?.winRate != null && Number.isFinite(Number(offers.winRate))
-            ? `${Number(offers.winRate).toFixed(1)}%`
-            : '—',
+        value: formatMetricPercent(offers?.winRate),
       },
       {
         label: 'Upcoming interviews',
