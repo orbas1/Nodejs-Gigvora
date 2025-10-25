@@ -600,6 +600,22 @@ export const GIG_ORDER_STATUSES = Object.freeze([
   'cancelled',
 ]);
 
+export const GIG_ESCROW_STATUSES = Object.freeze(['pending', 'funded', 'released', 'refunded', 'cancelled']);
+export const GIG_TIMELINE_EVENT_TYPES = Object.freeze([
+  'kickoff',
+  'milestone',
+  'check_in',
+  'checkpoint',
+  'scope_change',
+  'handoff',
+  'qa_review',
+  'client_feedback',
+  'retro',
+  'note',
+  'blocker',
+]);
+export const GIG_TIMELINE_VISIBILITIES = Object.freeze(['internal', 'client', 'vendor']);
+
 export const GIG_ORDER_REQUIREMENT_STATUSES = Object.freeze(['pending', 'received', 'waived']);
 export const GIG_ORDER_REQUIREMENT_PRIORITIES = Object.freeze(['low', 'medium', 'high']);
 export const GIG_ORDER_REVISION_WORKFLOW_STATUSES = Object.freeze([
