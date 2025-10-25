@@ -52,11 +52,15 @@ function buildQueueSummary(entries) {
     expiresAt: null,
     generatedBy: null,
     averageScore: null,
+    averageConfidence: null,
+    confidenceDistribution: { high: 0, medium: 0, low: 0 },
+    confidenceSampleSize: 0,
   };
 
   let latestGeneratedAt = null;
   let earliestExpiry = null;
   let scoreAccumulator = 0;
+  let confidenceAccumulator = 0;
 
   safeEntries.forEach((entry) => {
     const status = typeof entry?.status === 'string' ? entry.status.toLowerCase() : 'pending';
@@ -78,6 +82,29 @@ function buildQueueSummary(entries) {
     const scoreValue = Number(entry?.score);
     if (Number.isFinite(scoreValue)) {
       scoreAccumulator += scoreValue;
+    }
+
+    const confidenceValue = (() => {
+      if (entry?.confidence != null && Number.isFinite(Number(entry.confidence))) {
+        return Number(entry.confidence);
+      }
+      const metaConfidence = metadata?.confidence;
+      if (metaConfidence == null || metaConfidence === '') {
+        return null;
+      }
+      const parsed = Number(metaConfidence);
+      return Number.isFinite(parsed) ? parsed : null;
+    })();
+    if (confidenceValue != null) {
+      confidenceAccumulator += confidenceValue;
+      summary.confidenceSampleSize += 1;
+      if (confidenceValue >= 0.75) {
+        summary.confidenceDistribution.high += 1;
+      } else if (confidenceValue >= 0.55) {
+        summary.confidenceDistribution.medium += 1;
+      } else {
+        summary.confidenceDistribution.low += 1;
+      }
     }
 
     if (metadata.generatedBy && !summary.generatedBy) {
@@ -104,6 +131,9 @@ function buildQueueSummary(entries) {
   summary.generatedAt = latestGeneratedAt ? new Date(latestGeneratedAt).toISOString() : null;
   summary.expiresAt = earliestExpiry ? new Date(earliestExpiry).toISOString() : null;
   summary.averageScore = summary.totalEntries ? Number((scoreAccumulator / summary.totalEntries).toFixed(2)) : null;
+  summary.averageConfidence = summary.confidenceSampleSize
+    ? Number((confidenceAccumulator / summary.confidenceSampleSize).toFixed(3))
+    : null;
 
   return summary;
 }

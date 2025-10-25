@@ -8,6 +8,7 @@ import 'package:gigvora_foundation/gigvora_foundation.dart';
 import '../../../core/authorization.dart';
 import '../../../core/providers.dart';
 import '../../../features/auth/application/session_controller.dart';
+import '../../../theme/filter_selector.dart';
 import '../../../theme/widgets.dart';
 import '../application/project_gig_management_controller.dart';
 import '../data/models/project_gig_management_snapshot.dart';
@@ -45,6 +46,14 @@ const Map<String, String> _laneLabels = <String, String>{
   'Launch': 'Launch',
 };
 
+const Map<String, String> _laneDescriptions = <String, String>{
+  'Discovery': 'Scope, brief, and align before delivery begins.',
+  'Delivery': 'Active execution with collaborators assigned.',
+  'QA & Enablement': 'Testing, training, and internal readiness work.',
+  'Change Management': 'Communications and rollout guardrails.',
+  'Launch': 'Go-live and measurement follow-up.',
+};
+
 const Map<String, String> _statusLabels = <String, String>{
   'planned': 'Planned',
   'in_progress': 'In progress',
@@ -53,11 +62,26 @@ const Map<String, String> _statusLabels = <String, String>{
   'completed': 'Completed',
 };
 
+const Map<String, String> _statusDescriptions = <String, String>{
+  'planned': 'Ready to schedule once prerequisites are in place.',
+  'in_progress': 'Currently being delivered by the assigned owner.',
+  'blocked': 'Waiting on unblockers before work can resume.',
+  'at_risk': 'Trending late or requiring escalation.',
+  'completed': 'All work wrapped up and reviewed.',
+};
+
 const Map<String, String> _riskLabels = <String, String>{
   'low': 'Low',
   'medium': 'Medium',
   'high': 'High',
   'critical': 'Critical',
+};
+
+const Map<String, String> _riskDescriptions = <String, String>{
+  'low': 'On track with minimal delivery risk.',
+  'medium': 'Needs monitoring to stay on schedule.',
+  'high': 'Requires rapid mitigation to avoid delays.',
+  'critical': 'Escalated items blocking launch readiness.',
 };
 
 const Map<String, String> _ownerTypeLabels = <String, String>{
@@ -585,8 +609,8 @@ class _ProjectOperationsConsoleCardState extends State<_ProjectOperationsConsole
                     Text('Project operations control tower', style: theme.textTheme.titleMedium),
                     const SizedBox(height: 4),
                     Text(
-                      'Monitor delivery tasks, surface risks, and orchestrate cross-functional owners.',
-                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      'Track every lane from discovery to launch, escalate blockers before they stall delivery, and coordinate the right owner with a single queue.',
+                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant, height: 1.35),
                     ),
                     if (operations.allowedRoles.isNotEmpty)
                       Padding(
@@ -642,42 +666,87 @@ class _ProjectOperationsConsoleCardState extends State<_ProjectOperationsConsole
           Wrap(
             spacing: 12,
             runSpacing: 12,
-            crossAxisAlignment: WrapCrossAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.start,
             children: [
               SizedBox(
-                width: 200,
+                width: 220,
                 child: TextField(
                   enabled: !_processing,
                   decoration: const InputDecoration(labelText: 'Search tasks'),
                   onChanged: (value) => setState(() => _query = value),
                 ),
               ),
-              DropdownButton<String>(
-                value: _laneFilter,
-                onChanged: _processing ? null : (value) => setState(() => _laneFilter = value ?? 'all'),
-                items: <DropdownMenuItem<String>>[
-                  const DropdownMenuItem<String>(value: 'all', child: Text('All lanes')),
-                  ..._laneLabels.entries
-                      .map((entry) => DropdownMenuItem<String>(value: entry.key, child: Text(entry.value))),
-                ],
+              ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 180, maxWidth: 260),
+                child: GigvoraFilterGroup<String>(
+                  label: 'Lane',
+                  options: [
+                    const GigvoraFilterOption<String>(
+                      value: 'all',
+                      label: 'All lanes',
+                      tooltip: 'Show tasks across discovery, delivery, enablement, change, and launch lanes.',
+                    ),
+                    ..._laneLabels.entries.map(
+                      (entry) => GigvoraFilterOption<String>(
+                        value: entry.key,
+                        label: entry.value,
+                        tooltip: _laneDescriptions[entry.key],
+                      ),
+                    ),
+                  ],
+                  selectedValue: _laneFilter,
+                  onSelected: (value) => setState(() => _laneFilter = value),
+                  enabled: !_processing,
+                  dense: true,
+                ),
               ),
-              DropdownButton<String>(
-                value: _statusFilter,
-                onChanged: _processing ? null : (value) => setState(() => _statusFilter = value ?? 'all'),
-                items: <DropdownMenuItem<String>>[
-                  const DropdownMenuItem<String>(value: 'all', child: Text('All statuses')),
-                  ..._statusLabels.entries
-                      .map((entry) => DropdownMenuItem<String>(value: entry.key, child: Text(entry.value))),
-                ],
+              ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 180, maxWidth: 260),
+                child: GigvoraFilterGroup<String>(
+                  label: 'Status',
+                  options: [
+                    const GigvoraFilterOption<String>(
+                      value: 'all',
+                      label: 'All statuses',
+                      tooltip: 'Include scheduled, active, blocked, and completed tasks.',
+                    ),
+                    ..._statusLabels.entries.map(
+                      (entry) => GigvoraFilterOption<String>(
+                        value: entry.key,
+                        label: entry.value,
+                        tooltip: _statusDescriptions[entry.key],
+                      ),
+                    ),
+                  ],
+                  selectedValue: _statusFilter,
+                  onSelected: (value) => setState(() => _statusFilter = value),
+                  enabled: !_processing,
+                  dense: true,
+                ),
               ),
-              DropdownButton<String>(
-                value: _riskFilter,
-                onChanged: _processing ? null : (value) => setState(() => _riskFilter = value ?? 'all'),
-                items: <DropdownMenuItem<String>>[
-                  const DropdownMenuItem<String>(value: 'all', child: Text('All risk levels')),
-                  ..._riskLabels.entries
-                      .map((entry) => DropdownMenuItem<String>(value: entry.key, child: Text('${entry.value} risk'))),
-                ],
+              ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 180, maxWidth: 260),
+                child: GigvoraFilterGroup<String>(
+                  label: 'Risk',
+                  options: [
+                    const GigvoraFilterOption<String>(
+                      value: 'all',
+                      label: 'All risk levels',
+                      tooltip: 'Surface tasks regardless of their current risk score.',
+                    ),
+                    ..._riskLabels.entries.map(
+                      (entry) => GigvoraFilterOption<String>(
+                        value: entry.key,
+                        label: entry.value,
+                        tooltip: _riskDescriptions[entry.key],
+                      ),
+                    ),
+                  ],
+                  selectedValue: _riskFilter,
+                  onSelected: (value) => setState(() => _riskFilter = value),
+                  enabled: !_processing,
+                  dense: true,
+                ),
               ),
               TextButton(
                 onPressed: _processing
@@ -688,7 +757,7 @@ class _ProjectOperationsConsoleCardState extends State<_ProjectOperationsConsole
                           _riskFilter = 'all';
                           _query = '';
                         }),
-                child: const Text('Reset'),
+                child: const Text('Reset filters'),
               ),
             ],
           ),
@@ -704,8 +773,8 @@ class _ProjectOperationsConsoleCardState extends State<_ProjectOperationsConsole
               ),
               child: Text(
                 _canManage
-                    ? 'No project tasks captured yet. Use “Add task” to build your integrated delivery plan.'
-                    : 'Project tasks will appear here once your operations team starts tracking them.',
+                    ? 'No project tasks logged yet. Use “Add task” to seed discovery through launch lanes and keep automation signals fresh.'
+                    : 'Project tasks will appear once your operations team begins capturing delivery work from mobile.',
                 style: theme.textTheme.bodyMedium,
               ),
             )

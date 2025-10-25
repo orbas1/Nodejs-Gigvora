@@ -200,11 +200,12 @@ module.exports = {
       };
 
       const queueEntries = [
-        {
+        { 
           targetType: 'project',
           targetId: projectId,
           freelancerId: leoId,
           score: 0.9187,
+          confidence: 0.8743,
           priorityBucket: 1,
           status: 'notified',
           notifiedAt: now,
@@ -213,6 +214,7 @@ module.exports = {
           metadata: {
             ...metadataBase,
             breakdown: { totalAssigned: 6, totalCompleted: 5 },
+            confidence: 0.8743,
           },
           responseMetadata: null,
           createdAt: now,
@@ -223,6 +225,7 @@ module.exports = {
           targetId: projectId,
           freelancerId: sashaId,
           score: 0.8821,
+          confidence: 0.8012,
           priorityBucket: 2,
           status: 'pending',
           notifiedAt: null,
@@ -231,6 +234,7 @@ module.exports = {
           metadata: {
             ...metadataBase,
             breakdown: { totalAssigned: 3, totalCompleted: 2 },
+            confidence: 0.8012,
           },
           responseMetadata: null,
           createdAt: now,
@@ -241,6 +245,7 @@ module.exports = {
           targetId: projectId,
           freelancerId: imaniId,
           score: 0.8614,
+          confidence: 0.7421,
           priorityBucket: 3,
           status: 'accepted',
           notifiedAt: new Date(now.getTime() - 90 * 60 * 1000),
@@ -260,6 +265,7 @@ module.exports = {
               reasonLabel: 'Offer accepted',
               responseNotes: 'Confirmed kickoff for Monday.',
             },
+            confidence: 0.7421,
           },
           responseMetadata: {
             responseTimeSeconds: 3300,
