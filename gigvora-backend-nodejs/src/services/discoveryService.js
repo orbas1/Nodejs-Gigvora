@@ -28,7 +28,6 @@ import {
   TAXONOMY_ENABLED_CATEGORIES,
   parseFiltersInput,
   normaliseViewport,
-  buildFilterExpressions,
   applyStructuredFilters,
   resolveSortExpressions,
   normalisePage,
@@ -564,7 +563,6 @@ async function listOpportunities(category, { page, pageSize, query, filters, sor
   const rawFilters = parseFiltersInput(filters);
   const normalisedFilters = normaliseClientFilters(rawFilters);
   const normalisedViewport = normaliseViewport(viewport);
-  const filterExpressions = buildFilterExpressions(category, normalisedFilters, normalisedViewport);
   const sortExpressions = Array.isArray(sort) ? sort : resolveSortExpressions(category, sort);
   const facetFields = includeFacets ? CATEGORY_FACETS[category] : undefined;
   const taxonomyInclude = buildTaxonomyInclude(category, normalisedFilters);
@@ -579,9 +577,10 @@ async function listOpportunities(category, { page, pageSize, query, filters, sor
       query: searchQuery,
       page: safePage,
       pageSize: safeSize,
-      filters: filterExpressions,
+      filters: rawFilters,
       sort: sortExpressions,
       facets: facetFields,
+      viewport: normalisedViewport,
     },
   );
 
@@ -600,7 +599,7 @@ async function listOpportunities(category, { page, pageSize, query, filters, sor
       totalPages,
       facets: searchResult.facetDistribution ?? null,
       metrics: {
-        source: 'meilisearch',
+        source: 'internal_search',
         processingTimeMs: searchResult.processingTimeMs ?? null,
         query: searchResult.query ?? searchQuery,
       },

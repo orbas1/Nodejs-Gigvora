@@ -13,27 +13,23 @@ async function run() {
 
   try {
     await sequelize.authenticate();
-    logger.info('Database connection established; starting Meilisearch sync.');
+    logger.info('Database connection established; warming internal search indexes.');
 
     const ensured = await ensureOpportunityIndexes({ logger });
     if (!ensured.configured) {
-      logger.warn('Meilisearch is not configured. Define MEILISEARCH_HOST and MEILISEARCH_API_KEY.');
+      logger.warn('Internal search engine reported it is not ready; skipping refresh.');
       return;
     }
 
-    const result = await syncOpportunityIndexes({
-      logger,
-      batchSize: Number.parseInt(process.env.MEILISEARCH_SYNC_BATCH_SIZE ?? '500', 10),
-      clearExisting: process.env.MEILISEARCH_SYNC_CLEAR === 'true',
-    });
+    const result = await syncOpportunityIndexes({ logger });
 
     const elapsedMs = Date.now() - start;
-    logger.info('Meilisearch sync completed.', {
+    logger.info('Internal search refresh completed.', {
       elapsedMs,
       indexes: result.indexes,
     });
   } catch (error) {
-    console.error('Failed to execute Meilisearch sync job', error);
+    console.error('Failed to refresh internal search indexes', error);
     process.exitCode = 1;
   } finally {
     await sequelize.close();
