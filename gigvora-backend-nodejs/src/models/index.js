@@ -3435,7 +3435,14 @@ export const FeedPost = sequelize.define(
     mediaAttachments: { type: jsonType, allowNull: true },
     metadata: { type: jsonType, allowNull: true },
   },
-  { tableName: 'feed_posts' },
+  {
+    tableName: 'feed_posts',
+    indexes: [
+      { fields: ['userId', 'createdAt'] },
+      { fields: ['publishedAt'] },
+      { fields: ['type'] },
+    ],
+  },
 );
 
 export const FeedComment = sequelize.define(
@@ -3450,7 +3457,13 @@ export const FeedComment = sequelize.define(
     authorAvatarSeed: { type: DataTypes.STRING(255), allowNull: true },
     metadata: { type: jsonType, allowNull: true },
   },
-  { tableName: 'feed_comments' },
+  {
+    tableName: 'feed_comments',
+    indexes: [
+      { fields: ['postId', 'parentId'] },
+      { fields: ['userId'] },
+    ],
+  },
 );
 
 export const FeedReaction = sequelize.define(
@@ -3466,7 +3479,13 @@ export const FeedReaction = sequelize.define(
     active: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
     metadata: { type: jsonType, allowNull: true },
   },
-  { tableName: 'feed_reactions' },
+  {
+    tableName: 'feed_reactions',
+    indexes: [
+      { fields: ['postId', 'reactionType'] },
+      { fields: ['userId'] },
+    ],
+  },
 );
 
 export const FreelancerTimelineWorkspace = sequelize.define(

@@ -4,6 +4,13 @@ import nodemailer from 'nodemailer';
 import { OAuth2Client } from 'google-auth-library';
 import twoFactorService from './twoFactorService.js';
 import { getAuthDomainService, getFeatureFlagService } from '../domains/serviceCatalog.js';
+import {
+  getRefreshTokenInvalidation,
+  getRefreshTokenRevocation,
+  invalidateRefreshTokensForUser,
+  isRefreshTokenRevoked,
+  markRefreshTokenRevoked,
+} from './refreshTokenStore.js';
 
 const TOKEN_EXPIRY = process.env.JWT_EXPIRES_IN || '1h';
 const REFRESH_EXPIRY = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
@@ -376,6 +383,19 @@ async function loginWithGoogle(idToken, options = {}) {
 
 async function refreshSession(refreshToken, options = {}) {
   const payload = verifyRefreshToken(refreshToken);
+
+  if (isRefreshTokenRevoked(refreshToken)) {
+    throw buildError('Refresh token has been revoked.', 401);
+  }
+
+  const invalidation = getRefreshTokenInvalidation(payload.id);
+  if (invalidation?.invalidatedAt) {
+    const invalidatedAt = new Date(invalidation.invalidatedAt).getTime();
+    if (Number.isFinite(invalidatedAt) && payload.iat * 1000 <= invalidatedAt) {
+      throw buildError('Refresh token has been revoked.', 401);
+    }
+  }
+
   const user = await authDomainService.findUserById(payload.id);
   if (!user) {
     throw buildError('Account not found.', 404);
@@ -388,6 +408,12 @@ async function refreshSession(refreshToken, options = {}) {
   });
   session.featureFlags = featureFlags;
   session.user.featureFlags = featureFlags;
+
+  markRefreshTokenRevoked(refreshToken, {
+    userId: payload.id,
+    reason: 'rotated',
+    context: options.context ?? null,
+  });
 
   await authDomainService.recordLoginAudit(
     user.id,
@@ -519,7 +545,40 @@ async function resetPassword(token, password, options = {}) {
     {},
   );
 
+  invalidateRefreshTokensForUser(sanitizedUser.id, {
+    reason: 'password_reset',
+    actorId: sanitizedUser.id,
+  });
+
   return { success: true, maskedEmail: maskEmail(sanitizedUser.email) };
+}
+
+async function revokeRefreshToken(refreshToken, options = {}) {
+  if (!refreshToken) {
+    throw buildError('Refresh token is required.', 422);
+  }
+
+  const payload = verifyRefreshToken(refreshToken);
+  const existing = getRefreshTokenRevocation(refreshToken);
+  if (!existing) {
+    markRefreshTokenRevoked(refreshToken, {
+      userId: payload.id,
+      reason: options.reason ?? 'logout',
+      context: options.context ?? null,
+    });
+    await authDomainService.recordLoginAudit(
+      payload.id,
+      {
+        eventType: 'refresh_token_revoked',
+        ipAddress: options.context?.ipAddress,
+        userAgent: options.context?.userAgent,
+        metadata: { reason: options.reason ?? 'logout' },
+      },
+      {},
+    );
+  }
+
+  return { success: true, revokedAt: new Date().toISOString() };
 }
 
 export default {
@@ -532,4 +591,5 @@ export default {
   requestPasswordReset,
   verifyPasswordResetToken,
   resetPassword,
+  revokeRefreshToken,
 };

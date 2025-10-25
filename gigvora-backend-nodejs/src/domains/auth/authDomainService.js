@@ -49,6 +49,7 @@ function createLogger(logger) {
 function sanitizeUser(userInstance) {
   const plain = typeof userInstance.get === 'function' ? userInstance.get({ plain: true }) : userInstance;
   const normalizedStatus = normalizeStatusValue(plain.status);
+  const profile = plain.Profile ?? plain.profile ?? null;
   const roleSet = new Set();
   const roleSources = [];
   if (Array.isArray(plain.roleAssignments)) {
@@ -76,6 +77,24 @@ function sanitizeUser(userInstance) {
     memberships.add('user');
   }
   const fullName = [plain.firstName, plain.lastName].filter(Boolean).join(' ').trim() || plain.email;
+  const profileSnapshot = profile
+    ? {
+        id: profile.id,
+        headline: profile.headline ?? null,
+        bio: profile.bio ?? null,
+        location: profile.location ?? plain.location ?? null,
+        timezone: profile.timezone ?? null,
+        followersCount: Number.isFinite(Number(profile.followersCount))
+          ? Number(profile.followersCount)
+          : 0,
+        followersVisibility: profile.followersVisibility ?? 'connections',
+        networkVisibility: profile.networkVisibility ?? 'connections',
+        profileVisibility: profile.profileVisibility ?? 'members',
+        avatarUrl: profile.avatarUrl ?? plain.avatarUrl ?? null,
+        avatarSeed: profile.avatarSeed ?? null,
+        profileCompletion: profile.profileCompletion != null ? Number(profile.profileCompletion) : null,
+      }
+    : null;
   return {
     id: plain.id,
     email: plain.email,
@@ -99,6 +118,8 @@ function sanitizeUser(userInstance) {
     memberships: Array.from(memberships),
     roles: Array.from(roleSet),
     primaryDashboard: plain.primaryDashboard || plain.userType || 'user',
+    timezone: profile?.timezone ?? plain.timezone ?? null,
+    profile: profileSnapshot,
   };
 }
 

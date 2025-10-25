@@ -16,6 +16,7 @@ const refreshSessionMock = jest.fn().mockResolvedValue({
     user: { id: 1 },
   },
 });
+const revokeRefreshTokenMock = jest.fn().mockResolvedValue({ success: true });
 
 const authServiceModuleUrl = new URL('../../src/services/authService.js', import.meta.url);
 const loggerModuleUrl = new URL('../../src/utils/logger.js', import.meta.url);
@@ -28,6 +29,7 @@ jest.unstable_mockModule(authServiceModuleUrl.pathname, () => ({
     resendTwoFactor: resendTwoFactorMock,
     loginWithGoogle: googleLoginMock,
     refreshSession: refreshSessionMock,
+    revokeRefreshToken: revokeRefreshTokenMock,
   },
 }));
 
@@ -63,6 +65,7 @@ beforeEach(() => {
   resendTwoFactorMock.mockClear();
   googleLoginMock.mockClear();
   refreshSessionMock.mockClear();
+  revokeRefreshTokenMock.mockClear();
 });
 
 describe('POST /api/auth/register', () => {
@@ -162,5 +165,34 @@ describe('POST /api/auth/refresh', () => {
         user: { id: 1 },
       },
     });
+  });
+});
+
+describe('POST /api/auth/logout', () => {
+  it('requires a refresh token', async () => {
+    const response = await request(app).post('/api/auth/logout').send({});
+
+    expect(response.status).toBe(422);
+    expect(revokeRefreshTokenMock).not.toHaveBeenCalled();
+  });
+
+  it('normalises the refresh token and forwards optional reason', async () => {
+    const response = await request(app)
+      .post('/api/auth/logout')
+      .set('User-Agent', 'jest-test')
+      .send({ refreshToken: '  stale-token  ', reason: ' user_request ' });
+
+    expect(response.status).toBe(202);
+    expect(revokeRefreshTokenMock).toHaveBeenCalledWith(
+      'stale-token',
+      expect.objectContaining({
+        reason: 'user_request',
+        context: expect.objectContaining({
+          ipAddress: expect.any(String),
+          userAgent: 'jest-test',
+        }),
+      }),
+    );
+    expect(response.body).toEqual({ success: true });
   });
 });

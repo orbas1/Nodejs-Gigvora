@@ -31,7 +31,12 @@ const UserMock = {
   findByPk: jest.fn(),
 };
 
-const ProfileMock = {};
+const ProfileMock = {
+  findAll: jest.fn().mockResolvedValue([]),
+};
+const ConnectionMock = {
+  findAll: jest.fn().mockResolvedValue([]),
+};
 
 let listFeed;
 let createComment;
@@ -45,6 +50,7 @@ async function importController() {
     FeedReaction: FeedReactionMock,
     User: UserMock,
     Profile: ProfileMock,
+    Connection: ConnectionMock,
   });
   return import('../feedController.js');
 }
@@ -66,6 +72,8 @@ function resetMocks() {
     }
   }
   UserMock.findByPk.mockReset();
+  ProfileMock.findAll.mockReset();
+  ConnectionMock.findAll.mockReset();
 }
 
 beforeEach(async () => {
@@ -136,6 +144,7 @@ describe('feedController', () => {
       nextPage: null,
       hasMore: false,
       total: 1,
+      suggestions: [],
     });
   });
 

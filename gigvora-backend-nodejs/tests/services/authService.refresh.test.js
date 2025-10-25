@@ -15,6 +15,7 @@ const evaluateForUserMock = jest.fn().mockResolvedValue({ runtime: true });
 const serviceCatalogModuleUrl = new URL('../../src/domains/serviceCatalog.js', import.meta.url);
 const twoFactorModuleUrl = new URL('../../src/services/twoFactorService.js', import.meta.url);
 const loggerModuleUrl = new URL('../../src/utils/logger.js', import.meta.url);
+const refreshTokenStoreModuleUrl = new URL('../../src/services/refreshTokenStore.js', import.meta.url);
 
 jest.unstable_mockModule(loggerModuleUrl.pathname, () => ({
   default: {
@@ -47,12 +48,15 @@ jest.unstable_mockModule(twoFactorModuleUrl.pathname, () => ({
 }));
 
 let authService;
+let refreshTokenStore;
 
 beforeAll(async () => {
   ({ default: authService } = await import('../../src/services/authService.js'));
+  refreshTokenStore = await import(refreshTokenStoreModuleUrl.pathname);
 });
 
 beforeEach(() => {
+  refreshTokenStore.__dangerouslyResetRefreshTokenStore();
   updateLastLoginMock.mockClear();
   recordLoginAuditMock.mockClear();
   sanitizeUserMock.mockImplementation((user) => ({
@@ -60,8 +64,11 @@ beforeEach(() => {
     email: user.email,
     userType: user.userType,
     memberships: ['member'],
+    roles: [],
     primaryDashboard: 'member',
     twoFactorEnabled: false,
+    timezone: null,
+    profile: null,
   }));
   findUserByIdMock.mockReset();
   evaluateForUserMock.mockClear();
@@ -85,6 +92,7 @@ describe('authService.refreshSession', () => {
       context: { ipAddress: '127.0.0.1', userAgent: 'jest' },
     });
 
+    expect(refreshTokenStore.isRefreshTokenRevoked(refreshToken)).toBe(true);
     expect(result.session.accessToken).toEqual(expect.any(String));
     expect(result.session.refreshToken).toEqual(expect.any(String));
     expect(result.session.refreshToken).not.toEqual(refreshToken);
@@ -133,6 +141,20 @@ describe('authService.refreshSession', () => {
     expect(findUserByIdMock).not.toHaveBeenCalled();
   });
 
+  it('rejects refresh tokens that were revoked manually', async () => {
+    const refreshToken = jwt.sign({ id: user.id, type: user.userType }, process.env.JWT_REFRESH_SECRET, {
+      expiresIn: '5m',
+    });
+
+    refreshTokenStore.markRefreshTokenRevoked(refreshToken, { userId: user.id, reason: 'test' });
+
+    await expect(authService.refreshSession(refreshToken)).rejects.toMatchObject({
+      message: 'Refresh token has been revoked.',
+      status: 401,
+    });
+    expect(findUserByIdMock).not.toHaveBeenCalled();
+  });
+
   it('fails when the user cannot be located', async () => {
     findUserByIdMock.mockResolvedValue(null);
     const refreshToken = jwt.sign({ id: user.id, type: user.userType }, process.env.JWT_REFRESH_SECRET, {
@@ -143,5 +165,62 @@ describe('authService.refreshSession', () => {
       message: 'Account not found.',
       status: 404,
     });
+  });
+
+  it('rejects refresh tokens when the user has invalidated sessions', async () => {
+    const refreshToken = jwt.sign({ id: user.id, type: user.userType }, process.env.JWT_REFRESH_SECRET, {
+      expiresIn: '5m',
+    });
+    refreshTokenStore.invalidateRefreshTokensForUser(user.id, { reason: 'test-invalidated' });
+
+    await expect(authService.refreshSession(refreshToken)).rejects.toMatchObject({
+      message: 'Refresh token has been revoked.',
+      status: 401,
+    });
+    expect(findUserByIdMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('authService.revokeRefreshToken', () => {
+  const user = {
+    id: 'user-55',
+    email: 'observer@example.com',
+    userType: 'member',
+  };
+
+  it('marks a refresh token as revoked and records an audit event', async () => {
+    const refreshToken = jwt.sign({ id: user.id, type: user.userType }, process.env.JWT_REFRESH_SECRET, {
+      expiresIn: '10m',
+    });
+
+    const result = await authService.revokeRefreshToken(refreshToken, {
+      reason: 'logout',
+      context: { ipAddress: '203.0.113.10', userAgent: 'jest' },
+    });
+
+    expect(result).toMatchObject({ success: true });
+    expect(refreshTokenStore.isRefreshTokenRevoked(refreshToken)).toBe(true);
+    expect(recordLoginAuditMock).toHaveBeenCalledWith(
+      user.id,
+      expect.objectContaining({
+        eventType: 'refresh_token_revoked',
+        metadata: { reason: 'logout' },
+      }),
+      {},
+    );
+  });
+
+  it('is idempotent when the refresh token was already revoked', async () => {
+    const refreshToken = jwt.sign({ id: user.id, type: user.userType }, process.env.JWT_REFRESH_SECRET, {
+      expiresIn: '10m',
+    });
+
+    refreshTokenStore.markRefreshTokenRevoked(refreshToken, { userId: user.id, reason: 'seed' });
+    recordLoginAuditMock.mockClear();
+
+    const result = await authService.revokeRefreshToken(refreshToken, { reason: 'repeat' });
+
+    expect(result).toMatchObject({ success: true });
+    expect(recordLoginAuditMock).not.toHaveBeenCalled();
   });
 });

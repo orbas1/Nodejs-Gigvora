@@ -80,6 +80,28 @@ beforeEach(() => {
     twoFactorEnabled: user.twoFactorEnabled ?? false,
     twoFactorMethod: user.twoFactorMethod ?? 'email',
     memberships: user.memberships ?? ['member'],
+    roles: [],
+    primaryDashboard: user.primaryDashboard ?? 'member',
+    timezone: user.Profile?.timezone ?? null,
+    profile: user.Profile
+      ? {
+          id: user.Profile.id ?? 101,
+          headline: user.Profile.headline ?? null,
+          bio: user.Profile.bio ?? null,
+          location: user.Profile.location ?? null,
+          timezone: user.Profile.timezone ?? null,
+          followersCount: user.Profile.followersCount ?? 0,
+          followersVisibility: user.Profile.followersVisibility ?? 'connections',
+          networkVisibility: user.Profile.networkVisibility ?? 'connections',
+          profileVisibility: user.Profile.profileVisibility ?? 'members',
+          avatarUrl: user.Profile.avatarUrl ?? null,
+          avatarSeed: user.Profile.avatarSeed ?? null,
+          profileCompletion:
+            user.Profile.profileCompletion != null
+              ? Number(user.Profile.profileCompletion)
+              : null,
+        }
+      : null,
   }));
   resendTokenMock.mockResolvedValue({ tokenId: 'retry-token', delivered: true });
   OAuth2ClientMock.mockImplementation(() => oauthClientInstance);
@@ -93,6 +115,24 @@ describe('authService.register', () => {
       userType: 'admin',
       twoFactorEnabled: true,
       twoFactorMethod: 'app',
+      memberships: ['admin'],
+      roles: ['admin'],
+      primaryDashboard: 'admin',
+      timezone: 'UTC',
+      profile: {
+        id: 501,
+        headline: 'Admin',
+        bio: null,
+        location: 'Remote',
+        timezone: 'UTC',
+        followersCount: 0,
+        followersVisibility: 'connections',
+        networkVisibility: 'connections',
+        profileVisibility: 'members',
+        avatarUrl: null,
+        avatarSeed: null,
+        profileCompletion: null,
+      },
     };
     registerUserMock.mockResolvedValue(sanitizedUser);
     evaluateForUserMock.mockReset();
@@ -171,7 +211,7 @@ describe('authService.login', () => {
     expect(result).toEqual({
       requiresTwoFactor: true,
       challenge: expect.objectContaining({ tokenId: '2fa-token-1', maskedDestination: 'm***@example.com' }),
-      user: {
+      user: expect.objectContaining({
         id: baseUser.id,
         email: baseUser.email,
         userType: baseUser.userType,
@@ -179,7 +219,7 @@ describe('authService.login', () => {
         twoFactorMethod: 'app',
         memberships: ['member'],
         featureFlags: { loginGate: 'pending' },
-      },
+      }),
     });
     expect(updateLastLoginMock).not.toHaveBeenCalled();
     expect(recordLoginAuditMock).not.toHaveBeenCalled();

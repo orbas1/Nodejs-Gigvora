@@ -1,6 +1,6 @@
 import { Op, fn, col } from 'sequelize';
-import { FeedPost, FeedComment, FeedReaction, User, Profile } from '../models/index.js';
-import { enforceFeedPostPolicies } from '../services/contentModerationService.js';
+import { FeedPost, FeedComment, FeedReaction, User, Profile, Connection } from '../models/index.js';
+import { enforceFeedCommentPolicies, enforceFeedPostPolicies } from '../services/contentModerationService.js';
 import { ValidationError, AuthorizationError, AuthenticationError } from '../utils/errors.js';
 
 const ALLOWED_VISIBILITY = new Set(['public', 'connections']);
@@ -26,6 +26,7 @@ const DEFAULT_PAGE_SIZE = 12;
 const MAX_PAGE_SIZE = 50;
 const DEFAULT_COMMENT_LIMIT = 20;
 const MAX_COMMENT_LIMIT = 100;
+const SUGGESTION_LIMIT = 6;
 
 function resolveRole(req) {
   const candidate =
@@ -154,6 +155,117 @@ async function resolveUserSnapshot(userId) {
         : null,
     },
   };
+}
+
+async function resolveSuggestedConnections(actor, limit = SUGGESTION_LIMIT) {
+  if (!actor?.id) {
+    return [];
+  }
+  const actorId = Number(actor.id);
+  if (!Number.isFinite(actorId) || actorId <= 0) {
+    return [];
+  }
+
+  const accepted = await Connection.findAll({
+    where: {
+      status: 'accepted',
+      [Op.or]: [{ requesterId: actorId }, { addresseeId: actorId }],
+    },
+    attributes: ['requesterId', 'addresseeId'],
+  });
+
+  const connectedIds = new Set();
+  accepted.forEach((record) => {
+    if (Number.isInteger(record.requesterId)) {
+      connectedIds.add(record.requesterId);
+    }
+    if (Number.isInteger(record.addresseeId)) {
+      connectedIds.add(record.addresseeId);
+    }
+  });
+  connectedIds.delete(actorId);
+
+  const exclusion = Array.from(connectedIds);
+  exclusion.push(actorId);
+
+  const profiles = await Profile.findAll({
+    where: {
+      userId: { [Op.notIn]: exclusion },
+    },
+    include: [
+      {
+        model: User,
+        attributes: ['id', 'firstName', 'lastName', 'email', 'userType', 'primaryDashboard'],
+      },
+    ],
+    order: [
+      ['followersCount', 'DESC'],
+      ['trustScore', 'DESC'],
+      ['updatedAt', 'DESC'],
+    ],
+    limit: Math.max(limit * 3, limit),
+  });
+
+  const suggestionIds = profiles
+    .map((profile) => profile.userId)
+    .filter((id) => Number.isInteger(id) && !connectedIds.has(id));
+
+  const mutualCounts = new Map();
+  if (suggestionIds.length && connectedIds.size) {
+    const mutual = await Connection.findAll({
+      where: {
+        status: 'accepted',
+        [Op.or]: [
+          { requesterId: { [Op.in]: suggestionIds }, addresseeId: { [Op.in]: Array.from(connectedIds) } },
+          { addresseeId: { [Op.in]: suggestionIds }, requesterId: { [Op.in]: Array.from(connectedIds) } },
+        ],
+      },
+      attributes: ['requesterId', 'addresseeId'],
+    });
+
+    mutual.forEach((record) => {
+      const suggestionId = connectedIds.has(record.requesterId) ? record.addresseeId : record.requesterId;
+      if (!Number.isInteger(suggestionId)) {
+        return;
+      }
+      mutualCounts.set(suggestionId, (mutualCounts.get(suggestionId) ?? 0) + 1);
+    });
+  }
+
+  const suggestions = profiles
+    .map((profile) => {
+      const owner = profile.User;
+      if (!owner) {
+        return null;
+      }
+      const name = [owner.firstName, owner.lastName].filter(Boolean).join(' ').trim() || owner.email;
+      const followersCount = Number.isFinite(Number(profile.followersCount))
+        ? Number(profile.followersCount)
+        : 0;
+      const trustScore = profile.trustScore != null ? Number(profile.trustScore) : null;
+      const mutual = mutualCounts.get(owner.id) ?? 0;
+      let reason = followersCount > 0 ? `${followersCount} followers` : 'Active community member';
+      if (mutual > 0) {
+        reason = mutual === 1 ? '1 mutual connection' : `${mutual} mutual connections`;
+      }
+      return {
+        userId: owner.id,
+        name,
+        headline: profile.headline ?? null,
+        location: profile.location ?? null,
+        avatarUrl: profile.avatarUrl ?? null,
+        avatarSeed: profile.avatarSeed ?? name,
+        followersCount,
+        trustScore,
+        userType: owner.userType ?? null,
+        primaryDashboard: owner.primaryDashboard ?? null,
+        reason,
+      };
+    })
+    .filter(Boolean)
+    .slice(0, limit);
+
+  return suggestions;
 }
 
 function serialiseFeedPost(instance, { reactionSummary = {}, commentCount = 0 } = {}) {
@@ -412,6 +524,7 @@ export async function listFeed(req, res) {
   );
   const cursor = req.query.cursor ? Number.parseInt(req.query.cursor, 10) : null;
   const page = req.query.page ? Number.parseInt(req.query.page, 10) : null;
+  const actor = resolveActor(req);
 
   const where = {};
   if (cursor && Number.isFinite(cursor)) {
@@ -451,6 +564,7 @@ export async function listFeed(req, res) {
 
   const nextCursor = hasMore ? trimmed[trimmed.length - 1].id : null;
   const nextPage = hasMore && !cursor && page && Number.isFinite(page) ? page + 1 : null;
+  const suggestions = await resolveSuggestedConnections(actor, SUGGESTION_LIMIT);
 
   res.json({
     items,
@@ -458,6 +572,7 @@ export async function listFeed(req, res) {
     nextPage,
     hasMore,
     total,
+    suggestions,
   });
 }
 
@@ -701,11 +816,14 @@ export async function createComment(req, res) {
     throw new ValidationError('A message is required to create a feed comment.');
   }
 
+  const moderation = enforceFeedCommentPolicies({ content: text }, { allowWarnings: true });
+  const moderatedBody = moderation.content || text;
+
   const snapshot = await resolveUserSnapshot(actor.id);
   const created = await FeedComment.create({
     postId: numericId,
     userId: actor.id,
-    body: text,
+    body: moderatedBody,
     authorName: snapshot.name,
     authorHeadline: snapshot.headline,
     authorAvatarSeed: snapshot.avatarSeed,
@@ -715,7 +833,12 @@ export async function createComment(req, res) {
     include: [{ model: User, as: 'author', include: [Profile] }],
   });
 
-  res.status(201).json(serialiseComment(hydrated));
+  const payload = serialiseComment(hydrated);
+  if (moderation.signals?.length) {
+    payload.moderation = { signals: moderation.signals };
+  }
+
+  res.status(201).json(payload);
 }
 
 export async function createReply(req, res) {
@@ -745,12 +868,15 @@ export async function createReply(req, res) {
     throw new ValidationError('A message is required to create a feed reply.');
   }
 
+  const moderation = enforceFeedCommentPolicies({ content: text }, { allowWarnings: true });
+  const moderatedBody = moderation.content || text;
+
   const snapshot = await resolveUserSnapshot(actor.id);
   const created = await FeedComment.create({
     postId: numericPostId,
     userId: actor.id,
     parentId: numericCommentId,
-    body: text,
+    body: moderatedBody,
     authorName: snapshot.name,
     authorHeadline: snapshot.headline,
     authorAvatarSeed: snapshot.avatarSeed,
@@ -760,7 +886,12 @@ export async function createReply(req, res) {
     include: [{ model: User, as: 'author', include: [Profile] }],
   });
 
-  res.status(201).json(serialiseComment(hydrated));
+  const payload = serialiseComment(hydrated);
+  if (moderation.signals?.length) {
+    payload.moderation = { signals: moderation.signals };
+  }
+
+  res.status(201).json(payload);
 }
 
 async function summariseReactionsForPost(postId) {

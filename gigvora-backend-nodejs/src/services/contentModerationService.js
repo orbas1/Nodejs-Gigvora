@@ -413,8 +413,47 @@ export function enforceFeedPostPolicies(input, options = {}) {
   return evaluation;
 }
 
+export function evaluateFeedCommentContent(input, options = {}) {
+  const commentRules = {
+    ...DEFAULT_RULES,
+    maxCharacters: 1200,
+    minWordCount: 1,
+    maxLinks: 2,
+    maxMentions: 5,
+  };
+
+  return evaluateFeedPostContent(
+    {
+      content: input.content,
+      summary: null,
+      title: null,
+      link: input.link ?? null,
+      attachments: Array.isArray(input.attachments) ? input.attachments : [],
+    },
+    {
+      ...options,
+      rules: { ...commentRules, ...(options.rules ?? {}) },
+    },
+  );
+}
+
+export function enforceFeedCommentPolicies(input, options = {}) {
+  const evaluation = evaluateFeedCommentContent(input, options);
+  if (evaluation.decision !== 'approve') {
+    const message =
+      options.errorMessage || 'Your comment violates Gigvora community guidelines.';
+    throw new ModerationError(message, {
+      reasons: evaluation.reasons,
+      signals: evaluation.signals,
+    });
+  }
+  return evaluation;
+}
+
 export default {
   evaluateFeedPostContent,
   enforceFeedPostPolicies,
+  evaluateFeedCommentContent,
+  enforceFeedCommentPolicies,
   DEFAULT_RULES,
 };
