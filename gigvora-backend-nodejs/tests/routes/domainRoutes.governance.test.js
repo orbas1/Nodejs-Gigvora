@@ -1,7 +1,7 @@
 process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'false';
 
 import request from 'supertest';
-import app from '../../src/app.js';
+import { app } from '../../src/app.js';
 import '../setupTestEnv.js';
 import { DomainGovernanceReview } from '../../src/models/index.js';
 

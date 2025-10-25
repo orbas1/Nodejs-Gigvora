@@ -1,4 +1,5 @@
 import { Op } from 'sequelize';
+
 import {
   User,
   TwoFactorToken,
@@ -7,8 +8,8 @@ import {
   TwoFactorBypass,
   TwoFactorAuditLog,
 } from '../models/index.js';
-import logger from '../utils/logger.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
+import logger from '../utils/logger.js';
 
 const log = logger.child({ module: 'AdminTwoFactorService' });
 
@@ -23,7 +24,6 @@ const METHOD_TO_USER_METHOD = {
 const ROLE_OPTIONS = ['admin', 'staff', 'company', 'freelancer', 'agency', 'mentor', 'headhunter', 'all'];
 const ENFORCEMENT_LEVELS = ['optional', 'recommended', 'required'];
 const BYPASS_STATUSES = ['pending', 'approved', 'denied', 'revoked'];
-const ENROLLMENT_STATUSES = ['pending', 'active', 'revoked'];
 
 const FALLBACK_OVERVIEW = {
   summary: {
@@ -280,11 +280,11 @@ function serialiseEnrollment(enrollment) {
   }
   const plain = enrollment.get ? enrollment.get({ plain: true }) : enrollment;
   const user = plain.user ?? {};
-  const userName =
-    plain.userName ??
+  const fallbackUserName =
     [user.firstName, user.lastName].filter(Boolean).join(' ').trim() ||
     user.email ||
     (plain.userId ? `User #${plain.userId}` : 'Workspace member');
+  const userName = plain.userName ?? fallbackUserName;
   return {
     id: plain.id,
     userId: plain.userId ?? user.id ?? null,
@@ -306,11 +306,11 @@ function serialiseBypass(bypass) {
   }
   const plain = bypass.get ? bypass.get({ plain: true }) : bypass;
   const user = plain.user ?? {};
-  const userName =
-    plain.userName ??
+  const fallbackUserName =
     [user.firstName, user.lastName].filter(Boolean).join(' ').trim() ||
     user.email ||
     (plain.userId ? `User #${plain.userId}` : 'Workspace member');
+  const userName = plain.userName ?? fallbackUserName;
   return {
     id: plain.id,
     userId: plain.userId ?? user.id ?? null,
@@ -332,8 +332,9 @@ function serialiseAudit(event) {
   }
   const plain = event.get ? event.get({ plain: true }) : event;
   const actor = plain.actor ?? {};
-  const actorName =
-    plain.actorName ?? [actor.firstName, actor.lastName].filter(Boolean).join(' ').trim() || actor.email || 'System';
+  const fallbackActorName =
+    [actor.firstName, actor.lastName].filter(Boolean).join(' ').trim() || actor.email || 'System';
+  const actorName = plain.actorName ?? fallbackActorName;
   return {
     id: plain.id,
     action: plain.action ?? 'updated',
@@ -676,13 +677,3 @@ export async function revokeTwoFactorEnrollment(enrollmentId, payload = {}, { ac
   return serialiseEnrollment(await enrollment.reload({ include: [{ model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email'] }] }));
 }
 
-export default {
-  getAdminTwoFactorOverview,
-  createTwoFactorPolicy,
-  updateTwoFactorPolicy,
-  deleteTwoFactorPolicy,
-  issueTwoFactorBypass,
-  updateTwoFactorBypassStatus,
-  approveTwoFactorEnrollment,
-  revokeTwoFactorEnrollment,
-};

@@ -1,3 +1,4 @@
+import { ProviderWorkspace, ProviderWorkspaceMember } from '../models/index.js';
 import {
   listBlogPosts,
   getBlogPost,
@@ -14,8 +15,10 @@ import {
   deleteBlogTag,
   createBlogMedia,
 } from '../services/blogService.js';
-import { ProviderWorkspace, ProviderWorkspaceMember } from '../models/index.js';
-import { ValidationError } from '../utils/errors.js';
+import {
+  resolveWorkspaceForActor,
+  resolveWorkspaceIdentifiersFromRequest,
+} from '../utils/agencyWorkspaceAccess.js';
 import {
   buildAgencyActorContext,
   ensurePlainObject,
@@ -24,10 +27,7 @@ import {
   toOptionalString,
   toPositiveInteger,
 } from '../utils/controllerUtils.js';
-import {
-  resolveWorkspaceForActor,
-  resolveWorkspaceIdentifiersFromRequest,
-} from '../utils/agencyWorkspaceAccess.js';
+import { ValidationError } from '../utils/errors.js';
 
 function resolvePostIdentifier(rawId, { fieldName = 'postId' } = {}) {
   if (rawId == null) {
@@ -133,7 +133,8 @@ export async function create(req, res) {
   const { actor, workspace } = await resolveWorkspaceContext(req, body);
   const payload = { ...body, workspaceId: workspace.id };
   delete payload.workspaceSlug;
-  const result = await createBlogPost(payload, { actorId: actor.actorId, workspaceId: workspace.id });
+  const actorId = actor?.actorId ?? null;
+  const result = await createBlogPost(payload, { actorId, workspaceId: workspace.id });
   res.status(201).json(result);
 }
 
@@ -143,7 +144,8 @@ export async function update(req, res) {
   const postId = resolvePostIdentifier(req.params?.postId, { fieldName: 'postId' });
   const payload = { ...body, workspaceId: workspace.id };
   delete payload.workspaceSlug;
-  const result = await updateBlogPost(postId, payload, { actorId: actor.actorId, workspaceId: workspace.id });
+  const actorId = actor?.actorId ?? null;
+  const result = await updateBlogPost(postId, payload, { actorId, workspaceId: workspace.id });
   res.json(result);
 }
 
@@ -162,14 +164,14 @@ export async function categories(req, res) {
 
 export async function createCategory(req, res) {
   const body = ensurePlainObject(req.body ?? {}, 'body');
-  const { actor, workspace } = await resolveWorkspaceContext(req, body);
+  const { workspace } = await resolveWorkspaceContext(req, body);
   const category = await createBlogCategory({ ...body, workspaceId: workspace.id }, { workspaceId: workspace.id });
   res.status(201).json(category);
 }
 
 export async function updateCategory(req, res) {
   const body = ensurePlainObject(req.body ?? {}, 'body');
-  const { actor, workspace } = await resolveWorkspaceContext(req, body);
+  const { workspace } = await resolveWorkspaceContext(req, body);
   const categoryId = toPositiveInteger(req.params?.categoryId, { fieldName: 'categoryId' });
   const category = await updateBlogCategory(categoryId, { ...body, workspaceId: workspace.id }, { workspaceId: workspace.id });
   res.json(category);
@@ -190,14 +192,14 @@ export async function tags(req, res) {
 
 export async function createTag(req, res) {
   const body = ensurePlainObject(req.body ?? {}, 'body');
-  const { actor, workspace } = await resolveWorkspaceContext(req, body);
+  const { workspace } = await resolveWorkspaceContext(req, body);
   const tag = await createBlogTag({ ...body, workspaceId: workspace.id }, { workspaceId: workspace.id });
   res.status(201).json(tag);
 }
 
 export async function updateTag(req, res) {
   const body = ensurePlainObject(req.body ?? {}, 'body');
-  const { actor, workspace } = await resolveWorkspaceContext(req, body);
+  const { workspace } = await resolveWorkspaceContext(req, body);
   const tagId = toPositiveInteger(req.params?.tagId, { fieldName: 'tagId' });
   const tag = await updateBlogTag(tagId, { ...body, workspaceId: workspace.id }, { workspaceId: workspace.id });
   res.json(tag);
@@ -217,20 +219,3 @@ export async function createMedia(req, res) {
   res.status(201).json(media);
 }
 
-export default {
-  workspaces,
-  list,
-  retrieve,
-  create,
-  update,
-  destroy,
-  categories,
-  createCategory,
-  updateCategory,
-  deleteCategory,
-  tags,
-  createTag,
-  updateTag,
-  deleteTag,
-  createMedia,
-};

@@ -4,8 +4,12 @@ import {
   resolveQueueEntry,
   getProjectQueue,
 } from '../services/autoAssignService.js';
-import projectService from '../services/projectService.js';
-import notificationService from '../services/notificationService.js';
+import { queueNotification } from '../services/notificationService.js';
+import {
+  getAutoAssignCommandCenterMetrics,
+  getAutoAssignRegenerationContext,
+  recordAutoAssignFailure,
+} from '../services/projectService.js';
 import { AuthorizationError, ValidationError } from '../utils/errors.js';
 import logger from '../utils/logger.js';
 
@@ -184,10 +188,10 @@ async function dispatchAutoAssignNotification({
     payload.error = error;
   }
 
-  try {
-    await notificationService.queueNotification(
-      {
-        userId,
+    try {
+      await queueNotification(
+        {
+          userId,
         category: 'project',
         priority: success ? 'normal' : 'high',
         type: success ? 'auto-assign.queue-regenerated' : 'auto-assign.queue-failed',
@@ -220,9 +224,9 @@ export async function enqueueProjectAssignments(req, res) {
       weightOverrides: weights,
       fairnessConfig: fairness,
     });
-  } catch (error) {
-    if (targetId) {
-      await projectService.recordAutoAssignFailure({
+    } catch (error) {
+      if (targetId) {
+        await recordAutoAssignFailure({
         projectId: targetId,
         actorId,
         error,
@@ -334,7 +338,7 @@ async function resolveQueueEnvelope(targetType, projectId) {
   let regeneration = null;
 
   if (targetType === 'project' && projectId) {
-    regeneration = await projectService.getAutoAssignRegenerationContext(projectId, {
+    regeneration = await getAutoAssignRegenerationContext(projectId, {
       fallbackActorId: summary.generatedBy ?? null,
       fallbackGeneratedAt: summary.generatedAt ?? null,
     });
@@ -411,17 +415,9 @@ export async function streamProjectQueue(req, res) {
 
 export async function projectMetrics(req, res) {
   const { force } = req.query ?? {};
-  const metrics = await projectService.getAutoAssignCommandCenterMetrics({
+  const metrics = await getAutoAssignCommandCenterMetrics({
     forceRefresh: force === 'true' || force === '1',
   });
   res.json(metrics);
 }
 
-export default {
-  enqueueProjectAssignments,
-  listQueue,
-  updateQueueEntryStatus,
-  projectQueue,
-  streamProjectQueue,
-  projectMetrics,
-};

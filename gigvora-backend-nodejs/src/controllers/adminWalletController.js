@@ -1,4 +1,4 @@
-import adminWalletService from '../services/adminWalletService.js';
+import * as adminWalletService from '../services/adminWalletService.js';
 import { ValidationError } from '../utils/errors.js';
 
 function parseAccountId(params = {}) {
@@ -46,11 +46,3 @@ export async function createLedgerEntry(req, res) {
   res.status(201).json(entry);
 }
 
-export default {
-  listAccounts,
-  getAccount,
-  createAccount,
-  updateAccount,
-  listLedgerEntries,
-  createLedgerEntry,
-};

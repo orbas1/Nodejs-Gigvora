@@ -1,5 +1,6 @@
 import http from 'node:http';
-import app from './app.js';
+
+import { app } from './app.js';
 import logger from './utils/logger.js';
 import { startBackgroundWorkers, stopBackgroundWorkers } from './lifecycle/workerManager.js';
 import { bootstrapDatabase, shutdownDatabase } from './lifecycle/databaseLifecycle.js';

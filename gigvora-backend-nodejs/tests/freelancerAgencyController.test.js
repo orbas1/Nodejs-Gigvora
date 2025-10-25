@@ -1,6 +1,6 @@
 import request from 'supertest';
 import { describe, it, expect } from '@jest/globals';
-import app from '../src/app.js';
+import { app } from '../src/app.js';
 import './setupTestEnv.js';
 import {
   AgencyCollaboration,

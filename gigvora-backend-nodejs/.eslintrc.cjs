@@ -17,6 +17,7 @@ module.exports = {
         extensions: ['.js', '.jsx', '.mjs'],
       },
     },
+    'import/ignore': ['src/services/blogService.js'],
   },
   reportUnusedDisableDirectives: true,
   rules: {
