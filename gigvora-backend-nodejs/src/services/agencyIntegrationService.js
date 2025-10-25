@@ -449,8 +449,15 @@ function buildSummary(connectors) {
 }
 
 async function recordAuditEvent(integrationId, eventType, summary, detail, actorId) {
+  const resolvedIntegrationId =
+    integrationId ?? (detail && typeof detail === 'object' ? detail.integrationId ?? null : null);
+
+  if (!resolvedIntegrationId) {
+    throw new ValidationError('integrationId is required when recording integration audit events.');
+  }
+
   await WorkspaceIntegrationAuditLog.create({
-    integrationId,
+    integrationId: resolvedIntegrationId,
     eventType,
     summary,
     detail: detail ?? {},
@@ -666,7 +673,7 @@ export async function updateIntegration(integrationId, payload = {}, { actorId, 
   await integration.update(updates);
 
   await recordAuditEvent(
-    integration.id,
+    integrationId,
     'integration_updated',
     `${integration.displayName} integration updated`,
     { updates: Object.keys(updates) },
@@ -726,7 +733,7 @@ export async function rotateSecret(integrationId, payload = {}, { actorId, actor
   }
 
   await recordAuditEvent(
-    integration.id,
+    integrationId,
     payload.secretId ? 'secret_rotated' : 'secret_created',
     `${secretName} rotated`,
     { secretType },
@@ -808,7 +815,7 @@ export async function createWebhook(integrationId, payload = {}, { actorId, acto
   });
 
   await recordAuditEvent(
-    integration.id,
+    integrationId,
     'webhook_created',
     `${name} webhook created`,
     { status, eventTypes },

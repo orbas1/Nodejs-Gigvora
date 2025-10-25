@@ -28,8 +28,58 @@ import {
   WORKSPACE_HR_STATUSES,
   PROJECT_MILESTONE_STATUSES,
 } from '../models/index.js';
+import {
+  ProjectCollaborator,
+  projectGigManagementSequelize,
+} from '../models/projectGigManagementModels.js';
+import {
+  ProjectBudgetLine,
+  ProjectDeliverable,
+  ProjectTask,
+  ProjectTaskAssignment,
+  ProjectTaskDependency,
+  ProjectChatChannel,
+  ProjectChatMessage,
+  ProjectTimelineEntry,
+  ProjectMeeting,
+  ProjectMeetingAttendee,
+  ProjectCalendarEvent,
+  ProjectRoleDefinition,
+  ProjectRoleAssignment,
+  ProjectSubmission,
+  ProjectFile,
+  ProjectInvitation,
+  ProjectHrRecord,
+} from '../models/projectWorkspaceModels.js';
 import crypto from 'crypto';
-import { ValidationError, NotFoundError } from '../utils/errors.js';
+import { ValidationError, NotFoundError, AuthorizationError } from '../utils/errors.js';
+
+const workspaceSequelize =
+  ProjectWorkspace?.sequelize ?? Project?.sequelize ?? projectGigManagementSequelize ?? null;
+
+function getWorkspaceSequelize() {
+  if (!workspaceSequelize) {
+    throw new Error('Workspace persistence is not configured.');
+  }
+  return workspaceSequelize;
+}
+
+function parseDateValue(value, label = 'value') {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null || value === '') {
+    return null;
+  }
+
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new ValidationError(`${label} must be a valid date.`);
+  }
+
+  return parsed;
+}
 
 function normalizeStringList(input) {
   if (input === undefined) {
@@ -70,29 +120,9 @@ function normalizeAttachments(input) {
   }
   if (typeof input === 'string') {
     return normalizeStringList(input).map((label) => ({ label, url: null }));
-  ProjectCollaborator,
-  projectGigManagementSequelize,
-} from '../models/projectGigManagementModels.js';
-import {
-  ProjectBudgetLine,
-  ProjectDeliverable,
-  ProjectTask,
-  ProjectTaskAssignment,
-  ProjectTaskDependency,
-  ProjectChatChannel,
-  ProjectChatMessage,
-  ProjectTimelineEntry,
-  ProjectMeeting,
-  ProjectMeetingAttendee,
-  ProjectCalendarEvent,
-  ProjectRoleDefinition,
-  ProjectRoleAssignment,
-  ProjectSubmission,
-  ProjectFile,
-  ProjectInvitation,
-  ProjectHrRecord,
-} from '../models/projectWorkspaceModels.js';
-import { ValidationError, NotFoundError, AuthorizationError } from '../utils/errors.js';
+  }
+  return [];
+}
 
 function pick(input, allowed) {
   if (!input || typeof input !== 'object') {
@@ -105,20 +135,6 @@ function pick(input, allowed) {
     }
   });
   return payload;
-}
-
-async function ensureProject(ownerId, projectId, { include } = {}) {
-  if (!ownerId) {
-    throw new ValidationError('Owner id is required.');
-  }
-  if (!projectId) {
-    throw new ValidationError('Project id is required.');
-  }
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    throw new ValidationError(`${fieldName} must be a valid date.`);
-  }
-  return date;
 }
 
 function normalizeCurrencyCode(value, { fallback = 'USD' } = {}) {
@@ -175,7 +191,9 @@ async function mutateWorkspace(projectId, actorId, mutator) {
     throw new ValidationError('projectId is required.');
   }
 
-  return sequelize.transaction(async (transaction) => {
+  const connection = getWorkspaceSequelize();
+
+  return connection.transaction(async (transaction) => {
     const project = await Project.findByPk(projectId, { transaction, lock: transaction.LOCK.UPDATE });
     if (!project) {
       throw new NotFoundError('Project not found.');
@@ -188,6 +206,499 @@ async function mutateWorkspace(projectId, actorId, mutator) {
 
     return result;
   });
+}
+
+async function ensureWorkspaceSeedData(project, workspace, { transaction, actorId } = {}) {
+  if (!workspace) {
+    return;
+  }
+
+  const workspaceId = workspace.id ?? workspace.get?.('id');
+  if (!workspaceId) {
+    return;
+  }
+
+  const now = new Date();
+  const projectTitle = project?.title ?? project?.get?.('title') ?? 'Workspace';
+  const lock = transaction ? transaction.LOCK.UPDATE : undefined;
+
+  await ProjectWorkspaceBrief.findOrCreate({
+    where: { workspaceId },
+    defaults: {
+      title: `${projectTitle} overview`,
+      summary: 'Primary delivery workspace including milestones, approvals, and financial posture.',
+      objectives: [
+        'Deliver automation playbooks for client enablement',
+        'Complete pilot integration with finance systems',
+        'Prepare change management materials for stakeholders',
+      ],
+      deliverables: ['Discovery summary pack', 'Automation architecture', 'Enablement guide draft'],
+      successMetrics: ['Client satisfaction above 4.5', 'Automation coverage 70%', 'On-time milestone delivery'],
+      clientStakeholders: [
+        { name: 'Client sponsor', role: 'Executive sponsor' },
+        { name: 'Operations lead', role: 'Finance & procurement' },
+      ],
+      lastUpdatedById: actorId ?? null,
+    },
+    transaction,
+  });
+
+  if (
+    (await ProjectWorkspaceWhiteboard.count({ where: { workspaceId }, transaction })) === 0
+  ) {
+    await ProjectWorkspaceWhiteboard.bulkCreate(
+      [
+        {
+          workspaceId,
+          title: 'Delivery roadmap',
+          status: 'active',
+          ownerName: 'Program Manager',
+          thumbnailUrl: `/workspaces/${workspaceId}/whiteboards/roadmap.png`,
+          lastEditedAt: new Date(now.getTime() - 1000 * 60 * 45),
+          activeCollaborators: ['Program Manager', 'Design Lead'],
+          tags: ['roadmap', 'planning'],
+        },
+        {
+          workspaceId,
+          title: 'Experience storyboard',
+          status: 'pending_review',
+          ownerName: 'Design Director',
+          thumbnailUrl: `/workspaces/${workspaceId}/whiteboards/storyboard.png`,
+          lastEditedAt: new Date(now.getTime() - 1000 * 60 * 120),
+          activeCollaborators: ['Design Director'],
+          tags: ['design', 'client'],
+        },
+      ],
+      { transaction },
+    );
+  }
+
+  let conversations = await ProjectWorkspaceConversation.findAll({
+    where: { workspaceId },
+    transaction,
+    lock,
+  });
+
+  if (!conversations.length) {
+    conversations = await ProjectWorkspaceConversation.bulkCreate(
+      [
+        {
+          workspaceId,
+          channelType: 'project',
+          topic: 'Daily delivery standup',
+          priority: 'high',
+          unreadCount: 2,
+          lastMessagePreview: 'Reminder: standup starts in 10 minutes.',
+          lastMessageAt: new Date(now.getTime() - 1000 * 60 * 30),
+          participants: ['Lena Torres', 'Delivery Team'],
+        },
+        {
+          workspaceId,
+          channelType: 'project',
+          topic: 'Feedback loop',
+          priority: 'normal',
+          unreadCount: 0,
+          lastMessagePreview: 'Client sponsor shared annotated deck for review.',
+          lastMessageAt: new Date(now.getTime() - 1000 * 60 * 75),
+          participants: ['Client sponsor', 'Design Director'],
+        },
+        {
+          workspaceId,
+          channelType: 'project',
+          topic: 'Billing & procurement',
+          priority: 'low',
+          unreadCount: 1,
+          lastMessagePreview: 'Purchase order submitted to finance.',
+          lastMessageAt: new Date(now.getTime() - 1000 * 60 * 110),
+          participants: ['Operations', 'Finance'],
+        },
+      ],
+      { transaction, returning: true },
+    );
+  }
+
+  if ((await ProjectWorkspaceApproval.count({ where: { workspaceId }, transaction })) === 0) {
+    await ProjectWorkspaceApproval.bulkCreate(
+      [
+        {
+          workspaceId,
+          title: 'Discovery summary approval',
+          stage: 'discovery',
+          status: 'in_review',
+          ownerName: 'Engagement Lead',
+          approverEmail: 'sponsor@example.com',
+          submittedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24),
+          dueAt: new Date(now.getTime() + 1000 * 60 * 60 * 12),
+          attachments: [{ label: 'Summary pack', url: `/projects/${workspaceId}/docs/discovery-pack.pdf` }],
+        },
+        {
+          workspaceId,
+          title: 'Automation rollout plan',
+          stage: 'execution',
+          status: 'approved',
+          ownerName: 'Technical Program Manager',
+          approverEmail: 'cto@example.com',
+          submittedAt: new Date(now.getTime() - 1000 * 60 * 60 * 36),
+          decidedAt: new Date(now.getTime() - 1000 * 60 * 60 * 18),
+          decisionNotes: 'Approved with follow-up security review scheduled.',
+        },
+      ],
+      { transaction },
+    );
+  }
+
+  if ((await ProjectWorkspaceBudget.count({ where: { workspaceId }, transaction })) === 0) {
+    await ProjectWorkspaceBudget.bulkCreate(
+      [
+        {
+          workspaceId,
+          category: 'Strategy & research',
+          allocatedAmount: 18000,
+          actualAmount: 14250,
+          currency: 'USD',
+          status: 'in_progress',
+          ownerName: 'Strategy Lead',
+          notes: 'Awaiting latest agency invoice before closing the month.',
+        },
+        {
+          workspaceId,
+          category: 'Design & experience',
+          allocatedAmount: 24000,
+          actualAmount: 22000,
+          currency: 'USD',
+          status: 'approved',
+          ownerName: 'Design Director',
+          notes: 'Includes freelance storyboard sprint and asset QA.',
+        },
+        {
+          workspaceId,
+          category: 'Engineering & automation',
+          allocatedAmount: 32000,
+          actualAmount: 34850,
+          currency: 'USD',
+          status: 'overbudget',
+          ownerName: 'Technical Program Manager',
+          notes: 'Spike due to additional workflow automation connectors.',
+        },
+      ],
+      { transaction },
+    );
+  }
+
+  let seededObjects = await ProjectWorkspaceObject.findAll({
+    where: { workspaceId },
+    transaction,
+    lock,
+  });
+
+  if (!seededObjects.length) {
+    seededObjects = await ProjectWorkspaceObject.bulkCreate(
+      [
+        {
+          workspaceId,
+          name: 'Discovery workshop assets',
+          objectType: 'deliverable',
+          status: 'completed',
+          ownerName: 'Engagement Lead',
+          description: 'Kickoff deck, stakeholder notes, and initial opportunity map.',
+          dueAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 5),
+          tags: ['workshop', 'briefing'],
+        },
+        {
+          workspaceId,
+          name: 'Automation runbook',
+          objectType: 'asset',
+          status: 'in_progress',
+          ownerName: 'Automation PM',
+          description: 'Ops-approved automation workflow templates and RACI chart.',
+          dueAt: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 4),
+          tags: ['automation', 'ops'],
+        },
+        {
+          workspaceId,
+          name: 'Client enablement hub',
+          objectType: 'milestone',
+          status: 'draft',
+          ownerName: 'Client Success',
+          description: 'Self-service resource hub, training plan, and FAQs.',
+          dueAt: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 14),
+          tags: ['launch', 'enablement'],
+        },
+      ],
+      { transaction, returning: true },
+    );
+  }
+
+  if ((await ProjectWorkspaceTimelineEntry.count({ where: { workspaceId }, transaction })) === 0) {
+    await ProjectWorkspaceTimelineEntry.bulkCreate(
+      [
+        {
+          workspaceId,
+          title: 'Discovery complete',
+          entryType: 'milestone',
+          startAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 12),
+          endAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 9),
+          status: 'completed',
+          ownerName: 'Engagement Lead',
+          relatedObjectId: seededObjects[0]?.id ?? null,
+          lane: 'Strategy',
+          progressPercent: 100,
+          metadata: { health: 'on_track' },
+        },
+        {
+          workspaceId,
+          title: 'Automation build sprint',
+          entryType: 'phase',
+          startAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 3),
+          endAt: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 4),
+          status: 'in_progress',
+          ownerName: 'Technical Program Manager',
+          relatedObjectId: seededObjects[1]?.id ?? null,
+          lane: 'Engineering',
+          progressPercent: 56,
+          metadata: { blockers: ['API rate limits'] },
+        },
+        {
+          workspaceId,
+          title: 'Client enablement',
+          entryType: 'task',
+          startAt: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 5),
+          endAt: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 12),
+          status: 'planned',
+          ownerName: 'Client Success',
+          relatedObjectId: seededObjects[2]?.id ?? null,
+          lane: 'Enablement',
+          progressPercent: 10,
+        },
+      ],
+      { transaction },
+    );
+  }
+
+  if ((await ProjectWorkspaceMeeting.count({ where: { workspaceId }, transaction })) === 0) {
+    await ProjectWorkspaceMeeting.bulkCreate(
+      [
+        {
+          workspaceId,
+          title: 'Weekly delivery sync',
+          meetingType: 'sync',
+          status: 'scheduled',
+          hostName: 'Program Manager',
+          startAt: new Date(now.getTime() + 1000 * 60 * 60 * 24),
+          endAt: new Date(now.getTime() + 1000 * 60 * 60 * 25),
+          meetingUrl: 'https://meet.example.com/delivery-sync',
+          attendees: [
+            { name: 'Program Manager', role: 'Host' },
+            { name: 'Client sponsor', role: 'Client' },
+          ],
+        },
+        {
+          workspaceId,
+          title: 'Automation architecture review',
+          meetingType: 'review',
+          status: 'completed',
+          hostName: 'Technical Program Manager',
+          startAt: new Date(now.getTime() - 1000 * 60 * 60 * 48),
+          endAt: new Date(now.getTime() - 1000 * 60 * 60 * 47),
+          meetingUrl: 'https://meet.example.com/architecture-review',
+          attendees: [
+            { name: 'Technical Program Manager', role: 'Host' },
+            { name: 'Security lead', role: 'Reviewer' },
+          ],
+        },
+      ],
+      { transaction },
+    );
+  }
+
+  if ((await ProjectWorkspaceRole.count({ where: { workspaceId }, transaction })) === 0) {
+    await ProjectWorkspaceRole.bulkCreate(
+      [
+        {
+          workspaceId,
+          memberName: 'Lena Torres',
+          roleName: 'Engagement Lead',
+          status: 'active',
+          permissions: ['workspace_admin', 'billing', 'approvals'],
+          responsibilities: 'Client sponsor liaison and delivery governance',
+          capacityHours: 32,
+          contactEmail: 'lena.torres@gigvora.com',
+        },
+        {
+          workspaceId,
+          memberName: 'Ari Banerjee',
+          roleName: 'Engineering Manager',
+          status: 'active',
+          permissions: ['deploy', 'automation'],
+          responsibilities: 'Automation delivery and technical QA',
+          capacityHours: 28,
+          contactEmail: 'ari.banerjee@gigvora.com',
+        },
+        {
+          workspaceId,
+          memberName: 'Noor El-Sayed',
+          roleName: 'QA Automation',
+          status: 'pending',
+          permissions: ['qa'],
+          responsibilities: 'Automated testing and regression suites',
+          capacityHours: 20,
+          contactEmail: 'noor.el-sayed@gigvora.com',
+        },
+      ],
+      { transaction },
+    );
+  }
+
+  if ((await ProjectWorkspaceSubmission.count({ where: { workspaceId }, transaction })) === 0) {
+    await ProjectWorkspaceSubmission.bulkCreate(
+      [
+        {
+          workspaceId,
+          title: 'Discovery summary pack',
+          submissionType: 'brief',
+          status: 'approved',
+          submittedBy: 'Engagement Lead',
+          submittedAt: new Date(now.getTime() - 1000 * 60 * 60 * 48),
+          reviewedBy: 'Client sponsor',
+          reviewedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24),
+          notes: 'Approved after including extended market sizing.',
+          attachmentUrl: `/projects/${workspaceId}/submissions/discovery-pack.pdf`,
+        },
+        {
+          workspaceId,
+          title: 'Automation architecture',
+          submissionType: 'technical',
+          status: 'in_review',
+          submittedBy: 'Technical Program Manager',
+          submittedAt: new Date(now.getTime() - 1000 * 60 * 60 * 6),
+          notes: 'Waiting for security architecture sign-off.',
+          attachmentUrl: `/projects/${workspaceId}/submissions/automation-architecture.pdf`,
+        },
+        {
+          workspaceId,
+          title: 'Enablement guide draft',
+          submissionType: 'enablement',
+          status: 'submitted',
+          submittedBy: 'Client Success',
+          submittedAt: new Date(now.getTime() - 1000 * 60 * 30),
+          notes: 'Pending review by client operations.',
+          attachmentUrl: `/projects/${workspaceId}/submissions/enablement-guide.docx`,
+        },
+      ],
+      { transaction },
+    );
+  }
+
+  if ((await ProjectWorkspaceInvite.count({ where: { workspaceId }, transaction })) === 0) {
+    await ProjectWorkspaceInvite.bulkCreate(
+      [
+        {
+          workspaceId,
+          email: 'client.sponsor@example.com',
+          role: 'Client sponsor',
+          status: 'pending',
+          invitedByName: 'Lena Torres',
+          inviteToken: generateInviteToken(),
+          expiresAt: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 3),
+          message: 'Join the workspace to review approvals and milestone progress.',
+        },
+        {
+          workspaceId,
+          email: 'legal.review@example.com',
+          role: 'Legal reviewer',
+          status: 'accepted',
+          invitedByName: 'Program Manager',
+          inviteToken: generateInviteToken(),
+          expiresAt: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 7),
+          message: 'Provides legal oversight for data processing agreements.',
+        },
+      ],
+      { transaction },
+    );
+  }
+
+  if ((await ProjectWorkspaceHrRecord.count({ where: { workspaceId }, transaction })) === 0) {
+    await ProjectWorkspaceHrRecord.bulkCreate(
+      [
+        {
+          workspaceId,
+          memberName: 'Priya Desai',
+          assignmentRole: 'Delivery Lead',
+          status: 'active',
+          capacityHours: 35,
+          allocatedHours: 30,
+          costRate: 145,
+          currency: 'USD',
+          startedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 21),
+          notes: 'Primary point of contact for delivery execution.',
+        },
+        {
+          workspaceId,
+          memberName: 'Kai Chen',
+          assignmentRole: 'Experience Designer',
+          status: 'active',
+          capacityHours: 30,
+          allocatedHours: 24,
+          costRate: 120,
+          currency: 'USD',
+          startedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 10),
+          notes: 'Leads design sprints and client reviews.',
+        },
+        {
+          workspaceId,
+          memberName: 'Noor El-Sayed',
+          assignmentRole: 'QA Automation',
+          status: 'pending',
+          capacityHours: 20,
+          allocatedHours: 8,
+          costRate: 95,
+          currency: 'USD',
+          startedAt: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 2),
+          notes: 'Onboarding next week to expand regression coverage.',
+        },
+      ],
+      { transaction },
+    );
+  }
+
+  if ((await ProjectWorkspaceMessage.count({ where: { workspaceId }, transaction })) === 0 && conversations.length) {
+    const conversationByTopic = new Map(conversations.map((conversation) => [conversation.topic, conversation]));
+
+    await ProjectWorkspaceMessage.bulkCreate(
+      [
+        {
+          workspaceId,
+          conversationId: conversationByTopic.get('Daily delivery standup')?.id ?? conversations[0]?.id,
+          authorName: 'Lena Torres',
+          authorRole: 'Engagement Lead',
+          body: 'Reminder: today’s standup focuses on automation blockers and client demo prep.',
+          postedAt: new Date(now.getTime() - 1000 * 60 * 12),
+          attachments: [],
+        },
+        {
+          workspaceId,
+          conversationId: conversationByTopic.get('Feedback loop')?.id ?? conversations[1]?.id,
+          authorName: 'Client sponsor',
+          authorRole: 'Client',
+          body: 'Uploaded annotated deck with specific experience feedback—please review.',
+          postedAt: new Date(now.getTime() - 1000 * 60 * 50),
+          attachments: [
+            { label: 'Annotated deck', url: `/projects/${workspaceId}/files/client-feedback.pdf` },
+          ],
+        },
+        {
+          workspaceId,
+          conversationId: conversationByTopic.get('Billing & procurement')?.id ?? conversations[2]?.id,
+          authorName: 'Operations',
+          authorRole: 'Operations',
+          body: 'Purchase order submitted to finance. Expect confirmation within 24 hours.',
+          postedAt: new Date(now.getTime() - 1000 * 60 * 110),
+          attachments: [],
+        },
+      ],
+      { transaction },
+    );
+  }
 }
 
 function computeWorkspaceMetrics(workspace, {
@@ -215,7 +726,7 @@ function computeWorkspaceMetrics(workspace, {
       const actual = Number(budget.actualAmount || 0);
       acc.allocated += allocated;
       acc.actual += actual;
-      if (budget.status === 'over_budget') {
+      if (budget.status === 'overbudget') {
         acc.overBudget += 1;
       }
       return acc;
@@ -262,6 +773,12 @@ function computeWorkspaceMetrics(workspace, {
     if (snapshot[key] != null) {
       metrics[key] = snapshot[key];
     }
+  });
+
+  return metrics;
+}
+
+async function ensureProject(ownerId, projectId, { include } = {}) {
   const project = await Project.findOne({
     where: { id: projectId, ownerId },
     include,
@@ -316,7 +833,7 @@ export async function initializeWorkspaceForProject(project, { transaction, acto
     throw new ValidationError('Project instance must include an id.');
   }
 
-  const workspace = await ProjectWorkspace.findOrCreate({
+  const [workspaceInstance] = await ProjectWorkspace.findOrCreate({
     where: { projectId },
     defaults: {
       status: 'planning',
@@ -329,7 +846,9 @@ export async function initializeWorkspaceForProject(project, { transaction, acto
 
   await ensureDefaultChannel(projectId, { transaction });
 
-  return workspace[0];
+  await ensureWorkspaceSeedData(project, workspaceInstance, { transaction, actorId });
+
+  return workspaceInstance;
 }
 
 function sanitizeRecord(record) {
@@ -502,396 +1021,13 @@ export async function getProjectWorkspaceOverview(ownerId, { includeDetails = tr
     };
   }
 
-  const budgetCount = await ProjectWorkspaceBudget.count({ where: { workspaceId: workspace.id }, transaction });
-
-  if (budgetCount === 0) {
-    await ProjectWorkspaceBudget.bulkCreate(
-      [
-        {
-          workspaceId: workspace.id,
-          category: 'Strategy & research',
-          allocatedAmount: 18000,
-          actualAmount: 14250,
-          currency: 'USD',
-          status: 'in_review',
-          ownerName: 'Strategy Lead',
-          notes: 'Awaiting latest agency invoice before closing the month.',
-        },
-        {
-          workspaceId: workspace.id,
-          category: 'Design & experience',
-          allocatedAmount: 24000,
-          actualAmount: 22000,
-          currency: 'USD',
-          status: 'approved',
-          ownerName: 'Design Director',
-          notes: 'Includes freelance storyboard sprint and asset QA.',
-        },
-        {
-          workspaceId: workspace.id,
-          category: 'Engineering & automation',
-          allocatedAmount: 32000,
-          actualAmount: 34850,
-          currency: 'USD',
-          status: 'over_budget',
-          ownerName: 'Technical Program Manager',
-          notes: 'Spike due to additional workflow automation connectors.',
-        },
-      ],
-      { transaction },
-    );
-  }
-
-  let seededObjects = await ProjectWorkspaceObject.findAll({
-    where: { workspaceId: workspace.id },
-    transaction,
-    lock: transaction?.LOCK?.UPDATE,
-  });
-
-  if (!seededObjects.length) {
-    seededObjects = await ProjectWorkspaceObject.bulkCreate(
-      [
-        {
-          workspaceId: workspace.id,
-          name: 'Discovery workshop assets',
-          objectType: 'deliverable',
-          status: 'completed',
-          ownerName: 'Engagement Lead',
-          description: 'Kickoff deck, stakeholder notes, and initial opportunity map.',
-          dueAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 5),
-          tags: ['workshop', 'briefing'],
-        },
-        {
-          workspaceId: workspace.id,
-          name: 'Automation runbook',
-          objectType: 'asset',
-          status: 'active',
-          ownerName: 'Automation PM',
-          description: 'Ops-approved automation workflow templates and RACI chart.',
-          dueAt: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 4),
-          tags: ['automation', 'ops'],
-        },
-        {
-          workspaceId: workspace.id,
-          name: 'Client enablement hub',
-          objectType: 'milestone',
-          status: 'draft',
-          ownerName: 'Client Success',
-          description: 'Self-service resource hub, training plan, and FAQs.',
-          dueAt: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 14),
-          tags: ['launch', 'enablement'],
-        },
-      ],
-      { transaction, returning: true },
-    );
-  }
-
-  const timelineCount = await ProjectWorkspaceTimelineEntry.count({
-    where: { workspaceId: workspace.id },
-    transaction,
-  });
-
-  if (timelineCount === 0) {
-    await ProjectWorkspaceTimelineEntry.bulkCreate(
-      [
-        {
-          workspaceId: workspace.id,
-          title: 'Discovery complete',
-          entryType: 'milestone',
-          startAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 12),
-          endAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 9),
-          status: 'completed',
-          ownerName: 'Engagement Lead',
-          relatedObjectId: seededObjects[0]?.id ?? null,
-          lane: 'Strategy',
-          progressPercent: 100,
-          metadata: { health: 'on_track' },
-        },
-        {
-          workspaceId: workspace.id,
-          title: 'Automation build sprint',
-          entryType: 'phase',
-          startAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 3),
-          endAt: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 4),
-          status: 'in_progress',
-          ownerName: 'Technical Program Manager',
-          relatedObjectId: seededObjects[1]?.id ?? null,
-          lane: 'Engineering',
-          progressPercent: 56,
-          metadata: { blockers: ['API rate limits'] },
-        },
-        {
-          workspaceId: workspace.id,
-          title: 'Client enablement',
-          entryType: 'task',
-          startAt: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 5),
-          endAt: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 12),
-          status: 'planned',
-          ownerName: 'Client Success',
-          relatedObjectId: seededObjects[2]?.id ?? null,
-          lane: 'Enablement',
-          progressPercent: 10,
-          metadata: { workshop: 'Enablement rehearsal' },
-        },
-      ],
-      { transaction },
-    );
-  }
-
-  const meetingCount = await ProjectWorkspaceMeeting.count({ where: { workspaceId: workspace.id }, transaction });
-
-  if (meetingCount === 0) {
-    await ProjectWorkspaceMeeting.bulkCreate(
-      [
-        {
-          workspaceId: workspace.id,
-          title: 'Client steering committee',
-          agenda: 'Delivery status, risks, and finance approvals.',
-          startAt: new Date(now.getTime() + 1000 * 60 * 60 * 24),
-          endAt: new Date(now.getTime() + 1000 * 60 * 60 * 25),
-          location: 'Zoom',
-          meetingUrl: 'https://zoom.example.com/steering',
-          hostName: 'Engagement Lead',
-          status: 'scheduled',
-          attendees: ['Client sponsor', 'Operations lead', 'Delivery manager'],
-        },
-        {
-          workspaceId: workspace.id,
-          title: 'Automation QA sync',
-          agenda: 'Review failed test cases and mitigation plan.',
-          startAt: new Date(now.getTime() + 1000 * 60 * 60 * 6),
-          endAt: new Date(now.getTime() + 1000 * 60 * 60 * 7),
-          location: 'Google Meet',
-          meetingUrl: 'https://meet.example.com/automation',
-          hostName: 'QA Lead',
-          status: 'scheduled',
-          attendees: ['QA team', 'Engineering'],
-        },
-        {
-          workspaceId: workspace.id,
-          title: 'Retrospective planning',
-          agenda: 'Prep facilitation plan for phase retrospective.',
-          startAt: new Date(now.getTime() + 1000 * 60 * 60 * 48),
-          endAt: new Date(now.getTime() + 1000 * 60 * 60 * 49),
-          location: 'Hybrid',
-          meetingUrl: null,
-          hostName: 'Program Manager',
-          status: 'scheduled',
-          attendees: ['Delivery', 'Client success'],
-        },
-      ],
-      { transaction },
-    );
-  }
-
-  const roleCount = await ProjectWorkspaceRole.count({ where: { workspaceId: workspace.id }, transaction });
-
-  if (roleCount === 0) {
-    await ProjectWorkspaceRole.bulkCreate(
-      [
-        {
-          workspaceId: workspace.id,
-          memberName: 'Lena Torres',
-          email: 'lena.torres@gigvora.com',
-          role: 'Engagement Lead',
-          status: 'active',
-          permissions: ['workspace_admin', 'billing', 'approvals'],
-          responsibilities: ['Client sponsor liaison', 'Delivery governance'],
-          capacityHours: 32,
-        },
-        {
-          workspaceId: workspace.id,
-          memberName: 'Ari Banerjee',
-          email: 'ari.banerjee@gigvora.com',
-          role: 'Engineering Manager',
-          status: 'active',
-          permissions: ['deploy', 'automation'],
-          responsibilities: ['Automation delivery', 'Technical QA'],
-          capacityHours: 28,
-        },
-        {
-          workspaceId: workspace.id,
-          memberName: 'Noor El-Sayed',
-          email: 'noor.el-sayed@gigvora.com',
-          role: 'QA Automation',
-          status: 'pending',
-          permissions: ['qa'],
-          responsibilities: ['Automated testing', 'Regression suites'],
-          capacityHours: 20,
-        },
-      ],
-      { transaction },
-    );
-  }
-
-  const submissionCount = await ProjectWorkspaceSubmission.count({
-    where: { workspaceId: workspace.id },
-    transaction,
-  });
-
-  if (submissionCount === 0) {
-    await ProjectWorkspaceSubmission.bulkCreate(
-      [
-        {
-          workspaceId: workspace.id,
-          title: 'Discovery summary pack',
-          submissionType: 'brief',
-          status: 'approved',
-          submittedBy: 'Engagement Lead',
-          submittedAt: new Date(now.getTime() - 1000 * 60 * 60 * 48),
-          reviewedBy: 'Client sponsor',
-          reviewedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24),
-          notes: 'Approved after including extended market sizing.',
-          attachmentUrl: `/projects/${project.id}/submissions/discovery-pack.pdf`,
-        },
-        {
-          workspaceId: workspace.id,
-          title: 'Automation architecture',
-          submissionType: 'technical',
-          status: 'in_review',
-          submittedBy: 'Technical Program Manager',
-          submittedAt: new Date(now.getTime() - 1000 * 60 * 60 * 6),
-          notes: 'Waiting for security architecture sign-off.',
-          attachmentUrl: `/projects/${project.id}/submissions/automation-architecture.pdf`,
-        },
-        {
-          workspaceId: workspace.id,
-          title: 'Enablement guide draft',
-          submissionType: 'enablement',
-          status: 'submitted',
-          submittedBy: 'Client Success',
-          submittedAt: new Date(now.getTime() - 1000 * 60 * 30),
-          notes: 'Pending review by client operations.',
-          attachmentUrl: `/projects/${project.id}/submissions/enablement-guide.docx`,
-        },
-      ],
-      { transaction },
-    );
-  }
-
-  const inviteCount = await ProjectWorkspaceInvite.count({ where: { workspaceId: workspace.id }, transaction });
-
-  if (inviteCount === 0) {
-    await ProjectWorkspaceInvite.bulkCreate(
-      [
-        {
-          workspaceId: workspace.id,
-          email: 'client.sponsor@example.com',
-          role: 'Client sponsor',
-          status: 'pending',
-          invitedByName: 'Lena Torres',
-          inviteToken: generateInviteToken(),
-          expiresAt: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 3),
-          message: 'Join the workspace to review approvals and milestone progress.',
-        },
-        {
-          workspaceId: workspace.id,
-          email: 'legal.review@example.com',
-          role: 'Legal reviewer',
-          status: 'accepted',
-          invitedByName: 'Program Manager',
-          inviteToken: generateInviteToken(),
-          expiresAt: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 7),
-          message: 'Provides legal oversight for data processing agreements.',
-        },
-      ],
-      { transaction },
-    );
-  }
-
-  const hrRecordCount = await ProjectWorkspaceHrRecord.count({ where: { workspaceId: workspace.id }, transaction });
-
-  if (hrRecordCount === 0) {
-    await ProjectWorkspaceHrRecord.bulkCreate(
-      [
-        {
-          workspaceId: workspace.id,
-          memberName: 'Priya Desai',
-          assignmentRole: 'Delivery Lead',
-          status: 'active',
-          capacityHours: 35,
-          allocatedHours: 30,
-          costRate: 145,
-          currency: 'USD',
-          startedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 21),
-          notes: 'Primary point of contact for delivery execution.',
-        },
-        {
-          workspaceId: workspace.id,
-          memberName: 'Kai Chen',
-          assignmentRole: 'Experience Designer',
-          status: 'active',
-          capacityHours: 30,
-          allocatedHours: 24,
-          costRate: 120,
-          currency: 'USD',
-          startedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 10),
-          notes: 'Leads design sprints and client reviews.',
-        },
-        {
-          workspaceId: workspace.id,
-          memberName: 'Noor El-Sayed',
-          assignmentRole: 'QA Automation',
-          status: 'pending',
-          capacityHours: 20,
-          allocatedHours: 8,
-          costRate: 95,
-          currency: 'USD',
-          startedAt: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 2),
-          notes: 'Onboarding next week to expand regression coverage.',
-        },
-      ],
-      { transaction },
-    );
-  }
-
-  const conversationMessages = await ProjectWorkspaceMessage.count({ where: { workspaceId: workspace.id }, transaction });
-  if (conversationMessages === 0) {
-    const conversations = await ProjectWorkspaceConversation.findAll({
-      where: { workspaceId: workspace.id },
-      transaction,
-    });
-    const convoMap = conversations.reduce((map, convo) => {
-      map.set(convo.topic, convo);
-      return map;
-    }, new Map());
-
-    await ProjectWorkspaceMessage.bulkCreate(
-      [
-        {
-          workspaceId: workspace.id,
-          conversationId: convoMap.get('Daily delivery standup')?.id ?? conversations[0]?.id,
-          authorName: 'Lena Torres',
-          authorRole: 'Engagement Lead',
-          body: 'Reminder: today’s standup focuses on automation blockers and client demo prep.',
-          postedAt: new Date(now.getTime() - 1000 * 60 * 12),
-          attachments: [],
-        },
-        {
-          workspaceId: workspace.id,
-          conversationId: convoMap.get('Feedback loop')?.id ?? conversations[1]?.id,
-          authorName: 'Client sponsor',
-          authorRole: 'Client',
-          body: 'Uploaded annotated deck with specific experience feedback—please review.',
-          postedAt: new Date(now.getTime() - 1000 * 60 * 50),
-          attachments: [
-            { label: 'Annotated deck', url: `/projects/${project.id}/files/client-feedback.pdf` },
-          ],
-        },
-        {
-          workspaceId: workspace.id,
-          conversationId: convoMap.get('Billing & procurement')?.id ?? conversations[2]?.id,
-          authorName: 'Operations',
-          authorRole: 'Operations',
-          body: 'Purchase order submitted to finance. Expect confirmation within 24 hours.',
-          postedAt: new Date(now.getTime() - 1000 * 60 * 110),
-          attachments: [],
-        },
-      ],
-      { transaction },
-    );
-  }
-}
+  await Promise.all(
+    projects.map(async (project) => {
+      const workspaceInstance = await initializeWorkspaceForProject(project);
+      project.setDataValue?.('workspace', workspaceInstance);
+      await ensureWorkspaceSeedData(project, workspaceInstance);
+    }),
+  );
 
   const payload = await Promise.all(projects.map((project) => buildProjectPayload(project)));
   const summary = buildSummary(payload);
@@ -1050,6 +1186,25 @@ export async function updateBudgetLine(ownerId, projectId, budgetLineId, payload
   );
   return sanitizeRecord(line);
 }
+
+export async function getWorkspaceDashboard(projectId) {
+  if (!projectId) {
+    throw new ValidationError('projectId is required.');
+  }
+
+  const project = await Project.findByPk(projectId, {
+    include: [{ model: ProjectWorkspace, as: 'workspace' }],
+  });
+
+  if (!project) {
+    throw new NotFoundError('Project not found.');
+  }
+
+  const workspace = await initializeWorkspaceForProject(project);
+  project.setDataValue?.('workspace', workspace);
+
+  await ensureWorkspaceSeedData(project, workspace);
+  await ensureDefaultChannel(project.id);
 
   const [
     brief,
@@ -1223,6 +1378,7 @@ export async function updateBudgetLine(ownerId, projectId, budgetLineId, payload
       hrRecords: hrRecordsPayload,
     }),
   };
+}
 export async function deleteBudgetLine(ownerId, projectId, budgetLineId) {
   await ensureProject(ownerId, projectId);
   await ProjectBudgetLine.destroy({ where: { id: budgetLineId, projectId } });
