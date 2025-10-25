@@ -157,6 +157,22 @@ class MessagingRepository {
     return CallSession.fromJson(Map<String, dynamic>.from(response as Map));
   }
 
+  Future<MessageAttachmentDownload> downloadAttachment({
+    required int threadId,
+    required int messageId,
+    required int attachmentId,
+  }) async {
+    final response = await _apiClient.get(
+      '/messaging/threads/$threadId/messages/$messageId/attachments/$attachmentId/download',
+    );
+
+    if (response is Map<String, dynamic>) {
+      return MessageAttachmentDownload.fromJson(response);
+    }
+
+    return MessageAttachmentDownload.fromJson(Map<String, dynamic>.from(response as Map));
+  }
+
   Future<void> markThreadRead(int threadId, {required int userId}) async {
     try {
       await _apiClient.post('/messaging/threads/$threadId/read', body: {'userId': userId});

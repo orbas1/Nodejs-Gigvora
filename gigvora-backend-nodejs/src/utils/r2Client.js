@@ -33,6 +33,14 @@ function buildObjectKey(prefix, fileName) {
   return `${normalizedPrefix}/${crypto.randomUUID()}-${safeFileName}`;
 }
 
+async function ensureClient() {
+  const r2Client = getClient();
+  if (!r2Client) {
+    return null;
+  }
+  return r2Client;
+}
+
 export async function uploadEvidence({
   prefix = 'disputes',
   fileName,
@@ -45,7 +53,7 @@ export async function uploadEvidence({
   }
 
   const key = buildObjectKey(prefix, fileName);
-  const r2Client = getClient();
+  const r2Client = await ensureClient();
 
   if (!r2Client) {
     return {
@@ -83,7 +91,30 @@ export async function uploadEvidence({
   };
 }
 
+export async function getDownloadUrl(key, { expiresIn = 60 * 60 } = {}) {
+  if (!key) {
+    throw new Error('Attachment key is required to generate a download URL.');
+  }
+
+  const r2Client = await ensureClient();
+  if (!r2Client) {
+    return null;
+  }
+
+  try {
+    return await getSignedUrl(
+      r2Client,
+      new GetObjectCommand({ Bucket: bucket, Key: key }),
+      { expiresIn },
+    );
+  } catch (error) {
+    console.warn('Failed to build signed download URL for object', key, error);
+    return null;
+  }
+}
+
 export default {
   isConfigured,
   uploadEvidence,
+  getDownloadUrl,
 };

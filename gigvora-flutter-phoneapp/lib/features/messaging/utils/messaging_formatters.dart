@@ -117,3 +117,18 @@ bool isCallActive(CallMetadata metadata) {
   }
   return metadata.expiresAt!.isAfter(DateTime.now());
 }
+
+String formatAttachmentSize(int bytes) {
+  if (bytes <= 0) {
+    return '0 B';
+  }
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  var value = bytes.toDouble();
+  var unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex++;
+  }
+  final precision = unitIndex == 0 ? 0 : (value >= 100 ? 0 : 1);
+  return '${value.toStringAsFixed(precision)} ${units[unitIndex]}';
+}

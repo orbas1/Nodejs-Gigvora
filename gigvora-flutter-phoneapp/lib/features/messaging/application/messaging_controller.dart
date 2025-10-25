@@ -47,6 +47,7 @@ class MessagingController extends StateNotifier<MessagingState> {
         resetSelectedThread: true,
         composerError: null,
         callError: null,
+        attachmentError: null,
       );
       return;
     }
@@ -54,6 +55,7 @@ class MessagingController extends StateNotifier<MessagingState> {
     final currentInbox = state.inbox;
     state = state.copyWith(
       inbox: currentInbox.copyWith(loading: true, error: null),
+      attachmentError: null,
     );
 
     try {
@@ -92,6 +94,7 @@ class MessagingController extends StateNotifier<MessagingState> {
       state = state.copyWith(
         inbox: inboxState,
         selectedThreadId: selectedThreadId,
+        attachmentError: null,
       );
 
       if (selectedThreadId != null) {
@@ -100,6 +103,7 @@ class MessagingController extends StateNotifier<MessagingState> {
     } catch (error) {
       state = state.copyWith(
         inbox: currentInbox.copyWith(loading: false, error: error),
+        attachmentError: error.toString(),
       );
     }
   }
@@ -116,6 +120,7 @@ class MessagingController extends StateNotifier<MessagingState> {
       selectedThreadId: threadId,
       composerError: null,
       callError: null,
+      attachmentError: null,
     );
 
     try {
@@ -144,12 +149,14 @@ class MessagingController extends StateNotifier<MessagingState> {
         conversation: conversationState,
         selectedThreadId: threadId,
         inbox: state.inbox.copyWith(data: updatedThreads),
+        attachmentError: null,
       );
 
       unawaited(_repository.markThreadRead(threadId, userId: actorId));
     } catch (error) {
       state = state.copyWith(
         conversation: currentConversation.copyWith(loading: false, error: error, data: const <ThreadMessage>[]),
+        attachmentError: error.toString(),
       );
     }
   }
@@ -182,6 +189,7 @@ class MessagingController extends StateNotifier<MessagingState> {
         conversation: state.conversation.copyWith(data: sortMessagesByTimestamp(updatedMessages)),
         composerText: '',
         sending: false,
+        attachmentError: null,
       );
 
       await _analytics.track(
@@ -198,6 +206,7 @@ class MessagingController extends StateNotifier<MessagingState> {
       state = state.copyWith(
         sending: false,
         composerError: error.toString(),
+        attachmentError: error.toString(),
       );
     }
   }
@@ -226,7 +235,7 @@ class MessagingController extends StateNotifier<MessagingState> {
       return;
     }
 
-    state = state.copyWith(callLoading: true, callError: null, callSession: null);
+    state = state.copyWith(callLoading: true, callError: null, callSession: null, attachmentError: null);
 
     try {
       final session = await _repository.createCallSession(
@@ -255,7 +264,7 @@ class MessagingController extends StateNotifier<MessagingState> {
 
       await loadInbox(forceRefresh: true);
     } catch (error) {
-      state = state.copyWith(callLoading: false, callError: error.toString());
+      state = state.copyWith(callLoading: false, callError: error.toString(), attachmentError: error.toString());
     }
   }
 
@@ -263,9 +272,43 @@ class MessagingController extends StateNotifier<MessagingState> {
     state = state.copyWith(callSession: null, callError: null);
   }
 
-  void updateActorId(int? actorId) {
-    state = state.copyWith(actorId: actorId);
-    unawaited(loadInbox(forceRefresh: true));
+  Future<MessageAttachmentDownload?> downloadAttachment(ThreadMessage message, MessageAttachment attachment) async {
+    final actorId = state.actorId;
+    if (actorId == null || actorId <= 0) {
+      state = state.copyWith(attachmentError: 'Sign in to download attachments.');
+      return null;
+    }
+
+    final key = '${message.id}:${attachment.id}';
+    final nextDownloading = {...state.downloadingAttachmentKeys, key};
+    state = state.copyWith(downloadingAttachmentKeys: nextDownloading, attachmentError: null);
+
+    try {
+      final download = await _repository.downloadAttachment(
+        threadId: message.threadId,
+        messageId: message.id,
+        attachmentId: attachment.id,
+      );
+
+      await _analytics.track(
+        'mobile_messaging_attachment_download',
+        context: {
+          'threadId': message.threadId,
+          'messageId': message.id,
+          'attachmentId': attachment.id,
+          'mimeType': download.mimeType,
+        },
+        metadata: const {'source': 'mobile_app'},
+      );
+
+      return download;
+    } catch (error) {
+      state = state.copyWith(attachmentError: error.toString());
+      return null;
+    } finally {
+      final next = {...state.downloadingAttachmentKeys}..remove(key);
+      state = state.copyWith(downloadingAttachmentKeys: next);
+    }
   }
 }
 
@@ -283,7 +326,10 @@ final messagingControllerProvider = StateNotifierProvider.autoDispose<MessagingC
   final session = sessionState.session;
   final hasAccess = canAccessMessaging(session);
   final configuredActorId = int.tryParse(config.featureFlags['demoActorId']?.toString() ?? '');
-  final actorId = hasAccess ? configuredActorId : null;
+  final sessionActorId = session?.actorId;
+  final actorId = hasAccess
+      ? (sessionActorId != null && sessionActorId > 0 ? sessionActorId : configuredActorId)
+      : null;
   final controller = MessagingController(repository, analytics, actorId: actorId);
   ref.onDispose(() {
     controller.dispose();

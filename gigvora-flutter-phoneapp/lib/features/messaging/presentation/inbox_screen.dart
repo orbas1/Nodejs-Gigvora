@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/providers.dart';
 import '../../../theme/widgets.dart';
@@ -12,6 +13,7 @@ import '../data/models/thread_message.dart';
 import '../utils/messaging_formatters.dart';
 import '../utils/messaging_access.dart';
 import '../../auth/application/session_controller.dart';
+import 'messaging_call_screen.dart';
 
 class InboxScreen extends ConsumerStatefulWidget {
   const InboxScreen({super.key});
@@ -21,24 +23,17 @@ class InboxScreen extends ConsumerStatefulWidget {
 }
 
 class _InboxScreenState extends ConsumerState<InboxScreen> {
-  late final TextEditingController _actorController;
   late final TextEditingController _composerController;
+  CallSession? _currentCallSession;
+  bool _callScreenOpen = false;
 
   @override
   void initState() {
     super.initState();
     final state = ref.read(messagingControllerProvider);
-    _actorController = TextEditingController(text: state.actorId?.toString() ?? '');
     _composerController = TextEditingController(text: state.composerText);
 
     ref.listen<MessagingState>(messagingControllerProvider, (previous, next) {
-      if (previous?.actorId != next.actorId) {
-        final textValue = next.actorId?.toString() ?? '';
-        if (_actorController.text != textValue) {
-          _actorController.text = textValue;
-        }
-      }
-
       if (previous?.composerText != next.composerText && _composerController.text != next.composerText) {
         _composerController
           ..text = next.composerText
@@ -46,20 +41,80 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
             TextPosition(offset: _composerController.text.length),
           );
       }
+
+      if (previous?.callSession?.callId != next.callSession?.callId) {
+        if (next.callSession != null && next.callSession!.hasCredentials) {
+          _presentCallExperience(next.callSession!);
+        }
+      }
+
     });
   }
 
   @override
   void dispose() {
-    _actorController.dispose();
     _composerController.dispose();
     super.dispose();
   }
 
-  void _applyActorId() {
-    final raw = _actorController.text.trim();
-    final parsed = int.tryParse(raw);
-    ref.read(messagingControllerProvider.notifier).updateActorId(parsed);
+  Future<void> _presentCallExperience(CallSession session) async {
+    if (!mounted) {
+      return;
+    }
+    _currentCallSession = session;
+    if (_callScreenOpen) {
+      return;
+    }
+    _callScreenOpen = true;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (context) => MessagingCallScreen(
+          session: session,
+          onEnd: () {
+            ref.read(messagingControllerProvider.notifier).endActiveCall();
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            }
+          },
+        ),
+      ),
+    );
+    if (!mounted) {
+      return;
+    }
+    _callScreenOpen = false;
+    _currentCallSession = null;
+    ref.read(messagingControllerProvider.notifier).endActiveCall();
+  }
+
+  Future<void> _handleAttachmentTap(ThreadMessage message, MessageAttachment attachment) async {
+    final controller = ref.read(messagingControllerProvider.notifier);
+    final download = await controller.downloadAttachment(message, attachment);
+    if (download == null || !mounted) {
+      return;
+    }
+
+    final uri = Uri.tryParse(download.url);
+    if (uri == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Attachment URL is invalid.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to open the attachment. Check your installed apps.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   @override
@@ -73,6 +128,8 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     final hasMessagingAccess = canAccessMessaging(session);
     final membershipBadges = messagingMembershipLabels(session);
     final allowedRoleLabels = messagingAllowedRoleLabels(session);
+    final membershipOptions = session?.memberships ?? const <String>[];
+    final membershipLabel = session != null ? (String role) => session.roleLabel(role) : (String role) => role;
 
     if (!isAuthenticated) {
       return GigvoraScaffold(
@@ -213,9 +270,16 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
             threads: threads,
             onSelect: controller.selectThread,
             onRefresh: () => controller.loadInbox(forceRefresh: true),
-            actorController: _actorController,
-            onApplyActorId: _applyActorId,
             membershipBadges: membershipBadges,
+            memberships: membershipOptions,
+            activeMembership: session?.activeMembership,
+            onMembershipChanged: membershipOptions.isNotEmpty
+                ? (role) {
+                    ref.read(sessionControllerProvider.notifier).selectRole(role);
+                    controller.loadInbox(forceRefresh: true);
+                  }
+                : null,
+            membershipLabelBuilder: membershipOptions.isNotEmpty ? membershipLabel : null,
           );
 
           final conversationPanel = _ConversationPanel(
@@ -238,6 +302,8 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
               controller.startCall(metadata.type, callId: metadata.id);
             },
             onEndCall: controller.endActiveCall,
+            onAttachmentTap: _handleAttachmentTap,
+            downloadingAttachmentKeys: state.downloadingAttachmentKeys,
           );
 
           if (isWide) {
@@ -278,18 +344,22 @@ class _ThreadPanel extends StatelessWidget {
     required this.threads,
     required this.onSelect,
     required this.onRefresh,
-    required this.actorController,
-    required this.onApplyActorId,
     required this.membershipBadges,
+    this.memberships = const <String>[],
+    this.activeMembership,
+    this.onMembershipChanged,
+    this.membershipLabelBuilder,
   });
 
   final MessagingState state;
   final List<MessageThread> threads;
   final ValueChanged<int> onSelect;
   final Future<void> Function() onRefresh;
-  final TextEditingController actorController;
-  final VoidCallback onApplyActorId;
   final List<String> membershipBadges;
+  final List<String> memberships;
+  final String? activeMembership;
+  final ValueChanged<String>? onMembershipChanged;
+  final String Function(String role)? membershipLabelBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -301,6 +371,16 @@ class _ThreadPanel extends StatelessWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(bottom: 24),
         children: [
+          if (memberships.isNotEmpty && onMembershipChanged != null && membershipLabelBuilder != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: _WorkspaceSelector(
+                memberships: memberships,
+                activeMembership: activeMembership,
+                onChanged: onMembershipChanged!,
+                labelBuilder: membershipLabelBuilder!,
+              ),
+            ),
           if (membershipBadges.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 16),
@@ -332,8 +412,6 @@ class _ThreadPanel extends StatelessWidget {
                 ),
               ),
             ),
-          _ActorSelector(actorController: actorController, onApply: onApplyActorId),
-          const SizedBox(height: 16),
           if (state.inbox.hasError)
             _StatusBanner(
               icon: Icons.error_outline,
@@ -525,41 +603,57 @@ class _ConversationPanel extends StatelessWidget {
   }
 }
 
-class _ActorSelector extends StatelessWidget {
-  const _ActorSelector({required this.actorController, required this.onApply});
+class _WorkspaceSelector extends StatelessWidget {
+  const _WorkspaceSelector({
+    required this.memberships,
+    required this.activeMembership,
+    required this.onChanged,
+    required this.labelBuilder,
+  });
 
-  final TextEditingController actorController;
-  final VoidCallback onApply;
+  final List<String> memberships;
+  final String? activeMembership;
+  final ValueChanged<String> onChanged;
+  final String Function(String role) labelBuilder;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final initial =
+        activeMembership != null && memberships.contains(activeMembership) ? activeMembership : memberships.first;
     return GigvoraCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Act as user', style: theme.textTheme.titleMedium),
+          Text(
+            'Workspace role',
+            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+          ),
           const SizedBox(height: 8),
-          Text('Enter a user ID to preview their synced inbox.', style: theme.textTheme.bodySmall),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: actorController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'User ID',
-                    border: OutlineInputBorder(),
+          DropdownButtonFormField<String>(
+            value: initial,
+            decoration: const InputDecoration(
+              labelText: 'Active membership',
+              border: OutlineInputBorder(),
+            ),
+            items: memberships
+                .map(
+                  (role) => DropdownMenuItem<String>(
+                    value: role,
+                    child: Text(labelBuilder(role)),
                   ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              ElevatedButton(
-                onPressed: onApply,
-                child: const Text('Apply'),
-              ),
-            ],
+                )
+                .toList(growable: false),
+            onChanged: (value) {
+              if (value != null && value.isNotEmpty) {
+                onChanged(value);
+              }
+            },
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Switch workspaces to view conversations with the correct access policies and participants.',
+            style: theme.textTheme.bodySmall,
           ),
         ],
       ),
@@ -741,16 +835,25 @@ class _ConversationHeader extends StatelessWidget {
 }
 
 class _MessageBubble extends StatelessWidget {
-  const _MessageBubble({required this.message, required this.isOwn});
+  const _MessageBubble({
+    required this.message,
+    required this.isOwn,
+    required this.onAttachmentTap,
+    required this.downloadingAttachmentKeys,
+  });
 
   final ThreadMessage message;
   final bool isOwn;
+  final void Function(ThreadMessage, MessageAttachment) onAttachmentTap;
+  final Set<String> downloadingAttachmentKeys;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final background = isOwn ? theme.colorScheme.primary : theme.colorScheme.surfaceVariant;
     final foreground = isOwn ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface;
+    final hasBody = message.body?.trim().isNotEmpty == true;
+    final attachments = message.attachments;
 
     return Column(
       crossAxisAlignment: isOwn ? CrossAxisAlignment.end : CrossAxisAlignment.start,
@@ -760,24 +863,35 @@ class _MessageBubble extends StatelessWidget {
           style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
         const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: background,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                offset: const Offset(0, 8),
-                blurRadius: 16,
-              ),
-            ],
+        if (hasBody)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: background,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  offset: const Offset(0, 8),
+                  blurRadius: 16,
+                ),
+              ],
+            ),
+            child: Text(
+              message.body!,
+              style: theme.textTheme.bodyMedium?.copyWith(color: foreground),
+            ),
           ),
-          child: Text(
-            message.body?.isNotEmpty == true ? message.body! : 'No message body',
-            style: theme.textTheme.bodyMedium?.copyWith(color: foreground),
+        if (attachments.isNotEmpty)
+          Padding(
+            padding: EdgeInsets.only(top: hasBody ? 12 : 0),
+            child: _AttachmentList(
+              message: message,
+              attachments: attachments,
+              onTap: onAttachmentTap,
+              downloadingAttachmentKeys: downloadingAttachmentKeys,
+            ),
           ),
-        ),
       ],
     );
   }
@@ -816,6 +930,72 @@ class _SystemMessageBubble extends StatelessWidget {
           child: Text(body, style: theme.textTheme.bodyMedium),
         ),
       ],
+    );
+  }
+}
+
+class _AttachmentList extends StatelessWidget {
+  const _AttachmentList({
+    required this.message,
+    required this.attachments,
+    required this.onTap,
+    required this.downloadingAttachmentKeys,
+  });
+
+  final ThreadMessage message;
+  final List<MessageAttachment> attachments;
+  final void Function(ThreadMessage, MessageAttachment) onTap;
+  final Set<String> downloadingAttachmentKeys;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: attachments.map((attachment) {
+        final key = '${message.id}:${attachment.id}';
+        final downloading = downloadingAttachmentKeys.contains(key);
+        final sizeLabel = attachment.fileSize > 0 ? ' • ${formatAttachmentSize(attachment.fileSize)}' : '';
+        final label = '${attachment.fileName}$sizeLabel';
+        return ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 280),
+          child: Material(
+            color: theme.colorScheme.surfaceVariant,
+            borderRadius: BorderRadius.circular(16),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: downloading ? null : () => onTap(message, attachment),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    downloading
+                        ? SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: theme.colorScheme.primary,
+                            ),
+                          )
+                        : Icon(Icons.attach_file, size: 16, color: theme.colorScheme.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        label,
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(growable: false),
     );
   }
 }

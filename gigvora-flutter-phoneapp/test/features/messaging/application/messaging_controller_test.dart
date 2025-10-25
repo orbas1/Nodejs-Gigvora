@@ -19,12 +19,14 @@ void main() {
     late List<Map<String, dynamic>> messages;
     late bool failThreads;
     late bool failMessages;
+    late bool failAttachmentDownload;
 
     setUp(() {
       cache = InMemoryOfflineCache();
       analytics = TestAnalyticsService();
       failThreads = false;
       failMessages = false;
+      failAttachmentDownload = false;
       threads = [
         {
           'id': 1,
@@ -98,6 +100,18 @@ void main() {
             if (failMessages) throw Exception('messages offline');
             return {
               'data': messages,
+            };
+          }
+          if (path == '/messaging/threads/1/messages/11/attachments/9001/download') {
+            if (failAttachmentDownload) throw Exception('download failed');
+            return {
+              'id': 9001,
+              'threadId': 1,
+              'messageId': 11,
+              'url': 'https://cdn.gigvora.com/messaging/gigvora-sprint-checklist.pdf',
+              'fileName': 'kickoff-brief.pdf',
+              'mimeType': 'application/pdf',
+              'fileSize': 2482300,
             };
           }
           throw UnsupportedError('Unexpected GET path: $path');
@@ -198,6 +212,25 @@ void main() {
       expect(controller.state.composerText, isEmpty);
       expect(controller.state.messages.last.body, 'We are live!');
       expect(analytics.events.any((event) => event.name == 'mobile_messaging_message_sent'), isTrue);
+    });
+
+    test('downloadAttachment retrieves a link and tracks analytics', () async {
+      await controller.loadInbox(forceRefresh: true);
+      await controller.loadMessages(1, forceRefresh: true);
+
+      final message = controller.state.messages.first;
+      final attachment = message.attachments.first;
+
+      final download = await controller.downloadAttachment(message, attachment);
+
+      expect(download, isNotNull);
+      expect(download!.url, 'https://cdn.gigvora.com/messaging/gigvora-sprint-checklist.pdf');
+      expect(controller.state.downloadingAttachmentKeys, isEmpty);
+      expect(controller.state.attachmentError, isNull);
+      expect(
+        analytics.events.any((event) => event.name == 'mobile_messaging_attachment_download'),
+        isTrue,
+      );
     });
 
     test('gracefully reports when no actor id is available', () async {

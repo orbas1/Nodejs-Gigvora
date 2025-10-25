@@ -15,8 +15,12 @@ class MessagingState {
     this.composerError,
     this.callError,
     this.callSession,
+    Set<String>? downloadingAttachmentKeys,
+    this.attachmentError,
   })  : inbox = inbox ?? ResourceState<List<MessageThread>>.loading(const []),
-        conversation = conversation ?? ResourceState<List<ThreadMessage>>(data: const [], loading: false);
+        conversation = conversation ?? ResourceState<List<ThreadMessage>>(data: const [], loading: false),
+        downloadingAttachmentKeys =
+            Set<String>.unmodifiable(downloadingAttachmentKeys ?? const <String>{});
 
   final ResourceState<List<MessageThread>> inbox;
   final ResourceState<List<ThreadMessage>> conversation;
@@ -28,6 +32,8 @@ class MessagingState {
   final String? composerError;
   final String? callError;
   final CallSession? callSession;
+  final Set<String> downloadingAttachmentKeys;
+  final String? attachmentError;
 
   List<MessageThread> get threads => inbox.data ?? const <MessageThread>[];
   List<ThreadMessage> get messages => conversation.data ?? const <ThreadMessage>[];
@@ -47,6 +53,8 @@ class MessagingState {
     String? composerError = _sentinelString,
     String? callError = _sentinelString,
     CallSession? callSession = _sentinelCallSession,
+    Set<String>? downloadingAttachmentKeys,
+    String? attachmentError = _sentinelString,
   }) {
     return MessagingState(
       inbox: inbox ?? this.inbox,
@@ -59,6 +67,8 @@ class MessagingState {
       composerError: identical(composerError, _sentinelString) ? this.composerError : composerError,
       callError: identical(callError, _sentinelString) ? this.callError : callError,
       callSession: identical(callSession, _sentinelCallSession) ? this.callSession : callSession,
+      downloadingAttachmentKeys: downloadingAttachmentKeys ?? this.downloadingAttachmentKeys,
+      attachmentError: identical(attachmentError, _sentinelString) ? this.attachmentError : attachmentError,
     );
   }
 

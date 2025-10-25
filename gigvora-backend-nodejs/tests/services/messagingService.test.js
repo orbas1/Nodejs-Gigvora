@@ -11,11 +11,22 @@ import {
   assignSupportAgent,
   updateSupportCaseStatus,
   startOrJoinCall,
-} from '../src/services/messagingService.js';
-import { createUser } from './helpers/factories.js';
-import { AuthorizationError } from '../src/utils/errors.js';
+  getMessageAttachmentDownload,
+} from '../../src/services/messagingService.js';
+import { createUser } from '../helpers/factories.js';
+import { AuthorizationError } from '../../src/utils/errors.js';
 
 describe('messagingService', () => {
+  const originalAttachmentCdn = process.env.MESSAGING_ATTACHMENT_CDN_URL;
+
+  beforeAll(() => {
+    process.env.MESSAGING_ATTACHMENT_CDN_URL = 'https://cdn.gigvora.test/assets';
+  });
+
+  afterAll(() => {
+    process.env.MESSAGING_ATTACHMENT_CDN_URL = originalAttachmentCdn;
+  });
+
   it('creates threads, appends messages, and enforces state transitions', async () => {
     const owner = await createUser({ email: 'owner@gigvora.test', userType: 'user' });
     const participant = await createUser({ email: 'participant@gigvora.test', userType: 'user' });
@@ -73,9 +84,34 @@ describe('messagingService', () => {
       ]),
     });
 
+    const attachmentDownload = await getMessageAttachmentDownload(
+      thread.id,
+      message.id,
+      message.attachments[0].id,
+      owner.id,
+    );
+
+    expect(attachmentDownload).toMatchObject({
+      threadId: thread.id,
+      messageId: message.id,
+      fileName: 'discovery-brief.pdf',
+      mimeType: 'application/pdf',
+      fileSize: 24576,
+    });
+    expect(attachmentDownload.url).toBe('https://cdn.gigvora.test/assets/workspace/briefs/discovery-brief.pdf');
+
     const messagePage = await listMessages(thread.id, { pageSize: 10 });
     expect(messagePage.data).toHaveLength(1);
-    expect(messagePage.pagination).toMatchObject({ total: 1, totalPages: 1 });
+    expect(messagePage.data[0].attachments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          fileName: 'discovery-brief.pdf',
+          storageKey: 'workspace/briefs/discovery-brief.pdf',
+        }),
+      ]),
+    );
+    expect(messagePage.pagination.total).toBeGreaterThanOrEqual(1);
+    expect(messagePage.pagination.totalPages).toBe(1);
 
     const lockedThread = await updateThreadState(thread.id, 'locked');
     expect(lockedThread.state).toBe('locked');

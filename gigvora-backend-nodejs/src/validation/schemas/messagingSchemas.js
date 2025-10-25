@@ -25,6 +25,12 @@ export const messageParamsSchema = threadParamsSchema
   })
   .strip();
 
+export const attachmentParamsSchema = messageParamsSchema
+  .extend({
+    attachmentId: positiveId('attachmentId'),
+  })
+  .strip();
+
 export const participantParamsSchema = threadParamsSchema
   .extend({
     participantId: positiveId('participantId'),
@@ -183,6 +189,7 @@ export const threadDetailQuerySchema = z
 export default {
   threadParamsSchema,
   messageParamsSchema,
+  attachmentParamsSchema,
   participantParamsSchema,
   callParamsSchema,
   threadStateBodySchema,

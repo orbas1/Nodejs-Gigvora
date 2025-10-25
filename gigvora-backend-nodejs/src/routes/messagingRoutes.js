@@ -11,6 +11,7 @@ import {
   listMessagesQuerySchema,
   createMessageBodySchema,
   callSessionBodySchema,
+  attachmentParamsSchema,
   threadStateBodySchema,
   muteThreadBodySchema,
   escalateThreadBodySchema,
@@ -55,6 +56,11 @@ router.post(
   '/threads/:threadId/calls',
   validateRequest({ params: threadParamsSchema, body: callSessionBodySchema }),
   asyncHandler(messagingController.createCallSession),
+);
+router.get(
+  '/threads/:threadId/messages/:messageId/attachments/:attachmentId/download',
+  validateRequest({ params: attachmentParamsSchema }),
+  asyncHandler(messagingController.downloadMessageAttachment),
 );
 router.post(
   '/threads/:threadId/read',

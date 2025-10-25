@@ -36,7 +36,6 @@ export default {
     '^compression$': '<rootDir>/tests/stubs/compressionStub.js',
     '(.*/)?models/index\\.js$': '<rootDir>/tests/stubs/modelsIndexStub.js',
     '(.*/)?models/moderationModels\\.js$': '<rootDir>/tests/stubs/moderationModelsStub.js',
-    '(.*/)?models/messagingModels\\.js$': '<rootDir>/tests/stubs/messagingModelsStub.js',
     '(.*/)?models/constants/index\\.js$': '<rootDir>/tests/stubs/modelConstantsStub.js',
   },
   testMatch: TEST_DIRECTORIES,

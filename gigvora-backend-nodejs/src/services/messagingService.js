@@ -51,11 +51,15 @@ async function loadUserRoleModel() {
   return userRoleModelPromise;
 }
 import { createCallTokens, getDefaultAgoraExpiry } from './agoraService.js';
+import { getDownloadUrl as getSignedDownloadUrl } from '../utils/r2Client.js';
 
 const THREAD_CACHE_TTL = 60;
 const MESSAGE_CACHE_TTL = 15;
 const INBOX_CACHE_TTL = 30;
 const LABEL_CACHE_TTL = 60;
+function getAttachmentCdnBaseUrl() {
+  return (process.env.MESSAGING_ATTACHMENT_CDN_URL || process.env.GIGVORA_CDN_URL || '').trim();
+}
 const SUPPORT_ESCALATION_NOTIFY_USER_IDS = (process.env.SUPPORT_ESCALATION_NOTIFY_USER_IDS ?? '')
   .split(',')
   .map((value) => Number.parseInt(value.trim(), 10))
@@ -175,6 +179,43 @@ function normalizeLabelColor(color) {
     return '#0f172a';
   }
   return sanitized.toLowerCase();
+}
+
+function isAbsoluteUrl(value) {
+  if (!value) {
+    return false;
+  }
+  return /^https?:\/\//i.test(value.toString().trim());
+}
+
+function normalizeAttachmentKey(value) {
+  if (!value) {
+    return '';
+  }
+  return value.toString().replace(/^\/+/, '');
+}
+
+async function resolveAttachmentDownloadUrl(storageKey) {
+  if (!storageKey) {
+    return null;
+  }
+  if (isAbsoluteUrl(storageKey)) {
+    return storageKey;
+  }
+
+  const normalizedKey = normalizeAttachmentKey(storageKey);
+  const signedUrl = await getSignedDownloadUrl(normalizedKey).catch(() => null);
+  if (signedUrl) {
+    return signedUrl;
+  }
+
+  const attachmentCdnBaseUrl = getAttachmentCdnBaseUrl();
+  if (attachmentCdnBaseUrl) {
+    const base = attachmentCdnBaseUrl.replace(/\/+$/, '');
+    return `${base}/${normalizedKey}`;
+  }
+
+  return null;
 }
 
 function sanitizeLabel(label) {
@@ -879,6 +920,57 @@ export async function startOrJoinCall(
     identity: tokens.identity,
     isNew,
     message: hydratedMessage ?? sanitizedCallMessage ?? null,
+  };
+}
+
+export async function getMessageAttachmentDownload(threadId, messageId, attachmentId, actorId) {
+  if (!Number.isFinite(threadId) || threadId <= 0) {
+    throw new ValidationError('threadId must be a positive integer.');
+  }
+  if (!Number.isFinite(messageId) || messageId <= 0) {
+    throw new ValidationError('messageId must be a positive integer.');
+  }
+  if (!Number.isFinite(attachmentId) || attachmentId <= 0) {
+    throw new ValidationError('attachmentId must be a positive integer.');
+  }
+  if (!Number.isFinite(actorId) || actorId <= 0) {
+    throw new AuthorizationError('You must be signed in to download attachments.');
+  }
+
+  await ensureParticipant(threadId, actorId);
+
+  const message = await Message.findOne({
+    where: { id: messageId, threadId },
+    include: [{ model: MessageAttachment, as: 'attachments' }],
+  });
+
+  if (!message) {
+    throw new NotFoundError('Message not found for the requested attachment.');
+  }
+
+  const attachment = (message.attachments ?? []).find((item) => Number(item.id) === Number(attachmentId));
+  if (!attachment) {
+    throw new NotFoundError('Attachment not found for this message.');
+  }
+
+  const sanitizedAttachment = sanitizeAttachment(attachment);
+  if (!sanitizedAttachment?.storageKey) {
+    throw new ApplicationError('Attachment storage metadata is missing.');
+  }
+
+  const downloadUrl = await resolveAttachmentDownloadUrl(sanitizedAttachment.storageKey);
+  if (!downloadUrl) {
+    throw new ApplicationError('Attachment is unavailable for download.');
+  }
+
+  return {
+    id: sanitizedAttachment.id,
+    threadId,
+    messageId: message.id,
+    url: downloadUrl,
+    fileName: sanitizedAttachment.fileName,
+    mimeType: sanitizedAttachment.mimeType,
+    fileSize: sanitizedAttachment.fileSize ?? 0,
   };
 }
 

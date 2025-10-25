@@ -200,6 +200,38 @@ class CallSession {
   bool get hasCredentials => rtcToken != null && rtcToken!.isNotEmpty;
 }
 
+class MessageAttachmentDownload {
+  MessageAttachmentDownload({
+    required this.id,
+    required this.threadId,
+    required this.messageId,
+    required this.url,
+    required this.fileName,
+    required this.mimeType,
+    required this.fileSize,
+  });
+
+  factory MessageAttachmentDownload.fromJson(Map<String, dynamic> json) {
+    return MessageAttachmentDownload(
+      id: _parseInt(json['id']) ?? 0,
+      threadId: _parseInt(json['threadId']) ?? 0,
+      messageId: _parseInt(json['messageId']) ?? 0,
+      url: json['url']?.toString() ?? '',
+      fileName: json['fileName']?.toString() ?? 'Attachment',
+      mimeType: json['mimeType']?.toString() ?? 'application/octet-stream',
+      fileSize: _parseInt(json['fileSize']) ?? 0,
+    );
+  }
+
+  final int id;
+  final int threadId;
+  final int messageId;
+  final String url;
+  final String fileName;
+  final String mimeType;
+  final int fileSize;
+}
+
 int? _parseInt(dynamic value) {
   if (value == null) return null;
   if (value is int) return value;

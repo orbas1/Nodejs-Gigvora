@@ -11,6 +11,7 @@ import {
   assignSupportAgent,
   updateSupportCaseStatus,
   startOrJoinCall,
+  getMessageAttachmentDownload,
   updateThreadSettings as updateThreadSettingsService,
   addParticipantsToThread,
   removeParticipantFromThread,
@@ -322,6 +323,16 @@ export async function createCallSession(req, res) {
   });
 
   res.status(session.isNew ? 201 : 200).json(session);
+}
+
+export async function downloadMessageAttachment(req, res) {
+  const actorId = resolveActorId(req);
+  const threadId = parsePositiveInteger(req.params?.threadId, 'threadId');
+  const messageId = parsePositiveInteger(req.params?.messageId, 'messageId');
+  const attachmentId = parsePositiveInteger(req.params?.attachmentId, 'attachmentId');
+
+  const download = await getMessageAttachmentDownload(threadId, messageId, attachmentId, actorId);
+  res.json(download);
 }
 
 export async function updateThreadSettings(req, res) {
