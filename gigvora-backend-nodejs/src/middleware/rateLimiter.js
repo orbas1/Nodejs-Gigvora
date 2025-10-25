@@ -1,4 +1,5 @@
-import rateLimit from 'express-rate-limit';
+import expressRateLimit from 'express-rate-limit';
+
 import {
   configureRateLimitMetrics,
   recordRateLimitAttempt,
@@ -47,7 +48,7 @@ export function createInstrumentedRateLimiter(options = {}) {
 
   configureRateLimitMetrics({ windowMs, max });
 
-  const limiter = rateLimit({
+  const limiter = expressRateLimit({
     windowMs,
     max,
     standardHeaders: options.standardHeaders ?? true,
@@ -100,6 +101,5 @@ export function createInstrumentedRateLimiter(options = {}) {
   };
 }
 
-export default createInstrumentedRateLimiter;
 export { sanitizeRequestPath, defaultKeyGenerator };
 

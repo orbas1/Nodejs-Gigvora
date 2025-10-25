@@ -1,4 +1,5 @@
 import { Op } from 'sequelize';
+
 import { RuntimeSecurityAuditEvent } from '../models/index.js';
 import logger from '../utils/logger.js';
 
@@ -60,7 +61,3 @@ export async function getRecentRuntimeSecurityEvents({ limit = 10, level, since 
   return events.map((event) => event.toPublicObject());
 }
 
-export default {
-  recordRuntimeSecurityEvent,
-  getRecentRuntimeSecurityEvents,
-};

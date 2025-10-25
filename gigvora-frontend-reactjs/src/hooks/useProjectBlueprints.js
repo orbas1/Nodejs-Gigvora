@@ -93,7 +93,10 @@ export default function useProjectBlueprints({ freelancerId, enabled = true, ini
   });
 
   const data = resource.data ?? FALLBACK_RESPONSE;
-  const blueprints = data.blueprints ?? [];
+  const blueprints = useMemo(
+    () => data.blueprints ?? [],
+    [data.blueprints],
+  );
   const metrics = data.metrics ?? FALLBACK_RESPONSE.metrics;
   const templates = data.templates ?? FALLBACK_RESPONSE.templates;
 

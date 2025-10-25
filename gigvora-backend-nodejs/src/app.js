@@ -1,20 +1,21 @@
+import { context, trace } from '@opentelemetry/api';
 import express from 'express';
 import pinoHttp from 'pino-http';
-import { context, trace } from '@opentelemetry/api';
-import routes from './routes/index.js';
-import correlationId from './middleware/correlationId.js';
-import errorHandler from './middleware/errorHandler.js';
-import healthRouter from './routes/health.js';
-import logger from './utils/logger.js';
-import createInstrumentedRateLimiter from './middleware/rateLimiter.js';
+
 import { applyHttpSecurity } from './config/httpSecurity.js';
-import createWebApplicationFirewall from './middleware/webApplicationFirewall.js';
 import {
   getRuntimeConfig,
   onRuntimeConfigChange,
   resolveHttpRateLimitSettings,
   whenRuntimeConfigReady,
 } from './config/runtimeConfig.js';
+import correlationId from './middleware/correlationId.js';
+import errorHandler from './middleware/errorHandler.js';
+import { createInstrumentedRateLimiter } from './middleware/rateLimiter.js';
+import createWebApplicationFirewall from './middleware/webApplicationFirewall.js';
+import healthRouter from './routes/health.js';
+import routes from './routes/index.js';
+import logger from './utils/logger.js';
 
 const app = express();
 

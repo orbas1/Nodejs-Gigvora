@@ -31,7 +31,6 @@ describe('app rate limiter hot reload', () => {
 
     jest.unstable_mockModule('../../src/middleware/rateLimiter.js', () => ({
       __esModule: true,
-      default: createInstrumentedRateLimiterMock,
       createInstrumentedRateLimiter: createInstrumentedRateLimiterMock,
     }));
 

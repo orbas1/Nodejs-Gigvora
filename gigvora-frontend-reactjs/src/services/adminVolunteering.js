@@ -108,7 +108,10 @@ async function invalidateVolunteerCaches({
   }
   if (roleId) {
     const roleIdentifier = identifierFor(roleId, 'roleId');
-    tags.push(CACHE_TAGS.role(roleIdentifier), CACHE_TAGS.shifts(roleIdentifier));
+    tags.push(CACHE_TAGS.role(roleIdentifier));
+    if (includeShifts) {
+      tags.push(CACHE_TAGS.shifts(roleIdentifier));
+    }
     if (includeAssignments && shiftId) {
       const shiftIdentifier = identifierFor(shiftId, 'shiftId');
       tags.push(CACHE_TAGS.shift(roleIdentifier, shiftIdentifier));
@@ -353,7 +356,7 @@ export function fetchVolunteerAssignments(roleId, shiftId, params = {}, options 
   assertAdminAccess(VOLUNTEER_ROLES);
   const cleanedParams = buildAssignmentsParams(params);
   const { forceRefresh = false, cacheTtl = 60000, ...requestOptions } = options ?? {};
-  const { roleIdentifier, shiftIdentifier, key, tag } = cacheKeyForShift(roleId, shiftId);
+  const { roleIdentifier, shiftIdentifier, key } = cacheKeyForShift(roleId, shiftId);
 
   return fetchWithCache(
     key,

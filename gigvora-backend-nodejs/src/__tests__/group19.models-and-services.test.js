@@ -1,6 +1,5 @@
 import { jest } from '@jest/globals';
 
-import sequelize from '../models/sequelizeClient.js';
 import PlatformSetting from '../models/platformSetting.js';
 import {
   POLICY_DECISIONS,
@@ -10,6 +9,7 @@ import {
   SECURITY_LEVELS,
   RuntimeSecurityAuditEvent,
 } from '../models/runtimeSecurityAuditEvent.js';
+import sequelize from '../models/sequelizeClient.js';
 import {
   VolunteeringPost,
   VolunteeringApplication,

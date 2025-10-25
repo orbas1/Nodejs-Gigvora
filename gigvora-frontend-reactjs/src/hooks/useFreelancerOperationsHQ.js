@@ -107,9 +107,18 @@ export default function useFreelancerOperationsHQ({ freelancerId, enabled = true
   });
 
   const operations = resource.data ?? FALLBACK_OPERATIONS;
-  const memberships = operations.memberships ?? [];
-  const workflows = operations.workflows ?? [];
-  const notices = operations.notices ?? [];
+  const memberships = useMemo(
+    () => operations.memberships ?? [],
+    [operations.memberships],
+  );
+  const workflows = useMemo(
+    () => operations.workflows ?? [],
+    [operations.workflows],
+  );
+  const notices = useMemo(
+    () => operations.notices ?? [],
+    [operations.notices],
+  );
   const metrics = operations.metrics ?? FALLBACK_OPERATIONS.metrics;
   const compliance = operations.compliance ?? FALLBACK_OPERATIONS.compliance;
 

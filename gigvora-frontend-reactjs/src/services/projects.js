@@ -36,7 +36,8 @@ function ensureOptions(options) {
   if (typeof options !== 'object') {
     throw new Error('Request options must be an object.');
   }
-  const { params: _ignoredParams, ...rest } = options;
+  const rest = { ...options };
+  delete rest.params;
   return rest;
 }
 
