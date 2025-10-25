@@ -1,10 +1,37 @@
 'use strict';
 
+const crypto = require('crypto');
 const { QueryTypes } = require('sequelize');
 
 const mentorEmail = 'mentor@gigvora.com';
 const availabilityNotes =
   'Tuesdays and Thursdays reserved for deep dives. Friday mornings available for async reviews.';
+
+const SECRET_KEY = crypto
+  .createHash('sha256')
+  .update(
+    String(process.env.AI_PROVIDER_SECRET || process.env.APP_SECRET || process.env.JWT_SECRET || 'gigvora-dev-secret'),
+  )
+  .digest();
+
+function encryptSeedSecret(value) {
+  if (!value) {
+    return null;
+  }
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', SECRET_KEY, iv);
+  const ciphertext = Buffer.concat([cipher.update(String(value), 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `enc:v1:${Buffer.concat([iv, tag, ciphertext]).toString('base64')}`;
+}
+
+function fingerprintSeedSecret(value) {
+  if (!value) {
+    return null;
+  }
+  const hash = crypto.createHash('sha256').update(String(value)).digest('hex');
+  return `${hash.slice(0, 8)}…${hash.slice(-8)}`;
+}
 
 async function resolveMentorId(queryInterface, transaction) {
   const [row] = await queryInterface.sequelize.query(
@@ -113,6 +140,16 @@ module.exports = {
       await ensureMentorProfile(queryInterface, transaction, mentorId);
 
       const tables = [
+        'mentor_system_preferences',
+        'mentor_settings',
+        'mentor_metric_reporting_settings',
+        'mentor_metric_widgets',
+        'mentor_ad_campaigns',
+        'mentor_orders',
+        'mentor_hub_spotlights',
+        'mentor_hub_resources',
+        'mentor_hub_actions',
+        'mentor_hub_updates',
         'mentor_availability_slots',
         'mentor_packages',
         'mentor_bookings',
@@ -135,6 +172,9 @@ module.exports = {
       const twoDays = 2 * 24 * 60 * 60 * 1000;
       const fiveDays = 5 * 24 * 60 * 60 * 1000;
       const lastWeek = 7 * 24 * 60 * 60 * 1000;
+      const apiKeySeed = 'mentor-mission-control-demo-key';
+      const apiKeyCiphertext = encryptSeedSecret(apiKeySeed);
+      const apiKeyFingerprint = fingerprintSeedSecret(apiKeySeed);
 
       await queryInterface.bulkInsert(
         'mentor_availability_slots',
@@ -480,6 +520,325 @@ module.exports = {
         ]),
         { transaction },
       );
+
+      await queryInterface.bulkInsert(
+        'mentor_hub_updates',
+        withTimestamps([
+          {
+            mentorId,
+            title: 'Explorer leads now include availability preferences',
+            summary: 'Review your Explorer lead queue and tailor responses with the new scheduling preferences captured at request.',
+            category: 'Explorer',
+            link: 'https://mentor.gigvora.com/explorer/leads',
+            status: 'Published',
+            publishedAt: new Date(now.getTime() - twoDays).toISOString(),
+          },
+          {
+            mentorId,
+            title: 'Async recap template refresh',
+            summary: 'Save time on follow-ups with the new async recap template that ships AI generated summaries to mentees.',
+            category: 'Operations',
+            link: 'https://mentor.gigvora.com/resources/recap-template',
+            status: 'Published',
+            publishedAt: new Date(now.getTime() - fiveDays).toISOString(),
+          },
+          {
+            mentorId,
+            title: 'Launch holiday office hours promotion',
+            summary: 'Draft your December promo and push to Explorer and newsletter audiences before Friday to capture mentee demand.',
+            category: 'Growth',
+            link: 'https://mentor.gigvora.com/creation-studio/promotions',
+            status: 'Draft',
+            publishedAt: null,
+          },
+        ]),
+        { transaction },
+      );
+
+      await queryInterface.bulkInsert(
+        'mentor_hub_actions',
+        withTimestamps([
+          {
+            mentorId,
+            label: 'Approve Explorer onboarding sequence update',
+            owner: 'Avery Mentor',
+            dueAt: new Date(now.getTime() + twoDays).toISOString(),
+            status: 'In progress',
+            priority: 'High',
+          },
+          {
+            mentorId,
+            label: 'Record new testimonial video',
+            owner: 'Studio Team',
+            dueAt: new Date(now.getTime() + fiveDays).toISOString(),
+            status: 'Not started',
+            priority: 'Medium',
+          },
+          {
+            mentorId,
+            label: 'Publish async recap automation playbook',
+            owner: 'Operations',
+            dueAt: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(),
+            status: 'Awaiting mentor review',
+            priority: 'High',
+          },
+        ]),
+        { transaction },
+      );
+
+      await queryInterface.bulkInsert(
+        'mentor_hub_resources',
+        withTimestamps([
+          {
+            mentorId,
+            title: 'Explorer lead qualification checklist',
+            description: 'Step-by-step checklist to qualify Explorer leads within 24 hours.',
+            type: 'Guide',
+            link: 'https://cdn.gigvora.com/resources/explorer-qualification.pdf',
+            thumbnail: 'https://cdn.gigvora.com/thumbnails/explorer-qualification.png',
+            tags: ['Explorer', 'Sales'],
+            updatedAtExternal: new Date(now.getTime() - twoDays).toISOString(),
+          },
+          {
+            mentorId,
+            title: 'Async recap email template',
+            description: 'Copy/paste template for async recaps with dynamic placeholders.',
+            type: 'Template',
+            link: 'https://cdn.gigvora.com/resources/async-recap-template.docx',
+            thumbnail: null,
+            tags: ['Operations', 'Automation'],
+            updatedAtExternal: new Date(now.getTime() - 12 * 60 * 60 * 1000).toISOString(),
+          },
+        ]),
+        { transaction },
+      );
+
+      await queryInterface.bulkInsert(
+        'mentor_hub_spotlights',
+        withTimestamps([
+          {
+            mentorId,
+            title: 'Book a leadership deep dive',
+            description: 'Lock in a 90-minute strategy session to architect your 2025 leadership roadmap.',
+            videoUrl: 'https://video.gigvora.com/mentor/leadership-deep-dive.mp4',
+            ctaLabel: 'Schedule session',
+            ctaLink: 'https://mentor.gigvora.com/book/leadership-deep-dive',
+            thumbnailUrl: 'https://cdn.gigvora.com/thumbnails/leadership-deep-dive.png',
+            backgroundGradient: 'linear-gradient(135deg,#1f3c88,#5c6bc0)',
+          },
+        ]),
+        { transaction },
+      );
+
+      await queryInterface.bulkInsert(
+        'mentor_orders',
+        withTimestamps([
+          {
+            mentorId,
+            reference: 'ORD-2024-991',
+            mentee: 'Pathlight Labs',
+            package: 'Leadership accelerator',
+            amount: 5400,
+            currency: 'GBP',
+            status: 'Awaiting payment',
+            channel: 'Explorer',
+            orderedAt: new Date(now.getTime() - twoDays).toISOString(),
+            fulfillmentStatus: 'In progress',
+            notes: 'Procurement completing vendor onboarding.',
+            invoiceId: 'INV-2024-12',
+          },
+          {
+            mentorId,
+            reference: 'ORD-2024-992',
+            mentee: 'Fluxwave',
+            package: 'Async growth review',
+            amount: 1250,
+            currency: 'GBP',
+            status: 'Paid',
+            channel: 'Referral',
+            orderedAt: new Date(now.getTime() - fiveDays).toISOString(),
+            fulfillmentStatus: 'Completed',
+            notes: 'Delivered recap and experimentation backlog.',
+            invoiceId: 'INV-2024-11',
+          },
+        ]),
+        { transaction },
+      );
+
+      await queryInterface.bulkInsert(
+        'mentor_ad_campaigns',
+        withTimestamps([
+          {
+            mentorId,
+            name: 'Explorer retargeting Q4',
+            objective: 'Lead generation',
+            status: 'Active',
+            budget: 1500,
+            spend: 620,
+            impressions: 18500,
+            clicks: 940,
+            conversions: 42,
+            startDate: new Date(now.getTime() - fiveDays).toISOString(),
+            endDate: new Date(now.getTime() + fiveDays).toISOString(),
+            placements: ['LinkedIn', 'Twitter'],
+            cta: 'Book discovery call',
+            creativeUrl: 'https://cdn.gigvora.com/creatives/explorer-q4.png',
+            thumbnail: 'https://cdn.gigvora.com/thumbnails/explorer-q4-thumb.png',
+            audience: 'Product leaders in EU & UK',
+          },
+          {
+            mentorId,
+            name: 'Async mentorship evergreen',
+            objective: 'Awareness',
+            status: 'Draft',
+            budget: 800,
+            spend: 0,
+            impressions: 0,
+            clicks: 0,
+            conversions: 0,
+            startDate: null,
+            endDate: null,
+            placements: ['Newsletter'],
+            cta: 'Download playbook',
+            creativeUrl: 'https://cdn.gigvora.com/creatives/async-evergreen.pdf',
+            thumbnail: null,
+            audience: 'Operations leaders & Chiefs of Staff',
+          },
+        ]),
+        { transaction },
+      );
+
+      await queryInterface.bulkInsert(
+        'mentor_metric_widgets',
+        withTimestamps([
+          {
+            mentorId,
+            name: 'Explorer lead-to-booking',
+            value: 32,
+            goal: 25,
+            unit: '%',
+            timeframe: 'Last 30 days',
+            insight: 'Explorer conversion is trending 8% above last month.',
+            trend: 6.5,
+            variance: 3.1,
+            samples: [20, 24, 28, 32],
+          },
+          {
+            mentorId,
+            name: 'Average response time',
+            value: 3.4,
+            goal: 4,
+            unit: 'hrs',
+            timeframe: 'Last 14 days',
+            insight: 'Automation rules shaved 45 minutes off the average reply time.',
+            trend: -0.6,
+            variance: -0.3,
+            samples: [4.8, 4.1, 3.6, 3.4],
+          },
+          {
+            mentorId,
+            name: 'Monthly recurring revenue',
+            value: 9800,
+            goal: 12000,
+            unit: 'GBP',
+            timeframe: 'Month to date',
+            insight: 'Recurring revenue lifted 12% from retainer upgrades.',
+            trend: 12.0,
+            variance: 1.8,
+            samples: [7200, 7800, 8400, 9800],
+          },
+        ]),
+        { transaction },
+      );
+
+      await queryInterface.bulkInsert(
+        'mentor_metric_reporting_settings',
+        withTimestamps([
+          {
+            mentorId,
+            cadence: 'Weekly',
+            delivery: 'Email & Slack',
+            recipients: ['mentor@gigvora.com', 'ops@gigvora.com'],
+            nextDispatchAt: new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+          },
+        ]),
+        { transaction },
+      );
+
+      await queryInterface.bulkInsert(
+        'mentor_settings',
+        withTimestamps([
+          {
+            mentorId,
+            settings: {
+              contactEmail: 'mentor@gigvora.com',
+              supportEmail: 'support@gigvora.com',
+              website: 'https://mentor.gigvora.com',
+              timezone: 'Europe/London',
+              availabilityLeadTimeHours: 24,
+              bookingWindowDays: 45,
+              autoAcceptReturning: true,
+              doubleOptInIntroductions: true,
+              calendlyLink: 'https://calendly.com/gigvora-mentor',
+              videoGreeting: 'https://video.gigvora.com/mentor/intro.mp4',
+              signature: 'Avery Mentor — Product leadership partner',
+              brandPrimaryColor: '#1f3c88',
+              brandSecondaryColor: '#5c6bc0',
+              heroTagline: 'Mentorship that ships outcomes.',
+              attachments: [
+                {
+                  id: 'playbook',
+                  label: 'Mentor playbook',
+                  url: 'https://cdn.gigvora.com/docs/mentor-playbook.pdf',
+                  type: 'Document',
+                },
+              ],
+              confirmationEmailTemplate: 'Thanks for booking! Here is what to prepare…',
+              reminderSmsTemplate: 'Reminder: your session with Avery starts in 30 minutes.',
+              sendAgendaSlack: true,
+              autoDispatchRecap: true,
+            },
+          },
+        ]),
+        { transaction },
+      );
+
+      await queryInterface.bulkInsert(
+        'mentor_system_preferences',
+        withTimestamps([
+          {
+            mentorId,
+            preferences: {
+              notifications: {
+                explorerLeads: true,
+                orders: true,
+                payouts: true,
+                support: false,
+              },
+              theme: 'midnight',
+              language: 'en-GB',
+              aiAssistant: {
+                enabled: true,
+                autopilot: false,
+                tone: 'supportive strategist',
+              },
+              security: {
+                mfaEnabled: true,
+                sessionTimeoutMinutes: 90,
+                deviceApprovals: 3,
+              },
+              api: {
+                keyPreview: apiKeyFingerprint,
+                lastRotatedAt: new Date(now.getTime() - twoDays).toISOString(),
+              },
+            },
+            apiKeyCiphertext: apiKeyCiphertext,
+            apiKeyFingerprint: apiKeyFingerprint,
+            apiKeyLastRotatedAt: new Date(now.getTime() - twoDays).toISOString(),
+          },
+        ]),
+        { transaction },
+      );
     });
   },
 
@@ -487,6 +846,16 @@ module.exports = {
     await queryInterface.sequelize.transaction(async (transaction) => {
       const mentorId = await resolveMentorId(queryInterface, transaction);
       const tables = [
+        'mentor_system_preferences',
+        'mentor_settings',
+        'mentor_metric_reporting_settings',
+        'mentor_metric_widgets',
+        'mentor_ad_campaigns',
+        'mentor_orders',
+        'mentor_hub_spotlights',
+        'mentor_hub_resources',
+        'mentor_hub_actions',
+        'mentor_hub_updates',
         'mentor_payouts',
         'mentor_invoices',
         'mentor_wallet_transactions',

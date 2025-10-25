@@ -25,6 +25,13 @@ export const documentParamsSchema = idParam('documentId');
 export const transactionParamsSchema = idParam('transactionId');
 export const invoiceParamsSchema = idParam('invoiceId');
 export const payoutParamsSchema = idParam('payoutId');
+export const hubUpdateParamsSchema = idParam('updateId');
+export const hubActionParamsSchema = idParam('actionId');
+export const hubResourceParamsSchema = idParam('resourceId');
+export const orderParamsSchema = idParam('orderId');
+export const campaignParamsSchema = idParam('campaignId');
+export const widgetParamsSchema = idParam('widgetId');
+export const creationStudioParamsSchema = idParam('itemId');
 
 export default {
   bookingParamsSchema,
@@ -36,4 +43,11 @@ export default {
   transactionParamsSchema,
   invoiceParamsSchema,
   payoutParamsSchema,
+  hubUpdateParamsSchema,
+  hubActionParamsSchema,
+  hubResourceParamsSchema,
+  orderParamsSchema,
+  campaignParamsSchema,
+  widgetParamsSchema,
+  creationStudioParamsSchema,
 };

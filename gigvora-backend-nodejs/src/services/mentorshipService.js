@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { Op } from 'sequelize';
 import {
   sequelize,
@@ -14,6 +15,16 @@ import {
   MentorWalletTransaction,
   MentorInvoice,
   MentorPayout,
+  MentorHubUpdate,
+  MentorHubAction,
+  MentorHubResource,
+  MentorHubSpotlight,
+  MentorOrder,
+  MentorAdCampaign,
+  MentorMetricWidget,
+  MentorMetricReportingSetting,
+  MentorSettings,
+  MentorSystemPreference,
   MentorReview,
   MENTOR_AVAILABILITY_DAYS,
   MENTOR_BOOKING_STATUSES,
@@ -33,7 +44,19 @@ import {
   MENTOR_INVOICE_STATUSES,
   MENTOR_PAYOUT_STATUSES,
 } from '../models/index.js';
+import { CreationStudioItem } from '../models/creationStudioModels.js';
+import {
+  getDashboardSnapshot as getCreationStudioDashboard,
+  getWorkspace as getCreationStudioWorkspaceSnapshot,
+  createItem as createOwnedCreationStudioItem,
+  updateItem as updateOwnedCreationStudioItem,
+  shareItem as shareOwnedCreationStudioItem,
+  archiveItem as archiveOwnedCreationStudioItem,
+  deleteCreationStudioItem,
+  publishCreationStudioItem,
+} from './creationStudioService.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
+import { encryptSecret, fingerprintSecret } from '../utils/secretStorage.js';
 
 const MIN_SESSION_MINUTES = 25;
 const MAX_SESSION_MINUTES = 6 * 60;
@@ -44,6 +67,54 @@ const MIN_LOOKBACK_DAYS = 7;
 const MAX_LOOKBACK_DAYS = 365;
 const MAX_NOTES_LENGTH = 4000;
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+function ensureTrimmedString(value, fieldName, { required = true, maxLength } = {}) {
+  const trimmed = `${value ?? ''}`.trim();
+  if (required && !trimmed) {
+    throw new ValidationError(`${fieldName} is required.`);
+  }
+  if (trimmed && maxLength && trimmed.length > maxLength) {
+    throw new ValidationError(`${fieldName} must be ${maxLength} characters or fewer.`);
+  }
+  return trimmed || null;
+}
+
+function ensureOptionalNumber(value, fieldName, { min, max } = {}) {
+  if (value == null || value === '') {
+    return null;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    throw new ValidationError(`${fieldName} must be a number.`);
+  }
+  if (min != null && numeric < min) {
+    throw new ValidationError(`${fieldName} must be at least ${min}.`);
+  }
+  if (max != null && numeric > max) {
+    throw new ValidationError(`${fieldName} must be no more than ${max}.`);
+  }
+  return numeric;
+}
+
+function ensureStringArray(value, fieldName) {
+  if (value == null) {
+    return [];
+  }
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => `${entry ?? ''}`.trim())
+      .filter(Boolean)
+      .slice(0, 50);
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .slice(0, 50);
+  }
+  throw new ValidationError(`${fieldName} must be an array of strings.`);
+}
 
 function normaliseMentorId(mentorId) {
   const numeric = Number.parseInt(mentorId, 10);
@@ -436,6 +507,261 @@ function sanitisePayout(payload, { existing } = {}) {
   };
 }
 
+function sanitiseHubUpdate(payload, { existing } = {}) {
+  const base = existing ? existing : {};
+  return {
+    title: ensureTrimmedString(payload.title ?? base.title, 'title', { maxLength: 200 }),
+    summary: ensureTrimmedString(payload.summary ?? base.summary, 'summary', { maxLength: 2000 }),
+    category: ensureTrimmedString(payload.category ?? base.category ?? 'Operations', 'category', { maxLength: 80 }) ||
+      'Operations',
+    link: ensureTrimmedString(payload.link ?? base.link, 'link', { required: false, maxLength: 1024 }),
+    status: ensureTrimmedString(payload.status ?? base.status ?? 'Draft', 'status', { maxLength: 40 }) || 'Draft',
+    publishedAt: payload.publishedAt
+      ? toISOString(payload.publishedAt, 'publishedAt')
+      : base.publishedAt
+      ? toISOString(base.publishedAt, 'publishedAt')
+      : null,
+  };
+}
+
+function sanitiseHubAction(payload, { existing } = {}) {
+  const base = existing ? existing : {};
+  return {
+    label: ensureTrimmedString(payload.label ?? base.label, 'label', { maxLength: 240 }),
+    owner: ensureTrimmedString(payload.owner ?? base.owner, 'owner', { required: false, maxLength: 120 }),
+    dueAt: payload.dueAt ? toISOString(payload.dueAt, 'dueAt') : base.dueAt ? toISOString(base.dueAt, 'dueAt') : null,
+    status: ensureTrimmedString(payload.status ?? base.status ?? 'Not started', 'status', { maxLength: 60 }) ||
+      'Not started',
+    priority: ensureTrimmedString(payload.priority ?? base.priority ?? 'Medium', 'priority', { maxLength: 40 }) ||
+      'Medium',
+  };
+}
+
+function sanitiseHubResource(payload, { existing } = {}) {
+  const base = existing ? existing : {};
+  const updatedAt = payload.updatedAt ?? payload.updatedAtExternal ?? base.updatedAtExternal ?? base.updatedAt ?? null;
+  return {
+    title: ensureTrimmedString(payload.title ?? base.title, 'title', { maxLength: 200 }),
+    description: ensureTrimmedString(payload.description ?? base.description, 'description', {
+      required: false,
+      maxLength: 2000,
+    }),
+    type: ensureTrimmedString(payload.type ?? base.type ?? 'Resource', 'type', { maxLength: 60 }) || 'Resource',
+    link: ensureTrimmedString(payload.link ?? base.link, 'link', { maxLength: 1024 }),
+    thumbnail: ensureTrimmedString(payload.thumbnail ?? base.thumbnail, 'thumbnail', { required: false, maxLength: 1024 }),
+    tags: ensureStringArray(payload.tags ?? base.tags ?? [], 'tags'),
+    updatedAtExternal: updatedAt ? toISOString(updatedAt, 'updatedAt') : null,
+  };
+}
+
+function sanitiseHubSpotlight(payload, { existing } = {}) {
+  const base = existing ? existing : {};
+  return {
+    title: ensureTrimmedString(payload.title ?? base.title, 'title', { maxLength: 200 }),
+    description: ensureTrimmedString(payload.description ?? base.description, 'description', { maxLength: 2000 }),
+    videoUrl: ensureTrimmedString(payload.videoUrl ?? base.videoUrl, 'videoUrl', { required: false, maxLength: 1024 }),
+    ctaLabel: ensureTrimmedString(payload.ctaLabel ?? base.ctaLabel, 'ctaLabel', { required: false, maxLength: 120 }),
+    ctaLink: ensureTrimmedString(payload.ctaLink ?? base.ctaLink, 'ctaLink', { required: false, maxLength: 1024 }),
+    thumbnailUrl: ensureTrimmedString(payload.thumbnailUrl ?? base.thumbnailUrl, 'thumbnailUrl', {
+      required: false,
+      maxLength: 1024,
+    }),
+    backgroundGradient: ensureTrimmedString(payload.backgroundColor ?? payload.backgroundGradient ?? base.backgroundGradient, 'backgroundColor', {
+      required: false,
+      maxLength: 180,
+    }),
+  };
+}
+
+function sanitiseOrder(payload, { existing } = {}) {
+  const base = existing ? existing : {};
+  return {
+    reference: ensureTrimmedString(payload.reference ?? base.reference ?? `ORD-${Date.now()}`, 'reference', {
+      maxLength: 120,
+    }),
+    mentee: ensureTrimmedString(payload.mentee ?? base.mentee, 'mentee', { maxLength: 191 }),
+    package: ensureTrimmedString(payload.package ?? base.package, 'package', { required: false, maxLength: 191 }),
+    amount: ensureOptionalNumber(payload.amount ?? base.amount, 'amount', { min: 0 }),
+    currency: ensureTrimmedString(payload.currency ?? base.currency ?? 'GBP', 'currency', { maxLength: 6 }) || 'GBP',
+    status: ensureTrimmedString(payload.status ?? base.status ?? 'Pending payment', 'status', { maxLength: 60 }) ||
+      'Pending payment',
+    channel: ensureTrimmedString(payload.channel ?? base.channel, 'channel', { required: false, maxLength: 80 }),
+    orderedAt: payload.orderedAt ? toISOString(payload.orderedAt, 'orderedAt') : base.orderedAt ?? null,
+    fulfillmentStatus:
+      ensureTrimmedString(payload.fulfillmentStatus ?? base.fulfillmentStatus ?? 'In progress', 'fulfillmentStatus', {
+        maxLength: 60,
+      }) || 'In progress',
+    notes: clampNotes(payload.notes ?? base.notes ?? ''),
+    invoiceId: ensureTrimmedString(payload.invoiceId ?? base.invoiceId, 'invoiceId', { required: false, maxLength: 120 }),
+  };
+}
+
+function sanitiseAdCampaign(payload, { existing } = {}) {
+  const base = existing ? existing : {};
+  return {
+    name: ensureTrimmedString(payload.name ?? base.name, 'name', { maxLength: 191 }),
+    objective: ensureTrimmedString(payload.objective ?? base.objective ?? 'Lead generation', 'objective', { maxLength: 120 }) ||
+      'Lead generation',
+    status: ensureTrimmedString(payload.status ?? base.status ?? 'Draft', 'status', { maxLength: 40 }) || 'Draft',
+    budget: ensureOptionalNumber(payload.budget ?? base.budget, 'budget', { min: 0 }),
+    spend: ensureOptionalNumber(payload.spend ?? base.spend, 'spend', { min: 0 }),
+    impressions: ensureOptionalNumber(payload.impressions ?? base.impressions, 'impressions', { min: 0 }),
+    clicks: ensureOptionalNumber(payload.clicks ?? base.clicks, 'clicks', { min: 0 }),
+    conversions: ensureOptionalNumber(payload.conversions ?? base.conversions, 'conversions', { min: 0 }),
+    startDate: payload.startDate ? toISOString(payload.startDate, 'startDate') : base.startDate ?? null,
+    endDate: payload.endDate ? toISOString(payload.endDate, 'endDate') : base.endDate ?? null,
+    placements: ensureStringArray(payload.placements ?? base.placements ?? [], 'placements'),
+    cta: ensureTrimmedString(payload.cta ?? base.cta, 'cta', { required: false, maxLength: 160 }),
+    creativeUrl: ensureTrimmedString(payload.creativeUrl ?? base.creativeUrl, 'creativeUrl', { required: false, maxLength: 1024 }),
+    thumbnail: ensureTrimmedString(payload.thumbnail ?? base.thumbnail, 'thumbnail', { required: false, maxLength: 1024 }),
+    audience: ensureTrimmedString(payload.audience ?? base.audience, 'audience', { required: false, maxLength: 255 }),
+  };
+}
+
+function sanitiseMetricWidgetPayload(payload, { existing } = {}) {
+  const base = existing ? existing : {};
+  return {
+    name: ensureTrimmedString(payload.name ?? base.name, 'name', { maxLength: 191 }),
+    value: ensureOptionalNumber(payload.value ?? base.value ?? 0, 'value') ?? 0,
+    goal: ensureOptionalNumber(payload.goal ?? base.goal, 'goal', { min: 0 }),
+    unit: ensureTrimmedString(payload.unit ?? base.unit, 'unit', { required: false, maxLength: 16 }),
+    timeframe: ensureTrimmedString(payload.timeframe ?? base.timeframe ?? 'Last 30 days', 'timeframe', {
+      maxLength: 60,
+    }) || 'Last 30 days',
+    insight: ensureTrimmedString(payload.insight ?? base.insight, 'insight', { required: false, maxLength: 2000 }),
+    trend: ensureOptionalNumber(payload.trend ?? base.trend, 'trend'),
+    variance: ensureOptionalNumber(payload.variance ?? base.variance, 'variance'),
+    samples: ensureStringArray(payload.samples ?? base.samples ?? [], 'samples').map((entry) => Number(entry) || 0),
+  };
+}
+
+function sanitiseMetricReporting(payload, { existing } = {}) {
+  const base = existing ? existing.get({ plain: true }) : {};
+  return {
+    cadence: ensureTrimmedString(payload.cadence ?? base.cadence ?? 'Weekly', 'cadence', { maxLength: 80 }) || 'Weekly',
+    delivery: ensureTrimmedString(payload.delivery ?? base.delivery ?? 'Email & Slack', 'delivery', { maxLength: 120 }) ||
+      'Email & Slack',
+    recipients: ensureStringArray(payload.recipients ?? base.recipients ?? [], 'recipients'),
+    nextDispatchAt: payload.nextDispatchAt
+      ? toISOString(payload.nextDispatchAt, 'nextDispatchAt')
+      : base.nextDispatchAt
+      ? toISOString(base.nextDispatchAt, 'nextDispatchAt')
+      : null,
+  };
+}
+
+function sanitiseMentorSettings(payload = {}) {
+  const attachments = Array.isArray(payload.attachments)
+    ? payload.attachments
+        .map((attachment) => ({
+          id: ensureTrimmedString(attachment.id ?? `${Date.now()}`, 'attachment id', { maxLength: 120 }) || `${Date.now()}`,
+          label: ensureTrimmedString(attachment.label, 'attachment label', { maxLength: 180 }),
+          url: ensureTrimmedString(attachment.url, 'attachment url', { maxLength: 1024 }),
+          type: ensureTrimmedString(attachment.type ?? 'Document', 'attachment type', { maxLength: 60 }) || 'Document',
+        }))
+        .filter((attachment) => attachment.label && attachment.url)
+    : [];
+
+  return {
+    contactEmail: ensureTrimmedString(payload.contactEmail, 'contactEmail', { required: false, maxLength: 320 }),
+    supportEmail: ensureTrimmedString(payload.supportEmail, 'supportEmail', { required: false, maxLength: 320 }),
+    website: ensureTrimmedString(payload.website, 'website', { required: false, maxLength: 1024 }),
+    timezone: ensureTrimmedString(payload.timezone, 'timezone', { required: false, maxLength: 120 }),
+    availabilityLeadTimeHours: ensureOptionalNumber(payload.availabilityLeadTimeHours, 'availabilityLeadTimeHours', {
+      min: 0,
+      max: 240,
+    }),
+    bookingWindowDays: ensureOptionalNumber(payload.bookingWindowDays, 'bookingWindowDays', { min: 0, max: 365 }),
+    autoAcceptReturning: Boolean(payload.autoAcceptReturning),
+    doubleOptInIntroductions: Boolean(payload.doubleOptInIntroductions),
+    calendlyLink: ensureTrimmedString(payload.calendlyLink, 'calendlyLink', { required: false, maxLength: 1024 }),
+    zoomRoom: ensureTrimmedString(payload.zoomRoom, 'zoomRoom', { required: false, maxLength: 1024 }),
+    videoGreeting: ensureTrimmedString(payload.videoGreeting, 'videoGreeting', { required: false, maxLength: 1024 }),
+    signature: ensureTrimmedString(payload.signature, 'signature', { required: false, maxLength: 2000 }),
+    attachments,
+    brandPrimaryColor: ensureTrimmedString(payload.brandPrimaryColor, 'brandPrimaryColor', { required: false, maxLength: 14 }),
+    brandSecondaryColor: ensureTrimmedString(payload.brandSecondaryColor, 'brandSecondaryColor', {
+      required: false,
+      maxLength: 14,
+    }),
+    heroTagline: ensureTrimmedString(payload.heroTagline, 'heroTagline', { required: false, maxLength: 240 }),
+    confirmationEmailTemplate: clampNotes(payload.confirmationEmailTemplate ?? ''),
+    reminderSmsTemplate: clampNotes(payload.reminderSmsTemplate ?? ''),
+    sendAgendaSlack: Boolean(payload.sendAgendaSlack),
+    autoDispatchRecap: Boolean(payload.autoDispatchRecap),
+  };
+}
+
+function sanitiseMentorPreferences(payload = {}, { existing } = {}) {
+  const base = existing ? existing.get({ plain: true }) : {};
+  const preferences = { ...(base.preferences ?? {}), ...payload };
+  if (preferences.notifications) {
+    const notifications = { ...preferences.notifications };
+    Object.keys(notifications).forEach((key) => {
+      notifications[key] = Boolean(notifications[key]);
+    });
+    preferences.notifications = notifications;
+  }
+  if (preferences.aiAssistant) {
+    const assistant = { ...preferences.aiAssistant };
+    if ('tone' in assistant) {
+      assistant.tone = ensureTrimmedString(assistant.tone, 'aiAssistant.tone', { required: false, maxLength: 120 });
+    }
+    assistant.enabled = Boolean(assistant.enabled);
+    assistant.autopilot = Boolean(assistant.autopilot);
+    preferences.aiAssistant = assistant;
+  }
+  if (preferences.security) {
+    const security = { ...preferences.security };
+    if ('sessionTimeoutMinutes' in security) {
+      security.sessionTimeoutMinutes = ensureOptionalNumber(security.sessionTimeoutMinutes, 'sessionTimeoutMinutes', {
+        min: 5,
+        max: 720,
+      });
+    }
+    if ('deviceApprovals' in security) {
+      security.deviceApprovals = ensureOptionalNumber(security.deviceApprovals, 'deviceApprovals', { min: 0, max: 10 });
+    }
+    if (Array.isArray(security.logs)) {
+      security.logs = security.logs
+        .map((entry) => ({
+          id: ensureTrimmedString(entry.id ?? `${Date.now()}`, 'log id', { maxLength: 120 }) || `${Date.now()}`,
+          event: ensureTrimmedString(entry.event, 'log event', { maxLength: 240 }),
+          occurredAt: entry.occurredAt ? toISOString(entry.occurredAt, 'log occurredAt') : null,
+          level: ensureTrimmedString(entry.level ?? 'info', 'log level', { maxLength: 40 }) || 'info',
+          location: ensureTrimmedString(entry.location, 'log location', { required: false, maxLength: 120 }),
+        }))
+        .filter((entry) => entry.event);
+    }
+    if (Array.isArray(security.devices)) {
+      security.devices = security.devices
+        .map((device) => ({
+          id: ensureTrimmedString(device.id ?? `${Date.now()}`, 'device id', { maxLength: 120 }) || `${Date.now()}`,
+          name: ensureTrimmedString(device.name, 'device name', { maxLength: 120 }),
+          location: ensureTrimmedString(device.location, 'device location', { required: false, maxLength: 120 }),
+          lastActiveAt: device.lastActiveAt ? toISOString(device.lastActiveAt, 'device lastActiveAt') : null,
+        }))
+        .filter((device) => device.name);
+    }
+    security.mfaEnabled = Boolean(security.mfaEnabled);
+    preferences.security = security;
+  }
+  if (preferences.api) {
+    const api = { ...preferences.api };
+    if ('keyPreview' in api) {
+      api.keyPreview = ensureTrimmedString(api.keyPreview, 'api key preview', { required: false, maxLength: 120 });
+    }
+    if ('lastRotatedAt' in api && api.lastRotatedAt) {
+      api.lastRotatedAt = toISOString(api.lastRotatedAt, 'api lastRotatedAt');
+    }
+    preferences.api = api;
+  }
+  preferences.theme = ensureTrimmedString(preferences.theme, 'theme', { required: false, maxLength: 40 }) || preferences.theme;
+  preferences.language = ensureTrimmedString(preferences.language, 'language', { required: false, maxLength: 10 }) ||
+    preferences.language;
+  return preferences;
+}
+
 function mapProfile(profile) {
   if (!profile) {
     return null;
@@ -605,23 +931,378 @@ function buildWalletSummary(transactions) {
   };
 }
 
-function buildFinanceSummary(invoices, payouts, walletSummary) {
-  const recognisedRevenue = invoices
-    .filter((invoice) => invoice.status === 'Paid')
-    .reduce((total, invoice) => total + Number(invoice.amount ?? 0), 0);
+function buildFinanceSummary({ invoices, payouts, walletSummary, bookingSummary }) {
+  const paidInvoices = invoices.filter((invoice) => invoice.status === 'Paid');
+  const recognisedRevenue = paidInvoices.reduce((total, invoice) => total + Number(invoice.amount ?? 0), 0);
+
   const outstandingInvoices = invoices
     .filter((invoice) => invoice.status !== 'Paid' && invoice.status !== 'Cancelled')
     .reduce((total, invoice) => total + Number(invoice.amount ?? 0), 0);
-  const pendingPayouts = payouts
+
+  const upcomingPayouts = payouts
     .filter((payout) => payout.status !== 'Paid' && payout.status !== 'Failed')
     .reduce((total, payout) => total + Number(payout.amount ?? 0), 0);
+
+  const currencyCandidate =
+    walletSummary.currency ?? invoices[0]?.currency ?? payouts[0]?.currency ?? 'GBP';
+
+  const projected = recognisedRevenue + outstandingInvoices;
+  const variance = bookingSummary
+    ? Math.round((recognisedRevenue - bookingSummary.revenue) * 100) / 100
+    : 0;
+
   return {
     recognisedRevenue: Math.round(recognisedRevenue * 100) / 100,
     outstandingInvoices: Math.round(outstandingInvoices * 100) / 100,
-    pendingPayouts: Math.round(pendingPayouts * 100) / 100,
+    pendingPayouts: Math.round(upcomingPayouts * 100) / 100,
+    paidInvoices: Math.round(recognisedRevenue * 100) / 100,
+    availableBalance: walletSummary.available,
+    upcomingPayouts: Math.round(upcomingPayouts * 100) / 100,
     walletBalance: walletSummary.balance,
     walletAvailable: walletSummary.available,
+    currency: currencyCandidate,
+    projected: Math.round(projected * 100) / 100,
+    variance,
   };
+}
+
+function buildRevenueStreams(bookings, packages, invoices) {
+  if (!Array.isArray(bookings)) {
+    return [];
+  }
+  const packageIndex = new Map();
+  (packages ?? []).forEach((pack) => {
+    const key = pack.name ?? pack.id;
+    if (key != null) {
+      packageIndex.set(key, pack);
+    }
+  });
+
+  let oneToOne = 0;
+  let cohort = 0;
+  let asyncValue = 0;
+
+  bookings.forEach((booking) => {
+    const amount = Number(booking.price ?? 0);
+    const packageKey = booking.package ?? booking.packageName;
+    const packageMeta = packageIndex.get(packageKey);
+    const channel = (booking.channel ?? '').toLowerCase();
+    if (packageMeta?.format && packageMeta.format.toLowerCase().includes('cohort')) {
+      cohort += amount;
+    } else if (channel.includes('async') || channel.includes('retainer')) {
+      asyncValue += amount;
+    } else {
+      oneToOne += amount;
+    }
+  });
+
+  const additionalInvoiceValue = (invoices ?? [])
+    .filter((invoice) => invoice.status === 'Sent' || invoice.status === 'Draft')
+    .reduce((total, invoice) => total + Number(invoice.amount ?? 0), 0);
+
+  if (additionalInvoiceValue > 0) {
+    asyncValue += additionalInvoiceValue;
+  }
+
+  const streams = [
+    { id: 'one-on-one', label: '1:1 mentorship', amount: Math.round(oneToOne * 100) / 100 },
+    { id: 'cohort-programmes', label: 'Cohort programmes', amount: Math.round(cohort * 100) / 100 },
+    { id: 'async-retainers', label: 'Async & retainers', amount: Math.round(asyncValue * 100) / 100 },
+  ];
+
+  if (!streams.some((stream) => stream.amount > 0)) {
+    streams[0].amount = 0;
+  }
+
+  return streams;
+}
+
+function buildClientSummary(clients) {
+  if (!Array.isArray(clients)) {
+    return { total: 0, flagship: 0, pipelineValue: 0, byStatus: {} };
+  }
+  const summary = {
+    total: clients.length,
+    flagship: 0,
+    pipelineValue: 0,
+    byStatus: {},
+  };
+
+  clients.forEach((client) => {
+    const status = client.status ?? 'Active';
+    summary.byStatus[status] = (summary.byStatus[status] ?? 0) + 1;
+    if ((client.tier ?? '').toLowerCase() === 'flagship') {
+      summary.flagship += 1;
+    }
+    summary.pipelineValue += Number(client.value ?? 0);
+  });
+
+  summary.pipelineValue = Math.round(summary.pipelineValue * 100) / 100;
+  return summary;
+}
+
+function buildSupportSummary(tickets) {
+  if (!Array.isArray(tickets)) {
+    return { open: 0, awaitingMentor: 0, urgent: 0 };
+  }
+  return tickets.reduce(
+    (acc, ticket) => {
+      const status = (ticket.status ?? '').toLowerCase();
+      const priority = (ticket.priority ?? '').toLowerCase();
+      if (status === 'open' || status === 'awaiting support') {
+        acc.open += 1;
+      }
+      if (status.includes('mentor')) {
+        acc.awaitingMentor += 1;
+      }
+      if (priority === 'urgent' || priority === 'critical') {
+        acc.urgent += 1;
+      }
+      return acc;
+    },
+    { open: 0, awaitingMentor: 0, urgent: 0 },
+  );
+}
+
+function buildInboxSummary(messages) {
+  if (!Array.isArray(messages)) {
+    return { unread: 0, total: 0 };
+  }
+  const unread = messages.filter((message) => (message.status ?? '').toLowerCase() === 'unread').length;
+  return { unread, total: messages.length };
+}
+
+function buildCohortMetrics(bookings) {
+  if (!Array.isArray(bookings) || bookings.length === 0) {
+    return [];
+  }
+  const totals = new Map();
+  bookings.forEach((booking) => {
+    const key = (booking.channel ?? 'Explorer').trim() || 'Explorer';
+    const entry = totals.get(key) ?? { requests: 0, confirmed: 0, pending: 0 };
+    entry.requests += 1;
+    const status = (booking.status ?? '').toLowerCase();
+    if (status === 'scheduled' || status === 'completed') {
+      entry.confirmed += 1;
+    } else {
+      entry.pending += 1;
+    }
+    totals.set(key, entry);
+  });
+
+  return Array.from(totals.entries()).map(([channel, entry]) => {
+    const conversion = entry.requests ? Math.round((entry.confirmed / entry.requests) * 100) : 0;
+    const changeBasis = entry.requests ? ((entry.confirmed - entry.pending) / entry.requests) * 100 : 0;
+    const change = Math.round(changeBasis);
+    return {
+      id: channel.toLowerCase().replace(/\s+/g, '-'),
+      label: channel,
+      conversion,
+      change,
+    };
+  });
+}
+
+function buildOrdersSummary(orders) {
+  if (!Array.isArray(orders)) {
+    return { totalOrders: 0, openOrders: 0, revenue: 0, avgOrderValue: 0 };
+  }
+  const revenue = orders.reduce((total, order) => total + Number(order.amount ?? 0), 0);
+  const openOrders = orders.filter((order) => (order.status ?? '').toLowerCase() !== 'paid').length;
+  return {
+    totalOrders: orders.length,
+    openOrders,
+    revenue: Math.round(revenue * 100) / 100,
+    avgOrderValue: orders.length ? Math.round((revenue / orders.length) * 100) / 100 : 0,
+  };
+}
+
+function buildAdsInsights(campaigns) {
+  if (!Array.isArray(campaigns) || campaigns.length === 0) {
+    return { totalSpend: 0, leads: 0, roas: 0, avgCpc: 0 };
+  }
+  const totals = campaigns.reduce(
+    (acc, campaign) => {
+      acc.spend += Number(campaign.spend ?? 0);
+      acc.conversions += Number(campaign.conversions ?? 0);
+      acc.clicks += Number(campaign.clicks ?? 0);
+      return acc;
+    },
+    { spend: 0, conversions: 0, clicks: 0 },
+  );
+
+  const roas = totals.spend > 0 ? Math.round((totals.conversions / totals.spend) * 100) / 100 : 0;
+  const avgCpc = totals.clicks > 0 ? Math.round((totals.spend / totals.clicks) * 100) / 100 : 0;
+
+  return {
+    totalSpend: Math.round(totals.spend * 100) / 100,
+    leads: Math.round(totals.conversions),
+    roas,
+    avgCpc,
+  };
+}
+
+function buildHubSummary(updates = [], actions = []) {
+  const now = Date.now();
+  const published = updates.filter((update) => (update.status ?? '').toLowerCase() === 'published').length;
+  const drafts = updates.length - published;
+  const overdueActions = actions.filter((action) => {
+    if (!action.dueAt) {
+      return false;
+    }
+    const dueAt = new Date(action.dueAt).getTime();
+    return Number.isFinite(dueAt) && dueAt < now && (action.status ?? '').toLowerCase() !== 'completed';
+  }).length;
+  const dueSoon = actions
+    .filter((action) => {
+      if (!action.dueAt) {
+        return false;
+      }
+      const dueAt = new Date(action.dueAt).getTime();
+      if (!Number.isFinite(dueAt)) {
+        return false;
+      }
+      return dueAt >= now && dueAt <= now + 7 * DAY_MS;
+    })
+    .sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime())
+    .slice(0, 5)
+    .map((action) => ({ id: action.id, label: action.label, dueAt: action.dueAt, owner: action.owner ?? null }));
+
+  const actionMomentum = actions.reduce(
+    (acc, action) => {
+      const status = (action.status ?? '').toLowerCase();
+      if (status.includes('progress') || status.includes('in-progress')) {
+        acc.inProgress += 1;
+      } else if (status.includes('completed') || status.includes('done')) {
+        acc.completed += 1;
+      } else {
+        acc.notStarted += 1;
+      }
+      return acc;
+    },
+    { completed: 0, inProgress: 0, notStarted: 0 },
+  );
+
+  return {
+    publishedUpdates: published,
+    draftUpdates: drafts < 0 ? 0 : drafts,
+    activeActions: actions.length,
+    overdueActions,
+    dueSoon,
+    actionMomentum,
+  };
+}
+
+function buildCreationStudioSummary(items = []) {
+  const summary = {
+    total: items.length,
+    published: 0,
+    drafts: 0,
+    scheduled: 0,
+    archived: 0,
+    recentLaunches: [],
+    upcomingLaunches: [],
+  };
+
+  const published = [];
+  const upcoming = [];
+
+  items.forEach((item) => {
+    const status = (item.status ?? '').toLowerCase();
+    if (status === 'published') {
+      summary.published += 1;
+      published.push(item);
+    } else if (status === 'draft') {
+      summary.drafts += 1;
+    } else if (status === 'scheduled') {
+      summary.scheduled += 1;
+      upcoming.push(item);
+    } else if (status === 'archived') {
+      summary.archived += 1;
+    }
+  });
+
+  summary.recentLaunches = published
+    .sort((a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime())
+    .slice(0, 4)
+    .map((item) => ({
+      id: item.id,
+      title: item.title,
+      type: item.type,
+      publishedAt: item.publishedAt ?? item.updatedAt ?? null,
+    }));
+
+  summary.upcomingLaunches = upcoming
+    .sort((a, b) => new Date(a.publishAt || a.launchAt || Infinity) - new Date(b.publishAt || b.launchAt || Infinity))
+    .slice(0, 4)
+    .map((item) => ({
+      id: item.id,
+      title: item.title,
+      type: item.type,
+      publishAt: item.publishAt ?? item.launchAt ?? null,
+    }));
+
+  summary.nextLaunch = summary.upcomingLaunches.length ? summary.upcomingLaunches[0] : null;
+
+  return summary;
+}
+
+function buildMetricsDashboard(widgets = [], reportingSettings = null) {
+  const widgetsWithInsights = widgets.map((widget) => {
+    const goal = Number(widget.goal ?? 0);
+    const value = Number(widget.value ?? 0);
+    const attainment = goal > 0 ? Math.round((value / goal) * 100) : null;
+    return { ...widget, attainment };
+  });
+
+  const onTrack = widgetsWithInsights.filter((widget) => {
+    if (widget.attainment == null) {
+      return false;
+    }
+    if (widget.trend == null) {
+      return widget.attainment >= 70;
+    }
+    return widget.attainment >= 70 && Number(widget.trend) >= 0;
+  }).length;
+
+  return {
+    widgets: widgetsWithInsights,
+    summary: {
+      total: widgets.length,
+      onTrack,
+      needsAttention: Math.max(0, widgets.length - onTrack),
+    },
+    reporting:
+      reportingSettings ?? {
+        cadence: 'Weekly',
+        delivery: 'Email & Slack',
+        recipients: [],
+        nextDispatchAt: null,
+      },
+  };
+}
+
+function mapMentorSettingsRow(row) {
+  if (!row) {
+    return { settings: {}, updatedAt: null };
+  }
+  const payload = row.toPublicObject();
+  return { settings: payload.settings ?? {}, updatedAt: payload.updatedAt ?? null };
+}
+
+function mapMentorSystemPreferencesRow(row) {
+  if (!row) {
+    return { preferences: { notifications: {}, theme: 'system' }, updatedAt: null };
+  }
+  const payload = row.toPublicObject();
+  return { preferences: payload.preferences ?? {}, updatedAt: payload.updatedAt ?? null };
+}
+
+function mapMetricReporting(row) {
+  if (!row) {
+    return { cadence: 'Weekly', delivery: 'Email & Slack', recipients: [], nextDispatchAt: null };
+  }
+  return row.toPublicObject();
 }
 
 function buildSegments(bookings) {
@@ -699,6 +1380,17 @@ export async function getMentorDashboard(mentorId, options = {}) {
     invoiceRows,
     payoutRows,
     reviewRows,
+    hubUpdateRows,
+    hubActionRows,
+    hubResourceRows,
+    hubSpotlightRow,
+    orderRows,
+    adRows,
+    metricWidgetRows,
+    metricReportingRow,
+    mentorSettingsRow,
+    mentorSystemPreferenceRow,
+    creationStudioSnapshot,
   ] = await Promise.all([
     fetchMentorProfile(normalisedMentorId),
     MentorAvailabilitySlot.findAll({ where: { mentorId: normalisedMentorId }, order: [['dayOfWeek', 'ASC'], ['startTime', 'ASC']] }),
@@ -719,6 +1411,17 @@ export async function getMentorDashboard(mentorId, options = {}) {
       limit: 10,
       include: [{ association: 'reviewer', attributes: ['firstName', 'lastName'] }],
     }),
+    MentorHubUpdate.findAll({ where: { mentorId: normalisedMentorId }, order: [['createdAt', 'DESC']] }),
+    MentorHubAction.findAll({ where: { mentorId: normalisedMentorId }, order: [['dueAt', 'ASC'], ['id', 'ASC']] }),
+    MentorHubResource.findAll({ where: { mentorId: normalisedMentorId }, order: [['updatedAtExternal', 'DESC'], ['updatedAt', 'DESC']] }),
+    MentorHubSpotlight.findOne({ where: { mentorId: normalisedMentorId } }),
+    MentorOrder.findAll({ where: { mentorId: normalisedMentorId }, order: [['orderedAt', 'DESC'], ['id', 'DESC']] }),
+    MentorAdCampaign.findAll({ where: { mentorId: normalisedMentorId }, order: [['updatedAt', 'DESC'], ['id', 'DESC']] }),
+    MentorMetricWidget.findAll({ where: { mentorId: normalisedMentorId }, order: [['updatedAt', 'DESC'], ['id', 'DESC']] }),
+    MentorMetricReportingSetting.findOne({ where: { mentorId: normalisedMentorId } }),
+    MentorSettings.findOne({ where: { mentorId: normalisedMentorId } }),
+    MentorSystemPreference.findOne({ where: { mentorId: normalisedMentorId } }),
+    getCreationStudioDashboard(normalisedMentorId),
   ]);
 
   const availability = mapCollection(availabilityRows);
@@ -733,6 +1436,24 @@ export async function getMentorDashboard(mentorId, options = {}) {
   const invoices = mapCollection(invoiceRows);
   const payouts = mapCollection(payoutRows);
   const feedback = mapFeedback(reviewRows);
+  const hubUpdates = mapCollection(hubUpdateRows);
+  const hubActions = mapCollection(hubActionRows);
+  const hubResources = mapCollection(hubResourceRows);
+  const hubSpotlight = hubSpotlightRow ? hubSpotlightRow.toPublicObject() : null;
+  const orders = mapCollection(orderRows);
+  const adCampaigns = mapCollection(adRows);
+  const metricWidgets = mapCollection(metricWidgetRows);
+  const metricReporting = mapMetricReporting(metricReportingRow);
+  const mentorSettings = mapMentorSettingsRow(mentorSettingsRow);
+  const mentorSystemPreferences = mapMentorSystemPreferencesRow(mentorSystemPreferenceRow);
+  const creationStudioItems = Array.isArray(creationStudioSnapshot?.items)
+    ? creationStudioSnapshot.items
+    : [];
+  const creationStudioSummary = creationStudioSnapshot?.summary
+    ? creationStudioSnapshot.summary
+    : buildCreationStudioSummary(creationStudioItems);
+  const creationStudioCatalog = creationStudioSnapshot?.catalog ?? [];
+  const creationStudioShareDestinations = creationStudioSnapshot?.shareDestinations ?? [];
 
   const bookingSummary = summariseBookings(bookings, lookbackDays);
   const avgRating = feedback.length
@@ -740,7 +1461,21 @@ export async function getMentorDashboard(mentorId, options = {}) {
     : 0;
   const prevAvgRating = avgRating;
   const walletSummary = buildWalletSummary(walletTransactions);
-  const finance = buildFinanceSummary(invoices, payouts, walletSummary);
+  const finance = buildFinanceSummary({
+    invoices,
+    payouts,
+    walletSummary,
+    bookingSummary,
+  });
+  const clientSummary = buildClientSummary(clients);
+  const supportSummary = buildSupportSummary(supportTickets);
+  const inboxSummary = buildInboxSummary(messages);
+  const cohortMetrics = buildCohortMetrics(bookings);
+  const ordersSummary = buildOrdersSummary(orders);
+  const adsInsights = buildAdsInsights(adCampaigns);
+  const hubSummary = buildHubSummary(hubUpdates, hubActions);
+  const metricsDashboard = buildMetricsDashboard(metricWidgets, metricReporting);
+  const revenueStreams = buildRevenueStreams(bookings, packages, invoices);
 
   return {
     mentorId: normalisedMentorId,
@@ -760,6 +1495,29 @@ export async function getMentorDashboard(mentorId, options = {}) {
     feedback,
     explorerPlacement: buildExplorerPlacement(bookingSummary, walletSummary),
     finance,
+    clientSummary,
+    supportSummary,
+    inboxSummary,
+    cohortMetrics,
+    revenueStreams,
+    orders: { list: orders, summary: ordersSummary },
+    ads: { campaigns: adCampaigns, insights: adsInsights },
+    hub: {
+      updates: hubUpdates,
+      actions: hubActions,
+      resources: hubResources,
+      spotlight: hubSpotlight,
+      summary: hubSummary,
+    },
+    creationStudio: {
+      items: creationStudioItems,
+      summary: creationStudioSummary,
+      catalog: creationStudioCatalog,
+      shareDestinations: creationStudioShareDestinations,
+    },
+    metricsDashboard,
+    settings: mentorSettings,
+    systemPreferences: mentorSystemPreferences,
     performanceHistory: buildPerformanceHistory(bookings),
     conversionHistory: buildConversionHistory(bookings),
     stats: {
@@ -1086,6 +1844,260 @@ export async function deleteMentorPayout(mentorId, payoutId) {
   await MentorPayout.destroy({ where: { id: payoutId, mentorId: normalisedMentorId } });
 }
 
+export async function createMentorHubUpdate(mentorId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const sanitised = sanitiseHubUpdate(payload);
+  const created = await MentorHubUpdate.create({ mentorId: normalisedMentorId, ...sanitised });
+  return created.toPublicObject();
+}
+
+export async function updateMentorHubUpdate(mentorId, updateId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const update = await findRecordOrThrow(MentorHubUpdate, normalisedMentorId, updateId, 'Mentor hub update not found.');
+  const sanitised = sanitiseHubUpdate(payload, { existing: update.get({ plain: true }) });
+  await update.update(sanitised);
+  return update.toPublicObject();
+}
+
+export async function deleteMentorHubUpdate(mentorId, updateId) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  await findRecordOrThrow(MentorHubUpdate, normalisedMentorId, updateId, 'Mentor hub update not found.');
+  await MentorHubUpdate.destroy({ where: { id: updateId, mentorId: normalisedMentorId } });
+}
+
+export async function createMentorHubAction(mentorId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const sanitised = sanitiseHubAction(payload);
+  const created = await MentorHubAction.create({ mentorId: normalisedMentorId, ...sanitised });
+  return created.toPublicObject();
+}
+
+export async function updateMentorHubAction(mentorId, actionId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const action = await findRecordOrThrow(MentorHubAction, normalisedMentorId, actionId, 'Mentor hub action not found.');
+  const sanitised = sanitiseHubAction(payload, { existing: action.get({ plain: true }) });
+  await action.update(sanitised);
+  return action.toPublicObject();
+}
+
+export async function deleteMentorHubAction(mentorId, actionId) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  await findRecordOrThrow(MentorHubAction, normalisedMentorId, actionId, 'Mentor hub action not found.');
+  await MentorHubAction.destroy({ where: { id: actionId, mentorId: normalisedMentorId } });
+}
+
+export async function createMentorHubResource(mentorId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const sanitised = sanitiseHubResource(payload);
+  const created = await MentorHubResource.create({ mentorId: normalisedMentorId, ...sanitised });
+  return created.toPublicObject();
+}
+
+export async function updateMentorHubResource(mentorId, resourceId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const resource = await findRecordOrThrow(MentorHubResource, normalisedMentorId, resourceId, 'Mentor hub resource not found.');
+  const sanitised = sanitiseHubResource(payload, { existing: resource.get({ plain: true }) });
+  await resource.update(sanitised);
+  return resource.toPublicObject();
+}
+
+export async function deleteMentorHubResource(mentorId, resourceId) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  await findRecordOrThrow(MentorHubResource, normalisedMentorId, resourceId, 'Mentor hub resource not found.');
+  await MentorHubResource.destroy({ where: { id: resourceId, mentorId: normalisedMentorId } });
+}
+
+export async function saveMentorHubSpotlight(mentorId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const existing = await MentorHubSpotlight.findOne({ where: { mentorId: normalisedMentorId } });
+  const sanitised = sanitiseHubSpotlight(payload, { existing: existing ? existing.get({ plain: true }) : undefined });
+  if (existing) {
+    await existing.update(sanitised);
+    return existing.toPublicObject();
+  }
+  const created = await MentorHubSpotlight.create({ mentorId: normalisedMentorId, ...sanitised });
+  return created.toPublicObject();
+}
+
+export async function createMentorOrder(mentorId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const sanitised = sanitiseOrder(payload);
+  const created = await MentorOrder.create({ mentorId: normalisedMentorId, ...sanitised });
+  return created.toPublicObject();
+}
+
+export async function updateMentorOrder(mentorId, orderId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const order = await findRecordOrThrow(MentorOrder, normalisedMentorId, orderId, 'Mentor order not found.');
+  const sanitised = sanitiseOrder(payload, { existing: order.get({ plain: true }) });
+  await order.update(sanitised);
+  return order.toPublicObject();
+}
+
+export async function deleteMentorOrder(mentorId, orderId) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  await findRecordOrThrow(MentorOrder, normalisedMentorId, orderId, 'Mentor order not found.');
+  await MentorOrder.destroy({ where: { id: orderId, mentorId: normalisedMentorId } });
+}
+
+export async function createMentorAdCampaign(mentorId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const sanitised = sanitiseAdCampaign(payload);
+  const created = await MentorAdCampaign.create({ mentorId: normalisedMentorId, ...sanitised });
+  return created.toPublicObject();
+}
+
+export async function updateMentorAdCampaign(mentorId, campaignId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const campaign = await findRecordOrThrow(MentorAdCampaign, normalisedMentorId, campaignId, 'Mentor ad campaign not found.');
+  const sanitised = sanitiseAdCampaign(payload, { existing: campaign.get({ plain: true }) });
+  await campaign.update(sanitised);
+  return campaign.toPublicObject();
+}
+
+export async function deleteMentorAdCampaign(mentorId, campaignId) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  await findRecordOrThrow(MentorAdCampaign, normalisedMentorId, campaignId, 'Mentor ad campaign not found.');
+  await MentorAdCampaign.destroy({ where: { id: campaignId, mentorId: normalisedMentorId } });
+}
+
+export async function createMentorMetricWidget(mentorId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const sanitised = sanitiseMetricWidgetPayload(payload);
+  const created = await MentorMetricWidget.create({ mentorId: normalisedMentorId, ...sanitised });
+  return created.toPublicObject();
+}
+
+export async function updateMentorMetricWidget(mentorId, widgetId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const widget = await findRecordOrThrow(MentorMetricWidget, normalisedMentorId, widgetId, 'Mentor metric widget not found.');
+  const sanitised = sanitiseMetricWidgetPayload(payload, { existing: widget.get({ plain: true }) });
+  await widget.update(sanitised);
+  return widget.toPublicObject();
+}
+
+export async function deleteMentorMetricWidget(mentorId, widgetId) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  await findRecordOrThrow(MentorMetricWidget, normalisedMentorId, widgetId, 'Mentor metric widget not found.');
+  await MentorMetricWidget.destroy({ where: { id: widgetId, mentorId: normalisedMentorId } });
+}
+
+export async function saveMentorMetricReporting(mentorId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const existing = await MentorMetricReportingSetting.findOne({ where: { mentorId: normalisedMentorId } });
+  const sanitised = sanitiseMetricReporting(payload, { existing });
+  if (existing) {
+    await existing.update(sanitised);
+    return existing.toPublicObject();
+  }
+  const created = await MentorMetricReportingSetting.create({ mentorId: normalisedMentorId, ...sanitised });
+  return created.toPublicObject();
+}
+
+export async function updateMentorSettings(mentorId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const sanitised = sanitiseMentorSettings(payload);
+  const [record, created] = await MentorSettings.findOrCreate({
+    where: { mentorId: normalisedMentorId },
+    defaults: { mentorId: normalisedMentorId, settings: sanitised },
+  });
+  if (created) {
+    return record.toPublicObject();
+  }
+  await record.update({ settings: sanitised });
+  return record.toPublicObject();
+}
+
+export async function updateMentorSystemPreferences(mentorId, payload = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const existing = await MentorSystemPreference.findOne({ where: { mentorId: normalisedMentorId } });
+  const preferencesPayload = sanitiseMentorPreferences(payload.preferences ?? {}, { existing });
+  const updates = { preferences: preferencesPayload };
+
+  if (payload.apiKey || payload.rotateApiKey) {
+    const rawKey = payload.apiKey
+      ? ensureTrimmedString(payload.apiKey, 'apiKey', { maxLength: 512 })
+      : crypto.randomBytes(24).toString('base64');
+    const encrypted = encryptSecret(rawKey);
+    updates.apiKeyCiphertext = encrypted;
+    updates.apiKeyFingerprint = fingerprintSecret(encrypted);
+    updates.apiKeyLastRotatedAt = new Date();
+  }
+
+  if (existing) {
+    await existing.update(updates);
+    return existing.toPublicObject();
+  }
+
+  const created = await MentorSystemPreference.create({ mentorId: normalisedMentorId, ...updates });
+  return created.toPublicObject();
+}
+
+export async function getMentorCreationStudioWorkspace(mentorId, options = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  return getCreationStudioWorkspaceSnapshot(normalisedMentorId, options);
+}
+
+export async function createMentorCreationStudioItem(mentorId, payload = {}, { actorId } = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const created = await createOwnedCreationStudioItem(normalisedMentorId, payload, {
+    actorId: actorId ?? normalisedMentorId,
+  });
+  return created;
+}
+
+export async function updateMentorCreationStudioItem(mentorId, itemId, payload = {}, { actorId } = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const updated = await updateOwnedCreationStudioItem(normalisedMentorId, itemId, payload, {
+    actorId: actorId ?? normalisedMentorId,
+  });
+  if (!updated) {
+    throw new NotFoundError('Creation studio item not found.');
+  }
+  return updated;
+}
+
+export async function publishMentorCreationStudioItem(mentorId, itemId, payload = {}, { actorId } = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const item = await CreationStudioItem.findOne({ where: { id: itemId, ownerId: normalisedMentorId } });
+  if (!item) {
+    throw new NotFoundError('Creation studio item not found.');
+  }
+  return publishCreationStudioItem(itemId, payload, { actorId: actorId ?? normalisedMentorId });
+}
+
+export async function shareMentorCreationStudioItem(mentorId, itemId, payload = {}, { actorId } = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const shared = await shareOwnedCreationStudioItem(normalisedMentorId, itemId, payload, {
+    actorId: actorId ?? normalisedMentorId,
+  });
+  if (!shared) {
+    throw new NotFoundError('Creation studio item not found.');
+  }
+  return shared;
+}
+
+export async function archiveMentorCreationStudioItem(mentorId, itemId, { actorId } = {}) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const archived = await archiveOwnedCreationStudioItem(normalisedMentorId, itemId, {
+    actorId: actorId ?? normalisedMentorId,
+  });
+  if (!archived) {
+    throw new NotFoundError('Creation studio item not found.');
+  }
+  return archived;
+}
+
+export async function deleteMentorCreationStudioItem(mentorId, itemId) {
+  const normalisedMentorId = normaliseMentorId(mentorId);
+  const item = await CreationStudioItem.findOne({ where: { id: itemId, ownerId: normalisedMentorId } });
+  if (!item) {
+    throw new NotFoundError('Creation studio item not found.');
+  }
+  await deleteCreationStudioItem(itemId);
+  return { success: true };
+}
+
 export default {
   getMentorDashboard,
   updateMentorAvailability,
@@ -1119,4 +2131,33 @@ export default {
   createMentorPayout,
   updateMentorPayout,
   deleteMentorPayout,
+  createMentorHubUpdate,
+  updateMentorHubUpdate,
+  deleteMentorHubUpdate,
+  createMentorHubAction,
+  updateMentorHubAction,
+  deleteMentorHubAction,
+  createMentorHubResource,
+  updateMentorHubResource,
+  deleteMentorHubResource,
+  saveMentorHubSpotlight,
+  createMentorOrder,
+  updateMentorOrder,
+  deleteMentorOrder,
+  createMentorAdCampaign,
+  updateMentorAdCampaign,
+  deleteMentorAdCampaign,
+  createMentorMetricWidget,
+  updateMentorMetricWidget,
+  deleteMentorMetricWidget,
+  saveMentorMetricReporting,
+  updateMentorSettings,
+  updateMentorSystemPreferences,
+  getMentorCreationStudioWorkspace,
+  createMentorCreationStudioItem,
+  updateMentorCreationStudioItem,
+  publishMentorCreationStudioItem,
+  shareMentorCreationStudioItem,
+  archiveMentorCreationStudioItem,
+  deleteMentorCreationStudioItem,
 };
