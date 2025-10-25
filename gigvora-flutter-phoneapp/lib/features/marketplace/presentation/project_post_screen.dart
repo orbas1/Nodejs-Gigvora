@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:gigvora_mobile/router/app_routes.dart';
 
 import '../../../core/authorization.dart';
 import '../../../core/providers.dart';
@@ -476,7 +477,7 @@ class _ProjectPostScreenState extends ConsumerState<ProjectPostScreen> {
         );
         unawaited(Future.delayed(const Duration(milliseconds: 1200), () {
           if (!mounted) return;
-          context.go('/projects');
+          context.go(AppRoute.projects.path);
           ref.read(projectCreationControllerProvider.notifier).reset();
         }));
       } else if (next.error != null && next.error != previous?.error) {
@@ -553,7 +554,7 @@ class _ProjectPostScreenState extends ConsumerState<ProjectPostScreen> {
                 ? null
                 : () {
                     ref.read(projectCreationControllerProvider.notifier).reset();
-                    context.go('/projects');
+                    context.go(AppRoute.projects.path);
                   },
             child: const Text('Cancel'),
           ),

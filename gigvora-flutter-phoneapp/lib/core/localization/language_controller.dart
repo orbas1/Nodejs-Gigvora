@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../core/providers.dart';
+import '../shared_preferences_provider.dart';
 import 'gigvora_localizations.dart';
 
 const _languageStorageKey = 'gigvora.preferredLanguage';

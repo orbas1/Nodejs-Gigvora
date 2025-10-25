@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:gigvora_mobile/router/app_routes.dart';
 
 import '../../../theme/widgets.dart';
 import '../../analytics/utils/formatters.dart';
@@ -33,13 +34,15 @@ class FinanceScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: () => GoRouter.of(context).go('/login'),
+              onPressed: () =>
+                  GoRouter.of(context).go(AppRoute.login.path),
               icon: const Icon(Icons.lock_open_outlined),
               label: const Text('Sign in to continue'),
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
-              onPressed: () => GoRouter.of(context).go('/signup'),
+              onPressed: () =>
+                  GoRouter.of(context).go(AppRoute.signup.path),
               icon: const Icon(Icons.person_add_alt),
               label: const Text('Create a Gigvora profile'),
             ),

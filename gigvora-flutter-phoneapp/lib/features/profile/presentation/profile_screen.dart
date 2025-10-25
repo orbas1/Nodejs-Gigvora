@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:gigvora_mobile/router/app_routes.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/providers.dart';
@@ -73,7 +74,8 @@ class ProfileScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
                 FilledButton(
-                  onPressed: () => context.go('/login'),
+                  onPressed: () =>
+                      context.go(AppRoute.login.path),
                   child: const Text('Go to secure login'),
                 ),
               ],
@@ -105,7 +107,8 @@ class ProfileScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
                 FilledButton.tonal(
-                  onPressed: () => context.go('/home'),
+                  onPressed: () =>
+                      context.go(AppRoute.home.path),
                   child: const Text('Return to home'),
                 ),
               ],

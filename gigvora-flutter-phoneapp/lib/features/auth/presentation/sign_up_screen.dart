@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:gigvora_mobile/router/app_routes.dart';
 
 import '../../../theme/widgets.dart';
 
@@ -38,7 +39,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 'Network graph visualisations and tools to nurture warm introductions.',
               ],
               primaryLabel: 'Create freelancer profile',
-              onPrimaryTap: () => GoRouter.of(context).go('/register'),
+              onPrimaryTap: () =>
+                  GoRouter.of(context).go(AppRoute.register.path),
               secondaryLabel: 'Need a company hub? Switch below.',
             ),
             const SizedBox(height: 24),
@@ -103,7 +105,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   _OrganisationHighlights(type: _organisationType),
                   const SizedBox(height: 20),
                   FilledButton(
-                    onPressed: () => GoRouter.of(context).go('/register/company'),
+                    onPressed: () => GoRouter.of(context)
+                        .go(AppRoute.registerCompany.path),
                     child: Text(
                       _organisationType == 'company'
                           ? 'Launch company hub'
@@ -112,7 +115,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   ),
                   const SizedBox(height: 8),
                   TextButton(
-                    onPressed: () => GoRouter.of(context).go('/login'),
+                    onPressed: () =>
+                        GoRouter.of(context).go(AppRoute.login.path),
                     child: const Text('Already collaborating? Sign in'),
                   ),
                 ],

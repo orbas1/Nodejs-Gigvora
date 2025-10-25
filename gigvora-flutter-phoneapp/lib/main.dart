@@ -1,18 +1,25 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:gigvora_design_system/gigvora_design_system.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uni_links/uni_links.dart';
 
 import 'core/localization/gigvora_localizations.dart';
 import 'core/localization/language_controller.dart';
 import 'core/providers.dart';
+import 'core/shared_preferences_provider.dart';
 import 'features/auth/application/session_bootstrapper.dart';
 import 'features/auth/domain/auth_token_store.dart';
 import 'features/runtime_health/application/runtime_health_provider.dart';
 import 'features/runtime_health/domain/runtime_health_snapshot.dart';
 import 'router/app_router.dart';
+import 'router/app_routes.dart';
+import 'theme/app_theme_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,44 +30,94 @@ Future<void> main() async {
 
   final sharedPreferences = await SharedPreferences.getInstance();
 
-  try {
-    final loader = GigvoraThemeLoader();
-    final theme = await loader.loadBlue();
-    final themeData = theme.toThemeData();
-    final tokens = theme.tokens;
-
-    runApp(
-      ProviderScope(
-        overrides: [
-          appThemeProvider.overrideWithValue(AsyncValue.data(themeData)),
-          designTokensProvider.overrideWithValue(AsyncValue.data(tokens)),
-          sharedPreferencesProvider.overrideWithValue(sharedPreferences),
-        ],
-        child: const GigvoraApp(),
-      ),
-    );
-  } catch (error, stackTrace) {
-    debugPrint('Failed to bootstrap theme: $error');
-    debugPrint('$stackTrace');
-    runApp(
-      ProviderScope(
-        overrides: [
-          appThemeProvider.overrideWithValue(AsyncValue.error(error, stackTrace)),
-          designTokensProvider.overrideWithValue(AsyncValue.error(error, stackTrace)),
-          sharedPreferencesProvider.overrideWithValue(sharedPreferences),
-        ],
-        child: const GigvoraApp(),
-      ),
-    );
-  }
+  runApp(
+    ProviderScope(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(sharedPreferences),
+      ],
+      child: const GigvoraApp(),
+    ),
+  );
 }
 
-class GigvoraApp extends ConsumerWidget {
+class GigvoraApp extends ConsumerStatefulWidget {
   const GigvoraApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = ref.watch(appThemeProvider);
+  ConsumerState<GigvoraApp> createState() => _GigvoraAppState();
+}
+
+class _GigvoraAppState extends ConsumerState<GigvoraApp> {
+  StreamSubscription<Uri?>? _deepLinkSubscription;
+  GoRouter? _router;
+
+  @override
+  void initState() {
+    super.initState();
+    _router = ref.read(appRouterProvider);
+    ref.listen<GoRouter>(appRouterProvider, (_, next) {
+      _router = next;
+    });
+    _initialiseDeepLinks();
+  }
+
+  @override
+  void dispose() {
+    _deepLinkSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _initialiseDeepLinks() async {
+    if (kIsWeb) {
+      return;
+    }
+
+    try {
+      final initialUri = await getInitialUri();
+      if (initialUri != null) {
+        _handleDeepLink(initialUri);
+      }
+    } on PlatformException catch (error) {
+      debugPrint('Failed to obtain initial deep link: $error');
+    } on FormatException catch (error) {
+      debugPrint('Malformed initial deep link: $error');
+    }
+
+    _deepLinkSubscription = uriLinkStream.listen(
+      (uri) {
+        if (uri != null) {
+          _handleDeepLink(uri);
+        }
+      },
+      onError: (Object error) {
+        debugPrint('Deep link stream error: $error');
+      },
+    );
+  }
+
+  void _handleDeepLink(Uri uri) {
+    if (!mounted) {
+      return;
+    }
+    final router = _router;
+    if (router == null) {
+      return;
+    }
+    final location = AppRouteRegistry.resolveDeepLink(uri);
+    if (location == null || router.location == location) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      router.go(location);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final themeState = ref.watch(appThemeStateProvider);
     final router = ref.watch(appRouterProvider);
     final locale = ref.watch(languageControllerProvider);
     ref.watch(sessionBootstrapProvider);
@@ -159,10 +216,12 @@ class GigvoraApp extends ConsumerWidget {
       GlobalCupertinoLocalizations.delegate,
     ];
 
-    return theme.when(
-      data: (themeData) => MaterialApp.router(
+    return themeState.when(
+      data: (theme) => MaterialApp.router(
         title: 'Gigvora',
-        theme: themeData,
+        theme: theme.lightTheme,
+        darkTheme: theme.darkTheme,
+        themeMode: theme.mode,
         locale: locale,
         supportedLocales: GigvoraLocalizations.supportedLocales,
         localizationsDelegates: localizationDelegates,

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:gigvora_mobile/router/app_routes.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -59,9 +60,9 @@ class FeedScreen extends ConsumerWidget {
             message:
                 'Use your Gigvora credentials to view community updates, share wins, and react in real time.',
             primaryLabel: 'Sign in',
-            onPrimary: () => context.go('/login'),
+            onPrimary: () => context.go(AppRoute.login.path),
             secondaryLabel: 'Create account',
-            onSecondary: () => context.go('/signup'),
+            onSecondary: () => context.go(AppRoute.signup.path),
           ),
         ),
       );
@@ -78,9 +79,9 @@ class FeedScreen extends ConsumerWidget {
             message:
                 'Timeline access is reserved for user, freelancer, agency, company, mentor, headhunter, or admin workspaces. Switch roles or request an upgrade to continue.',
             primaryLabel: 'Manage memberships',
-            onPrimary: () => context.go('/home'),
+            onPrimary: () => context.go(AppRoute.home.path),
             secondaryLabel: 'View dashboards',
-            onSecondary: () => context.go('/home'),
+            onSecondary: () => context.go(AppRoute.home.path),
             chips: _allowedFeedRoles.toList(),
           ),
         ),
@@ -381,7 +382,7 @@ class FeedScreen extends ConsumerWidget {
       _ExplorerPromoCard(
         onOpenExplorer: () {
           controller.recordExplorerShortcut();
-          context.go('/explorer');
+          context.go(AppRoute.explorer.path);
         },
       ),
       const SizedBox(height: 16),

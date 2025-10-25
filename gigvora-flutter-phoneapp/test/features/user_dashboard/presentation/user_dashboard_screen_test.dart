@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:gigvora_mobile/core/localization/gigvora_localizations.dart';
 import 'package:gigvora_mobile/core/providers.dart';
+import 'package:gigvora_mobile/core/shared_preferences_provider.dart';
 import 'package:gigvora_mobile/features/auth/application/session_controller.dart';
 import 'package:gigvora_mobile/features/auth/domain/session.dart';
 import 'package:gigvora_mobile/features/user_dashboard/application/user_dashboard_controller.dart';
