@@ -120,6 +120,12 @@ describe('companySystemPreferences service', () => {
     const controller = new AbortController();
     expect(() => companySystemPreferences.deleteCompanyWebhook('')).toThrow(/webhookId is required/i);
     expect(apiClient.delete).not.toHaveBeenCalled();
+
+    apiClient.delete.mockResolvedValue({ ok: true });
+    await companySystemPreferences.deleteCompanyWebhook('web-19', { signal: controller.signal });
+    expect(apiClient.delete).toHaveBeenCalledWith('/company/system-preferences/webhooks/web-19', {
+      signal: controller.signal,
+    });
   });
 });
 

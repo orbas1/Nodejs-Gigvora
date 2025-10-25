@@ -93,9 +93,9 @@ export default function useProjectBlueprints({ freelancerId, enabled = true, ini
   });
 
   const data = resource.data ?? FALLBACK_RESPONSE;
-  const blueprints = data.blueprints ?? [];
+  const blueprints = Array.isArray(data.blueprints) ? data.blueprints : FALLBACK_RESPONSE.blueprints;
   const metrics = data.metrics ?? FALLBACK_RESPONSE.metrics;
-  const templates = data.templates ?? FALLBACK_RESPONSE.templates;
+  const templates = Array.isArray(data.templates) ? data.templates : FALLBACK_RESPONSE.templates;
 
   const refresh = useCallback((options) => resource.refresh(options), [resource]);
 

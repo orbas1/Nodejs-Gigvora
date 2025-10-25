@@ -2,7 +2,6 @@ import {
   AcademicCapIcon,
   BookOpenIcon,
   BookmarkSquareIcon,
-  BriefcaseIcon,
   BuildingOffice2Icon,
   ChartBarIcon,
   GlobeAltIcon,
