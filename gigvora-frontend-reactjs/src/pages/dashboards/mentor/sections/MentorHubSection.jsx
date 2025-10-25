@@ -281,6 +281,7 @@ export default function MentorHubSection({
   onUpdateResource,
   onDeleteResource,
   onSaveSpotlight,
+  analyticsOverlay,
 }) {
   const [updateForm, setUpdateForm] = useState(DEFAULT_UPDATE);
   const [editingUpdateId, setEditingUpdateId] = useState(null);
@@ -300,6 +301,13 @@ export default function MentorHubSection({
   const resources = hub?.resources ?? [];
 
   const spotlight = useMemo(() => hub?.spotlight ?? {}, [hub]);
+  const overlayHighlight = useMemo(() => {
+    const cards = analyticsOverlay?.cards;
+    if (!Array.isArray(cards) || !cards.length) {
+      return null;
+    }
+    return cards[0];
+  }, [analyticsOverlay]);
 
   const updateSummary = useMemo(() => {
     const published = updates.filter((update) => update.status === 'Published').length;
@@ -550,6 +558,26 @@ export default function MentorHubSection({
           </span>
         </div>
       </header>
+
+      {overlayHighlight ? (
+        <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Analytics signal</p>
+              <h3 className="text-lg font-semibold text-slate-900">{overlayHighlight.label}</h3>
+            </div>
+            {overlayHighlight.deltaLabel ? (
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                {overlayHighlight.deltaLabel}
+              </span>
+            ) : null}
+          </div>
+          <div className="mt-3 flex flex-wrap items-baseline gap-3">
+            <p className="text-3xl font-semibold text-accent">{overlayHighlight.displayValue ?? overlayHighlight.value ?? '—'}</p>
+            <p className="text-sm text-slate-600">{overlayHighlight.insight}</p>
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-3xl border border-emerald-100 bg-emerald-50/70 p-5 text-sm text-emerald-800 shadow-sm">
@@ -1296,6 +1324,18 @@ MentorHubSection.propTypes = {
   onUpdateResource: PropTypes.func,
   onDeleteResource: PropTypes.func,
   onSaveSpotlight: PropTypes.func,
+  analyticsOverlay: PropTypes.shape({
+    cards: PropTypes.arrayOf(
+      PropTypes.shape({
+        id: PropTypes.string,
+        label: PropTypes.string,
+        value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+        displayValue: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+        insight: PropTypes.string,
+        deltaLabel: PropTypes.string,
+      }),
+    ),
+  }),
 };
 
 MentorHubSection.defaultProps = {
@@ -1310,4 +1350,5 @@ MentorHubSection.defaultProps = {
   onUpdateResource: undefined,
   onDeleteResource: undefined,
   onSaveSpotlight: undefined,
+  analyticsOverlay: undefined,
 };
