@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../theme/severity.dart';
 import '../../../theme/widgets.dart';
 import '../application/support_controller.dart';
 import '../data/models/support_models.dart';
+import '../../analytics/utils/formatters.dart';
 
 class SupportScreen extends ConsumerStatefulWidget {
   const SupportScreen({super.key});
@@ -43,17 +45,20 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final tickets = snapshot?.openTickets ?? const <SupportTicket>[];
+    final cases = snapshot?.cases ?? const <SupportCase>[];
     final search = (state.metadata['search'] as String? ?? '').toLowerCase().trim();
     final statusFilter = state.metadata['statusFilter'] as String? ?? 'all';
     final categoryFilter = state.metadata['categoryFilter'] as String? ?? 'all';
 
-    final filteredTickets = tickets.where((ticket) {
+    final filteredCases = cases.where((supportCase) {
       final matchesSearch = search.isEmpty ||
-          ticket.subject.toLowerCase().contains(search) ||
-          ticket.summary.toLowerCase().contains(search);
-      final matchesStatus = statusFilter == 'all' || ticket.status == statusFilter;
-      final matchesCategory = categoryFilter == 'all' || ticket.category == categoryFilter;
+          supportCase.title.toLowerCase().contains(search) ||
+          supportCase.summary.toLowerCase().contains(search) ||
+          supportCase.messages.any((message) => message.body.toLowerCase().contains(search));
+      final matchesStatus =
+          statusFilter == 'all' || supportCase.status.toLowerCase() == statusFilter.toLowerCase();
+      final matchesCategory =
+          categoryFilter == 'all' || supportCase.category.toLowerCase() == categoryFilter.toLowerCase();
       return matchesSearch && matchesStatus && matchesCategory;
     }).toList();
 
@@ -72,13 +77,16 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
         child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
-            _SupportHealthHeader(snapshot: snapshot),
+            if (snapshot != null) _SupportHealthHeader(snapshot: snapshot, lastUpdated: state.lastUpdated),
             const SizedBox(height: 24),
             _Filters(
               controller: controller,
               searchController: _searchController,
               statusFilter: statusFilter,
               categoryFilter: categoryFilter,
+              availableStatuses: snapshot?.cases.map((c) => c.status.toLowerCase()).toSet() ?? const <String>{},
+              availableCategories:
+                  snapshot?.cases.map((c) => c.category.toLowerCase()).toSet() ?? const <String>{},
             ),
             const SizedBox(height: 16),
             if (busy)
@@ -87,10 +95,10 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
                 child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
               ),
             const SizedBox(height: 8),
-            if (filteredTickets.isEmpty)
+            if (filteredCases.isEmpty)
               const _EmptyState()
             else
-              ...filteredTickets.map((ticket) => Padding(
+              ...filteredCases.map((ticket) => Padding(
                     padding: const EdgeInsets.only(bottom: 16),
                     child: SupportTicketCard(
                       ticket: ticket,
@@ -100,7 +108,15 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
                     ),
                   )),
             const SizedBox(height: 24),
-            if (snapshot != null) _KnowledgeBaseSection(articles: snapshot.articles),
+            if (snapshot != null && snapshot.incidents.isNotEmpty)
+              _IncidentSection(incidents: snapshot.incidents),
+            if (snapshot != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 24),
+                child: _KnowledgeBaseSection(articles: snapshot.knowledgeBase),
+              ),
+            const SizedBox(height: 24),
+            const _AccessibilitySupportPanel(),
           ],
         ),
       ),
@@ -123,7 +139,7 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
   Future<void> _openReplySheet(
     BuildContext context,
     SupportController controller,
-    SupportTicket ticket,
+    SupportCase ticket,
   ) async {
     final result = await showModalBottomSheet<bool>(
       context: context,
@@ -132,46 +148,102 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
     );
     if (result == true && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Reply posted to ${ticket.subject}.')),
+        SnackBar(content: Text('Reply posted to ${ticket.title}.')),
       );
     }
   }
 }
 
 class _SupportHealthHeader extends StatelessWidget {
-  const _SupportHealthHeader({required this.snapshot});
+  const _SupportHealthHeader({required this.snapshot, required this.lastUpdated});
 
-  final SupportSnapshot? snapshot;
+  final SupportDeskSnapshot snapshot;
+  final DateTime? lastUpdated;
 
   @override
   Widget build(BuildContext context) {
-    final responseMinutes = snapshot?.firstResponseMinutes ?? 12;
-    final satisfaction = snapshot?.satisfactionScore ?? 4.7;
-    final openCount = snapshot?.openTickets.length ?? 0;
+    final metrics = snapshot.metrics;
+    final theme = Theme.of(context);
+    final responseMinutes = metrics.averageFirstResponseMinutes ?? 0;
+    final resolutionMinutes = metrics.averageResolutionMinutes ?? 0;
     final formatter = NumberFormat.compact();
 
-    return GigvoraCard(
-      padding: const EdgeInsets.all(20),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    String formatDuration(double minutes) {
+      if (minutes <= 0) return '—';
+      if (minutes < 60) return '${minutes.toStringAsFixed(1)} mins';
+      final hours = minutes / 60;
+      if (hours < 24) return '${hours.toStringAsFixed(1)} hrs';
+      final days = hours / 24;
+      return '${days.toStringAsFixed(1)} days';
+    }
+
+    return Semantics(
+      label: 'Support health overview',
+      child: GigvoraCard(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Text('Live support metrics', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                Text('We reply within ${responseMinutes.toString()} minutes on average.'),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Live support metrics', style: theme.textTheme.titleMedium),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Specialists respond within ${formatDuration(responseMinutes)} on average.',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+                if (lastUpdated != null)
+                  Text(
+                    'Updated ${formatRelativeTime(lastUpdated!)}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
               ],
             ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text('$openCount open', style: Theme.of(context).textTheme.titleMedium),
-              Text('CSAT ${formatter.format(satisfaction)}/5'),
-            ],
-          ),
-        ],
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                _MetricChip(
+                  label: 'Open cases',
+                  value: formatter.format(metrics.openSupportCases),
+                  semanticsLabel: '${metrics.openSupportCases} open support cases',
+                  icon: Icons.support_agent_outlined,
+                ),
+                _MetricChip(
+                  label: 'Open disputes',
+                  value: formatter.format(metrics.openDisputes),
+                  semanticsLabel: '${metrics.openDisputes} open disputes',
+                  icon: Icons.gavel_outlined,
+                ),
+                _MetricChip(
+                  label: 'CSAT',
+                  value: '${metrics.csatScore.toStringAsFixed(1)}/5',
+                  semanticsLabel: 'Customer satisfaction ${metrics.csatScore.toStringAsFixed(1)} out of 5',
+                  icon: Icons.thumb_up_outlined,
+                  caption: metrics.csatResponses > 0
+                      ? '${metrics.csatResponses} responses'
+                      : 'Awaiting feedback',
+                ),
+                _MetricChip(
+                  label: 'Resolution time',
+                  value: formatDuration(resolutionMinutes),
+                  semanticsLabel: 'Average resolution time ${formatDuration(resolutionMinutes)}',
+                  icon: Icons.timer_outlined,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -183,15 +255,23 @@ class _Filters extends StatelessWidget {
     required this.searchController,
     required this.statusFilter,
     required this.categoryFilter,
+    required this.availableStatuses,
+    required this.availableCategories,
   });
 
   final SupportController controller;
   final TextEditingController searchController;
   final String statusFilter;
   final String categoryFilter;
+  final Set<String> availableStatuses;
+  final Set<String> availableCategories;
 
   @override
   Widget build(BuildContext context) {
+    final statusOptions = {'all', ...availableStatuses.where((value) => value.isNotEmpty)}.toList()
+      ..sort();
+    final categoryOptions = {'all', ...availableCategories.where((value) => value.isNotEmpty)}.toList()
+      ..sort();
     return GigvoraCard(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -211,25 +291,32 @@ class _Filters extends StatelessWidget {
             children: [
               DropdownButton<String>(
                 value: statusFilter,
-                items: const [
-                  DropdownMenuItem(value: 'all', child: Text('All statuses')),
-                  DropdownMenuItem(value: 'open', child: Text('Open')),
-                  DropdownMenuItem(value: 'awaiting_customer', child: Text('Waiting on you')),
-                  DropdownMenuItem(value: 'escalated', child: Text('Escalated')),
-                ],
+                items: statusOptions
+                    .map(
+                      (value) => DropdownMenuItem(
+                        value: value,
+                        child: Text(value == 'all'
+                            ? 'All statuses'
+                            : value.replaceAll('_', ' ').toUpperCase()),
+                      ),
+                    )
+                    .toList(growable: false),
                 onChanged: (value) {
                   if (value != null) controller.updateStatusFilter(value);
                 },
               ),
               DropdownButton<String>(
                 value: categoryFilter,
-                items: const [
-                  DropdownMenuItem(value: 'all', child: Text('All categories')),
-                  DropdownMenuItem(value: 'Integrations', child: Text('Integrations')),
-                  DropdownMenuItem(value: 'Billing', child: Text('Billing')),
-                  DropdownMenuItem(value: 'Security', child: Text('Security')),
-                  DropdownMenuItem(value: 'Platform', child: Text('Platform')),
-                ],
+                items: categoryOptions
+                    .map(
+                      (value) => DropdownMenuItem(
+                        value: value,
+                        child: Text(value == 'all'
+                            ? 'All categories'
+                            : value.replaceAll('_', ' ').toUpperCase()),
+                      ),
+                    )
+                    .toList(growable: false),
                 onChanged: (value) {
                   if (value != null) controller.updateCategoryFilter(value);
                 },
@@ -270,7 +357,7 @@ class SupportTicketCard extends StatelessWidget {
     required this.onEscalate,
   });
 
-  final SupportTicket ticket;
+  final SupportCase ticket;
   final Future<void> Function() onReply;
   final Future<void> Function() onClose;
   final Future<void> Function() onEscalate;
@@ -278,6 +365,11 @@ class SupportTicketCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat.yMMMd().add_jm();
+    final theme = Theme.of(context);
+    final linkedOrder = ticket.linkedOrder;
+    final statusSeverity = _severityForSupportStatus(ticket.status);
+    final statusPalette = SeverityTheme.colors(theme.colorScheme, statusSeverity);
+    final statusChipPalette = statusPalette.withBackgroundOpacity(0.22);
     return GigvoraCard(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -289,40 +381,55 @@ class SupportTicketCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(ticket.subject, style: Theme.of(context).textTheme.titleMedium),
+                    Text(ticket.title, style: theme.textTheme.titleMedium),
                     Text('${ticket.category} • Priority ${ticket.priority}'),
                   ],
                 ),
               ),
-              Chip(label: Text(ticket.status.toUpperCase())),
-              if (ticket.escalated) const SizedBox(width: 8),
-              if (ticket.escalated)
-                Chip(
-                  label: const Text('Escalated'),
-                  backgroundColor: Theme.of(context).colorScheme.errorContainer,
+              Chip(
+                label: Text(
+                  ticket.status.toUpperCase(),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: statusPalette.foreground,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
+                backgroundColor: statusChipPalette.background,
+                side: BorderSide(color: statusPalette.foreground.withOpacity(0.35)),
+              ),
             ],
           ),
           const SizedBox(height: 12),
           Text(ticket.summary),
           const SizedBox(height: 12),
-          Text('Updated ${dateFormat.format(ticket.updatedAt)}', style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(height: 12),
-          if (ticket.attachments.isNotEmpty)
-            Wrap(
-              spacing: 8,
-              children: ticket.attachments
-                  .map(
-                    (attachment) => ActionChip(
-                      label: Text(attachment.split('/').last),
-                      onPressed: () => _launchAttachment(attachment),
-                    ),
-                  )
-                  .toList(),
+          if (linkedOrder != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _LinkedOrderPreview(order: linkedOrder),
             ),
+          Text(
+            'Updated ${dateFormat.format(ticket.updatedAt)}',
+            style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: 12),
           if (ticket.messages.isNotEmpty) ...[
             const SizedBox(height: 16),
             ...ticket.messages.map((message) => _TicketMessage(message: message)),
+          ],
+          if (ticket.links.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: ticket.links
+                  .map(
+                    (link) => Chip(
+                      avatar: const Icon(Icons.attach_file, size: 16),
+                      label: Text(link.reference ?? link.type),
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
           ],
           const SizedBox(height: 16),
           Row(
@@ -373,7 +480,144 @@ class _TicketMessage extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(message.body),
+          if (message.attachments.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            ...message.attachments.map(
+              (attachment) => Row(
+                children: [
+                  const Icon(Icons.attach_file, size: 16),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      attachment.label,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+class _MetricChip extends StatelessWidget {
+  const _MetricChip({
+    required this.label,
+    required this.value,
+    required this.semanticsLabel,
+    required this.icon,
+    this.caption,
+  });
+
+  final String label;
+  final String value;
+  final String semanticsLabel;
+  final IconData icon;
+  final String? caption;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Semantics(
+      label: semanticsLabel,
+      child: Container(
+        width: 180,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 20, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: theme.textTheme.labelLarge,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            if (caption != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  caption!,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LinkedOrderPreview extends StatelessWidget {
+  const _LinkedOrderPreview({required this.order});
+
+  final SupportCaseLinkedOrder order;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final amount = order.amount != null
+        ? NumberFormat.simpleCurrency(name: order.currencyCode ?? 'USD').format(order.amount)
+        : null;
+    final details = [
+      if (order.gigTitle?.isNotEmpty == true) order.gigTitle!,
+      if (order.clientName?.isNotEmpty == true) order.clientName!,
+      if (order.status?.isNotEmpty == true) order.status!,
+    ].join(' • ');
+    return Semantics(
+      label: 'Linked order reference ${order.reference ?? 'pending'}',
+      child: Container(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceVariant.withOpacity(0.6),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Icon(Icons.receipt_long_outlined, color: theme.colorScheme.primary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    order.reference ?? 'Pending reference',
+                    style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  if (details.isNotEmpty)
+                    Text(
+                      details,
+                      style: theme.textTheme.bodySmall,
+                    ),
+                ],
+              ),
+            ),
+            if (amount != null)
+              Text(
+                amount,
+                style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -386,22 +630,219 @@ class _KnowledgeBaseSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return GigvoraCard(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Guides & updates', style: Theme.of(context).textTheme.titleMedium),
+          Text('Guides & updates', style: theme.textTheme.titleMedium),
           const SizedBox(height: 12),
           ...articles.map((article) {
-            return ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(article.title),
-              subtitle: Text('${article.summary}\n${article.readTimeMinutes} min read'),
-              trailing: const Icon(Icons.open_in_new),
-              onTap: () => launchUrl(Uri.parse(article.url), mode: LaunchMode.externalApplication),
+            final hasUrl = article.url.isNotEmpty;
+            final tags = article.tags.isNotEmpty
+                ? article.tags.map((tag) => '#${tag.toLowerCase()}').join(' ')
+                : 'Knowledge base';
+            final lastReviewed = article.lastReviewedAt != null
+                ? 'Reviewed ${DateFormat.yMMMd().format(article.lastReviewedAt!)}'
+                : null;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(article.title, style: theme.textTheme.titleSmall),
+                      ),
+                      if (hasUrl)
+                        IconButton(
+                          tooltip: 'Open article in browser',
+                          onPressed: () => launchUrl(
+                            Uri.parse(article.url),
+                            mode: LaunchMode.externalApplication,
+                          ),
+                          icon: const Icon(Icons.open_in_new),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    article.summary,
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${article.category} • ${article.readTimeMinutes} min read',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(tags, style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic)),
+                  if (article.resourceLinks.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: article.resourceLinks
+                            .map(
+                              (link) => OutlinedButton.icon(
+                                onPressed: () => launchUrl(
+                                  Uri.parse(link.url),
+                                  mode: LaunchMode.externalApplication,
+                                ),
+                                icon: const Icon(Icons.link),
+                                label: Text(link.label),
+                              ),
+                            )
+                            .toList(growable: false),
+                      ),
+                    ),
+                  if (lastReviewed != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        lastReviewed,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             );
           }),
+        ],
+      ),
+    );
+  }
+}
+
+class _IncidentSection extends StatelessWidget {
+  const _IncidentSection({required this.incidents});
+
+  final List<SupportIncident> incidents;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GigvoraCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Active incidents & disputes', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 12),
+          ...incidents.map((incident) {
+            final opened = DateFormat.yMMMd().add_jm().format(incident.openedAt);
+            final statusChip = incident.status.toUpperCase();
+            final severity = _severityForIncidentStatus(incident.status);
+            final palette = SeverityTheme.colors(theme.colorScheme, severity);
+            final chipPalette = palette.withBackgroundOpacity(0.22);
+            final cardPalette = palette.withBackgroundOpacity(0.12);
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                color: cardPalette.background,
+                border: Border.all(color: palette.foreground.withOpacity(0.25)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          incident.summary,
+                          style: theme.textTheme.titleSmall,
+                        ),
+                      ),
+                      Chip(
+                        label: Text(
+                          statusChip,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: palette.foreground,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        backgroundColor: chipPalette.background,
+                        side: BorderSide(color: palette.foreground.withOpacity(0.35)),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Opened $opened • Priority ${incident.priority.toUpperCase()}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: palette.foreground.withOpacity(0.85),
+                  ),
+                ),
+                  if (incident.linkedOrder != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: _LinkedOrderPreview(order: incident.linkedOrder!),
+                    ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccessibilitySupportPanel extends StatelessWidget {
+  const _AccessibilitySupportPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GigvoraCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.accessibility_new, size: 20),
+              const SizedBox(width: 8),
+              Text('Accessibility escalation', style: theme.textTheme.titleMedium),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Need extra assistance? Request captioning, interpreter support, or personalised guidance and our trust team will respond within one business hour.',
+            style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () => launchUrl(
+                  Uri.parse('https://support.gigvora.com/accessibility'),
+                  mode: LaunchMode.externalApplication,
+                ),
+                icon: const Icon(Icons.open_in_new),
+                label: const Text('Accessibility hub'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => launchUrl(
+                  Uri.parse('mailto:accessibility@gigvora.com'),
+                  mode: LaunchMode.platformDefault,
+                ),
+                icon: const Icon(Icons.email_outlined),
+                label: const Text('Email support'),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -411,7 +852,7 @@ class _KnowledgeBaseSection extends StatelessWidget {
 class SupportTicketSheet extends StatefulWidget {
   const SupportTicketSheet({super.key, required this.onSubmit});
 
-  final Future<SupportTicket> Function(SupportTicketDraft draft) onSubmit;
+  final Future<SupportCase> Function(SupportTicketDraft draft) onSubmit;
 
   @override
   State<SupportTicketSheet> createState() => _SupportTicketSheetState();
@@ -522,7 +963,7 @@ class _SupportTicketSheetState extends State<SupportTicketSheet> {
 class SupportReplySheet extends StatefulWidget {
   const SupportReplySheet({super.key, required this.ticket, required this.onSubmit});
 
-  final SupportTicket ticket;
+  final SupportCase ticket;
   final Future<void> Function(String ticketId, SupportMessageDraft draft) onSubmit;
 
   @override
@@ -551,7 +992,10 @@ class _SupportReplySheetState extends State<SupportReplySheet> {
       return;
     }
     setState(() => _submitting = true);
-    final draft = SupportMessageDraft(author: 'You', role: 'Customer', body: _messageController.text.trim());
+    final draft = SupportMessageDraft(
+      body: _messageController.text.trim(),
+      fromSupport: false,
+    );
     await widget.onSubmit(widget.ticket.id, draft);
     if (!mounted) return;
     Navigator.of(context).pop(true);
@@ -568,7 +1012,7 @@ class _SupportReplySheetState extends State<SupportReplySheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Reply to ${widget.ticket.subject}', style: Theme.of(context).textTheme.titleLarge),
+            Text('Reply to ${widget.ticket.title}', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 12),
             TextFormField(
               controller: _messageController,
@@ -591,9 +1035,34 @@ class _SupportReplySheetState extends State<SupportReplySheet> {
   }
 }
 
-Future<void> _launchAttachment(String url) async {
-  final uri = Uri.tryParse(url);
-  if (uri != null) {
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+SeverityLevel _severityForSupportStatus(String status) {
+  switch (status.toLowerCase()) {
+    case 'resolved':
+    case 'closed':
+      return SeverityLevel.success;
+    case 'waiting_on_customer':
+    case 'triage':
+      return SeverityLevel.warning;
+    case 'in_progress':
+      return SeverityLevel.info;
+    case 'escalated':
+      return SeverityLevel.danger;
+    default:
+      return SeverityLevel.neutral;
+  }
+}
+
+SeverityLevel _severityForIncidentStatus(String status) {
+  switch (status.toLowerCase()) {
+    case 'settled':
+    case 'closed':
+      return SeverityLevel.success;
+    case 'awaiting_customer':
+      return SeverityLevel.warning;
+    case 'under_review':
+    case 'open':
+      return SeverityLevel.info;
+    default:
+      return SeverityLevel.neutral;
   }
 }

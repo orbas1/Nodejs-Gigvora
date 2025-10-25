@@ -3,8 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
 
+import '../../../theme/severity.dart';
 import '../../../theme/widgets.dart';
+import '../../analytics/utils/formatters.dart';
+import '../application/notification_preferences_controller.dart';
 import '../application/push_notification_controller.dart';
+import '../domain/push_permission_copy.dart';
 
 class NotificationsScreen extends ConsumerWidget {
   const NotificationsScreen({super.key});
@@ -13,9 +17,13 @@ class NotificationsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(pushNotificationControllerProvider);
     final controller = ref.read(pushNotificationControllerProvider.notifier);
+    final preferencesState = ref.watch(notificationPreferencesControllerProvider);
+    final preferencesController = ref.read(notificationPreferencesControllerProvider.notifier);
     final theme = Theme.of(context);
 
-    final statusMessage = _buildStatusMessage(context, state);
+    final statusCopy = PushPermissionMessaging.resolveStatus(state);
+    final preferences = preferencesState.data;
+    final updatingQuietHours = preferencesState.metadata['updatingQuietHours'] == true;
     final isBusy = state.isRequesting || state.isRegistering;
     final canRequest = state.isSupported && state.status != PushPermissionStatus.granted;
 
@@ -70,10 +78,6 @@ class NotificationsScreen extends ConsumerWidget {
                     ),
                   ],
                 ),
-                if (statusMessage != null) ...[
-                  const SizedBox(height: 12),
-                  statusMessage,
-                ],
                 if (state.hasError)
                   Padding(
                     padding: const EdgeInsets.only(top: 12),
@@ -84,7 +88,9 @@ class NotificationsScreen extends ConsumerWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ),
+                ),
+                const SizedBox(height: 16),
+                _StatusMessage(copy: statusCopy),
                 const SizedBox(height: 16),
                 Row(
                   children: [
@@ -116,6 +122,26 @@ class NotificationsScreen extends ConsumerWidget {
               ],
             ),
           ),
+          if (preferencesState.hasError)
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: _StatusMessage(
+                copy: PermissionCopy(
+                  headline: 'Preferences unavailable',
+                  message: '${preferencesState.error}',
+                  severity: SeverityLevel.warning,
+                ),
+              ),
+            ),
+          if (preferences != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 24),
+              child: _QuietHoursCard(
+                snapshot: preferences,
+                updating: updatingQuietHours,
+                onUpdate: (start, end) => preferencesController.updateQuietHours(start, end),
+              ),
+            ),
           const SizedBox(height: 24),
           Expanded(
             child: _NotificationTimeline(),
@@ -124,55 +150,6 @@ class NotificationsScreen extends ConsumerWidget {
       ),
     );
   }
-}
-
-Widget? _buildStatusMessage(BuildContext context, PushNotificationState state) {
-  final textTheme = Theme.of(context).textTheme;
-  final colorScheme = Theme.of(context).colorScheme;
-
-  if (state.isRequesting) {
-    return Text(
-      'Requesting permission…',
-      style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600),
-    );
-  }
-
-  if (state.isRegistering) {
-    return Text(
-      'Registering this device for alerts…',
-      style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600),
-    );
-  }
-
-  if (!state.isSupported) {
-    return Text(
-      'Push notifications are not supported on this device.',
-      style: textTheme.bodySmall?.copyWith(color: colorScheme.tertiary, fontWeight: FontWeight.w600),
-    );
-  }
-
-  return switch (state.status) {
-    PushPermissionStatus.granted => Text(
-        'Push alerts enabled for this device.',
-        style: textTheme.bodySmall?.copyWith(color: const Color(0xFF047857), fontWeight: FontWeight.w600),
-      ),
-    PushPermissionStatus.provisional => Text(
-        'Time-sensitive alerts enabled. Promote to full alerts in system settings for rich updates.',
-        style: textTheme.bodySmall?.copyWith(color: const Color(0xFF0F172A), fontWeight: FontWeight.w600),
-      ),
-    PushPermissionStatus.denied => Text(
-        'Notifications are disabled. Enable them in system settings to receive real-time alerts.',
-        style: textTheme.bodySmall?.copyWith(color: colorScheme.error, fontWeight: FontWeight.w600),
-      ),
-    PushPermissionStatus.unknown => Text(
-        'Push alerts are ready when you are. Enable them to stay connected in real-time.',
-        style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600),
-      ),
-    PushPermissionStatus.notSupported => Text(
-        'Push notifications are not supported on this device.',
-        style: textTheme.bodySmall?.copyWith(color: colorScheme.tertiary, fontWeight: FontWeight.w600),
-      ),
-  };
 }
 
 class _NotificationTimeline extends ConsumerWidget {
@@ -229,6 +206,182 @@ class _NotificationTimeline extends ConsumerWidget {
               )),
       ],
     );
+  }
+}
+
+class _StatusMessage extends StatelessWidget {
+  const _StatusMessage({required this.copy});
+
+  final PermissionCopy copy;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final palette = SeverityTheme.colors(theme.colorScheme, copy.severity);
+    final toned = switch (copy.severity) {
+      SeverityLevel.success => palette.withBackgroundOpacity(0.15),
+      SeverityLevel.warning => palette.withBackgroundOpacity(0.22),
+      SeverityLevel.danger => palette,
+      SeverityLevel.info => palette.withBackgroundOpacity(0.7),
+      SeverityLevel.neutral => palette,
+    };
+    final icon = SeverityTheme.icon(copy.severity);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: toned.background,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: toned.foreground),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  copy.headline,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: toned.foreground,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  copy.message,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: toned.foreground.withOpacity(0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuietHoursCard extends StatelessWidget {
+  const _QuietHoursCard({
+    required this.snapshot,
+    required this.onUpdate,
+    this.updating = false,
+  });
+
+  final NotificationPreferenceSnapshot snapshot;
+  final Future<void> Function(TimeOfDay? start, TimeOfDay? end) onUpdate;
+  final bool updating;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final startTime = _parseTime(snapshot.quietHoursStart);
+    final endTime = _parseTime(snapshot.quietHoursEnd);
+    final quietHoursEnabled = startTime != null && endTime != null;
+
+    String describeQuietHours() {
+      if (!quietHoursEnabled) {
+        return 'Quiet hours are disabled. Alerts will arrive at any time.';
+      }
+      final startLabel = _formatDisplayTime(context, startTime);
+      final endLabel = _formatDisplayTime(context, endTime);
+      return 'Quiet hours active from $startLabel to $endLabel in your local timezone.';
+    }
+
+    return GigvoraCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.schedule_outlined),
+              const SizedBox(width: 12),
+              Text('Quiet hours', style: theme.textTheme.titleMedium),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            describeQuietHours(),
+            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              ElevatedButton.icon(
+                onPressed: updating ? null : () => _pickQuietHours(context, startTime, endTime),
+                icon: updating
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.edit_outlined),
+                label: Text(updating ? 'Saving…' : 'Adjust quiet hours'),
+              ),
+              const SizedBox(width: 12),
+              TextButton(
+                onPressed: updating || !quietHoursEnabled
+                    ? null
+                    : () async {
+                        await onUpdate(null, null);
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Quiet hours disabled.')),
+                        );
+                      },
+                child: const Text('Disable'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickQuietHours(
+    BuildContext context,
+    TimeOfDay? initialStart,
+    TimeOfDay? initialEnd,
+  ) async {
+    final start = await showTimePicker(
+      context: context,
+      initialTime: initialStart ?? const TimeOfDay(hour: 22, minute: 0),
+    );
+    if (start == null) return;
+    final end = await showTimePicker(
+      context: context,
+      initialTime: initialEnd ?? const TimeOfDay(hour: 7, minute: 0),
+    );
+    if (end == null) return;
+    await onUpdate(start, end);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Quiet hours updated to ${_formatDisplayTime(context, start)} – ${_formatDisplayTime(context, end)}'),
+        ),
+      );
+    }
+  }
+
+  TimeOfDay? _parseTime(String? value) {
+    if (value == null || value.isEmpty) {
+      return null;
+    }
+    final parts = value.split(':');
+    if (parts.length != 2) {
+      return null;
+    }
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) {
+      return null;
+    }
+    return TimeOfDay(hour: hour.clamp(0, 23), minute: minute.clamp(0, 59));
+  }
+
+  String _formatDisplayTime(BuildContext context, TimeOfDay time) {
+    final localizations = MaterialLocalizations.of(context);
+    return localizations.formatTimeOfDay(time, alwaysUse24HourFormat: false);
   }
 }
 
