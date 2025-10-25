@@ -29,8 +29,9 @@ import {
   USER_ROLES,
   VOLUNTEER_ACCESS_MEMBERSHIPS,
   VOLUNTEER_ROUTES,
+  LAUNCHPAD_ALLOWED_MEMBERSHIPS,
+  SECURITY_ALLOWED_MEMBERSHIPS,
 } from './routes/routeConfig.jsx';
-import { LAUNCHPAD_ALLOWED_MEMBERSHIPS, SECURITY_ALLOWED_MEMBERSHIPS } from './constants/access.js';
 
 export {
   ROUTE_COLLECTIONS,
@@ -52,7 +53,7 @@ function renderRequireRoleRoutes(routes) {
       key={route.path}
       path={route.path}
       element={
-        <RequireRole allowedRoles={route.roles}>
+        <RequireRole allowedRoles={route.roles ?? route.allowedRoles}>
           <LoadableRoute modulePath={route.module} />
         </RequireRole>
       }

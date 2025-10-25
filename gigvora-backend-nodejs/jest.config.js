@@ -1,8 +1,16 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const babelConfigPath = path.join(__dirname, 'babel.config.cjs');
+
 const TEST_DIRECTORIES = [
   '<rootDir>/tests/controllers/**/*.test.js',
   '<rootDir>/tests/config/**/*.test.js',
   '<rootDir>/tests/lifecycle/**/*.test.js',
   '<rootDir>/tests/migrations/**/*.test.js',
+  '<rootDir>/tests/services/**/*.test.js',
   '<rootDir>/src/services/__tests__/**/*.test.js',
   '<rootDir>/src/controllers/__tests__/**/*.test.js',
 ];
@@ -17,7 +25,7 @@ export default {
   clearMocks: true,
   setupFilesAfterEnv: ['<rootDir>/tests/setupTestEnv.js'],
   transform: {
-    '^.+\\.js$': 'babel-jest',
+    '^.+\\.js$': ['babel-jest', { configFile: babelConfigPath, rootMode: 'upward-optional' }],
   },
   extensionsToTreatAsEsm: [],
   moduleNameMapper: {
