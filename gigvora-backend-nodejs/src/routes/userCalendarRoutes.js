@@ -28,6 +28,11 @@ router.get(
   validateRequest({ query: calendarEventsQuerySchema }),
   asyncHandler(calendarController.listEvents),
 );
+router.get(
+  '/events.ics',
+  validateRequest({ query: calendarEventsQuerySchema }),
+  asyncHandler(calendarController.exportEventsAsIcs),
+);
 
 router.post(
   '/events',

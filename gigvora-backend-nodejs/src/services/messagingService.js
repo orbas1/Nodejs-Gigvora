@@ -83,6 +83,28 @@ const SUPPORT_AGENT_ROLE_NAMES = new Set(
 const SUPPORT_AGENT_USER_TYPES = new Set(
   toNormalizedList(process.env.SUPPORT_AGENT_USER_TYPES, ['admin']),
 );
+const DEFAULT_RETENTION_DAYS = Math.min(
+  Math.max(Number.parseInt(process.env.MESSAGING_RETENTION_DAYS ?? '540', 10) || 540, 7),
+  3650,
+);
+const MAX_RETENTION_DAYS = 3650;
+const RETENTION_POLICY_PRESETS = Object.freeze({
+  compliance_default: DEFAULT_RETENTION_DAYS,
+  thirty_days: 30,
+  ninety_days: 90,
+  indefinite: null,
+});
+const ALLOWED_RETENTION_POLICIES = new Set([
+  'compliance_default',
+  'thirty_days',
+  'ninety_days',
+  'indefinite',
+  'custom',
+]);
+const TYPING_INDICATOR_TTL_SECONDS = 20;
+const TYPING_INDICATOR_MIN_TTL_SECONDS = 3;
+const TYPING_INDICATOR_MAX_TTL_SECONDS = 120;
+const TYPING_CACHE_PREFIX = 'messaging:typing';
 
 async function ensureSupportAgentPermissions(agent, transaction) {
   if (!agent?.id) {
@@ -198,6 +220,194 @@ function buildLabelCacheKey(workspaceId, search) {
   const tokenBase = search ? slugifyLabelName(search) : 'all';
   const token = tokenBase || 'search';
   return `messaging:labels:${normalizedWorkspaceId}:${token}`;
+}
+
+function normalizeRetentionConfiguration({ retentionPolicy, retentionDays } = {}) {
+  if (retentionPolicy == null && retentionDays == null) {
+    return null;
+  }
+
+  const policy = retentionPolicy != null ? `${retentionPolicy}`.trim().toLowerCase() : null;
+  if (policy && !ALLOWED_RETENTION_POLICIES.has(policy)) {
+    throw new ValidationError('retentionPolicy is invalid.');
+  }
+
+  let normalizedDays = retentionDays != null ? Number.parseInt(retentionDays, 10) : null;
+  if (normalizedDays != null) {
+    if (!Number.isFinite(normalizedDays) || normalizedDays <= 0 || normalizedDays > MAX_RETENTION_DAYS) {
+      throw new ValidationError(`retentionDays must be between 1 and ${MAX_RETENTION_DAYS}.`);
+    }
+    normalizedDays = Math.trunc(normalizedDays);
+  }
+
+  if (policy === 'indefinite') {
+    return { retentionPolicy: 'indefinite', retentionDays: null };
+  }
+
+  if (policy && policy !== 'custom') {
+    const preset = RETENTION_POLICY_PRESETS[policy];
+    return {
+      retentionPolicy: policy,
+      retentionDays: preset == null ? null : Math.trunc(preset),
+    };
+  }
+
+  if (normalizedDays == null) {
+    if (!policy || policy === 'custom') {
+      throw new ValidationError('retentionDays must be provided when retentionPolicy is custom.');
+    }
+    return { retentionPolicy: policy, retentionDays: DEFAULT_RETENTION_DAYS };
+  }
+
+  return {
+    retentionPolicy: policy ?? 'custom',
+    retentionDays: normalizedDays,
+  };
+}
+
+function resolveThreadRetention(metadata) {
+  const source = metadata && typeof metadata === 'object' && !Array.isArray(metadata) ? metadata : {};
+  const policyRaw = source.retentionPolicy ? `${source.retentionPolicy}`.trim().toLowerCase() : 'compliance_default';
+  const policy = ALLOWED_RETENTION_POLICIES.has(policyRaw) ? policyRaw : 'compliance_default';
+
+  if (policy === 'indefinite') {
+    return { retentionPolicy: 'indefinite', retentionDays: null };
+  }
+
+  if (policy !== 'custom' && RETENTION_POLICY_PRESETS[policy] !== undefined) {
+    const preset = RETENTION_POLICY_PRESETS[policy];
+    return { retentionPolicy: policy, retentionDays: preset == null ? null : Math.trunc(preset) };
+  }
+
+  let days = Number.parseInt(source.retentionDays, 10);
+  if (!Number.isFinite(days) || days <= 0) {
+    days = DEFAULT_RETENTION_DAYS;
+  }
+  days = Math.min(Math.max(Math.trunc(days), 1), MAX_RETENTION_DAYS);
+  return { retentionPolicy: policy === 'custom' ? 'custom' : 'compliance_default', retentionDays: days };
+}
+
+function withDefaultRetentionMetadata(metadata) {
+  const base = metadata && typeof metadata === 'object' && !Array.isArray(metadata) ? { ...metadata } : {};
+  const resolved = resolveThreadRetention(base);
+  base.retentionPolicy = resolved.retentionPolicy;
+  if (resolved.retentionDays == null) {
+    delete base.retentionDays;
+  } else {
+    base.retentionDays = resolved.retentionDays;
+  }
+  return base;
+}
+
+async function enforceThreadRetentionInternal(thread, { transaction } = {}) {
+  if (!thread || !thread.id) {
+    return { deleted: 0, retentionDays: null };
+  }
+
+  const { retentionDays } = resolveThreadRetention(thread.metadata);
+  if (!retentionDays) {
+    return { deleted: 0, retentionDays: null };
+  }
+
+  const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
+  const staleMessages = await Message.findAll({
+    where: {
+      threadId: thread.id,
+      messageType: { [Op.ne]: 'system' },
+      createdAt: { [Op.lt]: cutoff },
+    },
+    attributes: ['id'],
+    transaction,
+  });
+
+  if (!staleMessages.length) {
+    return { deleted: 0, retentionDays };
+  }
+
+  const staleIds = staleMessages.map((message) => message.id);
+  await MessageAttachment.destroy({ where: { messageId: { [Op.in]: staleIds } }, transaction });
+  const deleted = await Message.destroy({ where: { id: { [Op.in]: staleIds } }, transaction });
+  appCache.flushByPrefix(`messaging:messages:${thread.id}`);
+  return { deleted, retentionDays };
+}
+
+async function enforceThreadRetentionById(threadId, options = {}) {
+  if (!threadId) {
+    return { deleted: 0, retentionDays: null };
+  }
+  const thread = await MessageThread.findByPk(threadId, {
+    attributes: ['id', 'metadata'],
+    transaction: options.transaction,
+  });
+  if (!thread) {
+    return { deleted: 0, retentionDays: null };
+  }
+  return enforceThreadRetentionInternal(thread, options);
+}
+
+function buildTypingCacheKey(threadId) {
+  const normalizedThreadId = Number.isFinite(Number(threadId)) ? Number(threadId) : 0;
+  return `${TYPING_CACHE_PREFIX}:${normalizedThreadId}`;
+}
+
+function hydrateTypingState(threadId) {
+  const cacheKey = buildTypingCacheKey(threadId);
+  const raw = appCache.get(cacheKey);
+  const now = Date.now();
+  const state = new Map();
+
+  if (raw && typeof raw === 'object') {
+    Object.entries(raw).forEach(([userKey, payload]) => {
+      if (!payload) {
+        return;
+      }
+      const expiresAt = payload.expiresAt ? new Date(payload.expiresAt).getTime() : 0;
+      if (expiresAt > now) {
+        state.set(userKey, {
+          userId: Number.parseInt(userKey, 10) || Number(userKey) || userKey,
+          isTyping: payload.isTyping !== false,
+          startedAt: payload.startedAt ?? new Date(now).toISOString(),
+          expiresAt: new Date(expiresAt).toISOString(),
+        });
+      }
+    });
+  }
+
+  return { cacheKey, state, now };
+}
+
+function persistTypingState(cacheKey, state, now = Date.now()) {
+  if (!state || state.size === 0) {
+    appCache.delete(cacheKey);
+    return [];
+  }
+
+  let maxExpiresAt = now + TYPING_INDICATOR_TTL_SECONDS * 1000;
+  const payload = {};
+
+  state.forEach((entry, userKey) => {
+    const expires = entry.expiresAt ? new Date(entry.expiresAt).getTime() : now + TYPING_INDICATOR_TTL_SECONDS * 1000;
+    maxExpiresAt = Math.max(maxExpiresAt, expires);
+    payload[userKey] = {
+      userId: entry.userId,
+      isTyping: entry.isTyping !== false,
+      startedAt: entry.startedAt ?? new Date(now).toISOString(),
+      expiresAt: new Date(expires).toISOString(),
+    };
+  });
+
+  const ttlSeconds = Math.max(1, Math.ceil((maxExpiresAt - now) / 1000));
+  appCache.set(cacheKey, payload, ttlSeconds);
+  return Object.values(payload);
+}
+
+function sanitizeTypingState(state) {
+  return Array.from(state.values()).map((entry) => ({
+    userId: entry.userId,
+    isTyping: entry.isTyping !== false,
+    startedAt: entry.startedAt,
+    expiresAt: entry.expiresAt,
+  }));
 }
 
 export function sanitizeParticipant(participant) {
@@ -621,7 +831,7 @@ export async function createThread({ subject, channelType = 'direct', createdBy,
     throw new ValidationError('createdBy is required to open a thread.');
   }
   assertChannelType(channelType);
-  const normalizedMetadata = normalizeMetadata(metadata, 'Thread');
+  const normalizedMetadata = withDefaultRetentionMetadata(normalizeMetadata(metadata, 'Thread') ?? {});
 
   const uniqueParticipantIds = Array.from(new Set([createdBy, ...participantIds])).filter(Boolean);
   if (uniqueParticipantIds.length === 0) {
@@ -680,7 +890,6 @@ export async function createThread({ subject, channelType = 'direct', createdBy,
 export async function appendMessage(threadId, senderId, { messageType = 'text', body, attachments = [], metadata = {} }) {
   assertMessageType(messageType);
   const normalizedMetadata = normalizeMetadata(metadata, 'Message');
-
   const message = await sequelize.transaction(async (trx) => {
     const thread = await MessageThread.findByPk(threadId, { transaction: trx, lock: trx.LOCK.UPDATE });
     if (!thread) {
@@ -688,6 +897,12 @@ export async function appendMessage(threadId, senderId, { messageType = 'text', 
     }
     if (thread.state === 'locked') {
       throw new AuthorizationError('Thread is locked and cannot accept new messages.');
+    }
+
+    const metadataWithDefaults = withDefaultRetentionMetadata(thread.metadata ?? {});
+    const metadataChanged = JSON.stringify(metadataWithDefaults) !== JSON.stringify(thread.metadata ?? {});
+    if (metadataChanged) {
+      thread.metadata = metadataWithDefaults;
     }
 
     await ensureParticipant(threadId, senderId, trx);
@@ -767,6 +982,8 @@ export async function appendMessage(threadId, senderId, { messageType = 'text', 
 
     thread.lastMessageAt = new Date();
     await thread.save({ transaction: trx });
+
+    await enforceThreadRetentionInternal(thread, { transaction: trx });
 
     return createdMessage;
   });
@@ -895,6 +1112,7 @@ export async function listMessages(threadId, pagination = {}, { includeSystem = 
   });
 
   return appCache.remember(cacheKey, MESSAGE_CACHE_TTL, async () => {
+    await enforceThreadRetentionById(threadId);
     const where = { threadId };
     if (!includeSystem) {
       where.messageType = { [Op.ne]: 'system' };
@@ -1263,7 +1481,11 @@ export async function muteThread(threadId, userId, until) {
   return { success: true };
 }
 
-export async function updateThreadSettings(threadId, actorId, { subject, channelType, metadataPatch } = {}) {
+export async function updateThreadSettings(
+  threadId,
+  actorId,
+  { subject, channelType, metadataPatch, metadata, retentionPolicy, retentionDays } = {},
+) {
   if (!threadId) {
     throw new ValidationError('threadId is required to update thread settings.');
   }
@@ -1271,7 +1493,12 @@ export async function updateThreadSettings(threadId, actorId, { subject, channel
     throw new ValidationError('userId is required to update thread settings.');
   }
 
-  const sanitizedMetadata = metadataPatch ? normalizeMetadata(metadataPatch, 'Thread settings') : null;
+  const sanitizedMetadata = metadataPatch
+    ? normalizeMetadata(metadataPatch, 'Thread settings')
+    : metadata != null
+    ? normalizeMetadata(metadata, 'Thread settings')
+    : null;
+  const retentionConfig = normalizeRetentionConfiguration({ retentionPolicy, retentionDays });
   if (channelType) {
     assertChannelType(channelType);
   }
@@ -1285,6 +1512,8 @@ export async function updateThreadSettings(threadId, actorId, { subject, channel
       throw new NotFoundError('Thread not found.');
     }
 
+    const existingMetadata = thread.metadata && typeof thread.metadata === 'object' ? { ...thread.metadata } : {};
+
     if (subject !== undefined) {
       const trimmed = typeof subject === 'string' ? subject.trim() : '';
       thread.subject = trimmed ? trimmed.slice(0, 255) : null;
@@ -1295,12 +1524,22 @@ export async function updateThreadSettings(threadId, actorId, { subject, channel
     }
 
     if (sanitizedMetadata && Object.keys(sanitizedMetadata).length) {
-      const existingMetadata =
-        thread.metadata && typeof thread.metadata === 'object' ? { ...thread.metadata } : {};
-      thread.metadata = { ...existingMetadata, ...sanitizedMetadata };
+      Object.assign(existingMetadata, sanitizedMetadata);
     }
 
+    if (retentionConfig) {
+      existingMetadata.retentionPolicy = retentionConfig.retentionPolicy;
+      if (retentionConfig.retentionDays == null) {
+        delete existingMetadata.retentionDays;
+      } else {
+        existingMetadata.retentionDays = retentionConfig.retentionDays;
+      }
+    }
+
+    thread.metadata = withDefaultRetentionMetadata(existingMetadata);
+
     await thread.save({ transaction: trx });
+    await enforceThreadRetentionInternal(thread, { transaction: trx });
     participantIds = await getParticipantUserIds(threadId, trx);
   });
 
@@ -1419,6 +1658,51 @@ export async function removeParticipantFromThread(threadId, participantUserId, a
 
   flushThreadCache(threadId, updatedParticipantIds);
   return getThread(threadId, { withParticipants: true, includeSupportCase: true });
+}
+
+export async function setTypingIndicator(threadId, userId, { isTyping = true, expiresInSeconds } = {}) {
+  if (!Number.isFinite(threadId) || threadId <= 0) {
+    throw new ValidationError('threadId must be a positive integer.');
+  }
+  if (!Number.isFinite(userId) || userId <= 0) {
+    throw new ValidationError('userId must be a positive integer.');
+  }
+
+  await ensureParticipant(threadId, userId);
+
+  const safeTtlSeconds = Math.min(
+    Math.max(Number.parseInt(expiresInSeconds, 10) || TYPING_INDICATOR_TTL_SECONDS, TYPING_INDICATOR_MIN_TTL_SECONDS),
+    TYPING_INDICATOR_MAX_TTL_SECONDS,
+  );
+  const { cacheKey, state, now } = hydrateTypingState(threadId);
+  const cacheKeyId = String(userId);
+
+  if (!isTyping) {
+    state.delete(cacheKeyId);
+  } else {
+    state.set(cacheKeyId, {
+      userId,
+      isTyping: true,
+      startedAt: new Date(now).toISOString(),
+      expiresAt: new Date(now + safeTtlSeconds * 1000).toISOString(),
+    });
+  }
+
+  persistTypingState(cacheKey, state, now);
+  return sanitizeTypingState(state);
+}
+
+export async function listTypingIndicators(threadId, actorId) {
+  if (!Number.isFinite(threadId) || threadId <= 0) {
+    throw new ValidationError('threadId must be a positive integer.');
+  }
+  if (actorId) {
+    await ensureParticipant(threadId, actorId);
+  }
+
+  const { cacheKey, state, now } = hydrateTypingState(threadId);
+  persistTypingState(cacheKey, state, now);
+  return sanitizeTypingState(state);
 }
 
 export async function escalateThreadToSupport(
@@ -1934,6 +2218,8 @@ export default {
   updateThreadSettings,
   addParticipantsToThread,
   removeParticipantFromThread,
+  setTypingIndicator,
+  listTypingIndicators,
   escalateThreadToSupport,
   assignSupportAgent,
   updateSupportCaseStatus,

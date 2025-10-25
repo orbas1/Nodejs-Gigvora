@@ -207,13 +207,13 @@ The following content is ported from `logic_flows.md` and retains every main cat
 15. **Change Checklist Tracker.** ✅ Inventory endpoints; ✅ Add moderation pipeline; ✅ Build widget rendering service; ✅ Document client verification.
 16. **Full Upgrade Plan & Release Steps.** 1) Ship moderation dashboards with reviewer notes and status audits; 2) Add caching/instrumentation around widget embeds plus JSON-LD exports; 3) Roll SEO-ready snippets and analytics to marketing partners after staging verification.【F:gigvora-backend-nodejs/src/services/reputationService.js†L498-L835】【F:gigvora-backend-nodejs/src/services/reputationWidgetRenderer.js†L55-L200】【F:gigvora-backend-nodejs/src/services/reputationModerationService.js†L135-L175】
 ### Sub category 1.G. Messaging, Realtime, and Collaboration
-1. **Appraisal.** Realtime modules integrate Agora for voice/video tokens, WebSocket orchestration for messaging, and event handlers for notifications, aligning with multi-channel collaboration needs.【F:gigvora-backend-nodejs/src/realtime/agoraService.js†L1-L140】【F:gigvora-backend-nodejs/src/routes/messaging.js†L1-L160】
-2. **Functionality.** Services generate channel credentials, manage message threads, handle attachments, and deliver presence updates to connected clients via websockets or SSE.
-3. **Logic Usefulness.** Centralising token issuance ensures compliance with Agora TTLs and workspace restrictions; event bus dispatches keep clients synchronized.
-4. **Redundancies.** Notification dispatch logic appears in both realtime service and messaging controllers; unify to reduce double sends.
-5. **Placeholders Or non-working functions or stubs.** Some websocket handlers stubbed for typing indicator events; ensure they are implemented before GA.
+1. **Appraisal.** Messaging stack couples Agora token generation with retention-aware threads, cache-backed typing indicators, and hardened attachment sanitisation to keep collaboration compliant across channels.【F:gigvora-backend-nodejs/src/services/agoraService.js†L1-L93】【F:gigvora-backend-nodejs/src/services/messagingService.js†L205-L326】【F:gigvora-backend-nodejs/src/controllers/messagingController.js†L123-L185】
+2. **Functionality.** Authenticated routes span thread CRUD, message posting, typing state updates, and retention-aware settings while Zod schemas enforce strict payload contracts.【F:gigvora-backend-nodejs/src/routes/messagingRoutes.js†L1-L125】【F:gigvora-backend-nodejs/src/validation/schemas/messagingSchemas.js†L114-L172】【F:gigvora-backend-nodejs/src/services/messagingService.js†L720-L906】
+3. **Logic Usefulness.** Default retention metadata and TTL-governed typing caches keep histories compliant and surfaces responsive for every participant.【F:gigvora-backend-nodejs/src/services/messagingService.js†L205-L326】【F:gigvora-backend-nodejs/src/services/messagingService.js†L1497-L1539】
+4. **Redundancies.** Attachment sanitisation exists in both controller-level filters and service-layer persistence; centralise helper usage to avoid drift.【F:gigvora-backend-nodejs/src/controllers/messagingController.js†L123-L185】【F:gigvora-backend-nodejs/src/services/messagingService.js†L858-L880】
+5. **Placeholders Or non-working functions or stubs.** Typing state currently lives in the in-process cache; distributed deployments still need Redis/pub-sub wiring to broadcast updates.【F:gigvora-backend-nodejs/src/services/messagingService.js†L328-L382】
 6. **Duplicate Functions.** Attachment validation repeated—extract to file service.
-7. **Improvements need to make.** Add message search, retention policies, and encryption at rest for stored transcripts.
+7. **Improvements need to make.** Layer search, per-tenant encryption, and multi-region cache coordination on top of the retention and typing baselines.【F:gigvora-backend-nodejs/src/services/messagingService.js†L205-L326】【F:gigvora-backend-nodejs/src/services/messagingService.js†L1497-L1539】
 8. **Styling improvements.** Document message formatting guidelines (markdown vs plain) for consistent client rendering.
 9. **Efficiency analysis and improvement.** Evaluate scaling websockets via Redis pub/sub and horizontal sharding; implement rate limiting per channel.
 10. **Strengths to Keep.** Agora integration, event bus architecture, and role-aware messaging policies.
@@ -221,17 +221,17 @@ The following content is ported from `logic_flows.md` and retains every main cat
 12. **Styling and Colour review changes.** N/A.
 13. **CSS, orientation, placement and arrangement changes.** N/A.
 14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Encourage consistent message templates, especially for system notifications, to avoid redundant phrasing.
-15. **Change Checklist Tracker.** ✅ Review realtime modules; ⬜ Implement typing indicator; ⬜ Add message retention policies; ⬜ Harden attachment validation.
+15. **Change Checklist Tracker.** ✅ Review realtime modules; ✅ Implement typing indicator; ✅ Add message retention policies; ✅ Harden attachment validation.【F:gigvora-backend-nodejs/src/routes/messagingRoutes.js†L55-L64】【F:gigvora-backend-nodejs/src/services/messagingService.js†L205-L326】【F:gigvora-backend-nodejs/src/services/messagingService.js†L1497-L1539】【F:gigvora-backend-nodejs/src/controllers/messagingController.js†L123-L185】
 16. **Full Upgrade Plan & Release Steps.** 1) Finalise websocket handlers; 2) Integrate Redis for scaling; 3) Add auditing; 4) Conduct load test; 5) Roll out gradually by workspace.
 
 ### Sub category 1.H. Calendar, Scheduling, and Agency Workflows
-1. **Appraisal.** Calendar services orchestrate workspace-aware scheduling, leveraging RBAC (`calendar:view`, `calendar:manage`) and integrating with the calendar stub for local testing, ensuring alignment with agency operations.【F:gigvora-backend-nodejs/src/services/calendarService.js†L1-L200】【F:calendar_stub/server.mjs†L210-L323】
-2. **Functionality.** Endpoints handle event CRUD, reminders, attendee management, and workspace scoping, while bridging to agency job pipelines and project workspaces.
+1. **Appraisal.** Calendar services orchestrate workspace-aware scheduling, now layering recurrence expansion, ICS generation, and documented connector boundaries alongside RBAC guards.【F:gigvora-backend-nodejs/src/services/calendarService.js†L1-L620】【F:calendar_stub/server.mjs†L20-L39】【F:gigvora-backend-nodejs/src/controllers/calendarController.js†L1-L40】
+2. **Functionality.** Endpoints handle event CRUD, recurrence normalisation, ICS export, reminders, attendee context, and workspace scoping for agencies and project workspaces.【F:gigvora-backend-nodejs/src/routes/userCalendarRoutes.js†L20-L86】【F:gigvora-backend-nodejs/src/services/calendarService.js†L58-L420】【F:gigvora-backend-nodejs/src/services/calendarService.js†L520-L600】
 3. **Logic Usefulness.** Centralising scheduling ensures agencies, companies, and freelancers coordinate interviews, assignments, and networking events under unified permissions.
 4. **Redundancies.** Calendar permissions repeated across middleware; create decorator to enforce once.
-5. **Placeholders Or non-working functions or stubs.** Calendar stub includes mock data; document boundaries before production to avoid confusion.
+5. **Placeholders Or non-working functions or stubs.** Stub remains in-memory but now clearly documents how production connectors differ; ensure consumers honour those limits when integrating.【F:calendar_stub/server.mjs†L20-L39】
 6. **Duplicate Functions.** Date/time parsing logic duplicated—extract to `utils/date.js` (if not already) and ensure consistent timezone handling.
-7. **Improvements need to make.** Add ICS export, availability sync with third-party calendars, and recurring event support.
+7. **Improvements need to make.** Next, wire external availability sync, provider webhooks, and background reminder dispatchers on top of the recurrence/ICS baseline.【F:gigvora-backend-nodejs/src/services/calendarService.js†L232-L420】【F:gigvora-backend-nodejs/src/services/calendarService.js†L520-L600】
 8. **Styling improvements.** Provide consistent naming for event categories to align with frontend chips/badges.
 9. **Efficiency analysis and improvement.** Introduce background jobs for reminder delivery, ensure indexes on `events` table for start/end queries.
 10. **Strengths to Keep.** RBAC enforcement, workspace isolation, and stub alignment for local dev.
@@ -239,7 +239,7 @@ The following content is ported from `logic_flows.md` and retains every main cat
 12. **Styling and Colour review changes.** N/A.
 13. **CSS, orientation, placement and arrangement changes.** N/A.
 14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Ensure notification copy for invites is concise and indicates timezone.
-15. **Change Checklist Tracker.** ✅ Review calendar services; ⬜ Implement recurring events; ⬜ Add ICS export; ⬜ Document stub vs production connectors.
+15. **Change Checklist Tracker.** ✅ Review calendar services; ✅ Implement recurring events; ✅ Add ICS export; ✅ Document stub vs production connectors.【F:gigvora-backend-nodejs/src/services/calendarService.js†L232-L420】【F:gigvora-backend-nodejs/src/services/calendarService.js†L520-L600】【F:gigvora-backend-nodejs/src/routes/userCalendarRoutes.js†L20-L48】【F:calendar_stub/server.mjs†L20-L39】
 16. **Full Upgrade Plan & Release Steps.** 1) Build provider abstraction; 2) Implement recurrence & ICS; 3) Add reminder workers; 4) Update clients & docs; 5) Gradually enable per workspace.
 
 ### Sub category 1.I. Admin Platform Settings, Monetization, and Compliance

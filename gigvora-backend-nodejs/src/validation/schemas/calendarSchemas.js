@@ -34,6 +34,33 @@ const relatedEntitySchema = optionalNumber({ min: 1, precision: 0, integer: true
   value == null ? undefined : Number(value),
 );
 
+const weekdayCodeSchema = z
+  .string()
+  .trim()
+  .transform((value) => value.toUpperCase())
+  .refine((value) => ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'].includes(value), {
+    message: 'weekdays entries must be valid ISO-8601 weekday abbreviations.',
+  });
+
+const recurrenceSchema = z
+  .object({
+    frequency: z.enum(['daily', 'weekly', 'monthly', 'yearly']),
+    interval: optionalNumber({ min: 1, max: 365, integer: true }).transform((value) =>
+      value == null ? undefined : Number(value),
+    ),
+    count: optionalNumber({ min: 1, max: 200, integer: true }).transform((value) =>
+      value == null ? undefined : Number(value),
+    ),
+    until: datetimeString.optional(),
+    weekdays: z
+      .array(weekdayCodeSchema)
+      .min(1, { message: 'weekdays must include at least one entry when provided.' })
+      .max(7, { message: 'weekdays cannot contain more than seven entries.' })
+      .optional(),
+  })
+  .strip()
+  .transform((value) => (value && Object.keys(value).length ? value : undefined));
+
 export const calendarEventBodySchema = z
   .object({
     title: requiredTrimmedString({ min: 2, max: 180 }),
@@ -52,6 +79,7 @@ export const calendarEventBodySchema = z
     metadata: z.record(z.any()).optional(),
     focusMode: optionalTrimmedString({ max: 120 }).transform((value) => value ?? undefined),
     source: optionalTrimmedString({ max: 60 }).transform((value) => value ?? undefined),
+    recurrence: recurrenceSchema.optional(),
   })
   .strip();
 

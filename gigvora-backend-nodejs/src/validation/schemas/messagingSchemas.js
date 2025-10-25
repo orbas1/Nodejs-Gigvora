@@ -130,6 +130,27 @@ export const threadSettingsBodySchema = z
       }, z.array(requiredTrimmedString({ max: 120 })))
       .max(20, { message: 'labels accepts a maximum of 20 entries.' })
       .optional(),
+    metadata: z
+      .record(z.any())
+      .optional()
+      .transform((value) => (value && Object.keys(value).length > 0 ? value : undefined)),
+    metadataPatch: z
+      .record(z.any())
+      .optional()
+      .transform((value) => (value && Object.keys(value).length > 0 ? value : undefined)),
+    retentionPolicy: optionalTrimmedString({ max: 60 }).transform((value) => value ?? undefined),
+    retentionDays: optionalNumber({ min: 1, max: 3650, integer: true }).transform((value) =>
+      value == null ? undefined : Number(value),
+    ),
+  })
+  .strip();
+
+export const typingIndicatorBodySchema = z
+  .object({
+    isTyping: optionalBoolean().transform((value) => value ?? true),
+    expiresInSeconds: optionalNumber({ min: 3, max: 120, integer: true }).transform((value) =>
+      value == null ? undefined : Number(value),
+    ),
   })
   .strip();
 
@@ -198,4 +219,5 @@ export default {
   listThreadsQuerySchema,
   listMessagesQuerySchema,
   threadDetailQuerySchema,
+  typingIndicatorBodySchema,
 };
