@@ -14,6 +14,8 @@ import 'features/auth/domain/auth_token_store.dart';
 import 'features/runtime_health/application/runtime_health_provider.dart';
 import 'features/runtime_health/domain/runtime_health_snapshot.dart';
 import 'router/app_router.dart';
+import 'router/deep_link_parser.dart';
+import 'theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,14 +29,12 @@ Future<void> main() async {
   try {
     final loader = GigvoraThemeLoader();
     final theme = await loader.loadBlue();
-    final themeData = theme.toThemeData();
-    final tokens = theme.tokens;
+    final bundle = AppThemeBundle.fromGigvoraTheme(theme);
 
     runApp(
       ProviderScope(
         overrides: [
-          appThemeProvider.overrideWithValue(AsyncValue.data(themeData)),
-          designTokensProvider.overrideWithValue(AsyncValue.data(tokens)),
+          appThemeBundleProvider.overrideWithValue(AsyncValue.data(bundle)),
           sharedPreferencesProvider.overrideWithValue(sharedPreferences),
         ],
         child: const GigvoraApp(),
@@ -46,8 +46,7 @@ Future<void> main() async {
     runApp(
       ProviderScope(
         overrides: [
-          appThemeProvider.overrideWithValue(AsyncValue.error(error, stackTrace)),
-          designTokensProvider.overrideWithValue(AsyncValue.error(error, stackTrace)),
+          appThemeBundleProvider.overrideWithValue(AsyncValue.error(error, stackTrace)),
           sharedPreferencesProvider.overrideWithValue(sharedPreferences),
         ],
         child: const GigvoraApp(),
@@ -61,13 +60,35 @@ class GigvoraApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = ref.watch(appThemeProvider);
+    final themeBundle = ref.watch(appThemeBundleProvider);
     final router = ref.watch(appRouterProvider);
     final locale = ref.watch(languageControllerProvider);
+    final statusPalette = ref.watch(statusPaletteProvider);
     ref.watch(sessionBootstrapProvider);
     ref.watch(runtimeHealthStreamProvider);
     ref.watch(featureFlagsBootstrapProvider);
     ref.watch(pushNotificationBootstrapProvider);
+
+    ref.listen<AsyncValue<Uri?>>(deepLinkStreamProvider, (_, next) {
+      next.whenData((uri) {
+        if (uri == null) {
+          return;
+        }
+        final result = DeepLinkParser.parse(uri);
+        if (result == null) {
+          return;
+        }
+        final location = result.route.location(
+          pathParameters: result.pathParameters,
+          queryParameters: result.queryParameters,
+        );
+        if (router.location == location) {
+          return;
+        }
+        ref.read(deepLinkActivatedProvider.notifier).state = true;
+        router.go(location);
+      });
+    });
 
     ref.listen<AsyncValue<void>>(analyticsBootstrapProvider, (_, next) {
       next.whenOrNull(error: (error, stackTrace) {
@@ -113,7 +134,7 @@ class GigvoraApp extends ConsumerWidget {
                 SnackBar(
                   content: Text(message),
                   behavior: SnackBarBehavior.floating,
-                  backgroundColor: const Color(0xFFB45309),
+                  backgroundColor: statusPalette.warning,
                 ),
               );
             } else {
@@ -130,7 +151,7 @@ class GigvoraApp extends ConsumerWidget {
                 SnackBar(
                   content: const Text(message),
                   behavior: SnackBarBehavior.floating,
-                  backgroundColor: const Color(0xFF2563EB),
+                  backgroundColor: statusPalette.info,
                 ),
               );
             } else {
@@ -166,7 +187,7 @@ class GigvoraApp extends ConsumerWidget {
                 'Your session will expire in $formatted. Refresh your credentials to stay signed in.',
               ),
               behavior: SnackBarBehavior.floating,
-              backgroundColor: const Color(0xFF7C3AED),
+              backgroundColor: statusPalette.accent,
             ),
           );
           ref.read(sessionExpiryControllerProvider.notifier).acknowledgePrompt();
@@ -189,10 +210,12 @@ class GigvoraApp extends ConsumerWidget {
       GlobalCupertinoLocalizations.delegate,
     ];
 
-    return theme.when(
-      data: (themeData) => MaterialApp.router(
+    return themeBundle.when(
+      data: (bundle) => MaterialApp.router(
         title: 'Gigvora',
-        theme: themeData,
+        theme: bundle.light,
+        darkTheme: bundle.dark,
+        themeMode: ThemeMode.system,
         locale: locale,
         supportedLocales: GigvoraLocalizations.supportedLocales,
         localizationsDelegates: localizationDelegates,
@@ -201,7 +224,7 @@ class GigvoraApp extends ConsumerWidget {
       loading: () => MaterialApp(
         title: 'Gigvora',
         theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2563EB)),
+          colorScheme: ColorScheme.fromSeed(seedColor: statusPalette.accent),
           useMaterial3: true,
         ),
         locale: locale,
@@ -214,7 +237,7 @@ class GigvoraApp extends ConsumerWidget {
       error: (error, stackTrace) => MaterialApp(
         title: 'Gigvora',
         theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF991B1B)),
+          colorScheme: ColorScheme.fromSeed(seedColor: statusPalette.negative),
           useMaterial3: true,
         ),
         locale: locale,

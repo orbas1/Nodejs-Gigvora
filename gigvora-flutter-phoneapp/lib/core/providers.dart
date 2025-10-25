@@ -6,6 +6,8 @@ import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../features/auth/application/session_controller.dart';
+import '../theme/app_theme.dart';
+import '../theme/status_palette.dart';
 
 final appConfigProvider = Provider<AppConfig>((ref) {
   return ServiceLocator.read<AppConfig>();
@@ -98,14 +100,22 @@ final designTokenLoaderProvider = Provider<GigvoraThemeLoader>((ref) {
   return GigvoraThemeLoader();
 });
 
-final designTokensProvider = FutureProvider<DesignTokens>((ref) async {
+final appThemeBundleProvider = FutureProvider<AppThemeBundle>((ref) async {
   final loader = ref.watch(designTokenLoaderProvider);
   final theme = await loader.loadBlue();
-  return theme.tokens;
+  return AppThemeBundle.fromGigvoraTheme(theme);
 });
 
-final appThemeProvider = FutureProvider<ThemeData>((ref) async {
-  final loader = ref.watch(designTokenLoaderProvider);
-  return loader.loadBlueThemeData();
+final designTokensProvider = Provider<AsyncValue<DesignTokens>>((ref) {
+  final bundle = ref.watch(appThemeBundleProvider);
+  return bundle.whenData((value) => value.tokens);
+});
+
+final statusPaletteProvider = Provider<StatusPalette>((ref) {
+  final bundle = ref.watch(appThemeBundleProvider);
+  return bundle.maybeWhen(
+    data: (value) => value.statusPalette,
+    orElse: () => StatusPalette.fallback,
+  );
 });
 

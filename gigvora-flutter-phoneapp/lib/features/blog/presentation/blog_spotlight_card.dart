@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../router/routes.dart';
+
 import '../data/blog_repository.dart';
 import '../domain/blog_post.dart';
 
@@ -56,7 +58,7 @@ class BlogSpotlightCard extends ConsumerWidget {
                     ],
                   ),
                   TextButton(
-                    onPressed: () => GoRouter.of(context).go('/blog'),
+                    onPressed: () => GoRouter.of(context).go(AppRoute.blogList.path),
                     child: const Text('View all'),
                   ),
                 ],
@@ -71,7 +73,8 @@ class BlogSpotlightCard extends ConsumerWidget {
                   children: secondaryPosts
                       .map((post) => _SecondaryPostChip(
                             post: post,
-                            onTap: () => GoRouter.of(context).go('/blog/${post.slug}'),
+                            onTap: () => GoRouter.of(context)
+                                .go(AppRoute.blogDetail.location(pathParameters: {'slug': post.slug})),
                           ))
                       .toList(),
                 ),
@@ -143,7 +146,8 @@ class _HeroPostCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cover = post.coverImageUrl;
     return GestureDetector(
-      onTap: () => GoRouter.of(context).go('/blog/${post.slug}'),
+      onTap: () => GoRouter.of(context)
+          .go(AppRoute.blogDetail.location(pathParameters: {'slug': post.slug})),
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),

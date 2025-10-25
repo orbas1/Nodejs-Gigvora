@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../router/routes.dart';
 import '../../../theme/widgets.dart';
 import '../../auth/application/session_controller.dart';
 import '../application/settings_controller.dart';
@@ -47,30 +48,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     _sessionTimeout ??= settings.security.sessionTimeoutMinutes.toDouble();
 
-    final destinations = [
-      const GigvoraNavigationDestination(
+    final destinations = <GigvoraNavigationDestination>[
+      GigvoraNavigationDestination(
         label: 'Home',
         icon: Icon(Icons.home_outlined),
         selectedIcon: Icon(Icons.home),
-        route: '/home',
+        route: AppRoute.home.path,
       ),
-      const GigvoraNavigationDestination(
+      GigvoraNavigationDestination(
         label: 'Calendar',
         icon: Icon(Icons.event_available_outlined),
         selectedIcon: Icon(Icons.event_available),
-        route: '/calendar',
+        route: AppRoute.calendar.path,
       ),
-      const GigvoraNavigationDestination(
+      GigvoraNavigationDestination(
         label: 'Purchase',
         icon: Icon(Icons.shopping_bag_outlined),
         selectedIcon: Icon(Icons.shopping_bag),
-        route: '/gigs/purchase',
+        route: AppRoute.gigPurchase.path,
       ),
-      const GigvoraNavigationDestination(
+      GigvoraNavigationDestination(
         label: 'Settings',
         icon: Icon(Icons.settings_outlined),
         selectedIcon: Icon(Icons.settings),
-        route: '/settings',
+        route: AppRoute.settings.path,
       ),
     ];
 
@@ -113,7 +114,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       selectedDestination: 3,
       onDestinationSelected: (index) {
         final destination = destinations[index];
-        if (destination.route != null && destination.route != '/settings') {
+        if (destination.route != null && destination.route != AppRoute.settings.path) {
           router.go(destination.route!);
         }
       },
@@ -407,10 +408,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       border: OutlineInputBorder(),
                     ),
                     items: const [
-                      DropdownMenuItem(value: '/home', child: Text('Home dashboard')),
-                      DropdownMenuItem(value: '/calendar', child: Text('Calendar orchestration')),
-                      DropdownMenuItem(value: '/gigs/purchase', child: Text('Gig purchase console')),
-                      DropdownMenuItem(value: '/profile', child: Text('Profile cockpit')),
+                      DropdownMenuItem(value: AppRoute.home.path, child: const Text('Home dashboard')),
+                      DropdownMenuItem(value: AppRoute.calendar.path, child: const Text('Calendar orchestration')),
+                      DropdownMenuItem(value: AppRoute.gigPurchase.path, child: const Text('Gig purchase console')),
+                      DropdownMenuItem(value: AppRoute.profile.path, child: const Text('Profile cockpit')),
                     ],
                     onChanged: (value) {
                       if (value == null) return;
@@ -547,11 +548,11 @@ class _GuestNotice extends StatelessWidget {
             spacing: 12,
             children: [
               FilledButton(
-                onPressed: () => GoRouter.of(context).go('/login'),
+                onPressed: () => GoRouter.of(context).go(AppRoute.login.path),
                 child: const Text('Secure login'),
               ),
               FilledButton.tonal(
-                onPressed: () => GoRouter.of(context).go('/register'),
+                onPressed: () => GoRouter.of(context).go(AppRoute.register.path),
                 child: const Text('Create account'),
               ),
             ],
