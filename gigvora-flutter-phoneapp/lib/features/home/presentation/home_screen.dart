@@ -10,6 +10,10 @@ import '../../auth/application/session_controller.dart';
 import '../../auth/domain/session.dart';
 import '../../ads/presentation/ad_coupon_strip.dart';
 import '../../finance/domain/finance_access_policy.dart';
+import '../../feed/application/feed_controller.dart';
+import '../../feed/data/models/feed_post.dart';
+import '../../connections/application/connections_controller.dart';
+import '../../connections/domain/connection_network.dart';
 import '../../../theme/widgets.dart';
 import '../../blog/presentation/blog_spotlight_card.dart';
 import '../../governance/presentation/domain_governance_summary_card.dart';
@@ -83,6 +87,11 @@ class HomeScreen extends ConsumerWidget {
     final session = sessionState.session!;
     final membershipState = ref.watch(roleManagementControllerProvider);
     final membershipController = ref.read(roleManagementControllerProvider.notifier);
+    final feedState = ref.watch(feedControllerProvider);
+    final feedController = ref.read(feedControllerProvider.notifier);
+    final feedPreview = feedState.data?.take(3).toList(growable: false) ?? const <FeedPost>[];
+    final connectionsState = ref.watch(connectionsControllerProvider);
+    final connectionsController = ref.read(connectionsControllerProvider.notifier);
     final resolvedMemberships = membershipState.data ??
         session.memberships
             .map(
@@ -224,6 +233,13 @@ class HomeScreen extends ConsumerWidget {
             const SizedBox(height: 24),
             _MetricsWrap(metrics: activeDashboard.metrics),
             const SizedBox(height: 24),
+            _FeedPreviewCard(
+              state: feedState,
+              posts: feedPreview,
+              onOpenTimeline: () => GoRouter.of(context).go('/feed'),
+              onRefresh: () => feedController.refresh(),
+            ),
+            const SizedBox(height: 24),
             const BlogSpotlightCard(),
             const SizedBox(height: 24),
             const UserConsentCard(),
@@ -253,7 +269,11 @@ class HomeScreen extends ConsumerWidget {
             const SizedBox(height: 24),
             AdCouponStrip(surface: _surfaceForRole(activeRole)),
             const SizedBox(height: 16),
-            const _NetworkCtaCard(),
+            _NetworkHighlightsCard(
+              state: connectionsState,
+              onRefresh: () => connectionsController.refresh(),
+              onOpenNetwork: () => GoRouter.of(context).go('/connections'),
+            ),
             const SizedBox(height: 16),
             const _SupportAndInfoCard(),
             const SizedBox(height: 12),
@@ -746,31 +766,500 @@ class _MetricsWrap extends StatelessWidget {
   }
 }
 
-class _NetworkCtaCard extends StatelessWidget {
-  const _NetworkCtaCard();
+class _FeedPreviewCard extends StatelessWidget {
+  const _FeedPreviewCard({
+    required this.state,
+    required this.posts,
+    required this.onOpenTimeline,
+    required this.onRefresh,
+  });
+
+  final ResourceState<List<FeedPost>> state;
+  final List<FeedPost> posts;
+  final VoidCallback onOpenTimeline;
+  final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isLoading = state.loading && posts.isEmpty;
+    final hasError = state.hasError && !state.loading;
+
     return GigvoraCard(
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Connection intelligence', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 8),
-          Text(
-            'Review first, second, and third-degree relationships to plan introductions with confidence.',
-            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Timeline snapshot', style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 4),
+                    Text(
+                      'See how your network is engaging before jumping into the full feed.',
+                      style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.end,
+                children: [
+                  if (state.lastUpdated != null)
+                    Chip(
+                      avatar: const Icon(Icons.schedule, size: 18),
+                      label: Text(formatRelativeTime(state.lastUpdated!)),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  if (state.fromCache)
+                    Chip(
+                      avatar: const Icon(Icons.offline_bolt, size: 18),
+                      label: const Text('Offline copy'),
+                      visualDensity: VisualDensity.compact,
+                      backgroundColor: colorScheme.secondaryContainer,
+                    ),
+                  FilledButton.tonalIcon(
+                    onPressed: state.loading ? null : () => onRefresh(),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Refresh'),
+                  ),
+                ],
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
+          if (isLoading) ...[
+            const SizedBox(height: 16),
+            LinearProgressIndicator(minHeight: 4, backgroundColor: colorScheme.surfaceVariant),
+          ] else if (hasError) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colorScheme.errorContainer,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                'We had trouble syncing the latest timeline posts. Try refreshing or open the feed to retry.',
+                style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onErrorContainer),
+              ),
+            ),
+          ] else if (posts.isEmpty) ...[
+            const SizedBox(height: 16),
+            Text(
+              'Your network hasn\'t shared anything new yet. Post an update or explore the feed to spark activity.',
+              style: theme.textTheme.bodyMedium,
+            ),
+          ] else ...[
+            const SizedBox(height: 16),
+            ...posts.map(
+              (post) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _FeedPreviewTile(post: post),
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerLeft,
-            child: ElevatedButton.icon(
-              onPressed: () => GoRouter.of(context).go('/connections'),
-              icon: const Icon(Icons.group_outlined),
+            child: FilledButton.icon(
+              onPressed: onOpenTimeline,
+              icon: const Icon(Icons.forum_outlined),
+              label: const Text('Open timeline'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FeedPreviewTile extends StatelessWidget {
+  const _FeedPreviewTile({required this.post});
+
+  final FeedPost post;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceVariant,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                backgroundColor: colorScheme.primaryContainer,
+                child: Text(
+                  post.author.name.isNotEmpty ? post.author.name.characters.first.toUpperCase() : '?',
+                  style: theme.textTheme.titleMedium?.copyWith(color: colorScheme.onPrimaryContainer),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      post.author.name,
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                    if ((post.author.headline ?? '').isNotEmpty)
+                      Text(
+                        post.author.headline!,
+                        style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                      ),
+                    const SizedBox(height: 4),
+                    Text(
+                      formatRelativeTime(post.publishedAt ?? post.createdAt),
+                      style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            post.summary?.isNotEmpty == true ? post.summary! : post.content,
+            style: theme.textTheme.bodyMedium,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.favorite_border, size: 18),
+                  const SizedBox(width: 4),
+                  Text('${post.reactionCount}'),
+                ],
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.chat_bubble_outline, size: 18),
+                  const SizedBox(width: 4),
+                  Text('${post.commentCount}'),
+                ],
+              ),
+              if (post.link != null)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.link, size: 18),
+                    SizedBox(width: 4),
+                    Text('Link attached'),
+                  ],
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NetworkHighlightsCard extends StatelessWidget {
+  const _NetworkHighlightsCard({
+    required this.state,
+    required this.onRefresh,
+    required this.onOpenNetwork,
+  });
+
+  final ResourceState<ConnectionNetwork> state;
+  final Future<void> Function() onRefresh;
+  final VoidCallback onOpenNetwork;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final network = state.data;
+    final summary = network?.summary;
+    final suggestions = network == null
+        ? const <ConnectionNode>[]
+        : <ConnectionNode>[...network.secondDegree, ...network.thirdDegree]
+            .where((node) => node.actions.canRequestConnection || node.actions.canMessage)
+            .take(3)
+            .toList(growable: false);
+    final isLoading = state.loading && network == null;
+    final hasError = state.hasError && !state.loading;
+
+    return GigvoraCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Connection intelligence', style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Review mutual introductions, degree summaries, and top warm leads before diving into the network graph.',
+                      style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.end,
+                children: [
+                  if (network?.generatedAt != null)
+                    Chip(
+                      avatar: const Icon(Icons.schedule, size: 18),
+                      label: Text('Synced ${formatRelativeTime(network!.generatedAt)}'),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  if (state.fromCache)
+                    Chip(
+                      avatar: const Icon(Icons.offline_pin, size: 18),
+                      label: const Text('Cached insights'),
+                      backgroundColor: colorScheme.secondaryContainer,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  FilledButton.tonalIcon(
+                    onPressed: state.loading ? null : () => onRefresh(),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Refresh'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          if (isLoading) ...[
+            const SizedBox(height: 16),
+            LinearProgressIndicator(minHeight: 4, backgroundColor: colorScheme.surfaceVariant),
+          ] else if (hasError) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colorScheme.errorContainer,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                'We couldn\'t update your networking insights. Pull to refresh or open the graph for the latest data.',
+                style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onErrorContainer),
+              ),
+            ),
+          ] else if (network == null) ...[
+            const SizedBox(height: 16),
+            Text(
+              'Network insights will appear once you connect with more members and organisers share session data.',
+              style: theme.textTheme.bodyMedium,
+            ),
+          ] else ...[
+            const SizedBox(height: 16),
+            if (summary != null)
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  _NetworkSummaryChip(
+                    icon: Icons.people_outline,
+                    label: '1st-degree',
+                    value: '${summary.firstDegree}',
+                    background: colorScheme.primaryContainer,
+                  ),
+                  _NetworkSummaryChip(
+                    icon: Icons.groups_2_outlined,
+                    label: '2nd-degree',
+                    value: '${summary.secondDegree}',
+                    background: colorScheme.secondaryContainer,
+                  ),
+                  _NetworkSummaryChip(
+                    icon: Icons.hub_outlined,
+                    label: '3rd-degree',
+                    value: '${summary.thirdDegree}',
+                    background: colorScheme.tertiaryContainer,
+                  ),
+                  _NetworkSummaryChip(
+                    icon: Icons.auto_graph,
+                    label: 'Total reach',
+                    value: '${summary.total}',
+                    background: colorScheme.surfaceVariant,
+                  ),
+                ],
+              ),
+            if (suggestions.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Text('Warm introductions to pursue', style: theme.textTheme.titleSmall),
+              const SizedBox(height: 12),
+              ...suggestions.map(
+                (node) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _NetworkSuggestionTile(node: node),
+                ),
+              ),
+            ] else ...[
+              const SizedBox(height: 16),
+              Text(
+                'We\'ll highlight warm introductions as soon as organisers schedule more networking sessions.',
+                style: theme.textTheme.bodyMedium,
+              ),
+            ],
+          ],
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton.icon(
+              onPressed: onOpenNetwork,
+              icon: const Icon(Icons.hub_outlined),
               label: const Text('Open network graph'),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NetworkSummaryChip extends StatelessWidget {
+  const _NetworkSummaryChip({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.background,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color background;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 20, color: colorScheme.onSurface),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: theme.textTheme.labelSmall),
+              Text(value, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NetworkSuggestionTile extends StatelessWidget {
+  const _NetworkSuggestionTile({required this.node});
+
+  final ConnectionNode node;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final connectorNames = node.connectors.map((connector) => connector.name).take(3).join(', ');
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceVariant,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                backgroundColor: colorScheme.primaryContainer,
+                child: Text(
+                  node.name.isNotEmpty ? node.name.characters.first.toUpperCase() : '?',
+                  style: theme.textTheme.titleMedium?.copyWith(color: colorScheme.onPrimaryContainer),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(node.name, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                    if ((node.headline ?? '').isNotEmpty)
+                      Text(
+                        node.headline!,
+                        style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                      ),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        Chip(
+                          label: Text('${node.mutualConnections} mutual'),
+                          avatar: const Icon(Icons.group_add, size: 18),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        Chip(
+                          label: Text(node.degreeLabel),
+                          avatar: const Icon(Icons.timeline, size: 18),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (connectorNames.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Warm path via $connectorNames',
+              style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+            ),
+          ],
+          if (node.actions.reason != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              node.actions.reason!,
+              style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+            ),
+          ],
         ],
       ),
     );
