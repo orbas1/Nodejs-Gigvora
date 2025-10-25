@@ -19,6 +19,9 @@ import {
 } from '../models/messagingModels.js';
 import { ApplicationError, ValidationError, NotFoundError, AuthorizationError } from '../utils/errors.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
+import { getSocketServer, getConnectionRegistry } from '../realtime/socketServer.js';
+import { createCallTokens, getDefaultAgoraExpiry } from './agoraService.js';
+
 let notificationServicePromise = null;
 let userRoleModelPromise = null;
 
@@ -50,7 +53,6 @@ async function loadUserRoleModel() {
 
   return userRoleModelPromise;
 }
-import { createCallTokens, getDefaultAgoraExpiry } from './agoraService.js';
 
 const THREAD_CACHE_TTL = 60;
 const MESSAGE_CACHE_TTL = 15;
@@ -63,6 +65,10 @@ const SUPPORT_ESCALATION_NOTIFY_USER_IDS = (process.env.SUPPORT_ESCALATION_NOTIF
 const SHOULD_QUEUE_SUPPORT_NOTIFICATIONS =
   String(process.env.SUPPRESS_SUPPORT_NOTIFICATIONS ?? '').toLowerCase() !== 'true' &&
   process.env.NODE_ENV !== 'test';
+
+const TYPING_CACHE_PREFIX = 'messaging:typing:';
+const TYPING_CACHE_TTL_SECONDS = 12;
+const TYPING_EXPIRY_SECONDS = 8;
 
 function toNormalizedList(value, fallback = []) {
   if (Array.isArray(value)) {
@@ -879,6 +885,147 @@ export async function startOrJoinCall(
     identity: tokens.identity,
     isNew,
     message: hydratedMessage ?? sanitizedCallMessage ?? null,
+  };
+}
+
+function buildTypingCacheKey(threadId) {
+  return `${TYPING_CACHE_PREFIX}${threadId}`;
+}
+
+function normaliseTypingEntries(rawEntries = []) {
+  if (!Array.isArray(rawEntries)) {
+    return [];
+  }
+  return rawEntries
+    .map((entry) => ({
+      threadId: Number(entry.threadId) || 0,
+      userId: Number(entry.userId) || 0,
+      displayName: entry.displayName ? String(entry.displayName) : null,
+      expiresAt: entry.expiresAt ? new Date(entry.expiresAt).toISOString() : null,
+      updatedAt: entry.updatedAt ? new Date(entry.updatedAt).toISOString() : null,
+    }))
+    .filter((entry) => entry.threadId > 0 && entry.userId > 0 && entry.expiresAt);
+}
+
+function pruneExpiredTyping(entries) {
+  const now = Date.now();
+  return entries.filter((entry) => {
+    const expiresAt = new Date(entry.expiresAt).getTime();
+    return Number.isFinite(expiresAt) && expiresAt > now;
+  });
+}
+
+function storeTypingEntries(threadId, entries) {
+  if (!entries.length) {
+    appCache.delete(buildTypingCacheKey(threadId));
+    return [];
+  }
+  appCache.set(buildTypingCacheKey(threadId), entries, TYPING_CACHE_TTL_SECONDS);
+  return entries;
+}
+
+function emitTypingEvent(threadId, payload, participants) {
+  const io = getSocketServer();
+  const registry = getConnectionRegistry();
+  if (!io || !registry) {
+    return;
+  }
+
+  const event = {
+    topic: `messaging.thread.${threadId}.typing`,
+    event: payload.typing ? 'typing.started' : 'typing.stopped',
+    payload: {
+      threadId,
+      userId: payload.userId,
+      typing: payload.typing,
+      displayName: payload.displayName ?? null,
+      expiresAt: payload.expiresAt ?? null,
+      updatedAt: payload.updatedAt ?? new Date().toISOString(),
+      participants,
+    },
+  };
+
+  const socketsByUser = participants.reduce((acc, participant) => {
+    const connections = registry.getActiveConnections(participant.userId) ?? [];
+    if (connections.length) {
+      acc.set(participant.userId, connections.map((connection) => connection.socketId));
+    }
+    return acc;
+  }, new Map());
+
+  for (const socketIds of socketsByUser.values()) {
+    for (const socketId of socketIds) {
+      io.to(socketId).emit('messaging:thread:typing', event);
+    }
+  }
+}
+
+export async function updateTypingState(threadId, userId, { typing = true, displayName } = {}) {
+  if (!Number.isFinite(threadId) || threadId <= 0) {
+    throw new ValidationError('threadId must be a positive integer.');
+  }
+  if (!Number.isFinite(userId) || userId <= 0) {
+    throw new ValidationError('userId must be a positive integer.');
+  }
+
+  const participant = await ensureParticipant(threadId, userId);
+  const cacheKey = buildTypingCacheKey(threadId);
+  const existingEntries = pruneExpiredTyping(normaliseTypingEntries(appCache.get(cacheKey)));
+
+  const updatedAt = new Date();
+  let expiresAt = new Date(updatedAt.getTime() + TYPING_EXPIRY_SECONDS * 1000).toISOString();
+
+  let entries;
+  if (typing) {
+    const sanitizedDisplayName = displayName
+      ? String(displayName).trim().slice(0, 160)
+      : [participant.user?.firstName, participant.user?.lastName]
+          .map((part) => String(part ?? '').trim())
+          .filter(Boolean)
+          .join(' ') || `Member ${userId}`;
+
+    entries = existingEntries.filter((entry) => entry.userId !== userId);
+    entries.push({
+      threadId,
+      userId,
+      displayName: sanitizedDisplayName,
+      expiresAt,
+      updatedAt: updatedAt.toISOString(),
+    });
+  } else {
+    entries = existingEntries.filter((entry) => entry.userId !== userId);
+    if (entries.length === existingEntries.length) {
+      expiresAt = null;
+    }
+  }
+
+  const persisted = storeTypingEntries(threadId, entries);
+  const participants = persisted.map((entry) => ({
+    threadId: entry.threadId,
+    userId: entry.userId,
+    displayName: entry.displayName,
+    expiresAt: entry.expiresAt,
+    updatedAt: entry.updatedAt,
+  }));
+
+  emitTypingEvent(
+    threadId,
+    {
+      userId,
+      typing: Boolean(typing),
+      displayName: participants.find((entry) => entry.userId === userId)?.displayName ?? null,
+      expiresAt,
+      updatedAt: updatedAt.toISOString(),
+    },
+    participants,
+  );
+
+  return {
+    threadId,
+    userId,
+    typing: Boolean(typing),
+    expiresAt,
+    participants,
   };
 }
 
@@ -1937,6 +2084,7 @@ export default {
   escalateThreadToSupport,
   assignSupportAgent,
   updateSupportCaseStatus,
+  updateTypingState,
   listWorkspaceLabels,
   createWorkspaceLabel,
   updateWorkspaceLabel,

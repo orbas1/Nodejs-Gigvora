@@ -140,6 +140,16 @@ void main() {
             return {'status': 'ok'};
           }
 
+          if (path == '/messaging/threads/1/typing') {
+            final payload = Map<String, dynamic>.from(body as Map);
+            return {
+              'threadId': 1,
+              'userId': payload['userId'],
+              'typing': payload['typing'],
+              'participants': [],
+            };
+          }
+
           throw UnsupportedError('Unexpected POST path: $path');
         },
       );

@@ -134,6 +134,13 @@ class _StubMessagingRepository extends MessagingRepository {
   }
 
   @override
+  Future<void> updateTypingState(
+    int threadId, {
+    required int userId,
+    required bool isTyping,
+  }) async {}
+
+  @override
   Future<void> markThreadRead(int threadId, {required int userId}) async {
     markReadCalls += 1;
   }
