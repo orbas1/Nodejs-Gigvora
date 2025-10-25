@@ -11,6 +11,7 @@ import { LayoutProvider, useLayout } from '../context/LayoutContext.jsx';
 import AppErrorBoundary from '../components/routing/AppErrorBoundary.jsx';
 import { ToastProvider } from '../context/ToastContext.jsx';
 import RouteThemeSynchronizer from '../routes/RouteThemeSynchronizer.jsx';
+import { MessagingProvider } from '../context/MessagingContext.jsx';
 
 function ShellErrorFallback({ error, onRetry }) {
   return (
@@ -89,9 +90,11 @@ function LayoutChrome() {
 export default function MainLayout() {
   return (
     <ToastProvider>
-      <LayoutProvider>
-        <LayoutChrome />
-      </LayoutProvider>
+      <MessagingProvider>
+        <LayoutProvider>
+          <LayoutChrome />
+        </LayoutProvider>
+      </MessagingProvider>
     </ToastProvider>
   );
 }

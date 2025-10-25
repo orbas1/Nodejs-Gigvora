@@ -103,6 +103,23 @@ export function markThreadRead(threadId, { userId } = {}) {
   });
 }
 
+export function fetchThreadPresence(threadId, { signal } = {}) {
+  if (!threadId) {
+    throw new Error('threadId is required to load thread presence.');
+  }
+  return apiClient.get(`/messaging/threads/${threadId}/presence`, { signal });
+}
+
+export function sendTypingIndicator(threadId, { userId, expiresIn } = {}) {
+  if (!threadId) {
+    throw new Error('threadId is required to emit typing indicator.');
+  }
+  return apiClient.post(`/messaging/threads/${threadId}/typing`, {
+    userId,
+    expiresIn,
+  });
+}
+
 export function updateThreadState(threadId, { state, userId } = {}) {
   if (!threadId) {
     throw new Error('threadId is required to update thread state.');
@@ -211,6 +228,8 @@ export default {
   createThread,
   createCallSession,
   markThreadRead,
+  fetchThreadPresence,
+  sendTypingIndicator,
   updateThreadState,
   muteThread,
   escalateThread,

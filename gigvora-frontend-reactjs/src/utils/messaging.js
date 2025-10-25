@@ -3,6 +3,16 @@ import { resolveActorId } from './session.js';
 
 export { resolveActorId } from './session.js';
 
+export function sortThreadsByActivity(threads = []) {
+  return [...threads]
+    .filter(Boolean)
+    .sort((a, b) => {
+      const aTime = a?.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+      const bTime = b?.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+      return bTime - aTime;
+    });
+}
+
 function formatName(user) {
   if (!user) {
     return null;
@@ -119,8 +129,39 @@ export function formatMessageTimestamp(message) {
   return formatRelativeTime(message.createdAt);
 }
 
+export function deriveReadReceipts(message, receipts = [], { actorId } = {}) {
+  if (!message) {
+    return [];
+  }
+  const createdAt = message.createdAt ? new Date(message.createdAt).getTime() : null;
+  return receipts
+    .filter((receipt) => {
+      if (!receipt || !receipt.userId) {
+        return false;
+      }
+      if (actorId && Number(receipt.userId) === Number(actorId)) {
+        return false;
+      }
+      const matchesMessage = receipt.lastReadMessageId && receipt.lastReadMessageId === message.id;
+      if (matchesMessage) {
+        return true;
+      }
+      if (!createdAt || !receipt.lastReadAt) {
+        return false;
+      }
+      const seenAt = new Date(receipt.lastReadAt).getTime();
+      return !Number.isNaN(seenAt) && seenAt >= createdAt;
+    })
+    .map((receipt) => ({
+      userId: receipt.userId,
+      name: receipt.name ?? `User ${receipt.userId}`,
+      lastReadAt: receipt.lastReadAt ?? null,
+    }));
+}
+
 export default {
   resolveActorId,
+  sortThreadsByActivity,
   formatThreadParticipants,
   buildThreadTitle,
   isThreadUnread,
@@ -132,4 +173,5 @@ export default {
   formatMessageSender,
   messageBelongsToUser,
   formatMessageTimestamp,
+  deriveReadReceipts,
 };

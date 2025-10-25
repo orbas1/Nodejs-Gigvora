@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ArrowPathIcon,
   ChatBubbleLeftRightIcon,
@@ -8,27 +8,15 @@ import {
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 import useSession from '../../hooks/useSession.js';
-import {
-  fetchInbox,
-  fetchThreadMessages,
-  sendMessage,
-  createCallSession,
-} from '../../services/messaging.js';
-import {
-  resolveActorId,
-  buildThreadTitle,
-  formatThreadParticipants,
-  isThreadUnread,
-  describeLastActivity,
-  sortMessages,
-} from '../../utils/messaging.js';
-import AgoraCallPanel from './AgoraCallPanel.jsx';
 import ConversationMessage from './ConversationMessage.jsx';
+import AgoraCallPanel from './AgoraCallPanel.jsx';
 import { classNames } from '../../utils/classNames.js';
+import { useMessagingStore } from '../../context/MessagingContext.jsx';
 import { canAccessMessaging } from '../../constants/access.js';
 import { useLanguage } from '../../context/LanguageContext.jsx';
-
-const THREAD_PAGE_SIZE = 20;
+import VirtualizedMessageList from './VirtualizedMessageList.jsx';
+import TypingIndicator from './TypingIndicator.jsx';
+import { buildThreadTitle, formatThreadParticipants, isThreadUnread, describeLastActivity } from '../../utils/messaging.js';
 
 function TabButton({ active, children, onClick }) {
   return (
@@ -72,7 +60,12 @@ function ThreadListItem({ thread, actorId, active, onSelect }) {
         <p className="mt-1 text-xs text-slate-500">{participants.join(', ')}</p>
       ) : null}
       {thread.lastMessagePreview ? (
-        <p className="mt-2 text-sm text-slate-600 line-clamp-2">{thread.lastMessagePreview}</p>
+        <p
+          data-testid={`thread-preview-${thread.id}`}
+          className="mt-2 text-sm text-slate-600 line-clamp-2"
+        >
+          {thread.lastMessagePreview}
+        </p>
       ) : null}
       {unread ? (
         <span className="mt-3 inline-flex w-fit items-center rounded-full bg-accent px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
@@ -86,231 +79,88 @@ function ThreadListItem({ thread, actorId, active, onSelect }) {
 export default function MessagingDock() {
   const { session, isAuthenticated } = useSession();
   const { t } = useLanguage();
-  const actorId = resolveActorId(session);
-  const canUseMessaging = Boolean(isAuthenticated && actorId && canAccessMessaging(session));
+  const {
+    threads,
+    threadsLoading,
+    threadsAppending,
+    threadsError,
+    hasMoreThreads,
+    selectedThreadId,
+    selectThread,
+    loadThreads,
+    messages,
+    messagesLoading,
+    messagesError,
+    sendMessage,
+    startCall,
+    closeCall,
+    callState,
+    composerDraft,
+    setComposerDraft,
+    typingParticipants,
+    notifyTyping,
+    readReceipts,
+    actorId,
+    canUseMessaging,
+  } = useMessagingStore();
+  const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState('inbox');
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState(null);
+
+  const canUseDockMessaging = Boolean(isAuthenticated && actorId && canAccessMessaging(session) && canUseMessaging);
+
+  useEffect(() => {
+    if (!open || !canUseDockMessaging) {
+      return;
+    }
+    if (!threads.length) {
+      void loadThreads({ append: false, preserveSelection: true, silent: false });
+    }
+  }, [open, canUseDockMessaging, loadThreads, threads.length]);
+
+  useEffect(() => {
+    if (!open || tab !== 'inbox' || !selectedThreadId || !composerDraft.trim()) {
+      return;
+    }
+    notifyTyping(selectedThreadId);
+  }, [open, tab, selectedThreadId, composerDraft, notifyTyping]);
+
+  const handleToggle = useCallback(() => {
+    setOpen((previous) => !previous);
+  }, []);
 
   if (!isAuthenticated) {
     return null;
   }
 
-  const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState('inbox');
-  const [threads, setThreads] = useState([]);
-  const [page, setPage] = useState(1);
-  const [hasMoreThreads, setHasMoreThreads] = useState(true);
-  const [inboxLoading, setInboxLoading] = useState(false);
-  const [inboxAppending, setInboxAppending] = useState(false);
-  const [inboxError, setInboxError] = useState(null);
-  const [selectedThreadId, setSelectedThreadId] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [messagesLoading, setMessagesLoading] = useState(false);
-  const [messagesError, setMessagesError] = useState(null);
-  const [composer, setComposer] = useState('');
-  const [sending, setSending] = useState(false);
-  const [callSession, setCallSession] = useState(null);
-  const [callLoading, setCallLoading] = useState(false);
-  const [callError, setCallError] = useState(null);
-  const inboxDebounceTimer = useRef(null);
-
-  const loadInbox = useCallback(async ({ page: requestedPage = 1, append = false, preserveSelection = true } = {}) => {
-    if (!canUseMessaging) {
-      return;
-    }
-    if (append) {
-      setInboxAppending(true);
-    } else {
-      setInboxLoading(true);
-    }
-    setInboxError(null);
-    let nextThreads = [];
-    try {
-      const response = await fetchInbox({
-        userId: actorId,
-        includeParticipants: true,
-        page: requestedPage,
-        pageSize: THREAD_PAGE_SIZE,
-      });
-      const payload = Array.isArray(response?.data)
-        ? response.data
-        : Array.isArray(response?.threads)
-          ? response.threads
-          : [];
-      setHasMoreThreads(Boolean(response?.meta?.hasMore ?? (payload.length === THREAD_PAGE_SIZE)));
-      setThreads((previous) => {
-        const merged = append ? [...previous] : [];
-        const existingIds = new Set(append ? previous.map((thread) => thread.id) : []);
-        payload.forEach((thread) => {
-          if (!append) {
-            merged.push(thread);
-            existingIds.add(thread.id);
-            return;
-          }
-          if (!existingIds.has(thread.id)) {
-            merged.push(thread);
-            existingIds.add(thread.id);
-          } else {
-            const existingIndex = merged.findIndex((candidate) => candidate.id === thread.id);
-            if (existingIndex !== -1) {
-              merged.splice(existingIndex, 1, thread);
-            }
-          }
-        });
-        nextThreads = merged;
-        return merged;
-      });
-      setPage(requestedPage);
-      if (!nextThreads.length) {
-        return;
-      }
-      if (!preserveSelection || !selectedThreadId) {
-        setSelectedThreadId(nextThreads[0].id);
-        return;
-      }
-      const exists = nextThreads.some((thread) => thread.id === selectedThreadId);
-      if (!exists) {
-        setSelectedThreadId(nextThreads[0].id);
-      }
-    } catch (err) {
-      setInboxError(err?.body?.message ?? err?.message ?? 'Unable to load inbox threads.');
-    } finally {
-      setInboxLoading(false);
-      setInboxAppending(false);
-    }
-  }, [actorId, canUseMessaging, selectedThreadId]);
-
-  const scheduleInboxLoad = useCallback(
-    (options = {}, delay = 250) => {
-      if (!canUseMessaging) {
-        return;
-      }
-      if (inboxDebounceTimer.current) {
-        clearTimeout(inboxDebounceTimer.current);
-      }
-      inboxDebounceTimer.current = window.setTimeout(() => {
-        inboxDebounceTimer.current = null;
-        loadInbox(options);
-      }, Math.max(0, delay));
-    },
-    [canUseMessaging, loadInbox],
-  );
-
-  const loadMessages = useCallback(
-    async (threadId) => {
-      if (!threadId || !canUseMessaging) {
-        setMessages([]);
-        return;
-      }
-      setMessagesLoading(true);
-      setMessagesError(null);
-      try {
-        const response = await fetchThreadMessages(threadId, { pageSize: 50 });
-        const data = Array.isArray(response?.data) ? sortMessages(response.data) : [];
-        setMessages(data);
-      } catch (err) {
-        setMessages([]);
-        setMessagesError(err?.body?.message ?? err?.message ?? 'Unable to load this conversation.');
-      } finally {
-        setMessagesLoading(false);
-      }
-    },
-    [canUseMessaging],
-  );
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    if (!canUseMessaging) {
-      return;
-    }
-    scheduleInboxLoad({ page: 1, append: false, preserveSelection: !threads.length }, open ? 150 : 0);
-  }, [open, canUseMessaging, scheduleInboxLoad, threads.length]);
-
-  useEffect(() => {
-    if (!open || tab !== 'inbox' || !canUseMessaging) {
-      return;
-    }
-    scheduleInboxLoad({ page: 1, append: false, preserveSelection: true });
-  }, [tab, open, canUseMessaging, scheduleInboxLoad]);
-
-  useEffect(() => {
-    return () => {
-      if (inboxDebounceTimer.current) {
-        clearTimeout(inboxDebounceTimer.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!selectedThreadId) {
-      setMessages([]);
-      return;
-    }
-    loadMessages(selectedThreadId);
-  }, [selectedThreadId, loadMessages]);
-
-  const selectedThread = useMemo(
-    () => threads.find((thread) => thread.id === selectedThreadId) ?? null,
-    [threads, selectedThreadId],
-  );
-
   const handleSend = useCallback(
     async (event) => {
       event.preventDefault();
-      if (!composer.trim() || !selectedThreadId || !canUseMessaging) {
+      if (!composerDraft.trim() || !selectedThreadId || !canUseDockMessaging) {
         return;
       }
       setSending(true);
-      setMessagesError(null);
+      setSendError(null);
       try {
-        const message = await sendMessage(selectedThreadId, {
-          userId: actorId,
-          messageType: 'text',
-          body: composer.trim(),
-        });
-        setComposer('');
-        setMessages((prev) => sortMessages([...prev, message]));
-        await loadInbox({ page, append: false, preserveSelection: true });
-      } catch (err) {
-        setMessagesError(err?.body?.message ?? err?.message ?? 'Unable to send message.');
+        await sendMessage(selectedThreadId, { body: composerDraft });
+      } catch (error) {
+        setSendError(error?.body?.message ?? error?.message ?? 'Unable to send message.');
       } finally {
         setSending(false);
       }
     },
-    [composer, selectedThreadId, canUseMessaging, actorId, loadInbox, page],
+    [composerDraft, selectedThreadId, canUseDockMessaging, sendMessage],
   );
 
-  const startCall = useCallback(
-    async (callType, callId) => {
-      if (!selectedThreadId || !canUseMessaging) {
+  const handleStartCall = useCallback(
+    async (type, callId) => {
+      if (!selectedThreadId) {
         return;
       }
-      setCallLoading(true);
-      setCallError(null);
-      try {
-        const response = await createCallSession(selectedThreadId, {
-          userId: actorId,
-          callType,
-          callId,
-        });
-        setCallSession(response);
-        if (response?.message) {
-          setMessages((prev) => {
-            const exists = prev.some((message) => message.id === response.message.id);
-            if (exists) {
-              return prev.map((message) => (message.id === response.message.id ? response.message : message));
-            }
-            return sortMessages([...prev, response.message]);
-          });
-        }
-        await loadInbox({ page, append: false, preserveSelection: true });
-      } catch (err) {
-        setCallError(err?.body?.message ?? err?.message ?? 'Unable to start call.');
-      } finally {
-        setCallLoading(false);
-      }
+      await startCall(selectedThreadId, { callType: type, callId });
     },
-    [selectedThreadId, canUseMessaging, actorId, loadInbox, page],
+    [selectedThreadId, startCall],
   );
 
   const handleJoinCall = useCallback(
@@ -318,47 +168,30 @@ export default function MessagingDock() {
       if (!callMetadata?.id) {
         return;
       }
-      startCall(callMetadata?.type ?? 'video', callMetadata.id);
+      void handleStartCall(callMetadata?.type ?? 'video', callMetadata.id);
     },
-    [startCall],
+    [handleStartCall],
   );
 
-  const closeCallPanel = useCallback(() => {
-    setCallSession(null);
-    if (selectedThreadId) {
-      loadMessages(selectedThreadId);
-    }
-  }, [selectedThreadId, loadMessages]);
-  const unreadCount = useMemo(
-    () =>
-      threads.reduce((total, thread) => {
-        return total + (isThreadUnread(thread) ? 1 : 0);
-      }, 0),
-    [threads],
-  );
+  const callSession = callState.session;
+  const callLoading = callState.loading;
+  const callError = callState.error;
 
   const loadMoreThreads = useCallback(() => {
-    if (!hasMoreThreads || inboxLoading || inboxAppending) {
+    if (!hasMoreThreads || threadsLoading || threadsAppending) {
       return;
     }
-    const nextPage = page + 1;
-    scheduleInboxLoad({ page: nextPage, append: true, preserveSelection: true }, 0);
-  }, [hasMoreThreads, inboxLoading, inboxAppending, page, scheduleInboxLoad]);
+    void loadThreads({ append: true, preserveSelection: true, silent: false });
+  }, [hasMoreThreads, threadsLoading, threadsAppending, loadThreads]);
 
   const refreshInbox = useCallback(() => {
-    scheduleInboxLoad({ page: 1, append: false, preserveSelection: true });
-  }, [scheduleInboxLoad]);
+    void loadThreads({ append: false, preserveSelection: true, silent: false });
+  }, [loadThreads]);
 
   const inboxSubtitle =
     tab === 'inbox'
-      ? t(
-          'assistants.messaging.subtitle',
-          'Secure messaging, calls, and files for every workspace.',
-        )
-      : t(
-          'assistants.messaging.supportSubtitle',
-          'Switch to the trust centre for ticket analytics and SLAs.',
-        );
+      ? t('assistants.messaging.subtitle', 'Secure messaging, calls, and files for every workspace.')
+      : t('assistants.messaging.supportSubtitle', 'Switch to the trust centre for ticket analytics and SLAs.');
 
   return (
     <div className="fixed bottom-6 right-6 z-[60] flex flex-col items-end gap-3">
@@ -392,21 +225,18 @@ export default function MessagingDock() {
           </div>
           {tab === 'inbox' ? (
             <div className="px-4 pb-4">
-              {canUseMessaging ? (
+              {canUseDockMessaging ? (
                 <div className="flex items-center justify-between">
                   <p className="text-xs text-slate-500">
-                    {t(
-                      'assistants.messaging.syncedCopy',
-                      'Synced across dashboards for teams and partners.',
-                    )}
+                    {t('assistants.messaging.syncedCopy', 'Synced across dashboards for teams and partners.')}
                   </p>
                   <button
                     type="button"
                     onClick={refreshInbox}
                     className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 transition hover:border-accent/60 hover:text-accent"
-                    disabled={inboxLoading}
+                    disabled={threadsLoading}
                   >
-                    <ArrowPathIcon className={classNames('h-3.5 w-3.5', inboxLoading ? 'animate-spin' : '')} />
+                    <ArrowPathIcon className={classNames('h-3.5 w-3.5', threadsLoading ? 'animate-spin' : '')} />
                     {t('assistants.messaging.refresh', 'Refresh')}
                   </button>
                 </div>
@@ -420,10 +250,10 @@ export default function MessagingDock() {
               )}
               <div className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,0.9fr),minmax(0,1.4fr)]">
                 <div className="space-y-3">
-                  {inboxError ? (
-                    <p className="rounded-2xl bg-rose-50 px-4 py-3 text-xs text-rose-600">{inboxError}</p>
+                  {threadsError ? (
+                    <p className="rounded-2xl bg-rose-50 px-4 py-3 text-xs text-rose-600">{threadsError}</p>
                   ) : null}
-                  {inboxLoading && !inboxAppending ? (
+                  {threadsLoading && !threads.length ? (
                     <div className="space-y-2">
                       {Array.from({ length: 3 }).map((_, index) => (
                         <div key={index} className="h-20 rounded-3xl bg-slate-100" />
@@ -436,7 +266,7 @@ export default function MessagingDock() {
                         thread={thread}
                         actorId={actorId}
                         active={thread.id === selectedThreadId}
-                        onSelect={setSelectedThreadId}
+                        onSelect={selectThread}
                       />
                     ))
                   ) : (
@@ -453,12 +283,12 @@ export default function MessagingDock() {
                         type="button"
                         onClick={loadMoreThreads}
                         className="w-full rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent/60 hover:text-accent"
-                        disabled={inboxAppending}
+                        disabled={threadsAppending}
                       >
                         <ArrowPathIcon
-                          className={classNames('mr-1 inline h-3.5 w-3.5 align-middle', inboxAppending ? 'animate-spin' : '')}
+                          className={classNames('mr-1 inline h-3.5 w-3.5 align-middle', threadsAppending ? 'animate-spin' : '')}
                         />
-                        {inboxAppending
+                        {threadsAppending
                           ? t('assistants.messaging.loadingOlder', 'Loading more conversations…')
                           : t('assistants.messaging.loadOlder', 'Load older conversations')}
                       </button>
@@ -466,60 +296,45 @@ export default function MessagingDock() {
                   ) : null}
                 </div>
                 <div className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-soft">
-                  {selectedThread ? (
+                  {selectedThreadId ? (
                     <div>
-                      <p className="text-sm font-semibold text-slate-900">{buildThreadTitle(selectedThread, actorId)}</p>
+                      <p className="text-sm font-semibold text-slate-900">
+                        {buildThreadTitle(threads.find((thread) => thread.id === selectedThreadId), actorId)}
+                      </p>
                       <p className="text-xs text-slate-500">
-                        {formatThreadParticipants(selectedThread, actorId).join(', ') ||
-                          t('assistants.messaging.privateNotes', 'Private notes')}
+                        {formatThreadParticipants(
+                          threads.find((thread) => thread.id === selectedThreadId) ?? {},
+                          actorId,
+                        ).join(', ') || t('assistants.messaging.privateNotes', 'Private notes')}
                       </p>
                     </div>
                   ) : null}
                   {callError ? (
                     <p className="rounded-2xl bg-rose-50 px-4 py-2 text-xs text-rose-600">{callError}</p>
                   ) : null}
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => startCall('video')}
-                      disabled={!canUseMessaging || !selectedThreadId || callLoading || Boolean(callSession)}
-                      className={classNames(
-                        'inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition',
-                        !canUseMessaging || !selectedThreadId || callLoading || Boolean(callSession)
-                          ? 'border border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed'
-                          : 'border border-accent bg-accent text-white hover:border-accentDark hover:bg-accentDark',
+                  {messagesError ? (
+                    <p className="rounded-2xl bg-rose-50 px-4 py-2 text-xs text-rose-600">{messagesError}</p>
+                  ) : null}
+                  {messagesLoading && !messages.length ? (
+                    <div className="space-y-3">
+                      {Array.from({ length: 3 }).map((_, index) => (
+                        <div key={index} className="h-16 rounded-2xl bg-slate-100" />
+                      ))}
+                    </div>
+                  ) : null}
+                  {!messagesLoading && !messagesError && !messages.length ? (
+                    <p className="text-sm text-slate-500">
+                      {t(
+                        'assistants.messaging.emptyConversation',
+                        'No messages yet. Share agendas, approvals, and updates to kick things off.',
                       )}
-                    >
-                      <VideoCameraIcon className={classNames('h-4 w-4', callLoading ? 'animate-spin' : '')} />
-                      {t('assistants.messaging.startVideo', 'Start video')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => startCall('voice')}
-                      disabled={!canUseMessaging || !selectedThreadId || callLoading || Boolean(callSession)}
-                      className={classNames(
-                        'inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition',
-                        !canUseMessaging || !selectedThreadId || callLoading || Boolean(callSession)
-                          ? 'border border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed'
-                          : 'border border-slate-200 bg-white text-slate-700 hover:border-accent/60 hover:text-accent',
-                      )}
-                    >
-                      <PhoneIcon className={classNames('h-4 w-4', callLoading ? 'animate-spin' : '')} />
-                      {t('assistants.messaging.startVoice', 'Start voice')}
-                    </button>
-                  </div>
-                  <div className="h-56 space-y-4 overflow-y-auto pr-2">
-                    {messagesError ? (
-                      <p className="rounded-2xl bg-rose-50 px-4 py-2 text-xs text-rose-600">{messagesError}</p>
-                    ) : null}
-                    {messagesLoading ? (
-                      <div className="space-y-3">
-                        {Array.from({ length: 3 }).map((_, index) => (
-                          <div key={index} className="h-16 rounded-2xl bg-slate-100" />
-                        ))}
-                      </div>
-                    ) : messages.length ? (
-                      messages.map((message) => (
+                    </p>
+                  ) : null}
+                  <VirtualizedMessageList
+                    items={messages}
+                    className="max-h-72 pr-1"
+                    renderRow={(message) => (
+                      <div className="pb-3">
                         <ConversationMessage
                           key={message.id}
                           message={message}
@@ -527,110 +342,91 @@ export default function MessagingDock() {
                           onJoinCall={handleJoinCall}
                           joiningCall={callLoading}
                           activeCallId={callSession?.callId ?? null}
+                          receipts={readReceipts}
                         />
-                      ))
-                    ) : (
-                      <p className="text-sm text-slate-500">
-                        {canUseMessaging
-                          ? t(
-                              'assistants.messaging.emptyMessages',
-                              'Introduce the team, share files, and schedule calls – messages appear here in real time.',
-                            )
-                          : t('assistants.messaging.signInToRead', 'Sign in to read and send messages.')}
-                      </p>
+                      </div>
                     )}
-                  </div>
-                  {callSession ? <AgoraCallPanel session={callSession} onClose={closeCallPanel} /> : null}
-                  <form className="mt-2 space-y-2" onSubmit={handleSend}>
+                  />
+                  {typingParticipants.length ? (
+                    <TypingIndicator participants={typingParticipants} />
+                  ) : null}
+                  {callSession ? <AgoraCallPanel session={callSession} onClose={closeCall} /> : null}
+                  <form className="space-y-3" onSubmit={handleSend}>
                     <textarea
                       rows={3}
-                      value={composer}
-                      onChange={(event) => setComposer(event.target.value)}
-                      disabled={!canUseMessaging || !selectedThreadId || sending}
+                      value={composerDraft}
+                      onChange={(event) => setComposerDraft(selectedThreadId, event.target.value)}
+                      disabled={!selectedThreadId || sending}
                       className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:bg-slate-100"
-                      placeholder={
-                        canUseMessaging
-                          ? t('assistants.messaging.composePlaceholder', 'Write your reply…')
-                          : t('assistants.messaging.composeDisabled', 'Sign in to send messages')
-                      }
+                      placeholder={selectedThreadId ? t('assistants.messaging.replyPlaceholder', 'Write your reply…') : t('assistants.messaging.selectThread', 'Select a conversation to reply.')}
                     />
-                    <div className="flex items-center justify-between">
-                      {messagesError ? (
-                        <span className="text-xs text-rose-500">{messagesError}</span>
-                      ) : (
-                        <span className="text-xs text-slate-400">
-                          {selectedThread
-                            ? t(
-                                'assistants.messaging.composeHintActive',
-                                'Files, reactions, and approvals sync across dashboards.',
-                              )
-                            : t(
-                                'assistants.messaging.composeHintEmpty',
-                                'Select a conversation to reply.',
-                              )}
-                        </span>
-                      )}
+                    {sendError ? (
+                      <p className="rounded-2xl bg-rose-50 px-4 py-2 text-xs text-rose-600" role="alert">
+                        {sendError}
+                      </p>
+                    ) : null}
+                    <div className="flex items-center justify-between gap-3">
                       <button
                         type="submit"
-                        disabled={!canUseMessaging || !selectedThreadId || !composer.trim() || sending}
+                        disabled={!selectedThreadId || !composerDraft.trim() || sending}
                         className={classNames(
-                          'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-soft transition',
-                          !canUseMessaging || !selectedThreadId || !composer.trim() || sending
-                            ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
-                            : 'bg-accent text-white hover:bg-accentDark',
+                          'inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-xs font-semibold text-white shadow-soft transition',
+                          !selectedThreadId || !composerDraft.trim() || sending
+                            ? 'cursor-not-allowed opacity-60'
+                            : 'hover:bg-accentDark',
                         )}
                       >
-                        <PaperAirplaneIcon className={classNames('h-4 w-4', sending ? 'animate-spin' : '')} />
+                        <PaperAirplaneIcon className="h-4 w-4" />
                         {t('assistants.messaging.send', 'Send')}
                       </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleStartCall('video')}
+                          className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-accent/60 hover:text-accent"
+                          disabled={!selectedThreadId || callLoading || Boolean(callSession)}
+                          aria-label={t('assistants.messaging.videoCall', 'Start video call')}
+                        >
+                          <VideoCameraIcon className={classNames('h-4 w-4', callLoading ? 'animate-spin' : '')} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleStartCall('voice')}
+                          className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-accent/60 hover:text-accent"
+                          disabled={!selectedThreadId || callLoading || Boolean(callSession)}
+                          aria-label={t('assistants.messaging.voiceCall', 'Start voice call')}
+                        >
+                          <PhoneIcon className={classNames('h-4 w-4', callLoading ? 'animate-spin' : '')} />
+                        </button>
+                      </div>
                     </div>
                   </form>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="space-y-4 px-4 pb-5 text-sm text-slate-600">
-              <p>
+            <div className="px-4 pb-4">
+              <p className="text-xs text-slate-500">
                 {t(
-                  'assistants.messaging.supportBody',
-                  'Our support specialists respond within minutes during UK and EU hours. Start a thread here or launch the full trust centre.',
+                  'assistants.messaging.supportPlaceholder',
+                  'Open the trust centre dashboard to view ticket analytics, automations, and SLA tracking.',
                 )}
               </p>
-              <button
-                type="button"
-                onClick={() => window.open('https://support.gigvora.com', '_blank', 'noreferrer')}
-                className="flex w-full items-center justify-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
-              >
-                {t('assistants.messaging.visitSupport', 'Visit support centre')}
-              </button>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  {t('assistants.messaging.tipTitle', 'Latest tip')}
-                </p>
-                <p className="mt-2 text-sm text-slate-600">
-                  {t(
-                    'assistants.messaging.tipBody',
-                    'Launch a video or voice call directly from any project thread – the audit log and recordings stay in sync.',
-                  )}
-                </p>
-              </div>
             </div>
           )}
         </div>
       ) : null}
       <button
         type="button"
-        onClick={() => setOpen((previous) => !previous)}
-        className="relative flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-soft transition hover:bg-accentDark"
-        aria-label={open ? 'Hide messages' : 'Show messages'}
-        title={open ? 'Hide messages' : 'Show messages'}
+        onClick={handleToggle}
+        className={classNames(
+          'flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-slate-400/30 transition',
+          open ? 'opacity-90 hover:opacity-100' : 'hover:bg-accentDark',
+        )}
+        aria-expanded={open}
       >
-        <ChatBubbleLeftRightIcon className="h-6 w-6" />
-        {!open && unreadCount > 0 ? (
-          <span className="absolute -right-1 -top-1 inline-flex min-h-[1.5rem] min-w-[1.5rem] items-center justify-center rounded-full bg-rose-500 px-1 text-[0.7rem] font-semibold text-white shadow-md">
-            {Math.min(unreadCount, 99)}
-          </span>
-        ) : null}
+        <ChatBubbleLeftRightIcon className="h-4 w-4" />
+        {open ? t('assistants.messaging.hide', 'Hide messages') : t('assistants.messaging.show', 'Show messages')}
       </button>
     </div>
   );

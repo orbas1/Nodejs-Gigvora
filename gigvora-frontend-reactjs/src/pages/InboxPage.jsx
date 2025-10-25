@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowPathIcon,
@@ -9,34 +9,25 @@ import {
 import PageHeader from '../components/PageHeader.jsx';
 import useSession from '../hooks/useSession.js';
 import {
-  fetchInbox,
-  fetchThreadMessages,
-  sendMessage,
-  createCallSession,
-  markThreadRead,
-} from '../services/messaging.js';
-import { resolveActorId } from '../utils/session.js';
-import {
   buildThreadTitle,
   formatThreadParticipants,
   isThreadUnread,
   describeLastActivity,
-  sortMessages,
+  sortThreadsByActivity,
 } from '../utils/messaging.js';
 import ConversationMessage from '../components/messaging/ConversationMessage.jsx';
 import AgoraCallPanel from '../components/messaging/AgoraCallPanel.jsx';
 import { classNames } from '../utils/classNames.js';
 import { canAccessMessaging, getMessagingMemberships, MESSAGING_ALLOWED_MEMBERSHIPS } from '../constants/access.js';
 import { DASHBOARD_LINKS } from '../constants/dashboardLinks.js';
+import { useMessagingStore } from '../context/MessagingContext.jsx';
+import VirtualizedMessageList from '../components/messaging/VirtualizedMessageList.jsx';
+import TypingIndicator from '../components/messaging/TypingIndicator.jsx';
 
 export const INBOX_REFRESH_INTERVAL = 60_000;
 
 export function sortThreads(threads = []) {
-  return [...threads].sort((a, b) => {
-    const aTime = a?.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
-    const bTime = b?.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
-    return bTime - aTime;
-  });
+  return sortThreadsByActivity(threads);
 }
 
 export function formatMembershipLabel(key) {
@@ -86,10 +77,6 @@ export function ThreadCard({ thread, actorId, onSelect, selected }) {
 export default function InboxPage() {
   const { session, isAuthenticated } = useSession();
   const navigate = useNavigate();
-  const actorId = resolveActorId(session);
-  const inboxRequestRef = useRef(0);
-  const messageRequestRef = useRef(0);
-
   const messagingMemberships = useMemo(() => getMessagingMemberships(session), [session]);
   const allowedMembershipLabels = useMemo(
     () => messagingMemberships.map((membership) => formatMembershipLabel(membership)),
@@ -101,18 +88,33 @@ export default function InboxPage() {
   );
   const hasMessagingAccess = useMemo(() => canAccessMessaging(session), [session]);
 
-  const [threads, setThreads] = useState([]);
-  const [inboxLoading, setInboxLoading] = useState(false);
-  const [inboxError, setInboxError] = useState(null);
-  const [selectedThreadId, setSelectedThreadId] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [messagesLoading, setMessagesLoading] = useState(false);
-  const [messagesError, setMessagesError] = useState(null);
-  const [composer, setComposer] = useState('');
+  const {
+    threads,
+    threadsLoading,
+    threadsError,
+    hasMoreThreads,
+    selectedThreadId,
+    selectThread,
+    loadThreads,
+    messages,
+    messagesLoading,
+    messagesError,
+    callState,
+    sendMessage,
+    startCall,
+    closeCall,
+    composerDraft,
+    setComposerDraft,
+    typingParticipants,
+    notifyTyping,
+    readReceipts,
+    actorId,
+    canUseMessaging,
+    refreshPresence,
+  } = useMessagingStore();
+
   const [sending, setSending] = useState(false);
-  const [callSession, setCallSession] = useState(null);
-  const [callLoading, setCallLoading] = useState(false);
-  const [callError, setCallError] = useState(null);
+  const [sendError, setSendError] = useState(null);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -120,107 +122,64 @@ export default function InboxPage() {
     }
   }, [isAuthenticated, navigate]);
 
-  const loadInbox = useCallback(async () => {
-    if (!isAuthenticated || !actorId || !hasMessagingAccess) {
-      return;
-    }
-    const requestId = inboxRequestRef.current + 1;
-    inboxRequestRef.current = requestId;
-    setInboxLoading(true);
-    setInboxError(null);
-    try {
-      const response = await fetchInbox({ userId: actorId, includeParticipants: true, pageSize: 30 });
-      const data = Array.isArray(response?.data) ? response.data : [];
-      if (inboxRequestRef.current !== requestId) {
+  const selectedThread = useMemo(
+    () => threads.find((thread) => thread.id === selectedThreadId) ?? null,
+    [threads, selectedThreadId],
+  );
+
+  const handleRefreshThreads = useCallback(() => {
+    void loadThreads({ append: false, preserveSelection: true, silent: false });
+  }, [loadThreads]);
+
+  const handleSend = useCallback(
+    async (event) => {
+      event.preventDefault();
+      if (!composerDraft.trim() || !selectedThreadId || !canUseMessaging) {
         return;
       }
-      setThreads(sortThreads(data));
-      if (!selectedThreadId && data.length) {
-        setSelectedThreadId(data[0].id);
-      } else if (selectedThreadId) {
-        const exists = data.some((thread) => thread.id === selectedThreadId);
-        if (!exists && data.length) {
-          setSelectedThreadId(data[0].id);
-        }
-      }
-    } catch (err) {
-      setInboxError(err?.body?.message ?? err?.message ?? 'Unable to load inbox threads.');
-    } finally {
-      setInboxLoading(false);
-    }
-  }, [actorId, hasMessagingAccess, inboxRequestRef, isAuthenticated, selectedThreadId]);
-
-  const updateThreadViewerState = useCallback((threadId) => {
-    const now = new Date().toISOString();
-    setThreads((previous) =>
-      previous.map((thread) =>
-        thread.id === threadId
-          ? {
-              ...thread,
-              unreadCount: 0,
-              viewerState: { ...(thread.viewerState ?? {}), lastReadAt: now },
-            }
-          : thread,
-      ),
-    );
-  }, []);
-
-  const loadMessages = useCallback(
-    async (threadId) => {
-      if (!isAuthenticated || !actorId || !threadId || !hasMessagingAccess) {
-        setMessages([]);
-        return;
-      }
-      const requestId = messageRequestRef.current + 1;
-      messageRequestRef.current = requestId;
-      setMessagesLoading(true);
-      setMessagesError(null);
+      setSending(true);
+      setSendError(null);
       try {
-        const response = await fetchThreadMessages(threadId, { pageSize: 100 });
-        const data = Array.isArray(response?.data) ? sortMessages(response.data) : [];
-        if (messageRequestRef.current !== requestId) {
-          return;
-        }
-        setMessages(data);
-        updateThreadViewerState(threadId);
-        await markThreadRead(threadId, { userId: actorId });
-      } catch (err) {
-        setMessages([]);
-        setMessagesError(err?.body?.message ?? err?.message ?? 'Unable to load conversation.');
+        await sendMessage(selectedThreadId, { body: composerDraft });
+      } catch (error) {
+        setSendError(error?.body?.message ?? error?.message ?? 'Unable to send message.');
       } finally {
-        setMessagesLoading(false);
+        setSending(false);
       }
     },
-    [actorId, hasMessagingAccess, isAuthenticated, messageRequestRef, updateThreadViewerState],
+    [composerDraft, selectedThreadId, canUseMessaging, sendMessage],
+  );
+
+  const handleStartCall = useCallback(
+    async (type, callId) => {
+      if (!selectedThreadId) {
+        return;
+      }
+      await startCall(selectedThreadId, { callType: type, callId });
+    },
+    [selectedThreadId, startCall],
+  );
+
+  const handleJoinCall = useCallback(
+    (callMetadata) => {
+      if (!callMetadata?.id) {
+        return;
+      }
+      void handleStartCall(callMetadata?.type ?? 'video', callMetadata.id);
+    },
+    [handleStartCall],
   );
 
   useEffect(() => {
-    if (!isAuthenticated || !actorId || !hasMessagingAccess) {
+    if (!selectedThreadId || !composerDraft.trim()) {
       return;
     }
-    loadInbox();
-  }, [isAuthenticated, actorId, hasMessagingAccess, loadInbox]);
+    notifyTyping(selectedThreadId);
+  }, [selectedThreadId, composerDraft, notifyTyping]);
 
-  useEffect(() => {
-    if (!selectedThreadId) {
-      setMessages([]);
-      return;
-    }
-    loadMessages(selectedThreadId);
-  }, [selectedThreadId, loadMessages]);
-
-  useEffect(() => {
-    if (!isAuthenticated || !actorId || !hasMessagingAccess) {
-      return undefined;
-    }
-    const interval = window.setInterval(() => {
-      loadInbox();
-      if (selectedThreadId) {
-        loadMessages(selectedThreadId);
-      }
-    }, INBOX_REFRESH_INTERVAL);
-    return () => window.clearInterval(interval);
-  }, [actorId, hasMessagingAccess, isAuthenticated, loadInbox, loadMessages, selectedThreadId]);
+  const callSession = callState.session;
+  const callLoading = callState.loading;
+  const callError = callState.error;
 
   if (isAuthenticated && !hasMessagingAccess) {
     return (
@@ -285,100 +244,6 @@ export default function InboxPage() {
     );
   }
 
-  const selectedThread = useMemo(
-    () => threads.find((thread) => thread.id === selectedThreadId) ?? null,
-    [threads, selectedThreadId],
-  );
-
-  const handleSend = useCallback(
-    async (event) => {
-      event.preventDefault();
-      if (!composer.trim() || !selectedThreadId || !actorId || !hasMessagingAccess) {
-        return;
-      }
-      setSending(true);
-      setMessagesError(null);
-      try {
-        const message = await sendMessage(selectedThreadId, {
-          userId: actorId,
-          messageType: 'text',
-          body: composer.trim(),
-        });
-        setComposer('');
-        setMessages((prev) => sortMessages([...prev, message]));
-        await loadInbox();
-      } catch (err) {
-        setMessagesError(err?.body?.message ?? err?.message ?? 'Unable to send message.');
-      } finally {
-        setSending(false);
-      }
-    },
-    [composer, selectedThreadId, actorId, hasMessagingAccess, loadInbox],
-  );
-
-  const startCall = useCallback(
-    async (callType, callId) => {
-      if (!selectedThreadId || !actorId || !hasMessagingAccess) {
-        return;
-      }
-      setCallLoading(true);
-      setCallError(null);
-      try {
-        const response = await createCallSession(selectedThreadId, {
-          userId: actorId,
-          callType,
-          callId,
-        });
-        setCallSession(response);
-        if (response?.message) {
-          setMessages((prev) => {
-            const exists = prev.some((message) => message.id === response.message.id);
-            if (exists) {
-              return prev.map((message) => (message.id === response.message.id ? response.message : message));
-            }
-            return sortMessages([...prev, response.message]);
-          });
-        }
-        await loadInbox();
-      } catch (err) {
-        setCallError(err?.body?.message ?? err?.message ?? 'Unable to start call.');
-      } finally {
-        setCallLoading(false);
-      }
-    },
-    [selectedThreadId, actorId, hasMessagingAccess, loadInbox],
-  );
-
-  const handleJoinCall = useCallback(
-    (callMetadata) => {
-      if (!callMetadata?.id || !hasMessagingAccess) {
-        return;
-      }
-      startCall(callMetadata?.type ?? 'video', callMetadata.id);
-    },
-    [hasMessagingAccess, startCall],
-  );
-
-  const closeCallPanel = useCallback(() => {
-    setCallSession(null);
-    if (selectedThreadId && hasMessagingAccess) {
-      loadMessages(selectedThreadId);
-    }
-  }, [hasMessagingAccess, selectedThreadId, loadMessages]);
-
-  useEffect(() => {
-    if (!isAuthenticated || !actorId || !hasMessagingAccess) {
-      return undefined;
-    }
-    const interval = window.setInterval(() => {
-      loadInbox();
-      if (selectedThreadId) {
-        loadMessages(selectedThreadId);
-      }
-    }, INBOX_REFRESH_INTERVAL);
-    return () => window.clearInterval(interval);
-  }, [actorId, hasMessagingAccess, isAuthenticated, loadInbox, loadMessages, selectedThreadId]);
-
   return (
     <section className="relative overflow-hidden py-20">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.35),_transparent_65%)]" aria-hidden="true" />
@@ -391,10 +256,11 @@ export default function InboxPage() {
           actions={
             <button
               type="button"
-              onClick={loadInbox}
+              onClick={handleRefreshThreads}
               className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
+              disabled={threadsLoading}
             >
-              <ChatBubbleLeftRightIcon className="h-4 w-4" /> Refresh inbox
+              <ChatBubbleLeftRightIcon className={classNames('h-4 w-4', threadsLoading ? 'animate-spin' : '')} /> Refresh inbox
             </button>
           }
         />
@@ -421,20 +287,20 @@ export default function InboxPage() {
                 <p className="text-xs text-slate-500">Threads</p>
                 <button
                   type="button"
-                  onClick={loadInbox}
+                  onClick={handleRefreshThreads}
                   className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-accent/60 hover:text-accent"
-                  disabled={inboxLoading}
+                  disabled={threadsLoading}
                 >
-                  <ArrowPathIcon className={classNames('h-4 w-4', inboxLoading ? 'animate-spin' : '')} /> Sync
+                  <ArrowPathIcon className={classNames('h-4 w-4', threadsLoading ? 'animate-spin' : '')} /> Sync
                 </button>
               </div>
               <div className="mt-3 space-y-3">
-                {inboxError ? (
+                {threadsError ? (
                   <p className="rounded-3xl bg-rose-50 px-4 py-3 text-xs text-rose-600" role="alert">
-                    {inboxError}
+                    {threadsError}
                   </p>
                 ) : null}
-                {inboxLoading ? (
+                {threadsLoading && !threads.length ? (
                   <div className="space-y-2">
                     {Array.from({ length: 4 }).map((_, index) => (
                       <div key={index} className="h-20 rounded-3xl bg-slate-100" />
@@ -447,7 +313,7 @@ export default function InboxPage() {
                       thread={thread}
                       actorId={actorId}
                       selected={selectedThreadId === thread.id}
-                      onSelect={setSelectedThreadId}
+                      onSelect={selectThread}
                     />
                   ))
                 ) : (
@@ -455,10 +321,23 @@ export default function InboxPage() {
                     No conversations yet. Start a thread from any project or invite collaborators to connect.
                   </div>
                 )}
+                {threads.length > 0 && hasMoreThreads ? (
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => loadThreads({ append: true, preserveSelection: true, silent: false })}
+                      className="w-full rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent/60 hover:text-accent"
+                      disabled={threadsLoading}
+                    >
+                      <ArrowPathIcon className={classNames('mr-1 inline h-3.5 w-3.5 align-middle', threadsLoading ? 'animate-spin' : '')} />
+                      Load older conversations
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </div>
           </aside>
-          <div className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
+          <div className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
             {selectedThread ? (
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -468,11 +347,11 @@ export default function InboxPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => startCall('video')}
-                    disabled={!actorId || callLoading || Boolean(callSession)}
+                    onClick={() => handleStartCall('video')}
+                    disabled={!selectedThreadId || callLoading || Boolean(callSession)}
                     className={classNames(
                       'inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition',
-                      !actorId || callLoading || Boolean(callSession)
+                      !selectedThreadId || callLoading || Boolean(callSession)
                         ? 'border border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed'
                         : 'border border-accent bg-accent text-white hover:border-accentDark hover:bg-accentDark',
                     )}
@@ -481,11 +360,11 @@ export default function InboxPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => startCall('voice')}
-                    disabled={!actorId || callLoading || Boolean(callSession)}
+                    onClick={() => handleStartCall('voice')}
+                    disabled={!selectedThreadId || callLoading || Boolean(callSession)}
                     className={classNames(
                       'inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition',
-                      !actorId || callLoading || Boolean(callSession)
+                      !selectedThreadId || callLoading || Boolean(callSession)
                         ? 'border border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed'
                         : 'border border-slate-200 bg-white text-slate-700 hover:border-accent/60 hover:text-accent',
                     )}
@@ -502,50 +381,65 @@ export default function InboxPage() {
                 {callError}
               </p>
             ) : null}
-            <div className="max-h-[32rem] space-y-4 overflow-y-auto pr-2">
+            <div className="flex min-h-[20rem] flex-col gap-4">
               {messagesError ? (
                 <p className="rounded-2xl bg-rose-50 px-4 py-2 text-xs text-rose-600" role="alert">
                   {messagesError}
                 </p>
               ) : null}
-              {messagesLoading ? (
+              {messagesLoading && !messages.length ? (
                 <div className="space-y-3">
                   {Array.from({ length: 4 }).map((_, index) => (
                     <div key={index} className="h-16 rounded-2xl bg-slate-100" />
                   ))}
                 </div>
-              ) : messages.length ? (
-                messages.map((message) => (
-                  <ConversationMessage
-                    key={message.id}
-                    message={message}
-                    actorId={actorId}
-                    onJoinCall={handleJoinCall}
-                    joiningCall={callLoading}
-                    activeCallId={callSession?.callId ?? null}
-                  />
-                ))
-              ) : (
+              ) : null}
+              {!messagesLoading && !messagesError && !messages.length ? (
                 <p className="text-sm text-slate-500">No messages yet. Share agendas, approvals, and updates to kick things off.</p>
-              )}
+              ) : null}
+              <VirtualizedMessageList
+                items={messages}
+                className="max-h-[32rem] pr-2"
+                renderRow={(message) => (
+                  <div className="pb-3">
+                    <ConversationMessage
+                      key={message.id}
+                      message={message}
+                      actorId={actorId}
+                      onJoinCall={handleJoinCall}
+                      joiningCall={callLoading}
+                      activeCallId={callSession?.callId ?? null}
+                      receipts={readReceipts}
+                    />
+                  </div>
+                )}
+              />
             </div>
-            {callSession ? <AgoraCallPanel session={callSession} onClose={closeCallPanel} /> : null}
+            {typingParticipants.length ? (
+              <TypingIndicator participants={typingParticipants} />
+            ) : null}
+            {callSession ? <AgoraCallPanel session={callSession} onClose={closeCall} /> : null}
             <form className="space-y-3" onSubmit={handleSend}>
               <textarea
                 rows={4}
-                value={composer}
-                onChange={(event) => setComposer(event.target.value)}
+                value={composerDraft}
+                onChange={(event) => setComposerDraft(selectedThreadId, event.target.value)}
                 disabled={!selectedThreadId || sending}
                 className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:bg-slate-100"
                 placeholder={selectedThreadId ? 'Write your reply…' : 'Select a conversation to reply.'}
               />
+              {sendError ? (
+                <p className="rounded-2xl bg-rose-50 px-4 py-2 text-xs text-rose-600" role="alert">
+                  {sendError}
+                </p>
+              ) : null}
               <div className="flex items-center gap-3">
                 <button
                   type="submit"
-                  disabled={!selectedThreadId || !composer.trim() || sending}
+                  disabled={!selectedThreadId || !composerDraft.trim() || sending}
                   className={classNames(
                     'inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-soft transition',
-                    !selectedThreadId || !composer.trim() || sending ? 'cursor-not-allowed opacity-60' : 'hover:bg-accentDark',
+                    !selectedThreadId || !composerDraft.trim() || sending ? 'cursor-not-allowed opacity-60' : 'hover:bg-accentDark',
                   )}
                 >
                   Send message
@@ -553,9 +447,14 @@ export default function InboxPage() {
                 <button
                   type="button"
                   className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent/60 hover:text-accent"
-                  onClick={() => loadInbox()}
+                  onClick={() => {
+                    if (selectedThreadId) {
+                      refreshPresence(selectedThreadId, { force: true });
+                    }
+                  }}
+                  disabled={!selectedThreadId}
                 >
-                  Share to team
+                  Update presence
                 </button>
               </div>
             </form>

@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { classNames } from '../../utils/classNames.js';
 import {
   formatMessageSender,
@@ -6,11 +7,21 @@ import {
   isCallActive,
   isCallEvent,
   messageBelongsToUser,
+  deriveReadReceipts,
 } from '../../utils/messaging.js';
 
-export default function ConversationMessage({ message, actorId, onJoinCall, joiningCall, activeCallId }) {
+export default function ConversationMessage({
+  message,
+  actorId,
+  onJoinCall,
+  joiningCall,
+  activeCallId,
+  receipts,
+  showReceipts,
+}) {
   const own = messageBelongsToUser(message, actorId);
   const timestamp = formatMessageTimestamp(message);
+  const readReceipts = own && showReceipts !== false ? deriveReadReceipts(message, receipts, { actorId }) : [];
 
   if (isCallEvent(message)) {
     const callMetadata = getCallMetadata(message);
@@ -81,6 +92,49 @@ export default function ConversationMessage({ message, actorId, onJoinCall, join
       >
         {message.body ? message.body : <span className="italic text-slate-500">No message body</span>}
       </div>
+      {readReceipts.length ? (
+        <p className="text-[11px] text-slate-400">
+          Seen by {readReceipts.map((receipt) => receipt.name).join(', ')}
+        </p>
+      ) : null}
     </div>
   );
 }
+
+ConversationMessage.propTypes = {
+  message: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    createdAt: PropTypes.string,
+    senderId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    sender: PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      firstName: PropTypes.string,
+      lastName: PropTypes.string,
+    }),
+    body: PropTypes.string,
+    messageType: PropTypes.string,
+    metadata: PropTypes.object,
+  }).isRequired,
+  actorId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  onJoinCall: PropTypes.func,
+  joiningCall: PropTypes.bool,
+  activeCallId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  receipts: PropTypes.arrayOf(
+    PropTypes.shape({
+      userId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      name: PropTypes.string,
+      lastReadAt: PropTypes.string,
+      lastReadMessageId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    }),
+  ),
+  showReceipts: PropTypes.bool,
+};
+
+ConversationMessage.defaultProps = {
+  actorId: null,
+  onJoinCall: undefined,
+  joiningCall: false,
+  activeCallId: null,
+  receipts: [],
+  showReceipts: true,
+};

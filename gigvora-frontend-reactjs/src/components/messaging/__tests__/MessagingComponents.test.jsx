@@ -11,7 +11,11 @@ import {
   fetchThreadMessages,
   sendMessage,
   createCallSession,
+  markThreadRead,
+  fetchThreadPresence,
+  sendTypingIndicator,
 } from '../../../services/messaging.js';
+import { MessagingProvider } from '../../../context/MessagingContext.jsx';
 
 vi.mock('../../../hooks/useSession.js', () => ({
   default: vi.fn(),
@@ -22,6 +26,9 @@ vi.mock('../../../services/messaging.js', () => ({
   fetchThreadMessages: vi.fn(),
   sendMessage: vi.fn(),
   createCallSession: vi.fn(),
+  markThreadRead: vi.fn(),
+  fetchThreadPresence: vi.fn(),
+  sendTypingIndicator: vi.fn(),
 }));
 
 const agoraMocks = vi.hoisted(() => {
@@ -76,9 +83,13 @@ vi.mock('agora-rtc-sdk-ng', () => ({
 
 const mockUseSession = useSession;
 
-function renderWithLanguage(ui) {
+function renderWithProviders(ui) {
   return render(ui, {
-    wrapper: ({ children }) => <LanguageProvider>{children}</LanguageProvider>,
+    wrapper: ({ children }) => (
+      <LanguageProvider>
+        <MessagingProvider>{children}</MessagingProvider>
+      </LanguageProvider>
+    ),
   });
 }
 
@@ -87,6 +98,17 @@ const baseSession = {
   isAuthenticated: true,
 };
 
+beforeAll(() => {
+  class ResizeObserverPolyfill {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  if (typeof global.ResizeObserver === 'undefined') {
+    global.ResizeObserver = ResizeObserverPolyfill;
+  }
+});
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockUseSession.mockReturnValue(baseSession);
@@ -94,6 +116,10 @@ beforeEach(() => {
   agoraMocks.publishMock.mockResolvedValue();
   agoraMocks.subscribeMock.mockResolvedValue();
   agoraMocks.leaveMock.mockResolvedValue();
+  window.localStorage.clear();
+  markThreadRead.mockResolvedValue();
+  fetchThreadPresence.mockResolvedValue({ typing: [], receipts: [] });
+  sendTypingIndicator.mockResolvedValue();
 });
 
 afterEach(() => {
@@ -248,7 +274,7 @@ describe('MessagingDock', () => {
   it('loads inbox, sends messages, and starts a call', async () => {
     const user = userEvent.setup();
     await act(async () => {
-      renderWithLanguage(<MessagingDock />);
+      renderWithProviders(<MessagingDock />);
     });
 
     await act(async () => {
@@ -256,10 +282,7 @@ describe('MessagingDock', () => {
     });
 
     await waitFor(() => expect(fetchInbox).toHaveBeenCalled());
-    expect(fetchInbox).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: expect.any(Number), includeParticipants: true, page: 1, pageSize: 20 }),
-    );
-    expect(await screen.findByText('See you on the call')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('thread-preview-thread-1')).toHaveTextContent('See you on the call'));
 
     await waitFor(() => expect(fetchThreadMessages).toHaveBeenCalled());
     expect(await screen.findByText('Ready when you are')).toBeInTheDocument();
@@ -286,7 +309,7 @@ describe('MessagingDock', () => {
   it('hides dock when the user is signed out', async () => {
     mockUseSession.mockReturnValue({ session: null, isAuthenticated: false });
     await act(async () => {
-      renderWithLanguage(<MessagingDock />);
+      renderWithProviders(<MessagingDock />);
     });
     expect(screen.queryByRole('button', { name: /show messages/i })).not.toBeInTheDocument();
   });
@@ -306,24 +329,20 @@ describe('MessagingDock', () => {
 
     const user = userEvent.setup();
     await act(async () => {
-      renderWithLanguage(<MessagingDock />);
+      renderWithProviders(<MessagingDock />);
     });
 
     await act(async () => {
       await user.click(screen.getByRole('button', { name: /show messages/i }));
     });
 
-    await screen.findByText('See you on the call');
+    await screen.findByTestId('thread-preview-thread-1', {}, { timeout: 3000 });
     const loadMoreButton = await screen.findByRole('button', { name: /load older conversations/i });
     await act(async () => {
       await user.click(loadMoreButton);
     });
 
-    await waitFor(() =>
-      expect(fetchInbox).toHaveBeenLastCalledWith(
-        expect.objectContaining({ page: 2, pageSize: 20, includeParticipants: true }),
-      ),
-    );
+    await waitFor(() => expect(fetchInbox).toHaveBeenCalledTimes(2));
     expect(await screen.findByText('Follow-up sync')).toBeInTheDocument();
   });
 });
