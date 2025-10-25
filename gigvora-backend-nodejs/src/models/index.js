@@ -13524,6 +13524,10 @@ export const CandidateCalendarEvent = sequelize.define(
     isFocusBlock: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     focusMode: { type: DataTypes.STRING(120), allowNull: true },
     metadata: { type: jsonType, allowNull: true },
+    recurrenceRule: { type: DataTypes.STRING(255), allowNull: true },
+    recurrenceUntil: { type: DataTypes.DATE, allowNull: true },
+    recurrenceCount: { type: DataTypes.INTEGER, allowNull: true },
+    parentEventId: { type: DataTypes.INTEGER, allowNull: true },
   },
   {
     tableName: 'candidate_calendar_events',
@@ -13531,6 +13535,8 @@ export const CandidateCalendarEvent = sequelize.define(
       { fields: ['userId'] },
       { fields: ['startsAt'] },
       { fields: ['eventType'] },
+      { fields: ['recurrenceRule'] },
+      { fields: ['parentEventId'] },
     ],
   },
 );
@@ -13546,6 +13552,13 @@ CandidateCalendarEvent.prototype.toPublicObject = function toPublicObject() {
         ? null
         : Number(plain.relatedEntityId),
     metadata: plain.metadata ?? null,
+    recurrenceRule: plain.recurrenceRule ?? null,
+    recurrenceUntil: plain.recurrenceUntil ?? null,
+    recurrenceCount: plain.recurrenceCount == null ? null : Number(plain.recurrenceCount),
+    parentEventId:
+      plain.parentEventId == null || Number.isNaN(Number(plain.parentEventId))
+        ? null
+        : Number(plain.parentEventId),
   };
 };
 

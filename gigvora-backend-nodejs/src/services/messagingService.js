@@ -19,6 +19,7 @@ import {
 } from '../models/messagingModels.js';
 import { ApplicationError, ValidationError, NotFoundError, AuthorizationError } from '../utils/errors.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
+import messagingEvents, { MESSAGING_EVENTS } from '../events/messagingEvents.js';
 let notificationServicePromise = null;
 let userRoleModelPromise = null;
 
@@ -84,6 +85,27 @@ const SUPPORT_AGENT_USER_TYPES = new Set(
   toNormalizedList(process.env.SUPPORT_AGENT_USER_TYPES, ['admin']),
 );
 
+export const THREAD_RETENTION_DEFAULTS = Object.freeze({
+  direct: { policy: 'standard_18_month', days: 548 },
+  group: { policy: 'standard_18_month', days: 548 },
+  support: { policy: 'support_3_year', days: 1_095 },
+  project: { policy: 'project_2_year', days: 730 },
+  contract: { policy: 'contract_7_year', days: 2_555 },
+});
+
+const MIN_RETENTION_DAYS = 30;
+const MAX_RETENTION_DAYS = 3_650;
+
+const ALLOWED_ATTACHMENT_MIME_PATTERNS = Object.freeze([
+  /^image\//i,
+  /^video\/(mp4|quicktime)$/i,
+  /^audio\/(mpeg|aac|wav)$/i,
+  /^application\/(pdf|msword|vnd\.openxmlformats-officedocument\.[a-z.]+)$/i,
+  /^text\/(plain|markdown)$/i,
+]);
+
+const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
+
 async function ensureSupportAgentPermissions(agent, transaction) {
   if (!agent?.id) {
     throw new ValidationError('Assigned agent does not exist.');
@@ -111,6 +133,63 @@ async function ensureSupportAgentPermissions(agent, transaction) {
   }
 
   return true;
+}
+
+function resolveRetentionDefaults(channelType) {
+  const normalized = typeof channelType === 'string' ? channelType.trim().toLowerCase() : null;
+  return THREAD_RETENTION_DEFAULTS[normalized] ?? THREAD_RETENTION_DEFAULTS.direct;
+}
+
+function clampRetentionDays(value) {
+  if (value == null) {
+    return null;
+  }
+  const numeric = Number.parseInt(value, 10);
+  if (!Number.isFinite(numeric)) {
+    throw new ValidationError('Retention days must be a number.');
+  }
+  const clamped = Math.min(Math.max(numeric, MIN_RETENTION_DAYS), MAX_RETENTION_DAYS);
+  return clamped;
+}
+
+function normaliseRetentionInput({ channelType, retentionPolicy, retentionDays }) {
+  const defaults = resolveRetentionDefaults(channelType);
+  const normalizedPolicy = retentionPolicy
+    ? String(retentionPolicy).trim().slice(0, 60) || defaults.policy
+    : defaults.policy;
+  const normalizedDays = clampRetentionDays(retentionDays ?? defaults.days) ?? defaults.days;
+  return {
+    retentionPolicy: normalizedPolicy,
+    retentionDays: normalizedDays,
+  };
+}
+
+function validateAttachmentPayload(attachment, index) {
+  const { fileName, mimeType, storageKey, fileSize } = attachment;
+  if (!fileName || !storageKey) {
+    throw new ValidationError(`Attachment at index ${index} requires fileName and storageKey.`);
+  }
+  const trimmedMime = typeof mimeType === 'string' ? mimeType.trim() : 'application/octet-stream';
+  const isAllowedMime = ALLOWED_ATTACHMENT_MIME_PATTERNS.some((pattern) => pattern.test(trimmedMime));
+  if (!isAllowedMime) {
+    throw new ValidationError(`Attachment at index ${index} uses an unsupported mime type.`);
+  }
+  const numericSize = Number.parseInt(fileSize, 10);
+  if (!Number.isFinite(numericSize) || numericSize < 0) {
+    throw new ValidationError(`Attachment at index ${index} must provide a valid fileSize.`);
+  }
+  if (numericSize > MAX_ATTACHMENT_BYTES) {
+    throw new ValidationError(`Attachment at index ${index} exceeds the ${MAX_ATTACHMENT_BYTES} byte limit.`);
+  }
+
+  return {
+    fileName,
+    mimeType: trimmedMime,
+    storageKey,
+    fileSize: numericSize,
+    checksum: attachment.checksum ? String(attachment.checksum).slice(0, 128) : null,
+    metadata: attachment.metadata && typeof attachment.metadata === 'object' ? attachment.metadata : null,
+  };
 }
 
 function normalizeMetadata(metadata, context) {
@@ -616,12 +695,34 @@ async function getParticipantUserIds(threadId, trx) {
   return participants.map((participant) => participant.userId);
 }
 
-export async function createThread({ subject, channelType = 'direct', createdBy, participantIds = [], metadata = {} }) {
+export function invalidateThreadCaches(threadId, participantIds = []) {
+  flushThreadCache(threadId, participantIds);
+}
+
+export async function ensureThreadParticipant(threadId, userId, transaction) {
+  const participant = await ensureParticipant(threadId, userId, transaction);
+  return sanitizeParticipant(participant);
+}
+
+export async function listThreadParticipantUserIds(threadId, transaction) {
+  return getParticipantUserIds(threadId, transaction);
+}
+
+export async function createThread({
+  subject,
+  channelType = 'direct',
+  createdBy,
+  participantIds = [],
+  metadata = {},
+  retentionPolicy,
+  retentionDays,
+}) {
   if (!createdBy) {
     throw new ValidationError('createdBy is required to open a thread.');
   }
   assertChannelType(channelType);
   const normalizedMetadata = normalizeMetadata(metadata, 'Thread');
+  const retention = normaliseRetentionInput({ channelType, retentionPolicy, retentionDays });
 
   const uniqueParticipantIds = Array.from(new Set([createdBy, ...participantIds])).filter(Boolean);
   if (uniqueParticipantIds.length === 0) {
@@ -636,6 +737,8 @@ export async function createThread({ subject, channelType = 'direct', createdBy,
         state: 'active',
         createdBy,
         metadata: normalizedMetadata,
+        retentionPolicy: retention.retentionPolicy,
+        retentionDays: retention.retentionDays,
       },
       { transaction: trx },
     );
@@ -681,7 +784,7 @@ export async function appendMessage(threadId, senderId, { messageType = 'text', 
   assertMessageType(messageType);
   const normalizedMetadata = normalizeMetadata(metadata, 'Message');
 
-  const message = await sequelize.transaction(async (trx) => {
+  const { message, participantUserIds } = await sequelize.transaction(async (trx) => {
     const thread = await MessageThread.findByPk(threadId, { transaction: trx, lock: trx.LOCK.UPDATE });
     if (!thread) {
       throw new NotFoundError('Thread not found.');
@@ -705,28 +808,19 @@ export async function appendMessage(threadId, senderId, { messageType = 'text', 
     );
 
     if (Array.isArray(attachments) && attachments.length > 0) {
-      await Promise.all(
-        attachments.slice(0, 5).map((attachment, index) => {
-          if (!attachment || typeof attachment !== 'object') {
-            throw new ValidationError(`Attachment at index ${index} is invalid.`);
-          }
-          const { fileName, mimeType, storageKey, fileSize } = attachment;
-          if (!fileName || !storageKey) {
-            throw new ValidationError(`Attachment at index ${index} requires fileName and storageKey.`);
-          }
-          return MessageAttachment.create(
-            {
-              messageId: createdMessage.id,
-              fileName,
-              mimeType: mimeType ?? 'application/octet-stream',
-              storageKey,
-              fileSize: Number.isFinite(Number(fileSize)) ? Number(fileSize) : 0,
-              checksum: attachment.checksum ? String(attachment.checksum).slice(0, 128) : null,
-              metadata: attachment.metadata && typeof attachment.metadata === 'object' ? attachment.metadata : null,
-            },
-            { transaction: trx },
-          );
-        }),
+      const preparedAttachments = attachments.slice(0, 5).map((attachment, index) => {
+        if (!attachment || typeof attachment !== 'object') {
+          throw new ValidationError(`Attachment at index ${index} is invalid.`);
+        }
+        return validateAttachmentPayload(attachment, index);
+      });
+
+      await MessageAttachment.bulkCreate(
+        preparedAttachments.map((attachment) => ({
+          messageId: createdMessage.id,
+          ...attachment,
+        })),
+        { transaction: trx },
       );
     }
 
@@ -768,7 +862,7 @@ export async function appendMessage(threadId, senderId, { messageType = 'text', 
     thread.lastMessageAt = new Date();
     await thread.save({ transaction: trx });
 
-    return createdMessage;
+    return { message: createdMessage, participantUserIds: participants.map((participant) => participant.userId) };
   });
 
   const hydrated = await Message.findByPk(message.id, {
@@ -786,13 +880,13 @@ export async function appendMessage(threadId, senderId, { messageType = 'text', 
     ],
   });
 
-  const participants = await MessageParticipant.findAll({ where: { threadId }, attributes: ['userId'] });
-  flushThreadCache(
-    threadId,
-    participants.map((participant) => participant.userId),
-  );
-
+  flushThreadCache(threadId, participantUserIds);
   const sanitized = sanitizeMessage(hydrated ?? message);
+  messagingEvents.emit(MESSAGING_EVENTS.MESSAGE_APPENDED, {
+    threadId,
+    message: sanitized,
+    participantIds: participantUserIds,
+  });
   scheduleAutoReplies(threadId, sanitized, senderId);
   return sanitized;
 }
@@ -1263,7 +1357,11 @@ export async function muteThread(threadId, userId, until) {
   return { success: true };
 }
 
-export async function updateThreadSettings(threadId, actorId, { subject, channelType, metadataPatch } = {}) {
+export async function updateThreadSettings(
+  threadId,
+  actorId,
+  { subject, channelType, metadataPatch, retentionPolicy, retentionDays } = {},
+) {
   if (!threadId) {
     throw new ValidationError('threadId is required to update thread settings.');
   }
@@ -1298,6 +1396,16 @@ export async function updateThreadSettings(threadId, actorId, { subject, channel
       const existingMetadata =
         thread.metadata && typeof thread.metadata === 'object' ? { ...thread.metadata } : {};
       thread.metadata = { ...existingMetadata, ...sanitizedMetadata };
+    }
+
+    if (retentionPolicy !== undefined || retentionDays !== undefined) {
+      const retentionUpdate = normaliseRetentionInput({
+        channelType: channelType ?? thread.channelType,
+        retentionPolicy,
+        retentionDays,
+      });
+      thread.retentionPolicy = retentionUpdate.retentionPolicy;
+      thread.retentionDays = retentionUpdate.retentionDays;
     }
 
     await thread.save({ transaction: trx });
@@ -1942,4 +2050,8 @@ export default {
   updateWorkspaceLabel,
   deleteWorkspaceLabel,
   setThreadLabels,
+  ensureThreadParticipant,
+  listThreadParticipantUserIds,
+  invalidateThreadCaches,
+  THREAD_RETENTION_DEFAULTS,
 };

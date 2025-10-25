@@ -84,6 +84,8 @@ export const MessageThread = sequelize.define(
     metadata: { type: jsonType, allowNull: true },
     lastMessageAt: { type: DataTypes.DATE, allowNull: true },
     lastMessagePreview: { type: DataTypes.STRING(500), allowNull: true },
+    retentionPolicy: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'standard_18_month' },
+    retentionDays: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 548 },
   },
   {
     tableName: 'message_threads',
@@ -92,6 +94,8 @@ export const MessageThread = sequelize.define(
       { fields: ['state'] },
       { fields: ['createdBy'] },
       { fields: ['lastMessageAt'] },
+      { fields: ['retentionPolicy'] },
+      { fields: ['retentionDays'] },
     ],
   },
 );
@@ -107,6 +111,8 @@ MessageThread.prototype.toPublicObject = function toPublicObject() {
     metadata: plain.metadata,
     lastMessageAt: plain.lastMessageAt,
     lastMessagePreview: plain.lastMessagePreview,
+    retentionPolicy: plain.retentionPolicy,
+    retentionDays: plain.retentionDays,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };

@@ -15,6 +15,7 @@ import registerCommunityNamespace from './communityNamespace.js';
 import registerVoiceNamespace from './voiceNamespace.js';
 import registerEventsNamespace from './eventsNamespace.js';
 import registerModerationNamespace from './moderationNamespace.js';
+import registerMessagingNamespace from './messagingNamespace.js';
 import { AuthenticationError } from '../utils/errors.js';
 
 let ioInstance = null;
@@ -159,6 +160,7 @@ export async function attachSocketServer(httpServer, { logger = baseLogger } = {
   registerVoiceNamespace(io, { logger, runtimeConfig });
   registerEventsNamespace(io, { logger });
   registerModerationNamespace(io, { logger });
+  registerMessagingNamespace(io, { logger, runtimeConfig });
 
   ioInstance = io;
   logger.info('Realtime socket server attached.');

@@ -189,6 +189,13 @@ export const runtimeConfigSchema = z.object({
       enabled: z.boolean().default(true),
       intervalMs: z.number().int().positive().default(5 * 60_000),
     }),
+    messagingRetention: z
+      .object({
+        enabled: z.boolean().default(true),
+        intervalMs: z.number().int().positive().default(6 * 60 * 60_000),
+        batchSize: z.number().int().positive().default(200),
+      })
+      .default({ enabled: true, intervalMs: 6 * 60 * 60_000, batchSize: 200 }),
   }),
   runtime: z.object({
     configFile: z.string().optional(),
@@ -235,12 +242,19 @@ export const runtimeConfigSchema = z.object({
             .default({ enabled: true, maxParticipants: 100, recordingRequired: false }),
           events: z.object({ enabled: z.boolean().default(true) }).default({ enabled: true }),
           moderation: z.object({ enabled: z.boolean().default(true) }).default({ enabled: true }),
+          messaging: z
+            .object({
+              enabled: z.boolean().default(true),
+              typingTimeoutMs: z.number().int().positive().default(5_000),
+            })
+            .default({ enabled: true, typingTimeoutMs: 5_000 }),
         })
         .default({
           community: { rateLimitPerMinute: 120, historyLimit: 50 },
           voice: { enabled: true, maxParticipants: 100, recordingRequired: false },
           events: { enabled: true },
           moderation: { enabled: true },
+          messaging: { enabled: true, typingTimeoutMs: 5_000 },
         }),
     })
     .default({
@@ -383,6 +397,11 @@ function buildRawConfig(env) {
   const voiceRecordingRequired = parseBoolean(env.REALTIME_VOICE_RECORDING_REQUIRED, false);
   const eventsEnabled = parseBoolean(env.REALTIME_EVENTS_ENABLED, true);
   const moderationEnabled = parseBoolean(env.REALTIME_MODERATION_ENABLED, true);
+  const messagingEnabled = parseBoolean(env.REALTIME_MESSAGING_ENABLED, true);
+  const messagingTypingTimeoutMs = parseNumber(env.REALTIME_MESSAGING_TYPING_TIMEOUT_MS, 5_000);
+  const messagingRetentionEnabled = parseBoolean(env.ENABLE_MESSAGING_RETENTION_WORKER, true);
+  const messagingRetentionIntervalMs = parseNumber(env.MESSAGING_RETENTION_WORKER_INTERVAL_MS, 6 * 60 * 60_000);
+  const messagingRetentionBatchSize = parseNumber(env.MESSAGING_RETENTION_WORKER_BATCH_SIZE, 200);
   const chatwootEnabled = parseBoolean(env.CHATWOOT_ENABLED ?? env.ENABLE_CHATWOOT, false);
   const chatwootBaseUrl = env.CHATWOOT_BASE_URL || env.CHATWOOT_URL || undefined;
   const chatwootWebsiteToken = env.CHATWOOT_WEBSITE_TOKEN || env.CHATWOOT_TOKEN || undefined;
@@ -458,6 +477,12 @@ function buildRawConfig(env) {
         enabled: parseBoolean(env.ENABLE_NEWS_AGGREGATION_WORKER, true),
         intervalMs: parseNumber(env.NEWS_AGGREGATION_INTERVAL_MS, 5 * 60_000),
       },
+      messagingRetention: {
+        enabled: messagingRetentionEnabled,
+        intervalMs:
+          messagingRetentionIntervalMs > 30_000 ? messagingRetentionIntervalMs : 6 * 60 * 60_000,
+        batchSize: messagingRetentionBatchSize > 0 ? messagingRetentionBatchSize : 200,
+      },
     },
     runtime: {
       configFile: env.RUNTIME_CONFIG_FILE || env.RUNTIME_ENV_FILE || undefined,
@@ -489,6 +514,10 @@ function buildRawConfig(env) {
         },
         events: { enabled: eventsEnabled },
         moderation: { enabled: moderationEnabled },
+        messaging: {
+          enabled: messagingEnabled,
+          typingTimeoutMs: messagingTypingTimeoutMs > 500 ? messagingTypingTimeoutMs : 5_000,
+        },
       },
     },
     support: {

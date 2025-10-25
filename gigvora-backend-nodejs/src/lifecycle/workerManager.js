@@ -12,6 +12,11 @@ import {
   getNewsAggregationStatus,
 } from '../services/newsAggregationService.js';
 import {
+  startMessagingRetentionWorker,
+  stopMessagingRetentionWorker,
+  getMessagingRetentionStatus,
+} from '../services/messagingRetentionService.js';
+import {
   markDependencyHealthy,
   markDependencyDisabled,
   markDependencyUnavailable,
@@ -144,6 +149,39 @@ async function startNewsAggregation(logger) {
   }
 }
 
+async function startMessagingRetention(logger) {
+  if (
+    runtimeConfig?.workers?.autoStart === false ||
+    runtimeConfig?.workers?.messagingRetention?.enabled === false
+  ) {
+    markWorkerStopped('messagingRetention', { disabled: true });
+    registerWorkerTelemetry('messagingRetention', { sampler: null });
+    workerStops.delete('messagingRetention');
+    return { started: false, reason: 'disabled' };
+  }
+
+  try {
+    const { intervalMs, batchSize } = runtimeConfig?.workers?.messagingRetention ?? {};
+    await startMessagingRetentionWorker({ logger, intervalMs, batchSize });
+    registerWorkerStop('messagingRetention', async () => {
+      await stopMessagingRetentionWorker();
+      markWorkerStopped('messagingRetention');
+    });
+    registerWorkerTelemetry('messagingRetention', {
+      sampler: () => getMessagingRetentionStatus(),
+      ttlMs: 60_000,
+      metadata: { intervalMs, batchSize },
+    });
+    markWorkerHealthy('messagingRetention', { intervalMs, batchSize });
+    return { started: true };
+  } catch (error) {
+    toLogger(logger).error?.({ err: error }, 'Failed to start messaging retention worker');
+    markWorkerFailed('messagingRetention', error);
+    registerWorkerTelemetry('messagingRetention', { sampler: null });
+    throw error;
+  }
+}
+
 export async function startBackgroundWorkers({ logger } = {}) {
   const log = toLogger(logger);
   const results = [];
@@ -154,6 +192,8 @@ export async function startBackgroundWorkers({ logger } = {}) {
     results.push({ name: 'profileEngagement', ...profileResult });
     const newsResult = await startNewsAggregation(log);
     results.push({ name: 'newsAggregation', ...newsResult });
+    const messagingResult = await startMessagingRetention(log);
+    results.push({ name: 'messagingRetention', ...messagingResult });
     return results;
   } catch (error) {
     log.error?.({ err: error }, 'Background worker initialisation failed, stopping partially started workers');
