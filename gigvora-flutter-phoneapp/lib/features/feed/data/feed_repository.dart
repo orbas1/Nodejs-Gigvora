@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
+import 'models/feed_comment.dart';
 import 'models/feed_post.dart';
 
 class FeedRepository {
@@ -86,6 +87,44 @@ class FeedRepository {
   Future<void> deletePost(String id) async {
     await _apiClient.delete('/feed/$id');
     await _cache.remove(_cacheKey);
+  }
+
+  Future<FeedReactionResult> toggleReaction({
+    required String postId,
+    required String reaction,
+    required bool active,
+  }) async {
+    final response = await _apiClient.post(
+      '/feed/$postId/reactions',
+      body: {
+        'reaction': reaction,
+        'active': active,
+      },
+    );
+
+    if (response is Map<String, dynamic>) {
+      return FeedReactionResult.fromJson(postId, response);
+    }
+
+    throw StateError('Invalid feed reaction response');
+  }
+
+  Future<FeedComment> createComment({
+    required String postId,
+    required String message,
+  }) async {
+    final response = await _apiClient.post(
+      '/feed/$postId/comments',
+      body: {
+        'message': message,
+      },
+    );
+
+    if (response is Map<String, dynamic>) {
+      return FeedComment.fromJson(response);
+    }
+
+    throw StateError('Invalid feed comment response');
   }
 
   CacheEntry<List<FeedPost>>? _readCache() {

@@ -53,6 +53,27 @@ class ConnectionsRepository {
     }
   }
 
+  Future<ConnectionRequestResult> requestIntroduction({
+    required int actorId,
+    required int targetId,
+  }) async {
+    final response = await _apiClient.post(
+      '/connections',
+      body: {
+        'actorId': actorId,
+        'targetId': targetId,
+      },
+    );
+
+    await _cache.remove('$_cacheKeyPrefix$actorId');
+
+    if (response is Map<String, dynamic>) {
+      return ConnectionRequestResult.fromJson(response);
+    }
+
+    throw StateError('Invalid connection request response');
+  }
+
   CacheEntry<ConnectionNetwork>? _readCache(String key) {
     try {
       return _cache.read<ConnectionNetwork>(key, (raw) {

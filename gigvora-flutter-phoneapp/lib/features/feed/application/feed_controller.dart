@@ -5,6 +5,7 @@ import 'package:gigvora_foundation/gigvora_foundation.dart';
 
 import '../../../core/providers.dart';
 import '../data/feed_repository.dart';
+import '../data/models/feed_comment.dart';
 import '../data/models/feed_post.dart';
 import '../domain/feed_content_moderation.dart';
 
@@ -281,32 +282,111 @@ class FeedController extends StateNotifier<ResourceState<List<FeedPost>>> {
     }
   }
 
-  Future<void> recordReaction(FeedPost post, String action) {
-    return _analytics.track(
-      'mobile_feed_reaction',
-      context: {
-        'postId': post.id,
-        'action': action,
-      },
-      metadata: const {'source': 'mobile_app'},
+  Future<FeedReactionResult?> toggleReaction(FeedPost post, {bool? active}) async {
+    if (post.isLocal) {
+      return null;
+    }
+
+    final desiredState = active ?? !post.viewerHasReacted;
+    final index = _remotePosts.indexWhere((item) => item.id == post.id);
+    if (index < 0) {
+      return null;
+    }
+
+    final optimistic = post.copyWith(
+      viewerHasReacted: desiredState,
+      reactionCount: (post.reactionCount + (desiredState ? 1 : -1)).clamp(0, 1000000),
     );
+    _remotePosts[index] = optimistic;
+    _emitState(lastUpdated: DateTime.now());
+
+    try {
+      final result = await _repository.toggleReaction(
+        postId: post.id,
+        reaction: 'like',
+        active: desiredState,
+      );
+
+      final resolved = optimistic.copyWith(
+        reactionCount: result.likeCount,
+        viewerHasReacted: result.active,
+      );
+      _remotePosts[index] = resolved;
+      _emitState(lastUpdated: DateTime.now());
+
+      await _analytics.track(
+        'mobile_feed_reaction',
+        context: {
+          'postId': post.id,
+          'reaction': result.reaction,
+          'active': result.active,
+        },
+        metadata: const {'source': 'mobile_app'},
+      );
+
+      return result;
+    } catch (error) {
+      _remotePosts[index] = post;
+      _emitState(
+        metadata: {
+          ...state.metadata,
+          'lastReactionError': '$error',
+        },
+      );
+      rethrow;
+    }
   }
 
-  Future<void> recordCommentIntent(FeedPost post) {
-    return _analytics.track(
-      'mobile_feed_comment',
-      context: {
-        'postId': post.id,
-      },
-      metadata: const {'source': 'mobile_app'},
-    );
+  Future<FeedComment> submitComment(FeedPost post, String message) async {
+    if (post.isLocal) {
+      throw StateError('Publish the post before adding comments.');
+    }
+
+    final trimmed = message.trim();
+    if (trimmed.isEmpty) {
+      throw ArgumentError('A message is required to post a comment.');
+    }
+
+    final index = _remotePosts.indexWhere((item) => item.id == post.id);
+    if (index < 0) {
+      throw StateError('Unable to locate the post to comment on.');
+    }
+
+    final optimistic = post.copyWith(commentCount: post.commentCount + 1);
+    _remotePosts[index] = optimistic;
+    _emitState(lastUpdated: DateTime.now());
+
+    try {
+      final comment = await _repository.createComment(postId: post.id, message: trimmed);
+
+      await _analytics.track(
+        'mobile_feed_comment',
+        context: {
+          'postId': post.id,
+          'commentId': comment.id,
+        },
+        metadata: const {'source': 'mobile_app'},
+      );
+
+      return comment;
+    } catch (error) {
+      _remotePosts[index] = post;
+      _emitState(
+        metadata: {
+          ...state.metadata,
+          'lastCommentError': '$error',
+        },
+      );
+      rethrow;
+    }
   }
 
-  Future<void> recordShareIntent(FeedPost post) {
+  Future<void> recordShare(FeedPost post, {String? channel}) {
     return _analytics.track(
       'mobile_feed_share',
       context: {
         'postId': post.id,
+        if (channel != null) 'channel': channel,
       },
       metadata: const {'source': 'mobile_app'},
     );

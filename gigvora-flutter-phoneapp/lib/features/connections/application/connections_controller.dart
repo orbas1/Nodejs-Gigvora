@@ -57,6 +57,18 @@ class ConnectionsController extends StateNotifier<ResourceState<ConnectionNetwor
   }
 
   Future<void> refresh() => load(forceRefresh: true);
+
+  Future<ConnectionRequestResult> requestIntroduction(ConnectionNode node) async {
+    if (_userId == null) {
+      throw StateError('User not authenticated');
+    }
+    final result = await _repository.requestIntroduction(
+      actorId: _userId!,
+      targetId: node.id,
+    );
+    await load(forceRefresh: true);
+    return result;
+  }
 }
 
 final connectionsControllerProvider = StateNotifierProvider.autoDispose<ConnectionsController, ResourceState<ConnectionNetwork>>((ref) {
