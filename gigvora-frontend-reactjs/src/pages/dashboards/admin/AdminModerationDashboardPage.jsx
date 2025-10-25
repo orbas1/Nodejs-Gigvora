@@ -6,6 +6,8 @@ import useSession from '../../../hooks/useSession.js';
 import ModerationOverviewCards from '../../../components/admin/moderation/ModerationOverviewCards.jsx';
 import ModerationQueueTable from '../../../components/admin/moderation/ModerationQueueTable.jsx';
 import ModerationAuditTimeline from '../../../components/admin/moderation/ModerationAuditTimeline.jsx';
+import AdminGovernanceSection from '../../../components/admin/ui/AdminGovernanceSection.jsx';
+import useAdminAutoRefresh from '../../../hooks/useAdminAutoRefresh.js';
 import {
   fetchModerationOverview,
   fetchModerationQueue,
@@ -236,6 +238,8 @@ export default function AdminModerationDashboardPage() {
     loadEvents();
   }, [loadOverview, loadQueue, loadEvents]);
 
+  useAdminAutoRefresh(handleRefresh, { interval: 60000 });
+
   useEffect(() => {
     loadOverview();
   }, [loadOverview]);
@@ -314,8 +318,10 @@ export default function AdminModerationDashboardPage() {
     try {
       setResolveBusy(true);
       await resolveModerationEvent(resolveDialog.event.id, {
-        status: 'resolved',
-        notes: resolveDialog.notes,
+        resolution: {
+          status: 'resolved',
+          notes: resolveDialog.notes,
+        },
       });
       setFlashMessage('Moderation event resolved.');
       closeResolveDialog();
@@ -337,6 +343,8 @@ export default function AdminModerationDashboardPage() {
     ? 'bg-rose-100 text-rose-800 border-rose-200'
     : 'bg-emerald-100 text-emerald-800 border-emerald-200';
 
+  const queueTotal = queuePagination?.totalItems ?? queuePagination?.total ?? queueItems.length;
+
   return (
     <DashboardLayout
       currentDashboard="admin"
@@ -355,55 +363,71 @@ export default function AdminModerationDashboardPage() {
           </div>
         ) : null}
 
-        <section id="section-summary" className="space-y-6">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <AdminGovernanceSection
+          id="section-summary"
+          kicker="Live moderation pulse"
+          title="Moderation control tower"
+          description="Tune severity and workflow filters to focus on the riskiest community conversations while automation keeps the low-signal items muted."
+          meta={
             <DataStatus
               loading={overviewLoading || queueLoading}
               error={error}
               lastUpdated={lastUpdated}
               onRefresh={handleRefresh}
-              statusLabel="Live"
+              statusLabel="Auto-refresh"
               fromCache={false}
             />
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex flex-wrap gap-2">
-                {SEVERITY_OPTIONS.map((severity) => {
-                  const active = severitySelection.has(severity);
-                  return (
-                    <button
-                      key={severity}
-                      type="button"
-                      onClick={() => toggleSeverity(severity)}
-                      className={`rounded-full border px-3 py-1 text-xs font-semibold capitalize transition ${
-                        active
-                          ? 'border-blue-500 bg-blue-600 text-white shadow-sm'
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'
-                      }`}
-                    >
-                      {severity}
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {STATUS_OPTIONS.map((status) => {
-                  const active = statusSelection.has(status);
-                  return (
-                    <button
-                      key={status}
-                      type="button"
-                      onClick={() => toggleStatus(status)}
-                      className={`rounded-full border px-3 py-1 text-xs font-semibold capitalize transition ${
-                        active
-                          ? 'border-emerald-500 bg-emerald-600 text-white shadow-sm'
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'
-                      }`}
-                    >
-                      {status}
-                    </button>
-                  );
-                })}
-              </div>
+          }
+          actions={
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+            >
+              Reset filters
+            </button>
+          }
+        >
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Severity</span>
+              {SEVERITY_OPTIONS.map((severity) => {
+                const active = severitySelection.has(severity);
+                return (
+                  <button
+                    key={severity}
+                    type="button"
+                    onClick={() => toggleSeverity(severity)}
+                    className={`rounded-full border px-3 py-1 text-xs font-semibold capitalize transition ${
+                      active
+                        ? 'border-blue-500 bg-blue-600 text-white shadow-sm'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                    }`}
+                  >
+                    {severity}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Status</span>
+              {STATUS_OPTIONS.map((status) => {
+                const active = statusSelection.has(status);
+                return (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => toggleStatus(status)}
+                    className={`rounded-full border px-3 py-1 text-xs font-semibold capitalize transition ${
+                      active
+                        ? 'border-emerald-500 bg-emerald-600 text-white shadow-sm'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                    }`}
+                  >
+                    {status}
+                  </button>
+                );
+              })}
               <input
                 type="search"
                 value={filters.search}
@@ -411,32 +435,35 @@ export default function AdminModerationDashboardPage() {
                 placeholder="Search reasons or notes"
                 className="w-full min-w-[220px] rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-700 shadow-inner focus:border-blue-400 focus:outline-none focus:ring focus:ring-blue-100 sm:w-auto"
               />
-              <button
-                type="button"
-                onClick={resetFilters}
-                className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
-              >
-                Reset
-              </button>
             </div>
           </div>
           <ModerationOverviewCards overview={overview} onSelect={() => scrollToSection('section-queue')} />
-        </section>
+        </AdminGovernanceSection>
 
-        <section id="section-queue" className="space-y-6">
+        <AdminGovernanceSection
+          id="section-queue"
+          kicker="Review queue"
+          title="Flagged conversations"
+          description="Work through the AI-prioritised review queue and record transparent decisions for future audits."
+          meta={
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              {queueTotal} {queueTotal === 1 ? 'case' : 'cases'} in view
+            </span>
+          }
+        >
           <ModerationQueueTable items={queueItems} loading={queueLoading} onResolve={handleResolve} />
           <QueuePagination pagination={queuePagination} onPageChange={setPage} disabled={queueLoading} />
-        </section>
+        </AdminGovernanceSection>
 
-        <section id="section-audit" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-900">Recent moderation activity</h2>
-            {eventsLoading ? (
-              <span className="text-xs text-slate-500">Refreshing…</span>
-            ) : null}
-          </div>
+        <AdminGovernanceSection
+          id="section-audit"
+          kicker="Audit trail"
+          title="Recent moderation activity"
+          description="Escalations, resolutions, and dismissals stay on the record so compliance and trust partners can reconcile decisions."
+          meta={eventsLoading ? <span className="text-xs text-slate-500">Refreshing…</span> : null}
+        >
           <ModerationAuditTimeline events={eventsResponse} />
-        </section>
+        </AdminGovernanceSection>
       </div>
 
       <ModerationResolveDialog
