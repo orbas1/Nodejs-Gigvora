@@ -12,16 +12,19 @@ import {
   MENTOR_AVAILABILITY_STATUSES,
   MENTOR_PRICE_TIERS,
 } from '../models/index.js';
-import { ApplicationError, ValidationError } from '../utils/errors.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
+import { ApplicationError, ValidationError } from '../utils/errors.js';
+
 import {
   searchOpportunityIndex,
   searchAcrossOpportunityIndexes,
   isRemoteRole,
+  parseBudgetValue,
+  extractCurrencyCode,
+  determineDurationCategory,
 } from './searchIndexService.js';
 import {
   CATEGORY_FACETS,
-  CATEGORY_SORTS,
   TAXONOMY_ENABLED_CATEGORIES,
   parseFiltersInput,
   normaliseViewport,
@@ -353,15 +356,27 @@ function toOpportunityDto(record, category) {
         employmentCategory: plain.employmentCategory ?? null,
         isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
       };
-    case 'gig':
+    case 'gig': {
+      const derivedDurationCategory =
+        plain.durationCategory ?? determineDurationCategory(plain.duration ?? null);
+      const derivedBudgetCurrency =
+        plain.budgetCurrency ?? extractCurrencyCode(plain.budget ?? plain.metadata?.budgetLabel ?? null);
+      const parsedBudgetAmount =
+        plain.budgetAmount != null && Number.isFinite(Number(plain.budgetAmount))
+          ? Number(plain.budgetAmount)
+          : parseBudgetValue(plain.budget ?? plain.metadata?.budgetLabel ?? null);
+      const normalisedBudgetAmount = Number.isFinite(parsedBudgetAmount) ? Number(parsedBudgetAmount) : null;
+
       return {
         ...base,
         budget: plain.budget ?? null,
-        budgetCurrency: plain.budgetCurrency ?? null,
+        budgetCurrency: derivedBudgetCurrency ?? null,
+        budgetAmount: normalisedBudgetAmount,
         duration: plain.duration ?? null,
-        durationCategory: plain.durationCategory ?? null,
+        durationCategory: derivedDurationCategory ?? null,
         isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
       };
+    }
     case 'project':
       return {
         ...base,

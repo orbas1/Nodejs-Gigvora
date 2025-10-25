@@ -237,7 +237,7 @@ export const ID_VERIFICATION_EVENT_TYPES = Object.freeze([
   'document_request',
   'escalation',
   'reminder',
-];
+]);
 export const IDENTITY_VERIFICATION_EVENT_TYPES = [
   'submission_created',
   'status_changed',
@@ -245,7 +245,7 @@ export const IDENTITY_VERIFICATION_EVENT_TYPES = [
   'document_updated',
   'note_recorded',
   'metadata_updated',
-]);
+];
 export const CORPORATE_VERIFICATION_STATUSES = Object.freeze([
   'pending',
   'submitted',
@@ -731,7 +731,7 @@ export const CALENDAR_EVENT_TYPES = Object.freeze([
   'deadline',
   'ritual',
   'other',
-];
+]);
 export const FREELANCER_CALENDAR_EVENT_TYPES = [
   'project',
   'gig',
@@ -740,7 +740,7 @@ export const FREELANCER_CALENDAR_EVENT_TYPES = [
   'volunteering',
   'client_meeting',
   'other',
-]);
+];
 export const FREELANCER_CALENDAR_EVENT_STATUSES = Object.freeze([
   'tentative',
   'confirmed',
@@ -757,14 +757,12 @@ export const FREELANCER_CALENDAR_RELATED_TYPES = Object.freeze([
   'client',
   'community',
   'other',
-];
+]);
 export const CALENDAR_EVENT_SOURCES = ['manual', 'google', 'outlook', 'gigvora'];
 export const ADMIN_CALENDAR_SYNC_STATUSES = ['connected', 'syncing', 'needs_attention', 'disconnected'];
 export const ADMIN_CALENDAR_EVENT_STATUSES = ['draft', 'scheduled', 'published', 'cancelled'];
 export const ADMIN_CALENDAR_VISIBILITIES = ['internal', 'external', 'private'];
 export const ADMIN_CALENDAR_EVENT_TYPES = ['ops_review', 'training', 'launch', 'webinar', 'support', 'governance'];
-export const CALENDAR_EVENT_VISIBILITIES = ['private', 'shared', 'public'];
-export const CALENDAR_DEFAULT_VIEWS = ['agenda', 'week', 'month'];
 export const FOCUS_SESSION_TYPES = [
   'interview_prep',
   'networking',
@@ -773,7 +771,7 @@ export const FOCUS_SESSION_TYPES = [
   'wellbeing',
   'mentorship',
   'volunteering',
-]);
+];
 export const CALENDAR_EVENT_VISIBILITIES = Object.freeze(['private', 'shared', 'public']);
 export const CALENDAR_DEFAULT_VIEWS = Object.freeze(['agenda', 'week', 'month']);
 export const ADVISOR_COLLABORATION_STATUSES = Object.freeze(['draft', 'active', 'paused', 'archived']);

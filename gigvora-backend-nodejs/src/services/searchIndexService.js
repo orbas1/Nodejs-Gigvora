@@ -219,7 +219,7 @@ export function isRemoteRole(location, description) {
   return /(remote|anywhere|distributed|work from home|hybrid)/.test(haystack);
 }
 
-function parseBudgetValue(budget) {
+export function parseBudgetValue(budget) {
   if (!budget) return null;
   const numeric = Number.parseFloat(String(budget).replace(/[^0-9.]/g, ''));
   if (Number.isFinite(numeric)) {
@@ -228,7 +228,7 @@ function parseBudgetValue(budget) {
   return null;
 }
 
-function determineDurationCategory(duration) {
+export function determineDurationCategory(duration) {
   if (!duration) return null;
   const text = duration.toLowerCase();
   if (/week|sprint/.test(text)) return 'short_term';
@@ -237,7 +237,7 @@ function determineDurationCategory(duration) {
   return 'unspecified';
 }
 
-function extractCurrencyCode(budget) {
+export function extractCurrencyCode(budget) {
   if (!budget) return null;
   if (/\$/u.test(budget)) return 'USD';
   if (/€/.test(budget)) return 'EUR';
@@ -759,4 +759,7 @@ export default {
   searchAcrossOpportunityIndexes,
   bootstrapOpportunitySearch,
   isRemoteRole,
+  parseBudgetValue,
+  determineDurationCategory,
+  extractCurrencyCode,
 };

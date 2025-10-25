@@ -165,17 +165,169 @@ const jobSeeds = [
 
 const gigSeeds = [
   {
+    slug: 'demo-launch-landing-page-optimisation',
+    ownerEmail: 'leo@gigvora.com',
     title: '[demo] Launch landing page optimisation sprint',
+    summary: 'Accelerate conversion performance with signal-backed hypotheses, structured experiments, and live telemetry.',
     description:
-      'Two-week engagement pairing UX research with CRO experiments. Includes experiment backlog and reporting template.',
-    budget: 'USD 4,800',
+      'Partner with a fractional growth pod to audit analytics, prioritise hypotheses, and run disciplined experiments over a focused two-week sprint. Deliverables include prioritised backlog, high-fidelity experiment briefs, and a reporting toolkit for ongoing iteration.',
+    category: 'growth',
+    niche: 'Conversion rate optimisation',
+    deliveryModel: 'Sprint engagement',
+    outcomePromise: 'Lift launch funnel conversion by 12% with validated experiments and enable ongoing CRO rituals.',
+    budgetLabel: 'USD 4,800',
+    budgetAmount: 4800,
+    budgetCurrency: 'USD',
     duration: '2 weeks',
+    durationCategory: 'short_term',
+    location: 'Remote (UK/EU overlap)',
+    geoLocation: { lat: 51.509865, lng: -0.118092, city: 'London', country: 'GB' },
+    heroAccent: 'emerald',
+    heroTitle: 'Optimise your launch funnel in two weeks',
+    heroSubtitle: 'Blend experiment design, research, and instrumentation without derailing your roadmap.',
+    heroMediaUrl: 'https://assets.gigvora.test/marketplace/gigs/launch-optimisation.png',
+    heroTheme: 'aurora',
+    heroBadge: 'Conversion acceleration',
+    sellingPoints: [
+      'Prioritised backlog tied to revenue and activation metrics.',
+      'Live telemetry dashboard with win-rate tracking and experiment QA.',
+      'Enablement session to embed CRO rituals with your in-house team.',
+    ],
+    requirements: [
+      'Access to analytics and experimentation platforms (GA4, Mixpanel, or equivalent).',
+      'Product analytics contact to align on guardrails and shipping cadence.',
+      'Availability for two async stand-ups and a mid-sprint checkpoint.',
+    ],
+    faqs: [
+      'What if we have no prior experiments? → We bootstrap baselines, instrumentation, and prioritisation in week one.',
+      'Can we extend beyond two weeks? → Yes, retainers are available with velocity-based pricing.',
+    ],
+    conversionCopy: {
+      primaryCtaLabel: 'Pitch this sprint',
+      secondaryCtaLabel: 'Download sample audit',
+      successMessage: 'Thanks! We will confirm instrumentation access and share the discovery intake shortly.',
+    },
+    analyticsSettings: {
+      eventNamespace: 'gig_demo_landing_optimisation',
+      trackLeadCapture: true,
+      attributionChannels: ['web', 'email'],
+    },
+    availabilityTimezone: 'Europe/London',
+    availabilityLeadTimeDays: 3,
+    targetMetric: 12,
+    status: 'published',
+    visibility: 'public',
+    publishedAtDaysAgo: 4,
+    aiSignals: { trustScore: 74, taxonomyConfidence: 0.66, remotePreference: 0.82 },
   },
   {
+    slug: 'demo-marketplace-trust-safety-audit',
+    ownerEmail: 'mia@gigvora.com',
     title: '[demo] Marketplace trust and safety audit',
-    description: 'Assess community guidelines, moderation queues, and automation coverage with actionable roadmap.',
-    budget: 'USD 6,200',
+    summary: 'Calibrate moderation queues, policy guardrails, and automation coverage for high-signal marketplaces.',
+    description:
+      'Full-stack audit across policies, enforcement workflows, and automation coverage. We benchmark queue latency, investigate false-positive trends, and deliver a prioritised roadmap with ROI modelling and sequencing guidance.',
+    category: 'operations',
+    niche: 'Trust & safety',
+    deliveryModel: 'Assessment + roadmap',
+    outcomePromise: 'Reduce moderation latency by 35% while sustaining compliance coverage across high-risk cohorts.',
+    budgetLabel: 'USD 6,200',
+    budgetAmount: 6200,
+    budgetCurrency: 'USD',
     duration: '3 weeks',
+    durationCategory: 'medium_term',
+    location: 'Hybrid — London & Remote',
+    geoLocation: { lat: 51.507351, lng: -0.127758, city: 'London', country: 'GB' },
+    heroAccent: 'indigo',
+    heroTitle: 'Strengthen trust and safety with actionable telemetry',
+    heroSubtitle: 'Uncover blind spots across workflows, automations, and policy coverage in three weeks.',
+    heroMediaUrl: 'https://assets.gigvora.test/marketplace/gigs/trust-safety-audit.png',
+    heroTheme: 'midnight',
+    heroBadge: 'Compliance readiness',
+    sellingPoints: [
+      'Quantified queue latency, reviewer utilisation, and automation coverage.',
+      'Scenario-based tabletop exercising with policy recommendations.',
+      'Roadmap sequenced by risk, effort, and stakeholder dependencies.',
+    ],
+    requirements: [
+      'Export of anonymised moderation queue metrics for the trailing six weeks.',
+      'Policy and enforcement documentation for review.',
+      'Stakeholder workshop with policy, product, and operations leads.',
+    ],
+    faqs: [
+      'Will we receive implementation support? → Yes, a 30-day follow-on support window is included.',
+      'Do you review legal frameworks? → We partner with your counsel to align on jurisdictional requirements.',
+    ],
+    conversionCopy: {
+      primaryCtaLabel: 'Request audit kick-off',
+      secondaryCtaLabel: 'View sample roadmap',
+    },
+    analyticsSettings: {
+      eventNamespace: 'gig_demo_trust_safety',
+      trackLeadCapture: true,
+      syncOpsDashboard: true,
+    },
+    availabilityTimezone: 'Europe/London',
+    availabilityLeadTimeDays: 5,
+    targetMetric: 35,
+    status: 'published',
+    visibility: 'public',
+    publishedAtDaysAgo: 9,
+    aiSignals: { trustScore: 78, taxonomyConfidence: 0.7, remotePreference: 0.54 },
+  },
+  {
+    slug: 'demo-member-onboarding-automation',
+    ownerEmail: 'noah@gigvora.com',
+    title: '[demo] Member onboarding automation accelerator',
+    summary: 'Automate onboarding comms, lifecycle nudges, and playbook distribution across your member funnel.',
+    description:
+      'Design and implement an automated onboarding journey spanning welcome, activation, and retention workflows. Includes CRM mapping, copy optimisation, experiment design, and enablement for your operations team.',
+    category: 'operations',
+    niche: 'Lifecycle automation',
+    deliveryModel: 'Implementation sprint',
+    outcomePromise: 'Activate 25% more members within 14 days by orchestrating personalised automations.',
+    budgetLabel: 'USD 5,400',
+    budgetAmount: 5400,
+    budgetCurrency: 'USD',
+    duration: '4 weeks',
+    durationCategory: 'medium_term',
+    location: 'Remote (North America focus)',
+    heroAccent: 'purple',
+    heroTitle: 'Automate onboarding without losing the human touch',
+    heroSubtitle: 'Operational playbooks, CRM integration, and copy frameworks packaged in a four-week accelerator.',
+    heroMediaUrl: 'https://assets.gigvora.test/marketplace/gigs/onboarding-automation.png',
+    heroTheme: 'nebula',
+    heroBadge: 'Lifecycle automation',
+    sellingPoints: [
+      'Segmented journey maps with KPI instrumentation and safeguard alerts.',
+      'Copy optimisation and creative guidelines aligned to your brand voice.',
+      'Enablement for ops teams, including handover docs and QA checklists.',
+    ],
+    requirements: [
+      'Access to CRM/marketing automation tooling (HubSpot, Customer.io, Braze, etc.).',
+      'Lifecycle performance data for the trailing 90 days.',
+      'Point of contact for approvals and sign-off on creative assets.',
+    ],
+    faqs: [
+      'Can we integrate with custom tooling? → Yes, we include technical scoping and light integration support.',
+      'Is copywriting included? → Core flows and experimentation scaffolding are included; additional variants can be scoped.',
+    ],
+    conversionCopy: {
+      primaryCtaLabel: 'Start automation accelerator',
+      secondaryCtaLabel: 'Review sample journey map',
+    },
+    analyticsSettings: {
+      eventNamespace: 'gig_demo_onboarding_automation',
+      syncOpsDashboard: true,
+      shareInsightsWithMentors: true,
+    },
+    availabilityTimezone: 'America/New_York',
+    availabilityLeadTimeDays: 7,
+    targetMetric: 25,
+    status: 'published',
+    visibility: 'public',
+    publishedAtDaysAgo: 2,
+    aiSignals: { trustScore: 72, taxonomyConfidence: 0.64, remotePreference: 0.77 },
   },
 ];
 
@@ -217,6 +369,33 @@ const connectionSeeds = [
     status: 'accepted',
   },
 ];
+
+const DAY = 24 * 60 * 60 * 1000;
+
+function determineGigDurationCategory(duration) {
+  if (!duration || typeof duration !== 'string') {
+    return null;
+  }
+  const text = duration.toLowerCase();
+  if (/week|sprint/.test(text)) {
+    return 'short_term';
+  }
+  if (/month|quarter/.test(text)) {
+    return 'medium_term';
+  }
+  if (/year|long/.test(text)) {
+    return 'long_term';
+  }
+  return null;
+}
+
+function parseGigBudgetAmount(value) {
+  if (value == null) {
+    return null;
+  }
+  const numeric = Number.parseFloat(String(value).replace(/[^0-9.]/g, ''));
+  return Number.isFinite(numeric) ? numeric : null;
+}
 
 async function ensureUsers(queryInterface, transaction) {
   const now = new Date();
@@ -379,16 +558,73 @@ module.exports = {
       }
 
       for (const gig of gigSeeds) {
+        const ownerId = userIds.get(gig.ownerEmail);
+        if (!ownerId) {
+          throw new Error(`Missing required user ${gig.ownerEmail} for gig seed ${gig.slug}`);
+        }
+
+        const publishedAt = gig.publishedAtDaysAgo
+          ? new Date(now.getTime() - gig.publishedAtDaysAgo * DAY)
+          : now;
+
+        const row = {
+          ownerId,
+          slug: gig.slug,
+          title: gig.title,
+          tagline: gig.tagline ?? null,
+          summary: gig.summary ?? null,
+          description: gig.description,
+          category: gig.category ?? null,
+          niche: gig.niche ?? null,
+          deliveryModel: gig.deliveryModel ?? null,
+          outcomePromise: gig.outcomePromise ?? null,
+          budget: gig.budgetLabel ?? gig.budget ?? null,
+          budgetCurrency: gig.budgetCurrency ?? null,
+          budgetAmount:
+            gig.budgetAmount != null ? Number(gig.budgetAmount) : parseGigBudgetAmount(gig.budgetLabel ?? gig.budget),
+          duration: gig.duration ?? null,
+          durationCategory: gig.durationCategory ?? determineGigDurationCategory(gig.duration),
+          location: gig.location ?? null,
+          geoLocation: gig.geoLocation ?? null,
+          heroAccent: gig.heroAccent ?? null,
+          heroTitle: gig.heroTitle ?? null,
+          heroSubtitle: gig.heroSubtitle ?? null,
+          heroMediaUrl: gig.heroMediaUrl ?? null,
+          heroTheme: gig.heroTheme ?? null,
+          heroBadge: gig.heroBadge ?? null,
+          sellingPoints: gig.sellingPoints ?? [],
+          requirements: gig.requirements ?? [],
+          faqs: gig.faqs ?? [],
+          conversionCopy: gig.conversionCopy ?? {},
+          analyticsSettings: gig.analyticsSettings ?? {},
+          availabilityTimezone: gig.availabilityTimezone ?? null,
+          availabilityLeadTimeDays: gig.availabilityLeadTimeDays ?? 2,
+          targetMetric: gig.targetMetric ?? null,
+          status: gig.status ?? 'published',
+          visibility: gig.visibility ?? 'public',
+          publishedAt,
+          aiSignals: gig.aiSignals ?? { trustScore: 68, taxonomyConfidence: 0.6, remotePreference: 0.52 },
+          metadata: { ...(gig.metadata ?? {}), seed: 'demo-gigs-marketplace' },
+          createdAt: now,
+          updatedAt: now,
+        };
+
         const [existing] = await queryInterface.sequelize.query(
-          'SELECT id FROM gigs WHERE title = :title LIMIT 1',
+          'SELECT id FROM gigs WHERE slug = :slug LIMIT 1',
           {
             type: QueryTypes.SELECT,
             transaction,
-            replacements: { title: gig.title },
+            replacements: { slug: gig.slug },
           },
         );
-        if (existing?.id) continue;
-        await queryInterface.bulkInsert('gigs', [{ ...gig, createdAt: now, updatedAt: now }], { transaction });
+
+        if (existing?.id) {
+          const { createdAt, ...updatePayload } = row;
+          updatePayload.updatedAt = now;
+          await queryInterface.bulkUpdate('gigs', updatePayload, { id: existing.id }, { transaction });
+        } else {
+          await queryInterface.bulkInsert('gigs', [row], { transaction });
+        }
       }
 
       for (const project of projectSeeds) {
@@ -568,7 +804,7 @@ module.exports = {
         { transaction },
       );
       await queryInterface.bulkDelete('jobs', { title: jobSeeds.map((job) => job.title) }, { transaction });
-      await queryInterface.bulkDelete('gigs', { title: gigSeeds.map((gig) => gig.title) }, { transaction });
+      await queryInterface.bulkDelete('gigs', { slug: gigSeeds.map((gig) => gig.slug) }, { transaction });
       await queryInterface.bulkDelete('projects', { title: projectSeeds.map((project) => project.title) }, { transaction });
       await queryInterface.bulkDelete(
         'experience_launchpads',
