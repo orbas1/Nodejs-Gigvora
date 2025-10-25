@@ -8,6 +8,8 @@ import {
   SparklesIcon,
 } from '@heroicons/react/24/outline';
 
+import AdminGovernanceSection from '../ui/AdminGovernanceSection.jsx';
+
 const STATUS_COLUMNS = [
   { key: 'backlog', title: 'Backlog', accent: 'border-slate-200 bg-slate-50/80', icon: ClipboardDocumentListIcon },
   { key: 'in_progress', title: 'In progress', accent: 'border-sky-200 bg-sky-50/80', icon: ArrowPathIcon },
@@ -196,14 +198,11 @@ export default function ComplianceObligationBoard({
   }, [obligations]);
 
   return (
-    <section className="space-y-6" id="compliance-obligations">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-semibold text-slate-900">Obligation tracker</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            Orchestrate GDPR responses, contract reviews, DPIAs, and training with auditable status transitions and evidence links.
-          </p>
-        </div>
+    <AdminGovernanceSection
+      id="compliance-obligations"
+      title="Obligation tracker"
+      description="Orchestrate GDPR responses, contract reviews, DPIAs, and training with auditable status transitions and evidence links."
+      actions={
         <button
           type="button"
           onClick={() => setShowCreate((current) => !current)}
@@ -211,7 +210,8 @@ export default function ComplianceObligationBoard({
         >
           {showCreate ? 'Hide quick add' : 'Add obligation'}
         </button>
-      </div>
+      }
+    >
 
       <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 text-sm text-slate-600">
         Showing <span className="font-semibold text-slate-900">{obligations.length}</span> obligations in view. Completed items:{' '}
@@ -273,6 +273,6 @@ export default function ComplianceObligationBoard({
           );
         })}
       </div>
-    </section>
+    </AdminGovernanceSection>
   );
 }

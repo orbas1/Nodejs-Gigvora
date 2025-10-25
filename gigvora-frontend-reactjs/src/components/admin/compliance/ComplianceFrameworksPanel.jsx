@@ -7,6 +7,8 @@ import {
   TrashIcon,
 } from '@heroicons/react/24/outline';
 
+import AdminGovernanceSection from '../ui/AdminGovernanceSection.jsx';
+
 const STATUS_STYLES = {
   active: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   planning: 'bg-sky-50 text-sky-700 border-sky-200',
@@ -260,14 +262,11 @@ export default function ComplianceFrameworksPanel({ frameworks = [], onCreate, o
   };
 
   return (
-    <section className="space-y-6" id="compliance-frameworks">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-semibold text-slate-900">Framework register</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            Centralise ISO, SOC, GDPR, and bespoke frameworks with ownership, automation coverage, and cadence.
-          </p>
-        </div>
+    <AdminGovernanceSection
+      id="compliance-frameworks"
+      title="Framework register"
+      description="Centralise ISO, SOC, GDPR, and bespoke frameworks with ownership, automation coverage, and cadence."
+      actions={
         <button
           type="button"
           onClick={() => {
@@ -278,8 +277,8 @@ export default function ComplianceFrameworksPanel({ frameworks = [], onCreate, o
         >
           <PlusIcon className="h-4 w-4" aria-hidden="true" /> New framework
         </button>
-      </div>
-
+      }
+    >
       <div className="grid gap-6 lg:grid-cols-2">
         {creatingNew && (
           <FrameworkCard
@@ -325,6 +324,6 @@ export default function ComplianceFrameworksPanel({ frameworks = [], onCreate, o
           </div>
         )}
       </div>
-    </section>
+    </AdminGovernanceSection>
   );
 }

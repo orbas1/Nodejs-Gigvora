@@ -216,14 +216,11 @@ export default function ComplianceAuditSchedulePanel({ audits = [], frameworks =
   };
 
   return (
-    <section className="space-y-6" id="compliance-audits">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-semibold text-slate-900">Audit schedule</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            Track external assessments, readiness reviews, and surveillance audits with deliverables and scopes.
-          </p>
-        </div>
+    <AdminGovernanceSection
+      id="compliance-audits"
+      title="Audit schedule"
+      description="Track external assessments, readiness reviews, and surveillance audits with deliverables and scopes."
+      actions={
         <button
           type="button"
           onClick={() => setShowCreateForm(true)}
@@ -231,7 +228,8 @@ export default function ComplianceAuditSchedulePanel({ audits = [], frameworks =
         >
           <PlusIcon className="h-4 w-4" aria-hidden="true" /> Schedule audit
         </button>
-      </div>
+      }
+    >
 
       <div className="overflow-hidden rounded-3xl border border-slate-200 shadow-soft">
         <table className="min-w-full divide-y divide-slate-200">
@@ -437,6 +435,6 @@ export default function ComplianceAuditSchedulePanel({ audits = [], frameworks =
           readiness decks or scoping notes to each record to keep everyone aligned.
         </p>
       </div>
-    </section>
+    </AdminGovernanceSection>
   );
 }
