@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { BookmarkIcon, ChatBubbleLeftRightIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
 import PageHeader from '../components/PageHeader.jsx';
 import DataStatus from '../components/DataStatus.jsx';
 import OpportunityFilterPill from '../components/opportunity/OpportunityFilterPill.jsx';
@@ -8,17 +9,90 @@ import useOpportunityListing from '../hooks/useOpportunityListing.js';
 import analytics from '../services/analytics.js';
 import { formatRelativeTime } from '../utils/date.js';
 import useSession from '../hooks/useSession.js';
+import { formatCurrencyRange } from '../utils/currency.js';
+import useSavedGigs from '../hooks/useSavedGigs.js';
+import { classNames } from '../utils/classNames.js';
+import {
+  aggregateFacetTags,
+  buildTaxonomyDirectory,
+  formatTagLabelFromSlug,
+} from '../utils/taxonomy.js';
 
-export function formatTagLabelFromSlug(slug) {
-  if (!slug) {
-    return '';
+const PAGE_SIZE = 20;
+const BUDGET_MIN = 0;
+const BUDGET_MAX = 25000;
+const BUDGET_STEP = 250;
+const DELIVERY_SPEED_OPTIONS = [
+  { value: '48h', label: '48 hour turnaround' },
+  { value: '7d', label: 'Within 1 week' },
+  { value: '14d', label: 'Within 2 weeks' },
+  { value: 'flex', label: 'Flexible timeline' },
+];
+const TRUST_BADGE_STYLES = {
+  emerald: 'border border-emerald-200 bg-emerald-50 text-emerald-700',
+  sky: 'border border-sky-200 bg-sky-50 text-sky-700',
+  indigo: 'border border-indigo-200 bg-indigo-50 text-indigo-700',
+  amber: 'border border-amber-200 bg-amber-50 text-amber-700',
+  accent: 'border border-accent/40 bg-accentSoft text-accentDark',
+  default: 'border border-slate-200 bg-slate-100 text-slate-600',
+};
+
+function resolveGigKey(gig, fallbackIndex = 0) {
+  if (!gig) {
+    return `gig:${fallbackIndex}`;
+  }
+  if (gig.id != null) {
+    return `${gig.id}`;
+  }
+  if (gig.slug) {
+    return `slug:${gig.slug}`;
+  }
+  if (gig.title) {
+    return `title:${gig.title}:${gig.updatedAt ?? fallbackIndex}`;
+  }
+  return `gig:${fallbackIndex}`;
+}
+
+function computeTrustBadges(gig) {
+  if (!gig) {
+    return [];
+  }
+  if (Array.isArray(gig.trustBadges) && gig.trustBadges.length) {
+    return gig.trustBadges
+      .map((badge) => {
+        if (!badge) {
+          return null;
+        }
+        if (typeof badge === 'string') {
+          return { label: badge, tone: 'accent' };
+        }
+        if (typeof badge === 'object') {
+          return {
+            label: badge.label ?? badge.name ?? 'Trusted buyer',
+            tone: badge.tone ?? badge.variant ?? 'accent',
+          };
+        }
+        return null;
+      })
+      .filter(Boolean)
+      .slice(0, 3);
   }
 
-  return `${slug}`
-    .replace(/[_-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+  const badges = [];
+  if (gig.poster?.verified || gig.poster?.isVerified || gig.poster?.status === 'verified' || gig.verifiedBuyer) {
+    badges.push({ label: 'Verified client', tone: 'emerald' });
+  }
+  if (gig.escrowProtected || gig.paymentProtected || gig.paymentProtection === 'escrow') {
+    badges.push({ label: 'Escrow protected', tone: 'sky' });
+  }
+  if (Array.isArray(gig.reviews) && gig.reviews.length) {
+    badges.push({ label: 'Rated by freelancers', tone: 'indigo' });
+  }
+  if (gig.deliverySla || gig.deliveryWindow) {
+    badges.push({ label: `${gig.deliverySla ?? gig.deliveryWindow} SLA`, tone: 'amber' });
+  }
+
+  return badges.slice(0, 3);
 }
 
 export function formatNumber(value) {
@@ -31,13 +105,59 @@ export function formatNumber(value) {
 export default function GigsPage() {
   const [query, setQuery] = useState('');
   const [selectedTagSlugs, setSelectedTagSlugs] = useState([]);
+  const [page, setPage] = useState(1);
+  const [mergedItems, setMergedItems] = useState([]);
+  const [isAppending, setIsAppending] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState(null);
+  const loadMoreRef = useRef(null);
+  const [budgetEnabled, setBudgetEnabled] = useState(false);
+  const [budgetRange, setBudgetRange] = useState([1500, 7500]);
+  const [selectedDeliverySpeeds, setSelectedDeliverySpeeds] = useState([]);
   const navigate = useNavigate();
   const { session, isAuthenticated } = useSession();
   const hasFreelancerAccess = Boolean(session?.memberships?.includes('freelancer'));
-  const activeFilters = useMemo(
-    () => (selectedTagSlugs.length ? { taxonomySlugs: selectedTagSlugs } : null),
-    [selectedTagSlugs],
+  const defaultCurrency =
+    session?.preferences?.currencyCode ??
+    session?.preferences?.currency ??
+    session?.workspace?.currency ??
+    'USD';
+
+  const searchSignature = useMemo(
+    () =>
+      JSON.stringify({
+        query: (query || '').trim().toLowerCase(),
+        tags: [...selectedTagSlugs].sort(),
+        budget: budgetEnabled ? budgetRange : null,
+        delivery: [...selectedDeliverySpeeds].sort(),
+      }),
+    [query, selectedTagSlugs, budgetEnabled, budgetRange, selectedDeliverySpeeds],
   );
+
+  useEffect(() => {
+    setPage(1);
+    setMergedItems([]);
+    setIsAppending(false);
+    setLoadMoreError(null);
+  }, [searchSignature]);
+
+  const activeFilters = useMemo(() => {
+    const filters = {};
+    if (selectedTagSlugs.length) {
+      filters.taxonomySlugs = selectedTagSlugs;
+    }
+    if (budgetEnabled) {
+      filters.budget = {
+        min: budgetRange[0],
+        max: budgetRange[1],
+        currency: defaultCurrency,
+      };
+    }
+    if (selectedDeliverySpeeds.length) {
+      filters.deliverySpeeds = selectedDeliverySpeeds;
+    }
+    return Object.keys(filters).length ? filters : null;
+  }, [selectedTagSlugs, budgetEnabled, budgetRange, selectedDeliverySpeeds, defaultCurrency]);
+
   const {
     data,
     error,
@@ -47,114 +167,81 @@ export default function GigsPage() {
     refresh,
     debouncedQuery,
   } = useOpportunityListing('gigs', query, {
-    pageSize: 25,
+    page,
+    pageSize: PAGE_SIZE,
     filters: activeFilters,
     includeFacets: true,
     enabled: isAuthenticated && hasFreelancerAccess,
   });
 
   const listing = data ?? {};
-  const items = useMemo(() => (Array.isArray(listing.items) ? listing.items : []), [listing.items]);
-  const tagDirectory = useMemo(() => {
-    if (!items.length) {
-      return new Map();
+  const listingItems = useMemo(
+    () => (Array.isArray(listing.items) ? listing.items : []),
+    [listing.items],
+  );
+
+  useEffect(() => {
+    if (!isAuthenticated || !hasFreelancerAccess) {
+      setMergedItems([]);
+      return;
     }
 
-    const directory = new Map();
-    items.forEach((gig) => {
-      if (Array.isArray(gig.taxonomies)) {
-        gig.taxonomies.forEach((taxonomy) => {
-          if (!taxonomy?.slug) {
-            return;
-          }
-          const key = `${taxonomy.slug}`.toLowerCase();
-          if (!directory.has(key) || !directory.get(key)) {
-            const label = typeof taxonomy.label === 'string' && taxonomy.label.trim().length
-              ? taxonomy.label
-              : formatTagLabelFromSlug(taxonomy.slug);
-            directory.set(key, label);
-          }
-        });
+    if (page === 1) {
+      if (!loading) {
+        setMergedItems(listingItems);
       }
+      return;
+    }
 
-      if (Array.isArray(gig.taxonomySlugs)) {
-        gig.taxonomySlugs.forEach((slug, index) => {
-          if (!slug) {
-            return;
-          }
-          const key = `${slug}`.toLowerCase();
-          if (!directory.has(key) || !directory.get(key)) {
-            const labelCandidate = Array.isArray(gig.taxonomyLabels) ? gig.taxonomyLabels[index] : null;
-            const label = typeof labelCandidate === 'string' && labelCandidate.trim().length
-              ? labelCandidate
-              : formatTagLabelFromSlug(slug);
-            directory.set(key, label);
-          }
-        });
-      }
-    });
-    return directory;
-  }, [items]);
-  const facetTags = useMemo(() => {
-    const tagMap = new Map();
+    if (!listingItems.length) {
+      return;
+    }
 
-    const registerTag = (slug, label, increment = 1) => {
-      if (!slug) {
-        return;
-      }
-      const key = `${slug}`.toLowerCase();
-      const current = tagMap.get(key);
-      const resolvedLabel =
-        (label && label.trim().length ? label : null) || current?.label || tagDirectory.get(key) || formatTagLabelFromSlug(slug);
-      const currentCount = current?.count ?? 0;
-      tagMap.set(key, {
-        slug,
-        label: resolvedLabel,
-        count: currentCount + increment,
+    setMergedItems((previous) => {
+      const merged = Array.isArray(previous) && previous.length ? [...previous] : [];
+      const seen = new Map();
+      merged.forEach((gig, index) => {
+        seen.set(resolveGigKey(gig, index), index);
       });
-    };
-
-    if (listing?.facets && typeof listing.facets === 'object' && listing.facets !== null) {
-      const taxonomyFacet = listing.facets.taxonomySlugs;
-      if (taxonomyFacet && typeof taxonomyFacet === 'object') {
-        Object.entries(taxonomyFacet).forEach(([slug, rawCount]) => {
-          const count = Number(rawCount);
-          if (!slug || Number.isNaN(count)) {
-            return;
-          }
-          registerTag(slug, tagDirectory.get(`${slug}`.toLowerCase()) ?? null, Math.max(count, 1));
-        });
-      }
-    }
-
-    items.forEach((gig) => {
-      if (Array.isArray(gig.taxonomies) && gig.taxonomies.length) {
-        gig.taxonomies.forEach((taxonomy) => {
-          if (!taxonomy?.slug) {
-            return;
-          }
-          registerTag(taxonomy.slug, taxonomy.label ?? null, 1);
-        });
-      } else if (Array.isArray(gig.taxonomySlugs)) {
-        gig.taxonomySlugs.forEach((slug, index) => {
-          if (!slug) {
-            return;
-          }
-          const labelCandidate = Array.isArray(gig.taxonomyLabels) ? gig.taxonomyLabels[index] : null;
-          registerTag(slug, labelCandidate ?? null, 1);
-        });
-      }
-    });
-
-    return Array.from(tagMap.values())
-      .filter((entry) => entry.label && entry.label.trim().length)
-      .sort((a, b) => {
-        if (b.count !== a.count) {
-          return b.count - a.count;
+      listingItems.forEach((gig, index) => {
+        const key = resolveGigKey(gig, index);
+        if (seen.has(key)) {
+          merged.splice(seen.get(key), 1, gig);
+        } else {
+          seen.set(key, merged.length);
+          merged.push(gig);
         }
-        return a.label.localeCompare(b.label);
       });
-  }, [items, listing?.facets, tagDirectory]);
+      return merged;
+    });
+  }, [listingItems, page, loading, hasFreelancerAccess, isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAppending) {
+      return;
+    }
+    if (!loading) {
+      if (page > 1 && error) {
+        setLoadMoreError(error);
+      } else {
+        setLoadMoreError(null);
+      }
+      setIsAppending(false);
+    }
+  }, [isAppending, loading, error, page]);
+
+  useEffect(() => {
+    if (page === 1) {
+      setLoadMoreError(null);
+    }
+  }, [page]);
+
+  const items = mergedItems;
+  const tagDirectory = useMemo(() => buildTaxonomyDirectory(items), [items]);
+  const facetTags = useMemo(
+    () => aggregateFacetTags({ items, facets: listing?.facets ?? null, directory: tagDirectory }),
+    [items, listing?.facets, tagDirectory],
+  );
   const topTagOptions = useMemo(() => facetTags.slice(0, 10), [facetTags]);
   const activeTagDetails = useMemo(
     () =>
@@ -209,19 +296,201 @@ export default function GigsPage() {
     };
   }, [items]);
 
-  const handlePitch = (gig) => {
-    analytics.track(
-      'web_gig_pitch_cta',
-      {
-        id: gig.id,
-        title: gig.title,
-        query: debouncedQuery || null,
-        seoTags: Array.isArray(gig.taxonomySlugs) ? gig.taxonomySlugs : [],
-        activeFilters,
+  const paginationMeta = useMemo(() => {
+    const currentPage = Number(listing.page ?? page ?? 1);
+    const totalPages = Number.isFinite(Number(listing.totalPages)) ? Number(listing.totalPages) : null;
+    const total = Number.isFinite(Number(listing.total)) ? Number(listing.total) : null;
+    const hasMoreFlag =
+      typeof listing.hasMore === 'boolean'
+        ? listing.hasMore
+        : totalPages != null
+        ? currentPage < totalPages
+        : total != null
+        ? currentPage * PAGE_SIZE < total
+        : listing.nextPage != null;
+    const nextPage = listing.nextPage != null ? Number(listing.nextPage) : null;
+    return {
+      currentPage,
+      totalPages,
+      total,
+      hasMore: Boolean(hasMoreFlag),
+      nextPage,
+    };
+  }, [listing, page]);
+
+  const handleLoadMore = useCallback(() => {
+    if (!paginationMeta.hasMore || loading || isAppending) {
+      return;
+    }
+    const nextPageCandidate = paginationMeta.nextPage ?? page + 1;
+    if (paginationMeta.totalPages && nextPageCandidate > paginationMeta.totalPages) {
+      return;
+    }
+    if (nextPageCandidate === page) {
+      return;
+    }
+    setIsAppending(true);
+    setLoadMoreError(null);
+    setPage(nextPageCandidate);
+  }, [paginationMeta.hasMore, paginationMeta.nextPage, paginationMeta.totalPages, loading, isAppending, page]);
+
+  useEffect(() => {
+    if (!loadMoreRef.current) {
+      return;
+    }
+    if (!paginationMeta.hasMore || loading || isAppending) {
+      return;
+    }
+    if (typeof IntersectionObserver === 'undefined') {
+      return;
+    }
+    const node = loadMoreRef.current;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry?.isIntersecting) {
+          handleLoadMore();
+        }
       },
-      { source: 'web_app' },
+      { rootMargin: '200px' },
     );
-  };
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [paginationMeta.hasMore, loading, isAppending, handleLoadMore]);
+
+  const { items: savedGigs, toggleGig, clear: clearSavedGigs, isSaved } = useSavedGigs();
+  const savedGigCount = savedGigs.length;
+
+  const handleToggleSavedGig = useCallback(
+    (gig) => {
+      const saved = toggleGig(gig);
+      analytics.track(
+        saved ? 'web_gig_saved' : 'web_gig_unsaved',
+        {
+          gigId: gig?.id ?? null,
+          title: gig?.title ?? null,
+          query: debouncedQuery || null,
+          filters: activeFilters,
+        },
+        { source: 'web_app' },
+      );
+      return saved;
+    },
+    [toggleGig, debouncedQuery, activeFilters],
+  );
+
+  const handleLoadSavedGig = useCallback(
+    (saved) => {
+      if (!saved) {
+        return;
+      }
+      if (saved.title) {
+        setQuery(saved.title);
+      }
+      if (Array.isArray(saved.taxonomySlugs) && saved.taxonomySlugs.length) {
+        setSelectedTagSlugs(Array.from(new Set(saved.taxonomySlugs)));
+      }
+      analytics.track(
+        'web_gig_saved_applied',
+        {
+          gigId: saved.id ?? null,
+          title: saved.title ?? null,
+        },
+        { source: 'web_app' },
+      );
+    },
+    [setQuery, setSelectedTagSlugs],
+  );
+
+  const handleClearSavedGigs = useCallback(() => {
+    if (!savedGigCount) {
+      return;
+    }
+    clearSavedGigs();
+    analytics.track('web_gig_saved_cleared', { total: savedGigCount }, { source: 'web_app' });
+  }, [clearSavedGigs, savedGigCount]);
+
+  const handleToggleDeliverySpeed = useCallback((value) => {
+    setSelectedDeliverySpeeds((current) => {
+      if (current.includes(value)) {
+        return current.filter((entry) => entry !== value);
+      }
+      return [...current, value];
+    });
+  }, []);
+
+  const handleBudgetChange = useCallback((index, rawValue) => {
+    const numeric = Number(rawValue);
+    if (Number.isNaN(numeric)) {
+      return;
+    }
+    const clamped = Math.min(Math.max(numeric, BUDGET_MIN), BUDGET_MAX);
+    setBudgetRange((current) => {
+      const next = [...current];
+      next[index] = clamped;
+      if (index === 0 && clamped > next[1]) {
+        next[1] = clamped;
+      }
+      if (index === 1 && clamped < next[0]) {
+        next[0] = clamped;
+      }
+      return next;
+    });
+  }, []);
+
+  const budgetRangeLabel = useMemo(
+    () =>
+      formatCurrencyRange(budgetRange[0], budgetRange[1], defaultCurrency, {
+        maximumFractionDigits: 0,
+      }),
+    [budgetRange, defaultCurrency],
+  );
+
+  const handlePitch = useCallback(
+    (gig) => {
+      analytics.track(
+        'web_gig_pitch_cta',
+        {
+          id: gig.id,
+          title: gig.title,
+          query: debouncedQuery || null,
+          seoTags: Array.isArray(gig.taxonomySlugs) ? gig.taxonomySlugs : [],
+          activeFilters,
+        },
+        { source: 'web_app' },
+      );
+    },
+    [debouncedQuery, activeFilters],
+  );
+
+  const handleChat = useCallback(
+    (gig) => {
+      analytics.track(
+        'web_gig_chat_cta',
+        {
+          gigId: gig.id,
+          title: gig.title,
+          buyerId: gig.poster?.id ?? gig.clientId ?? null,
+          query: debouncedQuery || null,
+          filters: activeFilters,
+        },
+        { source: 'web_app' },
+      );
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('gigvora:messaging:open', {
+            detail: {
+              surface: 'gigs',
+              gigId: gig.id ?? null,
+              gigTitle: gig.title ?? null,
+              buyerId: gig.poster?.id ?? gig.clientId ?? null,
+            },
+          }),
+        );
+      }
+    },
+    [debouncedQuery, activeFilters],
+  );
 
   const handleToggleTag = (slug) => {
     if (!slug) {
@@ -252,6 +521,9 @@ export default function GigsPage() {
     );
     navigate('/register');
   };
+
+  const isInitialLoading = loading && page === 1 && !items.length;
+  const showEmptyState = !loading && !items.length;
 
   if (!isAuthenticated) {
     return (
@@ -382,6 +654,65 @@ export default function GigsPage() {
                 className="w-full rounded-full border border-slate-200 bg-white px-5 py-3 text-sm shadow-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
               />
             </div>
+            <div className="mb-6 grid gap-4 lg:grid-cols-[minmax(0,1fr),minmax(0,1fr)]">
+              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-soft">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-slate-900">Budget range</p>
+                  <label className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    <input
+                      type="checkbox"
+                      checked={budgetEnabled}
+                      onChange={(event) => setBudgetEnabled(event.target.checked)}
+                      className="h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent"
+                    />
+                    Filter by budget
+                  </label>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  Focus on briefs that align with your minimum investment.
+                </p>
+                <p className="mt-3 text-sm font-semibold text-slate-800">{budgetRangeLabel}</p>
+                <div className="mt-4 flex items-center gap-3">
+                  <input
+                    type="range"
+                    min={BUDGET_MIN}
+                    max={BUDGET_MAX}
+                    step={BUDGET_STEP}
+                    value={budgetRange[0]}
+                    onChange={(event) => handleBudgetChange(0, event.target.value)}
+                    disabled={!budgetEnabled}
+                    className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-slate-200 accent-accent disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                  <input
+                    type="range"
+                    min={BUDGET_MIN}
+                    max={BUDGET_MAX}
+                    step={BUDGET_STEP}
+                    value={budgetRange[1]}
+                    onChange={(event) => handleBudgetChange(1, event.target.value)}
+                    disabled={!budgetEnabled}
+                    className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-slate-200 accent-accent disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                </div>
+              </div>
+              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-soft">
+                <p className="text-sm font-semibold text-slate-900">Delivery speed</p>
+                <p className="mt-2 text-xs text-slate-500">Highlight missions that fit your bandwidth.</p>
+                <div className="mt-4 space-y-2">
+                  {DELIVERY_SPEED_OPTIONS.map((option) => (
+                    <label key={option.value} className="flex items-center gap-2 text-sm text-slate-600">
+                      <input
+                        type="checkbox"
+                        checked={selectedDeliverySpeeds.includes(option.value)}
+                        onChange={() => handleToggleDeliverySpeed(option.value)}
+                        className="h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent"
+                      />
+                      {option.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
             {activeTagDetails.length ? (
               <div className="mb-6 flex flex-wrap items-center gap-3">
                 {activeTagDetails.map((tag) => (
@@ -404,7 +735,7 @@ export default function GigsPage() {
                 </button>
               </div>
             ) : null}
-            {error ? (
+            {error && page === 1 ? (
               <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
                 Unable to load the latest gigs. {error.message || 'Please refresh to pull the newest briefs.'}
               </div>
@@ -414,7 +745,7 @@ export default function GigsPage() {
                 Showing cached results while we refresh live briefs in the background.
               </div>
             ) : null}
-            {loading && !items.length ? (
+            {isInitialLoading ? (
               <div className="space-y-4">
                 {Array.from({ length: 3 }).map((_, index) => (
                   <div key={index} className="animate-pulse rounded-3xl border border-slate-200 bg-white p-6">
@@ -426,7 +757,7 @@ export default function GigsPage() {
                 ))}
               </div>
             ) : null}
-            {!loading && !items.length ? (
+            {showEmptyState ? (
               <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
                 {debouncedQuery
                   ? 'No gigs currently match your filters. Try exploring adjacent skills or timelines.'
@@ -434,55 +765,144 @@ export default function GigsPage() {
               </div>
             ) : null}
             <div className="space-y-6">
-              {items.map((gig) => (
-                <article
-                  key={gig.id}
-                  className="rounded-3xl border border-slate-200 bg-white p-6 transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {gig.duration ? (
-                        <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-600">
-                          {gig.duration}
-                        </span>
-                      ) : null}
-                      {gig.budget ? (
-                        <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 font-semibold text-emerald-600">
-                          {gig.budget}
-                        </span>
-                      ) : null}
+              {items.map((gig, index) => {
+                const saved = isSaved(gig.id);
+                const trustBadges = computeTrustBadges(gig);
+                const taxonomyLabels = Array.isArray(gig.taxonomyLabels) ? gig.taxonomyLabels : [];
+                const skills = Array.isArray(gig.skills) ? gig.skills : [];
+                return (
+                  <article
+                    key={resolveGigKey(gig, index)}
+                    className="rounded-3xl border border-slate-200 bg-white p-6 transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {gig.duration ? (
+                          <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-600">
+                            {gig.duration}
+                          </span>
+                        ) : null}
+                        {gig.budget ? (
+                          <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 font-semibold text-emerald-600">
+                            {gig.budget}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-slate-400">Updated {formatRelativeTime(gig.updatedAt)}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleSavedGig(gig)}
+                          className={classNames(
+                            'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-wide transition',
+                            saved
+                              ? 'border-accent bg-accent text-white shadow-soft'
+                              : 'border-slate-200 bg-white text-slate-500 hover:border-accent hover:text-accent',
+                          )}
+                          aria-pressed={saved}
+                        >
+                          <BookmarkIcon className="h-4 w-4" aria-hidden="true" />
+                          {saved ? 'Saved' : 'Save gig'}
+                        </button>
+                      </div>
                     </div>
-                    <span className="text-slate-400">Updated {formatRelativeTime(gig.updatedAt)}</span>
-                  </div>
-                  <h2 className="mt-3 text-xl font-semibold text-slate-900">{gig.title}</h2>
-                  <p className="mt-2 text-sm text-slate-600">{gig.description}</p>
-                  {Array.isArray(gig.taxonomyLabels) && gig.taxonomyLabels.length ? (
-                    <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-wide text-indigo-600">
-                      {gig.taxonomyLabels.slice(0, 4).map((label) => (
-                        <span key={label} className="rounded-full bg-indigo-50 px-3 py-1 text-indigo-600">
-                          {label}
-                        </span>
-                      ))}
+                    <h2 className="mt-3 text-xl font-semibold text-slate-900">{gig.title}</h2>
+                    <p className="mt-2 text-sm text-slate-600">{gig.description}</p>
+                    {trustBadges.length ? (
+                      <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-wide">
+                        {trustBadges.map((badge) => (
+                          <span
+                            key={`${resolveGigKey(gig, index)}-${badge.label}`}
+                            className={classNames(
+                              'inline-flex items-center gap-1 rounded-full px-3 py-1',
+                              TRUST_BADGE_STYLES[badge.tone] ?? TRUST_BADGE_STYLES.default,
+                            )}
+                          >
+                            <ShieldCheckIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                            {badge.label}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                    {taxonomyLabels.length ? (
+                      <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-wide text-indigo-600">
+                        {taxonomyLabels.slice(0, 4).map((label) => (
+                          <span key={label} className="rounded-full bg-indigo-50 px-3 py-1 text-indigo-600">
+                            {label}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                    {skills.length ? (
+                      <div className="mt-4 flex flex-wrap gap-2 text-[11px] uppercase tracking-wide text-slate-400">
+                        {skills.slice(0, 6).map((skill) => (
+                          <span key={skill} className="rounded-full border border-slate-200 px-3 py-1 text-slate-500">
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                    <div className="mt-5 flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handlePitch(gig)}
+                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-5 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+                      >
+                        Pitch this gig <span aria-hidden="true">→</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleChat(gig)}
+                        className="inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accentSoft px-5 py-2 text-xs font-semibold text-accentDark transition hover:border-accent hover:bg-accent/10"
+                      >
+                        <ChatBubbleLeftRightIcon className="h-4 w-4" aria-hidden="true" />
+                        Message buyer
+                      </button>
                     </div>
-                  ) : null}
-                  {Array.isArray(gig.skills) && gig.skills.length ? (
-                    <div className="mt-4 flex flex-wrap gap-2 text-[11px] uppercase tracking-wide text-slate-400">
-                      {gig.skills.slice(0, 6).map((skill) => (
-                        <span key={skill} className="rounded-full border border-slate-200 px-3 py-1 text-slate-500">
-                          {skill}
-                        </span>
-                      ))}
+                  </article>
+                );
+              })}
+              <div ref={loadMoreRef} aria-hidden="true" className="h-1 w-full" />
+              {isAppending ? (
+                <div className="space-y-4">
+                  {Array.from({ length: 2 }).map((_, index) => (
+                    <div key={`loading-${index}`} className="animate-pulse rounded-3xl border border-slate-200 bg-white p-6">
+                      <div className="h-3 w-1/4 rounded bg-slate-200" />
+                      <div className="mt-3 h-4 w-1/2 rounded bg-slate-200" />
+                      <div className="mt-2 h-3 w-full rounded bg-slate-200" />
+                      <div className="mt-1 h-3 w-3/4 rounded bg-slate-200" />
                     </div>
-                  ) : null}
+                  ))}
+                </div>
+              ) : null}
+              {loadMoreError ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
+                  {loadMoreError?.message || 'We could not load more gigs. Try again soon.'}
                   <button
                     type="button"
-                    onClick={() => handlePitch(gig)}
-                    className="mt-5 inline-flex items-center gap-2 rounded-full border border-slate-200 px-5 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+                    onClick={handleLoadMore}
+                    className="ml-3 inline-flex items-center gap-2 rounded-full border border-amber-200 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-amber-700 transition hover:border-amber-300 hover:text-amber-600"
                   >
-                    Pitch this gig <span aria-hidden="true">→</span>
+                    Retry
                   </button>
-                </article>
-              ))}
+                </div>
+              ) : null}
+              {paginationMeta.hasMore ? (
+                <div className="flex justify-center">
+                  <button
+                    type="button"
+                    onClick={handleLoadMore}
+                    className="rounded-full border border-slate-200 px-5 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+                    disabled={loading || isAppending}
+                  >
+                    {loading || isAppending ? 'Loading more…' : 'Load more gigs'}
+                  </button>
+                </div>
+              ) : items.length ? (
+                <p className="text-center text-[0.7rem] font-semibold uppercase tracking-wide text-slate-400">
+                  You’re all caught up.
+                </p>
+              ) : null}
             </div>
           </div>
           <aside className="space-y-6">
@@ -538,6 +958,41 @@ export default function GigsPage() {
                 ) : null}
               </div>
             ) : null}
+            {savedGigCount ? (
+              <div className="rounded-3xl border border-emerald-100 bg-white p-6 shadow-soft">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-emerald-600">Saved gigs</h3>
+                <p className="mt-2 text-xs text-slate-500">Pick up shortlisted missions in a single click.</p>
+                <ul className="mt-4 space-y-3">
+                  {savedGigs.slice(0, 5).map((saved) => (
+                    <li key={saved.id} className="rounded-2xl border border-slate-200 px-4 py-3">
+                      <p className="text-sm font-semibold text-slate-800">{saved.title}</p>
+                      {saved.clientName ? <p className="text-xs text-slate-500">{saved.clientName}</p> : null}
+                      <button
+                        type="button"
+                        onClick={() => handleLoadSavedGig(saved)}
+                        className="mt-2 inline-flex items-center gap-2 rounded-full border border-emerald-200 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-emerald-600 transition hover:border-emerald-300 hover:text-emerald-700"
+                      >
+                        Load filters
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  type="button"
+                  onClick={handleClearSavedGigs}
+                  className="mt-4 inline-flex items-center gap-2 rounded-full border border-emerald-200 px-4 py-2 text-xs font-semibold text-emerald-600 transition hover:border-emerald-300 hover:text-emerald-700"
+                >
+                  Clear saved gigs
+                </button>
+              </div>
+            ) : (
+              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Saved gigs</h3>
+                <p className="mt-2 text-xs text-slate-500">
+                  Tap the save button on any brief to build a shortlist for weekly review.
+                </p>
+              </div>
+            )}
             <div className="rounded-3xl border border-accent/40 bg-accentSoft p-6 shadow-soft">
               <h3 className="text-sm font-semibold text-accentDark">Best pitch practices</h3>
               <ul className="mt-3 space-y-2 text-xs text-accentDark">

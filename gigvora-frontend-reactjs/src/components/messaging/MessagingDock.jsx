@@ -27,6 +27,7 @@ import ConversationMessage from './ConversationMessage.jsx';
 import { classNames } from '../../utils/classNames.js';
 import { canAccessMessaging } from '../../constants/access.js';
 import { useLanguage } from '../../context/LanguageContext.jsx';
+import analytics from '../../services/analytics.js';
 
 const THREAD_PAGE_SIZE = 20;
 
@@ -111,6 +112,36 @@ export default function MessagingDock() {
   const [callLoading, setCallLoading] = useState(false);
   const [callError, setCallError] = useState(null);
   const inboxDebounceTimer = useRef(null);
+
+  useEffect(() => {
+    const handleOpenEvent = (event) => {
+      const detail = event?.detail ?? {};
+      setOpen(true);
+      if (detail?.tab === 'support') {
+        setTab('support');
+      } else {
+        setTab('inbox');
+      }
+      if (detail?.threadId && canUseMessaging) {
+        setSelectedThreadId(detail.threadId);
+      }
+      analytics.track(
+        'web_messaging_dock_opened',
+        {
+          surface: detail.surface ?? 'unknown',
+          gigId: detail.gigId ?? null,
+          buyerId: detail.buyerId ?? null,
+          actorId: actorId ?? null,
+        },
+        { source: 'web_app' },
+      );
+    };
+
+    window.addEventListener('gigvora:messaging:open', handleOpenEvent);
+    return () => {
+      window.removeEventListener('gigvora:messaging:open', handleOpenEvent);
+    };
+  }, [actorId, canUseMessaging]);
 
   const loadInbox = useCallback(async ({ page: requestedPage = 1, append = false, preserveSelection = true } = {}) => {
     if (!canUseMessaging) {

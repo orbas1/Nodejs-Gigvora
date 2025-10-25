@@ -11,6 +11,7 @@ import {
 import useCachedResource from '../hooks/useCachedResource.js';
 import DataStatus from './DataStatus.jsx';
 import { fetchGigBuilderExperience } from '../services/gigBuilder.js';
+import { formatTagLabelFromSlug } from '../utils/taxonomy.js';
 
 const MEDIA_ICON_MAP = {
   video: VideoCameraIcon,
@@ -23,17 +24,6 @@ const DEVICE_LABELS = {
   tablet: 'Tablet',
   mobile: 'Mobile',
 };
-
-function formatTagLabelFromSlug(slug) {
-  if (!slug) {
-    return '';
-  }
-  return `${slug}`
-    .replace(/[_-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .replace(/\b\w/g, (char) => char.toUpperCase());
-}
 
 function MetricTile({ label, value, hint }) {
   return (

@@ -30,7 +30,8 @@ import {
   extractMediaAttachments,
 } from '../FeedPage.jsx';
 import { parseFinanceOverview } from '../FinanceHubPage.jsx';
-import { formatTagLabelFromSlug, formatNumber as formatGigNumber } from '../GigsPage.jsx';
+import { formatTagLabelFromSlug } from '../../utils/taxonomy.js';
+import { formatNumber as formatGigNumber } from '../GigsPage.jsx';
 import {
   formatPercent as formatGroupPercent,
   formatDate as formatGroupDate,
