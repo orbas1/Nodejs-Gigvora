@@ -658,19 +658,3 @@ export async function summariseVolunteeringSpend(freelancerId, { since } = {}) {
   };
 }
 
-export default {
-  getVolunteeringWorkspace,
-  createApplication,
-  updateApplication,
-  deleteApplication,
-  createResponse,
-  updateResponse,
-  deleteResponse,
-  createContract,
-  updateContract,
-  deleteContract,
-  createSpend,
-  updateSpend,
-  deleteSpend,
-  summariseVolunteeringSpend,
-};
