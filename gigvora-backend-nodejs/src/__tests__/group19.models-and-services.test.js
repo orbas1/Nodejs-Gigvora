@@ -1,33 +1,7 @@
-import { jest } from '@jest/globals';
+import { afterEach, beforeAll, describe, expect, jest, test } from '@jest/globals';
 
-import {
-  SECURITY_LEVELS,
-  RuntimeSecurityAuditEvent,
-} from '../models/runtimeSecurityAuditEvent.js';
-import sequelize from '../models/sequelizeClient.js';
-import PlatformSetting from '../models/platformSetting.js';
-import {
-  POLICY_DECISIONS,
-  RbacPolicyAuditEvent,
-} from '../models/rbacPolicyAuditEvent.js';
-import {
-  VolunteeringPost,
-  VolunteeringApplication,
-  VolunteeringApplicationResponse,
-  VolunteeringInterview,
-  VolunteeringContract,
-  VolunteeringContractSpend,
-  VOLUNTEERING_RESPONSE_TYPES,
-} from '../models/volunteeringModels.js';
-import SeoSetting, { SeoPageOverride } from '../models/seoSetting.js';
-import SiteModels from '../models/siteManagementModels.js';
-import StorageModels from '../models/storageManagementModels.js';
-import SystemSetting from '../models/systemSetting.js';
-import RuntimeAnnouncement, {
-  RUNTIME_ANNOUNCEMENT_SEVERITIES,
-  RUNTIME_ANNOUNCEMENT_STATUSES,
-} from '../models/runtimeAnnouncement.js';
-import { getSiteSettings, saveSiteSettings } from '../services/siteManagementService.js';
+import { UserEvent } from '../models/eventManagement.js';
+import { PlatformSetting } from '../models/platformSetting.js';
 import {
   Project,
   ProjectWorkspace,
@@ -38,47 +12,80 @@ import {
   ProjectTaskAssignment,
   syncProjectWorkspaceModels,
 } from '../models/projectWorkspaceModels.js';
-import dependencyHealth from '../observability/dependencyHealth.js';
 import {
-  resetPerimeterMetrics,
+  POLICY_DECISIONS,
+  RbacPolicyAuditEvent,
+} from '../models/rbacPolicyAuditEvent.js';
+import {
+  RUNTIME_ANNOUNCEMENT_SEVERITIES,
+  RUNTIME_ANNOUNCEMENT_STATUSES,
+  RuntimeAnnouncement,
+} from '../models/runtimeAnnouncement.js';
+import {
+  SECURITY_LEVELS,
+  RuntimeSecurityAuditEvent,
+} from '../models/runtimeSecurityAuditEvent.js';
+import { SeoPageOverride, SeoSetting } from '../models/seoSetting.js';
+import { sequelize } from '../models/sequelizeClient.js';
+import {
+  SiteNavigationLink,
+  SitePage,
+  SiteSetting,
+} from '../models/siteManagementModels.js';
+import {
+  StorageLifecycleRule,
+  StorageLocation,
+  StorageUploadPreset,
+} from '../models/storageManagementModels.js';
+import { SystemSetting } from '../models/systemSetting.js';
+import {
+  VolunteeringApplication,
+  VolunteeringApplicationResponse,
+  VolunteeringContract,
+  VolunteeringContractSpend,
+  VolunteeringInterview,
+  VolunteeringPost,
+  VOLUNTEERING_RESPONSE_TYPES,
+} from '../models/volunteeringModels.js';
+import { syncCriticalDependencies } from '../observability/dependencyHealth.js';
+import {
+  collectMetrics,
+  getMetricsContentType,
+  getMetricsStatus,
+  resetMetricsForTesting,
+} from '../observability/metricsRegistry.js';
+import {
   recordBlockedOrigin,
+  resetPerimeterMetrics,
 } from '../observability/perimeterMetrics.js';
 import {
-  resetRateLimitMetrics,
   recordRateLimitAttempt,
-  recordRateLimitSuccess,
   recordRateLimitBlocked,
+  recordRateLimitSuccess,
+  resetRateLimitMetrics,
 } from '../observability/rateLimitMetrics.js';
 import {
-  resetMetricsForTesting,
-  collectMetrics,
-  getMetricsStatus,
-  getMetricsContentType,
-} from '../observability/metricsRegistry.js';
+  canAccessChannel,
+  differenceBetweenAllowedRoles,
+  listChannelsForActor,
+  overlappingRoles,
+  resolveChannelFeatureFlags,
+} from '../realtime/channelRegistry.js';
+import {
+  registerCommunityNamespace,
+  __resetCommunityService as resetCommunityServiceForTest,
+  __setCommunityService as setCommunityServiceForTest,
+} from '../realtime/communityNamespace.js';
+import { createConnectionRegistry } from '../realtime/connectionRegistry.js';
+import { registerEventsNamespace } from '../realtime/eventsNamespace.js';
 import {
   configureWebApplicationFirewall,
   registerBlock,
   resetWebApplicationFirewallMetrics,
 } from '../security/webApplicationFirewall.js';
 import { getDatabasePoolSnapshot } from '../services/databaseLifecycleService.js';
-import {
-  canAccessChannel,
-  listChannelsForActor,
-  resolveChannelFeatureFlags,
-  differenceBetweenAllowedRoles,
-  overlappingRoles,
-} from '../realtime/channelRegistry.js';
-import createConnectionRegistry from '../realtime/connectionRegistry.js';
-import registerCommunityNamespace, {
-  __setCommunityService as setCommunityServiceForTest,
-  __resetCommunityService as resetCommunityServiceForTest,
-} from '../realtime/communityNamespace.js';
-import registerEventsNamespace from '../realtime/eventsNamespace.js';
-import { UserEvent } from '../models/eventManagement.js';
+import { getSiteSettings, saveSiteSettings } from '../services/siteManagementService.js';
 import { AuthorizationError } from '../utils/errors.js';
-
-const { SiteSetting, SitePage, SiteNavigationLink } = SiteModels;
-const { StorageLocation, StorageLifecycleRule, StorageUploadPreset } = StorageModels;
 
 beforeAll(async () => {
   await sequelize.authenticate();
@@ -141,7 +148,6 @@ function createFakeNamespace() {
     },
     async connect(socket) {
       for (const middleware of middlewares) {
-        // eslint-disable-next-line no-await-in-loop
         await new Promise((resolve, reject) => {
           try {
             middleware(socket, (error) => {
@@ -733,7 +739,7 @@ describe('Volunteering workflow models', () => {
 
 describe('Dependency health orchestration', () => {
   test('reports degraded state when escrow disabled', () => {
-    const result = dependencyHealth.syncCriticalDependencies(
+    const result = syncCriticalDependencies(
       { payments: { provider: 'stripe', stripe: { secretKey: 'sk', publishableKey: 'pk' } }, featureToggles: { escrow: false } },
       { logger: { warn: jest.fn(), error: jest.fn() } },
     );

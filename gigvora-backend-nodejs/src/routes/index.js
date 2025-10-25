@@ -1,7 +1,7 @@
 import { Router } from 'express';
 
 import adRoutes from './adRoutes.js';
-import adminRoutes from './adminRoutes.js';
+import { adminRoutes } from './adminRoutes.js';
 import adminModerationRoutes from './adminModerationRoutes.js';
 import adminComplianceRoutes from './adminComplianceRoutes.js';
 import agencyRoutes from './agencyRoutes.js';

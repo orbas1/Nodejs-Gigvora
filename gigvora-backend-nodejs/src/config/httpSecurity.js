@@ -1,10 +1,11 @@
+import compression from 'compression';
 import cors from 'cors';
 import helmet from 'helmet';
-import compression from 'compression';
 
 import { recordBlockedOrigin } from '../observability/perimeterMetrics.js';
 import { recordRuntimeSecurityEvent } from '../services/securityAuditService.js';
 import logger from '../utils/logger.js';
+
 import {
   getRuntimeConfig,
   onRuntimeConfigChange,
@@ -316,4 +317,3 @@ export function applyHttpSecurity(app, { env = process.env, logger: providedLogg
   return { allowedOrigins: resolveAllowedOrigins(env) };
 }
 
-export default applyHttpSecurity;

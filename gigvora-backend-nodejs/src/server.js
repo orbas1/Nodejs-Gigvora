@@ -1,33 +1,33 @@
 import http from 'node:http';
 
 import { app } from './app.js';
-import logger from './utils/logger.js';
-import { startBackgroundWorkers, stopBackgroundWorkers } from './lifecycle/workerManager.js';
+import { ensureEnvLoaded } from './config/envLoader.js';
+import {
+  getRuntimeConfig,
+  onRuntimeConfigChange,
+  whenRuntimeConfigReady,
+} from './config/runtimeConfig.js';
 import { bootstrapDatabase, shutdownDatabase } from './lifecycle/databaseLifecycle.js';
+import { orchestrateHttpShutdown } from './lifecycle/httpShutdown.js';
 import {
   markHttpServerStarting,
   markHttpServerReady,
   markHttpServerClosing,
   markHttpServerStopped,
 } from './lifecycle/runtimeHealth.js';
-import { warmRuntimeDependencyHealth } from './services/runtimeDependencyGuard.js';
-import {
-  warmDatabaseConnections,
-  drainDatabaseConnections,
-} from './services/databaseLifecycleService.js';
-import { getPlatformSettings } from './services/platformSettingsService.js';
+import { startBackgroundWorkers, stopBackgroundWorkers } from './lifecycle/workerManager.js';
 import { syncCriticalDependencies } from './observability/dependencyHealth.js';
-import { recordRuntimeSecurityEvent } from './services/securityAuditService.js';
-import orchestrateHttpShutdown from './lifecycle/httpShutdown.js';
 import { getMetricsStatus } from './observability/metricsRegistry.js';
 import { configureTracing, shutdownTracing } from './observability/tracing.js';
-import {
-  getRuntimeConfig,
-  whenRuntimeConfigReady,
-  onRuntimeConfigChange,
-} from './config/runtimeConfig.js';
 import { attachSocketServer, shutdownSocketServer } from './realtime/socketServer.js';
-import ensureEnvLoaded from './config/envLoader.js';
+import {
+  drainDatabaseConnections,
+  warmDatabaseConnections,
+} from './services/databaseLifecycleService.js';
+import { getPlatformSettings } from './services/platformSettingsService.js';
+import { warmRuntimeDependencyHealth } from './services/runtimeDependencyGuard.js';
+import { recordRuntimeSecurityEvent } from './services/securityAuditService.js';
+import logger from './utils/logger.js';
 
 ensureEnvLoaded({ silent: process.env.NODE_ENV === 'test' });
 
@@ -201,4 +201,4 @@ if (process.env.NODE_ENV !== 'test') {
   });
 }
 
-export default app;
+export { app };

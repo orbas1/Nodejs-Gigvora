@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 import { spawn } from 'child_process';
-import { pipeline } from 'stream/promises';
-import fs from 'fs/promises';
-import fssync from 'fs';
-import path from 'path';
-import zlib from 'zlib';
 import crypto from 'crypto';
+import fssync from 'fs';
+import fs from 'fs/promises';
+import path from 'path';
 import process from 'process';
+import { pipeline } from 'stream/promises';
 import { fileURLToPath } from 'url';
+import zlib from 'zlib';
+
 import databaseConfig from '../src/config/database.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

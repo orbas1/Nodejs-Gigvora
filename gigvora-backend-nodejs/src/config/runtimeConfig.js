@@ -1,9 +1,11 @@
 import { EventEmitter } from 'node:events';
-import { readFile } from 'node:fs/promises';
 import { watch } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+
 import { parse as parseEnvFile } from 'dotenv';
 import { z } from 'zod';
+
 import { ensureEnvLoaded } from './envLoader.js';
 
 const DEFAULT_ALLOWED_ORIGINS = [
