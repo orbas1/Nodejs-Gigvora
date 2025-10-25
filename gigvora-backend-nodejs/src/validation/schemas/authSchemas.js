@@ -127,6 +127,13 @@ export const refreshSessionSchema = z
   })
   .strip();
 
+export const revokeRefreshTokenSchema = z
+  .object({
+    refreshToken: requiredTrimmedString({ max: 4096 }),
+    reason: optionalTrimmedString({ max: 120 }),
+  })
+  .strip();
+
 export const requestPasswordResetSchema = z
   .object({
     email: emailSchema,

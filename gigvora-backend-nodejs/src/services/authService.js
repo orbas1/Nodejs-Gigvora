@@ -4,6 +4,14 @@ import nodemailer from 'nodemailer';
 import { OAuth2Client } from 'google-auth-library';
 import twoFactorService from './twoFactorService.js';
 import { getAuthDomainService, getFeatureFlagService } from '../domains/serviceCatalog.js';
+import {
+  getRefreshTokenInvalidation,
+  getRefreshTokenRevocation,
+  invalidateRefreshTokensForUser,
+  isRefreshTokenRevoked,
+  markRefreshTokenRevoked,
+  persistRefreshSession,
+} from './refreshTokenStore.js';
 
 const TOKEN_EXPIRY = process.env.JWT_EXPIRES_IN || '1h';
 const REFRESH_EXPIRY = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
@@ -181,19 +189,38 @@ function verifyRefreshToken(refreshToken) {
   }
 }
 
-async function issueSession(user) {
+async function issueSession(user, { context = null } = {}) {
   const secrets = resolveSecrets();
   const payload = { id: user.id, type: user.userType };
   const accessToken = jwt.sign(payload, secrets.access, { expiresIn: TOKEN_EXPIRY });
   const refreshToken = jwt.sign(payload, secrets.refresh, { expiresIn: REFRESH_EXPIRY });
   await authDomainService.updateLastLogin(user.id);
+  const refreshRecord = await persistRefreshSession(refreshToken, {
+    userId: user.id,
+    context,
+  });
   const sanitized = sanitizeUser(user);
+
+  const refreshMeta = {
+    deviceFingerprint: refreshRecord?.deviceFingerprint ?? null,
+    deviceLabel: refreshRecord?.deviceLabel ?? null,
+    riskLevel: refreshRecord?.riskLevel ?? 'low',
+    riskScore: refreshRecord?.riskScore ?? 0,
+    riskSignals: Array.isArray(refreshRecord?.riskSignals) ? refreshRecord.riskSignals : [],
+    expiresAt: refreshRecord?.expiresAt instanceof Date
+      ? refreshRecord.expiresAt.toISOString()
+      : refreshRecord?.expiresAt
+        ? new Date(refreshRecord.expiresAt).toISOString()
+        : null,
+  };
 
   return {
     user: { ...sanitized, lastLoginAt: new Date().toISOString() },
     accessToken,
     refreshToken,
     expiresAt: decodeExpiry(accessToken),
+    refreshMeta,
+    sessionRisk: { level: refreshMeta.riskLevel, score: refreshMeta.riskScore },
   };
 }
 
@@ -251,7 +278,7 @@ async function login(email, password, options = {}) {
     };
   }
 
-  const session = await issueSession(user);
+  const session = await issueSession(user, { context: options.context ?? null });
   const featureFlags = await featureFlagService.evaluateForUser(session.user, {
     workspaceIds: options.workspaceIds ?? [],
     traits: { loginContext: options.context?.ipAddress ? 'ip_tracked' : 'standard' },
@@ -299,7 +326,7 @@ async function verifyTwoFactor(email, code, tokenId, options = {}) {
     {},
   );
 
-  const session = await issueSession(user);
+  const session = await issueSession(user, { context: options.context ?? null });
   const featureFlags = await featureFlagService.evaluateForUser(session.user, {
     workspaceIds: options.workspaceIds ?? [],
     traits: { loginContext: 'two_factor_completed' },
@@ -355,7 +382,7 @@ async function loginWithGoogle(idToken, options = {}) {
     await user.update({ googleId, twoFactorEnabled: false });
   }
 
-  const session = await issueSession(user);
+  const session = await issueSession(user, { context: options.context ?? null });
   const featureFlags = await featureFlagService.evaluateForUser(session.user, {
     traits: { loginContext: 'google_oauth' },
   });
@@ -376,18 +403,39 @@ async function loginWithGoogle(idToken, options = {}) {
 
 async function refreshSession(refreshToken, options = {}) {
   const payload = verifyRefreshToken(refreshToken);
+
+  if (await isRefreshTokenRevoked(refreshToken)) {
+    throw buildError('Refresh token has been revoked.', 401);
+  }
+
+  const invalidation = await getRefreshTokenInvalidation(payload.id);
+  if (invalidation?.invalidatedAt) {
+    const invalidatedAt = new Date(invalidation.invalidatedAt).getTime();
+    if (Number.isFinite(invalidatedAt) && payload.iat * 1000 <= invalidatedAt) {
+      throw buildError('Refresh token has been revoked.', 401);
+    }
+  }
+
   const user = await authDomainService.findUserById(payload.id);
   if (!user) {
     throw buildError('Account not found.', 404);
   }
 
-  const session = await issueSession(user);
+  const session = await issueSession(user, { context: options.context ?? null });
   const featureFlags = await featureFlagService.evaluateForUser(session.user, {
     traits: { loginContext: 'refresh_token' },
     workspaceIds: options.workspaceIds ?? [],
   });
   session.featureFlags = featureFlags;
   session.user.featureFlags = featureFlags;
+
+  await markRefreshTokenRevoked(refreshToken, {
+    userId: payload.id,
+    reason: 'rotated',
+    context: options.context ?? null,
+    actorId: options.context?.actorId ?? null,
+    replacedByToken: session.refreshToken,
+  });
 
   await authDomainService.recordLoginAudit(
     user.id,
@@ -519,7 +567,46 @@ async function resetPassword(token, password, options = {}) {
     {},
   );
 
+  await invalidateRefreshTokensForUser(sanitizedUser.id, {
+    reason: 'password_reset',
+    actorId: sanitizedUser.id,
+  });
+
   return { success: true, maskedEmail: maskEmail(sanitizedUser.email) };
+}
+
+async function revokeRefreshToken(refreshToken, options = {}) {
+  if (!refreshToken) {
+    throw buildError('Refresh token is required.', 422);
+  }
+
+  const payload = verifyRefreshToken(refreshToken);
+  const existing = await getRefreshTokenRevocation(refreshToken);
+  let revocation = existing;
+  if (!revocation) {
+    revocation = await markRefreshTokenRevoked(refreshToken, {
+      userId: payload.id,
+      reason: options.reason ?? 'logout',
+      context: options.context ?? null,
+      actorId: options.context?.actorId ?? null,
+    });
+    await authDomainService.recordLoginAudit(
+      payload.id,
+      {
+        eventType: 'refresh_token_revoked',
+        ipAddress: options.context?.ipAddress,
+        userAgent: options.context?.userAgent,
+        metadata: { reason: options.reason ?? 'logout' },
+      },
+      {},
+    );
+  }
+
+  return {
+    success: true,
+    revokedAt: revocation?.revokedAt ?? new Date().toISOString(),
+    reason: revocation?.reason ?? options.reason ?? 'logout',
+  };
 }
 
 export default {
@@ -532,4 +619,5 @@ export default {
   requestPasswordReset,
   verifyPasswordResetToken,
   resetPassword,
+  revokeRefreshToken,
 };

@@ -1,7 +1,16 @@
 import { Op, fn, col } from 'sequelize';
-import { FeedPost, FeedComment, FeedReaction, User, Profile } from '../models/index.js';
-import { enforceFeedPostPolicies } from '../services/contentModerationService.js';
+import { FeedPost, FeedComment, FeedReaction, User, Profile, Connection } from '../models/index.js';
+import { enforceFeedCommentPolicies, enforceFeedPostPolicies } from '../services/contentModerationService.js';
 import { ValidationError, AuthorizationError, AuthenticationError } from '../utils/errors.js';
+import {
+  sanitizeUrl,
+  sanitizeString,
+  parseCount,
+  sanitiseMediaAttachments,
+  serialiseFeedPost,
+  serialiseComment,
+} from '../services/feedSerializationService.js';
+import { appCache } from '../utils/cache.js';
 
 const ALLOWED_VISIBILITY = new Set(['public', 'connections']);
 const ALLOWED_TYPES = new Set(['update', 'media', 'job', 'gig', 'project', 'volunteering', 'launchpad', 'news']);
@@ -26,6 +35,9 @@ const DEFAULT_PAGE_SIZE = 12;
 const MAX_PAGE_SIZE = 50;
 const DEFAULT_COMMENT_LIMIT = 20;
 const MAX_COMMENT_LIMIT = 100;
+const SUGGESTION_LIMIT = 6;
+const SUGGESTION_CACHE_PREFIX = 'feed:suggestions:';
+const SUGGESTION_CACHE_TTL_SECONDS = 60 * 5;
 
 function resolveRole(req) {
   const candidate =
@@ -42,72 +54,6 @@ function resolveRole(req) {
 
 function hasOwn(object, key) {
   return Object.prototype.hasOwnProperty.call(object ?? {}, key);
-}
-
-function sanitizeUrl(url) {
-  if (!url || typeof url !== 'string') {
-    return null;
-  }
-  try {
-    const trimmed = url.trim();
-    if (!/^https?:\/\//i.test(trimmed)) {
-      return null;
-    }
-    const parsed = new URL(trimmed);
-    if (!['http:', 'https:'].includes(parsed.protocol)) {
-      return null;
-    }
-    return parsed.href;
-  } catch (error) {
-    return null;
-  }
-}
-
-function sanitizeString(value, { maxLength = 500, fallback = null } = {}) {
-  if (value == null) {
-    return fallback;
-  }
-  const trimmed = `${value}`.trim();
-  if (!trimmed) {
-    return fallback;
-  }
-  return trimmed.slice(0, maxLength);
-}
-
-function parseCount(value) {
-  if (value == null) {
-    return null;
-  }
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric) || numeric < 0) {
-    return null;
-  }
-  return numeric;
-}
-
-function sanitiseMediaAttachments(input) {
-  if (!Array.isArray(input)) {
-    return [];
-  }
-  return input
-    .map((item, index) => {
-      if (typeof item === 'string') {
-        const url = sanitizeUrl(item);
-        return url ? { id: `attachment-${index + 1}`, url, type: 'image' } : null;
-      }
-      if (item && typeof item === 'object') {
-        const url = sanitizeUrl(item.url ?? item.href);
-        if (!url) {
-          return null;
-        }
-        const type = typeof item.type === 'string' ? item.type.toLowerCase() : 'attachment';
-        const alt = sanitizeString(item.alt ?? item.caption ?? '', { maxLength: 180, fallback: '' });
-        return { id: item.id ?? `attachment-${index + 1}`, url, type, alt };
-      }
-      return null;
-    })
-    .filter(Boolean)
-    .slice(0, 4);
 }
 
 async function resolveUserSnapshot(userId) {
@@ -156,114 +102,126 @@ async function resolveUserSnapshot(userId) {
   };
 }
 
-function serialiseFeedPost(instance, { reactionSummary = {}, commentCount = 0 } = {}) {
-  const raw = instance?.toJSON ? instance.toJSON() : instance;
-  const user = raw.User || raw.user || null;
-  const profile = user?.Profile || user?.profile || null;
-  const computedAuthorName =
-    raw.authorName || [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() || 'Gigvora member';
-  const computedAuthorHeadline =
-    raw.authorHeadline ||
-    profile?.headline ||
-    profile?.bio ||
-    user?.title ||
-    (raw.type === 'news' ? raw.source || 'Gigvora newsroom' : 'Marketplace community update');
-  const computedAvatarSeed = raw.authorAvatarSeed || profile?.avatarSeed || computedAuthorName;
-  const attachments = Array.isArray(raw.mediaAttachments) ? raw.mediaAttachments : [];
-  const likesCount =
-    parseCount(reactionSummary.likes) ??
-    parseCount(raw.reactions?.likes) ??
-    parseCount(raw.likes) ??
-    0;
-  const reactionPayload = { ...reactionSummary, likes: likesCount };
-  const metricsSource = raw.metrics && typeof raw.metrics === 'object' ? raw.metrics : {};
-  const derivedCommentCount =
-    parseCount(commentCount) ??
-    parseCount(metricsSource.comments) ??
-    (Array.isArray(raw.comments) ? raw.comments.length : null) ??
-    parseCount(raw.commentCount) ??
-    0;
+async function resolveSuggestedConnections(actor, limit = SUGGESTION_LIMIT) {
+  if (!actor?.id) {
+    return [];
+  }
+  const actorId = Number(actor.id);
+  if (!Number.isFinite(actorId) || actorId <= 0) {
+    return [];
+  }
 
-  return {
-    id: raw.id,
-    userId: raw.userId,
-    content: raw.content,
-    summary: raw.summary,
-    title: raw.title,
-    type: raw.type,
-    link: raw.link,
-    imageUrl: raw.imageUrl,
-    source: raw.source,
-    visibility: raw.visibility,
-    mediaAttachments: attachments,
-    createdAt: raw.createdAt,
-    updatedAt: raw.updatedAt,
-    publishedAt: raw.publishedAt,
-    author: {
-      name: computedAuthorName,
-      headline: computedAuthorHeadline,
-      avatarSeed: computedAvatarSeed,
-    },
-    authorName: computedAuthorName,
-    authorHeadline: computedAuthorHeadline,
-    authorAvatarSeed: computedAvatarSeed,
-    reactions: reactionPayload,
-    comments: Array.isArray(raw.comments) ? raw.comments : [],
-    metrics: {
-      ...metricsSource,
-      comments: derivedCommentCount,
-    },
-    User: raw.User,
-  };
-}
+  const cacheKey = `${SUGGESTION_CACHE_PREFIX}${actorId}:${limit}`;
+  const cached = appCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
 
-function serialiseComment(instance, replyMap = new Map()) {
-  const raw = instance?.toJSON ? instance.toJSON() : instance;
-  const authorUser = raw.author || raw.User || raw.user || null;
-  const profile = authorUser?.Profile || authorUser?.profile || null;
-  const computedAuthorName =
-    raw.authorName ||
-    [authorUser?.firstName, authorUser?.lastName, authorUser?.name].filter(Boolean).join(' ').trim() ||
-    'Gigvora member';
-  const computedHeadline =
-    raw.authorHeadline || profile?.headline || profile?.bio || authorUser?.title || 'Gigvora member';
-  const computedAvatarSeed = raw.authorAvatarSeed || profile?.avatarSeed || computedAuthorName;
-  const repliesSource = replyMap instanceof Map ? replyMap.get(raw.id) ?? [] : raw.replies ?? [];
-  const replies = repliesSource.map((reply) => serialiseComment(reply, replyMap));
-  const userPayload = authorUser
-    ? {
-        id: authorUser.id,
-        firstName: authorUser.firstName,
-        lastName: authorUser.lastName,
-        title: authorUser.title ?? null,
-        Profile: profile
-          ? {
-              id: profile.id,
-              headline: profile.headline,
-              bio: profile.bio,
-              avatarSeed: profile.avatarSeed,
-            }
-          : null,
+  const accepted = await Connection.findAll({
+    where: {
+      status: 'accepted',
+      [Op.or]: [{ requesterId: actorId }, { addresseeId: actorId }],
+    },
+    attributes: ['requesterId', 'addresseeId'],
+  });
+
+  const connectedIds = new Set();
+  accepted.forEach((record) => {
+    if (Number.isInteger(record.requesterId)) {
+      connectedIds.add(record.requesterId);
+    }
+    if (Number.isInteger(record.addresseeId)) {
+      connectedIds.add(record.addresseeId);
+    }
+  });
+  connectedIds.delete(actorId);
+
+  const exclusion = Array.from(connectedIds);
+  exclusion.push(actorId);
+
+  const profiles = await Profile.findAll({
+    where: {
+      userId: { [Op.notIn]: exclusion },
+    },
+    include: [
+      {
+        model: User,
+        attributes: ['id', 'firstName', 'lastName', 'email', 'userType', 'primaryDashboard'],
+      },
+    ],
+    order: [
+      ['followersCount', 'DESC'],
+      ['trustScore', 'DESC'],
+      ['updatedAt', 'DESC'],
+    ],
+    limit: Math.max(limit * 3, limit),
+  });
+
+  const suggestionIds = profiles
+    .map((profile) => profile.userId)
+    .filter((id) => Number.isInteger(id) && !connectedIds.has(id));
+
+  const mutualCounts = new Map();
+  if (suggestionIds.length && connectedIds.size) {
+    const mutual = await Connection.findAll({
+      where: {
+        status: 'accepted',
+        [Op.or]: [
+          { requesterId: { [Op.in]: suggestionIds }, addresseeId: { [Op.in]: Array.from(connectedIds) } },
+          { addresseeId: { [Op.in]: suggestionIds }, requesterId: { [Op.in]: Array.from(connectedIds) } },
+        ],
+      },
+      attributes: ['requesterId', 'addresseeId'],
+    });
+
+    mutual.forEach((record) => {
+      const suggestionId = connectedIds.has(record.requesterId) ? record.addresseeId : record.requesterId;
+      if (!Number.isInteger(suggestionId)) {
+        return;
       }
-    : null;
+      mutualCounts.set(suggestionId, (mutualCounts.get(suggestionId) ?? 0) + 1);
+    });
+  }
 
-  return {
-    id: raw.id,
-    postId: raw.postId,
-    parentId: raw.parentId,
-    message: raw.body,
-    body: raw.body,
-    createdAt: raw.createdAt,
-    updatedAt: raw.updatedAt,
-    author: computedAuthorName,
-    authorName: computedAuthorName,
-    authorHeadline: computedHeadline,
-    authorAvatarSeed: computedAvatarSeed,
-    replies,
-    User: userPayload,
-    user: userPayload,
-  };
+  const suggestions = profiles
+    .map((profile) => {
+      const owner = profile.User;
+      if (!owner) {
+        return null;
+      }
+      const name = [owner.firstName, owner.lastName].filter(Boolean).join(' ').trim() || owner.email;
+      const followersCount = Number.isFinite(Number(profile.followersCount))
+        ? Number(profile.followersCount)
+        : 0;
+      const trustScore = profile.trustScore != null ? Number(profile.trustScore) : null;
+      const mutual = mutualCounts.get(owner.id) ?? 0;
+      let reason = followersCount > 0 ? `${followersCount} followers` : 'Active community member';
+      if (mutual > 0) {
+        reason = mutual === 1 ? '1 mutual connection' : `${mutual} mutual connections`;
+      }
+      return {
+        userId: owner.id,
+        name,
+        headline: profile.headline ?? null,
+        location: profile.location ?? null,
+        avatarUrl: profile.avatarUrl ?? null,
+        avatarSeed: profile.avatarSeed ?? name,
+        followersCount,
+        trustScore,
+        userType: owner.userType ?? null,
+        primaryDashboard: owner.primaryDashboard ?? null,
+        reason,
+        mutualConnections: mutual,
+      };
+    })
+    .filter(Boolean)
+    .slice(0, limit);
+  const generatedAt = new Date().toISOString();
+  const enriched = suggestions.map((suggestion) => ({ ...suggestion, generatedAt }));
+  appCache.set(cacheKey, enriched, SUGGESTION_CACHE_TTL_SECONDS);
+  return enriched;
 }
+
 
 function resolveActor(req) {
   return req.user ?? null;
@@ -412,6 +370,7 @@ export async function listFeed(req, res) {
   );
   const cursor = req.query.cursor ? Number.parseInt(req.query.cursor, 10) : null;
   const page = req.query.page ? Number.parseInt(req.query.page, 10) : null;
+  const actor = resolveActor(req);
 
   const where = {};
   if (cursor && Number.isFinite(cursor)) {
@@ -451,6 +410,7 @@ export async function listFeed(req, res) {
 
   const nextCursor = hasMore ? trimmed[trimmed.length - 1].id : null;
   const nextPage = hasMore && !cursor && page && Number.isFinite(page) ? page + 1 : null;
+  const suggestions = await resolveSuggestedConnections(actor, SUGGESTION_LIMIT);
 
   res.json({
     items,
@@ -458,6 +418,7 @@ export async function listFeed(req, res) {
     nextPage,
     hasMore,
     total,
+    suggestions,
   });
 }
 
@@ -701,11 +662,14 @@ export async function createComment(req, res) {
     throw new ValidationError('A message is required to create a feed comment.');
   }
 
+  const moderation = enforceFeedCommentPolicies({ content: text }, { allowWarnings: true });
+  const moderatedBody = moderation.content || text;
+
   const snapshot = await resolveUserSnapshot(actor.id);
   const created = await FeedComment.create({
     postId: numericId,
     userId: actor.id,
-    body: text,
+    body: moderatedBody,
     authorName: snapshot.name,
     authorHeadline: snapshot.headline,
     authorAvatarSeed: snapshot.avatarSeed,
@@ -715,7 +679,12 @@ export async function createComment(req, res) {
     include: [{ model: User, as: 'author', include: [Profile] }],
   });
 
-  res.status(201).json(serialiseComment(hydrated));
+  const payload = serialiseComment(hydrated);
+  if (moderation.signals?.length) {
+    payload.moderation = { signals: moderation.signals };
+  }
+
+  res.status(201).json(payload);
 }
 
 export async function createReply(req, res) {
@@ -745,12 +714,15 @@ export async function createReply(req, res) {
     throw new ValidationError('A message is required to create a feed reply.');
   }
 
+  const moderation = enforceFeedCommentPolicies({ content: text }, { allowWarnings: true });
+  const moderatedBody = moderation.content || text;
+
   const snapshot = await resolveUserSnapshot(actor.id);
   const created = await FeedComment.create({
     postId: numericPostId,
     userId: actor.id,
     parentId: numericCommentId,
-    body: text,
+    body: moderatedBody,
     authorName: snapshot.name,
     authorHeadline: snapshot.headline,
     authorAvatarSeed: snapshot.avatarSeed,
@@ -760,7 +732,12 @@ export async function createReply(req, res) {
     include: [{ model: User, as: 'author', include: [Profile] }],
   });
 
-  res.status(201).json(serialiseComment(hydrated));
+  const payload = serialiseComment(hydrated);
+  if (moderation.signals?.length) {
+    payload.moderation = { signals: moderation.signals };
+  }
+
+  res.status(201).json(payload);
 }
 
 async function summariseReactionsForPost(postId) {

@@ -103,3 +103,12 @@ export async function resetPassword(req, res) {
   });
   res.json(result);
 }
+
+export async function logout(req, res) {
+  const { refreshToken, reason } = req.body || {};
+  const result = await authService.revokeRefreshToken(refreshToken, {
+    reason,
+    context: { ipAddress: req.ip, userAgent: req.get('user-agent') },
+  });
+  res.status(202).json(result);
+}

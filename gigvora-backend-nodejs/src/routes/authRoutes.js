@@ -12,6 +12,7 @@ import {
   resendTwoFactorSchema,
   refreshSessionSchema,
   requestPasswordResetSchema,
+  revokeRefreshTokenSchema,
   verifyPasswordResetTokenSchema,
   performPasswordResetSchema,
   verifyTwoFactorSchema,
@@ -44,6 +45,11 @@ router.post(
 );
 router.post('/login/google', validateRequest({ body: googleLoginSchema }), asyncHandler(authController.googleLogin));
 router.post('/refresh', validateRequest({ body: refreshSessionSchema }), asyncHandler(authController.refreshSession));
+router.post(
+  '/logout',
+  validateRequest({ body: revokeRefreshTokenSchema }),
+  asyncHandler(authController.logout),
+);
 router.post(
   '/password/forgot',
   validateRequest({ body: requestPasswordResetSchema }),

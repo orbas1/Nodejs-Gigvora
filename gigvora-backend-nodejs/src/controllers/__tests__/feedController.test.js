@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { ModerationError } from '../../utils/errors.js';
 
 process.env.LIGHTWEIGHT_SERVICE_TESTS = 'true';
 process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'true';
 
 const modelsModuleSpecifier = '../../../tests/stubs/modelsIndexStub.js';
+const moderationModuleUrl = new URL('../../services/contentModerationService.js', import.meta.url);
 
 const FeedPostMock = {
   findAll: jest.fn(),
@@ -31,7 +33,24 @@ const UserMock = {
   findByPk: jest.fn(),
 };
 
-const ProfileMock = {};
+const ProfileMock = {
+  findAll: jest.fn().mockResolvedValue([]),
+};
+const ConnectionMock = {
+  findAll: jest.fn().mockResolvedValue([]),
+};
+
+const enforceFeedPostPoliciesMock = jest
+  .fn()
+  .mockImplementation((payload) => ({ ...payload, attachments: payload.attachments ?? [], signals: [] }));
+const enforceFeedCommentPoliciesMock = jest
+  .fn()
+  .mockImplementation(({ content }) => ({ content, signals: [] }));
+
+jest.unstable_mockModule(moderationModuleUrl.pathname, () => ({
+  enforceFeedPostPolicies: enforceFeedPostPoliciesMock,
+  enforceFeedCommentPolicies: enforceFeedCommentPoliciesMock,
+}));
 
 let listFeed;
 let createComment;
@@ -45,7 +64,10 @@ async function importController() {
     FeedReaction: FeedReactionMock,
     User: UserMock,
     Profile: ProfileMock,
+    Connection: ConnectionMock,
   });
+  const { appCache } = await import('../../utils/cache.js');
+  appCache.flushByPrefix?.('feed:suggestions:');
   return import('../feedController.js');
 }
 
@@ -66,6 +88,14 @@ function resetMocks() {
     }
   }
   UserMock.findByPk.mockReset();
+  ProfileMock.findAll.mockReset();
+  ConnectionMock.findAll.mockReset();
+  enforceFeedPostPoliciesMock.mockReset().mockImplementation((payload) => ({
+    ...payload,
+    attachments: payload.attachments ?? [],
+    signals: [],
+  }));
+  enforceFeedCommentPoliciesMock.mockReset().mockImplementation(({ content }) => ({ content, signals: [] }));
 }
 
 beforeEach(async () => {
@@ -136,6 +166,7 @@ describe('feedController', () => {
       nextPage: null,
       hasMore: false,
       total: 1,
+      suggestions: [],
     });
   });
 
@@ -223,5 +254,80 @@ describe('feedController', () => {
       active: true,
       summary: { likes: 1 },
     });
+  });
+
+  it('enriches the feed response with suggested connections and mutual reasons', async () => {
+    FeedPostMock.findAll.mockResolvedValue([]);
+    FeedPostMock.count.mockResolvedValue(0);
+    FeedReactionMock.findAll.mockResolvedValue([]);
+    FeedCommentMock.findAll.mockResolvedValue([]);
+    ConnectionMock.findAll
+      .mockResolvedValueOnce([
+        { requesterId: 42, addresseeId: 7 },
+        { requesterId: 7, addresseeId: 42 },
+      ])
+      .mockResolvedValueOnce([{ requesterId: 5, addresseeId: 7 }]);
+    ProfileMock.findAll.mockResolvedValue([
+      {
+        userId: 5,
+        headline: 'Product Lead',
+        location: 'Berlin',
+        avatarUrl: null,
+        avatarSeed: 'alex',
+        followersCount: 4,
+        trustScore: 87,
+        updatedAt: new Date().toISOString(),
+        User: {
+          id: 5,
+          firstName: 'Alex',
+          lastName: 'River',
+          email: 'alex.river@example.com',
+          userType: 'member',
+          primaryDashboard: 'member',
+        },
+      },
+    ]);
+
+    const req = { query: {}, user: { id: 42 } };
+    const res = createResponse();
+
+    await listFeed(req, res);
+
+    expect(ConnectionMock.findAll).toHaveBeenCalled();
+    expect(ProfileMock.findAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        limit: expect.any(Number),
+      }),
+    );
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [],
+        total: 0,
+        suggestions: [
+          expect.objectContaining({
+            userId: 5,
+            reason: expect.stringMatching(/mutual|followers/),
+          }),
+        ],
+      }),
+    );
+  });
+
+  it('rejects comment creation when moderation blocks the message', async () => {
+    FeedPostMock.findByPk.mockResolvedValue({ id: 99 });
+    enforceFeedCommentPoliciesMock.mockImplementation(() => {
+      throw new ModerationError('comment blocked');
+    });
+
+    const req = {
+      params: { postId: '99' },
+      body: { message: 'spam content' },
+      user: { id: 21 },
+      headers: { 'x-user-role': 'user' },
+    };
+    const res = createResponse();
+
+    await expect(createComment(req, res)).rejects.toThrow('comment blocked');
+    expect(FeedCommentMock.create).not.toHaveBeenCalled();
   });
 });
