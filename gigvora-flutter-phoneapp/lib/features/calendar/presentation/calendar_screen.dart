@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -7,6 +8,8 @@ import '../../../theme/widgets.dart';
 import '../../auth/application/session_controller.dart';
 import '../application/calendar_controller.dart';
 import '../data/models/calendar_event.dart';
+import '../data/models/calendar_recurrence.dart';
+import '../data/timezone_options.dart';
 
 class CalendarScreen extends ConsumerStatefulWidget {
   const CalendarScreen({super.key});
@@ -16,7 +19,16 @@ class CalendarScreen extends ConsumerStatefulWidget {
 }
 
 class _CalendarScreenState extends ConsumerState<CalendarScreen> {
-  DateTime _focusedDay = DateTime.now();
+  late DateTime _focusedDay;
+  late String _selectedTimeZone;
+
+  @override
+  void initState() {
+    super.initState();
+    final controller = ref.read(calendarControllerProvider.notifier);
+    _focusedDay = controller.rangeStart;
+    _selectedTimeZone = controller.timeZone;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +75,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 
     return GigvoraScaffold(
       title: 'Team calendar',
-      subtitle: 'Production ready scheduling',
+      subtitle: 'Production ready scheduling across $_selectedTimeZone',
       useAppDrawer: true,
       actions: [
         IconButton(
@@ -77,14 +89,30 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         children: [
           _CalendarHeader(
             focusedDay: _focusedDay,
-            onPrevious: () => setState(() {
-              _focusedDay = DateTime(_focusedDay.year, _focusedDay.month - 1, 1);
-            }),
-            onNext: () => setState(() {
-              _focusedDay = DateTime(_focusedDay.year, _focusedDay.month + 1, 1);
-            }),
+            onPrevious: () {
+              final previous = DateTime(_focusedDay.year, _focusedDay.month - 1, 1);
+              setState(() {
+                _focusedDay = previous;
+              });
+              controller.focusMonth(previous);
+            },
+            onNext: () {
+              final next = DateTime(_focusedDay.year, _focusedDay.month + 1, 1);
+              setState(() {
+                _focusedDay = next;
+              });
+              controller.focusMonth(next);
+            },
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+          _TimeZonePicker(
+            value: _selectedTimeZone,
+            onChanged: (value) async {
+              setState(() => _selectedTimeZone = value);
+              await controller.setTimeZone(value);
+            },
+          ),
+          const SizedBox(height: 16),
           if (session != null)
             _PersonaBanner(
               name: session.name,
@@ -92,14 +120,14 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               activeMembership: session.activeMembership,
             ),
           if (state.fromCache)
-            const Padding(
-              padding: EdgeInsets.only(top: 16),
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
               child: _StatusBanner(
                 icon: Icons.offline_bolt,
-                background: Color(0xFFFEF3C7),
-                foreground: Color(0xFFB45309),
+                background: const Color(0xFFFEF3C7),
+                foreground: const Color(0xFFB45309),
                 message:
-                    'Showing workspace cached schedule. We\'ll sync fresh meetings as soon as connectivity resumes.',
+                    'Showing cached $_selectedTimeZone schedule. We\'ll sync fresh meetings as soon as connectivity resumes.',
               ),
             ),
           if (state.hasError)
@@ -164,7 +192,10 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       context: context,
       isScrollControlled: true,
       builder: (context) {
-        return _CalendarEventSheet(event: event);
+        return _CalendarEventSheet(
+          event: event,
+          defaultTimeZone: controller.timeZone,
+        );
       },
     );
 
@@ -277,6 +308,8 @@ class _DaySection extends StatelessWidget {
   }
 }
 
+enum _EventCardAction { copyIcs }
+
 class _EventCard extends StatelessWidget {
   const _EventCard({
     required this.event,
@@ -357,6 +390,25 @@ class _EventCard extends StatelessWidget {
                   onPressed: () => onEdit(event),
                   icon: const Icon(Icons.edit_outlined),
                 ),
+                PopupMenuButton<_EventCardAction>(
+                  tooltip: 'More actions',
+                  onSelected: (action) async {
+                    if (action == _EventCardAction.copyIcs) {
+                      await Clipboard.setData(ClipboardData(text: event.toIcs()));
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('ICS invite copied to clipboard.')),
+                        );
+                      }
+                    }
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(
+                      value: _EventCardAction.copyIcs,
+                      child: Text('Copy ICS invite'),
+                    ),
+                  ],
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -366,6 +418,23 @@ class _EventCard extends StatelessWidget {
                   .textTheme
                   .bodyMedium
                   ?.copyWith(color: colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                _EventMetaPill(
+                  icon: Icons.public,
+                  label: event.timeZone,
+                ),
+                if (event.recurrence != null)
+                  _EventMetaPill(
+                    icon: Icons.loop,
+                    label: event.recurrence!
+                        .describe(DateFormat.yMMMd()),
+                  ),
+              ],
             ),
             if (event.location?.isNotEmpty ?? false) ...[
               const SizedBox(height: 8),
@@ -433,6 +502,70 @@ class _EventCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _EventMetaPill extends StatelessWidget {
+  const _EventMetaPill({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceVariant.withOpacity(0.45),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: colorScheme.primary),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TimeZonePicker extends StatelessWidget {
+  const _TimeZonePicker({required this.value, required this.onChanged});
+
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final resolvedValue = supportedCalendarTimeZones.any((option) => option.identifier == value)
+        ? value
+        : supportedCalendarTimeZones.first.identifier;
+    return DropdownButtonFormField<String>(
+      value: resolvedValue,
+      decoration: const InputDecoration(
+        labelText: 'Workspace time zone',
+        prefixIcon: Icon(Icons.public),
+      ),
+      items: [
+        for (final option in supportedCalendarTimeZones)
+          DropdownMenuItem(
+            value: option.identifier,
+            child: Text(option.label),
+          ),
+      ],
+      onChanged: (value) {
+        if (value == null) {
+          return;
+        }
+        onChanged(value);
+      },
     );
   }
 }
@@ -558,9 +691,13 @@ class _StatusBanner extends StatelessWidget {
 }
 
 class _CalendarEventSheet extends StatefulWidget {
-  const _CalendarEventSheet({this.event});
+  const _CalendarEventSheet({
+    this.event,
+    required this.defaultTimeZone,
+  });
 
   final CalendarEvent? event;
+  final String defaultTimeZone;
 
   @override
   State<_CalendarEventSheet> createState() => _CalendarEventSheetState();
@@ -576,6 +713,11 @@ class _CalendarEventSheetState extends State<_CalendarEventSheet> {
   late DateTime _end;
   bool _allDay = false;
   int? _reminderMinutes;
+  late String _timeZone;
+  CalendarRecurrenceFrequency? _recurrenceFrequency;
+  int _recurrenceInterval = 1;
+  DateTime? _recurrenceEnd;
+  bool _recurrenceHasEnd = false;
 
   @override
   void initState() {
@@ -590,6 +732,14 @@ class _CalendarEventSheetState extends State<_CalendarEventSheet> {
     _end = event?.end ?? DateTime.now().add(const Duration(hours: 1));
     _allDay = event?.allDay ?? false;
     _reminderMinutes = event?.reminderMinutes;
+    _timeZone = event?.timeZone ?? widget.defaultTimeZone;
+    final recurrence = event?.recurrence;
+    if (recurrence != null) {
+      _recurrenceFrequency = recurrence.frequency;
+      _recurrenceInterval = recurrence.interval;
+      _recurrenceEnd = recurrence.until;
+      _recurrenceHasEnd = recurrence.until != null;
+    }
   }
 
   @override
@@ -657,6 +807,25 @@ class _CalendarEventSheetState extends State<_CalendarEventSheet> {
       if (_end.isBefore(_start)) {
         _start = _end.subtract(const Duration(hours: 1));
       }
+    });
+  }
+
+  Future<void> _pickRecurrenceEnd() async {
+    final initial = _recurrenceEnd ?? _end;
+    final date = await showDatePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      initialDate: initial,
+    );
+    if (date == null) {
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _recurrenceEnd = DateTime(date.year, date.month, date.day);
     });
   }
 
@@ -762,6 +931,107 @@ class _CalendarEventSheetState extends State<_CalendarEventSheet> {
               ],
               onChanged: (value) => setState(() => _reminderMinutes = value),
             ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: _timeZone,
+              decoration: const InputDecoration(
+                labelText: 'Event time zone',
+                prefixIcon: Icon(Icons.public),
+              ),
+              items: [
+                for (final option in supportedCalendarTimeZones)
+                  DropdownMenuItem(
+                    value: option.identifier,
+                    child: Text(option.label),
+                  ),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() => _timeZone = value);
+              },
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<CalendarRecurrenceFrequency?>(
+              value: _recurrenceFrequency,
+              decoration: const InputDecoration(
+                labelText: 'Recurrence',
+                prefixIcon: Icon(Icons.loop),
+              ),
+              items: const [
+                DropdownMenuItem<CalendarRecurrenceFrequency?>(
+                  value: null,
+                  child: Text('Does not repeat'),
+                ),
+                DropdownMenuItem(
+                  value: CalendarRecurrenceFrequency.daily,
+                  child: Text('Daily'),
+                ),
+                DropdownMenuItem(
+                  value: CalendarRecurrenceFrequency.weekly,
+                  child: Text('Weekly'),
+                ),
+                DropdownMenuItem(
+                  value: CalendarRecurrenceFrequency.monthly,
+                  child: Text('Monthly'),
+                ),
+              ],
+              onChanged: (value) {
+                setState(() {
+                  _recurrenceFrequency = value;
+                  if (value == null) {
+                    _recurrenceInterval = 1;
+                    _recurrenceHasEnd = false;
+                    _recurrenceEnd = null;
+                  }
+                });
+              },
+            ),
+            if (_recurrenceFrequency != null) ...[
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int>(
+                value: _recurrenceInterval,
+                decoration: InputDecoration(
+                  labelText: '${_recurrenceFrequency!.label} interval',
+                  prefixIcon: const Icon(Icons.timelapse),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 1, child: Text('Every event')),
+                  DropdownMenuItem(value: 2, child: Text('Every 2 occurrences')),
+                  DropdownMenuItem(value: 3, child: Text('Every 3 occurrences')),
+                  DropdownMenuItem(value: 4, child: Text('Every 4 occurrences')),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _recurrenceInterval = value);
+                },
+              ),
+              SwitchListTile.adaptive(
+                value: _recurrenceHasEnd,
+                title: const Text('Set recurrence end date'),
+                onChanged: (value) {
+                  setState(() {
+                    _recurrenceHasEnd = value;
+                    if (!value) {
+                      _recurrenceEnd = null;
+                    } else {
+                      _recurrenceEnd ??= _end;
+                    }
+                  });
+                },
+              ),
+              if (_recurrenceHasEnd)
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  title: const Text('Repeats until'),
+                  subtitle: Text(
+                    _recurrenceEnd == null
+                        ? 'Select date'
+                        : DateFormat.yMMMMd().format(_recurrenceEnd!),
+                  ),
+                  trailing: const Icon(Icons.event_repeat),
+                  onTap: _pickRecurrenceEnd,
+                ),
+            ],
             const SizedBox(height: 20),
             Row(
               children: [
@@ -793,6 +1063,12 @@ class _CalendarEventSheetState extends State<_CalendarEventSheet> {
       );
       return;
     }
+    if (_recurrenceHasEnd && _recurrenceEnd == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select when the recurrence should end.')),
+      );
+      return;
+    }
     final attendees = _attendeesController.text
         .split(',')
         .map((value) => value.trim())
@@ -811,6 +1087,14 @@ class _CalendarEventSheetState extends State<_CalendarEventSheet> {
       end: _end,
     );
 
+    final recurrence = _recurrenceFrequency == null
+        ? null
+        : CalendarRecurrence(
+            frequency: _recurrenceFrequency!,
+            interval: _recurrenceInterval,
+            until: _recurrenceHasEnd ? _recurrenceEnd : null,
+          );
+
     final event = base.copyWith(
       title: _titleController.text.trim(),
       description:
@@ -822,6 +1106,8 @@ class _CalendarEventSheetState extends State<_CalendarEventSheet> {
       attendees: attendees,
       attachments: attachments,
       reminderMinutes: _reminderMinutes,
+      timeZone: _timeZone,
+      recurrence: recurrence,
     );
 
     Navigator.of(context).pop(event);

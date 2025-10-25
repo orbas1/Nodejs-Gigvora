@@ -9,13 +9,22 @@ class CalendarRepository {
   final ApiClient _apiClient;
   final OfflineCache _cache;
 
-  static const _cacheKey = 'calendar:events';
+  static const _cacheNamespace = 'calendar:events';
   static const _uuid = Uuid();
+  static const _defaultTtl = Duration(minutes: 15);
+
+  _CalendarCacheContext? _lastCacheContext;
 
   Future<RepositoryResult<List<CalendarEvent>>> fetchEvents({
+    required DateTime start,
+    required DateTime end,
+    required String timeZone,
     bool forceRefresh = false,
   }) async {
-    final cached = _cache.read<List<CalendarEvent>>(_cacheKey, (raw) {
+    final cacheContext = _CalendarCacheContext(_cacheNamespace, start, end, timeZone);
+    _lastCacheContext = cacheContext;
+
+    final cached = _cache.read<List<CalendarEvent>>(cacheContext.key, (raw) {
       if (raw is List) {
         return raw
             .whereType<Map>()
@@ -34,7 +43,14 @@ class CalendarRepository {
     }
 
     try {
-      final response = await _apiClient.get('/calendar/events');
+      final response = await _apiClient.get(
+        '/calendar/events',
+        query: {
+          'start': start.toUtc().toIso8601String(),
+          'end': end.toUtc().toIso8601String(),
+          'timeZone': timeZone,
+        },
+      );
       if (response is! List) {
         throw Exception('Unexpected calendar payload.');
       }
@@ -43,9 +59,9 @@ class CalendarRepository {
           .map(CalendarEvent.fromJson)
           .toList(growable: false);
       await _cache.write(
-        _cacheKey,
+        cacheContext.key,
         events.map((event) => event.toJson()).toList(growable: false),
-        ttl: const Duration(minutes: 10),
+        ttl: _defaultTtl,
       );
       return RepositoryResult<List<CalendarEvent>>(
         data: events,
@@ -86,11 +102,34 @@ class CalendarRepository {
     await _apiClient.delete('/calendar/events/$eventId');
   }
 
-  Future<void> persistCache(List<CalendarEvent> events) {
+  Future<void> persistCache(
+    List<CalendarEvent> events, {
+    DateTime? start,
+    DateTime? end,
+    String? timeZone,
+  }) {
+    final context = start != null && end != null && timeZone != null
+        ? _CalendarCacheContext(_cacheNamespace, start, end, timeZone)
+        : _lastCacheContext;
+    if (context == null) {
+      return Future.value();
+    }
+    _lastCacheContext = context;
     return _cache.write(
-      _cacheKey,
+      context.key,
       events.map((event) => event.toJson()).toList(growable: false),
-      ttl: const Duration(minutes: 10),
+      ttl: _defaultTtl,
     );
   }
+}
+
+class _CalendarCacheContext {
+  _CalendarCacheContext(this.namespace, this.start, this.end, this.timeZone)
+      : key = '$namespace:${start.toIso8601String()}-${end.toIso8601String()}:$timeZone';
+
+  final String namespace;
+  final DateTime start;
+  final DateTime end;
+  final String timeZone;
+  final String key;
 }
