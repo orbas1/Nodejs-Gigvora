@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import { formatRelativeTime } from '../../utils/date.js';
 import formatDateTime from '../../utils/formatDateTime.js';
 import classNames from '../../utils/classNames.js';
+import StatusBadge from '../common/StatusBadge.jsx';
 import { formatStatusLabel, resolveSessionLabel } from './utils.js';
 
 const FILTERS = [
@@ -29,21 +30,6 @@ const FILTERS = [
     predicate: (booking) => Boolean(booking.checkedInAt),
   },
 ];
-
-function StatusBadge({ status }) {
-  const label = formatStatusLabel(status);
-  return (
-    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{label}</span>
-  );
-}
-
-StatusBadge.propTypes = {
-  status: PropTypes.string,
-};
-
-StatusBadge.defaultProps = {
-  status: 'Unknown',
-};
 
 function FilterBar({ active, onChange }) {
   return (
@@ -124,7 +110,12 @@ export default function NetworkingSessionsPanel({
                       <p className="text-[11px] text-slate-400">{formatRelativeTime(booking.session.startTime)}</p>
                     ) : null}
                   </div>
-                  <StatusBadge status={booking.status} />
+                  <StatusBadge
+                    status={booking.status}
+                    label={formatStatusLabel(booking.status)}
+                    uppercase={false}
+                    variant="tint"
+                  />
                 </div>
 
                 <div className="grid gap-2 text-xs text-slate-600 sm:grid-cols-2">

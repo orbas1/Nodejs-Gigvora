@@ -7,14 +7,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
 import { classNames } from '../../utils/classNames.js';
-
-const STATUS_BADGES = {
-  completed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  in_progress: 'bg-blue-50 text-blue-700 border-blue-200',
-  planned: 'bg-slate-100 text-slate-600 border-slate-200',
-  at_risk: 'bg-amber-50 text-amber-700 border-amber-200',
-  blocked: 'bg-rose-50 text-rose-700 border-rose-200',
-};
+import StatusBadge from '../common/StatusBadge.jsx';
 
 function LoadingState() {
   return (
@@ -27,21 +20,6 @@ function LoadingState() {
         </li>
       ))}
     </ul>
-  );
-}
-
-function StatusBadge({ status }) {
-  const normalized = status?.toLowerCase?.() ?? 'planned';
-  const styles = STATUS_BADGES[normalized] ?? STATUS_BADGES.planned;
-  return (
-    <span
-      className={classNames(
-        'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide',
-        styles,
-      )}
-    >
-      {normalized.replace('_', ' ')}
-    </span>
   );
 }
 

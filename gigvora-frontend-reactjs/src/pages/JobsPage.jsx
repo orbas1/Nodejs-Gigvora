@@ -11,6 +11,7 @@ import { fetchUserDashboard } from '../services/userDashboard.js';
 import { formatAbsolute, formatRelativeTime } from '../utils/date.js';
 import { classNames } from '../utils/classNames.js';
 import { formatInteger, formatPercent } from '../utils/number.js';
+import { formatStatusLabel } from '../utils/format.js';
 import JobManagementWorkspace from '../components/jobs/JobManagementWorkspace.jsx';
 import OpportunityFilterPill from '../components/opportunity/OpportunityFilterPill.jsx';
 import SavedSearchList from '../components/explorer/SavedSearchList.jsx';
@@ -64,14 +65,8 @@ export function createDefaultFilters() {
   };
 }
 
-export function formatStatusLabel(value) {
-  if (!value) return 'Unknown';
-  return `${value}`
-    .split(/[_-]/)
-    .filter(Boolean)
-    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-    .join(' ');
-}
+export { formatPercent } from '../utils/number.js';
+export { formatStatusLabel } from '../utils/format.js';
 
 function ActiveFilterTag({ label, onRemove }) {
   return (
