@@ -273,7 +273,9 @@ export async function getOverview(userId, { from, to, limit = 40 } = {}) {
     const toDate = parseDate(to, 'to');
     dateFilter[Op.lte] = toDate;
   }
-  if (Object.keys(dateFilter).length) {
+  const hasDateBounds =
+    Object.keys(dateFilter).length > 0 || Object.getOwnPropertySymbols(dateFilter).length > 0;
+  if (hasDateBounds) {
     where.startsAt = dateFilter;
   }
 

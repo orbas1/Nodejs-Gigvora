@@ -57,7 +57,16 @@ function sortEvents(events) {
   });
 }
 
-export default function CalendarEventList({ events, onEdit, onDelete, onSelect, emptyMessage = 'No events scheduled.' }) {
+export default function CalendarEventList({
+  events,
+  onEdit,
+  onDelete,
+  onSelect,
+  onEventDragStart,
+  onEventDragEnd,
+  enableDrag = false,
+  emptyMessage = 'No events scheduled.',
+}) {
   if (!events?.length) {
     return <p className="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">{emptyMessage}</p>;
   }
@@ -82,6 +91,29 @@ export default function CalendarEventList({ events, onEdit, onDelete, onSelect, 
                 handleSelect();
               }
             }}
+            draggable={enableDrag}
+            onDragStart={
+              enableDrag
+                ? (dragEvent) => {
+                    try {
+                      dragEvent.dataTransfer.effectAllowed = 'move';
+                      if (event?.id != null) {
+                        dragEvent.dataTransfer.setData('text/calendar-event-id', String(event.id));
+                      }
+                    } catch (error) {
+                      // Ignore data transfer issues in environments without full drag-drop support.
+                    }
+                    onEventDragStart?.({ nativeEvent: dragEvent, event });
+                  }
+                : undefined
+            }
+            onDragEnd={
+              enableDrag
+                ? (dragEvent) => {
+                    onEventDragEnd?.({ nativeEvent: dragEvent, event });
+                  }
+                : undefined
+            }
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>

@@ -64,7 +64,13 @@ function formatDayNumber(date) {
   });
 }
 
-export default function CalendarWeekStrip({ events, onSelect, referenceDate = new Date() }) {
+export default function CalendarWeekStrip({
+  events,
+  onSelect,
+  referenceDate = new Date(),
+  enableDrop = false,
+  onDropEvent,
+}) {
   const week = useMemo(() => buildWeek(referenceDate, events), [referenceDate, events]);
   const today = startOfDay(new Date());
 
@@ -80,6 +86,30 @@ export default function CalendarWeekStrip({ events, onSelect, referenceDate = ne
           <div
             key={date.toISOString()}
             className="flex min-h-[160px] flex-col rounded-2xl border border-slate-200 bg-slate-50/60 p-3"
+            onDragOver={
+              enableDrop
+                ? (dragEvent) => {
+                    dragEvent.preventDefault();
+                    dragEvent.dataTransfer.dropEffect = 'move';
+                  }
+                : undefined
+            }
+            onDrop={
+              enableDrop
+                ? (dropEvent) => {
+                    dropEvent.preventDefault();
+                    let droppedId = null;
+                    try {
+                      droppedId = dropEvent.dataTransfer.getData('text/calendar-event-id');
+                    } catch (error) {
+                      droppedId = null;
+                    }
+                    if (droppedId) {
+                      onDropEvent?.({ eventId: droppedId, date: new Date(date) });
+                    }
+                  }
+                : undefined
+            }
           >
             <div className="flex items-center justify-between gap-2">
               <span className={`inline-flex items-center gap-1 rounded-xl border px-2 py-1 text-xs font-semibold ${headlineClass}`}>
