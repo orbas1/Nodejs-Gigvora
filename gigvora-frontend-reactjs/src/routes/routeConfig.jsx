@@ -10,8 +10,16 @@ import ROUTE_COLLECTION_DEFINITIONS, {
   toAbsolutePath,
 } from '@shared-contracts/domain/platform/route-registry.js';
 
-const pageModules = import.meta.glob('../pages/**/*.jsx');
-const layoutModules = import.meta.glob('../layouts/**/*.jsx');
+const pageModules = import.meta.glob([
+  '../pages/**/*.jsx',
+  '!../pages/**/*.test.jsx',
+  '!../pages/**/__tests__/**',
+]);
+const layoutModules = import.meta.glob([
+  '../layouts/**/*.jsx',
+  '!../layouts/**/*.test.jsx',
+  '!../layouts/**/__tests__/**',
+]);
 
 const lazyComponentCache = new Map();
 

@@ -41,12 +41,18 @@ describe('PolicyAcknowledgementBanner', () => {
       renderWithRouter(<PolicyAcknowledgementBanner />);
     });
 
+    const toggle = await screen.findByRole('button', { name: /view policy updates/i });
+    await act(async () => {
+      await user.click(toggle);
+    });
+
     expect(await screen.findByText(/Updated legal terms now live/i)).toBeInTheDocument();
 
     await act(async () => {
       await user.click(screen.getByRole('button', { name: /acknowledge updates/i }));
     });
     expect(screen.queryByText(/Updated legal terms now live/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /view policy updates/i })).not.toBeInTheDocument();
 
     const storedValue = window.localStorage.getItem('gv-policy-ack:2024.11:123');
     expect(storedValue).toBeTruthy();
@@ -59,7 +65,7 @@ describe('PolicyAcknowledgementBanner', () => {
     );
   });
 
-  it('does not render when acknowledgement already exists', () => {
+  it('does not render when acknowledgement already exists', async () => {
     const future = new Date(Date.now() + 1000 * 60 * 60).toISOString();
     window.localStorage.setItem(
       'gv-policy-ack:2024.11:123',
@@ -70,5 +76,6 @@ describe('PolicyAcknowledgementBanner', () => {
     });
 
     expect(screen.queryByText(/Updated legal terms now live/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /view policy updates/i })).not.toBeInTheDocument();
   });
 });

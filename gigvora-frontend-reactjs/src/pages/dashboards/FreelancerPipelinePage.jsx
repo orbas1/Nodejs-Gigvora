@@ -222,7 +222,7 @@ function normalisePipelineDashboard(payload) {
       });
     }
 
-    const idKey = `${deal.id ?? `deal-${index}`}`;
+    const idKey = String(deal.id ?? `deal-${index}`);
     dealStageIndex[idKey] = resolvedStageId;
 
     if (deal.status === 'won' || deal.statusCategory === 'won') {
@@ -248,7 +248,7 @@ function normalisePipelineDashboard(payload) {
       stageSummaries[stageId].nextFollowUp = nextCandidate ?? existing;
     }
     stageSummaries[stageId].reminders.push({
-      id: `${followUp.id ?? `follow-${index}`}`,
+      id: String(followUp.id ?? `follow-${index}`),
       ...followUp,
       dueAt: dueDate ?? null,
       stageId,

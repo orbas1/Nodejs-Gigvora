@@ -15,6 +15,15 @@ HeaderMegaMenu.propTypes = {
     id: PropTypes.string.isRequired,
     label: PropTypes.string.isRequired,
     description: PropTypes.string,
+    theme: PropTypes.shape({
+      button: PropTypes.string,
+      panel: PropTypes.string,
+      header: PropTypes.string,
+      grid: PropTypes.string,
+      section: PropTypes.string,
+      item: PropTypes.string,
+      icon: PropTypes.string,
+    }),
     sections: PropTypes.arrayOf(
       PropTypes.shape({
         title: PropTypes.string.isRequired,

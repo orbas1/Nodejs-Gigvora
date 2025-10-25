@@ -2,7 +2,6 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowPathIcon,
-  ChatBubbleOvalLeftEllipsisIcon,
   ChatBubbleOvalLeftIcon,
   FaceSmileIcon,
   HeartIcon,
@@ -10,8 +9,6 @@ import {
   PhotoIcon,
   ShareIcon,
 } from '@heroicons/react/24/outline';
-import PageHeader from '../components/PageHeader.jsx';
-import DataStatus from '../components/DataStatus.jsx';
 import UserAvatar from '../components/UserAvatar.jsx';
 import EmojiQuickPickerPopover from '../components/popovers/EmojiQuickPickerPopover.jsx';
 import GifSuggestionPopover from '../components/popovers/GifSuggestionPopover.jsx';
@@ -321,7 +318,7 @@ function MediaAttachmentPreview({ attachment, onRemove }) {
   }
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white/90 shadow-inner">
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-inner">
       <div className="relative">
         <img
           src={attachment.url}
@@ -432,48 +429,12 @@ function FeedComposer({ onCreate, session }) {
   };
 
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white/95 shadow-soft">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/70 px-6 py-4">
-        <div>
-          <p className="text-sm font-semibold text-slate-800">Share with your network</p>
-          <p className="text-xs text-slate-500">Updates appear instantly across teams you collaborate with.</p>
-        </div>
-        <span className="inline-flex items-center gap-2 rounded-full bg-accentSoft px-3 py-1 text-xs font-semibold text-accent">
-          <ChatBubbleOvalLeftEllipsisIcon className="h-4 w-4" />
-          Live
-        </span>
-      </div>
-      <form onSubmit={handleSubmit} className="relative px-6 py-5">
-        <div className="flex items-start gap-4">
+    <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <form onSubmit={handleSubmit} className="space-y-6 px-6 py-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
           <UserAvatar name={session?.name} seed={session?.avatarSeed ?? session?.name} size="md" />
           <div className="flex-1 space-y-4">
-            <div className="flex flex-wrap gap-2">
-              {COMPOSER_OPTIONS.map((option) => {
-                const Icon = option.icon;
-                const isActive = option.id === mode;
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => {
-                      if (!submitting) {
-                        setMode(option.id);
-                      }
-                    }}
-                    disabled={submitting}
-                    className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition ${
-                      isActive
-                        ? 'border-accent bg-accent text-white shadow-soft'
-                        : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-accent/50 hover:text-accent'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="text-xs text-slate-500">{selectedOption.description}</p>
+            <p className="text-sm font-semibold text-slate-800">Share with your network</p>
             <div className="relative">
               <label htmlFor={textareaId} className="sr-only">
                 Compose timeline update
@@ -485,139 +446,166 @@ function FeedComposer({ onCreate, session }) {
                   setContent(event.target.value.slice(0, MAX_CONTENT_LENGTH));
                   setError(null);
                 }}
-                rows={4}
+                rows={5}
                 maxLength={MAX_CONTENT_LENGTH}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-inner transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                placeholder={`Tell your network about ${selectedOption.label.toLowerCase()}…`}
+                className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-base text-slate-900 shadow-inner transition focus:border-accent focus:bg-white focus:ring-2 focus:ring-accent/20"
+                placeholder={`Share an update about ${selectedOption.label.toLowerCase()}…`}
                 disabled={submitting}
               />
               <div className="pointer-events-none absolute bottom-3 right-4 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-400">
                 {remainingCharacters}
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowGifTray(false);
-                    setShowEmojiTray((previous) => !previous);
-                  }}
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-2 font-semibold text-slate-600 transition hover:border-accent/60 hover:text-accent"
-                >
-                  <FaceSmileIcon className="h-4 w-4" />
-                  Emoji
-                </button>
-                <EmojiQuickPickerPopover
-                  open={showEmojiTray}
-                  onClose={() => setShowEmojiTray(false)}
-                  onSelect={(emoji) => setContent((previous) => `${previous}${emoji}`)}
-                  labelledBy="composer-emoji-trigger"
-                />
-              </div>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowEmojiTray(false);
-                    setShowGifTray((previous) => !previous);
-                  }}
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-2 font-semibold text-slate-600 transition hover:border-accent/60 hover:text-accent"
-                >
-                  <PhotoIcon className="h-4 w-4" />
-                  GIF & media
-                </button>
-                <GifSuggestionPopover
-                  open={showGifTray}
-                  onClose={() => setShowGifTray(false)}
-                  onSelect={(gif) => {
-                    setAttachment({ id: gif.id, type: 'gif', url: gif.url, alt: gif.tone });
-                    setAttachmentAlt(gif.tone);
-                  }}
-                  labelledBy="composer-gif-trigger"
-                />
-              </div>
-            </div>
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr),minmax(0,1fr)]">
-              <div className="space-y-2">
-                <label htmlFor={linkInputId} className="text-xs font-medium text-slate-600">
-                  Attach a resource (deck, doc, or listing URL)
-                </label>
-                <input
-                  id={linkInputId}
-                  value={link}
-                  onChange={(event) => {
-                    setLink(event.target.value);
-                    setError(null);
-                  }}
-                  placeholder="https://"
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                  disabled={submitting}
-                />
-              </div>
-              <div className="space-y-2 text-xs text-slate-500">
-                <p className="font-medium text-slate-600">Need inspiration?</p>
-                <p>
-                  Opportunity posts automatically appear inside Explorer with the right filters so talent can discover them alongside
-                  jobs, gigs, projects, volunteering missions, and Launchpad cohorts.
-                </p>
-              </div>
-            </div>
-            {attachment ? (
-              <div className="space-y-2">
-                <label htmlFor={mediaAltId} className="text-xs font-medium text-slate-600">
-                  Media alt text
-                </label>
-                <input
-                  id={mediaAltId}
-                  value={attachmentAlt}
-                  onChange={(event) => setAttachmentAlt(event.target.value)}
-                  maxLength={120}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 shadow-inner focus:border-accent focus:ring-2 focus:ring-accent/20"
-                  placeholder="Describe the media for improved accessibility"
-                />
-                <MediaAttachmentPreview
-                  attachment={{ ...attachment, alt: attachmentAlt }}
-                  onRemove={() => {
-                    setAttachment(null);
-                    setAttachmentAlt('');
-                  }}
-                />
-              </div>
-            ) : null}
-            {error ? (
-              <div
-                className="space-y-2 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700 shadow-inner"
-                role="alert"
-              >
-                <p className="font-semibold">{error.message}</p>
-                {Array.isArray(error.reasons) && error.reasons.length ? (
-                  <ul className="list-disc space-y-1 pl-5 text-xs text-rose-600">
-                    {error.reasons.map((reason, index) => (
-                      <li key={index}>{reason}</li>
-                    ))}
-                  </ul>
-                ) : null}
-              </div>
-            ) : null}
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-xs text-slate-500">
-                Your update is routed to followers, connections, and workspace partners.
-              </p>
+            <p className="text-xs text-slate-500">{selectedOption.description}</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 border-y border-slate-200 py-4">
+          {COMPOSER_OPTIONS.map((option) => {
+            const Icon = option.icon;
+            const isActive = option.id === mode;
+            return (
               <button
-                type="submit"
-                disabled={submitting || !content.trim()}
-                className={`inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold text-white shadow-soft transition ${
-                  submitting || !content.trim()
-                    ? 'cursor-not-allowed bg-accent/50'
-                    : 'bg-accent hover:bg-accentDark'
+                key={option.id}
+                type="button"
+                onClick={() => {
+                  if (!submitting) {
+                    setMode(option.id);
+                  }
+                }}
+                disabled={submitting}
+                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition ${
+                  isActive
+                    ? 'bg-accent text-white shadow-soft'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
                 }`}
               >
-                {submitting ? <ArrowPathIcon className="h-4 w-4 animate-spin" /> : <ShareIcon className="h-4 w-4" />}
-                {submitting ? 'Publishing…' : 'Publish to timeline'}
+                <Icon className="h-4 w-4" />
+                {option.label}
               </button>
+            );
+          })}
+        </div>
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowGifTray(false);
+                  setShowEmojiTray((previous) => !previous);
+                }}
+                className="inline-flex items-center gap-2 rounded-full border border-transparent bg-slate-100 px-3 py-2 font-semibold text-slate-600 transition hover:bg-slate-200 hover:text-slate-900"
+              >
+                <FaceSmileIcon className="h-4 w-4" />
+                Emoji
+              </button>
+              <EmojiQuickPickerPopover
+                open={showEmojiTray}
+                onClose={() => setShowEmojiTray(false)}
+                onSelect={(emoji) => setContent((previous) => `${previous}${emoji}`)}
+                labelledBy="composer-emoji-trigger"
+              />
+            </div>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEmojiTray(false);
+                  setShowGifTray((previous) => !previous);
+                }}
+                className="inline-flex items-center gap-2 rounded-full border border-transparent bg-slate-100 px-3 py-2 font-semibold text-slate-600 transition hover:bg-slate-200 hover:text-slate-900"
+              >
+                <PhotoIcon className="h-4 w-4" />
+                GIF & media
+              </button>
+              <GifSuggestionPopover
+                open={showGifTray}
+                onClose={() => setShowGifTray(false)}
+                onSelect={(gif) => {
+                  setAttachment({ id: gif.id, type: 'gif', url: gif.url, alt: gif.tone });
+                  setAttachmentAlt(gif.tone);
+                }}
+                labelledBy="composer-gif-trigger"
+              />
             </div>
           </div>
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr),minmax(0,1fr)]">
+            <div className="space-y-2">
+              <label htmlFor={linkInputId} className="text-xs font-medium text-slate-600">
+                Attach a resource (deck, doc, or listing URL)
+              </label>
+              <input
+                id={linkInputId}
+                value={link}
+                onChange={(event) => {
+                  setLink(event.target.value);
+                  setError(null);
+                }}
+                placeholder="https://"
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                disabled={submitting}
+              />
+            </div>
+            <div className="space-y-2 text-xs text-slate-500">
+              <p className="font-medium text-slate-600">Need inspiration?</p>
+              <p>
+                Opportunity posts automatically appear inside Explorer with the right filters so talent can discover them alongside
+                jobs, gigs, projects, volunteering missions, and Launchpad cohorts.
+              </p>
+            </div>
+          </div>
+          {attachment ? (
+            <div className="space-y-2">
+              <label htmlFor={mediaAltId} className="text-xs font-medium text-slate-600">
+                Media alt text
+              </label>
+              <input
+                id={mediaAltId}
+                value={attachmentAlt}
+                onChange={(event) => setAttachmentAlt(event.target.value)}
+                maxLength={120}
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 shadow-inner focus:border-accent focus:ring-2 focus:ring-accent/20"
+                placeholder="Describe the media for improved accessibility"
+              />
+              <MediaAttachmentPreview
+                attachment={{ ...attachment, alt: attachmentAlt }}
+                onRemove={() => {
+                  setAttachment(null);
+                  setAttachmentAlt('');
+                }}
+              />
+            </div>
+          ) : null}
+          {error ? (
+            <div
+              className="space-y-2 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700 shadow-inner"
+              role="alert"
+            >
+              <p className="font-semibold">{error.message}</p>
+              {Array.isArray(error.reasons) && error.reasons.length ? (
+                <ul className="list-disc space-y-1 pl-5 text-xs text-rose-600">
+                  {error.reasons.map((reason, index) => (
+                    <li key={index}>{reason}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+          <p>Your update is routed to followers, connections, and workspace partners.</p>
+          <button
+            type="submit"
+            disabled={submitting || !content.trim()}
+            className={`inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold text-white shadow-soft transition ${
+              submitting || !content.trim()
+                ? 'cursor-not-allowed bg-accent/50'
+                : 'bg-accent hover:bg-accentDark'
+            }`}
+          >
+            {submitting ? <ArrowPathIcon className="h-4 w-4 animate-spin" /> : <ShareIcon className="h-4 w-4" />}
+            {submitting ? 'Publishing…' : 'Publish to timeline'}
+          </button>
         </div>
       </form>
     </div>
@@ -753,7 +741,7 @@ function MediaAttachmentGrid({ attachments }) {
       {attachments.map((attachment) => (
         <figure
           key={attachment.id}
-          className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 shadow-inner"
+          className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-inner"
         >
           <img
             src={attachment.url}
@@ -778,7 +766,7 @@ function FeedLoadingSkeletons({ count = 2 }) {
       {Array.from({ length: count }).map((_, index) => (
         <article
           key={`loading-${index}`}
-          className="animate-pulse rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+          className="animate-pulse rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
         >
           <div className="flex items-center justify-between text-xs text-slate-300">
             <span className="h-3 w-32 rounded bg-slate-200" />
@@ -882,7 +870,7 @@ function VirtualFeedChunk({
       className={
         shouldRender
           ? 'space-y-6'
-          : 'rounded-3xl border border-accent/40 bg-accentSoft px-6 py-8 text-accent shadow-inner transition'
+          : 'rounded-xl border border-accent/40 bg-accentSoft px-6 py-8 text-accent shadow-inner transition'
       }
       style={shouldRender ? undefined : { minHeight: placeholderHeight }}
       data-chunk-index={chunkIndex}
@@ -1143,7 +1131,7 @@ function FeedPostCard({
   };
 
   return (
-    <article className="space-y-6 rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft">
+    <article className="space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-md">
       <div className="flex flex-wrap items-start justify-between gap-3 text-xs text-slate-400">
         <span className="inline-flex items-center gap-2">
           <UserAvatar name={author.name} seed={author.avatarSeed} size="xs" showGlow={false} />
@@ -1234,7 +1222,7 @@ function FeedPostCard({
               value={editDraft?.content ?? ''}
               onChange={(event) => onEditDraftChange?.('content', event.target.value)}
               rows={6}
-              className="mt-1 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-800 shadow-inner focus:border-accent focus:ring-2 focus:ring-accent/20"
+              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-800 shadow-inner focus:border-accent focus:ring-2 focus:ring-accent/20"
               placeholder="Share the full context for this update…"
               disabled={editSaving}
             />
@@ -1388,175 +1376,103 @@ function FeedPostCard({
   );
 }
 
-function LiveMomentsTicker({ moments = [] }) {
-  const [activeIndex, setActiveIndex] = useState(0);
-
-  useEffect(() => {
-    if (!moments.length) {
-      return undefined;
-    }
-    const interval = setInterval(() => {
-      setActiveIndex((previous) => (previous + 1) % moments.length);
-    }, 6000);
-    return () => clearInterval(interval);
-  }, [moments]);
-
-  if (!moments.length) {
-    return null;
-  }
-
-  const activeMoment = moments[activeIndex];
-
-  return (
-    <div className="rounded-3xl border border-accent/30 bg-white/95 p-6 shadow-soft">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-accent">Live moments</p>
-        <span className="text-xs font-semibold uppercase tracking-wide text-accentDark">{moments.length} pulsing</span>
-      </div>
-      <div className="mt-4 rounded-2xl border border-accent/30 bg-accentSoft px-5 py-4">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl" aria-hidden="true">
-            {activeMoment.icon}
-          </span>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-accentDark">{activeMoment.tag}</p>
-            <p className="mt-1 text-sm font-semibold text-slate-900">{activeMoment.title}</p>
-            <p className="mt-2 text-xs text-slate-500">Updated {formatRelativeTime(activeMoment.timestamp)}</p>
-          </div>
-        </div>
-      </div>
-      <div className="mt-4 grid gap-2">
-        {moments.map((moment, index) => (
-          <button
-            key={moment.id}
-            type="button"
-            onClick={() => setActiveIndex(index)}
-            className={`flex items-center justify-between rounded-2xl border px-4 py-2 text-left text-xs transition ${
-              index === activeIndex
-                ? 'border-accent bg-accentSoft text-accent shadow-soft'
-                : 'border-slate-200 text-slate-500 hover:border-accent/60 hover:text-accent'
-            }`}
-          >
-            <span className="flex items-center gap-2">
-              <span aria-hidden="true">{moment.icon}</span>
-              {(moment.title || 'Live update').slice(0, 60)}
-              {(moment.title || '').length > 60 ? '…' : ''}
-            </span>
-            <span className="text-[0.65rem] uppercase tracking-wide text-slate-400">
-              {formatRelativeTime(moment.timestamp)}
-            </span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-
 function FeedIdentityRail({ session, interests = [] }) {
+  const followerTotal = session?.followers ?? '—';
+  const connectionTotal = session?.connections ?? '—';
+
   return (
-    <aside className="order-2 space-y-6 xl:order-1">
-      <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-soft">
+    <aside className="space-y-6">
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex items-center gap-4">
           <UserAvatar name={session?.name ?? 'Member'} seed={session?.avatarSeed ?? session?.name} size="lg" />
           <div>
-            <p className="text-base font-semibold text-slate-900">{session?.name ?? 'Gigvora member'}</p>
+            <p className="text-lg font-semibold text-slate-900">{session?.name ?? 'Gigvora member'}</p>
             <p className="text-sm text-slate-500">{session?.title ?? 'Marketplace professional'}</p>
           </div>
         </div>
-        <dl className="mt-6 grid grid-cols-2 gap-4 text-center">
-          <div className="rounded-2xl bg-slate-50 px-3 py-4">
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Followers</dt>
-            <dd className="mt-2 text-xl font-semibold text-slate-900">{session?.followers ?? '—'}</dd>
-          </div>
-          <div className="rounded-2xl bg-slate-50 px-3 py-4">
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Connections</dt>
-            <dd className="mt-2 text-xl font-semibold text-slate-900">{session?.connections ?? '—'}</dd>
-          </div>
-        </dl>
-        <div className="mt-6 space-y-4 text-sm text-slate-600">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Companies</p>
-            <ul className="mt-2 space-y-1">
-              {(session?.companies ?? ['Add your company']).map((company) => (
-                <li key={company} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                  {company}
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Agencies & collectives</p>
-            <ul className="mt-2 space-y-1">
-              {(session?.agencies ?? ['Join or create an agency']).map((agency) => (
-                <li key={agency} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                  {agency}
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Account types</p>
-            <ul className="mt-2 flex flex-wrap gap-2">
-              {(session?.accountTypes ?? ['Professional']).map((type) => (
-                <li key={type} className="rounded-full border border-accent/40 bg-accentSoft px-3 py-1 text-xs font-semibold text-accent">
-                  {type}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-        <div className="mt-6 space-y-2 text-sm">
-          <Link
-            to="/settings"
-            className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-2 text-slate-600 transition hover:border-accent/60 hover:text-accent"
-          >
-            Settings
-            <ArrowPathIcon className="h-4 w-4" />
-          </Link>
-          <Link
-            to="/trust-center"
-            className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-2 text-slate-600 transition hover:border-accent/60 hover:text-accent"
-          >
-            Trust centre
-            <ArrowPathIcon className="h-4 w-4" />
-          </Link>
-          <Link
-            to="/auto-assign"
-            className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-2 text-slate-600 transition hover:border-accent/60 hover:text-accent"
-          >
-            Auto-assign queue
-            <ArrowPathIcon className="h-4 w-4" />
-          </Link>
-        </div>
-        {interests.length ? (
-          <div className="mt-6">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Interest signals</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {interests.slice(0, 8).map((interest) => (
-                <span
-                  key={interest}
-                  className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600"
-                >
-                  {interest}
-                </span>
-              ))}
+
+        <div className="mt-6 rounded-2xl bg-slate-50 px-4 py-5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Network reach</p>
+          <dl className="mt-4 grid grid-cols-2 gap-3 text-center">
+            <div className="rounded-xl bg-white px-4 py-3 shadow-sm">
+              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Followers</dt>
+              <dd className="mt-2 text-2xl font-semibold text-slate-900">{followerTotal}</dd>
             </div>
-          </div>
-        ) : null}
+            <div className="rounded-xl bg-white px-4 py-3 shadow-sm">
+              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Connections</dt>
+              <dd className="mt-2 text-2xl font-semibold text-slate-900">{connectionTotal}</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div className="mt-6 space-y-5 text-sm text-slate-600">
+          {Array.isArray(session?.companies) && session.companies.length ? (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Companies</p>
+              <ul className="mt-3 space-y-2">
+                {session.companies.map((company) => (
+                  <li key={company} className="rounded-2xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600">
+                    {company}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {Array.isArray(session?.agencies) && session.agencies.length ? (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Agencies & collectives</p>
+              <ul className="mt-3 space-y-2">
+                {session.agencies.map((agency) => (
+                  <li key={agency} className="rounded-2xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600">
+                    {agency}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {Array.isArray(session?.accountTypes) && session.accountTypes.length ? (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Account types</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {session.accountTypes.map((type) => (
+                  <span
+                    key={type}
+                    className="inline-flex items-center rounded-full border border-accent/40 bg-accentSoft px-3 py-1 text-[11px] font-semibold text-accent"
+                  >
+                    {type}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {interests.length ? (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Interest signals</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {interests.slice(0, 8).map((interest) => (
+                  <span
+                    key={interest}
+                    className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600"
+                  >
+                    {interest}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
       </div>
     </aside>
   );
 }
 
-function FeedInsightsRail({ liveMoments = [], connectionSuggestions = [], groupSuggestions = [] }) {
+function FeedInsightsRail({ connectionSuggestions = [], groupSuggestions = [] }) {
   const hasSuggestions = connectionSuggestions.length || groupSuggestions.length;
 
   return (
-    <aside className="order-3 space-y-6 xl:order-3">
-      <LiveMomentsTicker moments={liveMoments} />
+    <aside className="space-y-6">
       {connectionSuggestions.length ? (
-        <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-soft">
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-slate-900">Suggested connections</p>
             <Link to="/connections" className="text-xs font-semibold text-accent transition hover:text-accentDark">
@@ -1565,7 +1481,7 @@ function FeedInsightsRail({ liveMoments = [], connectionSuggestions = [], groupS
           </div>
           <ul className="mt-4 space-y-3 text-sm">
             {connectionSuggestions.slice(0, 4).map((connection) => (
-              <li key={connection.id} className="rounded-2xl border border-slate-200 px-4 py-3">
+              <li key={connection.id} className="rounded-lg border border-slate-200 px-4 py-3">
                 <div className="flex items-center gap-3">
                   <UserAvatar name={connection.name} seed={connection.name} size="xs" showGlow={false} />
                   <div className="flex-1">
@@ -1580,7 +1496,7 @@ function FeedInsightsRail({ liveMoments = [], connectionSuggestions = [], groupS
                 </div>
                 <Link
                   to={`/connections?suggested=${encodeURIComponent(connection.id)}`}
-                  className="mt-3 inline-flex items-center gap-2 rounded-full border border-accent/30 px-4 py-2 text-xs font-semibold text-accent transition hover:border-accent hover:bg-accentSoft"
+                  className="mt-3 inline-flex items-center gap-2 rounded-full border border-accent/40 px-4 py-2 text-xs font-semibold text-accent transition hover:border-accent hover:bg-accentSoft"
                 >
                   Start introduction
                 </Link>
@@ -1590,7 +1506,7 @@ function FeedInsightsRail({ liveMoments = [], connectionSuggestions = [], groupS
         </div>
       ) : null}
       {groupSuggestions.length ? (
-        <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-soft">
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-slate-900">Groups to join</p>
             <Link to="/groups" className="text-xs font-semibold text-accent transition hover:text-accentDark">
@@ -1599,7 +1515,7 @@ function FeedInsightsRail({ liveMoments = [], connectionSuggestions = [], groupS
           </div>
           <ul className="mt-4 space-y-3 text-sm">
             {groupSuggestions.slice(0, 4).map((group) => (
-              <li key={group.id} className="rounded-2xl border border-slate-200 px-4 py-3">
+              <li key={group.id} className="rounded-lg border border-slate-200 px-4 py-3">
                 <p className="text-sm font-semibold text-slate-900">{group.name}</p>
                 <p className="mt-1 text-xs text-slate-500">{group.description}</p>
                 <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
@@ -1617,20 +1533,20 @@ function FeedInsightsRail({ liveMoments = [], connectionSuggestions = [], groupS
           </ul>
         </div>
       ) : null}
-      <div className="rounded-3xl border border-accent/30 bg-accentSoft/80 p-6 text-sm text-slate-700">
-        <p className="text-sm font-semibold text-accentDark">Explorer consolidation</p>
-        <p className="mt-2 text-sm text-slate-700">
+      <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-700 shadow-sm">
+        <p className="text-sm font-semibold text-slate-900">Explorer consolidation</p>
+        <p className="mt-2 text-sm text-slate-600">
           Jobs, gigs, projects, Experience Launchpad cohorts, volunteer opportunities, and talent discovery now live inside the Explorer. Use filters to pivot between freelancers, companies, people, groups, headhunters, and agencies without leaving your flow.
         </p>
         <Link
           to="/search"
-          className="mt-4 inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-soft transition hover:bg-accentDark"
+          className="mt-4 inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition hover:bg-accentDark"
         >
           Open Explorer
         </Link>
       </div>
       {!hasSuggestions ? (
-        <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 text-sm text-slate-600 shadow-soft">
+        <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
           <p className="text-sm font-semibold text-slate-900">No new suggestions just yet</p>
           <p className="mt-2 text-sm">As soon as the community shifts, you’ll see fresh connections and groups to explore.</p>
         </div>
@@ -1655,7 +1571,7 @@ export default function FeedPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadMoreError, setLoadMoreError] = useState(null);
   const loadMoreRef = useRef(null);
-  const { data, error, loading, fromCache, lastUpdated, refresh } = useCachedResource(
+  const { data, error, loading, fromCache, refresh } = useCachedResource(
     'feed:posts:v2',
     ({ signal }) => listFeedPosts({ signal, params: { limit: FEED_PAGE_SIZE } }),
     { ttl: 1000 * 60 * 2 },
@@ -1914,7 +1830,6 @@ export default function FeedPage() {
     interests = [],
     connectionSuggestions = [],
     groupSuggestions = [],
-    liveMoments = [],
   } = engagementSignals ?? {};
 
   const membershipList = useMemo(() => {
@@ -2276,7 +2191,7 @@ export default function FeedPage() {
   const renderSkeleton = () => (
     <div className="space-y-6">
       {Array.from({ length: 3 }).map((_, index) => (
-        <article key={index} className="animate-pulse rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <article key={index} className="animate-pulse rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between text-xs text-slate-300">
             <span className="h-3 w-32 rounded bg-slate-200" />
             <span className="h-3 w-16 rounded bg-slate-200" />
@@ -2334,7 +2249,7 @@ export default function FeedPage() {
   const renderPosts = () => {
     if (!posts.length) {
       return (
-        <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
           {loading ? 'Syncing timeline…' : 'No timeline updates yet. Share something to start the conversation!'}
         </div>
       );
@@ -2454,7 +2369,7 @@ export default function FeedPage() {
               </div>
             }
           />
-          <div className="mt-10 rounded-3xl border border-slate-200 bg-white/95 p-8 shadow-soft">
+          <div className="mt-10 rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
             <h2 className="text-base font-semibold text-slate-900">Why access is restricted</h2>
             <p className="mt-3 text-sm text-slate-600">
               The timeline hosts sensitive operating updates. Restricting access keeps launches safe. Switch to an eligible membership or contact support for a review.
@@ -2466,36 +2381,13 @@ export default function FeedPage() {
   }
 
   return (
-    <section className="relative overflow-hidden py-16">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.35),_transparent_65%)]" aria-hidden="true" />
-      <div className="absolute -right-32 top-24 h-72 w-72 rounded-full bg-emerald-200/40 blur-[140px]" aria-hidden="true" />
-      <div className="absolute -left-16 bottom-10 h-80 w-80 rounded-full bg-accent/10 blur-[140px]" aria-hidden="true" />
-      <div className="relative mx-auto max-w-6xl px-6">
-        <PageHeader
-          eyebrow="Timeline"
-          title="Real-time stories and opportunity drops"
-          description="Stay close to the community pulse. React, reply, and share launches, roles, gigs, volunteer missions, and Experience Launchpad cohorts as they happen."
-          actions={
-            <button
-              type="button"
-              onClick={handleShareClick}
-              className="rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
-            >
-              Share externally
-            </button>
-          }
-          meta={
-            <DataStatus
-              loading={loading}
-              fromCache={fromCache}
-              lastUpdated={lastUpdated}
-              onRefresh={() => refresh({ force: true })}
-            />
-          }
-        />
-        <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(240px,0.9fr),minmax(0,2fr)] xl:grid-cols-[minmax(240px,0.85fr),minmax(0,2.2fr),minmax(240px,1fr)] xl:items-start">
-          <FeedIdentityRail session={session} interests={interests} />
-          <div className="order-1 space-y-8 xl:order-2">
+    <main className="bg-[#f3f2ef] pb-12 pt-6 sm:pt-10">
+      <div className="mx-auto w-full max-w-screen-2xl px-3 sm:px-6 2xl:px-12">
+        <div className="grid gap-6 lg:grid-cols-12 lg:items-start">
+          <div className="order-2 space-y-6 lg:order-1 lg:col-span-3">
+            <FeedIdentityRail session={session} interests={interests} />
+          </div>
+          <div className="order-1 space-y-6 lg:order-2 lg:col-span-6">
             <FeedComposer onCreate={handleComposerCreate} session={session} />
             {error && !loading ? (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
@@ -2509,13 +2401,14 @@ export default function FeedPage() {
             ) : null}
             {loading && !posts.length ? renderSkeleton() : renderPosts()}
           </div>
-          <FeedInsightsRail
-            liveMoments={liveMoments}
-            connectionSuggestions={connectionSuggestions}
-            groupSuggestions={groupSuggestions}
-          />
+          <div className="order-3 space-y-6 lg:col-span-3">
+            <FeedInsightsRail
+              connectionSuggestions={connectionSuggestions}
+              groupSuggestions={groupSuggestions}
+            />
+          </div>
         </div>
       </div>
-    </section>
+    </main>
   );
 }

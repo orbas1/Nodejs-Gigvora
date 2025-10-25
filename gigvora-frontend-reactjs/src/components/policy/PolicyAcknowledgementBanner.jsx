@@ -39,6 +39,16 @@ export default function PolicyAcknowledgementBanner() {
   const [metadata, setMetadata] = useState(DEFAULT_METADATA);
   const [loading, setLoading] = useState(true);
   const [dismissed, setDismissed] = useState(false);
+  const [expanded, setExpanded] = useState(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return false;
+    }
+    try {
+      return window.matchMedia('(min-width: 1024px)').matches;
+    } catch (err) {
+      return false;
+    }
+  });
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -138,22 +148,57 @@ export default function PolicyAcknowledgementBanner() {
     return null;
   }
 
+  if (metadata?.enabled === false) {
+    return null;
+  }
+
+  if (!expanded) {
+    return (
+      <button
+        type="button"
+        onClick={() => setExpanded(true)}
+        className="fixed bottom-4 right-4 z-[60] inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/95 px-4 py-2 text-sm font-semibold text-slate-700 shadow-lg backdrop-blur transition hover:border-slate-300 hover:text-slate-900"
+        style={{
+          paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))',
+          paddingRight: 'calc(1.25rem + env(safe-area-inset-right))',
+        }}
+        aria-label="View policy updates"
+      >
+        <span aria-hidden="true">⚖️</span>
+        View policy updates
+      </button>
+    );
+  }
+
   return (
     <div
-      className="fixed inset-x-4 bottom-4 z-[60] max-w-5xl rounded-3xl border border-slate-200/80 bg-white/95 p-4 shadow-xl backdrop-blur"
+      className="fixed bottom-4 right-4 z-[60] w-[min(100%,38rem)] rounded-3xl border border-slate-200/80 bg-white/95 p-4 shadow-2xl backdrop-blur"
       style={{
         paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))',
         paddingLeft: 'calc(1.5rem + env(safe-area-inset-left))',
         paddingRight: 'calc(1.5rem + env(safe-area-inset-right))',
       }}
+      role="dialog"
+      aria-modal="false"
+      aria-label="Latest Gigvora policy updates"
     >
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6">
-        <div className="space-y-1 text-sm text-slate-700">
-          <p className="font-semibold text-slate-900">{metadata.headline}</p>
-          <p>{metadata.summary}</p>
-          {error ? <p className="text-xs text-amber-600">{error}</p> : null}
+      <div className="flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="space-y-1 text-sm text-slate-700">
+            <p className="font-semibold text-slate-900">{metadata.headline}</p>
+            <p>{metadata.summary}</p>
+            {error ? <p className="text-xs text-amber-600">{error}</p> : null}
+          </div>
+          <button
+            type="button"
+            onClick={() => setExpanded(false)}
+            className="rounded-full border border-transparent px-2 py-1 text-xs font-semibold uppercase tracking-wide text-slate-400 transition hover:border-slate-200 hover:text-slate-600"
+            aria-label="Hide policy updates"
+          >
+            Close
+          </button>
         </div>
-        <div className="flex flex-col gap-2 text-sm font-semibold md:flex-row">
+        <div className="flex flex-col gap-2 text-sm font-semibold sm:flex-row sm:flex-wrap">
           {(metadata.links ?? []).map((link) => (
             <Link
               key={link.href ?? link.label}

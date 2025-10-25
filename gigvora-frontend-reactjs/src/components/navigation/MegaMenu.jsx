@@ -68,6 +68,15 @@ export default function MegaMenu({ item }) {
   );
 
   const theme = item.theme ?? {};
+  const sectionColumns = useMemo(() => {
+    if (item.sections.length >= 3) {
+      return 'md:grid-cols-3';
+    }
+    if (item.sections.length === 2) {
+      return 'md:grid-cols-2';
+    }
+    return 'md:grid-cols-1';
+  }, [item.sections.length]);
 
   return (
     <Popover className="relative">
@@ -101,7 +110,7 @@ export default function MegaMenu({ item }) {
         >
           <Popover.Panel
             ref={panelRef}
-            className="absolute left-1/2 z-50 mt-6 w-screen max-w-3xl -translate-x-1/2 transform px-4 sm:px-0"
+            className="absolute left-1/2 z-50 mt-6 w-screen max-w-5xl -translate-x-1/2 transform px-4 sm:px-0"
             onKeyDown={handleKeyDown}
           >
             <div className={classNames('overflow-hidden rounded-3xl border border-slate-200 bg-white/95 shadow-xl backdrop-blur', theme.panel)}>
@@ -109,7 +118,7 @@ export default function MegaMenu({ item }) {
                 <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">{item.label}</p>
                 <p className="mt-1 text-sm text-slate-600">{item.description}</p>
               </div>
-              <div className={classNames('grid gap-6 px-6 py-6 sm:grid-cols-2', theme.grid)}>
+              <div className={classNames('grid gap-6 px-6 py-6', sectionColumns, theme.grid)}>
                 {item.sections.map((section) => (
                   <div key={section.title} className={classNames('space-y-4', theme.section)}>
                     <div>
