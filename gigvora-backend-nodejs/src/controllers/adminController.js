@@ -22,10 +22,17 @@ import { getSeoSettings, updateSeoSettings } from '../services/seoSettingsServic
 import { getRuntimeOperationalSnapshot } from '../services/runtimeObservabilityService.js';
 import {
   sanitizeAdminDashboardFilters,
+  sanitizePlatformSettingsAuditFilters,
   sanitizePlatformSettingsInput,
   sanitizeHomepageSettingsInput,
   sanitizeAffiliateSettingsInput,
 } from '../utils/adminSanitizers.js';
+import {
+  listPlatformSettingsWatchers,
+  createPlatformSettingsWatcher,
+  updatePlatformSettingsWatcher,
+  deletePlatformSettingsWatcher,
+} from '../services/platformSettingsWatchersService.js';
 
 function resolveActorId(user) {
   if (!user) {
@@ -83,9 +90,32 @@ export async function persistPlatformSettings(req, res) {
 }
 
 export async function listPlatformSettingsAuditTrail(req, res) {
-  const { limit } = req.query ?? {};
-  const events = await listPlatformSettingsAuditEvents({ limit });
+  const filters = sanitizePlatformSettingsAuditFilters(req.query ?? {});
+  const events = await listPlatformSettingsAuditEvents(filters);
   res.json(events);
+}
+
+export async function listPlatformSettingsWatchersController(req, res) {
+  const includeDisabled = Boolean(req.query?.includeDisabled);
+  const watchers = await listPlatformSettingsWatchers({ includeDisabled });
+  res.json({ watchers });
+}
+
+export async function createPlatformSettingsWatcherController(req, res) {
+  const actor = resolveActorMetadata(req.user);
+  const watcher = await createPlatformSettingsWatcher(req.body ?? {}, { actor });
+  res.status(201).json(watcher);
+}
+
+export async function updatePlatformSettingsWatcherController(req, res) {
+  const actor = resolveActorMetadata(req.user);
+  const watcher = await updatePlatformSettingsWatcher(req.params.watcherId, req.body ?? {}, { actor });
+  res.json(watcher);
+}
+
+export async function removePlatformSettingsWatcher(req, res) {
+  await deletePlatformSettingsWatcher(req.params.watcherId, { actor: resolveActorMetadata(req.user) });
+  res.status(204).send();
 }
 
 export async function fetchHomepageSettings(req, res) {
@@ -179,6 +209,10 @@ export default {
   fetchPlatformSettings,
   persistPlatformSettings,
   listPlatformSettingsAuditTrail,
+  listPlatformSettingsWatchersController,
+  createPlatformSettingsWatcherController,
+  updatePlatformSettingsWatcherController,
+  removePlatformSettingsWatcher,
   fetchHomepageSettings,
   persistHomepageSettings,
   fetchAffiliateSettings,

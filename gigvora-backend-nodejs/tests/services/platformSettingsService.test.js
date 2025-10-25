@@ -135,6 +135,11 @@ describe('platformSettingsService', () => {
     expect(updated.smtp.port).toBe(465);
     expect(updated.storage.cloudflare_r2.bucket).toBe('gigvora-live');
     expect(updated.featureToggles.subscriptions).toBe(false);
+    expect(updated.metadata.version).toEqual(expect.any(String));
+    expect(updated.metadata.sensitiveFields).toContain('payments.escrow_com.apiSecret');
+    expect(
+      updated.documentation.sections.payments.fields['payments.provider'].i18nKey,
+    ).toBe('platform.settings.fields.payments.provider');
     expect(updated.metadata.updatedAt).toEqual(expect.any(String));
     expect(updated.documentation.sections.payments.fields['payments.escrow_com.apiSecret']).toMatchObject({ sensitive: true });
 
@@ -198,6 +203,33 @@ describe('platformSettingsService', () => {
     const latestChanges = auditLog.events[0].changes.map((change) => change.path);
     expect(latestChanges).not.toContain('payments.escrow_com.apiSecret');
     expect(latestChanges).not.toContain('smtp.password');
+  });
+
+  it('filters audit events by actor and changed sections', async () => {
+    await updatePlatformSettings(
+      { payments: { provider: 'stripe', stripe: { secretKey: 'rotated', publishableKey: 'pk_test' } } },
+      { actorId: 12, actorEmail: 'admin@gigvora.com', actorName: 'Admin Example' },
+    );
+
+    await updatePlatformSettings(
+      { commissions: { rate: 6.5 } },
+      { actorId: 34, actorEmail: 'ops@gigvora.com', actorName: 'Ops Reviewer' },
+    );
+
+    const byActor = await listPlatformSettingsAuditEvents({ actorId: 12 });
+    expect(byActor.events.length).toBeGreaterThan(0);
+    expect(byActor.events.every((event) => event.actorId === 12)).toBe(true);
+
+    const byEmail = await listPlatformSettingsAuditEvents({ actorEmail: 'ops@gigvora.com' });
+    expect(byEmail.events.length).toBeGreaterThan(0);
+    expect(byEmail.events[0].actorEmail).toBe('ops@gigvora.com');
+
+    const paymentsEvents = await listPlatformSettingsAuditEvents({ sections: ['payments'] });
+    expect(paymentsEvents.events.length).toBeGreaterThan(0);
+    expect(paymentsEvents.events.every((event) => event.changedSections.includes('payments'))).toBe(true);
+
+    const limited = await listPlatformSettingsAuditEvents({ limit: 1, sections: ['payments'] });
+    expect(limited.events).toHaveLength(1);
   });
 
   describe('homepage settings', () => {

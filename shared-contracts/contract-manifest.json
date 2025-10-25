@@ -1,7 +1,7 @@
 {
   "version": "1.0.1",
   "lastGeneratedAt": "2025-10-25T00:36:52.906Z",
-  "pendingChanges": false,
+  "pendingChanges": true,
   "artifacts": {
     "auth/user": {
       "schemaHash": "360ca8371a7acba501005e1ae88bfbda2ab69f83e1cff09e9e491309c78bf788",

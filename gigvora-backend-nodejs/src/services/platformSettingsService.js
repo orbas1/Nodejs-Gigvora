@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { Op } from 'sequelize';
 import { PlatformSetting } from '../models/platformSetting.js';
 import { PlatformSettingsAuditEvent } from '../models/platformSettingsAuditEvent.js';
 import { ESCROW_INTEGRATION_PROVIDERS } from '../models/constants/index.js';
@@ -6,234 +7,26 @@ import { ValidationError } from '../utils/errors.js';
 import { syncCriticalDependencies } from '../observability/dependencyHealth.js';
 import logger from '../utils/logger.js';
 import { encryptSecret, decryptSecret, isEncryptedSecret, fingerprintSecret } from '../utils/secretStorage.js';
+import {
+  getPlatformSettingsDocumentation,
+  getPlatformSettingsMetadata,
+  PLATFORM_SETTINGS_SENSITIVE_PATHS,
+  PLATFORM_SETTINGS_SENSITIVE_PATH_SET,
+} from '../config/platformSettingsSchema.js';
+import { dispatchPlatformSettingsAuditNotification } from './platformSettingsAlertsService.js';
 
 const PLATFORM_SETTINGS_KEY = 'platform';
 const PAYMENT_PROVIDERS = new Set(ESCROW_INTEGRATION_PROVIDERS);
 const SUBSCRIPTION_INTERVALS = ['weekly', 'monthly', 'quarterly', 'yearly', 'lifetime'];
 
-const SENSITIVE_SETTING_PATHS = [
-  ['payments', 'stripe', 'secretKey'],
-  ['payments', 'stripe', 'webhookSecret'],
-  ['payments', 'escrow_com', 'apiKey'],
-  ['payments', 'escrow_com', 'apiSecret'],
-  ['smtp', 'password'],
-  ['storage', 'cloudflare_r2', 'secretAccessKey'],
-  ['database', 'password'],
-  ['database', 'url'],
-];
-
-const SENSITIVE_SETTING_PATH_SET = new Set(SENSITIVE_SETTING_PATHS.map((segments) => segments.join('.')));
-
-const SECTION_LABELS = Object.freeze({
-  commissions: 'commission policy',
-  subscriptions: 'subscription plans',
-  payments: 'payment processors',
-  smtp: 'SMTP delivery',
-  storage: 'storage integration',
-  app: 'application shell',
-  database: 'database connection',
-  featureToggles: 'feature toggles',
-  maintenance: 'maintenance window',
-  homepage: 'homepage marketing',
-  security: 'security rotation',
-});
-
-const PLATFORM_SETTINGS_DOCUMENTATION = Object.freeze({
-  sensitiveFields: Array.from(SENSITIVE_SETTING_PATH_SET),
-  sections: {
-    commissions: {
-      title: 'Commission Policy & Payout Governance',
-      description:
-        'Controls Gigvora\'s default commission schedule, minimum fees, and payout messaging applied to bookings.',
-      impact:
-        'Adjusting these values updates revenue share calculations, payout statements, and treasury guardrails across dashboards.',
-      fields: {
-        'commissions.enabled': {
-          label: 'Enable platform commission',
-          description: 'Gates whether the global service fee is active for marketplace transactions.',
-          impact: 'Disabling the fee bypasses platform revenue capture and removes fee callouts in billing flows.',
-        },
-        'commissions.rate': {
-          label: 'Default commission rate',
-          description: 'Percentage withheld from each qualifying transaction before creator payout.',
-          impact:
-            'Feeds pricing calculators, escrow releases, and finance dashboards; changes trigger treasury cache refreshes.',
-        },
-        'commissions.minimumFee': {
-          label: 'Minimum commission amount',
-          description: 'Ensures low-value bookings still contribute a baseline platform fee.',
-          impact: 'Impacts invoice rounding and minimum payout threshold messaging for creators.',
-        },
-        'commissions.servicemanMinimumRate': {
-          label: 'Minimum serviceman rate',
-          description: 'Lowest hourly/engagement rate permitted when providers pay their own crews.',
-          impact: 'Feeds compliance warnings and budgeting validations for provider-run teams.',
-        },
-      },
-    },
-    subscriptions: {
-      title: 'Subscription Packaging',
-      description: 'Defines membership plans, restricted features, and trial windows for recurring offers.',
-      impact:
-        'Updates propagate to storefront selectors, billing sync jobs, and access-control enforcement for gated modules.',
-      fields: {
-        'subscriptions.enabled': {
-          label: 'Enable subscriptions',
-          description: 'Master toggle for subscription monetisation flows.',
-          impact: 'Disabling halts renewal jobs and hides subscription CTAs across admin and member dashboards.',
-        },
-        'subscriptions.restrictedFeatures': {
-          label: 'Restricted features',
-          description: 'Feature keys that remain locked until a paid plan is active.',
-          impact: 'Drives feature-flag overlays and upgrade prompts in the frontend shell.',
-        },
-      },
-    },
-    payments: {
-      title: 'Payment Processor Configuration',
-      description:
-        'Stores API credentials and operational toggles for Stripe and Escrow.com flows, including hold policies.',
-      impact:
-        'Credentials determine which processors are available to bookers; hold policies update finance automations and alerts.',
-      fields: {
-        'payments.provider': {
-          label: 'Active payment provider',
-          description: 'Selects which processor is used for checkout and payouts.',
-          impact:
-            'Switching providers validates credentials and updates downstream treasury routing + reporting labels.',
-        },
-        'payments.stripe.secretKey': {
-          label: 'Stripe secret key',
-          description: 'Private key used to sign Stripe API requests.',
-          impact: 'Rotating re-establishes webhook signatures and payment intent creation; stored encrypted at rest.',
-          sensitive: true,
-        },
-        'payments.stripe.webhookSecret': {
-          label: 'Stripe webhook secret',
-          description: 'Verifies webhook payloads posted back to Gigvora.',
-          impact: 'Required to trust payment status callbacks; stored encrypted at rest.',
-          sensitive: true,
-        },
-        'payments.escrow_com.apiKey': {
-          label: 'Escrow.com API key',
-          description: 'Identifies the Gigvora escrow integration user.',
-          impact: 'Needed for escrow API calls and event polling; stored encrypted at rest.',
-          sensitive: true,
-        },
-        'payments.escrow_com.apiSecret': {
-          label: 'Escrow.com API secret',
-          description: 'Secret token paired with the API key for escrow operations.',
-          impact: 'Required for secure escrow requests and settlement checks; stored encrypted at rest.',
-          sensitive: true,
-        },
-        'payments.escrowControls.manualApprovalThreshold': {
-          label: 'Manual approval threshold',
-          description: 'Value above which finance must approve escrow releases.',
-          impact: 'Feeds treasury alerts and workflow gating for high-value disbursements.',
-        },
-      },
-    },
-    smtp: {
-      title: 'Transactional Email Delivery',
-      description: 'SMTP host, credentials, and sender identity for operational messages.',
-      impact:
-        'Updates reconfigure the notification service, changing verification, onboarding, and alert delivery pipelines.',
-      fields: {
-        'smtp.host': {
-          label: 'SMTP host',
-          description: 'Server address used for outbound mail.',
-          impact: 'Invalid hosts disrupt all transactional email until corrected.',
-        },
-        'smtp.password': {
-          label: 'SMTP password',
-          description: 'Authentication secret for the SMTP account.',
-          impact: 'Stored encrypted; rotation refreshes mailer credentials without redeploying the API.',
-          sensitive: true,
-        },
-      },
-    },
-    storage: {
-      title: 'File Storage Integration',
-      description: 'Cloudflare R2 credentials, bucket metadata, and CDN routing.',
-      impact: 'Controls how assets, uploads, and backups are stored and fetched across the product.',
-      fields: {
-        'storage.cloudflare_r2.accessKeyId': {
-          label: 'R2 access key',
-          description: 'Public portion of the R2 credential pair.',
-          impact: 'Used for signature generation; requires matching secret to function.',
-        },
-        'storage.cloudflare_r2.secretAccessKey': {
-          label: 'R2 secret access key',
-          description: 'Private credential for R2 API access.',
-          impact: 'Stored encrypted; rotation invalidates previous signed URLs.',
-          sensitive: true,
-        },
-      },
-    },
-    app: {
-      title: 'Application Identity',
-      description: 'Brand name, environment tags, and routing URLs shared across clients.',
-      impact: 'Used for link generation, telemetry tagging, and outbound messaging copy.',
-      fields: {
-        'app.clientUrl': {
-          label: 'Client URL',
-          description: 'Primary frontend URL for deep links.',
-          impact: 'Feeds email templates and OAuth redirect whitelists.',
-        },
-      },
-    },
-    database: {
-      title: 'Database Override Settings',
-      description: 'Optional overrides for connection metadata when not using a URL.',
-      impact: 'Used by runtime diagnostics and dependency guards for self-healing messaging.',
-      fields: {
-        'database.url': {
-          label: 'Database URL override',
-          description: 'Full connection string if not relying on discrete host credentials.',
-          impact: 'Stored encrypted; surfaces only to governance admins.',
-          sensitive: true,
-        },
-        'database.password': {
-          label: 'Database password override',
-          description: 'Password value when discrete credentials are provided.',
-          impact: 'Stored encrypted at rest and used for dependency testing.',
-          sensitive: true,
-        },
-      },
-    },
-    featureToggles: {
-      title: 'Feature Toggles',
-      description: 'Global switches for escrow, subscription, and commission features.',
-      impact: 'Feeds frontend guards and API policy checks to prevent unsupported workflows from activating.',
-      fields: {},
-    },
-    maintenance: {
-      title: 'Maintenance Windows & Messaging',
-      description: 'Scheduled downtime windows and support contact details.',
-      impact: 'Drives status banners, support prompts, and dependency guard behaviour during incidents.',
-      fields: {},
-    },
-    homepage: {
-      title: 'Homepage Marketing Blocks',
-      description: 'Announcement bar, hero content, value props, and testimonials for gigvora.com.',
-      impact: 'Feeds the marketing site and cached SSR payloads; updates propagate to CDN rebuild tasks.',
-      fields: {},
-    },
-    security: {
-      title: 'Security Tokens & Rotation Policy',
-      description: 'Metrics bearer token and rotation contacts for operational security.',
-      impact: 'Used by observability services and on-call notification flows.',
-      fields: {
-        'security.tokens.metricsBearer': {
-          label: 'Metrics bearer token',
-          description: 'Auth token for protected metrics endpoints.',
-          impact: 'Rotations require cache refresh for monitoring agents.',
-          sensitive: true,
-        },
-      },
-    },
-  },
-});
+const SECTION_LABELS = Object.freeze(
+  Object.fromEntries(
+    Object.entries(getPlatformSettingsDocumentation().sections ?? {}).map(([key, section]) => [
+      key,
+      section?.title ?? key,
+    ]),
+  ),
+);
 
 function cloneSettings(value) {
   if (value == null) {
@@ -283,7 +76,7 @@ function hasNested(source, path) {
 
 function decryptSensitiveSettings(stored = {}) {
   const clone = cloneSettings(stored);
-  SENSITIVE_SETTING_PATHS.forEach((path) => {
+  PLATFORM_SETTINGS_SENSITIVE_PATHS.forEach((path) => {
     const existingValue = getNested(clone, path);
     if (typeof existingValue === 'string' && isEncryptedSecret(existingValue)) {
       setNested(clone, path, decryptSecret(existingValue));
@@ -294,7 +87,7 @@ function decryptSensitiveSettings(stored = {}) {
 
 function encryptSensitiveSettings(normalized = {}, existingEncrypted = {}, payload = {}) {
   const clone = cloneSettings(normalized);
-  SENSITIVE_SETTING_PATHS.forEach((path) => {
+  PLATFORM_SETTINGS_SENSITIVE_PATHS.forEach((path) => {
     const provided = hasNested(payload, path);
     if (!provided) {
       const existingValue = getNested(existingEncrypted, path);
@@ -356,7 +149,7 @@ function collectDiffs(beforeValue, afterValue, pathSegments, accumulator, sectio
     return;
   }
 
-  if (SENSITIVE_SETTING_PATH_SET.has(path)) {
+  if (PLATFORM_SETTINGS_SENSITIVE_PATH_SET.has(path)) {
     const action = describeSecretAction(beforeValue, afterValue);
     if (action === 'unchanged') {
       return;
@@ -446,7 +239,7 @@ async function recordPlatformSettingsAuditEvent(beforeSnapshot, afterSnapshot, a
   }
 
   const summary = buildAuditSummary(changedSections, { initial: !beforeSnapshot });
-  await PlatformSettingsAuditEvent.recordEvent({
+  const event = await PlatformSettingsAuditEvent.recordEvent({
     actorId: actor.actorId ?? null,
     actorEmail: actor.actorEmail ?? null,
     actorName: actor.actorName ?? null,
@@ -454,15 +247,17 @@ async function recordPlatformSettingsAuditEvent(beforeSnapshot, afterSnapshot, a
     changedSections,
     changes,
   });
-  return changes.length;
+  return event;
 }
 
 function buildSettingsResponse(snapshot, { updatedAt = null } = {}) {
+  const documentation = getPlatformSettingsDocumentation();
+  const metadata = getPlatformSettingsMetadata();
   return {
     ...snapshot,
-    documentation: PLATFORM_SETTINGS_DOCUMENTATION,
+    documentation,
     metadata: {
-      sensitiveFields: Array.from(SENSITIVE_SETTING_PATH_SET),
+      ...metadata,
       updatedAt,
     },
   };
@@ -1569,7 +1364,15 @@ export async function updatePlatformSettings(payload = {}, actor = {}) {
   const snapshot = mergeDefaults(defaults, decryptedAfter);
 
   const beforeSnapshot = existing ? baseline : null;
-  await recordPlatformSettingsAuditEvent(beforeSnapshot, snapshot, actor);
+  const auditEvent = await recordPlatformSettingsAuditEvent(beforeSnapshot, snapshot, actor);
+  if (auditEvent) {
+    const publicEvent =
+      typeof auditEvent.toPublicObject === 'function' ? auditEvent.toPublicObject() : auditEvent;
+    await dispatchPlatformSettingsAuditNotification(publicEvent, snapshot, {
+      actor,
+      logger: logger.child({ component: 'platform-settings-alerts' }),
+    });
+  }
 
   syncCriticalDependencies(snapshot, { logger: logger.child({ component: 'platform-settings' }) });
   const updatedAt = record?.updatedAt ? record.updatedAt.toISOString() : new Date().toISOString();
@@ -1608,15 +1411,83 @@ export async function updateHomepageSettings(payload = {}) {
   return snapshot.homepage;
 }
 
-export async function listPlatformSettingsAuditEvents({ limit = 20 } = {}) {
+export async function listPlatformSettingsAuditEvents({
+  limit = 20,
+  actorId,
+  actorEmail,
+  sections = [],
+  since,
+  until,
+} = {}) {
   const numericLimit = Number.isFinite(Number(limit)) ? Math.min(Math.max(Number(limit), 1), 100) : 20;
-  const [events, total] = await Promise.all([
-    PlatformSettingsAuditEvent.findAll({
+  const where = {};
+  const parsedActorId = Number.isFinite(Number(actorId)) ? Number(actorId) : null;
+  if (parsedActorId && parsedActorId > 0) {
+    where.actorId = parsedActorId;
+  }
+
+  const trimmedEmail = typeof actorEmail === 'string' ? actorEmail.trim() : '';
+  const dialect = PlatformSettingsAuditEvent.sequelize.getDialect();
+  const supportsJsonContains = ['postgres', 'postgresql'].includes(dialect);
+  if (trimmedEmail) {
+    const likeOperator = supportsJsonContains ? Op.iLike : Op.like;
+    where.actorEmail = { [likeOperator]: `%${trimmedEmail}%` };
+  }
+
+  const createdAtRange = {};
+  if (since instanceof Date && !Number.isNaN(since.getTime())) {
+    createdAtRange[Op.gte] = since;
+  }
+  if (until instanceof Date && !Number.isNaN(until.getTime())) {
+    createdAtRange[Op.lte] = until;
+  }
+  if (Object.keys(createdAtRange).length > 0) {
+    where.createdAt = createdAtRange;
+  }
+
+  const sectionFilters = Array.isArray(sections)
+    ? sections.map((section) => String(section).trim()).filter((section) => section.length > 0)
+    : [];
+
+  let events = [];
+  let total = 0;
+
+  if (sectionFilters.length && supportsJsonContains) {
+    const queryWhere = { ...where, changedSections: { [Op.contains]: sectionFilters } };
+    const [rows, count] = await Promise.all([
+      PlatformSettingsAuditEvent.findAll({
+        where: queryWhere,
+        order: [['createdAt', 'DESC']],
+        limit: numericLimit,
+      }),
+      PlatformSettingsAuditEvent.count({ where: queryWhere }),
+    ]);
+    events = rows;
+    total = count;
+  } else if (sectionFilters.length) {
+    const candidates = await PlatformSettingsAuditEvent.findAll({
+      where,
       order: [['createdAt', 'DESC']],
-      limit: numericLimit,
-    }),
-    PlatformSettingsAuditEvent.count(),
-  ]);
+      limit: Math.max(numericLimit * 5, 100),
+    });
+    const filtered = candidates.filter((event) => {
+      const changed = event.changedSections ?? event.get?.('changedSections');
+      return Array.isArray(changed) && sectionFilters.every((section) => changed.includes(section));
+    });
+    events = filtered.slice(0, numericLimit);
+    total = filtered.length;
+  } else {
+    const [rows, count] = await Promise.all([
+      PlatformSettingsAuditEvent.findAll({
+        where,
+        order: [['createdAt', 'DESC']],
+        limit: numericLimit,
+      }),
+      PlatformSettingsAuditEvent.count({ where }),
+    ]);
+    events = rows;
+    total = count;
+  }
 
   return {
     total,

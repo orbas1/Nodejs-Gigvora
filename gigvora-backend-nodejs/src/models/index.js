@@ -4,6 +4,11 @@ import { domainMetadata } from '../domains/domainMetadata.js';
 import logger from '../utils/logger.js';
 import { PlatformSetting } from './platformSetting.js';
 import { PlatformSettingsAuditEvent } from './platformSettingsAuditEvent.js';
+import {
+  PlatformSettingsWatcher,
+  PLATFORM_SETTINGS_WATCHER_CHANNELS,
+  PLATFORM_SETTINGS_WATCHER_DIGEST_FREQUENCIES,
+} from './platformSettingsWatcher.js';
 import { SiteSetting, SitePage, SiteNavigationLink, SITE_PAGE_STATUSES } from './siteManagementModels.js';
 import { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
 export { AdminTreasuryPolicy, AdminFeeRule, AdminPayoutSchedule, AdminEscrowAdjustment } from './adminFinanceModels.js';
@@ -495,6 +500,11 @@ import sequelizeClient from './sequelizeClient.js';
 
 
 export { sequelize } from './sequelizeClient.js';
+export {
+  PlatformSettingsWatcher,
+  PLATFORM_SETTINGS_WATCHER_CHANNELS,
+  PLATFORM_SETTINGS_WATCHER_DIGEST_FREQUENCIES,
+} from './platformSettingsWatcher.js';
 
 const sequelize = sequelizeClient;
 const dialect = sequelize.getDialect();
@@ -23727,6 +23737,7 @@ export default {
   FeatureFlagAssignment,
   PlatformSetting,
   PlatformSettingsAuditEvent,
+  PlatformSettingsWatcher,
   RuntimeSecurityAuditEvent,
   RbacPolicyAuditEvent,
   RuntimeAnnouncement,
@@ -23945,6 +23956,7 @@ domainRegistry.registerContext({
     'FeatureFlagAssignment',
     'PlatformSetting',
     'PlatformSettingsAuditEvent',
+    'PlatformSettingsWatcher',
     'RuntimeSecurityAuditEvent',
     'RuntimeAnnouncement',
     'AdminCalendarAccount',

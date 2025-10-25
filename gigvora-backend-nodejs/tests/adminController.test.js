@@ -4,6 +4,7 @@ import { jest } from '@jest/globals';
 
 const adminDashboardModuleUrl = new URL('../src/services/adminDashboardService.js', import.meta.url);
 const platformSettingsModuleUrl = new URL('../src/services/platformSettingsService.js', import.meta.url);
+const platformSettingsWatchersModuleUrl = new URL('../src/services/platformSettingsWatchersService.js', import.meta.url);
 const affiliateSettingsModuleUrl = new URL('../src/services/affiliateSettingsService.js', import.meta.url);
 const systemSettingsModuleUrl = new URL('../src/services/systemSettingsService.js', import.meta.url);
 const pageSettingsModuleUrl = new URL('../src/services/pageSettingsService.js', import.meta.url);
@@ -19,6 +20,11 @@ const getPlatformSettings = jest.fn().mockResolvedValue({});
 const updatePlatformSettings = jest.fn().mockResolvedValue({ persisted: true });
 const getHomepageSettings = jest.fn().mockResolvedValue({});
 const updateHomepageSettings = jest.fn().mockResolvedValue({ published: true });
+const listPlatformSettingsAuditEvents = jest.fn().mockResolvedValue({ events: [], total: 0, limit: 20 });
+const listPlatformSettingsWatchers = jest.fn().mockResolvedValue([{ id: 1 }]);
+const createPlatformSettingsWatcher = jest.fn().mockResolvedValue({ id: 1, enabled: true });
+const updatePlatformSettingsWatcher = jest.fn().mockResolvedValue({ id: 1, enabled: true });
+const deletePlatformSettingsWatcher = jest.fn().mockResolvedValue({ deleted: true });
 
 const getAffiliateSettings = jest.fn().mockResolvedValue({});
 const updateAffiliateSettings = jest.fn().mockResolvedValue({ stored: true });
@@ -40,6 +46,7 @@ const updateSeoSettings = jest.fn().mockResolvedValue({ seo: true });
 const getRuntimeOperationalSnapshot = jest.fn().mockResolvedValue({ status: 'healthy' });
 
 const sanitizeAdminDashboardFilters = jest.fn().mockReturnValue({ lookbackDays: 45, eventWindowDays: 7 });
+const sanitizePlatformSettingsAuditFilters = jest.fn().mockReturnValue({});
 const sanitizePlatformSettingsInput = jest.fn().mockImplementation((payload) => ({ ...payload, sanitized: true }));
 const sanitizeHomepageSettingsInput = jest.fn().mockImplementation((payload) => ({ ...payload, normalized: true }));
 const sanitizeAffiliateSettingsInput = jest.fn().mockImplementation((payload) => ({ ...payload, coerced: true }));
@@ -54,6 +61,14 @@ jest.unstable_mockModule(platformSettingsModuleUrl.pathname, () => ({
   updatePlatformSettings,
   getHomepageSettings,
   updateHomepageSettings,
+  listPlatformSettingsAuditEvents,
+}));
+
+jest.unstable_mockModule(platformSettingsWatchersModuleUrl.pathname, () => ({
+  listPlatformSettingsWatchers,
+  createPlatformSettingsWatcher,
+  updatePlatformSettingsWatcher,
+  deletePlatformSettingsWatcher,
 }));
 
 jest.unstable_mockModule(affiliateSettingsModuleUrl.pathname, () => ({
@@ -89,6 +104,7 @@ jest.unstable_mockModule(runtimeObservabilityModuleUrl.pathname, () => ({
 
 jest.unstable_mockModule(adminSanitizersModuleUrl.pathname, () => ({
   sanitizeAdminDashboardFilters,
+  sanitizePlatformSettingsAuditFilters,
   sanitizePlatformSettingsInput,
   sanitizeHomepageSettingsInput,
   sanitizeAffiliateSettingsInput,
@@ -96,6 +112,7 @@ jest.unstable_mockModule(adminSanitizersModuleUrl.pathname, () => ({
 
 let controller;
 let dashboard;
+let listPlatformSettingsAuditTrail;
 let persistPlatformSettings;
 let fetchPageSettings;
 let createAdminPageSetting;
@@ -104,11 +121,16 @@ let removePageSetting;
 let persistGdprSettings;
 let persistSeoSettings;
 let persistAdminOverview;
+let listPlatformSettingsWatchersController;
+let createPlatformSettingsWatcherController;
+let updatePlatformSettingsWatcherController;
+let removePlatformSettingsWatcher;
 
 beforeAll(async () => {
   controller = await import('../src/controllers/adminController.js');
   ({
     dashboard,
+    listPlatformSettingsAuditTrail,
     persistPlatformSettings,
     fetchPageSettings,
     createAdminPageSetting,
@@ -117,6 +139,10 @@ beforeAll(async () => {
     persistGdprSettings,
     persistSeoSettings,
     persistAdminOverview,
+    listPlatformSettingsWatchersController,
+    createPlatformSettingsWatcherController,
+    updatePlatformSettingsWatcherController,
+    removePlatformSettingsWatcher,
   } = controller);
 });
 
@@ -162,6 +188,66 @@ describe('adminController.dashboard', () => {
     await dashboard(req, res);
 
     expect(getAdminDashboardSnapshot).toHaveBeenCalledWith({ lookbackDays: 30 });
+  });
+});
+
+describe('adminController.listPlatformSettingsAuditTrail', () => {
+  it('sanitises filters before querying audit events', async () => {
+    sanitizePlatformSettingsAuditFilters.mockReturnValueOnce({ limit: 5, actorEmail: 'ops' });
+    listPlatformSettingsAuditEvents.mockResolvedValueOnce({ events: [], total: 3, limit: 5 });
+
+    const req = { query: { limit: '5', actorEmail: 'ops' } };
+    const res = createResponse();
+
+    await listPlatformSettingsAuditTrail(req, res);
+
+    expect(sanitizePlatformSettingsAuditFilters).toHaveBeenCalledWith(req.query);
+    expect(listPlatformSettingsAuditEvents).toHaveBeenCalledWith({ limit: 5, actorEmail: 'ops' });
+    expect(res.json).toHaveBeenCalledWith({ events: [], total: 3, limit: 5 });
+  });
+});
+
+describe('adminController.platformSettingsWatcher management', () => {
+  it('lists watchers with includeDisabled flag', async () => {
+    listPlatformSettingsWatchers.mockResolvedValueOnce([{ id: 3, enabled: false }]);
+    const req = { query: { includeDisabled: true } };
+    const res = createResponse();
+
+    await listPlatformSettingsWatchersController(req, res);
+
+    expect(listPlatformSettingsWatchers).toHaveBeenCalledWith({ includeDisabled: true });
+    expect(res.json).toHaveBeenCalledWith({ watchers: [{ id: 3, enabled: false }] });
+  });
+
+  it('creates watchers with actor metadata', async () => {
+    const req = { body: { userId: 10 }, user: { email: 'admin@gigvora.com', id: 5 } };
+    const res = createResponse();
+
+    await createPlatformSettingsWatcherController(req, res);
+
+    expect(createPlatformSettingsWatcher).toHaveBeenCalledWith({ userId: 10 }, expect.objectContaining({ actor: expect.any(Object) }));
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(res.json).toHaveBeenCalledWith({ id: 1, enabled: true });
+  });
+
+  it('updates watchers and returns payload', async () => {
+    const req = { params: { watcherId: '7' }, body: { digestFrequency: 'weekly' }, user: { email: 'ops@gigvora.com' } };
+    const res = createResponse();
+
+    await updatePlatformSettingsWatcherController(req, res);
+
+    expect(updatePlatformSettingsWatcher).toHaveBeenCalledWith('7', { digestFrequency: 'weekly' }, expect.objectContaining({ actor: expect.any(Object) }));
+    expect(res.json).toHaveBeenCalledWith({ id: 1, enabled: true });
+  });
+
+  it('removes watchers via service', async () => {
+    const req = { params: { watcherId: '9' }, user: { email: 'ops@gigvora.com' } };
+    const res = createResponse();
+
+    await removePlatformSettingsWatcher(req, res);
+
+    expect(deletePlatformSettingsWatcher).toHaveBeenCalledWith('9', expect.objectContaining({ actor: expect.any(Object) }));
+    expect(res.status).toHaveBeenCalledWith(204);
   });
 });
 
