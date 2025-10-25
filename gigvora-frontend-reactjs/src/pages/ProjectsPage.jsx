@@ -3,19 +3,16 @@ import { Link } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
 import DataStatus from '../components/DataStatus.jsx';
 import useOpportunityListing from '../hooks/useOpportunityListing.js';
+import useCachedResource from '../hooks/useCachedResource.js';
 import analytics from '../services/analytics.js';
 import { formatRelativeTime } from '../utils/date.js';
 import UserAvatar from '../components/UserAvatar.jsx';
 import { useProjectManagementAccess } from '../hooks/useAuthorization.js';
 import MarketplaceSearchInput from '../components/marketplace/MarketplaceSearchInput.jsx';
+import { fetchProjectAutoAssignMetrics } from '../services/autoAssign.js';
+import { formatAutoAssignStatus } from '../utils/autoAssignStatus.js';
 
-function formatQueueStatus(status) {
-  if (!status) return 'Inactive';
-  return status
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
+const METRICS_CACHE_KEY = 'project:auto-match:metrics';
 
 export default function ProjectsPage() {
   const [query, setQuery] = useState('');
@@ -23,6 +20,18 @@ export default function ProjectsPage() {
     pageSize: 25,
   });
   const { canManageProjects, denialReason } = useProjectManagementAccess();
+
+  const {
+    data: metricsData,
+    error: metricsError,
+    loading: metricsLoading,
+    lastUpdated: metricsUpdatedAt,
+    refresh: refreshMetrics,
+  } = useCachedResource(
+    METRICS_CACHE_KEY,
+    ({ signal }) => fetchProjectAutoAssignMetrics({ signal }),
+    { ttl: 1000 * 60, enabled: canManageProjects },
+  );
 
   const listing = data ?? {};
   const items = useMemo(() => (Array.isArray(listing.items) ? listing.items : []), [listing.items]);
@@ -66,6 +75,43 @@ export default function ProjectsPage() {
     };
   }, [items]);
 
+  const aggregatedStats = useMemo(() => {
+    const totals = metricsData?.totals ?? null;
+    const velocity = metricsData?.velocity ?? null;
+    const latest = totals?.latestQueueGeneratedAt ? new Date(totals.latestQueueGeneratedAt) : null;
+
+    return {
+      total: totals?.totalProjects ?? derivedStats.total,
+      autoAssignEnabled: totals?.autoAssignEnabled ?? derivedStats.autoAssignEnabled,
+      totalQueueEntries: totals?.totalQueueEntries ?? derivedStats.totalQueueEntries,
+      averageQueueSize: totals?.averageQueueSize ?? derivedStats.averageQueueSize,
+      newcomerGuarantees: totals?.newcomerGuarantees ?? derivedStats.newcomerGuarantees,
+      latestQueueGeneratedAt: latest ?? derivedStats.latestQueueGeneratedAt,
+      medianResponseMinutes: velocity?.medianResponseMinutes ?? null,
+      completionRate: velocity?.completionRate ?? null,
+      sampleSize: velocity?.sampleSize ?? null,
+    };
+  }, [metricsData, derivedStats]);
+
+  const velocityLabels = useMemo(() => {
+    const sampleSize = Number(aggregatedStats.sampleSize ?? 0);
+    const sampleText = sampleSize > 0 ? `n=${sampleSize}` : null;
+    const medianLabel =
+      sampleSize > 0 && aggregatedStats.medianResponseMinutes != null
+        ? `${aggregatedStats.medianResponseMinutes} (${sampleText})`
+        : sampleSize === 0
+        ? 'Awaiting responses'
+        : `Insufficient data (${sampleText})`;
+    const completionLabel =
+      sampleSize > 0 && aggregatedStats.completionRate != null
+        ? `${aggregatedStats.completionRate}% (${sampleText})`
+        : sampleSize === 0
+        ? 'Awaiting responses'
+        : `Insufficient data (${sampleText})`;
+
+    return { medianLabel, completionLabel };
+  }, [aggregatedStats.medianResponseMinutes, aggregatedStats.completionRate, aggregatedStats.sampleSize]);
+
   const handleJoin = (project) => {
     analytics.track(
       'web_project_join_cta',
@@ -84,10 +130,15 @@ export default function ProjectsPage() {
           description="Join collaborative squads building products, content, and community programs across the Gigvora ecosystem."
           meta={
             <DataStatus
-              loading={loading}
+              loading={loading || (metricsLoading && canManageProjects)}
               fromCache={fromCache}
-              lastUpdated={lastUpdated}
-              onRefresh={() => refresh({ force: true })}
+              lastUpdated={metricsUpdatedAt ?? lastUpdated}
+              onRefresh={() => {
+                refresh({ force: true });
+                if (canManageProjects) {
+                  refreshMetrics({ force: true });
+                }
+              }}
             />
           }
         />
@@ -112,42 +163,55 @@ export default function ProjectsPage() {
               </span>
             </div>
           </div>
-          <div className="flex flex-col items-start justify-between rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-inner">
-            <div className="space-y-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Active auto-match projects</p>
-                <p className="mt-2 text-3xl font-bold text-slate-900">{derivedStats.autoAssignEnabled}</p>
-                <p className="mt-1 text-sm text-slate-500">
-                  {derivedStats.total
-                    ? `Out of ${derivedStats.total} live projects, ${derivedStats.autoAssignEnabled} currently rotate invitations automatically.`
-                    : 'Enable auto-match to begin rotating curated freelancers into your workspace.'}
-                </p>
+            <div className="flex flex-col items-start justify-between rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-inner">
+              <div className="space-y-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Active auto-match projects</p>
+                  <p className="mt-2 text-3xl font-bold text-slate-900">{aggregatedStats.autoAssignEnabled}</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {aggregatedStats.total
+                      ? `Out of ${aggregatedStats.total} live projects, ${aggregatedStats.autoAssignEnabled} currently rotate invitations automatically.`
+                      : 'Enable auto-match to begin rotating curated freelancers into your workspace.'}
+                  </p>
+                </div>
+                <dl className="grid gap-3 rounded-3xl border border-slate-200 bg-white/80 p-4 text-xs text-slate-500">
+                  <div className="flex items-center justify-between">
+                    <dt>Queue entries live</dt>
+                    <dd className="font-semibold text-slate-800">{aggregatedStats.totalQueueEntries}</dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt>Average queue size</dt>
+                    <dd className="font-semibold text-slate-800">{aggregatedStats.averageQueueSize}</dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt>Newcomer guarantees</dt>
+                    <dd className="font-semibold text-slate-800">{aggregatedStats.newcomerGuarantees}</dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt>Latest regeneration</dt>
+                    <dd className="font-semibold text-slate-800">
+                      {aggregatedStats.latestQueueGeneratedAt
+                        ? formatRelativeTime(aggregatedStats.latestQueueGeneratedAt)
+                        : 'Awaiting first run'}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt>Median response (mins)</dt>
+                    <dd className="font-semibold text-slate-800">{velocityLabels.medianLabel}</dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt>Completion rate</dt>
+                    <dd className="font-semibold text-slate-800">{velocityLabels.completionLabel}</dd>
+                  </div>
+                </dl>
+                {metricsError && canManageProjects ? (
+                  <p className="text-xs text-amber-600">
+                    Auto-match analytics are temporarily unavailable. Queue insights reflect live project data only.
+                  </p>
+                ) : null}
               </div>
-              <dl className="grid gap-3 rounded-3xl border border-slate-200 bg-white/80 p-4 text-xs text-slate-500">
-                <div className="flex items-center justify-between">
-                  <dt>Queue entries live</dt>
-                  <dd className="font-semibold text-slate-800">{derivedStats.totalQueueEntries}</dd>
-                </div>
-                <div className="flex items-center justify-between">
-                  <dt>Average queue size</dt>
-                  <dd className="font-semibold text-slate-800">{derivedStats.averageQueueSize}</dd>
-                </div>
-                <div className="flex items-center justify-between">
-                  <dt>Newcomer guarantees</dt>
-                  <dd className="font-semibold text-slate-800">{derivedStats.newcomerGuarantees}</dd>
-                </div>
-                <div className="flex items-center justify-between">
-                  <dt>Latest regeneration</dt>
-                  <dd className="font-semibold text-slate-800">
-                    {derivedStats.latestQueueGeneratedAt
-                      ? formatRelativeTime(derivedStats.latestQueueGeneratedAt)
-                      : 'Awaiting first run'}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-            {canManageProjects ? (
-              <Link
+              {canManageProjects ? (
+                <Link
                 to="/projects/new"
                 className="mt-6 inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
               >
@@ -207,11 +271,15 @@ export default function ProjectsPage() {
           </div>
         ) : null}
         <div className="space-y-6">
-          {items.map((project) => (
-            <article
-              key={project.id}
-              className="rounded-3xl border border-slate-200 bg-white p-6 transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft"
-            >
+          {items.map((project) => {
+            const fairness = project.autoAssignSettings?.fairness ?? {};
+            const fairnessMaxAssignments = fairness.maxAssignments ?? fairness.maxAssignmentsForPriority ?? null;
+
+            return (
+              <article
+                key={project.id}
+                className="rounded-3xl border border-slate-200 bg-white p-6 transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft"
+              >
               <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
                 {project.status ? <span>{project.status}</span> : null}
                 <span className="text-slate-400">Updated {formatRelativeTime(project.updatedAt)}</span>
@@ -244,7 +312,7 @@ export default function ProjectsPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-full border border-slate-200 bg-surfaceMuted/70 px-3 py-1 text-slate-600">
                       {project.autoAssignEnabled
-                        ? `Auto-assign · ${formatQueueStatus(project.autoAssignStatus)}`
+                        ? `Auto-assign · ${formatAutoAssignStatus(project.autoAssignStatus)}`
                         : 'Auto-assign disabled'}
                     </span>
                     {project.autoAssignEnabled ? (
@@ -308,20 +376,21 @@ export default function ProjectsPage() {
                   <div className="rounded-3xl border border-slate-200 bg-surfaceMuted/70 px-4 py-3">
                     <p className="font-semibold text-slate-600">Fairness weights</p>
                     <p className="mt-1 text-slate-500">
-                      {project.autoAssignSettings?.fairness?.ensureNewcomer
+                      {fairness.ensureNewcomer !== false
                         ? 'Newcomers always secure the first slot.'
                         : 'Rotation only with weighted scoring.'}
                     </p>
-                    {project.autoAssignSettings?.fairness?.maxAssignments != null ? (
+                    {fairnessMaxAssignments != null ? (
                       <p className="mt-2 text-xs text-slate-500">
-                        {`Max ${project.autoAssignSettings.fairness.maxAssignments} assignments before rebalancing.`}
+                        {`Max ${fairnessMaxAssignments} assignments before rebalancing.`}
                       </p>
                     ) : null}
                   </div>
                 ) : null}
               </div>
             </article>
-          ))}
+          );
+          })}
         </div>
       </div>
     </section>

@@ -4,6 +4,7 @@ import {
   resolveQueueEntry,
   getProjectQueue,
 } from '../services/autoAssignService.js';
+import projectService from '../services/projectService.js';
 import notificationService from '../services/notificationService.js';
 import { AuthorizationError, ValidationError } from '../utils/errors.js';
 import logger from '../utils/logger.js';
@@ -37,6 +38,74 @@ function summariseQueue(entries, fallbackName, fairnessConfig = {}) {
     queueSize,
     ensuredNewcomer,
   };
+}
+
+function buildQueueSummary(entries) {
+  const safeEntries = Array.isArray(entries) ? entries : [];
+  const summary = {
+    totalEntries: safeEntries.length,
+    statusCounts: {},
+    ensuredNewcomers: 0,
+    newcomers: 0,
+    returning: 0,
+    generatedAt: null,
+    expiresAt: null,
+    generatedBy: null,
+    averageScore: null,
+  };
+
+  let latestGeneratedAt = null;
+  let earliestExpiry = null;
+  let scoreAccumulator = 0;
+
+  safeEntries.forEach((entry) => {
+    const status = typeof entry?.status === 'string' ? entry.status.toLowerCase() : 'pending';
+    summary.statusCounts[status] = (summary.statusCounts[status] || 0) + 1;
+
+    const metadata = entry?.metadata && typeof entry.metadata === 'object' ? entry.metadata : {};
+    const fairness = metadata?.fairness && typeof metadata.fairness === 'object' ? metadata.fairness : {};
+    if (fairness.ensuredNewcomer) {
+      summary.ensuredNewcomers += 1;
+    }
+
+    const assignmentCount = Number(entry?.breakdown?.totalAssigned ?? metadata?.totalAssigned ?? 0);
+    if (!Number.isFinite(assignmentCount) || assignmentCount <= 0) {
+      summary.newcomers += 1;
+    } else {
+      summary.returning += 1;
+    }
+
+    const scoreValue = Number(entry?.score);
+    if (Number.isFinite(scoreValue)) {
+      scoreAccumulator += scoreValue;
+    }
+
+    if (metadata.generatedBy && !summary.generatedBy) {
+      summary.generatedBy = metadata.generatedBy;
+    }
+
+    const generatedAt = metadata.generatedAt;
+    if (generatedAt) {
+      const timestamp = new Date(generatedAt).getTime();
+      if (Number.isFinite(timestamp) && (!latestGeneratedAt || timestamp > latestGeneratedAt)) {
+        latestGeneratedAt = timestamp;
+      }
+    }
+
+    const expiresAt = entry?.expiresAt ?? metadata.expiresAt;
+    if (expiresAt) {
+      const timestamp = new Date(expiresAt).getTime();
+      if (Number.isFinite(timestamp) && (!earliestExpiry || timestamp < earliestExpiry)) {
+        earliestExpiry = timestamp;
+      }
+    }
+  });
+
+  summary.generatedAt = latestGeneratedAt ? new Date(latestGeneratedAt).toISOString() : null;
+  summary.expiresAt = earliestExpiry ? new Date(earliestExpiry).toISOString() : null;
+  summary.averageScore = summary.totalEntries ? Number((scoreAccumulator / summary.totalEntries).toFixed(2)) : null;
+
+  return summary;
 }
 
 async function dispatchAutoAssignNotification({
@@ -122,6 +191,21 @@ export async function enqueueProjectAssignments(req, res) {
       fairnessConfig: fairness,
     });
   } catch (error) {
+    if (targetId) {
+      await projectService.recordAutoAssignFailure({
+        projectId: targetId,
+        actorId,
+        error,
+        settings: {
+          projectValue,
+          limit,
+          expiresInMinutes,
+          targetType: targetType ?? 'project',
+          fairness: ensureObject(fairness),
+          weights,
+        },
+      });
+    }
     await dispatchAutoAssignNotification({
       userId: actorId,
       projectId: targetId,
@@ -214,11 +298,93 @@ export async function updateQueueEntryStatus(req, res) {
   res.json(result);
 }
 
+async function resolveQueueEnvelope(targetType, projectId) {
+  const entries = await getProjectQueue(targetType, projectId);
+  const summary = buildQueueSummary(entries);
+  let regeneration = null;
+
+  if (targetType === 'project' && projectId) {
+    regeneration = await projectService.getAutoAssignRegenerationContext(projectId, {
+      fallbackActorId: summary.generatedBy ?? null,
+      fallbackGeneratedAt: summary.generatedAt ?? null,
+    });
+  }
+
+  return { entries, summary, regeneration };
+}
+
 export async function projectQueue(req, res) {
   const { projectId } = req.params;
   const { targetType } = req.query ?? {};
-  const queue = await getProjectQueue(targetType ?? 'project', parseNumber(projectId, projectId));
-  res.json({ entries: queue });
+  const normalizedTargetType = targetType ?? 'project';
+  const resolvedProjectId = parseNumber(projectId, projectId);
+  const payload = await resolveQueueEnvelope(normalizedTargetType, resolvedProjectId);
+  res.json(payload);
+}
+
+export async function streamProjectQueue(req, res) {
+  const { projectId } = req.params;
+  const { targetType, interval } = req.query ?? {};
+  const resolvedProjectId = parseNumber(projectId, projectId);
+  const normalizedTargetType = targetType ?? 'project';
+  const refreshInterval = Math.max(2000, Number(interval) || 5000);
+
+  res.set({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+  });
+
+  if (typeof res.flushHeaders === 'function') {
+    res.flushHeaders();
+  }
+
+  let closed = false;
+  let lastPayload = null;
+
+  const sendPayload = async () => {
+    if (closed) {
+      return;
+    }
+
+    try {
+      const envelope = await resolveQueueEnvelope(normalizedTargetType, resolvedProjectId);
+      const payload = {
+        ...envelope,
+        timestamp: new Date().toISOString(),
+      };
+      const serialised = JSON.stringify(payload);
+      if (serialised !== lastPayload) {
+        lastPayload = serialised;
+        res.write('event: queue\n');
+        res.write(`data: ${serialised}\n\n`);
+      } else {
+        res.write(`: heartbeat ${payload.timestamp}\n\n`);
+      }
+    } catch (error) {
+      logger.error('Failed to stream auto-assign queue', { error, projectId: resolvedProjectId });
+      res.write('event: error\n');
+      res.write(
+        `data: ${JSON.stringify({ message: 'Unable to refresh queue stream.', details: error?.message ?? null })}\n\n`,
+      );
+    }
+  };
+
+  const intervalId = setInterval(sendPayload, refreshInterval);
+  req.on('close', () => {
+    closed = true;
+    clearInterval(intervalId);
+  });
+
+  await sendPayload();
+}
+
+export async function projectMetrics(req, res) {
+  const { force } = req.query ?? {};
+  const metrics = await projectService.getAutoAssignCommandCenterMetrics({
+    forceRefresh: force === 'true' || force === '1',
+  });
+  res.json(metrics);
 }
 
 export default {
@@ -226,4 +392,6 @@ export default {
   listQueue,
   updateQueueEntryStatus,
   projectQueue,
+  streamProjectQueue,
+  projectMetrics,
 };

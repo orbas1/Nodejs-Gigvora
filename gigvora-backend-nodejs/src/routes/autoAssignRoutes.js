@@ -13,6 +13,16 @@ router.post(
   asyncHandler(autoAssignController.enqueueProjectAssignments),
 );
 router.get(
+  '/projects/metrics',
+  requireRoles('company', 'agency', 'admin'),
+  asyncHandler(autoAssignController.projectMetrics),
+);
+router.get(
+  '/projects/:projectId/queue/stream',
+  requireRoles('company', 'agency', 'admin'),
+  asyncHandler(autoAssignController.streamProjectQueue),
+);
+router.get(
   '/queue',
   requireRoles('freelancer', 'admin', 'agency', 'company'),
   asyncHandler(autoAssignController.listQueue),

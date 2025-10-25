@@ -151,6 +151,7 @@ function sanitizeQueueEntry(entry, index = 0) {
     breakdown,
     metadata,
     response,
+    responseMetadata,
     freelancer,
     status,
     score,
@@ -185,6 +186,8 @@ function sanitizeQueueEntry(entry, index = 0) {
   const freelancerObject = ensurePlainObject(freelancer);
   const safeResponse = Object.keys(responseObject).length ? responseObject : null;
   const safeFreelancer = Object.keys(freelancerObject).length ? freelancerObject : null;
+  const responseMetadataObject = ensurePlainObject(responseMetadata);
+  const safeResponseMetadata = Object.keys(responseMetadataObject).length ? responseMetadataObject : null;
 
   return {
     ...rest,
@@ -197,6 +200,7 @@ function sanitizeQueueEntry(entry, index = 0) {
     breakdown: safeBreakdown,
     metadata: safeMetadata,
     response: safeResponse,
+    responseMetadata: safeResponseMetadata,
     freelancer: safeFreelancer,
     expiresAt: normalizeDate(expiresAt),
     createdAt: normalizeDate(createdAt),
@@ -251,9 +255,12 @@ function sanitizeFairness(fairness) {
     }
   }
 
-  const maxAssignments = coercePositiveInteger(safeFairness.maxAssignments);
+  const maxAssignments = coercePositiveInteger(
+    safeFairness.maxAssignments ?? safeFairness.maxAssignmentsForPriority,
+  );
   if (maxAssignments != null) {
     result.maxAssignments = maxAssignments;
+    result.maxAssignmentsForPriority = maxAssignments;
   }
 
   const windowDays = coercePositiveInteger(safeFairness.windowDays);
@@ -419,9 +426,41 @@ export async function fetchProjectQueue(projectId, { targetType, signal } = {}) 
   }
 }
 
+export async function fetchProjectAutoAssignMetrics({ signal } = {}) {
+  try {
+    return await apiClient.get('/auto-assign/projects/metrics', { signal });
+  } catch (error) {
+    handleServiceError(error, 'load auto-assign metrics');
+    return undefined;
+  }
+}
+
+function buildStreamUrl(path, params = {}) {
+  const base = apiClient.API_BASE_URL ?? '';
+  const normalisedPath = path.startsWith('/') ? path : `/${path}`;
+  const url = new URL(`${base}${normalisedPath}`);
+  Object.entries(params)
+    .filter(([, value]) => value !== undefined && value !== null && `${value}`.length > 0)
+    .forEach(([key, value]) => {
+      url.searchParams.set(key, value);
+    });
+  return url.toString();
+}
+
+export function getProjectQueueStreamUrl(projectId, { targetType } = {}) {
+  const resolvedProjectId = requirePositiveInteger(projectId, 'projectId');
+  const params = {};
+  if (targetType) {
+    params.targetType = normalizeTargetType(targetType);
+  }
+  return buildStreamUrl(`/auto-assign/projects/${resolvedProjectId}/queue/stream`, params);
+}
+
 export default {
   fetchFreelancerQueue,
   enqueueProjectAssignments,
   updateQueueEntry,
   fetchProjectQueue,
+  fetchProjectAutoAssignMetrics,
+  getProjectQueueStreamUrl,
 };
