@@ -1,5 +1,6 @@
 import express from 'express';
 import pinoHttp from 'pino-http';
+import { context, trace } from '@opentelemetry/api';
 import routes from './routes/index.js';
 import correlationId from './middleware/correlationId.js';
 import errorHandler from './middleware/errorHandler.js';
@@ -21,6 +22,14 @@ app.disable('x-powered-by');
 applyHttpSecurity(app, { logger });
 
 app.use(correlationId());
+
+app.use((req, res, next) => {
+  const span = trace.getSpan(context.active());
+  if (span && req.id) {
+    span.setAttribute('http.request_id', req.id);
+  }
+  next();
+});
 
 app.use(
   createWebApplicationFirewall({

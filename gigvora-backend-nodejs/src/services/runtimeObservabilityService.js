@@ -188,7 +188,7 @@ export async function getRuntimeOperationalSnapshot() {
     perimeter: getPerimeterSnapshot(),
     waf: getWebApplicationFirewallSnapshot(),
     databasePool: getDatabasePoolSnapshot(),
-    metrics: getMetricsStatus(),
+    metrics: await getMetricsStatus(),
     maintenance: buildAnnouncementSummary(maintenanceAnnouncements),
     scheduledMaintenance: buildScheduledMaintenanceSnapshot(settings),
     security: buildSecuritySnapshot(securityEvents),

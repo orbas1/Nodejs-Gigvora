@@ -20,6 +20,16 @@
     "db:verify": "node scripts/databaseBackup.js verify"
   },
   "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/context-async-hooks": "^1.9.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.51.1",
+    "@opentelemetry/instrumentation": "^0.51.1",
+    "@opentelemetry/instrumentation-express": "^0.43.0",
+    "@opentelemetry/instrumentation-http": "^0.51.1",
+    "@opentelemetry/resources": "^1.9.0",
+    "@opentelemetry/sdk-trace-base": "^1.9.0",
+    "@opentelemetry/sdk-trace-node": "^1.9.0",
+    "@opentelemetry/semantic-conventions": "^1.9.0",
     "@aws-sdk/client-s3": "^3.590.0",
     "@aws-sdk/s3-request-presigner": "^3.590.0",
     "agora-access-token": "^2.0.4",

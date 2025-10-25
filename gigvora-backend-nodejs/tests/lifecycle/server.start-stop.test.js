@@ -31,6 +31,8 @@ describe('server lifecycle start/stop orchestration', () => {
   let attachSocketServer;
   let recordRuntimeSecurityEvent;
   let shutdownSocketServer;
+  let configureTracing;
+  let shutdownTracing;
   let orchestrateHttpShutdown;
   let getPlatformSettings;
   let syncCriticalDependencies;
@@ -133,7 +135,13 @@ describe('server lifecycle start/stop orchestration', () => {
       shutdownSocketServer,
     }));
     await jest.unstable_mockModule(modulePath('../../src/observability/metricsRegistry.js'), () => ({
-      getMetricsStatus: jest.fn(),
+      getMetricsStatus: jest.fn().mockResolvedValue({}),
+    }));
+    configureTracing = jest.fn().mockResolvedValue({ enabled: false });
+    shutdownTracing = jest.fn().mockResolvedValue();
+    await jest.unstable_mockModule(modulePath('../../src/observability/tracing.js'), () => ({
+      configureTracing,
+      shutdownTracing,
     }));
     await jest.unstable_mockModule(modulePath('../../src/config/runtimeConfig.js'), () => ({
       getRuntimeConfig: jest.fn(() => ({ http: { port: 5050 } })),
@@ -149,6 +157,7 @@ describe('server lifecycle start/stop orchestration', () => {
   it('starts the HTTP server after warming dependencies and records startup audit', async () => {
     const serverInstance = await start({ port: 5050 });
 
+    expect(configureTracing).toHaveBeenCalledWith(expect.any(Object));
     expect(markHttpServerStarting).toHaveBeenCalledTimes(1);
     expect(warmDatabaseConnections).toHaveBeenCalledWith({ logger });
     expect(bootstrapDatabase).toHaveBeenCalledWith({ logger });
@@ -182,6 +191,7 @@ describe('server lifecycle start/stop orchestration', () => {
     await stop({ reason: 'tests' });
 
     expect(markHttpServerClosing).toHaveBeenCalledWith({ reason: 'tests' });
+    expect(shutdownTracing).toHaveBeenCalled();
     expect(shutdownSocketServer).toHaveBeenCalledTimes(1);
     expect(orchestrateHttpShutdown).toHaveBeenCalledWith(
       expect.objectContaining({
