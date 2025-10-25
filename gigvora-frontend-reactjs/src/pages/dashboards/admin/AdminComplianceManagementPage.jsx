@@ -7,6 +7,8 @@ import useSession from '../../../hooks/useSession.js';
 import ComplianceFrameworksPanel from '../../../components/admin/compliance/ComplianceFrameworksPanel.jsx';
 import ComplianceAuditSchedulePanel from '../../../components/admin/compliance/ComplianceAuditSchedulePanel.jsx';
 import ComplianceObligationBoard from '../../../components/admin/compliance/ComplianceObligationBoard.jsx';
+import ComplianceObligationDetailSheet from '../../../components/admin/compliance/ComplianceObligationDetailSheet.jsx';
+import ComplianceEvidenceModal from '../../../components/admin/compliance/ComplianceEvidenceModal.jsx';
 import {
   fetchComplianceOverview,
   createComplianceFramework,
@@ -72,97 +74,6 @@ const DEFAULT_OVERVIEW = {
   metrics: {},
 };
 
-const FALLBACK_OVERVIEW = {
-  frameworks: [
-    {
-      id: 'iso27001',
-      name: 'ISO 27001',
-      owner: 'Security Engineering',
-      region: 'Global',
-      status: 'active',
-      renewalCadenceMonths: 12,
-      controls: ['Asset inventory automation', 'Continuous vulnerability scanning', 'Change control approvals'],
-      automationCoverage: 82,
-      updatedAt: '2024-04-12T08:00:00.000Z',
-      type: 'certification',
-    },
-    {
-      id: 'soc2',
-      name: 'SOC 2 Type II',
-      owner: 'Trust & Compliance',
-      region: 'US & UK',
-      status: 'active',
-      renewalCadenceMonths: 12,
-      controls: ['Audit log retention', 'Access reviews every 90 days', 'Backup testing runbook'],
-      automationCoverage: 74,
-      updatedAt: '2024-03-02T12:00:00.000Z',
-      type: 'attestation',
-    },
-  ],
-  audits: [
-    {
-      id: 'soc2-2024',
-      name: 'SOC 2 Yearly Audit',
-      frameworkId: 'soc2',
-      auditFirm: 'KPMG',
-      status: 'scheduled',
-      startDate: '2024-07-15T09:00:00Z',
-      endDate: '2024-08-02T17:00:00Z',
-      scope: 'Core platform, data platform, vendor management, HR controls',
-      deliverables: ['SOC 2 report', 'Management letter', 'Evidence diff report'],
-    },
-    {
-      id: 'iso-surveillance',
-      name: 'ISO Surveillance Visit',
-      frameworkId: 'iso27001',
-      auditFirm: 'BSI',
-      status: 'in_progress',
-      startDate: '2024-05-01T09:00:00Z',
-      endDate: '2024-05-03T17:00:00Z',
-      scope: 'Annex A controls, disaster recovery, supplier management',
-      deliverables: ['Surveillance statement', 'Improvement plan'],
-    },
-  ],
-  obligations: [
-    {
-      id: 'dpia-ai',
-      title: 'AI workflow DPIA refresh',
-      owner: 'Privacy Operations',
-      dueDate: '2024-06-15T00:00:00Z',
-      status: 'backlog',
-      frameworkIds: ['gdpr'],
-      riskRating: 'high',
-      notes: 'Update DPIA for new AI-assisted job matching release.',
-    },
-    {
-      id: 'vendor-review',
-      title: 'Vendor risk review: SendGrid',
-      owner: 'Vendor Management',
-      dueDate: '2024-05-20T00:00:00Z',
-      status: 'in_progress',
-      frameworkIds: ['iso27001', 'soc2'],
-      riskRating: 'medium',
-      notes: 'Collect updated subprocessor attestations and penetration test reports.',
-    },
-    {
-      id: 'breach-drill',
-      title: 'GDPR breach response drill',
-      owner: 'Trust & Safety',
-      dueDate: '2024-05-30T00:00:00Z',
-      status: 'awaiting_evidence',
-      frameworkIds: ['gdpr'],
-      riskRating: 'medium',
-      notes: 'Upload tabletop report and lessons learned summary.',
-    },
-  ],
-  metrics: {
-    automationCoverage: 79,
-    frameworksActive: 4,
-    controlsAutomated: 123,
-    obligationsDueThisWeek: 6,
-  },
-};
-
 const RISK_FILTER_OPTIONS = ['low', 'medium', 'high', 'critical'];
 
 const COMPLIANCE_CACHE_KEY = 'admin-compliance-overview';
@@ -221,6 +132,9 @@ export default function AdminComplianceManagementPage() {
   const [creatingFramework, setCreatingFramework] = useState(false);
   const [creatingAudit, setCreatingAudit] = useState(false);
   const [creatingObligation, setCreatingObligation] = useState(false);
+  const [submittingEvidence, setSubmittingEvidence] = useState(false);
+  const [selectedObligation, setSelectedObligation] = useState(null);
+  const [evidenceModal, setEvidenceModal] = useState({ open: false, obligation: null });
   const [obligationFilters, setObligationFilters] = useState({
     search: '',
     frameworkIds: [],
@@ -246,10 +160,10 @@ export default function AdminComplianceManagementPage() {
         setFromCache(false);
         return snapshot;
       } catch (err) {
-        console.warn('Failed to load compliance overview, using fallback defaults.', err);
-        setError('Using fallback compliance data. Connect the API to sync live records.');
-        setOverview(FALLBACK_OVERVIEW);
-        setStatusMessage('Loaded fallback compliance snapshot. Connect live APIs to replace sample data.');
+        console.error('Failed to load compliance overview.', err);
+        setError('Unable to load compliance overview. Please retry.');
+        setOverview(DEFAULT_OVERVIEW);
+        setStatusMessage('Unable to refresh compliance overview. Showing cached values when available.');
         setFromCache(true);
         throw err;
       } finally {
@@ -346,13 +260,34 @@ export default function AdminComplianceManagementPage() {
   }, [obligationFilters.frameworkIds, obligationFilters.risks, obligationFilters.search, obligations]);
 
   const metrics = useMemo(() => {
+    const metricsSnapshot = overview.metrics ?? {};
+    const activeFrameworks = Array.isArray(frameworks)
+      ? frameworks.filter((framework) => framework.status === 'active').length
+      : 0;
+    const automationCoverageValue = Number.isFinite(metricsSnapshot.automationCoverage)
+      ? Number(metricsSnapshot.automationCoverage)
+      : null;
+    const controlsCount = Number.isFinite(metricsSnapshot.controlsAutomated)
+      ? Number(metricsSnapshot.controlsAutomated)
+      : frameworks.reduce((total, framework) => total + (framework.controls?.length ?? 0), 0);
+    const obligationsDue = Number.isFinite(metricsSnapshot.obligationsDueThisWeek)
+      ? Number(metricsSnapshot.obligationsDueThisWeek)
+      : 0;
+    const auditsInFlight = Number.isFinite(metricsSnapshot.auditsInFlight)
+      ? Number(metricsSnapshot.auditsInFlight)
+      : audits.filter((audit) => ['scheduled', 'in_progress'].includes(audit.status)).length;
+
     return [
-      { label: 'Frameworks active', value: overview.metrics?.frameworksActive ?? frameworks.length },
-      { label: 'Automation coverage', value: `${overview.metrics?.automationCoverage ?? 72}%` },
-      { label: 'Controls automated', value: overview.metrics?.controlsAutomated ?? 118 },
-      { label: 'Obligations due this week', value: overview.metrics?.obligationsDueThisWeek ?? 4 },
+      { label: 'Frameworks active', value: metricsSnapshot.frameworksActive ?? activeFrameworks },
+      {
+        label: 'Automation coverage',
+        value: automationCoverageValue == null ? '—' : `${Math.round(automationCoverageValue)}%`,
+      },
+      { label: 'Controls automated', value: controlsCount },
+      { label: 'Obligations due this week', value: obligationsDue },
+      { label: 'Audits in flight', value: auditsInFlight },
     ];
-  }, [overview.metrics, frameworks.length]);
+  }, [audits, frameworks, overview.metrics]);
 
   const obligationFilterSummary = useMemo(() => {
     const frameworkSummary = obligationFilters.frameworkIds.length
@@ -597,18 +532,87 @@ export default function AdminComplianceManagementPage() {
     }
   }, []);
 
-  const handleAttachEvidence = useCallback(async (obligationId) => {
-    if (!obligationId) return;
-    setStatusMessage('Logging compliance evidence…');
-    try {
-      await logComplianceEvidence(obligationId, {
-        message: 'Evidence placeholder logged from UI.',
-      });
-      setStatusMessage('Evidence logged successfully.');
-    } catch (err) {
-      setError(err?.message || 'Failed to attach evidence.');
+  const handleOpenObligationDetail = useCallback((obligation) => {
+    if (!obligation) {
+      return;
     }
+    setSelectedObligation(obligation);
   }, []);
+
+  const handleCloseObligationDetail = useCallback(() => {
+    setSelectedObligation(null);
+  }, []);
+
+  const handleAttachEvidence = useCallback((obligation) => {
+    if (!obligation || !obligation.id) {
+      setError('Select a valid obligation before attaching evidence.');
+      return;
+    }
+    setError('');
+    setEvidenceModal({ open: true, obligation });
+  }, []);
+
+  const handleCloseEvidenceModal = useCallback(() => {
+    setEvidenceModal({ open: false, obligation: null });
+  }, []);
+
+  const handleSubmitEvidence = useCallback(
+    async ({ description, fileUrl, source, submittedAt }) => {
+      if (!evidenceModal.obligation?.id) {
+        return;
+      }
+      setSubmittingEvidence(true);
+      setStatusMessage('Submitting compliance evidence…');
+      try {
+        const payload = {
+          description,
+          fileUrl: fileUrl || undefined,
+          source: source || 'manual_upload',
+          submittedAt: submittedAt || new Date().toISOString(),
+        };
+        await logComplianceEvidence(evidenceModal.obligation.id, payload);
+        setStatusMessage('Evidence logged successfully and ready for auditor review.');
+        setEvidenceModal({ open: false, obligation: null });
+        refreshOverview();
+      } catch (err) {
+        console.error('Failed to log compliance evidence.', err);
+        setError(err?.message || 'Failed to attach evidence.');
+      } finally {
+        setSubmittingEvidence(false);
+      }
+    },
+    [evidenceModal.obligation, refreshOverview],
+  );
+
+  const handleShareHighlights = useCallback(async () => {
+    const snapshot = overview.metrics ?? {};
+    const now = new Date();
+    const activeFrameworks = snapshot.frameworksActive ?? frameworks.filter((fw) => fw.status === 'active').length;
+    const automationValue = Number.isFinite(snapshot.automationCoverage)
+      ? `${Math.round(snapshot.automationCoverage)}%`
+      : 'n/a';
+    const obligationsDue = snapshot.obligationsDueThisWeek ?? 0;
+    const auditsInFlight = snapshot.auditsInFlight ?? audits.filter((audit) => ['scheduled', 'in_progress'].includes(audit.status)).length;
+    const lines = [
+      `Compliance highlights (${now.toISOString()})`,
+      `• Active frameworks: ${activeFrameworks}`,
+      `• Automation coverage: ${automationValue}`,
+      `• Obligations due this week: ${obligationsDue}`,
+      `• Audits in flight: ${auditsInFlight}`,
+    ];
+    const summary = lines.join('\n');
+    if (typeof navigator === 'undefined' || !navigator?.clipboard) {
+      setError('Clipboard access is not available in this environment.');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(summary);
+      setStatusMessage('Compliance highlights copied for broadcast.');
+    } catch (err) {
+      console.error('Failed to copy compliance highlights.', err);
+      setError('Unable to copy compliance highlights. Please copy manually.');
+    }
+  }, [audits, frameworks, overview.metrics]);
 
   const sections = useMemo(() => [
     { id: SECTION_IDS.frameworks, title: 'Frameworks' },
@@ -848,6 +852,8 @@ export default function AdminComplianceManagementPage() {
             onCreate={handleCreateObligation}
             onUpdate={handleUpdateObligation}
             onAttachEvidence={handleAttachEvidence}
+            onSelectObligation={handleOpenObligationDetail}
+            onShareHighlights={handleShareHighlights}
           />
         </section>
 
@@ -883,6 +889,19 @@ export default function AdminComplianceManagementPage() {
         title="Compliance audit log"
         description="Review every framework change, audit schedule update, and obligation adjustment recorded across the compliance hub."
         emptyState="No compliance events recorded yet."
+      />
+      <ComplianceObligationDetailSheet
+        open={Boolean(selectedObligation)}
+        obligation={selectedObligation}
+        frameworks={frameworks}
+        onClose={handleCloseObligationDetail}
+      />
+      <ComplianceEvidenceModal
+        open={evidenceModal.open}
+        obligation={evidenceModal.obligation}
+        submitting={submittingEvidence}
+        onClose={handleCloseEvidenceModal}
+        onSubmit={handleSubmitEvidence}
       />
     </>
   );

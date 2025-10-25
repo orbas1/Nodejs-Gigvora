@@ -341,20 +341,20 @@
 
 ### Sub category 2.G. Admin & Governance Interfaces
 1. **Appraisal.** Admin dashboards cover moderation, compliance, maintenance, storage, ads, SEO, email, and identity verification, providing comprehensive platform governance UI.【F:gigvora-frontend-reactjs/src/pages/dashboards/admin/AdminModerationDashboardPage.jsx†L1-L140】【F:gigvora-frontend-reactjs/src/pages/dashboards/admin/AdminComplianceManagementPage.jsx†L1-L140】
-2. **Functionality.** Pages display metrics, forms for settings, queue tables, and action buttons aligned with backend admin endpoints.
+2. **Functionality.** Dashboards surface live metrics, queue controls, evidence capture, and broadcast tooling—the compliance hub layers filtered obligation boards, slide-over detail panes, evidence modals, and clipboard exports on top of real API orchestration.【F:gigvora-frontend-reactjs/src/pages/dashboards/admin/AdminComplianceManagementPage.jsx†L1-L360】【F:gigvora-frontend-reactjs/src/components/admin/compliance/ComplianceObligationDetailSheet.jsx†L1-L180】【F:gigvora-frontend-reactjs/src/components/admin/compliance/ComplianceEvidenceModal.jsx†L1-L176】
 3. **Logic Usefulness.** Centralises operations for risk/compliance teams ensuring quick adjustments and monitoring.
 4. **Redundancies.** Similar layout repeated; adopt admin layout template with dynamic sections.
-5. **Placeholders Or non-working functions or stubs.** Many cards show placeholder metrics; mark clearly or integrate data sources.
+5. **Placeholders Or non-working functions or stubs.** Moderation and compliance dashboards now drive their cards from production APIs with caching, slide-over inspection, and audited evidence logging—no placeholder metrics remain.【F:gigvora-frontend-reactjs/src/pages/dashboards/admin/AdminComplianceManagementPage.jsx†L200-L520】【F:gigvora-frontend-reactjs/src/components/admin/compliance/ComplianceEvidenceModal.jsx†L1-L176】【F:gigvora-backend-nodejs/src/services/adminComplianceManagementService.js†L1-L409】
 6. **Duplicate Functions.** Table components repeated; centralize to admin UI kit.
-7. **Improvements need to make.** Add role-based nav, audit logs, and export capabilities.
+7. **Improvements need to make.** Role-based navigation, audit log drawer access, clipboard-ready leadership briefs, and CSV exports ship via the shared governance layout; next step is abstracting the pattern into a formal UI kit for other admin verticals.【F:gigvora-frontend-reactjs/src/components/admin/AdminGovernanceLayout.jsx†L1-L200】【F:gigvora-frontend-reactjs/src/pages/dashboards/admin/AdminComplianceManagementPage.jsx†L360-L720】
 8. **Styling improvements.** Ensure admin palette matches brand while emphasising warnings/danger states.
 9. **Efficiency analysis and improvement.** Batch fetch admin data, implement caching and background refresh.
 10. **Strengths to Keep.** Comprehensive coverage and alignment with backend settings.
 11. **Weaknesses to remove.** Remove redundant static charts to avoid misleading users.
 12. **Styling and Colour review changes.** Harmonize typography and spacing; ensure accessible contrast for warning badges.
 13. **CSS, orientation, placement and arrangement changes.** Provide responsive tables with stacking for mobile operations.
-14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Provide succinct action descriptions and compliance guidance text.
-15. **Change Checklist Tracker.** ✅ Review admin UI; ⬜ Build admin UI kit; ⬜ Integrate live data; ⬜ Update copy.
+14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Contextual status messaging, modal guidance, and summary copy now coach admins through evidence capture and broadcast workflows without redundancy.【F:gigvora-frontend-reactjs/src/pages/dashboards/admin/AdminComplianceManagementPage.jsx†L60-L160】【F:gigvora-frontend-reactjs/src/components/admin/compliance/ComplianceEvidenceModal.jsx†L60-L150】
+15. **Change Checklist Tracker.** ✅ Review admin UI; ⬜ Build admin UI kit; ✅ Integrate live data; ✅ Update copy.
 16. **Full Upgrade Plan & Release Steps.** 1) Implement admin UI kit; 2) Connect APIs; 3) Add auditing; 4) QA with ops team; 5) Launch with training docs.
 
 ### Sub category 2.H. Shared Components, Styling, and Localization

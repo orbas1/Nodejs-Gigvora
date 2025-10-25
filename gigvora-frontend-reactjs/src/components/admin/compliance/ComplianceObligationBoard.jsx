@@ -69,7 +69,7 @@ function ObligationCard({ obligation, onUpdateStatus, onAttachEvidence, onPromot
         </button>
         <button
           type="button"
-          onClick={() => onAttachEvidence?.()}
+          onClick={() => onAttachEvidence?.(obligation)}
           className="rounded-full border border-slate-200 px-3 py-1 font-semibold uppercase tracking-wide text-slate-600 hover:border-slate-300 hover:text-slate-900"
         >
           Evidence
@@ -83,7 +83,7 @@ function ObligationCard({ obligation, onUpdateStatus, onAttachEvidence, onPromot
         </button>
         <button
           type="button"
-          onClick={() => onOpenDetail?.()}
+          onClick={() => onOpenDetail?.(obligation)}
           className="rounded-full border border-slate-200 px-3 py-1 font-semibold uppercase tracking-wide text-slate-600 hover:border-slate-300 hover:text-slate-900"
         >
           View
@@ -185,6 +185,8 @@ export default function ComplianceObligationBoard({
   onCreate,
   onUpdate,
   onAttachEvidence,
+  onSelectObligation,
+  onShareHighlights,
 }) {
   const [showCreate, setShowCreate] = useState(true);
 
@@ -242,9 +244,9 @@ export default function ComplianceObligationBoard({
                       key={obligation.id}
                       obligation={obligation}
                       onUpdateStatus={(status) => onUpdate?.(obligation.id, { status })}
-                      onAttachEvidence={() => onAttachEvidence?.(obligation.id)}
+                      onAttachEvidence={onAttachEvidence}
                       onPromote={() => onUpdate?.(obligation.id, { status: 'awaiting_evidence' })}
-                      onOpenDetail={() => onUpdate?.(obligation.id, { open: true })}
+                      onOpenDetail={onSelectObligation}
                     />
                   ))
                 ) : (
@@ -262,7 +264,7 @@ export default function ComplianceObligationBoard({
                   </p>
                   <button
                     type="button"
-                    onClick={() => onAttachEvidence?.('broadcast')}
+                    onClick={() => onShareHighlights?.()}
                     className="mt-3 inline-flex items-center gap-2 rounded-full border border-emerald-200 px-3 py-1 font-semibold uppercase tracking-wide text-emerald-600 hover:border-emerald-300 hover:text-emerald-700"
                   >
                     <ArrowUpOnSquareIcon className="h-4 w-4" aria-hidden="true" /> Publish highlights
