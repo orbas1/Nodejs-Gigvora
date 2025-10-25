@@ -14,8 +14,8 @@ export const projectGigManagementSequelize = url
 const dialect = projectGigManagementSequelize.getDialect();
 const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB : DataTypes.JSON;
 
-const GIG_ORDER_ACTIVITY_TYPES = Object.freeze(['system', 'client', 'vendor', 'internal']);
-const GIG_ORDER_ESCROW_STATUSES = Object.freeze(['pending', 'released', 'refunded', 'cancelled']);
+const GIG_ORDER_ACTIVITY_TYPES = Object.freeze(['system', 'client', 'vendor', 'internal', 'communication']);
+const GIG_ORDER_ESCROW_STATUSES = Object.freeze(['pending', 'funded', 'released', 'refunded', 'cancelled']);
 
 export const PROJECT_STATUSES = Object.freeze(['planning', 'in_progress', 'at_risk', 'completed', 'on_hold']);
 export const PROJECT_RISK_LEVELS = Object.freeze(['low', 'medium', 'high']);
@@ -31,6 +31,7 @@ export const AUTO_MATCH_STATUS = Object.freeze(['suggested', 'contacted', 'engag
 export const REVIEW_SUBJECT_TYPES = Object.freeze(['vendor', 'freelancer', 'mentor', 'project']);
 export const GIG_ESCROW_TRANSACTION_TYPES = Object.freeze(['deposit', 'release', 'refund', 'fee', 'adjustment']);
 export const GIG_ESCROW_TRANSACTION_STATUSES = Object.freeze(['pending', 'completed', 'failed']);
+export const GIG_ESCROW_STATUSES = GIG_ORDER_ESCROW_STATUSES;
 export const GIG_TIMELINE_EVENT_TYPES = Object.freeze([
   'kickoff',
   'milestone',
@@ -357,6 +358,10 @@ export const GigSubmission = projectGigManagementSequelize.define(
     approvedAt: { type: DataTypes.DATE, allowNull: true },
     submittedById: { type: DataTypes.INTEGER, allowNull: true },
     reviewedById: { type: DataTypes.INTEGER, allowNull: true },
+    submittedBy: { type: DataTypes.STRING(160), allowNull: true },
+    submittedByEmail: { type: DataTypes.STRING(180), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    reviewNotes: { type: DataTypes.TEXT, allowNull: true },
     metadata: { type: jsonType, allowNull: true },
   },
   { tableName: 'pgm_gig_submissions', underscored: true },

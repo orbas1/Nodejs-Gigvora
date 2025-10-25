@@ -25,8 +25,8 @@ reference when wiring UI badges, notifications, or analytics that depend on work
 - **Timeline event types** (`GIG_TIMELINE_EVENT_TYPES`):
   `kickoff`, `milestone`, `check_in`, `checkpoint`, `scope_change`, `handoff`, `qa_review`, `client_feedback`, `retro`, `note`, `blocker`.
 - **Timeline event statuses** (`GIG_TIMELINE_EVENT_STATUSES`): `scheduled`, `in_progress`, `completed`, `cancelled`.
-- **Escrow checkpoint statuses** (`GIG_ORDER_ESCROW_STATUSES`): `pending`, `released`, `refunded`, `cancelled`.
-- **Order activity authors** (`GIG_ORDER_ACTIVITY_TYPES`): `system`, `client`, `vendor`, `internal`.
+- **Escrow checkpoint statuses** (`GIG_ESCROW_STATUSES`): `pending`, `funded`, `released`, `refunded`, `cancelled`.
+- **Order activity authors** (`GIG_ORDER_ACTIVITY_TYPES`): `system`, `client`, `vendor`, `internal`, `communication`.
 
 ## Marketplace coordination
 
