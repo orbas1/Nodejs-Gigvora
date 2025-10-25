@@ -4,9 +4,9 @@ import {
   listModerationEvents,
   resolveModerationEvent,
 } from '../services/communityModerationService.js';
+import { extractAdminActor, coercePositiveInteger } from '../utils/adminRequestContext.js';
 import { ApplicationError } from '../utils/errors.js';
 import logger from '../utils/logger.js';
-import { extractAdminActor, coercePositiveInteger } from '../utils/adminRequestContext.js';
 
 function parseListParam(value) {
   if (Array.isArray(value)) {
@@ -79,9 +79,3 @@ export async function resolve(req, res) {
   res.json(event);
 }
 
-export default {
-  overview,
-  queue,
-  events,
-  resolve,
-};

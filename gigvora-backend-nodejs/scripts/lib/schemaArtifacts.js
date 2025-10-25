@@ -1,6 +1,7 @@
+import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import crypto from 'node:crypto';
+
 import fs from 'fs-extra';
 
 const __filename = fileURLToPath(import.meta.url);

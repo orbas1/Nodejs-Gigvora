@@ -18,8 +18,8 @@ import {
   deleteProjectAsset,
   createProjectRetrospective,
 } from '../services/adminProjectManagementService.js';
-import logger from '../utils/logger.js';
 import { extractAdminActor, stampPayloadWithActor, coercePositiveInteger } from '../utils/adminRequestContext.js';
+import logger from '../utils/logger.js';
 
 export async function overview(req, res) {
   const snapshot = await getProjectPortfolioSnapshot(req.query ?? {});
@@ -192,23 +192,3 @@ export async function storeRetrospective(req, res) {
   res.status(201).json(result);
 }
 
-export default {
-  overview,
-  summary,
-  show,
-  store,
-  update,
-  updateWorkspace,
-  storeMilestone,
-  updateMilestone,
-  destroyMilestone,
-  storeCollaborator,
-  updateCollaborator,
-  destroyCollaborator,
-  storeIntegration,
-  updateIntegration,
-  destroyIntegration,
-  storeAsset,
-  destroyAsset,
-  storeRetrospective,
-};

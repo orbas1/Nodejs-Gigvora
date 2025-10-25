@@ -1,13 +1,14 @@
 #!/usr/bin/env node
-import { spawn } from 'child_process';
-import { pipeline } from 'stream/promises';
-import fs from 'fs/promises';
-import fssync from 'fs';
-import path from 'path';
-import zlib from 'zlib';
-import crypto from 'crypto';
-import process from 'process';
-import { fileURLToPath } from 'url';
+import { spawn } from 'node:child_process';
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import fsPromises from 'node:fs/promises';
+import path from 'node:path';
+import process from 'node:process';
+import { pipeline } from 'node:stream/promises';
+import { fileURLToPath } from 'node:url';
+import zlib from 'node:zlib';
+
 import databaseConfig from '../src/config/database.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -69,7 +70,7 @@ function resolveCredentials(config) {
 }
 
 async function ensureDirectory(dir) {
-  await fs.mkdir(dir, { recursive: true });
+  await fsPromises.mkdir(dir, { recursive: true });
 }
 
 async function runCommand(command, args, options = {}) {
@@ -95,12 +96,12 @@ function createCipher(encryptionKey) {
 
 async function writeMetadata(filePath, metadata) {
   const metaPath = `${filePath}.meta.json`;
-  await fs.writeFile(metaPath, JSON.stringify(metadata, null, 2), 'utf8');
+  await fsPromises.writeFile(metaPath, JSON.stringify(metadata, null, 2), 'utf8');
 }
 
 async function readMetadata(filePath) {
   const metaPath = `${filePath}.meta.json`;
-  const raw = await fs.readFile(metaPath, 'utf8');
+  const raw = await fsPromises.readFile(metaPath, 'utf8');
   return JSON.parse(raw);
 }
 
@@ -206,7 +207,7 @@ async function backupDatabase(options) {
     };
 
     await Promise.all([
-      pipeline(sourceStream, fssync.createWriteStream(outputPath)),
+      pipeline(sourceStream, fs.createWriteStream(outputPath)),
       dumpExit,
     ]);
     authTagValue = await authTagPromise;
@@ -214,15 +215,15 @@ async function backupDatabase(options) {
   } else {
     metadata.encryption = null;
     await Promise.all([
-      pipeline(sourceStream, fssync.createWriteStream(outputPath)),
+      pipeline(sourceStream, fs.createWriteStream(outputPath)),
       dumpExit,
     ]);
   }
 
   const hash = crypto.createHash('sha256');
-  await pipeline(fssync.createReadStream(outputPath), hash);
+  await pipeline(fs.createReadStream(outputPath), hash);
   metadata.checksum = hash.digest('hex');
-  const stats = await fs.stat(outputPath);
+  const stats = await fsPromises.stat(outputPath);
   metadata.sizeBytes = stats.size;
 
   await writeMetadata(outputPath, metadata);
@@ -243,7 +244,7 @@ async function restoreDatabase(options) {
 
   const mysqlBinary = process.env.MYSQL_PATH || 'mysql';
   const inputPath = path.resolve(process.cwd(), options.file);
-  if (!fssync.existsSync(inputPath)) {
+  if (!fs.existsSync(inputPath)) {
     throw new Error(`Backup file not found: ${inputPath}`);
   }
 
@@ -266,7 +267,7 @@ async function restoreDatabase(options) {
     console.error('mysql client failed:', error.message);
   });
 
-  let readStream = fssync.createReadStream(inputPath);
+  let readStream = fs.createReadStream(inputPath);
   if (metadata.encryption) {
     if (!options['encrypt-key']) {
       throw new Error('Encrypted backup provided but --encrypt-key not supplied.');
@@ -299,11 +300,11 @@ async function verifyBackup(options) {
     throw new Error('verify requires --file <path>');
   }
   const inputPath = path.resolve(process.cwd(), options.file);
-  if (!fssync.existsSync(inputPath)) {
+  if (!fs.existsSync(inputPath)) {
     throw new Error(`Backup file not found: ${inputPath}`);
   }
   const metadata = await readMetadata(inputPath);
-  const fileBuffer = await fs.readFile(inputPath);
+  const fileBuffer = await fsPromises.readFile(inputPath);
   const checksum = crypto.createHash('sha256').update(fileBuffer).digest('hex');
 
   console.info(
@@ -311,7 +312,7 @@ async function verifyBackup(options) {
       {
         status: 'ok',
         path: inputPath,
-        sizeBytes: fssync.statSync(inputPath).size,
+        sizeBytes: fs.statSync(inputPath).size,
         checksum,
         metadata,
       },

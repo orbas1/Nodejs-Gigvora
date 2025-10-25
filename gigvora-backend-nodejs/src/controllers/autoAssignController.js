@@ -188,10 +188,10 @@ async function dispatchAutoAssignNotification({
     payload.error = error;
   }
 
-    try {
-      await queueNotification(
-        {
-          userId,
+  try {
+    await queueNotification(
+      {
+        userId,
         category: 'project',
         priority: success ? 'normal' : 'high',
         type: success ? 'auto-assign.queue-regenerated' : 'auto-assign.queue-failed',
