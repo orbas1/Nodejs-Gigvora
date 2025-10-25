@@ -88,7 +88,10 @@ const QUICK_REPLY_SUGGESTIONS = [
 ];
 const MAX_CONTENT_LENGTH = 2200;
 const FEED_PAGE_SIZE = 12;
-const FEED_VIRTUAL_CHUNK_SIZE = 5;
+const DEFAULT_FEED_VIRTUAL_CHUNK_SIZE = 5;
+const FEED_VIRTUAL_MIN_CHUNK_SIZE = 4;
+const FEED_VIRTUAL_MAX_CHUNK_SIZE = 12;
+const DEFAULT_VIEWPORT_HEIGHT = 900;
 const FEED_VIRTUAL_THRESHOLD = 14;
 const DEFAULT_CHUNK_ESTIMATE = 420;
 const OPPORTUNITY_POST_TYPES = new Set(['job', 'gig', 'project', 'launchpad', 'volunteering', 'mentorship']);
@@ -769,6 +772,30 @@ function MediaAttachmentGrid({ attachments }) {
   );
 }
 
+function FeedLoadingSkeletons({ count = 2 }) {
+  return (
+    <div className="space-y-4" role="status" aria-live="polite" aria-busy="true">
+      {Array.from({ length: count }).map((_, index) => (
+        <article
+          key={`loading-${index}`}
+          className="animate-pulse rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+        >
+          <div className="flex items-center justify-between text-xs text-slate-300">
+            <span className="h-3 w-32 rounded bg-slate-200" />
+            <span className="h-3 w-16 rounded bg-slate-200" />
+          </div>
+          <div className="mt-4 h-4 w-48 rounded bg-slate-200" />
+          <div className="mt-3 space-y-2">
+            <div className="h-3 rounded bg-slate-200" />
+            <div className="h-3 w-3/4 rounded bg-slate-200" />
+            <div className="h-3 w-2/3 rounded bg-slate-200" />
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
 function VirtualFeedChunk({
   chunk,
   chunkIndex,
@@ -852,7 +879,11 @@ function VirtualFeedChunk({
   return (
     <div
       ref={wrapperRef}
-      className={shouldRender ? 'space-y-6' : 'rounded-3xl border border-slate-200/60 bg-white/60'}
+      className={
+        shouldRender
+          ? 'space-y-6'
+          : 'rounded-3xl border border-accent/40 bg-accentSoft px-6 py-8 text-accent shadow-inner transition'
+      }
       style={shouldRender ? undefined : { minHeight: placeholderHeight }}
       data-chunk-index={chunkIndex}
       aria-busy={!shouldRender}
@@ -860,8 +891,8 @@ function VirtualFeedChunk({
       {shouldRender ? (
         chunk.map((post) => renderPost(post))
       ) : (
-        <div className="flex h-full min-h-[inherit] items-center justify-center px-6 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-400">
-          Feed updates load as you approach
+        <div className="flex h-full min-h-[inherit] items-center justify-center text-[0.65rem] font-semibold uppercase tracking-wide">
+          Stay close—fresh updates unlock as you scroll
         </div>
       )}
     </div>
@@ -1686,12 +1717,18 @@ export default function FeedPage() {
   }, [localPosts, remotePosts]);
 
   const virtualizationEnabled = posts.length > FEED_VIRTUAL_THRESHOLD;
+  const [virtualChunkSize, setVirtualChunkSize] = useState(DEFAULT_FEED_VIRTUAL_CHUNK_SIZE);
 
   const feedChunks = useMemo(() => {
     if (!posts.length) {
       return [];
     }
-    const chunkSize = virtualizationEnabled ? FEED_VIRTUAL_CHUNK_SIZE : posts.length;
+    const chunkSize = virtualizationEnabled
+      ? Math.min(
+          posts.length,
+          Math.max(FEED_VIRTUAL_MIN_CHUNK_SIZE, Math.min(FEED_VIRTUAL_MAX_CHUNK_SIZE, virtualChunkSize)),
+        )
+      : posts.length;
     const chunks = [];
     for (let index = 0; index < posts.length; index += chunkSize) {
       chunks.push({
@@ -1700,9 +1737,55 @@ export default function FeedPage() {
       });
     }
     return chunks;
-  }, [posts, virtualizationEnabled]);
+  }, [posts, virtualChunkSize, virtualizationEnabled]);
 
   const [chunkHeights, setChunkHeights] = useState({});
+
+  const averageChunkHeight = useMemo(() => {
+    const values = Object.values(chunkHeights).filter((value) => Number.isFinite(value) && value > 0);
+    if (!values.length) {
+      return DEFAULT_CHUNK_ESTIMATE;
+    }
+    const total = values.reduce((sum, value) => sum + value, 0);
+    const average = total / values.length;
+    return Math.min(720, Math.max(280, average));
+  }, [chunkHeights]);
+
+  useEffect(() => {
+    if (!virtualizationEnabled) {
+      setVirtualChunkSize(DEFAULT_FEED_VIRTUAL_CHUNK_SIZE);
+      return undefined;
+    }
+
+    const resolveViewportHeight = () => {
+      if (typeof window === 'undefined' || !Number.isFinite(window.innerHeight)) {
+        return DEFAULT_VIEWPORT_HEIGHT;
+      }
+      return Math.max(640, window.innerHeight);
+    };
+
+    const updateChunkSize = () => {
+      const viewportHeight = resolveViewportHeight();
+      const estimatedHeight = Number.isFinite(averageChunkHeight)
+        ? averageChunkHeight
+        : DEFAULT_CHUNK_ESTIMATE;
+      const proposedSize = Math.round(viewportHeight / estimatedHeight) + 1;
+      const nextSize = Math.max(
+        FEED_VIRTUAL_MIN_CHUNK_SIZE,
+        Math.min(FEED_VIRTUAL_MAX_CHUNK_SIZE, proposedSize),
+      );
+      setVirtualChunkSize((previous) => (previous === nextSize ? previous : nextSize));
+    };
+
+    updateChunkSize();
+
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    window.addEventListener('resize', updateChunkSize);
+    return () => window.removeEventListener('resize', updateChunkSize);
+  }, [averageChunkHeight, virtualizationEnabled]);
 
   useEffect(() => {
     if (!virtualizationEnabled) {
@@ -2262,24 +2345,7 @@ export default function FeedPage() {
         <div className="space-y-6">
           {posts.map((post) => renderFeedPost(post))}
           <div ref={loadMoreRef} aria-hidden="true" />
-          {loadingMore ? (
-            <div className="space-y-4">
-              {Array.from({ length: 2 }).map((_, index) => (
-                <article key={`loading-${index}`} className="animate-pulse rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <div className="flex items-center justify-between text-xs text-slate-300">
-                    <span className="h-3 w-32 rounded bg-slate-200" />
-                    <span className="h-3 w-16 rounded bg-slate-200" />
-                  </div>
-                  <div className="mt-4 h-4 w-48 rounded bg-slate-200" />
-                  <div className="mt-3 space-y-2">
-                    <div className="h-3 rounded bg-slate-200" />
-                    <div className="h-3 w-3/4 rounded bg-slate-200" />
-                    <div className="h-3 w-2/3 rounded bg-slate-200" />
-                  </div>
-                </article>
-              ))}
-            </div>
-          ) : null}
+          {loadingMore ? <FeedLoadingSkeletons /> : null}
           {loadMoreError ? (
             <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
               {loadMoreError?.message || 'We could not load more updates. Try again soon.'}
@@ -2317,24 +2383,7 @@ export default function FeedPage() {
       <div className="space-y-6">
         {virtualisedChunks}
         <div ref={loadMoreRef} aria-hidden="true" />
-        {loadingMore ? (
-          <div className="space-y-4">
-            {Array.from({ length: 2 }).map((_, index) => (
-              <article key={`loading-${index}`} className="animate-pulse rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                <div className="flex items-center justify-between text-xs text-slate-300">
-                  <span className="h-3 w-32 rounded bg-slate-200" />
-                  <span className="h-3 w-16 rounded bg-slate-200" />
-                </div>
-                <div className="mt-4 h-4 w-48 rounded bg-slate-200" />
-                <div className="mt-3 space-y-2">
-                  <div className="h-3 rounded bg-slate-200" />
-                  <div className="h-3 w-3/4 rounded bg-slate-200" />
-                  <div className="h-3 w-2/3 rounded bg-slate-200" />
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : null}
+        {loadingMore ? <FeedLoadingSkeletons /> : null}
         {loadMoreError ? (
           <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
             {loadMoreError?.message || 'We could not load more updates. Try again soon.'}
