@@ -9913,8 +9913,63 @@ export const PasswordResetToken = sequelize.define(
   },
 );
 
+export const UserRefreshSession = sequelize.define(
+  'UserRefreshSession',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    tokenHash: { type: DataTypes.STRING(128), allowNull: false, unique: true },
+    ipAddress: { type: DataTypes.STRING(128), allowNull: true },
+    userAgent: { type: DataTypes.STRING(1024), allowNull: true },
+    deviceFingerprint: { type: DataTypes.STRING(128), allowNull: true },
+    deviceLabel: { type: DataTypes.STRING(180), allowNull: true },
+    riskLevel: { type: DataTypes.ENUM('low', 'medium', 'high'), allowNull: false, defaultValue: 'low' },
+    riskScore: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    riskSignals: { type: jsonType, allowNull: true },
+    context: { type: jsonType, allowNull: true },
+    expiresAt: { type: DataTypes.DATE, allowNull: true },
+    revokedAt: { type: DataTypes.DATE, allowNull: true },
+    revokedReason: { type: DataTypes.STRING(120), allowNull: true },
+    revokedById: { type: DataTypes.INTEGER, allowNull: true },
+    revocationContext: { type: jsonType, allowNull: true },
+    replacedByTokenHash: { type: DataTypes.STRING(128), allowNull: true },
+  },
+  {
+    tableName: 'user_refresh_sessions',
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['expiresAt'] },
+      { fields: ['revokedAt'] },
+      { fields: ['replacedByTokenHash'] },
+      { fields: ['deviceFingerprint'] },
+    ],
+  },
+);
+
+export const UserRefreshInvalidation = sequelize.define(
+  'UserRefreshInvalidation',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    reason: { type: DataTypes.STRING(120), allowNull: true },
+    actorId: { type: DataTypes.INTEGER, allowNull: true },
+    context: { type: jsonType, allowNull: true },
+    invalidatedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+  },
+  {
+    tableName: 'user_refresh_invalidations',
+    indexes: [{ fields: ['userId', 'invalidatedAt'] }],
+  },
+);
+
 PasswordResetToken.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasMany(PasswordResetToken, { foreignKey: 'userId', as: 'passwordResetTokens' });
+
+UserRefreshSession.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+UserRefreshSession.belongsTo(User, { foreignKey: 'revokedById', as: 'revokedBy' });
+User.hasMany(UserRefreshSession, { foreignKey: 'userId', as: 'refreshSessions' });
+
+UserRefreshInvalidation.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+UserRefreshInvalidation.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
+User.hasMany(UserRefreshInvalidation, { foreignKey: 'userId', as: 'refreshInvalidations' });
 
 export const TwoFactorPolicy = sequelize.define(
   'TwoFactorPolicy',
@@ -23261,6 +23316,9 @@ export default {
   Group,
   GroupMembership,
   Connection,
+  PasswordResetToken,
+  UserRefreshSession,
+  UserRefreshInvalidation,
   TwoFactorToken,
   Application,
   ApplicationReview,

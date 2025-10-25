@@ -2,6 +2,15 @@ import { Op, fn, col } from 'sequelize';
 import { FeedPost, FeedComment, FeedReaction, User, Profile, Connection } from '../models/index.js';
 import { enforceFeedCommentPolicies, enforceFeedPostPolicies } from '../services/contentModerationService.js';
 import { ValidationError, AuthorizationError, AuthenticationError } from '../utils/errors.js';
+import {
+  sanitizeUrl,
+  sanitizeString,
+  parseCount,
+  sanitiseMediaAttachments,
+  serialiseFeedPost,
+  serialiseComment,
+} from '../services/feedSerializationService.js';
+import { appCache } from '../utils/cache.js';
 
 const ALLOWED_VISIBILITY = new Set(['public', 'connections']);
 const ALLOWED_TYPES = new Set(['update', 'media', 'job', 'gig', 'project', 'volunteering', 'launchpad', 'news']);
@@ -27,6 +36,8 @@ const MAX_PAGE_SIZE = 50;
 const DEFAULT_COMMENT_LIMIT = 20;
 const MAX_COMMENT_LIMIT = 100;
 const SUGGESTION_LIMIT = 6;
+const SUGGESTION_CACHE_PREFIX = 'feed:suggestions:';
+const SUGGESTION_CACHE_TTL_SECONDS = 60 * 5;
 
 function resolveRole(req) {
   const candidate =
@@ -43,72 +54,6 @@ function resolveRole(req) {
 
 function hasOwn(object, key) {
   return Object.prototype.hasOwnProperty.call(object ?? {}, key);
-}
-
-function sanitizeUrl(url) {
-  if (!url || typeof url !== 'string') {
-    return null;
-  }
-  try {
-    const trimmed = url.trim();
-    if (!/^https?:\/\//i.test(trimmed)) {
-      return null;
-    }
-    const parsed = new URL(trimmed);
-    if (!['http:', 'https:'].includes(parsed.protocol)) {
-      return null;
-    }
-    return parsed.href;
-  } catch (error) {
-    return null;
-  }
-}
-
-function sanitizeString(value, { maxLength = 500, fallback = null } = {}) {
-  if (value == null) {
-    return fallback;
-  }
-  const trimmed = `${value}`.trim();
-  if (!trimmed) {
-    return fallback;
-  }
-  return trimmed.slice(0, maxLength);
-}
-
-function parseCount(value) {
-  if (value == null) {
-    return null;
-  }
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric) || numeric < 0) {
-    return null;
-  }
-  return numeric;
-}
-
-function sanitiseMediaAttachments(input) {
-  if (!Array.isArray(input)) {
-    return [];
-  }
-  return input
-    .map((item, index) => {
-      if (typeof item === 'string') {
-        const url = sanitizeUrl(item);
-        return url ? { id: `attachment-${index + 1}`, url, type: 'image' } : null;
-      }
-      if (item && typeof item === 'object') {
-        const url = sanitizeUrl(item.url ?? item.href);
-        if (!url) {
-          return null;
-        }
-        const type = typeof item.type === 'string' ? item.type.toLowerCase() : 'attachment';
-        const alt = sanitizeString(item.alt ?? item.caption ?? '', { maxLength: 180, fallback: '' });
-        return { id: item.id ?? `attachment-${index + 1}`, url, type, alt };
-      }
-      return null;
-    })
-    .filter(Boolean)
-    .slice(0, 4);
 }
 
 async function resolveUserSnapshot(userId) {
@@ -164,6 +109,12 @@ async function resolveSuggestedConnections(actor, limit = SUGGESTION_LIMIT) {
   const actorId = Number(actor.id);
   if (!Number.isFinite(actorId) || actorId <= 0) {
     return [];
+  }
+
+  const cacheKey = `${SUGGESTION_CACHE_PREFIX}${actorId}:${limit}`;
+  const cached = appCache.get(cacheKey);
+  if (cached) {
+    return cached;
   }
 
   const accepted = await Connection.findAll({
@@ -260,122 +211,17 @@ async function resolveSuggestedConnections(actor, limit = SUGGESTION_LIMIT) {
         userType: owner.userType ?? null,
         primaryDashboard: owner.primaryDashboard ?? null,
         reason,
+        mutualConnections: mutual,
       };
     })
     .filter(Boolean)
     .slice(0, limit);
-
-  return suggestions;
+  const generatedAt = new Date().toISOString();
+  const enriched = suggestions.map((suggestion) => ({ ...suggestion, generatedAt }));
+  appCache.set(cacheKey, enriched, SUGGESTION_CACHE_TTL_SECONDS);
+  return enriched;
 }
 
-function serialiseFeedPost(instance, { reactionSummary = {}, commentCount = 0 } = {}) {
-  const raw = instance?.toJSON ? instance.toJSON() : instance;
-  const user = raw.User || raw.user || null;
-  const profile = user?.Profile || user?.profile || null;
-  const computedAuthorName =
-    raw.authorName || [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() || 'Gigvora member';
-  const computedAuthorHeadline =
-    raw.authorHeadline ||
-    profile?.headline ||
-    profile?.bio ||
-    user?.title ||
-    (raw.type === 'news' ? raw.source || 'Gigvora newsroom' : 'Marketplace community update');
-  const computedAvatarSeed = raw.authorAvatarSeed || profile?.avatarSeed || computedAuthorName;
-  const attachments = Array.isArray(raw.mediaAttachments) ? raw.mediaAttachments : [];
-  const likesCount =
-    parseCount(reactionSummary.likes) ??
-    parseCount(raw.reactions?.likes) ??
-    parseCount(raw.likes) ??
-    0;
-  const reactionPayload = { ...reactionSummary, likes: likesCount };
-  const metricsSource = raw.metrics && typeof raw.metrics === 'object' ? raw.metrics : {};
-  const derivedCommentCount =
-    parseCount(commentCount) ??
-    parseCount(metricsSource.comments) ??
-    (Array.isArray(raw.comments) ? raw.comments.length : null) ??
-    parseCount(raw.commentCount) ??
-    0;
-
-  return {
-    id: raw.id,
-    userId: raw.userId,
-    content: raw.content,
-    summary: raw.summary,
-    title: raw.title,
-    type: raw.type,
-    link: raw.link,
-    imageUrl: raw.imageUrl,
-    source: raw.source,
-    visibility: raw.visibility,
-    mediaAttachments: attachments,
-    createdAt: raw.createdAt,
-    updatedAt: raw.updatedAt,
-    publishedAt: raw.publishedAt,
-    author: {
-      name: computedAuthorName,
-      headline: computedAuthorHeadline,
-      avatarSeed: computedAvatarSeed,
-    },
-    authorName: computedAuthorName,
-    authorHeadline: computedAuthorHeadline,
-    authorAvatarSeed: computedAvatarSeed,
-    reactions: reactionPayload,
-    comments: Array.isArray(raw.comments) ? raw.comments : [],
-    metrics: {
-      ...metricsSource,
-      comments: derivedCommentCount,
-    },
-    User: raw.User,
-  };
-}
-
-function serialiseComment(instance, replyMap = new Map()) {
-  const raw = instance?.toJSON ? instance.toJSON() : instance;
-  const authorUser = raw.author || raw.User || raw.user || null;
-  const profile = authorUser?.Profile || authorUser?.profile || null;
-  const computedAuthorName =
-    raw.authorName ||
-    [authorUser?.firstName, authorUser?.lastName, authorUser?.name].filter(Boolean).join(' ').trim() ||
-    'Gigvora member';
-  const computedHeadline =
-    raw.authorHeadline || profile?.headline || profile?.bio || authorUser?.title || 'Gigvora member';
-  const computedAvatarSeed = raw.authorAvatarSeed || profile?.avatarSeed || computedAuthorName;
-  const repliesSource = replyMap instanceof Map ? replyMap.get(raw.id) ?? [] : raw.replies ?? [];
-  const replies = repliesSource.map((reply) => serialiseComment(reply, replyMap));
-  const userPayload = authorUser
-    ? {
-        id: authorUser.id,
-        firstName: authorUser.firstName,
-        lastName: authorUser.lastName,
-        title: authorUser.title ?? null,
-        Profile: profile
-          ? {
-              id: profile.id,
-              headline: profile.headline,
-              bio: profile.bio,
-              avatarSeed: profile.avatarSeed,
-            }
-          : null,
-      }
-    : null;
-
-  return {
-    id: raw.id,
-    postId: raw.postId,
-    parentId: raw.parentId,
-    message: raw.body,
-    body: raw.body,
-    createdAt: raw.createdAt,
-    updatedAt: raw.updatedAt,
-    author: computedAuthorName,
-    authorName: computedAuthorName,
-    authorHeadline: computedHeadline,
-    authorAvatarSeed: computedAvatarSeed,
-    replies,
-    User: userPayload,
-    user: userPayload,
-  };
-}
 
 function resolveActor(req) {
   return req.user ?? null;

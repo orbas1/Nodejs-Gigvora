@@ -21,6 +21,7 @@ let FeedComment = stubModel;
 let FeedReaction = stubModel;
 let User = stubModel;
 let Profile = stubModel;
+let Connection = stubModel;
 
 export const __setModelStubs = (overrides = {}) => {
   if (overrides.FeedPost) {
@@ -38,8 +39,11 @@ export const __setModelStubs = (overrides = {}) => {
   if (overrides.Profile) {
     Profile = overrides.Profile;
   }
+  if (overrides.Connection) {
+    Connection = overrides.Connection;
+  }
 };
 
-export { FeedPost, FeedComment, FeedReaction, User, Profile };
+export { FeedPost, FeedComment, FeedReaction, User, Profile, Connection };
 
 export default stubModel;

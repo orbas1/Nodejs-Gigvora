@@ -10,6 +10,7 @@ import {
   invalidateRefreshTokensForUser,
   isRefreshTokenRevoked,
   markRefreshTokenRevoked,
+  persistRefreshSession,
 } from './refreshTokenStore.js';
 
 const TOKEN_EXPIRY = process.env.JWT_EXPIRES_IN || '1h';
@@ -188,19 +189,38 @@ function verifyRefreshToken(refreshToken) {
   }
 }
 
-async function issueSession(user) {
+async function issueSession(user, { context = null } = {}) {
   const secrets = resolveSecrets();
   const payload = { id: user.id, type: user.userType };
   const accessToken = jwt.sign(payload, secrets.access, { expiresIn: TOKEN_EXPIRY });
   const refreshToken = jwt.sign(payload, secrets.refresh, { expiresIn: REFRESH_EXPIRY });
   await authDomainService.updateLastLogin(user.id);
+  const refreshRecord = await persistRefreshSession(refreshToken, {
+    userId: user.id,
+    context,
+  });
   const sanitized = sanitizeUser(user);
+
+  const refreshMeta = {
+    deviceFingerprint: refreshRecord?.deviceFingerprint ?? null,
+    deviceLabel: refreshRecord?.deviceLabel ?? null,
+    riskLevel: refreshRecord?.riskLevel ?? 'low',
+    riskScore: refreshRecord?.riskScore ?? 0,
+    riskSignals: Array.isArray(refreshRecord?.riskSignals) ? refreshRecord.riskSignals : [],
+    expiresAt: refreshRecord?.expiresAt instanceof Date
+      ? refreshRecord.expiresAt.toISOString()
+      : refreshRecord?.expiresAt
+        ? new Date(refreshRecord.expiresAt).toISOString()
+        : null,
+  };
 
   return {
     user: { ...sanitized, lastLoginAt: new Date().toISOString() },
     accessToken,
     refreshToken,
     expiresAt: decodeExpiry(accessToken),
+    refreshMeta,
+    sessionRisk: { level: refreshMeta.riskLevel, score: refreshMeta.riskScore },
   };
 }
 
@@ -258,7 +278,7 @@ async function login(email, password, options = {}) {
     };
   }
 
-  const session = await issueSession(user);
+  const session = await issueSession(user, { context: options.context ?? null });
   const featureFlags = await featureFlagService.evaluateForUser(session.user, {
     workspaceIds: options.workspaceIds ?? [],
     traits: { loginContext: options.context?.ipAddress ? 'ip_tracked' : 'standard' },
@@ -306,7 +326,7 @@ async function verifyTwoFactor(email, code, tokenId, options = {}) {
     {},
   );
 
-  const session = await issueSession(user);
+  const session = await issueSession(user, { context: options.context ?? null });
   const featureFlags = await featureFlagService.evaluateForUser(session.user, {
     workspaceIds: options.workspaceIds ?? [],
     traits: { loginContext: 'two_factor_completed' },
@@ -362,7 +382,7 @@ async function loginWithGoogle(idToken, options = {}) {
     await user.update({ googleId, twoFactorEnabled: false });
   }
 
-  const session = await issueSession(user);
+  const session = await issueSession(user, { context: options.context ?? null });
   const featureFlags = await featureFlagService.evaluateForUser(session.user, {
     traits: { loginContext: 'google_oauth' },
   });
@@ -384,11 +404,11 @@ async function loginWithGoogle(idToken, options = {}) {
 async function refreshSession(refreshToken, options = {}) {
   const payload = verifyRefreshToken(refreshToken);
 
-  if (isRefreshTokenRevoked(refreshToken)) {
+  if (await isRefreshTokenRevoked(refreshToken)) {
     throw buildError('Refresh token has been revoked.', 401);
   }
 
-  const invalidation = getRefreshTokenInvalidation(payload.id);
+  const invalidation = await getRefreshTokenInvalidation(payload.id);
   if (invalidation?.invalidatedAt) {
     const invalidatedAt = new Date(invalidation.invalidatedAt).getTime();
     if (Number.isFinite(invalidatedAt) && payload.iat * 1000 <= invalidatedAt) {
@@ -401,7 +421,7 @@ async function refreshSession(refreshToken, options = {}) {
     throw buildError('Account not found.', 404);
   }
 
-  const session = await issueSession(user);
+  const session = await issueSession(user, { context: options.context ?? null });
   const featureFlags = await featureFlagService.evaluateForUser(session.user, {
     traits: { loginContext: 'refresh_token' },
     workspaceIds: options.workspaceIds ?? [],
@@ -409,10 +429,12 @@ async function refreshSession(refreshToken, options = {}) {
   session.featureFlags = featureFlags;
   session.user.featureFlags = featureFlags;
 
-  markRefreshTokenRevoked(refreshToken, {
+  await markRefreshTokenRevoked(refreshToken, {
     userId: payload.id,
     reason: 'rotated',
     context: options.context ?? null,
+    actorId: options.context?.actorId ?? null,
+    replacedByToken: session.refreshToken,
   });
 
   await authDomainService.recordLoginAudit(
@@ -545,7 +567,7 @@ async function resetPassword(token, password, options = {}) {
     {},
   );
 
-  invalidateRefreshTokensForUser(sanitizedUser.id, {
+  await invalidateRefreshTokensForUser(sanitizedUser.id, {
     reason: 'password_reset',
     actorId: sanitizedUser.id,
   });
@@ -559,12 +581,14 @@ async function revokeRefreshToken(refreshToken, options = {}) {
   }
 
   const payload = verifyRefreshToken(refreshToken);
-  const existing = getRefreshTokenRevocation(refreshToken);
-  if (!existing) {
-    markRefreshTokenRevoked(refreshToken, {
+  const existing = await getRefreshTokenRevocation(refreshToken);
+  let revocation = existing;
+  if (!revocation) {
+    revocation = await markRefreshTokenRevoked(refreshToken, {
       userId: payload.id,
       reason: options.reason ?? 'logout',
       context: options.context ?? null,
+      actorId: options.context?.actorId ?? null,
     });
     await authDomainService.recordLoginAudit(
       payload.id,
@@ -578,7 +602,11 @@ async function revokeRefreshToken(refreshToken, options = {}) {
     );
   }
 
-  return { success: true, revokedAt: new Date().toISOString() };
+  return {
+    success: true,
+    revokedAt: revocation?.revokedAt ?? new Date().toISOString(),
+    reason: revocation?.reason ?? options.reason ?? 'logout',
+  };
 }
 
 export default {
