@@ -40,9 +40,3 @@ export async function tags(req, res) {
   res.json({ results: items });
 }
 
-export default {
-  index,
-  show,
-  categories,
-  tags,
-};

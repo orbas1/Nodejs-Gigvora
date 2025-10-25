@@ -15,9 +15,9 @@ import {
   setThreadLabels,
   listSupportAgents,
 } from '../services/adminMessagingService.js';
+import { extractAdminActor, coercePositiveInteger } from '../utils/adminRequestContext.js';
 import { ValidationError } from '../utils/errors.js';
 import logger from '../utils/logger.js';
-import { extractAdminActor, coercePositiveInteger } from '../utils/adminRequestContext.js';
 
 function resolveActor(req) {
   const actor = extractAdminActor(req);
@@ -163,20 +163,3 @@ export async function supportAgents(req, res) {
   res.json({ data: agents });
 }
 
-export default {
-  index,
-  show,
-  messages,
-  createThread,
-  sendMessage,
-  changeState,
-  escalate,
-  assign,
-  updateSupportStatus,
-  labels,
-  createLabel,
-  updateLabel,
-  removeLabel,
-  applyLabels,
-  supportAgents,
-};

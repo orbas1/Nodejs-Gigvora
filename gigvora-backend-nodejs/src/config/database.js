@@ -47,8 +47,13 @@ const envSchema = z
 const parsedEnv = envSchema.parse(process.env);
 
 const environment = parsedEnv.NODE_ENV;
+const requiredConnectionKeys = ['DB_HOST', 'DB_USER', 'DB_NAME'];
+const missingConnectionKeys = requiredConnectionKeys.filter((key) => !parsedEnv[key]);
+const hasExplicitConnection = missingConnectionKeys.length === 0;
+const hasConnectionUrl = Boolean(parsedEnv.DB_URL);
 const resolvedDialect =
-  parsedEnv.DB_DIALECT ?? (environment === 'test' ? 'sqlite' : 'mysql');
+  parsedEnv.DB_DIALECT ??
+  (environment === 'test' || (!hasConnectionUrl && !hasExplicitConnection) ? 'sqlite' : 'mysql');
 
 const poolConfig = {
   max: parsedEnv.DB_POOL_MAX,
@@ -99,11 +104,9 @@ if (resolvedDialect === 'sqlite') {
     multipleStatements: true,
   };
 } else {
-  const requiredKeys = ['DB_HOST', 'DB_USER', 'DB_NAME'];
-  const missingKeys = requiredKeys.filter((key) => !parsedEnv[key]);
-  if (!parsedEnv.DB_URL && missingKeys.length > 0) {
+  if (!hasConnectionUrl && missingConnectionKeys.length > 0) {
     throw new Error(
-      `Database configuration missing required values: ${missingKeys.join(', ')}`,
+      `Database configuration missing required values: ${missingConnectionKeys.join(', ')}`,
     );
   }
 

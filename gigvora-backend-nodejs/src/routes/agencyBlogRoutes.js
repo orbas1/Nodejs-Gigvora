@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
-import agencyBlogController from '../controllers/agencyBlogController.js';
+import * as agencyBlogController from '../controllers/agencyBlogController.js';
 import { authenticate, requireRoles } from '../middleware/authenticate.js';
 
 const router = Router();

@@ -194,26 +194,3 @@ export async function deleteComment(req, res) {
   res.status(204).send();
 }
 
-export default {
-  list,
-  retrieve,
-  create,
-  update,
-  destroy,
-  categories,
-  createCategory,
-  updateCategory,
-  deleteCategory,
-  tags,
-  createTag,
-  updateTag,
-  deleteTag,
-  createMedia,
-  metricsOverview,
-  metricsForPost,
-  updatePostMetrics,
-  comments,
-  createComment,
-  updateComment,
-  deleteComment,
-};

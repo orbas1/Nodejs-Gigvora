@@ -7,7 +7,7 @@ export function ensureEnvLoaded({ silent = false } = {}) {
   if (!attempted) {
     attempted = true;
     lastResult = loadEnv();
-    if (lastResult.error && !silent) {
+    if (lastResult.error && lastResult.error.code !== 'ENOENT' && !silent) {
       console.warn(
         `Failed to load .env file: ${lastResult.error.message}. Falling back to process environment.`,
       );

@@ -50,7 +50,6 @@ async function ensureUniqueSlug(model, desiredSlug, { transaction, excludeId, sc
     if (excludeId) {
       where.id = { [Op.ne]: excludeId };
     }
-    // eslint-disable-next-line no-await-in-loop
     const existing = await model.findOne({ where, transaction, paranoid: false });
     if (!existing) {
       return candidate;

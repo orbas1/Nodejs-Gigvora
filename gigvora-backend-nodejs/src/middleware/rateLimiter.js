@@ -100,6 +100,5 @@ export function createInstrumentedRateLimiter(options = {}) {
   };
 }
 
-export default createInstrumentedRateLimiter;
 export { sanitizeRequestPath, defaultKeyGenerator };
 
