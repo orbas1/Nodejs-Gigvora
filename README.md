@@ -210,6 +210,9 @@ rollback preparation before deploying.【F:gigvora-backend-nodejs/docs/runbooks/
 - Regenerate JSON Schemas and generated clients (`npm run schemas:sync` then `npm run
   schemas:clients`) and confirm the working tree stays clean so backend contracts remain
   aligned.【F:gigvora-backend-nodejs/docs/runbooks/operational-readiness.md†L34-L46】
+- Schema generation scripts now share `scripts/lib/schemaArtifacts.js`, ensuring Zod
+  definitions, Sequelize models, migrations, and seeded feature flags stay in sync when
+  publishing `shared-contracts` artefacts and the contract manifest consumed by CI.【F:gigvora-backend-nodejs/scripts/lib/schemaArtifacts.js†L1-L117】【F:gigvora-backend-nodejs/scripts/generateDomainClients.js†L1-L210】【F:gigvora-backend-nodejs/database/migrations/20250120090000-feature-flag-foundation.cjs†L1-L118】【F:gigvora-backend-nodejs/database/seeders/20250120091500-feature-flag-demo.cjs†L1-L154】【F:gigvora-backend-nodejs/src/models/index.js†L596-L2664】
 - Dry-run database backups with `node scripts/databaseBackup.js backup --dry-run` to verify
   credentials, directories, and optional encryption keys without invoking `mysqldump`,
   keeping the process safe for CI and staging smoke tests.【F:gigvora-backend-nodejs/docs/runbooks/operational-readiness.md†L48-L64】【F:gigvora-backend-nodejs/scripts/databaseBackup.js†L94-L121】

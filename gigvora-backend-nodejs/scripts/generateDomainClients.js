@@ -1,75 +1,15 @@
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import crypto from 'node:crypto';
 import fs from 'fs-extra';
 import { compile } from 'json-schema-to-typescript';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const projectRoot = path.resolve(__dirname, '..');
-const contractsRoot = path.resolve(projectRoot, '..', 'shared-contracts', 'domain');
-const outputRoot = path.resolve(projectRoot, '..', 'shared-contracts', 'clients', 'typescript');
-const manifestPath = path.resolve(projectRoot, '..', 'shared-contracts', 'contract-manifest.json');
-
-function hashContent(content) {
-  return crypto.createHash('sha256').update(content).digest('hex');
-}
-
-async function readManifest() {
-  if (!(await fs.pathExists(manifestPath))) {
-    return {
-      version: '1.0.0',
-      lastGeneratedAt: null,
-      pendingChanges: false,
-      artifacts: {},
-    };
-  }
-
-  const manifestRaw = await fs.readFile(manifestPath, 'utf8');
-  try {
-    return JSON.parse(manifestRaw);
-  } catch (error) {
-    throw new Error(`Unable to parse contract manifest at ${manifestPath}: ${error.message}`);
-  }
-}
-
-async function writeManifest(manifest) {
-  const serialised = `${JSON.stringify(manifest, null, 2)}\n`;
-  await fs.writeFile(manifestPath, serialised, 'utf8');
-}
-
-async function writeFileIfChanged(filePath, content) {
-  const nextHash = hashContent(content);
-  const exists = await fs.pathExists(filePath);
-
-  if (exists) {
-    const current = await fs.readFile(filePath, 'utf8');
-    if (current === content) {
-      return { changed: false, hash: nextHash };
-    }
-  }
-
-  await fs.ensureDir(path.dirname(filePath));
-  await fs.writeFile(filePath, content, 'utf8');
-  return { changed: true, hash: nextHash };
-}
-
-async function discoverSchemaFiles(directory, relativePrefix = '') {
-  const entries = await fs.readdir(directory, { withFileTypes: true });
-  const files = [];
-
-  for (const entry of entries) {
-    const entryPath = path.join(directory, entry.name);
-    const entryRelative = path.join(relativePrefix, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...(await discoverSchemaFiles(entryPath, entryRelative)));
-    } else if (entry.isFile() && entry.name.endsWith('.json')) {
-      files.push({ absolute: entryPath, relative: entryRelative });
-    }
-  }
-
-  return files;
-}
+import {
+  schemaPaths,
+  hashContent,
+  writeFileIfChanged,
+  discoverSchemaFiles,
+  readContractManifest,
+  writeContractManifest,
+  normaliseExportPath,
+} from './lib/schemaArtifacts.js';
 
 function buildTypeName(relativePath) {
   const baseName = path.basename(relativePath, '.json');
@@ -125,11 +65,14 @@ async function generateTypeDefinition(schemaFile) {
   const typeName = buildTypeName(schemaFile.relative);
   const tsDefinition = await compile(rootSchema, typeName, {
     bannerComment: '',
-    cwd: contractsRoot,
+    cwd: schemaPaths.domainContractsRoot,
     style: { semi: true },
   });
 
-  const outputPath = path.join(outputRoot, schemaFile.relative.replace(/\.json$/, '.d.ts'));
+  const outputPath = path.join(
+    schemaPaths.clientsTypescriptRoot,
+    schemaFile.relative.replace(/\.json$/, '.d.ts'),
+  );
   const { changed: typesChanged, hash: typesHash } = await writeFileIfChanged(outputPath, tsDefinition);
 
   const schemaContent = await fs.readFile(schemaFile.absolute, 'utf8');
@@ -151,7 +94,7 @@ async function writeIndexFile(exportsMap) {
     return;
   }
 
-  const indexPath = path.join(outputRoot, 'index.d.ts');
+  const indexPath = path.join(schemaPaths.clientsTypescriptRoot, 'index.d.ts');
   const manualExports = [];
 
   if (await fs.pathExists(indexPath)) {
@@ -184,6 +127,7 @@ async function writeIndexFile(exportsMap) {
 }
 
 async function run() {
+  const contractsRoot = schemaPaths.domainContractsRoot;
   const exists = await fs.pathExists(contractsRoot);
   if (!exists) {
     throw new Error(`Unable to locate domain contracts at ${contractsRoot}`);
@@ -196,16 +140,22 @@ async function run() {
   }
 
   const exportsMap = [];
-  const manifest = await readManifest();
+  const manifest = await readContractManifest();
   const artifactMetadata = {};
   let hasArtifactChanges = false;
   const runTimestamp = new Date().toISOString();
   const manualArtifactKeys = [];
 
   for (const schemaFile of schemaFiles) {
-    const expectedOutput = path.join(outputRoot, schemaFile.relative.replace(/\.json$/, '.d.ts'));
-    const exportPath = path.relative(outputRoot, expectedOutput).replace(/\.d\.ts$/, '');
-    const normalisedExportPath = exportPath.replace(/\\/g, '/');
+    const expectedOutput = path.join(
+      schemaPaths.clientsTypescriptRoot,
+      schemaFile.relative.replace(/\.json$/, '.d.ts'),
+    );
+    const exportPath = normaliseExportPath(schemaPaths.clientsTypescriptRoot, expectedOutput).replace(
+      /\.d\.ts$/,
+      '',
+    );
+    const normalisedExportPath = exportPath;
     const result = await generateTypeDefinition(schemaFile);
 
     if (!result) {
@@ -278,9 +228,11 @@ async function run() {
     artifacts: finalArtifacts,
   };
 
-  await writeManifest(nextManifest);
+  await writeContractManifest(nextManifest);
   const changeMessage = hasArtifactChanges ? 'updated' : 'validated';
-  console.log(`Domain client generation ${changeMessage}. Output directory: ${outputRoot}`);
+  console.log(
+    `Domain client generation ${changeMessage}. Output directory: ${schemaPaths.clientsTypescriptRoot}`,
+  );
 }
 
 run().catch((error) => {

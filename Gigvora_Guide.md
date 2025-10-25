@@ -117,6 +117,10 @@ Keep this guide handy as you explore or build on Gigvora. Whether you’re just 
   schemas:sync`, and `npm run schemas:clients` to surface `.env` issues and keep JSON
   Schemas plus generated clients aligned with backend Zod definitions before promoting a
   change.【F:gigvora-backend-nodejs/docs/runbooks/operational-readiness.md†L19-L46】
+- **Schema registry source of truth.** Shared helpers in `scripts/lib/schemaArtifacts.js`
+  drive both schema export and client generation, while the feature flag migration and
+  seed data keep Sequelize models, JSON Schemas, and contract manifests aligned for
+  production rollouts.【F:gigvora-backend-nodejs/scripts/lib/schemaArtifacts.js†L1-L117】【F:gigvora-backend-nodejs/scripts/syncDomainSchemas.js†L1-L72】【F:gigvora-backend-nodejs/database/migrations/20250120090000-feature-flag-foundation.cjs†L1-L118】【F:gigvora-backend-nodejs/database/seeders/20250120091500-feature-flag-demo.cjs†L1-L154】【F:gigvora-backend-nodejs/src/models/index.js†L596-L2664】
 - **Database protection.** Exercise the backup utility with
   `node scripts/databaseBackup.js backup --dry-run` to confirm credentials, target
   directories, and optional encryption keys are configured—no `mysqldump` invocation
