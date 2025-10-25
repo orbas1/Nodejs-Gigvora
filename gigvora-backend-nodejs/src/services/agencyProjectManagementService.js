@@ -7,7 +7,9 @@ import {
   PROJECT_AUTOMATCH_DECISION_STATUSES,
   projectGigManagementSequelize,
 } from '../models/projectGigManagementModels.js';
-import { AuthorizationError, NotFoundError } from '../utils/errors.js';
+import { AuthorizationError, NotFoundError, ValidationError } from '../utils/errors.js';
+
+const PROJECT_LIFECYCLE_STATES = new Set(['open', 'closed']);
 
 function toNumber(value) {
   if (value == null) {
@@ -26,6 +28,250 @@ function toInteger(value) {
   }
   const numeric = typeof value === 'number' ? value : Number.parseInt(`${value}`, 10);
   return Number.isInteger(numeric) ? numeric : null;
+}
+
+function requireProjectTitle(value) {
+  const trimmed = `${value ?? ''}`.trim();
+  if (trimmed.length < 3) {
+    throw new ValidationError('Project title must be at least 3 characters long.');
+  }
+  return trimmed.slice(0, 180);
+}
+
+function requireProjectDescription(value) {
+  const trimmed = `${value ?? ''}`.trim();
+  if (trimmed.length < 10) {
+    throw new ValidationError('Project description must be at least 10 characters long.');
+  }
+  return trimmed;
+}
+
+function ensureProjectCategory(value) {
+  if (value == null) {
+    return 'General';
+  }
+  const trimmed = `${value}`.trim();
+  if (!trimmed) {
+    throw new ValidationError('Project category cannot be empty.');
+  }
+  return trimmed.slice(0, 120);
+}
+
+function ensureDurationWeeks(value, { defaultValue } = {}) {
+  if (value == null) {
+    if (typeof defaultValue !== 'undefined') {
+      return defaultValue;
+    }
+    throw new ValidationError('durationWeeks must be a positive integer.');
+  }
+  const numeric = toInteger(value);
+  if (!numeric || numeric <= 0) {
+    throw new ValidationError('durationWeeks must be a positive integer.');
+  }
+  return numeric;
+}
+
+function ensureOptionalPositiveInteger(value, fieldName) {
+  if (value == null) {
+    return null;
+  }
+  const numeric = toInteger(value);
+  if (!numeric || numeric <= 0) {
+    throw new ValidationError(`${fieldName} must be a positive integer.`);
+  }
+  return numeric;
+}
+
+function ensureBudgetAmount(value, fieldName, { defaultValue } = {}) {
+  if (value == null) {
+    if (typeof defaultValue !== 'undefined') {
+      return defaultValue;
+    }
+    throw new ValidationError(`${fieldName} is required.`);
+  }
+  const numeric = toNumber(value);
+  if (numeric == null || numeric < 0) {
+    throw new ValidationError(`${fieldName} must be zero or positive.`);
+  }
+  return numeric;
+}
+
+function ensureOptionalBudgetAmount(value, fieldName) {
+  if (value == null) {
+    return null;
+  }
+  return ensureBudgetAmount(value, fieldName, { defaultValue: null });
+}
+
+function ensureLifecycleState(value, { defaultValue } = {}) {
+  if (value == null) {
+    if (typeof defaultValue !== 'undefined') {
+      return defaultValue;
+    }
+    throw new ValidationError('lifecycleState is required.');
+  }
+  if (!PROJECT_LIFECYCLE_STATES.has(value)) {
+    throw new ValidationError('lifecycleState must be either "open" or "closed".');
+  }
+  return value;
+}
+
+function ensureProjectStatus(value, { defaultValue } = {}) {
+  if (value == null) {
+    if (typeof defaultValue !== 'undefined') {
+      return defaultValue;
+    }
+    throw new ValidationError('status is required.');
+  }
+  if (!PROJECT_STATUSES.includes(value)) {
+    throw new ValidationError(`status must be one of: ${PROJECT_STATUSES.join(', ')}.`);
+  }
+  return value;
+}
+
+function ensureOptionalDate(value, fieldName) {
+  if (value == null) {
+    return null;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new ValidationError(`${fieldName} must be a valid date.`);
+  }
+  return date;
+}
+
+function ensureBudgetCurrency(value, { defaultValue } = {}) {
+  if (value == null) {
+    if (typeof defaultValue !== 'undefined') {
+      return defaultValue;
+    }
+    throw new ValidationError('budgetCurrency is required.');
+  }
+  const code = `${value}`.trim().toUpperCase();
+  if (code.length < 3) {
+    throw new ValidationError('budgetCurrency must be a valid currency code.');
+  }
+  return code.slice(0, 6);
+}
+
+function ensureScore(value, fieldName = 'score') {
+  const numeric = toNumber(value);
+  if (numeric == null || numeric < 0 || numeric > 100) {
+    throw new ValidationError(`${fieldName} must be between 0 and 100.`);
+  }
+  return numeric;
+}
+
+function normaliseFreelancerInput(payload = {}) {
+  if (!payload || typeof payload !== 'object') {
+    throw new ValidationError('Freelancer payload must be an object.');
+  }
+  if (!Number.isInteger(payload.freelancerId)) {
+    throw new ValidationError('Freelancer identifier is required.');
+  }
+  const freelancerName = `${payload.freelancerName ?? ''}`.trim();
+  if (!freelancerName) {
+    throw new ValidationError('Freelancer name is required.');
+  }
+  const freelancerRoleRaw = payload.freelancerRole == null ? null : `${payload.freelancerRole}`.trim().slice(0, 120);
+  const score = payload.score == null ? null : ensureScore(payload.score);
+  let notes = null;
+  if (payload.notes != null) {
+    const trimmed = `${payload.notes}`.trim();
+    notes = trimmed.length ? trimmed : null;
+  }
+  let metadata = null;
+  if (payload.metadata != null) {
+    if (typeof payload.metadata !== 'object') {
+      throw new ValidationError('Freelancer metadata must be an object.');
+    }
+    metadata = { ...payload.metadata };
+  }
+  return {
+    freelancerId: payload.freelancerId,
+    freelancerName: freelancerName.slice(0, 180),
+    freelancerRole: freelancerRoleRaw && freelancerRoleRaw.length ? freelancerRoleRaw : null,
+    score,
+    autoMatchEnabled: payload.autoMatchEnabled != null ? Boolean(payload.autoMatchEnabled) : true,
+    status:
+      payload.status && PROJECT_AUTOMATCH_DECISION_STATUSES.includes(payload.status)
+        ? payload.status
+        : 'pending',
+    notes,
+    metadata,
+  };
+}
+
+function sanitiseFreelancerUpdates(payload = {}) {
+  if (!payload || typeof payload !== 'object') {
+    throw new ValidationError('Freelancer payload must be an object.');
+  }
+  const updates = {};
+  if (Object.prototype.hasOwnProperty.call(payload, 'freelancerName')) {
+    if (payload.freelancerName === undefined) {
+      // ignore undefined values
+    } else {
+      const trimmed = `${payload.freelancerName ?? ''}`.trim();
+      if (!trimmed) {
+        throw new ValidationError('Freelancer name cannot be empty.');
+      }
+      updates.freelancerName = trimmed.slice(0, 180);
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'freelancerRole')) {
+    if (payload.freelancerRole === undefined) {
+      // ignore undefined
+    } else if (payload.freelancerRole == null) {
+      updates.freelancerRole = null;
+    } else {
+      const trimmed = `${payload.freelancerRole}`.trim().slice(0, 120);
+      updates.freelancerRole = trimmed.length ? trimmed : null;
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'autoMatchEnabled')) {
+    if (payload.autoMatchEnabled !== undefined) {
+      updates.autoMatchEnabled = Boolean(payload.autoMatchEnabled);
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'status')) {
+    if (payload.status !== undefined) {
+      if (!PROJECT_AUTOMATCH_DECISION_STATUSES.includes(payload.status)) {
+        throw new ValidationError(`status must be one of: ${PROJECT_AUTOMATCH_DECISION_STATUSES.join(', ')}.`);
+      }
+      updates.status = payload.status;
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'score')) {
+    if (payload.score !== undefined) {
+      if (payload.score === null) {
+        updates.score = null;
+      } else {
+        updates.score = ensureScore(payload.score);
+      }
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'notes')) {
+    if (payload.notes !== undefined) {
+      if (payload.notes == null) {
+        updates.notes = null;
+      } else {
+        const trimmed = `${payload.notes}`.trim();
+        updates.notes = trimmed.length ? trimmed : null;
+      }
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'metadata')) {
+    if (payload.metadata !== undefined) {
+      if (payload.metadata == null) {
+        updates.metadata = null;
+      } else if (typeof payload.metadata === 'object') {
+        updates.metadata = { ...payload.metadata };
+      } else {
+        throw new ValidationError('Freelancer metadata must be an object.');
+      }
+    }
+  }
+  return updates;
 }
 
 function normaliseSkills(input) {
@@ -359,84 +605,108 @@ async function buildPortfolioSummary(ownerId) {
 }
 
 function pickProjectUpdates(payload = {}, { actorId } = {}) {
+  if (!payload || typeof payload !== 'object') {
+    throw new ValidationError('Project payload must be an object.');
+  }
+
   const updates = {};
 
-  if (payload.title != null) {
-    updates.title = `${payload.title}`.trim();
+  if (Object.prototype.hasOwnProperty.call(payload, 'title')) {
+    updates.title = requireProjectTitle(payload.title);
   }
-  if (payload.description != null) {
-    updates.description = `${payload.description}`.trim();
+  if (Object.prototype.hasOwnProperty.call(payload, 'description')) {
+    updates.description = requireProjectDescription(payload.description);
   }
-  if (payload.status != null && PROJECT_STATUSES.includes(payload.status)) {
-    updates.status = payload.status;
+  if (Object.prototype.hasOwnProperty.call(payload, 'status')) {
+    updates.status = ensureProjectStatus(payload.status);
   }
-  if (payload.category != null) {
-    const trimmed = `${payload.category}`.trim();
-    if (trimmed.length) {
-      updates.category = trimmed.slice(0, 120);
-    }
+  if (Object.prototype.hasOwnProperty.call(payload, 'category')) {
+    updates.category = ensureProjectCategory(payload.category);
   }
-  if (payload.durationWeeks != null) {
-    const duration = toInteger(payload.durationWeeks);
-    if (duration && duration > 0) {
-      updates.durationWeeks = duration;
-    }
+  if (Object.prototype.hasOwnProperty.call(payload, 'durationWeeks')) {
+    updates.durationWeeks = ensureDurationWeeks(payload.durationWeeks);
   }
-  if (payload.skills != null) {
+  if (Object.prototype.hasOwnProperty.call(payload, 'skills')) {
     updates.skills = normaliseSkills(payload.skills);
   }
-  if (payload.lifecycleState != null && ['open', 'closed'].includes(payload.lifecycleState)) {
-    updates.lifecycleState = payload.lifecycleState;
+  if (Object.prototype.hasOwnProperty.call(payload, 'lifecycleState')) {
+    updates.lifecycleState = ensureLifecycleState(payload.lifecycleState);
   }
-  if (payload.startDate != null) {
-    updates.startDate = payload.startDate ? new Date(payload.startDate) : null;
+  if (Object.prototype.hasOwnProperty.call(payload, 'startDate')) {
+    updates.startDate = ensureOptionalDate(payload.startDate, 'startDate');
   }
-  if (payload.dueDate != null) {
-    updates.dueDate = payload.dueDate ? new Date(payload.dueDate) : null;
+  if (Object.prototype.hasOwnProperty.call(payload, 'dueDate')) {
+    updates.dueDate = ensureOptionalDate(payload.dueDate, 'dueDate');
   }
-  if (payload.budgetCurrency != null) {
-    updates.budgetCurrency = `${payload.budgetCurrency}`.trim().toUpperCase().slice(0, 6);
+  if (Object.prototype.hasOwnProperty.call(payload, 'budgetCurrency')) {
+    updates.budgetCurrency = ensureBudgetCurrency(payload.budgetCurrency);
   }
-  if (payload.budgetAllocated != null) {
-    const amount = toNumber(payload.budgetAllocated);
-    updates.budgetAllocated = amount == null ? null : amount;
+  if (Object.prototype.hasOwnProperty.call(payload, 'budgetAllocated')) {
+    updates.budgetAllocated = ensureBudgetAmount(payload.budgetAllocated, 'budgetAllocated');
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'budgetSpent')) {
+    updates.budgetSpent = ensureBudgetAmount(payload.budgetSpent, 'budgetSpent');
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'metadata')) {
+    if (payload.metadata == null) {
+      updates.metadata = null;
+    } else if (typeof payload.metadata === 'object') {
+      updates.metadata = { ...payload.metadata };
+    } else {
+      throw new ValidationError('Project metadata must be an object.');
+    }
   }
 
-  if (payload.autoMatch && typeof payload.autoMatch === 'object') {
-    const { autoMatch } = payload;
-    if (autoMatch.enabled != null) {
+  if (Object.prototype.hasOwnProperty.call(payload, 'autoMatch')) {
+    if (payload.autoMatch == null || typeof payload.autoMatch !== 'object') {
+      throw new ValidationError('autoMatch must be an object when provided.');
+    }
+    const autoMatch = payload.autoMatch;
+    if (Object.prototype.hasOwnProperty.call(autoMatch, 'enabled')) {
       updates.autoMatchEnabled = Boolean(autoMatch.enabled);
     }
-    if (autoMatch.autoAcceptEnabled != null) {
+    if (Object.prototype.hasOwnProperty.call(autoMatch, 'autoAcceptEnabled')) {
       updates.autoMatchAcceptEnabled = Boolean(autoMatch.autoAcceptEnabled);
     }
-    if (autoMatch.autoRejectEnabled != null) {
+    if (Object.prototype.hasOwnProperty.call(autoMatch, 'autoRejectEnabled')) {
       updates.autoMatchRejectEnabled = Boolean(autoMatch.autoRejectEnabled);
     }
-    if (autoMatch.budgetMin != null) {
-      updates.autoMatchBudgetMin = toNumber(autoMatch.budgetMin);
+    if (Object.prototype.hasOwnProperty.call(autoMatch, 'budgetMin')) {
+      updates.autoMatchBudgetMin = ensureOptionalBudgetAmount(autoMatch.budgetMin, 'autoMatchBudgetMin');
     }
-    if (autoMatch.budgetMax != null) {
-      updates.autoMatchBudgetMax = toNumber(autoMatch.budgetMax);
+    if (Object.prototype.hasOwnProperty.call(autoMatch, 'budgetMax')) {
+      updates.autoMatchBudgetMax = ensureOptionalBudgetAmount(autoMatch.budgetMax, 'autoMatchBudgetMax');
     }
-    if (autoMatch.weeklyHoursMin != null) {
-      updates.autoMatchWeeklyHoursMin = toNumber(autoMatch.weeklyHoursMin);
+    if (Object.prototype.hasOwnProperty.call(autoMatch, 'weeklyHoursMin')) {
+      updates.autoMatchWeeklyHoursMin = ensureOptionalBudgetAmount(
+        autoMatch.weeklyHoursMin,
+        'autoMatchWeeklyHoursMin',
+      );
     }
-    if (autoMatch.weeklyHoursMax != null) {
-      updates.autoMatchWeeklyHoursMax = toNumber(autoMatch.weeklyHoursMax);
+    if (Object.prototype.hasOwnProperty.call(autoMatch, 'weeklyHoursMax')) {
+      updates.autoMatchWeeklyHoursMax = ensureOptionalBudgetAmount(
+        autoMatch.weeklyHoursMax,
+        'autoMatchWeeklyHoursMax',
+      );
     }
-    if (autoMatch.durationWeeksMin != null) {
-      updates.autoMatchDurationWeeksMin = toInteger(autoMatch.durationWeeksMin);
+    if (Object.prototype.hasOwnProperty.call(autoMatch, 'durationWeeksMin')) {
+      updates.autoMatchDurationWeeksMin = ensureOptionalPositiveInteger(
+        autoMatch.durationWeeksMin,
+        'autoMatchDurationWeeksMin',
+      );
     }
-    if (autoMatch.durationWeeksMax != null) {
-      updates.autoMatchDurationWeeksMax = toInteger(autoMatch.durationWeeksMax);
+    if (Object.prototype.hasOwnProperty.call(autoMatch, 'durationWeeksMax')) {
+      updates.autoMatchDurationWeeksMax = ensureOptionalPositiveInteger(
+        autoMatch.durationWeeksMax,
+        'autoMatchDurationWeeksMax',
+      );
     }
-    if (autoMatch.skills != null) {
+    if (Object.prototype.hasOwnProperty.call(autoMatch, 'skills')) {
       updates.autoMatchSkills = normaliseSkills(autoMatch.skills);
     }
-    if (autoMatch.notes != null) {
-      const note = `${autoMatch.notes}`.trim();
-      updates.autoMatchNotes = note.length ? note : null;
+    if (Object.prototype.hasOwnProperty.call(autoMatch, 'notes')) {
+      const note = autoMatch.notes == null ? null : `${autoMatch.notes}`.trim();
+      updates.autoMatchNotes = note && note.length ? note : null;
     }
     if (Object.keys(updates).some((key) => key.startsWith('autoMatch'))) {
       updates.autoMatchUpdatedBy = actorId ?? null;
@@ -536,64 +806,92 @@ export async function listAgencyProjects(ownerId, options = {}) {
 
 export async function createAgencyProject(ownerId, payload, { actorId } = {}) {
   return projectGigManagementSequelize.transaction(async (transaction) => {
+    if (!payload || typeof payload !== 'object') {
+      throw new ValidationError('Project payload must be an object.');
+    }
+
+    const title = requireProjectTitle(payload.title);
+    const description = requireProjectDescription(payload.description);
+    const category = ensureProjectCategory(payload.category);
+    const skills = normaliseSkills(payload.skills);
+    const durationWeeks = ensureDurationWeeks(payload.durationWeeks, { defaultValue: 4 });
+    const status = ensureProjectStatus(payload.status, { defaultValue: 'planning' });
+    const lifecycleState = ensureLifecycleState(payload.lifecycleState, { defaultValue: 'open' });
+    const startDate = ensureOptionalDate(payload.startDate, 'startDate');
+    const dueDate = ensureOptionalDate(payload.dueDate, 'dueDate');
+    const budgetCurrency = ensureBudgetCurrency(payload.budgetCurrency, { defaultValue: 'USD' });
+    const budgetAllocated = ensureBudgetAmount(payload.budgetAllocated, 'budgetAllocated', { defaultValue: 0 });
+    const budgetSpent = ensureBudgetAmount(payload.budgetSpent ?? 0, 'budgetSpent', { defaultValue: 0 });
+    const baseMetadata = parseMetadata(payload.metadata);
     const auditEntry = actorId
       ? buildStaffingAuditEntry('project_created', {
           actorId,
           metadata: {
-            title: payload.title,
-            category: payload.category,
-            lifecycleState: payload.lifecycleState,
+            title,
+            category,
+            lifecycleState,
           },
         })
       : null;
+    const metadata = auditEntry ? mergeStaffingAudit(baseMetadata, auditEntry) : baseMetadata;
 
     const project = await Project.create(
       {
         ownerId,
-        title: payload.title,
-        description: payload.description,
-        category: payload.category ? `${payload.category}`.trim().slice(0, 120) : 'General',
-        skills: normaliseSkills(payload.skills),
-        durationWeeks: (() => {
-          const duration = toInteger(payload.durationWeeks);
-          return duration && duration > 0 ? duration : 4;
-        })(),
-        status: PROJECT_STATUSES.includes(payload.status) ? payload.status : 'planning',
-        lifecycleState: payload.lifecycleState && ['open', 'closed'].includes(payload.lifecycleState)
-          ? payload.lifecycleState
-          : 'open',
-        startDate: payload.startDate ? new Date(payload.startDate) : null,
-        dueDate: payload.dueDate ? new Date(payload.dueDate) : null,
-        budgetCurrency: payload.budgetCurrency ?? 'USD',
-        budgetAllocated: toNumber(payload.budgetAllocated) ?? 0,
-        metadata: auditEntry ? mergeStaffingAudit(payload.metadata, auditEntry) : payload.metadata ?? null,
+        title,
+        description,
+        category,
+        skills,
+        durationWeeks,
+        status,
+        lifecycleState,
+        startDate,
+        dueDate,
+        budgetCurrency,
+        budgetAllocated,
+        budgetSpent,
+        metadata,
       },
       { transaction },
     );
 
-    const projectUpdates = pickProjectUpdates({ autoMatch: payload.autoMatch }, { actorId });
+    const autoMatchPayload = payload.autoMatch === undefined ? {} : { autoMatch: payload.autoMatch };
+    const projectUpdates = pickProjectUpdates(autoMatchPayload, { actorId });
     if (Object.keys(projectUpdates).length) {
       await project.update(projectUpdates, { transaction });
     }
 
-    if (Array.isArray(payload.autoMatch?.freelancers)) {
-      const freelancerPayloads = payload.autoMatch.freelancers
-        .map((entry) => ({
+    if (Array.isArray(payload.autoMatch?.freelancers) && payload.autoMatch.freelancers.length) {
+      const freelancerPayloads = payload.autoMatch.freelancers.map((entry) => {
+        const normalised = normaliseFreelancerInput(entry);
+        return {
           projectId: project.id,
-          freelancerId: entry.freelancerId,
-          freelancerName: entry.freelancerName,
-          freelancerRole: entry.freelancerRole ?? null,
-          score: toNumber(entry.score),
-          autoMatchEnabled: entry.autoMatchEnabled != null ? Boolean(entry.autoMatchEnabled) : true,
-          status: PROJECT_AUTOMATCH_DECISION_STATUSES.includes(entry.status) ? entry.status : 'pending',
-          notes: entry.notes ?? null,
-          metadata: entry.metadata ?? null,
-        }))
-        .filter((entry) => Number.isInteger(entry.freelancerId) && entry.freelancerName);
+          freelancerId: normalised.freelancerId,
+          freelancerName: normalised.freelancerName,
+          freelancerRole: normalised.freelancerRole,
+          score: normalised.score,
+          autoMatchEnabled: normalised.autoMatchEnabled,
+          status: normalised.status,
+          notes: normalised.notes,
+          metadata: normalised.metadata,
+        };
+      });
 
-      if (freelancerPayloads.length) {
-        await ProjectAutoMatchFreelancer.bulkCreate(freelancerPayloads, { transaction });
-      }
+      const insertedFreelancers = await ProjectAutoMatchFreelancer.bulkCreate(freelancerPayloads, {
+        transaction,
+        returning: true,
+      });
+
+      const resolvedFreelancers = Array.isArray(insertedFreelancers) && insertedFreelancers.length
+        ? insertedFreelancers.map((record, index) => {
+            if (record && typeof record.get === 'function') {
+              return record.get({ plain: true });
+            }
+            return { ...freelancerPayloads[index] };
+          })
+        : freelancerPayloads.map((entry) => ({ ...entry }));
+
+      project.set('autoMatchFreelancers', resolvedFreelancers);
     }
 
     await project.reload({ include: [{ model: ProjectAutoMatchFreelancer, as: 'autoMatchFreelancers' }], transaction });
@@ -630,54 +928,30 @@ export async function updateProjectAutoMatchSettings(ownerId, projectId, payload
 }
 
 export async function upsertProjectAutoMatchFreelancer(ownerId, projectId, payload, { actorId } = {}) {
-  if (!Number.isInteger(payload.freelancerId)) {
-    throw new NotFoundError('Freelancer identifier is required.');
-  }
+  const normalisedInput = normaliseFreelancerInput(payload);
 
   return projectGigManagementSequelize.transaction(async (transaction) => {
     const project = await ensureProject(projectId, ownerId, { transaction });
 
     const defaults = {
       projectId,
-      freelancerId: payload.freelancerId,
-      freelancerName: payload.freelancerName,
-      freelancerRole: payload.freelancerRole ?? null,
-      score: toNumber(payload.score),
-      autoMatchEnabled: payload.autoMatchEnabled != null ? Boolean(payload.autoMatchEnabled) : true,
-      status: PROJECT_AUTOMATCH_DECISION_STATUSES.includes(payload.status) ? payload.status : 'pending',
-      notes: payload.notes ?? null,
-      metadata: payload.metadata ?? null,
+      freelancerId: normalisedInput.freelancerId,
+      freelancerName: normalisedInput.freelancerName,
+      freelancerRole: normalisedInput.freelancerRole,
+      score: normalisedInput.score,
+      autoMatchEnabled: normalisedInput.autoMatchEnabled,
+      status: normalisedInput.status,
+      notes: normalisedInput.notes,
+      metadata: normalisedInput.metadata,
     };
 
     const [record, created] = await ProjectAutoMatchFreelancer.findOrCreate({
-      where: { projectId, freelancerId: payload.freelancerId },
+      where: { projectId, freelancerId: normalisedInput.freelancerId },
       defaults,
       transaction,
     });
 
-    const updates = {};
-    if (payload.freelancerName != null) {
-      updates.freelancerName = `${payload.freelancerName}`.trim();
-    }
-    if (payload.freelancerRole != null) {
-      updates.freelancerRole = payload.freelancerRole ? `${payload.freelancerRole}`.trim() : null;
-    }
-    if (payload.autoMatchEnabled != null) {
-      updates.autoMatchEnabled = Boolean(payload.autoMatchEnabled);
-    }
-    if (payload.status != null && PROJECT_AUTOMATCH_DECISION_STATUSES.includes(payload.status)) {
-      updates.status = payload.status;
-    }
-    if (payload.score != null) {
-      updates.score = toNumber(payload.score);
-    }
-    if (payload.notes != null) {
-      const trimmed = `${payload.notes}`.trim();
-      updates.notes = trimmed.length ? trimmed : null;
-    }
-    if (payload.metadata != null && typeof payload.metadata === 'object') {
-      updates.metadata = payload.metadata;
-    }
+    const updates = sanitiseFreelancerUpdates(payload);
 
     if (Object.keys(updates).length) {
       await record.update(updates, { transaction });
@@ -715,20 +989,7 @@ export async function updateProjectAutoMatchFreelancer(ownerId, projectId, entry
       throw new NotFoundError('Auto-match freelancer entry not found.');
     }
 
-    const updates = {};
-    if (payload.autoMatchEnabled != null) {
-      updates.autoMatchEnabled = Boolean(payload.autoMatchEnabled);
-    }
-    if (payload.status != null && PROJECT_AUTOMATCH_DECISION_STATUSES.includes(payload.status)) {
-      updates.status = payload.status;
-    }
-    if (payload.score != null) {
-      updates.score = toNumber(payload.score);
-    }
-    if (payload.notes != null) {
-      const trimmed = `${payload.notes}`.trim();
-      updates.notes = trimmed.length ? trimmed : null;
-    }
+    const updates = sanitiseFreelancerUpdates(payload);
 
     if (Object.keys(updates).length) {
       await entry.update(updates, { transaction });
@@ -736,7 +997,7 @@ export async function updateProjectAutoMatchFreelancer(ownerId, projectId, entry
 
     await entry.reload({ transaction });
 
-    const auditEntry = actorId
+    const auditEntry = actorId && Object.keys(updates).length
       ? buildStaffingAuditEntry('auto_match_freelancer_updated', {
           actorId,
           metadata: {
