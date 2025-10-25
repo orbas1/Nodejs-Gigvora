@@ -61,6 +61,7 @@ class ProjectAutoMatchEntry {
     required this.freelancerId,
     required this.status,
     required this.score,
+    required this.confidence,
     required this.priorityBucket,
     required this.position,
     required this.expiresAt,
@@ -84,6 +85,7 @@ class ProjectAutoMatchEntry {
               ProjectAutoMatchFreelancer.fromJson(json['freelancer'] as Map<String, dynamic>?).id,
       status: '${json['status'] ?? 'pending'}',
       score: _resolveScore(json, metadata),
+      confidence: _resolveScore({'score': json['confidence']}, {'score': metadata['confidence']})?.clamp(0, 100),
       priorityBucket: json['priorityBucket'] is int
           ? json['priorityBucket'] as int
           : int.tryParse('${json['priorityBucket']}'),
@@ -101,6 +103,7 @@ class ProjectAutoMatchEntry {
   final int freelancerId;
   final String status;
   final double? score;
+  final double? confidence;
   final int? priorityBucket;
   final int? position;
   final DateTime? expiresAt;

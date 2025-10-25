@@ -175,9 +175,43 @@ export function scoreFreelancerForProject({
   const normalizedScore = clamp(score, 0, 1);
   const priorityBucket = normalizedScore >= 0.75 ? 1 : normalizedScore >= 0.55 ? 2 : 3;
 
+  const signalCount = [
+    safeMetrics.lastAssignedAt,
+    safeMetrics.lastCompletedAt,
+    safeMetrics.totalAssigned,
+    safeMetrics.totalCompleted,
+    safeMetrics.rating,
+    safeMetrics.completionRate,
+  ].reduce((total, value) => (value == null ? total : total + 1), 0);
+
+  const signalCoverage = clamp(signalCount / 6, 0, 1);
+  const consistencyScore = clamp(1 - Math.abs(completionQualityScore - ratingScore), 0, 1);
+  const freshnessPenalty = clamp(
+    Math.max(
+      lastAssignedDays == null ? 0 : lastAssignedDays / 180,
+      lastCompletedDays == null ? 0 : lastCompletedDays / 210,
+    ),
+    0,
+    1,
+  );
+
+  let confidence =
+    0.2 +
+    signalCoverage * 0.4 +
+    clamp(normalizedScore, 0, 1) * 0.25 +
+    consistencyScore * 0.15 -
+    freshnessPenalty * 0.2;
+
+  if (!Number.isFinite(confidence)) {
+    confidence = 0.5;
+  }
+
+  confidence = clamp(confidence, 0.3, 0.98);
+
   return {
     score: Number(normalizedScore.toFixed(4)),
     priorityBucket,
+    confidence: Number(confidence.toFixed(4)),
     breakdown: {
       lastAssignmentDays: lastAssignedDays == null ? null : Number(lastAssignedDays.toFixed(2)),
       recencyScore: Number(recencyScore.toFixed(3)),
@@ -190,6 +224,8 @@ export function scoreFreelancerForProject({
       totalAssigned,
       totalCompleted,
       newFreelancerScore: Number(newFreelancerScore.toFixed(3)),
+      signalCoverage: Number(signalCoverage.toFixed(3)),
+      freshnessPenalty: Number(freshnessPenalty.toFixed(3)),
     },
   };
 }
@@ -278,7 +314,7 @@ export async function buildAssignmentQueue({
     const now = new Date();
     const scored = freelancers.map((freelancer) => {
       const metrics = freelancer.assignmentMetric;
-      const { score, breakdown, priorityBucket } = scoreFreelancerForProject({
+      const { score, breakdown, priorityBucket, confidence } = scoreFreelancerForProject({
         metrics,
         projectValue: normalizedProjectValue,
         freelancerCreatedAt: freelancer.createdAt,
@@ -291,6 +327,7 @@ export async function buildAssignmentQueue({
         score,
         breakdown,
         priorityBucket,
+        confidence,
       };
     });
 
@@ -325,7 +362,15 @@ export async function buildAssignmentQueue({
       usedFreelancerIds.add(item.freelancer.id);
     }
 
-    const finalSelection = selected.slice(0, normalizedLimit);
+    const finalSelection = selected.slice(0, normalizedLimit).map((item, index) => {
+      let adjustedConfidence = item.confidence;
+      if (fairnessDescriptor.ensured && item.freelancer.id === fairnessDescriptor.freelancerId) {
+        adjustedConfidence = clamp(adjustedConfidence * 0.9, 0.32, 0.85);
+      }
+      const positionalPenalty = index === 0 ? 0 : Math.min(index * 0.03, 0.18);
+      adjustedConfidence = clamp(adjustedConfidence - positionalPenalty, 0.3, 0.95);
+      return { ...item, confidence: Number(adjustedConfidence.toFixed(4)) };
+    });
     if (!finalSelection.length) {
       return [];
     }
@@ -349,6 +394,7 @@ export async function buildAssignmentQueue({
         targetId,
         freelancerId: item.freelancer.id,
         score: item.score,
+        confidence: item.confidence,
         priorityBucket: item.priorityBucket,
         status: index === 0 ? 'notified' : 'pending',
         notifiedAt: index === 0 ? now : null,
@@ -366,6 +412,7 @@ export async function buildAssignmentQueue({
             newcomerFreelancerId: fairnessDescriptor.freelancerId,
             maxAssignmentsForPriority: fairnessSettings.maxAssignmentsForPriority,
           },
+          confidence: item.confidence,
         },
       })),
       { transaction, returning: true },

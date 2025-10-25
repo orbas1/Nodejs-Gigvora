@@ -16190,6 +16190,7 @@ export const AutoAssignQueueEntry = sequelize.define(
     targetId: { type: DataTypes.INTEGER, allowNull: false },
     freelancerId: { type: DataTypes.INTEGER, allowNull: false },
     score: { type: DataTypes.DECIMAL(10, 4), allowNull: false },
+    confidence: { type: DataTypes.DECIMAL(5, 4), allowNull: true },
     priorityBucket: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 2 },
     status: {
       type: DataTypes.ENUM(...AUTO_ASSIGN_STATUSES),
@@ -16221,6 +16222,7 @@ AutoAssignQueueEntry.prototype.toPublicObject = function toPublicObject() {
     targetId: plain.targetId,
     freelancerId: plain.freelancerId,
     score: Number(plain.score),
+    confidence: plain.confidence == null ? null : Number(plain.confidence),
     priorityBucket: plain.priorityBucket,
     status: plain.status,
     expiresAt: plain.expiresAt,

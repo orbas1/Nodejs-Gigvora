@@ -400,11 +400,15 @@ class _QueueEntryCard extends ConsumerWidget {
         ? 'Priority bucket ${entry.priorityBucket}'
         : 'Priority pending';
     final confidenceLabel = () {
-      final confidence = metadata['confidence'];
-      final parsed = confidence is num ? confidence.toDouble() : double.tryParse('$confidence');
-      if (parsed == null) return null;
-      final normalised = parsed >= 0 && parsed <= 1 ? parsed * 100 : parsed;
-      return '${normalised.toStringAsFixed(1)}%';
+      final confidence = entry.confidence ?? (() {
+            final value = metadata['confidence'];
+            if (value is num) return value.toDouble() * (value <= 1 ? 100 : 1);
+            final parsed = double.tryParse('$value');
+            if (parsed == null) return null;
+            return parsed <= 1 ? parsed * 100 : parsed;
+          }());
+      if (confidence == null) return null;
+      return '${confidence.toStringAsFixed(1)}%';
     }();
 
     return GigvoraCard(
