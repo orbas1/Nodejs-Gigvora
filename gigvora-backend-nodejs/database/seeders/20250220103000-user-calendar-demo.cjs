@@ -21,6 +21,13 @@ const EVENT_BLUEPRINTS = [
     relatedEntityType: 'job',
     relatedEntityId: 8451,
     colorHex: '#1D4ED8',
+    timezone: 'Europe/London',
+    externalProvider: 'google',
+    externalEventId: 'evt-google-hiring-manager',
+    icsUid: 'uid-hiring-manager-001',
+    syncMetadata: { providerEventType: 'interview' },
+    syncedRevision: 5,
+    lastSyncedMinutesAgo: 90,
     metadata: {
       agenda: ['Portfolio walkthrough', 'Product thinking prompts', 'Q&A'],
     },
@@ -39,6 +46,13 @@ const EVENT_BLUEPRINTS = [
     relatedEntityType: 'project',
     relatedEntityId: 2142,
     colorHex: '#0EA5E9',
+    timezone: 'Europe/London',
+    externalProvider: 'gigvora',
+    externalEventId: 'evt-gigvora-onboarding',
+    icsUid: 'uid-onboarding-002',
+    syncMetadata: { orchestrator: true },
+    syncedRevision: 3,
+    lastSyncedMinutesAgo: 20,
     metadata: {
       hosts: ['Delivery lead', 'Project coordinator'],
       attachments: ['https://cdn.gigvora.com/docs/atlas-brief.pdf'],
@@ -56,6 +70,16 @@ const EVENT_BLUEPRINTS = [
     description: 'Monthly mentorship retro and goal planning for the mentee cohort.',
     reminderMinutes: 10,
     colorHex: '#FB7185',
+    timezone: 'Europe/London',
+    recurrenceRule: 'FREQ=MONTHLY;COUNT=6',
+    recurrenceEndOffsetDays: 180,
+    recurrenceCount: 6,
+    externalProvider: 'google',
+    externalEventId: 'evt-google-mentorship-sync',
+    icsUid: 'uid-mentorship-003',
+    syncMetadata: { recurrence: 'monthly' },
+    syncedRevision: 8,
+    lastSyncedMinutesAgo: 45,
     metadata: {
       outcomes: ['Share Q1 wins', 'Review accountability checklist'],
     },
@@ -74,6 +98,9 @@ const EVENT_BLUEPRINTS = [
     colorHex: '#22C55E',
     isFocusBlock: true,
     focusMode: 'mindfulness',
+    timezone: 'Europe/London',
+    recurrenceRule: 'FREQ=WEEKLY;COUNT=8',
+    recurrenceEndOffsetDays: 56,
     metadata: {
       facilitator: 'People ops',
     },
@@ -236,15 +263,24 @@ module.exports = {
       await purgeSeedRows(queryInterface, transaction, 'candidate_calendar_events', userId);
       await purgeSeedRows(queryInterface, transaction, 'focus_sessions', userId);
       await purgeSeedRows(queryInterface, transaction, 'calendar_integrations', userId);
+      await purgeSeedRows(queryInterface, transaction, 'calendar_availability_snapshots', userId);
 
       const events = EVENT_BLUEPRINTS.map((blueprint) => {
         const startsAt = ensureDate(baseUtc, blueprint.offsetDays ?? 0, blueprint.startHour ?? 9, blueprint.startMinute ?? 0);
         const endsAt = ensureDurationEnd(startsAt, blueprint.durationMinutes);
+        const recurrenceEndsAt = Number.isFinite(blueprint.recurrenceEndOffsetDays)
+          ? ensureDate(baseUtc, blueprint.recurrenceEndOffsetDays, blueprint.startHour ?? 9, blueprint.startMinute ?? 0)
+          : null;
+        const lastSyncedAt = Number.isFinite(blueprint.lastSyncedMinutesAgo)
+          ? new Date(now.getTime() - blueprint.lastSyncedMinutesAgo * 60 * 1000)
+          : now;
+        const source = blueprint.externalProvider ? blueprint.externalProvider : 'manual';
+        const syncStatus = blueprint.syncStatus ?? 'synced';
         return {
           userId,
           title: blueprint.title,
           eventType: blueprint.eventType,
-          source: 'gigvora',
+          source,
           startsAt,
           endsAt,
           location: blueprint.location ?? null,
@@ -258,6 +294,21 @@ module.exports = {
           colorHex: blueprint.colorHex ?? null,
           isFocusBlock: Boolean(blueprint.isFocusBlock),
           focusMode: blueprint.focusMode ?? null,
+          timezone: blueprint.timezone ?? SETTINGS_BLUEPRINT.timezone ?? 'UTC',
+          recurrenceRule: blueprint.recurrenceRule ?? null,
+          recurrenceEndsAt,
+          recurrenceCount: blueprint.recurrenceCount ?? null,
+          recurrenceParentId: null,
+          icsUid: blueprint.icsUid ?? null,
+          externalProvider: blueprint.externalProvider ?? null,
+          externalEventId: blueprint.externalEventId ?? null,
+          syncStatus,
+          syncMetadata: normaliseMetadata({
+            ...(blueprint.syncMetadata ?? {}),
+            seedKey: `${blueprint.key}-sync`,
+          }),
+          syncedRevision: blueprint.syncedRevision ?? (blueprint.externalProvider ? 1 : 0),
+          lastSyncedAt,
           metadata: normaliseMetadata({ ...(blueprint.metadata ?? {}), seedKey: blueprint.key }),
           createdAt: now,
           updatedAt: now,
@@ -267,6 +318,40 @@ module.exports = {
       if (events.length) {
         await queryInterface.bulkInsert('candidate_calendar_events', events, { transaction });
       }
+
+      const availabilitySnapshots = [
+        {
+          userId,
+          provider: 'google',
+          syncedAt: new Date(now.getTime() - 30 * 60 * 1000),
+          availability: {
+            timezone: SETTINGS_BLUEPRINT.timezone,
+            slots: [
+              { start: new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString(), durationMinutes: 30 },
+              { start: new Date(now.getTime() + 5 * 60 * 60 * 1000).toISOString(), durationMinutes: 45 },
+            ],
+          },
+          metadata: normaliseMetadata({ seedKey: 'availability-google', provider: 'google' }),
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          userId,
+          provider: 'gigvora',
+          syncedAt: new Date(now.getTime() - 10 * 60 * 1000),
+          availability: {
+            timezone: SETTINGS_BLUEPRINT.timezone,
+            slots: [
+              { start: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(), durationMinutes: 60 },
+            ],
+          },
+          metadata: normaliseMetadata({ seedKey: 'availability-gigvora', provider: 'gigvora', automation: true }),
+          createdAt: now,
+          updatedAt: now,
+        },
+      ];
+
+      await queryInterface.bulkInsert('calendar_availability_snapshots', availabilitySnapshots, { transaction });
 
       const focusSessions = FOCUS_SESSION_BLUEPRINTS.map((blueprint) => {
         const startedAt = ensureDate(baseUtc, blueprint.offsetDays ?? 0, blueprint.startHour ?? 9, blueprint.startMinute ?? 0);
@@ -419,6 +504,15 @@ module.exports = {
         await queryInterface.bulkDelete(
           'calendar_integrations',
           { id: { [Op.in]: integrationIds } },
+          { transaction },
+        );
+      }
+
+      const availabilityIds = await rowsToClean('calendar_availability_snapshots');
+      if (availabilityIds.length) {
+        await queryInterface.bulkDelete(
+          'calendar_availability_snapshots',
+          { id: { [Op.in]: availabilityIds } },
           { transaction },
         );
       }

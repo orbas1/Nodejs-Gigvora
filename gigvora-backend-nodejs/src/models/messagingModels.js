@@ -5,6 +5,15 @@ export { sequelize } from './sequelizeClient.js';
 
 export const MESSAGE_CHANNEL_TYPES = ['support', 'project', 'contract', 'group', 'direct'];
 export const MESSAGE_THREAD_STATES = ['active', 'archived', 'locked'];
+export const MESSAGE_RETENTION_POLICIES = [
+  'inherit',
+  'thirty_days',
+  'ninety_days',
+  'one_year',
+  'eighteen_months',
+  'custom',
+  'indefinite',
+];
 export const MESSAGE_TYPES = ['text', 'file', 'system', 'event'];
 export const SUPPORT_CASE_STATUSES = ['triage', 'in_progress', 'waiting_on_customer', 'resolved', 'closed'];
 export const SUPPORT_CASE_PRIORITIES = ['low', 'medium', 'high', 'urgent'];
@@ -84,6 +93,15 @@ export const MessageThread = sequelize.define(
     metadata: { type: jsonType, allowNull: true },
     lastMessageAt: { type: DataTypes.DATE, allowNull: true },
     lastMessagePreview: { type: DataTypes.STRING(500), allowNull: true },
+    retentionPolicy: {
+      type: DataTypes.ENUM(...MESSAGE_RETENTION_POLICIES),
+      allowNull: false,
+      defaultValue: 'inherit',
+      validate: { isIn: [MESSAGE_RETENTION_POLICIES] },
+    },
+    retentionDays: { type: DataTypes.INTEGER, allowNull: true },
+    retentionExpiresAt: { type: DataTypes.DATE, allowNull: true },
+    retentionLocked: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   },
   {
     tableName: 'message_threads',
@@ -92,6 +110,8 @@ export const MessageThread = sequelize.define(
       { fields: ['state'] },
       { fields: ['createdBy'] },
       { fields: ['lastMessageAt'] },
+      { fields: ['retentionPolicy'] },
+      { fields: ['retentionExpiresAt'] },
     ],
   },
 );
@@ -107,6 +127,10 @@ MessageThread.prototype.toPublicObject = function toPublicObject() {
     metadata: plain.metadata,
     lastMessageAt: plain.lastMessageAt,
     lastMessagePreview: plain.lastMessagePreview,
+    retentionPolicy: plain.retentionPolicy,
+    retentionDays: plain.retentionDays == null ? null : Number(plain.retentionDays),
+    retentionExpiresAt: plain.retentionExpiresAt,
+    retentionLocked: Boolean(plain.retentionLocked),
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };
@@ -403,6 +427,48 @@ MessageThreadLabel.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+export const MessageTranscript = sequelize.define(
+  'MessageTranscript',
+  {
+    threadId: { type: DataTypes.INTEGER, allowNull: false },
+    generatedBy: { type: DataTypes.INTEGER, allowNull: true },
+    generatedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    retentionPolicy: {
+      type: DataTypes.ENUM(...MESSAGE_RETENTION_POLICIES),
+      allowNull: false,
+      defaultValue: 'inherit',
+      validate: { isIn: [MESSAGE_RETENTION_POLICIES] },
+    },
+    retentionUntil: { type: DataTypes.DATE, allowNull: true },
+    ciphertext: { type: DataTypes.TEXT('long'), allowNull: false },
+    fingerprint: { type: DataTypes.STRING(120), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'message_transcripts',
+    indexes: [
+      { fields: ['threadId', 'generatedAt'] },
+      { fields: ['retentionUntil'] },
+    ],
+  },
+);
+
+MessageTranscript.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    threadId: plain.threadId,
+    generatedBy: plain.generatedBy,
+    generatedAt: plain.generatedAt,
+    retentionPolicy: plain.retentionPolicy,
+    retentionUntil: plain.retentionUntil,
+    fingerprint: plain.fingerprint ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 export const InboxPreference = sequelize.define(
   'InboxPreference',
   {
@@ -636,6 +702,10 @@ MessageParticipant.belongsTo(User, { as: 'user', foreignKey: 'userId' });
 MessageThread.hasMany(Message, { as: 'messages', foreignKey: 'threadId' });
 Message.belongsTo(MessageThread, { as: 'thread', foreignKey: 'threadId' });
 Message.belongsTo(User, { as: 'sender', foreignKey: 'senderId' });
+
+MessageThread.hasMany(MessageTranscript, { as: 'transcripts', foreignKey: 'threadId' });
+MessageTranscript.belongsTo(MessageThread, { as: 'thread', foreignKey: 'threadId' });
+MessageTranscript.belongsTo(User, { as: 'generatedByUser', foreignKey: 'generatedBy' });
 
 Message.hasMany(MessageAttachment, { as: 'attachments', foreignKey: 'messageId' });
 MessageAttachment.belongsTo(Message, { as: 'message', foreignKey: 'messageId' });

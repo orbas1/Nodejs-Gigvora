@@ -15,9 +15,14 @@ import {
   addParticipantsToThread,
   removeParticipantFromThread,
   updateTypingState as updateTypingStateService,
+  listThreadTranscripts as listThreadTranscriptsService,
+  generateThreadTranscript as generateThreadTranscriptService,
+  enforceThreadRetention as enforceThreadRetentionService,
+  searchThreads as searchThreadsService,
 } from '../services/messagingService.js';
 import { AuthorizationError, ValidationError } from '../utils/errors.js';
 import { resolveRequestPermissions } from '../utils/requestContext.js';
+import { normaliseMessageAttachments } from '../services/fileValidationService.js';
 
 function parseArray(value) {
   if (Array.isArray(value)) {
@@ -123,22 +128,8 @@ function sanitiseAttachments(attachments) {
   if (attachments == null) {
     return [];
   }
-  if (!Array.isArray(attachments)) {
-    throw new ValidationError('attachments must be an array.');
-  }
-  return attachments.slice(0, 25).map((attachment) => {
-    if (attachment == null || typeof attachment !== 'object') {
-      throw new ValidationError('Each attachment must be an object.');
-    }
-    const normalised = { ...attachment };
-    if (normalised.url != null) {
-      normalised.url = String(normalised.url).trim();
-    }
-    if (normalised.name != null) {
-      normalised.name = String(normalised.name).trim().slice(0, 200);
-    }
-    return normalised;
-  });
+  const array = Array.isArray(attachments) ? attachments : [attachments];
+  return normaliseMessageAttachments(array, { maxAttachments: 25 });
 }
 
 function ensureParticipantList(value) {
@@ -194,6 +185,20 @@ export async function listInbox(req, res) {
   res.json(response);
 }
 
+export async function searchThreads(req, res) {
+  const userId = resolveActorId(req);
+  const { q, channelType, limit, includeMessages } = req.query ?? {};
+
+  const result = await searchThreadsService(userId, {
+    query: q,
+    channelType: channelType ? String(channelType).trim() || undefined : undefined,
+    limit: limit != null ? Number.parseInt(limit, 10) : undefined,
+    includeMessages: includeMessages == null ? true : String(includeMessages).toLowerCase() !== 'false',
+  });
+
+  res.json(result);
+}
+
 export async function openThread(req, res) {
   const threadId = parsePositiveInteger(req.params?.threadId, 'threadId');
   const thread = await getThread(threadId, {
@@ -241,6 +246,22 @@ export async function listThreadMessages(req, res) {
     { includeSystem: String(includeSystem ?? '').toLowerCase() === 'true' },
   );
   res.json(response);
+}
+
+export async function listThreadTranscripts(req, res) {
+  const userId = resolveActorId(req);
+  const threadId = parsePositiveInteger(req.params?.threadId, 'threadId');
+  const transcripts = await listThreadTranscriptsService(threadId, userId);
+  res.json({ threadId, transcripts });
+}
+
+export async function createThreadTranscript(req, res) {
+  const userId = resolveActorId(req);
+  const threadId = parsePositiveInteger(req.params?.threadId, 'threadId');
+  const transcript = await generateThreadTranscriptService(threadId, userId, {
+    cutoff: req.body?.cutoff,
+  });
+  res.status(201).json(transcript);
 }
 
 export async function acknowledgeThread(req, res) {
@@ -311,6 +332,18 @@ export async function updateSupportStatus(req, res) {
   res.json(supportCase);
 }
 
+export async function enforceRetention(req, res) {
+  ensureSupportPrivileges(req);
+  const actorId = resolveActorId(req, { required: false });
+  const { limit, dryRun } = req.body ?? {};
+  const results = await enforceThreadRetentionService({
+    limit: limit != null ? Number.parseInt(limit, 10) : undefined,
+    actorId,
+    dryRun: String(dryRun ?? '').toLowerCase() === 'true',
+  });
+  res.json({ results });
+}
+
 export async function createCallSession(req, res) {
   const userId = resolveActorId(req);
   const threadId = parsePositiveInteger(req.params?.threadId, 'threadId');
@@ -341,12 +374,16 @@ export async function updateTypingState(req, res) {
 export async function updateThreadSettings(req, res) {
   const actorId = resolveActorId(req);
   const threadId = parsePositiveInteger(req.params?.threadId, 'threadId');
-  const { subject, channelType, metadataPatch, metadata } = req.body ?? {};
+  const { subject, channelType, metadataPatch, metadata, retentionPolicy, retentionDays, retentionLocked } =
+    req.body ?? {};
 
   const thread = await updateThreadSettingsService(threadId, actorId, {
     subject: subject != null ? String(subject).trim().slice(0, 250) : undefined,
     channelType,
     metadataPatch: metadataPatch != null ? sanitiseMetadata(metadataPatch) : sanitiseMetadata(metadata),
+    retentionPolicy,
+    retentionDays,
+    retentionLocked,
   });
 
   res.json(thread);
@@ -375,17 +412,23 @@ export async function removeParticipant(req, res) {
 
 export default {
   listInbox,
+  searchThreads,
   openThread,
   createConversation,
   postMessage,
   listThreadMessages,
+  listThreadTranscripts,
+  createThreadTranscript,
   acknowledgeThread,
   changeThreadState,
   muteConversation,
   escalateThread,
   assignSupport,
   updateSupportStatus,
+  enforceRetention,
   updateThreadSettings,
   addParticipants,
   removeParticipant,
+  createCallSession,
+  updateTypingState,
 };

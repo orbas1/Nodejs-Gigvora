@@ -759,6 +759,7 @@ export const FREELANCER_CALENDAR_RELATED_TYPES = Object.freeze([
   'other',
 ]);
 export const CALENDAR_EVENT_SOURCES = ['manual', 'google', 'outlook', 'gigvora'];
+export const CALENDAR_EVENT_SYNC_STATUSES = Object.freeze(['pending', 'synced', 'failed']);
 export const ADMIN_CALENDAR_SYNC_STATUSES = ['connected', 'syncing', 'needs_attention', 'disconnected'];
 export const ADMIN_CALENDAR_EVENT_STATUSES = ['draft', 'scheduled', 'published', 'cancelled'];
 export const ADMIN_CALENDAR_VISIBILITIES = ['internal', 'external', 'private'];

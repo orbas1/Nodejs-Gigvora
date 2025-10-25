@@ -9,10 +9,12 @@ import {
   MessageReadReceipt,
   MessageLabel,
   MessageThreadLabel,
+  MessageTranscript,
   SupportCase,
   User,
   MESSAGE_CHANNEL_TYPES,
   MESSAGE_THREAD_STATES,
+  MESSAGE_RETENTION_POLICIES,
   MESSAGE_TYPES,
   SUPPORT_CASE_STATUSES,
   SUPPORT_CASE_PRIORITIES,
@@ -21,6 +23,8 @@ import { ApplicationError, ValidationError, NotFoundError, AuthorizationError } 
 import { appCache, buildCacheKey } from '../utils/cache.js';
 import { getSocketServer, getConnectionRegistry } from '../realtime/socketServer.js';
 import { createCallTokens, getDefaultAgoraExpiry } from './agoraService.js';
+import { encryptSecret, fingerprintSecret } from '../utils/secretStorage.js';
+import { normaliseMessageAttachments } from './fileValidationService.js';
 
 let notificationServicePromise = null;
 let userRoleModelPromise = null;
@@ -70,6 +74,22 @@ const TYPING_CACHE_PREFIX = 'messaging:typing:';
 const TYPING_CACHE_TTL_SECONDS = 12;
 const TYPING_EXPIRY_SECONDS = 8;
 
+const DEFAULT_RETENTION_DAYS = Math.max(
+  Number.parseInt(process.env.MESSAGING_DEFAULT_RETENTION_DAYS ?? '548', 10) || 548,
+  1,
+);
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+const RETENTION_POLICY_DAY_MAP = new Map([
+  ['inherit', DEFAULT_RETENTION_DAYS],
+  ['thirty_days', 30],
+  ['ninety_days', 90],
+  ['one_year', 365],
+  ['eighteen_months', 548],
+  ['custom', null],
+  ['indefinite', Infinity],
+]);
+
 function toNormalizedList(value, fallback = []) {
   if (Array.isArray(value)) {
     return value.map((entry) => entry?.toString().trim().toLowerCase()).filter(Boolean);
@@ -89,6 +109,214 @@ const SUPPORT_AGENT_ROLE_NAMES = new Set(
 const SUPPORT_AGENT_USER_TYPES = new Set(
   toNormalizedList(process.env.SUPPORT_AGENT_USER_TYPES, ['admin']),
 );
+
+function normaliseRetentionPolicyValue(policy) {
+  if (!policy) {
+    return 'inherit';
+  }
+  const normalised = String(policy).trim().toLowerCase();
+  if (!MESSAGE_RETENTION_POLICIES.includes(normalised)) {
+    throw new ValidationError('Unsupported retentionPolicy value.');
+  }
+  return normalised;
+}
+
+function resolveRetentionDays(policy, retentionDays) {
+  const normalised = normaliseRetentionPolicyValue(policy);
+  if (normalised === 'custom') {
+    if (retentionDays == null) {
+      return null;
+    }
+    const numeric = Number(retentionDays);
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+      throw new ValidationError('retentionDays must be a positive number.');
+    }
+    if (numeric > 3650) {
+      throw new ValidationError('retentionDays must be 3650 or less.');
+    }
+    return Math.round(numeric);
+  }
+  const mapped = RETENTION_POLICY_DAY_MAP.get(normalised);
+  if (mapped == null) {
+    return null;
+  }
+  return mapped;
+}
+
+function computeRetentionExpiry(retentionDays, referenceDate = new Date()) {
+  if (!Number.isFinite(retentionDays) || retentionDays <= 0) {
+    return null;
+  }
+  const base = referenceDate instanceof Date && !Number.isNaN(referenceDate.getTime()) ? referenceDate : new Date();
+  return new Date(base.getTime() + retentionDays * DAY_IN_MS);
+}
+
+function prepareRetentionUpdates(thread, { retentionPolicy, retentionDays, retentionLocked } = {}) {
+  const updates = {};
+
+  if (retentionPolicy === undefined && retentionDays === undefined && retentionLocked === undefined) {
+    return updates;
+  }
+
+  const currentPolicy = normaliseRetentionPolicyValue(thread.retentionPolicy);
+  const requestedPolicy =
+    retentionPolicy !== undefined ? normaliseRetentionPolicyValue(retentionPolicy) : currentPolicy;
+
+  if (thread.retentionLocked && requestedPolicy !== currentPolicy) {
+    throw new AuthorizationError('Thread retention policy is locked.');
+  }
+
+  let effectiveRetentionDays =
+    retentionDays !== undefined ? retentionDays : thread.retentionDays != null ? thread.retentionDays : null;
+
+  if (requestedPolicy === 'custom') {
+    if (effectiveRetentionDays == null) {
+      throw new ValidationError('retentionDays is required when retentionPolicy is custom.');
+    }
+    const numeric = Number(effectiveRetentionDays);
+    if (!Number.isFinite(numeric) || numeric <= 0 || numeric > 3650) {
+      throw new ValidationError('retentionDays must be between 1 and 3650 days.');
+    }
+    effectiveRetentionDays = Math.round(numeric);
+    if (thread.retentionDays !== effectiveRetentionDays) {
+      updates.retentionDays = effectiveRetentionDays;
+    }
+  } else {
+    effectiveRetentionDays = null;
+    if (retentionDays !== undefined) {
+      throw new ValidationError('retentionDays may only be provided when retentionPolicy is custom.');
+    }
+    if (thread.retentionDays !== null) {
+      updates.retentionDays = null;
+    }
+  }
+
+  if (requestedPolicy !== currentPolicy) {
+    updates.retentionPolicy = requestedPolicy;
+  }
+
+  if (retentionLocked !== undefined && Boolean(retentionLocked) !== Boolean(thread.retentionLocked)) {
+    updates.retentionLocked = Boolean(retentionLocked);
+  }
+
+  const resolvedDays = resolveRetentionDays(requestedPolicy, effectiveRetentionDays);
+  const referenceDate =
+    thread.lastMessageAt && !Number.isNaN(new Date(thread.lastMessageAt).getTime())
+      ? new Date(thread.lastMessageAt)
+      : new Date();
+  const nextExpiry =
+    Number.isFinite(resolvedDays) && resolvedDays > 0 ? computeRetentionExpiry(resolvedDays, referenceDate) : null;
+
+  const existingExpiry = thread.retentionExpiresAt ? new Date(thread.retentionExpiresAt) : null;
+  const expiryChanged =
+    (nextExpiry && !existingExpiry) ||
+    (!nextExpiry && existingExpiry) ||
+    (nextExpiry && existingExpiry && nextExpiry.getTime() !== existingExpiry.getTime());
+
+  if (expiryChanged) {
+    updates.retentionExpiresAt = nextExpiry;
+  }
+
+  return updates;
+}
+
+function sanitizeTranscript(record) {
+  if (!record) return null;
+  return record.toPublicObject ? record.toPublicObject() : record;
+}
+
+async function hydrateThreadForTranscript(threadId, transaction) {
+  return MessageThread.findByPk(threadId, {
+    include: [
+      {
+        model: MessageParticipant,
+        as: 'participants',
+        include: [{ model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email'] }],
+      },
+      { model: MessageLabel, as: 'labels' },
+      {
+        model: SupportCase,
+        as: 'supportCase',
+        include: [
+          { model: User, as: 'assignedAgent', attributes: ['id', 'firstName', 'lastName', 'email'] },
+          { model: User, as: 'escalatedByUser', attributes: ['id', 'firstName', 'lastName', 'email'] },
+          { model: User, as: 'resolvedByUser', attributes: ['id', 'firstName', 'lastName', 'email'] },
+        ],
+      },
+    ],
+    transaction,
+  });
+}
+
+async function fetchMessagesForTranscript(threadId, cutoff, transaction) {
+  const where = { threadId };
+  if (cutoff) {
+    where.createdAt = { [Op.lt]: cutoff };
+  }
+
+  const messages = await Message.findAll({
+    where,
+    include: [
+      { model: MessageAttachment, as: 'attachments' },
+      { model: User, as: 'sender', attributes: ['id', 'firstName', 'lastName', 'email'] },
+      {
+        model: MessageReadReceipt,
+        as: 'readReceipts',
+        include: [
+          { model: MessageParticipant, as: 'participant', attributes: ['id', 'userId'] },
+          { model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email'] },
+        ],
+      },
+    ],
+    order: [['createdAt', 'ASC']],
+    transaction,
+  });
+
+  return messages;
+}
+
+async function persistTranscriptRecord(threadRecord, messages, { actorId, cutoff, transaction }) {
+  if (!messages.length) {
+    throw new ValidationError('No messages available to generate a transcript.');
+  }
+
+  const sanitizedThread = sanitizeThread(threadRecord);
+  const payload = {
+    generatedAt: new Date().toISOString(),
+    cutoff: cutoff ? cutoff.toISOString() : null,
+    thread: sanitizedThread,
+    messages: messages.map((message) => sanitizeMessage(message)),
+  };
+
+  const ciphertext = encryptSecret(JSON.stringify(payload));
+  if (!ciphertext) {
+    throw new ApplicationError('Failed to encrypt transcript payload.');
+  }
+
+  const retentionPolicy = threadRecord.retentionPolicy ?? 'inherit';
+  const resolvedDays = resolveRetentionDays(retentionPolicy, threadRecord.retentionDays);
+  const retentionUntil =
+    Number.isFinite(resolvedDays) && resolvedDays > 0 ? computeRetentionExpiry(resolvedDays, new Date()) : null;
+
+  const record = await MessageTranscript.create(
+    {
+      threadId: threadRecord.id,
+      generatedBy: actorId ?? null,
+      retentionPolicy,
+      retentionUntil,
+      ciphertext,
+      fingerprint: fingerprintSecret(ciphertext),
+      metadata: {
+        messageCount: payload.messages.length,
+        cutoff: payload.cutoff,
+        hasAttachments: payload.messages.some((message) => (message.attachments ?? []).length > 0),
+      },
+    },
+    { transaction },
+  );
+
+  return record;
+}
 
 async function ensureSupportAgentPermissions(agent, transaction) {
   if (!agent?.id) {
@@ -246,6 +474,13 @@ export function sanitizeThread(thread) {
     lastMessagePreview: plain.lastMessagePreview,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
+    retentionPolicy: plain.retentionPolicy ?? 'inherit',
+    retentionDays:
+      plain.retentionDays == null || Number.isNaN(Number(plain.retentionDays))
+        ? null
+        : Number(plain.retentionDays),
+    retentionExpiresAt: plain.retentionExpiresAt ? new Date(plain.retentionExpiresAt).toISOString() : null,
+    retentionLocked: Boolean(plain.retentionLocked),
     metadata: plain.metadata && typeof plain.metadata === 'object'
       ? Object.fromEntries(Object.entries(plain.metadata).filter(([key]) => !/^(_|internal|private)/i.test(key)))
       : null,
@@ -628,6 +863,8 @@ export async function createThread({ subject, channelType = 'direct', createdBy,
   }
   assertChannelType(channelType);
   const normalizedMetadata = normalizeMetadata(metadata, 'Thread');
+  const initialRetentionPolicy = 'inherit';
+  const initialRetentionExpiry = computeRetentionExpiry(resolveRetentionDays(initialRetentionPolicy, null), new Date());
 
   const uniqueParticipantIds = Array.from(new Set([createdBy, ...participantIds])).filter(Boolean);
   if (uniqueParticipantIds.length === 0) {
@@ -642,6 +879,10 @@ export async function createThread({ subject, channelType = 'direct', createdBy,
         state: 'active',
         createdBy,
         metadata: normalizedMetadata,
+        retentionPolicy: initialRetentionPolicy,
+        retentionDays: null,
+        retentionExpiresAt: initialRetentionExpiry,
+        retentionLocked: false,
       },
       { transaction: trx },
     );
@@ -710,29 +951,19 @@ export async function appendMessage(threadId, senderId, { messageType = 'text', 
       { transaction: trx },
     );
 
-    if (Array.isArray(attachments) && attachments.length > 0) {
-      await Promise.all(
-        attachments.slice(0, 5).map((attachment, index) => {
-          if (!attachment || typeof attachment !== 'object') {
-            throw new ValidationError(`Attachment at index ${index} is invalid.`);
-          }
-          const { fileName, mimeType, storageKey, fileSize } = attachment;
-          if (!fileName || !storageKey) {
-            throw new ValidationError(`Attachment at index ${index} requires fileName and storageKey.`);
-          }
-          return MessageAttachment.create(
-            {
-              messageId: createdMessage.id,
-              fileName,
-              mimeType: mimeType ?? 'application/octet-stream',
-              storageKey,
-              fileSize: Number.isFinite(Number(fileSize)) ? Number(fileSize) : 0,
-              checksum: attachment.checksum ? String(attachment.checksum).slice(0, 128) : null,
-              metadata: attachment.metadata && typeof attachment.metadata === 'object' ? attachment.metadata : null,
-            },
-            { transaction: trx },
-          );
-        }),
+    const normalizedAttachments = normaliseMessageAttachments(attachments);
+    if (normalizedAttachments.length > 0) {
+      await MessageAttachment.bulkCreate(
+        normalizedAttachments.map((attachment) => ({
+          messageId: createdMessage.id,
+          fileName: attachment.fileName,
+          mimeType: attachment.mimeType ?? 'application/octet-stream',
+          storageKey: attachment.storageKey,
+          fileSize: Number.isFinite(Number(attachment.fileSize)) ? Number(attachment.fileSize) : 0,
+          checksum: attachment.checksum ?? null,
+          metadata: attachment.metadata ?? null,
+        })),
+        { transaction: trx },
       );
     }
 
@@ -1410,7 +1641,11 @@ export async function muteThread(threadId, userId, until) {
   return { success: true };
 }
 
-export async function updateThreadSettings(threadId, actorId, { subject, channelType, metadataPatch } = {}) {
+export async function updateThreadSettings(
+  threadId,
+  actorId,
+  { subject, channelType, metadataPatch, retentionPolicy, retentionDays, retentionLocked } = {},
+) {
   if (!threadId) {
     throw new ValidationError('threadId is required to update thread settings.');
   }
@@ -1447,12 +1682,267 @@ export async function updateThreadSettings(threadId, actorId, { subject, channel
       thread.metadata = { ...existingMetadata, ...sanitizedMetadata };
     }
 
+    const retentionUpdates = prepareRetentionUpdates(thread, {
+      retentionPolicy,
+      retentionDays,
+      retentionLocked,
+    });
+    if (Object.keys(retentionUpdates).length > 0) {
+      Object.assign(thread, retentionUpdates);
+    }
+
     await thread.save({ transaction: trx });
     participantIds = await getParticipantUserIds(threadId, trx);
   });
 
   flushThreadCache(threadId, participantIds);
   return getThread(threadId, { withParticipants: true, includeSupportCase: true });
+}
+
+export async function listThreadTranscripts(threadId, userId) {
+  const parsedThreadId = Number(threadId);
+  if (!Number.isFinite(parsedThreadId) || parsedThreadId <= 0) {
+    throw new ValidationError('threadId must be a positive integer.');
+  }
+  await ensureParticipant(parsedThreadId, userId);
+  const transcripts = await MessageTranscript.findAll({
+    where: { threadId: parsedThreadId },
+    order: [['generatedAt', 'DESC']],
+  });
+  return transcripts.map((record) => sanitizeTranscript(record));
+}
+
+export async function generateThreadTranscript(threadId, userId, { cutoff } = {}) {
+  const parsedThreadId = Number(threadId);
+  if (!Number.isFinite(parsedThreadId) || parsedThreadId <= 0) {
+    throw new ValidationError('threadId must be a positive integer.');
+  }
+  const parsedUserId = Number(userId);
+  if (!Number.isFinite(parsedUserId) || parsedUserId <= 0) {
+    throw new ValidationError('userId must be a positive integer.');
+  }
+
+  let cutoffDate = null;
+  if (cutoff != null) {
+    const parsedCutoff = new Date(cutoff);
+    if (Number.isNaN(parsedCutoff.getTime())) {
+      throw new ValidationError('cutoff must be a valid ISO-8601 datetime.');
+    }
+    cutoffDate = parsedCutoff;
+  }
+
+  const record = await sequelize.transaction(async (trx) => {
+    await ensureParticipant(parsedThreadId, parsedUserId, trx);
+    const threadRecord = await hydrateThreadForTranscript(parsedThreadId, trx);
+    if (!threadRecord) {
+      throw new NotFoundError('Thread not found.');
+    }
+    const messages = await fetchMessagesForTranscript(parsedThreadId, cutoffDate, trx);
+    if (!messages.length) {
+      throw new ValidationError('No messages available before the requested cutoff.');
+    }
+    return persistTranscriptRecord(threadRecord, messages, {
+      actorId: parsedUserId,
+      cutoff: cutoffDate,
+      transaction: trx,
+    });
+  });
+
+  return sanitizeTranscript(record);
+}
+
+export async function enforceThreadRetention({ limit = 20, actorId = null, dryRun = false } = {}) {
+  const safeLimit = Math.max(Number(limit) || 0, 0);
+  if (safeLimit === 0) {
+    return [];
+  }
+
+  const candidates = await MessageThread.findAll({
+    where: { retentionPolicy: { [Op.ne]: 'indefinite' } },
+    order: [
+      ['retentionExpiresAt', 'ASC NULLS FIRST'],
+      ['lastMessageAt', 'ASC NULLS LAST'],
+    ],
+    limit: safeLimit,
+  });
+
+  const results = [];
+
+  for (const thread of candidates) {
+    const resolvedDays = resolveRetentionDays(thread.retentionPolicy, thread.retentionDays);
+    if (!Number.isFinite(resolvedDays) || resolvedDays <= 0) {
+      continue;
+    }
+
+    const cutoff = new Date(Date.now() - resolvedDays * DAY_IN_MS);
+
+    if (dryRun) {
+      const eligibleCount = await Message.count({
+        where: {
+          threadId: thread.id,
+          createdAt: { [Op.lt]: cutoff },
+        },
+      });
+      if (eligibleCount > 0) {
+        results.push({ threadId: thread.id, messagesEligible: eligibleCount, dryRun: true });
+      }
+      continue;
+    }
+
+    const outcome = await sequelize.transaction(async (trx) => {
+      const threadRecord = await hydrateThreadForTranscript(thread.id, trx);
+      if (!threadRecord) {
+        return null;
+      }
+      const messages = await fetchMessagesForTranscript(thread.id, cutoff, trx);
+      if (!messages.length) {
+        return null;
+      }
+      const transcriptRecord = await persistTranscriptRecord(threadRecord, messages, {
+        actorId: actorId ?? null,
+        cutoff,
+        transaction: trx,
+      });
+      const messageIds = messages.map((message) => message.id);
+      if (messageIds.length) {
+        await MessageAttachment.destroy({ where: { messageId: { [Op.in]: messageIds } }, transaction: trx });
+        await MessageReadReceipt.destroy({ where: { messageId: { [Op.in]: messageIds } }, transaction: trx });
+        await Message.destroy({ where: { id: { [Op.in]: messageIds } }, transaction: trx });
+      }
+      const nextExpiry = computeRetentionExpiry(resolvedDays, new Date());
+      await MessageThread.update(
+        { retentionExpiresAt: nextExpiry },
+        { where: { id: thread.id }, transaction: trx },
+      );
+
+      return { transcriptRecord, messageCount: messageIds.length, nextExpiry };
+    });
+
+    if (outcome) {
+      results.push({
+        threadId: thread.id,
+        transcriptId: outcome.transcriptRecord.id,
+        messagesPurged: outcome.messageCount,
+        retentionExpiresAt: outcome.nextExpiry ?? null,
+      });
+      flushThreadCache(thread.id);
+    }
+  }
+
+  return results;
+}
+
+export async function searchThreads(
+  userId,
+  { query, channelType, limit = 25, includeMessages = true } = {},
+) {
+  const parsedUserId = Number(userId);
+  if (!Number.isFinite(parsedUserId) || parsedUserId <= 0) {
+    throw new ValidationError('userId must be a positive integer.');
+  }
+
+  const normalizedQuery = typeof query === 'string' ? query.trim() : '';
+  if (normalizedQuery.length < 2) {
+    throw new ValidationError('query must be at least two characters.');
+  }
+
+  if (channelType) {
+    assertChannelType(channelType);
+  }
+
+  const participantRecords = await MessageParticipant.findAll({
+    where: { userId: parsedUserId },
+    attributes: ['threadId'],
+  });
+  const threadIds = Array.from(new Set(participantRecords.map((record) => record.threadId))).filter(Boolean);
+  if (!threadIds.length) {
+    return { query: normalizedQuery, threads: [] };
+  }
+
+  const dialect = sequelize.getDialect();
+  const likeOperator = ['postgres', 'postgresql'].includes(dialect) ? Op.iLike : Op.like;
+  const pattern = `%${normalizedQuery.replace(/\s+/g, '%')}%`;
+
+  const messageMatches = includeMessages
+    ? await Message.findAll({
+        where: {
+          threadId: { [Op.in]: threadIds },
+          messageType: { [Op.ne]: 'system' },
+          body: { [likeOperator]: pattern },
+        },
+        include: [
+          { model: MessageAttachment, as: 'attachments' },
+          { model: User, as: 'sender', attributes: ['id', 'firstName', 'lastName', 'email'] },
+        ],
+        order: [['createdAt', 'DESC']],
+        limit: Math.max(limit, 1) * 5,
+      })
+    : [];
+
+  const messageMatchesByThread = new Map();
+  messageMatches.forEach((message) => {
+    const existing = messageMatchesByThread.get(message.threadId) ?? [];
+    if (existing.length < 5) {
+      existing.push(sanitizeMessage(message));
+      messageMatchesByThread.set(message.threadId, existing);
+    }
+  });
+
+  const subjectMatches = await MessageThread.findAll({
+    where: {
+      id: { [Op.in]: threadIds },
+      subject: { [likeOperator]: pattern },
+    },
+    attributes: ['id'],
+    limit: Math.max(limit, 1),
+  });
+
+  const matchedThreadIds = new Set([
+    ...subjectMatches.map((record) => record.id),
+    ...messageMatchesByThread.keys(),
+  ]);
+
+  if (!matchedThreadIds.size) {
+    return { query: normalizedQuery, threads: [] };
+  }
+
+  const filters = { id: { [Op.in]: Array.from(matchedThreadIds) } };
+  if (channelType) {
+    filters.channelType = channelType;
+  }
+
+  const threads = await MessageThread.findAll({
+    where: filters,
+    include: [
+      {
+        model: MessageParticipant,
+        as: 'participants',
+        include: [{ model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email'] }],
+      },
+      { model: MessageLabel, as: 'labels' },
+      {
+        model: SupportCase,
+        as: 'supportCase',
+        include: [
+          { model: User, as: 'assignedAgent', attributes: ['id', 'firstName', 'lastName', 'email'] },
+          { model: User, as: 'escalatedByUser', attributes: ['id', 'firstName', 'lastName', 'email'] },
+          { model: User, as: 'resolvedByUser', attributes: ['id', 'firstName', 'lastName', 'email'] },
+        ],
+      },
+    ],
+    order: [['lastMessageAt', 'DESC']],
+    limit: Math.max(limit, 1),
+  });
+
+  const sanitizedThreads = threads.map((thread) => {
+    const sanitized = sanitizeThread(thread);
+    if (includeMessages) {
+      sanitized.matches = messageMatchesByThread.get(thread.id) ?? [];
+    }
+    return sanitized;
+  });
+
+  return { query: normalizedQuery, threads: sanitizedThreads };
 }
 
 export async function addParticipantsToThread(threadId, actorId, participantIds = []) {
@@ -2079,6 +2569,10 @@ export default {
   updateThreadState,
   muteThread,
   updateThreadSettings,
+  listThreadTranscripts,
+  generateThreadTranscript,
+  enforceThreadRetention,
+  searchThreads,
   addParticipantsToThread,
   removeParticipantFromThread,
   escalateThreadToSupport,

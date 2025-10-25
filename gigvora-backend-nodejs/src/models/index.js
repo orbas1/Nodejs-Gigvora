@@ -162,6 +162,7 @@ import {
   CALENDAR_DEFAULT_VIEWS,
   CALENDAR_EVENT_SOURCES,
   CALENDAR_EVENT_TYPES,
+  CALENDAR_EVENT_SYNC_STATUSES,
   CALENDAR_EVENT_VISIBILITIES,
   CALENDAR_INTEGRATION_STATUSES,
   CAREER_ANALYTICS_TREND_DIRECTIONS,
@@ -14411,6 +14412,37 @@ CalendarIntegration.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+export const CalendarAvailabilitySnapshot = sequelize.define(
+  'CalendarAvailabilitySnapshot',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    provider: { type: DataTypes.STRING(80), allowNull: false },
+    syncedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    availability: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'calendar_availability_snapshots',
+    indexes: [
+      { fields: ['userId', 'provider', 'syncedAt'] },
+    ],
+  },
+);
+
+CalendarAvailabilitySnapshot.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    provider: plain.provider,
+    syncedAt: plain.syncedAt,
+    availability: plain.availability ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 export const CandidateCalendarEvent = sequelize.define(
   'CandidateCalendarEvent',
   {
@@ -14443,6 +14475,23 @@ export const CandidateCalendarEvent = sequelize.define(
     colorHex: { type: DataTypes.STRING(9), allowNull: true },
     isFocusBlock: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     focusMode: { type: DataTypes.STRING(120), allowNull: true },
+    timezone: { type: DataTypes.STRING(120), allowNull: true },
+    recurrenceRule: { type: DataTypes.STRING(512), allowNull: true },
+    recurrenceEndsAt: { type: DataTypes.DATE, allowNull: true },
+    recurrenceCount: { type: DataTypes.INTEGER, allowNull: true },
+    recurrenceParentId: { type: DataTypes.INTEGER, allowNull: true },
+    icsUid: { type: DataTypes.STRING(255), allowNull: true },
+    externalProvider: { type: DataTypes.STRING(80), allowNull: true },
+    externalEventId: { type: DataTypes.STRING(255), allowNull: true },
+    syncStatus: {
+      type: DataTypes.ENUM(...CALENDAR_EVENT_SYNC_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+      validate: { isIn: [CALENDAR_EVENT_SYNC_STATUSES] },
+    },
+    syncMetadata: { type: jsonType, allowNull: true },
+    syncedRevision: { type: DataTypes.INTEGER, allowNull: true },
+    lastSyncedAt: { type: DataTypes.DATE, allowNull: true },
     metadata: { type: jsonType, allowNull: true },
   },
   {
@@ -14451,6 +14500,9 @@ export const CandidateCalendarEvent = sequelize.define(
       { fields: ['userId'] },
       { fields: ['startsAt'] },
       { fields: ['eventType'] },
+      { fields: ['recurrenceParentId'] },
+      { unique: true, fields: ['icsUid'] },
+      { fields: ['externalProvider', 'externalEventId'] },
     ],
   },
 );
@@ -14465,6 +14517,21 @@ CandidateCalendarEvent.prototype.toPublicObject = function toPublicObject() {
       plain.relatedEntityId == null || Number.isNaN(Number(plain.relatedEntityId))
         ? null
         : Number(plain.relatedEntityId),
+    timezone: plain.timezone ?? null,
+    recurrenceRule: plain.recurrenceRule ?? null,
+    recurrenceEndsAt: plain.recurrenceEndsAt ?? null,
+    recurrenceCount: plain.recurrenceCount == null ? null : Number(plain.recurrenceCount),
+    recurrenceParentId:
+      plain.recurrenceParentId == null || Number.isNaN(Number(plain.recurrenceParentId))
+        ? null
+        : Number(plain.recurrenceParentId),
+    icsUid: plain.icsUid ?? null,
+    externalProvider: plain.externalProvider ?? null,
+    externalEventId: plain.externalEventId ?? null,
+    syncStatus: plain.syncStatus,
+    syncMetadata: plain.syncMetadata ?? null,
+    syncedRevision: plain.syncedRevision == null ? null : Number(plain.syncedRevision),
+    lastSyncedAt: plain.lastSyncedAt ?? null,
     metadata: plain.metadata ?? null,
   };
 };
@@ -21506,8 +21573,19 @@ WeeklyDigestSubscription.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasMany(CalendarIntegration, { foreignKey: 'userId', as: 'calendarIntegrations' });
 CalendarIntegration.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
+User.hasMany(CalendarAvailabilitySnapshot, { foreignKey: 'userId', as: 'calendarAvailabilitySnapshots' });
+CalendarAvailabilitySnapshot.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
 User.hasMany(CandidateCalendarEvent, { foreignKey: 'userId', as: 'calendarEvents' });
 CandidateCalendarEvent.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+CandidateCalendarEvent.belongsTo(CandidateCalendarEvent, {
+  foreignKey: 'recurrenceParentId',
+  as: 'recurrenceParent',
+});
+CandidateCalendarEvent.hasMany(CandidateCalendarEvent, {
+  foreignKey: 'recurrenceParentId',
+  as: 'recurrenceInstances',
+});
 
 AdminCalendarAccount.hasMany(AdminCalendarEvent, { foreignKey: 'calendarAccountId', as: 'events' });
 AdminCalendarEvent.belongsTo(AdminCalendarAccount, { foreignKey: 'calendarAccountId', as: 'calendarAccount' });
@@ -24492,6 +24570,7 @@ export default {
   MessageParticipant,
   Message,
   MessageAttachment,
+  MessageTranscript,
   SupportCase,
   SupportPlaybook,
   SupportPlaybookStep,
@@ -24503,6 +24582,7 @@ export default {
   CareerPeerBenchmark,
   WeeklyDigestSubscription,
   CalendarIntegration,
+  CalendarAvailabilitySnapshot,
   CandidateCalendarEvent,
   UserCalendarSetting,
   FocusSession,

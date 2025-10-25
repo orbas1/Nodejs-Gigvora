@@ -27,6 +27,11 @@ const UserCalendarSetting = {
   findOrCreate: jest.fn(),
 };
 
+const CalendarAvailabilitySnapshot = {
+  findAll: jest.fn(),
+  create: jest.fn(),
+};
+
 const MODEL_CONSTANTS = {
   CALENDAR_EVENT_TYPES: [
     'job_interview',
@@ -40,6 +45,7 @@ const MODEL_CONSTANTS = {
   CALENDAR_EVENT_VISIBILITIES: ['private', 'shared', 'public'],
   CALENDAR_DEFAULT_VIEWS: ['agenda', 'week', 'month'],
   FOCUS_SESSION_TYPES: ['deep_work', 'networking', 'mentorship', 'wellbeing', 'application'],
+  CALENDAR_EVENT_SYNC_STATUSES: ['pending', 'synced', 'failed'],
 };
 
 jest.unstable_mockModule('../../src/models/index.js', () => ({
@@ -47,9 +53,16 @@ jest.unstable_mockModule('../../src/models/index.js', () => ({
   CandidateCalendarEvent,
   FocusSession,
   UserCalendarSetting,
+  CalendarAvailabilitySnapshot,
 }));
 
 jest.unstable_mockModule('../../src/models/constants/index.js', () => MODEL_CONSTANTS);
+
+const providerRegistry = {
+  getCalendarProvider: jest.fn(),
+};
+
+jest.unstable_mockModule('../../src/services/calendarProviderRegistry.js', () => providerRegistry);
 
 const calendarService = await import('../../src/services/calendarService.js');
 
@@ -64,7 +77,45 @@ const {
   deleteFocusSession,
   getSettings,
   updateSettings,
+  recordAvailabilitySnapshot,
+  listAvailabilitySnapshots,
+  syncEventWithProvider,
 } = calendarService;
+
+function buildEventRecord(initial = {}) {
+  const data = { ...initial };
+  const record = {
+    update: jest.fn(async (patch) => {
+      Object.assign(data, patch);
+      if (patch.syncMetadata !== undefined) {
+        record.syncMetadata = patch.syncMetadata;
+      }
+      if (patch.syncStatus !== undefined) {
+        record.syncStatus = patch.syncStatus;
+      }
+      if (patch.syncedRevision !== undefined) {
+        data.syncedRevision = patch.syncedRevision;
+      }
+      if (patch.lastSyncedAt !== undefined) {
+        data.lastSyncedAt = patch.lastSyncedAt;
+      }
+      return record;
+    }),
+    reload: jest.fn(async () => record),
+    toPublicObject: jest.fn(() => ({ ...data })),
+    syncMetadata: data.syncMetadata ?? null,
+    syncStatus: data.syncStatus ?? 'pending',
+    externalProvider: data.externalProvider ?? null,
+    source: data.source ?? 'manual',
+    get syncedRevision() {
+      return data.syncedRevision ?? null;
+    },
+    set syncedRevision(value) {
+      data.syncedRevision = value;
+    },
+  };
+  return record;
+}
 
 function resetMocks() {
   CandidateCalendarEvent.findAll.mockReset();
@@ -76,12 +127,17 @@ function resetMocks() {
   CalendarIntegration.findAll.mockReset();
   UserCalendarSetting.findOne.mockReset();
   UserCalendarSetting.findOrCreate.mockReset();
+  CalendarAvailabilitySnapshot.findAll.mockReset();
+  CalendarAvailabilitySnapshot.create.mockReset();
+  providerRegistry.getCalendarProvider.mockReset();
 }
 
 describe('calendarService', () => {
   beforeEach(() => {
     resetMocks();
     jest.useRealTimers();
+    CalendarAvailabilitySnapshot.findAll.mockResolvedValue([]);
+    providerRegistry.getCalendarProvider.mockReturnValue(null);
   });
 
   describe('getOverview', () => {
@@ -160,6 +216,17 @@ describe('calendarService', () => {
         }),
       });
 
+      CalendarAvailabilitySnapshot.findAll.mockResolvedValue([
+        {
+          toPublicObject: () => ({
+            id: 501,
+            provider: 'google',
+            syncedAt: '2025-02-20T11:15:00.000Z',
+            availability: { slots: [] },
+          }),
+        },
+      ]);
+
       const overview = await getOverview(42, {
         from: '2025-02-01T00:00:00.000Z',
         to: '2025-03-01T00:00:00.000Z',
@@ -188,6 +255,8 @@ describe('calendarService', () => {
           nextEvent: expect.objectContaining({ id: 3 }),
         }),
       );
+      expect(overview.availability.latest).toMatchObject({ provider: 'google' });
+      expect(overview.availability.snapshots).toHaveLength(1);
     });
   });
 
@@ -200,16 +269,16 @@ describe('calendarService', () => {
     });
 
     it('persists sanitized payloads and returns the public event', async () => {
-      CandidateCalendarEvent.create.mockResolvedValue({
-        toPublicObject: () => ({
-          id: 88,
-          title: 'Kickoff',
-          eventType: 'project',
-          startsAt: '2025-02-21T12:00:00.000Z',
-          endsAt: '2025-02-21T13:30:00.000Z',
-          colorHex: '#3366FF',
-        }),
+      const record = buildEventRecord({
+        id: 88,
+        title: 'Kickoff',
+        eventType: 'project',
+        startsAt: '2025-02-21T12:00:00.000Z',
+        endsAt: '2025-02-21T13:30:00.000Z',
+        colorHex: '#3366FF',
+        syncStatus: 'pending',
       });
+      CandidateCalendarEvent.create.mockResolvedValue(record);
 
       const result = await createEvent(9, {
         title: '  Kickoff  ',
@@ -232,10 +301,23 @@ describe('calendarService', () => {
           reminderMinutes: 20,
           colorHex: '#3366FF',
           visibility: 'shared',
+          syncStatus: 'synced',
+        }),
+      );
+      expect(record.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          syncStatus: 'synced',
+          syncMetadata: expect.objectContaining({ provider: 'internal' }),
         }),
       );
       expect(result).toEqual(
-        expect.objectContaining({ id: 88, title: 'Kickoff', eventType: 'project', colorHex: '#3366FF' }),
+        expect.objectContaining({
+          id: 88,
+          title: 'Kickoff',
+          eventType: 'project',
+          colorHex: '#3366FF',
+          syncStatus: 'synced',
+        }),
       );
     });
   });
@@ -257,16 +339,11 @@ describe('calendarService', () => {
         visibility: 'private',
         reminderMinutes: 30,
         colorHex: '#0EA5E9',
+        syncStatus: 'synced',
+        syncMetadata: { provider: 'internal' },
       };
 
-      const record = {
-        update: jest.fn(async (patch) => {
-          Object.assign(state, patch);
-          return record;
-        }),
-        reload: jest.fn(async () => record),
-        toPublicObject: jest.fn(() => ({ ...state })),
-      };
+      const record = buildEventRecord(state);
 
       CandidateCalendarEvent.findOne.mockResolvedValue(record);
 
@@ -288,6 +365,12 @@ describe('calendarService', () => {
       expect(record.reload).toHaveBeenCalledTimes(1);
       expect(result.visibility).toBe('shared');
       expect(result.reminderMinutes).toBe(45);
+      expect(record.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          syncStatus: 'synced',
+          syncMetadata: expect.objectContaining({ provider: 'internal' }),
+        }),
+      );
     });
   });
 
@@ -299,6 +382,87 @@ describe('calendarService', () => {
       await deleteEvent(42, 77);
 
       expect(destroy).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('availability snapshots', () => {
+    it('records availability snapshots with normalized metadata', async () => {
+      CalendarAvailabilitySnapshot.create.mockResolvedValue({
+        toPublicObject: () => ({
+          id: 301,
+          userId: 5,
+          provider: 'google',
+          syncedAt: '2025-02-20T10:00:00.000Z',
+          availability: { slots: [] },
+          metadata: { seedSource: 'test', window: 'pm' },
+        }),
+      });
+
+      const snapshot = await recordAvailabilitySnapshot(5, 'Google', {
+        availability: { slots: [] },
+        metadata: { window: 'pm' },
+        syncedAt: '2025-02-20T10:00:00.000Z',
+      });
+
+      expect(CalendarAvailabilitySnapshot.create).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 5, provider: 'google' }),
+      );
+      expect(snapshot).toMatchObject({ provider: 'google', syncedAt: '2025-02-20T10:00:00.000Z' });
+    });
+
+    it('lists availability snapshots by provider', async () => {
+      CalendarAvailabilitySnapshot.findAll.mockResolvedValue([
+        { toPublicObject: () => ({ id: 401, provider: 'google', syncedAt: '2025-02-20T10:00:00.000Z' }) },
+      ]);
+
+      const snapshots = await listAvailabilitySnapshots(7, { provider: 'google', limit: 1 });
+
+      expect(CalendarAvailabilitySnapshot.findAll).toHaveBeenCalledWith({
+        where: { userId: 7, provider: 'google' },
+        order: [['syncedAt', 'DESC']],
+        limit: 1,
+      });
+      expect(snapshots).toHaveLength(1);
+      expect(snapshots[0].provider).toBe('google');
+    });
+  });
+
+  describe('syncEventWithProvider', () => {
+    it('marks manual events as synced without provider integration', async () => {
+      const record = buildEventRecord({ id: 55, syncStatus: 'pending', syncMetadata: null });
+
+      const outcome = await syncEventWithProvider(record, { reason: 'created' });
+
+      expect(record.update).toHaveBeenCalledWith(
+        expect.objectContaining({ syncStatus: 'synced', syncMetadata: expect.objectContaining({ provider: 'internal' }) }),
+      );
+      expect(outcome.status).toBe('synced');
+      expect(record.syncMetadata.provider).toBe('internal');
+    });
+
+    it('delegates to registered providers and stores response metadata', async () => {
+      const syncEvent = jest.fn().mockResolvedValue({ metadata: { providerEventId: 'ext-1' } });
+      providerRegistry.getCalendarProvider.mockReturnValue({ syncEvent });
+
+      const record = buildEventRecord({
+        id: 56,
+        externalProvider: 'google',
+        source: 'google',
+        syncStatus: 'pending',
+        syncedRevision: 2,
+      });
+
+      const outcome = await syncEventWithProvider(record, { reason: 'updated' });
+
+      expect(syncEvent).toHaveBeenCalledWith(record, { reason: 'updated' });
+      expect(record.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          syncStatus: 'synced',
+          syncedRevision: 3,
+          syncMetadata: expect.objectContaining({ providerEventId: 'ext-1', provider: 'google' }),
+        }),
+      );
+      expect(outcome.metadata).toEqual(expect.objectContaining({ provider: 'google', providerEventId: 'ext-1' }));
     });
   });
 
