@@ -1,31 +1,51 @@
 #!/usr/bin/env node
-import { fileURLToPath } from 'node:url';
-import { dirname, join, resolve } from 'node:path';
-import fs from 'fs-extra';
+import { join } from 'node:path';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { authUserSchema } from '../src/domains/schemas/auth.js';
 import { projectWorkspaceSchema } from '../src/domains/schemas/marketplace.js';
 import { featureFlagSchema } from '../src/domains/schemas/platform.js';
-import { getDomainServicesSnapshot } from '../src/domains/serviceCatalog.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import { schemaPaths, writeJsonArtifact, readJsonFile } from './lib/schemaArtifacts.js';
 
 async function writeSchema(schema, targetPath) {
   const jsonSchema = zodToJsonSchema(schema, 'Schema');
-  await fs.ensureDir(dirname(targetPath));
-  await fs.writeJson(targetPath, jsonSchema, { spaces: 2 });
+  await writeJsonArtifact(targetPath, jsonSchema);
+}
+
+async function buildDomainSnapshot(snapshotPath) {
+  try {
+    const module = await import('../src/domains/serviceCatalog.js');
+    const snapshot =
+      typeof module.getDomainServicesSnapshot === 'function'
+        ? module.getDomainServicesSnapshot()
+        : null;
+
+    if (!snapshot) {
+      throw new Error('Domain service catalog did not return a snapshot.');
+    }
+
+    return { ...snapshot, generatedAt: new Date().toISOString() };
+  } catch (error) {
+    console.warn('Unable to generate live domain registry snapshot:', error.message);
+    const fallback = (await readJsonFile(snapshotPath, null)) ?? {};
+    return {
+      ...fallback,
+      contexts: fallback.contexts ?? {},
+      services: fallback.services ?? {},
+      generatedAt: new Date().toISOString(),
+      warning: 'Snapshot generation failed; using last known snapshot or defaults.',
+    };
+  }
 }
 
 async function main() {
-  const root = resolve(__dirname, '..');
-  const outputDir = join(root, '..', 'shared-contracts', 'domain');
+  const outputDir = schemaPaths.domainContractsRoot;
   await writeSchema(authUserSchema, join(outputDir, 'auth', 'user.json'));
   await writeSchema(projectWorkspaceSchema, join(outputDir, 'marketplace', 'workspace.json'));
   await writeSchema(featureFlagSchema, join(outputDir, 'platform', 'feature-flag.json'));
 
   const snapshotPath = join(outputDir, 'registry-snapshot.json');
-  await fs.writeJson(snapshotPath, getDomainServicesSnapshot(), { spaces: 2 });
+  const snapshot = await buildDomainSnapshot(snapshotPath);
+  await writeJsonArtifact(snapshotPath, snapshot);
 }
 
 main().catch((error) => {

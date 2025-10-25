@@ -108,19 +108,28 @@ Keep this guide handy as you explore or build on Gigvora. Whether you’re just 
 
 ## 6. Operational playbooks
 
-1. **Before releasing a new build**
-   - Run `melos run ci:verify` for Flutter, `npm test` for the backend, and `npm run lint` on both web and API to guarantee formatting and linting gates pass.【F:melos.yaml†L9-L22】【F:gigvora-backend-nodejs/package.json†L7-L31】
-   - Execute `codemagic.yaml`’s release workflow or replicate it locally to validate environment variables, formatting, analysis, tests, and release builds in one pipeline.【F:codemagic.yaml†L1-L86】
-   - Regenerate schema artefacts with `npm run schema:export` and publish ERD changes for review before merging.【F:gigvora-backend-nodejs/package.json†L23-L31】
+- **Canonical readiness flow.** Follow the consolidated runbook in
+  `gigvora-backend-nodejs/docs/runbooks/operational-readiness.md` for every release.
+  It walks through pre-flight validation, schema regeneration, database backup dry-runs,
+  CI guardrails, and rollback prep so operations, engineering, and support follow the
+  same source of truth.【F:gigvora-backend-nodejs/docs/runbooks/operational-readiness.md†L1-L89】
+- **Configuration & schema validation.** Run `npm run config:validate`, `npm run
+  schemas:sync`, and `npm run schemas:clients` to surface `.env` issues and keep JSON
+  Schemas plus generated clients aligned with backend Zod definitions before promoting a
+  change.【F:gigvora-backend-nodejs/docs/runbooks/operational-readiness.md†L19-L46】
+- **Schema registry source of truth.** Shared helpers in `scripts/lib/schemaArtifacts.js`
+  drive both schema export and client generation, while the feature flag migration and
+  seed data keep Sequelize models, JSON Schemas, and contract manifests aligned for
+  production rollouts.【F:gigvora-backend-nodejs/scripts/lib/schemaArtifacts.js†L1-L117】【F:gigvora-backend-nodejs/scripts/syncDomainSchemas.js†L1-L72】【F:gigvora-backend-nodejs/database/migrations/20250120090000-feature-flag-foundation.cjs†L1-L118】【F:gigvora-backend-nodejs/database/seeders/20250120091500-feature-flag-demo.cjs†L1-L154】【F:gigvora-backend-nodejs/src/models/index.js†L596-L2664】
+- **Database protection.** Exercise the backup utility with
+  `node scripts/databaseBackup.js backup --dry-run` to confirm credentials, target
+  directories, and optional encryption keys are configured—no `mysqldump` invocation
+  occurs during the dry run, making it safe for CI and staging smoke tests.【F:gigvora-backend-nodejs/docs/runbooks/operational-readiness.md†L48-L64】【F:gigvora-backend-nodejs/scripts/databaseBackup.js†L94-L121】
+- **Automated guardrails.** The `ops-tooling.yml` GitHub Actions workflow installs
+  dependencies, re-generates schema artefacts, runs the backup dry run, and fails fast if
+  generated files drift, keeping the tooling in lockstep with committed assets.【F:.github/workflows/ops-tooling.yml†L1-L55】
+- **Incident linkage.** Pair the readiness checklist with the runtime incident playbook so
+  every hotfix starts with validated backups and documented rollback steps.【F:gigvora-backend-nodejs/docs/runbooks/operational-readiness.md†L73-L89】【F:gigvora-backend-nodejs/docs/runbooks/runtime-incident.md†L1-L120】
 
-2. **Monitoring in production**
-   - Point Prometheus at `/metrics` with the bearer token configured in the environment file to track application and worker health.【F:gigvora-backend-nodejs/.env.example†L10-L23】
-   - Enable structured logging (Pino) and ship logs to your SIEM via the `LOG_LEVEL` and `TRUST_PROXY` toggles in `.env`.【F:gigvora-backend-nodejs/.env.example†L5-L23】
-   - Keep rate limiter thresholds tuned (`RATE_LIMITER_POINTS`, `RATE_LIMITER_DURATION_SECONDS`) to protect authentication surfaces from brute force attempts.【F:gigvora-backend-nodejs/.env.example†L24-L29】
-
-3. **Responding to incidents**
-   - Follow the runtime incident runbook for containment, communication, and root-cause analysis workflows.【F:gigvora-backend-nodejs/docs/runbooks/runtime-incident.md†L1-L120】
-   - Use the `databaseBackup.js` script to take consistent snapshots before running hotfix migrations, then verify them with `npm run db:verify`.【F:gigvora-backend-nodejs/package.json†L23-L31】
-   - Rotate JWT and API secrets immediately after an incident by updating the `.env`, restarting services, and issuing forced logouts via the admin console.【F:gigvora-backend-nodejs/.env.example†L15-L43】
-
-By treating RBAC, CORS, and operational hygiene as first-class citizens, the Gigvora experience stays production-ready and resilient as you scale feature work across teams.
+Treating RBAC, CORS, and operational hygiene as first-class citizens keeps Gigvora
+production-ready while empowering teams to ship features with confidence.
