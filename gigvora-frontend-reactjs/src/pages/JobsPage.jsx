@@ -11,6 +11,7 @@ import { fetchUserDashboard } from '../services/userDashboard.js';
 import { formatAbsolute, formatRelativeTime } from '../utils/date.js';
 import { classNames } from '../utils/classNames.js';
 import { formatInteger, formatPercent } from '../utils/number.js';
+export { formatPercent };
 import JobManagementWorkspace from '../components/jobs/JobManagementWorkspace.jsx';
 import OpportunityFilterPill from '../components/opportunity/OpportunityFilterPill.jsx';
 import SavedSearchList from '../components/explorer/SavedSearchList.jsx';
