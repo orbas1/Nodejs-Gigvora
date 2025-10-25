@@ -198,6 +198,10 @@ export function hasProjectManagementAccess(req) {
   return false;
 }
 
+export function resolveRequestRoles(req) {
+  return collectRequestRoles(req);
+}
+
 export function requireProjectManagementRole(req, res, next) {
   if (hasProjectManagementAccess(req)) {
     return next();
