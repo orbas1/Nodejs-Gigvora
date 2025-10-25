@@ -1844,6 +1844,547 @@ function formatBreakdown(counts, total) {
     .map(([label, count]) => ({ label, count, percentage: percentage(count, total) }));
 }
 
+function stageHasAutomation(stage = {}) {
+  const metadata = normaliseMetadata(stage.metadata);
+  if (!metadata || typeof metadata !== 'object') {
+    return false;
+  }
+
+  if (Array.isArray(metadata.automations) && metadata.automations.length) {
+    return true;
+  }
+  if (Array.isArray(metadata.automationRules) && metadata.automationRules.length) {
+    return true;
+  }
+  if (Array.isArray(metadata.automationPlaybooks) && metadata.automationPlaybooks.length) {
+    return true;
+  }
+  if (Array.isArray(metadata.webhookTargets) && metadata.webhookTargets.length) {
+    return true;
+  }
+  if (Array.isArray(metadata.reminders) && metadata.reminders.length) {
+    return true;
+  }
+  if (Array.isArray(metadata.guardrails) && metadata.guardrails.length) {
+    return true;
+  }
+  if (metadata.serviceLevelAutomation && Object.keys(metadata.serviceLevelAutomation).length) {
+    return true;
+  }
+  if (metadata.automation?.enabled) {
+    return true;
+  }
+  if (Array.isArray(metadata.automation?.playbooks) && metadata.automation.playbooks.length) {
+    return true;
+  }
+  if (metadata.autoAdvance || metadata.autoReject || metadata.autoMove) {
+    return true;
+  }
+  return false;
+}
+
+function resolveNameFromObject(entry) {
+  if (!entry || typeof entry !== 'object') {
+    return null;
+  }
+  if (entry.name && `${entry.name}`.trim().length) {
+    return `${entry.name}`.trim();
+  }
+  const name = [entry.firstName, entry.lastName]
+    .map((part) => (part == null ? null : `${part}`.trim()))
+    .filter((part) => part && part.length)
+    .join(' ')
+    .trim();
+  return name.length ? name : null;
+}
+
+function resolveDescriptor(valueCandidates = [], labelCandidates = [], { prefix, defaultLabel }) {
+  const value = valueCandidates
+    .map((candidate) => (candidate == null ? null : `${candidate}`.trim()))
+    .find((candidate) => candidate && candidate.length);
+
+  const label = labelCandidates
+    .map((candidate) => (candidate == null ? null : `${candidate}`.trim()))
+    .find((candidate) => candidate && candidate.length);
+
+  if (!value && !label) {
+    const fallbackId = prefix ? `${prefix}-unassigned` : 'unassigned';
+    return { id: fallbackId, label: defaultLabel, rawValue: null, isUnassigned: true };
+  }
+
+  const identifierSource = value ?? label;
+  const sanitizedId = `${prefix ? `${prefix}-` : ''}${identifierSource}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+    .trim();
+
+  return {
+    id: sanitizedId || (prefix ? `${prefix}-unassigned` : 'unassigned'),
+    label: label ?? value ?? defaultLabel,
+    rawValue: value ?? null,
+    isUnassigned: false,
+  };
+}
+
+function resolveDepartmentDescriptor(metadata = {}) {
+  const normalised = normaliseMetadata(metadata);
+  return resolveDescriptor(
+    [
+      normalised.departmentId,
+      normalised.departmentKey,
+      normalised.departmentSlug,
+      normalised.departmentCode,
+      normalised.department,
+      normalised.teamId,
+      normalised.teamKey,
+      normalised.teamSlug,
+      normalised.team,
+    ],
+    [
+      normalised.departmentLabel,
+      normalised.departmentName,
+      normalised.department,
+      normalised.teamName,
+      normalised.team,
+      normalised.orgUnit,
+      normalised.businessUnit,
+      normalised.division,
+    ],
+    { prefix: 'department', defaultLabel: 'Unassigned department' },
+  );
+}
+
+function resolveRecruiterDescriptor(metadata = {}) {
+  const normalised = normaliseMetadata(metadata);
+  const recruiterObjects = [
+    normalised.recruiter,
+    normalised.owner,
+    normalised.hiringManager,
+    normalised.primaryRecruiter,
+    normalised.assignedRecruiter,
+  ];
+
+  const valueCandidates = [
+    normalised.recruiterId,
+    normalised.ownerId,
+    normalised.hiringManagerId,
+    normalised.assignedRecruiterId,
+    ...recruiterObjects.map((entry) => entry?.id ?? null),
+  ];
+
+  const labelCandidates = [
+    normalised.recruiterName,
+    normalised.ownerName,
+    normalised.hiringManagerName,
+    normalised.assignedRecruiterName,
+    ...recruiterObjects.map((entry) => resolveNameFromObject(entry)),
+  ];
+
+  return resolveDescriptor(valueCandidates, labelCandidates, {
+    prefix: 'recruiter',
+    defaultLabel: 'Unassigned recruiter',
+  });
+}
+
+function buildApplicationSegmentIndex(applications = []) {
+  const index = new Map();
+  applications.forEach((application) => {
+    const plain = application?.get ? application.get({ plain: true }) : application;
+    if (!plain || plain.id == null) {
+      return;
+    }
+    const metadata = normaliseMetadata(plain.metadata);
+    index.set(plain.id, {
+      department: resolveDepartmentDescriptor(metadata),
+      recruiter: resolveRecruiterDescriptor(metadata),
+    });
+  });
+  return index;
+}
+
+function ensureSegmentBucket(map, descriptor, { type }) {
+  const fallbackId = type === 'department' ? 'department-unassigned' : 'recruiter-unassigned';
+  const key = descriptor?.id ?? fallbackId;
+  if (!map.has(key)) {
+    map.set(key, {
+      id: key,
+      label:
+        descriptor?.label ??
+        (type === 'department' ? 'Unassigned department' : 'Unassigned recruiter'),
+      type,
+      applications: 0,
+      interviews: 0,
+      offers: 0,
+      hires: 0,
+      responses: 0,
+      promoters: 0,
+      detractors: 0,
+      scoreTotal: 0,
+      scoreCount: 0,
+      followUpsPending: 0,
+      decisionTimes: [],
+      isUnassigned: descriptor?.isUnassigned ?? !descriptor,
+    });
+  }
+  return map.get(key);
+}
+
+function summariseCandidateExperienceSegments(map) {
+  return Array.from(map.values())
+    .map((entry) => {
+      const nps = entry.responses
+        ? Number((((entry.promoters - entry.detractors) / entry.responses) * 100).toFixed(1))
+        : null;
+      const averageScore = entry.scoreCount
+        ? Number((entry.scoreTotal / entry.scoreCount).toFixed(1))
+        : null;
+      const averageDecisionDays = entry.decisionTimes.length
+        ? Number(
+            (
+              entry.decisionTimes.reduce((total, value) => total + value, 0) /
+              entry.decisionTimes.length
+            ).toFixed(1),
+          )
+        : null;
+
+      return {
+        id: entry.id,
+        label: entry.label,
+        metrics: {
+          responseCount: entry.responses,
+          averageScore,
+          nps,
+          followUpsPending: entry.followUpsPending,
+          applications: entry.applications,
+          interviews: entry.interviews,
+          offers: entry.offers,
+          hires: entry.hires,
+          hireRate: entry.applications ? percentage(entry.hires, entry.applications) : 0,
+          averageDecisionDays,
+        },
+      };
+    })
+    .sort((a, b) => (b.metrics.responseCount ?? 0) - (a.metrics.responseCount ?? 0));
+}
+
+function summariseLifecycleSegments(map) {
+  return Array.from(map.values())
+    .map((entry) => {
+      const hireRate = entry.applications ? percentage(entry.hires, entry.applications) : 0;
+      const offerRate = entry.applications ? percentage(entry.offers, entry.applications) : 0;
+      const interviewRate = entry.applications ? percentage(entry.interviews, entry.applications) : 0;
+      const averageDecisionDays = entry.decisionTimes.length
+        ? Number(
+            (
+              entry.decisionTimes.reduce((total, value) => total + value, 0) /
+              entry.decisionTimes.length
+            ).toFixed(1),
+          )
+        : null;
+
+      return {
+        id: entry.id,
+        label: entry.label,
+        metrics: {
+          applications: entry.applications,
+          interviews: entry.interviews,
+          offers: entry.offers,
+          hires: entry.hires,
+          hireRate,
+          offerRate,
+          interviewRate,
+          averageDecisionDays,
+        },
+      };
+    })
+    .sort((a, b) => (b.metrics.applications ?? 0) - (a.metrics.applications ?? 0));
+}
+
+function buildLifecycleSegments({ applications = [], applicationSegments = new Map() }) {
+  const departments = new Map();
+  const recruiters = new Map();
+
+  applications.forEach((application) => {
+    const plain = application?.get ? application.get({ plain: true }) : application;
+    if (!plain || plain.id == null) {
+      return;
+    }
+    const context = applicationSegments.get(plain.id) ?? {};
+    const departmentDescriptor = context.department ?? resolveDepartmentDescriptor(plain.metadata);
+    const recruiterDescriptor = context.recruiter ?? resolveRecruiterDescriptor(plain.metadata);
+
+    const segments = [
+      { map: departments, descriptor: departmentDescriptor, type: 'department' },
+      { map: recruiters, descriptor: recruiterDescriptor, type: 'recruiter' },
+    ];
+
+    segments.forEach(({ map, descriptor, type }) => {
+      const bucket = ensureSegmentBucket(map, descriptor, { type });
+      bucket.applications += 1;
+      if (`${plain.status}`.toLowerCase() === 'interview') {
+        bucket.interviews += 1;
+      }
+      if (`${plain.status}`.toLowerCase() === 'offered') {
+        bucket.offers += 1;
+      }
+      if (`${plain.status}`.toLowerCase() === 'hired') {
+        bucket.hires += 1;
+      }
+      if (plain.decisionAt) {
+        const days = differenceInDays(plain.submittedAt ?? plain.createdAt, plain.decisionAt);
+        if (Number.isFinite(days)) {
+          bucket.decisionTimes.push(days);
+        }
+      }
+    });
+  });
+
+  return {
+    departments: summariseLifecycleSegments(departments),
+    recruiters: summariseLifecycleSegments(recruiters),
+  };
+}
+
+function computeAutomationParity(stagePerformance = [], stageRecords = []) {
+  if (!stagePerformance.length) {
+    return null;
+  }
+  const stageById = new Map(stageRecords.map((stage) => [stage.id, stage]));
+  const automatedRates = [];
+  const manualRates = [];
+
+  stagePerformance.forEach((performance) => {
+    const stage = stageById.get(performance.id);
+    if (!stage) {
+      return;
+    }
+    const advanceRate = Number(performance.advanceRate);
+    if (!Number.isFinite(advanceRate)) {
+      return;
+    }
+    const bucket = stageHasAutomation(stage) ? automatedRates : manualRates;
+    bucket.push(advanceRate / 100);
+  });
+
+  if (!automatedRates.length || !manualRates.length) {
+    return null;
+  }
+
+  const automatedAverage =
+    automatedRates.reduce((total, value) => total + value, 0) / automatedRates.length;
+  const manualAverage = manualRates.reduce((total, value) => total + value, 0) / manualRates.length;
+
+  return Number((automatedAverage - manualAverage).toFixed(3));
+}
+
+function deriveFairnessFlaggedStages(stagePerformance = []) {
+  return stagePerformance
+    .filter((stage) => {
+      const advanceRate = Number(stage.advanceRate);
+      const rejectionRate = Number(stage.rejectionRate);
+      const slaDelta = Number(stage.slaDeltaHours);
+      return (
+        (Number.isFinite(advanceRate) && advanceRate < 35) ||
+        (Number.isFinite(rejectionRate) && rejectionRate > 60) ||
+        (Number.isFinite(slaDelta) && slaDelta > 12)
+      );
+    })
+    .sort((a, b) => {
+      const left = Number(a.rejectionRate ?? 0);
+      const right = Number(b.rejectionRate ?? 0);
+      return right - left;
+    })
+    .slice(0, 3)
+    .map((stage) => ({
+      id: stage.id,
+      label: stage.name,
+      reason:
+        stage.advanceRate != null && stage.advanceRate < 35
+          ? 'Low advance rate'
+          : stage.rejectionRate != null && stage.rejectionRate > 60
+          ? 'High rejection rate'
+          : stage.slaDeltaHours != null && stage.slaDeltaHours > 12
+          ? 'SLA delays'
+          : 'Review required',
+    }));
+}
+
+function buildFairnessInsightsFromSnapshots({
+  applications = [],
+  snapshots = [],
+  stagePerformance = [],
+  stageRecords = [],
+}) {
+  const automationParity = computeAutomationParity(stagePerformance, stageRecords);
+  const flaggedStages = deriveFairnessFlaggedStages(stagePerformance);
+
+  if (!snapshots.length || !applications.length) {
+    return {
+      score: null,
+      parityGap: null,
+      automationParity,
+      statusLabel: 'Insufficient data',
+      flaggedStages,
+      recommendations: flaggedStages.length
+        ? [
+            {
+              id: 'stage-audit',
+              label: 'Audit flagged stages to confirm scoring rubrics and reviewer coverage remain calibrated.',
+            },
+          ]
+        : [],
+      segments: [],
+    };
+  }
+
+  const applicationById = new Map(
+    applications.map((application) => [application.id, application]),
+  );
+
+  const dimensionMaps = {
+    gender: new Map(),
+    ethnicity: new Map(),
+    veteran: new Map(),
+    disability: new Map(),
+  };
+
+  snapshots.forEach((snapshot) => {
+    const plain = snapshot?.get ? snapshot.get({ plain: true }) : snapshot;
+    if (!plain || plain.applicationId == null) {
+      return;
+    }
+    const application = applicationById.get(plain.applicationId);
+    if (!application) {
+      return;
+    }
+    const status = `${application.status ?? ''}`.toLowerCase();
+    const isHire = status === 'hired';
+
+    const register = (dimension, rawValue) => {
+      const label = normalizeCategory(rawValue, 'Unspecified');
+      const bucket = dimensionMaps[dimension].get(label) ?? { total: 0, hires: 0 };
+      bucket.total += 1;
+      if (isHire) {
+        bucket.hires += 1;
+      }
+      dimensionMaps[dimension].set(label, bucket);
+    };
+
+    register('gender', plain.genderIdentity);
+    register('ethnicity', plain.ethnicity);
+    register('veteran', plain.veteranStatus);
+    register('disability', plain.disabilityStatus);
+  });
+
+  const dimensionCandidates = Object.entries(dimensionMaps)
+    .map(([dimension, map]) => {
+      const entries = Array.from(map.entries()).filter(([, stats]) => stats.total >= 3);
+      const totalSamples = entries.reduce((sum, [, stats]) => sum + stats.total, 0);
+      return {
+        dimension,
+        entries,
+        totalSamples,
+      };
+    })
+    .filter((candidate) => candidate.entries.length >= 2 && candidate.totalSamples >= 6)
+    .sort((a, b) => b.totalSamples - a.totalSamples);
+
+  if (!dimensionCandidates.length) {
+    return {
+      score: null,
+      parityGap: null,
+      automationParity,
+      statusLabel: 'Insufficient data',
+      flaggedStages,
+      recommendations: flaggedStages.length
+        ? [
+            {
+              id: 'stage-audit',
+              label: 'Audit flagged stages to confirm scoring rubrics and reviewer coverage remain calibrated.',
+            },
+          ]
+        : [],
+      segments: [],
+    };
+  }
+
+  const selected = dimensionCandidates[0];
+  const segments = selected.entries.map(([label, stats]) => ({
+    id: `${selected.dimension}-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+    label,
+    score: stats.total ? stats.hires / stats.total : 0,
+    sampleSize: stats.total,
+  }));
+
+  const totalSamples = segments.reduce((sum, segment) => sum + segment.sampleSize, 0);
+  const totalHires = selected.entries.reduce((sum, [, stats]) => sum + stats.hires, 0);
+  const overallRate = totalSamples ? totalHires / totalSamples : 0;
+  const maxRate = segments.reduce((max, segment) => Math.max(max, segment.score ?? 0), 0);
+  const minRate = segments.reduce((min, segment) => Math.min(min, segment.score ?? 1), 1);
+
+  segments.forEach((segment) => {
+    segment.delta = segment.score != null ? segment.score - overallRate : null;
+  });
+
+  const parityGap = Number((maxRate - minRate).toFixed(3));
+  const fairnessScore = maxRate > 0 ? Number((minRate / maxRate).toFixed(3)) : null;
+
+  const statusLabel =
+    fairnessScore == null
+      ? 'Insufficient data'
+      : fairnessScore >= 0.9
+      ? 'Healthy parity'
+      : fairnessScore >= 0.75
+      ? 'Monitor segments'
+      : 'Bias alert';
+
+  const recommendations = [];
+  if (fairnessScore != null && fairnessScore < 0.75) {
+    recommendations.push({
+      id: 'structured-interviews',
+      label: 'Deploy structured interview refreshers for flagged segments to stabilise conversion rates.',
+    });
+  }
+  if (parityGap > 0.2) {
+    recommendations.push({
+      id: 'candidate-coaching',
+      label: 'Partner with ERGs to provide additional coaching for underrepresented candidate groups.',
+    });
+  }
+  if (automationParity != null && automationParity < -0.05) {
+    recommendations.push({
+      id: 'automation-review',
+      label: 'Review automation guardrails to ensure manual overrides are not disadvantaging specific segments.',
+    });
+  }
+  if (!recommendations.length && flaggedStages.length) {
+    recommendations.push({
+      id: 'stage-audit',
+      label: 'Audit flagged stages to confirm scoring rubrics and reviewer coverage remain calibrated.',
+    });
+  }
+
+  const dimensionLabelMap = {
+    gender: 'Gender identity',
+    ethnicity: 'Ethnicity',
+    veteran: 'Veteran status',
+    disability: 'Disability status',
+  };
+
+  return {
+    score: fairnessScore,
+    parityGap,
+    automationParity,
+    statusLabel,
+    flaggedStages,
+    recommendations,
+    segments: segments.sort((a, b) => (b.sampleSize ?? 0) - (a.sampleSize ?? 0)),
+    dimension: selected.dimension,
+    dimensionLabel: dimensionLabelMap[selected.dimension] ?? selected.dimension,
+  };
+}
+
 function computeDiversityIndex(counts, total) {
   if (!total) {
     return null;
@@ -1966,6 +2507,7 @@ function buildJobLifecycleInsights({
   evaluationWorkspace = {},
   offerBridge = {},
   candidateCareCenter = {},
+  demographicSnapshots = [],
 }) {
   const now = new Date();
   const stageRecords = [...jobStages]
@@ -1978,6 +2520,7 @@ function buildJobLifecycleInsights({
   const interviewRecords = interviewSchedules.map((schedule) =>
     schedule?.get ? schedule.get({ plain: true }) : schedule,
   );
+  const applicationSegments = buildApplicationSegmentIndex(applicationRecords);
 
   const lifecycleTimestamps = [
     ...extractDateCandidates(stageRecords),
@@ -2165,19 +2708,19 @@ function buildJobLifecycleInsights({
 
   const approvalsCompleted = approvalRecords.filter((item) => item.completedAt).length;
 
-  const instrumentedStages = stageRecords.filter((stage) => {
-    const metadata = stage?.metadata ?? {};
-    if (Array.isArray(metadata.automations) && metadata.automations.length) return true;
-    if (Array.isArray(metadata.automationRules) && metadata.automationRules.length) return true;
-    if (Array.isArray(metadata.automationPlaybooks) && metadata.automationPlaybooks.length) return true;
-    if (Array.isArray(metadata.webhookTargets) && metadata.webhookTargets.length) return true;
-    if (Array.isArray(metadata.reminders) && metadata.reminders.length) return true;
-    if (Array.isArray(metadata.guardrails) && metadata.guardrails.length) return true;
-    if (metadata.autoAdvance || metadata.autoReject || metadata.autoMove) return true;
-    if (metadata.automation?.enabled || metadata.automation?.playbooks?.length) return true;
-    if (metadata.serviceLevelAutomation && Object.keys(metadata.serviceLevelAutomation).length) return true;
-    return false;
-  }).length;
+  const fairnessInsights = buildFairnessInsightsFromSnapshots({
+    applications: applicationRecords,
+    snapshots: demographicSnapshots,
+    stagePerformance: sortedStagePerformance,
+    stageRecords,
+  });
+
+  const lifecycleSegments = buildLifecycleSegments({
+    applications: applicationRecords,
+    applicationSegments,
+  });
+
+  const instrumentedStages = stageRecords.filter((stage) => stageHasAutomation(stage)).length;
 
   const stageAutomationCoverage = stageRecords.length
     ? Number(((instrumentedStages / stageRecords.length) * 100).toFixed(1))
@@ -2227,7 +2770,9 @@ function buildJobLifecycleInsights({
   const backgroundChecksInProgress = safeNumber(offerBridge?.backgroundChecksInProgress) ?? 0;
   const approvalsPendingCount = pendingApprovals.length;
 
-  const inclusionScore = safeNumber(candidateCareCenter?.inclusionScore);
+  const fairnessScorePercent =
+    fairnessInsights?.score != null ? Number((fairnessInsights.score * 100).toFixed(1)) : null;
+  const inclusionScore = fairnessScorePercent ?? safeNumber(candidateCareCenter?.inclusionScore);
   const candidateNps = safeNumber(candidateCareCenter?.nps);
   const averageResponseMinutes = safeNumber(candidateCareCenter?.averageResponseMinutes);
   const openTickets = safeNumber(candidateCareCenter?.openTickets);
@@ -2522,6 +3067,7 @@ function buildJobLifecycleInsights({
       guideUrl: stage.guideUrl,
     })),
     stagePerformance: sortedStagePerformance,
+    fairness: fairnessInsights,
     approvalQueue: {
       total: pendingApprovals.length,
       overdue: overdueApprovals.length,
@@ -2553,6 +3099,7 @@ function buildJobLifecycleInsights({
       measuredSignals: signalCount,
       ndaCompletionRate,
       inclusionScore,
+      fairness: fairnessInsights,
     },
     funnel,
     recentActivity: {
@@ -2560,6 +3107,9 @@ function buildJobLifecycleInsights({
       campaignsTracked: campaignRecords.length,
       interviewsScheduled: interviewRecords.length,
     },
+    segments: lifecycleSegments,
+    departmentMetrics: lifecycleSegments.departments,
+    recruiterMetrics: lifecycleSegments.recruiters,
   };
 }
 
@@ -2681,17 +3231,10 @@ function buildInterviewOperationsSummary({ schedules, reviews }) {
   };
 }
 
-function buildCandidateExperienceSummary({ surveys }) {
-  if (!surveys.length) {
-    return {
-      responseCount: 0,
-      averageScore: null,
-      nps: null,
-      sentiments: {},
-      followUpsPending: 0,
-      latestFeedback: [],
-    };
-  }
+function buildCandidateExperienceSummary({ surveys = [], applications = [] }) {
+  const applicationSegments = buildApplicationSegmentIndex(applications);
+  const departmentSegments = new Map();
+  const recruiterSegments = new Map();
 
   const scores = [];
   let promoters = 0;
@@ -2731,10 +3274,92 @@ function buildCandidateExperienceSummary({ surveys }) {
     if (plain.followUpScheduledAt && new Date(plain.followUpScheduledAt) > new Date()) {
       followUpsPending += 1;
     }
+
+    const metadata = normaliseMetadata(plain.metadata);
+    const context = applicationSegments.get(plain.applicationId) ?? {};
+    let departmentDescriptor = context.department;
+    let recruiterDescriptor = context.recruiter;
+    const surveyDepartment = resolveDepartmentDescriptor(metadata);
+    const surveyRecruiter = resolveRecruiterDescriptor(metadata);
+
+    if (!departmentDescriptor || departmentDescriptor.isUnassigned) {
+      departmentDescriptor = surveyDepartment;
+    }
+    if (!recruiterDescriptor || recruiterDescriptor.isUnassigned) {
+      recruiterDescriptor = surveyRecruiter;
+    }
+
+    applicationSegments.set(plain.applicationId, {
+      department: departmentDescriptor,
+      recruiter: recruiterDescriptor,
+    });
+
+    const segmentDescriptors = [
+      { map: departmentSegments, descriptor: departmentDescriptor, type: 'department' },
+      { map: recruiterSegments, descriptor: recruiterDescriptor, type: 'recruiter' },
+    ];
+
+    segmentDescriptors.forEach(({ map, descriptor, type }) => {
+      const bucket = ensureSegmentBucket(map, descriptor, { type });
+      bucket.responses += 1;
+      if (plain.score != null && Number.isFinite(Number(plain.score))) {
+        bucket.scoreTotal += Number(plain.score);
+        bucket.scoreCount += 1;
+      }
+      if (plain.npsRating != null && Number.isFinite(Number(plain.npsRating))) {
+        const rating = Number(plain.npsRating);
+        if (rating >= 9) bucket.promoters += 1;
+        else if (rating <= 6) bucket.detractors += 1;
+      }
+      if (plain.followUpScheduledAt && new Date(plain.followUpScheduledAt) > new Date()) {
+        bucket.followUpsPending += 1;
+      }
+    });
+  });
+
+  applications.forEach((application) => {
+    const plain = application?.get ? application.get({ plain: true }) : application;
+    if (!plain || plain.id == null) {
+      return;
+    }
+    const context = applicationSegments.get(plain.id) ?? {};
+    const departmentDescriptor = context.department ?? resolveDepartmentDescriptor(plain.metadata);
+    const recruiterDescriptor = context.recruiter ?? resolveRecruiterDescriptor(plain.metadata);
+
+    const segmentDescriptors = [
+      { map: departmentSegments, descriptor: departmentDescriptor, type: 'department' },
+      { map: recruiterSegments, descriptor: recruiterDescriptor, type: 'recruiter' },
+    ];
+
+    segmentDescriptors.forEach(({ map, descriptor, type }) => {
+      const bucket = ensureSegmentBucket(map, descriptor, { type });
+      bucket.applications += 1;
+      const status = `${plain.status ?? ''}`.toLowerCase();
+      if (status === 'interview') {
+        bucket.interviews += 1;
+      }
+      if (status === 'offered') {
+        bucket.offers += 1;
+      }
+      if (status === 'hired') {
+        bucket.hires += 1;
+      }
+      if (plain.decisionAt) {
+        const days = differenceInDays(plain.submittedAt ?? plain.createdAt, plain.decisionAt);
+        if (Number.isFinite(days)) {
+          bucket.decisionTimes.push(days);
+        }
+      }
+    });
   });
 
   const totalResponses = surveys.length;
   const nps = totalResponses ? Number((((promoters - detractors) / totalResponses) * 100).toFixed(1)) : null;
+
+  const segments = {
+    departments: summariseCandidateExperienceSegments(departmentSegments),
+    recruiters: summariseCandidateExperienceSegments(recruiterSegments),
+  };
 
   return {
     responseCount: totalResponses,
@@ -2743,6 +3368,7 @@ function buildCandidateExperienceSummary({ surveys }) {
     sentiments: Object.fromEntries(sentiments.entries()),
     followUpsPending,
     latestFeedback,
+    segments,
   };
 }
 
@@ -6201,7 +6827,10 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
     const diversityMetrics = buildDiversityMetrics(demographicSnapshots);
     const alertsSummary = buildAlertsSummary(hiringAlerts);
     const interviewOperations = buildInterviewOperationsSummary({ schedules: interviewSchedules, reviews });
-    const candidateExperience = buildCandidateExperienceSummary({ surveys: candidateSurveys });
+    let candidateExperience = buildCandidateExperienceSummary({
+      surveys: candidateSurveys,
+      applications,
+    });
     const jobDesign = buildJobDesignStudioSummary({
       approvals: jobApprovals,
       jobStages,
@@ -6250,7 +6879,15 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       evaluationWorkspace: evaluationWorkspaceSummary,
       offerBridge,
       candidateCareCenter,
+      demographicSnapshots,
     });
+    if (jobLifecycle?.fairness?.score != null) {
+      const inclusionPercent = Number((jobLifecycle.fairness.score * 100).toFixed(1));
+      candidateExperience = {
+        ...candidateExperience,
+        inclusionScore: inclusionPercent,
+      };
+    }
     const partnerCollaborationDetails = buildPartnerCollaborationSummary({
       partnerSummary,
       engagements: partnerEngagements,
