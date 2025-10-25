@@ -71,7 +71,7 @@ import profileHubService from './profileHubService.js';
 import creationStudioService from './creationStudioService.js';
 import { getJobApplicationWorkspace as getJobApplicationWorkspaceSnapshot } from './jobApplicationService.js';
 import userNetworkingService from './userNetworkingService.js';
-import volunteeringManagementService from './volunteeringManagementService.js';
+import { getUserVolunteeringManagement } from './volunteeringManagementService.js';
 import userMentoringService from './userMentoringService.js';
 import walletManagementService from './walletManagementService.js';
 import { getUserWebsitePreferences } from './userWebsitePreferenceService.js';
@@ -3179,7 +3179,7 @@ async function loadDashboardPayload(userId, { bypassCache = false } = {}) {
     affiliateDashboardService.getAffiliateDashboard(userId),
     projectParticipationQuery,
     creationStudioQuery,
-    volunteeringManagementService.getUserVolunteeringManagement(userId, { bypassCache }),
+    getUserVolunteeringManagement(userId, { bypassCache }),
     eventManagementService.getUserEventManagement(userId, { includeArchived: false, limit: 6 }),
     notificationService.getPreferences(userId),
     notificationService.getStats(userId),
