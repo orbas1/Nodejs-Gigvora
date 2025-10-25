@@ -52,6 +52,7 @@ import '../features/creation_studio/presentation/creation_studio_screen.dart';
 import '../features/app_boot/splash_screen.dart';
 import '../features/calendar/presentation/calendar_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
+import 'routes.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -102,42 +103,46 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
-    initialLocation: '/splash',
+    initialLocation: AppRoute.splash.path,
     routes: [
-      GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
-      GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
-      GoRoute(path: '/signup', builder: (context, state) => const SignUpScreen()),
-      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
-      GoRoute(path: '/register', builder: (context, state) => const RegisterScreen()),
-      GoRoute(path: '/register/company', builder: (context, state) => const CompanyRegisterScreen()),
-      GoRoute(path: '/feed', builder: (context, state) => const FeedScreen()),
-      GoRoute(path: '/calendar', builder: (context, state) => const CalendarScreen()),
-      GoRoute(path: '/explorer', builder: (context, state) => const ExplorerScreen()),
-      GoRoute(path: '/jobs', builder: (context, state) => const JobsScreen()),
+      GoRoute(name: AppRoute.splash.name, path: AppRoute.splash.path, builder: (context, state) => const SplashScreen()),
+      GoRoute(name: AppRoute.home.name, path: AppRoute.home.path, builder: (context, state) => const HomeScreen()),
+      GoRoute(name: AppRoute.signUp.name, path: AppRoute.signUp.path, builder: (context, state) => const SignUpScreen()),
+      GoRoute(name: AppRoute.login.name, path: AppRoute.login.path, builder: (context, state) => const LoginScreen()),
+      GoRoute(name: AppRoute.register.name, path: AppRoute.register.path, builder: (context, state) => const RegisterScreen()),
+      GoRoute(name: AppRoute.registerCompany.name, path: AppRoute.registerCompany.path, builder: (context, state) => const CompanyRegisterScreen()),
+      GoRoute(name: AppRoute.feed.name, path: AppRoute.feed.path, builder: (context, state) => const FeedScreen()),
+      GoRoute(name: AppRoute.calendar.name, path: AppRoute.calendar.path, builder: (context, state) => const CalendarScreen()),
+      GoRoute(name: AppRoute.explorer.name, path: AppRoute.explorer.path, builder: (context, state) => const ExplorerScreen()),
+      GoRoute(name: AppRoute.jobs.name, path: AppRoute.jobs.path, builder: (context, state) => const JobsScreen()),
       GoRoute(
-        path: '/jobs/:id',
+        name: AppRoute.jobDetail.name,
+        path: AppRoute.jobDetail.path,
         builder: (context, state) => JobDetailScreen(jobId: state.pathParameters['id'] ?? ''),
       ),
-      GoRoute(path: '/gigs', builder: (context, state) => const GigsScreen()),
-      GoRoute(path: '/gigs/purchase', builder: (context, state) => const GigPurchaseScreen()),
-      GoRoute(path: '/projects', builder: (context, state) => const ProjectsScreen()),
-      GoRoute(path: '/projects/new', builder: (context, state) => const ProjectPostScreen()),
+      GoRoute(name: AppRoute.gigs.name, path: AppRoute.gigs.path, builder: (context, state) => const GigsScreen()),
+      GoRoute(name: AppRoute.gigPurchase.name, path: AppRoute.gigPurchase.path, builder: (context, state) => const GigPurchaseScreen()),
+      GoRoute(name: AppRoute.projects.name, path: AppRoute.projects.path, builder: (context, state) => const ProjectsScreen()),
+      GoRoute(name: AppRoute.projectPost.name, path: AppRoute.projectPost.path, builder: (context, state) => const ProjectPostScreen()),
       GoRoute(
-        path: '/projects/:id/auto-match',
+        name: AppRoute.projectAutoMatch.name,
+        path: AppRoute.projectAutoMatch.path,
         builder: (context, state) => ProjectAutoMatchScreen(
           projectId: int.tryParse(state.pathParameters['id'] ?? ''),
         ),
       ),
-      GoRoute(path: '/creation-studio', builder: (context, state) => const CreationStudioScreen()),
-      GoRoute(path: '/blog', builder: (context, state) => const BlogListScreen()),
+      GoRoute(name: AppRoute.creationStudio.name, path: AppRoute.creationStudio.path, builder: (context, state) => const CreationStudioScreen()),
+      GoRoute(name: AppRoute.blogList.name, path: AppRoute.blogList.path, builder: (context, state) => const BlogListScreen()),
       GoRoute(
-        path: '/blog/:slug',
+        name: AppRoute.blogDetail.name,
+        path: AppRoute.blogDetail.path,
         builder: (context, state) => BlogDetailScreen(slug: state.pathParameters['slug'] ?? ''),
       ),
-      GoRoute(path: '/launchpad', builder: (context, state) => const LaunchpadScreen()),
-      GoRoute(path: '/volunteering', builder: (context, state) => const VolunteeringScreen()),
+      GoRoute(name: AppRoute.launchpad.name, path: AppRoute.launchpad.path, builder: (context, state) => const LaunchpadScreen()),
+      GoRoute(name: AppRoute.volunteering.name, path: AppRoute.volunteering.path, builder: (context, state) => const VolunteeringScreen()),
       GoRoute(
-        path: '/notifications',
+        name: AppRoute.notifications.name,
+        path: AppRoute.notifications.path,
         redirect: (context, state) {
           if (!sessionState.isAuthenticated) {
             final redirectTo = Uri.encodeComponent(state.uri.toString());
@@ -150,21 +155,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
         builder: (context, state) => const NotificationsScreen(),
       ),
-      GoRoute(path: '/pages', builder: (context, state) => const PagesScreen()),
-      GoRoute(path: '/support', builder: (context, state) => const SupportScreen()),
-      GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
-      GoRoute(path: '/about', builder: (context, state) => const AboutUsScreen()),
-      GoRoute(path: '/privacy', builder: (context, state) => const PrivacyPolicyScreen()),
-      GoRoute(path: '/inbox', builder: (context, state) => const InboxScreen()),
+      GoRoute(name: AppRoute.pages.name, path: AppRoute.pages.path, builder: (context, state) => const PagesScreen()),
+      GoRoute(name: AppRoute.support.name, path: AppRoute.support.path, builder: (context, state) => const SupportScreen()),
+      GoRoute(name: AppRoute.settings.name, path: AppRoute.settings.path, builder: (context, state) => const SettingsScreen()),
+      GoRoute(name: AppRoute.about.name, path: AppRoute.about.path, builder: (context, state) => const AboutUsScreen()),
+      GoRoute(name: AppRoute.privacy.name, path: AppRoute.privacy.path, builder: (context, state) => const PrivacyPolicyScreen()),
+      GoRoute(name: AppRoute.inbox.name, path: AppRoute.inbox.path, builder: (context, state) => const InboxScreen()),
       GoRoute(
-        path: '/mentors/:id',
+        name: AppRoute.mentorProfile.name,
+        path: AppRoute.mentorProfile.path,
         builder: (context, state) => MentorProfileScreen(mentorId: state.pathParameters['id'] ?? 'mentor-aurora'),
       ),
-      GoRoute(path: '/finance', builder: (context, state) => const FinanceScreen()),
-      GoRoute(path: '/connections', builder: (context, state) => const ConnectionsScreen()),
-      GoRoute(path: '/operations', builder: (context, state) => const ServiceOperationsScreen()),
+      GoRoute(name: AppRoute.finance.name, path: AppRoute.finance.path, builder: (context, state) => const FinanceScreen()),
+      GoRoute(name: AppRoute.connections.name, path: AppRoute.connections.path, builder: (context, state) => const ConnectionsScreen()),
+      GoRoute(name: AppRoute.serviceOperations.name, path: AppRoute.serviceOperations.path, builder: (context, state) => const ServiceOperationsScreen()),
       GoRoute(
-        path: '/security/operations',
+        name: AppRoute.securityOperations.name,
+        path: AppRoute.securityOperations.path,
         redirect: (context, state) {
           if (!sessionState.isAuthenticated) {
             final redirectTo = Uri.encodeComponent(state.uri.toString());
@@ -182,7 +189,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SecurityOperationsScreen(),
       ),
       GoRoute(
-        path: '/dashboard/company/integrations',
+        name: AppRoute.companyIntegrations.name,
+        path: AppRoute.companyIntegrations.path,
         redirect: (context, state) {
           if (!sessionState.isAuthenticated) {
             final redirectTo = Uri.encodeComponent(state.uri.toString());
@@ -197,7 +205,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const CompanyIntegrationsScreen(),
       ),
       GoRoute(
-        path: '/dashboard/company/ats',
+        name: AppRoute.companyAts.name,
+        path: AppRoute.companyAts.path,
         redirect: (context, state) {
           if (!sessionState.isAuthenticated) {
             final redirectTo = Uri.encodeComponent(state.uri.toString());
@@ -212,7 +221,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const CompanyAtsScreen(),
       ),
       GoRoute(
-        path: '/dashboard/company/analytics',
+        name: AppRoute.companyAnalytics.name,
+        path: AppRoute.companyAnalytics.path,
         redirect: (context, state) {
           if (!sessionState.isAuthenticated) {
             final redirectTo = Uri.encodeComponent(state.uri.toString());
@@ -227,17 +237,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const CompanyAnalyticsScreen(),
       ),
       GoRoute(
-        path: '/dashboard/freelancer/pipeline',
+        name: AppRoute.freelancerPipeline.name,
+        path: AppRoute.freelancerPipeline.path,
         builder: (context, state) => const FreelancerPipelineScreen(),
       ),
       GoRoute(
-        path: '/dashboard/freelancer/work-management',
+        name: AppRoute.freelancerWorkManagement.name,
+        path: AppRoute.freelancerWorkManagement.path,
         builder: (context, state) => WorkManagementScreen(
           projectId: int.tryParse(state.uri.queryParameters['projectId'] ?? ''),
         ),
       ),
       GoRoute(
-        path: '/dashboard/user',
+        name: AppRoute.userDashboard.name,
+        path: AppRoute.userDashboard.path,
         redirect: (context, state) {
           final session = sessionState.session;
           if (session == null) {
@@ -252,7 +265,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const UserDashboardScreen(),
       ),
       GoRoute(
-        path: '/dashboard/user/cv-workspace',
+        name: AppRoute.userCvWorkspace.name,
+        path: AppRoute.userCvWorkspace.path,
         redirect: (context, state) {
           final session = sessionState.session;
           if (session == null) {
@@ -266,9 +280,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
         builder: (context, state) => const CvWorkspaceScreen(),
       ),
-      GoRoute(path: '/dashboard/mentor', builder: (context, state) => const MentorshipScreen()),
+      GoRoute(name: AppRoute.mentorDashboard.name, path: AppRoute.mentorDashboard.path, builder: (context, state) => const MentorshipScreen()),
       GoRoute(
-        path: '/dashboard/agency',
+        name: AppRoute.agencyDashboard.name,
+        path: AppRoute.agencyDashboard.path,
         redirect: (context, state) {
           if (!sessionState.isAuthenticated) {
             final redirectTo = Uri.encodeComponent(state.uri.toString());
@@ -281,20 +296,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
         builder: (context, state) => const AgencyDashboardScreen(),
       ),
-      GoRoute(path: '/networking', builder: (context, state) => const NetworkingScreen()),
-      GoRoute(path: '/groups', builder: (context, state) => const GroupsDirectoryScreen()),
+      GoRoute(name: AppRoute.networking.name, path: AppRoute.networking.path, builder: (context, state) => const NetworkingScreen()),
+      GoRoute(name: AppRoute.groupsDirectory.name, path: AppRoute.groupsDirectory.path, builder: (context, state) => const GroupsDirectoryScreen()),
       GoRoute(
-        path: '/groups/:groupId',
+        name: AppRoute.groupProfile.name,
+        path: AppRoute.groupProfile.path,
         builder: (context, state) => GroupProfileScreen(
           groupId: state.pathParameters['groupId'] ?? state.uri.pathSegments.last,
         ),
       ),
       GoRoute(
-        path: '/profile',
+        name: AppRoute.profile.name,
+        path: AppRoute.profile.path,
         builder: (context, state) => ProfileScreen(profileId: state.uri.queryParameters['id']),
       ),
       GoRoute(
-        path: '/operations/manage',
+        name: AppRoute.projectOperations.name,
+        path: AppRoute.projectOperations.path,
         builder: (context, state) => ProjectGigManagementScreen(
           userId: state.uri.queryParameters['userId'] != null
               ? int.tryParse(state.uri.queryParameters['userId']!)
@@ -302,9 +320,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           initialSection: sectionFromQuery(state.uri.queryParameters['section']),
         ),
       ),
-      GoRoute(path: '/admin', builder: (context, state) => const AdminLoginScreen()),
+      GoRoute(name: AppRoute.adminLogin.name, path: AppRoute.adminLogin.path, builder: (context, state) => const AdminLoginScreen()),
       GoRoute(
-        path: '/groups/manage',
+        name: AppRoute.groupsManage.name,
+        path: AppRoute.groupsManage.path,
         redirect: (context, state) {
           final session = sessionState.session;
           if (session == null) {
@@ -318,7 +337,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
         builder: (context, state) => const GroupManagementScreen(),
       ),
-      GoRoute(path: '/admin/ads', builder: (context, state) => const AdsDashboardScreen()),
+      GoRoute(name: AppRoute.adminAds.name, path: AppRoute.adminAds.path, builder: (context, state) => const AdsDashboardScreen()),
     ],
   );
 });

@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/providers.dart';
+import '../../router/deep_link_parser.dart';
+import '../../router/routes.dart';
 import '../auth/application/session_controller.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -62,12 +64,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with TickerProvider
   Widget build(BuildContext context) {
     final sessionState = ref.watch(sessionControllerProvider);
     final isAuthenticated = sessionState.isAuthenticated;
+    final hasDeepLink = ref.watch(deepLinkActivatedProvider);
     final theme = Theme.of(context);
 
-    if (_bootstrapped && !_navigated) {
+    if (_bootstrapped && !_navigated && !hasDeepLink) {
       Future.microtask(() {
         if (!_navigated && mounted) {
-          _navigate(isAuthenticated ? '/home' : '/login');
+          _navigate(isAuthenticated ? AppRoute.home : AppRoute.login);
         }
       });
     }
@@ -120,7 +123,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with TickerProvider
                     ],
                   ),
                   FilledButton.tonalIcon(
-                    onPressed: () => _navigate(isAuthenticated ? '/home' : '/login'),
+                    onPressed: () => _navigate(isAuthenticated ? AppRoute.home : AppRoute.login),
                     icon: const Icon(Icons.support_agent),
                     label: const Text('Contact support'),
                   ),
@@ -153,12 +156,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with TickerProvider
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           FilledButton(
-                            onPressed: () => _navigate(isAuthenticated ? '/home' : '/login'),
+                            onPressed: () => _navigate(isAuthenticated ? AppRoute.home : AppRoute.login),
                             child: Text(isAuthenticated ? 'Enter workspace' : 'Sign in'),
                           ),
                           const SizedBox(height: 12),
                           OutlinedButton(
-                            onPressed: () => _navigate('/explorer'),
+                            onPressed: () => _navigate(AppRoute.explorer),
                             child: const Text('Explore gigs'),
                           ),
                         ],
@@ -183,10 +186,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with TickerProvider
     );
   }
 
-  void _navigate(String route) {
+  void _navigate(AppRoute route, {Map<String, String>? pathParameters, Map<String, String>? queryParameters}) {
     if (!mounted) return;
     _navigated = true;
-    GoRouter.of(context).go(route);
+    final location = route.location(
+      pathParameters: pathParameters,
+      queryParameters: queryParameters,
+    );
+    GoRouter.of(context).go(location);
   }
 
   void _showSnack(String message) {
