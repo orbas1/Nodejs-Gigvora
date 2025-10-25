@@ -28,6 +28,8 @@ const candidateUsers = [
   },
 ];
 
+const candidateLookup = new Map(candidateUsers.map((candidate) => [candidate.ref, candidate]));
+
 const stageDefinitions = [
   {
     name: 'Application Review',
@@ -411,6 +413,184 @@ module.exports = {
         throw new Error('Failed to resolve job id for ATS workflow pilot.');
       }
 
+      const advertSeed = {
+        status: 'open',
+        openings: 3,
+        remoteType: 'hybrid',
+        currencyCode: 'USD',
+        compensationMin: 145000,
+        compensationMax: 185000,
+        hiringManagerId: recruiter.id,
+        publishedAt: new Date('2024-08-01T12:00:00Z'),
+        expiresAt: new Date('2024-09-30T00:00:00Z'),
+        metadata: {
+          seedKey: WORKSPACE_SEED_KEY,
+          department: 'Strategic Operations',
+          workflow: {
+            id: 'growth-hiring-v1',
+            phases: ['intake', 'screen', 'panel', 'offer'],
+            automationPlaybooks: 5,
+          },
+        },
+        updatedAt: now,
+      };
+
+      const [existingAdvert] = await queryInterface.sequelize.query(
+        'SELECT id FROM job_adverts WHERE jobId = :jobId LIMIT 1',
+        {
+          type: QueryTypes.SELECT,
+          transaction,
+          replacements: { jobId },
+        },
+      );
+
+      if (existingAdvert?.id) {
+        await queryInterface.bulkUpdate(
+          'job_adverts',
+          advertSeed,
+          { id: existingAdvert.id },
+          { transaction },
+        );
+      } else {
+        await queryInterface.bulkInsert(
+          'job_adverts',
+          [
+            {
+              ...advertSeed,
+              jobId,
+              workspaceId,
+              createdAt: now,
+            },
+          ],
+          { transaction },
+        );
+      }
+
+      await queryInterface.bulkDelete('job_keywords', { jobId }, { transaction });
+
+      const keywordSeeds = [
+        { keyword: 'ATS automation', weight: 1.25 },
+        { keyword: 'fairness analytics', weight: 1.1 },
+        { keyword: 'candidate experience', weight: 0.95 },
+        { keyword: 'SLA monitoring', weight: 1.05 },
+        { keyword: 'workflow orchestration', weight: 0.9 },
+      ].map((entry) => ({
+        jobId,
+        keyword: entry.keyword,
+        weight: entry.weight,
+        createdAt: now,
+        updatedAt: now,
+      }));
+
+      if (keywordSeeds.length) {
+        await queryInterface.bulkInsert('job_keywords', keywordSeeds, { transaction });
+      }
+
+      const historyRows = await queryInterface.sequelize.query(
+        'SELECT changeType, summary FROM job_advert_history WHERE workspaceId = :workspaceId AND jobId = :jobId',
+        {
+          type: QueryTypes.SELECT,
+          transaction,
+          replacements: { workspaceId, jobId },
+        },
+      );
+
+      const historyLookup = new Set(historyRows.map((row) => `${row.changeType}:${row.summary ?? ''}`));
+
+      const historySeeds = [
+        {
+          changeType: 'created',
+          summary: 'Job advert published',
+          actorId: owner.id,
+          payload: {
+            status: 'open',
+            openings: 3,
+            seedKey: WORKSPACE_SEED_KEY,
+          },
+          createdAt: new Date('2024-08-01T12:00:00Z'),
+        },
+        {
+          changeType: 'keywords_updated',
+          summary: 'ATS targeting keywords refined',
+          actorId: recruiter.id,
+          payload: {
+            seedKey: WORKSPACE_SEED_KEY,
+            keywords: keywordSeeds.map((entry) => ({ keyword: entry.keyword, weight: entry.weight })),
+          },
+          createdAt: new Date('2024-08-02T09:15:00Z'),
+        },
+        {
+          changeType: 'status_updated',
+          summary: 'Role activated for enterprise pilot hiring',
+          actorId: owner.id,
+          payload: {
+            seedKey: WORKSPACE_SEED_KEY,
+            status: 'open',
+            automationCoverage: 82,
+          },
+          createdAt: new Date('2024-08-02T12:30:00Z'),
+        },
+      ]
+        .filter((seed) => !historyLookup.has(`${seed.changeType}:${seed.summary}`))
+        .map((seed) => ({
+          workspaceId,
+          jobId,
+          actorId: seed.actorId,
+          changeType: seed.changeType,
+          summary: seed.summary,
+          payload: seed.payload,
+          createdAt: seed.createdAt,
+          updatedAt: now,
+        }));
+
+      if (historySeeds.length) {
+        await queryInterface.bulkInsert('job_advert_history', historySeeds, { transaction });
+      }
+
+      const favoriteSeeds = [
+        {
+          userId: recruiter.id,
+          notes: '[demo] Pipeline health watchlist entry for recruiters.',
+          createdById: owner.id,
+        },
+        {
+          userId: owner.id,
+          notes: '[demo] Executive dashboard shortlist for weekly reviews.',
+          createdById: owner.id,
+        },
+      ];
+
+      for (const favorite of favoriteSeeds) {
+        const [existingFavorite] = await queryInterface.sequelize.query(
+          'SELECT id FROM job_favorites WHERE workspaceId = :workspaceId AND jobId = :jobId AND userId = :userId LIMIT 1',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { workspaceId, jobId, userId: favorite.userId },
+          },
+        );
+
+        if (existingFavorite?.id) {
+          continue;
+        }
+
+        await queryInterface.bulkInsert(
+          'job_favorites',
+          [
+            {
+              workspaceId,
+              jobId,
+              userId: favorite.userId,
+              createdById: favorite.createdById,
+              notes: favorite.notes,
+              createdAt: now,
+              updatedAt: now,
+            },
+          ],
+          { transaction },
+        );
+      }
+
       for (const stage of stageDefinitions) {
         const [existingStage] = await queryInterface.sequelize.query(
           'SELECT id FROM job_stages WHERE workspaceId = :workspaceId AND jobId = :jobId AND name = :name LIMIT 1',
@@ -549,6 +729,179 @@ module.exports = {
         if (row?.id) {
           applicationIdByKey.set(seed.key, row.id);
         }
+      }
+
+      const responseSeeds = [
+        {
+          applicationKey: 'ats-demo-app-1',
+          respondentRef: 'casey',
+          channel: 'email',
+          direction: 'inbound',
+          message: 'Appreciate the rapid updates and fairness insights from the panel!',
+          sentAt: '2024-08-06T14:05:00Z',
+          metadata: {
+            experienceScore: 9,
+            inclusionScore: 8,
+            npsScore: 10,
+            responseMinutes: 22,
+          },
+        },
+        {
+          applicationKey: 'ats-demo-app-2',
+          respondentId: recruiter.id,
+          respondentName: 'Riley Recruiter',
+          channel: 'sms',
+          direction: 'outbound',
+          message: 'Reminder: Panel interview tomorrow at 3pm ET. Portal has prep materials.',
+          sentAt: '2024-08-07T13:00:00Z',
+          metadata: {
+            responseMinutes: 15,
+            followUpChannel: 'sms',
+            seedKey: WORKSPACE_SEED_KEY,
+          },
+        },
+        {
+          applicationKey: 'ats-demo-app-3',
+          respondentRef: 'casey',
+          channel: 'portal',
+          direction: 'inbound',
+          message: 'Uploaded requested automation scorecards and confirmed availability.',
+          sentAt: '2024-08-08T16:40:00Z',
+          metadata: {
+            experienceScore: 8,
+            inclusionScore: 9,
+            responseMinutes: 18,
+          },
+        },
+      ];
+
+      for (const seed of responseSeeds) {
+        const applicationId = applicationIdByKey.get(seed.applicationKey);
+        if (!applicationId) {
+          continue;
+        }
+
+        const [existingResponse] = await queryInterface.sequelize.query(
+          'SELECT id FROM job_candidate_responses WHERE workspaceId = :workspaceId AND jobId = :jobId AND applicationId = :applicationId AND message = :message LIMIT 1',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: {
+              workspaceId,
+              jobId,
+              applicationId,
+              message: seed.message,
+            },
+          },
+        );
+
+        if (existingResponse?.id) {
+          continue;
+        }
+
+        const respondentId = seed.respondentId
+          ? seed.respondentId
+          : seed.respondentRef
+            ? userIdsByRef.get(seed.respondentRef) ?? null
+            : null;
+        const respondentName = seed.respondentName
+          ? seed.respondentName
+          : seed.respondentRef && candidateLookup.get(seed.respondentRef)
+            ? `${candidateLookup.get(seed.respondentRef).firstName} ${candidateLookup.get(seed.respondentRef).lastName}`
+            : null;
+
+        await queryInterface.bulkInsert(
+          'job_candidate_responses',
+          [
+            {
+              workspaceId,
+              jobId,
+              applicationId,
+              respondentId,
+              respondentName,
+              channel: seed.channel,
+              direction: seed.direction,
+              message: seed.message,
+              sentAt: seed.sentAt ? new Date(seed.sentAt) : now,
+              metadata: {
+                seedKey: WORKSPACE_SEED_KEY,
+                ...(seed.metadata ?? {}),
+              },
+              createdAt: now,
+              updatedAt: now,
+            },
+          ],
+          { transaction },
+        );
+      }
+
+      const noteSeeds = [
+        {
+          applicationKey: 'ats-demo-app-1',
+          stage: 'Panel',
+          sentiment: 'positive',
+          summary: 'Panel highlighted automation leadership and structured fairness approach.',
+          nextSteps: 'Draft compensation package and exec briefing by 2024-08-11.',
+          attachments: [
+            {
+              type: 'scorecard',
+              url: 'https://assets.gigvora.test/scorecards/casey-panel.pdf',
+            },
+          ],
+        },
+        {
+          applicationKey: 'ats-demo-app-4',
+          stage: 'Screen',
+          sentiment: 'concern',
+          summary: 'Candidate strong on analytics but needs automation playbook exposure.',
+          nextSteps: 'Send nurture content and invite to automation mastery session.',
+          attachments: null,
+        },
+      ];
+
+      for (const seed of noteSeeds) {
+        const applicationId = applicationIdByKey.get(seed.applicationKey);
+        if (!applicationId) {
+          continue;
+        }
+
+        const [existingNote] = await queryInterface.sequelize.query(
+          'SELECT id FROM job_candidate_notes WHERE workspaceId = :workspaceId AND jobId = :jobId AND applicationId = :applicationId AND summary = :summary LIMIT 1',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: {
+              workspaceId,
+              jobId,
+              applicationId,
+              summary: seed.summary,
+            },
+          },
+        );
+
+        if (existingNote?.id) {
+          continue;
+        }
+
+        await queryInterface.bulkInsert(
+          'job_candidate_notes',
+          [
+            {
+              workspaceId,
+              jobId,
+              applicationId,
+              authorId: recruiter.id,
+              stage: seed.stage,
+              sentiment: seed.sentiment,
+              summary: seed.summary,
+              nextSteps: seed.nextSteps,
+              attachments: seed.attachments,
+              createdAt: now,
+              updatedAt: now,
+            },
+          ],
+          { transaction },
+        );
       }
 
       for (const seed of applicationSeeds) {
@@ -765,6 +1118,28 @@ module.exports = {
       const applicationIds = applicationRows.map((row) => row.id);
 
       if (applicationIds.length) {
+        if (workspaceId && jobId) {
+          await queryInterface.bulkDelete(
+            'job_candidate_responses',
+            {
+              workspaceId,
+              jobId,
+              applicationId: applicationIds,
+            },
+            { transaction },
+          );
+
+          await queryInterface.bulkDelete(
+            'job_candidate_notes',
+            {
+              workspaceId,
+              jobId,
+              applicationId: applicationIds,
+            },
+            { transaction },
+          );
+        }
+
         await queryInterface.bulkDelete(
           'candidate_satisfaction_surveys',
           {
@@ -810,6 +1185,41 @@ module.exports = {
       }
 
       if (workspaceId && jobId) {
+        await queryInterface.bulkDelete(
+          'job_favorites',
+          {
+            workspaceId,
+            jobId,
+          },
+          { transaction },
+        );
+
+        await queryInterface.bulkDelete(
+          'job_keywords',
+          {
+            jobId,
+          },
+          { transaction },
+        );
+
+        await queryInterface.bulkDelete(
+          'job_advert_history',
+          {
+            workspaceId,
+            jobId,
+          },
+          { transaction },
+        );
+
+        await queryInterface.bulkDelete(
+          'job_adverts',
+          {
+            workspaceId,
+            jobId,
+          },
+          { transaction },
+        );
+
         await queryInterface.bulkDelete(
           'job_approval_workflows',
           {
