@@ -1,3 +1,5 @@
+import { formatStatusLabel } from '../../utils/format.js';
+
 export function formatMoney(amount = 0, currency = 'USD') {
   const numeric = Number.isFinite(Number(amount)) ? Number(amount) : 0;
   const code = currency ? String(currency).toUpperCase() : 'USD';
@@ -25,16 +27,6 @@ export function formatNumber(value) {
     return '0';
   }
   return new Intl.NumberFormat('en-GB').format(Number(value));
-}
-
-export function formatStatusLabel(status) {
-  if (!status) {
-    return 'Unknown';
-  }
-  return String(status)
-    .split(/[_\s]+/)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
 }
 
 export function toDateInput(value) {

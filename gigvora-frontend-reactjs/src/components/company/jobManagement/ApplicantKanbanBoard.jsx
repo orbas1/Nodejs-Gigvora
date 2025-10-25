@@ -1,13 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ArrowRightCircleIcon } from '@heroicons/react/24/outline';
-
-function formatStatusLabel(value) {
-  if (!value) return 'Status';
-  return value
-    .split('_')
-    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-    .join(' ');
-}
+import { formatStatusLabel } from '../../../utils/format.js';
 
 export default function ApplicantKanbanBoard({ columns, onSelectApplication, onMoveApplication }) {
   const [draggingId, setDraggingId] = useState(null);

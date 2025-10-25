@@ -1,21 +1,6 @@
 import PropTypes from 'prop-types';
+import StatusBadge from '../../common/StatusBadge.jsx';
 import { STATUS_OPTIONS, CREATION_TYPES } from '../config.js';
-
-function StatusBadge({ status }) {
-  const palette = {
-    draft: 'bg-slate-100 text-slate-600',
-    review: 'bg-amber-100 text-amber-700',
-    scheduled: 'bg-indigo-100 text-indigo-700',
-    published: 'bg-emerald-100 text-emerald-700',
-    archived: 'bg-slate-200 text-slate-600',
-  };
-  const label = STATUS_OPTIONS.find((option) => option.value === status)?.label ?? status;
-  return <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${palette[status] ?? palette.draft}`}>{label}</span>;
-}
-
-StatusBadge.propTypes = {
-  status: PropTypes.string.isRequired,
-};
 
 const itemShape = PropTypes.shape({
   id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
@@ -28,12 +13,13 @@ const itemShape = PropTypes.shape({
 
 function ItemRow({ item, onOpen, onPreview }) {
   const typeLabel = CREATION_TYPES.find((type) => type.id === item.type)?.name ?? item.type;
+  const statusLabel = STATUS_OPTIONS.find((option) => option.value === item.status)?.label ?? item.status;
   return (
     <li className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-center gap-3">
           <p className="truncate text-sm font-semibold text-slate-900">{item.title}</p>
-          <StatusBadge status={item.status} />
+          <StatusBadge status={item.status} label={statusLabel} uppercase={false} />
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
           <span>{typeLabel}</span>

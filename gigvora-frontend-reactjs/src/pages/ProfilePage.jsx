@@ -16,6 +16,7 @@ import { listFollowers, saveFollower, deleteFollower } from '../services/profile
 import useSession from '../hooks/useSession.js';
 import { fetchFreelancerReputation } from '../services/reputation.js';
 import { formatAbsolute, formatRelativeTime } from '../utils/date.js';
+import { formatStatusLabel } from '../utils/format.js';
 
 const AVAILABILITY_OPTIONS = [
   {
@@ -39,14 +40,6 @@ const AVAILABILITY_OPTIONS = [
     description: 'Temporarily away from project work',
   },
 ];
-
-function formatStatusLabel(status) {
-  if (!status) return '';
-  return status
-    .split('_')
-    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-    .join(' ');
-}
 
 function buildAvailabilityDraft(availability = {}) {
   return {
