@@ -103,6 +103,20 @@ export function markThreadRead(threadId, { userId } = {}) {
   });
 }
 
+export function updateTypingState(threadId, { userId, typing = true, displayName } = {}) {
+  if (!threadId) {
+    throw new Error('threadId is required to update typing state.');
+  }
+  if (!userId) {
+    throw new Error('userId is required to update typing state.');
+  }
+  return apiClient.post(`/messaging/threads/${threadId}/typing`, {
+    userId,
+    typing,
+    displayName,
+  });
+}
+
 export function updateThreadState(threadId, { state, userId } = {}) {
   if (!threadId) {
     throw new Error('threadId is required to update thread state.');
