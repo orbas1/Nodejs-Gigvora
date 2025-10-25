@@ -1,6 +1,7 @@
 import 'package:gigvora_foundation/gigvora_foundation.dart';
 
 import 'models/message_thread.dart';
+import 'models/pending_message.dart';
 import 'models/thread_message.dart';
 
 class MessagingRepository {
@@ -11,7 +12,9 @@ class MessagingRepository {
 
   static const _inboxCacheKeyPrefix = 'messaging:threads:user:';
   static const _messageCacheKeyPrefix = 'messaging:messages:thread:';
-  static const _cacheTtl = Duration(minutes: 2);
+  static const _composerCacheKeyPrefix = 'messaging:composer:thread:';
+  static const _pendingCacheKeyPrefix = 'messaging:pending:thread:';
+  static const _cacheTtl = Duration.zero;
 
   Future<RepositoryResult<List<MessageThread>>> fetchInbox({
     required int actorId,
@@ -45,7 +48,11 @@ class MessagingRepository {
       );
 
       final threads = _parseThreads(response);
-      await _cache.write(cacheKey, threads.map((thread) => _threadToJson(thread)).toList(), ttl: _cacheTtl);
+      await _cache.write(
+        cacheKey,
+        threads.map((thread) => _threadToJson(thread)).toList(),
+        ttl: _cacheTtl,
+      );
       return RepositoryResult<List<MessageThread>>(
         data: threads,
         fromCache: false,
@@ -92,7 +99,11 @@ class MessagingRepository {
       );
 
       final messages = _parseMessages(response);
-      await _cache.write(cacheKey, messages.map((message) => _messageToJson(message)).toList(), ttl: _cacheTtl);
+      await _cache.write(
+        cacheKey,
+        messages.map((message) => _messageToJson(message)).toList(),
+        ttl: _cacheTtl,
+      );
       return RepositoryResult<List<ThreadMessage>>(
         data: messages,
         fromCache: false,
@@ -163,6 +174,72 @@ class MessagingRepository {
     } catch (_) {
       // best-effort acknowledgement; ignore errors for now
     }
+  }
+
+  Future<void> updateTypingState(
+    int threadId, {
+    required int userId,
+    required bool isTyping,
+  }) async {
+    try {
+      await _apiClient.post(
+        '/messaging/threads/$threadId/typing',
+        body: {
+          'userId': userId,
+          'typing': isTyping,
+        },
+      );
+    } catch (_) {
+      // ignore failures – realtime typing is best-effort
+    }
+  }
+
+  Future<void> persistDraft(int threadId, String value) async {
+    final key = '$_composerCacheKeyPrefix$threadId';
+    await _cache.write(key, value, ttl: Duration.zero);
+  }
+
+  Future<String?> readDraft(int threadId) async {
+    final key = '$_composerCacheKeyPrefix$threadId';
+    final entry = _cache.read<String>(key, (raw) => raw?.toString() ?? '');
+    return entry?.value;
+  }
+
+  Future<void> clearDraft(int threadId) async {
+    final key = '$_composerCacheKeyPrefix$threadId';
+    await _cache.remove(key);
+  }
+
+  Future<List<PendingMessage>> loadPendingMessages(int threadId) async {
+    final key = '$_pendingCacheKeyPrefix$threadId';
+    final entry = _cache.read<List<PendingMessage>>(key, (raw) {
+      if (raw is List) {
+        return raw
+            .whereType<Map>()
+            .map((item) => PendingMessage.fromJson(Map<String, dynamic>.from(item as Map)))
+            .toList(growable: false);
+      }
+      return const <PendingMessage>[];
+    });
+    return entry?.value ?? const <PendingMessage>[];
+  }
+
+  Future<void> writePendingMessages(int threadId, List<PendingMessage> messages) async {
+    final key = '$_pendingCacheKeyPrefix$threadId';
+    if (messages.isEmpty) {
+      await _cache.remove(key);
+      return;
+    }
+    await _cache.write(
+      key,
+      messages.map((message) => message.toJson()).toList(growable: false),
+      ttl: Duration.zero,
+    );
+  }
+
+  Future<void> clearPendingMessages(int threadId) async {
+    final key = '$_pendingCacheKeyPrefix$threadId';
+    await _cache.remove(key);
   }
 
   CacheEntry<List<MessageThread>>? _readThreadCache(String key) {

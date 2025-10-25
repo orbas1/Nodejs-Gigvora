@@ -8,7 +8,9 @@ import '../../../theme/widgets.dart';
 import '../application/messaging_controller.dart';
 import '../application/messaging_state.dart';
 import '../data/models/message_thread.dart';
+import '../data/models/pending_message.dart';
 import '../data/models/thread_message.dart';
+import '../data/models/typing_participant.dart';
 import '../utils/messaging_formatters.dart';
 import '../utils/messaging_access.dart';
 import '../../auth/application/session_controller.dart';
@@ -405,6 +407,10 @@ class _ConversationPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final pendingMessages = state.pendingMessages;
+    final typingParticipants = state.typingParticipants;
+    final isOfflineCopy = state.conversation.fromCache;
+    final lastSynced = state.conversation.lastUpdated;
 
     return GigvoraCard(
       child: Column(
@@ -417,6 +423,16 @@ class _ConversationPanel extends StatelessWidget {
             onStartVoice: onStartVoice,
           ),
           const SizedBox(height: 16),
+          if (isOfflineCopy)
+            _StatusBanner(
+              icon: Icons.cloud_off,
+              color: theme.colorScheme.secondary,
+              background: theme.colorScheme.secondary.withOpacity(0.12),
+              message: lastSynced != null
+                  ? 'Offline mode: showing cached messages from ${formatRelativeTime(lastSynced)}.'
+                  : 'Offline mode: showing cached messages while we reconnect.',
+            ),
+          if (isOfflineCopy) const SizedBox(height: 12),
           if (state.conversation.hasError && messages.isNotEmpty)
             _StatusBanner(
               icon: Icons.warning_amber_outlined,
@@ -456,6 +472,16 @@ class _ConversationPanel extends StatelessWidget {
                             background: theme.colorScheme.error.withOpacity(0.12),
                             message: state.conversation.error.toString(),
                           ),
+                        if (typingParticipants.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            child: _TypingIndicatorBar(participants: typingParticipants),
+                          ),
+                        if (pendingMessages.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            child: _PendingMessageList(messages: pendingMessages),
+                          ),
                         const SizedBox(height: 80),
                         Center(
                           child: Text(
@@ -468,37 +494,54 @@ class _ConversationPanel extends StatelessWidget {
                     );
                   }
 
+                  final hasTyping = typingParticipants.isNotEmpty;
+                  final hasPending = pendingMessages.isNotEmpty;
+                  final extraItems = (hasTyping ? 1 : 0) + (hasPending ? 1 : 0);
+
                   return ListView.separated(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    itemCount: messages.length,
+                    itemCount: messages.length + extraItems,
                     separatorBuilder: (_, __) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
-                      final message = messages[index];
-                      final isOwn = messageBelongsToUser(message, state.actorId);
-                      if (isCallEvent(message)) {
-                        final metadata = resolveCallMetadata(message);
-                        if (metadata == null) {
-                          return _SystemMessageBubble(
-                            sender: formatMessageSender(message),
-                            timestamp: formatMessageTimestamp(message),
-                            body: message.body ?? 'Call update',
+                      if (index < messages.length) {
+                        final message = messages[index];
+                        final isOwn = messageBelongsToUser(message, state.actorId);
+                        if (isCallEvent(message)) {
+                          final metadata = resolveCallMetadata(message);
+                          if (metadata == null) {
+                            return _SystemMessageBubble(
+                              sender: formatMessageSender(message),
+                              timestamp: formatMessageTimestamp(message),
+                              body: message.body ?? 'Call update',
+                            );
+                          }
+                          final active = isCallActive(metadata);
+                          return _CallMessageCard(
+                            message: message,
+                            metadata: metadata,
+                            isActive: active,
+                            joining: state.callLoading,
+                            activeCallId: state.callSession?.callId,
+                            onJoin: active ? () => onJoinCall(metadata) : null,
                           );
                         }
-                        final active = isCallActive(metadata);
-                        return _CallMessageCard(
+
+                        return _MessageBubble(
                           message: message,
-                          metadata: metadata,
-                          isActive: active,
-                          joining: state.callLoading,
-                          activeCallId: state.callSession?.callId,
-                          onJoin: active ? () => onJoinCall(metadata) : null,
+                          isOwn: isOwn,
                         );
                       }
 
-                      return _MessageBubble(
-                        message: message,
-                        isOwn: isOwn,
-                      );
+                      final offset = index - messages.length;
+                      if (hasTyping && offset == 0) {
+                        return _TypingIndicatorBar(participants: typingParticipants);
+                      }
+
+                      if (hasPending && ((hasTyping && offset == 1) || (!hasTyping && offset == 0))) {
+                        return _PendingMessageList(messages: pendingMessages);
+                      }
+
+                      return const SizedBox.shrink();
                     },
                   );
                 },
@@ -749,8 +792,8 @@ class _MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final background = isOwn ? theme.colorScheme.primary : theme.colorScheme.surfaceVariant;
-    final foreground = isOwn ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface;
+    final background = isOwn ? theme.colorScheme.primaryContainer : theme.colorScheme.surfaceVariant;
+    final foreground = isOwn ? theme.colorScheme.onPrimaryContainer : theme.colorScheme.onSurface;
 
     return Column(
       crossAxisAlignment: isOwn ? CrossAxisAlignment.end : CrossAxisAlignment.start,
@@ -767,9 +810,9 @@ class _MessageBubble extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                offset: const Offset(0, 8),
-                blurRadius: 16,
+                color: Colors.black.withOpacity(0.04),
+                offset: const Offset(0, 6),
+                blurRadius: 18,
               ),
             ],
           ),
@@ -917,6 +960,113 @@ class _CallMessageCard extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _TypingIndicatorBar extends StatelessWidget {
+  const _TypingIndicatorBar({required this.participants});
+
+  final List<TypingParticipant> participants;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final names = participants.map((participant) => participant.displayName).toSet().toList();
+    final copy = names.length == 1 ? '${names.first} is typing…' : '${names.join(', ')} are typing…';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.more_horiz, color: theme.colorScheme.primary),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              copy,
+              style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.primary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PendingMessageList extends StatelessWidget {
+  const _PendingMessageList({required this.messages});
+
+  final List<PendingMessage> messages;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.tertiaryContainer.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: theme.colorScheme.tertiary.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Queued messages',
+            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          ...messages.map((message) => _PendingMessageRow(message: message)),
+        ],
+      ),
+    );
+  }
+}
+
+class _PendingMessageRow extends StatelessWidget {
+  const _PendingMessageRow({required this.message});
+
+  final PendingMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final statusColor = message.hasError ? theme.colorScheme.error : theme.colorScheme.primary;
+    final statusLabel = message.hasError ? 'Retrying soon' : 'Waiting to send';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(message.hasError ? Icons.error_outline : Icons.schedule_send, color: statusColor, size: 18),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  message.body,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  statusLabel,
+                  style: theme.textTheme.labelSmall?.copyWith(color: statusColor),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            formatRelativeTime(message.createdAt),
+            style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+        ],
+      ),
     );
   }
 }
