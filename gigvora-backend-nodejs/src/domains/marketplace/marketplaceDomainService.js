@@ -15,9 +15,34 @@ function createLogger(logger) {
   return logger.child({ module: 'MarketplaceDomainService' });
 }
 
+const BRIEFING_STATUS_ALIASES = new Set(['briefing', 'planning', 'intake', 'kickoff']);
 const ACTIVE_STATUS_ALIASES = new Set(['active', 'execution', 'live', 'in_progress', 'delivery']);
 const COMPLETED_STATUS_ALIASES = new Set(['complete', 'completed', 'launch', 'closed', 'archived']);
-const BLOCKED_STATUS_ALIASES = new Set(['blocked', 'on_hold', 'paused']);
+const BLOCKED_STATUS_ALIASES = new Set(['blocked', 'on_hold', 'paused', 'at_risk']);
+
+function clamp(value, { min, max }) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+  return Math.max(min, Math.min(max, parsed));
+}
+
+function normaliseBillingStatus(value) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length ? trimmed.slice(0, 80) : null;
+}
+
+function parseDate(value) {
+  if (!value) {
+    return null;
+  }
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
 
 function normaliseStatusCandidate(value) {
   if (!value) {
@@ -49,6 +74,9 @@ export class MarketplaceDomainService {
     }
     if (ACTIVE_STATUS_ALIASES.has(normalized)) {
       return 'active';
+    }
+    if (BRIEFING_STATUS_ALIASES.has(normalized)) {
+      return 'briefing';
     }
     if (Array.isArray(fallbackStatuses) && fallbackStatuses.includes('briefing')) {
       return 'briefing';
@@ -105,16 +133,56 @@ export class MarketplaceDomainService {
     }
     const updates = {};
     if (typeof metrics.healthScore === 'number') {
-      updates.healthScore = Number(metrics.healthScore.toFixed(2));
+      const health = clamp(metrics.healthScore, { min: 0, max: 100 });
+      if (health != null) {
+        updates.healthScore = Number(health.toFixed(2));
+      }
     }
     if (typeof metrics.velocityScore === 'number') {
-      updates.velocityScore = Number(metrics.velocityScore.toFixed(2));
+      const velocity = clamp(metrics.velocityScore, { min: 0, max: 100 });
+      if (velocity != null) {
+        updates.velocityScore = Number(velocity.toFixed(2));
+      }
     }
     if (typeof metrics.progressPercent === 'number') {
-      updates.progressPercent = Math.max(0, Math.min(100, Number(metrics.progressPercent.toFixed(2))));
+      const progress = clamp(metrics.progressPercent, { min: 0, max: 100 });
+      if (progress != null) {
+        updates.progressPercent = Number(progress.toFixed(2));
+      }
     }
     if (typeof metrics.clientSatisfaction === 'number') {
-      updates.clientSatisfaction = Math.max(0, Math.min(5, Number(metrics.clientSatisfaction.toFixed(2))));
+      const satisfaction = clamp(metrics.clientSatisfaction, { min: 0, max: 5 });
+      if (satisfaction != null) {
+        updates.clientSatisfaction = Number(satisfaction.toFixed(2));
+      }
+    }
+    if (typeof metrics.automationCoverage === 'number') {
+      const automation = clamp(metrics.automationCoverage, { min: 0, max: 100 });
+      if (automation != null) {
+        updates.automationCoverage = Number(automation.toFixed(2));
+      }
+    }
+    if (typeof metrics.billingStatus === 'string') {
+      updates.billingStatus = normaliseBillingStatus(metrics.billingStatus);
+    }
+    if (typeof metrics.riskLevel === 'string') {
+      const allowedRiskLevels = this.ProjectWorkspace.rawAttributes.riskLevel?.values ?? [];
+      const normalizedRisk = normaliseStatusCandidate(metrics.riskLevel);
+      const matchedRisk = allowedRiskLevels.find(
+        (risk) => risk.toLowerCase() === normalizedRisk,
+      );
+      if (matchedRisk) {
+        updates.riskLevel = matchedRisk;
+      }
+    }
+    if (metrics.metricsSnapshot && typeof metrics.metricsSnapshot === 'object') {
+      updates.metricsSnapshot = metrics.metricsSnapshot;
+    }
+    if (metrics.lastActivityAt) {
+      const parsed = parseDate(metrics.lastActivityAt);
+      if (parsed) {
+        updates.lastActivityAt = parsed;
+      }
     }
     if (Object.keys(updates).length === 0) {
       return workspace;

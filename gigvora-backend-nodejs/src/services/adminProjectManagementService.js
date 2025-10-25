@@ -125,10 +125,19 @@ function sanitizeWorkspace(workspace) {
     status: workspace.status,
     progressPercent: toNumber(workspace.progressPercent, 0),
     riskLevel: workspace.riskLevel,
+    healthScore: workspace.healthScore == null ? null : toNumber(workspace.healthScore, null),
+    velocityScore: workspace.velocityScore == null ? null : toNumber(workspace.velocityScore, null),
+    clientSatisfaction:
+      workspace.clientSatisfaction == null ? null : toNumber(workspace.clientSatisfaction, null),
+    automationCoverage:
+      workspace.automationCoverage == null ? null : toNumber(workspace.automationCoverage, null),
+    billingStatus: workspace.billingStatus ?? null,
     nextMilestone: workspace.nextMilestone ?? null,
     nextMilestoneDueAt: workspace.nextMilestoneDueAt ?? null,
+    lastActivityAt: workspace.lastActivityAt ?? null,
+    updatedById: workspace.updatedById ?? null,
     notes: workspace.notes ?? null,
-    metrics: workspace.metrics ?? {},
+    metrics: workspace.metricsSnapshot ?? {},
     updatedAt: workspace.updatedAt,
     createdAt: workspace.createdAt,
   };

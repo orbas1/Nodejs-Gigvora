@@ -579,7 +579,7 @@ async function loadAutomationPayload(userId) {
         completedItems: readinessSummary.completed,
       },
       summary: {
-        upcoming: enrichedWorkspaces.filter((workspace) => ['planning', 'scheduled'].includes(workspace.status)).length,
+        upcoming: enrichedWorkspaces.filter((workspace) => ['briefing', 'active'].includes(workspace.status)).length,
         completed: enrichedWorkspaces.filter((workspace) => workspace.status === 'completed').length,
         averageScore: scorecardSummary.averageScore,
         recommendations: scorecardSummary.recommendations,

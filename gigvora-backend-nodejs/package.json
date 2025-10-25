@@ -12,6 +12,8 @@
     "search:sync": "node scripts/syncMeilisearch.js",
     "schemas:sync": "node scripts/syncDomainSchemas.js",
     "schemas:clients": "node scripts/generateDomainClients.js",
+    "schemas:ci": "node scripts/generateDomainClients.js && node scripts/assertContractVersion.js",
+    "schemas:version": "node scripts/bumpContractVersion.js",
     "config:validate": "node scripts/validateRuntimeConfig.js .env.example",
     "schema:export": "node scripts/generateSchemaArtifacts.js",
     "db:backup": "node scripts/databaseBackup.js backup",

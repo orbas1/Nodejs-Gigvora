@@ -19,6 +19,8 @@ const GIG_ORDER_ESCROW_STATUSES = Object.freeze(['pending', 'released', 'refunde
 
 export const PROJECT_STATUSES = Object.freeze(['planning', 'in_progress', 'at_risk', 'completed', 'on_hold']);
 export const PROJECT_RISK_LEVELS = Object.freeze(['low', 'medium', 'high']);
+export const WORKSPACE_STATUSES = Object.freeze(['briefing', 'active', 'blocked', 'completed']);
+export const WORKSPACE_RISK_LEVELS = Object.freeze(['low', 'medium', 'high']);
 export const PROJECT_COLLABORATOR_STATUSES = Object.freeze(['invited', 'active', 'inactive']);
 export const PROJECT_INTEGRATION_STATUSES = Object.freeze(['connected', 'disconnected', 'error']);
 export const GIG_ORDER_STATUSES = Object.freeze(['requirements', 'in_delivery', 'in_revision', 'completed', 'cancelled']);
@@ -101,13 +103,20 @@ export const Project = projectGigManagementSequelize.define(
 export const ProjectWorkspace = projectGigManagementSequelize.define(
   'PgmProjectWorkspace',
   {
-    status: { type: DataTypes.ENUM(...PROJECT_STATUSES), allowNull: false, defaultValue: 'planning' },
+    status: { type: DataTypes.ENUM(...WORKSPACE_STATUSES), allowNull: false, defaultValue: 'briefing' },
     progressPercent: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
-    riskLevel: { type: DataTypes.ENUM(...PROJECT_RISK_LEVELS), allowNull: false, defaultValue: 'low' },
+    riskLevel: { type: DataTypes.ENUM(...WORKSPACE_RISK_LEVELS), allowNull: false, defaultValue: 'low' },
+    healthScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    velocityScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    clientSatisfaction: { type: DataTypes.DECIMAL(3, 2), allowNull: true },
+    automationCoverage: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    billingStatus: { type: DataTypes.STRING(80), allowNull: true },
     nextMilestone: { type: DataTypes.STRING(180), allowNull: true },
     nextMilestoneDueAt: { type: DataTypes.DATE, allowNull: true },
+    lastActivityAt: { type: DataTypes.DATE, allowNull: true },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+    metricsSnapshot: { type: jsonType, allowNull: true },
     notes: { type: DataTypes.TEXT, allowNull: true },
-    metrics: { type: jsonType, allowNull: true },
   },
   { tableName: 'pgm_project_workspaces', underscored: true },
 );

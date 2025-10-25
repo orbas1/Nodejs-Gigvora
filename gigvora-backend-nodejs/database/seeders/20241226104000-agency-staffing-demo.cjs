@@ -37,6 +37,19 @@ const ensureAutoMatch = async (queryInterface, payload, transaction) => {
   return await queryInterface.rawSelect('pgm_project_automatch_freelancers', { where, transaction }, ['id']);
 };
 
+const ensureWorkspace = async (queryInterface, payload, transaction) => {
+  const where = { project_id: payload.project_id };
+  const existingId = await queryInterface.rawSelect('pgm_project_workspaces', { where, transaction }, ['id']);
+
+  if (existingId) {
+    await queryInterface.bulkUpdate('pgm_project_workspaces', payload, where, { transaction });
+    return existingId;
+  }
+
+  await queryInterface.bulkInsert('pgm_project_workspaces', [payload], { transaction });
+  return await queryInterface.rawSelect('pgm_project_workspaces', { where, transaction }, ['id']);
+};
+
 module.exports = {
   async up(queryInterface) {
     const transaction = await queryInterface.sequelize.transaction();
@@ -97,6 +110,35 @@ module.exports = {
         transaction,
       );
 
+      await ensureWorkspace(
+        queryInterface,
+        {
+          project_id: openProjectId,
+          status: 'active',
+          progress_percent: 42.5,
+          risk_level: 'medium',
+          health_score: 84.5,
+          velocity_score: 76.8,
+          client_satisfaction: 4.2,
+          automation_coverage: 68.4,
+          billing_status: 'on_track',
+          next_milestone: 'Regional launch playbooks published',
+          next_milestone_due_at: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 10),
+          last_activity_at: now,
+          updated_by_id: 1202,
+          notes: 'Automation rollout pacing reviewed weekly by program office.',
+          metrics_snapshot: JSON.stringify({
+            budget: { allocated: 24000, spent: 8200, forecast: 21800 },
+            automation: { enabledFlows: 8, backlog: 3 },
+            staffing: { confirmed: 4, openRoles: 1 },
+            quality: { nps: 53, qaFindings: 2 },
+          }),
+          created_at: now,
+          updated_at: now,
+        },
+        transaction,
+      );
+
       const closedProjectMetadata = {
         staffingAudit: [
           {
@@ -137,6 +179,35 @@ module.exports = {
           auto_match_reject_enabled: false,
           auto_match_skills: JSON.stringify(['design systems', 'ui libraries']),
           metadata: JSON.stringify(closedProjectMetadata),
+          created_at: now,
+          updated_at: now,
+        },
+        transaction,
+      );
+
+      await ensureWorkspace(
+        queryInterface,
+        {
+          project_id: closedProjectId,
+          status: 'completed',
+          progress_percent: 100,
+          risk_level: 'low',
+          health_score: 91.2,
+          velocity_score: 88.4,
+          client_satisfaction: 4.7,
+          automation_coverage: 72.1,
+          billing_status: 'closed',
+          next_milestone: 'Post-launch retrospective',
+          next_milestone_due_at: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7),
+          last_activity_at: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 10),
+          updated_by_id: 1310,
+          notes: 'Retrospective completed with stakeholder approvals archived.',
+          metrics_snapshot: JSON.stringify({
+            budget: { allocated: 18000, spent: 17950, forecast: 18000 },
+            automation: { enabledFlows: 5, backlog: 0 },
+            staffing: { confirmed: 5, openRoles: 0 },
+            quality: { nps: 64, qaFindings: 0 },
+          }),
           created_at: now,
           updated_at: now,
         },
@@ -220,6 +291,7 @@ module.exports = {
 
       if (projectIds.length) {
         const ids = projectIds.map((row) => row.id);
+        await queryInterface.bulkDelete('pgm_project_workspaces', { project_id: ids }, { transaction });
         await queryInterface.bulkDelete('pgm_project_automatch_freelancers', { project_id: ids }, { transaction });
         await queryInterface.bulkDelete('pgm_projects', { id: ids }, { transaction });
       }
