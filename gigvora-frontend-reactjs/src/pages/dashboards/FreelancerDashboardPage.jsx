@@ -22,6 +22,7 @@ import OverviewSection from './freelancer/sections/OverviewSection.jsx';
 import ProfileOverviewSection from './freelancer/sections/ProfileOverviewSection.jsx';
 import PlanningSection from './freelancer/sections/PlanningSection.jsx';
 import ProjectManagementSection from './freelancer/sections/project-management/ProjectManagementSection.jsx';
+import GigMarketplaceOperationsSection from './freelancer/sections/GigMarketplaceOperationsSection.jsx';
 import EscrowManagementSection from './freelancer/sections/EscrowManagementSection.jsx';
 import InboxSection from './freelancer/sections/InboxSection.jsx';
 import SupportSection from './freelancer/sections/SupportSection.jsx';
@@ -388,6 +389,10 @@ export default function FreelancerDashboardPage() {
               managementResource={projectResource}
               onProjectEvent={(eventName, payload) => trackDashboardEvent(eventName, payload)}
             />
+          </div>
+
+          <div data-freelancer-section="gig-marketplace" className="scroll-mt-28">
+            <GigMarketplaceOperationsSection freelancerId={freelancerId} />
           </div>
 
           <div data-freelancer-section="wallet" id="wallet" className="scroll-mt-28">
