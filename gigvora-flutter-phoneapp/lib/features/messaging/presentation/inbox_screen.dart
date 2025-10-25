@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
 import 'package:go_router/go_router.dart';
+import 'package:gigvora_mobile/router/app_routes.dart';
 
 import '../../../core/providers.dart';
 import '../../../theme/widgets.dart';
@@ -95,11 +96,13 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                     runSpacing: 12,
                     children: [
                       FilledButton(
-                        onPressed: () => context.go('/login'),
+                        onPressed: () =>
+                            context.go(AppRoute.login.path),
                         child: const Text('Sign in'),
                       ),
                       OutlinedButton(
-                        onPressed: () => context.go('/home'),
+                        onPressed: () =>
+                            context.go(AppRoute.home.path),
                         child: const Text('Return home'),
                       ),
                     ],
@@ -154,7 +157,8 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                     runSpacing: 12,
                     children: [
                       FilledButton(
-                        onPressed: () => context.go('/home'),
+                        onPressed: () =>
+                            context.go(AppRoute.home.path),
                         child: const Text('Return home'),
                       ),
                       OutlinedButton(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:gigvora_mobile/router/app_routes.dart';
 
 import '../../../theme/widgets.dart';
 import '../../auth/application/session_controller.dart';
@@ -547,11 +548,13 @@ class _GuestNotice extends StatelessWidget {
             spacing: 12,
             children: [
               FilledButton(
-                onPressed: () => GoRouter.of(context).go('/login'),
+                onPressed: () =>
+                    GoRouter.of(context).go(AppRoute.login.path),
                 child: const Text('Secure login'),
               ),
               FilledButton.tonal(
-                onPressed: () => GoRouter.of(context).go('/register'),
+                onPressed: () =>
+                    GoRouter.of(context).go(AppRoute.register.path),
                 child: const Text('Create account'),
               ),
             ],

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigvora_design_system/gigvora_design_system.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+import 'shared_preferences_provider.dart';
+import '../theme/app_theme_controller.dart';
 
 import '../features/auth/application/session_controller.dart';
 
@@ -20,10 +22,6 @@ final apiClientProvider = Provider<ApiClient>((ref) {
 
 final analyticsServiceProvider = Provider<AnalyticsService>((ref) {
   return ServiceLocator.read<AnalyticsService>();
-});
-
-final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
-  throw UnimplementedError('SharedPreferences instance has not been provided');
 });
 
 final analyticsBootstrapProvider = FutureProvider<void>((ref) async {
@@ -89,18 +87,17 @@ final membershipHeadersProvider = Provider<Map<String, String>?>((ref) {
   return headers;
 });
 
-final designTokenLoaderProvider = Provider<GigvoraThemeLoader>((ref) {
-  return GigvoraThemeLoader();
+final appThemeStateProvider = FutureProvider<AppThemeState>((ref) async {
+  return ref.watch(appThemeControllerProvider.future);
 });
 
 final designTokensProvider = FutureProvider<DesignTokens>((ref) async {
-  final loader = ref.watch(designTokenLoaderProvider);
-  final theme = await loader.loadBlue();
-  return theme.tokens;
+  final state = await ref.watch(appThemeStateProvider.future);
+  return state.tokens;
 });
 
 final appThemeProvider = FutureProvider<ThemeData>((ref) async {
-  final loader = ref.watch(designTokenLoaderProvider);
-  return loader.loadBlueThemeData();
+  final state = await ref.watch(appThemeStateProvider.future);
+  return state.resolveActiveTheme();
 });
 

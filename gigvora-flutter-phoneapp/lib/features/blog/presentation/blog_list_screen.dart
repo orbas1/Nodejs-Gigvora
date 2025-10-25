@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:gigvora_mobile/router/app_routes.dart';
 
 import '../data/blog_repository.dart';
 import '../domain/blog_post.dart';
@@ -59,7 +60,8 @@ class _BlogListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(24),
-      onTap: () => GoRouter.of(context).go('/blog/${post.slug}'),
+      onTap: () => GoRouter.of(context)
+          .go(AppRoute.blogDetail.location(pathParameters: {'slug': post.slug})),
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),

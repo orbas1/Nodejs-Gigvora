@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:gigvora_mobile/router/app_routes.dart';
 
 import 'package:gigvora_foundation/gigvora_foundation.dart';
 import 'package:gigvora_mobile/core/localization/gigvora_localizations.dart';
@@ -56,7 +57,8 @@ class HomeScreen extends ConsumerWidget {
                 SizedBox(
                   width: 280,
                   child: ElevatedButton.icon(
-                    onPressed: () => GoRouter.of(context).go('/login'),
+                    onPressed: () =>
+                        GoRouter.of(context).go(AppRoute.login.path),
                     icon: const Icon(Icons.lock_open),
                     label: Text(l10n.translate('home.guestLogin')),
                   ),
@@ -64,7 +66,8 @@ class HomeScreen extends ConsumerWidget {
                 SizedBox(
                   width: 280,
                   child: OutlinedButton.icon(
-                    onPressed: () => GoRouter.of(context).go('/signup'),
+                    onPressed: () =>
+                        GoRouter.of(context).go(AppRoute.signup.path),
                     icon: const Icon(Icons.person_add_alt),
                     label: Text(l10n.translate('home.guestRegister')),
                   ),
@@ -334,7 +337,7 @@ class HomeScreen extends ConsumerWidget {
           tooltip: 'Log out',
           onPressed: () {
             controller.logout();
-            GoRouter.of(context).go('/login');
+            GoRouter.of(context).go(AppRoute.login.path);
           },
           icon: const Icon(Icons.logout_outlined),
         ),
@@ -367,7 +370,8 @@ class HomeScreen extends ConsumerWidget {
             _FeedPreviewCard(
               state: feedState,
               posts: feedPreview,
-              onOpenTimeline: () => GoRouter.of(context).go('/feed'),
+              onOpenTimeline: () =>
+                  GoRouter.of(context).go(AppRoute.feed.path),
               onRefresh: () => feedController.refresh(),
               onReact: reactToPost,
               onComment: commentOnFeedPost,
@@ -379,7 +383,9 @@ class HomeScreen extends ConsumerWidget {
             const UserConsentCard(),
             if (FinanceAccessPolicy.hasAccess(session)) ...[
               const SizedBox(height: 24),
-              _FinanceCallout(onTap: () => GoRouter.of(context).go('/finance')),
+              _FinanceCallout(
+                onTap: () => GoRouter.of(context).go(AppRoute.finance.path),
+              ),
             ],
             const SizedBox(height: 24),
             ...activeDashboard.sections
@@ -406,7 +412,8 @@ class HomeScreen extends ConsumerWidget {
             _NetworkHighlightsCard(
               state: connectionsState,
               onRefresh: () => connectionsController.refresh(),
-              onOpenNetwork: () => GoRouter.of(context).go('/connections'),
+              onOpenNetwork: () =>
+                  GoRouter.of(context).go(AppRoute.connections.path),
               onRequestIntroduction: requestIntroduction,
             ),
             const SizedBox(height: 16),
@@ -1572,7 +1579,8 @@ class _NetworkSuggestionTileState extends State<_NetworkSuggestionTile> {
                 ),
               if (widget.node.actions.canMessage)
                 OutlinedButton.icon(
-                  onPressed: () => GoRouter.of(context).go('/inbox'),
+                  onPressed: () =>
+                      GoRouter.of(context).go(AppRoute.inbox.path),
                   icon: const Icon(Icons.chat_outlined),
                   label: const Text('Message'),
                 ),
@@ -1607,7 +1615,7 @@ class _SupportAndInfoCard extends StatelessWidget {
             title: 'Support centre',
             description: 'Escalate tickets, browse knowledge base articles, and manage SLAs.',
             actionLabel: 'Open support',
-            onTap: () => router.go('/support'),
+            onTap: () => router.go(AppRoute.support.path),
           ),
           const Divider(height: 28),
           _SupportTile(
@@ -1615,7 +1623,7 @@ class _SupportAndInfoCard extends StatelessWidget {
             title: 'About Gigvora',
             description: 'Meet the team, explore our mission, and review partnership milestones.',
             actionLabel: 'Explore story',
-            onTap: () => router.go('/about'),
+            onTap: () => router.go(AppRoute.about.path),
           ),
           const Divider(height: 28),
           _SupportTile(
@@ -1623,7 +1631,7 @@ class _SupportAndInfoCard extends StatelessWidget {
             title: 'Privacy & compliance',
             description: 'Manage consent, monitor request history, and download compliance docs.',
             actionLabel: 'Privacy hub',
-            onTap: () => router.go('/privacy'),
+            onTap: () => router.go(AppRoute.privacy.path),
           ),
         ],
       ),
@@ -1889,7 +1897,8 @@ class _AdminAdsCallout extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           FilledButton.icon(
-            onPressed: () => GoRouter.of(context).go('/admin/ads'),
+            onPressed: () =>
+                GoRouter.of(context).go(AppRoute.adsDashboard.path),
             icon: const Icon(Icons.campaign_outlined),
             label: const Text('Open console'),
           ),

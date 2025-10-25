@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:gigvora_mobile/router/app_routes.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
 import 'package:intl/intl.dart';
 
@@ -83,7 +84,7 @@ class _LoginRequiredView extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               FilledButton(
-                onPressed: () => context.go('/login'),
+                onPressed: () => context.go(AppRoute.login.path),
                 child: const Text('Go to login'),
               ),
             ],
@@ -132,11 +133,11 @@ class _AccessDeniedView extends StatelessWidget {
                   runSpacing: 12,
                   children: [
                     FilledButton(
-                      onPressed: () => context.go('/home'),
+                      onPressed: () => context.go(AppRoute.home.path),
                       child: const Text('Back to home'),
                     ),
                     OutlinedButton(
-                      onPressed: () => context.go('/settings'),
+                      onPressed: () => context.go(AppRoute.settings.path),
                       child: const Text('Manage account access'),
                     ),
                   ],

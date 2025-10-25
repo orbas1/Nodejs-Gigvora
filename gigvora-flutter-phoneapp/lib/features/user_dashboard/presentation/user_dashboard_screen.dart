@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:gigvora_mobile/router/app_routes.dart';
 import 'package:intl/intl.dart';
 
 import '../../auth/application/session_controller.dart';
@@ -82,7 +83,7 @@ class _LoginRequiredView extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               FilledButton(
-                onPressed: () => context.go('/login'),
+                onPressed: () => context.go(AppRoute.login.path),
                 child: const Text('Go to login'),
               ),
             ],
@@ -125,11 +126,11 @@ class _AccessDeniedView extends StatelessWidget {
                   runSpacing: 12,
                   children: [
                     FilledButton(
-                      onPressed: () => context.go('/home'),
+                      onPressed: () => context.go(AppRoute.home.path),
                       child: const Text('Back to home'),
                     ),
                     OutlinedButton(
-                      onPressed: () => context.go('/settings'),
+                      onPressed: () => context.go(AppRoute.settings.path),
                       child: const Text('Manage account access'),
                     ),
                   ],
@@ -697,7 +698,8 @@ class _DocumentStudioCard extends StatelessWidget {
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
-              onPressed: () => context.go('/dashboard/user/cv-workspace'),
+              onPressed: () =>
+                  context.go(AppRoute.cvWorkspace.path),
               icon: const Icon(Icons.launch),
               label: const Text('Open CV workspace'),
             ),

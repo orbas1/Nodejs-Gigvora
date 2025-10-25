@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:gigvora_mobile/router/app_routes.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
 
 import '../../../core/providers.dart';
@@ -234,7 +235,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
       const SnackBar(content: Text('Security checks cleared. Welcome back.')),
     );
 
-    GoRouter.of(context).go('/operations');
+    GoRouter.of(context).go(AppRoute.serviceOperations.path);
   }
 
   RoleDashboard _buildAdminDashboard(String adminName) {

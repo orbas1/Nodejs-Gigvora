@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:gigvora_mobile/router/app_routes.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
 import 'package:intl/intl.dart';
 
@@ -42,7 +43,8 @@ class ProjectAutoMatchScreen extends ConsumerWidget {
                 const Text('Navigate from a project to manage auto-match queues.'),
                 const SizedBox(height: 16),
                 FilledButton(
-                  onPressed: () => GoRouter.of(context).go('/projects'),
+                  onPressed: () =>
+                      GoRouter.of(context).go(AppRoute.projects.path),
                   child: const Text('Browse projects'),
                 ),
               ],
@@ -82,7 +84,8 @@ class ProjectAutoMatchScreen extends ConsumerWidget {
                 description:
                     'Use an authenticated operations role to view and regenerate auto-match queues.',
                 actionLabel: 'Sign in',
-                onPressed: () => GoRouter.of(context).go('/login'),
+                onPressed: () =>
+                    GoRouter.of(context).go(AppRoute.login.path),
                 tone: _AccessTone.sky,
               )
             else if (!canAdminister)
@@ -93,7 +96,8 @@ class ProjectAutoMatchScreen extends ConsumerWidget {
                     'Auto-match orchestration is limited to company, agency, or admin contexts. '
                     'Switch your active membership from settings to continue.',
                 actionLabel: 'Manage memberships',
-                onPressed: () => GoRouter.of(context).go('/settings'),
+                onPressed: () =>
+                    GoRouter.of(context).go(AppRoute.settings.path),
                 badge: session?.activeMembership != null
                     ? 'Active role: ${session!.roleLabel(session.activeMembership)}'
                     : null,

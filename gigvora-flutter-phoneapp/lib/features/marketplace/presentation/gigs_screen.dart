@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:gigvora_mobile/router/app_routes.dart';
 
 import '../../auth/application/session_controller.dart';
 import '../../../theme/widgets.dart';
@@ -31,12 +32,14 @@ class GigsScreen extends ConsumerWidget {
               runSpacing: 12,
               children: [
                 ElevatedButton.icon(
-                  onPressed: () => GoRouter.of(context).go('/login'),
+                  onPressed: () =>
+                      GoRouter.of(context).go(AppRoute.login.path),
                   icon: const Icon(Icons.lock_open),
                   label: const Text('Sign in'),
                 ),
                 OutlinedButton.icon(
-                  onPressed: () => GoRouter.of(context).go('/signup'),
+                  onPressed: () =>
+                      GoRouter.of(context).go(AppRoute.signup.path),
                   icon: const Icon(Icons.person_add_alt_1),
                   label: const Text('Create freelancer profile'),
                 ),
@@ -67,12 +70,14 @@ class GigsScreen extends ConsumerWidget {
               runSpacing: 12,
               children: [
                 OutlinedButton.icon(
-                  onPressed: () => GoRouter.of(context).go('/home'),
+                  onPressed: () =>
+                      GoRouter.of(context).go(AppRoute.home.path),
                   icon: const Icon(Icons.manage_accounts_outlined),
                   label: const Text('Manage memberships'),
                 ),
                 ElevatedButton.icon(
-                  onPressed: () => GoRouter.of(context).go('/signup'),
+                  onPressed: () =>
+                      GoRouter.of(context).go(AppRoute.signup.path),
                   icon: const Icon(Icons.verified_user_outlined),
                   label: const Text('Request freelancer access'),
                 ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:gigvora_mobile/router/app_routes.dart';
 
 import '../../../theme/widgets.dart';
 import '../../auth/application/session_controller.dart';
@@ -218,7 +219,8 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
               ),
               const SizedBox(height: 16),
               FilledButton(
-                onPressed: () => GoRouter.of(context).go('/login'),
+                onPressed: () =>
+                    GoRouter.of(context).go(AppRoute.login.path),
                 child: const Text('Sign in'),
               ),
             ],
@@ -254,7 +256,8 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen> {
               ),
               const SizedBox(height: 16),
               OutlinedButton(
-                onPressed: () => GoRouter.of(context).go('/home'),
+                onPressed: () =>
+                    GoRouter.of(context).go(AppRoute.home.path),
                 child: const Text('Return home'),
               ),
             ],

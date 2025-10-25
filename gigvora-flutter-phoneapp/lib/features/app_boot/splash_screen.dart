@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/providers.dart';
+import '../../router/app_routes.dart';
 import '../auth/application/session_controller.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -67,7 +68,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with TickerProvider
     if (_bootstrapped && !_navigated) {
       Future.microtask(() {
         if (!_navigated && mounted) {
-          _navigate(isAuthenticated ? '/home' : '/login');
+          _navigate(
+            isAuthenticated ? AppRoute.home.path : AppRoute.login.path,
+          );
         }
       });
     }
@@ -120,7 +123,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with TickerProvider
                     ],
                   ),
                   FilledButton.tonalIcon(
-                    onPressed: () => _navigate(isAuthenticated ? '/home' : '/login'),
+                    onPressed: () => _navigate(
+                      isAuthenticated
+                          ? AppRoute.home.path
+                          : AppRoute.login.path,
+                    ),
                     icon: const Icon(Icons.support_agent),
                     label: const Text('Contact support'),
                   ),
@@ -153,12 +160,19 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with TickerProvider
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           FilledButton(
-                            onPressed: () => _navigate(isAuthenticated ? '/home' : '/login'),
-                            child: Text(isAuthenticated ? 'Enter workspace' : 'Sign in'),
+                            onPressed: () => _navigate(
+                              isAuthenticated
+                                  ? AppRoute.home.path
+                                  : AppRoute.login.path,
+                            ),
+                            child: Text(
+                              isAuthenticated ? 'Enter workspace' : 'Sign in',
+                            ),
                           ),
                           const SizedBox(height: 12),
                           OutlinedButton(
-                            onPressed: () => _navigate('/explorer'),
+                            onPressed: () =>
+                                _navigate(AppRoute.explorer.path),
                             child: const Text('Explore gigs'),
                           ),
                         ],
