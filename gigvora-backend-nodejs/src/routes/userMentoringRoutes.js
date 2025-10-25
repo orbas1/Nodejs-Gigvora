@@ -10,6 +10,7 @@ import {
   addFavouriteMentor,
   removeFavouriteMentor,
   submitMentorReview,
+  refreshMentorRecommendations,
 } from '../controllers/userMentoringController.js';
 
 const router = Router({ mergeParams: true });
@@ -61,6 +62,12 @@ router.post(
   '/reviews',
   authenticate({ roles: PERMITTED_ROLES, matchParam: 'userId' }),
   asyncHandler(submitMentorReview),
+);
+
+router.post(
+  '/recommendations/refresh',
+  authenticate({ roles: PERMITTED_ROLES, matchParam: 'userId' }),
+  asyncHandler(refreshMentorRecommendations),
 );
 
 export default router;

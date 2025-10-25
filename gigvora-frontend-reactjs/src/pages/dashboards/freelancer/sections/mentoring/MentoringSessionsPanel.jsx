@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
+import { formatMentorName, formatMentorContactLine } from '../../../../../utils/mentoring.js';
 
 const FILTERS = [
   { id: 'upcoming', label: 'Upcoming', predicate: (session) => session.status === 'scheduled' },
@@ -41,17 +42,18 @@ function formatCurrency(value, currency = 'USD') {
   }
 }
 
-function SessionRow({ session, mentorLabel, onEdit, onOpenMentor }) {
+function SessionRow({ session, mentorId, mentorName, mentorSubtitle, onEdit, onOpenMentor }) {
   return (
     <tr className="border-b border-slate-100 last:border-0">
       <td className="px-4 py-3 text-sm font-semibold text-slate-900">
         <button
           type="button"
-          onClick={() => onOpenMentor(session)}
+          onClick={() => onOpenMentor(mentorId)}
           className="text-left transition hover:text-blue-700"
         >
-          {mentorLabel}
+          {mentorName}
         </button>
+        {mentorSubtitle ? <p className="text-xs text-slate-500">{mentorSubtitle}</p> : null}
       </td>
       <td className="px-4 py-3 text-sm text-slate-600">{session.topic}</td>
       <td className="px-4 py-3 text-sm text-slate-600">{formatDateTime(session.scheduledAt)}</td>
@@ -74,7 +76,9 @@ function SessionRow({ session, mentorLabel, onEdit, onOpenMentor }) {
 
 SessionRow.propTypes = {
   session: PropTypes.object.isRequired,
-  mentorLabel: PropTypes.string.isRequired,
+  mentorId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  mentorName: PropTypes.string.isRequired,
+  mentorSubtitle: PropTypes.string,
   onEdit: PropTypes.func.isRequired,
   onOpenMentor: PropTypes.func.isRequired,
 };
@@ -224,7 +228,14 @@ SessionEditRow.propTypes = {
   pending: PropTypes.bool,
 };
 
-export default function MentoringSessionsPanel({ sessions, mentorLookup, onUpdate, pending }) {
+export default function MentoringSessionsPanel({
+  sessions,
+  mentorLookup,
+  onUpdate,
+  pending,
+  loading,
+  onOpenMentor,
+}) {
   const [activeFilter, setActiveFilter] = useState('upcoming');
   const [editingId, setEditingId] = useState(null);
 
@@ -239,12 +250,57 @@ export default function MentoringSessionsPanel({ sessions, mentorLookup, onUpdat
 
   const handleCancelEdit = () => setEditingId(null);
 
-  const handleOpenMentor = (session) => {
-    const mentorId = session.mentorId || session.mentor?.id;
-    const target = mentorId ? `/mentors?mentorId=${mentorId}` : '/mentors';
-    if (typeof window !== 'undefined' && typeof window.open === 'function') {
-      window.open(target, '_blank', 'noopener');
+  const renderRows = () => {
+    if (!filteredSessions.length) {
+      if (loading) {
+        return (
+          <tr>
+            <td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-500">
+              Refreshing mentoring sessions…
+            </td>
+          </tr>
+        );
+      }
+      return (
+        <tr>
+          <td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-500">
+            No sessions in this view yet. Create a session or adjust the filter.
+          </td>
+        </tr>
+      );
     }
+
+    return filteredSessions.map((session) => {
+      const mentorRecord = mentorLookup?.get(session.mentorId);
+      const fallbackMentor = session.mentor ?? null;
+      const mentorId = session.mentorId ?? mentorRecord?.id ?? fallbackMentor?.id ?? null;
+      const mentorName = formatMentorName(mentorRecord ?? fallbackMentor ?? { id: mentorId });
+      const mentorSubtitle = formatMentorContactLine(mentorRecord ?? fallbackMentor ?? null);
+
+      if (editingId === session.id) {
+        return (
+          <SessionEditRow
+            key={session.id}
+            session={session}
+            onCancel={handleCancelEdit}
+            onSave={(updates) => onUpdate(session.id, updates).then(() => setEditingId(null))}
+            pending={pending}
+          />
+        );
+      }
+
+      return (
+        <SessionRow
+          key={session.id}
+          session={session}
+          mentorId={mentorId}
+          mentorName={mentorName}
+          mentorSubtitle={mentorSubtitle === 'No contact set' ? null : mentorSubtitle}
+          onEdit={handleEdit}
+          onOpenMentor={onOpenMentor}
+        />
+      );
+    });
   };
 
   return (
@@ -254,26 +310,33 @@ export default function MentoringSessionsPanel({ sessions, mentorLookup, onUpdat
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Sessions</p>
           <h3 className="text-lg font-semibold text-slate-900">Mentoring sessions booked</h3>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {FILTERS.map((filter) => (
-            <button
-              key={filter.id}
-              type="button"
-              onClick={() => setActiveFilter(filter.id)}
-              className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                activeFilter === filter.id
-                  ? 'bg-slate-900 text-white'
-                  : 'border border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-700'
-              }`}
-            >
-              {filter.label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap gap-2">
+            {FILTERS.map((filter) => (
+              <button
+                key={filter.id}
+                type="button"
+                onClick={() => setActiveFilter(filter.id)}
+                className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                  activeFilter === filter.id
+                    ? 'bg-slate-900 text-white'
+                    : 'border border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-700'
+                }`}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+          {loading ? (
+            <span className="flex items-center gap-1 text-xs text-slate-500">
+              <span className="h-2 w-2 animate-ping rounded-full bg-blue-500" aria-hidden /> Refreshing
+            </span>
+          ) : null}
         </div>
       </div>
 
       <div className="mt-6 overflow-x-auto">
-        <table className="min-w-full divide-y divide-slate-100 text-left">
+        <table className="min-w-full divide-y divide-slate-100 text-left" aria-busy={loading}>
           <thead>
             <tr className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
               <th className="px-4 py-2">Mentor</th>
@@ -284,45 +347,12 @@ export default function MentoringSessionsPanel({ sessions, mentorLookup, onUpdat
               <th className="px-4 py-2 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
-            {filteredSessions.length ? (
-              filteredSessions.map((session) => {
-                const mentor = mentorLookup?.get(session.mentorId);
-                const mentorLabel = mentor?.name || session.mentor?.name || 'Mentor';
-                if (editingId === session.id) {
-                  return (
-                    <SessionEditRow
-                      key={session.id}
-                      session={session}
-                      onCancel={handleCancelEdit}
-                      onSave={(updates) => onUpdate(session.id, updates).then(() => setEditingId(null))}
-                      pending={pending}
-                    />
-                  );
-                }
-                return (
-                  <SessionRow
-                    key={session.id}
-                    session={session}
-                    mentorLabel={mentorLabel}
-                    onEdit={handleEdit}
-                    onOpenMentor={handleOpenMentor}
-                  />
-                );
-              })
-            ) : (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-500">
-                  No sessions in this view yet. Create a session or adjust the filter.
-                </td>
-              </tr>
-            )}
-          </tbody>
+          <tbody className="divide-y divide-slate-100">{renderRows()}</tbody>
         </table>
       </div>
 
       <p className="mt-4 text-xs text-slate-500">
-        Tip: clicking a mentor opens the mentor marketplace profile in a new tab for deeper context.
+        Tip: click a mentor to open the preview modal and review contact details before your next session.
       </p>
     </div>
   );
@@ -333,4 +363,6 @@ MentoringSessionsPanel.propTypes = {
   mentorLookup: PropTypes.instanceOf(Map),
   onUpdate: PropTypes.func.isRequired,
   pending: PropTypes.bool,
+  loading: PropTypes.bool,
+  onOpenMentor: PropTypes.func.isRequired,
 };

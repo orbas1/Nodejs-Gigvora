@@ -7,7 +7,9 @@ import {
   updateMentorshipPurchase,
   addFavouriteMentor,
   removeFavouriteMentor,
+  refreshMentorRecommendations,
 } from '../services/userMentoring.js';
+import { buildMentorLookupFromWorkspace } from '../utils/mentoring.js';
 
 function normaliseUserId(userId) {
   if (!userId) return null;
@@ -15,40 +17,31 @@ function normaliseUserId(userId) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-function buildMentorLookup(data) {
-  const lookup = new Map();
-  if (!data) {
-    return lookup;
+function buildWorkspaceError(error, { fallback }) {
+  const status =
+    typeof error?.status === 'number'
+      ? error.status
+      : typeof error?.response?.status === 'number'
+      ? error.response.status
+      : null;
+
+  if (status === 403) {
+    return new Error('You do not have access to this mentoring workspace. Confirm your membership or contact support.');
   }
 
-  const sourceLists = [
-    data.favourites ?? [],
-    data.suggestions ?? [],
-    data.sessions?.all ?? [],
-    data.purchases?.orders ?? [],
-  ];
+  if (status === 404) {
+    return new Error('We could not find your mentoring workspace. Refresh the page or contact support if the issue persists.');
+  }
 
-  sourceLists.forEach((list) => {
-    list.forEach((entry) => {
-      const mentor = entry.mentor ?? entry;
-      if (!mentor) return;
-      const id = mentor.id ?? entry.mentorId ?? null;
-      if (!id) return;
-      if (!lookup.has(id)) {
-        lookup.set(id, {
-          id,
-          name:
-            mentor.name ||
-            [mentor.firstName, mentor.lastName].filter(Boolean).join(' ').trim() ||
-            entry.mentorName ||
-            'Mentor',
-          email: mentor.email ?? entry.mentorEmail ?? null,
-        });
-      }
-    });
-  });
+  if (status && status >= 500) {
+    return new Error('Mentoring services are temporarily unavailable. Please try again in a few minutes.');
+  }
 
-  return lookup;
+  if (error instanceof Error && error.message) {
+    return error;
+  }
+
+  return new Error(fallback);
 }
 
 export default function useFreelancerMentoring({ userId, enabled = true, fetchOnMount = true } = {}) {
@@ -80,7 +73,10 @@ export default function useFreelancerMentoring({ userId, enabled = true, fetchOn
         if (controller.signal.aborted) {
           return null;
         }
-        setState({ data: null, loading: false, error: error instanceof Error ? error : new Error('Unable to load mentoring data.') });
+        const friendlyError = buildWorkspaceError(error, {
+          fallback: 'We could not reach your mentoring workspace. Please retry in a moment.',
+        });
+        setState((previous) => ({ data: previous.data, loading: false, error: friendlyError }));
         return null;
       }
     },
@@ -107,6 +103,10 @@ export default function useFreelancerMentoring({ userId, enabled = true, fetchOn
           await refresh({ fresh: true });
         }
         return result;
+      } catch (error) {
+        throw buildWorkspaceError(error, {
+          fallback: 'We were unable to complete that mentoring action. Please try again shortly.',
+        });
       } finally {
         setPending(false);
       }
@@ -144,8 +144,13 @@ export default function useFreelancerMentoring({ userId, enabled = true, fetchOn
     [runMutation],
   );
 
+  const handleRefreshRecommendations = useCallback(
+    () => runMutation((id) => refreshMentorRecommendations(id), { refreshAfter: true }),
+    [runMutation],
+  );
+
   const summary = state.data?.summary ?? null;
-  const mentorLookup = useMemo(() => buildMentorLookup(state.data), [state.data]);
+  const mentorLookup = useMemo(() => buildMentorLookupFromWorkspace(state.data), [state.data]);
 
   return {
     data: state.data,
@@ -161,5 +166,6 @@ export default function useFreelancerMentoring({ userId, enabled = true, fetchOn
     updatePurchase: handleUpdatePurchase,
     addFavourite: handleAddFavourite,
     removeFavourite: handleRemoveFavourite,
+    refreshRecommendations: handleRefreshRecommendations,
   };
 }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
+import { formatMentorName, formatMentorContactLine } from '../../../../../utils/mentoring.js';
 
 const DEFAULT_FORM = {
   mentorId: '',
@@ -28,20 +29,20 @@ const MEETING_TYPES = [
   { value: 'phone', label: 'Phone' },
 ];
 
-function buildMentorOptions(mentorLookup) {
-  if (!mentorLookup) return [];
-  return Array.from(mentorLookup.values()).map((mentor) => ({
-    value: mentor.id,
-    label: mentor.name,
-    email: mentor.email ?? null,
-  }));
-}
-
 export default function MentoringSessionForm({ mentorLookup, onSubmit, submitting, prefillMentorId }) {
   const [form, setForm] = useState(DEFAULT_FORM);
   const [error, setError] = useState(null);
 
-  const mentorOptions = useMemo(() => buildMentorOptions(mentorLookup), [mentorLookup]);
+  const mentorOptions = useMemo(() => {
+    if (!mentorLookup?.size) {
+      return [];
+    }
+    return Array.from(mentorLookup.values()).map((mentor) => ({
+      value: mentor.id,
+      label: formatMentorName(mentor),
+      contact: formatMentorContactLine(mentor),
+    }));
+  }, [mentorLookup]);
 
   useEffect(() => {
     if (!prefillMentorId) {
@@ -103,7 +104,8 @@ export default function MentoringSessionForm({ mentorLookup, onSubmit, submittin
             <option value="">Select mentor</option>
             {mentorOptions.map((option) => (
               <option key={option.value} value={option.value}>
-                {option.label} {option.email ? `(${option.email})` : ''}
+                {option.label}
+                {option.contact ? ` (${option.contact})` : ''}
               </option>
             ))}
           </select>
