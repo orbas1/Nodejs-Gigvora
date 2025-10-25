@@ -15,6 +15,14 @@ import {
 import { NotFoundError, ValidationError } from '../utils/errors.js';
 import { fetchAvailabilityForIntegration } from './calendarIntegrationGateway.js';
 import baseLogger from '../utils/logger.js';
+import {
+  RECURRENCE_FREQUENCIES,
+  WEEKDAY_ALIASES,
+  DEFAULT_OVERVIEW_MONTH_WINDOW,
+  normaliseFrequency,
+  normaliseWeekdays,
+  summariseRecurrence,
+} from '../constants/calendarRecurrence.js';
 
 const DEFAULT_SETTINGS = Object.freeze({
   timezone: 'UTC',
@@ -29,16 +37,43 @@ const DEFAULT_SETTINGS = Object.freeze({
   metadata: null,
 });
 
-const RECURRENCE_FREQUENCIES = new Set(['DAILY', 'WEEKLY', 'MONTHLY']);
-const WEEKDAY_ALIASES = Object.freeze({
-  SU: 0,
-  MO: 1,
-  TU: 2,
-  WE: 3,
-  TH: 4,
-  FR: 5,
-  SA: 6,
-});
+function pruneRecurrenceCache() {
+  if (recurrenceCache.size <= RECURRENCE_CACHE_MAX_ENTRIES) {
+    return;
+  }
+  const keys = Array.from(recurrenceCache.keys());
+  const excess = keys.length - RECURRENCE_CACHE_MAX_ENTRIES;
+  for (let index = 0; index < excess; index += 1) {
+    recurrenceCache.delete(keys[index]);
+  }
+}
+
+function getRecurrenceCacheKey(event, window) {
+  const id = event.id ?? event.threadId ?? event.title ?? 'anonymous';
+  const updatedAt = event.updatedAt ?? event.startsAt ?? '';
+  const rule = event.recurrence?.rule ?? event.recurrenceRule ?? '';
+  const windowStart = window?.windowStart ? new Date(window.windowStart).toISOString() : '';
+  const windowEnd = window?.windowEnd ? new Date(window.windowEnd).toISOString() : '';
+  return `${id}:${updatedAt}:${rule}:${windowStart}:${windowEnd}`;
+}
+
+function withRecurrenceCache(event, window, builder) {
+  const key = getRecurrenceCacheKey(event, window);
+  const entry = recurrenceCache.get(key);
+  const now = Date.now();
+  if (entry && entry.expiresAt > now) {
+    return entry.value;
+  }
+  const value = builder();
+  recurrenceCache.set(key, { value, expiresAt: now + RECURRENCE_CACHE_TTL_MS });
+  pruneRecurrenceCache();
+  return value;
+}
+
+const RECURRENCE_CACHE_TTL_MS = 5 * 60 * 1_000;
+const RECURRENCE_CACHE_MAX_ENTRIES = 500;
+const recurrenceCache = new Map();
+const RECURRENCE_FREQUENCY_SET = new Set(RECURRENCE_FREQUENCIES);
 
 function normalizeColorHex(value) {
   if (!value) {
@@ -70,10 +105,7 @@ function normalizeRecurrencePayload(recurrence) {
   }
 
   const frequencyRaw = recurrence.frequency ?? recurrence.freq;
-  const normalizedFrequency = typeof frequencyRaw === 'string' ? frequencyRaw.trim().toUpperCase() : null;
-  if (!normalizedFrequency || !RECURRENCE_FREQUENCIES.has(normalizedFrequency)) {
-    throw new ValidationError('recurrence.frequency must be daily, weekly, or monthly.');
-  }
+  const normalizedFrequency = normaliseFrequency(frequencyRaw);
 
   const parts = [`FREQ=${normalizedFrequency}`];
 
@@ -99,16 +131,8 @@ function normalizeRecurrencePayload(recurrence) {
   }
 
   const byWeekdayRaw = Array.isArray(recurrence.byWeekday) ? recurrence.byWeekday : recurrence.byDay;
-  if (byWeekdayRaw && !Array.isArray(byWeekdayRaw)) {
-    throw new ValidationError('recurrence.byWeekday must be an array when provided.');
-  }
-  if (Array.isArray(byWeekdayRaw) && byWeekdayRaw.length > 0) {
-    const normalizedDays = byWeekdayRaw
-      .map((value) => (typeof value === 'string' ? value.trim().slice(0, 2).toUpperCase() : null))
-      .filter((value) => value && WEEKDAY_ALIASES[value] !== undefined);
-    if (!normalizedDays.length) {
-      throw new ValidationError('recurrence.byWeekday must include valid weekday abbreviations.');
-    }
+  const normalizedDays = normaliseWeekdays(byWeekdayRaw);
+  if (normalizedDays.length > 0) {
     parts.push(`BYDAY=${normalizedDays.join(',')}`);
   }
 
@@ -121,6 +145,7 @@ function normalizeRecurrencePayload(recurrence) {
     rule: parts.join(';'),
     until: untilDate,
     count,
+    summary: summariseRecurrence({ rule: parts.join(';'), count, until: untilDate }),
   };
 }
 
@@ -286,21 +311,26 @@ function normalizeSettingsPayload(payload = {}) {
 function sanitizeEvent(record) {
   if (!record) return null;
   const event = record.toPublicObject ? record.toPublicObject() : record;
+  const recurrence = event.recurrenceRule
+    ? {
+        rule: event.recurrenceRule,
+        until: event.recurrenceUntil ? new Date(event.recurrenceUntil).toISOString() : null,
+        count: event.recurrenceCount == null ? null : Number(event.recurrenceCount),
+        parentEventId:
+          event.parentEventId == null || Number.isNaN(Number(event.parentEventId))
+            ? null
+            : Number(event.parentEventId),
+      }
+    : null;
+  const recurrenceSummary = recurrence
+    ? summariseRecurrence({ rule: recurrence.rule, count: recurrence.count, until: recurrence.until })
+    : null;
   return {
     ...event,
     startsAt: event.startsAt ? new Date(event.startsAt).toISOString() : null,
     endsAt: event.endsAt ? new Date(event.endsAt).toISOString() : null,
-    recurrence: event.recurrenceRule
-      ? {
-          rule: event.recurrenceRule,
-          until: event.recurrenceUntil ? new Date(event.recurrenceUntil).toISOString() : null,
-          count: event.recurrenceCount == null ? null : Number(event.recurrenceCount),
-          parentEventId:
-            event.parentEventId == null || Number.isNaN(Number(event.parentEventId))
-              ? null
-              : Number(event.parentEventId),
-        }
-      : null,
+    recurrence,
+    recurrenceSummary,
   };
 }
 
@@ -358,11 +388,21 @@ function buildICSEvent(event) {
     lines.push(`DTEND:${formatDateToICS(event.endsAt)}`);
   }
   lines.push(`SUMMARY:${escapeICSText(event.title ?? 'Calendar event')}`);
+  const descriptionParts = [];
   if (event.description) {
-    lines.push(`DESCRIPTION:${escapeICSText(event.description)}`);
+    descriptionParts.push(event.description);
+  }
+  if (event.recurrenceSummary) {
+    descriptionParts.push(`Recurs: ${event.recurrenceSummary}`);
+  }
+  if (descriptionParts.length) {
+    lines.push(`DESCRIPTION:${escapeICSText(descriptionParts.join('\n'))}`);
   }
   if (event.location) {
     lines.push(`LOCATION:${escapeICSText(event.location)}`);
+  }
+  if (event.videoConferenceLink) {
+    lines.push(`URL:${escapeICSText(event.videoConferenceLink)}`);
   }
   if (event.recurrence?.rule) {
     lines.push(`RRULE:${event.recurrence.rule}`);
@@ -372,11 +412,35 @@ function buildICSEvent(event) {
   return lines.join('\r\n');
 }
 
-function buildICSCalendar(events) {
-  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Gigvora//Calendar//EN'];
+function buildICSCalendar(events, { calendarName = 'Gigvora Schedule', availability = [], timezone } = {}) {
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Gigvora//Calendar//EN', 'CALSCALE:GREGORIAN'];
+  if (calendarName) {
+    lines.push(`X-WR-CALNAME:${escapeICSText(calendarName)}`);
+  }
+  if (timezone) {
+    lines.push(`X-WR-TIMEZONE:${escapeICSText(timezone)}`);
+  }
+  const nowStamp = formatDateToICS(new Date());
   events.forEach((event) => {
     lines.push(buildICSEvent(event));
   });
+  if (Array.isArray(availability) && availability.length) {
+    availability.forEach((slot, index) => {
+      const start = formatDateToICS(slot.start);
+      const end = formatDateToICS(slot.end);
+      lines.push('BEGIN:VFREEBUSY');
+      lines.push(`UID:availability-${index}@gigvora`);
+      lines.push(`DTSTAMP:${nowStamp}`);
+      if (slot.provider) {
+        lines.push(`X-BUSY-PROVIDER:${escapeICSText(slot.provider)}`);
+      }
+      if (slot.title) {
+        lines.push(`X-BUSY-SUMMARY:${escapeICSText(slot.title)}`);
+      }
+      lines.push(`FREEBUSY;FBTYPE=BUSY:${start}/${end}`);
+      lines.push('END:VFREEBUSY');
+    });
+  }
   lines.push('END:VCALENDAR');
   return lines.join('\r\n');
 }
@@ -419,6 +483,9 @@ function generateRecurringInstances(event, { windowStart, windowEnd, limit = 50 
   }
   const parsed = parseRecurrenceRule(event.recurrence.rule);
   const freq = parsed.FREQ;
+  if (!RECURRENCE_FREQUENCY_SET.has(freq)) {
+    return [];
+  }
   const interval = Number.parseInt(parsed.INTERVAL ?? '1', 10) || 1;
   const countLimit = event.recurrence.count ?? (parsed.COUNT ? Number.parseInt(parsed.COUNT, 10) : null);
   const untilRaw = event.recurrence.until ?? (parsed.UNTIL ? parseIcsDate(parsed.UNTIL) : null);
@@ -427,7 +494,7 @@ function generateRecurringInstances(event, { windowStart, windowEnd, limit = 50 
   const baseEnd = event.endsAt ? new Date(event.endsAt) : null;
   const durationMs = baseEnd ? baseEnd.getTime() - baseStart.getTime() : 0;
   const startWindow = windowStart ? new Date(windowStart) : new Date(baseStart);
-  const endWindow = windowEnd ? new Date(windowEnd) : addMonths(baseStart, 3);
+  const endWindow = windowEnd ? new Date(windowEnd) : addMonths(baseStart, DEFAULT_OVERVIEW_MONTH_WINDOW);
   const windowStartTime = startWindow.getTime();
   const windowEndTime = endWindow.getTime();
   const occurrences = [];
@@ -502,7 +569,9 @@ function expandRecurringEvents(events, window) {
   const expanded = [...events];
   events.forEach((event) => {
     if (event.recurrence?.rule) {
-      const instances = generateRecurringInstances(event, window ?? {});
+      const instances = withRecurrenceCache(event, window ?? {}, () =>
+        generateRecurringInstances(event, window ?? {}),
+      );
       expanded.push(...instances);
     }
   });
@@ -536,8 +605,16 @@ async function collectAvailabilityFromIntegrations(integrations, window, logger 
     }
   }
 
-  busyWindows.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
-  return busyWindows;
+  const uniqueMap = new Map();
+  busyWindows.forEach((slot) => {
+    const key = `${slot.provider}:${slot.start}:${slot.end}`;
+    if (!uniqueMap.has(key)) {
+      uniqueMap.set(key, slot);
+    }
+  });
+  const deduped = Array.from(uniqueMap.values());
+  deduped.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+  return deduped;
 }
 
 function buildOverviewStats(events, focusSessions) {
@@ -592,7 +669,7 @@ export async function getOverview(userId, { from, to, limit = 40 } = {}) {
   const sanitizedEvents = events.map(sanitizeEvent).filter(Boolean);
   const recurrenceWindow = {
     windowStart: fromDate ?? new Date(),
-    windowEnd: toDate ?? addMonths(new Date(), 3),
+    windowEnd: toDate ?? addMonths(new Date(), DEFAULT_OVERVIEW_MONTH_WINDOW),
   };
   const expandedEvents = expandRecurringEvents(sanitizedEvents, recurrenceWindow);
   const sanitizedFocus = focusSessions.map(sanitizeFocusSession).filter(Boolean);
@@ -650,11 +727,30 @@ export async function exportEventToICS(userId, eventId) {
     throw new NotFoundError('Calendar event not found.');
   }
   const event = sanitizeEvent(record);
-  const ics = buildICSCalendar([event]);
+  const ics = buildICSCalendar([event], { calendarName: `Gigvora Event ${eventId}` });
   return {
     filename: `calendar-event-${eventId}.ics`,
     contentType: 'text/calendar',
     body: ics,
+  };
+}
+
+export async function exportScheduleToICS(
+  userId,
+  { from, to, limit = 200, includeAvailability = true, calendarName } = {},
+) {
+  const overview = await getOverview(userId, { from, to, limit });
+  const ics = buildICSCalendar(overview.events, {
+    calendarName: calendarName ?? `Gigvora Schedule`,
+    availability: includeAvailability ? overview.availability : [],
+    timezone: overview.settings?.timezone,
+  });
+  return {
+    filename: `calendar-schedule-${userId}.ics`,
+    contentType: 'text/calendar',
+    body: ics,
+    eventCount: overview.events.length,
+    availabilityCount: includeAvailability ? overview.availability.length : 0,
   };
 }
 
@@ -726,6 +822,7 @@ export default {
   updateEvent,
   deleteEvent,
   exportEventToICS,
+  exportScheduleToICS,
   listFocusSessions,
   createFocusSession,
   updateFocusSession,

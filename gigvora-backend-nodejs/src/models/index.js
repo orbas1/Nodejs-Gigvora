@@ -13101,6 +13101,55 @@ export const MessageAttachment = sequelize.define(
   },
 );
 
+export const MessageRetentionAudit = sequelize.define(
+  'MessageRetentionAudit',
+  {
+    runId: { type: DataTypes.UUID, allowNull: false },
+    threadId: { type: DataTypes.INTEGER, allowNull: false },
+    channelType: { type: DataTypes.STRING(40), allowNull: false },
+    retentionPolicy: { type: DataTypes.STRING(60), allowNull: false },
+    retentionDays: { type: DataTypes.INTEGER, allowNull: false },
+    deletedCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    participantCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    cutoffAt: { type: DataTypes.DATE, allowNull: false },
+    isOverride: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    metadata: { type: jsonType, allowNull: true },
+    retainedUntil: { type: DataTypes.DATE, allowNull: false },
+    archivedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'message_retention_audits',
+    indexes: [
+      { fields: ['runId'] },
+      { fields: ['threadId', 'cutoffAt'] },
+      { fields: ['isOverride'] },
+      { fields: ['retainedUntil'] },
+      { fields: ['archivedAt'] },
+    ],
+  },
+);
+
+MessageRetentionAudit.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    runId: plain.runId,
+    threadId: plain.threadId,
+    channelType: plain.channelType,
+    retentionPolicy: plain.retentionPolicy,
+    retentionDays: plain.retentionDays == null ? null : Number(plain.retentionDays),
+    deletedCount: plain.deletedCount == null ? 0 : Number(plain.deletedCount),
+    participantCount: plain.participantCount == null ? 0 : Number(plain.participantCount),
+    cutoffAt: plain.cutoffAt,
+    isOverride: Boolean(plain.isOverride),
+    metadata: plain.metadata ?? null,
+    retainedUntil: plain.retainedUntil,
+    archivedAt: plain.archivedAt,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 Message.prototype.toPublicObject = function toPublicObject() {
   const plain = this.get({ plain: true });
   let sanitizedMetadata = null;
@@ -22058,6 +22107,7 @@ MessageThread.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
 MessageThread.hasMany(MessageParticipant, { foreignKey: 'threadId', as: 'participants' });
 MessageThread.hasMany(MessageParticipant, { foreignKey: 'threadId', as: 'viewerParticipants' });
 MessageThread.hasMany(Message, { foreignKey: 'threadId', as: 'messages' });
+MessageThread.hasMany(MessageRetentionAudit, { foreignKey: 'threadId', as: 'retentionAudits' });
 MessageThread.hasOne(SupportCase, { foreignKey: 'threadId', as: 'supportCase' });
 
 MessageParticipant.belongsTo(MessageThread, { foreignKey: 'threadId', as: 'thread' });
@@ -22066,6 +22116,7 @@ MessageParticipant.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 Message.belongsTo(MessageThread, { foreignKey: 'threadId', as: 'thread' });
 Message.belongsTo(User, { foreignKey: 'senderId', as: 'sender' });
 Message.hasMany(MessageAttachment, { foreignKey: 'messageId', as: 'attachments' });
+MessageRetentionAudit.belongsTo(MessageThread, { foreignKey: 'threadId', as: 'thread' });
 
 MessageAttachment.belongsTo(Message, { foreignKey: 'messageId', as: 'message' });
 
@@ -23563,6 +23614,7 @@ export default {
   MessageParticipant,
   Message,
   MessageAttachment,
+  MessageRetentionAudit,
   SupportCase,
   SupportPlaybook,
   SupportPlaybookStep,

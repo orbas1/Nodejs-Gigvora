@@ -246,6 +246,55 @@ export const MessageReadReceipt = sequelize.define(
   },
 );
 
+export const MessageRetentionAudit = sequelize.define(
+  'MessageRetentionAudit',
+  {
+    runId: { type: DataTypes.UUID, allowNull: false },
+    threadId: { type: DataTypes.INTEGER, allowNull: false },
+    channelType: { type: DataTypes.STRING(40), allowNull: false },
+    retentionPolicy: { type: DataTypes.STRING(60), allowNull: false },
+    retentionDays: { type: DataTypes.INTEGER, allowNull: false },
+    deletedCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    participantCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    cutoffAt: { type: DataTypes.DATE, allowNull: false },
+    isOverride: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    metadata: { type: jsonType, allowNull: true },
+    retainedUntil: { type: DataTypes.DATE, allowNull: false },
+    archivedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'message_retention_audits',
+    indexes: [
+      { fields: ['runId'] },
+      { fields: ['threadId', 'cutoffAt'] },
+      { fields: ['isOverride'] },
+      { fields: ['retainedUntil'] },
+      { fields: ['archivedAt'] },
+    ],
+  },
+);
+
+MessageRetentionAudit.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    runId: plain.runId,
+    threadId: plain.threadId,
+    channelType: plain.channelType,
+    retentionPolicy: plain.retentionPolicy,
+    retentionDays: plain.retentionDays == null ? null : Number(plain.retentionDays),
+    deletedCount: plain.deletedCount == null ? 0 : Number(plain.deletedCount),
+    participantCount: plain.participantCount == null ? 0 : Number(plain.participantCount),
+    cutoffAt: plain.cutoffAt,
+    isOverride: Boolean(plain.isOverride),
+    metadata: plain.metadata ?? null,
+    retainedUntil: plain.retainedUntil,
+    archivedAt: plain.archivedAt,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 export const SupportCase = sequelize.define(
   'SupportCase',
   {
@@ -650,6 +699,9 @@ MessageReadReceipt.belongsTo(Message, { as: 'message', foreignKey: 'messageId' }
 MessageParticipant.hasMany(MessageReadReceipt, { as: 'readReceipts', foreignKey: 'participantId' });
 MessageReadReceipt.belongsTo(MessageParticipant, { as: 'participant', foreignKey: 'participantId' });
 MessageReadReceipt.belongsTo(User, { as: 'user', foreignKey: 'userId' });
+
+MessageThread.hasMany(MessageRetentionAudit, { as: 'retentionAudits', foreignKey: 'threadId' });
+MessageRetentionAudit.belongsTo(MessageThread, { as: 'thread', foreignKey: 'threadId' });
 
 MessageThread.belongsToMany(MessageLabel, {
   through: MessageThreadLabel,

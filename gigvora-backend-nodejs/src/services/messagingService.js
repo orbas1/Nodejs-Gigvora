@@ -20,6 +20,14 @@ import {
 import { ApplicationError, ValidationError, NotFoundError, AuthorizationError } from '../utils/errors.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
 import messagingEvents, { MESSAGING_EVENTS } from '../events/messagingEvents.js';
+import {
+  THREAD_RETENTION_DEFAULTS,
+  MIN_RETENTION_DAYS,
+  MAX_RETENTION_DAYS,
+  resolveRetentionDefaults,
+  clampRetentionDays,
+  normaliseRetentionInput,
+} from '../constants/messagingRetention.js';
 let notificationServicePromise = null;
 let userRoleModelPromise = null;
 
@@ -85,17 +93,6 @@ const SUPPORT_AGENT_USER_TYPES = new Set(
   toNormalizedList(process.env.SUPPORT_AGENT_USER_TYPES, ['admin']),
 );
 
-export const THREAD_RETENTION_DEFAULTS = Object.freeze({
-  direct: { policy: 'standard_18_month', days: 548 },
-  group: { policy: 'standard_18_month', days: 548 },
-  support: { policy: 'support_3_year', days: 1_095 },
-  project: { policy: 'project_2_year', days: 730 },
-  contract: { policy: 'contract_7_year', days: 2_555 },
-});
-
-const MIN_RETENTION_DAYS = 30;
-const MAX_RETENTION_DAYS = 3_650;
-
 const ALLOWED_ATTACHMENT_MIME_PATTERNS = Object.freeze([
   /^image\//i,
   /^video\/(mp4|quicktime)$/i,
@@ -105,6 +102,16 @@ const ALLOWED_ATTACHMENT_MIME_PATTERNS = Object.freeze([
 ]);
 
 const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
+const ALLOWED_MARKDOWN_ELEMENTS = Object.freeze([
+  'bold',
+  'italic',
+  'link',
+  'ordered_list',
+  'unordered_list',
+  'inline_code',
+  'blockquote',
+]);
+const BLOCKED_FORMATTING_ELEMENTS = Object.freeze(['html', 'script', 'iframe', 'style']);
 
 async function ensureSupportAgentPermissions(agent, transaction) {
   if (!agent?.id) {
@@ -133,35 +140,6 @@ async function ensureSupportAgentPermissions(agent, transaction) {
   }
 
   return true;
-}
-
-function resolveRetentionDefaults(channelType) {
-  const normalized = typeof channelType === 'string' ? channelType.trim().toLowerCase() : null;
-  return THREAD_RETENTION_DEFAULTS[normalized] ?? THREAD_RETENTION_DEFAULTS.direct;
-}
-
-function clampRetentionDays(value) {
-  if (value == null) {
-    return null;
-  }
-  const numeric = Number.parseInt(value, 10);
-  if (!Number.isFinite(numeric)) {
-    throw new ValidationError('Retention days must be a number.');
-  }
-  const clamped = Math.min(Math.max(numeric, MIN_RETENTION_DAYS), MAX_RETENTION_DAYS);
-  return clamped;
-}
-
-function normaliseRetentionInput({ channelType, retentionPolicy, retentionDays }) {
-  const defaults = resolveRetentionDefaults(channelType);
-  const normalizedPolicy = retentionPolicy
-    ? String(retentionPolicy).trim().slice(0, 60) || defaults.policy
-    : defaults.policy;
-  const normalizedDays = clampRetentionDays(retentionDays ?? defaults.days) ?? defaults.days;
-  return {
-    retentionPolicy: normalizedPolicy,
-    retentionDays: normalizedDays,
-  };
 }
 
 function validateAttachmentPayload(attachment, index) {
@@ -404,6 +382,10 @@ export function sanitizeMessage(message) {
           email: message.sender.email,
         }
       : null,
+    formatting: {
+      allowedMarkdown: [...ALLOWED_MARKDOWN_ELEMENTS],
+      blockedElements: [...BLOCKED_FORMATTING_ELEMENTS],
+    },
   };
 }
 
@@ -2055,3 +2037,4 @@ export default {
   invalidateThreadCaches,
   THREAD_RETENTION_DEFAULTS,
 };
+\nexport { THREAD_RETENTION_DEFAULTS, MIN_RETENTION_DAYS, MAX_RETENTION_DAYS } from '../constants/messagingRetention.js';
