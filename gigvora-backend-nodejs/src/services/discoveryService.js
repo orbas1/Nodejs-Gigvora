@@ -703,11 +703,12 @@ export function toOpportunityDto(record, category) {
         const packages = Array.isArray(record.packages)
           ? record.packages.map((pkg) => (pkg.toPublicObject?.() ?? pkg))
           : [];
-        const addOns = Array.isArray(record.addons)
-          ? record.addons.map((addon) => (addon.toPublicObject?.() ?? addon))
-          : Array.isArray(record.addOns)
-          ? record.addOns.map((addon) => (addon.toPublicObject?.() ?? addon))
+        const addOnsSource = Array.isArray(record.addOns)
+          ? record.addOns
+          : Array.isArray(record.addons)
+          ? record.addons
           : [];
+        const addOns = addOnsSource.map((addon) => addon.toPublicObject?.() ?? addon);
         const snapshot = Array.isArray(record.performanceSnapshots)
           ? record.performanceSnapshots[0]
           : null;

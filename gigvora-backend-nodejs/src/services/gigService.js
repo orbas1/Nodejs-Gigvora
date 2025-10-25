@@ -3,7 +3,7 @@ import {
   sequelize,
   Gig,
   GigPackage,
-  GigAddOn,
+  GigAddon,
   GigAvailabilitySlot,
   GigCustomRequest,
   GIG_STATUSES,
@@ -339,6 +339,18 @@ function normalizeAddOn(input, index) {
   const priceAmount = normalizePrice(input?.priceAmount, { fieldName: `priceAmount for add-on ${name}` });
   const priceCurrency = normalizeCurrency(input?.priceCurrency);
   const description = input?.description?.trim() || null;
+  const deliveryDays =
+    input?.deliveryDays == null || input.deliveryDays === ''
+      ? null
+      : normalizeInteger(input.deliveryDays, {
+          min: 0,
+          max: 120,
+          fieldName: `deliveryDays for add-on ${name}`,
+        });
+  const metadata =
+    input?.metadata && typeof input.metadata === 'object'
+      ? { ...input.metadata }
+      : null;
 
   return {
     addOnKey: key,
@@ -346,8 +358,10 @@ function normalizeAddOn(input, index) {
     description,
     priceAmount,
     priceCurrency,
+    deliveryDays,
     isActive: input?.isActive !== false,
     position: index,
+    metadata,
   };
 }
 
@@ -523,7 +537,7 @@ function normalizeGigPayload(payload = {}, { actorId } = {}) {
 function buildGigIncludeOptions() {
   return [
     { model: GigPackage, as: 'packages', separate: true, order: [['position', 'ASC']] },
-    { model: GigAddOn, as: 'addOns', separate: true, order: [['position', 'ASC']] },
+    { model: GigAddon, as: 'addOns', separate: true, order: [['position', 'ASC']] },
     {
       model: GigAvailabilitySlot,
       as: 'availabilitySlots',
@@ -600,7 +614,7 @@ export async function createGigBlueprint(payload, { actorId } = {}) {
     }
 
     if (addOns.length) {
-      await GigAddOn.bulkCreate(
+      await GigAddon.bulkCreate(
         addOns.map((addon) => ({ ...addon, gigId: gig.id })),
         { transaction },
       );
@@ -645,9 +659,9 @@ export async function updateGigBlueprint(gigId, payload, { actorId } = {}) {
       );
     }
 
-    await GigAddOn.destroy({ where: { gigId: gig.id }, transaction });
+    await GigAddon.destroy({ where: { gigId: gig.id }, transaction });
     if (addOns.length) {
-      await GigAddOn.bulkCreate(
+      await GigAddon.bulkCreate(
         addOns.map((addon) => ({ ...addon, gigId: gig.id })),
         { transaction },
       );

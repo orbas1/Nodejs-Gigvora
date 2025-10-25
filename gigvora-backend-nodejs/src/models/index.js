@@ -4133,27 +4133,61 @@ export const GigAddon = sequelize.define(
   'GigAddon',
   {
     gigId: { type: DataTypes.INTEGER, allowNull: false },
+    addOnKey: { type: DataTypes.STRING(80), allowNull: false },
     name: { type: DataTypes.STRING(160), allowNull: false },
     description: { type: DataTypes.TEXT, allowNull: true },
     priceAmount: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
     priceCurrency: { type: DataTypes.STRING(6), allowNull: false, defaultValue: 'USD' },
     deliveryDays: { type: DataTypes.INTEGER, allowNull: true },
     isPopular: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    position: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    metadata: { type: jsonType, allowNull: true },
   },
-  { tableName: 'gig_addons' },
+  {
+    tableName: 'gig_add_ons',
+    indexes: [
+      { unique: true, fields: ['gigId', 'addOnKey'] },
+      { fields: ['gigId', 'position'] },
+    ],
+  },
 );
+
+GigAddon.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    gigId: plain.gigId,
+    key: plain.addOnKey,
+    name: plain.name,
+    description: plain.description,
+    priceAmount: plain.priceAmount == null ? null : Number(plain.priceAmount),
+    priceCurrency: plain.priceCurrency ?? 'USD',
+    deliveryDays: plain.deliveryDays == null ? null : Number(plain.deliveryDays),
+    isPopular: Boolean(plain.isPopular),
+    isActive: plain.isActive !== false,
+    position: plain.position ?? 0,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
 
 GigAddon.prototype.toBuilderObject = function toBuilderObject() {
   const plain = this.get({ plain: true });
   return {
     id: plain.id,
     gigId: plain.gigId,
+    key: plain.addOnKey,
     name: plain.name,
     description: plain.description,
     priceAmount: plain.priceAmount == null ? null : Number(plain.priceAmount),
-    priceCurrency: plain.priceCurrency,
-    deliveryDays: plain.deliveryDays,
+    priceCurrency: plain.priceCurrency ?? 'USD',
+    deliveryDays: plain.deliveryDays == null ? null : Number(plain.deliveryDays),
     isPopular: Boolean(plain.isPopular),
+    isActive: plain.isActive !== false,
+    position: plain.position ?? 0,
+    metadata: plain.metadata ?? null,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };
@@ -7445,9 +7479,12 @@ Gig.prototype.toPublicObject = function toPublicObject() {
   const packages = Array.isArray(this.packages)
     ? this.packages.map((pkg) => pkg.toPublicObject?.() ?? pkg)
     : [];
-  const addOns = Array.isArray(this.addOns)
-    ? this.addOns.map((addon) => addon.toPublicObject?.() ?? addon)
+  const addOnRecords = Array.isArray(this.addOns)
+    ? this.addOns
+    : Array.isArray(this.addons)
+    ? this.addons
     : [];
+  const addOns = addOnRecords.map((addon) => addon.toPublicObject?.() ?? addon);
   const availabilitySlots = Array.isArray(this.availabilitySlots)
     ? this.availabilitySlots.map((slot) => slot.toPublicObject?.() ?? slot)
     : [];
@@ -7640,45 +7677,6 @@ GigPackage.prototype.toBuilderObject = function toBuilderObject() {
   };
 };
 
-export const GigAddOn = sequelize.define(
-  'GigAddOn',
-  {
-    gigId: { type: DataTypes.INTEGER, allowNull: false },
-    addOnKey: { type: DataTypes.STRING(80), allowNull: false },
-    name: { type: DataTypes.STRING(160), allowNull: false },
-    description: { type: DataTypes.TEXT, allowNull: true },
-    priceAmount: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
-    priceCurrency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
-    isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
-    position: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
-  },
-  {
-    tableName: 'gig_add_ons',
-    indexes: [
-      {
-        unique: true,
-        fields: ['gigId', 'addOnKey'],
-      },
-    ],
-  },
-);
-
-GigAddOn.prototype.toPublicObject = function toPublicObject() {
-  const plain = this.get({ plain: true });
-  return {
-    id: plain.id,
-    gigId: plain.gigId,
-    key: plain.addOnKey,
-    name: plain.name,
-    description: plain.description,
-    priceAmount: Number(plain.priceAmount ?? 0),
-    priceCurrency: plain.priceCurrency ?? 'USD',
-    isActive: Boolean(plain.isActive),
-    position: plain.position ?? 0,
-    createdAt: plain.createdAt,
-    updatedAt: plain.updatedAt,
-  };
-};
 
 export const GigCustomRequest = sequelize.define(
   'GigCustomRequest',
@@ -20644,7 +20642,7 @@ User.hasMany(AutoAssignResponse, { foreignKey: 'freelancerId', as: 'autoAssignRe
 User.hasMany(Gig, { foreignKey: 'ownerId', as: 'ownedGigs' });
 Gig.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
 Gig.hasMany(GigPackage, { foreignKey: 'gigId', as: 'packages', onDelete: 'CASCADE' });
-Gig.hasMany(GigAddon, { foreignKey: 'gigId', as: 'addons', onDelete: 'CASCADE' });
+Gig.hasMany(GigAddon, { foreignKey: 'gigId', as: 'addOns', onDelete: 'CASCADE' });
 Gig.hasMany(GigMediaAsset, { foreignKey: 'gigId', as: 'mediaAssets', onDelete: 'CASCADE' });
 Gig.hasMany(GigCallToAction, { foreignKey: 'gigId', as: 'callToActions', onDelete: 'CASCADE' });
 Gig.hasMany(GigPreviewLayout, { foreignKey: 'gigId', as: 'previewLayouts', onDelete: 'CASCADE' });
@@ -22927,7 +22925,6 @@ export default {
   GigCallToAction,
   GigPreviewLayout,
   GigPerformanceSnapshot,
-  GigAddOn,
   GigAvailabilitySlot,
   GigCustomRequest,
   GigOrder,

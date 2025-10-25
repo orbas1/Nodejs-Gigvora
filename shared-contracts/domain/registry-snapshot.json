@@ -231,7 +231,7 @@
         "ProjectWorkspaceApproval",
         "Gig",
         "GigPackage",
-        "GigAddOn",
+        "GigAddon",
         "GigCustomRequest",
         "GigAvailabilitySlot",
         "WorkspaceIntegration",

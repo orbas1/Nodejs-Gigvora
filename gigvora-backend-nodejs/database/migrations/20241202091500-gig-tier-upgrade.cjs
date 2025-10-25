@@ -17,7 +17,7 @@ module.exports = {
         await queryInterface.addColumn(
           'gig_packages',
           'deliverables',
-          { type: jsonType, allowNull: true },
+          { type: jsonType, allowNull: false, defaultValue: [] },
           { transaction },
         );
       }
@@ -26,7 +26,7 @@ module.exports = {
         await queryInterface.addColumn(
           'gig_packages',
           'tier',
-          { type: Sequelize.STRING(40), allowNull: true },
+          { type: Sequelize.STRING(40), allowNull: false, defaultValue: 'basic' },
           { transaction },
         );
         await queryInterface.sequelize.query(
@@ -34,6 +34,11 @@ module.exports = {
           { transaction },
         );
       }
+
+      await queryInterface.sequelize.query(
+        "UPDATE gig_packages SET deliverables = '[]' WHERE deliverables IS NULL",
+        { transaction },
+      );
 
       const gigSchema = await queryInterface.describeTable('gigs', { transaction }).catch(() => ({}));
       if (!Object.prototype.hasOwnProperty.call(gigSchema, 'customRequestEnabled')) {

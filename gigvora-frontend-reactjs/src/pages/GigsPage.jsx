@@ -1134,13 +1134,19 @@ export default function GigsPage() {
                       ) : null}
                     </div>
                     {gig.customRequestEnabled && customRequestOpen ? (
-                      <form
-                        className="mt-4 space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
-                        onSubmit={(event) => {
-                          event.preventDefault();
-                          handleSubmitCustomRequest(gig);
-                        }}
-                      >
+                      <>
+                        {gig.customRequestInstructions ? (
+                          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+                            {gig.customRequestInstructions}
+                          </div>
+                        ) : null}
+                        <form
+                          className="mt-4 space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
+                          onSubmit={(event) => {
+                            event.preventDefault();
+                            handleSubmitCustomRequest(gig);
+                          }}
+                        >
                         <div className="grid gap-3 md:grid-cols-2">
                           <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                             Preferred tier
@@ -1223,7 +1229,8 @@ export default function GigsPage() {
                             {customRequestState.submitting ? 'Sending…' : 'Send custom request'}
                           </button>
                         </div>
-                      </form>
+                        </form>
+                      </>
                     ) : null}
                   </article>
                 );

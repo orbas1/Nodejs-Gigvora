@@ -36,7 +36,7 @@ jest.unstable_mockModule(modelsIndexModule, () => {
     sequelize: sequelizeStub,
     Gig: createModelProxy(),
     GigPackage: createModelProxy(),
-    GigAddOn: createModelProxy(),
+    GigAddon: createModelProxy(),
     GigAvailabilitySlot: createModelProxy(),
     GigCustomRequest: createModelProxy(),
     Group: createModelProxy(),

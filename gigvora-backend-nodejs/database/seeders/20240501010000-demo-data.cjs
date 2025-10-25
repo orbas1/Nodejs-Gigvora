@@ -636,38 +636,69 @@ module.exports = {
         await queryInterface.bulkDelete('gig_custom_requests', { gigId }, { transaction });
 
         if (packages.length) {
-          const packageRows = packages.map((pkg, index) => ({
-            gigId,
-            packageKey: pkg.packageKey,
-            name: pkg.name,
-            description: pkg.description ?? null,
-            priceAmount: pkg.priceAmount ?? 0,
-            priceCurrency: pkg.priceCurrency ?? 'USD',
-            deliveryDays: pkg.deliveryDays ?? null,
-            revisionLimit: pkg.revisionLimit ?? null,
-            highlights: pkg.highlights ?? [],
-            recommendedFor: pkg.recommendedFor ?? null,
-            isPopular: pkg.isPopular ?? false,
-            position: pkg.position ?? index + 1,
-            createdAt: now,
-            updatedAt: now,
-          }));
+          const packageRows = packages.map((pkg, index) => {
+            const deliverables = Array.isArray(pkg.deliverables)
+              ? pkg.deliverables
+              : typeof pkg.deliverables === 'string'
+              ? pkg.deliverables
+                  .split(/[\n,]+/)
+                  .map((item) => item.trim())
+                  .filter(Boolean)
+              : [];
+            return {
+              gigId,
+              packageKey: pkg.packageKey,
+              tier: pkg.tier ?? pkg.packageKey ?? ['basic', 'standard', 'premium'][index] ?? 'basic',
+              name: pkg.name,
+              description: pkg.description ?? null,
+              priceAmount: pkg.priceAmount ?? 0,
+              priceCurrency: pkg.priceCurrency ?? 'USD',
+              deliveryDays: pkg.deliveryDays ?? null,
+              revisionLimit: pkg.revisionLimit ?? null,
+              highlights: Array.isArray(pkg.highlights)
+                ? pkg.highlights
+                : typeof pkg.highlights === 'string'
+                ? pkg.highlights
+                    .split(/[\n,]+/)
+                    .map((item) => item.trim())
+                    .filter(Boolean)
+                : [],
+              deliverables,
+              recommendedFor: pkg.recommendedFor ?? null,
+              isPopular: pkg.isPopular ?? false,
+              position: pkg.position ?? index,
+              createdAt: now,
+              updatedAt: now,
+            };
+          });
           await queryInterface.bulkInsert('gig_packages', packageRows, { transaction });
         }
 
         if (addons.length) {
-          const addonRows = addons.map((addon, index) => ({
-            gigId,
-            addOnKey: addon.addOnKey,
-            name: addon.name,
-            description: addon.description ?? null,
-            priceAmount: addon.priceAmount ?? 0,
-            priceCurrency: addon.priceCurrency ?? 'USD',
-            isActive: addon.isActive ?? true,
-            position: addon.position ?? index + 1,
-            createdAt: now,
-            updatedAt: now,
-          }));
+          const addonRows = addons.map((addon, index) => {
+            const keyBase = addon.addOnKey ?? addon.key ?? addon.name ?? `addon-${index + 1}`;
+            const addOnKey = keyBase
+              .toString()
+              .trim()
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/^-+|-+$/g, '') || `addon-${index + 1}`;
+            return {
+              gigId,
+              addOnKey,
+              name: addon.name,
+              description: addon.description ?? null,
+              priceAmount: addon.priceAmount ?? 0,
+              priceCurrency: addon.priceCurrency ?? 'USD',
+              deliveryDays: addon.deliveryDays ?? null,
+              isPopular: addon.isPopular ?? false,
+              isActive: addon.isActive ?? true,
+              position: addon.position ?? index,
+              metadata: addon.metadata ?? null,
+              createdAt: now,
+              updatedAt: now,
+            };
+          });
           await queryInterface.bulkInsert('gig_add_ons', addonRows, { transaction });
         }
 
