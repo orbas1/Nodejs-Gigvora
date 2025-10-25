@@ -23,26 +23,9 @@ import { useCompanyDashboard } from '../../hooks/useCompanyDashboard.js';
 import { useSession } from '../../context/SessionContext.jsx';
 import { COMPANY_DASHBOARD_MENU_SECTIONS } from '../../constants/companyDashboardMenu.js';
 import { formatRelativeTime } from '../../utils/date.js';
-import { formatMetricNumber, formatMetricPercent } from '../../utils/metrics.js';
+import { formatMetricNumber, formatMetricPercent, formatMetricPercentChange } from '../../utils/metrics.js';
 
 const LOOKBACK_OPTIONS = [30, 60, 90, 120];
-
-function formatPercentValue(value, { decimals = 1, includeSign = false } = {}) {
-  if (value == null || value === '') {
-    return '—';
-  }
-
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) {
-    return '—';
-  }
-
-  const percent = Math.abs(numeric) > 1 ? numeric : numeric * 100;
-  const formatted = percent.toFixed(decimals);
-  const sign = includeSign ? (numeric > 0 ? '+' : numeric < 0 ? '−' : '') : '';
-
-  return `${sign}${Math.abs(formatted)}%`;
-}
 
 function buildProfile(data) {
   const workspace = data?.workspace ?? {};
@@ -477,15 +460,10 @@ function buildFairnessInsights(jobLifecycle, candidateExperience) {
     });
   }
 
-  const scoreDisplay =
-    score == null
-      ? '—'
-      : Math.abs(Number(score)) > 1
-      ? `${Number(score).toFixed(1)}%`
-      : formatMetricPercent(score);
+  const scoreDisplay = formatMetricPercent(score, { fallback: '—' });
 
-  const parityGapDisplay = formatPercentValue(parityGap, { decimals: 2, includeSign: true });
-  const automationParityDisplay = formatPercentValue(automationParity, { decimals: 1, includeSign: true });
+  const parityGapDisplay = formatMetricPercentChange(parityGap, { decimals: 2 });
+  const automationParityDisplay = formatMetricPercentChange(automationParity, { decimals: 1 });
 
   return {
     score,
@@ -675,7 +653,7 @@ function AtsTrendPanel({ trend, onNavigate }) {
         <div className="rounded-2xl bg-blue-50/40 p-4">
           <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Change vs. start</dt>
           <dd className="mt-1 text-2xl font-semibold text-slate-900">{formatMetricNumber(delta, { maximumFractionDigits: 0 })}</dd>
-          <p className="mt-1 text-xs text-slate-500">{percentDelta != null ? formatPercentValue(percentDelta, { includeSign: true }) : '—'} growth</p>
+          <p className="mt-1 text-xs text-slate-500">{percentDelta != null ? formatMetricPercentChange(percentDelta, { includeSign: true }) : '—'} growth</p>
         </div>
         <div className="rounded-2xl bg-blue-50/40 p-4">
           <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">First data point</dt>
@@ -770,7 +748,7 @@ function FairnessAnalyticsPanel({ fairnessInsights, onNavigate }) {
                       : formatMetricPercent(segment.score)}
                   </td>
                   <td className="px-4 py-3 text-slate-700">
-                    {segment.delta == null ? '—' : formatPercentValue(segment.delta, { includeSign: true })}
+                    {segment.delta == null ? '—' : formatMetricPercentChange(segment.delta, { includeSign: true })}
                   </td>
                   <td className="px-4 py-3 text-slate-700">
                     {segment.sampleSize == null ? '—' : formatMetricNumber(segment.sampleSize)}
@@ -926,7 +904,7 @@ function CandidateExperienceHighlights({ candidateExperience, candidateCare, ent
     inclusionScore != null
       ? {
           label: 'Inclusion score',
-          value: formatPercentValue(inclusionScore),
+      value: formatMetricPercent(inclusionScore, { fallback: '—' }),
           helper: experienceHealth ? `Experience status ${experienceHealth.replace(/_/g, ' ')}` : 'Monitor inclusion metrics',
         }
       : null,
@@ -976,18 +954,6 @@ export default function CompanyAtsOperationsPage() {
 
   const membershipsList = session?.memberships ?? [];
   const isCompanyMember = isAuthenticated && membershipsList.includes('company');
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-      return;
-    }
-    if (!isCompanyMember) {
-      const fallback = session?.primaryDashboard ?? membershipsList.find((role) => role !== 'company');
-      if (fallback) {
-        navigate(`/dashboard/${fallback}`, { replace: true, state: { from: '/dashboard/company/ats' } });
-      }
-    }
-  }, [isAuthenticated, isCompanyMember, navigate, session?.primaryDashboard, membershipsList]);
 
   const { data, error, loading, refresh, fromCache, lastUpdated } = useCompanyDashboard({
     workspaceId: workspaceIdParam,
@@ -1162,6 +1128,9 @@ export default function CompanyAtsOperationsPage() {
         availableDashboards={['user', 'freelancer', 'agency']}
       >
         <AccessDeniedPanel
+          role="company"
+          message="Your account doesn't have company workspace permissions yet. Request an upgrade from an administrator or switch to another dashboard."
+          supportHref="/support?topic=workspace-access"
           availableDashboards={membershipsList.filter((membership) => membership !== 'company')}
           onNavigate={(dashboard) => navigate(`/dashboard/${dashboard}`)}
         />

@@ -19,7 +19,10 @@ export function formatMetricNumber(
   return `${prefix}${numeric.toLocaleString(undefined, options)}${suffix}`;
 }
 
-export function formatMetricPercent(value, { fallback = '—', decimals = 1, includeSymbol = true } = {}) {
+export function formatMetricPercent(
+  value,
+  { fallback = '—', decimals = 1, includeSymbol = true, includeSign = false, scale } = {},
+) {
   if (value == null || value === '') {
     return fallback;
   }
@@ -29,9 +32,25 @@ export function formatMetricPercent(value, { fallback = '—', decimals = 1, inc
     return fallback;
   }
 
-  const percent = numeric > 1 ? numeric : numeric * 100;
-  const formatted = percent.toFixed(decimals);
+  const effectiveScale = scale != null ? Number(scale) : Math.abs(numeric) > 1 ? 1 : 100;
+  if (!Number.isFinite(effectiveScale) || effectiveScale === 0) {
+    return fallback;
+  }
+
+  const scaledValue = numeric * effectiveScale;
+  const magnitude = Math.abs(scaledValue).toFixed(decimals);
+  const positive = numeric > 0;
+  const negative = numeric < 0;
+  const signPrefix = negative ? '−' : includeSign && positive ? '+' : '';
+  const formatted = `${signPrefix}${magnitude}`;
   return includeSymbol ? `${formatted}%` : formatted;
+}
+
+export function formatMetricPercentChange(
+  value,
+  { fallback = '—', decimals = 1, includeSymbol = true, includeSign = true } = {},
+) {
+  return formatMetricPercent(value, { fallback, decimals, includeSymbol, includeSign });
 }
 
 export function formatMetricCurrency(

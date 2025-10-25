@@ -13,30 +13,27 @@ import {
   addCandidateNote,
   updateCandidateNote,
 } from '../services/companyJobManagementService.js';
-
-function parseNumber(value) {
-  if (value == null) {
-    return undefined;
-  }
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
-}
+import { toOptionalPositiveInteger, toPositiveInteger } from '../utils/controllerUtils.js';
 
 export async function operations(req, res) {
   const { workspaceId, workspaceSlug, lookbackDays } = req.query ?? {};
   const result = await getCompanyJobOperations({
-    workspaceId: parseNumber(workspaceId),
+    workspaceId: toOptionalPositiveInteger(workspaceId, { fieldName: 'workspaceId', required: false }),
     workspaceSlug: workspaceSlug ?? undefined,
-    lookbackDays: parseNumber(lookbackDays),
+    lookbackDays: toOptionalPositiveInteger(lookbackDays, {
+      fieldName: 'lookbackDays',
+      required: false,
+      allowZero: false,
+    }),
   });
   res.json(result);
 }
 
 export async function createJob(req, res) {
-  const actorId = req.user?.id ?? null;
+  const actorId = toOptionalPositiveInteger(req.user?.id, { fieldName: 'actorId', required: false });
   const { workspaceId, ...payload } = req.body ?? {};
   const result = await createJobPosting({
-    workspaceId: parseNumber(workspaceId),
+    workspaceId: toPositiveInteger(workspaceId, { fieldName: 'workspaceId' }),
     payload,
     actorId,
   });
@@ -44,11 +41,11 @@ export async function createJob(req, res) {
 }
 
 export async function updateJob(req, res) {
-  const actorId = req.user?.id ?? null;
-  const jobId = parseNumber(req.params?.jobId);
+  const actorId = toOptionalPositiveInteger(req.user?.id, { fieldName: 'actorId', required: false });
+  const jobId = toPositiveInteger(req.params?.jobId, { fieldName: 'jobId' });
   const { workspaceId, ...payload } = req.body ?? {};
   const result = await updateJobPosting({
-    workspaceId: parseNumber(workspaceId),
+    workspaceId: toPositiveInteger(workspaceId, { fieldName: 'workspaceId' }),
     jobId,
     payload,
     actorId,
@@ -57,11 +54,11 @@ export async function updateJob(req, res) {
 }
 
 export async function setKeywords(req, res) {
-  const actorId = req.user?.id ?? null;
-  const jobId = parseNumber(req.params?.jobId);
+  const actorId = toOptionalPositiveInteger(req.user?.id, { fieldName: 'actorId', required: false });
+  const jobId = toPositiveInteger(req.params?.jobId, { fieldName: 'jobId' });
   const { workspaceId, keywords } = req.body ?? {};
   const result = await updateJobKeywords({
-    workspaceId: parseNumber(workspaceId),
+    workspaceId: toPositiveInteger(workspaceId, { fieldName: 'workspaceId' }),
     jobId,
     keywords,
     actorId,
@@ -70,13 +67,13 @@ export async function setKeywords(req, res) {
 }
 
 export async function favoriteJob(req, res) {
-  const actorId = req.user?.id ?? null;
-  const jobId = parseNumber(req.params?.jobId);
+  const actorId = toOptionalPositiveInteger(req.user?.id, { fieldName: 'actorId', required: false });
+  const jobId = toPositiveInteger(req.params?.jobId, { fieldName: 'jobId' });
   const { workspaceId, userId, notes } = req.body ?? {};
   const result = await createJobFavorite({
-    workspaceId: parseNumber(workspaceId),
+    workspaceId: toPositiveInteger(workspaceId, { fieldName: 'workspaceId' }),
     jobId,
-    userId: parseNumber(userId),
+    userId: toOptionalPositiveInteger(userId, { fieldName: 'userId', required: false }),
     notes,
     actorId,
   });
@@ -84,21 +81,23 @@ export async function favoriteJob(req, res) {
 }
 
 export async function unfavoriteJob(req, res) {
-  const jobId = parseNumber(req.params?.jobId);
-  const favoriteId = parseNumber(req.params?.favoriteId);
-  const workspaceId = parseNumber(req.query?.workspaceId ?? req.body?.workspaceId);
+  const jobId = toPositiveInteger(req.params?.jobId, { fieldName: 'jobId' });
+  const favoriteId = toPositiveInteger(req.params?.favoriteId, { fieldName: 'favoriteId' });
+  const workspaceId = toPositiveInteger(req.query?.workspaceId ?? req.body?.workspaceId, {
+    fieldName: 'workspaceId',
+  });
   const result = await removeJobFavorite({ workspaceId, jobId, favoriteId });
   res.json(result);
 }
 
 export async function createApplicationController(req, res) {
-  const actorId = req.user?.id ?? null;
-  const jobId = parseNumber(req.params?.jobId);
+  const actorId = toOptionalPositiveInteger(req.user?.id, { fieldName: 'actorId', required: false });
+  const jobId = toPositiveInteger(req.params?.jobId, { fieldName: 'jobId' });
   const { workspaceId, applicantId, ...payload } = req.body ?? {};
   const result = await createJobApplication({
-    workspaceId: parseNumber(workspaceId),
+    workspaceId: toPositiveInteger(workspaceId, { fieldName: 'workspaceId' }),
     jobId,
-    applicantId: parseNumber(applicantId),
+    applicantId: toPositiveInteger(applicantId, { fieldName: 'applicantId' }),
     payload,
     actorId,
   });
@@ -106,12 +105,12 @@ export async function createApplicationController(req, res) {
 }
 
 export async function updateApplicationController(req, res) {
-  const actorId = req.user?.id ?? null;
-  const jobId = parseNumber(req.params?.jobId);
-  const applicationId = parseNumber(req.params?.applicationId);
+  const actorId = toOptionalPositiveInteger(req.user?.id, { fieldName: 'actorId', required: false });
+  const jobId = toPositiveInteger(req.params?.jobId, { fieldName: 'jobId' });
+  const applicationId = toPositiveInteger(req.params?.applicationId, { fieldName: 'applicationId' });
   const { workspaceId, ...payload } = req.body ?? {};
   const result = await updateJobApplication({
-    workspaceId: parseNumber(workspaceId),
+    workspaceId: toPositiveInteger(workspaceId, { fieldName: 'workspaceId' }),
     jobId,
     applicationId,
     payload,
@@ -121,13 +120,13 @@ export async function updateApplicationController(req, res) {
 }
 
 export async function scheduleInterviewController(req, res) {
-  const actorId = req.user?.id ?? null;
-  const jobId = parseNumber(req.params?.jobId);
+  const actorId = toOptionalPositiveInteger(req.user?.id, { fieldName: 'actorId', required: false });
+  const jobId = toPositiveInteger(req.params?.jobId, { fieldName: 'jobId' });
   const { workspaceId, applicationId, ...payload } = req.body ?? {};
   const result = await scheduleInterview({
-    workspaceId: parseNumber(workspaceId),
+    workspaceId: toPositiveInteger(workspaceId, { fieldName: 'workspaceId' }),
     jobId,
-    applicationId: parseNumber(applicationId),
+    applicationId: toPositiveInteger(applicationId, { fieldName: 'applicationId' }),
     payload,
     actorId,
   });
@@ -135,12 +134,12 @@ export async function scheduleInterviewController(req, res) {
 }
 
 export async function updateInterviewController(req, res) {
-  const actorId = req.user?.id ?? null;
-  const jobId = parseNumber(req.params?.jobId);
-  const interviewId = parseNumber(req.params?.interviewId);
+  const actorId = toOptionalPositiveInteger(req.user?.id, { fieldName: 'actorId', required: false });
+  const jobId = toPositiveInteger(req.params?.jobId, { fieldName: 'jobId' });
+  const interviewId = toPositiveInteger(req.params?.interviewId, { fieldName: 'interviewId' });
   const { workspaceId, ...payload } = req.body ?? {};
   const result = await updateInterview({
-    workspaceId: parseNumber(workspaceId),
+    workspaceId: toPositiveInteger(workspaceId, { fieldName: 'workspaceId' }),
     jobId,
     interviewId,
     payload,
@@ -150,13 +149,13 @@ export async function updateInterviewController(req, res) {
 }
 
 export async function recordResponseController(req, res) {
-  const actorId = req.user?.id ?? null;
-  const jobId = parseNumber(req.params?.jobId);
+  const actorId = toOptionalPositiveInteger(req.user?.id, { fieldName: 'actorId', required: false });
+  const jobId = toPositiveInteger(req.params?.jobId, { fieldName: 'jobId' });
   const { workspaceId, applicationId, ...payload } = req.body ?? {};
   const result = await recordCandidateResponse({
-    workspaceId: parseNumber(workspaceId),
+    workspaceId: toPositiveInteger(workspaceId, { fieldName: 'workspaceId' }),
     jobId,
-    applicationId: parseNumber(applicationId),
+    applicationId: toOptionalPositiveInteger(applicationId, { fieldName: 'applicationId', required: false }),
     payload,
     actorId,
   });
@@ -164,12 +163,12 @@ export async function recordResponseController(req, res) {
 }
 
 export async function addNoteController(req, res) {
-  const actorId = req.user?.id ?? null;
-  const jobId = parseNumber(req.params?.jobId);
-  const applicationId = parseNumber(req.params?.applicationId);
+  const actorId = toOptionalPositiveInteger(req.user?.id, { fieldName: 'actorId', required: false });
+  const jobId = toPositiveInteger(req.params?.jobId, { fieldName: 'jobId' });
+  const applicationId = toPositiveInteger(req.params?.applicationId, { fieldName: 'applicationId' });
   const { workspaceId, ...payload } = req.body ?? {};
   const result = await addCandidateNote({
-    workspaceId: parseNumber(workspaceId),
+    workspaceId: toPositiveInteger(workspaceId, { fieldName: 'workspaceId' }),
     jobId,
     applicationId,
     payload,
@@ -179,12 +178,12 @@ export async function addNoteController(req, res) {
 }
 
 export async function updateNoteController(req, res) {
-  const actorId = req.user?.id ?? null;
-  const jobId = parseNumber(req.params?.jobId);
-  const noteId = parseNumber(req.params?.noteId);
+  const actorId = toOptionalPositiveInteger(req.user?.id, { fieldName: 'actorId', required: false });
+  const jobId = toPositiveInteger(req.params?.jobId, { fieldName: 'jobId' });
+  const noteId = toPositiveInteger(req.params?.noteId, { fieldName: 'noteId' });
   const { workspaceId, ...payload } = req.body ?? {};
   const result = await updateCandidateNote({
-    workspaceId: parseNumber(workspaceId),
+    workspaceId: toPositiveInteger(workspaceId, { fieldName: 'workspaceId' }),
     jobId,
     noteId,
     payload,
