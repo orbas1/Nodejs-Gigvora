@@ -41,6 +41,14 @@ export function buildThreadTitle(thread, actorId) {
   return 'Conversation';
 }
 
+export function sortThreads(threads = []) {
+  return [...threads].sort((a, b) => {
+    const aTime = a?.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+    const bTime = b?.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+    return bTime - aTime;
+  });
+}
+
 export function isThreadUnread(thread) {
   if (!thread) {
     return false;
@@ -71,6 +79,98 @@ export function describeLastActivity(thread) {
 
 export function sortMessages(messages = []) {
   return [...messages].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+}
+
+function normaliseUserId(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function summariseReceiptName(receipt) {
+  if (!receipt) {
+    return null;
+  }
+  if (receipt.user) {
+    return formatName(receipt.user) ?? `User ${receipt.user.id}`;
+  }
+  if (receipt.participant && receipt.participant.userId) {
+    return `User ${receipt.participant.userId}`;
+  }
+  if (receipt.userId) {
+    return `User ${receipt.userId}`;
+  }
+  return null;
+}
+
+export function formatReadReceiptSummary(receipts = [], actorId) {
+  if (!Array.isArray(receipts) || receipts.length === 0) {
+    return null;
+  }
+
+  const actor = normaliseUserId(actorId);
+  const deduped = new Map();
+
+  receipts.forEach((receipt) => {
+    const readerId = normaliseUserId(receipt?.userId ?? receipt?.participant?.userId);
+    if (!readerId || (actor && readerId === actor)) {
+      return;
+    }
+    const readAt = receipt?.readAt ? new Date(receipt.readAt).getTime() : NaN;
+    if (!Number.isFinite(readAt)) {
+      return;
+    }
+    const existing = deduped.get(readerId);
+    if (!existing || readAt > existing.readAt) {
+      deduped.set(readerId, {
+        readAt,
+        name: summariseReceiptName(receipt) ?? `User ${readerId}`,
+      });
+    }
+  });
+
+  if (deduped.size === 0) {
+    return null;
+  }
+
+  const entries = Array.from(deduped.values()).sort((a, b) => b.readAt - a.readAt);
+  const names = entries.map((entry) => entry.name);
+
+  if (names.length === 1) {
+    return names[0];
+  }
+  if (names.length === 2) {
+    return `${names[0]} and ${names[1]}`;
+  }
+  return `${names[0]}, ${names[1]}, and ${names.length - 2} more`;
+}
+
+export function formatTypingParticipants(participants = [], actorId) {
+  if (!Array.isArray(participants) || participants.length === 0) {
+    return null;
+  }
+  const actor = normaliseUserId(actorId);
+  const names = participants
+    .filter((participant) => {
+      const userId = normaliseUserId(participant?.userId);
+      if (!userId || (actor && userId === actor)) {
+        return false;
+      }
+      const expiresAt = participant?.expiresAt ? new Date(participant.expiresAt).getTime() : Date.now();
+      return Number.isFinite(expiresAt) && expiresAt > Date.now();
+    })
+    .map((participant) => participant.displayName || `User ${participant.userId}`);
+
+  if (!names.length) {
+    return null;
+  }
+
+  if (names.length === 1) {
+    return `${names[0]} is typing…`;
+  }
+  if (names.length === 2) {
+    return `${names[0]} and ${names[1]} are typing…`;
+  }
+  return `${names[0]}, ${names[1]}, and ${names.length - 2} others are typing…`;
 }
 
 export function isCallEvent(message) {
@@ -123,6 +223,7 @@ export default {
   resolveActorId,
   formatThreadParticipants,
   buildThreadTitle,
+  sortThreads,
   isThreadUnread,
   describeLastActivity,
   sortMessages,
@@ -132,4 +233,6 @@ export default {
   formatMessageSender,
   messageBelongsToUser,
   formatMessageTimestamp,
+  formatReadReceiptSummary,
+  formatTypingParticipants,
 };

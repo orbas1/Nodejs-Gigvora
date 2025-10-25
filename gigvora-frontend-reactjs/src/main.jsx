@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import './index.css';
 import { SessionProvider } from './context/SessionContext.jsx';
+import { MessagingProvider } from './context/MessagingContext.jsx';
 import { LanguageProvider } from './context/LanguageContext.jsx';
 
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
@@ -37,7 +38,9 @@ async function bootstrap() {
           <OAuthProvider clientId={googleClientId}>
             <LanguageProvider>
               <SessionProvider>
-                <AppComponent />
+                <MessagingProvider>
+                  <AppComponent />
+                </MessagingProvider>
               </SessionProvider>
             </LanguageProvider>
           </OAuthProvider>

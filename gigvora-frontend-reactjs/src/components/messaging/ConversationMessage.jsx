@@ -6,11 +6,13 @@ import {
   isCallActive,
   isCallEvent,
   messageBelongsToUser,
+  formatReadReceiptSummary,
 } from '../../utils/messaging.js';
 
 export default function ConversationMessage({ message, actorId, onJoinCall, joiningCall, activeCallId }) {
   const own = messageBelongsToUser(message, actorId);
   const timestamp = formatMessageTimestamp(message);
+  const readReceiptSummary = own ? formatReadReceiptSummary(message?.readReceipts, actorId) : null;
 
   if (isCallEvent(message)) {
     const callMetadata = getCallMetadata(message);
@@ -81,6 +83,9 @@ export default function ConversationMessage({ message, actorId, onJoinCall, join
       >
         {message.body ? message.body : <span className="italic text-slate-500">No message body</span>}
       </div>
+      {readReceiptSummary ? (
+        <p className="text-[11px] font-medium text-slate-400">Read by {readReceiptSummary}</p>
+      ) : null}
     </div>
   );
 }
