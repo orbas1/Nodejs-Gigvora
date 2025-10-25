@@ -176,6 +176,38 @@ const translationsMap = {
       startProfile: "Créer votre profil gratuit",
       watchTour: "Regarder une présentation de 90 secondes",
     },
+    assistants: {
+      messaging: {
+        inboxTab: "Boîte de réception",
+        supportTab: "Support",
+        subtitle: "Messagerie sécurisée, appels et fichiers pour chaque espace de travail.",
+        supportSubtitle: "Basculez vers le centre de confiance pour les analyses de tickets et les SLA.",
+        syncedCopy: "Synchronisé sur les tableaux de bord des équipes et partenaires.",
+        refresh: "Actualiser",
+        signInPrompt: "Connectez-vous pour voir la messagerie de votre organisation, lancer des appels et collaborer en direct.",
+        emptyThreads:
+          "Démarrez une conversation avec des collaborateurs ou clients. Les fils apparaissent ici après leur création.",
+        privateNotes: "Notes privées",
+        startVideo: "Démarrer la vidéo",
+        startVoice: "Démarrer l'audio",
+        loadOlder: "Charger les conversations plus anciennes",
+        loadingOlder: "Chargement des conversations…",
+        emptyMessages:
+          "Présentez l'équipe, partagez des fichiers et planifiez des appels – les messages s'affichent ici en temps réel.",
+        signInToRead: "Connectez-vous pour lire et envoyer des messages.",
+        composePlaceholder: "Écrire votre réponse…",
+        composeDisabled: "Connectez-vous pour envoyer des messages",
+        composeHintActive: "Les fichiers, réactions et validations restent synchronisés sur les tableaux de bord.",
+        composeHintEmpty: "Sélectionnez une conversation pour répondre.",
+        send: "Envoyer",
+        supportBody:
+          "Nos spécialistes répondent en quelques minutes pendant les heures UK et UE. Lancez un fil ici ou ouvrez le centre de confiance.",
+        visitSupport: "Visiter le centre de support",
+        tipTitle: "Dernier conseil",
+        tipBody:
+          "Lancez un appel vidéo ou audio depuis n'importe quel fil – le journal d'audit et les enregistrements restent synchronisés.",
+      },
+    },
     hero: {
       tagline: "Plateforme Gigvora",
       heading: "Recrutez brillamment. Collaborez avec élégance.",
@@ -244,6 +276,38 @@ const translationsMap = {
       register: "Únete ahora",
       startProfile: "Crea tu perfil gratis",
       watchTour: "Ver recorrido de 90 segundos",
+    },
+    assistants: {
+      messaging: {
+        inboxTab: "Bandeja",
+        supportTab: "Soporte",
+        subtitle: "Mensajería segura, llamadas y archivos para cada espacio de trabajo.",
+        supportSubtitle: "Cambia al centro de confianza para ver analíticas de tickets y SLA.",
+        syncedCopy: "Sincronizado en tableros de equipos y socios.",
+        refresh: "Actualizar",
+        signInPrompt: "Inicia sesión para ver el buzón de tu organización, comenzar llamadas y colaborar en tiempo real.",
+        emptyThreads:
+          "Inicia una conversación con colaboradores o clientes. Los hilos aparecerán aquí cuando los crees.",
+        privateNotes: "Notas privadas",
+        startVideo: "Iniciar video",
+        startVoice: "Iniciar voz",
+        loadOlder: "Cargar conversaciones anteriores",
+        loadingOlder: "Cargando más conversaciones…",
+        emptyMessages:
+          "Presenta al equipo, comparte archivos y programa llamadas; los mensajes aparecen aquí en tiempo real.",
+        signInToRead: "Inicia sesión para leer y enviar mensajes.",
+        composePlaceholder: "Escribe tu respuesta…",
+        composeDisabled: "Inicia sesión para enviar mensajes",
+        composeHintActive: "Los archivos, reacciones y aprobaciones se sincronizan en todos los tableros.",
+        composeHintEmpty: "Selecciona una conversación para responder.",
+        send: "Enviar",
+        supportBody:
+          "Nuestros especialistas responden en minutos durante el horario de Reino Unido y la UE. Inicia un hilo aquí o abre el centro de confianza.",
+        visitSupport: "Visitar centro de soporte",
+        tipTitle: "Último consejo",
+        tipBody:
+          "Lanza una llamada de video o voz desde cualquier hilo; el registro de auditoría y las grabaciones permanecen sincronizados.",
+      },
     },
     hero: {
       tagline: "Plataforma Gigvora",
@@ -314,6 +378,38 @@ const translationsMap = {
       startProfile: "Crie seu perfil gratuito",
       watchTour: "Assistir apresentação de 90 segundos",
     },
+    assistants: {
+      messaging: {
+        inboxTab: "Caixa",
+        supportTab: "Suporte",
+        subtitle: "Mensagens seguras, chamadas e ficheiros para cada espaço de trabalho.",
+        supportSubtitle: "Mude para o centro de confiança para análises de tickets e SLAs.",
+        syncedCopy: "Sincronizado nos painéis de equipas e parceiros.",
+        refresh: "Atualizar",
+        signInPrompt: "Inicie sessão para ver a caixa da organização, iniciar chamadas e colaborar em tempo real.",
+        emptyThreads:
+          "Inicie uma conversa com colaboradores ou clientes. As conversas surgem aqui após serem criadas.",
+        privateNotes: "Notas privadas",
+        startVideo: "Iniciar vídeo",
+        startVoice: "Iniciar áudio",
+        loadOlder: "Carregar conversas anteriores",
+        loadingOlder: "A carregar mais conversas…",
+        emptyMessages:
+          "Apresente a equipa, partilhe ficheiros e agende chamadas – as mensagens aparecem aqui em tempo real.",
+        signInToRead: "Inicie sessão para ler e enviar mensagens.",
+        composePlaceholder: "Escreva a sua resposta…",
+        composeDisabled: "Inicie sessão para enviar mensagens",
+        composeHintActive: "Ficheiros, reações e aprovações ficam sincronizados nos painéis.",
+        composeHintEmpty: "Selecione uma conversa para responder.",
+        send: "Enviar",
+        supportBody:
+          "Os nossos especialistas respondem em minutos durante o horário do Reino Unido e da UE. Inicie um tópico aqui ou abra o centro de confiança.",
+        visitSupport: "Visitar centro de suporte",
+        tipTitle: "Última dica",
+        tipBody:
+          "Inicie uma chamada de vídeo ou áudio a partir de qualquer tópico – o registo e as gravações permanecem sincronizados.",
+      },
+    },
     hero: {
       tagline: "Plataforma Gigvora",
       heading: "Contrate com brilho. Colabore com beleza.",
@@ -382,6 +478,38 @@ const translationsMap = {
       register: "Unisciti ora",
       startProfile: "Crea il tuo profilo gratuito",
       watchTour: "Guarda il tour di 90 secondi",
+    },
+    assistants: {
+      messaging: {
+        inboxTab: "Posta",
+        supportTab: "Supporto",
+        subtitle: "Messaggistica sicura, chiamate e file per ogni spazio di lavoro.",
+        supportSubtitle: "Passa al centro fiducia per analisi ticket e SLA.",
+        syncedCopy: "Sincronizzato su dashboard di team e partner.",
+        refresh: "Aggiorna",
+        signInPrompt: "Accedi per vedere la posta della tua organizzazione, avviare chiamate e collaborare in tempo reale.",
+        emptyThreads:
+          "Avvia una conversazione con collaboratori o clienti. I thread appariranno qui dopo la creazione.",
+        privateNotes: "Note private",
+        startVideo: "Avvia video",
+        startVoice: "Avvia audio",
+        loadOlder: "Carica conversazioni precedenti",
+        loadingOlder: "Caricamento delle conversazioni…",
+        emptyMessages:
+          "Presenta il team, condividi file e pianifica chiamate: i messaggi compaiono qui in tempo reale.",
+        signInToRead: "Accedi per leggere e inviare messaggi.",
+        composePlaceholder: "Scrivi la tua risposta…",
+        composeDisabled: "Accedi per inviare messaggi",
+        composeHintActive: "File, reazioni e approvazioni restano sincronizzati sulle dashboard.",
+        composeHintEmpty: "Seleziona una conversazione per rispondere.",
+        send: "Invia",
+        supportBody:
+          "I nostri specialisti rispondono in pochi minuti durante l'orario del Regno Unito e dell'UE. Avvia un thread qui o apri il centro fiducia.",
+        visitSupport: "Visita il centro di supporto",
+        tipTitle: "Ultimo suggerimento",
+        tipBody:
+          "Avvia una chiamata video o audio da qualsiasi thread: registro e registrazioni restano sincronizzati.",
+      },
     },
     hero: {
       tagline: "Piattaforma Gigvora",
@@ -452,6 +580,38 @@ const translationsMap = {
       startProfile: "Utwórz darmowy profil",
       watchTour: "Obejrzyj 90-sekundowy przegląd",
     },
+    assistants: {
+      messaging: {
+        inboxTab: "Skrzynka",
+        supportTab: "Wsparcie",
+        subtitle: "Bezpieczne wiadomości, połączenia i pliki dla każdego workspace'u.",
+        supportSubtitle: "Przejdź do centrum zaufania, aby zobaczyć analitykę zgłoszeń i SLA.",
+        syncedCopy: "Zsynchronizowane na panelach zespołów i partnerów.",
+        refresh: "Odśwież",
+        signInPrompt: "Zaloguj się, aby zobaczyć skrzynkę organizacji, rozpocząć połączenia i współpracować na żywo.",
+        emptyThreads:
+          "Rozpocznij rozmowę z współpracownikami lub klientami. Wątki pojawią się tutaj po utworzeniu.",
+        privateNotes: "Notatki prywatne",
+        startVideo: "Rozpocznij wideo",
+        startVoice: "Rozpocznij audio",
+        loadOlder: "Wczytaj starsze rozmowy",
+        loadingOlder: "Wczytywanie kolejnych rozmów…",
+        emptyMessages:
+          "Przedstaw zespół, udostępnij pliki i zaplanuj połączenia – wiadomości pojawiają się tutaj w czasie rzeczywistym.",
+        signInToRead: "Zaloguj się, aby czytać i wysyłać wiadomości.",
+        composePlaceholder: "Napisz odpowiedź…",
+        composeDisabled: "Zaloguj się, aby wysyłać wiadomości",
+        composeHintActive: "Pliki, reakcje i akceptacje pozostają zsynchronizowane na panelach.",
+        composeHintEmpty: "Wybierz rozmowę, aby odpowiedzieć.",
+        send: "Wyślij",
+        supportBody:
+          "Nasi specjaliści odpowiadają w kilka minut w godzinach pracy w UK i UE. Rozpocznij wątek tutaj lub otwórz centrum zaufania.",
+        visitSupport: "Odwiedź centrum wsparcia",
+        tipTitle: "Ostatnia wskazówka",
+        tipBody:
+          "Uruchom połączenie wideo lub głosowe z dowolnego wątku – dziennik audytu i nagrania pozostają zsynchronizowane.",
+      },
+    },
     hero: {
       tagline: "Platforma Gigvora",
       heading: "Rekrutuj z klasą. Współpracuj pięknie.",
@@ -520,6 +680,38 @@ const translationsMap = {
       register: "अभी शामिल हों",
       startProfile: "अपना निःशुल्क प्रोफ़ाइल शुरू करें",
       watchTour: "90 सेकंड का वॉक-थ्रू देखें",
+    },
+    assistants: {
+      messaging: {
+        inboxTab: "इनबॉक्स",
+        supportTab: "सहायता",
+        subtitle: "हर कार्यस्थान के लिए सुरक्षित संदेश, कॉल और फ़ाइलें।",
+        supportSubtitle: "टिकट विश्लेषण और SLA के लिए ट्रस्ट सेंटर पर स्विच करें।",
+        syncedCopy: "टीम और पार्टनर डैशबोर्ड पर समन्वयित।",
+        refresh: "रिफ़्रेश",
+        signInPrompt: "अपने संगठन का इनबॉक्स देखने, कॉल शुरू करने और वास्तविक समय में सहयोग करने के लिए साइन इन करें।",
+        emptyThreads:
+          "सहकर्मियों या ग्राहकों के साथ बातचीत शुरू करें। बनाते ही थ्रेड यहाँ दिखाई देंगे।",
+        privateNotes: "निजी नोट्स",
+        startVideo: "वीडियो शुरू करें",
+        startVoice: "आवाज़ शुरू करें",
+        loadOlder: "पुरानी बातचीत लोड करें",
+        loadingOlder: "अधिक बातचीत लोड हो रही हैं…",
+        emptyMessages:
+          "टीम का परिचय दें, फ़ाइलें साझा करें और कॉल शेड्यूल करें – संदेश वास्तविक समय में यहाँ दिखाई देंगे।",
+        signInToRead: "संदेश पढ़ने और भेजने के लिए साइन इन करें।",
+        composePlaceholder: "अपना उत्तर लिखें…",
+        composeDisabled: "संदेश भेजने के लिए साइन इन करें",
+        composeHintActive: "फ़ाइलें, प्रतिक्रियाएँ और अनुमोदन सभी डैशबोर्ड पर सिंक रहते हैं।",
+        composeHintEmpty: "उत्तर देने के लिए कोई बातचीत चुनें।",
+        send: "भेजें",
+        supportBody:
+          "हमारे विशेषज्ञ यूके और ईयू समय में कुछ ही मिनटों में जवाब देते हैं। यहाँ थ्रेड शुरू करें या ट्रस्ट सेंटर खोलें।",
+        visitSupport: "सपोर्ट सेंटर देखें",
+        tipTitle: "नवीनतम सुझाव",
+        tipBody:
+          "किसी भी थ्रेड से वीडियो या वॉइस कॉल शुरू करें – ऑडिट लॉग और रिकॉर्डिंग समन्वित रहते हैं।",
+      },
     },
     hero: {
       tagline: "गिगवोरा प्लेटफ़ॉर्म",
@@ -590,6 +782,38 @@ const translationsMap = {
       startProfile: "ابدأ ملفك الشخصي مجانًا",
       watchTour: "شاهد جولة مدتها 90 ثانية",
     },
+    assistants: {
+      messaging: {
+        inboxTab: "الوارد",
+        supportTab: "الدعم",
+        subtitle: "رسائل آمنة ومكالمات وملفات لكل مساحة عمل.",
+        supportSubtitle: "انتقل إلى مركز الثقة لتحليلات التذاكر واتفاقيات مستوى الخدمة.",
+        syncedCopy: "متزامن عبر لوحات فرق الشركاء.",
+        refresh: "تحديث",
+        signInPrompt: "سجّل الدخول لعرض صندوق رسائل مؤسستك، وبدء المكالمات والتعاون الفوري.",
+        emptyThreads:
+          "ابدأ محادثة مع الزملاء أو العملاء. ستظهر المحادثات هنا بمجرد إنشائها.",
+        privateNotes: "ملاحظات خاصة",
+        startVideo: "بدء مكالمة فيديو",
+        startVoice: "بدء مكالمة صوتية",
+        loadOlder: "تحميل المحادثات الأقدم",
+        loadingOlder: "جاري تحميل محادثات إضافية…",
+        emptyMessages:
+          "قدّم الفريق، وشارك الملفات، وحدد مواعيد للمكالمات – ستظهر الرسائل هنا في الوقت الحقيقي.",
+        signInToRead: "سجّل الدخول لقراءة الرسائل وإرسالها.",
+        composePlaceholder: "اكتب ردك…",
+        composeDisabled: "سجّل الدخول لإرسال الرسائل",
+        composeHintActive: "تظل الملفات والتفاعلات والموافقات متزامنة عبر اللوحات.",
+        composeHintEmpty: "اختر محادثة للرد.",
+        send: "إرسال",
+        supportBody:
+          "يستجيب اختصاصيونا خلال دقائق في ساعات العمل بالمملكة المتحدة والاتحاد الأوروبي. ابدأ محادثة هنا أو افتح مركز الثقة.",
+        visitSupport: "زيارة مركز الدعم",
+        tipTitle: "آخر نصيحة",
+        tipBody:
+          "ابدأ مكالمة فيديو أو صوت من أي محادثة – يظل سجل التدقيق والتسجيلات متزامنًا.",
+      },
+    },
     hero: {
       tagline: "منصة جيجفورا",
       heading: "وظّف بامتياز. وتعاون بروعة.",
@@ -659,6 +883,38 @@ const translationsMap = {
       startProfile: "Starte dein kostenloses Profil",
       watchTour: "90-Sekunden-Tour ansehen",
     },
+    assistants: {
+      messaging: {
+        inboxTab: "Posteingang",
+        supportTab: "Support",
+        subtitle: "Sichere Nachrichten, Anrufe und Dateien für jeden Arbeitsbereich.",
+        supportSubtitle: "Wechsle zum Trust Center für Ticket-Analysen und SLAs.",
+        syncedCopy: "Auf Team- und Partner-Dashboards synchronisiert.",
+        refresh: "Aktualisieren",
+        signInPrompt: "Melde dich an, um das Postfach deiner Organisation zu sehen, Anrufe zu starten und in Echtzeit zusammenzuarbeiten.",
+        emptyThreads:
+          "Starte ein Gespräch mit Kolleg:innen oder Kund:innen. Threads erscheinen hier, sobald du sie erstellst.",
+        privateNotes: "Private Notizen",
+        startVideo: "Video starten",
+        startVoice: "Audio starten",
+        loadOlder: "Ältere Unterhaltungen laden",
+        loadingOlder: "Weitere Unterhaltungen werden geladen…",
+        emptyMessages:
+          "Stelle das Team vor, teile Dateien und plane Anrufe – Nachrichten erscheinen hier in Echtzeit.",
+        signInToRead: "Zum Lesen und Senden anmelden.",
+        composePlaceholder: "Schreibe deine Antwort…",
+        composeDisabled: "Zum Senden anmelden",
+        composeHintActive: "Dateien, Reaktionen und Freigaben bleiben auf allen Dashboards synchron.",
+        composeHintEmpty: "Wähle eine Unterhaltung zum Antworten.",
+        send: "Senden",
+        supportBody:
+          "Unsere Spezialist:innen antworten innerhalb weniger Minuten während der UK- und EU-Zeiten. Starte hier einen Thread oder öffne das Trust Center.",
+        visitSupport: "Support-Center öffnen",
+        tipTitle: "Neuester Tipp",
+        tipBody:
+          "Starte Video- oder Audioanrufe direkt aus jedem Thread – Audit-Log und Aufzeichnungen bleiben synchron.",
+      },
+    },
     hero: {
       tagline: "Gigvora-Plattform",
       heading: "Brillant einstellen. Stilvoll zusammenarbeiten.",
@@ -727,6 +983,38 @@ const translationsMap = {
       register: "Присоединиться",
       startProfile: "Создайте бесплатный профиль",
       watchTour: "Посмотреть 90-секундный обзор",
+    },
+    assistants: {
+      messaging: {
+        inboxTab: "Входящие",
+        supportTab: "Поддержка",
+        subtitle: "Безопасные сообщения, звонки и файлы для каждого рабочего пространства.",
+        supportSubtitle: "Перейдите в центр доверия, чтобы просматривать аналитику тикетов и SLA.",
+        syncedCopy: "Синхронизируется на панелях команд и партнёров.",
+        refresh: "Обновить",
+        signInPrompt: "Войдите, чтобы увидеть почтовый ящик организации, запускать звонки и сотрудничать в реальном времени.",
+        emptyThreads:
+          "Начните беседу с коллегами или клиентами. Созданные беседы появятся здесь.",
+        privateNotes: "Личные заметки",
+        startVideo: "Начать видео",
+        startVoice: "Начать аудио",
+        loadOlder: "Загрузить старые беседы",
+        loadingOlder: "Загружаем дополнительные беседы…",
+        emptyMessages:
+          "Представьте команду, поделитесь файлами и запланируйте звонки — сообщения отображаются здесь в реальном времени.",
+        signInToRead: "Войдите, чтобы читать и отправлять сообщения.",
+        composePlaceholder: "Напишите ответ…",
+        composeDisabled: "Войдите, чтобы отправлять сообщения",
+        composeHintActive: "Файлы, реакции и согласования остаются синхронизированными на всех панелях.",
+        composeHintEmpty: "Выберите беседу, чтобы ответить.",
+        send: "Отправить",
+        supportBody:
+          "Наши специалисты отвечают в течение нескольких минут в рабочие часы Великобритании и ЕС. Начните беседу здесь или откройте центр доверия.",
+        visitSupport: "Перейти в центр поддержки",
+        tipTitle: "Свежий совет",
+        tipBody:
+          "Запускайте видео- или голосовые звонки из любого треда — журнал аудита и записи остаются синхронизированными.",
+      },
     },
     hero: {
       tagline: "Платформа Gigvora",

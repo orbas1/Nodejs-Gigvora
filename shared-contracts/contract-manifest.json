@@ -1,12 +1,17 @@
 {
   "version": "1.0.1",
-  "lastGeneratedAt": "2025-10-25T00:36:52.906Z",
+  "lastGeneratedAt": "2025-10-25T14:36:00.000Z",
   "pendingChanges": true,
   "artifacts": {
     "auth/user": {
       "schemaHash": "360ca8371a7acba501005e1ae88bfbda2ab69f83e1cff09e9e491309c78bf788",
       "typesHash": "453fc193b745f8bdbcfdd6287781a97ffbaafa4487c48ace5bb39320c597ec19",
       "generatedAt": "2025-10-25T00:36:52.906Z"
+    },
+    "platform/appearance-management": {
+      "schemaHash": null,
+      "typesHash": "96e77221da66c617b446f6a1aa3e1a846898cd0a230f2c7d37d509e2ed8e4ee9",
+      "generatedAt": "2025-10-25T14:36:00.000Z"
     },
     "governance/context-governance-summaries": {
       "schemaHash": "af854280fa8112cebffbeb6bb852a1538667dd293419774a52b4002f830ac109",
