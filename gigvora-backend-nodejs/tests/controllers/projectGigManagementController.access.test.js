@@ -63,6 +63,7 @@ const {
   patchProject,
   destroyAsset,
   storeGigTimelineEvent,
+  storeGigMessage,
   storeGigSubmission,
   storeGigChatMessage,
   storeGigEscrowCheckpoint,
@@ -226,10 +227,36 @@ describe('projectGigManagementController access and validation', () => {
     });
   });
 
-  it('records escrow checkpoints and refreshes dashboards', async () => {
+  it('records gig messages and returns order detail instead of refreshing the full dashboard', async () => {
+    setOwnerContext({ ownerId: '22', access: { actorId: 91, actorRole: 'operations_lead' } });
+    serviceMocks.createGigOrderMessage.mockResolvedValue({ id: 31, body: 'Check-in sent' });
+    serviceMocks.getGigOrderDetail.mockResolvedValue({ id: 73, status: 'active' });
+
+    const res = createResponse();
+    await storeGigMessage(
+      { params: { userId: '22', orderId: '73' }, body: { body: 'Check-in sent', actorId: '91' }, user: { email: 'ops@gigvora.test' } },
+      res,
+    );
+
+    expect(serviceMocks.createGigOrderMessage).toHaveBeenCalledWith(22, 73, { body: 'Check-in sent' }, {
+      actorId: 91,
+      actorRole: 'operations_lead',
+      actorName: 'ops@gigvora.test',
+    });
+    expect(serviceMocks.getProjectGigManagementOverview).not.toHaveBeenCalled();
+    expect(serviceMocks.getGigOrderDetail).toHaveBeenCalledWith(22, 73);
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(res.json).toHaveBeenCalledWith({
+      message: { id: 31, body: 'Check-in sent' },
+      order: expect.objectContaining({ id: 73, access: expect.objectContaining({ performedBy: 91 }) }),
+      access: expect.objectContaining({ performedBy: 91 }),
+    });
+  });
+
+  it('records escrow checkpoints and returns updated order detail', async () => {
     setOwnerContext({ ownerId: '18', access: { actorId: 12, actorRole: 'admin' } });
     serviceMocks.createGigOrderEscrowCheckpoint.mockResolvedValue({ id: 6, amount: 500 });
-    serviceMocks.getProjectGigManagementOverview.mockResolvedValue({ totals: { checkpoints: 2 } });
+    serviceMocks.getGigOrderDetail.mockResolvedValue({ id: 33, status: 'active' });
 
     const res = createResponse();
     await storeGigEscrowCheckpoint(
@@ -241,10 +268,12 @@ describe('projectGigManagementController access and validation', () => {
       actorId: 777,
       actorRole: 'admin',
     });
+    expect(serviceMocks.getProjectGigManagementOverview).not.toHaveBeenCalled();
+    expect(serviceMocks.getGigOrderDetail).toHaveBeenCalledWith(18, 33);
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({
       checkpoint: { id: 6, amount: 500 },
-      dashboard: expect.objectContaining({ access: expect.objectContaining({ performedBy: 777 }) }),
+      order: expect.objectContaining({ id: 33, access: expect.objectContaining({ performedBy: 777 }) }),
       access: expect.objectContaining({ performedBy: 777 }),
     });
   });

@@ -93,6 +93,23 @@ export function parseParamId(req, paramName, label = paramName) {
   return parsePositiveInteger(req.params?.[paramName], label);
 }
 
+export function parseRouteParam(req, config) {
+  if (typeof config === 'string') {
+    return parsePositiveInteger(req.params?.[config], config);
+  }
+
+  if (!config || typeof config !== 'object') {
+    throw new ValidationError('Route parameter configuration must be a string or object.');
+  }
+
+  const { name, label = name, optional = false } = config;
+  if (!name || typeof name !== 'string') {
+    throw new ValidationError('Route parameter configuration requires a name.');
+  }
+
+  return parsePositiveInteger(req.params?.[name], label ?? name, { optional });
+}
+
 export default {
   ensurePlainObject,
   parsePositiveInteger,
@@ -101,4 +118,5 @@ export default {
   buildManagementAccessSnapshot,
   respondWithAccess,
   parseParamId,
+  parseRouteParam,
 };

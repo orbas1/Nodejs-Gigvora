@@ -33,3 +33,9 @@ Equip programme managers and operations leads with a consolidated workspace to m
 
 ## Roadmap
 - Upcoming additions include predictive capacity modelling, AI-powered status summaries, and JIRA/Linear connectors for enterprise workflows.
+
+## Timeline & Status Vocabulary
+- **Gig Order Statuses** – Backend constants such as `GIG_ORDER_STATUSES` describe lifecycle phases (`draft`, `active`, `completed`, etc.) that power badge colours, filtering, and analytics for delivery health.【F:gigvora-backend-nodejs/src/services/projectGigManagementWorkflowService.js†L30-L90】
+- **Timeline Event Types** – `GIG_TIMELINE_EVENT_TYPES` defines allowed milestones (kick-off, review, delivery) while `GIG_TIMELINE_EVENT_STATUSES` pairs each entry with completion states so notification copy stays consistent.【F:gigvora-backend-nodejs/src/services/projectGigManagementWorkflowService.js†L30-L90】【F:gigvora-backend-nodejs/src/services/projectGigManagementWorkflowService.js†L2500-L2550】
+- **Escrow Statuses** – `GIG_ESCROW_STATUSES` (e.g., `funded`, `released`, `disputed`) align finance updates with UI alerts and SLA breach monitoring across dashboards.【F:gigvora-backend-nodejs/src/services/projectGigManagementWorkflowService.js†L30-L90】【F:gigvora-backend-nodejs/src/services/projectGigManagementWorkflowService.js†L3040-L3140】
+- **Submission & Review States** – `GIG_SUBMISSION_STATUSES` and review metrics standardise acceptance/revision flows, ensuring copywriters reuse the same vocabulary when drafting emails or release notes.【F:gigvora-backend-nodejs/src/services/projectGigManagementWorkflowService.js†L30-L90】【F:gigvora-backend-nodejs/src/services/projectGigManagementWorkflowService.js†L2680-L2760】

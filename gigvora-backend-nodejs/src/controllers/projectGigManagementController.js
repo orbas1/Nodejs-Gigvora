@@ -1,20 +1,11 @@
 import * as workflowService from '../services/projectGigManagementWorkflowService.js';
-import { parsePositiveInteger } from '../utils/controllerAccess.js';
-import { ValidationError } from '../utils/errors.js';
+import { parseRouteParam } from '../utils/controllerAccess.js';
 import {
   requireOwnerContext,
   sanitizeMemberActorPayload,
   attachMemberAccess,
   respondWithMemberAccess,
 } from '../utils/projectMemberAccess.js';
-
-function parseParam(req, config) {
-  if (typeof config === 'string') {
-    return parsePositiveInteger(req.params?.[config], config);
-  }
-  const { name, label = name, optional = false } = config;
-  return parsePositiveInteger(req.params?.[name], label, { optional });
-}
 
 async function refreshDashboard(ownerId, access, actorId) {
   const snapshot = await workflowService.getProjectGigManagementOverview(ownerId);
@@ -34,11 +25,7 @@ function createDashboardMutationHandler({ service, params = [], resultKey, statu
     const { actorId, payload } = sanitizeMemberActorPayload(req.body, access);
     const args = [ownerId];
     params.forEach((param) => {
-      const parsed = parseParam(req, param);
-      if (parsed == null && !(typeof param === 'object' && param.optional)) {
-        const label = typeof param === 'string' ? param : param.label ?? param.name;
-        throw new ValidationError(`${label} is required.`);
-      }
+      const parsed = parseRouteParam(req, param);
       if (parsed != null) {
         args.push(parsed);
       }
@@ -231,7 +218,7 @@ export const patchEscrowSettings = createDashboardMutationHandler({
 
 export async function storeGigTimelineEvent(req, res) {
   const { ownerId, access } = requireOwnerContext(req, { mode: 'manage' });
-  const orderId = parseParam(req, 'orderId');
+  const orderId = parseRouteParam(req, 'orderId');
   const { actorId, payload } = sanitizeMemberActorPayload(req.body, access);
   const shouldUseExtendedPayload =
     payload.eventType != null || payload.visibility != null || payload.summary != null || payload.attachments != null;
@@ -248,8 +235,8 @@ export async function storeGigTimelineEvent(req, res) {
 
 export async function patchGigTimelineEvent(req, res) {
   const { ownerId, access } = requireOwnerContext(req, { mode: 'manage' });
-  const orderId = parseParam(req, 'orderId');
-  const eventId = parseParam(req, 'eventId');
+  const orderId = parseRouteParam(req, 'orderId');
+  const eventId = parseRouteParam(req, 'eventId');
   const { actorId, payload } = sanitizeMemberActorPayload(req.body, access);
   const event = await workflowService.updateGigTimelineEvent(ownerId, orderId, eventId, payload);
   const detail = await workflowService.getGigOrderDetail(ownerId, orderId);
@@ -259,37 +246,41 @@ export async function patchGigTimelineEvent(req, res) {
 
 export async function storeGigMessage(req, res) {
   const { ownerId, access } = requireOwnerContext(req, { mode: 'manage' });
-  const orderId = parseParam(req, 'orderId');
+  const orderId = parseRouteParam(req, 'orderId');
   const { actorId, payload, actorRole } = sanitizeMemberActorPayload(req.body, access);
   const actorContext = { actorId, actorRole, actorName: resolveActorName(req) };
   const message = await workflowService.createGigOrderMessage(ownerId, orderId, payload, actorContext);
-  const dashboard = await refreshDashboard(ownerId, access, actorId);
-  respondWithMemberAccess(res, { message, dashboard }, access, { status: 201, performedBy: actorId });
+  const detail = await workflowService.getGigOrderDetail(ownerId, orderId);
+  const order = attachMemberAccess(detail, access, { performedBy: actorId });
+  respondWithMemberAccess(res, { message, order }, access, { status: 201, performedBy: actorId });
 }
 
 export async function storeGigEscrowCheckpoint(req, res) {
   const { ownerId, access } = requireOwnerContext(req, { mode: 'manage' });
-  const orderId = parseParam(req, 'orderId');
+  const orderId = parseRouteParam(req, 'orderId');
   const { actorId, payload, actorRole } = sanitizeMemberActorPayload(req.body, access);
   const actorContext = { actorId, actorRole };
   const checkpoint = await workflowService.createGigOrderEscrowCheckpoint(ownerId, orderId, payload, actorContext);
-  const dashboard = await refreshDashboard(ownerId, access, actorId);
-  respondWithMemberAccess(res, { checkpoint, dashboard }, access, { status: 201, performedBy: actorId });
+  const detail = await workflowService.getGigOrderDetail(ownerId, orderId);
+  const order = attachMemberAccess(detail, access, { performedBy: actorId });
+  respondWithMemberAccess(res, { checkpoint, order }, access, { status: 201, performedBy: actorId });
 }
 
 export async function patchGigEscrowCheckpoint(req, res) {
   const { ownerId, access } = requireOwnerContext(req, { mode: 'manage' });
-  const checkpointId = parseParam(req, 'checkpointId');
+  const orderId = parseRouteParam(req, 'orderId');
+  const checkpointId = parseRouteParam(req, 'checkpointId');
   const { actorId, payload, actorRole } = sanitizeMemberActorPayload(req.body, access);
   const actorContext = { actorId, actorRole };
   const checkpoint = await workflowService.updateGigOrderEscrowCheckpoint(ownerId, checkpointId, payload, actorContext);
-  const dashboard = await refreshDashboard(ownerId, access, actorId);
-  respondWithMemberAccess(res, { checkpoint, dashboard }, access, { performedBy: actorId });
+  const detail = await workflowService.getGigOrderDetail(ownerId, orderId);
+  const order = attachMemberAccess(detail, access, { performedBy: actorId });
+  respondWithMemberAccess(res, { checkpoint, order }, access, { performedBy: actorId });
 }
 
 export async function storeGigSubmission(req, res) {
   const { ownerId, access } = requireOwnerContext(req, { mode: 'manage' });
-  const orderId = parseParam(req, 'orderId');
+  const orderId = parseRouteParam(req, 'orderId');
   const { actorId, payload } = sanitizeMemberActorPayload(req.body, access);
   const shouldUseExtendedPayload = payload.eventType != null || payload.attachments != null || payload.description != null;
   const result = await (shouldUseExtendedPayload
@@ -302,8 +293,8 @@ export async function storeGigSubmission(req, res) {
 
 export async function patchGigSubmission(req, res) {
   const { ownerId, access } = requireOwnerContext(req, { mode: 'manage' });
-  const orderId = parseParam(req, 'orderId');
-  const submissionId = parseParam(req, 'submissionId');
+  const orderId = parseRouteParam(req, 'orderId');
+  const submissionId = parseRouteParam(req, 'submissionId');
   const { actorId, payload } = sanitizeMemberActorPayload(req.body, access);
   const submission = await workflowService.updateGigSubmission(ownerId, orderId, submissionId, payload, { actorId });
   const detail = await workflowService.getGigOrderDetail(ownerId, orderId);
@@ -313,7 +304,7 @@ export async function patchGigSubmission(req, res) {
 
 export async function storeGigChatMessage(req, res) {
   const { ownerId, access } = requireOwnerContext(req, { mode: 'manage' });
-  const orderId = parseParam(req, 'orderId');
+  const orderId = parseRouteParam(req, 'orderId');
   const { actorId, payload, actorRole } = sanitizeMemberActorPayload(req.body, access);
   const actorContext = { actorId, actorRole };
   const message = await workflowService.postGigChatMessage(ownerId, orderId, payload, actorContext);
@@ -324,7 +315,7 @@ export async function storeGigChatMessage(req, res) {
 
 export async function showGigOrder(req, res) {
   const { ownerId, access } = requireOwnerContext(req, { mode: 'view' });
-  const orderId = parseParam(req, 'orderId');
+  const orderId = parseRouteParam(req, 'orderId');
   const detail = await workflowService.getGigOrderDetail(ownerId, orderId);
   const order = attachMemberAccess(detail, access);
   respondWithMemberAccess(res, { order }, access);
@@ -332,8 +323,8 @@ export async function showGigOrder(req, res) {
 
 export async function acknowledgeGigMessage(req, res) {
   const { ownerId, access } = requireOwnerContext(req, { mode: 'manage' });
-  const orderId = parseParam(req, 'orderId');
-  const messageId = parseParam(req, 'messageId');
+  const orderId = parseRouteParam(req, 'orderId');
+  const messageId = parseRouteParam(req, 'messageId');
   const { actorId } = sanitizeMemberActorPayload(req.body, access);
   const message = await workflowService.acknowledgeGigChatMessage(ownerId, orderId, messageId, { actorId });
   const detail = await workflowService.getGigOrderDetail(ownerId, orderId);
