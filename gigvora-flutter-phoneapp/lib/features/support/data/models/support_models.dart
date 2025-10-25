@@ -129,6 +129,248 @@ class SupportArticle {
   }
 }
 
+class SupportCaseParticipant {
+  const SupportCaseParticipant({
+    required this.id,
+    required this.userId,
+    required this.role,
+  });
+
+  final int id;
+  final int userId;
+  final String role;
+
+  factory SupportCaseParticipant.fromJson(Map<String, dynamic> json) {
+    int _parseInt(dynamic value) {
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      return int.tryParse('$value') ?? 0;
+    }
+
+    return SupportCaseParticipant(
+      id: _parseInt(json['id']),
+      userId: _parseInt(json['userId'] ?? json['user_id'] ?? 0),
+      role: (json['role'] as String? ?? '').trim(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'userId': userId,
+      'role': role,
+    };
+  }
+}
+
+class SupportCaseSurvey {
+  const SupportCaseSurvey({
+    required this.id,
+    required this.score,
+    this.comment,
+    this.submittedBy,
+    this.submittedByType,
+    this.capturedAt,
+  });
+
+  final int? id;
+  final double? score;
+  final String? comment;
+  final int? submittedBy;
+  final String? submittedByType;
+  final DateTime? capturedAt;
+
+  factory SupportCaseSurvey.fromJson(Map<String, dynamic> json) {
+    return SupportCaseSurvey(
+      id: json['id'] is num ? (json['id'] as num).toInt() : int.tryParse('${json['id']}'),
+      score: json['score'] is num ? (json['score'] as num).toDouble() : double.tryParse('${json['score']}'),
+      comment: (json['comment'] as String? ?? '').trim().isNotEmpty ? (json['comment'] as String).trim() : null,
+      submittedBy: json['submittedBy'] is num ? (json['submittedBy'] as num).toInt() : int.tryParse('${json['submittedBy']}'),
+      submittedByType: (json['submittedByType'] as String? ?? '').trim().isNotEmpty
+          ? (json['submittedByType'] as String).trim()
+          : null,
+      capturedAt: json['capturedAt'] != null ? DateTime.tryParse('${json['capturedAt']}') : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'score': score,
+      'comment': comment,
+      'submittedBy': submittedBy,
+      'submittedByType': submittedByType,
+      'capturedAt': capturedAt?.toIso8601String(),
+    };
+  }
+}
+
+class SupportPlaybookStep {
+  const SupportPlaybookStep({
+    required this.id,
+    required this.stepNumber,
+    required this.title,
+    required this.instructions,
+    this.ownerRole,
+    this.expectedDurationMinutes,
+    this.requiresApproval = false,
+  });
+
+  final int id;
+  final int stepNumber;
+  final String title;
+  final String instructions;
+  final String? ownerRole;
+  final int? expectedDurationMinutes;
+  final bool requiresApproval;
+
+  factory SupportPlaybookStep.fromJson(Map<String, dynamic> json) {
+    int parseInt(dynamic value) {
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      return int.tryParse('$value') ?? 0;
+    }
+
+    return SupportPlaybookStep(
+      id: parseInt(json['id']),
+      stepNumber: parseInt(json['stepNumber'] ?? json['step_number']),
+      title: (json['title'] as String? ?? '').trim(),
+      instructions: (json['instructions'] as String? ?? '').trim(),
+      ownerRole: (json['ownerRole'] as String? ?? json['owner_role'] as String? ?? '').trim().isNotEmpty
+          ? (json['ownerRole'] as String? ?? json['owner_role'] as String? ?? '').trim()
+          : null,
+      expectedDurationMinutes: json['expectedDurationMinutes'] is num
+          ? (json['expectedDurationMinutes'] as num).toInt()
+          : json['expected_duration_minutes'] is num
+              ? (json['expected_duration_minutes'] as num).toInt()
+              : int.tryParse('${json['expectedDurationMinutes'] ?? json['expected_duration_minutes']}'),
+      requiresApproval: json['requiresApproval'] == true || json['requires_approval'] == true,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'stepNumber': stepNumber,
+      'title': title,
+      'instructions': instructions,
+      'ownerRole': ownerRole,
+      'expectedDurationMinutes': expectedDurationMinutes,
+      'requiresApproval': requiresApproval,
+    };
+  }
+}
+
+class SupportPlaybook {
+  const SupportPlaybook({
+    required this.id,
+    required this.slug,
+    required this.title,
+    required this.summary,
+    required this.stage,
+    required this.persona,
+    required this.channel,
+    this.csatImpact,
+    this.steps = const <SupportPlaybookStep>[],
+  });
+
+  final int id;
+  final String slug;
+  final String title;
+  final String summary;
+  final String stage;
+  final String persona;
+  final String channel;
+  final String? csatImpact;
+  final List<SupportPlaybookStep> steps;
+
+  factory SupportPlaybook.fromJson(Map<String, dynamic> json) {
+    final rawSteps = json['steps'];
+    final steps = <SupportPlaybookStep>[];
+    if (rawSteps is List) {
+      for (final entry in rawSteps) {
+        if (entry is Map<String, dynamic>) {
+          steps.add(SupportPlaybookStep.fromJson(entry));
+        } else if (entry is Map) {
+          steps.add(SupportPlaybookStep.fromJson(Map<String, dynamic>.from(entry)));
+        }
+      }
+    }
+
+    return SupportPlaybook(
+      id: json['id'] is num ? (json['id'] as num).toInt() : int.tryParse('${json['id']}') ?? 0,
+      slug: (json['slug'] as String? ?? '').trim(),
+      title: (json['title'] as String? ?? '').trim(),
+      summary: (json['summary'] as String? ?? '').trim(),
+      stage: (json['stage'] as String? ?? '').trim(),
+      persona: (json['persona'] as String? ?? '').trim(),
+      channel: (json['channel'] as String? ?? '').trim(),
+      csatImpact: (json['csatImpact'] as String? ?? '').trim().isNotEmpty
+          ? (json['csatImpact'] as String).trim()
+          : null,
+      steps: List<SupportPlaybookStep>.unmodifiable(steps..sort((a, b) => a.stepNumber.compareTo(b.stepNumber))),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'slug': slug,
+      'title': title,
+      'summary': summary,
+      'stage': stage,
+      'persona': persona,
+      'channel': channel,
+      'csatImpact': csatImpact,
+      'steps': steps.map((step) => step.toJson()).toList(growable: false),
+    };
+  }
+}
+
+class SupportCasePlaybookAssignment {
+  const SupportCasePlaybookAssignment({
+    required this.id,
+    required this.status,
+    this.assignedAt,
+    this.completedAt,
+    this.notes,
+    this.playbook,
+  });
+
+  final int id;
+  final String status;
+  final DateTime? assignedAt;
+  final DateTime? completedAt;
+  final String? notes;
+  final SupportPlaybook? playbook;
+
+  factory SupportCasePlaybookAssignment.fromJson(Map<String, dynamic> json) {
+    return SupportCasePlaybookAssignment(
+      id: json['id'] is num ? (json['id'] as num).toInt() : int.tryParse('${json['id']}') ?? 0,
+      status: (json['status'] as String? ?? '').trim(),
+      assignedAt: json['assignedAt'] != null ? DateTime.tryParse('${json['assignedAt']}') : null,
+      completedAt: json['completedAt'] != null ? DateTime.tryParse('${json['completedAt']}') : null,
+      notes: (json['notes'] as String? ?? '').trim().isNotEmpty ? (json['notes'] as String).trim() : null,
+      playbook: json['playbook'] is Map<String, dynamic>
+          ? SupportPlaybook.fromJson(json['playbook'] as Map<String, dynamic>)
+          : json['playbook'] is Map
+              ? SupportPlaybook.fromJson(Map<String, dynamic>.from(json['playbook'] as Map))
+              : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'status': status,
+      'assignedAt': assignedAt?.toIso8601String(),
+      'completedAt': completedAt?.toIso8601String(),
+      'notes': notes,
+      'playbook': playbook?.toJson(),
+    };
+  }
+}
+
 class SupportMessageAttachment {
   const SupportMessageAttachment({
     required this.label,
@@ -374,6 +616,7 @@ class SupportCaseLink {
 class SupportCase {
   const SupportCase({
     required this.id,
+    required this.threadId,
     required this.status,
     required this.priority,
     required this.title,
@@ -381,6 +624,8 @@ class SupportCase {
     required this.category,
     required this.escalatedAt,
     required this.updatedAt,
+    required this.metadata,
+    this.resolvedBy,
     this.firstResponseAt,
     this.resolvedAt,
     this.resolutionSummary,
@@ -389,9 +634,13 @@ class SupportCase {
     this.linkedOrder,
     this.messages = const <SupportMessage>[],
     this.links = const <SupportCaseLink>[],
+    this.participants = const <SupportCaseParticipant>[],
+    this.surveys = const <SupportCaseSurvey>[],
+    this.playbooks = const <SupportCasePlaybookAssignment>[],
   });
 
   final String id;
+  final int? threadId;
   final String status;
   final String priority;
   final String title;
@@ -399,6 +648,8 @@ class SupportCase {
   final String category;
   final DateTime escalatedAt;
   final DateTime updatedAt;
+  final Map<String, dynamic> metadata;
+  final SupportCasePerson? resolvedBy;
   final DateTime? firstResponseAt;
   final DateTime? resolvedAt;
   final String? resolutionSummary;
@@ -407,12 +658,16 @@ class SupportCase {
   final SupportCaseLinkedOrder? linkedOrder;
   final List<SupportMessage> messages;
   final List<SupportCaseLink> links;
+  final List<SupportCaseParticipant> participants;
+  final List<SupportCaseSurvey> surveys;
+  final List<SupportCasePlaybookAssignment> playbooks;
 
   bool get isOpen => !{'resolved', 'closed'}.contains(status.toLowerCase());
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'threadId': threadId,
       'status': status,
       'priority': priority,
       'title': title,
@@ -420,6 +675,8 @@ class SupportCase {
       'category': category,
       'escalatedAt': escalatedAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
+      'metadata': metadata,
+      'resolvedBy': resolvedBy?.toJson(),
       'firstResponseAt': firstResponseAt?.toIso8601String(),
       'resolvedAt': resolvedAt?.toIso8601String(),
       'resolutionSummary': resolutionSummary,
@@ -428,6 +685,9 @@ class SupportCase {
       'linkedOrder': linkedOrder?.toJson(),
       'messages': messages.map((message) => message.toJson()).toList(growable: false),
       'links': links.map((link) => link.toJson()).toList(growable: false),
+      'participants': participants.map((participant) => participant.toJson()).toList(growable: false),
+      'surveys': surveys.map((survey) => survey.toJson()).toList(growable: false),
+      'playbooks': playbooks.map((playbook) => playbook.toJson()).toList(growable: false),
     };
   }
 
@@ -476,6 +736,42 @@ class SupportCase {
       }
     }
 
+    final participants = <SupportCaseParticipant>[];
+    final rawParticipants = json['participants'];
+    if (rawParticipants is List) {
+      for (final entry in rawParticipants) {
+        if (entry is Map<String, dynamic>) {
+          participants.add(SupportCaseParticipant.fromJson(entry));
+        } else if (entry is Map) {
+          participants.add(SupportCaseParticipant.fromJson(Map<String, dynamic>.from(entry)));
+        }
+      }
+    }
+
+    final surveys = <SupportCaseSurvey>[];
+    final rawSurveys = json['surveys'];
+    if (rawSurveys is List) {
+      for (final entry in rawSurveys) {
+        if (entry is Map<String, dynamic>) {
+          surveys.add(SupportCaseSurvey.fromJson(entry));
+        } else if (entry is Map) {
+          surveys.add(SupportCaseSurvey.fromJson(Map<String, dynamic>.from(entry)));
+        }
+      }
+    }
+
+    final playbooks = <SupportCasePlaybookAssignment>[];
+    final rawPlaybooks = json['playbooks'];
+    if (rawPlaybooks is List) {
+      for (final entry in rawPlaybooks) {
+        if (entry is Map<String, dynamic>) {
+          playbooks.add(SupportCasePlaybookAssignment.fromJson(entry));
+        } else if (entry is Map) {
+          playbooks.add(SupportCasePlaybookAssignment.fromJson(Map<String, dynamic>.from(entry)));
+        }
+      }
+    }
+
     final rawLinks = json['links'];
     final links = <SupportCaseLink>[];
     if (rawLinks is List) {
@@ -490,6 +786,7 @@ class SupportCase {
 
     return SupportCase(
       id: '${json['id']}',
+      threadId: json['threadId'] is num ? (json['threadId'] as num).toInt() : int.tryParse('${json['threadId']}'),
       status: status,
       priority: priority,
       title: subject,
@@ -497,6 +794,10 @@ class SupportCase {
       category: category.isNotEmpty ? category : 'General',
       escalatedAt: DateTime.tryParse('${json['escalatedAt']}') ?? DateTime.now(),
       updatedAt: DateTime.tryParse('${json['updatedAt']}') ?? DateTime.now(),
+      metadata: Map<String, dynamic>.unmodifiable(metadata),
+      resolvedBy: json['resolvedByUser'] is Map
+          ? SupportCasePerson.fromJson(Map<String, dynamic>.from(json['resolvedByUser'] as Map))
+          : null,
       firstResponseAt: json['firstResponseAt'] != null
           ? DateTime.tryParse('${json['firstResponseAt']}')
           : null,
@@ -518,6 +819,9 @@ class SupportCase {
           : null,
       messages: List<SupportMessage>.unmodifiable(messages),
       links: List<SupportCaseLink>.unmodifiable(links),
+      participants: List<SupportCaseParticipant>.unmodifiable(participants),
+      surveys: List<SupportCaseSurvey>.unmodifiable(surveys),
+      playbooks: List<SupportCasePlaybookAssignment>.unmodifiable(playbooks),
     );
   }
 
@@ -529,6 +833,8 @@ class SupportCase {
     String? category,
     DateTime? escalatedAt,
     DateTime? updatedAt,
+    Map<String, dynamic>? metadata,
+    SupportCasePerson? resolvedBy,
     DateTime? firstResponseAt,
     DateTime? resolvedAt,
     String? resolutionSummary,
@@ -537,9 +843,13 @@ class SupportCase {
     SupportCaseLinkedOrder? linkedOrder,
     List<SupportMessage>? messages,
     List<SupportCaseLink>? links,
+    List<SupportCaseParticipant>? participants,
+    List<SupportCaseSurvey>? surveys,
+    List<SupportCasePlaybookAssignment>? playbooks,
   }) {
     return SupportCase(
       id: id,
+      threadId: threadId,
       status: status ?? this.status,
       priority: priority ?? this.priority,
       title: title ?? this.title,
@@ -547,6 +857,8 @@ class SupportCase {
       category: category ?? this.category,
       escalatedAt: escalatedAt ?? this.escalatedAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      metadata: metadata ?? this.metadata,
+      resolvedBy: resolvedBy ?? this.resolvedBy,
       firstResponseAt: firstResponseAt ?? this.firstResponseAt,
       resolvedAt: resolvedAt ?? this.resolvedAt,
       resolutionSummary: resolutionSummary ?? this.resolutionSummary,
@@ -555,6 +867,9 @@ class SupportCase {
       linkedOrder: linkedOrder ?? this.linkedOrder,
       messages: messages ?? this.messages,
       links: links ?? this.links,
+      participants: participants ?? this.participants,
+      surveys: surveys ?? this.surveys,
+      playbooks: playbooks ?? this.playbooks,
     );
   }
 }
@@ -706,6 +1021,7 @@ class SupportDeskSnapshot {
     required this.cases,
     required this.incidents,
     required this.knowledgeBase,
+    required this.playbooks,
   });
 
   final DateTime refreshedAt;
@@ -713,6 +1029,7 @@ class SupportDeskSnapshot {
   final List<SupportCase> cases;
   final List<SupportIncident> incidents;
   final List<SupportArticle> knowledgeBase;
+  final List<SupportPlaybook> playbooks;
 
   Map<String, dynamic> toJson() {
     return {
@@ -721,6 +1038,7 @@ class SupportDeskSnapshot {
       'supportCases': cases.map((supportCase) => supportCase.toJson()).toList(growable: false),
       'disputes': incidents.map((incident) => incident.toJson()).toList(growable: false),
       'knowledgeBase': knowledgeBase.map((article) => article.toJson()).toList(growable: false),
+      'playbooks': playbooks.map((playbook) => playbook.toJson()).toList(growable: false),
     };
   }
 
@@ -749,6 +1067,18 @@ class SupportDeskSnapshot {
       }
     }
 
+    final playbooks = <SupportPlaybook>[];
+    final rawPlaybooks = json['playbooks'];
+    if (rawPlaybooks is List) {
+      for (final entry in rawPlaybooks) {
+        if (entry is Map<String, dynamic>) {
+          playbooks.add(SupportPlaybook.fromJson(entry));
+        } else if (entry is Map) {
+          playbooks.add(SupportPlaybook.fromJson(Map<String, dynamic>.from(entry)));
+        }
+      }
+    }
+
     final articles = <SupportArticle>[];
     final rawArticles = json['knowledgeBase'] ?? json['articles'];
     if (rawArticles is List) {
@@ -769,6 +1099,7 @@ class SupportDeskSnapshot {
       cases: List<SupportCase>.unmodifiable(cases),
       incidents: List<SupportIncident>.unmodifiable(incidents),
       knowledgeBase: List<SupportArticle>.unmodifiable(articles),
+      playbooks: List<SupportPlaybook>.unmodifiable(playbooks),
     );
   }
 
@@ -778,6 +1109,7 @@ class SupportDeskSnapshot {
     List<SupportCase>? cases,
     List<SupportIncident>? incidents,
     List<SupportArticle>? knowledgeBase,
+    List<SupportPlaybook>? playbooks,
   }) {
     return SupportDeskSnapshot(
       refreshedAt: refreshedAt ?? this.refreshedAt,
@@ -785,104 +1117,23 @@ class SupportDeskSnapshot {
       cases: cases ?? this.cases,
       incidents: incidents ?? this.incidents,
       knowledgeBase: knowledgeBase ?? this.knowledgeBase,
+      playbooks: playbooks ?? this.playbooks,
     );
   }
 
-  static SupportDeskSnapshot seed() {
-    final now = DateTime.now();
-    final metrics = SupportDeskMetrics(
-      openSupportCases: 1,
-      openDisputes: 1,
-      csatScore: 4.8,
-      csatResponses: 18,
-      averageFirstResponseMinutes: 14,
-      averageResolutionMinutes: 180,
-      csatTrailing30DayScore: 4.7,
-      csatResponseRate: 0.86,
-    );
-
-    final caseMessages = [
-      SupportMessage(
-        id: 'msg-seed-1',
-        author: 'Gigvora Support',
-        role: 'support_team',
-        body: 'We\'re reviewing the attached scope and will follow up within the hour.',
-        createdAt: now.subtract(const Duration(hours: 1, minutes: 20)),
-        fromSupport: true,
-      ),
-      SupportMessage(
-        id: 'msg-seed-2',
-        author: 'You',
-        role: 'freelancer',
-        body: 'Thanks! I\'ve uploaded the milestone notes and revision timeline.',
-        createdAt: now.subtract(const Duration(hours: 1)),
-      ),
-    ];
-
-    final supportCase = SupportCase(
-      id: 'seed-case-301',
-      status: 'in_progress',
-      priority: 'high',
-      title: 'Client escalation on milestone delivery',
-      summary:
-          'Support is mediating a milestone dispute. We\'ll confirm the next steps once the review concludes.',
-      category: 'Disputes',
-      escalatedAt: now.subtract(const Duration(hours: 4)),
-      updatedAt: now.subtract(const Duration(minutes: 45)),
-      firstResponseAt: now.subtract(const Duration(hours: 3, minutes: 30)),
-      assignedAgent: const SupportCasePerson(id: null, name: 'Jordan Lee', email: null, userType: 'support'),
-      messages: List<SupportMessage>.unmodifiable(caseMessages),
-      linkedOrder: const SupportCaseLinkedOrder(
-        reference: 'ESCROW-555',
-        amount: 950.50,
-        currencyCode: 'USD',
-        status: 'disputed',
-        gigTitle: 'Brand workshop sprint',
-        clientName: 'Acme Corp',
-      ),
-      links: const <SupportCaseLink>[],
-    );
-
-    final incident = SupportIncident(
-      id: 'seed-incident-1',
-      summary: 'Dispute awaiting artefact review',
-      status: 'open',
-      priority: 'high',
-      openedAt: now.subtract(const Duration(hours: 5)),
-      updatedAt: now.subtract(const Duration(hours: 2)),
-      stage: 'intake',
-      linkedOrder: const SupportCaseLinkedOrder(
-        reference: 'ESCROW-555',
-        amount: 950.50,
-        currencyCode: 'USD',
-        status: 'disputed',
-        gigTitle: 'Brand workshop sprint',
-      ),
-    );
-
-    final article = SupportArticle(
-      slug: 'escalation-playbook',
-      title: 'Mediation checklist for scope disputes',
-      summary: 'Step-by-step checklist to prepare for mediation and reduce response cycles.',
-      category: 'Workflow',
-      url: 'https://support.gigvora.com/articles/mediation-checklist',
-      tags: const ['disputes', 'operations'],
-      resourceLinks: const [
-        SupportResourceLink(
-          label: 'Evidence template',
-          url: 'https://support.gigvora.com/templates/evidence',
-        ),
-      ],
-      readTimeMinutes: 4,
-      lastReviewedAt: now.subtract(const Duration(days: 6)),
-    );
-
+  static SupportDeskSnapshot empty() {
     return SupportDeskSnapshot(
-      refreshedAt: now,
-      metrics: metrics,
-      cases: [supportCase],
-      incidents: [incident],
-      knowledgeBase: [article],
+      refreshedAt: DateTime.now(),
+      metrics: const SupportDeskMetrics(
+        openSupportCases: 0,
+        openDisputes: 0,
+        csatScore: 0,
+        csatResponses: 0,
+      ),
+      cases: const <SupportCase>[],
+      incidents: const <SupportIncident>[],
+      knowledgeBase: const <SupportArticle>[],
+      playbooks: const <SupportPlaybook>[],
     );
   }
 }
@@ -921,15 +1172,4 @@ class SupportMessageDraft {
 
   final String body;
   final bool fromSupport;
-
-  SupportMessage toMessage() {
-    return SupportMessage(
-      id: 'msg-${DateTime.now().microsecondsSinceEpoch}',
-      author: fromSupport ? 'Gigvora Support' : 'You',
-      role: fromSupport ? 'support_team' : 'member',
-      body: body,
-      createdAt: DateTime.now(),
-      fromSupport: fromSupport,
-    );
-  }
 }

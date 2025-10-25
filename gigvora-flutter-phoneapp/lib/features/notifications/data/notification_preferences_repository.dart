@@ -78,19 +78,7 @@ class NotificationPreferencesRepository {
 
   Future<NotificationPreferenceSnapshot> fetchPreferences({required int userId}) async {
     final response = await _apiClient.get('/users/$userId/notifications/preferences');
-    if (response is Map<String, dynamic>) {
-      return NotificationPreferenceSnapshot.fromJson(response);
-    }
-    if (response is Map) {
-      return NotificationPreferenceSnapshot.fromJson(Map<String, dynamic>.from(response));
-    }
-    return const NotificationPreferenceSnapshot(
-      emailEnabled: true,
-      pushEnabled: true,
-      smsEnabled: false,
-      inAppEnabled: true,
-      digestFrequency: 'daily',
-    );
+    return NotificationPreferenceSnapshot.fromJson(_asJsonMap(response));
   }
 
   Future<NotificationPreferenceSnapshot> updatePreferences({
@@ -98,16 +86,22 @@ class NotificationPreferencesRepository {
     required Map<String, dynamic> patch,
   }) async {
     final response = await _apiClient.patch('/users/$userId/notifications/preferences', body: patch);
-    if (response is Map<String, dynamic>) {
-      final preferences = response['preferences'] ?? response;
-      if (preferences is Map<String, dynamic>) {
-        return NotificationPreferenceSnapshot.fromJson(preferences);
-      }
-      if (preferences is Map) {
-        return NotificationPreferenceSnapshot.fromJson(Map<String, dynamic>.from(preferences));
-      }
+    final body = _asJsonMap(response);
+    final preferences = body['preferences'];
+    if (preferences != null) {
+      return NotificationPreferenceSnapshot.fromJson(_asJsonMap(preferences));
     }
-    return await fetchPreferences(userId: userId);
+    return NotificationPreferenceSnapshot.fromJson(body);
+  }
+
+  Map<String, dynamic> _asJsonMap(dynamic payload) {
+    if (payload is Map<String, dynamic>) {
+      return payload;
+    }
+    if (payload is Map) {
+      return Map<String, dynamic>.from(payload as Map);
+    }
+    throw StateError('Unexpected notification preferences payload: ${payload.runtimeType}');
   }
 }
 

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
 
+import '../../../theme/severity.dart';
 import '../../../theme/widgets.dart';
 import '../../analytics/utils/formatters.dart';
 import '../application/notification_preferences_controller.dart';
@@ -128,7 +129,7 @@ class NotificationsScreen extends ConsumerWidget {
                 copy: PermissionCopy(
                   headline: 'Preferences unavailable',
                   message: '${preferencesState.error}',
-                  severity: PermissionSeverity.warning,
+                  severity: SeverityLevel.warning,
                 ),
               ),
             ),
@@ -216,44 +217,26 @@ class _StatusMessage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final (Color background, Color foreground, IconData icon) = switch (copy.severity) {
-      PermissionSeverity.success => (
-          theme.colorScheme.primary.withOpacity(0.12),
-          theme.colorScheme.primary,
-          Icons.check_circle_outline,
-        ),
-      PermissionSeverity.warning => (
-          theme.colorScheme.errorContainer.withOpacity(0.5),
-          theme.colorScheme.error,
-          Icons.warning_amber_outlined,
-        ),
-      PermissionSeverity.danger => (
-          theme.colorScheme.errorContainer,
-          theme.colorScheme.error,
-          Icons.error_outline,
-        ),
-      PermissionSeverity.info => (
-          theme.colorScheme.secondaryContainer.withOpacity(0.6),
-          theme.colorScheme.onSecondaryContainer,
-          Icons.info_outline,
-        ),
-      PermissionSeverity.neutral => (
-          theme.colorScheme.surfaceVariant,
-          theme.colorScheme.onSurfaceVariant,
-          Icons.info_outline,
-        ),
+    final palette = SeverityTheme.colors(theme.colorScheme, copy.severity);
+    final toned = switch (copy.severity) {
+      SeverityLevel.success => palette.withBackgroundOpacity(0.15),
+      SeverityLevel.warning => palette.withBackgroundOpacity(0.22),
+      SeverityLevel.danger => palette,
+      SeverityLevel.info => palette.withBackgroundOpacity(0.7),
+      SeverityLevel.neutral => palette,
     };
+    final icon = SeverityTheme.icon(copy.severity);
 
     return Container(
       decoration: BoxDecoration(
-        color: background,
+        color: toned.background,
         borderRadius: BorderRadius.circular(14),
       ),
       padding: const EdgeInsets.all(14),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: foreground),
+          Icon(icon, color: toned.foreground),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -262,14 +245,16 @@ class _StatusMessage extends StatelessWidget {
                 Text(
                   copy.headline,
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: foreground,
+                    color: toned.foreground,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   copy.message,
-                  style: theme.textTheme.bodySmall?.copyWith(color: foreground.withOpacity(0.85)),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: toned.foreground.withOpacity(0.85),
+                  ),
                 ),
               ],
             ),

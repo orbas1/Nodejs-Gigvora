@@ -8,6 +8,7 @@ import 'package:gigvora_foundation/gigvora_foundation.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/providers.dart';
+import '../../../theme/severity.dart';
 import '../../../theme/widgets.dart';
 import '../../auth/application/session_controller.dart';
 import '../../notifications/application/push_notification_controller.dart';
@@ -1784,28 +1785,16 @@ class _PushEnableBanner extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final copy = PushPermissionMessaging.resolveEnablePrompt(status);
-    final (Color background, Color foreground) = switch (copy.severity) {
-      PermissionSeverity.success => (
-          colorScheme.primary.withOpacity(0.14),
-          colorScheme.primary,
-        ),
-      PermissionSeverity.warning => (
-          colorScheme.errorContainer,
-          colorScheme.error,
-        ),
-      PermissionSeverity.danger => (
-          colorScheme.errorContainer,
-          colorScheme.error,
-        ),
-      PermissionSeverity.info => (
-          colorScheme.secondaryContainer,
-          colorScheme.onSecondaryContainer,
-        ),
-      PermissionSeverity.neutral => (
-          colorScheme.surfaceVariant,
-          colorScheme.onSurfaceVariant,
-        ),
+    final palette = SeverityTheme.colors(colorScheme, copy.severity);
+    final softened = switch (copy.severity) {
+      SeverityLevel.success => palette.withBackgroundOpacity(0.18),
+      SeverityLevel.warning => palette.withBackgroundOpacity(0.22),
+      SeverityLevel.danger => palette,
+      SeverityLevel.info => palette,
+      SeverityLevel.neutral => palette,
     };
+    final background = softened.background;
+    final foreground = softened.foreground;
 
     return Container(
       padding: const EdgeInsets.all(16),

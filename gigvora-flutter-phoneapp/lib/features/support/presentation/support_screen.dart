@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../theme/severity.dart';
 import '../../../theme/widgets.dart';
 import '../application/support_controller.dart';
 import '../data/models/support_models.dart';
@@ -366,6 +367,9 @@ class SupportTicketCard extends StatelessWidget {
     final dateFormat = DateFormat.yMMMd().add_jm();
     final theme = Theme.of(context);
     final linkedOrder = ticket.linkedOrder;
+    final statusSeverity = _severityForSupportStatus(ticket.status);
+    final statusPalette = SeverityTheme.colors(theme.colorScheme, statusSeverity);
+    final statusChipPalette = statusPalette.withBackgroundOpacity(0.22);
     return GigvoraCard(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -382,7 +386,17 @@ class SupportTicketCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Chip(label: Text(ticket.status.toUpperCase())),
+              Chip(
+                label: Text(
+                  ticket.status.toUpperCase(),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: statusPalette.foreground,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                backgroundColor: statusChipPalette.background,
+                side: BorderSide(color: statusPalette.foreground.withOpacity(0.35)),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -725,12 +739,17 @@ class _IncidentSection extends StatelessWidget {
           ...incidents.map((incident) {
             final opened = DateFormat.yMMMd().add_jm().format(incident.openedAt);
             final statusChip = incident.status.toUpperCase();
+            final severity = _severityForIncidentStatus(incident.status);
+            final palette = SeverityTheme.colors(theme.colorScheme, severity);
+            final chipPalette = palette.withBackgroundOpacity(0.22);
+            final cardPalette = palette.withBackgroundOpacity(0.12);
             return Container(
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
-                color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+                color: cardPalette.background,
+                border: Border.all(color: palette.foreground.withOpacity(0.25)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -743,16 +762,26 @@ class _IncidentSection extends StatelessWidget {
                           style: theme.textTheme.titleSmall,
                         ),
                       ),
-                      Chip(label: Text(statusChip)),
-                    ],
+                      Chip(
+                        label: Text(
+                          statusChip,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: palette.foreground,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        backgroundColor: chipPalette.background,
+                        side: BorderSide(color: palette.foreground.withOpacity(0.35)),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Opened $opened • Priority ${incident.priority.toUpperCase()}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: palette.foreground.withOpacity(0.85),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Opened $opened • Priority ${incident.priority.toUpperCase()}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
+                ),
                   if (incident.linkedOrder != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
@@ -1003,5 +1032,37 @@ class _SupportReplySheetState extends State<SupportReplySheet> {
         ),
       ),
     );
+  }
+}
+
+SeverityLevel _severityForSupportStatus(String status) {
+  switch (status.toLowerCase()) {
+    case 'resolved':
+    case 'closed':
+      return SeverityLevel.success;
+    case 'waiting_on_customer':
+    case 'triage':
+      return SeverityLevel.warning;
+    case 'in_progress':
+      return SeverityLevel.info;
+    case 'escalated':
+      return SeverityLevel.danger;
+    default:
+      return SeverityLevel.neutral;
+  }
+}
+
+SeverityLevel _severityForIncidentStatus(String status) {
+  switch (status.toLowerCase()) {
+    case 'settled':
+    case 'closed':
+      return SeverityLevel.success;
+    case 'awaiting_customer':
+      return SeverityLevel.warning;
+    case 'under_review':
+    case 'open':
+      return SeverityLevel.info;
+    default:
+      return SeverityLevel.neutral;
   }
 }
