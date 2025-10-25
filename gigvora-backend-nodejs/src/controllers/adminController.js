@@ -7,6 +7,7 @@ import {
   updatePlatformSettings,
   getHomepageSettings,
   updateHomepageSettings,
+  listPlatformSettingsAuditEvents,
 } from '../services/platformSettingsService.js';
 import { getAffiliateSettings, updateAffiliateSettings } from '../services/affiliateSettingsService.js';
 import { getSystemSettings, updateSystemSettings } from '../services/systemSettingsService.js';
@@ -43,6 +44,22 @@ function resolveActorId(user) {
   return Number.isFinite(candidate) ? candidate : undefined;
 }
 
+function resolveActorMetadata(user) {
+  const actorId = resolveActorId(user);
+  const email = typeof user?.email === 'string' && user.email.trim().length ? user.email.trim() : null;
+  const nameFromUser =
+    typeof user?.name === 'string' && user.name.trim().length
+      ? user.name.trim()
+      : [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();
+  const actorName = nameFromUser && nameFromUser.length ? nameFromUser : null;
+
+  return {
+    actorId: actorId ?? null,
+    actorEmail: email,
+    actorName,
+  };
+}
+
 export async function dashboard(req, res) {
   const filters = sanitizeAdminDashboardFilters(req.query ?? {});
   const adminUserId = resolveActorId(req.user);
@@ -60,8 +77,15 @@ export async function fetchPlatformSettings(req, res) {
 
 export async function persistPlatformSettings(req, res) {
   const payload = sanitizePlatformSettingsInput(req.body ?? {});
-  const settings = await updatePlatformSettings(payload);
+  const actor = resolveActorMetadata(req.user);
+  const settings = await updatePlatformSettings(payload, actor);
   res.json(settings);
+}
+
+export async function listPlatformSettingsAuditTrail(req, res) {
+  const { limit } = req.query ?? {};
+  const events = await listPlatformSettingsAuditEvents({ limit });
+  res.json(events);
 }
 
 export async function fetchHomepageSettings(req, res) {
@@ -154,6 +178,7 @@ export default {
   dashboard,
   fetchPlatformSettings,
   persistPlatformSettings,
+  listPlatformSettingsAuditTrail,
   fetchHomepageSettings,
   persistHomepageSettings,
   fetchAffiliateSettings,

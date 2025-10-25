@@ -4,9 +4,12 @@ import {
   updatePlatformSettings,
   getHomepageSettings,
   updateHomepageSettings,
+  listPlatformSettingsAuditEvents,
 } from '../../src/services/platformSettingsService.js';
 import { PlatformSetting } from '../../src/models/platformSetting.js';
+import { PlatformSettingsAuditEvent } from '../../src/models/platformSettingsAuditEvent.js';
 import { ValidationError } from '../../src/utils/errors.js';
+import { isEncryptedSecret } from '../../src/utils/secretStorage.js';
 
 let originalEnv;
 
@@ -26,6 +29,7 @@ afterEach(() => {
 describe('platformSettingsService', () => {
   beforeEach(async () => {
     await PlatformSetting.sync({ force: true });
+    await PlatformSettingsAuditEvent.sync({ force: true });
   });
 
   it('returns environment-derived defaults when no override exists', async () => {
@@ -54,6 +58,9 @@ describe('platformSettingsService', () => {
     expect(settings.smtp.port).toBe(587);
     expect(settings.homepage.hero.title).toContain('Build resilient');
     expect(settings.homepage.quickLinks.length).toBeGreaterThan(0);
+    expect(settings.documentation.sections.payments).toBeDefined();
+    expect(settings.metadata.sensitiveFields).toContain('payments.stripe.secretKey');
+    expect(settings.metadata.updatedAt).toBeNull();
   });
 
   it('normalizes and persists administrative updates', async () => {
@@ -128,12 +135,31 @@ describe('platformSettingsService', () => {
     expect(updated.smtp.port).toBe(465);
     expect(updated.storage.cloudflare_r2.bucket).toBe('gigvora-live');
     expect(updated.featureToggles.subscriptions).toBe(false);
+    expect(updated.metadata.updatedAt).toEqual(expect.any(String));
+    expect(updated.documentation.sections.payments.fields['payments.escrow_com.apiSecret']).toMatchObject({ sensitive: true });
+
+    const record = await PlatformSetting.findOne({ where: { key: 'platform' } });
+    expect(record).not.toBeNull();
+    expect(isEncryptedSecret(record.value.payments.escrow_com.apiSecret)).toBe(true);
+    expect(isEncryptedSecret(record.value.smtp.password)).toBe(true);
 
     const fetched = await getPlatformSettings();
     expect(fetched.subscriptions.enabled).toBe(false);
     expect(fetched.payments.provider).toBe('escrow_com');
+    expect(fetched.payments.escrow_com.apiSecret).toBe('escrow-secret');
+    expect(fetched.smtp.password).toBe('supersecret');
     expect(fetched.storage.cloudflare_r2.publicBaseUrl).toBe('https://cdn.gigvora.dev');
     expect(fetched.homepage.hero.title).toContain('Build resilient');
+
+    const auditLog = await listPlatformSettingsAuditEvents();
+    expect(auditLog.total).toBeGreaterThan(0);
+    expect(auditLog.events[0].summary.toLowerCase()).toContain('payment');
+    const secretChange = auditLog.events[0].changes.find(
+      (change) => change.path === 'payments.escrow_com.apiSecret',
+    );
+    expect(secretChange).toMatchObject({ type: 'secret', action: 'set' });
+    expect(secretChange.beforeFingerprint).toBeNull();
+    expect(secretChange.afterFingerprint).toEqual(expect.any(String));
   });
 
   it('throws when commission percentages exceed policy boundaries', async () => {
@@ -144,6 +170,34 @@ describe('platformSettingsService', () => {
     await expect(
       updatePlatformSettings({ commissions: { rate: 80, servicemanMinimumRate: 40 } }),
     ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it('requires escrow credentials when enabling escrow provider', async () => {
+    await expect(
+      updatePlatformSettings({ payments: { provider: 'escrow_com', escrow_com: { apiKey: '', apiSecret: '' } } }),
+    ).rejects.toThrow('Escrow.com API key and secret are required when Escrow.com is the active payment provider.');
+  });
+
+  it('preserves encrypted secrets when unrelated updates occur', async () => {
+    await updatePlatformSettings({
+      payments: { provider: 'escrow_com', escrow_com: { apiKey: 'escrow-key', apiSecret: 'escrow-secret' } },
+      smtp: { password: 'initial-password' },
+    });
+
+    const firstRecord = await PlatformSetting.findOne({ where: { key: 'platform' } });
+    const initialEscrowCipher = firstRecord.value.payments.escrow_com.apiSecret;
+    const initialSmtpCipher = firstRecord.value.smtp.password;
+
+    await updatePlatformSettings({ commissions: { rate: 6.25 } });
+
+    const secondRecord = await PlatformSetting.findOne({ where: { key: 'platform' } });
+    expect(secondRecord.value.payments.escrow_com.apiSecret).toBe(initialEscrowCipher);
+    expect(secondRecord.value.smtp.password).toBe(initialSmtpCipher);
+
+    const auditLog = await listPlatformSettingsAuditEvents({ limit: 1 });
+    const latestChanges = auditLog.events[0].changes.map((change) => change.path);
+    expect(latestChanges).not.toContain('payments.escrow_com.apiSecret');
+    expect(latestChanges).not.toContain('smtp.password');
   });
 
   describe('homepage settings', () => {

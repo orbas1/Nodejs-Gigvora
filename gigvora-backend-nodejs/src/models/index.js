@@ -3,6 +3,7 @@ import DomainRegistry from '../domains/domainRegistry.js';
 import { domainMetadata } from '../domains/domainMetadata.js';
 import logger from '../utils/logger.js';
 import { PlatformSetting } from './platformSetting.js';
+import { PlatformSettingsAuditEvent } from './platformSettingsAuditEvent.js';
 import { SiteSetting, SitePage, SiteNavigationLink, SITE_PAGE_STATUSES } from './siteManagementModels.js';
 import { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
 export { AdminTreasuryPolicy, AdminFeeRule, AdminPayoutSchedule, AdminEscrowAdjustment } from './adminFinanceModels.js';
@@ -23725,6 +23726,7 @@ export default {
   FeatureFlag,
   FeatureFlagAssignment,
   PlatformSetting,
+  PlatformSettingsAuditEvent,
   RuntimeSecurityAuditEvent,
   RbacPolicyAuditEvent,
   RuntimeAnnouncement,
@@ -23942,6 +23944,7 @@ domainRegistry.registerContext({
     'FeatureFlag',
     'FeatureFlagAssignment',
     'PlatformSetting',
+    'PlatformSettingsAuditEvent',
     'RuntimeSecurityAuditEvent',
     'RuntimeAnnouncement',
     'AdminCalendarAccount',

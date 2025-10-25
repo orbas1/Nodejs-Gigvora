@@ -61,6 +61,10 @@ router.put(
 );
 router.get('/runtime/health', asyncHandler(adminController.runtimeHealth));
 router.get('/platform-settings', asyncHandler(adminController.fetchPlatformSettings));
+router.get(
+  '/platform-settings/audit-events',
+  asyncHandler(adminController.listPlatformSettingsAuditTrail),
+);
 router.put(
   '/platform-settings',
   validateRequest({ body: platformSettingsBodySchema }),

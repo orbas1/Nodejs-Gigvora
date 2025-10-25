@@ -1,12 +1,493 @@
+import crypto from 'crypto';
 import { PlatformSetting } from '../models/platformSetting.js';
+import { PlatformSettingsAuditEvent } from '../models/platformSettingsAuditEvent.js';
 import { ESCROW_INTEGRATION_PROVIDERS } from '../models/constants/index.js';
 import { ValidationError } from '../utils/errors.js';
 import { syncCriticalDependencies } from '../observability/dependencyHealth.js';
 import logger from '../utils/logger.js';
+import { encryptSecret, decryptSecret, isEncryptedSecret, fingerprintSecret } from '../utils/secretStorage.js';
 
 const PLATFORM_SETTINGS_KEY = 'platform';
 const PAYMENT_PROVIDERS = new Set(ESCROW_INTEGRATION_PROVIDERS);
 const SUBSCRIPTION_INTERVALS = ['weekly', 'monthly', 'quarterly', 'yearly', 'lifetime'];
+
+const SENSITIVE_SETTING_PATHS = [
+  ['payments', 'stripe', 'secretKey'],
+  ['payments', 'stripe', 'webhookSecret'],
+  ['payments', 'escrow_com', 'apiKey'],
+  ['payments', 'escrow_com', 'apiSecret'],
+  ['smtp', 'password'],
+  ['storage', 'cloudflare_r2', 'secretAccessKey'],
+  ['database', 'password'],
+  ['database', 'url'],
+];
+
+const SENSITIVE_SETTING_PATH_SET = new Set(SENSITIVE_SETTING_PATHS.map((segments) => segments.join('.')));
+
+const SECTION_LABELS = Object.freeze({
+  commissions: 'commission policy',
+  subscriptions: 'subscription plans',
+  payments: 'payment processors',
+  smtp: 'SMTP delivery',
+  storage: 'storage integration',
+  app: 'application shell',
+  database: 'database connection',
+  featureToggles: 'feature toggles',
+  maintenance: 'maintenance window',
+  homepage: 'homepage marketing',
+  security: 'security rotation',
+});
+
+const PLATFORM_SETTINGS_DOCUMENTATION = Object.freeze({
+  sensitiveFields: Array.from(SENSITIVE_SETTING_PATH_SET),
+  sections: {
+    commissions: {
+      title: 'Commission Policy & Payout Governance',
+      description:
+        'Controls Gigvora\'s default commission schedule, minimum fees, and payout messaging applied to bookings.',
+      impact:
+        'Adjusting these values updates revenue share calculations, payout statements, and treasury guardrails across dashboards.',
+      fields: {
+        'commissions.enabled': {
+          label: 'Enable platform commission',
+          description: 'Gates whether the global service fee is active for marketplace transactions.',
+          impact: 'Disabling the fee bypasses platform revenue capture and removes fee callouts in billing flows.',
+        },
+        'commissions.rate': {
+          label: 'Default commission rate',
+          description: 'Percentage withheld from each qualifying transaction before creator payout.',
+          impact:
+            'Feeds pricing calculators, escrow releases, and finance dashboards; changes trigger treasury cache refreshes.',
+        },
+        'commissions.minimumFee': {
+          label: 'Minimum commission amount',
+          description: 'Ensures low-value bookings still contribute a baseline platform fee.',
+          impact: 'Impacts invoice rounding and minimum payout threshold messaging for creators.',
+        },
+        'commissions.servicemanMinimumRate': {
+          label: 'Minimum serviceman rate',
+          description: 'Lowest hourly/engagement rate permitted when providers pay their own crews.',
+          impact: 'Feeds compliance warnings and budgeting validations for provider-run teams.',
+        },
+      },
+    },
+    subscriptions: {
+      title: 'Subscription Packaging',
+      description: 'Defines membership plans, restricted features, and trial windows for recurring offers.',
+      impact:
+        'Updates propagate to storefront selectors, billing sync jobs, and access-control enforcement for gated modules.',
+      fields: {
+        'subscriptions.enabled': {
+          label: 'Enable subscriptions',
+          description: 'Master toggle for subscription monetisation flows.',
+          impact: 'Disabling halts renewal jobs and hides subscription CTAs across admin and member dashboards.',
+        },
+        'subscriptions.restrictedFeatures': {
+          label: 'Restricted features',
+          description: 'Feature keys that remain locked until a paid plan is active.',
+          impact: 'Drives feature-flag overlays and upgrade prompts in the frontend shell.',
+        },
+      },
+    },
+    payments: {
+      title: 'Payment Processor Configuration',
+      description:
+        'Stores API credentials and operational toggles for Stripe and Escrow.com flows, including hold policies.',
+      impact:
+        'Credentials determine which processors are available to bookers; hold policies update finance automations and alerts.',
+      fields: {
+        'payments.provider': {
+          label: 'Active payment provider',
+          description: 'Selects which processor is used for checkout and payouts.',
+          impact:
+            'Switching providers validates credentials and updates downstream treasury routing + reporting labels.',
+        },
+        'payments.stripe.secretKey': {
+          label: 'Stripe secret key',
+          description: 'Private key used to sign Stripe API requests.',
+          impact: 'Rotating re-establishes webhook signatures and payment intent creation; stored encrypted at rest.',
+          sensitive: true,
+        },
+        'payments.stripe.webhookSecret': {
+          label: 'Stripe webhook secret',
+          description: 'Verifies webhook payloads posted back to Gigvora.',
+          impact: 'Required to trust payment status callbacks; stored encrypted at rest.',
+          sensitive: true,
+        },
+        'payments.escrow_com.apiKey': {
+          label: 'Escrow.com API key',
+          description: 'Identifies the Gigvora escrow integration user.',
+          impact: 'Needed for escrow API calls and event polling; stored encrypted at rest.',
+          sensitive: true,
+        },
+        'payments.escrow_com.apiSecret': {
+          label: 'Escrow.com API secret',
+          description: 'Secret token paired with the API key for escrow operations.',
+          impact: 'Required for secure escrow requests and settlement checks; stored encrypted at rest.',
+          sensitive: true,
+        },
+        'payments.escrowControls.manualApprovalThreshold': {
+          label: 'Manual approval threshold',
+          description: 'Value above which finance must approve escrow releases.',
+          impact: 'Feeds treasury alerts and workflow gating for high-value disbursements.',
+        },
+      },
+    },
+    smtp: {
+      title: 'Transactional Email Delivery',
+      description: 'SMTP host, credentials, and sender identity for operational messages.',
+      impact:
+        'Updates reconfigure the notification service, changing verification, onboarding, and alert delivery pipelines.',
+      fields: {
+        'smtp.host': {
+          label: 'SMTP host',
+          description: 'Server address used for outbound mail.',
+          impact: 'Invalid hosts disrupt all transactional email until corrected.',
+        },
+        'smtp.password': {
+          label: 'SMTP password',
+          description: 'Authentication secret for the SMTP account.',
+          impact: 'Stored encrypted; rotation refreshes mailer credentials without redeploying the API.',
+          sensitive: true,
+        },
+      },
+    },
+    storage: {
+      title: 'File Storage Integration',
+      description: 'Cloudflare R2 credentials, bucket metadata, and CDN routing.',
+      impact: 'Controls how assets, uploads, and backups are stored and fetched across the product.',
+      fields: {
+        'storage.cloudflare_r2.accessKeyId': {
+          label: 'R2 access key',
+          description: 'Public portion of the R2 credential pair.',
+          impact: 'Used for signature generation; requires matching secret to function.',
+        },
+        'storage.cloudflare_r2.secretAccessKey': {
+          label: 'R2 secret access key',
+          description: 'Private credential for R2 API access.',
+          impact: 'Stored encrypted; rotation invalidates previous signed URLs.',
+          sensitive: true,
+        },
+      },
+    },
+    app: {
+      title: 'Application Identity',
+      description: 'Brand name, environment tags, and routing URLs shared across clients.',
+      impact: 'Used for link generation, telemetry tagging, and outbound messaging copy.',
+      fields: {
+        'app.clientUrl': {
+          label: 'Client URL',
+          description: 'Primary frontend URL for deep links.',
+          impact: 'Feeds email templates and OAuth redirect whitelists.',
+        },
+      },
+    },
+    database: {
+      title: 'Database Override Settings',
+      description: 'Optional overrides for connection metadata when not using a URL.',
+      impact: 'Used by runtime diagnostics and dependency guards for self-healing messaging.',
+      fields: {
+        'database.url': {
+          label: 'Database URL override',
+          description: 'Full connection string if not relying on discrete host credentials.',
+          impact: 'Stored encrypted; surfaces only to governance admins.',
+          sensitive: true,
+        },
+        'database.password': {
+          label: 'Database password override',
+          description: 'Password value when discrete credentials are provided.',
+          impact: 'Stored encrypted at rest and used for dependency testing.',
+          sensitive: true,
+        },
+      },
+    },
+    featureToggles: {
+      title: 'Feature Toggles',
+      description: 'Global switches for escrow, subscription, and commission features.',
+      impact: 'Feeds frontend guards and API policy checks to prevent unsupported workflows from activating.',
+      fields: {},
+    },
+    maintenance: {
+      title: 'Maintenance Windows & Messaging',
+      description: 'Scheduled downtime windows and support contact details.',
+      impact: 'Drives status banners, support prompts, and dependency guard behaviour during incidents.',
+      fields: {},
+    },
+    homepage: {
+      title: 'Homepage Marketing Blocks',
+      description: 'Announcement bar, hero content, value props, and testimonials for gigvora.com.',
+      impact: 'Feeds the marketing site and cached SSR payloads; updates propagate to CDN rebuild tasks.',
+      fields: {},
+    },
+    security: {
+      title: 'Security Tokens & Rotation Policy',
+      description: 'Metrics bearer token and rotation contacts for operational security.',
+      impact: 'Used by observability services and on-call notification flows.',
+      fields: {
+        'security.tokens.metricsBearer': {
+          label: 'Metrics bearer token',
+          description: 'Auth token for protected metrics endpoints.',
+          impact: 'Rotations require cache refresh for monitoring agents.',
+          sensitive: true,
+        },
+      },
+    },
+  },
+});
+
+function cloneSettings(value) {
+  if (value == null) {
+    return {};
+  }
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch (error) {
+    return value;
+  }
+}
+
+function getNested(source, path) {
+  return path.reduce((acc, segment) => {
+    if (acc == null || typeof acc !== 'object') {
+      return undefined;
+    }
+    return acc[segment];
+  }, source);
+}
+
+function setNested(target, path, value) {
+  if (!path.length) {
+    return;
+  }
+  let cursor = target;
+  for (let index = 0; index < path.length - 1; index += 1) {
+    const segment = path[index];
+    if (cursor[segment] == null || typeof cursor[segment] !== 'object') {
+      cursor[segment] = {};
+    }
+    cursor = cursor[segment];
+  }
+  cursor[path[path.length - 1]] = value;
+}
+
+function hasNested(source, path) {
+  let cursor = source;
+  for (const segment of path) {
+    if (cursor == null || typeof cursor !== 'object' || !Object.prototype.hasOwnProperty.call(cursor, segment)) {
+      return false;
+    }
+    cursor = cursor[segment];
+  }
+  return true;
+}
+
+function decryptSensitiveSettings(stored = {}) {
+  const clone = cloneSettings(stored);
+  SENSITIVE_SETTING_PATHS.forEach((path) => {
+    const existingValue = getNested(clone, path);
+    if (typeof existingValue === 'string' && isEncryptedSecret(existingValue)) {
+      setNested(clone, path, decryptSecret(existingValue));
+    }
+  });
+  return clone;
+}
+
+function encryptSensitiveSettings(normalized = {}, existingEncrypted = {}, payload = {}) {
+  const clone = cloneSettings(normalized);
+  SENSITIVE_SETTING_PATHS.forEach((path) => {
+    const provided = hasNested(payload, path);
+    if (!provided) {
+      const existingValue = getNested(existingEncrypted, path);
+      if (existingValue !== undefined) {
+        setNested(clone, path, existingValue);
+      }
+      return;
+    }
+
+    const value = getNested(normalized, path);
+    if (value == null || value === '') {
+      setNested(clone, path, '');
+      return;
+    }
+
+    if (typeof value === 'string' && isEncryptedSecret(value)) {
+      setNested(clone, path, value);
+      return;
+    }
+
+    setNested(clone, path, encryptSecret(value));
+  });
+  return clone;
+}
+
+function isPlainObject(value) {
+  return value != null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function hashForAudit(value) {
+  return crypto.createHash('sha256').update(JSON.stringify(value ?? null)).digest('hex').slice(0, 16);
+}
+
+function describeSecretAction(before, after) {
+  const beforeValue = typeof before === 'string' ? before.trim() : '';
+  const afterValue = typeof after === 'string' ? after.trim() : '';
+  if (!beforeValue && afterValue) {
+    return 'set';
+  }
+  if (beforeValue && !afterValue) {
+    return 'cleared';
+  }
+  if (beforeValue && afterValue && beforeValue !== afterValue) {
+    return 'rotated';
+  }
+  return 'unchanged';
+}
+
+function collectDiffs(beforeValue, afterValue, pathSegments, accumulator, sectionAccumulator) {
+  if (!pathSegments.length) {
+    return;
+  }
+
+  const path = pathSegments.join('.');
+  const beforeDefined = beforeValue !== undefined;
+  const afterDefined = afterValue !== undefined;
+
+  if (!beforeDefined && !afterDefined) {
+    return;
+  }
+
+  if (SENSITIVE_SETTING_PATH_SET.has(path)) {
+    const action = describeSecretAction(beforeValue, afterValue);
+    if (action === 'unchanged') {
+      return;
+    }
+    accumulator.push({
+      path,
+      type: 'secret',
+      action,
+      beforeFingerprint: beforeValue ? fingerprintSecret(beforeValue) : null,
+      afterFingerprint: afterValue ? fingerprintSecret(afterValue) : null,
+    });
+    sectionAccumulator.add(pathSegments[0]);
+    return;
+  }
+
+  if (isPlainObject(beforeValue) || isPlainObject(afterValue)) {
+    const beforeObject = isPlainObject(beforeValue) ? beforeValue : {};
+    const afterObject = isPlainObject(afterValue) ? afterValue : {};
+    const keys = new Set([...Object.keys(beforeObject), ...Object.keys(afterObject)]);
+    keys.forEach((key) => {
+      collectDiffs(beforeObject[key], afterObject[key], [...pathSegments, key], accumulator, sectionAccumulator);
+    });
+    return;
+  }
+
+  if (Array.isArray(beforeValue) || Array.isArray(afterValue)) {
+    const beforeArray = Array.isArray(beforeValue) ? beforeValue : [];
+    const afterArray = Array.isArray(afterValue) ? afterValue : [];
+    const beforeHash = hashForAudit(beforeArray);
+    const afterHash = hashForAudit(afterArray);
+    if (beforeHash !== afterHash) {
+      accumulator.push({
+        path,
+        type: 'collection',
+        beforeCount: beforeArray.length,
+        afterCount: afterArray.length,
+        beforeHash,
+        afterHash,
+      });
+      sectionAccumulator.add(pathSegments[0]);
+    }
+    return;
+  }
+
+  const beforePrimitive = beforeDefined ? beforeValue : null;
+  const afterPrimitive = afterDefined ? afterValue : null;
+  if (!Object.is(beforePrimitive, afterPrimitive)) {
+    accumulator.push({
+      path,
+      type: 'value',
+      before: beforePrimitive,
+      after: afterPrimitive,
+    });
+    sectionAccumulator.add(pathSegments[0]);
+  }
+}
+
+function diffSettings(beforeSnapshot = {}, afterSnapshot = {}) {
+  const accumulator = [];
+  const sections = new Set();
+  const keys = new Set([...Object.keys(beforeSnapshot ?? {}), ...Object.keys(afterSnapshot ?? {})]);
+  keys.forEach((key) => {
+    collectDiffs(beforeSnapshot?.[key], afterSnapshot?.[key], [key], accumulator, sections);
+  });
+  return { changes: accumulator, changedSections: Array.from(sections) };
+}
+
+function buildAuditSummary(changedSections, { initial = false } = {}) {
+  if (!changedSections.length) {
+    return initial ? 'Initialised platform settings' : 'Updated platform settings';
+  }
+  const labels = changedSections.map((section) => SECTION_LABELS[section] ?? section);
+  if (labels.length === 1) {
+    return `Updated ${labels[0]}`;
+  }
+  if (labels.length === 2) {
+    return `Updated ${labels[0]} and ${labels[1]}`;
+  }
+  const head = labels.slice(0, -1).join(', ');
+  return `Updated ${head}, and ${labels[labels.length - 1]}`;
+}
+
+async function recordPlatformSettingsAuditEvent(beforeSnapshot, afterSnapshot, actor = {}) {
+  const { changes, changedSections } = diffSettings(beforeSnapshot ?? {}, afterSnapshot ?? {});
+  if (!changes.length) {
+    return null;
+  }
+
+  const summary = buildAuditSummary(changedSections, { initial: !beforeSnapshot });
+  await PlatformSettingsAuditEvent.recordEvent({
+    actorId: actor.actorId ?? null,
+    actorEmail: actor.actorEmail ?? null,
+    actorName: actor.actorName ?? null,
+    summary,
+    changedSections,
+    changes,
+  });
+  return changes.length;
+}
+
+function buildSettingsResponse(snapshot, { updatedAt = null } = {}) {
+  return {
+    ...snapshot,
+    documentation: PLATFORM_SETTINGS_DOCUMENTATION,
+    metadata: {
+      sensitiveFields: Array.from(SENSITIVE_SETTING_PATH_SET),
+      updatedAt,
+    },
+  };
+}
+
+function assertPaymentProviderRequirements(settings) {
+  const provider = settings?.payments?.provider ?? 'stripe';
+  const stripe = settings?.payments?.stripe ?? {};
+  const escrow = settings?.payments?.escrow_com ?? {};
+
+  if (provider === 'stripe') {
+    if (!stripe.secretKey) {
+      throw new ValidationError('Stripe secret key is required when Stripe is the active payment provider.');
+    }
+    if (!stripe.publishableKey) {
+      throw new ValidationError('Stripe publishable key is required when Stripe is the active payment provider.');
+    }
+  }
+
+  if (provider === 'escrow_com') {
+    if (!escrow.apiKey || !escrow.apiSecret) {
+      throw new ValidationError('Escrow.com API key and secret are required when Escrow.com is the active payment provider.');
+    }
+  }
+}
 
 function coerceBoolean(value, fallback) {
   if (typeof value === 'boolean') {
@@ -1057,49 +1538,91 @@ function mergeDefaults(defaults, stored) {
 export async function getPlatformSettings() {
   const defaults = buildDefaultPlatformSettings();
   const record = await PlatformSetting.findOne({ where: { key: PLATFORM_SETTINGS_KEY } });
-  return mergeDefaults(defaults, record?.value ?? {});
+  const stored = record?.value ?? {};
+  const decrypted = decryptSensitiveSettings(stored);
+  const snapshot = mergeDefaults(defaults, decrypted);
+  const updatedAt = record?.updatedAt ? record.updatedAt.toISOString() : null;
+  return buildSettingsResponse(snapshot, { updatedAt });
 }
 
-export async function updatePlatformSettings(payload = {}) {
+export async function updatePlatformSettings(payload = {}, actor = {}) {
   const defaults = buildDefaultPlatformSettings();
   const existing = await PlatformSetting.findOne({ where: { key: PLATFORM_SETTINGS_KEY } });
-  const baseline = mergeDefaults(defaults, existing?.value ?? {});
+  const storedEncrypted = existing?.value ?? {};
+  const storedDecrypted = decryptSensitiveSettings(storedEncrypted);
+  const baseline = mergeDefaults(defaults, storedDecrypted);
   const normalized = normalizeSettings(payload, baseline);
 
+  assertPaymentProviderRequirements(normalized);
+
+  const persistValue = encryptSensitiveSettings(normalized, storedEncrypted, payload);
+
+  let record;
   if (existing) {
-    await existing.update({ value: normalized });
+    await existing.update({ value: persistValue });
+    record = await existing.reload();
   } else {
-    await PlatformSetting.create({ key: PLATFORM_SETTINGS_KEY, value: normalized });
+    record = await PlatformSetting.create({ key: PLATFORM_SETTINGS_KEY, value: persistValue });
   }
 
-  const snapshot = mergeDefaults(defaults, normalized);
+  const decryptedAfter = decryptSensitiveSettings(persistValue);
+  const snapshot = mergeDefaults(defaults, decryptedAfter);
+
+  const beforeSnapshot = existing ? baseline : null;
+  await recordPlatformSettingsAuditEvent(beforeSnapshot, snapshot, actor);
+
   syncCriticalDependencies(snapshot, { logger: logger.child({ component: 'platform-settings' }) });
-  return snapshot;
+  const updatedAt = record?.updatedAt ? record.updatedAt.toISOString() : new Date().toISOString();
+  return buildSettingsResponse(snapshot, { updatedAt });
 }
 
 export async function getHomepageSettings() {
   const defaults = buildDefaultPlatformSettings();
   const record = await PlatformSetting.findOne({ where: { key: PLATFORM_SETTINGS_KEY } });
-  const merged = mergeDefaults(defaults, record?.value ?? {});
+  const stored = record?.value ?? {};
+  const decrypted = decryptSensitiveSettings(stored);
+  const merged = mergeDefaults(defaults, decrypted);
   return merged.homepage;
 }
 
 export async function updateHomepageSettings(payload = {}) {
   const defaults = buildDefaultPlatformSettings();
   const existing = await PlatformSetting.findOne({ where: { key: PLATFORM_SETTINGS_KEY } });
-  const baseline = mergeDefaults(defaults, existing?.value ?? {});
+  const storedEncrypted = existing?.value ?? {};
+  const storedDecrypted = decryptSensitiveSettings(storedEncrypted);
+  const baseline = mergeDefaults(defaults, storedDecrypted);
   const normalizedHomepage = normalizeHomepageSettings(payload, baseline.homepage ?? defaults.homepage);
   const nextValue = { ...baseline, homepage: normalizedHomepage };
+  const persistValue = encryptSensitiveSettings(nextValue, storedEncrypted, {});
 
+  let record;
   if (existing) {
-    await existing.update({ value: nextValue });
+    await existing.update({ value: persistValue });
+    record = await existing.reload();
   } else {
-    await PlatformSetting.create({ key: PLATFORM_SETTINGS_KEY, value: nextValue });
+    record = await PlatformSetting.create({ key: PLATFORM_SETTINGS_KEY, value: persistValue });
   }
 
-  const snapshot = mergeDefaults(defaults, nextValue);
+  const snapshot = mergeDefaults(defaults, decryptSensitiveSettings(persistValue));
   syncCriticalDependencies(snapshot, { logger: logger.child({ component: 'platform-settings' }) });
   return snapshot.homepage;
+}
+
+export async function listPlatformSettingsAuditEvents({ limit = 20 } = {}) {
+  const numericLimit = Number.isFinite(Number(limit)) ? Math.min(Math.max(Number(limit), 1), 100) : 20;
+  const [events, total] = await Promise.all([
+    PlatformSettingsAuditEvent.findAll({
+      order: [['createdAt', 'DESC']],
+      limit: numericLimit,
+    }),
+    PlatformSettingsAuditEvent.count(),
+  ]);
+
+  return {
+    total,
+    limit: numericLimit,
+    events: events.map((event) => event.toPublicObject()),
+  };
 }
 
 export default {
@@ -1107,4 +1630,5 @@ export default {
   updatePlatformSettings,
   getHomepageSettings,
   updateHomepageSettings,
+  listPlatformSettingsAuditEvents,
 };
