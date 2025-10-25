@@ -336,6 +336,33 @@ export const GigOrderMessage = projectGigManagementSequelize.define(
   { tableName: 'pgm_gig_order_messages', underscored: true },
 );
 
+export const GigOrderEscalation = projectGigManagementSequelize.define(
+  'PgmGigOrderEscalation',
+  {
+    ownerId: { type: DataTypes.INTEGER, allowNull: false },
+    orderId: { type: DataTypes.INTEGER, allowNull: false },
+    status: {
+      type: DataTypes.ENUM('queued', 'notified', 'resolved', 'dismissed'),
+      allowNull: false,
+      defaultValue: 'queued',
+    },
+    severity: {
+      type: DataTypes.ENUM('warning', 'critical'),
+      allowNull: false,
+      defaultValue: 'warning',
+    },
+    message: { type: DataTypes.TEXT, allowNull: false },
+    hoursOverdue: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+    detectedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    escalatedAt: { type: DataTypes.DATE, allowNull: true },
+    resolvedAt: { type: DataTypes.DATE, allowNull: true },
+    supportCaseId: { type: DataTypes.INTEGER, allowNull: true },
+    supportThreadId: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'pgm_gig_order_escalations', underscored: true },
+);
+
 export const GigTimelineEvent = projectGigManagementSequelize.define(
   'PgmGigTimelineEvent',
   {
@@ -995,6 +1022,9 @@ GigOrderActivity.belongsTo(GigOrder, { foreignKey: 'orderId', as: 'order' });
 GigOrder.hasMany(GigOrderMessage, { as: 'messages', foreignKey: 'orderId', onDelete: 'CASCADE' });
 GigOrderMessage.belongsTo(GigOrder, { foreignKey: 'orderId', as: 'order' });
 
+GigOrder.hasMany(GigOrderEscalation, { as: 'escalations', foreignKey: 'orderId', onDelete: 'CASCADE' });
+GigOrderEscalation.belongsTo(GigOrder, { foreignKey: 'orderId', as: 'order' });
+
 GigOrder.hasMany(GigTimelineEvent, { as: 'timeline', foreignKey: 'orderId', onDelete: 'CASCADE' });
 GigTimelineEvent.belongsTo(GigOrder, { foreignKey: 'orderId' });
 
@@ -1040,6 +1070,7 @@ export default {
   GigOrderEscrowCheckpoint,
   GigOrderActivity,
   GigOrderMessage,
+  GigOrderEscalation,
   GigTimelineEvent,
   GigSubmission,
   GigSubmissionAsset,

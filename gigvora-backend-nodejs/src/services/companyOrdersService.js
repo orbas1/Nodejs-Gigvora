@@ -9,7 +9,13 @@ import {
   createGigOrderEscrowCheckpoint,
   updateGigOrderEscrowCheckpoint,
 } from './projectGigManagementWorkflowService.js';
-import { GigOrder, GigTimelineEvent, GigSubmission } from '../models/index.js';
+import { Op } from 'sequelize';
+import {
+  GigOrder,
+  GigTimelineEvent,
+  GigSubmission,
+  GigOrderEscalation,
+} from '../models/projectGigManagementModels.js';
 import { AuthorizationError, ConflictError, NotFoundError } from '../utils/errors.js';
 import { appCache } from '../utils/cache.js';
 import {
@@ -17,6 +23,7 @@ import {
   buildGigClassesFromDeliverables,
   mapDeliverablesToRequirements,
 } from './utils/companyOrderNormalisers.js';
+import { normaliseEscalationMetadata, toNullableEscalationMetadata } from './utils/escalationMetadata.js';
 import {
   assertCanManageOrders,
   assertCanManageEscrow,
@@ -27,6 +34,8 @@ const DASHBOARD_CACHE_PREFIX = 'company:orders:dashboard';
 const DASHBOARD_CACHE_TTL_SECONDS = 30;
 const ESCALATION_CACHE_PREFIX = 'company:orders:escalations';
 const ESCALATION_CACHE_TTL_SECONDS = 60 * 60; // one hour
+const OPEN_ESCALATION_STATUSES = new Set(['queued', 'notified']);
+const CLOSED_ORDER_STATUSES = new Set(['completed', 'closed', 'cancelled', 'archived']);
 
 const DEFAULT_PERMISSIONS = Object.freeze({
   canManageOrders: true,
@@ -88,61 +97,240 @@ function cloneCachedPayload(payload) {
   return JSON.parse(JSON.stringify(payload));
 }
 
-function queueSlaEscalation({ ownerId, orderId, alert, hoursOverdue }) {
-  const key = `${ESCALATION_CACHE_PREFIX}:${Number(ownerId) || 0}:${Number(orderId) || 0}`;
-  const existing = appCache.get(key);
-  if (existing?.status === 'queued') {
-    return existing;
+function formatEscalationRecord(record) {
+  if (!record) {
+    return null;
+  }
+  const plain = record.get ? record.get({ plain: true }) : record;
+  const metadata = toNullableEscalationMetadata(plain.metadata);
+  return {
+    status: plain.status ?? 'queued',
+    ownerId: plain.ownerId ?? null,
+    orderId: plain.orderId ?? null,
+    severity: plain.severity ?? 'warning',
+    message: plain.message ?? null,
+    hoursOverdue:
+      plain.hoursOverdue == null ? null : Number.parseInt(plain.hoursOverdue, 10) || plain.hoursOverdue,
+    detectedAt: plain.detectedAt ? new Date(plain.detectedAt).toISOString() : null,
+    escalatedAt: plain.escalatedAt ? new Date(plain.escalatedAt).toISOString() : null,
+    resolvedAt: plain.resolvedAt ? new Date(plain.resolvedAt).toISOString() : null,
+    supportCaseId: plain.supportCaseId ?? null,
+    supportThreadId: plain.supportThreadId ?? null,
+    metadata,
+  };
+}
+
+async function persistEscalation({ ownerId, orderId, severity, message, hoursOverdue, occurredAt }) {
+  const now = new Date();
+  const detectedAt = occurredAt ? new Date(occurredAt) : now;
+  const existing = await GigOrderEscalation.findOne({
+    where: {
+      ownerId: Number(ownerId) || 0,
+      orderId: Number(orderId) || 0,
+      resolvedAt: { [Op.is]: null },
+    },
+  });
+
+  if (existing) {
+    const metadata = normaliseEscalationMetadata(existing.metadata);
+    metadata.lastDetectedAt = now.toISOString();
+    if (occurredAt) {
+      metadata.dueAt = new Date(occurredAt).toISOString();
+    }
+    if (hoursOverdue != null) {
+      metadata.hoursOverdue = hoursOverdue;
+    }
+
+    await existing.update({
+      severity,
+      message,
+      hoursOverdue,
+      status: OPEN_ESCALATION_STATUSES.has(existing.status) ? existing.status : 'queued',
+      escalatedAt: existing.escalatedAt ?? now,
+      detectedAt: existing.detectedAt ?? detectedAt,
+      metadata,
+    });
+
+    return formatEscalationRecord(existing);
   }
 
-  const payload = {
+  const created = await GigOrderEscalation.create({
+    ownerId: Number(ownerId) || 0,
+    orderId: Number(orderId) || 0,
     status: 'queued',
-    ownerId: Number(ownerId) || null,
-    orderId: Number(orderId) || null,
+    severity,
+    message,
+    hoursOverdue,
+    detectedAt,
+    escalatedAt: now,
+    metadata: {
+      dueAt: occurredAt ? new Date(occurredAt).toISOString() : null,
+      lastDetectedAt: now.toISOString(),
+      hoursOverdue,
+    },
+  });
+
+  return formatEscalationRecord(created);
+}
+
+async function loadOpenEscalations(ownerId, orderIds = []) {
+  if (!ownerId) {
+    return [];
+  }
+  const where = {
+    ownerId: Number(ownerId) || 0,
+    resolvedAt: { [Op.is]: null },
+    status: { [Op.in]: Array.from(OPEN_ESCALATION_STATUSES) },
+  };
+  if (orderIds.length) {
+    where.orderId = { [Op.in]: orderIds.map((id) => Number(id)) };
+  }
+
+  const rows = await GigOrderEscalation.findAll({
+    where,
+    order: [
+      ['detectedAt', 'DESC'],
+      ['createdAt', 'DESC'],
+    ],
+  });
+  return rows.map((row) => formatEscalationRecord(row)).filter(Boolean);
+}
+
+function buildEscalationCacheKey(ownerId, orderId) {
+  return `${ESCALATION_CACHE_PREFIX}:${Number(ownerId) || 0}:${Number(orderId) || 0}`;
+}
+
+async function queueSlaEscalation({ ownerId, orderId, alert, hoursOverdue }) {
+  const persisted = await persistEscalation({
+    ownerId,
+    orderId,
     severity: alert.severity,
     message: alert.message,
     hoursOverdue,
-    queuedAt: new Date().toISOString(),
+    occurredAt: alert.occurredAt,
+  });
+
+  const payload = {
+    status: persisted?.status ?? 'queued',
+    ownerId: persisted?.ownerId ?? (Number(ownerId) || null),
+    orderId: persisted?.orderId ?? (Number(orderId) || null),
+    severity: persisted?.severity ?? alert.severity,
+    message: persisted?.message ?? alert.message,
+    hoursOverdue: persisted?.hoursOverdue ?? hoursOverdue,
+    queuedAt: persisted?.escalatedAt ?? new Date().toISOString(),
+    supportCaseId: persisted?.supportCaseId ?? null,
+    supportThreadId: persisted?.supportThreadId ?? null,
+    metadata: toNullableEscalationMetadata(persisted?.metadata),
   };
 
-  appCache.set(key, payload, ESCALATION_CACHE_TTL_SECONDS);
+  appCache.set(buildEscalationCacheKey(ownerId, orderId), payload, ESCALATION_CACHE_TTL_SECONDS);
   return payload;
 }
 
-function detectSlaBreaches(orders = [], { ownerId, escalate = false } = {}) {
+async function detectSlaBreaches(orders = [], { ownerId, escalate = false } = {}) {
   const nowMs = Date.now();
-  const alerts = [];
-  let breachCount = 0;
+  const orderIds = orders.map((order) => order?.id).filter((value) => Number.isFinite(Number(value)));
+  const persisted = await loadOpenEscalations(ownerId, orderIds);
+  const alertsByOrderId = new Map();
 
-  orders.forEach((order) => {
-    if (!order) {
-      return;
-    }
-    const dueAtMs = order.dueAt ? new Date(order.dueAt).getTime() : NaN;
-    const isClosed = order.isClosed === true || String(order.status).toLowerCase() === 'closed';
-    if (!Number.isFinite(dueAtMs) || isClosed || dueAtMs >= nowMs) {
-      return;
-    }
-
-    breachCount += 1;
-    const hoursOverdue = Math.max(1, Math.round((nowMs - dueAtMs) / (1000 * 60 * 60)));
+  persisted.forEach((record) => {
     const alert = {
       type: 'sla_breach',
-      orderId: order.id,
-      severity: hoursOverdue >= 24 ? 'critical' : 'warning',
-      occurredAt: new Date(dueAtMs).toISOString(),
-      detectedAt: new Date(nowMs).toISOString(),
-      message: `Order ${order.reference ?? order.id} is overdue by ${hoursOverdue}h.`,
+      orderId: record.orderId,
+      severity: record.severity,
+      occurredAt: record.metadata?.dueAt ?? record.detectedAt ?? null,
+      detectedAt: record.detectedAt ?? null,
+      message: record.message,
+      escalation: {
+        ...record,
+        queuedAt: record.escalatedAt ?? record.detectedAt ?? null,
+      },
     };
-
-    if (escalate) {
-      alert.escalation = queueSlaEscalation({ ownerId, orderId: order.id, alert, hoursOverdue });
-    }
-
-    alerts.push(alert);
+    alertsByOrderId.set(record.orderId, alert);
   });
 
-  return { alerts, breachCount };
+  for (const order of orders) {
+    if (!order) {
+      continue;
+    }
+    const dueAtMs = order.dueAt ? new Date(order.dueAt).getTime() : NaN;
+    const statusKey = String(order.status ?? '').toLowerCase();
+    const isClosed = order.isClosed === true || CLOSED_ORDER_STATUSES.has(statusKey);
+    if (!Number.isFinite(dueAtMs) || isClosed || dueAtMs >= nowMs) {
+      continue;
+    }
+
+    const hoursOverdue = Math.max(1, Math.round((nowMs - dueAtMs) / (1000 * 60 * 60)));
+    const severity = hoursOverdue >= 24 ? 'critical' : 'warning';
+    const baseAlert = {
+      type: 'sla_breach',
+      orderId: order.id,
+      severity,
+      occurredAt: new Date(dueAtMs).toISOString(),
+      detectedAt: new Date(nowMs).toISOString(),
+      message: `Order ${order.reference ?? order.orderNumber ?? order.id} is overdue by ${hoursOverdue}h.`,
+    };
+
+    if (alertsByOrderId.has(order.id)) {
+      const existing = alertsByOrderId.get(order.id);
+      const needsUpdate =
+        existing.severity !== severity ||
+        existing.message !== baseAlert.message ||
+        (existing.escalation?.hoursOverdue ?? hoursOverdue) !== hoursOverdue;
+
+      if (needsUpdate && escalate) {
+        const escalation = await queueSlaEscalation({ ownerId, orderId: order.id, alert: baseAlert, hoursOverdue });
+        alertsByOrderId.set(order.id, { ...baseAlert, escalation });
+      } else if (needsUpdate) {
+        alertsByOrderId.set(order.id, { ...existing, ...baseAlert });
+      }
+      continue;
+    }
+
+    if (escalate) {
+      const escalation = await queueSlaEscalation({ ownerId, orderId: order.id, alert: baseAlert, hoursOverdue });
+      alertsByOrderId.set(order.id, { ...baseAlert, escalation });
+    } else {
+      alertsByOrderId.set(order.id, baseAlert);
+    }
+  }
+
+  const alerts = Array.from(alertsByOrderId.values());
+  return { alerts, breachCount: alerts.length };
+}
+
+async function resolveOrderEscalations({ ownerId, orderId, resolvedById, resolution }) {
+  const records = await GigOrderEscalation.findAll({
+    where: {
+      ownerId: Number(ownerId) || 0,
+      orderId: Number(orderId) || 0,
+      resolvedAt: { [Op.is]: null },
+    },
+  });
+
+  if (!records.length) {
+    return;
+  }
+
+  const now = new Date();
+  await Promise.all(
+    records.map((record) => {
+      const metadata = normaliseEscalationMetadata(record.metadata);
+      if (resolvedById != null) {
+        metadata.resolvedById = resolvedById;
+      }
+      if (resolution) {
+        metadata.resolution = resolution;
+      }
+      return record.update({
+        status: 'resolved',
+        resolvedAt: now,
+        metadata,
+      });
+    }),
+  );
+
+  appCache.flushByPrefix(buildEscalationCacheKey(ownerId, orderId));
 }
 
 export async function getCompanyOrdersDashboard({ ownerId, status, context } = {}) {
@@ -178,7 +366,7 @@ export async function getCompanyOrdersDashboard({ ownerId, status, context } = {
   });
 
   const snapshot = cloneCachedPayload(base) ?? {};
-  const detection = detectSlaBreaches(snapshot.orders ?? [], {
+  const detection = await detectSlaBreaches(snapshot.orders ?? [], {
     ownerId,
     escalate: Boolean(context?.permissions?.canManageOrders),
   });
@@ -238,6 +426,17 @@ export async function updateCompanyOrder({ ownerId, orderId, payload = {}, conte
   }
 
   const order = await updateGigOrder(ownerId, orderId, updates);
+  if (
+    order?.id &&
+    (order.isClosed === true || CLOSED_ORDER_STATUSES.has(String(order.status ?? '').toLowerCase()))
+  ) {
+    await resolveOrderEscalations({
+      ownerId,
+      orderId: order.id,
+      resolvedById: context?.actorId ?? null,
+      resolution: `order_status:${order.status ?? 'closed'}`,
+    });
+  }
   invalidateDashboardCache(ownerId);
   return order;
 }
@@ -246,6 +445,12 @@ export async function deleteCompanyOrder({ ownerId, orderId, context }) {
   assertCanManageOrders(context);
   const order = await GigOrder.findByPk(orderId);
   ensureOrderOwnership(order, ownerId);
+  await resolveOrderEscalations({
+    ownerId,
+    orderId,
+    resolvedById: context?.actorId ?? null,
+    resolution: 'deleted',
+  });
   await order.destroy();
   invalidateDashboardCache(ownerId);
   return { success: true };

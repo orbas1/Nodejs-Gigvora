@@ -15,6 +15,7 @@ import {
   GigOrderEscrowCheckpoint,
   GigOrderActivity,
   GigOrderMessage,
+  GigOrderEscalation,
   GigTimelineEvent,
   GigSubmission,
   GigSubmissionAsset,
@@ -50,6 +51,7 @@ import {
   syncProjectGigManagementModels,
 } from '../models/projectGigManagementModels.js';
 import { GIG_ORDER_ACTIVITY_TYPES } from '../models/constants/index.js';
+import { toNullableEscalationMetadata } from './utils/escalationMetadata.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
 
 function normalizeNumber(value, fallback = 0) {
@@ -760,6 +762,34 @@ function sanitizeEscrowCheckpoint(checkpointInstance) {
   };
 }
 
+function sanitizeEscalation(escalationInstance) {
+  const escalation = toPlain(escalationInstance);
+  if (!escalation) {
+    return null;
+  }
+
+  const metadata = toNullableEscalationMetadata(escalation.metadata);
+
+  return {
+    id: escalation.id,
+    ownerId: escalation.ownerId ?? null,
+    orderId: escalation.orderId ?? null,
+    status: escalation.status ?? 'queued',
+    severity: escalation.severity ?? 'warning',
+    message: escalation.message ?? null,
+    hoursOverdue:
+      escalation.hoursOverdue == null ? null : Number.parseInt(escalation.hoursOverdue, 10) || null,
+    detectedAt: escalation.detectedAt ? new Date(escalation.detectedAt).toISOString() : null,
+    escalatedAt: escalation.escalatedAt ? new Date(escalation.escalatedAt).toISOString() : null,
+    resolvedAt: escalation.resolvedAt ? new Date(escalation.resolvedAt).toISOString() : null,
+    supportCaseId: escalation.supportCaseId ?? null,
+    supportThreadId: escalation.supportThreadId ?? null,
+    metadata,
+    createdAt: escalation.createdAt ?? null,
+    updatedAt: escalation.updatedAt ?? null,
+  };
+}
+
 function sanitizeActivity(activityInstance) {
   const activity = toPlain(activityInstance) ?? {};
   return {
@@ -1009,6 +1039,9 @@ function sanitizeGigOrder(orderInstance, { includeAssociations = true } = {}) {
   const chatRecords = orderInstance?.get?.('chatMessages') ?? order.chatMessages ?? [];
   const chatMessages = chatRecords.map((chat) => sanitizeChatMessage(chat, base)).filter(Boolean);
 
+  const escalationRecords = orderInstance?.get?.('escalations') ?? order.escalations ?? [];
+  const escalations = escalationRecords.map((record) => sanitizeEscalation(record)).filter(Boolean);
+
   const scorecard = sanitizeScorecard(orderInstance?.get?.('scorecard') ?? order.scorecard);
 
   const outstandingRequirements = requirements.filter((item) => item?.status === 'pending').length;
@@ -1031,6 +1064,7 @@ function sanitizeGigOrder(orderInstance, { includeAssociations = true } = {}) {
     timelineEvents,
     submissions,
     chatMessages,
+    escalations,
     outstandingRequirements,
     activeRevisions,
     nextRequirementDueAt,
@@ -1600,6 +1634,15 @@ export async function getProjectGigManagementOverview(ownerId) {
           separate: true,
           limit: 25,
           order: [['postedAt', 'DESC']],
+        },
+        {
+          model: GigOrderEscalation,
+          as: 'escalations',
+          separate: true,
+          order: [
+            ['detectedAt', 'DESC'],
+            ['createdAt', 'DESC'],
+          ],
         },
         {
           model: GigTimelineEvent,
@@ -2937,6 +2980,15 @@ export async function getGigOrderDetail(ownerId, orderId, { messageLimit = 50 } 
           ['createdAt', 'DESC'],
         ],
         limit: Number.isFinite(messageLimit) && messageLimit > 0 ? Math.min(messageLimit, 200) : 50,
+      },
+      {
+        model: GigOrderEscalation,
+        as: 'escalations',
+        separate: true,
+        order: [
+          ['detectedAt', 'DESC'],
+          ['createdAt', 'DESC'],
+        ],
       },
     ],
   });

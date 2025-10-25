@@ -411,13 +411,27 @@ describe('companyOrdersService', () => {
       getProjectGigManagementOverview: jest.fn(),
     }));
 
+    const gigOrderEscalationModel = {
+      findAll: jest.fn().mockResolvedValue([]),
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockImplementation(async (payload) => ({
+        ...payload,
+        id: 71,
+        get: jest.fn().mockReturnValue({ ...payload, id: 71 }),
+      })),
+    };
+
     const orderModels = {
       GigOrder: { findByPk: jest.fn(), findOne: jest.fn() },
       GigTimelineEvent: { findByPk: jest.fn() },
       GigSubmission: { findByPk: jest.fn() },
+      GigOrderEscalation: gigOrderEscalationModel,
     };
 
-    jest.unstable_mockModule(resolveModule('../../models/index.js'), withDefaultExport(() => orderModels));
+    jest.unstable_mockModule(
+      resolveModule('../../models/projectGigManagementModels.js'),
+      withDefaultExport(() => orderModels),
+    );
 
     const { createCompanyOrder } = await import('../companyOrdersService.js');
 
@@ -479,13 +493,27 @@ describe('companyOrdersService', () => {
       getProjectGigManagementOverview,
     }));
 
+    const gigOrderEscalationModel = {
+      findAll: jest.fn().mockResolvedValue([]),
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockImplementation(async (payload) => ({
+        ...payload,
+        id: 81,
+        get: jest.fn().mockReturnValue({ ...payload, id: 81 }),
+      })),
+    };
+
     const dashboardModels = {
       GigOrder: { findByPk: jest.fn(), findOne: jest.fn() },
       GigTimelineEvent: { findByPk: jest.fn() },
       GigSubmission: { findByPk: jest.fn() },
+      GigOrderEscalation: gigOrderEscalationModel,
     };
 
-    jest.unstable_mockModule(resolveModule('../../models/index.js'), withDefaultExport(() => dashboardModels));
+    jest.unstable_mockModule(
+      resolveModule('../../models/projectGigManagementModels.js'),
+      withDefaultExport(() => dashboardModels),
+    );
 
     const { getCompanyOrdersDashboard } = await import('../companyOrdersService.js');
 
@@ -536,16 +564,29 @@ describe('companyOrdersService', () => {
       getProjectGigManagementOverview,
     }));
 
-    jest.unstable_mockModule(resolveModule('../../models/index.js'), withDefaultExport(() => ({
-      GigOrder: { findByPk: jest.fn(), findOne: jest.fn() },
-      GigTimelineEvent: { findByPk: jest.fn() },
-      GigSubmission: { findByPk: jest.fn() },
-    })));
+    const gigOrderEscalationModel = {
+      findAll: jest.fn().mockResolvedValue([]),
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockImplementation(async (payload) => ({
+        ...payload,
+        id: 91,
+        metadata: payload.metadata ?? {},
+        get: jest.fn().mockReturnValue({ ...payload, id: 91, metadata: payload.metadata ?? {} }),
+      })),
+    };
 
-    const [{ getCompanyOrdersDashboard }, { appCache }] = await Promise.all([
-      import('../companyOrdersService.js'),
-      import('../../utils/cache.js'),
-    ]);
+    jest.unstable_mockModule(
+      resolveModule('../../models/projectGigManagementModels.js'),
+      withDefaultExport(() => ({
+        GigOrder: { findByPk: jest.fn(), findOne: jest.fn() },
+        GigTimelineEvent: { findByPk: jest.fn() },
+        GigSubmission: { findByPk: jest.fn() },
+        GigOrderEscalation: gigOrderEscalationModel,
+      })),
+    );
+
+    const { getCompanyOrdersDashboard } = await import('../companyOrdersService.js');
+    const { appCache } = await import('../../utils/cache.js');
 
     appCache.flushByPrefix('company:orders:escalations:');
 
@@ -559,6 +600,126 @@ describe('companyOrdersService', () => {
     expect(dashboard.alerts).toHaveLength(1);
     expect(dashboard.alerts[0]).toMatchObject({ type: 'sla_breach', orderId: 9 });
     expect(dashboard.alerts[0].escalation).toMatchObject({ status: 'queued', orderId: 9 });
+    expect(gigOrderEscalationModel.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ownerId: 44,
+        orderId: 9,
+        metadata: expect.objectContaining({
+          dueAt: expect.any(String),
+          hoursOverdue: expect.any(Number),
+          lastDetectedAt: expect.any(String),
+        }),
+      }),
+    );
+  });
+
+  it('normalises existing escalation metadata persisted as JSON strings', async () => {
+    const now = Date.now();
+    const existingEscalation = {
+      id: 301,
+      ownerId: 58,
+      orderId: 77,
+      status: 'queued',
+      severity: 'warning',
+      message: 'Order 77 is overdue by 6h.',
+      hoursOverdue: 6,
+      detectedAt: new Date(now - 6 * 60 * 60 * 1000).toISOString(),
+      escalatedAt: new Date(now - 6 * 60 * 60 * 1000).toISOString(),
+      resolvedAt: null,
+      metadata: JSON.stringify({
+        seed: 'company-order-escalations-demo',
+        dueAt: new Date(now - 6 * 60 * 60 * 1000).toISOString(),
+        lastDetectedAt: new Date(now - 6 * 60 * 60 * 1000).toISOString(),
+      }),
+    };
+    existingEscalation.update = jest.fn(async (payload) => {
+      Object.assign(existingEscalation, payload);
+      return existingEscalation;
+    });
+    existingEscalation.get = jest.fn(() => ({ ...existingEscalation }));
+
+    const overdue = {
+      summary: { totalSpend: 1200 },
+      purchasedGigs: {
+        currency: 'USD',
+        orders: [
+          {
+            id: 77,
+            status: 'active',
+            isClosed: false,
+            amount: 1800,
+            escrowHeldAmount: 450,
+            dueAt: new Date(now - 30 * 60 * 60 * 1000).toISOString(),
+          },
+        ],
+        timeline: { upcoming: [], recent: [] },
+        chat: { recent: [] },
+      },
+    };
+
+    const getProjectGigManagementOverview = jest.fn().mockResolvedValue(overdue);
+
+    jest.unstable_mockModule(resolveModule('../projectGigManagementWorkflowService.js'), () => ({
+      createGigOrder: jest.fn(),
+      updateGigOrder: jest.fn(),
+      getGigOrderDetail: jest.fn(),
+      addGigTimelineEvent: jest.fn(),
+      updateGigTimelineEvent: jest.fn(),
+      createGigOrderMessage: jest.fn(),
+      createGigOrderEscrowCheckpoint: jest.fn(),
+      updateGigOrderEscrowCheckpoint: jest.fn(),
+      getProjectGigManagementOverview,
+    }));
+
+    const gigOrderEscalationModel = {
+      findAll: jest
+        .fn()
+        .mockResolvedValue([
+          {
+            get: jest.fn().mockReturnValue({ ...existingEscalation }),
+          },
+        ]),
+      findOne: jest.fn().mockResolvedValue(existingEscalation),
+      create: jest.fn(),
+    };
+
+    jest.unstable_mockModule(
+      resolveModule('../../models/projectGigManagementModels.js'),
+      withDefaultExport(() => ({
+        GigOrder: { findByPk: jest.fn(), findOne: jest.fn() },
+        GigTimelineEvent: { findByPk: jest.fn() },
+        GigSubmission: { findByPk: jest.fn() },
+        GigOrderEscalation: gigOrderEscalationModel,
+      })),
+    );
+
+    const { getCompanyOrdersDashboard } = await import('../companyOrdersService.js');
+    const { appCache } = await import('../../utils/cache.js');
+
+    appCache.flushByPrefix('company:orders:dashboard:');
+    appCache.flushByPrefix('company:orders:escalations:');
+
+    const dashboard = await getCompanyOrdersDashboard({
+      ownerId: 58,
+      status: 'open',
+      context: { permissions: { canManageOrders: true } },
+    });
+
+    expect(existingEscalation.update).toHaveBeenCalled();
+    const updatePayload = existingEscalation.update.mock.calls[0][0];
+    expect(updatePayload.metadata).toMatchObject({
+      dueAt: expect.any(String),
+      hoursOverdue: expect.any(Number),
+      lastDetectedAt: expect.any(String),
+      seed: 'company-order-escalations-demo',
+    });
+    expect(updatePayload.metadata.raw).toBeUndefined();
+    expect(dashboard.alerts[0].escalation.metadata).toMatchObject({
+      dueAt: expect.any(String),
+      hoursOverdue: expect.any(Number),
+      seed: 'company-order-escalations-demo',
+    });
+    expect(gigOrderEscalationModel.create).not.toHaveBeenCalled();
   });
 });
 
