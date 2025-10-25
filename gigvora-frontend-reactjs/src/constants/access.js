@@ -1,3 +1,8 @@
+import {
+  LAUNCHPAD_ACCESS_MEMBERSHIPS,
+  SECURITY_ACCESS_MEMBERSHIPS,
+} from '@shared-contracts/domain/platform/route-registry.js';
+
 const normaliseToken = (value) => {
   if (typeof value !== 'string') {
     return '';
@@ -28,21 +33,11 @@ export const MESSAGING_ALLOWED_MEMBERSHIPS = Object.freeze([
 
 const messagingMembershipSet = createTokenSet(MESSAGING_ALLOWED_MEMBERSHIPS);
 
-export const LAUNCHPAD_ALLOWED_MEMBERSHIPS = Object.freeze([
-  'freelancer',
-  'mentor',
-  'agency',
-  'company',
-  'admin',
-]);
+export const LAUNCHPAD_ALLOWED_MEMBERSHIPS = Object.freeze([...LAUNCHPAD_ACCESS_MEMBERSHIPS]);
 
 const launchpadMembershipSet = createTokenSet(LAUNCHPAD_ALLOWED_MEMBERSHIPS);
 
-export const SECURITY_ALLOWED_MEMBERSHIPS = Object.freeze([
-  'security',
-  'trust',
-  'admin',
-]);
+export const SECURITY_ALLOWED_MEMBERSHIPS = Object.freeze([...SECURITY_ACCESS_MEMBERSHIPS]);
 
 const securityMembershipSet = createTokenSet(SECURITY_ALLOWED_MEMBERSHIPS);
 

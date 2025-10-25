@@ -4,83 +4,85 @@ This document catalogues the public marketing shell, pre-login journeys, and per
 
 ## 1. Global Shell & Navigation
 
-### 1.A. Application Routing and Layout
+### 1.A. Application Routing and Layout ✅
 
 **Components**
 
 - **1.A.1. `App.jsx`**
-  1. **Appraisal.** The routing map is comprehensive, ensuring every persona and admin console has a dedicated route tree with clear grouping for public, community, and protected dashboards.【F:gigvora-frontend-reactjs/src/App.jsx†L1-L170】
-  2. **Functionality.** React Router `<Routes>` nest inside the main layout so unauthenticated users see the marketing shell while protected dashboards respect `ProtectedRoute`, `RoleProtectedRoute`, `MembershipGate`, and `RequireRole` wrappers.【F:gigvora-frontend-reactjs/src/App.jsx†L1-L120】【F:gigvora-frontend-reactjs/src/App.jsx†L170-L204】
-  3. **Logic Usefulness.** Persona-specific arrays (`COMMUNITY_ROUTES`, `USER_ROUTES`, etc.) centralize membership checks, reducing drift between navigation and guards.【F:gigvora-frontend-reactjs/src/App.jsx†L120-L204】
-  4. **Redundancies.** Multiple dashboard imports point to similarly named pages; consolidating repetitive `import` statements through barrel files would cut duplication.
-  5. **Placeholders / Non-working functions.** Many pages still surface static content; wiring actual API integrations remains future work.
-  6. **Duplicate Functions.** Role arrays overlap with constants elsewhere (e.g., `COMMUNITY_ACCESS_MEMBERSHIPS` vs. `constants/access.js`), hinting at unification opportunities.【F:gigvora-frontend-reactjs/src/App.jsx†L107-L118】
-  7. **Improvements Needed.** Introduce lazy loading (`React.lazy`) to shrink the initial bundle and move rarely visited admin surfaces out of the critical path.【F:gigvora-frontend-reactjs/src/App.jsx†L1-L80】
-  8. **Styling Improvements.** Routing file is logic-only; styling handled downstream—no action here.
-  9. **Efficiency Analysis & Improvement.** Memoizing route arrays or driving them from configuration would simplify maintenance when new dashboards launch.
-  10. **Strengths to Keep.** Clear separation of public vs. guarded experiences and consistent use of protective wrappers should be preserved.【F:gigvora-frontend-reactjs/src/App.jsx†L170-L216】
-  11. **Weaknesses to Remove.** Repeated references to `/dashboard/*` strings should rely on constants to avoid typos.
-  12. **Styling and Colour Review Changes.** Not applicable—no UI definitions here.
-  13. **CSS, Orientation, Placement, Arrangement.** Delegated to downstream components; none within this router file.
-  14. **Text Analysis.** Descriptive route comments could aid onboarding; currently none exist.
+  1. **Appraisal.** Configuration-driven routing now unifies persona, security, and admin experiences while the analytics listener emits persona, feature-flag, and theme metadata for every transition backed by the central registry.【F:gigvora-frontend-reactjs/src/App.jsx†L63-L144】【F:gigvora-frontend-reactjs/src/routes/RouteAnalyticsListener.jsx†L5-L39】【F:gigvora-frontend-reactjs/src/routes/routeConfig.jsx†L1-L120】
+  2. **Functionality.** `<MainLayout>` renders inside a `Suspense` boundary, persona trees stack `ProtectedRoute`, `MembershipGate`, `RoleProtectedRoute`, and `RequireRole`, and shared constants (`HOME_ROUTE`, `ADMIN_ROOT_ROUTE`, `ADMIN_LOGIN_ROUTE`) keep entrypoints in sync while the admin suite lazy-loads beneath the derived wildcard.【F:gigvora-frontend-reactjs/src/App.jsx†L65-L147】【F:gigvora-frontend-reactjs/src/routes/AdminRoutes.jsx†L5-L27】
+  3. **Logic Usefulness.** The shared route registry now feeds both the SPA configuration and the backend `route_registry_entries` table, giving analytics, layout theming, and the `/api/route-registry` admin API a single source of truth for personas, feature flags, shell themes, and access controls.【F:gigvora-frontend-reactjs/src/routes/routeConfig.jsx†L1-L200】【F:shared-contracts/domain/platform/route-registry.js†L1-L360】【F:gigvora-backend-nodejs/src/services/routeRegistryService.js†L1-L160】【F:gigvora-backend-nodejs/src/controllers/routeRegistryController.js†L1-L83】【F:gigvora-backend-nodejs/src/routes/routeRegistryRoutes.js†L1-L20】
+  4. **Redundancies.** Persona route constants still mirror portions of the marketing navigation; extracting shared metadata remains a future consolidation.
+  5. **Placeholders / Non-working functions.** `resolveLazyComponent` throws when a module path is unknown, preventing placeholder routes from shipping silently.【F:gigvora-frontend-reactjs/src/routes/routeConfig.jsx†L9-L37】
+  6. **Duplicate Functions.** Membership lists surface both in router helpers and access constants; promote a single source of truth when future refactors land.【F:gigvora-frontend-reactjs/src/App.jsx†L10-L36】
+  7. **Improvements Needed.** Expand route metadata with localisation keys and breadcrumb groupings so downstream surfaces can render structured navigation copy automatically.
+  8. **Styling Improvements.** Not applicable—the routing layer is presentation agnostic.
+  9. **Efficiency Analysis & Improvement.** Static configuration removes repetitive imports; further gains could come from persona-level code splitting beyond the admin tree.【F:gigvora-frontend-reactjs/src/App.jsx†L65-L144】
+  10. **Strengths to Keep.** Preserve the clear separation between public, membership-gated, and role-gated routes alongside analytics instrumentation.【F:gigvora-frontend-reactjs/src/App.jsx†L63-L144】【F:gigvora-frontend-reactjs/src/routes/RouteAnalyticsListener.jsx†L5-L22】
+  11. **Weaknesses to Remove.** Continue replacing legacy helpers that reference hard-coded dashboards so future renames flow entirely through the shared registry.
+  12. **Styling and Colour Review Changes.** Not applicable.
+  13. **CSS, Orientation, Placement, Arrangement.** Not applicable.
+  14. **Text Analysis.** Inline documentation for route collections would aid onboarding engineers.
   15. **Text Spacing.** Code formatting is consistent; no UI text emitted.
   16. **Shaping.** Not applicable.
   17. **Shadow, Hover, Glow, Effects.** Not applicable.
   18. **Thumbnails.** Not applicable.
   19. **Images and Media.** Not applicable.
   20. **Button Styling.** Not applicable.
-  21. **Interactiveness.** Interactivity handled by route targets; router ensures the right surface renders for each membership.【F:gigvora-frontend-reactjs/src/App.jsx†L120-L204】
-  22. **Missing Components.** A catch-all 404 route is absent; adding one would improve UX.
-  23. **Design Changes.** Consider centralising route metadata (title, icon) for reuse in navigation menus.
-  24. **Design Duplication.** Persona route arrays mirror navigation constants—deduplicate with shared config.
-  25. **Design Framework.** Stays aligned with React Router’s nested layouts, fitting the existing design system.
+  21. **Interactiveness.** Centralised configuration and access guards keep behaviour predictable across personas.【F:gigvora-frontend-reactjs/src/App.jsx†L63-L144】
+  22. **Missing Components.** Future iterations can surface breadcrumb metadata and SEO descriptors within the configuration object.
+  23. **Design Changes.** Consider surfacing route-level loading indicators for longer-lived Suspense boundaries beyond the shared fallback.
+  24. **Design Duplication.** Continue auditing persona constants to avoid divergence from the single configuration source.
+  25. **Design Framework.** Remains aligned with React Router 6 nested layout patterns.【F:gigvora-frontend-reactjs/src/App.jsx†L63-L144】
   26. **Change Checklist Tracker (Extensive).**
-      - [ ] Introduce lazy-loaded routes for admin dashboards.
-      - [ ] Extract route arrays into shared configuration.
-      - [ ] Add 404 fallback.
-      - [ ] Wire analytics for route transitions.
+      - [x] Introduce lazy-loaded routes for admin dashboards.【F:gigvora-frontend-reactjs/src/App.jsx†L131-L140】【F:gigvora-frontend-reactjs/src/routes/AdminRoutes.jsx†L5-L27】
+      - [x] Extract route arrays into shared configuration.【F:gigvora-frontend-reactjs/src/routes/routeConfig.jsx†L1-L250】
+      - [x] Add 404 fallback.【F:gigvora-frontend-reactjs/src/App.jsx†L142-L144】
+      - [x] Wire analytics for route transitions.【F:gigvora-frontend-reactjs/src/routes/RouteAnalyticsListener.jsx†L5-L39】
+      - [x] Publish route metadata registry powering analytics, theming sync, and database-backed admin introspection.【F:gigvora-frontend-reactjs/src/routes/routeConfig.jsx†L1-L200】【F:gigvora-frontend-reactjs/src/routes/RouteThemeSynchronizer.jsx†L1-L23】【F:gigvora-backend-nodejs/src/services/routeRegistryService.js†L1-L160】【F:gigvora-backend-nodejs/database/migrations/20241125110000-route-registry.cjs†L1-L50】
   27. **Full Upgrade Plan & Release Steps (Extensive).**
-      1. Ship configuration-driven routing with lazy loading behind feature flags.
-      2. Pilot 404 page in staging and validate navigation flows.
-      3. Roll out analytics instrumentation to production and monitor route hit counts.
-      4. Deprecate legacy route constants after QA.
+      1. Surface metadata-driven navigation (titles, breadcrumbs, icons) by consuming the registry within header, sidebar, and sitemap builders.
+      2. Automate bundle splitting for low-traffic persona suites and monitor chunk sizes after deployment.
+      3. Layer membership context and session traits into analytics payloads for richer reporting.
+      4. Deprecate ad-hoc route constants once dependent surfaces migrate to the configuration module.
 
 - **1.A.2. `MainLayout.jsx`**
-  1. **Appraisal.** The shared shell adds skip links, gradient backdrops, header/footer orchestration, and floating support systems around the `<Outlet />`.【F:gigvora-frontend-reactjs/src/layouts/MainLayout.jsx†L1-L36】
-  2. **Functionality.** Conditional footer rendering ensures authenticated dashboards stay focused while marketing footers show only on public pages.【F:gigvora-frontend-reactjs/src/layouts/MainLayout.jsx†L18-L28】
-  3. **Logic Usefulness.** Injecting `MessagingDock`, `PolicyAcknowledgementBanner`, `ChatwootWidget`, and `SupportLauncher` globally centralizes assistant UI without duplicating imports.【F:gigvora-frontend-reactjs/src/layouts/MainLayout.jsx†L29-L34】
-  4. **Redundancies.** None; component list is purposeful and compact.
-  5. **Placeholders / Stubs.** Chatwoot widget uses external service; the rest render functional UI.
-  6. **Duplicate Functions.** No duplicates.
-  7. **Improvements Needed.** Add layout-level error boundary to guard against downstream crashes.
-  8. **Styling Improvements.** Consider making gradients configurable per page for theme alignment.
-  9. **Efficiency Analysis.** Floating widgets mount regardless of visibility; lazy-mount them when authenticated.
-  10. **Strengths to Keep.** Accessibility skip link and tidy composition of support tooling are strong differentiators.【F:gigvora-frontend-reactjs/src/layouts/MainLayout.jsx†L12-L34】
-  11. **Weaknesses to Remove.** Hard-coded gradients could clash with dark dashboards.
-  12. **Styling & Colour Review.** Provide design tokens rather than inline gradient definitions for easier theming.
-  13. **CSS, Orientation, Placement.** Layout ensures header and footer anchor top/bottom; consider CSS variables for gradient intensities.
-  14. **Text Analysis.** Only emits skip-link copy; phrasing is succinct.
-  15. **Text Spacing.** Skip-link text is legible; no other body text.
-  16. **Shaping.** Rounded surfaces from child components; layout keeps neutral.
-  17. **Shadow / Hover / Glow.** None directly; child components handle effects.
+  1. **Appraisal.** The shell now wraps the outlet in an app-level error boundary, toast provider, and route-aware theme synchroniser that drives the gradient overlays via CSS variables.【F:gigvora-frontend-reactjs/src/layouts/MainLayout.jsx†L1-L104】【F:gigvora-frontend-reactjs/src/routes/RouteThemeSynchronizer.jsx†L1-L23】【F:gigvora-frontend-reactjs/src/index.css†L70-L101】
+  2. **Functionality.** Authenticated members see messaging, Chatwoot, and support launchers, whereas visitors receive the marketing footer and compliance banner; each route can opt into a shell preset and the synchroniser automatically resets themes on navigation.【F:gigvora-frontend-reactjs/src/layouts/MainLayout.jsx†L40-L99】【F:gigvora-frontend-reactjs/src/routes/RouteThemeSynchronizer.jsx†L1-L23】
+  3. **Logic Usefulness.** `LayoutProvider` exposes responsive breakpoints, toast context, and now `shellTheme` setters backed by presets so downstream pages can toggle gradients without touching CSS utilities.【F:gigvora-frontend-reactjs/src/context/LayoutContext.jsx†L1-L146】【F:gigvora-frontend-reactjs/src/components/routing/AppErrorBoundary.jsx†L4-L52】
+  4. **Redundancies.** None—the layout composes a single authoritative stack for global chrome and assistance.
+  5. **Placeholders / Stubs.** Error fallback copy stays intentionally generic; future iterations can link to contextual help articles.【F:gigvora-frontend-reactjs/src/layouts/MainLayout.jsx†L14-L36】
+  6. **Duplicate Functions.** Toast handling centralises dismissal logic, avoiding one-off implementations across pages.【F:gigvora-frontend-reactjs/src/context/ToastContext.jsx†L7-L41】
+  7. **Improvements Needed.** Persist shell theme preferences per user or persona so manual overrides survive reloads and cross-device sessions.【F:gigvora-frontend-reactjs/src/context/LayoutContext.jsx†L1-L146】
+  8. **Styling Improvements.** Provide optional compact spacing for layouts embedding dense operations consoles.
+  9. **Efficiency Analysis.** Widgets already respect authentication checks; future optimisation could lazy-render support tools on first interaction.【F:gigvora-frontend-reactjs/src/layouts/MainLayout.jsx†L74-L82】
+  10. **Strengths to Keep.** Maintain the skip-link, toast viewport, and resilience provided by the boundary-wrapped outlet.【F:gigvora-frontend-reactjs/src/layouts/MainLayout.jsx†L53-L93】
+  11. **Weaknesses to Remove.** Consider persisting toast history in session storage so cross-route errors remain discoverable after navigation.
+  12. **Styling & Colour Review.** Gradient utilities now expose CSS custom properties, enabling dark or muted palettes without bespoke utility classes.【F:gigvora-frontend-reactjs/src/index.css†L70-L101】
+  13. **CSS, Orientation, Placement.** Layout keeps the header pinned and respects safe focus outlines for the skip link.【F:gigvora-frontend-reactjs/src/layouts/MainLayout.jsx†L59-L74】
+  14. **Text Analysis.** Error fallback copy is empathetic and provides clear retry/support actions.【F:gigvora-frontend-reactjs/src/layouts/MainLayout.jsx†L14-L36】
+  15. **Text Spacing.** Toast viewport leverages spacing tokens; maintain consistent paddings across breakpoints.【F:gigvora-frontend-reactjs/src/components/toast/ToastViewport.jsx†L1-L102】
+  16. **Shaping.** Rounded-rectangle motifs remain cohesive with broader design language.
+  17. **Shadow / Hover / Glow.** Error fallback uses `shadow-soft` while overlays lean on CSS gradients for depth.【F:gigvora-frontend-reactjs/src/layouts/MainLayout.jsx†L16-L34】【F:gigvora-frontend-reactjs/src/index.css†L78-L90】
   18. **Thumbnails.** Not applicable.
   19. **Images & Media.** Not applicable.
-  20. **Button Styling.** Skip link uses utility classes—consistent with Tailwind palette.
-  21. **Interactiveness.** Floating messaging/support experiences stay active site-wide, encouraging engagement.【F:gigvora-frontend-reactjs/src/layouts/MainLayout.jsx†L29-L34】
-  22. **Missing Components.** Consider injecting a global toast system for alerts.
-  23. **Design Changes.** Provide theme toggles to accommodate dark dashboards.
+  20. **Button Styling.** Retry/support buttons follow accent vs. outline patterns consistent with marketing CTAs.【F:gigvora-frontend-reactjs/src/layouts/MainLayout.jsx†L20-L34】
+  21. **Interactiveness.** Conditional widgets, toast notifications, and the error boundary create a resilient, responsive shell.【F:gigvora-frontend-reactjs/src/layouts/MainLayout.jsx†L53-L93】
+  22. **Missing Components.** Consider exposing a quick-settings drawer for theme and density toggles once design tokens land.
+  23. **Design Changes.** Potentially elevate toast placement controls so persona dashboards can opt into per-layout stacks.
   24. **Design Duplication.** None.
-  25. **Design Framework.** Aligns with layout-first approach standard in SPA design.
+  25. **Design Framework.** Remains aligned with layout-first SPA patterns powered by React Router.【F:gigvora-frontend-reactjs/src/App.jsx†L65-L140】
   26. **Change Checklist Tracker.**
-      - [ ] Add error boundary wrapper.
-      - [ ] Toggle floating widgets based on authentication.
-      - [ ] Externalize gradient definitions.
-      - [ ] Integrate toast notifications.
+      - [x] Add error boundary wrapper.【F:gigvora-frontend-reactjs/src/layouts/MainLayout.jsx†L59-L74】【F:gigvora-frontend-reactjs/src/components/routing/AppErrorBoundary.jsx†L4-L52】
+      - [x] Toggle floating widgets based on authentication.【F:gigvora-frontend-reactjs/src/layouts/MainLayout.jsx†L74-L90】
+      - [x] Externalize gradient definitions via CSS variables.【F:gigvora-frontend-reactjs/src/index.css†L70-L101】
+      - [x] Integrate toast notifications.【F:gigvora-frontend-reactjs/src/layouts/MainLayout.jsx†L90-L99】【F:gigvora-frontend-reactjs/src/context/ToastContext.jsx†L7-L41】
+      - [x] Introduce route-aware shell themes through layout context presets.【F:gigvora-frontend-reactjs/src/context/LayoutContext.jsx†L1-L146】【F:gigvora-frontend-reactjs/src/routes/RouteThemeSynchronizer.jsx†L1-L23】
   27. **Full Upgrade Plan & Release Steps.**
-      1. Implement Suspense/error boundary around `<Outlet />` and test fallback flows.
-      2. Gate floating widgets behind user preferences, rolling out gradually.
-      3. Move gradient styles into Tailwind config and QA theming toggles.
-      4. Launch toast system leveraging existing support contexts.
+      1. Expand the preset library with high-contrast and minimal modes, then surface theme selection controls in dashboard settings.
+      2. Add preference-aware toggles for mounting support widgets and persist them in user settings.
+      3. Surface toast placement/duration controls for high-signal admin dashboards.
+      4. Extend the error boundary to capture and report issues to analytics for proactive monitoring.
 
 ### 1.B. Navigation Controls
 

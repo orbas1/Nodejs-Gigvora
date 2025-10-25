@@ -57,6 +57,7 @@ import docsRoutes from './docsRoutes.js';
 import eventManagementRoutes from './eventManagementRoutes.js';
 import supportRoutes from './supportRoutes.js';
 import siteRoutes from './siteRoutes.js';
+import routeRegistryRoutes from './routeRegistryRoutes.js';
 
 const router = Router();
 
@@ -113,6 +114,7 @@ const routeDefinitions = [
   ['/search', searchRoutes],
   ['/support', supportRoutes],
   ['/trust', trustRoutes],
+  ['/route-registry', routeRegistryRoutes],
   ['/site', siteRoutes],
   ['/users/:userId/mentoring', userMentoringRoutes],
   ['/users/:userId/project-gig-management', projectGigManagementRoutes],

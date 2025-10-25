@@ -75,18 +75,28 @@
     box-shadow: var(--gv-shadow-subtle);
   }
 
+  :root {
+    --shell-background-gradient: linear-gradient(180deg, #ffffff 0%, #f8fafc 58%, rgba(148, 163, 184, 0.2) 100%);
+    --shell-overlay-primary: radial-gradient(circle at top, rgba(37, 99, 235, 0.15), transparent 60%);
+    --shell-overlay-desktop: radial-gradient(circle at top right, rgba(219, 234, 254, 0.7), transparent 65%);
+    --shell-text-color: rgb(15 23 42);
+  }
+
   .gv-shell-background {
-    @apply relative min-h-screen bg-gradient-to-b from-white via-white to-surfaceMuted text-slate-900;
+    @apply relative min-h-screen;
+    background-color: #ffffff;
+    background-image: var(--shell-background-gradient);
+    color: var(--shell-text-color);
   }
 
   .gv-shell-overlay-primary {
     @apply pointer-events-none absolute inset-x-0 top-0 h-64;
-    background-image: radial-gradient(circle at top, rgba(37, 99, 235, 0.15), transparent 60%);
+    background-image: var(--shell-overlay-primary);
   }
 
   .gv-shell-overlay-desktop {
     @apply pointer-events-none absolute inset-y-0 right-0 hidden w-1/4 lg:block;
-    background-image: radial-gradient(circle at top right, rgba(219, 234, 254, 0.7), transparent 65%);
+    background-image: var(--shell-overlay-desktop);
   }
 }
 

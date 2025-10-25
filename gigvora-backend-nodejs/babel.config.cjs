@@ -13,6 +13,20 @@ module.exports = {
   sourceType: 'module',
   comments: false,
   ignore: ['**/node_modules/**'],
+  overrides: [
+    {
+      test: ['./../shared-contracts/**/*.js'],
+      presets: [
+        [
+          '@babel/preset-env',
+          {
+            targets: { node: 'current' },
+            modules: 'commonjs',
+          },
+        ],
+      ],
+    },
+  ],
   env: {
     test: {
       presets: [
