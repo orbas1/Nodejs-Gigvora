@@ -9,6 +9,7 @@ import 'core/localization/gigvora_localizations.dart';
 import 'core/localization/language_controller.dart';
 import 'core/providers.dart';
 import 'features/auth/application/session_bootstrapper.dart';
+import 'features/auth/application/session_expiry_controller.dart';
 import 'features/auth/domain/auth_token_store.dart';
 import 'features/runtime_health/application/runtime_health_provider.dart';
 import 'features/runtime_health/domain/runtime_health_snapshot.dart';
@@ -144,6 +145,35 @@ class GigvoraApp extends ConsumerWidget {
       next.whenOrNull(error: (error, stackTrace) {
         debugPrint('Feature flag bootstrap failed: $error');
       });
+    });
+
+    ref.listen<SessionExpiryState>(sessionExpiryControllerProvider, (_, next) {
+      if (!next.promptVisible) {
+        return;
+      }
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      if (messenger != null) {
+        final remaining = next.remaining ?? Duration.zero;
+        final minutes = remaining.inMinutes.clamp(0, 59);
+        final seconds = remaining.inSeconds % 60;
+        final formatted = minutes > 0
+            ? '${minutes}m ${seconds.toString().padLeft(2, '0')}s'
+            : '${seconds}s';
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text(
+                'Your session will expire in $formatted. Refresh your credentials to stay signed in.',
+              ),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: const Color(0xFF7C3AED),
+            ),
+          );
+          ref.read(sessionExpiryControllerProvider.notifier).acknowledgePrompt();
+        });
+      } else {
+        ref.read(sessionExpiryControllerProvider.notifier).acknowledgePrompt();
+      }
     });
 
     ref.listen<AsyncValue<void>>(pushNotificationBootstrapProvider, (_, next) {

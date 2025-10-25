@@ -1,6 +1,8 @@
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
+import fetch from 'node-fetch';
+import jwkToPem from 'jwk-to-pem';
 import { OAuth2Client } from 'google-auth-library';
 import twoFactorService from './twoFactorService.js';
 import { getAuthDomainService, getFeatureFlagService } from '../domains/serviceCatalog.js';
@@ -20,10 +22,61 @@ const authDomainService = getAuthDomainService();
 const featureFlagService = getFeatureFlagService();
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
+const appleClientId =
+  process.env.APPLE_SIGNIN_CLIENT_ID || process.env.APPLE_SERVICE_ID || process.env.APPLE_CLIENT_ID;
+const LINKEDIN_USERINFO_URL = 'https://api.linkedin.com/v2/userinfo';
+const LINKEDIN_EMAIL_URL =
+  'https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))';
+const APPLE_KEYS_URL = 'https://appleid.apple.com/auth/keys';
+const APPLE_KEYS_TTL = 1000 * 60 * 60; // 1 hour
+let appleSigningKeys = new Map();
+let appleKeysFetchedAt = 0;
 let oauthClient = null;
 let passwordResetTransporter = null;
 const PASSWORD_RESET_DEFAULT_COOLDOWN_SECONDS = 120;
 const PASSWORD_RESET_MAX_COOLDOWN_SECONDS = 900;
+
+const SOCIAL_LOGIN_CONFIG = {
+  google: {
+    idField: 'googleId',
+    displayName: 'Google',
+    loginContext: 'google_oauth',
+    auditStrategy: 'google_oauth',
+    missingEmailMessage:
+      'Google account did not provide an email address. Use password login once to link your account.',
+    notFoundMessage: 'Unable to resolve Google account owner.',
+    defaultFirstName: 'Google',
+    defaultLastName: 'User',
+    findUserById: (identifier, options = {}) =>
+      typeof authDomainService.findUserByGoogleId === 'function'
+        ? authDomainService.findUserByGoogleId(identifier, options)
+        : null,
+  },
+  apple: {
+    idField: 'appleId',
+    displayName: 'Apple',
+    loginContext: 'apple_oauth',
+    auditStrategy: 'apple_oauth',
+    missingEmailMessage:
+      'Apple account did not provide an email address. Use email login once to link your account.',
+    notFoundMessage: 'Unable to resolve Apple account owner.',
+    defaultFirstName: 'Apple',
+    defaultLastName: 'Member',
+    findUserById: (identifier, options = {}) => authDomainService.findUserByAppleId(identifier, options),
+  },
+  linkedin: {
+    idField: 'linkedinId',
+    displayName: 'LinkedIn',
+    loginContext: 'linkedin_oauth',
+    auditStrategy: 'linkedin_oauth',
+    missingEmailMessage:
+      'LinkedIn account did not return an email address. Add email scope or link your account manually.',
+    notFoundMessage: 'Unable to resolve LinkedIn account owner.',
+    defaultFirstName: 'LinkedIn',
+    defaultLastName: 'Member',
+    findUserById: (identifier, options = {}) => authDomainService.findUserByLinkedinId(identifier, options),
+  },
+};
 
 function getGoogleClient() {
   if (!googleClientId) {
@@ -52,6 +105,220 @@ function maskEmail(email) {
     return `${local.slice(0, 1)}***@${domain}`;
   }
   return `${local.slice(0, 2)}***@${domain}`;
+}
+
+async function refreshAppleKeys() {
+  const now = Date.now();
+  if (appleSigningKeys.size > 0 && now - appleKeysFetchedAt < APPLE_KEYS_TTL) {
+    return appleSigningKeys;
+  }
+
+  const response = await fetch(APPLE_KEYS_URL, { method: 'GET' });
+  if (!response.ok) {
+    throw buildError('Unable to download Apple signing keys.', 503);
+  }
+
+  const payload = await response.json();
+  if (!payload?.keys || !Array.isArray(payload.keys)) {
+    throw buildError('Apple signing keys response malformed.', 503);
+  }
+
+  const nextKeys = new Map();
+  for (const jwk of payload.keys) {
+    if (!jwk?.kid) {
+      continue;
+    }
+    try {
+      nextKeys.set(jwk.kid, jwkToPem(jwk));
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('Failed to convert Apple JWK to PEM', error);
+    }
+  }
+
+  if (nextKeys.size === 0) {
+    throw buildError('Apple signing keyset is empty.', 503);
+  }
+
+  appleSigningKeys = nextKeys;
+  appleKeysFetchedAt = now;
+  return appleSigningKeys;
+}
+
+async function getAppleSigningKey(kid) {
+  if (!kid) {
+    throw buildError('Apple signing key id missing.', 401);
+  }
+  const keys = await refreshAppleKeys();
+  const pem = keys.get(kid);
+  if (!pem) {
+    // Force refresh once if key missing
+    appleSigningKeys = new Map();
+    const refreshed = await refreshAppleKeys();
+    const fallback = refreshed.get(kid);
+    if (!fallback) {
+      throw buildError('Unable to resolve Apple signing key.', 401);
+    }
+    return fallback;
+  }
+  return pem;
+}
+
+function splitName(fullName) {
+  if (!fullName) {
+    return { firstName: 'LinkedIn', lastName: 'Member' };
+  }
+  const segments = `${fullName}`.trim().split(/\s+/u).filter(Boolean);
+  if (segments.length === 0) {
+    return { firstName: 'LinkedIn', lastName: 'Member' };
+  }
+  if (segments.length === 1) {
+    return { firstName: segments[0], lastName: 'Member' };
+  }
+  const [firstName, ...rest] = segments;
+  return { firstName, lastName: rest.join(' ') };
+}
+
+async function fetchLinkedInProfile(accessToken) {
+  const headers = { Authorization: `Bearer ${accessToken}` };
+  const userInfoResponse = await fetch(LINKEDIN_USERINFO_URL, { headers });
+  if (!userInfoResponse.ok) {
+    throw buildError('Unable to verify LinkedIn access token.', 401);
+  }
+  const userInfo = await userInfoResponse.json();
+  const id = userInfo?.sub || userInfo?.id;
+  if (!id) {
+    throw buildError('LinkedIn did not return a member identifier.', 401);
+  }
+  let email = typeof userInfo?.email === 'string' ? userInfo.email : null;
+  if (!email) {
+    const emailResponse = await fetch(LINKEDIN_EMAIL_URL, { headers });
+    if (emailResponse.ok) {
+      const emailPayload = await emailResponse.json();
+      const element = Array.isArray(emailPayload?.elements)
+        ? emailPayload.elements.find((entry) => entry?.['handle~']?.emailAddress)
+        : null;
+      email = element?.['handle~']?.emailAddress ?? null;
+    }
+  }
+  const givenName = userInfo?.given_name || userInfo?.localizedFirstName;
+  const familyName = userInfo?.family_name || userInfo?.localizedLastName;
+  const fullName = userInfo?.name || [givenName, familyName].filter(Boolean).join(' ');
+  const { firstName, lastName } = splitName(fullName || email || 'LinkedIn Member');
+  return {
+    id,
+    email,
+    firstName,
+    lastName,
+  };
+}
+
+function normalizeEmail(value) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed ? trimmed.toLowerCase() : null;
+}
+
+function coerceNamePart(value, fallback) {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+  const trimmed = value.trim();
+  return trimmed || fallback;
+}
+
+function generateRandomPassword() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+function getSocialConfig(provider) {
+  const config = SOCIAL_LOGIN_CONFIG[provider];
+  if (!config) {
+    throw new Error(`Unsupported social login provider: ${provider}`);
+  }
+  return config;
+}
+
+async function resolveSocialUser({
+  provider,
+  providerId,
+  email,
+  firstName,
+  lastName,
+}) {
+  const config = getSocialConfig(provider);
+  if (!providerId) {
+    throw buildError(`${config.displayName} identifier is required.`, 422);
+  }
+
+  let user = null;
+  if (typeof config.findUserById === 'function') {
+    user = await config.findUserById(providerId);
+  }
+
+  const normalizedEmail = normalizeEmail(email);
+  if (!user && normalizedEmail) {
+    user = await authDomainService.findUserByEmail(normalizedEmail);
+  }
+
+  if (!user && !normalizedEmail) {
+    throw buildError(config.missingEmailMessage, 409);
+  }
+
+  if (!user) {
+    await authDomainService.registerUser({
+      email: normalizedEmail,
+      password: generateRandomPassword(),
+      firstName: coerceNamePart(firstName, config.defaultFirstName),
+      lastName: coerceNamePart(lastName, config.defaultLastName),
+      userType: 'user',
+      twoFactorEnabled: false,
+      twoFactorMethod: 'app',
+      [config.idField]: providerId,
+    });
+    user = await authDomainService.findUserByEmail(normalizedEmail);
+  }
+
+  if (!user) {
+    throw buildError(config.notFoundMessage, 404);
+  }
+
+  const updates = {};
+  if (!user[config.idField] || user[config.idField] !== providerId) {
+    updates[config.idField] = providerId;
+  }
+  if (user.twoFactorEnabled) {
+    updates.twoFactorEnabled = false;
+  }
+
+  if (Object.keys(updates).length > 0) {
+    await user.update(updates);
+  }
+
+  return user;
+}
+
+async function finalizeSocialLogin({ provider, user, context }) {
+  const config = getSocialConfig(provider);
+  const session = await issueSession(user, { context });
+  const featureFlags = await featureFlagService.evaluateForUser(session.user, {
+    traits: { loginContext: config.loginContext },
+  });
+  session.featureFlags = featureFlags;
+  session.user.featureFlags = featureFlags;
+  await authDomainService.recordLoginAudit(
+    user.id,
+    {
+      eventType: 'login',
+      ipAddress: context?.ipAddress,
+      userAgent: context?.userAgent,
+      metadata: { strategy: config.auditStrategy },
+    },
+    {},
+  );
+  return { session };
 }
 
 function resolveAppBaseUrl() {
@@ -361,44 +628,72 @@ async function loginWithGoogle(idToken, options = {}) {
     throw buildError('Google email address is not verified.', 401);
   }
 
-  const email = payload.email.toLowerCase();
+  const email = payload.email;
   const googleId = payload.sub;
-  let user = await authDomainService.findUserByEmail(email);
+  const user = await resolveSocialUser({
+    provider: 'google',
+    providerId: googleId,
+    email,
+    firstName: payload.given_name,
+    lastName: payload.family_name,
+  });
 
-  if (!user) {
-    const randomPassword = crypto.randomBytes(32).toString('hex');
-    await authDomainService.registerUser({
-      email,
-      password: randomPassword,
-      firstName: payload.given_name || 'Google',
-      lastName: payload.family_name || 'User',
-      userType: 'user',
-      twoFactorEnabled: false,
-      twoFactorMethod: 'app',
-      googleId,
-    });
-    user = await authDomainService.findUserByEmail(email);
-  } else if (!user.googleId || user.googleId !== googleId) {
-    await user.update({ googleId, twoFactorEnabled: false });
+  return finalizeSocialLogin({ provider: 'google', user, context: options.context ?? null });
+}
+
+async function loginWithApple(identityToken, options = {}) {
+  if (!identityToken) {
+    throw buildError('Apple identity token is required.', 422);
+  }
+  if (!appleClientId) {
+    throw buildError('Apple login is not configured.', 503);
   }
 
-  const session = await issueSession(user, { context: options.context ?? null });
-  const featureFlags = await featureFlagService.evaluateForUser(session.user, {
-    traits: { loginContext: 'google_oauth' },
+  const decoded = jwt.decode(identityToken, { complete: true });
+  const kid = decoded?.header?.kid;
+  const signingKey = await getAppleSigningKey(kid);
+  let payload;
+  try {
+    payload = jwt.verify(identityToken, signingKey, {
+      algorithms: ['RS256'],
+      audience: appleClientId,
+      issuer: 'https://appleid.apple.com',
+    });
+  } catch (error) {
+    throw buildError('Unable to verify Apple identity token.', 401);
+  }
+
+  const appleId = payload?.sub;
+  if (!appleId) {
+    throw buildError('Apple identity token missing subject.', 401);
+  }
+
+  const user = await resolveSocialUser({
+    provider: 'apple',
+    providerId: appleId,
+    email: payload?.email,
+    firstName: payload?.given_name,
+    lastName: payload?.family_name,
   });
-  session.featureFlags = featureFlags;
-  session.user.featureFlags = featureFlags;
-  await authDomainService.recordLoginAudit(
-    user.id,
-    {
-      eventType: 'login',
-      ipAddress: options.context?.ipAddress,
-      userAgent: options.context?.userAgent,
-      metadata: { strategy: 'google_oauth' },
-    },
-    {},
-  );
-  return { session };
+
+  return finalizeSocialLogin({ provider: 'apple', user, context: options.context ?? null });
+}
+
+async function loginWithLinkedIn(accessToken, options = {}) {
+  if (!accessToken) {
+    throw buildError('LinkedIn access token is required.', 422);
+  }
+
+  const profile = await fetchLinkedInProfile(accessToken);
+  const user = await resolveSocialUser({
+    provider: 'linkedin',
+    providerId: profile.id,
+    email: profile.email,
+    firstName: profile.firstName,
+    lastName: profile.lastName,
+  });
+
+  return finalizeSocialLogin({ provider: 'linkedin', user, context: options.context ?? null });
 }
 
 async function refreshSession(refreshToken, options = {}) {
@@ -615,6 +910,8 @@ export default {
   verifyTwoFactor,
   resendTwoFactor,
   loginWithGoogle,
+  loginWithApple,
+  loginWithLinkedIn,
   refreshSession,
   requestPasswordReset,
   verifyPasswordResetToken,

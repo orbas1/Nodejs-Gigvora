@@ -5,6 +5,8 @@ import validateRequest from '../middleware/validateRequest.js';
 import {
   adminLoginSchema,
   googleLoginSchema,
+  appleLoginSchema,
+  linkedinLoginSchema,
   loginSchema,
   registerAgencySchema,
   registerCompanySchema,
@@ -44,6 +46,12 @@ router.post(
   asyncHandler(authController.resendTwoFactor),
 );
 router.post('/login/google', validateRequest({ body: googleLoginSchema }), asyncHandler(authController.googleLogin));
+router.post('/login/apple', validateRequest({ body: appleLoginSchema }), asyncHandler(authController.appleLogin));
+router.post(
+  '/login/linkedin',
+  validateRequest({ body: linkedinLoginSchema }),
+  asyncHandler(authController.linkedinLogin),
+);
 router.post('/refresh', validateRequest({ body: refreshSessionSchema }), asyncHandler(authController.refreshSession));
 router.post(
   '/logout',

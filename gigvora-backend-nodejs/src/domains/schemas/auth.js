@@ -19,6 +19,8 @@ export const authUserSchema = z.object({
   twoFactorMethod: z.enum(['email', 'app', 'sms']),
   lastLoginAt: z.string().datetime().nullable(),
   googleId: z.string().nullable(),
+  appleId: z.string().nullable(),
+  linkedinId: z.string().nullable(),
   memberships: z.array(z.string()),
   primaryDashboard: z.string(),
 });

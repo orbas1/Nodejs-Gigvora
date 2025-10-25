@@ -4,16 +4,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/auth_token_store.dart';
 import '../domain/session.dart';
+import 'session_expiry_controller.dart';
 
 class SessionController extends StateNotifier<SessionState> {
-  SessionController() : super(const SessionState.unauthenticated());
+  SessionController(this._ref) : super(const SessionState.unauthenticated());
+
+  final Ref _ref;
 
   void login(UserSession session) {
     state = SessionState.authenticated(session);
+    _ref.read(sessionExpiryControllerProvider.notifier).observe(session);
   }
 
   void loginDemo() {
-    login(UserSession.demo());
+    final demo = UserSession.demo();
+    state = SessionState.authenticated(demo);
+    _ref.read(sessionExpiryControllerProvider.notifier).observe(demo);
   }
 
   void selectRole(String role) {
@@ -30,10 +36,11 @@ class SessionController extends StateNotifier<SessionState> {
   void logout() {
     unawaited(AuthTokenStore.clear());
     state = const SessionState.unauthenticated();
+    _ref.read(sessionExpiryControllerProvider.notifier).observe(null);
   }
 }
 
 final sessionControllerProvider =
     StateNotifierProvider<SessionController, SessionState>((ref) {
-  return SessionController();
+  return SessionController(ref);
 });

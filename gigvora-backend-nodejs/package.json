@@ -34,6 +34,7 @@
     "google-auth-library": "^9.14.1",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
+    "jwk-to-pem": "^2.0.5",
     "@socket.io/redis-adapter": "^8.2.1",
     "socket.io": "^4.7.5",
     "meilisearch": "^0.37.0",

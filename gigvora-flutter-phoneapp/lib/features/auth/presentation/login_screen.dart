@@ -1,8 +1,13 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
+import '../../../core/providers.dart';
+import '../../auth/application/biometric_auth_controller.dart';
 import '../../auth/application/session_controller.dart';
 import '../data/auth_repository.dart';
 import '../domain/auth_token_store.dart';
@@ -56,6 +61,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _loading = false;
   String? _error;
   String? _info;
+  bool _biometricAvailable = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future<void>.microtask(() async {
+      final available = await ref.read(biometricAuthControllerProvider).isAvailable();
+      if (mounted) {
+        setState(() {
+          _biometricAvailable = available;
+        });
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -76,6 +95,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
+      final analytics = ref.read(analyticsServiceProvider);
+      await analytics.track('mobile_auth_password_login_attempt', metadata: const {
+        'actorType': 'anonymous',
+        'source': 'mobile_app',
+      });
       final repository = ref.read(authRepositoryProvider);
       final result = await repository.login(
         _emailController.text.trim(),
@@ -95,11 +119,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           refreshToken: result.session!.refreshToken,
         );
         ref.read(sessionControllerProvider.notifier).login(result.session!.userSession);
+        await analytics.track('mobile_auth_password_login_success', metadata: {
+          'actorType': 'user',
+          'source': 'mobile_app',
+          'userId': result.session!.userSession.userId ?? result.session!.userSession.id,
+        });
         if (mounted) {
           GoRouter.of(context).go('/home');
         }
       }
     } catch (error) {
+      unawaited(ref.read(analyticsServiceProvider).track('mobile_auth_password_login_failure', metadata: {
+        'actorType': 'anonymous',
+        'source': 'mobile_app',
+        'error': '$error',
+      }));
       setState(() {
         _error = error.toString();
       });
@@ -127,6 +161,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
+      final analytics = ref.read(analyticsServiceProvider);
       final repository = ref.read(authRepositoryProvider);
       final session = await repository.verifyTwoFactor(
         email: _emailController.text.trim(),
@@ -138,10 +173,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         refreshToken: session.refreshToken,
       );
       ref.read(sessionControllerProvider.notifier).login(session.userSession);
+      await analytics.track('mobile_auth_two_factor_success', metadata: {
+        'actorType': 'user',
+        'source': 'mobile_app',
+        'userId': session.userSession.userId ?? session.userSession.id,
+      });
       if (mounted) {
         GoRouter.of(context).go('/home');
       }
     } catch (error) {
+      unawaited(ref.read(analyticsServiceProvider).track('mobile_auth_two_factor_failure', metadata: {
+        'actorType': 'anonymous',
+        'source': 'mobile_app',
+        'error': '$error',
+      }));
       setState(() {
         _error = error.toString();
       });
@@ -383,6 +428,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _info = null;
     });
     try {
+      final analytics = ref.read(analyticsServiceProvider);
+      await analytics.track('mobile_auth_social_login_attempt', metadata: const {
+        'actorType': 'anonymous',
+        'source': 'mobile_app',
+        'provider': 'google',
+      });
       final googleSignIn = GoogleSignIn(scopes: const ['email']);
       final account = await googleSignIn.signIn();
       final auth = await account?.authentication;
@@ -397,10 +448,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         refreshToken: session.refreshToken,
       );
       ref.read(sessionControllerProvider.notifier).login(session.userSession);
+      await analytics.track('mobile_auth_social_login_success', metadata: {
+        'actorType': 'user',
+        'source': 'mobile_app',
+        'provider': 'google',
+        'userId': session.userSession.userId ?? session.userSession.id,
+      });
       if (mounted) {
         GoRouter.of(context).go('/home');
       }
     } catch (error) {
+      unawaited(ref.read(analyticsServiceProvider).track('mobile_auth_social_login_failure', metadata: {
+        'actorType': 'anonymous',
+        'source': 'mobile_app',
+        'provider': 'google',
+        'error': '$error',
+      }));
       setState(() {
         _error = error.toString();
       });
@@ -413,18 +476,157 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
+  Future<void> _signInWithApple() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+      _info = null;
+    });
+    try {
+      final analytics = ref.read(analyticsServiceProvider);
+      await analytics.track('mobile_auth_social_login_attempt', metadata: const {
+        'actorType': 'anonymous',
+        'source': 'mobile_app',
+        'provider': 'apple',
+      });
+
+      final available = await SignInWithApple.isAvailable();
+      if (!available || (!Platform.isIOS && !Platform.isMacOS)) {
+        throw Exception('Sign in with Apple is not supported on this device.');
+      }
+
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: const [AppleIDAuthorizationScopes.email, AppleIDAuthorizationScopes.fullName],
+      );
+      final identityToken = credential.identityToken;
+      if (identityToken == null || identityToken.isEmpty) {
+        throw Exception('Apple did not return a valid identity token.');
+      }
+
+      final repository = ref.read(authRepositoryProvider);
+      final session = await repository.loginWithApple(
+        identityToken: identityToken,
+        authorizationCode: credential.authorizationCode,
+      );
+      await AuthTokenStore.persist(
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+      );
+      ref.read(sessionControllerProvider.notifier).login(session.userSession);
+      await analytics.track('mobile_auth_social_login_success', metadata: {
+        'actorType': 'user',
+        'source': 'mobile_app',
+        'provider': 'apple',
+        'userId': session.userSession.userId ?? session.userSession.id,
+      });
+      if (mounted) {
+        GoRouter.of(context).go('/home');
+      }
+    } catch (error) {
+      unawaited(ref.read(analyticsServiceProvider).track('mobile_auth_social_login_failure', metadata: {
+        'actorType': 'anonymous',
+        'source': 'mobile_app',
+        'provider': 'apple',
+        'error': '$error',
+      }));
+      setState(() {
+        _error = error.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _unlockWithBiometrics() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+      _info = null;
+    });
+    final controller = ref.read(biometricAuthControllerProvider);
+    final result = await controller.unlockWithBiometrics();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _loading = false;
+      if (result.success) {
+        _info = result.message ?? 'Session restored.';
+        GoRouter.of(context).go('/home');
+      } else {
+        _error = result.message;
+        if (result.message != null &&
+            result.message!.toLowerCase().contains('no saved session')) {
+          _biometricAvailable = false;
+        }
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final waitingForCode = _challenge != null;
     return GigvoraScaffold(
       title: 'Sign in',
-      subtitle: 'Access the Gigvora network',
+      subtitle: 'Securely access Gigvora with password, biometrics, or social sign-in.',
       useAppDrawer: true,
       body: Form(
         key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _InlineStatus(message: _error!, success: false),
+              ),
+            if (_info != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _InlineStatus(message: _info!, success: true),
+              ),
+            if (!waitingForCode) ...[
+              if (_biometricAvailable) ...[
+                FilledButton.tonalIcon(
+                  onPressed: _loading ? null : _unlockWithBiometrics,
+                  icon: const Icon(Icons.lock_open_rounded),
+                  label: const Text('Unlock with Face ID or Touch ID'),
+                ),
+                const SizedBox(height: 16),
+              ],
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  FilledButton.tonalIcon(
+                    onPressed: _loading ? null : _signInWithGoogle,
+                    icon: const Icon(Icons.account_circle_outlined),
+                    label: const Text('Continue with Google'),
+                  ),
+                  FilledButton.tonalIcon(
+                    onPressed: _loading ? null : _signInWithApple,
+                    icon: const Icon(Icons.apple),
+                    label: const Text('Continue with Apple'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: const [
+                  Expanded(child: Divider()),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    child: Text('or continue with email'),
+                  ),
+                  Expanded(child: Divider()),
+                ],
+              ),
+              const SizedBox(height: 24),
+            ],
             TextFormField(
               controller: _emailController,
               decoration: const InputDecoration(labelText: 'Email address'),
@@ -435,7 +637,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             if (!waitingForCode)
               TextFormField(
                 controller: _passwordController,
-                decoration: const InputDecoration(labelText: 'Password'),
+                decoration: const InputDecoration(
+                  labelText: 'Password',
+                  helperText: 'Use at least 8 characters with numbers or symbols.',
+                ),
                 obscureText: true,
                 validator: (value) => value != null && value.length >= 8 ? null : 'Minimum 8 characters',
               ),
@@ -449,7 +654,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _codeController,
-                decoration: const InputDecoration(labelText: 'Enter 6-digit 2FA code'),
+                decoration: const InputDecoration(
+                  labelText: 'Enter 6-digit 2FA code',
+                  helperText: 'Check your inbox or authenticator app for the latest code.',
+                ),
                 keyboardType: TextInputType.number,
                 validator: (value) => value != null && value.trim().length == 6
                     ? null
@@ -457,22 +665,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ],
             const SizedBox(height: 24),
-            if (_error != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(
-                  _error!,
-                  style: const TextStyle(color: Color(0xFFB91C1C)),
-                ),
-              ),
-            if (_info != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(
-                  _info!,
-                  style: const TextStyle(color: Color(0xFF047857)),
-                ),
-              ),
             FilledButton(
               onPressed: _loading
                   ? null
@@ -492,10 +684,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ],
             const SizedBox(height: 12),
-            OutlinedButton(
-              onPressed: _loading ? null : _signInWithGoogle,
-              child: const Text('Continue with Google'),
-            ),
             if (waitingForCode) ...[
               const SizedBox(height: 12),
               TextButton(
