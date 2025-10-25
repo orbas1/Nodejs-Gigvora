@@ -93,6 +93,37 @@ export function parseParamId(req, paramName, label = paramName) {
   return parsePositiveInteger(req.params?.[paramName], label);
 }
 
+export function parseRouteParam(req, descriptor) {
+  if (typeof descriptor === 'string') {
+    return parsePositiveInteger(req.params?.[descriptor], descriptor);
+  }
+
+  if (!descriptor || typeof descriptor !== 'object') {
+    throw new ValidationError('Route parameter descriptor must be a string or object.');
+  }
+
+  const { name, label = name, optional = false } = descriptor;
+  if (typeof name !== 'string' || name.length === 0) {
+    throw new ValidationError('Route parameter descriptors require a name.');
+  }
+
+  return parsePositiveInteger(req.params?.[name], label, { optional });
+}
+
+export function collectRouteParams(req, descriptors = []) {
+  if (!Array.isArray(descriptors)) {
+    throw new ValidationError('Route parameter descriptors must be provided as an array.');
+  }
+
+  return descriptors.reduce((values, descriptor) => {
+    const parsed = parseRouteParam(req, descriptor);
+    if (parsed != null) {
+      values.push(parsed);
+    }
+    return values;
+  }, []);
+}
+
 export default {
   ensurePlainObject,
   parsePositiveInteger,
@@ -101,4 +132,6 @@ export default {
   buildManagementAccessSnapshot,
   respondWithAccess,
   parseParamId,
+  parseRouteParam,
+  collectRouteParams,
 };
