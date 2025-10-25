@@ -1,4 +1,4 @@
-import { AuthorizationError } from './errors.js';
+import { AuthorizationError, ValidationError } from './errors.js';
 import {
   resolveRequestPermissions,
   resolveRequestUserId,
@@ -46,6 +46,15 @@ export function parseOwnerId(req) {
     return fallback;
   }
   return null;
+}
+
+export function requireOwnerId(req, { fieldName = 'ownerId' } = {}) {
+  const candidate = parseOwnerId(req) ?? resolveOwnerId(req);
+  const ownerId = Number.parseInt(candidate, 10);
+  if (!ownerId || ownerId <= 0) {
+    throw new ValidationError(`An authenticated ${fieldName} is required for gig operations.`);
+  }
+  return ownerId;
 }
 
 export function resolveProjectAccess(req, ownerId) {
@@ -116,6 +125,7 @@ export default {
   normalizeRole,
   resolveOwnerId,
   parseOwnerId,
+  requireOwnerId,
   resolveProjectAccess,
   ensureViewAccess,
   ensureManageAccess,
