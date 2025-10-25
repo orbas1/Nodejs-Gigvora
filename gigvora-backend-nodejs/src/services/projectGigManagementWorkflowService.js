@@ -39,15 +39,15 @@ import {
   REVIEW_SUBJECT_TYPES,
   ESCROW_TRANSACTION_TYPES,
   ESCROW_TRANSACTION_STATUSES,
-  GIG_ESCROW_STATUSES,
+  GIG_ORDER_ESCROW_STATUSES,
   GIG_TIMELINE_EVENT_TYPES,
   GIG_TIMELINE_EVENT_STATUSES,
   GIG_SUBMISSION_STATUSES,
   GIG_TIMELINE_VISIBILITIES,
   GIG_CHAT_VISIBILITIES,
+  GIG_ORDER_ACTIVITY_TYPES,
   syncProjectGigManagementModels,
 } from '../models/projectGigManagementModels.js';
-import { GIG_ORDER_ACTIVITY_TYPES } from '../models/constants/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
 
 function normalizeNumber(value, fallback = 0) {
@@ -1777,9 +1777,6 @@ function buildProjectLifecycleSnapshot(projects) {
     meta: {
       generatedAt: new Date().toISOString(),
     },
-    meta,
-    projects: sanitizedProjects,
-    templates,
   };
 }
 
@@ -2458,20 +2455,29 @@ export async function createGigOrder(ownerId, payload) {
   });
 }
 
-export async function addGigTimelineEvent(ownerId, orderId, payload) {
-  const event = await createGigTimelineEvent(ownerId, orderId, {
-    eventType: payload.type ?? payload.eventType ?? 'note',
-    title: payload.title,
-    summary: payload.notes ?? payload.summary ?? null,
-    occurredAt: payload.scheduledAt ?? payload.completedAt ?? payload.occurredAt ?? null,
-    visibility: payload.visibility ?? 'internal',
-    metadata: {
-      ...(payload.metadata ?? {}),
-      assignedTo: payload.assignedTo ?? undefined,
-      status: payload.status ?? undefined,
+export async function addGigTimelineEvent(ownerId, orderId, payload, context = {}) {
+  const statusFromPayload = payload.status?.toString().trim().toLowerCase();
+  const derivedStatus = statusFromPayload ?? (payload.completedAt ? 'completed' : 'scheduled');
+  return createGigTimelineEvent(
+    ownerId,
+    orderId,
+    {
+      eventType: payload.type ?? payload.eventType ?? 'note',
+      title: payload.title,
+      summary: payload.notes ?? payload.summary ?? null,
+      occurredAt: payload.occurredAt ?? payload.scheduledAt ?? payload.completedAt ?? null,
+      scheduledAt: payload.scheduledAt ?? null,
+      completedAt: payload.completedAt ?? null,
+      status: derivedStatus,
+      visibility: payload.visibility ?? 'internal',
+      attachments: payload.attachments ?? null,
+      metadata: {
+        ...(payload.metadata ?? {}),
+        assignedTo: payload.assignedTo ?? undefined,
+      },
     },
-  });
-  return event;
+    context,
+  );
 }
 
 export async function updateGigTimelineEvent(ownerId, orderId, eventId, payload) {
@@ -2512,29 +2518,41 @@ export async function updateGigTimelineEvent(ownerId, orderId, eventId, payload)
     updates.visibility = normalized;
   }
 
+  if (payload.status != null) {
+    const normalized = payload.status.toString().trim().toLowerCase();
+    if (!GIG_TIMELINE_EVENT_STATUSES.includes(normalized)) {
+      throw new ValidationError('Timeline status must be scheduled, in_progress, completed, or cancelled.');
+    }
+    updates.status = normalized;
+  }
+
   if (payload.summary != null || payload.notes != null) {
     const summary = payload.summary ?? payload.notes;
     updates.summary = summary == null ? null : summary.toString().trim() || null;
   }
 
-  if (payload.occurredAt != null || payload.scheduledAt != null || payload.completedAt != null) {
-    const occurredAt = ensureDate(payload.occurredAt ?? payload.scheduledAt ?? payload.completedAt, {
-      label: 'Event time',
-    });
-    updates.occurredAt = occurredAt ?? new Date();
+  if (payload.occurredAt != null) {
+    updates.occurredAt = ensureDate(payload.occurredAt, { label: 'Event time' }) ?? event.occurredAt ?? new Date();
+  }
+  if (payload.scheduledAt != null) {
+    updates.scheduledAt = ensureDate(payload.scheduledAt, { label: 'Scheduled time' });
+  }
+  if (payload.completedAt != null) {
+    updates.completedAt = ensureDate(payload.completedAt, { label: 'Completion time' });
   }
 
-  if (payload.metadata != null || payload.assignedTo != null || payload.status != null) {
-    updates.metadata = {
-      ...(event.metadata ?? {}),
-      ...(payload.metadata ?? {}),
-    };
+  if (payload.attachments != null) {
+    updates.attachments = normalizeAttachments(payload.attachments, { limit: 6 });
+  }
+
+  if (payload.metadata != null || payload.assignedTo != null) {
+    const baseMetadata = event.metadata && typeof event.metadata === 'object' ? { ...event.metadata } : {};
+    const nextMetadata =
+      payload.metadata === null ? {} : payload.metadata ? { ...baseMetadata, ...payload.metadata } : baseMetadata;
     if (payload.assignedTo !== undefined) {
-      updates.metadata.assignedTo = payload.assignedTo;
+      nextMetadata.assignedTo = payload.assignedTo;
     }
-    if (payload.status !== undefined) {
-      updates.metadata.status = payload.status;
-    }
+    updates.metadata = nextMetadata;
   }
 
   if (Object.keys(updates).length === 0) {
@@ -2573,15 +2591,11 @@ export async function updateGigOrder(ownerId, orderId, payload) {
   const dueAt = ensureDate(payload.dueAt, { label: 'Delivery due date' });
 
   const currentMetadata = order.metadata && typeof order.metadata === 'object' ? { ...order.metadata } : {};
-  const nextMetadata =
-    payload.metadata === null
-      ? null
-      : payload.metadata
-      ? { ...currentMetadata, ...payload.metadata }
-      : currentMetadata;
   const currency = payload.currency ?? order.currency;
-  let nextMetadata = order.metadata ?? {};
-  if (
+  let nextMetadata;
+  if (payload.metadata === null) {
+    nextMetadata = null;
+  } else if (
     payload.classes ||
     payload.gigClasses ||
     payload.addons ||
@@ -2606,7 +2620,9 @@ export async function updateGigOrder(ownerId, orderId, payload) {
       currency,
     );
   } else if (payload.metadata) {
-    nextMetadata = { ...order.metadata, ...payload.metadata };
+    nextMetadata = { ...currentMetadata, ...payload.metadata };
+  } else {
+    nextMetadata = currentMetadata;
   }
 
   await order.update({
@@ -2715,8 +2731,14 @@ export async function getGigOrderDetail(ownerId, orderId, { messageLimit = 50 } 
       { model: GigOrderRevision, as: 'revisions', separate: true, order: [['roundNumber', 'ASC']] },
       { model: GigVendorScorecard, as: 'scorecard' },
       {
+        model: GigOrderEscrowCheckpoint,
+        as: 'escrowCheckpoints',
+        separate: true,
+        order: [['createdAt', 'ASC']],
+      },
+      {
         model: GigTimelineEvent,
-        as: 'timeline',
+        as: 'timelineEvents',
         separate: true,
         order: [
           ['occurredAt', 'DESC'],
@@ -2736,7 +2758,7 @@ export async function getGigOrderDetail(ownerId, orderId, { messageLimit = 50 } 
       },
       {
         model: GigChatMessage,
-        as: 'messages',
+        as: 'chatMessages',
         separate: true,
         order: [
           ['sentAt', 'DESC'],
@@ -2767,17 +2789,36 @@ export async function createGigTimelineEvent(ownerId, orderId, payload, { actorI
   if (!GIG_TIMELINE_VISIBILITIES.includes(visibility)) {
     throw new ValidationError('Timeline visibility must be internal, client, or vendor.');
   }
-  const occurredAt = ensureDate(payload.occurredAt ?? new Date(), { label: 'Event time' }) ?? new Date();
+  const statusInput = typeof payload.status === 'string' ? payload.status.trim().toLowerCase() : undefined;
+  const status = statusInput ?? (payload.completedAt ? 'completed' : 'scheduled');
+  if (!GIG_TIMELINE_EVENT_STATUSES.includes(status)) {
+    throw new ValidationError('Timeline status must be scheduled, in_progress, completed, or cancelled.');
+  }
+
+  const scheduledAt = ensureDate(payload.scheduledAt, { label: 'Scheduled time' });
+  const completedAt = ensureDate(payload.completedAt, { label: 'Completion time' });
+  const occurredAt =
+    ensureDate(payload.occurredAt ?? scheduledAt ?? completedAt ?? new Date(), { label: 'Event time' }) ?? new Date();
+
+  const attachments = payload.attachments ? normalizeAttachments(payload.attachments, { limit: 6 }) : null;
+  const metadata = payload.metadata ? { ...payload.metadata } : {};
+  if (payload.assignedTo !== undefined) {
+    metadata.assignedTo = payload.assignedTo;
+  }
 
   const event = await GigTimelineEvent.create({
     orderId: order.id,
     eventType,
     title,
     summary: typeof payload.summary === 'string' ? payload.summary.trim() || null : null,
+    status,
+    occurredAt,
+    scheduledAt,
+    completedAt,
     createdById: actorId ?? ownerId,
     visibility,
-    occurredAt,
-    metadata: payload.metadata ?? {},
+    attachments,
+    metadata,
   });
 
   return sanitizeTimelineEvent(event, order);
@@ -3096,14 +3137,19 @@ export async function createGigOrderEscrowCheckpoint(ownerId, orderId, payload, 
 
   const amount = ensureNumber(payload.amount, { label: 'Escrow amount', allowNegative: false, allowZero: false });
   const currency = payload.currency?.toString().trim().toUpperCase() || order.currency || 'USD';
-  const status = payload.status?.toString().trim().toLowerCase() || 'funded';
-  if (!GIG_ESCROW_STATUSES.includes(status)) {
+  const status = payload.status?.toString().trim().toLowerCase() || 'pending';
+  if (!GIG_ORDER_ESCROW_STATUSES.includes(status)) {
     throw new ValidationError('Invalid escrow status provided.');
   }
 
   let releasedAt = null;
-  if (payload.releasedAt) {
+  let releasedById = null;
+  if (payload.releasedAt != null) {
     releasedAt = ensureDate(payload.releasedAt, { label: 'Released at' });
+    releasedById = releasedAt ? context.actorId ?? ownerId : null;
+  } else if (status === 'released') {
+    releasedAt = new Date();
+    releasedById = context.actorId ?? ownerId;
   }
 
   return GigOrderEscrowCheckpoint.create({
@@ -3118,7 +3164,7 @@ export async function createGigOrderEscrowCheckpoint(ownerId, orderId, payload, 
         ? ensureNumber(payload.csatThreshold, { label: 'CSAT threshold', allowNegative: false })
         : null,
     releasedAt,
-    releasedById: releasedAt ? context.actorId ?? ownerId : null,
+    releasedById,
     payoutReference: payload.payoutReference ?? null,
     notes: payload.notes ?? null,
   });
@@ -3153,7 +3199,7 @@ export async function updateGigOrderEscrowCheckpoint(ownerId, checkpointId, payl
 
   if (payload.status != null) {
     const status = payload.status.toString().trim().toLowerCase();
-    if (!GIG_ESCROW_STATUSES.includes(status)) {
+    if (!GIG_ORDER_ESCROW_STATUSES.includes(status)) {
       throw new ValidationError('Invalid escrow status provided.');
     }
     updates.status = status;

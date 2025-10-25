@@ -1,14 +1,16 @@
 import { beforeEach, describe, expect, it } from '@jest/globals';
-import { projectGigManagementSequelize, StoryBlock, BrandAsset } from '../src/models/projectGigManagementModels.js';
+import { projectGigManagementSequelize, StoryBlock, BrandAsset } from '../../models/projectGigManagementModels.js';
 import {
   createProject,
   addProjectAsset,
   updateProjectWorkspace,
   createGigOrder,
   updateGigOrder,
+  createGigTimelineEvent,
+  createGigOrderEscrowCheckpoint,
   getProjectGigManagementOverview,
   getGigOrderDetail,
-} from '../src/services/projectGigManagementWorkflowService.js';
+} from '../projectGigManagementWorkflowService.js';
 
 const ownerId = 42;
 
@@ -119,6 +121,28 @@ describe('projectGigManagementWorkflowService', () => {
       scorecard: { overallScore: 4.5, communicationScore: 4.0 },
     });
 
+    await createGigTimelineEvent(
+      ownerId,
+      order.id,
+      {
+        title: 'Kickoff sync',
+        eventType: 'kickoff',
+        summary: 'Aligned on deliverables and checkpoints.',
+        scheduledAt: new Date(),
+        attachments: [{ url: 'https://cdn.example.com/kickoff-deck.pdf', label: 'Kickoff deck' }],
+        metadata: { assignedTo: 'Casey Mentor' },
+      },
+      { actorId: ownerId },
+    );
+
+    await createGigOrderEscrowCheckpoint(ownerId, order.id, {
+      label: 'Initial deposit',
+      amount: 500,
+      currency: 'USD',
+      status: 'pending',
+      notes: 'Due before kickoff.',
+    });
+
     await updateProjectWorkspace(ownerId, project.id, { progressPercent: 48, riskLevel: 'medium' });
 
     const snapshot = await getProjectGigManagementOverview(ownerId);
@@ -138,6 +162,12 @@ describe('projectGigManagementWorkflowService', () => {
     expect(detail.revisions).toHaveLength(1);
     expect(detail.classes.length).toBeGreaterThanOrEqual(3);
     expect(detail.addons.length).toBeGreaterThan(0);
+    expect(detail.timelineEvents[0].attachments).toEqual(
+      expect.arrayContaining([expect.objectContaining({ url: 'https://cdn.example.com/kickoff-deck.pdf' })]),
+    );
+    expect(detail.escrowCheckpoints[0]).toEqual(
+      expect.objectContaining({ label: 'Initial deposit', status: 'pending', amount: 500 }),
+    );
 
     expect(snapshot.storytelling.achievements.length).toBeGreaterThan(0);
     expect(snapshot.templates.length).toBeGreaterThan(0);

@@ -237,8 +237,8 @@ export const ID_VERIFICATION_EVENT_TYPES = Object.freeze([
   'document_request',
   'escalation',
   'reminder',
-];
-export const IDENTITY_VERIFICATION_EVENT_TYPES = [
+]);
+export const IDENTITY_VERIFICATION_EVENT_TYPES = Object.freeze([
   'submission_created',
   'status_changed',
   'assignment_updated',
@@ -611,15 +611,7 @@ export const GIG_ORDER_REVISION_WORKFLOW_STATUSES = Object.freeze([
 ]);
 export const GIG_ORDER_REVISION_SEVERITIES = Object.freeze(['low', 'medium', 'high']);
 export const GIG_ORDER_PAYOUT_STATUSES = Object.freeze(['pending', 'scheduled', 'released', 'at_risk', 'on_hold']);
-export const GIG_ORDER_ACTIVITY_TYPES = Object.freeze([
-  'order',
-  'requirement',
-  'revision',
-  'payout',
-  'communication',
-  'note',
-  'system',
-]);
+export const GIG_ORDER_ACTIVITY_TYPES = Object.freeze(['system', 'client', 'vendor', 'internal']);
 
 export const PROJECT_BLUEPRINT_HEALTH_STATUSES = Object.freeze(['on_track', 'at_risk', 'critical']);
 export const PROJECT_SPRINT_STATUSES = Object.freeze(['planned', 'in_progress', 'blocked', 'completed']);

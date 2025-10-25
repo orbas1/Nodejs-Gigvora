@@ -15,7 +15,7 @@ const dialect = projectGigManagementSequelize.getDialect();
 const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB : DataTypes.JSON;
 
 const GIG_ORDER_ACTIVITY_TYPES = Object.freeze(['system', 'client', 'vendor', 'internal']);
-const GIG_ORDER_ESCROW_STATUSES = Object.freeze(['pending', 'released', 'refunded', 'cancelled']);
+export const GIG_ORDER_ESCROW_STATUSES = Object.freeze(['pending', 'released', 'refunded', 'cancelled']);
 
 export const PROJECT_STATUSES = Object.freeze(['planning', 'in_progress', 'at_risk', 'completed', 'on_hold']);
 export const PROJECT_RISK_LEVELS = Object.freeze(['low', 'medium', 'high']);
@@ -31,6 +31,8 @@ export const AUTO_MATCH_STATUS = Object.freeze(['suggested', 'contacted', 'engag
 export const REVIEW_SUBJECT_TYPES = Object.freeze(['vendor', 'freelancer', 'mentor', 'project']);
 export const GIG_ESCROW_TRANSACTION_TYPES = Object.freeze(['deposit', 'release', 'refund', 'fee', 'adjustment']);
 export const GIG_ESCROW_TRANSACTION_STATUSES = Object.freeze(['pending', 'completed', 'failed']);
+export const ESCROW_TRANSACTION_TYPES = GIG_ESCROW_TRANSACTION_TYPES;
+export const ESCROW_TRANSACTION_STATUSES = GIG_ESCROW_TRANSACTION_STATUSES;
 export const GIG_TIMELINE_EVENT_TYPES = Object.freeze([
   'kickoff',
   'milestone',
@@ -63,6 +65,7 @@ export const WORKSPACE_SUBMISSION_STATUSES = Object.freeze(['pending', 'in_revie
 export const WORKSPACE_HR_STATUSES = Object.freeze(['planned', 'active', 'on_leave', 'completed']);
 export const WORKSPACE_TIME_ENTRY_STATUSES = Object.freeze(['draft', 'submitted', 'approved', 'rejected']);
 export const WORKSPACE_OBJECT_TYPES = Object.freeze(['asset', 'deliverable', 'dependency', 'risk', 'note']);
+export { GIG_ORDER_ACTIVITY_TYPES };
 
 export const Project = projectGigManagementSequelize.define(
   'PgmProject',
@@ -285,7 +288,7 @@ export const GigOrderEscrowCheckpoint = projectGigManagementSequelize.define(
     label: { type: DataTypes.STRING(120), allowNull: false },
     amount: { type: DataTypes.DECIMAL(12, 2), allowNull: false },
     currency: { type: DataTypes.STRING(6), allowNull: false, defaultValue: 'USD' },
-    status: { type: DataTypes.ENUM(...GIG_ORDER_ESCROW_STATUSES), allowNull: false, defaultValue: 'funded' },
+    status: { type: DataTypes.ENUM(...GIG_ORDER_ESCROW_STATUSES), allowNull: false, defaultValue: 'pending' },
     approvalRequirement: { type: DataTypes.STRING(160), allowNull: true },
     csatThreshold: { type: DataTypes.DECIMAL(3, 2), allowNull: true },
     releasedAt: { type: DataTypes.DATE, allowNull: true },
@@ -334,10 +337,12 @@ export const GigTimelineEvent = projectGigManagementSequelize.define(
     title: { type: DataTypes.STRING(180), allowNull: false },
     summary: { type: DataTypes.TEXT, allowNull: true },
     status: { type: DataTypes.ENUM(...GIG_TIMELINE_EVENT_STATUSES), allowNull: false, defaultValue: 'scheduled' },
+    occurredAt: { type: DataTypes.DATE, allowNull: true },
     scheduledAt: { type: DataTypes.DATE, allowNull: true },
     completedAt: { type: DataTypes.DATE, allowNull: true },
     createdById: { type: DataTypes.INTEGER, allowNull: true },
     visibility: { type: DataTypes.ENUM(...GIG_TIMELINE_VISIBILITIES), allowNull: false, defaultValue: 'internal' },
+    attachments: { type: jsonType, allowNull: true },
     metadata: { type: jsonType, allowNull: true },
   },
   { tableName: 'pgm_gig_timeline_events', underscored: true },
@@ -356,7 +361,10 @@ export const GigSubmission = projectGigManagementSequelize.define(
     submittedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
     approvedAt: { type: DataTypes.DATE, allowNull: true },
     submittedById: { type: DataTypes.INTEGER, allowNull: true },
+    submittedBy: { type: DataTypes.STRING(160), allowNull: true },
+    submittedByEmail: { type: DataTypes.STRING(180), allowNull: true },
     reviewedById: { type: DataTypes.INTEGER, allowNull: true },
+    reviewNotes: { type: DataTypes.TEXT, allowNull: true },
     metadata: { type: jsonType, allowNull: true },
   },
   { tableName: 'pgm_gig_submissions', underscored: true },
@@ -981,7 +989,7 @@ GigOrderActivity.belongsTo(GigOrder, { foreignKey: 'orderId', as: 'order' });
 GigOrder.hasMany(GigOrderMessage, { as: 'messages', foreignKey: 'orderId', onDelete: 'CASCADE' });
 GigOrderMessage.belongsTo(GigOrder, { foreignKey: 'orderId', as: 'order' });
 
-GigOrder.hasMany(GigTimelineEvent, { as: 'timeline', foreignKey: 'orderId', onDelete: 'CASCADE' });
+GigOrder.hasMany(GigTimelineEvent, { as: 'timelineEvents', foreignKey: 'orderId', onDelete: 'CASCADE' });
 GigTimelineEvent.belongsTo(GigOrder, { foreignKey: 'orderId' });
 
 GigOrder.hasMany(GigSubmission, { as: 'submissions', foreignKey: 'orderId', onDelete: 'CASCADE' });

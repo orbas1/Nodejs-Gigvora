@@ -225,7 +225,7 @@ export async function storeGigTimelineEvent(req, res) {
 
   const serviceFn = shouldUseExtendedPayload
     ? () => workflowService.createGigTimelineEvent(ownerId, orderId, payload, { actorId })
-    : () => workflowService.addGigTimelineEvent(ownerId, orderId, payload);
+    : () => workflowService.addGigTimelineEvent(ownerId, orderId, payload, { actorId });
 
   const event = await serviceFn();
   const detail = await workflowService.getGigOrderDetail(ownerId, orderId);
