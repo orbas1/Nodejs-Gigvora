@@ -12,6 +12,7 @@ import databaseConfig from '../src/config/database.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_BACKUP_DIR = path.resolve(__dirname, '../backups');
+const MYSQL_ENV_KEYS = ['DB_HOST', 'DB_USER', 'DB_NAME'];
 
 function parseArgs(argv) {
   const options = {};
@@ -35,6 +36,16 @@ function ensureMysqlDialect(config) {
   if (!config || !config.dialect || !['mysql', 'mariadb'].includes(config.dialect)) {
     throw new Error('Database backup utility currently supports MySQL/MariaDB configurations only.');
   }
+}
+
+function collectMissingEnvironmentVariables() {
+  if (process.env.DB_URL && process.env.DB_URL.trim().length > 0) {
+    return [];
+  }
+  return MYSQL_ENV_KEYS.filter((key) => {
+    const value = process.env[key];
+    return typeof value !== 'string' || value.trim().length === 0;
+  });
 }
 
 function resolveCredentials(config) {
@@ -95,6 +106,14 @@ async function readMetadata(filePath) {
 
 async function backupDatabase(options) {
   ensureMysqlDialect(databaseConfig);
+  const missingEnv = collectMissingEnvironmentVariables();
+  if (missingEnv.length > 0) {
+    throw new Error(
+      `Missing required database environment variables: ${missingEnv.join(
+        ', ',
+      )}. Provide DB_URL or set each variable before running the backup.`,
+    );
+  }
   const credentials = resolveCredentials(databaseConfig);
   if (!credentials.database || !credentials.username) {
     throw new Error('Missing database credentials. Please configure DB_NAME and DB_USER.');
@@ -122,6 +141,23 @@ async function backupDatabase(options) {
 
   if (credentials.password) {
     args.push(`--password=${credentials.password}`);
+  }
+
+  if (options['dry-run']) {
+    console.info('Database backup dry run complete.');
+    console.info(`Command: ${mysqldump} ${args.join(' ')}`);
+    console.info(`Output: ${outputPath}`);
+    if (options['encrypt-key']) {
+      console.info('Encryption: aes-256-gcm (simulated for dry run)');
+    }
+    console.info(
+      'Set MYSQLDUMP_PATH to point at a custom binary if the default is unavailable on the host.',
+    );
+    return {
+      outputPath,
+      command: mysqldump,
+      args,
+    };
   }
 
   const dump = spawn(mysqldump, args, { stdio: ['ignore', 'pipe', 'inherit'] });

@@ -1,0 +1,70 @@
+name: Ops tooling guardrails
+
+on:
+  push:
+    paths:
+      - 'gigvora-backend-nodejs/scripts/**'
+      - 'gigvora-backend-nodejs/src/config/**'
+      - 'gigvora-backend-nodejs/docs/runbooks/**'
+      - 'shared-contracts/**'
+      - '.github/workflows/ops-tooling.yml'
+      - 'AGENTS.md'
+      - 'logic_flows.md'
+      - 'README.md'
+      - 'Gigvora_Guide.md'
+  pull_request:
+    paths:
+      - 'gigvora-backend-nodejs/scripts/**'
+      - 'gigvora-backend-nodejs/src/config/**'
+      - 'gigvora-backend-nodejs/docs/runbooks/**'
+      - 'shared-contracts/**'
+      - '.github/workflows/ops-tooling.yml'
+      - 'AGENTS.md'
+      - 'logic_flows.md'
+      - 'README.md'
+      - 'Gigvora_Guide.md'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: npm
+          cache-dependency-path: gigvora-backend-nodejs/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci
+        working-directory: gigvora-backend-nodejs
+
+      - name: Validate runtime configuration example
+        run: npm run config:validate
+        working-directory: gigvora-backend-nodejs
+
+      - name: Sync domain schemas
+        run: npm run schemas:sync
+        working-directory: gigvora-backend-nodejs
+
+      - name: Generate contract clients
+        run: npm run schemas:clients
+        working-directory: gigvora-backend-nodejs
+
+      - name: Dry-run database backup
+        run: node scripts/databaseBackup.js backup --dry-run --output ./backups/ci
+        working-directory: gigvora-backend-nodejs
+        env:
+          DB_HOST: localhost
+          DB_USER: ci
+          DB_NAME: gigvora_ci
+          DB_PASSWORD: placeholder
+
+      - name: Ensure schema artefacts remain committed
+        run: git diff --exit-code

@@ -198,6 +198,30 @@ Follow these references to extend Gigvora safely while keeping user data, moneti
 
 ---
 
+## Operational playbooks
+
+The canonical release-and-rollback checklist now lives in
+`gigvora-backend-nodejs/docs/runbooks/operational-readiness.md`. Use it to walk through
+pre-flight validation, schema synchronisation, dry-run backups, CI guardrails, and
+rollback preparation before deploying.【F:gigvora-backend-nodejs/docs/runbooks/operational-readiness.md†L1-L89】 Highlights:
+
+- Validate `.env` files with `npm run config:validate` to surface missing or malformed
+  runtime configuration ahead of service start-up.【F:gigvora-backend-nodejs/docs/runbooks/operational-readiness.md†L19-L32】
+- Regenerate JSON Schemas and generated clients (`npm run schemas:sync` then `npm run
+  schemas:clients`) and confirm the working tree stays clean so backend contracts remain
+  aligned.【F:gigvora-backend-nodejs/docs/runbooks/operational-readiness.md†L34-L46】
+- Dry-run database backups with `node scripts/databaseBackup.js backup --dry-run` to verify
+  credentials, directories, and optional encryption keys without invoking `mysqldump`,
+  keeping the process safe for CI and staging smoke tests.【F:gigvora-backend-nodejs/docs/runbooks/operational-readiness.md†L48-L64】【F:gigvora-backend-nodejs/scripts/databaseBackup.js†L94-L121】
+- Pair the operational readiness flow with the runtime incident playbook when triaging
+  production issues so tested rollback points exist before hotfixes are applied.【F:gigvora-backend-nodejs/docs/runbooks/operational-readiness.md†L73-L89】【F:gigvora-backend-nodejs/docs/runbooks/runtime-incident.md†L1-L120】
+
+By consolidating the runbook, operations, engineering, and support teams can reference a
+single source of truth for production hygiene while continuing to honour RBAC, CORS, and
+compliance guardrails documented throughout the repository.
+
+---
+
 ## Incident response quick links
 
 - Review the runtime incident runbook for escalation paths, communication templates, and recovery procedures.【F:gigvora-backend-nodejs/docs/runbooks/runtime-incident.md†L1-L120】
