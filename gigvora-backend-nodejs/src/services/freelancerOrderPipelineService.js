@@ -212,6 +212,15 @@ function deriveOrderMetrics(order) {
   };
 }
 
+function percentage(count, total, precision = 1) {
+  if (!total) {
+    return null;
+  }
+  const value = (Number(count ?? 0) / Number(total)) * 100;
+  const factor = 10 ** precision;
+  return Math.round(value * factor) / factor;
+}
+
 function buildPipelineSummary(orders) {
   const stageBuckets = Object.fromEntries(GIG_ORDER_PIPELINE_STATUSES.map((status) => [status, 0]));
   const requirementStats = {
@@ -328,9 +337,21 @@ function buildPipelineSummary(orders) {
     });
   });
 
+  const totalOrders = orders.length;
+  const cancelledOrders = stageBuckets.cancelled ?? 0;
+  const activeOrders = totalOrders - cancelledOrders;
+  const qualificationProgress = totalOrders - ((stageBuckets.inquiry ?? 0) + cancelledOrders);
+  const kickoffProgress =
+    (stageBuckets.kickoff_scheduled ?? 0) +
+    (stageBuckets.production ?? 0) +
+    (stageBuckets.delivery ?? 0) +
+    (stageBuckets.completed ?? 0);
+  const deliveryProgress = (stageBuckets.delivery ?? 0) + (stageBuckets.completed ?? 0);
+  const winCount = stageBuckets.completed ?? 0;
+
   return {
     totals: {
-      orders: orders.length,
+      orders: totalOrders,
       openOrders: orders.filter((order) => order.status === 'open').length,
       closedOrders: orders.filter((order) => order.status !== 'open').length,
       totalValue: Number(totalValue.toFixed(2)),
@@ -360,6 +381,13 @@ function buildPipelineSummary(orders) {
       csatAverage: csatCount ? Number((csatSum / csatCount).toFixed(2)) : null,
       kickoffScheduled,
       deliveryDueSoon,
+    },
+    conversion: {
+      qualificationRate: percentage(qualificationProgress, totalOrders),
+      kickoffRate: percentage(kickoffProgress, totalOrders),
+      deliveryRate: percentage(deliveryProgress, totalOrders),
+      winRate: percentage(winCount, activeOrders > 0 ? activeOrders : totalOrders),
+      cancellationRate: percentage(cancelledOrders, totalOrders),
     },
   };
 }

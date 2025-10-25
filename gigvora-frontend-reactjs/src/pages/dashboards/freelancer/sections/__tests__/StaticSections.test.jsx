@@ -10,6 +10,74 @@ vi.mock('../../../../../components/creationStudio/CreationStudioSnapshot.jsx', (
   default: creationSnapshotMock,
 }));
 
+const sessionMock = vi.hoisted(() => ({
+  useSession: vi.fn(() => ({ session: { id: 42, role: 'freelancer', memberships: ['freelancer'] } })),
+}));
+
+const pipelineMock = vi.hoisted(() => ({
+  useFreelancerOrderPipeline: vi.fn(() => ({
+    summary: {
+      totals: {
+        orders: 5,
+        openOrders: 3,
+        closedOrders: 2,
+        totalValue: 6400,
+        openValue: 4200,
+        completedValue: 2200,
+        currency: 'USD',
+      },
+      pipeline: {
+        inquiry: 1,
+        qualification: 1,
+        kickoff_scheduled: 1,
+        production: 1,
+        delivery: 0,
+        completed: 1,
+        cancelled: 0,
+        on_hold: 1,
+      },
+      requirementForms: { pending: 2, submitted: 1, overdue: 1 },
+      revisions: { active: 1, awaitingReview: 0 },
+      escrow: {
+        counts: { pendingRelease: 2 },
+        amounts: { outstanding: 1500, currency: 'USD' },
+      },
+      health: { kickoffScheduled: 2, deliveryDueSoon: 1 },
+      conversion: {
+        qualificationRate: 80,
+        kickoffRate: 60,
+        deliveryRate: 40,
+        winRate: 50,
+        cancellationRate: 10,
+      },
+    },
+    conversion: {
+      qualificationRate: 80,
+      kickoffRate: 60,
+      deliveryRate: 40,
+      winRate: 50,
+      cancellationRate: 10,
+    },
+    orders: [],
+    meta: { lookbackDays: 120, fetchedAt: new Date().toISOString(), filters: { freelancerId: 42 } },
+    loading: false,
+    error: null,
+    fromCache: false,
+    lastUpdated: new Date('2024-01-01T00:00:00Z'),
+    refresh: vi.fn(),
+  })),
+}));
+
+vi.mock('../../../../../hooks/useSession.js', () => ({
+  __esModule: true,
+  default: sessionMock.useSession,
+}));
+
+vi.mock('../../../../../hooks/useFreelancerOrderPipeline.js', () => ({
+  __esModule: true,
+  default: pipelineMock.useFreelancerOrderPipeline,
+}));
+
 import AutomationSection from '../AutomationSection.jsx';
 import FinanceComplianceSection from '../FinanceComplianceSection.jsx';
 import GigMarketplaceOperationsSection from '../GigMarketplaceOperationsSection.jsx';
@@ -19,7 +87,6 @@ import OperationalQuickAccessSection from '../OperationalQuickAccessSection.jsx'
 import {
   SAMPLE_AUTOMATIONS,
   FINANCE_COMPLIANCE_FEATURES,
-  GIG_MARKETPLACE_FEATURES,
   GROWTH_PARTNERSHIP_FEATURES,
   QUICK_ACCESS_COMMERCE,
   QUICK_ACCESS_GROWTH,
@@ -29,6 +96,8 @@ import {
 describe('Freelancer static dashboard sections', () => {
   beforeEach(() => {
     creationSnapshotMock.mockClear();
+    pipelineMock.useFreelancerOrderPipeline.mockClear();
+    sessionMock.useSession.mockClear();
   });
 
   it('renders automation playbooks from the sample catalogue', () => {
@@ -89,13 +158,16 @@ describe('Freelancer static dashboard sections', () => {
     const gigWithin = within(section);
     expect(gigWithin.getByRole('heading', { level: 2, name: /Gig marketplace operations/i })).toBeInTheDocument();
 
-    GIG_MARKETPLACE_FEATURES.forEach((feature) => {
-      expect(gigWithin.getByRole('heading', { level: 3, name: feature.title })).toBeInTheDocument();
-      expect(gigWithin.getByText(feature.description)).toBeInTheDocument();
-      feature.bullets?.forEach((bullet) => {
-        expect(gigWithin.getByText(bullet)).toBeInTheDocument();
-      });
-    });
+    expect(gigWithin.getByText(/Total orders/i)).toBeInTheDocument();
+    expect(gigWithin.getByText('5')).toBeInTheDocument();
+    expect(gigWithin.getByText(/Value in play/i)).toBeInTheDocument();
+    expect(gigWithin.getByText(/\$4,200(\.00)?/)).toBeInTheDocument();
+    expect(gigWithin.getAllByText(/Win rate/i).length).toBeGreaterThan(0);
+    expect(gigWithin.getAllByText(/50\.0%/).length).toBeGreaterThan(0);
+    expect(gigWithin.getByText(/Pipeline status/i)).toBeInTheDocument();
+    expect(gigWithin.getAllByText(/Qualification/i).length).toBeGreaterThan(0);
+    expect(gigWithin.getByText(/Operational signals/i)).toBeInTheDocument();
+    expect(gigWithin.getByText(/Pending requirement forms/i)).toBeInTheDocument();
   });
 
   it('exposes the creation studio snapshot entry point', () => {
