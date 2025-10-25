@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="48" viewBox="0 0 180 48" role="img" aria-labelledby="title desc">
+  <title id="title">Edulure logo</title>
+  <desc id="desc">Edulure logomark combining an open book emblem with the Edulure wordmark.</desc>
+  <defs>
+    <linearGradient id="edulureGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#8b5cf6" />
+    </linearGradient>
+  </defs>
+  <g fill="none" fill-rule="evenodd">
+    <g transform="translate(8 8)">
+      <path d="M12 0c1.657 0 3 1.343 3 3v17.25c0 .995-.806 1.8-1.8 1.8-.361 0-.715-.11-1.014-.316L12 20.5l-.186 1.234c-.149.98-1.056 1.66-2.036 1.51-.774-.118-1.35-.73-1.468-1.49L8 20.5l-.186 1.234c-.149.98-1.056 1.66-2.036 1.51-.774-.118-1.35-.73-1.468-1.49L4 20.5l-.186 1.234c-.149.98-1.056 1.66-2.036 1.51-.774-.118-1.35-.73-1.468-1.49L0 20.5V3c0-1.657 1.343-3 3-3z" fill="url(#edulureGradient)" />
+      <path d="M6 6h12c1.657 0 3 1.343 3 3v12.75c0 .995-.806 1.8-1.8 1.8-.361 0-.715-.11-1.014-.316L18 22.5l-.186 1.234c-.149.98-1.056 1.66-2.036 1.51-.774-.118-1.35-.73-1.468-1.49L14 22.5l-.186 1.234c-.149.98-1.056 1.66-2.036 1.51-.774-.118-1.35-.73-1.468-1.49L10 22.5l-.186 1.234c-.149.98-1.056 1.66-2.036 1.51-.774-.118-1.35-.73-1.468-1.49L6 22.5z" fill="#111827" fill-opacity=".08" />
+    </g>
+    <text x="56" y="30" fill="#111827" font-family="'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="0.04em">
+      Edulure
+    </text>
+    <text x="58" y="41" fill="#4b5563" font-family="'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="10" font-weight="500" letter-spacing="0.32em">
+      LEARN · BUILD · SHARE
+    </text>
+  </g>
+</svg>
