@@ -6,7 +6,7 @@ export const BRAND_ASSETS = deepFreeze({
   logo: {
     src: edulureLogo,
     srcSet: `${edulureLogo} 1x, ${edulureLogo2x} 2x`,
-    alt: 'Edulure logo',
+    alt: 'Gigvora logo',
     type: 'image/svg+xml',
     width: 180,
     height: 48,

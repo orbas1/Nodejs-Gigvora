@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import TimelineWorkspace from '../TimelineWorkspace.jsx';
 
-vi.mock('../../../../services/adminTimelines.js', () => {
+vi.mock('../../../../../services/adminTimelines.js', () => {
   return {
     createAdminTimeline: vi.fn(),
     updateAdminTimeline: vi.fn(),
@@ -17,7 +17,7 @@ vi.mock('../../../../services/adminTimelines.js', () => {
   };
 });
 
-const services = await import('../../../../services/adminTimelines.js');
+const services = await import('../../../../../services/adminTimelines.js');
 
 const baseTimelines = [
   {

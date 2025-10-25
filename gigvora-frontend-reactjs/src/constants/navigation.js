@@ -1,13 +1,14 @@
 import {
-  AcademicCapIcon,
-  BookOpenIcon,
-  BookmarkSquareIcon,
+  BriefcaseIcon,
   BuildingOffice2Icon,
   ChartBarIcon,
   GlobeAltIcon,
+  LightBulbIcon,
+  MegaphoneIcon,
   RocketLaunchIcon,
   ShieldCheckIcon,
   SparklesIcon,
+  Squares2X2Icon,
   UsersIcon,
 } from '@heroicons/react/24/outline';
 
@@ -15,94 +16,101 @@ import { deepFreeze } from './menuSchema.js';
 
 const marketingNavigationConfig = deepFreeze([
   {
-    id: 'courses',
-    label: 'Courses',
-    description: 'Structured learning paths for product-led careers.',
+    id: 'discover',
+    label: 'Discover',
+    description: 'Find the people, organisations, and signals that grow your marketplace reach.',
+    theme: {
+      button: 'bg-slate-900/5 hover:bg-slate-900/10',
+    },
     sections: [
       {
-        title: 'Courses',
+        title: 'People & relationships',
         items: [
           {
-            name: 'Product leadership course',
-            description: 'Master discovery-to-delivery rituals with live faculty feedback.',
-            to: '/courses/product-leadership',
-            icon: AcademicCapIcon,
+            name: 'Connections',
+            description: 'View introductions, track touch-points, and stay top of mind.',
+            to: '/connections',
+            icon: UsersIcon,
           },
           {
-            name: 'Service design sprint',
-            description: 'Ship customer journeys in four weeks with studio critiques and retros.',
-            to: '/courses/service-design',
-            icon: SparklesIcon,
+            name: 'Mentors & advisors',
+            description: 'Invite strategic partners to support your upcoming launches.',
+            to: '/mentors',
+            icon: LightBulbIcon,
           },
           {
-            name: 'Data storytelling labs',
-            description: 'Translate product insights into executive-ready narratives and dashboards.',
-            to: '/courses/data-storytelling',
-            icon: ChartBarIcon,
+            name: 'Company pages',
+            description: 'Showcase announcements and hiring signals from one branded hub.',
+            to: '/pages',
+            icon: BuildingOffice2Icon,
           },
         ],
       },
       {
-        title: 'Certificates',
+        title: 'Communities',
         items: [
           {
-            name: 'Delivery operations certificate',
-            description: 'Level-up programme management with risk cadences and stakeholder playbooks.',
-            to: '/courses/delivery-operations',
-            icon: ShieldCheckIcon,
+            name: 'Professional groups',
+            description: 'Host curated discussions and drops for your teams and partners.',
+            to: '/groups',
+            icon: Squares2X2Icon,
           },
           {
-            name: 'Innovation playbook',
-            description: 'Project-based credential for launching experiments that stick.',
-            to: '/courses/innovation',
-            icon: RocketLaunchIcon,
+            name: 'Opportunities Explorer',
+            description: 'Filter the network for people, teams, and organisations ready to collaborate.',
+            to: '/search',
+            icon: MegaphoneIcon,
           },
         ],
       },
     ],
   },
   {
-    id: 'communities',
-    label: 'Communities',
-    description: 'Join curated cohorts for accountability, practice, and peer mentorship.',
+    id: 'collaborate',
+    label: 'Collaborate',
+    description: 'Coordinate delivery workstreams with dashboards built for hybrid teams.',
+    theme: {
+      button: 'bg-accent/5 hover:bg-accent/10',
+      icon: 'text-accent',
+    },
     sections: [
       {
-        title: 'Communities',
+        title: 'Team workspaces',
         items: [
           {
-            name: 'Product makers guild',
-            description: 'Weekly salons with PMs, designers, and engineers building together.',
-            to: '/communities/product-makers',
-            icon: UsersIcon,
+            name: 'Freelancer pipeline',
+            description: 'Manage briefs, nurture candidates, and convert offers together.',
+            to: '/dashboard/freelancer/pipeline',
+            icon: BriefcaseIcon,
           },
           {
-            name: 'Career switchers hub',
-            description: 'Support network with roadmap templates and job search critiques.',
-            to: '/communities/career-switchers',
+            name: 'Company analytics',
+            description: 'Monitor revenue, growth, and retention across business units.',
+            to: '/dashboard/company/analytics',
+            icon: ChartBarIcon,
+          },
+          {
+            name: 'Agency CRM',
+            description: 'Align accounts, collaborators, and delivery playbooks in real time.',
+            to: '/dashboard/agency/crm-pipeline',
             icon: GlobeAltIcon,
-          },
-          {
-            name: 'Student build club',
-            description: 'Hands-on build challenges, demo days, and hackathon retros.',
-            to: '/communities/student-build-club',
-            icon: SparklesIcon,
           },
         ],
       },
       {
-        title: 'Events & chapters',
+        title: 'Automation',
         items: [
           {
-            name: 'Local chapters',
-            description: 'Meet practitioners in your city for lightning talks and office hours.',
-            to: '/communities/chapters',
-            icon: BuildingOffice2Icon,
+            name: 'Experience Launchpad',
+            description: 'Automate onboarding, playbooks, and launch readiness in one hub.',
+            to: '/experience-launchpad',
+            icon: RocketLaunchIcon,
           },
           {
-            name: 'Virtual masterminds',
-            description: 'Small-group cohorts focused on accountability and peer reviews.',
-            to: '/communities/masterminds',
-            icon: AcademicCapIcon,
+            name: 'Trust centre',
+            description: 'Keep compliance, privacy, and risk controls transparent for partners.',
+            to: '/trust-center',
+            icon: ShieldCheckIcon,
           },
         ],
       },
@@ -111,39 +119,43 @@ const marketingNavigationConfig = deepFreeze([
   {
     id: 'resources',
     label: 'Resources',
-    description: 'Unlock tutors, ebooks, and templates that accelerate your next milestone.',
+    description: 'Stay informed with platform updates, billing guides, and customer stories.',
+    theme: {
+      button: 'bg-amber-500/5 hover:bg-amber-500/10',
+      icon: 'text-amber-500',
+    },
     sections: [
       {
-        title: 'Tutors',
+        title: 'Learn',
         items: [
           {
-            name: 'Book a tutor',
-            description: 'Schedule 1:1 sessions with vetted Edulure tutors across disciplines.',
-            to: '/tutors',
-            icon: AcademicCapIcon,
+            name: 'Product blog',
+            description: 'Discover the latest Gigvora releases and customer spotlights.',
+            to: '/blog',
+            icon: ChartBarIcon,
           },
           {
-            name: 'Mentor marketplace',
-            description: 'Pair with industry mentors for ongoing reviews and goal tracking.',
-            to: '/mentors',
-            icon: UsersIcon,
+            name: 'Resource hub',
+            description: 'Guides, templates, and launch kits to support every team moment.',
+            to: '/resources',
+            icon: SparklesIcon,
           },
         ],
       },
       {
-        title: 'Ebooks',
+        title: 'Policies & support',
         items: [
           {
-            name: 'Product strategy playbook',
-            description: 'Download step-by-step canvases for vision, roadmaps, and OKRs.',
-            to: '/ebooks/product-strategy',
-            icon: BookOpenIcon,
+            name: 'Billing & subscriptions',
+            description: 'Manage invoices, renewals, and plan usage in one place.',
+            to: '/billing',
+            icon: BriefcaseIcon,
           },
           {
-            name: 'Career storytelling kit',
-            description: 'Interview scripts, portfolio prompts, and follow-up templates.',
-            to: '/ebooks/storytelling-kit',
-            icon: BookmarkSquareIcon,
+            name: 'Policy centre',
+            description: 'Review security, privacy, and community standards anytime.',
+            to: '/policies',
+            icon: ShieldCheckIcon,
           },
         ],
       },
@@ -153,9 +165,9 @@ const marketingNavigationConfig = deepFreeze([
 
 const marketingSearchConfig = deepFreeze({
   id: 'marketing-search',
-  label: 'Search Edulure',
-  placeholder: 'Search courses, communities, tutors, ebooks',
-  ariaLabel: 'Search Edulure catalogue',
+  label: 'Search Gigvora',
+  placeholder: 'Search projects, people, and teams',
+  ariaLabel: 'Search the Gigvora workspace catalogue',
   to: '/search',
 });
 
