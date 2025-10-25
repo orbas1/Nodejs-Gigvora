@@ -121,6 +121,19 @@ export const googleLoginSchema = z
   })
   .strip();
 
+export const appleLoginSchema = z
+  .object({
+    identityToken: requiredTrimmedString({ max: 4096 }),
+    authorizationCode: optionalTrimmedString({ max: 4096 }),
+  })
+  .strip();
+
+export const linkedinLoginSchema = z
+  .object({
+    accessToken: requiredTrimmedString({ max: 4096 }),
+  })
+  .strip();
+
 export const refreshSessionSchema = z
   .object({
     refreshToken: requiredTrimmedString({ max: 4096 }),

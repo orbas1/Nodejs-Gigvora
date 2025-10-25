@@ -171,6 +171,29 @@ class AuthRepository {
     return AuthenticatedSession.fromJson(Map<String, dynamic>.from(response['session'] as Map));
   }
 
+  Future<AuthenticatedSession> loginWithApple({
+    required String identityToken,
+    String? authorizationCode,
+  }) async {
+    final response = await _client.post(
+      '/auth/login/apple',
+      body: {
+        'identityToken': identityToken,
+        if (authorizationCode != null && authorizationCode.isNotEmpty)
+          'authorizationCode': authorizationCode,
+      },
+    ) as Map<String, dynamic>;
+    return AuthenticatedSession.fromJson(Map<String, dynamic>.from(response['session'] as Map));
+  }
+
+  Future<AuthenticatedSession> loginWithLinkedIn(String accessToken) async {
+    final response = await _client.post(
+      '/auth/login/linkedin',
+      body: {'accessToken': accessToken},
+    ) as Map<String, dynamic>;
+    return AuthenticatedSession.fromJson(Map<String, dynamic>.from(response['session'] as Map));
+  }
+
   Future<void> registerUser({
     required String firstName,
     required String lastName,

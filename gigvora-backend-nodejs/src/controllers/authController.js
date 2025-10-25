@@ -74,6 +74,23 @@ export async function googleLogin(req, res) {
   res.json(response);
 }
 
+export async function appleLogin(req, res) {
+  const { identityToken, authorizationCode } = req.body;
+  const response = await authService.loginWithApple(identityToken, {
+    authorizationCode,
+    context: { ipAddress: req.ip, userAgent: req.get('user-agent') },
+  });
+  res.json(response);
+}
+
+export async function linkedinLogin(req, res) {
+  const { accessToken } = req.body;
+  const response = await authService.loginWithLinkedIn(accessToken, {
+    context: { ipAddress: req.ip, userAgent: req.get('user-agent') },
+  });
+  res.json(response);
+}
+
 export async function refreshSession(req, res) {
   const { refreshToken } = req.body;
   const response = await authService.refreshSession(refreshToken, {

@@ -115,6 +115,8 @@ function sanitizeUser(userInstance) {
     twoFactorMethod: plain.twoFactorMethod || 'email',
     lastLoginAt: plain.lastLoginAt || null,
     googleId: plain.googleId || null,
+    appleId: plain.appleId || null,
+    linkedinId: plain.linkedinId || null,
     memberships: Array.from(memberships),
     roles: Array.from(roleSet),
     primaryDashboard: plain.primaryDashboard || plain.userType || 'user',
@@ -299,6 +301,8 @@ export class AuthDomainService {
           twoFactorEnabled,
           twoFactorMethod,
           googleId: payload.googleId || null,
+          appleId: payload.appleId || null,
+          linkedinId: payload.linkedinId || null,
         },
         { transaction },
       );
@@ -316,6 +320,20 @@ export class AuthDomainService {
     const normalizedEmail = this.validateEmail(email);
     const user = await this.User.findOne({ where: { email: normalizedEmail }, transaction });
     return user ?? null;
+  }
+
+  async findUserByAppleId(appleId, { transaction } = {}) {
+    if (!appleId) {
+      return null;
+    }
+    return this.User.findOne({ where: { appleId }, transaction });
+  }
+
+  async findUserByLinkedinId(linkedinId, { transaction } = {}) {
+    if (!linkedinId) {
+      return null;
+    }
+    return this.User.findOne({ where: { linkedinId }, transaction });
   }
 
   async findUserById(userId, { transaction } = {}) {

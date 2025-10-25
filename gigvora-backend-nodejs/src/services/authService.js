@@ -1,6 +1,8 @@
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
+import fetch from 'node-fetch';
+import jwkToPem from 'jwk-to-pem';
 import { OAuth2Client } from 'google-auth-library';
 import twoFactorService from './twoFactorService.js';
 import { getAuthDomainService, getFeatureFlagService } from '../domains/serviceCatalog.js';
@@ -20,6 +22,15 @@ const authDomainService = getAuthDomainService();
 const featureFlagService = getFeatureFlagService();
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
+const appleClientId =
+  process.env.APPLE_SIGNIN_CLIENT_ID || process.env.APPLE_SERVICE_ID || process.env.APPLE_CLIENT_ID;
+const LINKEDIN_USERINFO_URL = 'https://api.linkedin.com/v2/userinfo';
+const LINKEDIN_EMAIL_URL =
+  'https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))';
+const APPLE_KEYS_URL = 'https://appleid.apple.com/auth/keys';
+const APPLE_KEYS_TTL = 1000 * 60 * 60; // 1 hour
+let appleSigningKeys = new Map();
+let appleKeysFetchedAt = 0;
 let oauthClient = null;
 let passwordResetTransporter = null;
 const PASSWORD_RESET_DEFAULT_COOLDOWN_SECONDS = 120;
@@ -52,6 +63,112 @@ function maskEmail(email) {
     return `${local.slice(0, 1)}***@${domain}`;
   }
   return `${local.slice(0, 2)}***@${domain}`;
+}
+
+async function refreshAppleKeys() {
+  const now = Date.now();
+  if (appleSigningKeys.size > 0 && now - appleKeysFetchedAt < APPLE_KEYS_TTL) {
+    return appleSigningKeys;
+  }
+
+  const response = await fetch(APPLE_KEYS_URL, { method: 'GET' });
+  if (!response.ok) {
+    throw buildError('Unable to download Apple signing keys.', 503);
+  }
+
+  const payload = await response.json();
+  if (!payload?.keys || !Array.isArray(payload.keys)) {
+    throw buildError('Apple signing keys response malformed.', 503);
+  }
+
+  const nextKeys = new Map();
+  for (const jwk of payload.keys) {
+    if (!jwk?.kid) {
+      continue;
+    }
+    try {
+      nextKeys.set(jwk.kid, jwkToPem(jwk));
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('Failed to convert Apple JWK to PEM', error);
+    }
+  }
+
+  if (nextKeys.size === 0) {
+    throw buildError('Apple signing keyset is empty.', 503);
+  }
+
+  appleSigningKeys = nextKeys;
+  appleKeysFetchedAt = now;
+  return appleSigningKeys;
+}
+
+async function getAppleSigningKey(kid) {
+  if (!kid) {
+    throw buildError('Apple signing key id missing.', 401);
+  }
+  const keys = await refreshAppleKeys();
+  const pem = keys.get(kid);
+  if (!pem) {
+    // Force refresh once if key missing
+    appleSigningKeys = new Map();
+    const refreshed = await refreshAppleKeys();
+    const fallback = refreshed.get(kid);
+    if (!fallback) {
+      throw buildError('Unable to resolve Apple signing key.', 401);
+    }
+    return fallback;
+  }
+  return pem;
+}
+
+function splitName(fullName) {
+  if (!fullName) {
+    return { firstName: 'LinkedIn', lastName: 'Member' };
+  }
+  const segments = `${fullName}`.trim().split(/\s+/u).filter(Boolean);
+  if (segments.length === 0) {
+    return { firstName: 'LinkedIn', lastName: 'Member' };
+  }
+  if (segments.length === 1) {
+    return { firstName: segments[0], lastName: 'Member' };
+  }
+  const [firstName, ...rest] = segments;
+  return { firstName, lastName: rest.join(' ') };
+}
+
+async function fetchLinkedInProfile(accessToken) {
+  const headers = { Authorization: `Bearer ${accessToken}` };
+  const userInfoResponse = await fetch(LINKEDIN_USERINFO_URL, { headers });
+  if (!userInfoResponse.ok) {
+    throw buildError('Unable to verify LinkedIn access token.', 401);
+  }
+  const userInfo = await userInfoResponse.json();
+  const id = userInfo?.sub || userInfo?.id;
+  if (!id) {
+    throw buildError('LinkedIn did not return a member identifier.', 401);
+  }
+  let email = typeof userInfo?.email === 'string' ? userInfo.email : null;
+  if (!email) {
+    const emailResponse = await fetch(LINKEDIN_EMAIL_URL, { headers });
+    if (emailResponse.ok) {
+      const emailPayload = await emailResponse.json();
+      const element = Array.isArray(emailPayload?.elements)
+        ? emailPayload.elements.find((entry) => entry?.['handle~']?.emailAddress)
+        : null;
+      email = element?.['handle~']?.emailAddress ?? null;
+    }
+  }
+  const givenName = userInfo?.given_name || userInfo?.localizedFirstName;
+  const familyName = userInfo?.family_name || userInfo?.localizedLastName;
+  const fullName = userInfo?.name || [givenName, familyName].filter(Boolean).join(' ');
+  const { firstName, lastName } = splitName(fullName || email || 'LinkedIn Member');
+  return {
+    id,
+    email,
+    firstName,
+    lastName,
+  };
 }
 
 function resolveAppBaseUrl() {
@@ -401,6 +518,144 @@ async function loginWithGoogle(idToken, options = {}) {
   return { session };
 }
 
+async function loginWithApple(identityToken, options = {}) {
+  if (!identityToken) {
+    throw buildError('Apple identity token is required.', 422);
+  }
+  if (!appleClientId) {
+    throw buildError('Apple login is not configured.', 503);
+  }
+
+  const decoded = jwt.decode(identityToken, { complete: true });
+  const kid = decoded?.header?.kid;
+  const signingKey = await getAppleSigningKey(kid);
+  let payload;
+  try {
+    payload = jwt.verify(identityToken, signingKey, {
+      algorithms: ['RS256'],
+      audience: appleClientId,
+      issuer: 'https://appleid.apple.com',
+    });
+  } catch (error) {
+    throw buildError('Unable to verify Apple identity token.', 401);
+  }
+
+  const appleId = payload?.sub;
+  if (!appleId) {
+    throw buildError('Apple identity token missing subject.', 401);
+  }
+
+  const normalizedEmail = typeof payload?.email === 'string' ? payload.email.toLowerCase() : null;
+  let user = await authDomainService.findUserByAppleId(appleId);
+
+  if (!user && normalizedEmail) {
+    user = await authDomainService.findUserByEmail(normalizedEmail);
+  }
+
+  if (!user && !normalizedEmail) {
+    throw buildError(
+      'Apple account did not provide an email address. Use email login once to link your account.',
+      409,
+    );
+  }
+
+  if (!user) {
+    const randomPassword = crypto.randomBytes(32).toString('hex');
+    await authDomainService.registerUser({
+      email: normalizedEmail,
+      password: randomPassword,
+      firstName: payload?.given_name || 'Apple',
+      lastName: payload?.family_name || 'Member',
+      userType: 'user',
+      twoFactorEnabled: false,
+      twoFactorMethod: 'app',
+      appleId,
+    });
+    user = await authDomainService.findUserByEmail(normalizedEmail);
+  } else if (!user.appleId || user.appleId !== appleId) {
+    await user.update({ appleId, twoFactorEnabled: false });
+  }
+
+  const session = await issueSession(user, { context: options.context ?? null });
+  const featureFlags = await featureFlagService.evaluateForUser(session.user, {
+    traits: { loginContext: 'apple_oauth' },
+  });
+  session.featureFlags = featureFlags;
+  session.user.featureFlags = featureFlags;
+  await authDomainService.recordLoginAudit(
+    user.id,
+    {
+      eventType: 'login',
+      ipAddress: options.context?.ipAddress,
+      userAgent: options.context?.userAgent,
+      metadata: { strategy: 'apple_oauth' },
+    },
+    {},
+  );
+  return { session };
+}
+
+async function loginWithLinkedIn(accessToken, options = {}) {
+  if (!accessToken) {
+    throw buildError('LinkedIn access token is required.', 422);
+  }
+
+  const profile = await fetchLinkedInProfile(accessToken);
+  const linkedinId = profile.id;
+  let user = await authDomainService.findUserByLinkedinId(linkedinId);
+
+  const normalizedEmail = profile.email ? profile.email.toLowerCase() : null;
+  if (!user && normalizedEmail) {
+    user = await authDomainService.findUserByEmail(normalizedEmail);
+  }
+
+  if (!user && !normalizedEmail) {
+    throw buildError(
+      'LinkedIn account did not return an email address. Add email scope or link your account manually.',
+      409,
+    );
+  }
+
+  if (!user) {
+    const randomPassword = crypto.randomBytes(32).toString('hex');
+    await authDomainService.registerUser({
+      email: normalizedEmail,
+      password: randomPassword,
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      userType: 'user',
+      twoFactorEnabled: false,
+      twoFactorMethod: 'app',
+      linkedinId,
+    });
+    user = await authDomainService.findUserByEmail(normalizedEmail);
+  } else if (!user.linkedinId || user.linkedinId !== linkedinId) {
+    await user.update({ linkedinId, twoFactorEnabled: false });
+  }
+
+  if (!user) {
+    throw buildError('Unable to resolve LinkedIn account owner.', 404);
+  }
+
+  const session = await issueSession(user, { context: options.context ?? null });
+  const featureFlags = await featureFlagService.evaluateForUser(session.user, {
+    traits: { loginContext: 'linkedin_oauth' },
+  });
+  session.featureFlags = featureFlags;
+  session.user.featureFlags = featureFlags;
+  await authDomainService.recordLoginAudit(
+    user.id,
+    {
+      eventType: 'login',
+      ipAddress: options.context?.ipAddress,
+      userAgent: options.context?.userAgent,
+      metadata: { strategy: 'linkedin_oauth' },
+    },
+    {},
+  );
+  return { session };
+}
+
 async function refreshSession(refreshToken, options = {}) {
   const payload = verifyRefreshToken(refreshToken);
 
@@ -615,6 +870,8 @@ export default {
   verifyTwoFactor,
   resendTwoFactor,
   loginWithGoogle,
+  loginWithApple,
+  loginWithLinkedIn,
   refreshSession,
   requestPasswordReset,
   verifyPasswordResetToken,

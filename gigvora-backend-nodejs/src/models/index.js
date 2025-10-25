@@ -664,6 +664,8 @@ export const User = sequelize.define(
     },
     lastLoginAt: { type: DataTypes.DATE, allowNull: true },
     googleId: { type: DataTypes.STRING(255), allowNull: true },
+    appleId: { type: DataTypes.STRING(255), allowNull: true },
+    linkedinId: { type: DataTypes.STRING(255), allowNull: true },
     memberships: { type: jsonType, allowNull: false, defaultValue: [] },
     primaryDashboard: { type: DataTypes.STRING(60), allowNull: true },
   },

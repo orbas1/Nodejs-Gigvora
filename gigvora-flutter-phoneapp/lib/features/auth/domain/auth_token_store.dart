@@ -29,9 +29,8 @@ class _OfflineCacheAuthTokenStoreDriver extends AuthTokenStoreDriver {
     try {
       await _cache.write(_accessTokenKey, accessToken, ttl: const Duration(minutes: 55));
       await _cache.write(_refreshTokenKey, refreshToken, ttl: const Duration(days: 7));
-    } catch (error, stackTrace) {
-      debugPrint('Failed to persist auth tokens: $error');
-      debugPrint('$stackTrace');
+    } catch (error) {
+      debugPrint('Auth token persistence failed (${error.runtimeType}).');
     }
   }
 
@@ -40,9 +39,8 @@ class _OfflineCacheAuthTokenStoreDriver extends AuthTokenStoreDriver {
     try {
       final entry = _cache.read<String?>(_accessTokenKey, (raw) => raw as String?);
       return entry?.value;
-    } catch (error, stackTrace) {
-      debugPrint('Failed to read access token: $error');
-      debugPrint('$stackTrace');
+    } catch (error) {
+      debugPrint('Auth token read failed (${error.runtimeType}).');
       return null;
     }
   }
@@ -52,9 +50,8 @@ class _OfflineCacheAuthTokenStoreDriver extends AuthTokenStoreDriver {
     try {
       final entry = _cache.read<String?>(_refreshTokenKey, (raw) => raw as String?);
       return entry?.value;
-    } catch (error, stackTrace) {
-      debugPrint('Failed to read refresh token: $error');
-      debugPrint('$stackTrace');
+    } catch (error) {
+      debugPrint('Refresh token read failed (${error.runtimeType}).');
       return null;
     }
   }
@@ -64,9 +61,8 @@ class _OfflineCacheAuthTokenStoreDriver extends AuthTokenStoreDriver {
     try {
       await _cache.remove(_accessTokenKey);
       await _cache.remove(_refreshTokenKey);
-    } catch (error, stackTrace) {
-      debugPrint('Failed to clear auth tokens: $error');
-      debugPrint('$stackTrace');
+    } catch (error) {
+      debugPrint('Clearing auth tokens failed (${error.runtimeType}).');
     }
   }
 }
