@@ -429,6 +429,23 @@ function sanitiseVerificationDocument(payload, { existing } = {}) {
   }
   const reference = `${payload.reference ?? base.reference ?? ''}`.trim();
   const notes = `${payload.notes ?? base.notes ?? ''}`.trim().slice(0, MAX_NOTES_LENGTH);
+  const storageKeyCandidate = payload.storageKey ?? base.storageKey ?? null;
+  const storageKey = storageKeyCandidate == null ? null : `${storageKeyCandidate}`.trim();
+  if (storageKeyCandidate != null && !storageKey) {
+    throw new ValidationError('storageKey cannot be empty.');
+  }
+
+  const fileNameCandidate = payload.fileName ?? base.fileName ?? null;
+  const fileName = fileNameCandidate == null ? null : `${fileNameCandidate}`.trim() || null;
+  const contentTypeCandidate = payload.contentType ?? base.contentType ?? null;
+  const contentType = contentTypeCandidate == null ? null : `${contentTypeCandidate}`.trim() || null;
+  const fileSizeCandidate = payload.fileSize ?? base.fileSize ?? null;
+  const fileSize =
+    fileSizeCandidate == null || Number.isNaN(Number(fileSizeCandidate))
+      ? null
+      : Math.max(0, Math.round(Number(fileSizeCandidate)));
+  const storedAtCandidate = payload.storedAt ?? base.storedAt ?? null;
+  const storedAt = storedAtCandidate ? toIsoDate(storedAtCandidate) : null;
 
   return {
     id: base.id ?? generateId('document'),
@@ -437,6 +454,11 @@ function sanitiseVerificationDocument(payload, { existing } = {}) {
     reference,
     notes,
     submittedAt: toIsoDate(payload.submittedAt ?? base.submittedAt ?? new Date()),
+    storageKey: storageKey || null,
+    fileName: fileName || null,
+    contentType: contentType || null,
+    fileSize: fileSize,
+    storedAt,
   };
 }
 

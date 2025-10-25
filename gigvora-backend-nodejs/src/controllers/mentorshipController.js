@@ -1,5 +1,9 @@
 import { AuthorizationError, ValidationError } from '../utils/errors.js';
 import { resolveRequestPermissions, resolveRequestUserId } from '../utils/requestContext.js';
+import { ensurePlainObject, toOptionalPositiveInteger, toPositiveInteger } from '../utils/controllerUtils.js';
+import notificationService from '../services/notificationService.js';
+import { storeIdentityDocument } from '../services/identityDocumentStorageService.js';
+import logger from '../utils/logger.js';
 import {
   getMentorDashboard,
   updateMentorAvailability,
@@ -35,29 +39,7 @@ import {
   deleteMentorPayout,
 } from '../services/mentorshipService.js';
 
-function parsePositiveInteger(value, label, { optional = false } = {}) {
-  if (value == null || value === '') {
-    if (optional) {
-      return null;
-    }
-    throw new ValidationError(`${label} is required.`);
-  }
-  const numeric = Number.parseInt(value, 10);
-  if (!Number.isFinite(numeric) || numeric <= 0) {
-    throw new ValidationError(`${label} must be a positive integer.`);
-  }
-  return numeric;
-}
-
-function ensureObjectPayload(body, label) {
-  if (body == null) {
-    return {};
-  }
-  if (typeof body !== 'object' || Array.isArray(body)) {
-    throw new ValidationError(`${label} must be an object.`);
-  }
-  return JSON.parse(JSON.stringify(body));
-}
+const DASHBOARD_CACHE_SYMBOL = Symbol('mentorDashboardCache');
 
 function resolveMentorId(req) {
   const explicitId = req.params?.mentorId ?? req.query?.mentorId ?? req.body?.mentorId;
@@ -65,7 +47,7 @@ function resolveMentorId(req) {
   if (!inferredId) {
     throw new ValidationError('mentorId is required.');
   }
-  return parsePositiveInteger(inferredId, 'mentorId');
+  return toPositiveInteger(inferredId, { fieldName: 'mentorId' });
 }
 
 function normaliseRoles(rolesCandidate) {
@@ -79,13 +61,6 @@ function normaliseRoles(rolesCandidate) {
     .split(/[;,\s]+/)
     .map((role) => role.trim().toLowerCase())
     .filter(Boolean);
-}
-
-function parseOptionalPositiveInteger(value, label) {
-  if (value == null || value === '') {
-    return null;
-  }
-  return parsePositiveInteger(value, label);
 }
 
 function ensureMentorRole(req, mentorId) {
@@ -120,18 +95,115 @@ function ensureMentorRole(req, mentorId) {
   throw new AuthorizationError('Mentor access required.');
 }
 
+function getDashboardCache(req) {
+  if (!req[DASHBOARD_CACHE_SYMBOL]) {
+    Object.defineProperty(req, DASHBOARD_CACHE_SYMBOL, {
+      value: new Map(),
+      configurable: true,
+    });
+  }
+  return req[DASHBOARD_CACHE_SYMBOL];
+}
+
+function clearDashboardCache(req) {
+  const cache = req?.[DASHBOARD_CACHE_SYMBOL];
+  if (cache instanceof Map) {
+    cache.clear();
+  }
+}
+
+function getMemoizedDashboard(req, mentorId, options = {}) {
+  const cache = getDashboardCache(req);
+  const key = JSON.stringify({ mentorId, lookbackDays: options.lookbackDays ?? null });
+  if (!cache.has(key)) {
+    cache.set(key, getMentorDashboard(mentorId, options));
+  }
+  return cache.get(key);
+}
+
+async function queueMentorNotification(mentorId, {
+  type,
+  title,
+  body,
+  priority = 'normal',
+  payload = {},
+  bypassQuietHours = false,
+} = {}) {
+  if (!mentorId || !type || !title) {
+    return;
+  }
+  try {
+    await notificationService.queueNotification(
+      {
+        userId: mentorId,
+        category: 'mentorship',
+        priority,
+        type,
+        title,
+        body: body ?? null,
+        payload: { mentorId, ...payload },
+      },
+      { bypassQuietHours },
+    );
+  } catch (error) {
+    logger.warn('Failed to queue mentor notification', { error, mentorId, type });
+  }
+}
+
+async function persistVerificationEvidence(filePayload, { actorId } = {}) {
+  if (!filePayload || typeof filePayload !== 'object') {
+    return null;
+  }
+
+  const { storageKey, data, fileName, contentType, fileSize, storedAt } = filePayload;
+  if (storageKey) {
+    const key = `${storageKey}`.trim();
+    if (!key) {
+      throw new ValidationError('storageKey cannot be empty.');
+    }
+    return {
+      key,
+      fileName: fileName ? `${fileName}`.trim() : null,
+      contentType: contentType ? `${contentType}`.trim() : null,
+      size: fileSize == null ? null : Number(fileSize),
+      storedAt: storedAt ? new Date(storedAt).toISOString() : new Date().toISOString(),
+    };
+  }
+
+  if (!data) {
+    throw new ValidationError('file.data is required when storageKey is not provided.');
+  }
+
+  const metadata = await storeIdentityDocument({
+    data,
+    fileName: fileName ?? 'mentor-document',
+    contentType: contentType ?? 'application/octet-stream',
+    actorId,
+  });
+
+  return {
+    key: metadata.key,
+    fileName: metadata.fileName,
+    contentType: metadata.contentType,
+    size: metadata.size,
+    storedAt: metadata.storedAt,
+  };
+}
+
 export function dashboard(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const lookbackDays = parseOptionalPositiveInteger(req.query?.lookbackDays, 'lookbackDays');
-  const dashboard = getMentorDashboard(mentorId, { lookbackDays });
+  const lookbackDays = toOptionalPositiveInteger(req.query?.lookbackDays, {
+    fieldName: 'lookbackDays',
+  });
+  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: lookbackDays ?? null });
   res.json(dashboard);
 }
 
 export function saveAvailability(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const { slots } = ensureObjectPayload(req.body, 'availability payload');
+  const { slots } = ensurePlainObject(req.body ?? {}, 'availability payload');
   if (slots != null && !Array.isArray(slots)) {
     throw new ValidationError('slots must be an array.');
   }
@@ -142,7 +214,7 @@ export function saveAvailability(req, res) {
 export function savePackages(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const { packages } = ensureObjectPayload(req.body, 'packages payload');
+  const { packages } = ensurePlainObject(req.body ?? {}, 'packages payload');
   if (packages != null && !Array.isArray(packages)) {
     throw new ValidationError('packages must be an array.');
   }
@@ -153,141 +225,202 @@ export function savePackages(req, res) {
 export function saveProfile(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const profile = submitMentorProfile(mentorId, ensureObjectPayload(req.body, 'mentor profile'));
+  const profile = submitMentorProfile(mentorId, ensurePlainObject(req.body ?? {}, 'mentor profile'));
   res.status(201).json({ profile });
 }
 
 export function createBooking(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const booking = createMentorBooking(mentorId, ensureObjectPayload(req.body, 'mentor booking'));
-  const dashboard = getMentorDashboard(mentorId);
+  const booking = createMentorBooking(mentorId, ensurePlainObject(req.body ?? {}, 'mentor booking'));
+  clearDashboardCache(req);
+  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.status(201).json({ booking, dashboard });
 }
 
 export function updateBooking(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const bookingId = parsePositiveInteger(req.params?.bookingId ?? req.body?.bookingId, 'bookingId');
-  const booking = updateMentorBooking(mentorId, bookingId, ensureObjectPayload(req.body, 'mentor booking update'));
-  const dashboard = getMentorDashboard(mentorId);
+  const bookingId = toPositiveInteger(req.params?.bookingId ?? req.body?.bookingId, {
+    fieldName: 'bookingId',
+  });
+  const booking = updateMentorBooking(mentorId, bookingId, ensurePlainObject(req.body ?? {}, 'mentor booking update'));
+  clearDashboardCache(req);
+  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.json({ booking, dashboard });
 }
 
 export function deleteBooking(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const bookingId = parsePositiveInteger(req.params?.bookingId, 'bookingId');
+  const bookingId = toPositiveInteger(req.params?.bookingId, { fieldName: 'bookingId' });
   deleteMentorBooking(mentorId, bookingId);
-  const dashboard = getMentorDashboard(mentorId);
+  clearDashboardCache(req);
+  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.json({ dashboard });
 }
 
 export function createClient(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const client = createMentorClient(mentorId, ensureObjectPayload(req.body, 'mentor client'));
-  const dashboard = getMentorDashboard(mentorId);
+  const client = createMentorClient(mentorId, ensurePlainObject(req.body ?? {}, 'mentor client'));
+  clearDashboardCache(req);
+  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.status(201).json({ client, dashboard });
 }
 
 export function updateClient(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const clientId = parsePositiveInteger(req.params?.clientId ?? req.body?.clientId, 'clientId');
-  const client = updateMentorClient(mentorId, clientId, ensureObjectPayload(req.body, 'mentor client update'));
-  const dashboard = getMentorDashboard(mentorId);
+  const clientId = toPositiveInteger(req.params?.clientId ?? req.body?.clientId, {
+    fieldName: 'clientId',
+  });
+  const client = updateMentorClient(mentorId, clientId, ensurePlainObject(req.body ?? {}, 'mentor client update'));
+  clearDashboardCache(req);
+  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.json({ client, dashboard });
 }
 
 export function deleteClient(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const clientId = parsePositiveInteger(req.params?.clientId, 'clientId');
+  const clientId = toPositiveInteger(req.params?.clientId, { fieldName: 'clientId' });
   deleteMentorClient(mentorId, clientId);
-  const dashboard = getMentorDashboard(mentorId);
+  clearDashboardCache(req);
+  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.json({ dashboard });
 }
 
 export function createEvent(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const event = createMentorEvent(mentorId, ensureObjectPayload(req.body, 'mentor event'));
-  const dashboard = getMentorDashboard(mentorId);
+  const event = createMentorEvent(mentorId, ensurePlainObject(req.body ?? {}, 'mentor event'));
+  clearDashboardCache(req);
+  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.status(201).json({ event, dashboard });
 }
 
 export function updateEvent(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const eventId = parsePositiveInteger(req.params?.eventId ?? req.body?.eventId, 'eventId');
-  const event = updateMentorEvent(mentorId, eventId, ensureObjectPayload(req.body, 'mentor event update'));
-  const dashboard = getMentorDashboard(mentorId);
+  const eventId = toPositiveInteger(req.params?.eventId ?? req.body?.eventId, {
+    fieldName: 'eventId',
+  });
+  const event = updateMentorEvent(mentorId, eventId, ensurePlainObject(req.body ?? {}, 'mentor event update'));
+  clearDashboardCache(req);
+  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.json({ event, dashboard });
 }
 
 export function deleteEvent(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const eventId = parsePositiveInteger(req.params?.eventId, 'eventId');
+  const eventId = toPositiveInteger(req.params?.eventId, { fieldName: 'eventId' });
   deleteMentorEvent(mentorId, eventId);
-  const dashboard = getMentorDashboard(mentorId);
+  clearDashboardCache(req);
+  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.json({ dashboard });
 }
 
-export function createSupportTicket(req, res) {
+export async function createSupportTicket(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const ticket = createMentorSupportTicket(mentorId, ensureObjectPayload(req.body, 'support ticket'));
-  const dashboard = getMentorDashboard(mentorId);
+  const ticket = createMentorSupportTicket(mentorId, ensurePlainObject(req.body ?? {}, 'support ticket'));
+  clearDashboardCache(req);
+  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  await queueMentorNotification(mentorId, {
+    type: 'mentorship.support.ticket.created',
+    title: 'Support ticket submitted',
+    body: `${ticket.subject} • ${ticket.priority}`,
+    payload: { ticketId: ticket.id, status: ticket.status, priority: ticket.priority },
+  });
   res.status(201).json({ ticket, dashboard });
 }
 
-export function updateSupportTicket(req, res) {
+export async function updateSupportTicket(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const ticketId = parsePositiveInteger(req.params?.ticketId ?? req.body?.ticketId, 'ticketId');
+  const ticketId = toPositiveInteger(req.params?.ticketId ?? req.body?.ticketId, {
+    fieldName: 'ticketId',
+  });
   const ticket = updateMentorSupportTicket(
     mentorId,
     ticketId,
-    ensureObjectPayload(req.body, 'support ticket update'),
+    ensurePlainObject(req.body ?? {}, 'support ticket update'),
   );
-  const dashboard = getMentorDashboard(mentorId);
+  clearDashboardCache(req);
+  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  await queueMentorNotification(mentorId, {
+    type: 'mentorship.support.ticket.updated',
+    title: 'Support ticket updated',
+    body: `${ticket.subject} • ${ticket.status}`,
+    payload: { ticketId: ticket.id, status: ticket.status, priority: ticket.priority },
+  });
   res.json({ ticket, dashboard });
 }
 
-export function deleteSupportTicket(req, res) {
+export async function deleteSupportTicket(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const ticketId = parsePositiveInteger(req.params?.ticketId, 'ticketId');
+  const ticketId = toPositiveInteger(req.params?.ticketId, { fieldName: 'ticketId' });
   deleteMentorSupportTicket(mentorId, ticketId);
-  const dashboard = getMentorDashboard(mentorId);
+  clearDashboardCache(req);
+  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  await queueMentorNotification(mentorId, {
+    type: 'mentorship.support.ticket.deleted',
+    title: 'Support ticket removed',
+    body: `Ticket ${ticketId} deleted`,
+    payload: { ticketId },
+  });
   res.json({ dashboard });
 }
 
-export function createMessage(req, res) {
+export async function createMessage(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const message = createMentorMessage(mentorId, ensureObjectPayload(req.body, 'mentor message'));
-  const dashboard = getMentorDashboard(mentorId);
+  const message = createMentorMessage(mentorId, ensurePlainObject(req.body ?? {}, 'mentor message'));
+  clearDashboardCache(req);
+  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  await queueMentorNotification(mentorId, {
+    type: 'mentorship.inbox.message.created',
+    title: 'New inbox message logged',
+    body: `${message.from} • ${message.subject || message.channel}`,
+    payload: { messageId: message.id, status: message.status, channel: message.channel },
+  });
   res.status(201).json({ message, dashboard });
 }
 
-export function updateMessage(req, res) {
+export async function updateMessage(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const messageId = parsePositiveInteger(req.params?.messageId ?? req.body?.messageId, 'messageId');
-  const message = updateMentorMessage(mentorId, messageId, ensureObjectPayload(req.body, 'mentor message update'));
-  const dashboard = getMentorDashboard(mentorId);
+  const messageId = toPositiveInteger(req.params?.messageId ?? req.body?.messageId, {
+    fieldName: 'messageId',
+  });
+  const message = updateMentorMessage(mentorId, messageId, ensurePlainObject(req.body ?? {}, 'mentor message update'));
+  clearDashboardCache(req);
+  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  await queueMentorNotification(mentorId, {
+    type: 'mentorship.inbox.message.updated',
+    title: 'Inbox message updated',
+    body: `${message.from} • ${message.status}`,
+    payload: { messageId: message.id, status: message.status, channel: message.channel },
+  });
   res.json({ message, dashboard });
 }
 
-export function deleteMessage(req, res) {
+export async function deleteMessage(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const messageId = parsePositiveInteger(req.params?.messageId, 'messageId');
+  const messageId = toPositiveInteger(req.params?.messageId, { fieldName: 'messageId' });
   deleteMentorMessage(mentorId, messageId);
-  const dashboard = getMentorDashboard(mentorId);
+  clearDashboardCache(req);
+  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  await queueMentorNotification(mentorId, {
+    type: 'mentorship.inbox.message.deleted',
+    title: 'Inbox message removed',
+    body: `Message ${messageId} deleted`,
+    payload: { messageId },
+  });
   res.json({ dashboard });
 }
 
@@ -296,39 +429,87 @@ export function saveVerificationStatus(req, res) {
   ensureMentorRole(req, mentorId);
   const verification = updateMentorVerificationStatus(
     mentorId,
-    ensureObjectPayload(req.body, 'verification status'),
+    ensurePlainObject(req.body ?? {}, 'verification status'),
   );
-  const dashboard = getMentorDashboard(mentorId);
+  clearDashboardCache(req);
+  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.json({ verification, dashboard });
 }
 
-export function createVerificationDocument(req, res) {
+export async function createVerificationDocument(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const document = createMentorVerificationDocument(mentorId, ensureObjectPayload(req.body, 'verification document'));
-  const dashboard = getMentorDashboard(mentorId);
+  const payload = ensurePlainObject(req.body ?? {}, 'verification document');
+  const actorId = resolveRequestUserId(req) ?? mentorId;
+  const evidence = await persistVerificationEvidence(payload.file, { actorId });
+  const document = createMentorVerificationDocument(mentorId, {
+    ...payload,
+    storageKey: evidence?.key ?? payload.storageKey ?? null,
+    fileName: evidence?.fileName ?? payload.fileName ?? null,
+    contentType: evidence?.contentType ?? payload.contentType ?? null,
+    fileSize: evidence?.size ?? payload.fileSize ?? null,
+    storedAt: evidence?.storedAt ?? payload.storedAt ?? new Date().toISOString(),
+  });
+  clearDashboardCache(req);
+  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  await queueMentorNotification(mentorId, {
+    type: 'mentorship.verification.document.created',
+    title: 'Verification document submitted',
+    body: `${document.type} • ${document.status}`,
+    priority: 'high',
+    payload: { documentId: document.id, status: document.status, storageKey: document.storageKey ?? null },
+    bypassQuietHours: true,
+  });
   res.status(201).json({ document, dashboard });
 }
 
-export function updateVerificationDocument(req, res) {
+export async function updateVerificationDocument(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const documentId = parsePositiveInteger(req.params?.documentId ?? req.body?.documentId, 'documentId');
+  const documentId = toPositiveInteger(req.params?.documentId ?? req.body?.documentId, {
+    fieldName: 'documentId',
+  });
+  const payload = ensurePlainObject(req.body ?? {}, 'verification document update');
+  const actorId = resolveRequestUserId(req) ?? mentorId;
+  const evidence = await persistVerificationEvidence(payload.file, { actorId });
   const document = updateMentorVerificationDocument(
     mentorId,
     documentId,
-    ensureObjectPayload(req.body, 'verification document update'),
+    {
+      ...payload,
+      storageKey: evidence?.key ?? payload.storageKey ?? null,
+      fileName: evidence?.fileName ?? payload.fileName ?? null,
+      contentType: evidence?.contentType ?? payload.contentType ?? null,
+      fileSize: evidence?.size ?? payload.fileSize ?? null,
+      storedAt: evidence?.storedAt ?? payload.storedAt ?? new Date().toISOString(),
+    },
   );
-  const dashboard = getMentorDashboard(mentorId);
+  clearDashboardCache(req);
+  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  await queueMentorNotification(mentorId, {
+    type: 'mentorship.verification.document.updated',
+    title: 'Verification document updated',
+    body: `${document.type} • ${document.status}`,
+    priority: 'high',
+    payload: { documentId: document.id, status: document.status, storageKey: document.storageKey ?? null },
+  });
   res.json({ document, dashboard });
 }
 
-export function deleteVerificationDocument(req, res) {
+export async function deleteVerificationDocument(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const documentId = parsePositiveInteger(req.params?.documentId, 'documentId');
+  const documentId = toPositiveInteger(req.params?.documentId, { fieldName: 'documentId' });
   deleteMentorVerificationDocument(mentorId, documentId);
-  const dashboard = getMentorDashboard(mentorId);
+  clearDashboardCache(req);
+  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  await queueMentorNotification(mentorId, {
+    type: 'mentorship.verification.document.deleted',
+    title: 'Verification document removed',
+    body: `Document ${documentId} deleted`,
+    priority: 'normal',
+    payload: { documentId },
+  });
   res.json({ dashboard });
 }
 
@@ -337,83 +518,98 @@ export function createWalletTransaction(req, res) {
   ensureMentorRole(req, mentorId);
   const transaction = createMentorWalletTransaction(
     mentorId,
-    ensureObjectPayload(req.body, 'wallet transaction'),
+    ensurePlainObject(req.body ?? {}, 'wallet transaction'),
   );
-  const dashboard = getMentorDashboard(mentorId);
+  clearDashboardCache(req);
+  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.status(201).json({ transaction, dashboard });
 }
 
 export function updateWalletTransaction(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const transactionId = parsePositiveInteger(req.params?.transactionId ?? req.body?.transactionId, 'transactionId');
+  const transactionId = toPositiveInteger(req.params?.transactionId ?? req.body?.transactionId, {
+    fieldName: 'transactionId',
+  });
   const transaction = updateMentorWalletTransaction(
     mentorId,
     transactionId,
-    ensureObjectPayload(req.body, 'wallet transaction update'),
+    ensurePlainObject(req.body ?? {}, 'wallet transaction update'),
   );
-  const dashboard = getMentorDashboard(mentorId);
+  clearDashboardCache(req);
+  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.json({ transaction, dashboard });
 }
 
 export function deleteWalletTransaction(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const transactionId = parsePositiveInteger(req.params?.transactionId, 'transactionId');
+  const transactionId = toPositiveInteger(req.params?.transactionId, { fieldName: 'transactionId' });
   deleteMentorWalletTransaction(mentorId, transactionId);
-  const dashboard = getMentorDashboard(mentorId);
+  clearDashboardCache(req);
+  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.json({ dashboard });
 }
 
 export function createInvoice(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const invoice = createMentorInvoice(mentorId, ensureObjectPayload(req.body, 'mentor invoice'));
-  const dashboard = getMentorDashboard(mentorId);
+  const invoice = createMentorInvoice(mentorId, ensurePlainObject(req.body ?? {}, 'mentor invoice'));
+  clearDashboardCache(req);
+  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.status(201).json({ invoice, dashboard });
 }
 
 export function updateInvoice(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const invoiceId = parsePositiveInteger(req.params?.invoiceId ?? req.body?.invoiceId, 'invoiceId');
-  const invoice = updateMentorInvoice(mentorId, invoiceId, ensureObjectPayload(req.body, 'mentor invoice update'));
-  const dashboard = getMentorDashboard(mentorId);
+  const invoiceId = toPositiveInteger(req.params?.invoiceId ?? req.body?.invoiceId, {
+    fieldName: 'invoiceId',
+  });
+  const invoice = updateMentorInvoice(mentorId, invoiceId, ensurePlainObject(req.body ?? {}, 'mentor invoice update'));
+  clearDashboardCache(req);
+  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.json({ invoice, dashboard });
 }
 
 export function deleteInvoice(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const invoiceId = parsePositiveInteger(req.params?.invoiceId, 'invoiceId');
+  const invoiceId = toPositiveInteger(req.params?.invoiceId, { fieldName: 'invoiceId' });
   deleteMentorInvoice(mentorId, invoiceId);
-  const dashboard = getMentorDashboard(mentorId);
+  clearDashboardCache(req);
+  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.json({ dashboard });
 }
 
 export function createPayout(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const payout = createMentorPayout(mentorId, ensureObjectPayload(req.body, 'mentor payout'));
-  const dashboard = getMentorDashboard(mentorId);
+  const payout = createMentorPayout(mentorId, ensurePlainObject(req.body ?? {}, 'mentor payout'));
+  clearDashboardCache(req);
+  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.status(201).json({ payout, dashboard });
 }
 
 export function updatePayout(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const payoutId = parsePositiveInteger(req.params?.payoutId ?? req.body?.payoutId, 'payoutId');
-  const payout = updateMentorPayout(mentorId, payoutId, ensureObjectPayload(req.body, 'mentor payout update'));
-  const dashboard = getMentorDashboard(mentorId);
+  const payoutId = toPositiveInteger(req.params?.payoutId ?? req.body?.payoutId, {
+    fieldName: 'payoutId',
+  });
+  const payout = updateMentorPayout(mentorId, payoutId, ensurePlainObject(req.body ?? {}, 'mentor payout update'));
+  clearDashboardCache(req);
+  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.json({ payout, dashboard });
 }
 
 export function deletePayout(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const payoutId = parsePositiveInteger(req.params?.payoutId, 'payoutId');
+  const payoutId = toPositiveInteger(req.params?.payoutId, { fieldName: 'payoutId' });
   deleteMentorPayout(mentorId, payoutId);
-  const dashboard = getMentorDashboard(mentorId);
+  clearDashboardCache(req);
+  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.json({ dashboard });
 }
 
