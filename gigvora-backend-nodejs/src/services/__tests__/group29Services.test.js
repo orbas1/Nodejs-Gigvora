@@ -433,6 +433,7 @@ describe('companyOrdersService', () => {
           { title: 'Design system', amount: 1600 },
         ],
       },
+      context: { permissions: { canManageOrders: true } },
     });
 
     expect(createGigOrder).toHaveBeenCalledWith(
@@ -488,11 +489,76 @@ describe('companyOrdersService', () => {
 
     const { getCompanyOrdersDashboard } = await import('../companyOrdersService.js');
 
-    const dashboard = await getCompanyOrdersDashboard({ ownerId: 22, status: 'open' });
+    const dashboard = await getCompanyOrdersDashboard({
+      ownerId: 22,
+      status: 'open',
+      context: { permissions: { canManageOrders: true } },
+    });
     expect(getProjectGigManagementOverview).toHaveBeenCalledWith(22);
     expect(dashboard.metrics.totalOrders).toBe(1);
     expect(dashboard.metrics.valueInFlight).toBe(1200);
     expect(dashboard.summary.totalSpend).toBe(4500);
+    expect(dashboard.alerts).toEqual([]);
+    expect(dashboard.permissions).toMatchObject({ canManageOrders: true });
+  });
+
+  it('flags overdue orders and queues escalation payloads when permitted', async () => {
+    const overdue = {
+      summary: { totalSpend: 1200 },
+      purchasedGigs: {
+        currency: 'USD',
+        orders: [
+          {
+            id: 9,
+            status: 'active',
+            isClosed: false,
+            amount: 1200,
+            escrowHeldAmount: 450,
+            dueAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+          },
+        ],
+        timeline: { upcoming: [], recent: [] },
+        chat: { recent: [] },
+      },
+    };
+
+    const getProjectGigManagementOverview = jest.fn().mockResolvedValue(overdue);
+
+    jest.unstable_mockModule(resolveModule('../projectGigManagementWorkflowService.js'), () => ({
+      createGigOrder: jest.fn(),
+      updateGigOrder: jest.fn(),
+      getGigOrderDetail: jest.fn(),
+      addGigTimelineEvent: jest.fn(),
+      updateGigTimelineEvent: jest.fn(),
+      createGigOrderMessage: jest.fn(),
+      createGigOrderEscrowCheckpoint: jest.fn(),
+      updateGigOrderEscrowCheckpoint: jest.fn(),
+      getProjectGigManagementOverview,
+    }));
+
+    jest.unstable_mockModule(resolveModule('../../models/index.js'), withDefaultExport(() => ({
+      GigOrder: { findByPk: jest.fn(), findOne: jest.fn() },
+      GigTimelineEvent: { findByPk: jest.fn() },
+      GigSubmission: { findByPk: jest.fn() },
+    })));
+
+    const [{ getCompanyOrdersDashboard }, { appCache }] = await Promise.all([
+      import('../companyOrdersService.js'),
+      import('../../utils/cache.js'),
+    ]);
+
+    appCache.flushByPrefix('company:orders:escalations:');
+
+    const dashboard = await getCompanyOrdersDashboard({
+      ownerId: 44,
+      status: 'open',
+      context: { permissions: { canManageOrders: true } },
+    });
+
+    expect(dashboard.metrics.slaBreaches).toBe(1);
+    expect(dashboard.alerts).toHaveLength(1);
+    expect(dashboard.alerts[0]).toMatchObject({ type: 'sla_breach', orderId: 9 });
+    expect(dashboard.alerts[0].escalation).toMatchObject({ status: 'queued', orderId: 9 });
   });
 });
 

@@ -10,7 +10,29 @@ import {
   updateGigOrderEscrowCheckpoint,
 } from './projectGigManagementWorkflowService.js';
 import { GigOrder, GigTimelineEvent, GigSubmission } from '../models/index.js';
-import { NotFoundError } from '../utils/errors.js';
+import { AuthorizationError, ConflictError, NotFoundError } from '../utils/errors.js';
+import { appCache } from '../utils/cache.js';
+import {
+  normalizeCompanyOrderDeliverables,
+  buildGigClassesFromDeliverables,
+  mapDeliverablesToRequirements,
+} from './utils/companyOrderNormalisers.js';
+import {
+  assertCanManageOrders,
+  assertCanManageEscrow,
+  assertCanPostMessages,
+} from '../utils/companyOrderAccess.js';
+
+const DASHBOARD_CACHE_PREFIX = 'company:orders:dashboard';
+const DASHBOARD_CACHE_TTL_SECONDS = 30;
+const ESCALATION_CACHE_PREFIX = 'company:orders:escalations';
+const ESCALATION_CACHE_TTL_SECONDS = 60 * 60; // one hour
+
+const DEFAULT_PERMISSIONS = Object.freeze({
+  canManageOrders: true,
+  canManageEscrow: true,
+  canPostMessages: true,
+});
 
 function toNumber(value, fallback = 0) {
   const parsed = Number(value);
@@ -19,74 +41,12 @@ function toNumber(value, fallback = 0) {
 
 function ensureOrderOwnership(order, ownerId) {
   if (!order || Number(order.ownerId) !== Number(ownerId)) {
-    throw new NotFoundError('Gig order not found.');
-  }
-  return order;
-}
-
-function normalizeDeliverables(deliverables = []) {
-  if (!Array.isArray(deliverables)) {
-    return [];
-  }
-  return deliverables
-    .map((item, index) => {
-      const title = typeof item?.title === 'string' ? item.title.trim() : '';
-      if (!title) {
-        return null;
-      }
-      const dueAt = item?.dueAt ? new Date(item.dueAt).toISOString() : null;
-      const notes = typeof item?.notes === 'string' ? item.notes.trim() : null;
-      const amount = item?.amount != null ? toNumber(item.amount, null) : null;
-      const deliveryDays = item?.deliveryDays != null ? toNumber(item.deliveryDays, null) : null;
-      return {
-        id: item?.id != null ? Number(item.id) : undefined,
-        title,
-        dueAt,
-        notes,
-        amount,
-        deliveryDays,
-        ordinal: item?.ordinal != null ? Number(item.ordinal) : index + 1,
-      };
-    })
-    .filter(Boolean);
-}
-
-function buildGigClasses(deliverables, { amount, currency }) {
-  const resolvedCurrency = (currency && currency.toString().trim().toUpperCase()) || 'USD';
-  const safeAmount = Math.max(toNumber(amount, 1200), 1200);
-  const slice = deliverables.slice(0, 6);
-  const baseShare = slice.length ? safeAmount / slice.length : safeAmount;
-
-  const classes = slice.map((deliverable, index) => {
-    const label = deliverable.title || `Deliverable ${index + 1}`;
-    const share = deliverable.amount != null ? Math.max(toNumber(deliverable.amount), 50) : Math.max(baseShare, 50);
-    const deliveryDays = deliverable.deliveryDays != null ? Math.max(toNumber(deliverable.deliveryDays), 1) : 7 * (index + 1);
-
-    return {
-      key: `deliverable-${index + 1}`,
-      name: label.slice(0, 80),
-      summary: deliverable.notes?.slice(0, 260) || 'Curated deliverable packaged for this engagement.',
-      priceAmount: Math.round(share),
-      priceCurrency: resolvedCurrency,
-      deliveryDays,
-      inclusions: [],
-    };
-  });
-
-  while (classes.length < 3) {
-    const ordinal = classes.length + 1;
-    classes.push({
-      key: `package-${ordinal}`,
-      name: `Package ${ordinal}`,
-      summary: 'Expanded scope with additional collaboration hours.',
-      priceAmount: Math.round(safeAmount * (1 + ordinal * 0.15)),
-      priceCurrency: resolvedCurrency,
-      deliveryDays: 7 * (ordinal + 1),
-      inclusions: [],
+    throw new NotFoundError('Company order not found.', {
+      code: 'ORDER_NOT_FOUND',
+      ownerId: Number(ownerId) || null,
     });
   }
-
-  return classes.slice(0, 6);
+  return order;
 }
 
 function deriveMetrics(orders = [], currency = 'USD') {
@@ -107,52 +67,138 @@ function deriveMetrics(orders = [], currency = 'USD') {
   };
 }
 
-export async function getCompanyOrdersDashboard({ ownerId, status } = {}) {
-  const overview = await getProjectGigManagementOverview(ownerId);
-  const purchasedGigs = overview?.purchasedGigs ?? {};
-  const orders = Array.isArray(purchasedGigs.orders) ? purchasedGigs.orders : [];
-  const filteredOrders = status
-    ? orders.filter((order) => {
-        if (!order) return false;
-        if (status === 'open') {
-          return order.isClosed !== true && order.status !== 'closed';
-        }
-        if (status === 'closed') {
-          return order.isClosed === true || order.status === 'closed';
-        }
-        return String(order.status).toLowerCase() === String(status).toLowerCase();
-      })
-    : orders;
+function buildDashboardCacheKey(ownerId, status = 'all') {
+  const normalisedOwner = Number(ownerId) || 0;
+  const normalisedStatus = (status || 'all').toString().toLowerCase();
+  return `${DASHBOARD_CACHE_PREFIX}:${normalisedOwner}:${normalisedStatus}`;
+}
 
-  const metrics = deriveMetrics(filteredOrders, purchasedGigs.currency ?? 'USD');
+function invalidateDashboardCache(ownerId) {
+  const normalisedOwner = Number(ownerId) || 0;
+  appCache.flushByPrefix(`${DASHBOARD_CACHE_PREFIX}:${normalisedOwner}:`);
+}
+
+function cloneCachedPayload(payload) {
+  if (payload == null) {
+    return payload;
+  }
+  if (typeof structuredClone === 'function') {
+    return structuredClone(payload);
+  }
+  return JSON.parse(JSON.stringify(payload));
+}
+
+function queueSlaEscalation({ ownerId, orderId, alert, hoursOverdue }) {
+  const key = `${ESCALATION_CACHE_PREFIX}:${Number(ownerId) || 0}:${Number(orderId) || 0}`;
+  const existing = appCache.get(key);
+  if (existing?.status === 'queued') {
+    return existing;
+  }
+
+  const payload = {
+    status: 'queued',
+    ownerId: Number(ownerId) || null,
+    orderId: Number(orderId) || null,
+    severity: alert.severity,
+    message: alert.message,
+    hoursOverdue,
+    queuedAt: new Date().toISOString(),
+  };
+
+  appCache.set(key, payload, ESCALATION_CACHE_TTL_SECONDS);
+  return payload;
+}
+
+function detectSlaBreaches(orders = [], { ownerId, escalate = false } = {}) {
+  const nowMs = Date.now();
+  const alerts = [];
+  let breachCount = 0;
+
+  orders.forEach((order) => {
+    if (!order) {
+      return;
+    }
+    const dueAtMs = order.dueAt ? new Date(order.dueAt).getTime() : NaN;
+    const isClosed = order.isClosed === true || String(order.status).toLowerCase() === 'closed';
+    if (!Number.isFinite(dueAtMs) || isClosed || dueAtMs >= nowMs) {
+      return;
+    }
+
+    breachCount += 1;
+    const hoursOverdue = Math.max(1, Math.round((nowMs - dueAtMs) / (1000 * 60 * 60)));
+    const alert = {
+      type: 'sla_breach',
+      orderId: order.id,
+      severity: hoursOverdue >= 24 ? 'critical' : 'warning',
+      occurredAt: new Date(dueAtMs).toISOString(),
+      detectedAt: new Date(nowMs).toISOString(),
+      message: `Order ${order.reference ?? order.id} is overdue by ${hoursOverdue}h.`,
+    };
+
+    if (escalate) {
+      alert.escalation = queueSlaEscalation({ ownerId, orderId: order.id, alert, hoursOverdue });
+    }
+
+    alerts.push(alert);
+  });
+
+  return { alerts, breachCount };
+}
+
+export async function getCompanyOrdersDashboard({ ownerId, status, context } = {}) {
+  const statusKey = status ? status.toString().toLowerCase() : 'all';
+  const cacheKey = buildDashboardCacheKey(ownerId, statusKey);
+
+  const base = await appCache.remember(cacheKey, DASHBOARD_CACHE_TTL_SECONDS, async () => {
+    const overview = await getProjectGigManagementOverview(ownerId);
+    const purchasedGigs = overview?.purchasedGigs ?? {};
+    const orders = Array.isArray(purchasedGigs.orders) ? purchasedGigs.orders : [];
+    const filteredOrders = status
+      ? orders.filter((order) => {
+          if (!order) return false;
+          if (statusKey === 'open') {
+            return order.isClosed !== true && order.status !== 'closed';
+          }
+          if (statusKey === 'closed') {
+            return order.isClosed === true || order.status === 'closed';
+          }
+          return String(order.status).toLowerCase() === statusKey;
+        })
+      : orders;
+
+    const metrics = deriveMetrics(filteredOrders, purchasedGigs.currency ?? 'USD');
+
+    return {
+      summary: overview?.summary ?? {},
+      metrics,
+      orders: filteredOrders,
+      timeline: purchasedGigs.timeline ?? { upcoming: [], recent: [] },
+      chat: purchasedGigs.chat ?? { recent: [] },
+    };
+  });
+
+  const snapshot = cloneCachedPayload(base) ?? {};
+  const detection = detectSlaBreaches(snapshot.orders ?? [], {
+    ownerId,
+    escalate: Boolean(context?.permissions?.canManageOrders),
+  });
 
   return {
-    summary: overview?.summary ?? {},
-    purchasedGigs: {
-      ...purchasedGigs,
-      orders: filteredOrders,
-    },
-    metrics,
-    timeline: purchasedGigs.timeline ?? { upcoming: [], recent: [] },
-    chat: purchasedGigs.chat ?? { recent: [] },
-    permissions: {
-      canManageOrders: true,
-      canManageEscrow: true,
-      canPostMessages: true,
-    },
+    ...snapshot,
+    metrics: { ...(snapshot.metrics ?? {}), slaBreaches: detection.breachCount },
+    alerts: detection.alerts,
+    permissions: context?.permissions ?? DEFAULT_PERMISSIONS,
   };
 }
 
-export async function createCompanyOrder({ ownerId, payload = {} }) {
-  const deliverables = normalizeDeliverables(payload.deliverables ?? payload.requirements);
-  const classes = buildGigClasses(deliverables, { amount: payload.amount, currency: payload.currency });
-  const requirements = deliverables.map((item) => ({
-    id: item.id,
-    title: item.title,
-    dueAt: item.dueAt ?? null,
-    status: payload.status ?? 'pending',
-    notes: item.notes ?? null,
-  }));
+export async function createCompanyOrder({ ownerId, payload = {}, context }) {
+  assertCanManageOrders(context);
+  const deliverables = normalizeCompanyOrderDeliverables(payload.deliverables ?? payload.requirements);
+  const classes = buildGigClassesFromDeliverables(deliverables, {
+    amount: payload.amount,
+    currency: payload.currency,
+  });
+  const requirements = mapDeliverablesToRequirements(deliverables, { status: payload.status ?? 'pending' });
 
   const order = await createGigOrder(ownerId, {
     vendorName: payload.vendorName,
@@ -171,21 +217,20 @@ export async function createCompanyOrder({ ownerId, payload = {} }) {
     classes,
   });
 
+  invalidateDashboardCache(ownerId);
   return order;
 }
 
-export async function updateCompanyOrder({ ownerId, orderId, payload = {} }) {
+export async function updateCompanyOrder({ ownerId, orderId, payload = {}, context }) {
+  assertCanManageOrders(context);
   const updates = { ...payload };
   if (payload.deliverables || payload.requirements) {
-    const deliverables = normalizeDeliverables(payload.deliverables ?? payload.requirements);
-    updates.requirements = deliverables.map((item) => ({
-      id: item.id,
-      title: item.title,
-      dueAt: item.dueAt ?? null,
-      status: payload.status ?? 'pending',
-      notes: item.notes ?? null,
-    }));
-    updates.classes = buildGigClasses(deliverables, { amount: payload.amount, currency: payload.currency });
+    const deliverables = normalizeCompanyOrderDeliverables(payload.deliverables ?? payload.requirements);
+    updates.requirements = mapDeliverablesToRequirements(deliverables, { status: payload.status ?? 'pending' });
+    updates.classes = buildGigClassesFromDeliverables(deliverables, {
+      amount: payload.amount,
+      currency: payload.currency,
+    });
     updates.metadata = {
       ...(payload.metadata ?? {}),
       deliverables,
@@ -193,58 +238,98 @@ export async function updateCompanyOrder({ ownerId, orderId, payload = {} }) {
   }
 
   const order = await updateGigOrder(ownerId, orderId, updates);
+  invalidateDashboardCache(ownerId);
   return order;
 }
 
-export async function deleteCompanyOrder({ ownerId, orderId }) {
+export async function deleteCompanyOrder({ ownerId, orderId, context }) {
+  assertCanManageOrders(context);
   const order = await GigOrder.findByPk(orderId);
   ensureOrderOwnership(order, ownerId);
   await order.destroy();
+  invalidateDashboardCache(ownerId);
   return { success: true };
 }
 
-export async function getCompanyOrderDetail({ ownerId, orderId }) {
+export async function getCompanyOrderDetail({ ownerId, orderId, context }) {
+  if (!context?.permissions?.canManageOrders && !context?.permissions?.canManageEscrow) {
+    throw new AuthorizationError('Viewing company order detail requires authenticated workspace access.', {
+      code: 'ORDER_VIEW_FORBIDDEN',
+    });
+  }
   const detail = await getGigOrderDetail(ownerId, orderId, { messageLimit: 100 });
   return detail;
 }
 
-export async function createCompanyOrderTimeline({ ownerId, orderId, payload }) {
-  return addGigTimelineEvent(ownerId, orderId, payload);
+export async function createCompanyOrderTimeline({ ownerId, orderId, payload, context }) {
+  assertCanManageOrders(context);
+  const event = await addGigTimelineEvent(ownerId, orderId, payload);
+  invalidateDashboardCache(ownerId);
+  return event;
 }
 
-export async function updateCompanyOrderTimeline({ ownerId, orderId, eventId, payload }) {
-  return updateGigTimelineEvent(ownerId, orderId, eventId, payload);
+export async function updateCompanyOrderTimeline({ ownerId, orderId, eventId, payload, context }) {
+  assertCanManageOrders(context);
+  const event = await updateGigTimelineEvent(ownerId, orderId, eventId, payload);
+  invalidateDashboardCache(ownerId);
+  return event;
 }
 
-export async function deleteCompanyOrderTimeline({ ownerId, orderId, eventId }) {
+export async function deleteCompanyOrderTimeline({ ownerId, orderId, eventId, context }) {
+  assertCanManageOrders(context);
   const order = await ensureOrderOwnership(await GigOrder.findByPk(orderId), ownerId);
   const event = await GigTimelineEvent.findByPk(eventId);
   if (!event || event.orderId !== order.id) {
-    throw new NotFoundError('Timeline event not found.');
+    throw new NotFoundError('Timeline event not found.', {
+      code: 'TIMELINE_EVENT_NOT_FOUND',
+      orderId: Number(orderId) || null,
+      eventId: Number(eventId) || null,
+    });
   }
   await event.destroy();
+  invalidateDashboardCache(ownerId);
   return { success: true };
 }
 
-export async function postCompanyOrderMessage({ ownerId, orderId, payload, actor = {} }) {
-  return createGigOrderMessage(ownerId, orderId, payload, {
+export async function postCompanyOrderMessage({ ownerId, orderId, payload, actor = {}, context }) {
+  assertCanPostMessages(context);
+  const message = await createGigOrderMessage(ownerId, orderId, payload, {
     actorId: actor.id ?? ownerId,
     actorName: actor.name ?? payload.authorName ?? 'Company operator',
     actorRole: 'company',
   });
+  invalidateDashboardCache(ownerId);
+  return message;
 }
 
-export async function createCompanyOrderEscrow({ ownerId, orderId, payload }) {
-  return createGigOrderEscrowCheckpoint(ownerId, orderId, payload, { actorRole: 'company' });
+export async function createCompanyOrderEscrow({ ownerId, orderId, payload, context }) {
+  assertCanManageEscrow(context);
+  const checkpoint = await createGigOrderEscrowCheckpoint(ownerId, orderId, payload, { actorRole: 'company' });
+  invalidateDashboardCache(ownerId);
+  return checkpoint;
 }
 
-export async function updateCompanyOrderEscrow({ ownerId, checkpointId, payload }) {
-  return updateGigOrderEscrowCheckpoint(ownerId, checkpointId, payload, { actorRole: 'company' });
+export async function updateCompanyOrderEscrow({ ownerId, checkpointId, payload, context }) {
+  assertCanManageEscrow(context);
+  if (payload?.status === 'released' && payload?.releaseAmount != null && Number(payload.releaseAmount) <= 0) {
+    throw new ConflictError('Escrow release amount must be positive.', {
+      code: 'ESCROW_LOCKED',
+      checkpointId: Number(checkpointId) || null,
+    });
+  }
+  const checkpoint = await updateGigOrderEscrowCheckpoint(ownerId, checkpointId, payload, {
+    actorRole: 'company',
+  });
+  invalidateDashboardCache(ownerId);
+  return checkpoint;
 }
 
-export async function submitCompanyOrderReview({ ownerId, orderId, payload }) {
+export async function submitCompanyOrderReview({ ownerId, orderId, payload, context }) {
+  assertCanManageOrders(context);
   const updates = payload?.scorecard ? { scorecard: payload.scorecard } : payload;
-  return updateGigOrder(ownerId, orderId, updates);
+  const order = await updateGigOrder(ownerId, orderId, updates);
+  invalidateDashboardCache(ownerId);
+  return order;
 }
 
 export async function deleteCompanyOrderSubmission({ ownerId, submissionId }) {
@@ -255,6 +340,7 @@ export async function deleteCompanyOrderSubmission({ ownerId, submissionId }) {
   const order = await GigOrder.findByPk(submission.orderId);
   ensureOrderOwnership(order, ownerId);
   await submission.destroy();
+  invalidateDashboardCache(ownerId);
   return { success: true };
 }
 

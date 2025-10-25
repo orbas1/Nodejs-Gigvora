@@ -67,7 +67,16 @@ describe('companyOrdersController', () => {
 
     await dashboard(req, res);
 
-    expect(serviceMock.getCompanyOrdersDashboard).toHaveBeenCalledWith({ ownerId: 55, status: 'active' });
+    expect(serviceMock.getCompanyOrdersDashboard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ownerId: 55,
+        status: 'active',
+        context: expect.objectContaining({
+          ownerId: 55,
+          permissions: expect.objectContaining({ canManageOrders: true }),
+        }),
+      }),
+    );
     expect(res.json).toHaveBeenCalledWith(payload);
   });
 
@@ -79,7 +88,16 @@ describe('companyOrdersController', () => {
 
     await create(req, res);
 
-    expect(serviceMock.createCompanyOrder).toHaveBeenCalledWith({ ownerId: 77, payload: { vendorName: 'Atlas Advisory' } });
+    expect(serviceMock.createCompanyOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ownerId: 77,
+        payload: { vendorName: 'Atlas Advisory' },
+        context: expect.objectContaining({
+          ownerId: 77,
+          permissions: expect.objectContaining({ canManageOrders: true }),
+        }),
+      }),
+    );
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith(order);
   });
@@ -92,11 +110,17 @@ describe('companyOrdersController', () => {
 
     await update(req, res);
 
-    expect(serviceMock.updateCompanyOrder).toHaveBeenCalledWith({
-      ownerId: 92,
-      orderId: 15,
-      payload: { status: 'completed' },
-    });
+    expect(serviceMock.updateCompanyOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ownerId: 92,
+        orderId: 15,
+        payload: { status: 'completed' },
+        context: expect.objectContaining({
+          ownerId: 92,
+          permissions: expect.objectContaining({ canManageOrders: true }),
+        }),
+      }),
+    );
     expect(res.json).toHaveBeenCalledWith(order);
   });
 
@@ -107,7 +131,16 @@ describe('companyOrdersController', () => {
 
     await remove(req, res);
 
-    expect(serviceMock.deleteCompanyOrder).toHaveBeenCalledWith({ ownerId: 61, orderId: 22 });
+    expect(serviceMock.deleteCompanyOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ownerId: 61,
+        orderId: 22,
+        context: expect.objectContaining({
+          ownerId: 61,
+          permissions: expect.objectContaining({ canManageOrders: true }),
+        }),
+      }),
+    );
     expect(res.status).toHaveBeenCalledWith(204);
   });
 
@@ -119,7 +152,16 @@ describe('companyOrdersController', () => {
 
     await detail(req, res);
 
-    expect(serviceMock.getCompanyOrderDetail).toHaveBeenCalledWith({ ownerId: 45, orderId: 33 });
+    expect(serviceMock.getCompanyOrderDetail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ownerId: 45,
+        orderId: 33,
+        context: expect.objectContaining({
+          ownerId: 45,
+          permissions: expect.objectContaining({ canManageOrders: true }),
+        }),
+      }),
+    );
     expect(res.json).toHaveBeenCalledWith(detailPayload);
   });
 
@@ -133,6 +175,7 @@ describe('companyOrdersController', () => {
       ownerId: 70,
       orderId: 9,
       payload: { title: 'Kick-off' },
+      context: expect.objectContaining({ permissions: expect.objectContaining({ canManageOrders: true }) }),
     });
     expect(res.status).toHaveBeenCalledWith(201);
 
@@ -150,6 +193,7 @@ describe('companyOrdersController', () => {
       orderId: 9,
       eventId: 4,
       payload: { title: 'Revised kick-off' },
+      context: expect.objectContaining({ permissions: expect.objectContaining({ canManageOrders: true }) }),
     });
     expect(updateRes.json).toHaveBeenCalledWith({ id: 2 });
   });
@@ -161,7 +205,12 @@ describe('companyOrdersController', () => {
 
     await removeTimelineEvent(req, res);
 
-    expect(serviceMock.deleteCompanyOrderTimeline).toHaveBeenCalledWith({ ownerId: 52, orderId: 14, eventId: 3 });
+    expect(serviceMock.deleteCompanyOrderTimeline).toHaveBeenCalledWith({
+      ownerId: 52,
+      orderId: 14,
+      eventId: 3,
+      context: expect.objectContaining({ permissions: expect.objectContaining({ canManageOrders: true }) }),
+    });
     expect(res.status).toHaveBeenCalledWith(204);
   });
 
@@ -178,6 +227,7 @@ describe('companyOrdersController', () => {
       orderId: 8,
       payload: { body: 'Update' },
       actor: { id: 81, name: 'ops@gigvora.test' },
+      context: expect.objectContaining({ permissions: expect.objectContaining({ canPostMessages: true }) }),
     });
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith(message);
@@ -196,6 +246,7 @@ describe('companyOrdersController', () => {
       orderId: 4,
       payload: { body: 'Owner update' },
       actor: { id: 64, name: 'Company operator' },
+      context: expect.objectContaining({ permissions: expect.objectContaining({ canPostMessages: true }) }),
     });
   });
 
@@ -210,6 +261,7 @@ describe('companyOrdersController', () => {
       ownerId: 90,
       orderId: 10,
       payload: { label: 'Kick-off' },
+      context: expect.objectContaining({ permissions: expect.objectContaining({ canManageEscrow: true }) }),
     });
     expect(createRes.status).toHaveBeenCalledWith(201);
 
@@ -218,6 +270,7 @@ describe('companyOrdersController', () => {
       ownerId: 90,
       checkpointId: 5,
       payload: { status: 'released' },
+      context: expect.objectContaining({ permissions: expect.objectContaining({ canManageEscrow: true }) }),
     });
     expect(updateRes.json).toHaveBeenCalledWith({ id: 2 });
   });
