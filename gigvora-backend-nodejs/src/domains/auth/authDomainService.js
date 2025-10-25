@@ -329,6 +329,13 @@ export class AuthDomainService {
     return this.User.findOne({ where: { appleId }, transaction });
   }
 
+  async findUserByGoogleId(googleId, { transaction } = {}) {
+    if (!googleId) {
+      return null;
+    }
+    return this.User.findOne({ where: { googleId }, transaction });
+  }
+
   async findUserByLinkedinId(linkedinId, { transaction } = {}) {
     if (!linkedinId) {
       return null;

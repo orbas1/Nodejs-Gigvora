@@ -11,6 +11,7 @@ const baseUsers = [
     address: '123 Innovation Way, Remote City',
     age: 32,
     userType: 'admin',
+    googleId: 'demo-google-ava-founder',
   },
   {
     firstName: 'Leo',
@@ -20,6 +21,7 @@ const baseUsers = [
     address: '456 Remote Ave, Digital Nomad',
     age: 27,
     userType: 'freelancer',
+    linkedinId: 'demo-linkedin-leo-freelancer',
   },
   {
     firstName: 'Mia',
@@ -29,6 +31,7 @@ const baseUsers = [
     address: '789 Strategy Blvd, Growth City',
     age: 35,
     userType: 'company',
+    appleId: 'demo-apple-mia-operations',
   },
   {
     firstName: 'Noah',

@@ -36,6 +36,48 @@ let passwordResetTransporter = null;
 const PASSWORD_RESET_DEFAULT_COOLDOWN_SECONDS = 120;
 const PASSWORD_RESET_MAX_COOLDOWN_SECONDS = 900;
 
+const SOCIAL_LOGIN_CONFIG = {
+  google: {
+    idField: 'googleId',
+    displayName: 'Google',
+    loginContext: 'google_oauth',
+    auditStrategy: 'google_oauth',
+    missingEmailMessage:
+      'Google account did not provide an email address. Use password login once to link your account.',
+    notFoundMessage: 'Unable to resolve Google account owner.',
+    defaultFirstName: 'Google',
+    defaultLastName: 'User',
+    findUserById: (identifier, options = {}) =>
+      typeof authDomainService.findUserByGoogleId === 'function'
+        ? authDomainService.findUserByGoogleId(identifier, options)
+        : null,
+  },
+  apple: {
+    idField: 'appleId',
+    displayName: 'Apple',
+    loginContext: 'apple_oauth',
+    auditStrategy: 'apple_oauth',
+    missingEmailMessage:
+      'Apple account did not provide an email address. Use email login once to link your account.',
+    notFoundMessage: 'Unable to resolve Apple account owner.',
+    defaultFirstName: 'Apple',
+    defaultLastName: 'Member',
+    findUserById: (identifier, options = {}) => authDomainService.findUserByAppleId(identifier, options),
+  },
+  linkedin: {
+    idField: 'linkedinId',
+    displayName: 'LinkedIn',
+    loginContext: 'linkedin_oauth',
+    auditStrategy: 'linkedin_oauth',
+    missingEmailMessage:
+      'LinkedIn account did not return an email address. Add email scope or link your account manually.',
+    notFoundMessage: 'Unable to resolve LinkedIn account owner.',
+    defaultFirstName: 'LinkedIn',
+    defaultLastName: 'Member',
+    findUserById: (identifier, options = {}) => authDomainService.findUserByLinkedinId(identifier, options),
+  },
+};
+
 function getGoogleClient() {
   if (!googleClientId) {
     return null;
@@ -169,6 +211,114 @@ async function fetchLinkedInProfile(accessToken) {
     firstName,
     lastName,
   };
+}
+
+function normalizeEmail(value) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed ? trimmed.toLowerCase() : null;
+}
+
+function coerceNamePart(value, fallback) {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+  const trimmed = value.trim();
+  return trimmed || fallback;
+}
+
+function generateRandomPassword() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+function getSocialConfig(provider) {
+  const config = SOCIAL_LOGIN_CONFIG[provider];
+  if (!config) {
+    throw new Error(`Unsupported social login provider: ${provider}`);
+  }
+  return config;
+}
+
+async function resolveSocialUser({
+  provider,
+  providerId,
+  email,
+  firstName,
+  lastName,
+}) {
+  const config = getSocialConfig(provider);
+  if (!providerId) {
+    throw buildError(`${config.displayName} identifier is required.`, 422);
+  }
+
+  let user = null;
+  if (typeof config.findUserById === 'function') {
+    user = await config.findUserById(providerId);
+  }
+
+  const normalizedEmail = normalizeEmail(email);
+  if (!user && normalizedEmail) {
+    user = await authDomainService.findUserByEmail(normalizedEmail);
+  }
+
+  if (!user && !normalizedEmail) {
+    throw buildError(config.missingEmailMessage, 409);
+  }
+
+  if (!user) {
+    await authDomainService.registerUser({
+      email: normalizedEmail,
+      password: generateRandomPassword(),
+      firstName: coerceNamePart(firstName, config.defaultFirstName),
+      lastName: coerceNamePart(lastName, config.defaultLastName),
+      userType: 'user',
+      twoFactorEnabled: false,
+      twoFactorMethod: 'app',
+      [config.idField]: providerId,
+    });
+    user = await authDomainService.findUserByEmail(normalizedEmail);
+  }
+
+  if (!user) {
+    throw buildError(config.notFoundMessage, 404);
+  }
+
+  const updates = {};
+  if (!user[config.idField] || user[config.idField] !== providerId) {
+    updates[config.idField] = providerId;
+  }
+  if (user.twoFactorEnabled) {
+    updates.twoFactorEnabled = false;
+  }
+
+  if (Object.keys(updates).length > 0) {
+    await user.update(updates);
+  }
+
+  return user;
+}
+
+async function finalizeSocialLogin({ provider, user, context }) {
+  const config = getSocialConfig(provider);
+  const session = await issueSession(user, { context });
+  const featureFlags = await featureFlagService.evaluateForUser(session.user, {
+    traits: { loginContext: config.loginContext },
+  });
+  session.featureFlags = featureFlags;
+  session.user.featureFlags = featureFlags;
+  await authDomainService.recordLoginAudit(
+    user.id,
+    {
+      eventType: 'login',
+      ipAddress: context?.ipAddress,
+      userAgent: context?.userAgent,
+      metadata: { strategy: config.auditStrategy },
+    },
+    {},
+  );
+  return { session };
 }
 
 function resolveAppBaseUrl() {
@@ -478,44 +628,17 @@ async function loginWithGoogle(idToken, options = {}) {
     throw buildError('Google email address is not verified.', 401);
   }
 
-  const email = payload.email.toLowerCase();
+  const email = payload.email;
   const googleId = payload.sub;
-  let user = await authDomainService.findUserByEmail(email);
-
-  if (!user) {
-    const randomPassword = crypto.randomBytes(32).toString('hex');
-    await authDomainService.registerUser({
-      email,
-      password: randomPassword,
-      firstName: payload.given_name || 'Google',
-      lastName: payload.family_name || 'User',
-      userType: 'user',
-      twoFactorEnabled: false,
-      twoFactorMethod: 'app',
-      googleId,
-    });
-    user = await authDomainService.findUserByEmail(email);
-  } else if (!user.googleId || user.googleId !== googleId) {
-    await user.update({ googleId, twoFactorEnabled: false });
-  }
-
-  const session = await issueSession(user, { context: options.context ?? null });
-  const featureFlags = await featureFlagService.evaluateForUser(session.user, {
-    traits: { loginContext: 'google_oauth' },
+  const user = await resolveSocialUser({
+    provider: 'google',
+    providerId: googleId,
+    email,
+    firstName: payload.given_name,
+    lastName: payload.family_name,
   });
-  session.featureFlags = featureFlags;
-  session.user.featureFlags = featureFlags;
-  await authDomainService.recordLoginAudit(
-    user.id,
-    {
-      eventType: 'login',
-      ipAddress: options.context?.ipAddress,
-      userAgent: options.context?.userAgent,
-      metadata: { strategy: 'google_oauth' },
-    },
-    {},
-  );
-  return { session };
+
+  return finalizeSocialLogin({ provider: 'google', user, context: options.context ?? null });
 }
 
 async function loginWithApple(identityToken, options = {}) {
@@ -545,54 +668,15 @@ async function loginWithApple(identityToken, options = {}) {
     throw buildError('Apple identity token missing subject.', 401);
   }
 
-  const normalizedEmail = typeof payload?.email === 'string' ? payload.email.toLowerCase() : null;
-  let user = await authDomainService.findUserByAppleId(appleId);
-
-  if (!user && normalizedEmail) {
-    user = await authDomainService.findUserByEmail(normalizedEmail);
-  }
-
-  if (!user && !normalizedEmail) {
-    throw buildError(
-      'Apple account did not provide an email address. Use email login once to link your account.',
-      409,
-    );
-  }
-
-  if (!user) {
-    const randomPassword = crypto.randomBytes(32).toString('hex');
-    await authDomainService.registerUser({
-      email: normalizedEmail,
-      password: randomPassword,
-      firstName: payload?.given_name || 'Apple',
-      lastName: payload?.family_name || 'Member',
-      userType: 'user',
-      twoFactorEnabled: false,
-      twoFactorMethod: 'app',
-      appleId,
-    });
-    user = await authDomainService.findUserByEmail(normalizedEmail);
-  } else if (!user.appleId || user.appleId !== appleId) {
-    await user.update({ appleId, twoFactorEnabled: false });
-  }
-
-  const session = await issueSession(user, { context: options.context ?? null });
-  const featureFlags = await featureFlagService.evaluateForUser(session.user, {
-    traits: { loginContext: 'apple_oauth' },
+  const user = await resolveSocialUser({
+    provider: 'apple',
+    providerId: appleId,
+    email: payload?.email,
+    firstName: payload?.given_name,
+    lastName: payload?.family_name,
   });
-  session.featureFlags = featureFlags;
-  session.user.featureFlags = featureFlags;
-  await authDomainService.recordLoginAudit(
-    user.id,
-    {
-      eventType: 'login',
-      ipAddress: options.context?.ipAddress,
-      userAgent: options.context?.userAgent,
-      metadata: { strategy: 'apple_oauth' },
-    },
-    {},
-  );
-  return { session };
+
+  return finalizeSocialLogin({ provider: 'apple', user, context: options.context ?? null });
 }
 
 async function loginWithLinkedIn(accessToken, options = {}) {
@@ -601,59 +685,15 @@ async function loginWithLinkedIn(accessToken, options = {}) {
   }
 
   const profile = await fetchLinkedInProfile(accessToken);
-  const linkedinId = profile.id;
-  let user = await authDomainService.findUserByLinkedinId(linkedinId);
-
-  const normalizedEmail = profile.email ? profile.email.toLowerCase() : null;
-  if (!user && normalizedEmail) {
-    user = await authDomainService.findUserByEmail(normalizedEmail);
-  }
-
-  if (!user && !normalizedEmail) {
-    throw buildError(
-      'LinkedIn account did not return an email address. Add email scope or link your account manually.',
-      409,
-    );
-  }
-
-  if (!user) {
-    const randomPassword = crypto.randomBytes(32).toString('hex');
-    await authDomainService.registerUser({
-      email: normalizedEmail,
-      password: randomPassword,
-      firstName: profile.firstName,
-      lastName: profile.lastName,
-      userType: 'user',
-      twoFactorEnabled: false,
-      twoFactorMethod: 'app',
-      linkedinId,
-    });
-    user = await authDomainService.findUserByEmail(normalizedEmail);
-  } else if (!user.linkedinId || user.linkedinId !== linkedinId) {
-    await user.update({ linkedinId, twoFactorEnabled: false });
-  }
-
-  if (!user) {
-    throw buildError('Unable to resolve LinkedIn account owner.', 404);
-  }
-
-  const session = await issueSession(user, { context: options.context ?? null });
-  const featureFlags = await featureFlagService.evaluateForUser(session.user, {
-    traits: { loginContext: 'linkedin_oauth' },
+  const user = await resolveSocialUser({
+    provider: 'linkedin',
+    providerId: profile.id,
+    email: profile.email,
+    firstName: profile.firstName,
+    lastName: profile.lastName,
   });
-  session.featureFlags = featureFlags;
-  session.user.featureFlags = featureFlags;
-  await authDomainService.recordLoginAudit(
-    user.id,
-    {
-      eventType: 'login',
-      ipAddress: options.context?.ipAddress,
-      userAgent: options.context?.userAgent,
-      metadata: { strategy: 'linkedin_oauth' },
-    },
-    {},
-  );
-  return { session };
+
+  return finalizeSocialLogin({ provider: 'linkedin', user, context: options.context ?? null });
 }
 
 async function refreshSession(refreshToken, options = {}) {

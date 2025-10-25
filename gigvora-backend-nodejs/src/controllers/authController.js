@@ -70,7 +70,9 @@ export async function resendTwoFactor(req, res) {
 
 export async function googleLogin(req, res) {
   const { idToken } = req.body;
-  const response = await authService.loginWithGoogle(idToken);
+  const response = await authService.loginWithGoogle(idToken, {
+    context: { ipAddress: req.ip, userAgent: req.get('user-agent') },
+  });
   res.json(response);
 }
 

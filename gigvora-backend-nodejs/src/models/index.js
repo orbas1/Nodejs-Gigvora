@@ -675,6 +675,9 @@ export const User = sequelize.define(
       { fields: ['email'] },
       { fields: ['status'] },
       { fields: ['userType'] },
+      { fields: ['googleId'], unique: true },
+      { fields: ['appleId'], unique: true },
+      { fields: ['linkedinId'], unique: true },
     ],
   },
 );
