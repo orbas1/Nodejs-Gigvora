@@ -1,7 +1,9 @@
 import 'package:gigvora_foundation/gigvora_foundation.dart';
-import 'package:uuid/uuid.dart';
 
 import 'models/calendar_event.dart';
+import 'models/calendar_focus_session.dart';
+import 'models/calendar_overview.dart';
+import 'models/calendar_settings.dart';
 
 class CalendarRepository {
   CalendarRepository(this._apiClient, this._cache);
@@ -9,24 +11,37 @@ class CalendarRepository {
   final ApiClient _apiClient;
   final OfflineCache _cache;
 
-  static const _cacheKey = 'calendar:events';
-  static const _uuid = Uuid();
+  static const _cacheNamespace = 'calendar:overview';
+  static const _defaultTtl = Duration(minutes: 15);
 
-  Future<RepositoryResult<List<CalendarEvent>>> fetchEvents({
+  _CalendarCacheContext? _lastCacheContext;
+
+  Future<RepositoryResult<CalendarOverview>> fetchOverview({
+    required int userId,
+    required DateTime start,
+    required DateTime end,
     bool forceRefresh = false,
   }) async {
-    final cached = _cache.read<List<CalendarEvent>>(_cacheKey, (raw) {
-      if (raw is List) {
-        return raw
-            .whereType<Map>()
-            .map((entry) => CalendarEvent.fromJson(Map<String, dynamic>.from(entry as Map)))
-            .toList(growable: false);
+    final cacheContext = _CalendarCacheContext(
+      _cacheNamespace,
+      userId,
+      start,
+      end,
+    );
+    _lastCacheContext = cacheContext;
+
+    final cached = _cache.read<CalendarOverview>(cacheContext.key, (raw) {
+      if (raw is Map<String, dynamic>) {
+        return CalendarOverview.fromJson(raw);
       }
-      return const <CalendarEvent>[];
+      if (raw is Map) {
+        return CalendarOverview.fromJson(Map<String, dynamic>.from(raw as Map));
+      }
+      return CalendarOverview.empty();
     });
 
     if (!forceRefresh && cached != null) {
-      return RepositoryResult<List<CalendarEvent>>(
+      return RepositoryResult<CalendarOverview>(
         data: cached.value,
         fromCache: true,
         lastUpdated: cached.storedAt,
@@ -34,27 +49,27 @@ class CalendarRepository {
     }
 
     try {
-      final response = await _apiClient.get('/calendar/events');
-      if (response is! List) {
-        throw Exception('Unexpected calendar payload.');
-      }
-      final events = response
-          .whereType<Map<String, dynamic>>()
-          .map(CalendarEvent.fromJson)
-          .toList(growable: false);
-      await _cache.write(
-        _cacheKey,
-        events.map((event) => event.toJson()).toList(growable: false),
-        ttl: const Duration(minutes: 10),
+      final response = await _apiClient.get(
+        '/users/$userId/calendar/overview',
+        query: {
+          'from': start.toUtc().toIso8601String(),
+          'to': end.toUtc().toIso8601String(),
+          'limit': '200',
+        },
       );
-      return RepositoryResult<List<CalendarEvent>>(
-        data: events,
+      if (response is! Map<String, dynamic>) {
+        throw Exception('Unexpected calendar overview payload.');
+      }
+      final overview = CalendarOverview.fromJson(response);
+      await _cache.write(cacheContext.key, overview.toJson(), ttl: _defaultTtl);
+      return RepositoryResult<CalendarOverview>(
+        data: overview,
         fromCache: false,
         lastUpdated: DateTime.now(),
       );
     } catch (error) {
       if (cached != null) {
-        return RepositoryResult<List<CalendarEvent>>(
+        return RepositoryResult<CalendarOverview>(
           data: cached.value,
           fromCache: true,
           lastUpdated: cached.storedAt,
@@ -65,32 +80,145 @@ class CalendarRepository {
     }
   }
 
-  Future<CalendarEvent> create(CalendarEvent event) async {
-    final payload = event.id.isEmpty ? event.copyWith(id: _uuid.v4()) : event;
-    final response = await _apiClient.post('/calendar/events', body: payload.toJson());
-    if (response is Map<String, dynamic>) {
-      return CalendarEvent.fromJson(response);
-    }
-    return payload;
-  }
-
-  Future<CalendarEvent> update(CalendarEvent event) async {
-    final response = await _apiClient.put('/calendar/events/${event.id}', body: event.toJson());
-    if (response is Map<String, dynamic>) {
-      return CalendarEvent.fromJson(response);
-    }
-    return event;
-  }
-
-  Future<void> delete(String eventId) async {
-    await _apiClient.delete('/calendar/events/$eventId');
-  }
-
-  Future<void> persistCache(List<CalendarEvent> events) {
-    return _cache.write(
-      _cacheKey,
-      events.map((event) => event.toJson()).toList(growable: false),
-      ttl: const Duration(minutes: 10),
+  Future<CalendarEvent> createEvent({
+    required int userId,
+    required CalendarEvent event,
+  }) async {
+    final response = await _apiClient.post(
+      '/users/$userId/calendar/events',
+      body: event.toPayload(),
     );
+    if (response is Map<String, dynamic>) {
+      return CalendarEvent.fromJson(response);
+    }
+    throw Exception('Unable to create calendar event.');
   }
+
+  Future<CalendarEvent> updateEvent({
+    required int userId,
+    required CalendarEvent event,
+  }) async {
+    if (event.id == null) {
+      throw ArgumentError('Cannot update an event without an identifier.');
+    }
+    final response = await _apiClient.put(
+      '/users/$userId/calendar/events/${event.id}',
+      body: event.toPayload(),
+    );
+    if (response is Map<String, dynamic>) {
+      return CalendarEvent.fromJson(response);
+    }
+    throw Exception('Unable to update calendar event.');
+  }
+
+  Future<void> deleteEvent({
+    required int userId,
+    required int eventId,
+  }) async {
+    await _apiClient.delete('/users/$userId/calendar/events/$eventId');
+  }
+
+  Future<CalendarSettings> updateSettings({
+    required int userId,
+    required CalendarSettings settings,
+  }) async {
+    final response = await _apiClient.put(
+      '/users/$userId/calendar/settings',
+      body: settings.toJson(),
+    );
+    if (response is Map<String, dynamic>) {
+      return CalendarSettings.fromJson(response);
+    }
+    throw Exception('Unable to update calendar settings.');
+  }
+
+  Future<List<CalendarFocusSession>> listFocusSessions({
+    required int userId,
+    int limit = 50,
+  }) async {
+    final response = await _apiClient.get(
+      '/users/$userId/calendar/focus-sessions',
+      query: {'limit': '$limit'},
+    );
+    if (response is Map<String, dynamic> && response['items'] is List) {
+      final sessions = <CalendarFocusSession>[];
+      for (final entry in response['items'] as List<dynamic>) {
+        if (entry is Map<String, dynamic>) {
+          sessions.add(CalendarFocusSession.fromJson(entry));
+        }
+      }
+      return sessions;
+    }
+    throw Exception('Unable to load focus sessions.');
+  }
+
+  Future<CalendarFocusSession> createFocusSession({
+    required int userId,
+    required CalendarFocusSession session,
+  }) async {
+    final response = await _apiClient.post(
+      '/users/$userId/calendar/focus-sessions',
+      body: session.toPayload(),
+    );
+    if (response is Map<String, dynamic>) {
+      return CalendarFocusSession.fromJson(response);
+    }
+    throw Exception('Unable to create focus session.');
+  }
+
+  Future<CalendarFocusSession> updateFocusSession({
+    required int userId,
+    required CalendarFocusSession session,
+  }) async {
+    if (session.id == null) {
+      throw ArgumentError('Cannot update a focus session without an identifier.');
+    }
+    final response = await _apiClient.put(
+      '/users/$userId/calendar/focus-sessions/${session.id}',
+      body: session.toPayload(),
+    );
+    if (response is Map<String, dynamic>) {
+      return CalendarFocusSession.fromJson(response);
+    }
+    throw Exception('Unable to update focus session.');
+  }
+
+  Future<void> deleteFocusSession({
+    required int userId,
+    required int focusSessionId,
+  }) async {
+    await _apiClient.delete('/users/$userId/calendar/focus-sessions/$focusSessionId');
+  }
+
+  Future<void> persistOverview(
+    CalendarOverview overview, {
+    int? userId,
+    DateTime? start,
+    DateTime? end,
+  }) async {
+    final context = userId != null && start != null && end != null
+        ? _CalendarCacheContext(_cacheNamespace, userId, start, end)
+        : _lastCacheContext;
+    if (context == null) {
+      return;
+    }
+    _lastCacheContext = context;
+    await _cache.write(context.key, overview.toJson(), ttl: _defaultTtl);
+  }
+}
+
+class _CalendarCacheContext {
+  _CalendarCacheContext(
+    this.namespace,
+    this.userId,
+    this.start,
+    this.end,
+  ) : key =
+            '$namespace:$userId:${start.toIso8601String()}-${end.toIso8601String()}';
+
+  final String namespace;
+  final int userId;
+  final DateTime start;
+  final DateTime end;
+  final String key;
 }
