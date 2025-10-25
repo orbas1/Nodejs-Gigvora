@@ -190,144 +190,159 @@ async function persistVerificationEvidence(filePayload, { actorId } = {}) {
   };
 }
 
-export function dashboard(req, res) {
+export async function dashboard(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
   const lookbackDays = toOptionalPositiveInteger(req.query?.lookbackDays, {
     fieldName: 'lookbackDays',
   });
-  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: lookbackDays ?? null });
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: lookbackDays ?? null });
   res.json(dashboard);
 }
 
-export function saveAvailability(req, res) {
+export async function saveAvailability(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
   const { slots } = ensurePlainObject(req.body ?? {}, 'availability payload');
   if (slots != null && !Array.isArray(slots)) {
     throw new ValidationError('slots must be an array.');
   }
-  const availability = updateMentorAvailability(mentorId, Array.isArray(slots) ? slots : []);
+  const availability = await updateMentorAvailability(mentorId, Array.isArray(slots) ? slots : []);
   res.json({ availability });
 }
 
-export function savePackages(req, res) {
+export async function savePackages(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
   const { packages } = ensurePlainObject(req.body ?? {}, 'packages payload');
   if (packages != null && !Array.isArray(packages)) {
     throw new ValidationError('packages must be an array.');
   }
-  const savedPackages = updateMentorPackages(mentorId, Array.isArray(packages) ? packages : []);
+  const savedPackages = await updateMentorPackages(mentorId, Array.isArray(packages) ? packages : []);
   res.json({ packages: savedPackages });
 }
 
-export function saveProfile(req, res) {
+export async function saveProfile(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const profile = submitMentorProfile(mentorId, ensurePlainObject(req.body ?? {}, 'mentor profile'));
+  const profile = await submitMentorProfile(mentorId, ensurePlainObject(req.body ?? {}, 'mentor profile'));
   res.status(201).json({ profile });
 }
 
-export function createBooking(req, res) {
+export async function createBooking(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const booking = createMentorBooking(mentorId, ensurePlainObject(req.body ?? {}, 'mentor booking'));
+  const booking = await createMentorBooking(mentorId, ensurePlainObject(req.body ?? {}, 'mentor booking'));
   clearDashboardCache(req);
-  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.status(201).json({ booking, dashboard });
 }
 
-export function updateBooking(req, res) {
+export async function updateBooking(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
   const bookingId = toPositiveInteger(req.params?.bookingId ?? req.body?.bookingId, {
     fieldName: 'bookingId',
   });
-  const booking = updateMentorBooking(mentorId, bookingId, ensurePlainObject(req.body ?? {}, 'mentor booking update'));
+  const booking = await updateMentorBooking(
+    mentorId,
+    bookingId,
+    ensurePlainObject(req.body ?? {}, 'mentor booking update'),
+  );
   clearDashboardCache(req);
-  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.json({ booking, dashboard });
 }
 
-export function deleteBooking(req, res) {
+export async function deleteBooking(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
   const bookingId = toPositiveInteger(req.params?.bookingId, { fieldName: 'bookingId' });
-  deleteMentorBooking(mentorId, bookingId);
+  await deleteMentorBooking(mentorId, bookingId);
   clearDashboardCache(req);
-  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.json({ dashboard });
 }
 
-export function createClient(req, res) {
+export async function createClient(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const client = createMentorClient(mentorId, ensurePlainObject(req.body ?? {}, 'mentor client'));
+  const client = await createMentorClient(mentorId, ensurePlainObject(req.body ?? {}, 'mentor client'));
   clearDashboardCache(req);
-  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.status(201).json({ client, dashboard });
 }
 
-export function updateClient(req, res) {
+export async function updateClient(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
   const clientId = toPositiveInteger(req.params?.clientId ?? req.body?.clientId, {
     fieldName: 'clientId',
   });
-  const client = updateMentorClient(mentorId, clientId, ensurePlainObject(req.body ?? {}, 'mentor client update'));
+  const client = await updateMentorClient(
+    mentorId,
+    clientId,
+    ensurePlainObject(req.body ?? {}, 'mentor client update'),
+  );
   clearDashboardCache(req);
-  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.json({ client, dashboard });
 }
 
-export function deleteClient(req, res) {
+export async function deleteClient(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
   const clientId = toPositiveInteger(req.params?.clientId, { fieldName: 'clientId' });
-  deleteMentorClient(mentorId, clientId);
+  await deleteMentorClient(mentorId, clientId);
   clearDashboardCache(req);
-  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.json({ dashboard });
 }
 
-export function createEvent(req, res) {
+export async function createEvent(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const event = createMentorEvent(mentorId, ensurePlainObject(req.body ?? {}, 'mentor event'));
+  const event = await createMentorEvent(mentorId, ensurePlainObject(req.body ?? {}, 'mentor event'));
   clearDashboardCache(req);
-  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.status(201).json({ event, dashboard });
 }
 
-export function updateEvent(req, res) {
+export async function updateEvent(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
   const eventId = toPositiveInteger(req.params?.eventId ?? req.body?.eventId, {
     fieldName: 'eventId',
   });
-  const event = updateMentorEvent(mentorId, eventId, ensurePlainObject(req.body ?? {}, 'mentor event update'));
+  const event = await updateMentorEvent(
+    mentorId,
+    eventId,
+    ensurePlainObject(req.body ?? {}, 'mentor event update'),
+  );
   clearDashboardCache(req);
-  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.json({ event, dashboard });
 }
 
-export function deleteEvent(req, res) {
+export async function deleteEvent(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
   const eventId = toPositiveInteger(req.params?.eventId, { fieldName: 'eventId' });
-  deleteMentorEvent(mentorId, eventId);
+  await deleteMentorEvent(mentorId, eventId);
   clearDashboardCache(req);
-  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.json({ dashboard });
 }
 
 export async function createSupportTicket(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const ticket = createMentorSupportTicket(mentorId, ensurePlainObject(req.body ?? {}, 'support ticket'));
+  const ticket = await createMentorSupportTicket(
+    mentorId,
+    ensurePlainObject(req.body ?? {}, 'support ticket'),
+  );
   clearDashboardCache(req);
-  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   await queueMentorNotification(mentorId, {
     type: 'mentorship.support.ticket.created',
     title: 'Support ticket submitted',
@@ -343,13 +358,13 @@ export async function updateSupportTicket(req, res) {
   const ticketId = toPositiveInteger(req.params?.ticketId ?? req.body?.ticketId, {
     fieldName: 'ticketId',
   });
-  const ticket = updateMentorSupportTicket(
+  const ticket = await updateMentorSupportTicket(
     mentorId,
     ticketId,
     ensurePlainObject(req.body ?? {}, 'support ticket update'),
   );
   clearDashboardCache(req);
-  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   await queueMentorNotification(mentorId, {
     type: 'mentorship.support.ticket.updated',
     title: 'Support ticket updated',
@@ -363,9 +378,9 @@ export async function deleteSupportTicket(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
   const ticketId = toPositiveInteger(req.params?.ticketId, { fieldName: 'ticketId' });
-  deleteMentorSupportTicket(mentorId, ticketId);
+  await deleteMentorSupportTicket(mentorId, ticketId);
   clearDashboardCache(req);
-  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   await queueMentorNotification(mentorId, {
     type: 'mentorship.support.ticket.deleted',
     title: 'Support ticket removed',
@@ -378,9 +393,12 @@ export async function deleteSupportTicket(req, res) {
 export async function createMessage(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const message = createMentorMessage(mentorId, ensurePlainObject(req.body ?? {}, 'mentor message'));
+  const message = await createMentorMessage(
+    mentorId,
+    ensurePlainObject(req.body ?? {}, 'mentor message'),
+  );
   clearDashboardCache(req);
-  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   await queueMentorNotification(mentorId, {
     type: 'mentorship.inbox.message.created',
     title: 'New inbox message logged',
@@ -396,9 +414,13 @@ export async function updateMessage(req, res) {
   const messageId = toPositiveInteger(req.params?.messageId ?? req.body?.messageId, {
     fieldName: 'messageId',
   });
-  const message = updateMentorMessage(mentorId, messageId, ensurePlainObject(req.body ?? {}, 'mentor message update'));
+  const message = await updateMentorMessage(
+    mentorId,
+    messageId,
+    ensurePlainObject(req.body ?? {}, 'mentor message update'),
+  );
   clearDashboardCache(req);
-  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   await queueMentorNotification(mentorId, {
     type: 'mentorship.inbox.message.updated',
     title: 'Inbox message updated',
@@ -412,9 +434,9 @@ export async function deleteMessage(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
   const messageId = toPositiveInteger(req.params?.messageId, { fieldName: 'messageId' });
-  deleteMentorMessage(mentorId, messageId);
+  await deleteMentorMessage(mentorId, messageId);
   clearDashboardCache(req);
-  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   await queueMentorNotification(mentorId, {
     type: 'mentorship.inbox.message.deleted',
     title: 'Inbox message removed',
@@ -424,15 +446,15 @@ export async function deleteMessage(req, res) {
   res.json({ dashboard });
 }
 
-export function saveVerificationStatus(req, res) {
+export async function saveVerificationStatus(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const verification = updateMentorVerificationStatus(
+  const verification = await updateMentorVerificationStatus(
     mentorId,
     ensurePlainObject(req.body ?? {}, 'verification status'),
   );
   clearDashboardCache(req);
-  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.json({ verification, dashboard });
 }
 
@@ -442,7 +464,7 @@ export async function createVerificationDocument(req, res) {
   const payload = ensurePlainObject(req.body ?? {}, 'verification document');
   const actorId = resolveRequestUserId(req) ?? mentorId;
   const evidence = await persistVerificationEvidence(payload.file, { actorId });
-  const document = createMentorVerificationDocument(mentorId, {
+  const document = await createMentorVerificationDocument(mentorId, {
     ...payload,
     storageKey: evidence?.key ?? payload.storageKey ?? null,
     fileName: evidence?.fileName ?? payload.fileName ?? null,
@@ -451,7 +473,7 @@ export async function createVerificationDocument(req, res) {
     storedAt: evidence?.storedAt ?? payload.storedAt ?? new Date().toISOString(),
   });
   clearDashboardCache(req);
-  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   await queueMentorNotification(mentorId, {
     type: 'mentorship.verification.document.created',
     title: 'Verification document submitted',
@@ -472,7 +494,7 @@ export async function updateVerificationDocument(req, res) {
   const payload = ensurePlainObject(req.body ?? {}, 'verification document update');
   const actorId = resolveRequestUserId(req) ?? mentorId;
   const evidence = await persistVerificationEvidence(payload.file, { actorId });
-  const document = updateMentorVerificationDocument(
+  const document = await updateMentorVerificationDocument(
     mentorId,
     documentId,
     {
@@ -485,7 +507,7 @@ export async function updateVerificationDocument(req, res) {
     },
   );
   clearDashboardCache(req);
-  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   await queueMentorNotification(mentorId, {
     type: 'mentorship.verification.document.updated',
     title: 'Verification document updated',
@@ -500,9 +522,9 @@ export async function deleteVerificationDocument(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
   const documentId = toPositiveInteger(req.params?.documentId, { fieldName: 'documentId' });
-  deleteMentorVerificationDocument(mentorId, documentId);
+  await deleteMentorVerificationDocument(mentorId, documentId);
   clearDashboardCache(req);
-  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   await queueMentorNotification(mentorId, {
     type: 'mentorship.verification.document.deleted',
     title: 'Verification document removed',
@@ -513,103 +535,111 @@ export async function deleteVerificationDocument(req, res) {
   res.json({ dashboard });
 }
 
-export function createWalletTransaction(req, res) {
+export async function createWalletTransaction(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const transaction = createMentorWalletTransaction(
+  const transaction = await createMentorWalletTransaction(
     mentorId,
     ensurePlainObject(req.body ?? {}, 'wallet transaction'),
   );
   clearDashboardCache(req);
-  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.status(201).json({ transaction, dashboard });
 }
 
-export function updateWalletTransaction(req, res) {
+export async function updateWalletTransaction(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
   const transactionId = toPositiveInteger(req.params?.transactionId ?? req.body?.transactionId, {
     fieldName: 'transactionId',
   });
-  const transaction = updateMentorWalletTransaction(
+  const transaction = await updateMentorWalletTransaction(
     mentorId,
     transactionId,
     ensurePlainObject(req.body ?? {}, 'wallet transaction update'),
   );
   clearDashboardCache(req);
-  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.json({ transaction, dashboard });
 }
 
-export function deleteWalletTransaction(req, res) {
+export async function deleteWalletTransaction(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
   const transactionId = toPositiveInteger(req.params?.transactionId, { fieldName: 'transactionId' });
-  deleteMentorWalletTransaction(mentorId, transactionId);
+  await deleteMentorWalletTransaction(mentorId, transactionId);
   clearDashboardCache(req);
-  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.json({ dashboard });
 }
 
-export function createInvoice(req, res) {
+export async function createInvoice(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const invoice = createMentorInvoice(mentorId, ensurePlainObject(req.body ?? {}, 'mentor invoice'));
+  const invoice = await createMentorInvoice(mentorId, ensurePlainObject(req.body ?? {}, 'mentor invoice'));
   clearDashboardCache(req);
-  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.status(201).json({ invoice, dashboard });
 }
 
-export function updateInvoice(req, res) {
+export async function updateInvoice(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
   const invoiceId = toPositiveInteger(req.params?.invoiceId ?? req.body?.invoiceId, {
     fieldName: 'invoiceId',
   });
-  const invoice = updateMentorInvoice(mentorId, invoiceId, ensurePlainObject(req.body ?? {}, 'mentor invoice update'));
+  const invoice = await updateMentorInvoice(
+    mentorId,
+    invoiceId,
+    ensurePlainObject(req.body ?? {}, 'mentor invoice update'),
+  );
   clearDashboardCache(req);
-  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.json({ invoice, dashboard });
 }
 
-export function deleteInvoice(req, res) {
+export async function deleteInvoice(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
   const invoiceId = toPositiveInteger(req.params?.invoiceId, { fieldName: 'invoiceId' });
-  deleteMentorInvoice(mentorId, invoiceId);
+  await deleteMentorInvoice(mentorId, invoiceId);
   clearDashboardCache(req);
-  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.json({ dashboard });
 }
 
-export function createPayout(req, res) {
+export async function createPayout(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
-  const payout = createMentorPayout(mentorId, ensurePlainObject(req.body ?? {}, 'mentor payout'));
+  const payout = await createMentorPayout(mentorId, ensurePlainObject(req.body ?? {}, 'mentor payout'));
   clearDashboardCache(req);
-  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.status(201).json({ payout, dashboard });
 }
 
-export function updatePayout(req, res) {
+export async function updatePayout(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
   const payoutId = toPositiveInteger(req.params?.payoutId ?? req.body?.payoutId, {
     fieldName: 'payoutId',
   });
-  const payout = updateMentorPayout(mentorId, payoutId, ensurePlainObject(req.body ?? {}, 'mentor payout update'));
+  const payout = await updateMentorPayout(
+    mentorId,
+    payoutId,
+    ensurePlainObject(req.body ?? {}, 'mentor payout update'),
+  );
   clearDashboardCache(req);
-  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.json({ payout, dashboard });
 }
 
-export function deletePayout(req, res) {
+export async function deletePayout(req, res) {
   const mentorId = resolveMentorId(req);
   ensureMentorRole(req, mentorId);
   const payoutId = toPositiveInteger(req.params?.payoutId, { fieldName: 'payoutId' });
-  deleteMentorPayout(mentorId, payoutId);
+  await deleteMentorPayout(mentorId, payoutId);
   clearDashboardCache(req);
-  const dashboard = getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
   res.json({ dashboard });
 }
 

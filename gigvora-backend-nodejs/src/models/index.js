@@ -8784,6 +8784,561 @@ export const MentorProfile = sequelize.define(
   },
 );
 
+export const MENTOR_AVAILABILITY_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+export const MENTOR_BOOKING_STATUSES = [
+  'Scheduled',
+  'Awaiting pre-work',
+  'Completed',
+  'Cancelled',
+  'Rescheduled',
+];
+export const MENTOR_PAYMENT_STATUSES = ['Paid', 'Pending', 'Refunded', 'Overdue'];
+export const MENTOR_CLIENT_STATUSES = ['Active', 'Onboarding', 'Paused', 'Graduated', 'Churned'];
+export const MENTOR_RELATIONSHIP_TIERS = ['Flagship', 'Growth', 'Trial', 'Past'];
+export const MENTOR_EVENT_TYPES = ['Session', 'Office hours', 'Workshop', 'Cohort'];
+export const MENTOR_EVENT_STATUSES = ['Scheduled', 'Completed', 'Cancelled', 'Awaiting prep'];
+export const MENTOR_SUPPORT_PRIORITIES = ['Low', 'Normal', 'High', 'Urgent'];
+export const MENTOR_SUPPORT_STATUSES = ['Open', 'Awaiting mentor', 'Awaiting support', 'Resolved'];
+export const MENTOR_MESSAGE_STATUSES = ['Unread', 'Read', 'Archived'];
+export const MENTOR_MESSAGE_CHANNELS = ['Explorer', 'Email', 'Slack Connect', 'WhatsApp'];
+export const MENTOR_DOCUMENT_TYPES = ['Passport', 'National ID', 'Driving licence', 'Business certificate'];
+export const MENTOR_VERIFICATION_STATUSES = ['Not started', 'In review', 'Action required', 'Approved'];
+export const MENTOR_WALLET_TRANSACTION_TYPES = ['Payout', 'Mentorship earning', 'Adjustment'];
+export const MENTOR_WALLET_TRANSACTION_STATUSES = ['Pending', 'Completed', 'Failed', 'Processing'];
+export const MENTOR_INVOICE_STATUSES = ['Draft', 'Sent', 'Paid', 'Overdue', 'Cancelled'];
+export const MENTOR_PAYOUT_STATUSES = ['Scheduled', 'Processing', 'Paid', 'Failed'];
+
+export const MentorAvailabilitySlot = sequelize.define(
+  'MentorAvailabilitySlot',
+  {
+    mentorId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: { model: 'users', key: 'id' },
+      onUpdate: 'CASCADE',
+      onDelete: 'CASCADE',
+    },
+    dayOfWeek: { type: DataTypes.STRING(16), allowNull: false },
+    startTime: { type: DataTypes.DATE, allowNull: false },
+    endTime: { type: DataTypes.DATE, allowNull: false },
+    format: { type: DataTypes.STRING(120), allowNull: false },
+    capacity: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1, validate: { min: 1 } },
+  },
+  {
+    tableName: 'mentor_availability_slots',
+    indexes: [
+      { fields: ['mentorId'], name: 'mentor_availability_slots_mentor_idx' },
+      { fields: ['mentorId', 'dayOfWeek'], name: 'mentor_availability_slots_mentor_day_idx' },
+    ],
+  },
+);
+
+MentorAvailabilitySlot.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    day: plain.dayOfWeek,
+    start: plain.startTime instanceof Date ? plain.startTime.toISOString() : plain.startTime,
+    end: plain.endTime instanceof Date ? plain.endTime.toISOString() : plain.endTime,
+    format: plain.format,
+    capacity: plain.capacity,
+  };
+};
+
+export const MentorPackage = sequelize.define(
+  'MentorPackage',
+  {
+    mentorId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: { model: 'users', key: 'id' },
+      onUpdate: 'CASCADE',
+      onDelete: 'CASCADE',
+    },
+    name: { type: DataTypes.STRING(191), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: false },
+    sessions: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1, validate: { min: 1 } },
+    price: { type: DataTypes.DECIMAL(10, 2), allowNull: false, validate: { min: 0 } },
+    currency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'GBP' },
+    format: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'Virtual' },
+    outcome: { type: DataTypes.STRING(255), allowNull: false },
+  },
+  {
+    tableName: 'mentor_packages',
+    indexes: [{ fields: ['mentorId'], name: 'mentor_packages_mentor_idx' }],
+  },
+);
+
+MentorPackage.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    name: plain.name,
+    description: plain.description,
+    sessions: plain.sessions,
+    price: Number(plain.price),
+    currency: plain.currency,
+    format: plain.format,
+    outcome: plain.outcome,
+  };
+};
+
+export const MentorBooking = sequelize.define(
+  'MentorBooking',
+  {
+    mentorId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: { model: 'users', key: 'id' },
+      onUpdate: 'CASCADE',
+      onDelete: 'CASCADE',
+    },
+    menteeName: { type: DataTypes.STRING(191), allowNull: false },
+    menteeRole: { type: DataTypes.STRING(191), allowNull: true },
+    packageName: { type: DataTypes.STRING(191), allowNull: true },
+    focus: { type: DataTypes.STRING(191), allowNull: true },
+    scheduledAt: { type: DataTypes.DATE, allowNull: false },
+    status: { type: DataTypes.ENUM(...MENTOR_BOOKING_STATUSES), allowNull: false, defaultValue: 'Scheduled' },
+    price: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
+    currency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'GBP' },
+    paymentStatus: {
+      type: DataTypes.ENUM(...MENTOR_PAYMENT_STATUSES),
+      allowNull: false,
+      defaultValue: 'Pending',
+    },
+    channel: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'Explorer' },
+    segment: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'active' },
+    conferenceLink: { type: DataTypes.STRING(512), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  {
+    tableName: 'mentor_bookings',
+    indexes: [
+      { fields: ['mentorId'], name: 'mentor_bookings_mentor_idx' },
+      { fields: ['mentorId', 'scheduledAt'], name: 'mentor_bookings_schedule_idx' },
+    ],
+  },
+);
+
+MentorBooking.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    mentee: plain.menteeName,
+    role: plain.menteeRole ?? null,
+    package: plain.packageName ?? null,
+    focus: plain.focus ?? null,
+    scheduledAt: plain.scheduledAt instanceof Date ? plain.scheduledAt.toISOString() : plain.scheduledAt,
+    status: plain.status,
+    price: Number(plain.price ?? 0),
+    currency: plain.currency,
+    paymentStatus: plain.paymentStatus,
+    channel: plain.channel,
+    segment: plain.segment,
+    conferenceLink: plain.conferenceLink ?? undefined,
+    notes: plain.notes ?? undefined,
+  };
+};
+
+export const MentorClient = sequelize.define(
+  'MentorClient',
+  {
+    mentorId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: { model: 'users', key: 'id' },
+      onUpdate: 'CASCADE',
+      onDelete: 'CASCADE',
+    },
+    name: { type: DataTypes.STRING(191), allowNull: false },
+    company: { type: DataTypes.STRING(191), allowNull: true },
+    role: { type: DataTypes.STRING(191), allowNull: true },
+    status: { type: DataTypes.ENUM(...MENTOR_CLIENT_STATUSES), allowNull: false, defaultValue: 'Active' },
+    tier: { type: DataTypes.ENUM(...MENTOR_RELATIONSHIP_TIERS), allowNull: false, defaultValue: 'Growth' },
+    value: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
+    currency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'GBP' },
+    channel: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'Explorer' },
+    tags: { type: jsonType, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    onboardedAt: { type: DataTypes.DATE, allowNull: true },
+    lastSessionAt: { type: DataTypes.DATE, allowNull: true },
+    nextSessionAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'mentor_clients',
+    indexes: [
+      { fields: ['mentorId'], name: 'mentor_clients_mentor_idx' },
+      { fields: ['mentorId', 'status'], name: 'mentor_clients_status_idx' },
+    ],
+  },
+);
+
+MentorClient.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    name: plain.name,
+    company: plain.company ?? null,
+    role: plain.role ?? null,
+    status: plain.status,
+    tier: plain.tier,
+    value: Number(plain.value ?? 0),
+    currency: plain.currency,
+    channel: plain.channel,
+    tags: Array.isArray(plain.tags) ? plain.tags : [],
+    notes: plain.notes ?? '',
+    onboardedAt: plain.onboardedAt instanceof Date ? plain.onboardedAt.toISOString() : plain.onboardedAt,
+    lastSessionAt: plain.lastSessionAt instanceof Date ? plain.lastSessionAt.toISOString() : plain.lastSessionAt,
+    nextSessionAt: plain.nextSessionAt instanceof Date ? plain.nextSessionAt.toISOString() : plain.nextSessionAt,
+  };
+};
+
+export const MentorEvent = sequelize.define(
+  'MentorEvent',
+  {
+    mentorId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: { model: 'users', key: 'id' },
+      onUpdate: 'CASCADE',
+      onDelete: 'CASCADE',
+    },
+    clientId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: { model: 'mentor_clients', key: 'id' },
+      onUpdate: 'CASCADE',
+      onDelete: 'SET NULL',
+    },
+    title: { type: DataTypes.STRING(191), allowNull: false },
+    type: { type: DataTypes.ENUM(...MENTOR_EVENT_TYPES), allowNull: false, defaultValue: 'Session' },
+    status: { type: DataTypes.ENUM(...MENTOR_EVENT_STATUSES), allowNull: false, defaultValue: 'Scheduled' },
+    startsAt: { type: DataTypes.DATE, allowNull: false },
+    endsAt: { type: DataTypes.DATE, allowNull: false },
+    location: { type: DataTypes.STRING(191), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  {
+    tableName: 'mentor_events',
+    indexes: [
+      { fields: ['mentorId'], name: 'mentor_events_mentor_idx' },
+      { fields: ['mentorId', 'startsAt'], name: 'mentor_events_schedule_idx' },
+    ],
+  },
+);
+
+MentorEvent.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    title: plain.title,
+    type: plain.type,
+    status: plain.status,
+    startsAt: plain.startsAt instanceof Date ? plain.startsAt.toISOString() : plain.startsAt,
+    endsAt: plain.endsAt instanceof Date ? plain.endsAt.toISOString() : plain.endsAt,
+    location: plain.location ?? null,
+    notes: plain.notes ?? '',
+    clientId: plain.clientId ?? null,
+  };
+};
+
+export const MentorSupportTicket = sequelize.define(
+  'MentorSupportTicket',
+  {
+    mentorId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: { model: 'users', key: 'id' },
+      onUpdate: 'CASCADE',
+      onDelete: 'CASCADE',
+    },
+    subject: { type: DataTypes.STRING(191), allowNull: false },
+    category: { type: DataTypes.STRING(120), allowNull: false, defaultValue: 'General' },
+    priority: { type: DataTypes.ENUM(...MENTOR_SUPPORT_PRIORITIES), allowNull: false, defaultValue: 'Normal' },
+    status: { type: DataTypes.ENUM(...MENTOR_SUPPORT_STATUSES), allowNull: false, defaultValue: 'Open' },
+    reference: { type: DataTypes.STRING(120), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    submittedAt: { type: DataTypes.DATE, allowNull: false },
+    respondedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'mentor_support_tickets',
+    indexes: [{ fields: ['mentorId'], name: 'mentor_support_tickets_mentor_idx' }],
+  },
+);
+
+MentorSupportTicket.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    subject: plain.subject,
+    category: plain.category,
+    priority: plain.priority,
+    status: plain.status,
+    reference: plain.reference ?? null,
+    notes: plain.notes ?? '',
+    submittedAt: plain.submittedAt instanceof Date ? plain.submittedAt.toISOString() : plain.submittedAt,
+    updatedAt: plain.respondedAt instanceof Date ? plain.respondedAt.toISOString() : plain.respondedAt,
+  };
+};
+
+export const MentorMessage = sequelize.define(
+  'MentorMessage',
+  {
+    mentorId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: { model: 'users', key: 'id' },
+      onUpdate: 'CASCADE',
+      onDelete: 'CASCADE',
+    },
+    senderName: { type: DataTypes.STRING(191), allowNull: false },
+    channel: { type: DataTypes.ENUM(...MENTOR_MESSAGE_CHANNELS), allowNull: false, defaultValue: 'Explorer' },
+    status: { type: DataTypes.ENUM(...MENTOR_MESSAGE_STATUSES), allowNull: false, defaultValue: 'Unread' },
+    subject: { type: DataTypes.STRING(191), allowNull: true },
+    preview: { type: DataTypes.STRING(512), allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    receivedAt: { type: DataTypes.DATE, allowNull: false },
+  },
+  {
+    tableName: 'mentor_messages',
+    indexes: [
+      { fields: ['mentorId'], name: 'mentor_messages_mentor_idx' },
+      { fields: ['mentorId', 'status'], name: 'mentor_messages_status_idx' },
+    ],
+  },
+);
+
+MentorMessage.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    from: plain.senderName,
+    channel: plain.channel,
+    status: plain.status,
+    subject: plain.subject ?? null,
+    preview: plain.preview ?? '',
+    tags: Array.isArray(plain.tags) ? plain.tags : [],
+    receivedAt: plain.receivedAt instanceof Date ? plain.receivedAt.toISOString() : plain.receivedAt,
+  };
+};
+
+export const MentorVerification = sequelize.define(
+  'MentorVerification',
+  {
+    mentorId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      unique: true,
+      references: { model: 'users', key: 'id' },
+      onUpdate: 'CASCADE',
+      onDelete: 'CASCADE',
+    },
+    status: {
+      type: DataTypes.ENUM(...MENTOR_VERIFICATION_STATUSES),
+      allowNull: false,
+      defaultValue: 'Not started',
+    },
+    lastSubmittedAt: { type: DataTypes.DATE, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  {
+    tableName: 'mentor_verifications',
+    indexes: [{ unique: true, fields: ['mentorId'], name: 'mentor_verifications_mentor_unique' }],
+  },
+);
+
+MentorVerification.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    mentorId: plain.mentorId,
+    status: plain.status,
+    lastSubmittedAt:
+      plain.lastSubmittedAt instanceof Date ? plain.lastSubmittedAt.toISOString() : plain.lastSubmittedAt,
+    notes: plain.notes ?? null,
+  };
+};
+
+export const MentorVerificationDocument = sequelize.define(
+  'MentorVerificationDocument',
+  {
+    mentorId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: { model: 'users', key: 'id' },
+      onUpdate: 'CASCADE',
+      onDelete: 'CASCADE',
+    },
+    type: { type: DataTypes.ENUM(...MENTOR_DOCUMENT_TYPES), allowNull: false },
+    status: {
+      type: DataTypes.ENUM('Pending', 'In review', 'Approved', 'Action required'),
+      allowNull: false,
+      defaultValue: 'In review',
+    },
+    reference: { type: DataTypes.STRING(191), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    storageKey: { type: DataTypes.STRING(255), allowNull: true },
+    fileName: { type: DataTypes.STRING(255), allowNull: true },
+    contentType: { type: DataTypes.STRING(120), allowNull: true },
+    fileSize: { type: DataTypes.INTEGER, allowNull: true },
+    submittedAt: { type: DataTypes.DATE, allowNull: false },
+    storedAt: { type: DataTypes.DATE, allowNull: true },
+  },
+  {
+    tableName: 'mentor_verification_documents',
+    indexes: [{ fields: ['mentorId'], name: 'mentor_verification_documents_mentor_idx' }],
+  },
+);
+
+MentorVerificationDocument.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    type: plain.type,
+    status: plain.status,
+    reference: plain.reference ?? null,
+    notes: plain.notes ?? '',
+    storageKey: plain.storageKey ?? null,
+    fileName: plain.fileName ?? null,
+    contentType: plain.contentType ?? null,
+    fileSize: plain.fileSize ?? null,
+    submittedAt: plain.submittedAt instanceof Date ? plain.submittedAt.toISOString() : plain.submittedAt,
+    storedAt: plain.storedAt instanceof Date ? plain.storedAt.toISOString() : plain.storedAt,
+  };
+};
+
+export const MentorWalletTransaction = sequelize.define(
+  'MentorWalletTransaction',
+  {
+    mentorId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: { model: 'users', key: 'id' },
+      onUpdate: 'CASCADE',
+      onDelete: 'CASCADE',
+    },
+    type: {
+      type: DataTypes.ENUM(...MENTOR_WALLET_TRANSACTION_TYPES),
+      allowNull: false,
+      defaultValue: 'Mentorship earning',
+    },
+    status: {
+      type: DataTypes.ENUM(...MENTOR_WALLET_TRANSACTION_STATUSES),
+      allowNull: false,
+      defaultValue: 'Completed',
+    },
+    amount: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
+    currency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'GBP' },
+    reference: { type: DataTypes.STRING(191), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    occurredAt: { type: DataTypes.DATE, allowNull: false },
+  },
+  {
+    tableName: 'mentor_wallet_transactions',
+    indexes: [
+      { fields: ['mentorId'], name: 'mentor_wallet_transactions_mentor_idx' },
+      { fields: ['mentorId', 'status'], name: 'mentor_wallet_transactions_status_idx' },
+    ],
+  },
+);
+
+MentorWalletTransaction.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    type: plain.type,
+    status: plain.status,
+    amount: Number(plain.amount ?? 0),
+    currency: plain.currency,
+    reference: plain.reference,
+    description: plain.description ?? '',
+    occurredAt: plain.occurredAt instanceof Date ? plain.occurredAt.toISOString() : plain.occurredAt,
+  };
+};
+
+export const MentorInvoice = sequelize.define(
+  'MentorInvoice',
+  {
+    mentorId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: { model: 'users', key: 'id' },
+      onUpdate: 'CASCADE',
+      onDelete: 'CASCADE',
+    },
+    reference: { type: DataTypes.STRING(191), allowNull: false },
+    menteeName: { type: DataTypes.STRING(191), allowNull: false },
+    amount: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
+    currency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'GBP' },
+    status: { type: DataTypes.ENUM(...MENTOR_INVOICE_STATUSES), allowNull: false, defaultValue: 'Draft' },
+    issuedOn: { type: DataTypes.DATE, allowNull: false },
+    dueOn: { type: DataTypes.DATE, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  {
+    tableName: 'mentor_invoices',
+    indexes: [{ fields: ['mentorId'], name: 'mentor_invoices_mentor_idx' }],
+  },
+);
+
+MentorInvoice.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    reference: plain.reference,
+    mentee: plain.menteeName,
+    amount: Number(plain.amount ?? 0),
+    currency: plain.currency,
+    status: plain.status,
+    issuedOn: plain.issuedOn instanceof Date ? plain.issuedOn.toISOString() : plain.issuedOn,
+    dueOn: plain.dueOn instanceof Date ? plain.dueOn.toISOString() : plain.dueOn,
+    notes: plain.notes ?? '',
+  };
+};
+
+export const MentorPayout = sequelize.define(
+  'MentorPayout',
+  {
+    mentorId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: { model: 'users', key: 'id' },
+      onUpdate: 'CASCADE',
+      onDelete: 'CASCADE',
+    },
+    reference: { type: DataTypes.STRING(191), allowNull: false },
+    amount: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
+    currency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'GBP' },
+    status: { type: DataTypes.ENUM(...MENTOR_PAYOUT_STATUSES), allowNull: false, defaultValue: 'Scheduled' },
+    scheduledFor: { type: DataTypes.DATE, allowNull: false },
+    processedAt: { type: DataTypes.DATE, allowNull: true },
+    failureReason: { type: DataTypes.STRING(255), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+  },
+  {
+    tableName: 'mentor_payouts',
+    indexes: [
+      { fields: ['mentorId'], name: 'mentor_payouts_mentor_idx' },
+      { fields: ['mentorId', 'status'], name: 'mentor_payouts_status_idx' },
+    ],
+  },
+);
+
+MentorPayout.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    reference: plain.reference,
+    amount: Number(plain.amount ?? 0),
+    currency: plain.currency,
+    status: plain.status,
+    scheduledFor: plain.scheduledFor instanceof Date ? plain.scheduledFor.toISOString() : plain.scheduledFor,
+    processedAt: plain.processedAt instanceof Date ? plain.processedAt.toISOString() : plain.processedAt,
+    failureReason: plain.failureReason ?? null,
+    notes: plain.notes ?? '',
+  };
+};
+
 export const VolunteerContractSpend = sequelize.define(
   'VolunteerContractSpend',
   {
@@ -23217,6 +23772,18 @@ export default {
   LearningCourseEnrollment,
   PeerMentoringSession,
   MentorProfile,
+  MentorAvailabilitySlot,
+  MentorPackage,
+  MentorBooking,
+  MentorClient,
+  MentorEvent,
+  MentorSupportTicket,
+  MentorMessage,
+  MentorVerification,
+  MentorVerificationDocument,
+  MentorWalletTransaction,
+  MentorInvoice,
+  MentorPayout,
   MentorshipOrder,
   MentorFavourite,
   MentorRecommendation,

@@ -94,26 +94,26 @@ beforeEach(() => {
 });
 
 describe('mentorshipController.dashboard', () => {
-  it('requires mentor roles or admin', () => {
-    expect(() => controller.dashboard({ params: { mentorId: '2' }, user: { id: 2, roles: ['viewer'] } }, {})).toThrow(
-      AuthorizationError,
-    );
+  it('requires mentor roles or admin', async () => {
+    await expect(
+      controller.dashboard({ params: { mentorId: '2' }, user: { id: 2, roles: ['viewer'] } }, {}),
+    ).rejects.toThrow(AuthorizationError);
   });
 
-  it('returns dashboard for mentors', () => {
-    getMentorDashboard.mockReturnValue({ ok: true });
+  it('returns dashboard for mentors', async () => {
+    getMentorDashboard.mockResolvedValue({ ok: true });
     const res = { json: jest.fn() };
-    controller.dashboard({ params: { mentorId: '4' }, user: { id: 4, roles: ['mentor'] } }, res);
+    await controller.dashboard({ params: { mentorId: '4' }, user: { id: 4, roles: ['mentor'] } }, res);
     expect(getMentorDashboard).toHaveBeenCalledWith(4, { lookbackDays: null });
     expect(res.json).toHaveBeenCalledWith({ ok: true });
   });
 });
 
 describe('mentorshipController.saveAvailability', () => {
-  it('validates slot payloads', () => {
-    expect(() =>
+  it('validates slot payloads', async () => {
+    await expect(
       controller.saveAvailability({ params: { mentorId: '3' }, body: { slots: 'bad' }, user: { id: 3, roles: ['mentor'] } }, {}),
-    ).toThrow(ValidationError);
+    ).rejects.toThrow(ValidationError);
     expect(updateMentorAvailability).not.toHaveBeenCalled();
   });
 });
@@ -121,8 +121,8 @@ describe('mentorshipController.saveAvailability', () => {
 describe('mentorshipController integrations', () => {
   it('queues notifications when creating support tickets', async () => {
     const ticket = { id: 'ticket-1', subject: 'Need help', priority: 'High', status: 'Open' };
-    createMentorSupportTicket.mockReturnValue(ticket);
-    getMentorDashboard.mockReturnValue({ ok: true });
+    createMentorSupportTicket.mockResolvedValue(ticket);
+    getMentorDashboard.mockResolvedValue({ ok: true });
 
     const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
 
@@ -164,8 +164,8 @@ describe('mentorshipController integrations', () => {
       fileSize: metadata.size,
       storedAt: metadata.storedAt,
     };
-    createMentorVerificationDocument.mockReturnValue(document);
-    getMentorDashboard.mockReturnValue({ ok: true });
+    createMentorVerificationDocument.mockResolvedValue(document);
+    getMentorDashboard.mockResolvedValue({ ok: true });
 
     const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
 
