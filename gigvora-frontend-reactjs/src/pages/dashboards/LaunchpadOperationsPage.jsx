@@ -224,7 +224,8 @@ export default function LaunchpadOperationsPage() {
 
   useEffect(() => {
     if (!selectedLaunchpadId && launchpads.length) {
-      setSelectedLaunchpadId(launchpads[0].id);
+      const firstId = Number(launchpads[0].id);
+      setSelectedLaunchpadId(Number.isFinite(firstId) ? firstId : launchpads[0].id);
     }
   }, [launchpads, selectedLaunchpadId]);
 
@@ -321,7 +322,15 @@ export default function LaunchpadOperationsPage() {
                 Cohort
                 <select
                   value={selectedLaunchpadId ?? ''}
-                  onChange={(event) => setSelectedLaunchpadId(event.target.value || null)}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    if (!value) {
+                      setSelectedLaunchpadId(null);
+                      return;
+                    }
+                    const numeric = Number(value);
+                    setSelectedLaunchpadId(Number.isFinite(numeric) ? numeric : value);
+                  }}
                   className="mt-2 rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/40"
                 >
                   <option value="" disabled>
