@@ -7,6 +7,7 @@ import {
   updatePlatformSettings,
   getHomepageSettings,
   updateHomepageSettings,
+  listPlatformSettingsAuditEvents,
 } from '../services/platformSettingsService.js';
 import { getAffiliateSettings, updateAffiliateSettings } from '../services/affiliateSettingsService.js';
 import { getSystemSettings, updateSystemSettings } from '../services/systemSettingsService.js';
@@ -21,10 +22,17 @@ import { getSeoSettings, updateSeoSettings } from '../services/seoSettingsServic
 import { getRuntimeOperationalSnapshot } from '../services/runtimeObservabilityService.js';
 import {
   sanitizeAdminDashboardFilters,
+  sanitizePlatformSettingsAuditFilters,
   sanitizePlatformSettingsInput,
   sanitizeHomepageSettingsInput,
   sanitizeAffiliateSettingsInput,
 } from '../utils/adminSanitizers.js';
+import {
+  listPlatformSettingsWatchers,
+  createPlatformSettingsWatcher,
+  updatePlatformSettingsWatcher,
+  deletePlatformSettingsWatcher,
+} from '../services/platformSettingsWatchersService.js';
 
 function resolveActorId(user) {
   if (!user) {
@@ -41,6 +49,22 @@ function resolveActorId(user) {
       ? Number.parseInt(user.userId, 10)
       : undefined;
   return Number.isFinite(candidate) ? candidate : undefined;
+}
+
+function resolveActorMetadata(user) {
+  const actorId = resolveActorId(user);
+  const email = typeof user?.email === 'string' && user.email.trim().length ? user.email.trim() : null;
+  const nameFromUser =
+    typeof user?.name === 'string' && user.name.trim().length
+      ? user.name.trim()
+      : [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();
+  const actorName = nameFromUser && nameFromUser.length ? nameFromUser : null;
+
+  return {
+    actorId: actorId ?? null,
+    actorEmail: email,
+    actorName,
+  };
 }
 
 export async function dashboard(req, res) {
@@ -60,8 +84,38 @@ export async function fetchPlatformSettings(req, res) {
 
 export async function persistPlatformSettings(req, res) {
   const payload = sanitizePlatformSettingsInput(req.body ?? {});
-  const settings = await updatePlatformSettings(payload);
+  const actor = resolveActorMetadata(req.user);
+  const settings = await updatePlatformSettings(payload, actor);
   res.json(settings);
+}
+
+export async function listPlatformSettingsAuditTrail(req, res) {
+  const filters = sanitizePlatformSettingsAuditFilters(req.query ?? {});
+  const events = await listPlatformSettingsAuditEvents(filters);
+  res.json(events);
+}
+
+export async function listPlatformSettingsWatchersController(req, res) {
+  const includeDisabled = Boolean(req.query?.includeDisabled);
+  const watchers = await listPlatformSettingsWatchers({ includeDisabled });
+  res.json({ watchers });
+}
+
+export async function createPlatformSettingsWatcherController(req, res) {
+  const actor = resolveActorMetadata(req.user);
+  const watcher = await createPlatformSettingsWatcher(req.body ?? {}, { actor });
+  res.status(201).json(watcher);
+}
+
+export async function updatePlatformSettingsWatcherController(req, res) {
+  const actor = resolveActorMetadata(req.user);
+  const watcher = await updatePlatformSettingsWatcher(req.params.watcherId, req.body ?? {}, { actor });
+  res.json(watcher);
+}
+
+export async function removePlatformSettingsWatcher(req, res) {
+  await deletePlatformSettingsWatcher(req.params.watcherId, { actor: resolveActorMetadata(req.user) });
+  res.status(204).send();
 }
 
 export async function fetchHomepageSettings(req, res) {
@@ -154,6 +208,11 @@ export default {
   dashboard,
   fetchPlatformSettings,
   persistPlatformSettings,
+  listPlatformSettingsAuditTrail,
+  listPlatformSettingsWatchersController,
+  createPlatformSettingsWatcherController,
+  updatePlatformSettingsWatcherController,
+  removePlatformSettingsWatcher,
   fetchHomepageSettings,
   persistHomepageSettings,
   fetchAffiliateSettings,

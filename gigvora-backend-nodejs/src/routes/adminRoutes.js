@@ -11,6 +11,11 @@ import {
   affiliateSettingsBodySchema,
   gdprSettingsBodySchema,
   platformSettingsBodySchema,
+  platformSettingsAuditQuerySchema,
+  platformSettingsWatcherBodySchema,
+  platformSettingsWatcherUpdateSchema,
+  platformSettingsWatcherQuerySchema,
+  platformSettingsWatcherParamsSchema,
   systemSettingsBodySchema,
   homepageSettingsBodySchema,
   seoSettingsBodySchema,
@@ -61,6 +66,34 @@ router.put(
 );
 router.get('/runtime/health', asyncHandler(adminController.runtimeHealth));
 router.get('/platform-settings', asyncHandler(adminController.fetchPlatformSettings));
+router.get(
+  '/platform-settings/audit-events',
+  validateRequest({ query: platformSettingsAuditQuerySchema }),
+  asyncHandler(adminController.listPlatformSettingsAuditTrail),
+);
+router.get(
+  '/platform-settings/watchers',
+  validateRequest({ query: platformSettingsWatcherQuerySchema }),
+  asyncHandler(adminController.listPlatformSettingsWatchersController),
+);
+router.post(
+  '/platform-settings/watchers',
+  validateRequest({ body: platformSettingsWatcherBodySchema }),
+  asyncHandler(adminController.createPlatformSettingsWatcherController),
+);
+router.patch(
+  '/platform-settings/watchers/:watcherId',
+  validateRequest({
+    params: platformSettingsWatcherParamsSchema,
+    body: platformSettingsWatcherUpdateSchema,
+  }),
+  asyncHandler(adminController.updatePlatformSettingsWatcherController),
+);
+router.delete(
+  '/platform-settings/watchers/:watcherId',
+  validateRequest({ params: platformSettingsWatcherParamsSchema }),
+  asyncHandler(adminController.removePlatformSettingsWatcher),
+);
 router.put(
   '/platform-settings',
   validateRequest({ body: platformSettingsBodySchema }),

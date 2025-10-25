@@ -238,6 +238,19 @@ export const runtimeConfigSchema = z.object({
       enabled: z.boolean().default(true),
       intervalMs: z.number().int().positive().default(5 * 60_000),
     }),
+    platformSettingsAudit: z
+      .object({
+        enabled: z.boolean().default(true),
+        digestIntervalMs: z.number().int().positive().default(6 * 60 * 60_000),
+        digestLookbackHours: z.number().int().positive().default(24),
+        retentionDays: z.number().int().nonnegative().default(365),
+      })
+      .default({
+        enabled: true,
+        digestIntervalMs: 6 * 60 * 60_000,
+        digestLookbackHours: 24,
+        retentionDays: 365,
+      }),
   }),
   runtime: z.object({
     configFile: z.string().optional(),
@@ -531,6 +544,12 @@ function buildRawConfig(env) {
       newsAggregation: {
         enabled: parseBoolean(env.ENABLE_NEWS_AGGREGATION_WORKER, true),
         intervalMs: parseNumber(env.NEWS_AGGREGATION_INTERVAL_MS, 5 * 60_000),
+      },
+      platformSettingsAudit: {
+        enabled: parseBoolean(env.ENABLE_PLATFORM_SETTINGS_AUDIT_WORKER, true),
+        digestIntervalMs: parseNumber(env.PLATFORM_SETTINGS_AUDIT_DIGEST_INTERVAL_MS, 6 * 60 * 60_000),
+        digestLookbackHours: parseNumber(env.PLATFORM_SETTINGS_AUDIT_DIGEST_LOOKBACK_HOURS, 24),
+        retentionDays: parseNumber(env.PLATFORM_SETTINGS_AUDIT_RETENTION_DAYS, 365),
       },
     },
     runtime: {

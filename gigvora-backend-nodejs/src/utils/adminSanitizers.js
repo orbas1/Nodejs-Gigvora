@@ -144,6 +144,79 @@ export function sanitizeAdminDashboardFilters(query = {}) {
   return sanitized;
 }
 
+export function sanitizePlatformSettingsAuditFilters(query = {}) {
+  const sanitized = {};
+  const limit = ensureOptionalNumber(query.limit, {
+    label: 'limit',
+    min: 1,
+    max: 100,
+    precision: 0,
+    integer: true,
+  });
+  if (limit !== undefined) {
+    sanitized.limit = limit;
+  }
+
+  const actorId = ensureOptionalNumber(query.actorId, {
+    label: 'actorId',
+    min: 1,
+    max: 1_000_000_000,
+    precision: 0,
+    integer: true,
+  });
+  if (actorId !== undefined) {
+    sanitized.actorId = actorId;
+  }
+
+  const actorEmail = ensureOptionalString(query.actorEmail, {
+    label: 'actorEmail',
+    maxLength: 255,
+  });
+  if (actorEmail !== undefined) {
+    sanitized.actorEmail = actorEmail;
+  }
+
+  if (query.sections != null) {
+    const rawList = Array.isArray(query.sections) ? query.sections : String(query.sections).split(',');
+    const sections = rawList
+      .map((value, index) =>
+        ensureOptionalString(value, {
+          label: `sections[${index}]`,
+          maxLength: 120,
+          required: true,
+        }),
+      )
+      .filter(Boolean);
+    if (sections.length > 0) {
+      sanitized.sections = Array.from(new Set(sections));
+    }
+  }
+
+  const since = ensureOptionalString(query.since, { label: 'since', maxLength: 40 });
+  if (since) {
+    const parsed = new Date(since);
+    if (Number.isNaN(parsed.getTime())) {
+      throwValidation('since', 'must be a valid ISO 8601 timestamp.', 'invalid_datetime');
+    }
+    sanitized.since = parsed;
+  }
+
+  const until = ensureOptionalString(query.until, { label: 'until', maxLength: 40 });
+  if (until) {
+    const parsed = new Date(until);
+    if (Number.isNaN(parsed.getTime())) {
+      throwValidation('until', 'must be a valid ISO 8601 timestamp.', 'invalid_datetime');
+    }
+    sanitized.until = parsed;
+  }
+
+  if (sanitized.since && sanitized.until && sanitized.since > sanitized.until) {
+    throwValidation('since', 'must be earlier than or equal to until.', 'invalid_range');
+  }
+
+  return sanitized;
+}
+
 function sanitizeCommissionsSettings(input = {}) {
   const result = {};
   const enabled = ensureOptionalBoolean(input.enabled, { label: 'commissions.enabled' });

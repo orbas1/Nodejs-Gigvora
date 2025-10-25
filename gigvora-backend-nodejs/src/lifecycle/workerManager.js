@@ -23,6 +23,11 @@ import {
   getRuntimeConfig,
   onRuntimeConfigChange,
 } from '../config/runtimeConfig.js';
+import {
+  startPlatformSettingsAuditWorker,
+  stopPlatformSettingsAuditWorker,
+  getPlatformSettingsAuditWorkerStatus,
+} from '../services/platformSettingsAuditWorker.js';
 
 const workerStops = new Map();
 const workerTelemetry = new Map();
@@ -144,6 +149,43 @@ async function startNewsAggregation(logger) {
   }
 }
 
+async function startPlatformSettingsAudit(logger) {
+  const config = runtimeConfig?.workers?.platformSettingsAudit ?? {};
+  if (runtimeConfig?.workers?.autoStart === false || config.enabled === false) {
+    markWorkerStopped('platformSettingsAudit', { disabled: true });
+    registerWorkerTelemetry('platformSettingsAudit', { sampler: null });
+    workerStops.delete('platformSettingsAudit');
+    return { started: false, reason: 'disabled' };
+  }
+
+  try {
+    const result = await startPlatformSettingsAuditWorker({ logger });
+    if (result?.started) {
+      registerWorkerStop('platformSettingsAudit', async () => {
+        await stopPlatformSettingsAuditWorker();
+        markWorkerStopped('platformSettingsAudit');
+      });
+      registerWorkerTelemetry('platformSettingsAudit', {
+        sampler: () => getPlatformSettingsAuditWorkerStatus(),
+        ttlMs: 60_000,
+        metadata: { intervalMs: result.intervalMs },
+      });
+      markWorkerHealthy('platformSettingsAudit', { intervalMs: result.intervalMs });
+      return { started: true, intervalMs: result.intervalMs };
+    }
+
+    registerWorkerTelemetry('platformSettingsAudit', { sampler: null });
+    markWorkerStopped('platformSettingsAudit', { disabled: result?.reason === 'disabled' });
+    workerStops.delete('platformSettingsAudit');
+    return { started: false, reason: result?.reason ?? 'unknown' };
+  } catch (error) {
+    toLogger(logger).error?.({ err: error }, 'Failed to start platform settings audit worker');
+    markWorkerFailed('platformSettingsAudit', error);
+    registerWorkerTelemetry('platformSettingsAudit', { sampler: null });
+    throw error;
+  }
+}
+
 export async function startBackgroundWorkers({ logger } = {}) {
   const log = toLogger(logger);
   const results = [];
@@ -154,6 +196,8 @@ export async function startBackgroundWorkers({ logger } = {}) {
     results.push({ name: 'profileEngagement', ...profileResult });
     const newsResult = await startNewsAggregation(log);
     results.push({ name: 'newsAggregation', ...newsResult });
+    const auditResult = await startPlatformSettingsAudit(log);
+    results.push({ name: 'platformSettingsAudit', ...auditResult });
     return results;
   } catch (error) {
     log.error?.({ err: error }, 'Background worker initialisation failed, stopping partially started workers');

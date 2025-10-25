@@ -26,6 +26,80 @@ export const adminDashboardQuerySchema = z
   })
   .strip();
 
+export const platformSettingsAuditQuerySchema = z
+  .object({
+    limit: optionalNumber({ min: 1, max: 100, precision: 0, integer: true }),
+    actorId: optionalNumber({ min: 1, max: 1_000_000_000, precision: 0, integer: true }),
+    actorEmail: optionalTrimmedString({ max: 255 }),
+    sections: optionalStringArray({ maxItemLength: 120 }),
+    since: optionalTrimmedString({ max: 40 }),
+    until: optionalTrimmedString({ max: 40 }),
+  })
+  .strip();
+
+const optionalEmail = optionalTrimmedString({ max: 255 }).superRefine((value, ctx) => {
+  if (!value) {
+    return;
+  }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(value)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'must be a valid email address.' });
+  }
+});
+
+const watcherMetadataSchema = z
+  .union([z.record(z.any()), z.undefined()])
+  .transform((value) => {
+    if (value == null) {
+      return undefined;
+    }
+    if (typeof value !== 'object') {
+      return {};
+    }
+    return JSON.parse(JSON.stringify(value));
+  });
+
+const watcherBaseSchema = z
+  .object({
+    userId: optionalNumber({ min: 1, max: 1_000_000_000, precision: 0, integer: true }),
+    email: optionalEmail,
+    deliveryChannel: optionalTrimmedString({ max: 32 }).transform((value) => value?.toLowerCase()),
+    digestFrequency: optionalTrimmedString({ max: 32 }).transform((value) => value?.toLowerCase()),
+    role: optionalTrimmedString({ max: 120 }),
+    description: optionalTrimmedString({ max: 500 }),
+    metadata: watcherMetadataSchema,
+    enabled: optionalBoolean(),
+  })
+  .strip();
+
+export const platformSettingsWatcherBodySchema = watcherBaseSchema;
+
+export const platformSettingsWatcherUpdateSchema = watcherBaseSchema
+  .extend({
+    lastDigestAt: optionalTrimmedString({ max: 40 }),
+  })
+  .strip();
+
+export const platformSettingsWatcherQuerySchema = z
+  .object({
+    includeDisabled: optionalBoolean(),
+  })
+  .strip();
+
+export const platformSettingsWatcherParamsSchema = z
+  .object({
+    watcherId: z.preprocess((value) => {
+      if (typeof value === 'number') {
+        return value;
+      }
+      if (typeof value === 'string' && value.trim().length) {
+        return Number(value);
+      }
+      return value;
+    }, z.number().int().positive()),
+  })
+  .strip();
+
 const commissionSettingsSchema = z
   .object({
     enabled: optionalBoolean(),
