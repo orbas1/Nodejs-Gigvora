@@ -298,6 +298,15 @@ class _FinanceMetricsGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
+    String revenueChangeCopy(double change) {
+      if (change.isNaN) {
+        return '—';
+      }
+      final rounded = change.toStringAsFixed(1);
+      final prefix = change > 0 ? '+' : '';
+      return '$prefix$rounded%';
+    }
+
     final summaryMetrics = [
       AnalyticsDatum(
         label: 'Funds in escrow',
@@ -318,6 +327,41 @@ class _FinanceMetricsGrid extends StatelessWidget {
         label: 'Released this week',
         value: formatCurrency(summary.releasedThisWeek, currency: summary.currency),
         caption: 'Cleared to providers over the last seven days.',
+      ),
+      AnalyticsDatum(
+        label: 'Month-to-date revenue',
+        value: formatCurrency(
+          summary.monthToDateRevenue.amount,
+          currency: summary.monthToDateRevenue.currency,
+        ),
+        caption:
+            'Previous ${formatCurrency(summary.monthToDateRevenue.previousAmount, currency: summary.monthToDateRevenue.currency)} • ${revenueChangeCopy(summary.monthToDateRevenue.changePercentage)} vs prior period.',
+      ),
+      AnalyticsDatum(
+        label: 'Tax reserve FY${summary.taxReadyBalance.fiscalYear}',
+        value: formatCurrency(
+          summary.taxReadyBalance.amount,
+          currency: summary.taxReadyBalance.currency,
+        ),
+        caption: summary.taxReadyBalance.latestExport != null
+            ? 'Latest export ${formatDate(summary.taxReadyBalance.latestExport!.generatedAt)} • ${summary.taxReadyBalance.latestExport!.status.toUpperCase()}'
+            : 'Reconcile filings before quarter close.',
+      ),
+      AnalyticsDatum(
+        label: 'Tracked expenses',
+        value: formatCurrency(
+          summary.trackedExpenses.amount,
+          currency: summary.trackedExpenses.currency,
+        ),
+        caption: '${summary.trackedExpenses.count} entries logged this month.',
+      ),
+      AnalyticsDatum(
+        label: 'Savings runway',
+        value: summary.savingsRunway.months != null
+            ? '${summary.savingsRunway.months!.toStringAsFixed(1)} months'
+            : '—',
+        caption:
+            'Reserve ${formatCurrency(summary.savingsRunway.reserveAmount, currency: summary.savingsRunway.currency)} • Burn ${summary.savingsRunway.monthlyBurn != null ? formatCurrency(summary.savingsRunway.monthlyBurn!, currency: summary.savingsRunway.currency) : '—'}',
       ),
     ];
 
