@@ -228,6 +228,19 @@ describe('20241022100000-admin-homepage-settings.cjs', () => {
 });
 
 describe('20241205130000-site-homepage-experience.cjs', () => {
+  let sequelize;
+  let queryInterface;
+
+  beforeEach(async () => {
+    sequelize = new SequelizeLib('sqlite::memory:', { logging: false });
+    queryInterface = sequelize.getQueryInterface();
+    await createSiteSettingsTable(queryInterface);
+  });
+
+  afterEach(async () => {
+    await sequelize.close();
+  });
+
   it('populates marketing experience defaults when none stored', async () => {
     await siteHomepageExperienceMigration.up(queryInterface, SequelizeLib);
 

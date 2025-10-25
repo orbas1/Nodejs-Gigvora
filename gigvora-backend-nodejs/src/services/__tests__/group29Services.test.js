@@ -1435,6 +1435,9 @@ describe('discoveryService', () => {
       searchOpportunityIndex: jest.fn(),
       searchAcrossOpportunityIndexes: jest.fn(),
       isRemoteRole: () => true,
+      determineDurationCategory: jest.fn(() => 'medium_term'),
+      extractCurrencyCode: jest.fn(() => 'USD'),
+      parseBudgetValue: jest.fn(() => 5000),
     }));
 
     const discoveryModule = await import('../discoveryService.js');

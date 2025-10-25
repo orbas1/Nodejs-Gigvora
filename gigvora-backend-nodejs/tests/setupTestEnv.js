@@ -8,6 +8,10 @@ if (typeof process.env.SKIP_SEQUELIZE_BOOTSTRAP === 'undefined') {
   process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'false';
 }
 
+if (!globalThis.__mockSequelizeModels || typeof globalThis.__mockSequelizeModels !== 'object') {
+  globalThis.__mockSequelizeModels = {};
+}
+
 const REQUIRED_ENV_DEFAULTS = {
   STRIPE_PUBLISHABLE_KEY: 'pk_test_mocked',
   STRIPE_SECRET_KEY: 'sk_test_mocked',

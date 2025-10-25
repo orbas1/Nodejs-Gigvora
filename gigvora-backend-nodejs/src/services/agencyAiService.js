@@ -142,6 +142,38 @@ function appendActivity(metadata, entry) {
   return { ...base, activityLog: nextLog };
 }
 
+function toTemplatePublicObject(template) {
+  if (!template) {
+    return null;
+  }
+  if (typeof template.toPublicObject === 'function') {
+    return template.toPublicObject();
+  }
+
+  const plain = typeof template.get === 'function' ? template.get({ plain: true }) : { ...template };
+
+  return {
+    id: plain.id ?? null,
+    workspaceId: plain.workspaceId ?? null,
+    name: plain.name ?? null,
+    description: plain.description ?? null,
+    status: plain.status ?? null,
+    responseSlaHours: plain.responseSlaHours ?? null,
+    deliveryWindowDays: plain.deliveryWindowDays ?? null,
+    bidCeiling: plain.bidCeiling ?? null,
+    markupPercent:
+      plain.markupPercent == null ? null : Number.parseFloat(plain.markupPercent),
+    targetRoles: Array.isArray(plain.targetRoles) ? [...plain.targetRoles] : [],
+    scopeKeywords: Array.isArray(plain.scopeKeywords) ? [...plain.scopeKeywords] : [],
+    guardrails: plain.guardrails ?? null,
+    attachments: Array.isArray(plain.attachments) ? [...plain.attachments] : [],
+    createdBy: plain.createdBy ?? null,
+    updatedBy: plain.updatedBy ?? null,
+    createdAt: plain.createdAt ?? null,
+    updatedAt: plain.updatedAt ?? null,
+  };
+}
+
 async function listAccessibleWorkspaces(actorId, { includeInactive = false, allowGlobal = false } = {}) {
   if (!actorId) {
     if (!allowGlobal) {
@@ -295,8 +327,15 @@ function sanitizeConfiguration(config, workspace, templates, availableWorkspaces
       ...analytics,
       activeTemplates: templates.filter((template) => template.status === 'active').length,
     },
-    templates: templates.map((template) => template.toPublicObject()),
+    templates: templates.map((template) => toTemplatePublicObject(template)).filter(Boolean),
     activityLog: metadata.activityLog,
+  };
+
+  response.settings = {
+    autoReply: response.autoReply,
+    bidding: response.bidding,
+    apiKey: response.apiKey,
+    analytics: response.analytics,
   };
 
   return response;
@@ -558,7 +597,7 @@ export async function createAgencyBidTemplate(payload = {}, actor = {}) {
     summary: `Template ${template.name} created`,
   });
   await config.update({ metadata });
-  return template.toPublicObject();
+  return toTemplatePublicObject(template);
 }
 
 export async function updateAgencyBidTemplate(templateId, payload = {}, actor = {}) {
@@ -584,7 +623,7 @@ export async function updateAgencyBidTemplate(templateId, payload = {}, actor = 
     summary: `Template ${template.name} updated`,
   });
   await config.update({ metadata });
-  return template.toPublicObject();
+  return toTemplatePublicObject(template);
 }
 
 export async function deleteAgencyBidTemplate(templateId, actor = {}) {
