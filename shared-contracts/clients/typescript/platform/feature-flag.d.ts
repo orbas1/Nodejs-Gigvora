@@ -1,118 +1,107 @@
-export type FeatureFlagStatus = "draft" | "active" | "disabled" | "sunset";
-
-export type FeatureFlagRolloutType = "global" | "percentage" | "cohort" | "conditional";
-
-export type FeatureFlagAudienceType = "user" | "workspace" | "membership" | "domain";
-
-export type FeatureFlagTargetOperator =
-  | "eq"
-  | "neq"
-  | "in"
-  | "not_in"
-  | "gt"
-  | "gte"
-  | "lt"
-  | "lte"
-  | "contains"
-  | "starts_with";
-
-export interface FeatureFlagTargetCriterion {
-  attribute: string;
-  operator: FeatureFlagTargetOperator;
-  value: string | number | boolean | Array<string | number>;
-}
-
-export interface FeatureFlagGuardRail {
-  maxErrorRate?: number | null;
-  maxLatencyMs?: number | null;
-  automaticDisable?: boolean;
-  monitorMetrics?: string[];
-}
-
-export interface FeatureFlagAssignment {
-  id?: number;
-  flagId?: number;
-  audienceType: FeatureFlagAudienceType;
-  audienceValue: string;
-  rolloutPercentage?: number | null;
-  conditions?: Record<string, unknown> | null;
-  expiresAt?: string | null;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-export interface FeatureFlagOverride {
-  subject: string;
-  subjectType: "user" | "workspace" | "account";
-  enabled: boolean;
-  reason?: string;
-  expiresAt?: string | null;
-  metadata?: Record<string, unknown>;
-}
-
-export interface FeatureFlagScheduleWindow {
-  startAt: string;
-  endAt?: string | null;
-  timeZone?: string;
-}
-
-export interface FeatureFlagEnvironment {
-  name: string;
-  enabled: boolean;
-  defaultRolloutPercentage?: number | null;
-  schedule?: FeatureFlagScheduleWindow | null;
-  rules?: FeatureFlagRule[];
-  overrides?: FeatureFlagOverride[];
-  metadata?: Record<string, unknown>;
-}
-
-export interface FeatureFlagRule {
-  id: string;
-  description?: string;
-  priority: number;
-  criteria: FeatureFlagTargetCriterion[];
-  rolloutPercentage?: number | null;
-  guardRails?: FeatureFlagGuardRail | null;
-}
-
-export interface FeatureFlagAccessControl {
-  allowedRoles: string[];
-  deniedRoles?: string[];
-  allowedOrigins: string[];
-  requiresMfa: boolean;
-  dataAgreements?: string[];
-}
-
-export interface FeatureFlagAuditApproval {
-  reviewer: string;
-  status: "approved" | "rejected" | "pending";
-  reviewedAt?: string | null;
-  notes?: string | null;
-}
-
-export interface FeatureFlagAuditTrail {
-  createdBy: string;
-  createdAt: string;
-  updatedBy?: string | null;
-  updatedAt?: string | null;
-  approvals?: FeatureFlagAuditApproval[];
-}
-
 export interface FeatureFlag {
   id: number;
   key: string;
   name: string;
   description?: string;
-  status: FeatureFlagStatus;
-  rolloutType: FeatureFlagRolloutType;
+  status: "draft" | "active" | "disabled" | "sunset";
+  rolloutType: "global" | "percentage" | "cohort" | "conditional";
   rolloutPercentage: number | null;
-  metadata?: Record<string, unknown>;
-  version?: number;
+  metadata?: {
+    [k: string]: unknown;
+  };
+  assignments?: Assignment[];
+  environments?: Environment[];
   tags?: string[];
-  assignments?: FeatureFlagAssignment[];
-  environments?: FeatureFlagEnvironment[];
-  accessControl?: FeatureFlagAccessControl;
-  audit?: FeatureFlagAuditTrail;
+  version?: number;
+  accessControl?: AccessControl;
+  audit?: AuditTrail;
   createdAt?: string;
   updatedAt?: string;
+}
+export interface Assignment {
+  id?: number | null;
+  flagId?: number | null;
+  audienceType: "user" | "workspace" | "membership" | "domain";
+  audienceValue: string;
+  rolloutPercentage?: number | null;
+  conditions?: {
+    [k: string]: unknown;
+  } | null;
+  expiresAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+export interface Environment {
+  name: string;
+  enabled: boolean;
+  defaultRolloutPercentage?: number | null;
+  schedule?: ScheduleWindow | null;
+  rules?: Rule[];
+  overrides?: Override[];
+  metadata?: {
+    [k: string]: unknown;
+  };
+}
+export interface ScheduleWindow {
+  startAt: string;
+  endAt?: string | null;
+  timeZone?: string;
+}
+export interface Rule {
+  id: string;
+  description?: string;
+  priority: number;
+  /**
+   * @minItems 1
+   */
+  criteria: [Criterion, ...Criterion[]];
+  rolloutPercentage?: number | null;
+  guardRails?: GuardRail | null;
+}
+export interface Criterion {
+  attribute: string;
+  operator: "eq" | "neq" | "in" | "not_in" | "gt" | "gte" | "lt" | "lte" | "contains" | "starts_with";
+  value: string | number | boolean | [string | number, ...(string | number)[]];
+}
+export interface GuardRail {
+  maxErrorRate?: number | null;
+  maxLatencyMs?: number | null;
+  automaticDisable?: boolean;
+  monitorMetrics?: string[];
+}
+export interface Override {
+  subject: string;
+  subjectType: "user" | "workspace" | "account";
+  enabled: boolean;
+  reason?: string;
+  expiresAt?: string | null;
+  metadata?: {
+    [k: string]: unknown;
+  };
+}
+export interface AccessControl {
+  /**
+   * @minItems 1
+   */
+  allowedRoles: [string, ...string[]];
+  deniedRoles?: string[];
+  /**
+   * @minItems 1
+   */
+  allowedOrigins: [string, ...string[]];
+  requiresMfa: boolean;
+  dataAgreements?: string[];
+}
+export interface AuditTrail {
+  createdBy: string;
+  createdAt: string;
+  updatedBy?: string | null;
+  updatedAt?: string | null;
+  approvals?: AuditApproval[];
+}
+export interface AuditApproval {
+  reviewer: string;
+  status: "approved" | "rejected" | "pending";
+  reviewedAt?: string | null;
+  notes?: string | null;
 }

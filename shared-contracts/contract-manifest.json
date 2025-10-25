@@ -1,0 +1,50 @@
+{
+  "version": "1.0.1",
+  "lastGeneratedAt": "2025-10-25T00:36:52.906Z",
+  "pendingChanges": false,
+  "artifacts": {
+    "auth/user": {
+      "schemaHash": "360ca8371a7acba501005e1ae88bfbda2ab69f83e1cff09e9e491309c78bf788",
+      "typesHash": "453fc193b745f8bdbcfdd6287781a97ffbaafa4487c48ace5bb39320c597ec19",
+      "generatedAt": "2025-10-25T00:36:52.906Z"
+    },
+    "governance/context-governance-summaries": {
+      "schemaHash": "af854280fa8112cebffbeb6bb852a1538667dd293419774a52b4002f830ac109",
+      "typesHash": "a78e1fbe09d99a4fab529b2172fedd8357ba606cb962ac85f46de5b0c0782183",
+      "generatedAt": "2025-10-25T00:36:52.906Z"
+    },
+    "governance/context-governance": {
+      "schemaHash": "a80efd0d283e1d6632b0bf316441f2f5be5e01df2913e3d5c8efafd8945180a8",
+      "typesHash": "90777df0349554672afc0b48e0349f237630901ecd92bf1658a8d67363da2c2f",
+      "generatedAt": "2025-10-25T00:36:52.906Z"
+    },
+    "marketplace/workspace": {
+      "schemaHash": "2911272a7aad5e8aecf36893401d415f41c15b23fe468a3c0be0ba4874884e89",
+      "typesHash": "437841183734fe56f499eb962c31a5e4aef82460927ab517aa24d35978e5278e",
+      "generatedAt": "2025-10-25T00:36:52.906Z"
+    },
+    "platform/feature-flag": {
+      "schemaHash": "39387215944665044e68949ae286b39ee4125e6df1f7884ee5a0c7d9a61ed432",
+      "typesHash": "4714cee75f42816a77156151cd8bc4910acce8a86a35a9dc58c0da5fea224b4f",
+      "generatedAt": "2025-10-25T00:36:52.906Z"
+    },
+    "index": {
+      "schemaHash": null,
+      "typesHash": "594b83abc7fd8dcd4996021ba0dfa3ed159ce11e69802f75eec6ba5ba316bfe0",
+      "generatedAt": "2025-10-25T00:36:52.906Z"
+    },
+    "registry-snapshot": {
+      "schemaHash": "8755d027eb4b9526fb081d15473ecde4351c2527df94768dec6d67aab2dc3301",
+      "typesHash": "4f3d493373ba425a0b4ad9a46525e9e2d44376283d871f023b041a6701ff1a42",
+      "generatedAt": "2025-10-25T00:36:52.906Z"
+    }
+  },
+  "lastReleasedAt": "2025-10-25",
+  "releaseHistory": [
+    {
+      "version": "1.0.1",
+      "summary": "Baseline shared contract manifest after automation",
+      "releasedAt": "2025-10-25"
+    }
+  ]
+}
