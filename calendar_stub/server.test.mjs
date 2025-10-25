@@ -84,10 +84,22 @@ test('returns events when authorised', async () => {
   const payload = await response.json();
   assert.ok(payload.summary.totalEvents >= 1, 'expected at least one seeded event');
   assert.ok(Array.isArray(payload.eventsByType.project));
+  assert.ok(Array.isArray(payload.events), 'events list should be returned');
+  assert.strictEqual(payload.workspace.slug, 'acme-talent-hub');
+  assert.ok(payload.filters.from && payload.filters.to, 'filters should include window bounds');
+  const [firstEvent] = payload.events;
+  assert.ok(firstEvent, 'expected at least one event payload');
+  assert.ok(['scheduled', 'in_progress', 'completed'].includes(firstEvent.status));
+  assert.ok(Object.prototype.hasOwnProperty.call(firstEvent, 'durationMinutes'));
+  assert.ok(
+    payload.meta.availableWorkspaces.some((workspace) => workspace.slug === 'acme-talent-hub'),
+    'available workspaces should include the requested slug',
+  );
 });
 
 test('creates a new event with manage permissions', async () => {
-  const startsAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  const startsAt = new Date(Date.now() + 60 * 60 * 1000);
+  const endsAt = new Date(startsAt.getTime() + 45 * 60 * 1000);
   const createResponse = await fetch(`${baseUrl}/api/company/calendar/events`, {
     method: 'POST',
     headers: buildHeaders({ 'Content-Type': 'application/json', 'x-roles': 'calendar:manage' }),
@@ -95,21 +107,50 @@ test('creates a new event with manage permissions', async () => {
       workspaceId: 101,
       title: 'Test sync meeting',
       eventType: 'gig',
-      startsAt,
-      metadata: { createdBy: 'tests' },
+      startsAt: startsAt.toISOString(),
+      endsAt: endsAt.toISOString(),
+      metadata: { ownerName: 'QA Automation', notes: 'Local scenario validation' },
     }),
   });
   assert.strictEqual(createResponse.status, 201);
   const created = await createResponse.json();
-  assert.ok(created.id, 'event id should be returned');
+  assert.ok(Number.isInteger(created.id), 'event id should be numeric');
   assert.strictEqual(created.eventType, 'gig');
+  assert.strictEqual(created.status, 'scheduled');
+  assert.strictEqual(created.metadata.ownerName, 'QA Automation');
+  assert.strictEqual(created.durationMinutes, 45);
 
-  const listResponse = await fetch(`${baseUrl}/api/company/calendar/events?workspaceId=101`, {
+  const listResponse = await fetch(`${baseUrl}/api/company/calendar/events?workspaceSlug=acme-talent-hub`, {
     headers: buildHeaders({ 'x-roles': 'calendar:view', 'x-user-id': undefined }),
   });
   const listPayload = await listResponse.json();
   const gigEvents = listPayload.eventsByType.gig || [];
   assert.ok(gigEvents.some((event) => event.id === created.id));
+  assert.ok(listPayload.events.some((event) => event.id === created.id));
+});
+
+test('exposes slug filtering and default window range', async () => {
+  const response = await fetch(`${baseUrl}/api/company/calendar/events?workspaceSlug=acme-talent-hub`, {
+    headers: buildHeaders({ 'x-roles': 'calendar:view', 'x-user-id': undefined }),
+  });
+  assert.strictEqual(response.status, 200);
+  const payload = await response.json();
+  assert.strictEqual(payload.filters.workspaceSlug, 'acme-talent-hub');
+  const from = new Date(payload.filters.from);
+  const to = new Date(payload.filters.to);
+  assert.ok(from < to, 'window range should be valid');
+});
+
+test('returns individual events with workspace context', async () => {
+  const [seedEvent] = baselineEvents;
+  const response = await fetch(`${baseUrl}/api/company/calendar/events/${seedEvent.id}`, {
+    headers: buildHeaders({ 'x-roles': 'calendar:view', 'x-user-id': undefined }),
+  });
+  assert.strictEqual(response.status, 200);
+  const payload = await response.json();
+  assert.strictEqual(`${payload.event.id}`, `${seedEvent.id}`);
+  assert.ok(payload.event.status);
+  assert.strictEqual(payload.workspace.slug, 'acme-talent-hub');
 });
 
 test('rejects requests from disallowed origins', async () => {
@@ -165,7 +206,7 @@ test('invokes a custom latency provider for event requests', async () => {
 });
 
 test('supports dynamic workspace fixtures', async () => {
-  const customWorkspaces = [{ id: 777, name: 'QA Workspace', timezone: 'Europe/London' }];
+  const customWorkspaces = [{ id: 777, slug: 'qa-workspace', name: 'QA Workspace', timezone: 'Europe/London' }];
   const customEvents = [
     {
       workspaceId: 777,
@@ -186,7 +227,7 @@ test('supports dynamic workspace fixtures', async () => {
 
   try {
     const response = await fetch(
-      `http://127.0.0.1:${customAddress.port}/api/company/calendar/events?workspaceId=777`,
+      `http://127.0.0.1:${customAddress.port}/api/company/calendar/events?workspaceSlug=qa-workspace`,
       {
         headers: buildHeaders({ 'x-roles': 'calendar:view', 'x-user-id': undefined }),
       },
@@ -194,6 +235,7 @@ test('supports dynamic workspace fixtures', async () => {
     assert.strictEqual(response.status, 200);
     const payload = await response.json();
     assert.strictEqual(payload.workspace.name, 'QA Workspace');
+    assert.strictEqual(payload.workspace.slug, 'qa-workspace');
     assert.ok(
       Array.isArray(payload.eventsByType.project) &&
         payload.eventsByType.project.some((event) => event.title === 'QA sync-up'),

@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
-import { createDefaultEvents, normaliseEventFixtures, DEFAULT_WORKSPACES } from './fixtures.mjs';
+import { createDefaultEvents, normaliseEventFixtures, DEFAULT_WORKSPACES, normaliseMetadata } from './fixtures.mjs';
 
 const DEFAULT_HOST = process.env.CALENDAR_STUB_HOST || '0.0.0.0';
 const DEFAULT_PORT = Number.parseInt(process.env.CALENDAR_STUB_PORT || '4010', 10);
@@ -19,10 +19,16 @@ const DEFAULT_ALLOWED_HEADERS = [
   'x-request-id',
   'x-calendar-scenario',
   'x-calendar-latency-ms',
+  'x-workspace-slug',
 ];
 const SUPPORTED_EVENT_TYPES = ['project', 'interview', 'gig', 'mentorship', 'volunteering'];
 const DEFAULT_VIEW_ROLES = ['calendar:view', 'calendar:manage', 'platform:admin'];
 const DEFAULT_MANAGE_ROLES = ['calendar:manage', 'platform:admin'];
+
+const DEFAULT_WINDOW_DAYS = 30;
+const DEFAULT_LOOKAHEAD_DAYS = 45;
+const MAX_EVENTS_LIMIT = 500;
+const DEFAULT_LIMIT = 250;
 
 const DEFAULT_SCENARIO_HANDLERS = new Map([
   [
@@ -81,20 +87,51 @@ function loadJsonFile(filePath) {
   return JSON.parse(raw);
 }
 
+function normaliseSlug(value) {
+  if (!value) {
+    return null;
+  }
+  return `${value}`
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/^-+|-+$/g, '') || null;
+}
+
 function normaliseWorkspaces(source) {
   const catalogSource = Array.isArray(source) ? source : loadJsonFile(source);
   const list = Array.isArray(catalogSource) && catalogSource.length ? catalogSource : DEFAULT_WORKSPACES;
   return list
-    .map((workspace) => ({
-      id: Number.parseInt(`${workspace.id}`, 10),
-      name: `${workspace.name}`.trim(),
-      timezone: workspace.timezone ? `${workspace.timezone}` : 'UTC',
-    }))
-    .filter((workspace) => Number.isFinite(workspace.id) && workspace.name);
+    .map((workspace) => {
+      const id = Number.parseInt(`${workspace.id}`, 10);
+      const name = `${workspace.name}`.trim();
+      if (!Number.isFinite(id) || !name) {
+        return null;
+      }
+      return {
+        id,
+        slug: normaliseSlug(workspace.slug) || null,
+        name,
+        timezone: workspace.timezone ? `${workspace.timezone}` : 'UTC',
+        defaultCurrency: workspace.defaultCurrency ? `${workspace.defaultCurrency}`.trim() : 'USD',
+        membershipRole: workspace.membershipRole ? `${workspace.membershipRole}`.trim() : 'admin',
+      };
+    })
+    .filter(Boolean);
 }
 
-function findWorkspace(workspaceCatalog, workspaceId) {
-  return workspaceCatalog.find((workspace) => workspace.id === workspaceId) || null;
+function findWorkspace(workspaceCatalog, { workspaceId, workspaceSlug }) {
+  if (Number.isInteger(workspaceId)) {
+    const match = workspaceCatalog.find((workspace) => workspace.id === workspaceId);
+    if (match) {
+      return match;
+    }
+  }
+  if (workspaceSlug) {
+    const slug = normaliseSlug(workspaceSlug);
+    return workspaceCatalog.find((workspace) => workspace.slug === slug) || null;
+  }
+  return null;
 }
 
 function resolveAllowedOrigins(option) {
@@ -291,18 +328,46 @@ function normaliseTypes(value) {
   return list.filter((entry) => SUPPORTED_EVENT_TYPES.includes(entry));
 }
 
-function filterEvents(list, { from, to, types, search }) {
-  const fromTime = from ? new Date(from).getTime() : null;
-  const toTime = to ? new Date(to).getTime() : null;
+function normaliseLimit(value) {
+  const parsed = parseInteger(value, DEFAULT_LIMIT);
+  const candidate = parsed ?? DEFAULT_LIMIT;
+  const bounded = Math.min(Math.max(candidate, 1), MAX_EVENTS_LIMIT);
+  return bounded;
+}
+
+function resolveWindowRange({ from, to }) {
+  const now = new Date();
+  const defaultStart = new Date(now.getTime() - DEFAULT_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+  const defaultEnd = new Date(now.getTime() + DEFAULT_LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000);
+
+  const start = from ? new Date(from) : defaultStart;
+  const end = to ? new Date(to) : defaultEnd;
+
+  if (Number.isNaN(start.getTime())) {
+    throw new Error('from must be a valid ISO-8601 datetime.');
+  }
+  if (Number.isNaN(end.getTime())) {
+    throw new Error('to must be a valid ISO-8601 datetime.');
+  }
+  if (end.getTime() < start.getTime()) {
+    throw new Error('from must be earlier than to.');
+  }
+
+  return { start, end };
+}
+
+function filterEvents(list, { windowStart, windowEnd, types, search }) {
   const searchValue = search ? `${search}`.toLowerCase() : null;
   const typeFilter = normaliseTypes(types);
+  const startTime = windowStart.getTime();
+  const endTime = windowEnd.getTime();
 
   return list.filter((event) => {
-    const startTime = new Date(event.startsAt).getTime();
-    if (fromTime && Number.isFinite(fromTime) && startTime < fromTime) {
+    const eventStart = new Date(event.startsAt).getTime();
+    if (Number.isNaN(eventStart)) {
       return false;
     }
-    if (toTime && Number.isFinite(toTime) && startTime > toTime) {
+    if (eventStart < startTime || eventStart > endTime) {
       return false;
     }
     if (typeFilter.length && !typeFilter.includes(event.eventType)) {
@@ -321,13 +386,10 @@ function filterEvents(list, { from, to, types, search }) {
 }
 
 function groupEventsByType(list, limit) {
-  const grouped = {
-    project: [],
-    interview: [],
-    gig: [],
-    mentorship: [],
-    volunteering: [],
-  };
+  const grouped = SUPPORTED_EVENT_TYPES.reduce((acc, type) => {
+    acc[type] = [];
+    return acc;
+  }, {});
 
   list.forEach((event) => {
     if (!grouped[event.eventType]) {
@@ -339,7 +401,13 @@ function groupEventsByType(list, limit) {
   Object.keys(grouped).forEach((key) => {
     grouped[key] = grouped[key]
       .slice()
-      .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+      .sort((a, b) => {
+        const diff = new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime();
+        if (diff !== 0) {
+          return diff;
+        }
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
     if (limit && Number.isFinite(limit)) {
       grouped[key] = grouped[key].slice(0, limit);
     }
@@ -348,51 +416,141 @@ function groupEventsByType(list, limit) {
   return grouped;
 }
 
-function buildSummary(list) {
-  const totalEvents = list.length;
-  const now = Date.now();
-  const sorted = list.slice().sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
-  const nextEvent = sorted.find((event) => new Date(event.startsAt).getTime() >= now) || null;
-  const overdueCount = list.filter((event) => {
-    const endTime = event.endsAt ? new Date(event.endsAt).getTime() : null;
-    const comparisonTime = endTime && Number.isFinite(endTime) ? endTime : new Date(event.startsAt).getTime();
-    return comparisonTime < now;
-  }).length;
-
-  const totalsByType = list.reduce((acc, event) => {
-    acc[event.eventType] = (acc[event.eventType] || 0) + 1;
+function buildSummary(list, windowRange) {
+  const now = new Date();
+  const totalsByType = SUPPORTED_EVENT_TYPES.reduce((acc, type) => {
+    acc[type] = 0;
     return acc;
   }, {});
+  const upcomingByType = {};
+  let nextEvent = null;
+  let overdueCount = 0;
 
-  const upcomingByType = list.reduce((acc, event) => {
-    const bucket = acc[event.eventType] || [];
-    const eventStart = new Date(event.startsAt).getTime();
-    if (eventStart >= now) {
-      bucket.push(event);
+  list.forEach((event) => {
+    if (totalsByType[event.eventType] != null) {
+      totalsByType[event.eventType] += 1;
     }
-    acc[event.eventType] = bucket.slice(0, 3);
-    return acc;
-  }, {});
+    if (event.status === 'completed') {
+      const eventEnd = event.endsAt ? new Date(event.endsAt) : null;
+      if (eventEnd && eventEnd < now) {
+        overdueCount += 1;
+      }
+    }
+    const startDate = event.startsAt ? new Date(event.startsAt) : null;
+    if (startDate && startDate >= now) {
+      if (!upcomingByType[event.eventType] || new Date(upcomingByType[event.eventType].startsAt) > startDate) {
+        upcomingByType[event.eventType] = event;
+      }
+      if (!nextEvent || new Date(nextEvent.startsAt) > startDate) {
+        nextEvent = event;
+      }
+    }
+  });
 
   return {
-    totalEvents,
+    totalEvents: list.length,
     nextEvent,
     overdueCount,
     totalsByType,
     upcomingByType,
+    window: {
+      from: windowRange.start.toISOString(),
+      to: windowRange.end.toISOString(),
+    },
   };
 }
 
-function sanitizeMetadata(value) {
+function prepareMetadata(value) {
   if (!value || typeof value !== 'object') {
-    return {};
+    return null;
   }
-  return structuredClone(value);
+  const metadata = normaliseMetadata(value);
+  return metadata && Object.keys(metadata).length ? metadata : null;
+}
+
+function toPositiveInteger(value, fallback = null) {
+  const numeric = Number.parseInt(`${value}`, 10);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : fallback;
+}
+
+function computeDurationMinutes(startsAt, endsAt) {
+  if (!startsAt || !endsAt) {
+    return null;
+  }
+  const start = startsAt instanceof Date ? startsAt : new Date(startsAt);
+  const end = endsAt instanceof Date ? endsAt : new Date(endsAt);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return null;
+  }
+  return Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
+}
+
+function determineStatus(startsAt, endsAt, now = Date.now()) {
+  const startTime = startsAt instanceof Date ? startsAt : new Date(startsAt);
+  const endTime = endsAt ? (endsAt instanceof Date ? endsAt : new Date(endsAt)) : null;
+  if (Number.isNaN(startTime.getTime())) {
+    return 'scheduled';
+  }
+  const current = now instanceof Date ? now.getTime() : Number(now);
+  if (endTime && !Number.isNaN(endTime.getTime()) && endTime.getTime() <= current) {
+    return 'completed';
+  }
+  if (startTime.getTime() > current) {
+    return 'scheduled';
+  }
+  return 'in_progress';
+}
+
+function normaliseEventType(value) {
+  if (!value) {
+    return 'project';
+  }
+  const normalised = `${value}`.trim().toLowerCase();
+  return SUPPORTED_EVENT_TYPES.includes(normalised) ? normalised : 'project';
+}
+
+function ensureEventShape(event, now = new Date()) {
+  const id = toPositiveInteger(event.id);
+  const createdAt = event.createdAt ? new Date(event.createdAt) : now;
+  const updatedAt = event.updatedAt ? new Date(event.updatedAt) : createdAt;
+  const startsAt = event.startsAt ? new Date(event.startsAt) : now;
+  const endsAt = event.endsAt ? new Date(event.endsAt) : null;
+
+  if (Number.isNaN(startsAt.getTime())) {
+    startsAt.setTime(now.getTime());
+  }
+
+  const eventRecord = {
+    id: id ?? event.id ?? randomUUID(),
+    workspaceId: toPositiveInteger(event.workspaceId, 0),
+    title: `${event.title}`.trim(),
+    eventType: normaliseEventType(event.eventType),
+    startsAt: startsAt.toISOString(),
+    endsAt: endsAt && !Number.isNaN(endsAt.getTime()) ? endsAt.toISOString() : null,
+    location: event.location ? `${event.location}` : null,
+    metadata: prepareMetadata(event.metadata),
+    status: event.status ? `${event.status}`.trim().toLowerCase() : determineStatus(startsAt, endsAt, now),
+    createdAt: Number.isNaN(createdAt.getTime()) ? now.toISOString() : createdAt.toISOString(),
+    updatedAt: Number.isNaN(updatedAt.getTime()) ? now.toISOString() : updatedAt.toISOString(),
+  };
+
+  return eventRecord;
+}
+
+function serializeEvent(event, now = new Date()) {
+  const startsAt = event.startsAt ? new Date(event.startsAt) : null;
+  const endsAt = event.endsAt ? new Date(event.endsAt) : null;
+  return {
+    ...event,
+    metadata: event.metadata ? structuredClone(event.metadata) : {},
+    durationMinutes: computeDurationMinutes(startsAt, endsAt),
+    status: determineStatus(startsAt, endsAt, now),
+  };
 }
 
 function resolveSeedEvents({ seedEvents, eventsFile, now }) {
   if (Array.isArray(seedEvents)) {
-    return seedEvents.map(ensureEventShape);
+    return seedEvents.map((item) => ensureEventShape(item, new Date(now)));
   }
 
   if (eventsFile) {
@@ -400,26 +558,21 @@ function resolveSeedEvents({ seedEvents, eventsFile, now }) {
     if (!Array.isArray(parsed)) {
       throw new Error('Calendar stub events file must export an array');
     }
-    return normaliseEventFixtures(parsed, { now, allowEmpty: true }).map(ensureEventShape);
+    return normaliseEventFixtures(parsed, { now, allowEmpty: true }).map((item) => ensureEventShape(item, new Date(now)));
   }
 
-  return createDefaultEvents(now).map(ensureEventShape);
+  return createDefaultEvents(now).map((item) => ensureEventShape(item, new Date(now)));
 }
 
-function serializeEvent(event) {
-  return {
-    ...event,
-    metadata: sanitizeMetadata(event.metadata),
-  };
-}
-
-function ensureEventShape(event) {
-  return serializeEvent({
-    ...event,
-    id: event.id || randomUUID(),
-    createdAt: event.createdAt || new Date().toISOString(),
-    updatedAt: event.updatedAt || new Date().toISOString(),
-  });
+function computeNextEventId(list) {
+  const maxId = list.reduce((accumulator, event) => {
+    const numeric = toPositiveInteger(event.id);
+    if (numeric != null && numeric > accumulator) {
+      return numeric;
+    }
+    return accumulator;
+  }, 1000);
+  return maxId + 1;
 }
 
 function validateDate(value) {
@@ -497,6 +650,7 @@ export function createCalendarServer(options = {}) {
     latencyProvider ?? createDefaultLatencyProvider({ minLatencyMs: minLatencyValue, maxLatencyMs: maxLatencyValue });
   let workspaceCatalog = normaliseWorkspaces(workspaceSource);
   let events = resolveSeedEvents({ ...baseSeed, now: Date.now() });
+  let nextEventId = computeNextEventId(events);
 
   const server = http.createServer(async (request, response) => {
     const requestId = randomUUID();
@@ -562,56 +716,102 @@ export function createCalendarServer(options = {}) {
       }
 
       const workspaceIdParam = url.searchParams.get('workspaceId');
-      if (!workspaceIdParam) {
-        sendJson(response, request, origin, 400, { message: 'workspaceId query parameter is required' });
+      const workspaceSlugParam = url.searchParams.get('workspaceSlug') ?? request.headers['x-workspace-slug'];
+
+      if (!workspaceIdParam && !workspaceSlugParam) {
+        sendJson(response, request, origin, 400, { message: 'workspaceId or workspaceSlug is required' });
         return;
       }
-      const workspaceId = Number.parseInt(`${workspaceIdParam}`, 10);
-      const workspace = findWorkspace(workspaceCatalog, workspaceId);
+
+      let workspaceId = null;
+      if (workspaceIdParam != null) {
+        const parsedWorkspaceId = Number.parseInt(`${workspaceIdParam}`, 10);
+        if (!Number.isFinite(parsedWorkspaceId) || parsedWorkspaceId <= 0) {
+          sendJson(response, request, origin, 422, { message: 'workspaceId must be a positive integer' });
+          return;
+        }
+        workspaceId = parsedWorkspaceId;
+      }
+
+      const workspace = findWorkspace(workspaceCatalog, { workspaceId, workspaceSlug: workspaceSlugParam });
       if (!workspace) {
         sendJson(response, request, origin, 404, { message: 'Workspace not found' });
         return;
       }
 
-      const limit = url.searchParams.get('limit') ? Number.parseInt(`${url.searchParams.get('limit')}`, 10) : null;
-      const filtered = filterEvents(
-        events.filter((event) => event.workspaceId === workspaceId),
-        {
-          from: url.searchParams.get('from'),
-          to: url.searchParams.get('to'),
-          types: url.searchParams.get('types'),
-          search: url.searchParams.get('search'),
-        },
-      );
+      let windowRange;
+      try {
+        windowRange = resolveWindowRange({ from: url.searchParams.get('from'), to: url.searchParams.get('to') });
+      } catch (error) {
+        sendJson(response, request, origin, 422, { message: error.message });
+        return;
+      }
 
-      const grouped = groupEventsByType(filtered, limit);
-      const summary = buildSummary(filtered);
+      const limit = normaliseLimit(url.searchParams.get('limit'));
+      const typesParam = url.searchParams.get('types');
+      const searchParam = url.searchParams.get('search');
+
+      const workspaceEvents = events
+        .filter((event) => Number(event.workspaceId) === workspace.id)
+        .map((event) => serializeEvent(event));
+
+      const filtered = filterEvents(workspaceEvents, {
+        windowStart: windowRange.start,
+        windowEnd: windowRange.end,
+        types: typesParam,
+        search: searchParam,
+      });
+
+      const sorted = filtered
+        .slice()
+        .sort((a, b) => {
+          const diff = new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime();
+          if (diff !== 0) {
+            return diff;
+          }
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
+
+      const limitedEvents = sorted.slice(0, limit);
+      const grouped = groupEventsByType(limitedEvents, limit);
+      const summary = buildSummary(limitedEvents, windowRange);
+
       const filters = {
-        from: url.searchParams.get('from') || null,
-        to: url.searchParams.get('to') || null,
-        types: normaliseTypes(url.searchParams.get('types')),
-        search: url.searchParams.get('search') || '',
-        limit: limit || undefined,
+        from: windowRange.start.toISOString(),
+        to: windowRange.end.toISOString(),
+        types: normaliseTypes(typesParam),
+        search: searchParam ? `${searchParam}`.trim() : null,
+        limit,
+        workspaceId: workspace.id,
+        workspaceSlug: workspace.slug,
       };
 
       sendJson(response, request, origin, 200, {
         workspace: {
           id: workspace.id,
+          slug: workspace.slug,
           name: workspace.name,
           timezone: workspace.timezone,
+          defaultCurrency: workspace.defaultCurrency,
+          membershipRole: workspace.membershipRole,
         },
         filters,
+        events: limitedEvents,
         eventsByType: grouped,
         summary,
         meta: {
           availableWorkspaces: workspaceCatalog.map((item) => ({
             id: item.id,
+            slug: item.slug,
             name: item.name,
             timezone: item.timezone,
+            defaultCurrency: item.defaultCurrency,
+            membershipRole: item.membershipRole,
             permissions: ['manage_calendar', 'view_calendar'],
           })),
           supportedEventTypes: SUPPORTED_EVENT_TYPES,
           scenarios: Array.from(scenarioMap.keys()),
+          seedSource: 'company-calendar-stub',
           latency: {
             minMs: minLatencyValue,
             maxMs: maxLatencyValue,
@@ -621,7 +821,7 @@ export function createCalendarServer(options = {}) {
       return;
     }
 
-    const idMatch = pathname.match(/\/api\/company\/calendar\/events\/(?<id>[a-f0-9-]+)/i);
+    const idMatch = pathname.match(/\/api\/company\/calendar\/events\/(?<id>[a-z0-9-]+)/i);
     const eventId = idMatch?.groups?.id;
 
     if (request.method === 'GET' && eventId) {
@@ -634,16 +834,30 @@ export function createCalendarServer(options = {}) {
         return;
       }
 
-      const event = events.find((item) => item.id === eventId);
+      const numericEventId = toPositiveInteger(eventId);
+      const event = events.find((item) => {
+        if (`${item.id}` === `${eventId}`) {
+          return true;
+        }
+        const candidateId = toPositiveInteger(item.id);
+        return numericEventId != null && candidateId === numericEventId;
+      });
       if (!event) {
         sendJson(response, request, origin, 404, { message: 'Event not found' });
         return;
       }
-      const workspace = findWorkspace(workspaceCatalog, event.workspaceId);
+      const workspace = findWorkspace(workspaceCatalog, { workspaceId: toPositiveInteger(event.workspaceId), workspaceSlug: null });
       sendJson(response, request, origin, 200, {
         event: serializeEvent(event),
         workspace: workspace
-          ? { id: workspace.id, name: workspace.name, timezone: workspace.timezone }
+          ? {
+              id: workspace.id,
+              slug: workspace.slug,
+              name: workspace.name,
+              timezone: workspace.timezone,
+              defaultCurrency: workspace.defaultCurrency,
+              membershipRole: workspace.membershipRole,
+            }
           : null,
       });
       return;
@@ -675,7 +889,7 @@ export function createCalendarServer(options = {}) {
         }
 
         const workspaceId = Number.parseInt(`${payload.workspaceId}`, 10);
-        const workspace = findWorkspace(workspaceCatalog, workspaceId);
+        const workspace = findWorkspace(workspaceCatalog, { workspaceId, workspaceSlug: null });
         if (!workspace) {
           sendJson(response, request, origin, 404, { message: 'Workspace not found' });
           return;
@@ -702,20 +916,26 @@ export function createCalendarServer(options = {}) {
           return;
         }
 
-        const event = ensureEventShape({
-          workspaceId,
-          title: `${payload.title}`.trim(),
-          eventType: SUPPORTED_EVENT_TYPES.includes(payload.eventType) ? payload.eventType : 'project',
-          status: payload.status && typeof payload.status === 'string' ? payload.status : 'scheduled',
-          startsAt: startDate.toISOString(),
-          endsAt: endDate ? endDate.toISOString() : null,
-          location: payload.location ?? null,
-          metadata: sanitizeMetadata(payload.metadata),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        });
+        const createdAt = new Date();
+        const event = ensureEventShape(
+          {
+            id: nextEventId,
+            workspaceId,
+            title: `${payload.title}`.trim(),
+            eventType: payload.eventType,
+            status: payload.status && typeof payload.status === 'string' ? payload.status : undefined,
+            startsAt: startDate.toISOString(),
+            endsAt: endDate ? endDate.toISOString() : null,
+            location: payload.location ?? null,
+            metadata: payload.metadata ?? null,
+            createdAt: createdAt.toISOString(),
+            updatedAt: createdAt.toISOString(),
+          },
+          createdAt,
+        );
 
         events = [event, ...events];
+        nextEventId = computeNextEventId(events);
         sendJson(response, request, origin, 201, serializeEvent(event));
       } catch (error) {
         sendJson(response, request, origin, 400, { message: 'Invalid JSON payload', detail: error.message });
@@ -750,7 +970,7 @@ export function createCalendarServer(options = {}) {
           sendJson(response, request, origin, 422, { message: 'endsAt must be a valid ISO date string' });
           return;
         }
-        if (payload.metadata && typeof payload.metadata !== 'object') {
+        if (payload.metadata !== undefined && payload.metadata !== null && typeof payload.metadata !== 'object') {
           sendJson(response, request, origin, 422, { message: 'metadata must be an object' });
           return;
         }
@@ -763,20 +983,33 @@ export function createCalendarServer(options = {}) {
           return;
         }
 
-        const updated = ensureEventShape({
-          ...existing,
-          title: payload.title ? `${payload.title}`.trim() : existing.title,
-          eventType: SUPPORTED_EVENT_TYPES.includes(payload.eventType) ? payload.eventType : existing.eventType,
-          startsAt: startDate ? startDate.toISOString() : existing.startsAt,
-          endsAt: endDate ? endDate.toISOString() : existing.endsAt,
-          location: payload.location ?? existing.location,
-          status: payload.status ?? existing.status,
-          metadata:
-            payload.metadata && typeof payload.metadata === 'object'
-              ? { ...sanitizeMetadata(existing.metadata), ...sanitizeMetadata(payload.metadata) }
-              : sanitizeMetadata(existing.metadata),
-          updatedAt: new Date().toISOString(),
-        });
+        let mergedMetadata = existing.metadata ? structuredClone(existing.metadata) : null;
+        if (payload.metadata !== undefined) {
+          if (payload.metadata === null) {
+            mergedMetadata = null;
+          } else {
+            const incomingMetadata = prepareMetadata(payload.metadata);
+            mergedMetadata = incomingMetadata
+              ? { ...(existing.metadata ?? {}), ...incomingMetadata }
+              : null;
+          }
+        }
+
+        const updatedAt = new Date();
+        const updated = ensureEventShape(
+          {
+            ...existing,
+            title: payload.title ? `${payload.title}`.trim() : existing.title,
+            eventType: payload.eventType ?? existing.eventType,
+            startsAt: startDate ? startDate.toISOString() : existing.startsAt,
+            endsAt: endDate ? endDate.toISOString() : existing.endsAt,
+            location: payload.location ?? existing.location,
+            status: payload.status ?? existing.status,
+            metadata: mergedMetadata,
+            updatedAt: updatedAt.toISOString(),
+          },
+          updatedAt,
+        );
 
         events[existingIndex] = updated;
         sendJson(response, request, origin, 200, serializeEvent(updated));
@@ -821,15 +1054,17 @@ export function createCalendarServer(options = {}) {
     resetEvents(nextEvents = []) {
       if (nextEvents === null) {
         events = resolveSeedEvents({ ...baseSeed, now: Date.now() });
-        return;
+      } else {
+        if (!Array.isArray(nextEvents)) {
+          throw new TypeError('resetEvents expects an array of events or null');
+        }
+        events = nextEvents.map((item) => ensureEventShape(item, new Date()))
+          .filter((item) => Number.isFinite(Number(item.workspaceId)) && item.title);
       }
-      if (!Array.isArray(nextEvents)) {
-        throw new TypeError('resetEvents expects an array of events or null');
-      }
-      events = nextEvents.map(ensureEventShape);
+      nextEventId = computeNextEventId(events);
     },
     getEvents() {
-      return events.map(serializeEvent);
+      return events.map((event) => serializeEvent(event));
     },
     resetWorkspaces(nextWorkspaces = workspaceSource) {
       workspaceCatalog = normaliseWorkspaces(nextWorkspaces);

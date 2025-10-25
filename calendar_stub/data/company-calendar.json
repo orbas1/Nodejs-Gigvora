@@ -1,0 +1,155 @@
+{
+  "workspaces": [
+    {
+      "id": 101,
+      "slug": "acme-talent-hub",
+      "name": "Acme Talent Hub",
+      "timezone": "UTC",
+      "defaultCurrency": "USD",
+      "membershipRole": "admin"
+    },
+    {
+      "id": 202,
+      "slug": "global-mentorship-guild",
+      "name": "Global Mentorship Guild",
+      "timezone": "America/New_York",
+      "defaultCurrency": "USD",
+      "membershipRole": "manager"
+    }
+  ],
+  "events": [
+    {
+      "id": 910001,
+      "workspaceId": 101,
+      "title": "Revenue ops project kickoff",
+      "eventType": "project",
+      "startOffsetHours": 2,
+      "durationMinutes": 75,
+      "location": "Hybrid · HQ Level 4",
+      "metadata": {
+        "relatedEntityType": "project",
+        "relatedEntityName": "Revenue intelligence rollout",
+        "relatedEntityId": 8801,
+        "ownerName": "Alex Morgan",
+        "ownerEmail": "alex.morgan@example.com",
+        "notes": "Share pre-read before the working session.",
+        "participants": [
+          { "name": "Alex Morgan", "email": "alex.morgan@example.com", "role": "project lead" },
+          { "name": "Jordan Li", "email": "jordan.li@example.com", "role": "operations" }
+        ],
+        "seedSource": "company-calendar-stub"
+      }
+    },
+    {
+      "id": 910002,
+      "workspaceId": 101,
+      "title": "Staff engineer panel interview",
+      "eventType": "interview",
+      "startOffsetHours": 6,
+      "durationMinutes": 90,
+      "location": "Zoom",
+      "metadata": {
+        "relatedEntityType": "job",
+        "relatedEntityName": "Staff Engineer - Platform",
+        "relatedEntityId": 50211,
+        "ownerName": "Recruiting squad",
+        "participants": [
+          { "name": "Priya Patel", "email": "priya.patel@example.com", "role": "interviewer" },
+          { "name": "Jamie Lee", "email": "jamie.lee@example.com", "role": "interviewer" }
+        ],
+        "notes": "Panel: systems design, leadership, architecture deep dive.",
+        "seedSource": "company-calendar-stub"
+      }
+    },
+    {
+      "id": 910003,
+      "workspaceId": 101,
+      "title": "Growth marketing gig onboarding",
+      "eventType": "gig",
+      "startOffsetHours": 28,
+      "durationMinutes": 60,
+      "location": "Async briefing",
+      "metadata": {
+        "relatedEntityType": "gig",
+        "relatedEntityName": "Creator partnership sprint",
+        "ownerName": "Gig programs",
+        "notes": "Share campaign brief and analytics dashboard logins.",
+        "participants": [
+          { "name": "Drew Castillo", "email": "drew.castillo@example.com", "role": "growth lead" }
+        ],
+        "seedSource": "company-calendar-stub"
+      }
+    },
+    {
+      "id": 910004,
+      "workspaceId": 101,
+      "title": "Mentorship intro: product leadership",
+      "eventType": "mentorship",
+      "startOffsetHours": 52,
+      "durationMinutes": 60,
+      "location": "Google Meet",
+      "metadata": {
+        "relatedEntityType": "program",
+        "relatedEntityName": "Growth mentorship",
+        "ownerName": "Mentor success",
+        "notes": "Share growth plan template.",
+        "participants": [
+          { "name": "Lena Torres", "email": "lena.torres@example.com", "role": "mentor" },
+          { "name": "Taylor Brooks", "email": "taylor.brooks@example.com", "role": "mentee" }
+        ],
+        "seedSource": "company-calendar-stub"
+      }
+    },
+    {
+      "id": 910005,
+      "workspaceId": 101,
+      "title": "Volunteer community briefing",
+      "eventType": "volunteering",
+      "startOffsetHours": 76,
+      "durationMinutes": 45,
+      "location": "Community center",
+      "metadata": {
+        "relatedEntityType": "volunteering",
+        "relatedEntityName": "STEM Futures",
+        "ownerName": "Community success",
+        "notes": "Confirm background checks and travel logistics.",
+        "seedSource": "company-calendar-stub"
+      }
+    },
+    {
+      "id": 910006,
+      "workspaceId": 101,
+      "title": "Ops retro: automation runway",
+      "eventType": "project",
+      "startOffsetHours": -10,
+      "durationMinutes": 45,
+      "location": "Hybrid · Ops war room",
+      "metadata": {
+        "relatedEntityType": "project",
+        "relatedEntityName": "Automation runway",
+        "ownerName": "Operations PMO",
+        "notes": "Review backlog, highlight blockers, and confirm new automation pilots.",
+        "participants": [
+          { "name": "Operations PMO", "email": "ops.pmo@example.com", "role": "facilitator" }
+        ],
+        "seedSource": "company-calendar-stub"
+      }
+    },
+    {
+      "id": 920001,
+      "workspaceId": 202,
+      "title": "Mentor guild onboarding",
+      "eventType": "mentorship",
+      "startOffsetHours": 18,
+      "durationMinutes": 50,
+      "location": "Mentor lounge",
+      "metadata": {
+        "relatedEntityType": "program",
+        "relatedEntityName": "Mentor guild",
+        "ownerName": "Mentorship ops",
+        "notes": "Walk mentors through the upcoming cohort playbook.",
+        "seedSource": "company-calendar-stub"
+      }
+    }
+  ]
+}

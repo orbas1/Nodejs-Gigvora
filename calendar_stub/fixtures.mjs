@@ -1,163 +1,197 @@
 import { randomUUID } from 'node:crypto';
 
-const DEFAULT_EVENT_BLUEPRINTS = [
-  {
-    id: 'evt-project-revenue-kickoff',
-    workspaceId: 101,
-    title: 'Revenue ops project kickoff',
-    eventType: 'project',
-    status: 'scheduled',
-    startOffsetHours: 1,
-    endOffsetHours: 2,
-    location: 'Hybrid · HQ Level 4',
-    metadata: {
-      relatedEntityName: 'Revenue intelligence rollout',
-      relatedEntityType: 'project',
-      ownerName: 'Alex Morgan',
-      ownerEmail: 'alex.morgan@example.com',
-      participants: [
-        { name: 'Alex Morgan', email: 'alex.morgan@example.com', role: 'project lead' },
-        { name: 'Jordan Li', email: 'jordan.li@example.com', role: 'operations' },
-      ],
-      notes: 'Share pre-read before the working session.',
-    },
-  },
-  {
-    id: 'evt-staff-engineer-panel',
-    workspaceId: 101,
-    title: 'Staff engineer panel interview',
-    eventType: 'interview',
-    status: 'scheduled',
-    startOffsetHours: 4,
-    endOffsetHours: 5,
-    location: 'Zoom',
-    metadata: {
-      relatedEntityName: 'Staff Engineer - Platform',
-      relatedEntityType: 'job',
-      ownerName: 'Recruiting squad',
-      participants: [
-        { name: 'Priya Patel', email: 'priya.patel@example.com', role: 'interviewer' },
-        { name: 'Jamie Lee', email: 'jamie.lee@example.com', role: 'interviewer' },
-      ],
-      notes: 'Panel: systems design, leadership, architecture deep dive.',
-    },
-  },
-  {
-    id: 'evt-gig-onboarding-briefing',
-    workspaceId: 101,
-    title: 'Growth marketing gig onboarding',
-    eventType: 'gig',
-    status: 'scheduled',
-    startOffsetHours: 24,
-    endOffsetHours: 25,
-    location: 'Async briefing',
-    metadata: {
-      relatedEntityName: 'Creator partnership sprint',
-      relatedEntityType: 'gig',
-      ownerName: 'Gig programs',
-      notes: 'Share campaign brief and analytics dashboard logins.',
-    },
-  },
-  {
-    id: 'evt-mentorship-intro-session',
-    workspaceId: 101,
-    title: 'Mentorship intro: product leadership',
-    eventType: 'mentorship',
-    status: 'scheduled',
-    startOffsetHours: 48,
-    endOffsetHours: 49,
-    location: 'Google Meet',
-    metadata: {
-      relatedEntityName: 'Growth mentorship',
-      relatedEntityType: 'program',
-      ownerName: 'Mentor success',
-      notes: 'Share growth plan template.',
-    },
-  },
-  {
-    id: 'evt-volunteering-community-brief',
-    workspaceId: 101,
-    title: 'Volunteer community briefing',
-    eventType: 'volunteering',
-    status: 'scheduled',
-    startOffsetHours: 72,
-    endOffsetHours: 72.5,
-    location: 'Community center',
-    metadata: {
-      relatedEntityName: 'STEM Futures',
-      relatedEntityType: 'volunteering',
-      ownerName: 'Community success',
-      notes: 'Confirm background checks and travel logistics.',
-    },
-  },
-];
+import dataset from './data/company-calendar.json' with { type: 'json' };
 
-function cloneMetadata(metadata) {
+const DEFAULT_EVENT_BLUEPRINTS = Array.isArray(dataset.events) ? dataset.events : [];
+export const DEFAULT_WORKSPACES = (Array.isArray(dataset.workspaces) ? dataset.workspaces : []).map((workspace) => ({
+  id: Number.parseInt(`${workspace.id}`, 10),
+  slug: workspace.slug ? `${workspace.slug}`.trim() : null,
+  name: `${workspace.name}`.trim(),
+  timezone: workspace.timezone ? `${workspace.timezone}` : 'UTC',
+  defaultCurrency: workspace.defaultCurrency ? `${workspace.defaultCurrency}`.trim() : 'USD',
+  membershipRole: workspace.membershipRole ? `${workspace.membershipRole}`.trim() : 'admin',
+}));
+
+function computeDateFromOffset(now, offsetHours) {
+  if (typeof offsetHours !== 'number' || Number.isNaN(offsetHours)) {
+    return null;
+  }
+  return new Date(now + offsetHours * 60 * 60 * 1000);
+}
+
+function resolveDate(value, now, fallback) {
+  if (!value && value !== 0) {
+    return fallback ?? null;
+  }
+  if (value instanceof Date) {
+    return value;
+  }
+  if (typeof value === 'number') {
+    return computeDateFromOffset(now, value) ?? fallback ?? null;
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return fallback ?? null;
+  }
+  return parsed;
+}
+
+function resolveEndsAt(now, blueprint, startsAt) {
+  if (blueprint.endsAt) {
+    return resolveDate(blueprint.endsAt, now, null);
+  }
+  if (typeof blueprint.endOffsetHours === 'number') {
+    return computeDateFromOffset(now, blueprint.endOffsetHours);
+  }
+  if (typeof blueprint.durationMinutes === 'number' && startsAt instanceof Date) {
+    const minutes = Math.max(0, blueprint.durationMinutes);
+    return new Date(startsAt.getTime() + minutes * 60 * 1000);
+  }
+  if (typeof blueprint.durationHours === 'number' && startsAt instanceof Date) {
+    return new Date(startsAt.getTime() + Math.max(0, blueprint.durationHours) * 60 * 60 * 1000);
+  }
+  return null;
+}
+
+function sanitizeParticipants(participants = []) {
+  if (!Array.isArray(participants)) {
+    return undefined;
+  }
+  const list = participants
+    .map((participant) => {
+      if (!participant || typeof participant !== 'object') {
+        return null;
+      }
+      const name = participant.name ? `${participant.name}`.trim() : undefined;
+      const email = participant.email ? `${participant.email}`.trim().toLowerCase() : undefined;
+      const role = participant.role ? `${participant.role}`.trim() : undefined;
+      if (!name && !email && !role) {
+        return null;
+      }
+      return { name, email, role };
+    })
+    .filter(Boolean);
+  return list.length ? list.slice(0, 20) : undefined;
+}
+
+function sanitizeAttachments(attachments = []) {
+  if (!Array.isArray(attachments)) {
+    return undefined;
+  }
+  const list = attachments
+    .map((attachment) => {
+      if (!attachment || typeof attachment !== 'object') {
+        return null;
+      }
+      const label = attachment.label ? `${attachment.label}`.trim() : undefined;
+      const url = attachment.url ? `${attachment.url}`.trim() : undefined;
+      if (!label && !url) {
+        return null;
+      }
+      return { label, url };
+    })
+    .filter(Boolean);
+  return list.length ? list.slice(0, 20) : undefined;
+}
+
+function sanitizeMetadata(metadata) {
   if (!metadata || typeof metadata !== 'object') {
     return {};
   }
-  return structuredClone(metadata);
+  const cleaned = {
+    relatedEntityId:
+      metadata.relatedEntityId != null && Number.isFinite(Number(metadata.relatedEntityId))
+        ? Number(metadata.relatedEntityId)
+        : undefined,
+    relatedEntityType: metadata.relatedEntityType ? `${metadata.relatedEntityType}`.trim() : undefined,
+    relatedEntityName: metadata.relatedEntityName ? `${metadata.relatedEntityName}`.trim() : undefined,
+    relatedUrl: metadata.relatedUrl ? `${metadata.relatedUrl}`.trim() : undefined,
+    ownerId:
+      metadata.ownerId != null && Number.isFinite(Number(metadata.ownerId)) ? Number(metadata.ownerId) : undefined,
+    ownerName: metadata.ownerName ? `${metadata.ownerName}`.trim() : undefined,
+    ownerEmail: metadata.ownerEmail ? `${metadata.ownerEmail}`.trim().toLowerCase() : undefined,
+    notes: metadata.notes ? `${metadata.notes}`.trim() : undefined,
+    visibility: metadata.visibility ? `${metadata.visibility}`.trim().toLowerCase() : undefined,
+    participants: sanitizeParticipants(metadata.participants ?? metadata.attendees),
+    attachments: sanitizeAttachments(metadata.attachments),
+    color: metadata.color ? `${metadata.color}`.trim() : undefined,
+    seedSource: metadata.seedSource ? `${metadata.seedSource}`.trim() : undefined,
+  };
+
+  return Object.fromEntries(Object.entries(cleaned).filter(([, value]) => value != null));
 }
 
-function computeDate(now, offsetHours) {
-  if (typeof offsetHours !== 'number') {
-    return null;
+export function normaliseMetadata(metadata) {
+  return sanitizeMetadata(metadata);
+}
+
+function toPositiveInteger(value, fallback = null) {
+  const numeric = Number.parseInt(`${value}`, 10);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return fallback;
   }
-  return new Date(now + offsetHours * 60 * 60 * 1000).toISOString();
+  return numeric;
+}
+
+function createEventFromBlueprint(blueprint, now) {
+  const startDate = resolveDate(blueprint.startsAt ?? blueprint.startOffsetHours, now, new Date(now));
+  const endDate = resolveEndsAt(now, blueprint, startDate);
+  const timestamp = new Date(now).toISOString();
+  const id = toPositiveInteger(blueprint.id);
+
+  return {
+    id: id ?? randomUUID(),
+    workspaceId: toPositiveInteger(blueprint.workspaceId, 0),
+    title: `${blueprint.title}`.trim(),
+    eventType: `${blueprint.eventType}`.trim().toLowerCase(),
+    status: blueprint.status ? `${blueprint.status}`.trim().toLowerCase() : 'scheduled',
+    startsAt: startDate ? startDate.toISOString() : timestamp,
+    endsAt: endDate ? endDate.toISOString() : null,
+    location: blueprint.location ? `${blueprint.location}` : null,
+    metadata: sanitizeMetadata(blueprint.metadata),
+    createdAt: blueprint.createdAt ? `${blueprint.createdAt}` : timestamp,
+    updatedAt: blueprint.updatedAt ? `${blueprint.updatedAt}` : timestamp,
+  };
 }
 
 export function createDefaultEvents(now = Date.now()) {
-  const timestamp = new Date(now).toISOString();
-  return DEFAULT_EVENT_BLUEPRINTS.map((blueprint) => ({
-    id: blueprint.id || randomUUID(),
-    workspaceId: blueprint.workspaceId,
-    title: blueprint.title,
-    eventType: blueprint.eventType,
-    status: blueprint.status,
-    startsAt: computeDate(now, blueprint.startOffsetHours) || timestamp,
-    endsAt: computeDate(now, blueprint.endOffsetHours),
-    location: blueprint.location || null,
-    metadata: cloneMetadata(blueprint.metadata),
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  }));
+  if (!DEFAULT_EVENT_BLUEPRINTS.length) {
+    return [];
+  }
+  return DEFAULT_EVENT_BLUEPRINTS.map((blueprint) => createEventFromBlueprint(blueprint, now));
 }
 
 export function normaliseEventFixtures(events, { now = Date.now(), allowEmpty = false } = {}) {
-  if (!Array.isArray(events) || (!events.length && !allowEmpty)) {
+  if (!Array.isArray(events)) {
     return createDefaultEvents(now);
   }
 
-  if (Array.isArray(events) && events.length === 0 && allowEmpty) {
+  if (events.length === 0 && !allowEmpty) {
+    return createDefaultEvents(now);
+  }
+
+  if (events.length === 0) {
     return [];
   }
 
   return events.map((event) => {
-    const startsAt = event.startsAt || computeDate(now, event.startOffsetHours ?? event.offsetHours);
-    const endsAt =
-      event.endsAt !== undefined
-        ? event.endsAt
-        : computeDate(now, event.endOffsetHours ?? event.durationHours !== undefined
-            ? (event.startOffsetHours ?? event.offsetHours ?? 0) + event.durationHours
-            : undefined);
+    const startDate = resolveDate(event.startsAt ?? event.startOffsetHours ?? event.offsetHours, now, new Date(now));
+    const endDate = resolveEndsAt(now, event, startDate);
+    const createdAt = resolveDate(event.createdAt, now, new Date(now));
+    const updatedAt = resolveDate(event.updatedAt, now, createdAt ?? new Date(now));
 
     return {
-      id: event.id || randomUUID(),
-      workspaceId: Number.parseInt(`${event.workspaceId}`, 10),
+      id: toPositiveInteger(event.id, randomUUID()),
+      workspaceId: toPositiveInteger(event.workspaceId, 0),
       title: `${event.title}`.trim(),
-      eventType: `${event.eventType}`.toLowerCase(),
-      status: event.status ? `${event.status}` : 'scheduled',
-      startsAt: startsAt || new Date(now).toISOString(),
-      endsAt: endsAt || null,
-      location: event.location ?? null,
-      metadata: cloneMetadata(event.metadata),
-      createdAt: event.createdAt || new Date(now).toISOString(),
-      updatedAt: event.updatedAt || new Date(now).toISOString(),
+      eventType: `${event.eventType}`.trim().toLowerCase(),
+      status: event.status ? `${event.status}`.trim().toLowerCase() : 'scheduled',
+      startsAt: startDate ? startDate.toISOString() : new Date(now).toISOString(),
+      endsAt: endDate ? endDate.toISOString() : null,
+      location: event.location ? `${event.location}` : null,
+      metadata: sanitizeMetadata(event.metadata),
+      createdAt: createdAt ? createdAt.toISOString() : new Date(now).toISOString(),
+      updatedAt: updatedAt ? updatedAt.toISOString() : new Date(now).toISOString(),
     };
   });
 }
-
-export const DEFAULT_WORKSPACES = [
-  { id: 101, name: 'Acme Talent Hub', timezone: 'UTC' },
-  { id: 202, name: 'Global Mentorship Guild', timezone: 'America/New_York' },
-];

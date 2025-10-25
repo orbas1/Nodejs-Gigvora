@@ -29,7 +29,10 @@ The server honours the following environment variables:
 | `CALENDAR_STUB_MAX_LATENCY_MS` | Maximum latency (ms). | `0` |
 
 When no fixtures are supplied, the stub loads deterministic default events covering projects,
-interviews, gigs, mentorship, and volunteering across two sample workspaces.
+interviews, gigs, mentorship, and volunteering across two sample workspaces sourced from
+`calendar_stub/data/company-calendar.json`. The same dataset powers the database seeder
+(`gigvora-backend-nodejs/database/seeders/20241031090500-company-calendar-demo.cjs`) so local MySQL
+instances and the stub share aligned data.
 
 ## Request Requirements
 
@@ -44,6 +47,8 @@ All API calls must include:
 
 - `GET /api/company/calendar/events?workspaceId=<id>` – list events with optional filters `from`,
   `to`, `types`, `search`, `limit`.
+- `GET /api/company/calendar/events?workspaceSlug=<slug>` – slug-based variant of the listing
+  endpoint. Clients can also provide `x-workspace-slug` when query parameters are unavailable.
 - `GET /api/company/calendar/events/:id` – fetch a single event.
 - `POST /api/company/calendar/events` – create an event. Requires `workspaceId`, `title`, `startsAt`.
 - `PATCH /api/company/calendar/events/:id` – update an event.
@@ -79,11 +84,17 @@ against the stub. All payloads are stored in-memory and are reset when the proce
 
 Event listing responses include:
 
-- `workspace` details (id, name, timezone).
+- `workspace` details (id, slug, name, timezone, membership role, currency).
+- `events` flattened list with `durationMinutes` and time-aware `status` values.
 - `eventsByType` grouped arrays for each supported event type.
-- `summary` containing totals, next event, and overdue counts.
-- `meta.availableWorkspaces` exposing workspace fixtures.
-- `meta.supportedEventTypes`, `meta.scenarios`, and `meta.latency` summarising stub capabilities.
+- `filters` echoing window bounds, active event type filters, and the resolved workspace slug.
+- `summary` containing totals, per-type upcoming pointers, overdue counts, and the active window.
+- `meta.availableWorkspaces` exposing workspace fixtures and permissions.
+- `meta.supportedEventTypes`, `meta.scenarios`, `meta.seedSource`, and `meta.latency` summarising
+  stub capabilities.
 
-Use this metadata to drive UI toggles (e.g., enabling retry flows when `rate-limit` scenarios are
-available) and to keep documentation consistent with the live contract.
+All metadata values are normalised to mirror production validation. Unknown metadata keys are
+discarded, participant lists are trimmed to 20 entries, and workspace identifiers are coerced to
+slugs and positive integers. Use the included metadata to drive UI toggles (e.g., enabling retry
+flows when `rate-limit` scenarios are available) and to keep documentation consistent with the live
+contract.
