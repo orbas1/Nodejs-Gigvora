@@ -55,7 +55,13 @@ async function collectSchema() {
 
 async function readAppliedMigrations() {
   const queryInterface = sequelize.getQueryInterface();
-  const metaTable = queryInterface.quoteTable('SequelizeMeta');
+  const quoteTable =
+    typeof queryInterface.quoteTable === 'function'
+      ? (table) => queryInterface.quoteTable(table)
+      : typeof queryInterface.queryGenerator?.quoteTable === 'function'
+        ? (table) => queryInterface.queryGenerator.quoteTable(table)
+        : (table) => table;
+  const metaTable = quoteTable('SequelizeMeta');
   try {
     const [rows] = await sequelize.query(`SELECT name FROM ${metaTable} ORDER BY name ASC`);
     if (!Array.isArray(rows)) {
@@ -63,7 +69,15 @@ async function readAppliedMigrations() {
     }
     return rows.map((row) => row.name);
   } catch (error) {
-    console.warn('Could not read applied migrations:', error.message);
+    const message = error?.message ?? '';
+    const isMissingTable =
+      /no such table/i.test(message) ||
+      /does not exist/i.test(message) ||
+      /unknown table/i.test(message) ||
+      /unknown object/i.test(message);
+    if (!isMissingTable) {
+      console.warn('Could not read applied migrations:', message);
+    }
     return [];
   }
 }
@@ -86,6 +100,21 @@ async function main() {
       collectSchema(),
       readAppliedMigrations(),
     ]);
+
+    if (Object.keys(schema).length === 0 && appliedMigrations.length === 0) {
+      console.info(
+        JSON.stringify(
+          {
+            status: 'skipped',
+            reason: 'no tables or migrations found',
+            durationMs: Date.now() - started,
+          },
+          null,
+          2,
+        ),
+      );
+      return;
+    }
 
     const payload = {
       generatedAt: new Date().toISOString(),

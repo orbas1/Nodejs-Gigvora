@@ -1,38 +1,7 @@
 import { describe, expect, it, beforeEach, beforeAll, afterAll } from '@jest/globals';
-import { sequelize } from '../src/models/messagingModels.js';
+import { sequelize as messagingSequelize } from '../src/models/messagingModels.js';
 import { appCache } from '../src/utils/cache.js';
 import { markDependencyHealthy } from '../src/lifecycle/runtimeHealth.js';
-
-await import('../src/models/index.js');
-
-function markDefaultsHealthy() {
-  ['database', 'paymentsCore', 'complianceProviders', 'paymentsEngine'].forEach((name) => {
-    try {
-      markDependencyHealthy(name);
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.warn(`Failed to mark dependency ${name} as healthy in user dashboard test setup`, error);
-    }
-  });
-}
-
-beforeAll(async () => {
-  await sequelize.sync({ force: true });
-  markDefaultsHealthy();
-});
-
-beforeEach(async () => {
-  appCache.store?.clear?.();
-  await sequelize.sync({ force: true });
-  markDefaultsHealthy();
-});
-
-afterAll(async () => {
-  await sequelize.close();
-});
-process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'false';
-
-import { describe, expect, it, beforeEach } from '@jest/globals';
 import './setupTestEnv.js';
 import {
   Profile,
@@ -59,9 +28,36 @@ import {
   sequelize,
 } from '../src/models/index.js';
 import PlatformSetting from '../src/models/platformSetting.js';
-import { markDependencyHealthy } from '../src/lifecycle/runtimeHealth.js';
 import userDashboardService from '../src/services/userDashboardService.js';
 import { createUser } from './helpers/factories.js';
+
+process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'false';
+
+function markDefaultsHealthy() {
+  ['database', 'paymentsCore', 'complianceProviders', 'paymentsEngine'].forEach((name) => {
+    try {
+      markDependencyHealthy(name);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn(`Failed to mark dependency ${name} as healthy in user dashboard test setup`, error);
+    }
+  });
+}
+
+beforeAll(async () => {
+  await messagingSequelize.sync({ force: true });
+  markDefaultsHealthy();
+});
+
+beforeEach(async () => {
+  appCache.store?.clear?.();
+  await messagingSequelize.sync({ force: true });
+  markDefaultsHealthy();
+});
+
+afterAll(async () => {
+  await messagingSequelize.close();
+});
 
 const now = () => new Date();
 

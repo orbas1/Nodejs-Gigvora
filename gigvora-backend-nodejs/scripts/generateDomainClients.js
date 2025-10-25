@@ -95,7 +95,7 @@ async function writeIndexFile(exportsMap) {
   }
 
   const indexPath = path.join(schemaPaths.clientsTypescriptRoot, 'index.d.ts');
-  const manualExports = [];
+  const manualExports = new Set();
 
   if (await fs.pathExists(indexPath)) {
     const current = await fs.readFile(indexPath, 'utf8');
@@ -107,13 +107,13 @@ async function writeIndexFile(exportsMap) {
 
       const existingPath = match[1];
       if (!exportsMap.some((entry) => entry.path.replace(/\\/g, '/') === existingPath)) {
-        manualExports.push({ path: existingPath });
+        manualExports.add(existingPath);
       }
     }
   }
 
   const combined = [...exportsMap, ...manualExports].reduce((acc, entry) => {
-    const normalised = entry.path.replace(/\\/g, '/');
+    const normalised = (typeof entry === 'string' ? entry : entry.path).replace(/\\/g, '/');
     if (!acc.some((existing) => existing.path === normalised)) {
       acc.push({ path: normalised });
     }
@@ -123,7 +123,7 @@ async function writeIndexFile(exportsMap) {
   const lines = combined.sort((a, b) => a.path.localeCompare(b.path)).map((entry) => `export * from './${entry.path}';`);
 
   const { changed, hash } = await writeFileIfChanged(indexPath, `${lines.join('\n')}\n`);
-  return { changed, hash };
+  return { changed, hash, manualExports: Array.from(manualExports) };
 }
 
 async function run() {
@@ -144,7 +144,7 @@ async function run() {
   const artifactMetadata = {};
   let hasArtifactChanges = false;
   const runTimestamp = new Date().toISOString();
-  const manualArtifactKeys = [];
+  const manualArtifactKeys = new Set();
 
   for (const schemaFile of schemaFiles) {
     const expectedOutput = path.join(
@@ -159,7 +159,7 @@ async function run() {
     const result = await generateTypeDefinition(schemaFile);
 
     if (!result) {
-      manualArtifactKeys.push(normalisedExportPath);
+      manualArtifactKeys.add(normalisedExportPath);
       continue;
     }
 
@@ -192,6 +192,10 @@ async function run() {
       generatedAt: runTimestamp,
     };
 
+    for (const manualKey of indexMetadata.manualExports ?? []) {
+      manualArtifactKeys.add(manualKey);
+    }
+
     if (indexMetadata.changed) {
       const previousIndex = manifest.artifacts?.index;
       if (!previousIndex || previousIndex.typesHash !== indexMetadata.hash) {
@@ -209,15 +213,32 @@ async function run() {
     }
   }
 
-  const finalArtifacts = { ...artifactMetadata };
-  for (const manualKey of manualArtifactKeys) {
-    if (manifest.artifacts?.[manualKey]) {
-      finalArtifacts[manualKey] = manifest.artifacts[manualKey];
+  const finalArtifacts = {};
+  const existingKeys = Object.keys(manifest.artifacts || {});
+
+  for (const key of existingKeys) {
+    if (artifactMetadata[key]) {
+      finalArtifacts[key] = artifactMetadata[key];
+      continue;
+    }
+
+    if (manualArtifactKeys.has(key) && manifest.artifacts?.[key]) {
+      finalArtifacts[key] = manifest.artifacts[key];
+      continue;
+    }
+
+    hasArtifactChanges = true;
+  }
+
+  for (const [key, metadata] of Object.entries(artifactMetadata)) {
+    if (!finalArtifacts[key]) {
+      finalArtifacts[key] = metadata;
     }
   }
-  for (const previousKey of Object.keys(manifest.artifacts || {})) {
-    if (!finalArtifacts[previousKey]) {
-      hasArtifactChanges = true;
+
+  for (const manualKey of manualArtifactKeys) {
+    if (!finalArtifacts[manualKey] && manifest.artifacts?.[manualKey]) {
+      finalArtifacts[manualKey] = manifest.artifacts[manualKey];
     }
   }
 
