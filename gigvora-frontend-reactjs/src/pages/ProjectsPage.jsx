@@ -93,6 +93,25 @@ export default function ProjectsPage() {
     };
   }, [metricsData, derivedStats]);
 
+  const velocityLabels = useMemo(() => {
+    const sampleSize = Number(aggregatedStats.sampleSize ?? 0);
+    const sampleText = sampleSize > 0 ? `n=${sampleSize}` : null;
+    const medianLabel =
+      sampleSize > 0 && aggregatedStats.medianResponseMinutes != null
+        ? `${aggregatedStats.medianResponseMinutes} (${sampleText})`
+        : sampleSize === 0
+        ? 'Awaiting responses'
+        : `Insufficient data (${sampleText})`;
+    const completionLabel =
+      sampleSize > 0 && aggregatedStats.completionRate != null
+        ? `${aggregatedStats.completionRate}% (${sampleText})`
+        : sampleSize === 0
+        ? 'Awaiting responses'
+        : `Insufficient data (${sampleText})`;
+
+    return { medianLabel, completionLabel };
+  }, [aggregatedStats.medianResponseMinutes, aggregatedStats.completionRate, aggregatedStats.sampleSize]);
+
   const handleJoin = (project) => {
     analytics.track(
       'web_project_join_cta',
@@ -178,19 +197,11 @@ export default function ProjectsPage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <dt>Median response (mins)</dt>
-                    <dd className="font-semibold text-slate-800">
-                      {aggregatedStats.medianResponseMinutes != null
-                        ? aggregatedStats.medianResponseMinutes
-                        : 'Tracking'}
-                    </dd>
+                    <dd className="font-semibold text-slate-800">{velocityLabels.medianLabel}</dd>
                   </div>
                   <div className="flex items-center justify-between">
                     <dt>Completion rate</dt>
-                    <dd className="font-semibold text-slate-800">
-                      {aggregatedStats.completionRate != null
-                        ? `${aggregatedStats.completionRate}%`
-                        : 'Tracking'}
-                    </dd>
+                    <dd className="font-semibold text-slate-800">{velocityLabels.completionLabel}</dd>
                   </div>
                 </dl>
                 {metricsError && canManageProjects ? (
@@ -260,11 +271,15 @@ export default function ProjectsPage() {
           </div>
         ) : null}
         <div className="space-y-6">
-          {items.map((project) => (
-            <article
-              key={project.id}
-              className="rounded-3xl border border-slate-200 bg-white p-6 transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft"
-            >
+          {items.map((project) => {
+            const fairness = project.autoAssignSettings?.fairness ?? {};
+            const fairnessMaxAssignments = fairness.maxAssignments ?? fairness.maxAssignmentsForPriority ?? null;
+
+            return (
+              <article
+                key={project.id}
+                className="rounded-3xl border border-slate-200 bg-white p-6 transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft"
+              >
               <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
                 {project.status ? <span>{project.status}</span> : null}
                 <span className="text-slate-400">Updated {formatRelativeTime(project.updatedAt)}</span>
@@ -361,20 +376,21 @@ export default function ProjectsPage() {
                   <div className="rounded-3xl border border-slate-200 bg-surfaceMuted/70 px-4 py-3">
                     <p className="font-semibold text-slate-600">Fairness weights</p>
                     <p className="mt-1 text-slate-500">
-                      {project.autoAssignSettings?.fairness?.ensureNewcomer
+                      {fairness.ensureNewcomer !== false
                         ? 'Newcomers always secure the first slot.'
                         : 'Rotation only with weighted scoring.'}
                     </p>
-                    {project.autoAssignSettings?.fairness?.maxAssignments != null ? (
+                    {fairnessMaxAssignments != null ? (
                       <p className="mt-2 text-xs text-slate-500">
-                        {`Max ${project.autoAssignSettings.fairness.maxAssignments} assignments before rebalancing.`}
+                        {`Max ${fairnessMaxAssignments} assignments before rebalancing.`}
                       </p>
                     ) : null}
                   </div>
                 ) : null}
               </div>
             </article>
-          ))}
+          );
+          })}
         </div>
       </div>
     </section>

@@ -30,7 +30,9 @@ const EVENT_LABELS = {
   auto_assign_enabled: 'Auto-match enabled',
   auto_assign_disabled: 'Auto-match disabled',
   auto_assign_queue_generated: 'Queue regenerated',
+  auto_assign_queue_regenerated: 'Queue regenerated',
   auto_assign_queue_exhausted: 'Queue exhausted',
+  auto_assign_queue_failed: 'Queue regeneration failed',
 };
 
 function ensureObject(value) {
@@ -129,7 +131,7 @@ export default function ProjectAutoMatchPage() {
     fairnessMaxAssignments: 3,
     ensureNewcomer: true,
   });
-  const [queueSnapshot, setQueueSnapshot] = useState({ entries: [], summary: null, timestamp: null });
+  const [queueSnapshot, setQueueSnapshot] = useState({ entries: [], summary: null, regeneration: null, timestamp: null });
   const [weights, setWeights] = useState(WEIGHT_PRESET);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState(null);
@@ -184,6 +186,13 @@ export default function ProjectAutoMatchPage() {
   const project = projectData ?? null;
   const queueEntries = Array.isArray(queueSnapshot.entries) ? queueSnapshot.entries : [];
   const queueSummary = queueSnapshot.summary ?? null;
+  const queueRegeneration = useMemo(() => {
+    if (!queueSnapshot.regeneration || typeof queueSnapshot.regeneration !== 'object') {
+      return null;
+    }
+    const resolved = ensureObject(queueSnapshot.regeneration);
+    return Object.keys(resolved).length ? resolved : null;
+  }, [queueSnapshot.regeneration]);
   const sortedQueueEntries = useMemo(() => {
     return queueEntries
       .slice()
@@ -205,13 +214,14 @@ export default function ProjectAutoMatchPage() {
   useEffect(() => {
     if (!queueData) {
       if (!queueLoading && !queueError) {
-        setQueueSnapshot((prev) => ({ ...prev, entries: [], summary: null }));
+        setQueueSnapshot((prev) => ({ ...prev, entries: [], summary: null, regeneration: null }));
       }
       return;
     }
     setQueueSnapshot({
       entries: Array.isArray(queueData.entries) ? queueData.entries : [],
       summary: queueData.summary ?? null,
+      regeneration: queueData.regeneration ?? null,
       timestamp: queueUpdatedAt ? toValidDate(queueUpdatedAt) ?? new Date() : null,
     });
   }, [queueData, queueLoading, queueError, queueUpdatedAt]);
@@ -225,6 +235,7 @@ export default function ProjectAutoMatchPage() {
       setQueueSnapshot((prev) => ({
         entries: Array.isArray(payload.entries) ? payload.entries : prev.entries,
         summary: payload.summary ?? prev.summary,
+        regeneration: payload.regeneration ?? prev.regeneration,
         timestamp: toValidDate(payload.timestamp) ?? prev.timestamp ?? new Date(),
       }));
     },
@@ -267,10 +278,13 @@ export default function ProjectAutoMatchPage() {
         ...prev,
         limit: settings.limit ?? prev.limit,
         expiresInMinutes: settings.expiresInMinutes ?? prev.expiresInMinutes,
-        fairnessMaxAssignments:
-          fairness.maxAssignments != null ? fairness.maxAssignments : prev.fairnessMaxAssignments,
         ensureNewcomer: fairness.ensureNewcomer !== false,
       };
+      if (fairness.maxAssignments != null || fairness.maxAssignmentsForPriority != null) {
+        const rawMax = fairness.maxAssignments ?? fairness.maxAssignmentsForPriority;
+        const numericMax = Number(rawMax);
+        next.fairnessMaxAssignments = Number.isFinite(numericMax) ? numericMax : prev.fairnessMaxAssignments;
+      }
       if ((!prev.projectValue || prev.projectValue === '') && Number.isFinite(numericProjectValue)) {
         next.projectValue = String(Math.max(0, Math.round(numericProjectValue)));
       }
@@ -283,30 +297,56 @@ export default function ProjectAutoMatchPage() {
     }
   }, [project]);
 
+  const queueRegenerationDetails = useMemo(() => {
+    if (!queueRegeneration) {
+      return null;
+    }
+    const actor = ensureObject(queueRegeneration.actor);
+    const actorName = [actor.firstName, actor.lastName].filter(Boolean).join(' ').trim();
+    const actorLabel = actorName || actor.email || null;
+
+    return {
+      ...queueRegeneration,
+      actor,
+      actorLabel,
+      occurredAt: toValidDate(queueRegeneration.occurredAt),
+    };
+  }, [queueRegeneration]);
+
   const queueMetadata = useMemo(() => {
-    if (queueSummary) {
+    const baseSummary = queueSummary || {};
+    const summaryGeneratedAt = toValidDate(baseSummary.generatedAt);
+    const summaryExpiresAt = toValidDate(baseSummary.expiresAt);
+    const summaryGeneratedBy = baseSummary.generatedBy ?? null;
+
+    if (queueRegenerationDetails) {
       return {
-        generatedAt: toValidDate(queueSummary.generatedAt),
-        expiresAt: toValidDate(queueSummary.expiresAt),
-        generatedBy: queueSummary.generatedBy ?? null,
+        generatedAt: queueRegenerationDetails.occurredAt ?? summaryGeneratedAt,
+        expiresAt: summaryExpiresAt,
+        generatedBy: queueRegenerationDetails.actorId ?? summaryGeneratedBy,
+        regeneration: queueRegenerationDetails,
       };
     }
+
     if (!sortedQueueEntries.length) {
-      return { generatedAt: null, expiresAt: null, generatedBy: null };
+      return { generatedAt: summaryGeneratedAt, expiresAt: summaryExpiresAt, generatedBy: summaryGeneratedBy, regeneration: null };
     }
+
     const generatedAtRaw = sortedQueueEntries
       .map((entry) => entry?.metadata?.generatedAt)
       .find((value) => value);
     const expiresAtRaw = sortedQueueEntries.map((entry) => entry?.expiresAt).find((value) => value);
-    const generatedBy = sortedQueueEntries
+    const generatedByEntry = sortedQueueEntries
       .map((entry) => entry?.metadata?.generatedBy)
       .find((value) => value != null);
+
     return {
-      generatedAt: toValidDate(generatedAtRaw),
-      expiresAt: toValidDate(expiresAtRaw),
-      generatedBy: generatedBy ?? null,
+      generatedAt: summaryGeneratedAt ?? toValidDate(generatedAtRaw),
+      expiresAt: summaryExpiresAt ?? toValidDate(expiresAtRaw),
+      generatedBy: summaryGeneratedBy ?? generatedByEntry ?? null,
+      regeneration: null,
     };
-  }, [queueSummary, sortedQueueEntries]);
+  }, [queueSummary, sortedQueueEntries, queueRegenerationDetails]);
 
   const fairnessSummary = useMemo(() => {
     const fallback = () => {
@@ -621,7 +661,7 @@ export default function ProjectAutoMatchPage() {
             </article>
           );
         })}
-        <div className="rounded-3xl border border-slate-200 bg-surfaceMuted/60 px-4 py-3 text-xs text-slate-500">
+        <div className="space-y-2 rounded-3xl border border-slate-200 bg-surfaceMuted/60 px-4 py-3 text-xs text-slate-500">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span>
               {queueMetadata.generatedAt
@@ -632,6 +672,44 @@ export default function ProjectAutoMatchPage() {
               <span>Expires {formatRelativeTime(queueMetadata.expiresAt)}</span>
             ) : null}
           </div>
+          {queueMetadata.regeneration ? (
+            <div
+              className={`flex flex-wrap items-center gap-2 rounded-2xl border px-3 py-2 ${
+                queueMetadata.regeneration.status === 'failed'
+                  ? 'border-rose-200 bg-rose-50 text-rose-700'
+                  : queueMetadata.regeneration.status === 'exhausted'
+                  ? 'border-amber-200 bg-amber-50 text-amber-700'
+                  : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+              }`}
+            >
+              <span className="font-semibold uppercase tracking-[0.18em]">
+                {queueMetadata.regeneration.status === 'failed'
+                  ? 'Regeneration failed'
+                  : queueMetadata.regeneration.status === 'exhausted'
+                  ? 'Queue exhausted'
+                  : 'Regeneration successful'}
+              </span>
+              {queueMetadata.regeneration.occurredAt ? (
+                <span>
+                  · {formatRelativeTime(queueMetadata.regeneration.occurredAt)}
+                </span>
+              ) : null}
+              {queueMetadata.regeneration.actorLabel ? (
+                <span>
+                  · Triggered by {queueMetadata.regeneration.actorLabel}
+                  {queueMetadata.regeneration.actor?.email &&
+                  queueMetadata.regeneration.actorLabel !== queueMetadata.regeneration.actor.email
+                    ? ` (${queueMetadata.regeneration.actor.email})`
+                    : ''}
+                </span>
+              ) : null}
+              {queueMetadata.regeneration.reason ? (
+                <span className="basis-full text-[11px] font-medium">
+                  Reason: {queueMetadata.regeneration.reason}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </div>
     );

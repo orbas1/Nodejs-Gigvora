@@ -16120,7 +16120,9 @@ export const ProjectAssignmentEvent = sequelize.define(
         'auto_assign_enabled',
         'auto_assign_disabled',
         'auto_assign_queue_generated',
+        'auto_assign_queue_regenerated',
         'auto_assign_queue_exhausted',
+        'auto_assign_queue_failed',
       ),
       allowNull: false,
       defaultValue: 'created',
@@ -16169,6 +16171,7 @@ export const AutoAssignQueueEntry = sequelize.define(
     resolvedAt: { type: DataTypes.DATE, allowNull: true },
     projectValue: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
     metadata: { type: jsonType, allowNull: true },
+    responseMetadata: { type: jsonType, allowNull: true },
   },
   {
     tableName: 'auto_assign_queue_entries',

@@ -151,6 +151,7 @@ function sanitizeQueueEntry(entry, index = 0) {
     breakdown,
     metadata,
     response,
+    responseMetadata,
     freelancer,
     status,
     score,
@@ -185,6 +186,8 @@ function sanitizeQueueEntry(entry, index = 0) {
   const freelancerObject = ensurePlainObject(freelancer);
   const safeResponse = Object.keys(responseObject).length ? responseObject : null;
   const safeFreelancer = Object.keys(freelancerObject).length ? freelancerObject : null;
+  const responseMetadataObject = ensurePlainObject(responseMetadata);
+  const safeResponseMetadata = Object.keys(responseMetadataObject).length ? responseMetadataObject : null;
 
   return {
     ...rest,
@@ -197,6 +200,7 @@ function sanitizeQueueEntry(entry, index = 0) {
     breakdown: safeBreakdown,
     metadata: safeMetadata,
     response: safeResponse,
+    responseMetadata: safeResponseMetadata,
     freelancer: safeFreelancer,
     expiresAt: normalizeDate(expiresAt),
     createdAt: normalizeDate(createdAt),
@@ -251,9 +255,12 @@ function sanitizeFairness(fairness) {
     }
   }
 
-  const maxAssignments = coercePositiveInteger(safeFairness.maxAssignments);
+  const maxAssignments = coercePositiveInteger(
+    safeFairness.maxAssignments ?? safeFairness.maxAssignmentsForPriority,
+  );
   if (maxAssignments != null) {
     result.maxAssignments = maxAssignments;
+    result.maxAssignmentsForPriority = maxAssignments;
   }
 
   const windowDays = coercePositiveInteger(safeFairness.windowDays);

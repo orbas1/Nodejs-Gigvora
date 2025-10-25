@@ -191,6 +191,21 @@ export async function enqueueProjectAssignments(req, res) {
       fairnessConfig: fairness,
     });
   } catch (error) {
+    if (targetId) {
+      await projectService.recordAutoAssignFailure({
+        projectId: targetId,
+        actorId,
+        error,
+        settings: {
+          projectValue,
+          limit,
+          expiresInMinutes,
+          targetType: targetType ?? 'project',
+          fairness: ensureObject(fairness),
+          weights,
+        },
+      });
+    }
     await dispatchAutoAssignNotification({
       userId: actorId,
       projectId: targetId,
@@ -283,14 +298,28 @@ export async function updateQueueEntryStatus(req, res) {
   res.json(result);
 }
 
+async function resolveQueueEnvelope(targetType, projectId) {
+  const entries = await getProjectQueue(targetType, projectId);
+  const summary = buildQueueSummary(entries);
+  let regeneration = null;
+
+  if (targetType === 'project' && projectId) {
+    regeneration = await projectService.getAutoAssignRegenerationContext(projectId, {
+      fallbackActorId: summary.generatedBy ?? null,
+      fallbackGeneratedAt: summary.generatedAt ?? null,
+    });
+  }
+
+  return { entries, summary, regeneration };
+}
+
 export async function projectQueue(req, res) {
   const { projectId } = req.params;
   const { targetType } = req.query ?? {};
-  const queue = await getProjectQueue(targetType ?? 'project', parseNumber(projectId, projectId));
-  res.json({
-    entries: queue,
-    summary: buildQueueSummary(queue),
-  });
+  const normalizedTargetType = targetType ?? 'project';
+  const resolvedProjectId = parseNumber(projectId, projectId);
+  const payload = await resolveQueueEnvelope(normalizedTargetType, resolvedProjectId);
+  res.json(payload);
 }
 
 export async function streamProjectQueue(req, res) {
@@ -319,10 +348,9 @@ export async function streamProjectQueue(req, res) {
     }
 
     try {
-      const entries = await getProjectQueue(normalizedTargetType, resolvedProjectId);
+      const envelope = await resolveQueueEnvelope(normalizedTargetType, resolvedProjectId);
       const payload = {
-        entries,
-        summary: buildQueueSummary(entries),
+        ...envelope,
         timestamp: new Date().toISOString(),
       };
       const serialised = JSON.stringify(payload);
@@ -336,7 +364,9 @@ export async function streamProjectQueue(req, res) {
     } catch (error) {
       logger.error('Failed to stream auto-assign queue', { error, projectId: resolvedProjectId });
       res.write('event: error\n');
-      res.write(`data: ${JSON.stringify({ message: 'Unable to refresh queue stream.' })}\n\n`);
+      res.write(
+        `data: ${JSON.stringify({ message: 'Unable to refresh queue stream.', details: error?.message ?? null })}\n\n`,
+      );
     }
   };
 
@@ -349,8 +379,11 @@ export async function streamProjectQueue(req, res) {
   await sendPayload();
 }
 
-export async function projectMetrics(_req, res) {
-  const metrics = await projectService.getAutoAssignCommandCenterMetrics();
+export async function projectMetrics(req, res) {
+  const { force } = req.query ?? {};
+  const metrics = await projectService.getAutoAssignCommandCenterMetrics({
+    forceRefresh: force === 'true' || force === '1',
+  });
   res.json(metrics);
 }
 

@@ -1,5 +1,5 @@
 import { Op } from 'sequelize';
-import { sequelize, Project, AutoAssignQueueEntry, ProjectAssignmentEvent } from '../models/index.js';
+import { sequelize, Project, AutoAssignQueueEntry, ProjectAssignmentEvent, User } from '../models/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
 import { normalizeLocationPayload, areGeoLocationsEqual } from '../utils/location.js';
 import { buildAssignmentQueue, getProjectQueue } from './autoAssignService.js';
@@ -8,6 +8,33 @@ import { getMarketplaceDomainService } from '../domains/serviceCatalog.js';
 
 const DEFAULT_AUTO_ASSIGN_LIMIT = 12;
 const marketplaceDomainService = getMarketplaceDomainService();
+const AUTO_ASSIGN_REGEN_EVENT_TYPES = [
+  'auto_assign_queue_generated',
+  'auto_assign_queue_regenerated',
+  'auto_assign_queue_exhausted',
+  'auto_assign_queue_failed',
+];
+const METRICS_CACHE_TTL_MS = 60 * 1000;
+
+let metricsCache = { value: null, expiresAt: 0 };
+
+function sanitizeActor(actorInstance) {
+  if (!actorInstance) {
+    return null;
+  }
+  const plain = actorInstance.get ? actorInstance.get({ plain: true }) : actorInstance;
+  return {
+    id: plain.id,
+    firstName: plain.firstName ?? null,
+    lastName: plain.lastName ?? null,
+    email: plain.email ?? null,
+    userType: plain.userType ?? null,
+  };
+}
+
+function invalidateAutoAssignMetricsCache() {
+  metricsCache = { value: null, expiresAt: 0 };
+}
 
 function sanitizeProject(projectInstance) {
   if (!projectInstance) {
@@ -91,24 +118,53 @@ function normalizeAutoAssignSettings(input = {}, fallback = {}) {
   const rawLimit = input.limit ?? fallback.limit ?? DEFAULT_AUTO_ASSIGN_LIMIT;
   const limitNumber = Number(rawLimit);
   const normalizedLimit = Number.isFinite(limitNumber) && limitNumber > 0 ? limitNumber : DEFAULT_AUTO_ASSIGN_LIMIT;
+
   const rawExpires = input.expiresInMinutes ?? fallback.expiresInMinutes ?? 180;
   const expiresNumber = Number(rawExpires);
   const normalizedExpires = Number.isFinite(expiresNumber) && expiresNumber > 0 ? expiresNumber : 180;
+
+  const inputFairness = input.fairness ?? {};
+  const fallbackFairness = fallback.fairness ?? {};
+
+  const ensureNewcomer =
+    inputFairness.ensureNewcomer !== undefined
+      ? Boolean(inputFairness.ensureNewcomer)
+      : fallbackFairness.ensureNewcomer !== undefined
+      ? Boolean(fallbackFairness.ensureNewcomer)
+      : true;
+
+  const fallbackMaxRaw =
+    fallbackFairness.maxAssignments ?? fallbackFairness.maxAssignmentsForPriority ?? 3;
+  const fallbackMaxNumeric = Number(fallbackMaxRaw);
+  const fallbackMax = Number.isFinite(fallbackMaxNumeric) ? Math.max(0, fallbackMaxNumeric) : 3;
+
+  const requestedMaxRaw =
+    inputFairness.maxAssignments ?? inputFairness.maxAssignmentsForPriority ?? fallbackMax;
+  const requestedMaxNumeric = Number(requestedMaxRaw);
+  const normalizedMaxAssignments = Number.isFinite(requestedMaxNumeric)
+    ? Math.max(0, requestedMaxNumeric)
+    : fallbackMax;
+
+  const windowDaysRaw = inputFairness.windowDays ?? fallbackFairness.windowDays ?? null;
+  const windowDaysNumeric = Number(windowDaysRaw);
+  const normalizedWindowDays = Number.isFinite(windowDaysNumeric) && windowDaysNumeric > 0
+    ? Math.round(windowDaysNumeric)
+    : null;
+
   const settings = {
     limit: Math.max(1, Math.min(normalizedLimit, 100)),
     expiresInMinutes: Math.max(30, Math.min(normalizedExpires, 1440)),
     fairness: {
-      ensureNewcomer:
-        input.fairness?.ensureNewcomer !== undefined
-          ? Boolean(input.fairness.ensureNewcomer)
-          : fallback.fairness?.ensureNewcomer ?? true,
-      maxAssignments:
-        input.fairness?.maxAssignments !== undefined
-          ? Math.max(0, Number(input.fairness.maxAssignments) || 0)
-          : Math.max(0, Number(fallback.fairness?.maxAssignments ?? 3)),
+      ensureNewcomer,
+      maxAssignments: normalizedMaxAssignments,
+      maxAssignmentsForPriority: normalizedMaxAssignments,
     },
     weights: null,
   };
+
+  if (normalizedWindowDays != null) {
+    settings.fairness.windowDays = normalizedWindowDays;
+  }
 
   const mergedWeights = normaliseWeights({ ...(fallback.weights ?? {}), ...(input.weights ?? {}) });
   if (mergedWeights) {
@@ -204,6 +260,8 @@ async function enableAutoAssignForProject({
     settings: normalizedSettings,
   });
 
+  invalidateAutoAssignMetricsCache();
+
   return { queueEntries, normalizedSettings };
 }
 
@@ -227,6 +285,7 @@ async function disableAutoAssignForProject({
     { transaction },
   );
   queueProjectEvent(events, project.id, actorId, 'auto_assign_disabled', normalizedSettings);
+  invalidateAutoAssignMetricsCache();
   return { queueEntries: [], normalizedSettings };
 }
 
@@ -579,7 +638,92 @@ export async function updateProjectDetails(projectId, payload = {}, { actorId } 
   });
 }
 
-export async function getAutoAssignCommandCenterMetrics() {
+export async function getAutoAssignRegenerationContext(projectId, { fallbackActorId, fallbackGeneratedAt } = {}) {
+  if (!projectId) {
+    throw new ValidationError('projectId is required.');
+  }
+
+  const event = await ProjectAssignmentEvent.findOne({
+    where: { projectId, eventType: { [Op.in]: AUTO_ASSIGN_REGEN_EVENT_TYPES } },
+    include: [{ model: User, as: 'actor' }],
+    order: [['createdAt', 'DESC']],
+  });
+
+  let actor = event?.actor ? sanitizeActor(event.actor) : null;
+  let actorId = event?.actorId ?? null;
+
+  const fallbackActor = fallbackActorId ?? null;
+  if (!actor && (actorId || fallbackActor)) {
+    const resolvedActorId = actorId ?? fallbackActor;
+    const actorInstance = resolvedActorId ? await User.findByPk(resolvedActorId) : null;
+    actor = actorInstance ? sanitizeActor(actorInstance) : null;
+    actorId = resolvedActorId ?? null;
+  }
+
+  const occurredAtDate = event?.createdAt
+    ? new Date(event.createdAt)
+    : fallbackGeneratedAt
+    ? new Date(fallbackGeneratedAt)
+    : null;
+
+  const payload = event?.payload ?? null;
+  const status = (() => {
+    if (!event) {
+      return occurredAtDate ? 'succeeded' : 'unknown';
+    }
+    if (event.eventType === 'auto_assign_queue_failed') {
+      return 'failed';
+    }
+    if (event.eventType === 'auto_assign_queue_exhausted' && Number(payload?.queueSize ?? 0) === 0) {
+      return 'exhausted';
+    }
+    return 'succeeded';
+  })();
+
+  return {
+    actorId: actorId ?? null,
+    actor,
+    eventType: event?.eventType ?? null,
+    status,
+    occurredAt: occurredAtDate ? occurredAtDate.toISOString() : null,
+    payload,
+    reason:
+      payload?.message ??
+      payload?.reason ??
+      (status === 'failed' ? 'Auto-match queue regeneration failed.' : null),
+  };
+}
+
+export async function recordAutoAssignFailure({ projectId, actorId, error, settings, metadata } = {}) {
+  if (!projectId) {
+    throw new ValidationError('projectId is required.');
+  }
+
+  const payload = {
+    message: error?.message ?? 'Auto-match queue regeneration failed.',
+    code: error?.code ?? null,
+    settings: settings ?? null,
+    metadata: metadata ?? null,
+  };
+
+  if (error?.response?.data) {
+    payload.response = error.response.data;
+  }
+  if (error?.stack) {
+    payload.stack = String(error.stack).split('\n').slice(0, 5).join('\n');
+  }
+
+  await ProjectAssignmentEvent.create({
+    projectId,
+    actorId: actorId ?? null,
+    eventType: 'auto_assign_queue_failed',
+    payload,
+  });
+
+  invalidateAutoAssignMetricsCache();
+}
+
+async function computeAutoAssignCommandCenterMetrics() {
   const [projects, statusRows, resolvedEntries] = await Promise.all([
     Project.findAll({
       attributes: [
@@ -687,6 +831,17 @@ export async function getAutoAssignCommandCenterMetrics() {
   };
 }
 
+export async function getAutoAssignCommandCenterMetrics({ forceRefresh = false } = {}) {
+  const now = Date.now();
+  if (!forceRefresh && metricsCache.value && metricsCache.expiresAt > now) {
+    return metricsCache.value;
+  }
+
+  const metrics = await computeAutoAssignCommandCenterMetrics();
+  metricsCache = { value: metrics, expiresAt: now + METRICS_CACHE_TTL_MS };
+  return metrics;
+}
+
 export default {
   createProject,
   updateProjectAutoAssign,
@@ -694,4 +849,6 @@ export default {
   listProjectEvents,
   updateProjectDetails,
   getAutoAssignCommandCenterMetrics,
+  getAutoAssignRegenerationContext,
+  recordAutoAssignFailure,
 };
