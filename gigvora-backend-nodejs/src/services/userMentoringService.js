@@ -897,4 +897,5 @@ export default {
   addFavouriteMentor,
   removeFavouriteMentor,
   submitMentorReview,
+  refreshMentorRecommendations,
 };

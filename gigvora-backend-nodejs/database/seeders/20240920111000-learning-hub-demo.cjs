@@ -5,7 +5,10 @@ const { QueryTypes, Op } = require('sequelize');
 const serviceLineSlugs = ['brand-experience-demo', 'revenue-operations-demo'];
 const courseTitles = ['Demo: Designing conversion-ready brand systems', 'Demo: Lifecycle automation architecture'];
 const enrollmentLabels = ['Demo brand systems'];
-const mentoringTopics = ['Demo: Campaign QA and Creative Ops'];
+const mentoringTopics = [
+  'Demo: Campaign QA and Creative Ops',
+  'Demo: Analytics retro and backlog triage',
+];
 const diagnosticKeys = ['demo-brand-diagnostic'];
 const certificationNames = ['Demo: HubSpot Solutions Partner'];
 const recommendationTitles = ['Demo: Offer creative ops telemetry add-on'];
@@ -26,6 +29,7 @@ module.exports = {
   async up(queryInterface) {
     await queryInterface.sequelize.transaction(async (transaction) => {
       const now = new Date();
+      const dayInMs = 24 * 60 * 60 * 1000;
       const learnerId = await findUserId(queryInterface, transaction, 'leo@gigvora.com');
       const mentorId = await findUserId(queryInterface, transaction, 'mentor@gigvora.com');
 
@@ -232,6 +236,108 @@ module.exports = {
       }
 
       const mentoringLineId = serviceLineIds.get(serviceLineSlugs[0]) ?? null;
+
+      const [existingOrder] = await queryInterface.sequelize.query(
+        'SELECT id FROM mentorship_orders WHERE userId = :userId AND mentorId = :mentorId LIMIT 1',
+        {
+          type: QueryTypes.SELECT,
+          transaction,
+          replacements: { userId: learnerId, mentorId },
+        },
+      );
+
+      let mentorshipOrderId = existingOrder?.id ?? null;
+      if (!mentorshipOrderId) {
+        const purchasedAt = new Date(now.getTime() - 15 * dayInMs);
+        const expiresAt = new Date(purchasedAt.getTime() + 75 * dayInMs);
+        await queryInterface.bulkInsert(
+          'mentorship_orders',
+          [
+            {
+              userId: learnerId,
+              mentorId,
+              packageName: 'Creative Ops Retainer (Demo)',
+              packageDescription:
+                'Four-session creative operations and analytics mentorship retainer seeded for demo workspaces.',
+              sessionsPurchased: 4,
+              sessionsRedeemed: 2,
+              totalAmount: 1800,
+              currency: 'USD',
+              status: 'active',
+              purchasedAt,
+              expiresAt,
+              metadata: { seed: 'learning-hub-demo' },
+              createdAt: now,
+              updatedAt: now,
+            },
+          ],
+          { transaction },
+        );
+        const [orderRow] = await queryInterface.sequelize.query(
+          'SELECT id FROM mentorship_orders WHERE userId = :userId AND mentorId = :mentorId ORDER BY id DESC LIMIT 1',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { userId: learnerId, mentorId },
+          },
+        );
+        mentorshipOrderId = orderRow?.id ?? null;
+      }
+
+      const [existingFavourite] = await queryInterface.sequelize.query(
+        'SELECT id FROM mentor_favourites WHERE userId = :userId AND mentorId = :mentorId LIMIT 1',
+        {
+          type: QueryTypes.SELECT,
+          transaction,
+          replacements: { userId: learnerId, mentorId },
+        },
+      );
+      if (!existingFavourite?.id) {
+        await queryInterface.bulkInsert(
+          'mentor_favourites',
+          [
+            {
+              userId: learnerId,
+              mentorId,
+              notes: 'Seed: creative ops retainer favourite',
+              createdAt: now,
+              updatedAt: now,
+            },
+          ],
+          { transaction },
+        );
+      }
+
+      const recommendationReason =
+        '2 completed sessions • 1 upcoming booking • Active package • Saved in favourites';
+      const [existingWorkspaceRecommendation] = await queryInterface.sequelize.query(
+        'SELECT id FROM mentor_recommendations WHERE userId = :userId AND mentorId = :mentorId LIMIT 1',
+        {
+          type: QueryTypes.SELECT,
+          transaction,
+          replacements: { userId: learnerId, mentorId },
+        },
+      );
+      if (!existingWorkspaceRecommendation?.id) {
+        await queryInterface.bulkInsert(
+          'mentor_recommendations',
+          [
+            {
+              userId: learnerId,
+              mentorId,
+              score: 9.6,
+              source: 'workspace_insights_seed',
+              reason: recommendationReason,
+              generatedAt: new Date(now.getTime() - 2 * dayInMs),
+              metadata: { seed: 'learning-hub-demo' },
+              createdAt: now,
+              updatedAt: now,
+            },
+          ],
+          { transaction },
+        );
+      }
+
       const [existingSession] = await queryInterface.sequelize.query(
         'SELECT id FROM peer_mentoring_sessions WHERE mentorId = :mentorId AND menteeId = :menteeId AND topic = :topic LIMIT 1',
         {
@@ -240,7 +346,22 @@ module.exports = {
           replacements: { mentorId, menteeId: learnerId, topic: mentoringTopics[0] },
         },
       );
-      if (!existingSession?.id) {
+      if (existingSession?.id) {
+        await queryInterface.bulkUpdate(
+          'peer_mentoring_sessions',
+          {
+            serviceLineId: mentoringLineId,
+            orderId: mentorshipOrderId,
+            pricePaid: 450,
+            currency: 'USD',
+            scheduledAt: new Date(now.getTime() + 7 * dayInMs),
+            status: 'scheduled',
+            meetingUrl: 'https://meet.gigvora.example.com/brand-ops-demo',
+          },
+          { id: existingSession.id },
+          { transaction },
+        );
+      } else {
         await queryInterface.bulkInsert(
           'peer_mentoring_sessions',
           [
@@ -250,9 +371,69 @@ module.exports = {
               menteeId: learnerId,
               topic: mentoringTopics[0],
               agenda: 'Review sprint rituals, asset QA workflows, and automation triggers.',
-              scheduledAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+              scheduledAt: new Date(now.getTime() + 7 * dayInMs),
               durationMinutes: 60,
               status: 'scheduled',
+              meetingUrl: 'https://meet.gigvora.example.com/brand-ops-demo',
+              orderId: mentorshipOrderId,
+              pricePaid: 450,
+              currency: 'USD',
+              createdAt: now,
+              updatedAt: now,
+            },
+          ],
+          { transaction },
+        );
+      }
+
+      const [completedSession] = await queryInterface.sequelize.query(
+        'SELECT id FROM peer_mentoring_sessions WHERE mentorId = :mentorId AND menteeId = :menteeId AND topic = :topic LIMIT 1',
+        {
+          type: QueryTypes.SELECT,
+          transaction,
+          replacements: { mentorId, menteeId: learnerId, topic: mentoringTopics[1] },
+        },
+      );
+
+      let completedSessionId = completedSession?.id ?? null;
+      const completedAt = new Date(now.getTime() - 12 * dayInMs);
+      if (completedSessionId) {
+        await queryInterface.bulkUpdate(
+          'peer_mentoring_sessions',
+          {
+            serviceLineId: mentoringLineId,
+            orderId: mentorshipOrderId,
+            topic: mentoringTopics[1],
+            agenda: 'Retro mentorship analytics and creative ops backlog triage.',
+            scheduledAt: new Date(completedAt.getTime() - 60 * 60 * 1000),
+            durationMinutes: 60,
+            status: 'completed',
+            completedAt,
+            pricePaid: 450,
+            currency: 'USD',
+            feedbackRequested: true,
+          },
+          { id: completedSessionId },
+          { transaction },
+        );
+      } else {
+        await queryInterface.bulkInsert(
+          'peer_mentoring_sessions',
+          [
+            {
+              serviceLineId: mentoringLineId,
+              mentorId,
+              menteeId: learnerId,
+              topic: mentoringTopics[1],
+              agenda: 'Retro mentorship analytics and creative ops backlog triage.',
+              scheduledAt: new Date(completedAt.getTime() - 60 * 60 * 1000),
+              durationMinutes: 60,
+              status: 'completed',
+              completedAt,
+              orderId: mentorshipOrderId,
+              pricePaid: 450,
+              currency: 'USD',
+              feedbackRequested: true,
               meetingUrl: 'https://meet.gigvora.example.com/brand-ops-demo',
               createdAt: now,
               updatedAt: now,
@@ -260,6 +441,51 @@ module.exports = {
           ],
           { transaction },
         );
+        const [insertedSession] = await queryInterface.sequelize.query(
+          'SELECT id FROM peer_mentoring_sessions WHERE mentorId = :mentorId AND menteeId = :menteeId AND topic = :topic LIMIT 1',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { mentorId, menteeId: learnerId, topic: mentoringTopics[1] },
+          },
+        );
+        completedSessionId = insertedSession?.id ?? null;
+      }
+
+      if (completedSessionId) {
+        const [existingReview] = await queryInterface.sequelize.query(
+          'SELECT id FROM mentor_reviews WHERE userId = :userId AND mentorId = :mentorId AND sessionId = :sessionId LIMIT 1',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { userId: learnerId, mentorId, sessionId: completedSessionId },
+          },
+        );
+        if (!existingReview?.id) {
+          await queryInterface.bulkInsert(
+            'mentor_reviews',
+            [
+              {
+                userId: learnerId,
+                mentorId,
+                sessionId: completedSessionId,
+                orderId: mentorshipOrderId,
+                rating: 5,
+                wouldRecommend: true,
+                headline: 'Seeded mentoring review',
+                feedback:
+                  'Actionable creative ops dashboard homework and responsive async notes kept the cohort on track.',
+                praiseHighlights: ['Async notes follow-ups', 'Clear budget guidance'],
+                improvementAreas: ['Add more RevOps templates'],
+                publishedAt: new Date(now.getTime() - 10 * dayInMs),
+                isPublic: true,
+                createdAt: now,
+                updatedAt: now,
+              },
+            ],
+            { transaction },
+          );
+        }
       }
 
       const [existingDiagnostic] = await queryInterface.sequelize.query(
@@ -375,8 +601,44 @@ module.exports = {
       );
       if (mentorId) {
         await queryInterface.bulkDelete(
+          'mentor_reviews',
+          {
+            userId: learnerId,
+            mentorId,
+            headline: 'Seeded mentoring review',
+          },
+          { transaction },
+        );
+        await queryInterface.bulkDelete(
+          'mentor_recommendations',
+          {
+            userId: learnerId,
+            mentorId,
+            source: 'workspace_insights_seed',
+          },
+          { transaction },
+        );
+        await queryInterface.bulkDelete(
+          'mentor_favourites',
+          {
+            userId: learnerId,
+            mentorId,
+            notes: 'Seed: creative ops retainer favourite',
+          },
+          { transaction },
+        );
+        await queryInterface.bulkDelete(
           'peer_mentoring_sessions',
           { mentorId, menteeId: learnerId },
+          { transaction },
+        );
+        await queryInterface.bulkDelete(
+          'mentorship_orders',
+          {
+            userId: learnerId,
+            mentorId,
+            packageName: 'Creative Ops Retainer (Demo)',
+          },
           { transaction },
         );
       }

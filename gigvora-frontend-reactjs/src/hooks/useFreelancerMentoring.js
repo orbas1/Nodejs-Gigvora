@@ -17,6 +17,33 @@ function normaliseUserId(userId) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
+function buildWorkspaceError(error, { fallback }) {
+  const status =
+    typeof error?.status === 'number'
+      ? error.status
+      : typeof error?.response?.status === 'number'
+      ? error.response.status
+      : null;
+
+  if (status === 403) {
+    return new Error('You do not have access to this mentoring workspace. Confirm your membership or contact support.');
+  }
+
+  if (status === 404) {
+    return new Error('We could not find your mentoring workspace. Refresh the page or contact support if the issue persists.');
+  }
+
+  if (status && status >= 500) {
+    return new Error('Mentoring services are temporarily unavailable. Please try again in a few minutes.');
+  }
+
+  if (error instanceof Error && error.message) {
+    return error;
+  }
+
+  return new Error(fallback);
+}
+
 export default function useFreelancerMentoring({ userId, enabled = true, fetchOnMount = true } = {}) {
   const normalisedUserId = useMemo(() => normaliseUserId(userId), [userId]);
   const [state, setState] = useState({ data: null, loading: false, error: null });
@@ -46,7 +73,10 @@ export default function useFreelancerMentoring({ userId, enabled = true, fetchOn
         if (controller.signal.aborted) {
           return null;
         }
-        setState({ data: null, loading: false, error: error instanceof Error ? error : new Error('Unable to load mentoring data.') });
+        const friendlyError = buildWorkspaceError(error, {
+          fallback: 'We could not reach your mentoring workspace. Please retry in a moment.',
+        });
+        setState((previous) => ({ data: previous.data, loading: false, error: friendlyError }));
         return null;
       }
     },
@@ -73,6 +103,10 @@ export default function useFreelancerMentoring({ userId, enabled = true, fetchOn
           await refresh({ fresh: true });
         }
         return result;
+      } catch (error) {
+        throw buildWorkspaceError(error, {
+          fallback: 'We were unable to complete that mentoring action. Please try again shortly.',
+        });
       } finally {
         setPending(false);
       }
