@@ -1,5 +1,7 @@
 'use strict';
 
+const { identityVerification } = require('../../../shared-contracts/domain/common/statuses.json');
+
 const createEnum = async (queryInterface, enumName, values) => {
   const dialect = queryInterface.sequelize.getDialect();
   if ((dialect === 'postgres' || dialect === 'postgresql') && Array.isArray(values) && values.length) {
@@ -30,7 +32,7 @@ module.exports = {
       'note_recorded',
       'metadata_updated',
     ];
-    const IDENTITY_STATUSES = ['pending', 'submitted', 'in_review', 'verified', 'rejected', 'expired'];
+    const IDENTITY_STATUSES = identityVerification?.statuses ?? ['pending', 'submitted', 'in_review', 'verified', 'rejected', 'expired'];
 
     await createEnum(queryInterface, 'enum_identity_verification_events_eventType', EVENT_TYPES);
 
@@ -53,11 +55,11 @@ module.exports = {
         references: { model: 'users', key: 'id' },
         onDelete: 'SET NULL',
       },
-      previousStatus: {
+      fromStatus: {
         type: Sequelize.ENUM(...IDENTITY_STATUSES),
         allowNull: true,
       },
-      newStatus: {
+      toStatus: {
         type: Sequelize.ENUM(...IDENTITY_STATUSES),
         allowNull: true,
       },
@@ -84,7 +86,7 @@ module.exports = {
   async down(queryInterface) {
     await queryInterface.dropTable('identity_verification_events');
     await dropEnum(queryInterface, 'enum_identity_verification_events_eventType');
-    await dropEnum(queryInterface, 'enum_identity_verification_events_previousStatus');
-    await dropEnum(queryInterface, 'enum_identity_verification_events_newStatus');
+    await dropEnum(queryInterface, 'enum_identity_verification_events_fromStatus');
+    await dropEnum(queryInterface, 'enum_identity_verification_events_toStatus');
   },
 };

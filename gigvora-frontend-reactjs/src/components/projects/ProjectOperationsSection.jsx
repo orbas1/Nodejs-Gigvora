@@ -4,6 +4,7 @@ import { Dialog, Transition } from '@headlessui/react';
 import ProjectGanttChart from './ProjectGanttChart.jsx';
 import ProjectAgencyDelegation from './ProjectAgencyDelegation.jsx';
 import ProjectPaySplitTable from './ProjectPaySplitTable.jsx';
+import StatusBadge from '../common/StatusBadge.jsx';
 import { useProjectOperations } from '../../hooks/useProjectOperations.js';
 import projectOperationsService from '../../services/projectOperations.js';
 
@@ -43,6 +44,14 @@ const statusOptions = [
   { label: 'At risk', value: 'at_risk' },
   { label: 'Completed', value: 'completed' },
 ];
+
+const taskStatusToneMap = {
+  planned: { tone: 'slate', variant: 'tint' },
+  in_progress: { tone: 'blue', variant: 'tint' },
+  blocked: { tone: 'amber', variant: 'outline' },
+  at_risk: { tone: 'amber', variant: 'outline' },
+  completed: { tone: 'emerald', variant: 'solid' },
+};
 
 const riskOptions = [
   { label: 'Low', value: 'low' },
@@ -399,26 +408,6 @@ TaskFormFields.defaultProps = {
   disabled: false,
 };
 
-function StatusBadge({ status }) {
-  const tone = {
-    planned: 'bg-slate-100 text-slate-600',
-    in_progress: 'bg-emerald-100 text-emerald-600',
-    blocked: 'bg-amber-100 text-amber-700',
-    at_risk: 'bg-orange-100 text-orange-600',
-    completed: 'bg-emerald-500 text-white',
-  }[status] || 'bg-slate-100 text-slate-600';
-  const label = statusOptions.find((option) => option.value === status)?.label ?? status;
-  return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${tone}`}>{label}</span>;
-}
-
-StatusBadge.propTypes = {
-  status: PropTypes.string,
-};
-
-StatusBadge.defaultProps = {
-  status: 'planned',
-};
-
 function RiskBadge({ riskLevel }) {
   const tone = {
     low: 'bg-emerald-50 text-emerald-600',
@@ -494,7 +483,11 @@ function TaskBoard({ tasks, onAdvanceStatus, onEditTask, busyTaskId, busyType })
                       </p>
                     </div>
                     <div className="flex flex-col items-end gap-1 text-right text-xs text-slate-500">
-                      <StatusBadge status={task.status} />
+                      <StatusBadge
+                        status={task.status}
+                        uppercase={false}
+                        statusToneMap={taskStatusToneMap}
+                      />
                       <RiskBadge riskLevel={task.riskLevel} />
                     </div>
                   </div>

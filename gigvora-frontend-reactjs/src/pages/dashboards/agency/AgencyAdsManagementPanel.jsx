@@ -9,6 +9,7 @@ import {
   Squares2X2Icon,
 } from '@heroicons/react/24/outline';
 import DataStatus from '../../../components/DataStatus.jsx';
+import StatusBadge from '../../../components/common/StatusBadge.jsx';
 import {
   createAgencyAdCampaign,
   createAgencyAdCreative,
@@ -130,31 +131,6 @@ function formatDate(value) {
   return date.toLocaleDateString();
 }
 
-function StatusBadge({ status }) {
-  const tone = String(status ?? 'draft').toLowerCase();
-  const tones = {
-    active: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    scheduled: 'bg-sky-100 text-sky-700 border-sky-200',
-    paused: 'bg-amber-100 text-amber-700 border-amber-200',
-    draft: 'bg-slate-100 text-slate-700 border-slate-200',
-    expired: 'bg-rose-100 text-rose-700 border-rose-200',
-  };
-  const label = tone
-    .split(/[_-]/)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-  return (
-    <span
-      className={classNames(
-        'inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-wide',
-        tones[tone] ?? tones.draft,
-      )}
-    >
-      {label}
-    </span>
-  );
-}
-
 function EmptyState({ icon: Icon = MegaphoneIcon, title, body, actionLabel, onAction }) {
   return (
     <div className="rounded-3xl border border-dashed border-slate-200 bg-white px-6 py-12 text-center">
@@ -195,7 +171,7 @@ function CampaignCard({ campaign, isActive, onSelect }) {
             {campaign.summary?.placements?.surfaces?.length ?? 0} surfaces
           </p>
         </div>
-        <StatusBadge status={campaign.status} />
+        <StatusBadge status={campaign.status} category="adCampaign" />
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-wide text-slate-400">
         <span>{campaign.objective}</span>
@@ -729,7 +705,7 @@ export default function AgencyAdsManagementPanel({ workspace }) {
                   <div>
                     <div className="flex flex-wrap items-center gap-3">
                       <h3 className="text-2xl font-semibold text-slate-900">{selectedCampaign.name}</h3>
-                      <StatusBadge status={selectedCampaign.status} />
+                      <StatusBadge status={selectedCampaign.status} category="adCampaign" />
                     </div>
                     <p className="mt-1 text-sm text-slate-500">Objective · {selectedCampaign.objective}</p>
                     <p className="mt-1 text-xs text-slate-400">Updated {formatDate(selectedCampaign.updatedAt)}</p>
@@ -949,7 +925,7 @@ export default function AgencyAdsManagementPanel({ workspace }) {
                               </p>
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
-                              <StatusBadge status={placement.status} />
+                              <StatusBadge status={placement.status} category="adCampaign" />
                               <button
                                 type="button"
                                 onClick={() => handleEditPlacement(placement)}

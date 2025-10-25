@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
+import StatusBadge from '../../common/StatusBadge.jsx';
 
 const EMPTY_RESOURCE = { label: '', url: '', type: '' };
 
@@ -44,21 +45,6 @@ function formatDate(value) {
   } catch (error) {
     return '—';
   }
-}
-
-function StatusBadge({ status }) {
-  const normalized = `${status ?? ''}`.toLowerCase();
-  const styles = {
-    scheduled: 'bg-sky-100 text-sky-700 border-sky-200',
-    requested: 'bg-amber-100 text-amber-700 border-amber-200',
-    completed: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    cancelled: 'bg-rose-100 text-rose-700 border-rose-200',
-  };
-  return (
-    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${styles[normalized] ?? 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-      {normalized.replace(/_/g, ' ') || 'unknown'}
-    </span>
-  );
 }
 
 function buildEditForm(session) {
@@ -276,7 +262,12 @@ export default function MentoringSessionDetailPanel({
             <section className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h3 className="text-lg font-semibold text-slate-900">Session summary</h3>
-                <StatusBadge status={session.status} />
+                <StatusBadge
+                  status={session.status}
+                  category="mentoringSession"
+                  uppercase={false}
+                  size="xs"
+                />
               </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="flex flex-col gap-1 text-sm text-slate-600 md:col-span-2">

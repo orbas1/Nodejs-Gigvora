@@ -10,8 +10,9 @@ describe('StatusBadge', () => {
 
   it('renders the correct label and icon tone for verified status', () => {
     render(<StatusBadge status="verified" />);
-    const badge = screen.getByText(/verified/i);
-    expect(badge).toBeInTheDocument();
-    expect(badge.className).toMatch(/emerald/);
+    const label = screen.getByText(/verified/i);
+    expect(label).toBeInTheDocument();
+    const badgeElement = label.parentElement;
+    expect(badgeElement?.className ?? '').toMatch(/emerald/);
   });
 });

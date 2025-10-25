@@ -23,10 +23,11 @@ export function formatStatusLabel(status) {
     .join(' ');
 }
 
-export function resolveStatusLabel(languageCode, status, fallbackLabel) {
+export function resolveStatusLabel(languageCode, status, fallbackLabel, namespace = 'status') {
   const statusKey = normaliseStatusKey(status);
   const fallback = fallbackLabel ?? formatStatusLabel(status);
-  return translate(languageCode ?? DEFAULT_LANGUAGE, `status.${statusKey}`, fallback);
+  const prefix = namespace && namespace.length ? namespace : 'status';
+  return translate(languageCode ?? DEFAULT_LANGUAGE, `${prefix}.${statusKey}`, fallback);
 }
 
 export default {

@@ -11,7 +11,8 @@ import {
   PlayIcon,
 } from '@heroicons/react/24/outline';
 import PropTypes from 'prop-types';
-import { getTypeIcon, resolveStatusMeta, resolveTypeMeta, STATUS_PROGRESS_ORDER } from './constants.js';
+import { getTypeIcon, resolveTypeMeta, STATUS_PROGRESS_ORDER } from './constants.js';
+import StatusBadge from '../../../../components/common/StatusBadge.jsx';
 
 function formatDayHeading(date) {
   if (!date) {
@@ -111,19 +112,6 @@ function groupEventsByDay(events) {
   }));
 }
 
-function StatusBadge({ status }) {
-  const meta = resolveStatusMeta(status);
-  return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
-      meta?.tone ?? 'border-slate-200 bg-slate-100 text-slate-600'
-    }`}
-    >
-      <ClockIcon className="h-3.5 w-3.5" />
-      {meta?.label ?? 'Status'}
-    </span>
-  );
-}
-
 function TypeBadge({ eventType, color }) {
   const meta = resolveTypeMeta(eventType);
   const Icon = getTypeIcon(eventType);
@@ -204,7 +192,7 @@ export default function CalendarEventTimeline({
               <p className="text-xl font-semibold text-slate-900">{upcomingHighlight.title}</p>
               <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
                 <TypeBadge eventType={upcomingHighlight.eventType} color={upcomingHighlight.color} />
-                <StatusBadge status={upcomingHighlight.status} />
+                <StatusBadge status={upcomingHighlight.status} category="calendarEvent" icon={ClockIcon} />
                 <span className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 font-semibold text-slate-600 shadow-sm">
                   <ClockIcon className="h-4 w-4" /> {formatTimeRange(upcomingHighlight)}
                 </span>
@@ -262,7 +250,7 @@ export default function CalendarEventTimeline({
                       <div className="space-y-2">
                         <div className="flex flex-wrap items-center gap-3">
                           <TypeBadge eventType={event.eventType} color={event.color} />
-                          <StatusBadge status={event.status} />
+                          <StatusBadge status={event.status} category="calendarEvent" icon={ClockIcon} />
                           <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
                             <ClockIcon className="h-4 w-4" /> {formatTimeRange(event)}
                           </span>

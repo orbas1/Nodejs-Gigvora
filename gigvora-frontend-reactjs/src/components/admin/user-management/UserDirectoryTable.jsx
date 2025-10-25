@@ -1,28 +1,21 @@
 import PropTypes from 'prop-types';
 import { ArrowRightIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
+import StatusBadge from '../../common/StatusBadge.jsx';
 
-const STATUS_STYLES = {
-  active: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  invited: 'bg-sky-50 text-sky-700 border-sky-200',
-  suspended: 'bg-amber-50 text-amber-700 border-amber-200',
-  archived: 'bg-slate-50 text-slate-500 border-slate-200',
+const USER_STATUS_TONES = {
+  active: { tone: 'emerald', variant: 'solid' },
+  invited: { tone: 'blue', variant: 'tint' },
+  suspended: { tone: 'amber', variant: 'outline' },
+  archived: { tone: 'slate', variant: 'outline' },
 };
 
-function StatusBadge({ status }) {
-  const normalized = (status ?? '').toLowerCase();
-  const style = STATUS_STYLES[normalized] ?? 'bg-slate-100 text-slate-600 border-slate-200';
-  const label = normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : 'Unknown';
-  return (
-    <span className={clsx('inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium', style)}>
-      <span className="h-2 w-2 rounded-full bg-current opacity-70" aria-hidden="true" />
-      {label}
-    </span>
-  );
+function StatusDotIcon({ className }) {
+  return <span className={clsx('rounded-full bg-current opacity-70', className)} aria-hidden="true" />;
 }
 
-StatusBadge.propTypes = {
-  status: PropTypes.string,
+StatusDotIcon.propTypes = {
+  className: PropTypes.string,
 };
 
 function RoleList({ roles }) {
@@ -138,7 +131,14 @@ export default function UserDirectoryTable({
                   </td>
                   <td className="px-5 py-4 capitalize text-slate-600">{item.userType ?? 'user'}</td>
                   <td className="px-5 py-4">
-                    <StatusBadge status={item.status} />
+                    <StatusBadge
+                      status={item.status}
+                      statusToneMap={USER_STATUS_TONES}
+                      uppercase={false}
+                      size="xs"
+                      icon={StatusDotIcon}
+                      className="pr-3"
+                    />
                   </td>
                   <td className="px-5 py-4">
                     <RoleList roles={item.roles} />

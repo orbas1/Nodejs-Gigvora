@@ -1,22 +1,5 @@
 import { formatAbsolute, formatRelativeTime } from '../../../utils/date.js';
-
-const STATUS_TOKENS = {
-  pending: { label: 'Pending', tone: 'bg-amber-100 text-amber-800 border-amber-200' },
-  submitted: { label: 'Submitted', tone: 'bg-sky-100 text-sky-800 border-sky-200' },
-  in_review: { label: 'In review', tone: 'bg-indigo-100 text-indigo-800 border-indigo-200' },
-  verified: { label: 'Verified', tone: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
-  rejected: { label: 'Rejected', tone: 'bg-rose-100 text-rose-800 border-rose-200' },
-  expired: { label: 'Expired', tone: 'bg-slate-200 text-slate-700 border-slate-300' },
-};
-
-function StatusBadge({ status }) {
-  const token = STATUS_TOKENS[status] ?? { label: status, tone: 'bg-slate-100 text-slate-700 border-slate-200' };
-  return (
-    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${token.tone}`}>
-      {token.label}
-    </span>
-  );
-}
+import StatusBadge from '../../common/StatusBadge.jsx';
 
 function TableRow({ item, onSelect }) {
   const displayName = item.fullName ?? item.user?.name ?? `${item.user?.firstName ?? ''} ${item.user?.lastName ?? ''}`.trim();
@@ -30,7 +13,7 @@ function TableRow({ item, onSelect }) {
         <div className="mt-1 text-xs text-slate-500">{item.user?.email ?? 'No email'}</div>
       </td>
       <td className="px-4 py-4">
-        <StatusBadge status={item.status} />
+        <StatusBadge status={item.status} category="identityVerification" uppercase={false} size="xs" />
       </td>
       <td className="px-4 py-4 text-sm text-slate-600">
         {item.submittedAt ? (

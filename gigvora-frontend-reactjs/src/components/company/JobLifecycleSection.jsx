@@ -14,6 +14,7 @@ import {
   UserGroupIcon,
 } from '@heroicons/react/24/outline';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
+import StatusBadge from '../common/StatusBadge.jsx';
 
 function formatNumber(value, { fallback = '—', decimals = null, style = 'number' } = {}) {
   if (value == null || Number.isNaN(Number(value))) {
@@ -108,11 +109,14 @@ function ConfidenceBar({ value }) {
 function ReadinessStatusBadge({ status, children, className = '' }) {
   const meta = getReadinessStatusMeta(status);
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${meta.badgeClass} ${className}`}
-    >
-      {children ?? meta.label}
-    </span>
+    <StatusBadge
+      status={status}
+      category="readiness"
+      label={children ?? meta.label}
+      uppercase
+      size="xs"
+      className={className}
+    />
   );
 }
 

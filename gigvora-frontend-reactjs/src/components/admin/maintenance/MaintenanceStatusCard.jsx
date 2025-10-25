@@ -1,30 +1,25 @@
 import { Switch } from '@headlessui/react';
 import { CheckCircleIcon, ExclamationTriangleIcon, PauseCircleIcon, PlayCircleIcon } from '@heroicons/react/24/outline';
-
-function StatusBadge({ live }) {
-  if (live) {
-    return (
-      <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">
-        <CheckCircleIcon className="h-4 w-4" aria-hidden="true" /> Live
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-700">
-      <PauseCircleIcon className="h-4 w-4" aria-hidden="true" /> Maintenance
-    </span>
-  );
-}
+import StatusBadge from '../../common/StatusBadge.jsx';
 
 export default function MaintenanceStatusCard({ status, updating, onToggle }) {
   const live = status?.enabled !== true;
+  const badgeStatus = live ? 'healthy' : 'maintenance';
+  const BadgeIcon = live ? CheckCircleIcon : PauseCircleIcon;
   const plannedReturn = status?.estimatedResumeAt ? new Date(status.estimatedResumeAt).toLocaleString() : 'TBC';
 
   return (
     <section className="rounded-3xl border border-slate-200 bg-white/80 p-8 shadow-soft">
       <div className="flex flex-wrap items-start justify-between gap-6">
         <div className="space-y-3">
-          <StatusBadge live={live} />
+          <StatusBadge
+            status={badgeStatus}
+            category="runtime"
+            label={live ? 'Live' : 'Maintenance'}
+            uppercase
+            size="xs"
+            icon={BadgeIcon}
+          />
           <h2 className="text-2xl font-semibold text-slate-900">Maintenance mode orchestration</h2>
           <p className="text-sm text-slate-600">
             Toggle the global kill-switch, publish status page copy, and orchestrate downstream comms for engineering, support,

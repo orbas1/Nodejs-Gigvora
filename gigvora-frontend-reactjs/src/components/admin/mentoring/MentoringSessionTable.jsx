@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import StatusBadge from '../../common/StatusBadge.jsx';
 
 function formatDate(value) {
   if (!value) return '—';
@@ -20,21 +21,6 @@ function formatDuration(minutes) {
     return `${hours} hrs`;
   }
   return `${numeric} mins`;
-}
-
-function StatusBadge({ status }) {
-  const normalized = `${status ?? ''}`.toLowerCase();
-  const styles = {
-    scheduled: 'bg-sky-100 text-sky-700 border-sky-200',
-    requested: 'bg-amber-100 text-amber-700 border-amber-200',
-    completed: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    cancelled: 'bg-rose-100 text-rose-700 border-rose-200',
-  };
-  return (
-    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${styles[normalized] ?? 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-      {normalized.replace(/_/g, ' ') || 'unknown'}
-    </span>
-  );
 }
 
 export default function MentoringSessionTable({ sessions, loading, onSelect, pagination, onPageChange }) {
@@ -90,7 +76,12 @@ export default function MentoringSessionTable({ sessions, loading, onSelect, pag
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex flex-col gap-2">
-                      <StatusBadge status={session.status} />
+                      <StatusBadge
+                        status={session.status}
+                        category="mentoringSession"
+                        uppercase={false}
+                        size="xs"
+                      />
                       {session.feedbackRating != null ? (
                         <span className="text-xs text-slate-500">Feedback {session.feedbackRating.toFixed(1)}</span>
                       ) : null}

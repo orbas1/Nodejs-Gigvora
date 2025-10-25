@@ -4,6 +4,12 @@ import LanguageContext from '../../context/LanguageContext.jsx';
 import { DEFAULT_LANGUAGE } from '../../i18n/translations.js';
 import { classNames } from '../../utils/classNames.js';
 import { formatStatusLabel, normaliseStatusKey, resolveStatusLabel } from '../../utils/format.js';
+import {
+  describeStatus,
+  getStatusNamespace,
+  resolveStatusAppearance,
+  STATUS_APPEARANCES,
+} from '../../utils/statusRegistry.js';
 
 const SIZE_CLASS_MAP = {
   xs: 'px-2.5 py-0.5 text-[0.65rem]',
@@ -40,31 +46,7 @@ const VARIANT_TONE_CLASS_MAP = {
   },
 };
 
-export const DEFAULT_STATUS_APPEARANCE = {
-  completed: { tone: 'emerald', variant: 'outline' },
-  success: { tone: 'emerald', variant: 'outline' },
-  delivered: { tone: 'emerald', variant: 'outline' },
-  in_progress: { tone: 'blue', variant: 'outline' },
-  running: { tone: 'blue', variant: 'outline' },
-  processing: { tone: 'blue', variant: 'outline' },
-  planned: { tone: 'slate', variant: 'outline' },
-  draft: { tone: 'slate', variant: 'tint' },
-  review: { tone: 'amber', variant: 'tint' },
-  reviewing: { tone: 'amber', variant: 'tint' },
-  scheduled: { tone: 'indigo', variant: 'tint' },
-  published: { tone: 'emerald', variant: 'tint' },
-  live: { tone: 'emerald', variant: 'tint' },
-  archived: { tone: 'slate', variant: 'tint' },
-  paused: { tone: 'amber', variant: 'outline' },
-  pending: { tone: 'amber', variant: 'outline' },
-  awaiting: { tone: 'amber', variant: 'outline' },
-  at_risk: { tone: 'amber', variant: 'outline' },
-  blocked: { tone: 'rose', variant: 'outline' },
-  failed: { tone: 'rose', variant: 'outline' },
-  canceled: { tone: 'rose', variant: 'outline' },
-  cancelled: { tone: 'rose', variant: 'outline' },
-  unknown: { tone: 'slate', variant: 'outline' },
-};
+export const DEFAULT_STATUS_APPEARANCE = STATUS_APPEARANCES.generic;
 
 export default function StatusBadge({
   status,
@@ -78,27 +60,31 @@ export default function StatusBadge({
   statusToneMap,
   translationKey,
   language: languageOverride,
+  category,
 }) {
   const languageContext = useContext(LanguageContext);
   const languageCode = languageOverride ?? languageContext?.language ?? DEFAULT_LANGUAGE;
   const translator = languageContext?.t;
 
   const statusKey = normaliseStatusKey(status);
-  const appearance = statusToneMap?.[statusKey] ?? statusToneMap?.[status] ?? {};
-  const resolvedVariant = variant ?? appearance.variant ?? 'outline';
-  const resolvedTone = tone ?? appearance.tone ?? 'slate';
+  const namespace = translationKey ? null : getStatusNamespace(category);
+  const registryAppearance = resolveStatusAppearance(category, statusKey);
+  const overrideAppearance = statusToneMap?.[statusKey] ?? statusToneMap?.[status] ?? registryAppearance;
+  const resolvedVariant = variant ?? overrideAppearance.variant ?? 'outline';
+  const resolvedTone = tone ?? overrideAppearance.tone ?? 'slate';
   const sizeClasses = SIZE_CLASS_MAP[size] ?? SIZE_CLASS_MAP.sm;
   const variantClasses =
     VARIANT_TONE_CLASS_MAP[resolvedVariant]?.[resolvedTone] ??
     VARIANT_TONE_CLASS_MAP[resolvedVariant]?.slate ??
     VARIANT_TONE_CLASS_MAP.outline.slate;
 
-  const fallbackLabel = label ?? formatStatusLabel(status ?? 'unknown');
+  const descriptor = describeStatus(category, status ?? statusKey);
+  const fallbackLabel = label ?? descriptor.label ?? formatStatusLabel(status ?? 'unknown');
   const translatedLabel =
     label ??
     (translationKey
-      ? translator?.(translationKey, fallbackLabel) ?? resolveStatusLabel(languageCode, status, fallbackLabel)
-      : resolveStatusLabel(languageCode, status, fallbackLabel));
+      ? translator?.(translationKey, fallbackLabel) ?? resolveStatusLabel(languageCode, status, fallbackLabel, namespace)
+      : resolveStatusLabel(languageCode, status, fallbackLabel, namespace));
 
   const content = translatedLabel || fallbackLabel;
 
@@ -135,6 +121,7 @@ StatusBadge.propTypes = {
   ),
   translationKey: PropTypes.string,
   language: PropTypes.string,
+  category: PropTypes.string,
 };
 
 StatusBadge.defaultProps = {
@@ -146,7 +133,8 @@ StatusBadge.defaultProps = {
   uppercase: true,
   icon: undefined,
   className: '',
-  statusToneMap: DEFAULT_STATUS_APPEARANCE,
+  statusToneMap: undefined,
   translationKey: undefined,
   language: undefined,
+  category: 'generic',
 };

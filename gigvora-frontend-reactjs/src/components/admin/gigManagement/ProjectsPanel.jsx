@@ -1,24 +1,13 @@
 import PropTypes from 'prop-types';
 import { PlusIcon } from '@heroicons/react/24/outline';
+import StatusBadge from '../../common/StatusBadge.jsx';
 
-function StatusBadge({ value }) {
-  const tone = {
-    planning: 'bg-slate-100 text-slate-600',
-    in_progress: 'bg-indigo-100 text-indigo-600',
-    at_risk: 'bg-amber-100 text-amber-600',
-    completed: 'bg-emerald-100 text-emerald-600',
-    on_hold: 'bg-slate-200 text-slate-600',
-  }[value] ?? 'bg-slate-100 text-slate-600';
-  const label = value ? value.replace(/_/g, ' ') : 'unknown';
-  return (
-    <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold capitalize ${tone}`}>
-      {label}
-    </span>
-  );
-}
-
-StatusBadge.propTypes = {
-  value: PropTypes.string,
+const PROJECT_STATUS_TONES = {
+  planning: { tone: 'slate', variant: 'tint' },
+  in_progress: { tone: 'blue', variant: 'tint' },
+  at_risk: { tone: 'amber', variant: 'outline' },
+  completed: { tone: 'emerald', variant: 'outline' },
+  on_hold: { tone: 'slate', variant: 'outline' },
 };
 
 function ProgressBar({ value }) {
@@ -71,7 +60,13 @@ export default function ProjectsPanel({ projects, board, canManage, onCreate, on
                 <div>
                   <p className="text-sm font-semibold text-slate-900">{project.title}</p>
                   <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-                    <StatusBadge value={status} />
+                    <StatusBadge
+                      status={status}
+                      uppercase={false}
+                      size="xs"
+                      statusToneMap={PROJECT_STATUS_TONES}
+                      className="capitalize"
+                    />
                     <span className={`font-semibold uppercase tracking-wide ${riskTone}`}>Risk {risk}</span>
                     {project.workspace?.nextMilestone ? (
                       <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">

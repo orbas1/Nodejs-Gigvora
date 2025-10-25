@@ -1,7 +1,10 @@
 'use strict';
 
+const { identityVerification } = require('../../../shared-contracts/domain/common/statuses.json');
+
 const TABLE_NAME = 'identity_verifications';
 const STATUS_ENUM_NAME = 'enum_identity_verifications_status';
+const IDENTITY_STATUSES = identityVerification?.statuses ?? ['pending', 'submitted', 'in_review', 'verified', 'rejected', 'expired'];
 
 module.exports = {
   async up(queryInterface, Sequelize) {
@@ -30,7 +33,7 @@ module.exports = {
             onUpdate: 'CASCADE',
           },
           status: {
-            type: Sequelize.ENUM('pending', 'submitted', 'in_review', 'verified', 'rejected', 'expired'),
+            type: Sequelize.ENUM(...IDENTITY_STATUSES),
             allowNull: false,
             defaultValue: 'pending',
           },

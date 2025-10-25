@@ -76,7 +76,7 @@ export default function ClientPortalTimeline({ events = [], summary = {}, loadin
               <li key={event.id} className="rounded-2xl border border-slate-200 bg-slate-50/60 p-5 transition hover:border-blue-200 hover:bg-blue-50/60">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <StatusBadge status={event.status} />
+                    <StatusBadge status={event.status} category="calendarEvent" uppercase={false} size="xs" />
                     <span className="text-sm font-semibold text-slate-900">{event.title}</span>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-slate-500">

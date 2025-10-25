@@ -5,19 +5,20 @@ import {
   ArrowPathIcon,
   PlusIcon,
 } from '@heroicons/react/24/outline';
+import StatusBadge from '../common/StatusBadge.jsx';
 import {
   fetchAdCoupons,
   createAdCoupon,
   updateAdCoupon,
 } from '../../services/admin.js';
 
-const STATUS_COLORS = {
-  active: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-  scheduled: 'bg-blue-100 text-blue-700 border-blue-200',
-  paused: 'bg-amber-100 text-amber-700 border-amber-200',
-  expired: 'bg-slate-200 text-slate-600 border-slate-300',
-  archived: 'bg-slate-200 text-slate-500 border-slate-300',
-  draft: 'bg-slate-100 text-slate-600 border-slate-200',
+const COUPON_STATUS_TONES = {
+  active: { tone: 'emerald', variant: 'solid' },
+  scheduled: { tone: 'blue', variant: 'tint' },
+  paused: { tone: 'amber', variant: 'outline' },
+  expired: { tone: 'slate', variant: 'outline' },
+  archived: { tone: 'slate', variant: 'outline' },
+  draft: { tone: 'slate', variant: 'tint' },
 };
 
 const DEFAULT_FORM = {
@@ -52,11 +53,6 @@ function formatDate(value) {
   } catch (error) {
     return 'Anytime';
   }
-}
-
-function buildStatusBadge(status) {
-  const normalized = `${status ?? 'draft'}`.toLowerCase();
-  return STATUS_COLORS[normalized] ?? STATUS_COLORS.draft;
 }
 
 function normalizeLifecycleStatus(coupon) {
@@ -289,7 +285,6 @@ export default function AdCouponManager() {
           ) : (
             coupons.map((coupon) => {
               const lifecycle = normalizeLifecycleStatus(coupon);
-              const badgeClass = buildStatusBadge(lifecycle);
               return (
                 <div
                   key={coupon.id}
@@ -297,9 +292,14 @@ export default function AdCouponManager() {
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                      <div className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide shadow-sm ${badgeClass}`}>
-                        {lifecycle}
-                      </div>
+                      <StatusBadge
+                        status={lifecycle}
+                        category="adCampaign"
+                        statusToneMap={COUPON_STATUS_TONES}
+                        uppercase
+                        size="xs"
+                        className="shadow-sm"
+                      />
                       <h3 className="mt-3 flex items-center gap-2 text-lg font-semibold text-slate-900">
                         <TicketIcon className="h-5 w-5 text-blue-500" /> {coupon.code}
                       </h3>

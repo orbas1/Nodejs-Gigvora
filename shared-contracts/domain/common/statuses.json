@@ -1,0 +1,143 @@
+{
+  "generic": {
+    "statuses": [
+      "unknown",
+      "draft",
+      "preview",
+      "planned",
+      "tentative",
+      "confirmed",
+      "submitted",
+      "scheduled",
+      "in_progress",
+      "processing",
+      "running",
+      "active",
+      "live",
+      "published",
+      "completed",
+      "delivered",
+      "success",
+      "resolved",
+      "available",
+      "awaiting",
+      "pending",
+      "queued",
+      "requested",
+      "review",
+      "reviewing",
+      "in_review",
+      "paused",
+      "on_hold",
+      "requires_update",
+      "needs_attention",
+      "at_risk",
+      "watch",
+      "warning",
+      "blocked",
+      "declined",
+      "rejected",
+      "failed",
+      "cancelled",
+      "canceled",
+      "expired",
+      "suspended",
+      "archived",
+      "closed",
+      "error",
+      "escalated",
+      "new",
+      "open",
+      "no_show",
+      "checked_in",
+      "checked_out",
+      "registered",
+      "waitlisted",
+      "engaged",
+      "contacted",
+      "in_delivery",
+      "in_moderation",
+      "flagged",
+      "recalled",
+      "acknowledged",
+      "sent",
+      "approved",
+      "invited",
+      "accepted",
+      "awarded",
+      "funded",
+      "released",
+      "monitoring",
+      "needs_review",
+      "processing_payment",
+      "payment_requested"
+    ]
+  },
+  "identityVerification": {
+    "statuses": ["pending", "submitted", "in_review", "verified", "rejected", "expired"]
+  },
+  "corporateVerification": {
+    "statuses": [
+      "pending",
+      "submitted",
+      "in_review",
+      "verified",
+      "rejected",
+      "requires_update",
+      "suspended"
+    ]
+  },
+  "qualificationCredential": {
+    "statuses": ["unverified", "pending_review", "verified", "rejected"]
+  },
+  "walletAccount": {
+    "statuses": ["pending", "active", "suspended", "closed"]
+  },
+  "walletLedgerEntry": {
+    "statuses": ["credit", "debit", "hold", "release", "adjustment"]
+  },
+  "adCampaign": {
+    "statuses": [
+      "draft",
+      "scheduled",
+      "running",
+      "active",
+      "paused",
+      "completed",
+      "cancelled",
+      "archived",
+      "expired"
+    ]
+  },
+  "calendarEvent": {
+    "statuses": ["planned", "tentative", "confirmed", "in_progress", "completed", "cancelled"]
+  },
+  "mentoringSession": {
+    "statuses": ["requested", "scheduled", "in_progress", "completed", "cancelled", "no_show"]
+  },
+  "review": {
+    "statuses": ["draft", "pending", "in_moderation", "published", "recalled", "archived"]
+  },
+  "supportCase": {
+    "statuses": [
+      "triage",
+      "in_progress",
+      "waiting_on_customer",
+      "resolved",
+      "closed",
+      "escalated"
+    ]
+  },
+  "runtime": {
+    "statuses": ["healthy", "degraded", "maintenance", "updating", "outage", "unknown"]
+  },
+  "sync": {
+    "statuses": ["connected", "syncing", "in_sync", "out_of_sync", "error", "disconnected", "needs_attention"]
+  },
+  "reference": {
+    "statuses": ["published", "verified", "pending_verification", "awaiting_feedback", "draft", "declined"]
+  },
+  "readiness": {
+    "statuses": ["healthy", "watch", "at_risk", "unknown"]
+  }
+}

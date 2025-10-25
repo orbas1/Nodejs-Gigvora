@@ -1,3 +1,5 @@
+import { getStatusValues } from './statusTaxonomy.js';
+
 export const PROFILE_AVAILABILITY_STATUSES = Object.freeze(['available', 'limited', 'unavailable', 'on_leave']);
 export const PROFILE_APPRECIATION_TYPES = Object.freeze(['like', 'celebrate', 'support', 'endorse', 'applause']);
 export const PROFILE_FOLLOWER_STATUSES = Object.freeze(['active', 'muted', 'blocked']);
@@ -114,7 +116,7 @@ export const GIG_CATALOG_STATUSES = Object.freeze(['draft', 'published', 'archiv
 export const MESSAGE_CHANNEL_TYPES = Object.freeze(['support', 'project', 'contract', 'group', 'direct']);
 export const MESSAGE_THREAD_STATES = Object.freeze(['active', 'archived', 'locked']);
 export const MESSAGE_TYPES = Object.freeze(['text', 'file', 'system', 'event']);
-export const SUPPORT_CASE_STATUSES = Object.freeze(['triage', 'in_progress', 'waiting_on_customer', 'resolved', 'closed']);
+export const SUPPORT_CASE_STATUSES = Object.freeze(getStatusValues('supportCase'));
 export const SUPPORT_CASE_PRIORITIES = Object.freeze(['low', 'medium', 'high', 'urgent']);
 export const SUPPORT_PLAYBOOK_STAGES = Object.freeze(['intake', 'investigation', 'resolution', 'follow_up']);
 export const SUPPORT_PLAYBOOK_PERSONAS = Object.freeze(['freelancer', 'client', 'support_team', 'cross_functional']);
@@ -222,14 +224,7 @@ export const ESCROW_TRANSACTION_STATUSES = Object.freeze([
   'cancelled',
   'disputed',
 ]);
-export const ID_VERIFICATION_STATUSES = Object.freeze([
-  'pending',
-  'submitted',
-  'in_review',
-  'verified',
-  'rejected',
-  'expired',
-]);
+export const ID_VERIFICATION_STATUSES = Object.freeze(getStatusValues('identityVerification'));
 export const ID_VERIFICATION_EVENT_TYPES = Object.freeze([
   'status_change',
   'note',
@@ -237,8 +232,8 @@ export const ID_VERIFICATION_EVENT_TYPES = Object.freeze([
   'document_request',
   'escalation',
   'reminder',
-];
-export const IDENTITY_VERIFICATION_EVENT_TYPES = [
+]);
+export const IDENTITY_VERIFICATION_EVENT_TYPES = Object.freeze([
   'submission_created',
   'status_changed',
   'assignment_updated',
@@ -246,24 +241,11 @@ export const IDENTITY_VERIFICATION_EVENT_TYPES = [
   'note_recorded',
   'metadata_updated',
 ]);
-export const CORPORATE_VERIFICATION_STATUSES = Object.freeze([
-  'pending',
-  'submitted',
-  'in_review',
-  'verified',
-  'rejected',
-  'requires_update',
-  'suspended',
-]);
-export const QUALIFICATION_CREDENTIAL_STATUSES = Object.freeze([
-  'unverified',
-  'pending_review',
-  'verified',
-  'rejected',
-]);
+export const CORPORATE_VERIFICATION_STATUSES = Object.freeze(getStatusValues('corporateVerification'));
+export const QUALIFICATION_CREDENTIAL_STATUSES = Object.freeze(getStatusValues('qualificationCredential'));
 export const WALLET_ACCOUNT_TYPES = Object.freeze(['user', 'freelancer', 'company', 'agency']);
-export const WALLET_ACCOUNT_STATUSES = Object.freeze(['pending', 'active', 'suspended', 'closed']);
-export const WALLET_LEDGER_ENTRY_TYPES = Object.freeze(['credit', 'debit', 'hold', 'release', 'adjustment']);
+export const WALLET_ACCOUNT_STATUSES = Object.freeze(getStatusValues('walletAccount'));
+export const WALLET_LEDGER_ENTRY_TYPES = Object.freeze(getStatusValues('walletLedgerEntry'));
 export const WALLET_FUNDING_SOURCE_TYPES = Object.freeze([
   'bank_account',
   'card',
@@ -341,7 +323,7 @@ export const NETWORKING_CONNECTION_FOLLOW_STATUSES = Object.freeze(['saved', 're
 
 export const OPPORTUNITY_TAXONOMY_TYPES = Object.freeze(['job', 'gig', 'freelance', 'volunteering', 'launchpad']);
 export const AD_TYPES = Object.freeze(['video', 'display', 'text']);
-export const AD_STATUSES = Object.freeze(['draft', 'scheduled', 'active', 'paused', 'expired']);
+export const AD_STATUSES = Object.freeze(getStatusValues('adCampaign'));
 export const AD_PACING_MODES = Object.freeze(['even', 'accelerated', 'asap']);
 export const AD_OBJECTIVES = Object.freeze(['brand', 'acquisition', 'retention', 'cross_sell']);
 export const AD_SURFACE_TYPES = Object.freeze([

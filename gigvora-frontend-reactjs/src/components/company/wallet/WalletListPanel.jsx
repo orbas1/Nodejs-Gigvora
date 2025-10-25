@@ -8,6 +8,7 @@ import {
   PlusIcon,
   ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
+import StatusBadge from '../../common/StatusBadge.jsx';
 
 function formatCurrency(value, currency = 'USD') {
   if (value == null || Number.isNaN(Number(value))) {
@@ -29,23 +30,6 @@ function formatNumber(value) {
     return '—';
   }
   return Number(value).toLocaleString();
-}
-
-function StatusBadge({ status }) {
-  const normalized = (status || 'active').toLowerCase();
-  const tone =
-    normalized === 'active'
-      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-      : normalized === 'suspended'
-      ? 'bg-amber-50 text-amber-700 border-amber-200'
-      : 'bg-slate-100 text-slate-600 border-slate-200';
-  const label = normalized === 'active' ? 'Active' : normalized === 'suspended' ? 'Suspended' : 'Archived';
-  return (
-    <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${tone}`}>
-      <ShieldCheckIcon className="h-4 w-4" aria-hidden="true" />
-      {label}
-    </span>
-  );
 }
 
 const SUMMARY_FIELDS = [
@@ -236,7 +220,13 @@ export default function WalletListPanel({
                   <p className="text-sm font-semibold text-slate-900">{wallet.name}</p>
                   <p className="mt-1 text-xs text-slate-500">Wallet ID #{wallet.id}</p>
                 </div>
-                <StatusBadge status={wallet.status} />
+                <StatusBadge
+                  status={wallet.status}
+                  category="walletAccount"
+                  uppercase={false}
+                  size="xs"
+                  icon={ShieldCheckIcon}
+                />
               </div>
 
               <div className="grid gap-3 sm:grid-cols-3">

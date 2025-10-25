@@ -13,6 +13,7 @@ import useCrmIntegrationManager from '../../hooks/useCrmIntegrationManager.js';
 import useSession from '../../hooks/useSession.js';
 import { formatRelativeTime, formatAbsolute } from '../../utils/date.js';
 import AccessDeniedPanel from '../../components/dashboard/AccessDeniedPanel.jsx';
+import StatusBadge from '../../components/common/StatusBadge.jsx';
 
 const MENU_SECTIONS = [
   {
@@ -29,30 +30,6 @@ const availableDashboards = ['company', 'headhunter', 'user', 'agency'];
 
 function classNames(...values) {
   return values.filter(Boolean).join(' ');
-}
-
-function StatusBadge({ status, lastSyncStatus }) {
-  const tone =
-    status === 'connected'
-      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-      : status === 'error'
-      ? 'bg-rose-50 text-rose-700 border-rose-200'
-      : status === 'pending'
-      ? 'bg-amber-50 text-amber-700 border-amber-200'
-      : 'bg-slate-100 text-slate-700 border-slate-200';
-  const label = status === 'connected' ? 'Connected' : status === 'error' ? 'Error' : status === 'pending' ? 'Pending' : 'Disconnected';
-  return (
-    <span
-      className={classNames(
-        'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold',
-        tone,
-      )}
-    >
-      <SignalIcon className="h-4 w-4" aria-hidden="true" />
-      {label}
-      {lastSyncStatus && status === 'connected' ? ` · ${lastSyncStatus}` : null}
-    </span>
-  );
 }
 
 function SummaryCard({ title, value, helper, tone = 'bg-white', icon: Icon }) {
@@ -96,7 +73,17 @@ function ConnectorCard({
           <h3 className="text-lg font-semibold text-slate-900">{connector.name}</h3>
           <p className="mt-1 text-sm text-slate-600">{connector.description}</p>
         </div>
-        <StatusBadge status={connector.status} lastSyncStatus={connector.lastSyncStatus} />
+        <StatusBadge
+          status={connector.status}
+          category="sync"
+          icon={SignalIcon}
+          uppercase={false}
+          label={
+            connector.status === 'connected' && connector.lastSyncStatus
+              ? `Connected · ${connector.lastSyncStatus}`
+              : undefined
+          }
+        />
       </div>
 
       <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">

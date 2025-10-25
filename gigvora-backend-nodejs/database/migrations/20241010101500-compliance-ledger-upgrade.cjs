@@ -1,5 +1,13 @@
 'use strict';
 
+const {
+  identityVerification,
+  corporateVerification,
+  qualificationCredential,
+  walletAccount,
+  walletLedgerEntry,
+} = require('../../../shared-contracts/domain/common/statuses.json');
+
 const createEnum = async (queryInterface, enumName, values) => {
   const dialect = queryInterface.sequelize.getDialect();
   if ((dialect === 'postgres' || dialect === 'postgresql') && values?.length) {
@@ -22,20 +30,12 @@ module.exports = {
     const dialect = queryInterface.sequelize.getDialect();
     const jsonType = ['postgres', 'postgresql'].includes(dialect) ? Sequelize.JSONB : Sequelize.JSON;
 
-    const IDENTITY_STATUSES = ['pending', 'submitted', 'in_review', 'verified', 'rejected', 'expired'];
-    const CORPORATE_STATUSES = [
-      'pending',
-      'submitted',
-      'in_review',
-      'verified',
-      'rejected',
-      'requires_update',
-      'suspended',
-    ];
-    const QUALIFICATION_STATUSES = ['unverified', 'pending_review', 'verified', 'rejected'];
-    const WALLET_ACCOUNT_STATUSES = ['pending', 'active', 'suspended', 'closed'];
+    const IDENTITY_STATUSES = identityVerification?.statuses ?? ['pending', 'submitted', 'in_review', 'verified', 'rejected', 'expired'];
+    const CORPORATE_STATUSES = corporateVerification?.statuses ?? ['pending', 'submitted', 'in_review', 'verified', 'rejected', 'requires_update', 'suspended'];
+    const QUALIFICATION_STATUSES = qualificationCredential?.statuses ?? ['unverified', 'pending_review', 'verified', 'rejected'];
+    const WALLET_ACCOUNT_STATUSES = walletAccount?.statuses ?? ['pending', 'active', 'suspended', 'closed'];
     const WALLET_ACCOUNT_TYPES = ['user', 'freelancer', 'company', 'agency'];
-    const WALLET_LEDGER_ENTRY_TYPES = ['credit', 'debit', 'hold', 'release', 'adjustment'];
+    const WALLET_LEDGER_ENTRY_TYPES = walletLedgerEntry?.statuses ?? ['credit', 'debit', 'hold', 'release', 'adjustment'];
     const ESCROW_INTEGRATIONS = ['stripe', 'escrow_com'];
 
     await createEnum(queryInterface, 'enum_identity_verifications_status', IDENTITY_STATUSES);

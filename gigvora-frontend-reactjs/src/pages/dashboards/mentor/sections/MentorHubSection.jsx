@@ -155,7 +155,7 @@ function normaliseDateTimePayload(value) {
   }
 }
 
-function StatusBadge({ label }) {
+function ResourceTypeBadge({ label }) {
   const badgeClass = useMemo(() => {
     switch (label) {
       case 'Published':
@@ -182,7 +182,7 @@ function StatusBadge({ label }) {
   );
 }
 
-StatusBadge.propTypes = {
+ResourceTypeBadge.propTypes = {
   label: PropTypes.string.isRequired,
 };
 
@@ -200,7 +200,7 @@ function ResourceCard({ resource, onEdit, onDelete }) {
     <div className="flex h-full flex-col gap-3 rounded-2xl border border-slate-200 bg-white/90 p-4 text-sm text-slate-600 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold text-slate-800">{resource.title}</p>
-        <StatusBadge label={resource.type} />
+        <ResourceTypeBadge label={resource.type} />
       </div>
       {resource.thumbnail ? (
         <div className="overflow-hidden rounded-xl border border-slate-200">
@@ -718,7 +718,7 @@ export default function MentorHubSection({
                         <p className="text-sm font-semibold text-slate-800">{update.title}</p>
                         <p className="text-xs text-slate-500">{update.category} • {formatDateTime(update.publishedAt)}</p>
                       </div>
-                      <StatusBadge label={update.status} />
+                      <ResourceTypeBadge label={update.status} />
                     </div>
                     <p className="mt-3 text-sm text-slate-600">{update.summary}</p>
                     <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -890,8 +890,8 @@ export default function MentorHubSection({
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <StatusBadge label={action.priority} />
-                        <StatusBadge label={action.status} />
+                        <ResourceTypeBadge label={action.priority} />
+                        <ResourceTypeBadge label={action.status} />
                       </div>
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-3 text-xs font-semibold">

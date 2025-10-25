@@ -10,6 +10,7 @@ import {
   WrenchScrewdriverIcon,
 } from '@heroicons/react/24/outline';
 import classNames from '../../utils/classNames.js';
+import StatusBadge from '../common/StatusBadge.jsx';
 
 function formatNumber(value) {
   const numeric = Number(value ?? 0);
@@ -79,29 +80,30 @@ function formatRelative(timestamp) {
   return `${diffDays}d ago`;
 }
 
-const STATUS_STYLES = {
-  ok: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-  ready: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-  starting: 'border-sky-200 bg-sky-50 text-sky-700',
-  degraded: 'border-amber-200 bg-amber-50 text-amber-700',
-  error: 'border-red-200 bg-red-50 text-red-700',
-  stopped: 'border-red-200 bg-red-50 text-red-700',
+const RUNTIME_STATUS_TONES = {
+  ok: { tone: 'emerald', variant: 'solid' },
+  ready: { tone: 'emerald', variant: 'solid' },
+  starting: { tone: 'blue', variant: 'tint' },
+  degraded: { tone: 'amber', variant: 'outline' },
+  maintenance: { tone: 'indigo', variant: 'tint' },
+  updating: { tone: 'blue', variant: 'tint' },
+  error: { tone: 'rose', variant: 'solid' },
+  stopped: { tone: 'rose', variant: 'solid' },
+  outage: { tone: 'rose', variant: 'solid' },
+  unknown: { tone: 'slate', variant: 'outline' },
 };
 
-function resolveStatusStyle(status) {
-  if (!status) {
-    return 'border-slate-200 bg-slate-50 text-slate-600';
-  }
-  return STATUS_STYLES[status] ?? 'border-slate-200 bg-slate-50 text-slate-600';
-}
-
-function StatusBadge({ status, label, description }) {
+function RuntimeStatusCard({ status, label, description }) {
   return (
     <div className="rounded-2xl border bg-white/50 p-4 shadow-sm">
       <div className="flex items-center gap-2">
-        <span className={classNames('inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold', resolveStatusStyle(status))}>
-          {status ? status.toUpperCase() : 'UNKNOWN'}
-        </span>
+        <StatusBadge
+          status={status ?? 'unknown'}
+          category="runtime"
+          statusToneMap={RUNTIME_STATUS_TONES}
+          size="xs"
+          uppercase
+        />
         <span className="text-sm font-semibold text-slate-900">{label}</span>
       </div>
       {description ? <p className="mt-2 text-xs text-slate-600">{description}</p> : null}
@@ -123,9 +125,13 @@ function DependencyList({ title, items }) {
               <p className="font-semibold text-slate-700">{name}</p>
               {meta ? <p className="mt-1 text-[11px] text-slate-500">{meta}</p> : null}
             </div>
-            <span className={classNames('inline-flex items-center rounded-full px-2 py-1 text-[11px] font-semibold', resolveStatusStyle(status))}>
-              {status?.toUpperCase() ?? 'UNKNOWN'}
-            </span>
+            <StatusBadge
+              status={status ?? 'unknown'}
+              category="runtime"
+              statusToneMap={RUNTIME_STATUS_TONES}
+              size="xs"
+              uppercase
+            />
           </div>
         ))}
       </div>
@@ -342,12 +348,12 @@ export default function RuntimeTelemetryPanel({ snapshot, loading, refreshing, e
 
           <div className="mt-6 grid gap-6 lg:grid-cols-3">
             <div className="space-y-4">
-              <StatusBadge
+              <RuntimeStatusCard
                 status={readiness.status ?? readiness.http?.status ?? 'unknown'}
                 label="Service readiness"
                 description={`HTTP ${readiness.httpStatus ?? readiness.http?.status ?? 503}`}
               />
-              <StatusBadge
+              <RuntimeStatusCard
                 status={liveness.status ?? 'unknown'}
                 label="Process uptime"
                 description={`Up ${formatDuration(liveness.uptimeSeconds)}`}

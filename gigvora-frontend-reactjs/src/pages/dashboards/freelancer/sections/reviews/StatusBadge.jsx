@@ -1,12 +1,5 @@
-import { getStatusConfig } from './utils.js';
+import StatusBadge from '../../../../components/common/StatusBadge.jsx';
 
-export default function StatusBadge({ status }) {
-  const config = getStatusConfig(status);
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${config.badge}`}
-    >
-      {config.label}
-    </span>
-  );
+export default function ReviewStatusBadge(props) {
+  return <StatusBadge category="review" {...props} />;
 }

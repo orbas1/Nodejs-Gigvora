@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import SectionShell from '../../SectionShell.jsx';
 import AdsPanel from './AdsPanel.jsx';
+import StatusBadge from '../../../../components/common/StatusBadge.jsx';
 
 function InsightCard({ label, value, hint, tone = 'slate' }) {
   const toneClasses = {
@@ -20,29 +21,6 @@ function InsightCard({ label, value, hint, tone = 'slate' }) {
       <p className="mt-3 text-3xl font-semibold">{value}</p>
       {hint ? <p className="mt-1 text-xs text-slate-600">{hint}</p> : null}
     </div>
-  );
-}
-
-function StatusBadge({ status }) {
-  if (!status) {
-    return null;
-  }
-  const palette = {
-    draft: 'bg-slate-100 text-slate-700 border-slate-200',
-    scheduled: 'bg-blue-100 text-blue-700 border-blue-200',
-    active: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    paused: 'bg-amber-100 text-amber-700 border-amber-200',
-    expired: 'bg-rose-100 text-rose-700 border-rose-200',
-  };
-  const normalised = status.toLowerCase();
-  return (
-    <span
-      className={`inline-flex items-center rounded-full border px-3 py-0.5 text-xs font-semibold capitalize ${
-        palette[normalised] ?? palette.draft
-      }`}
-    >
-      {normalised.replace(/_/g, ' ')}
-    </span>
   );
 }
 
@@ -102,7 +80,7 @@ function CreativePreview({ campaign }) {
             <h3 className="text-lg font-semibold text-slate-900">{creative.headline || campaign.name}</h3>
             <p className="mt-1 text-sm text-slate-600">{creative.description || 'Share your positioning, proof, and offer.'}</p>
           </div>
-          <StatusBadge status={campaign.status} />
+          <StatusBadge status={campaign.status} category="adCampaign" uppercase={false} />
         </div>
         <dl className="grid gap-3 text-xs text-slate-500 sm:grid-cols-2">
           <div>
@@ -174,7 +152,7 @@ function CampaignTable({ campaigns, loading, onEdit, onDelete, busy }) {
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <StatusBadge status={campaign.status} />
+                  <StatusBadge status={campaign.status} category="adCampaign" uppercase={false} />
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-2">

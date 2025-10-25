@@ -1,4 +1,5 @@
 import PropTypes from 'prop-types';
+import StatusBadge from '../../common/StatusBadge.jsx';
 
 function formatDate(value) {
   if (!value) return 'TBC';
@@ -14,28 +15,13 @@ function formatDate(value) {
   }
 }
 
-function StatusBadge({ status }) {
-  const styles = {
-    draft: 'bg-slate-100 text-slate-600',
-    scheduled: 'bg-sky-100 text-sky-700',
-    in_progress: 'bg-emerald-100 text-emerald-700',
-    completed: 'bg-indigo-100 text-indigo-700',
-    cancelled: 'bg-rose-100 text-rose-700',
-    archived: 'bg-slate-200 text-slate-600',
-  };
-  const label = status
-    ?.split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-  return <span className={`rounded-full px-3 py-1 text-xs font-semibold ${styles[status] ?? 'bg-slate-100 text-slate-600'}`}>{label}</span>;
-}
-
-StatusBadge.propTypes = {
-  status: PropTypes.string,
-};
-
-StatusBadge.defaultProps = {
-  status: 'draft',
+const SPEED_STATUS_TONES = {
+  draft: { tone: 'slate', variant: 'tint' },
+  scheduled: { tone: 'blue', variant: 'tint' },
+  in_progress: { tone: 'emerald', variant: 'tint' },
+  completed: { tone: 'indigo', variant: 'tint' },
+  cancelled: { tone: 'rose', variant: 'outline' },
+  archived: { tone: 'slate', variant: 'outline' },
 };
 
 export default function SpeedNetworkingSessionsTable({
@@ -89,7 +75,12 @@ export default function SpeedNetworkingSessionsTable({
             </div>
           </td>
           <td className="px-6 py-4 text-sm">
-            <StatusBadge status={session.status} />
+            <StatusBadge
+              status={session.status}
+              uppercase={false}
+              size="xs"
+              statusToneMap={SPEED_STATUS_TONES}
+            />
           </td>
           <td className="px-6 py-4 text-sm text-slate-600">
             {session.host?.name ?? 'Unassigned'}

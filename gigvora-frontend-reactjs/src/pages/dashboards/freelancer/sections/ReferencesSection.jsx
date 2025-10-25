@@ -11,27 +11,17 @@ import { StarIcon } from '@heroicons/react/24/solid';
 import SectionShell from '../SectionShell.jsx';
 import useSession from '../../../../hooks/useSession.js';
 import useFreelancerReferences from '../../../../hooks/useFreelancerReferences.js';
+import StatusBadge from '../../../../components/common/StatusBadge.jsx';
 
-const STATUS_STYLES = {
-  published: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-  verified: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-  pending_verification: 'border-amber-200 bg-amber-50 text-amber-700',
-  awaiting_feedback: 'border-blue-200 bg-blue-50 text-blue-700',
-  draft: 'border-slate-200 bg-slate-50 text-slate-600',
-  declined: 'border-rose-200 bg-rose-50 text-rose-700',
-};
-
-function StatusBadge({ status, verified }) {
-  const key = status?.toLowerCase?.() ?? 'draft';
-  const baseClass = STATUS_STYLES[key] ?? STATUS_STYLES.draft;
-  const label = verified ? 'Verified' : key.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+function ReferenceStatusBadge({ status, verified }) {
+  const resolvedStatus = verified ? 'verified' : status;
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${baseClass}`}
-    >
-      {verified ? <ShieldCheckIcon className="h-3.5 w-3.5" /> : null}
-      {label}
-    </span>
+    <StatusBadge
+      status={resolvedStatus}
+      category="reference"
+      icon={verified ? ShieldCheckIcon : undefined}
+      uppercase
+    />
   );
 }
 
@@ -52,7 +42,7 @@ function ReferenceCard({ reference, onVerify }) {
             <p className="text-sm font-semibold text-slate-900">{reference.client}</p>
             <p className="text-xs text-slate-500">{reference.company || reference.relationship}</p>
           </div>
-          <StatusBadge status={reference.status} verified={reference.verified} />
+          <ReferenceStatusBadge status={reference.status} verified={reference.verified} />
         </div>
         {reference.quote ? <p className="text-sm text-slate-600">“{reference.quote}”</p> : null}
       </div>
@@ -286,7 +276,7 @@ export default function ReferencesSection() {
                           <p className="font-semibold text-slate-900">{entry.title}</p>
                           <p className="text-xs text-slate-500">Last contact {formatDate(entry.interactionDate)}</p>
                         </div>
-                        <StatusBadge status={entry.status} verified={entry.verified} />
+                        <ReferenceStatusBadge status={entry.status} verified={entry.verified} />
                       </li>
                     ))
                   ) : (

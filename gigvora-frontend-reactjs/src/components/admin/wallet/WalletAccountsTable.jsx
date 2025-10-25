@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types';
 import { ArrowPathIcon, CheckCircleIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import StatusBadge from '../../common/StatusBadge.jsx';
 
 function formatCurrency(value, currency = 'USD') {
   const numeric = Number.isFinite(Number(value)) ? Number(value) : 0;
@@ -21,24 +22,11 @@ function formatDate(value) {
   return date.toLocaleString();
 }
 
-function StatusBadge({ status }) {
-  const normalized = `${status ?? 'pending'}`.toLowerCase();
-  const styles = {
-    active: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    pending: 'bg-amber-100 text-amber-700 border-amber-200',
-    suspended: 'bg-rose-100 text-rose-700 border-rose-200',
-    closed: 'bg-slate-200 text-slate-600 border-slate-300',
-  };
-  const className = styles[normalized] ?? styles.pending;
-  return (
-    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold uppercase ${className}`}>
-      {normalized}
-    </span>
-  );
-}
-
-StatusBadge.propTypes = {
-  status: PropTypes.string,
+const WALLET_STATUS_TONES = {
+  active: { tone: 'emerald', variant: 'solid' },
+  pending: { tone: 'amber', variant: 'outline' },
+  suspended: { tone: 'rose', variant: 'outline' },
+  closed: { tone: 'slate', variant: 'outline' },
 };
 
 function ProviderBadge({ provider }) {
@@ -132,7 +120,13 @@ export default function WalletAccountsTable({
                     <div className="flex flex-col gap-1">
                       <span className="text-sm font-semibold text-slate-900">#{account.id}</span>
                       <span className="text-xs text-slate-500">{account.accountType}</span>
-                      <StatusBadge status={account.status} />
+                      <StatusBadge
+                        status={account.status}
+                        category="walletAccount"
+                        statusToneMap={WALLET_STATUS_TONES}
+                        uppercase
+                        size="xs"
+                      />
                     </div>
                   </td>
                   <td className="px-6 py-4">
