@@ -108,19 +108,4 @@ Keep this guide handy as you explore or build on Gigvora. Whether you’re just 
 
 ## 6. Operational playbooks
 
-1. **Before releasing a new build**
-   - Run `melos run ci:verify` for Flutter, `npm test` for the backend, and `npm run lint` on both web and API to guarantee formatting and linting gates pass.【F:melos.yaml†L9-L22】【F:gigvora-backend-nodejs/package.json†L7-L31】
-   - Execute `codemagic.yaml`’s release workflow or replicate it locally to validate environment variables, formatting, analysis, tests, and release builds in one pipeline.【F:codemagic.yaml†L1-L86】
-   - Regenerate schema artefacts with `npm run schema:export` and publish ERD changes for review before merging.【F:gigvora-backend-nodejs/package.json†L23-L31】
-
-2. **Monitoring in production**
-   - Point Prometheus at `/metrics` with the bearer token configured in the environment file to track application and worker health.【F:gigvora-backend-nodejs/.env.example†L10-L23】
-   - Enable structured logging (Pino) and ship logs to your SIEM via the `LOG_LEVEL` and `TRUST_PROXY` toggles in `.env`.【F:gigvora-backend-nodejs/.env.example†L5-L23】
-   - Keep rate limiter thresholds tuned (`RATE_LIMITER_POINTS`, `RATE_LIMITER_DURATION_SECONDS`) to protect authentication surfaces from brute force attempts.【F:gigvora-backend-nodejs/.env.example†L24-L29】
-
-3. **Responding to incidents**
-   - Follow the runtime incident runbook for containment, communication, and root-cause analysis workflows.【F:gigvora-backend-nodejs/docs/runbooks/runtime-incident.md†L1-L120】
-   - Use the `databaseBackup.js` script to take consistent snapshots before running hotfix migrations, then verify them with `npm run db:verify`.【F:gigvora-backend-nodejs/package.json†L23-L31】
-   - Rotate JWT and API secrets immediately after an incident by updating the `.env`, restarting services, and issuing forced logouts via the admin console.【F:gigvora-backend-nodejs/.env.example†L15-L43】
-
-By treating RBAC, CORS, and operational hygiene as first-class citizens, the Gigvora experience stays production-ready and resilient as you scale feature work across teams.
+The end-to-end operational workflow now lives in one place: [`gigvora-backend-nodejs/docs/runbooks/operational-tooling-checklist.md`](gigvora-backend-nodejs/docs/runbooks/operational-tooling-checklist.md).【F:gigvora-backend-nodejs/docs/runbooks/operational-tooling-checklist.md†L1-L69】 Run `npm run ci:tooling` inside the backend package to exercise the checklist—this validates `.env` configuration, regenerates JSON schemas and TypeScript clients, and performs a dry-run of the backup utility so you can catch drift before release.【F:gigvora-backend-nodejs/package.json†L8-L20】【F:gigvora-backend-nodejs/docs/runbooks/operational-tooling-checklist.md†L25-L47】 For production monitoring and incident response, pair that runbook with the existing runtime incident guide referenced above.【F:gigvora-backend-nodejs/docs/runbooks/runtime-incident.md†L1-L120】

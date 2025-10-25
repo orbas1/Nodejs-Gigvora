@@ -35,7 +35,7 @@ function buildTypeName(relativePath) {
   return typeSegments.join('');
 }
 
-async function generateTypeDefinition(schemaFile) {
+async function generateTypeDefinition(schemaFile, options) {
   const tsDefinition = await compileFromFile(schemaFile.absolute, {
     bannerComment: '',
     cwd: contractsRoot,
@@ -49,12 +49,22 @@ async function generateTypeDefinition(schemaFile) {
 
   const outputPath = path.join(outputRoot, schemaFile.relative.replace(/\.json$/, '.d.ts'));
   await fs.ensureDir(path.dirname(outputPath));
-  await fs.writeFile(outputPath, enrichedDefinition, 'utf8');
+  const finalContent = enrichedDefinition.endsWith('\n') ? enrichedDefinition : `${enrichedDefinition}\n`;
+
+  if (options.check) {
+    const existing = await fs.readFile(outputPath, 'utf8');
+    if (existing !== finalContent) {
+      const displayPath = path.relative(path.resolve(__dirname, '..'), outputPath);
+      throw new Error(`Type definition drift detected for ${displayPath}. Regenerate domain clients.`);
+    }
+  } else {
+    await fs.writeFile(outputPath, finalContent, 'utf8');
+  }
 
   return { typeName, outputPath };
 }
 
-async function writeIndexFile(exportsMap) {
+async function writeIndexFile(exportsMap, options) {
   if (exportsMap.length === 0) {
     return;
   }
@@ -63,11 +73,23 @@ async function writeIndexFile(exportsMap) {
     .sort((a, b) => a.path.localeCompare(b.path))
     .map((entry) => `export * from './${entry.path.replace(/\\/g, '/')}';`);
 
+  const indexPath = path.join(outputRoot, 'index.d.ts');
   await fs.ensureDir(outputRoot);
-  await fs.writeFile(path.join(outputRoot, 'index.d.ts'), `${lines.join('\n')}\n`, 'utf8');
+  const content = `${lines.join('\n')}\n`;
+
+  if (options.check) {
+    const existing = await fs.readFile(indexPath, 'utf8');
+    if (existing !== content) {
+      throw new Error('Type index drift detected. Regenerate domain clients.');
+    }
+  } else {
+    await fs.writeFile(indexPath, content, 'utf8');
+  }
 }
 
 async function run() {
+  const args = process.argv.slice(2);
+  const check = args.includes('--check');
   const exists = await fs.pathExists(contractsRoot);
   if (!exists) {
     throw new Error(`Unable to locate domain contracts at ${contractsRoot}`);
@@ -81,13 +103,15 @@ async function run() {
 
   const exportsMap = [];
   for (const schemaFile of schemaFiles) {
-    const { outputPath } = await generateTypeDefinition(schemaFile);
-    const relative = path.relative(outputRoot, outputPath).replace(/\.d\.ts$/, '');
-    exportsMap.push({ path: relative });
+    const { outputPath } = await generateTypeDefinition(schemaFile, { check });
+    const relativePath = path.relative(outputRoot, outputPath).replace(/\.d\.ts$/, '');
+    exportsMap.push({ path: relativePath });
   }
 
-  await writeIndexFile(exportsMap);
-  console.log(`Generated ${exportsMap.length} TypeScript definitions in ${outputRoot}`);
+  await writeIndexFile(exportsMap, { check });
+  if (!check) {
+    console.log(`Generated ${exportsMap.length} TypeScript definitions in ${outputRoot}`);
+  }
 }
 
 run().catch((error) => {

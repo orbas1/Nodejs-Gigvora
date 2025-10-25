@@ -196,10 +196,14 @@ Follow these references to extend Gigvora safely while keeping user data, moneti
 - Flutter-specific automation lives in `melos.yaml`; use `melos run ci:verify` locally to mirror Codemagic’s gates before pushing changes.【F:melos.yaml†L9-L22】
 - Backend releases should run `npm run lint`, `npm test`, and, if database changes exist, `npx sequelize-cli db:migrate --dry-run` to confirm schema safety before promotion.【F:gigvora-backend-nodejs/package.json†L7-L31】
 
+## Operational tooling checklist
+
+Follow [`gigvora-backend-nodejs/docs/runbooks/operational-tooling-checklist.md`](gigvora-backend-nodejs/docs/runbooks/operational-tooling-checklist.md) for the canonical release, backup, and validation workflow. The runbook consolidates runtime config validation, schema regeneration, and backup guidance into one place and is exercised in automation through `npm run ci:tooling`.【F:gigvora-backend-nodejs/docs/runbooks/operational-tooling-checklist.md†L1-L69】【F:gigvora-backend-nodejs/package.json†L8-L20】
+
 ---
 
 ## Incident response quick links
 
 - Review the runtime incident runbook for escalation paths, communication templates, and recovery procedures.【F:gigvora-backend-nodejs/docs/runbooks/runtime-incident.md†L1-L120】
-- Trigger `npm run db:backup` prior to executing emergency migrations and verify backups via `npm run db:verify` once the change lands.【F:gigvora-backend-nodejs/package.json†L23-L31】
+- Use the operational tooling runbook to perform dry-run validations and, when needed, create encrypted backups or restores with the documented commands before and after high-risk changes.【F:gigvora-backend-nodejs/docs/runbooks/operational-tooling-checklist.md†L25-L67】
 - After any security event, reset API keys (`CALENDAR_STUB_API_KEY`, Stripe, Escrow.com) and JWT secrets, then broadcast forced logout notices through the admin console and email templates.【F:gigvora-backend-nodejs/.env.example†L36-L61】

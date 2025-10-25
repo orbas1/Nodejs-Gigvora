@@ -12,6 +12,7 @@ import databaseConfig from '../src/config/database.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_BACKUP_DIR = path.resolve(__dirname, '../backups');
+const RUNBOOK_REFERENCE = 'gigvora-backend-nodejs/docs/runbooks/operational-tooling-checklist.md';
 
 function parseArgs(argv) {
   const options = {};
@@ -57,6 +58,38 @@ function resolveCredentials(config) {
   };
 }
 
+function validateResolvedCredentials(credentials) {
+  const missing = [];
+  if (!credentials.database) {
+    missing.push('DB_NAME or DB_URL');
+  }
+  if (!credentials.username) {
+    missing.push('DB_USER or DB_URL credentials');
+  }
+  if (!credentials.host) {
+    missing.push('DB_HOST or DB_URL host');
+  }
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing database configuration: ${missing.join(', ')}. Populate the required environment variables or DB_URL (see ${RUNBOOK_REFERENCE}).`,
+    );
+  }
+}
+
+async function ensureBinaryAvailable(command) {
+  try {
+    await runCommand(command, ['--version'], { stdio: 'ignore' });
+  } catch (error) {
+    if (error && /ENOENT/.test(error.message)) {
+      throw new Error(
+        `Unable to find the ${command} binary. Add it to PATH or configure MYSQLDUMP_PATH/MYSQL_PATH (see ${RUNBOOK_REFERENCE}).`,
+      );
+    }
+    throw error;
+  }
+}
+
 async function ensureDirectory(dir) {
   await fs.mkdir(dir, { recursive: true });
 }
@@ -96,9 +129,7 @@ async function readMetadata(filePath) {
 async function backupDatabase(options) {
   ensureMysqlDialect(databaseConfig);
   const credentials = resolveCredentials(databaseConfig);
-  if (!credentials.database || !credentials.username) {
-    throw new Error('Missing database credentials. Please configure DB_NAME and DB_USER.');
-  }
+  validateResolvedCredentials(credentials);
 
   const mysqldump = process.env.MYSQLDUMP_PATH || 'mysqldump';
   const outputDirectory = path.resolve(process.cwd(), options.output || DEFAULT_BACKUP_DIR);
@@ -106,6 +137,25 @@ async function backupDatabase(options) {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const fileName = options.file || `gigvora-${credentials.database}-${timestamp}.sql.gz${options['encrypt-key'] ? '.enc' : ''}`;
   const outputPath = path.resolve(outputDirectory, fileName);
+
+  await ensureBinaryAvailable(mysqldump);
+
+  if (options['dry-run']) {
+    console.info(
+      JSON.stringify(
+        {
+          status: 'ok',
+          mode: 'dry-run',
+          outputDirectory,
+          mysql: credentials.host,
+          runbook: RUNBOOK_REFERENCE,
+        },
+        null,
+        2,
+      ),
+    );
+    return;
+  }
 
   const args = [
     '-h',
@@ -201,6 +251,7 @@ async function backupDatabase(options) {
 async function restoreDatabase(options) {
   ensureMysqlDialect(databaseConfig);
   const credentials = resolveCredentials(databaseConfig);
+  validateResolvedCredentials(credentials);
   if (!options.file) {
     throw new Error('Restore requires --file <path>');
   }
@@ -224,6 +275,8 @@ async function restoreDatabase(options) {
   if (credentials.password) {
     args.push(`--password=${credentials.password}`);
   }
+
+  await ensureBinaryAvailable(mysqlBinary);
 
   const mysql = spawn(mysqlBinary, args, { stdio: ['pipe', 'inherit', 'inherit'] });
   mysql.on('error', (error) => {
@@ -287,13 +340,27 @@ async function verifyBackup(options) {
 
 async function main() {
   const [action, ...rest] = process.argv.slice(2);
-  if (!action) {
-    console.error('Usage: node scripts/databaseBackup.js <backup|restore|verify> [options]');
-    process.exitCode = 1;
-    return;
+  const options = parseArgs(rest);
+
+  if (!action || options.help) {
+    console.info(
+      `Usage: node scripts/databaseBackup.js <backup|restore|verify> [options]\n\n` +
+        'Actions:\n' +
+        '  backup  Create a compressed SQL dump (supports --dry-run and --encrypt-key).\n' +
+        '  restore Restore a dump into the configured database.\n' +
+        '  verify  Validate checksum/metadata for an existing dump.\n\n' +
+        'Common options:\n' +
+        '  --output <dir>      Directory for generated backups (backup).\n' +
+        '  --file <path>       Target file for restore/verify or override backup name.\n' +
+        '  --encrypt-key <key> Optional AES-256-GCM encryption key.\n' +
+        '  --dry-run           Validate credentials and binaries without writing a dump.\n' +
+        `\nSee ${RUNBOOK_REFERENCE} for the full operational checklist.`,
+    );
+    if (!action) {
+      return;
+    }
   }
 
-  const options = parseArgs(rest);
   try {
     if (action === 'backup') {
       await backupDatabase(options);
