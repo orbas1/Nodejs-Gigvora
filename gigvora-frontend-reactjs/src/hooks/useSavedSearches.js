@@ -24,7 +24,12 @@ function readLocalSavedSearches() {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed;
+    return parsed.map((entry) => ({
+      ...entry,
+      frequency: entry?.frequency ?? 'daily',
+      notifyByEmail: Boolean(entry?.notifyByEmail),
+      notifyInApp: entry?.notifyInApp === undefined ? true : Boolean(entry.notifyInApp),
+    }));
   } catch (error) {
     console.warn('Failed to read saved searches from local storage', error);
     return [];
@@ -118,6 +123,8 @@ export default function useSavedSearches({ enabled = true } = {}) {
         return created;
       }
 
+      const frequency = (payload.frequency ?? 'daily').toLowerCase();
+      const nextRunAt = computeNextRunAt(frequency).toISOString();
       const next = [
         ...items,
         {
@@ -127,9 +134,12 @@ export default function useSavedSearches({ enabled = true } = {}) {
           query: payload.query,
           filters: payload.filters,
           sort: payload.sort,
+          frequency,
           notifyByEmail: payload.notifyByEmail ?? false,
           notifyInApp: payload.notifyInApp ?? true,
           createdAt: new Date().toISOString(),
+          lastTriggeredAt: null,
+          nextRunAt,
         },
       ];
       setLocalItems(next);
@@ -147,9 +157,33 @@ export default function useSavedSearches({ enabled = true } = {}) {
         return updated;
       }
 
-      const next = items.map((item) =>
-        item.id === id ? { ...item, ...changes, updatedAt: new Date().toISOString() } : item,
-      );
+      const next = items.map((item) => {
+        if (item.id !== id) {
+          return item;
+        }
+
+        const updated = {
+          ...item,
+          ...changes,
+          updatedAt: new Date().toISOString(),
+        };
+
+        if (changes.frequency !== undefined) {
+          const frequency = `${changes.frequency}`.toLowerCase();
+          updated.frequency = frequency;
+          updated.nextRunAt = computeNextRunAt(frequency).toISOString();
+        }
+
+        if (changes.notifyByEmail !== undefined) {
+          updated.notifyByEmail = Boolean(changes.notifyByEmail);
+        }
+
+        if (changes.notifyInApp !== undefined) {
+          updated.notifyInApp = Boolean(changes.notifyInApp);
+        }
+
+        return updated;
+      });
       setLocalItems(next);
       writeLocalSavedSearches(next);
       return next.find((item) => item.id === id) ?? null;
