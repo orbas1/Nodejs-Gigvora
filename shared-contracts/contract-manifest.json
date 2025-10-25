@@ -1,7 +1,7 @@
 {
-  "version": "1.0.1",
-  "lastGeneratedAt": "2025-10-25T14:36:00.000Z",
-  "pendingChanges": true,
+  "version": "1.0.2",
+  "lastGeneratedAt": "2025-10-26T00:00:00.000Z",
+  "pendingChanges": false,
   "artifacts": {
     "auth/user": {
       "schemaHash": "360ca8371a7acba501005e1ae88bfbda2ab69f83e1cff09e9e491309c78bf788",
@@ -44,12 +44,17 @@
       "generatedAt": "2025-10-25T00:36:52.906Z"
     }
   },
-  "lastReleasedAt": "2025-10-25",
+  "lastReleasedAt": "2025-10-26",
   "releaseHistory": [
     {
       "version": "1.0.1",
       "summary": "Baseline shared contract manifest after automation",
       "releasedAt": "2025-10-25"
+    },
+    {
+      "version": "1.0.2",
+      "summary": "Cleared pending contract changes after regenerating schema artifacts",
+      "releasedAt": "2025-10-26"
     }
   ]
 }

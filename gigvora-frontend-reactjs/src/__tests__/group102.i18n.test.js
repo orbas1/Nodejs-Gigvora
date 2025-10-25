@@ -1,3 +1,5 @@
+import { describe, expect, it } from 'vitest';
+
 import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, translations, resolveLanguage, getLanguageDirection, translate } from '../i18n/translations.js';
 
 describe('i18n helpers', () => {

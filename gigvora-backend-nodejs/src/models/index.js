@@ -646,14 +646,6 @@ export const AGENCY_CREATION_VISIBILITIES = ['internal', 'restricted', 'public']
 export const AGENCY_CREATION_ASSET_TYPES = ['image', 'video', 'document', 'link'];
 export const AGENCY_CREATION_COLLABORATOR_STATUSES = ['invited', 'active', 'declined', 'removed'];
 
-JobApplication.belongsTo(User, { foreignKey: 'assignedRecruiterId', as: 'assignedRecruiter' });
-User.hasMany(JobApplication, { foreignKey: 'assignedRecruiterId', as: 'assignedApplications' });
-JobApplicationNote.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
-User.hasMany(JobApplicationNote, { foreignKey: 'authorId', as: 'jobApplicationNotes' });
-JobApplicationDocument.belongsTo(User, { foreignKey: 'uploadedById', as: 'uploadedBy' });
-User.hasMany(JobApplicationDocument, { foreignKey: 'uploadedById', as: 'jobApplicationDocuments' });
-JobApplicationInterview.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
-User.hasMany(JobApplicationInterview, { foreignKey: 'createdById', as: 'jobApplicationInterviews' });
 export const User = sequelize.define(
   'User',
   {
@@ -700,6 +692,15 @@ export const User = sequelize.define(
     ],
   },
 );
+
+JobApplication.belongsTo(User, { foreignKey: 'assignedRecruiterId', as: 'assignedRecruiter' });
+User.hasMany(JobApplication, { foreignKey: 'assignedRecruiterId', as: 'assignedApplications' });
+JobApplicationNote.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
+User.hasMany(JobApplicationNote, { foreignKey: 'authorId', as: 'jobApplicationNotes' });
+JobApplicationDocument.belongsTo(User, { foreignKey: 'uploadedById', as: 'uploadedBy' });
+User.hasMany(JobApplicationDocument, { foreignKey: 'uploadedById', as: 'jobApplicationDocuments' });
+JobApplicationInterview.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+User.hasMany(JobApplicationInterview, { foreignKey: 'createdById', as: 'jobApplicationInterviews' });
 
 export const UserDashboardOverview = sequelize.define(
   'UserDashboardOverview',

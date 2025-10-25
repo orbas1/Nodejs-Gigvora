@@ -1,15 +1,15 @@
 import { jest } from '@jest/globals';
 
+import {
+  SECURITY_LEVELS,
+  RuntimeSecurityAuditEvent,
+} from '../models/runtimeSecurityAuditEvent.js';
 import sequelize from '../models/sequelizeClient.js';
 import PlatformSetting from '../models/platformSetting.js';
 import {
   POLICY_DECISIONS,
   RbacPolicyAuditEvent,
 } from '../models/rbacPolicyAuditEvent.js';
-import {
-  SECURITY_LEVELS,
-  RuntimeSecurityAuditEvent,
-} from '../models/runtimeSecurityAuditEvent.js';
 import {
   VolunteeringPost,
   VolunteeringApplication,

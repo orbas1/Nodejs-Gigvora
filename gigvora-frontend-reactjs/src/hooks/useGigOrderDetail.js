@@ -188,7 +188,7 @@ export default function useGigOrderDetail(userId, orderId) {
         }
       },
     }),
-    [acknowledgeGigChatMessage, ensureContext, ensureManagePermission, orderId, userId],
+    [ensureContext, ensureManagePermission, orderId, userId],
   );
 
   return { data, loading, error, actions, refresh: load, pendingAction, canManageOrder };
