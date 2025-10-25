@@ -92,7 +92,7 @@ function normaliseClientFilters(raw = {}) {
 
   assign(['employmentType', 'employmentTypes'], 'employmentType');
   assign(['employmentCategory', 'employmentCategories'], 'employmentCategory');
-  assign(['durationCategory', 'durationCategories'], 'durationCategory');
+  assign(['durationCategory', 'durationCategories', 'deliverySpeed', 'deliverySpeeds'], 'durationCategory');
   assign(['budgetCurrency', 'budgetCurrencies'], 'budgetCurrency');
   assign(['status', 'statuses'], 'status');
   assign(['track', 'tracks'], 'track');
@@ -110,6 +110,41 @@ function normaliseClientFilters(raw = {}) {
 
   if (raw.updatedWithin) {
     filters.updatedWithin = `${raw.updatedWithin}`;
+  }
+
+  const parseBudgetNumber = (value) => {
+    if (value == null || value === '') {
+      return null;
+    }
+    const numeric = Number.parseFloat(`${value}`.replace(/[^0-9.]/g, ''));
+    if (!Number.isFinite(numeric)) {
+      return null;
+    }
+    return Math.max(0, Math.round(numeric));
+  };
+
+  const minBudget = parseBudgetNumber(raw.budgetValueMin ?? raw.budgetMin);
+  if (minBudget != null) {
+    filters.budgetValueMin = minBudget;
+  }
+
+  const maxBudget = parseBudgetNumber(raw.budgetValueMax ?? raw.budgetMax);
+  if (maxBudget != null) {
+    filters.budgetValueMax = maxBudget;
+  }
+
+  if (Array.isArray(filters.durationCategory) && filters.durationCategory.length) {
+    const uniqueDurations = Array.from(
+      new Set(
+        filters.durationCategory
+          .map((value) => `${value}`.trim())
+          .filter((value) => value.length > 0),
+      ),
+    );
+    filters.durationCategory = uniqueDurations;
+    if (!filters.durationCategory.length) {
+      delete filters.durationCategory;
+    }
   }
 
   return filters;
@@ -561,6 +596,33 @@ async function listOpportunities(category, { page, pageSize, query, filters, sor
 
   const where = buildSearchWhereClause(category, query);
   applyStructuredFilters(where, category, normalisedFilters);
+
+  if (category === 'gig') {
+    const minBudget = Number(normalisedFilters.budgetValueMin);
+    const maxBudget = Number(normalisedFilters.budgetValueMax);
+    if (Number.isFinite(minBudget) || Number.isFinite(maxBudget)) {
+      if (!where[Op.and]) {
+        where[Op.and] = [];
+      }
+      const numericType = DIALECT === 'postgres' ? 'numeric' : 'decimal';
+      const sanitizedBudget = sequelize.fn('REGEXP_REPLACE', sequelize.col('Gig.budget'), '[^0-9.]', '');
+      const castBudget = sequelize.cast(sequelize.fn('NULLIF', sanitizedBudget, ''), numericType);
+      if (Number.isFinite(minBudget)) {
+        where[Op.and].push(
+          sequelize.where(castBudget, {
+            [Op.gte]: Math.max(0, Math.round(minBudget)),
+          }),
+        );
+      }
+      if (Number.isFinite(maxBudget)) {
+        where[Op.and].push(
+          sequelize.where(castBudget, {
+            [Op.lte]: Math.max(0, Math.round(maxBudget)),
+          }),
+        );
+      }
+    }
+  }
 
   if (normalisedFilters.isRemote === true || normalisedFilters.isRemote === 'true' || normalisedFilters.isRemote === '1') {
     const remoteLike = buildLikeExpression('remote');

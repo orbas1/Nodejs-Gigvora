@@ -67,7 +67,7 @@ This AGENTS manifest consolidates the full quality assurance upgrade backlog acr
         - [3.C. Privacy & Settings](#3c-privacy-settings)
     - [4. Opportunity Marketplaces & Workflows](#4-opportunity-marketplaces-workflows)
         - [4.A. Jobs Marketplace & ATS Bridge](#4a-jobs-marketplace-ats-bridge)
-        - [4.B. Gigs Marketplace](#4b-gigs-marketplace)
+        - [x] [4.B. Gigs Marketplace](#4b-gigs-marketplace)
         - [4.C. Projects & Auto-Assignment](#4c-projects-auto-assignment)
     - [5. Mentorship & Learning Programmes](#5-mentorship-learning-programmes)
         - [5.A. Mentor Marketplace](#5a-mentor-marketplace)
@@ -1816,40 +1816,40 @@ This document catalogues the public marketing shell, pre-login journeys, and per
 **Components**
 
 - **4.B.1. `GigsPage.jsx`**
-  1. **Appraisal.** Extends freelancer/agency gig discovery with lifecycle storytelling, bridging social promotion and order pipelines.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1-L200】
-  2. **Functionality.** Handles search, taxonomy filters, membership gating, analytics, and lifecycle education banners.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1-L200】
-  3. **Logic Usefulness.** Tag directories reconcile taxonomy labels from API responses, powering accurate facet counts.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L55-L156】
-  4. **Redundancies.** Number formatting repeats across marketplaces; consolidate helper.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L23-L28】
-  5. **Placeholders Or Non-working Functions Or Stubs.** Lifecycle showcase metrics use placeholder data awaiting live orders.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L5-L30】
-  6. **Duplicate Functions.** Tag label formatting mirrors projects; extract shared slug formatter.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L11-L38】
-  7. **Improvements need to make.** Add budget sliders, delivery speed filters, and AI gig summaries for quicker decisions.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1-L200】
-  8. **Styling improvements.** Highlight verified agencies and featured gigs with distinct accents.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L146-L200】
-  9. **Effeciency analysis and improvement.** Cache taxonomy directories and reuse across sessions to limit recomputation.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L55-L160】
-  10. **Strengths to Keep.** Compelling lifecycle storytelling differentiates Gigvora from transactional gig boards.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L30-L120】
-  11. **Weaknesses to remove.** Lack of pagination or saved gigs hampers power users.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1-L200】
-  12. **Styling and Colour review changes.** Balance gradient hero with neutral cards for readability.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L30-L120】
-  13. **Css, orientation, placement and arrangement changes.** Offer responsive grid layouts and sticky filters.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1-L200】
-  14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Localise taxonomy labels and hero copy for global audiences.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L30-L120】
-  15. **Text Spacing.** Adjust tag badge spacing when labels are long to avoid overflow.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L146-L200】
-  16. **Shaping.** Maintain rounded cards while differentiating premium gigs with border treatments.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L146-L200】
-  17. **Shadow, hover, glow and effects.** Add hover elevation on gig cards to match job/project interactions.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L146-L200】
-  18. **Thumbnails.** Encourage rich cover art from creation studio metadata.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1-L200】
-  19. **Images and media & Images and media previews.** Support video intros or portfolio carousels via gig details.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1-L200】
-  20. **Button styling.** Align CTA design with rest of marketplace; add quick-save and share buttons.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1-L200】
-  21. **Interactiveness.** Tag selection, analytics, and showcase manager tie supply and demand loops together.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1-L200】
-  22. **Missing Components.** Add custom offer request flow and chat CTA hooking into messaging dock.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1-L200】
-  23. **Design Changes.** Introduce trust badges (ID verified, top rated) leveraging identity verification data.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L30-L120】
-  24. **Design Duplication.** Align hero layout with projects page for consistent cognitive model.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L30-L200】
-  25. **Design framework.** Shares PageHeader + DataStatus pattern across opportunity experiences.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1-L60】
+  1. **Appraisal.** The page now couples membership gating, saved gig curation, trust badges, and lifecycle storytelling to differentiate Gigvora’s gig marketplace from commodity boards.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L890-L1399】
+  2. **Functionality.** Search, taxonomy filters, pagination, budget sliders, delivery-speed toggles, saved search alerts, and messaging CTAs orchestrate a complete discovery workflow backed by analytics instrumentation and backend filter normalisation.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L701-L1389】【F:gigvora-backend-nodejs/src/services/discoveryService.js†L83-L150】【F:gigvora-backend-nodejs/src/services/discoveryService.js†L560-L618】【F:gigvora-backend-nodejs/src/services/opportunityQueryNormaliser.js†L260-L340】
+  3. **Logic Usefulness.** Shared taxonomy helpers normalise tag labels across marketplaces while gig-specific filter state derivation, saved gig storage, and backend deduplication keep UI facets aligned with search payloads.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L127-L789】【F:gigvora-frontend-reactjs/src/utils/taxonomy.js†L1-L59】【F:gigvora-frontend-reactjs/src/hooks/useSavedGigs.js†L1-L160】【F:gigvora-backend-nodejs/src/services/discoveryService.js†L83-L150】
+  4. **Redundancies.** Number formatting and taxonomy label conversion now reuse shared utilities, trimming bespoke helpers from the page implementation.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L14-L21】【F:gigvora-frontend-reactjs/src/utils/taxonomy.js†L1-L59】
+  5. **Placeholders Or Non-working Functions Or Stubs.** Only the CMS fallback content remains; gig metrics, filters, pagination, and messaging CTAs are wired to live data and analytics.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L23-L141】【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L701-L1399】
+  6. **Duplicate Functions.** Shared taxonomy builders and saved gig utilities eliminate earlier duplication with projects/jobs listings while exposing a consistent API to other surfaces.【F:gigvora-frontend-reactjs/src/utils/taxonomy.js†L1-L59】【F:gigvora-frontend-reactjs/src/hooks/useSavedGigs.js†L1-L160】
+  7. **Improvements need to make.** Add AI-powered brief summaries and cross-device sync for saved gigs while layering regression tests to cover budget slider and chat CTA analytics flows.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L674-L1186】【F:gigvora-frontend-reactjs/src/hooks/useSavedGigs.js†L83-L160】
+  8. **Styling improvements.** Trust badges, remote/budget chips, and accent CTAs now give immediate scannability while preserving the gradient hero layout.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L990-L1172】
+  9. **Effeciency analysis and improvement.** Memoised taxonomy directories, derived signal calculations, and saved gig sorting ensure filters and analytics recalc only when dependencies change.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L520-L604】【F:gigvora-frontend-reactjs/src/hooks/useSavedGigs.js†L83-L155】
+  10. **Strengths to Keep.** Lifecycle showcases, marketplace telemetry, and messaging hooks reinforce Gigvora’s curated workflow while surfacing actionable metrics beside each brief.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L596-L1399】
+  11. **Weaknesses to remove.** Saved gigs live in local storage only; future releases should sync to the server and surface reminders for expiring briefs.【F:gigvora-frontend-reactjs/src/hooks/useSavedGigs.js†L1-L160】
+  12. **Styling and Colour review changes.** Sidebar cards use balanced neutrals and accent soft backgrounds to highlight key controls without overwhelming content blocks.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1189-L1389】
+  13. **Css, orientation, placement and arrangement changes.** Responsive grids and sticky-style filter sidebars keep discovery ergonomic across breakpoints.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1004-L1399】
+  14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Marketplace copy clarifies membership gating, filter tips, and pitch guidance with concise helper text to reduce friction.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L890-L1393】
+  15. **Text Spacing.** Tag badges, saved gig lists, and CTA clusters have tuned spacing to avoid overflow while preserving density for power users.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1041-L1287】
+  16. **Shaping.** Rounded cards, pill buttons, and slider containers maintain brand curvature while distinguishing premium actions via accent shadows.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1096-L1254】
+  17. **Shadow, hover, glow and effects.** Hover states on gig cards, CTAs, and filter pills communicate interactivity and align with other opportunity listings.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1096-L1172】
+  18. **Thumbnails.** Taxonomy and skill chips highlight deliverable focus, while trust badges and budget chips frame at-a-glance metadata for each gig.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1096-L1143】
+  19. **Images and media & Images and media previews.** Gig lifecycle showcase and optional CMS hero art sustain storytelling while awaiting richer media attachments in future iterations.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L23-L141】【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1394-L1399】
+  20. **Button styling.** Primary interactions (pitch, save, chat, filters) use pill treatments, disabled states, and analytics hooks to reinforce responsive feedback.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1096-L1186】
+  21. **Interactiveness.** Delivery sliders, saved search management, saved gig toggles, and messaging CTAs create a continuous engagement loop for freelancers.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L674-L1389】
+  22. **Missing Components.** Still need deeper offer negotiation flows and server-backed saved gig syncing to complement the messaging dock integration.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L833-L858】【F:gigvora-frontend-reactjs/src/hooks/useSavedGigs.js†L83-L160】
+  23. **Design Changes.** Trust badges keyed to AI signals and remote-friendly markers provide immediate credibility cues across cards.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L71-L143】【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1096-L1143】
+  24. **Design Duplication.** Shared filter patterns and taxonomy pills mirror jobs/projects experiences while relying on centralised helpers for consistency.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L701-L1389】【F:gigvora-frontend-reactjs/src/utils/taxonomy.js†L1-L59】
+  25. **Design framework.** PageHeader and DataStatus remain the foundation, augmented with analytics sidebars and lifecycle modules to standardise opportunity UIs.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L990-L1399】
   26. **Change Checklist Tracker Extensive.**
-      - [ ] Implement pagination/infinite scroll and saved gigs.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1-L200】
-      - [ ] Extract shared taxonomy utilities with projects/jobs.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L11-L160】
-      - [ ] Launch trust badges and budget/delivery filters.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1-L200】
-      - [ ] Hook chat CTA into messaging dock telemetry.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1-L200】
+      - [✓] Implement pagination/infinite scroll and saved gigs.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L878-L1186】【F:gigvora-frontend-reactjs/src/hooks/useSavedGigs.js†L83-L160】
+      - [✓] Extract shared taxonomy utilities with projects/jobs.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L15-L559】【F:gigvora-frontend-reactjs/src/utils/taxonomy.js†L1-L59】
+      - [✓] Launch trust badges and budget/delivery filters.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L43-L1254】
+      - [✓] Hook chat CTA into messaging dock telemetry.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L833-L858】【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L253-L276】
   27. **Full Upgrade Plan & Release Steps  Extensive.**
-      1. Release shared taxonomy service, pagination, and trust badges, measuring conversion to gig orders.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1-L200】
-      2. Add budget/delivery filters plus chat CTA, piloting with agency dashboards for feedback.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L1-L200】
-      3. Expand lifecycle showcase with live stats and testimonials aligned with agency metrics.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L5-L200】
+      1. Monitor analytics for budget slider adoption, saved gig engagement, and chat CTA conversions while validating backend filter accuracy.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L674-L1186】【F:gigvora-backend-nodejs/src/services/discoveryService.js†L83-L150】【F:gigvora-backend-nodejs/src/services/opportunityQueryNormaliser.js†L260-L340】
+      2. Extend saved gigs to server-sync with notifications and add AI brief summaries to accelerate pitching confidence.【F:gigvora-frontend-reactjs/src/hooks/useSavedGigs.js†L83-L160】【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L674-L1172】
+      3. Layer automated tests around filter derivation, storage toggles, and messaging events before piloting cross-browser QA for sliders and trust-badge heuristics.【F:gigvora-frontend-reactjs/src/pages/GigsPage.jsx†L127-L1389】【F:gigvora-frontend-reactjs/src/hooks/useSavedGigs.js†L83-L160】【F:gigvora-frontend-reactjs/src/components/messaging/MessagingDock.jsx†L253-L276】【F:gigvora-backend-nodejs/src/services/discoveryService.js†L560-L618】
 
 ### 4.C. Projects & Auto-Assignment
 

@@ -276,6 +276,20 @@ export function buildFilterExpressions(category, filters = {}, viewport = null) 
           if (group) groups.push(group);
         }
         break;
+      case 'budgetValueMin': {
+        const value = Number(rawValue);
+        if (!Number.isNaN(value)) {
+          groups.push(`budgetValue >= ${Math.max(0, Math.floor(value))}`);
+        }
+        break;
+      }
+      case 'budgetValueMax': {
+        const value = Number(rawValue);
+        if (!Number.isNaN(value)) {
+          groups.push(`budgetValue <= ${Math.max(0, Math.floor(value))}`);
+        }
+        break;
+      }
       case 'status':
         if (category === 'project') {
           const group = buildEqualityGroup(key, ensureArray(rawValue));

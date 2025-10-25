@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
 import DataStatus from '../components/DataStatus.jsx';
@@ -12,19 +12,12 @@ import useSitePage from '../hooks/useSitePage.js';
 import useSavedSearches from '../hooks/useSavedSearches.js';
 import SavedSearchList from '../components/explorer/SavedSearchList.jsx';
 import { formatInteger } from '../utils/number.js';
+import useSavedGigs from '../hooks/useSavedGigs.js';
+import { formatTaxonomyLabelFromSlug, buildTaxonomyDirectoryFromItems } from '../utils/taxonomy.js';
+import { MESSAGING_DOCK_OPEN_EVENT } from '../constants/events.js';
+import { classNames } from '../utils/classNames.js';
 
-export function formatTagLabelFromSlug(slug) {
-  if (!slug) {
-    return '';
-  }
-
-  return `${slug}`
-    .replace(/[_-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
+export { formatTaxonomyLabelFromSlug as formatTagLabelFromSlug };
 export { formatInteger as formatNumber };
 
 const FALLBACK_GIGS_PAGE_CONTENT = {
@@ -46,6 +39,137 @@ const FALLBACK_GIGS_PAGE_CONTENT = {
     ],
   },
 };
+
+const BUDGET_MIN_VALUE = 0;
+const BUDGET_MAX_VALUE = 20000;
+const BUDGET_STEP = 100;
+
+const INITIAL_FILTER_STATE = Object.freeze({
+  durationCategory: [],
+  budgetValueMin: null,
+  budgetValueMax: null,
+});
+
+const DELIVERY_SPEED_OPTIONS = [
+  {
+    id: 'short_term',
+    label: 'Fast (1-2 weeks)',
+    description: 'Perfect for sprints, audits, and rapid experimentation.',
+  },
+  {
+    id: 'medium_term',
+    label: 'Standard (3-6 weeks)',
+    description: 'Ideal for multi-phase launches with measurable outcomes.',
+  },
+  {
+    id: 'long_term',
+    label: 'Extended (Quarter+)',
+    description: 'Designed for retainers and strategic delivery programmes.',
+  },
+];
+
+const TRUST_BADGE_RULES = [
+  {
+    id: 'verified-buyer',
+    predicate: (gig) => Number(gig?.aiSignals?.reputation ?? gig?.aiSignals?.trustScore ?? 0) >= 0.6,
+    label: 'Buyer verified',
+    tone: 'emerald',
+  },
+  {
+    id: 'fresh-brief',
+    predicate: (gig) => Number(gig?.aiSignals?.freshness ?? 0) >= 0.6,
+    label: 'Recently vetted',
+    tone: 'sky',
+  },
+  {
+    id: 'skill-match',
+    predicate: (gig) => Number(gig?.aiSignals?.taxonomy ?? 0) >= 0.6,
+    label: 'Strong skill match',
+    tone: 'indigo',
+  },
+  {
+    id: 'remote-ready',
+    predicate: (gig) => Boolean(gig?.isRemote),
+    label: 'Remote-friendly',
+    tone: 'purple',
+  },
+];
+
+function getTrustBadgeClasses(tone = 'slate') {
+  switch (tone) {
+    case 'emerald':
+      return 'inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700';
+    case 'sky':
+      return 'inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700';
+    case 'indigo':
+      return 'inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700';
+    case 'purple':
+      return 'inline-flex items-center rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-xs font-semibold text-purple-700';
+    default:
+      return 'inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600';
+  }
+}
+
+function resolveTrustBadges(gig) {
+  if (!gig) {
+    return [];
+  }
+  const badges = TRUST_BADGE_RULES.filter((rule) => {
+    try {
+      return rule.predicate(gig);
+    } catch (error) {
+      return false;
+    }
+  });
+  return badges.slice(0, 3);
+}
+
+function deriveGigFilterState(filters = {}) {
+  const nextState = { ...INITIAL_FILTER_STATE };
+  const toNumber = (value) => {
+    if (value == null || value === '') {
+      return null;
+    }
+    const numeric = Number.parseFloat(`${value}`.replace(/[^0-9.]/g, ''));
+    if (!Number.isFinite(numeric)) {
+      return null;
+    }
+    return Math.round(numeric);
+  };
+
+  const durations = filters.durationCategory ?? filters.durationCategories ?? filters.deliverySpeed ?? filters.deliverySpeeds;
+  const durationList = Array.isArray(durations)
+    ? durations
+    : durations != null
+      ? [`${durations}`]
+      : [];
+  nextState.durationCategory = durationList
+    .map((value) => `${value}`.trim())
+    .filter((value, index, array) => value.length && array.indexOf(value) === index);
+
+  const minCandidate = filters.budgetValueMin ?? filters.budgetMin;
+  const maxCandidate = filters.budgetValueMax ?? filters.budgetMax;
+  const minValue = toNumber(minCandidate);
+  const maxValue = toNumber(maxCandidate);
+  nextState.budgetValueMin =
+    minValue != null ? Math.min(Math.max(minValue, BUDGET_MIN_VALUE), BUDGET_MAX_VALUE) : null;
+  nextState.budgetValueMax =
+    maxValue != null ? Math.min(Math.max(maxValue, BUDGET_MIN_VALUE), BUDGET_MAX_VALUE) : null;
+
+  const resolvedMin = nextState.budgetValueMin ?? BUDGET_MIN_VALUE;
+  const resolvedMax = nextState.budgetValueMax ?? BUDGET_MAX_VALUE;
+  const clampedMin = Math.min(resolvedMin, resolvedMax);
+  const clampedMax = Math.max(resolvedMin, resolvedMax);
+
+  return {
+    filterState: {
+      ...nextState,
+      budgetValueMin: clampedMin === BUDGET_MIN_VALUE ? null : clampedMin,
+      budgetValueMax: clampedMax === BUDGET_MAX_VALUE ? null : clampedMax,
+    },
+    budgetRange: [clampedMin, clampedMax],
+  };
+}
 
 function findFirstDefined(...candidates) {
   return candidates.find((candidate) => candidate !== undefined && candidate !== null) ?? null;
@@ -251,8 +375,14 @@ export default function GigsPage() {
   const [selectedTagSlugs, setSelectedTagSlugs] = useState([]);
   const [savedSearchName, setSavedSearchName] = useState('');
   const [activeSavedSearchId, setActiveSavedSearchId] = useState(null);
+  const [filterState, setFilterState] = useState(() => ({ ...INITIAL_FILTER_STATE }));
+  const [budgetRange, setBudgetRange] = useState([BUDGET_MIN_VALUE, BUDGET_MAX_VALUE]);
+  const [page, setPage] = useState(1);
+  const [accumulatedItems, setAccumulatedItems] = useState([]);
+  const filterSignatureRef = useRef('');
   const navigate = useNavigate();
   const { session, isAuthenticated } = useSession();
+  const { items: savedGigs, toggleGig: toggleSavedGig, removeGig, isSaved: isGigSaved } = useSavedGigs();
   const {
     page: gigSitePage,
     loading: gigSiteLoading,
@@ -261,10 +391,22 @@ export default function GigsPage() {
   } = useSitePage('gigs-marketplace', { fallback: FALLBACK_GIGS_PAGE_CONTENT });
   const gigContent = useMemo(() => resolveGigPageContent(gigSitePage), [gigSitePage]);
   const hasFreelancerAccess = Boolean(session?.memberships?.includes('freelancer'));
-  const activeFilters = useMemo(
-    () => (selectedTagSlugs.length ? { taxonomySlugs: selectedTagSlugs } : null),
-    [selectedTagSlugs],
-  );
+  const activeFilters = useMemo(() => {
+    const payload = {};
+    if (selectedTagSlugs.length) {
+      payload.taxonomySlugs = selectedTagSlugs;
+    }
+    if (filterState.durationCategory.length) {
+      payload.durationCategory = filterState.durationCategory;
+    }
+    if (filterState.budgetValueMin != null) {
+      payload.budgetValueMin = filterState.budgetValueMin;
+    }
+    if (filterState.budgetValueMax != null) {
+      payload.budgetValueMax = filterState.budgetValueMax;
+    }
+    return Object.keys(payload).length ? payload : null;
+  }, [selectedTagSlugs, filterState]);
   const {
     data,
     error,
@@ -274,6 +416,7 @@ export default function GigsPage() {
     refresh,
     debouncedQuery,
   } = useOpportunityListing('gigs', query, {
+    page,
     pageSize: 25,
     filters: activeFilters,
     includeFacets: true,
@@ -291,47 +434,58 @@ export default function GigsPage() {
   } = useSavedSearches({ enabled: isAuthenticated && hasFreelancerAccess });
 
   const listing = data ?? {};
-  const items = useMemo(() => (Array.isArray(listing.items) ? listing.items : []), [listing.items]);
-  const tagDirectory = useMemo(() => {
-    if (!items.length) {
-      return new Map();
-    }
-
-    const directory = new Map();
-    items.forEach((gig) => {
-      if (Array.isArray(gig.taxonomies)) {
-        gig.taxonomies.forEach((taxonomy) => {
-          if (!taxonomy?.slug) {
-            return;
-          }
-          const key = `${taxonomy.slug}`.toLowerCase();
-          if (!directory.has(key) || !directory.get(key)) {
-            const label = typeof taxonomy.label === 'string' && taxonomy.label.trim().length
-              ? taxonomy.label
-              : formatTagLabelFromSlug(taxonomy.slug);
-            directory.set(key, label);
-          }
-        });
-      }
-
-      if (Array.isArray(gig.taxonomySlugs)) {
-        gig.taxonomySlugs.forEach((slug, index) => {
-          if (!slug) {
-            return;
-          }
-          const key = `${slug}`.toLowerCase();
-          if (!directory.has(key) || !directory.get(key)) {
-            const labelCandidate = Array.isArray(gig.taxonomyLabels) ? gig.taxonomyLabels[index] : null;
-            const label = typeof labelCandidate === 'string' && labelCandidate.trim().length
-              ? labelCandidate
-              : formatTagLabelFromSlug(slug);
-            directory.set(key, label);
-          }
-        });
-      }
+  useEffect(() => {
+    const signature = JSON.stringify({
+      query: debouncedQuery || '',
+      tags: [...selectedTagSlugs].sort(),
+      durations: [...filterState.durationCategory].sort(),
+      budgetMin: filterState.budgetValueMin ?? null,
+      budgetMax: filterState.budgetValueMax ?? null,
     });
-    return directory;
-  }, [items]);
+    if (filterSignatureRef.current !== signature) {
+      filterSignatureRef.current = signature;
+      setPage(1);
+      setAccumulatedItems([]);
+    }
+  }, [debouncedQuery, selectedTagSlugs, filterState]);
+
+  useEffect(() => {
+    if (!data) {
+      return;
+    }
+    const listingItems = Array.isArray(data.items) ? data.items : [];
+    setAccumulatedItems((previous) => {
+      const currentPage = data.page ?? 1;
+      if (currentPage <= 1) {
+        return listingItems;
+      }
+      const merged = new Map(previous.map((item) => [item.id, item]));
+      listingItems.forEach((item) => {
+        if (item?.id != null) {
+          merged.set(item.id, item);
+        }
+      });
+      return Array.from(merged.values());
+    });
+  }, [data]);
+
+  const visibleItems = useMemo(
+    () => (Array.isArray(accumulatedItems) ? accumulatedItems : []),
+    [accumulatedItems],
+  );
+  const tagDirectory = useMemo(() => buildTaxonomyDirectoryFromItems(visibleItems), [visibleItems]);
+
+  useEffect(() => {
+    setFilterState((previous) => {
+      const [minValue, maxValue] = budgetRange;
+      const nextMin = minValue > BUDGET_MIN_VALUE ? minValue : null;
+      const nextMax = maxValue < BUDGET_MAX_VALUE ? maxValue : null;
+      if (previous.budgetValueMin === nextMin && previous.budgetValueMax === nextMax) {
+        return previous;
+      }
+      return { ...previous, budgetValueMin: nextMin, budgetValueMax: nextMax };
+    });
+  }, [budgetRange]);
 
   const facetTags = useMemo(() => {
     const tagMap = new Map();
@@ -365,7 +519,7 @@ export default function GigsPage() {
       }
     }
 
-    items.forEach((gig) => {
+    visibleItems.forEach((gig) => {
       if (Array.isArray(gig.taxonomies) && gig.taxonomies.length) {
         gig.taxonomies.forEach((taxonomy) => {
           if (!taxonomy?.slug) {
@@ -392,20 +546,20 @@ export default function GigsPage() {
         }
         return a.label.localeCompare(b.label);
       });
-  }, [items, listing?.facets, tagDirectory]);
+  }, [visibleItems, listing?.facets, tagDirectory]);
 
   const topTagOptions = useMemo(() => facetTags.slice(0, 10), [facetTags]);
   const activeTagDetails = useMemo(
     () =>
       selectedTagSlugs.map((slug) => {
-        const label = tagDirectory.get(`${slug}`.toLowerCase()) ?? formatTagLabelFromSlug(slug);
+        const label = tagDirectory.get(`${slug}`.toLowerCase()) ?? formatTaxonomyLabelFromSlug(slug);
         return { slug, label };
       }),
     [selectedTagSlugs, tagDirectory],
   );
 
   const derivedSignals = useMemo(() => {
-    if (!items.length) {
+    if (!visibleItems.length) {
       return {
         total: 0,
         fresh: 0,
@@ -420,7 +574,7 @@ export default function GigsPage() {
     let remoteFriendly = 0;
     let withBudgets = 0;
 
-    items.forEach((gig) => {
+    visibleItems.forEach((gig) => {
       if (gig?.updatedAt) {
         const updated = new Date(gig.updatedAt).getTime();
         if (!Number.isNaN(updated) && now - updated <= sevenDaysMs) {
@@ -442,12 +596,12 @@ export default function GigsPage() {
     });
 
     return {
-      total: items.length,
+      total: visibleItems.length,
       fresh,
       remoteFriendly,
       withBudgets,
     };
-  }, [items]);
+  }, [visibleItems]);
 
   const handlePitch = (gig) => {
     analytics.track(
@@ -457,7 +611,7 @@ export default function GigsPage() {
         title: gig.title,
         query: debouncedQuery || null,
         seoTags: Array.isArray(gig.taxonomySlugs) ? gig.taxonomySlugs : [],
-        activeFilters,
+        filters: currentFiltersPayload,
       },
       { source: 'web_app' },
     );
@@ -503,10 +657,75 @@ export default function GigsPage() {
     navigate('/register');
   };
 
-  const currentFiltersPayload = useMemo(
-    () => (selectedTagSlugs.length ? { taxonomySlugs: selectedTagSlugs } : {}),
-    [selectedTagSlugs],
-  );
+  const handleToggleDeliverySpeed = useCallback((id) => {
+    if (!id) {
+      return;
+    }
+    setActiveSavedSearchId(null);
+    setFilterState((current) => {
+      const exists = current.durationCategory.includes(id);
+      const nextDurations = exists
+        ? current.durationCategory.filter((value) => value !== id)
+        : [...current.durationCategory, id];
+      return { ...current, durationCategory: nextDurations };
+    });
+  }, []);
+
+  const handleBudgetRangeChange = useCallback((index, value) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+      return;
+    }
+    setActiveSavedSearchId(null);
+    setBudgetRange((current) => {
+      if (index === 0) {
+        const nextMin = Math.max(BUDGET_MIN_VALUE, Math.min(Math.round(numeric), current[1]));
+        return [nextMin, current[1]];
+      }
+      const nextMax = Math.min(BUDGET_MAX_VALUE, Math.max(Math.round(numeric), current[0]));
+      return [current[0], nextMax];
+    });
+  }, []);
+
+  const handleResetMarketplaceFilters = useCallback(() => {
+    setActiveSavedSearchId(null);
+    setFilterState(() => ({ ...INITIAL_FILTER_STATE }));
+    setBudgetRange([BUDGET_MIN_VALUE, BUDGET_MAX_VALUE]);
+  }, []);
+
+  const handleResetFilters = useCallback(() => {
+    setSelectedTagSlugs([]);
+    handleResetMarketplaceFilters();
+  }, [handleResetMarketplaceFilters]);
+
+  const currentFiltersPayload = useMemo(() => {
+    if (!activeFilters) {
+      return {};
+    }
+    const payload = {};
+    if (Array.isArray(activeFilters.taxonomySlugs) && activeFilters.taxonomySlugs.length) {
+      payload.taxonomySlugs = [...activeFilters.taxonomySlugs];
+    }
+    if (Array.isArray(activeFilters.durationCategory) && activeFilters.durationCategory.length) {
+      payload.durationCategory = [...activeFilters.durationCategory];
+    }
+    if (activeFilters.budgetValueMin != null) {
+      payload.budgetValueMin = activeFilters.budgetValueMin;
+    }
+    if (activeFilters.budgetValueMax != null) {
+      payload.budgetValueMax = activeFilters.budgetValueMax;
+    }
+    return payload;
+  }, [activeFilters]);
+
+  const hasBudgetFilter = filterState.budgetValueMin != null || filterState.budgetValueMax != null;
+  const appliedFilterCount = useMemo(() => {
+    let count = selectedTagSlugs.length + filterState.durationCategory.length;
+    if (hasBudgetFilter) {
+      count += 1;
+    }
+    return count;
+  }, [selectedTagSlugs, filterState.durationCategory, hasBudgetFilter]);
 
   const handleSaveCurrentSearch = useCallback(
     async (event) => {
@@ -550,6 +769,9 @@ export default function GigsPage() {
       setSelectedTagSlugs(resolvedSlugs);
       setQuery(search.query ?? '');
       setActiveSavedSearchId(search.id ?? null);
+      const savedFilterState = deriveGigFilterState(search.filters ?? {});
+      setFilterState(() => ({ ...savedFilterState.filterState }));
+      setBudgetRange(savedFilterState.budgetRange);
       analytics.track(
         'web_gig_saved_search_applied',
         {
@@ -587,6 +809,83 @@ export default function GigsPage() {
     },
     [deleteSavedSearch],
   );
+
+  const handleToggleSaveGig = useCallback(
+    (gig) => {
+      if (!gig) {
+        return;
+      }
+      const saved = toggleSavedGig(gig);
+      analytics.track(
+        saved ? 'web_gig_saved' : 'web_gig_unsaved',
+        {
+          gigId: gig.id,
+          title: gig.title,
+          query: debouncedQuery || null,
+          filters: currentFiltersPayload,
+        },
+        { source: 'web_app' },
+      );
+    },
+    [toggleSavedGig, debouncedQuery, currentFiltersPayload],
+  );
+
+  const handleChat = useCallback(
+    (gig) => {
+      if (!gig) {
+        return;
+      }
+      analytics.track(
+        'web_gig_chat_cta',
+        {
+          id: gig.id,
+          title: gig.title,
+          query: debouncedQuery || null,
+          filters: currentFiltersPayload,
+        },
+        { source: 'web_app' },
+      );
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent(MESSAGING_DOCK_OPEN_EVENT, {
+            detail: {
+              source: 'gigs-marketplace',
+              category: 'gig',
+              gigId: gig.id,
+              gigTitle: gig.title,
+            },
+          }),
+        );
+      }
+    },
+    [debouncedQuery, currentFiltersPayload],
+  );
+
+  const handleRemoveSavedGig = useCallback(
+    (gigId) => {
+      removeGig(gigId);
+      analytics.track(
+        'web_gig_saved_removed',
+        {
+          gigId,
+        },
+        { source: 'web_app' },
+      );
+    },
+    [removeGig],
+  );
+
+  const totalPages = listing?.totalPages ?? null;
+  const totalResults = listing?.total ?? null;
+  const hasMorePages = totalPages != null ? page < totalPages : false;
+  const isFetchingMore = page > 1 && loading;
+
+  const handleLoadMore = useCallback(() => {
+    if (loading || !hasMorePages) {
+      return;
+    }
+    setPage((current) => current + 1);
+  }, [loading, hasMorePages]);
 
   if (!isAuthenticated) {
     return (
@@ -718,6 +1017,26 @@ export default function GigsPage() {
                 className="w-full rounded-full border border-slate-200 bg-white px-5 py-3 text-sm shadow-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
               />
             </div>
+            <div className="mb-2 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+              <span>
+                {appliedFilterCount
+                  ? `${appliedFilterCount} ${appliedFilterCount === 1 ? 'filter active' : 'filters active'}`
+                  : 'Tune filters to surface briefs tailored to your portfolio.'}
+              </span>
+              {appliedFilterCount ? (
+                <button
+                  type="button"
+                  onClick={handleResetFilters}
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-1.5 font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+                >
+                  Clear filters
+                </button>
+              ) : null}
+            </div>
+            <div className="mb-4 text-xs text-slate-500">
+              Showing {formatInteger(visibleItems.length)} of{' '}
+              {totalResults != null ? formatInteger(totalResults) : formatInteger(visibleItems.length)} live gigs.
+            </div>
             {activeTagDetails.length ? (
               <div className="mb-6 flex flex-wrap items-center gap-3">
                 {activeTagDetails.map((tag) => (
@@ -750,7 +1069,7 @@ export default function GigsPage() {
                 Showing cached results while we refresh live briefs in the background.
               </div>
             ) : null}
-            {loading && !items.length ? (
+            {loading && !visibleItems.length ? (
               <div className="space-y-4">
                 {Array.from({ length: 3 }).map((_, index) => (
                   <div key={index} className="animate-pulse rounded-3xl border border-slate-200 bg-white p-6">
@@ -762,7 +1081,7 @@ export default function GigsPage() {
                 ))}
               </div>
             ) : null}
-            {!loading && !items.length ? (
+            {!loading && !visibleItems.length ? (
               <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
                 {debouncedQuery
                   ? 'No gigs currently match your filters. Try exploring adjacent skills or timelines.'
@@ -770,11 +1089,14 @@ export default function GigsPage() {
               </div>
             ) : null}
             <div className="space-y-6">
-              {items.map((gig) => (
-                <article
-                  key={gig.id}
-                  className="rounded-3xl border border-slate-200 bg-white p-6 transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft"
-                >
+              {visibleItems.map((gig) => {
+                const trustBadges = resolveTrustBadges(gig);
+                const saved = isGigSaved(gig.id);
+                return (
+                  <article
+                    key={gig.id}
+                    className="rounded-3xl border border-slate-200 bg-white p-6 transition hover:-translate-y-0.5 hover:border-accent/60 hover:shadow-soft"
+                  >
                   <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
                     <div className="flex flex-wrap items-center gap-2">
                       {gig.duration ? (
@@ -810,18 +1132,160 @@ export default function GigsPage() {
                       ))}
                     </div>
                   ) : null}
-                  <button
-                    type="button"
-                    onClick={() => handlePitch(gig)}
-                    className="mt-5 inline-flex items-center gap-2 rounded-full border border-slate-200 px-5 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
-                  >
-                    Pitch this gig <span aria-hidden="true">→</span>
-                  </button>
+                  {trustBadges.length ? (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {trustBadges.map((badge) => (
+                        <span key={badge.id} className={getTrustBadgeClasses(badge.tone)}>
+                          {badge.label}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                  <div className="mt-5 flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={() => handlePitch(gig)}
+                      className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-5 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+                    >
+                      Pitch this gig <span aria-hidden="true">→</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSaveGig(gig)}
+                      aria-pressed={saved}
+                      className={classNames(
+                        'inline-flex items-center gap-2 rounded-full px-5 py-2 text-xs font-semibold transition',
+                        saved
+                          ? 'bg-emerald-500 text-white shadow-soft hover:bg-emerald-600'
+                          : 'border border-slate-200 text-slate-600 hover:border-accent hover:text-accent',
+                      )}
+                    >
+                      {saved ? 'Saved' : 'Save gig'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleChat(gig)}
+                      className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-5 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+                    >
+                      Chat with buyer
+                    </button>
+                  </div>
                 </article>
-              ))}
+                );
+              })}
             </div>
+            {hasMorePages ? (
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={handleLoadMore}
+                  disabled={isFetchingMore}
+                  className="w-full rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isFetchingMore ? 'Loading more gigs…' : 'Load more gigs'}
+                </button>
+              </div>
+            ) : null}
           </div>
           <aside className="space-y-6">
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Budget &amp; delivery filters</h3>
+              <p className="mt-2 text-xs text-slate-500">
+                Focus discovery on briefs that match your scope and turnaround.
+              </p>
+              <div className="mt-4 space-y-5">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Budget range (approx.)</p>
+                  <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
+                    <span>Min {budgetRange[0] === BUDGET_MIN_VALUE ? 'Any' : formatInteger(budgetRange[0])}</span>
+                    <span>Max {budgetRange[1] === BUDGET_MAX_VALUE ? 'Any' : formatInteger(budgetRange[1])}</span>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    <input
+                      type="range"
+                      min={BUDGET_MIN_VALUE}
+                      max={BUDGET_MAX_VALUE}
+                      step={BUDGET_STEP}
+                      value={budgetRange[0]}
+                      onChange={(event) => handleBudgetRangeChange(0, event.target.value)}
+                      className="w-full"
+                    />
+                    <input
+                      type="range"
+                      min={BUDGET_MIN_VALUE}
+                      max={BUDGET_MAX_VALUE}
+                      step={BUDGET_STEP}
+                      value={budgetRange[1]}
+                      onChange={(event) => handleBudgetRangeChange(1, event.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Delivery speed</p>
+                  <div className="mt-3 space-y-2">
+                    {DELIVERY_SPEED_OPTIONS.map((option) => {
+                      const checked = filterState.durationCategory.includes(option.id);
+                      return (
+                        <label key={option.id} className="flex cursor-pointer items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => handleToggleDeliverySpeed(option.id)}
+                            className="mt-1 h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent/40"
+                          />
+                          <span>
+                            <span className="block text-sm font-semibold text-slate-700">{option.label}</span>
+                            <span className="text-xs text-slate-500">{option.description}</span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+              {(hasBudgetFilter || filterState.durationCategory.length) && (
+                <button
+                  type="button"
+                  onClick={handleResetMarketplaceFilters}
+                  className="mt-5 w-full rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+                >
+                  Reset delivery filters
+                </button>
+              )}
+            </div>
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Saved gigs</h3>
+              <p className="mt-2 text-xs text-slate-500">
+                Quickly revisit briefs you have bookmarked for follow-up.
+              </p>
+              {savedGigs.length ? (
+                <ul className="mt-4 space-y-3">
+                  {savedGigs.slice(0, 5).map((savedGig) => (
+                    <li key={savedGig.id} className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-700 line-clamp-2">{savedGig.title}</p>
+                        {savedGig.savedAt ? (
+                          <p className="text-xs text-slate-500">Saved {formatRelativeTime(savedGig.savedAt)}</p>
+                        ) : null}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSavedGig(savedGig.id)}
+                        className="rounded-full border border-slate-200 px-3 py-1 text-[11px] font-semibold text-slate-500 transition hover:border-rose-300 hover:text-rose-500"
+                        aria-label={`Remove ${savedGig.title} from saved gigs`}
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-4 text-xs text-slate-500">
+                  No saved gigs yet. Use the save action on any brief to keep it handy.
+                </p>
+              )}
+            </div>
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Marketplace signals</p>
               <dl className="mt-4 space-y-4 text-sm">
