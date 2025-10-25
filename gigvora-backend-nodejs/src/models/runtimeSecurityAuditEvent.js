@@ -50,4 +50,3 @@ RuntimeSecurityAuditEvent.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
-export default RuntimeSecurityAuditEvent;

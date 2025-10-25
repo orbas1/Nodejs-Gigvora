@@ -50,6 +50,7 @@ const authMocks = {
 const modelsMocks = {
   CompanyProfile: { create: jest.fn() },
   AgencyProfile: { create: jest.fn() },
+  PROJECT_MILESTONE_STATUSES: ['planned', 'in_progress', 'at_risk', 'blocked', 'completed'],
 };
 const autoAssignMocks = {
   buildAssignmentQueue: jest.fn(),

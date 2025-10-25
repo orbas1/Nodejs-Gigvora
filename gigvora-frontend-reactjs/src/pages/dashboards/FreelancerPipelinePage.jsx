@@ -343,7 +343,7 @@ function StageCard({ stage, summary, currency, onTrack }) {
   return (
     <article className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-soft transition hover:-translate-y-0.5 hover:border-accent/60">
       <div className="flex items-start justify-between gap-4">
-        <div className={\`flex h-12 w-12 items-center justify-center rounded-full ${stage.tone}\`}>
+        <div className={`flex h-12 w-12 items-center justify-center rounded-full ${stage.tone}`}>
           <Icon className="h-6 w-6" aria-hidden="true" />
         </div>
         {summary.progress != null ? (
@@ -703,7 +703,7 @@ export default function FreelancerPipelinePage() {
                 {stageCards.map(({ stage, summary }) => (
                   <div
                     key={stage.id}
-                    className={\`${summary.count ? stage.progressTone ?? 'bg-slate-400' : 'bg-slate-200'}\`}
+                    className={`${summary.count ? stage.progressTone ?? 'bg-slate-400' : 'bg-slate-200'}`}
                     style={{ width: `${summary.count && totalPipelineCount ? (summary.count / totalPipelineCount) * 100 : 0}%` }}
                   />
                 ))}

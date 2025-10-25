@@ -60,7 +60,3 @@ export async function getRecentRuntimeSecurityEvents({ limit = 10, level, since 
   return events.map((event) => event.toPublicObject());
 }
 
-export default {
-  recordRuntimeSecurityEvent,
-  getRecentRuntimeSecurityEvents,
-};

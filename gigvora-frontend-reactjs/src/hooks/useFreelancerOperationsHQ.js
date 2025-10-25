@@ -107,11 +107,6 @@ export default function useFreelancerOperationsHQ({ freelancerId, enabled = true
   });
 
   const operations = resource.data ?? FALLBACK_OPERATIONS;
-  const memberships = operations.memberships ?? [];
-  const workflows = operations.workflows ?? [];
-  const notices = operations.notices ?? [];
-  const metrics = operations.metrics ?? FALLBACK_OPERATIONS.metrics;
-  const compliance = operations.compliance ?? FALLBACK_OPERATIONS.compliance;
 
   const refresh = useCallback((options) => resource.refresh(options), [resource]);
 
@@ -179,11 +174,11 @@ export default function useFreelancerOperationsHQ({ freelancerId, enabled = true
     () => ({
       ...resource,
       operations,
-      memberships,
-      workflows,
-      notices,
-      metrics,
-      compliance,
+      memberships: operations.memberships ?? [],
+      workflows: operations.workflows ?? [],
+      notices: operations.notices ?? [],
+      metrics: operations.metrics ?? FALLBACK_OPERATIONS.metrics,
+      compliance: operations.compliance ?? FALLBACK_OPERATIONS.compliance,
       refresh,
       requestMembership: handleMembershipRequest,
       updateMembership: handleMembershipUpdate,
@@ -194,19 +189,14 @@ export default function useFreelancerOperationsHQ({ freelancerId, enabled = true
     }),
     [
       acknowledgingId,
-      compliance,
       handleAcknowledge,
       handleMembershipRequest,
       handleMembershipUpdate,
       handleSync,
-      memberships,
-      metrics,
-      notices,
       operations,
       refresh,
       requestState,
       resource,
-      workflows,
     ],
   );
 }
