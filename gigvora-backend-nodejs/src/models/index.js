@@ -5291,7 +5291,7 @@ GigCatalogItem.prototype.toPublicObject = function toPublicObject() {
   };
 };
 export const WORKSPACE_STATUSES = ['briefing', 'active', 'blocked', 'completed'];
-export const WORKSPACE_RISK_LEVELS = ['low', 'moderate', 'high', 'critical'];
+export const WORKSPACE_RISK_LEVELS = ['low', 'medium', 'high'];
 
 export const PROJECT_MILESTONE_STATUSES = ['planned', 'in_progress', 'at_risk', 'blocked', 'completed'];
 export const PROJECT_COLLABORATOR_STATUSES = ['invited', 'active', 'observer', 'removed'];

@@ -30,6 +30,8 @@ import {
   EscrowTransaction,
   PROJECT_STATUSES,
   PROJECT_RISK_LEVELS,
+  WORKSPACE_STATUSES,
+  WORKSPACE_RISK_LEVELS,
   PROJECT_COLLABORATOR_STATUSES,
   GIG_ORDER_STATUSES,
   GIG_REQUIREMENT_STATUSES,
@@ -122,11 +124,36 @@ function summarizeAssets(assets = []) {
   };
 }
 
+const PROJECT_TO_WORKSPACE_STATUS = Object.freeze({
+  planning: 'briefing',
+  in_progress: 'active',
+  at_risk: 'blocked',
+  on_hold: 'blocked',
+  completed: 'completed',
+});
+
+function resolveWorkspaceStatusFromProject(status) {
+  const normalized = `${status ?? ''}`.trim().toLowerCase();
+  return PROJECT_TO_WORKSPACE_STATUS[normalized] ?? 'briefing';
+}
+
+function normaliseWorkspaceScore(value, { label, max }) {
+  if (value == null) {
+    return null;
+  }
+  const numeric = ensureNumber(value, { label, allowNegative: false });
+  const clamped = Math.max(0, Math.min(max, numeric));
+  return Number(clamped.toFixed(2));
+}
+
 function partitionProjects(projects = []) {
-  const openStatuses = new Set(['planning', 'in_progress', 'at_risk', 'on_hold']);
+  const openStatuses = new Set(['briefing', 'active', 'blocked']);
   return projects.reduce(
     (acc, project) => {
-      const status = project.workspace?.status ?? project.status ?? 'planning';
+      const statusCandidate = project.workspace?.status ?? project.status ?? 'planning';
+      const status = project.workspace?.status
+        ? project.workspace.status
+        : resolveWorkspaceStatusFromProject(statusCandidate);
       if (openStatuses.has(status)) {
         acc.open.push(project);
       } else {
@@ -1919,11 +1946,11 @@ export async function createProject(ownerId, payload) {
     throw new ValidationError('Invalid project status provided.');
   }
 
-  if (payload.workspace?.riskLevel && !PROJECT_RISK_LEVELS.includes(payload.workspace.riskLevel)) {
+  if (payload.workspace?.riskLevel && !WORKSPACE_RISK_LEVELS.includes(payload.workspace.riskLevel)) {
     throw new ValidationError('Invalid project risk level provided.');
   }
 
-  if (payload.workspace?.status && !PROJECT_STATUSES.includes(payload.workspace.status)) {
+  if (payload.workspace?.status && !WORKSPACE_STATUSES.includes(payload.workspace.status)) {
     throw new ValidationError('Invalid workspace status provided.');
   }
 
@@ -1958,20 +1985,67 @@ export async function createProject(ownerId, payload) {
       { transaction },
     );
 
+    const workspaceStatus = payload.workspace?.status && WORKSPACE_STATUSES.includes(payload.workspace.status)
+      ? payload.workspace.status
+      : resolveWorkspaceStatusFromProject(payload.status ?? project.status);
+    const progressPercent =
+      normaliseWorkspaceScore(payload.workspace?.progressPercent ?? 5, {
+        label: 'Workspace progress percent',
+        max: 100,
+      }) ?? 0;
+    const healthScore = normaliseWorkspaceScore(payload.workspace?.healthScore, {
+      label: 'Workspace health score',
+      max: 100,
+    });
+    const velocityScore = normaliseWorkspaceScore(payload.workspace?.velocityScore, {
+      label: 'Workspace velocity score',
+      max: 100,
+    });
+    const clientSatisfaction = normaliseWorkspaceScore(payload.workspace?.clientSatisfaction, {
+      label: 'Workspace client satisfaction',
+      max: 5,
+    });
+    const automationCoverage = normaliseWorkspaceScore(payload.workspace?.automationCoverage, {
+      label: 'Workspace automation coverage',
+      max: 100,
+    });
+
+    const nextMilestoneDueAt = ensureDate(payload.workspace?.nextMilestoneDueAt ?? payload.dueDate, {
+      label: 'Next milestone due date',
+    });
+    const lastActivityAt =
+      ensureDate(payload.workspace?.lastActivityAt, { label: 'Workspace last activity at' }) ??
+      project.updatedAt ??
+      project.createdAt ??
+      new Date();
+
+    const metricsSnapshot =
+      payload.workspace?.metricsSnapshot && typeof payload.workspace.metricsSnapshot === 'object'
+        ? payload.workspace.metricsSnapshot
+        : payload.workspace?.metrics && typeof payload.workspace.metrics === 'object'
+          ? payload.workspace.metrics
+          : {};
+
     await ProjectWorkspace.create(
       {
         projectId: project.id,
-        status: payload.workspace?.status ?? project.status,
-        progressPercent: payload.workspace?.progressPercent ?? 5,
-        riskLevel: payload.workspace?.riskLevel && PROJECT_RISK_LEVELS.includes(payload.workspace.riskLevel)
-          ? payload.workspace.riskLevel
-          : 'low',
+        status: workspaceStatus,
+        progressPercent,
+        riskLevel:
+          payload.workspace?.riskLevel && WORKSPACE_RISK_LEVELS.includes(payload.workspace.riskLevel)
+            ? payload.workspace.riskLevel
+            : 'low',
+        healthScore,
+        velocityScore,
+        clientSatisfaction,
+        automationCoverage,
+        billingStatus: payload.workspace?.billingStatus ?? null,
         nextMilestone: payload.workspace?.nextMilestone ?? null,
-        nextMilestoneDueAt: ensureDate(payload.workspace?.nextMilestoneDueAt ?? payload.dueDate, {
-          label: 'Next milestone due date',
-        }),
+        nextMilestoneDueAt,
+        lastActivityAt,
+        updatedById: payload.workspace?.updatedById ?? null,
         notes: payload.workspace?.notes ?? null,
-        metrics: payload.workspace?.metrics ?? {},
+        metricsSnapshot,
       },
       { transaction },
     );
@@ -2142,7 +2216,7 @@ export async function updateProjectWorkspace(ownerId, projectId, payload) {
     nextMilestone: payload.nextMilestone ?? project.workspace.nextMilestone,
     nextMilestoneDueAt: nextDueAt ?? project.workspace.nextMilestoneDueAt,
     notes: payload.notes ?? project.workspace.notes,
-    metrics: payload.metrics ?? project.workspace.metrics,
+    metricsSnapshot: payload.metricsSnapshot ?? project.workspace.metricsSnapshot,
   });
 
   return project.workspace.reload();
@@ -2269,7 +2343,7 @@ export async function archiveProject(ownerId, projectId, payload = {}) {
       nextMilestone: payload.workspace?.nextMilestone ?? project.workspace.nextMilestone,
       nextMilestoneDueAt: payload.workspace?.nextMilestoneDueAt ?? project.workspace.nextMilestoneDueAt,
       notes: payload.workspace?.notes ?? project.workspace.notes,
-      metrics: payload.workspace?.metrics ?? project.workspace.metrics,
+      metricsSnapshot: payload.workspace?.metricsSnapshot ?? project.workspace.metricsSnapshot,
     });
   }
 
@@ -2313,7 +2387,7 @@ export async function restoreProject(ownerId, projectId, payload = {}) {
       nextMilestone: payload.workspace?.nextMilestone ?? project.workspace.nextMilestone,
       nextMilestoneDueAt: payload.workspace?.nextMilestoneDueAt ?? project.workspace.nextMilestoneDueAt,
       notes: payload.workspace?.notes ?? project.workspace.notes,
-      metrics: payload.workspace?.metrics ?? project.workspace.metrics,
+      metricsSnapshot: payload.workspace?.metricsSnapshot ?? project.workspace.metricsSnapshot,
     });
   }
 
