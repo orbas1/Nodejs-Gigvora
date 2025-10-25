@@ -35,6 +35,8 @@ const DEFAULT_RATE_LIMIT_SKIP_PATHS = [
   ...new Set([...HEALTH_CHECK_RATE_LIMIT_PATHS, ...CONTROL_PLANE_RATE_LIMIT_PATHS]),
 ];
 
+const TRACING_DIAGNOSTIC_LEVELS = ['none', 'error', 'warn', 'info', 'debug', 'all'];
+
 ensureEnvLoaded({ silent: process.env.NODE_ENV === 'test' });
 
 function parseBoolean(value, fallback) {
@@ -78,6 +80,27 @@ function parseList(value) {
     .split(/[\n,]/)
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0);
+}
+
+function parseJsonObject(value) {
+  if (!value) {
+    return undefined;
+  }
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    return value;
+  }
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed;
+    }
+  } catch (error) {
+    return undefined;
+  }
+  return undefined;
 }
 
 function parseOrigins(env) {
@@ -178,6 +201,32 @@ export const runtimeConfigSchema = z.object({
       headerName: z.string().min(3).default('x-request-id'),
       acceptIncomingHeader: z.boolean().default(false),
     }),
+    tracing: z
+      .object({
+        enabled: z.boolean().default(false),
+        serviceName: z.string().min(3).default('gigvora-backend'),
+        diagnostics: z.enum(['none', 'error', 'warn', 'info', 'debug', 'all']).default('error'),
+        sampling: z
+          .object({
+            ratio: z.number().min(0).max(1).default(0.1),
+          })
+          .default({ ratio: 0.1 }),
+        ignorePaths: z.array(z.string()).default([]),
+        otlp: z
+          .object({
+            url: z.string().url().optional(),
+            headers: z.record(z.string()).default({}),
+          })
+          .default({ headers: {} }),
+      })
+      .default({
+        enabled: false,
+        serviceName: 'gigvora-backend',
+        diagnostics: 'error',
+        sampling: { ratio: 0.1 },
+        ignorePaths: [],
+        otlp: { headers: {} },
+      }),
   }),
   workers: z.object({
     autoStart: z.boolean().default(true),
@@ -383,6 +432,15 @@ function buildRawConfig(env) {
   const voiceRecordingRequired = parseBoolean(env.REALTIME_VOICE_RECORDING_REQUIRED, false);
   const eventsEnabled = parseBoolean(env.REALTIME_EVENTS_ENABLED, true);
   const moderationEnabled = parseBoolean(env.REALTIME_MODERATION_ENABLED, true);
+  const tracingEnabled = parseBoolean(env.TRACING_ENABLED ?? env.OTEL_TRACING_ENABLED, false);
+  const tracingExporterUrl =
+    env.TRACING_EXPORTER_URL || env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT || env.OTEL_EXPORTER_OTLP_ENDPOINT;
+  const tracingHeaders =
+    parseJsonObject(env.TRACING_EXPORTER_HEADERS ?? env.OTEL_EXPORTER_OTLP_HEADERS) || undefined;
+  const tracingIgnorePaths = parseList(env.TRACING_IGNORE_PATHS);
+  const tracingSamplingRatio = parseNumber(env.TRACING_SAMPLING_RATIO, 0.1);
+  const tracingDiagnostics = (env.TRACING_DIAGNOSTICS_LEVEL || env.OTEL_DIAGNOSTICS || '').toLowerCase();
+  const tracingServiceName = env.TRACING_SERVICE_NAME || env.OTEL_SERVICE_NAME || env.SERVICE_NAME;
   const chatwootEnabled = parseBoolean(env.CHATWOOT_ENABLED ?? env.ENABLE_CHATWOOT, false);
   const chatwootBaseUrl = env.CHATWOOT_BASE_URL || env.CHATWOOT_URL || undefined;
   const chatwootWebsiteToken = env.CHATWOOT_WEBSITE_TOKEN || env.CHATWOOT_TOKEN || undefined;
@@ -446,6 +504,22 @@ function buildRawConfig(env) {
       correlation: {
         headerName: (env.CORRELATION_ID_HEADER || 'x-request-id').toLowerCase(),
         acceptIncomingHeader: parseBoolean(env.ACCEPT_INBOUND_REQUEST_IDS, false),
+      },
+      tracing: {
+        enabled: tracingEnabled,
+        serviceName: tracingServiceName || env.SERVICE_NAME || 'gigvora-backend',
+        diagnostics: TRACING_DIAGNOSTIC_LEVELS.includes(tracingDiagnostics) ? tracingDiagnostics : 'error',
+        sampling: {
+          ratio:
+            typeof tracingSamplingRatio === 'number' && tracingSamplingRatio >= 0 && tracingSamplingRatio <= 1
+              ? tracingSamplingRatio
+              : 0.1,
+        },
+        ignorePaths: tracingIgnorePaths,
+        otlp: {
+          url: tracingExporterUrl || undefined,
+          headers: tracingHeaders || {},
+        },
       },
     },
     workers: {

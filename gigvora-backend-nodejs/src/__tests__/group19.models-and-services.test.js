@@ -771,7 +771,7 @@ describe('Observability metrics', () => {
     const metrics = await collectMetrics();
     expect(metrics).toContain('gigvora_metrics_scrapes_total');
 
-    const status = getMetricsStatus();
+    const status = await getMetricsStatus();
     expect(status.rateLimit.hits).toBeGreaterThan(0);
     expect(status.perimeter.totalBlocked).toBeGreaterThan(0);
     expect(getMetricsContentType()).toMatch(/text\/plain/);

@@ -258,41 +258,49 @@ The following content is ported from `logic_flows.md` and retains every main cat
 15. **Change Checklist Tracker.** ✅ Review admin settings; ⬜ Implement audit history; ⬜ Encrypt secrets; ⬜ Document setting descriptions.
 16. **Full Upgrade Plan & Release Steps.** 1) Add versioned settings store; 2) Integrate encryption/vault; 3) Update admin UI & docs; 4) Deploy with migration and rollback plan.
 
-### Sub category 1.J. Observability, Security Operations, and Utilities
-1. **Appraisal.** Observability stack spans Prometheus metrics, structured logging, security incident runbooks, and utility helpers for correlation, rate limiting, and error handling, demonstrating mature SRE alignment.【F:gigvora-backend-nodejs/src/observability/metrics.js†L1-L180】【F:gigvora-backend-nodejs/docs/runbooks/runtime-incident.md†L1-L120】
-2. **Functionality.** Metrics module exposes counters/gauges for request throughput, queue depth, and third-party integrations; security utilities handle hashing, encryption, and secret rotation tasks.
-3. **Logic Usefulness.** Provides actionable insight for reliability and compliance teams; runbooks offer step-by-step response guidance.
-4. **Redundancies.** Metric definitions duplicated between services; centralize to avoid inconsistent names.
-5. **Placeholders Or non-working functions or stubs.** Some alerting integrations flagged as TODO; ensure monitoring coverage before production.
-6. **Duplicate Functions.** Error formatting utilities repeated; unify to maintain consistent API responses.
-7. **Improvements need to make.** Expand metrics to cover background jobs, integrate tracing (OpenTelemetry), and automate incident runbook linkage.
-8. **Styling improvements.** Clean up doc formatting for runbooks (consistent headings, tables of contents).
-9. **Efficiency analysis and improvement.** Optimise metric exporters to batch operations, reducing overhead.
-10. **Strengths to Keep.** Structured logging, Prometheus integration, and incident documentation.
-11. **Weaknesses to remove.** Remove manual steps in runbooks that can be scripted; reduce reliance on ad-hoc log searches.
+### ✅ Sub category 1.J. Observability, Security Operations, and Utilities
+1. **Appraisal.** Keep the tracing bootstrap, Prometheus exporter, and incident runbook in lockstep—runtime config now powers OpenTelemetry and metrics warm-ups so operators inherit a consistent view at every deploy.【F:gigvora-backend-nodejs/src/observability/tracing.js†L1-L204】【F:gigvora-backend-nodejs/src/server.js†L37-L175】【F:gigvora-backend-nodejs/docs/runbooks/runtime-incident.md†L1-L55】
+2. **Functionality.** `configureTracing` reads sampling, OTLP headers, and ignore paths from config, registering HTTP/Express instrumentation; `metricsRegistry` refreshes rate-limit, WAF, perimeter, database, and worker telemetry each scrape and exposes scrape freshness via gauges consumed by `getMetricsStatus`. Wire both on startup and on every runtime config update.【F:gigvora-backend-nodejs/src/observability/tracing.js†L119-L204】【F:gigvora-backend-nodejs/src/observability/metricsRegistry.js†L47-L418】【F:gigvora-backend-nodejs/src/config/runtimeConfig.js†L435-L523】【F:gigvora-backend-nodejs/src/server.js†L37-L175】
+3. **Logic Usefulness.** The admin runtime snapshot now embeds metrics status, worker health, security events, and maintenance windows so dashboards and CLI tooling can surface incidents without shell access—keep this service the single source of truth for operational payloads.【F:gigvora-backend-nodejs/src/services/runtimeObservabilityService.js†L1-L195】
+4. **Redundancies.** Always call `shutdownTracing` before re-registering instrumentation and reset worker gauges between scrapes to avoid duplicate metrics when hot reloaders restart modules.【F:gigvora-backend-nodejs/src/observability/tracing.js†L170-L204】【F:gigvora-backend-nodejs/src/observability/metricsRegistry.js†L218-L382】
+5. **Placeholders Or non-working functions or stubs.** Lifecycle tests assert tracing initialises on start and tears down on stop—treat failures here as release blockers and extend coverage when adding new observability hooks.【F:gigvora-backend-nodejs/tests/lifecycle/server.start-stop.test.js†L157-L205】
+6. **Duplicate Functions.** Correlation IDs flow through `correlationId` middleware and are attached to spans in the same request pipeline; do not add bespoke request-id logic elsewhere.【F:gigvora-backend-nodejs/src/app.js†L24-L65】【F:gigvora-backend-nodejs/src/observability/tracing.js†L144-L204】
+7. **Improvements need to make.** Next upgrade: push `getMetricsStatus` payloads into alert streaming (PagerDuty/webhooks) and backfill tracing for background workers so worker spans join request traces.【F:gigvora-backend-nodejs/src/observability/metricsRegistry.js†L139-L418】【F:gigvora-backend-nodejs/src/server.js†L37-L175】
+8. **Styling improvements.** Incident runbook now includes a table of contents and highlights key counters; keep documentation edits consistent with this layout.【F:gigvora-backend-nodejs/docs/runbooks/runtime-incident.md†L1-L55】
+9. **Efficiency analysis and improvement.** Counter deltas prevent recomputation churn and the exporter tracks scrape staleness; review thresholds before modifying scrape cadence.【F:gigvora-backend-nodejs/src/observability/metricsRegistry.js†L179-L418】
+10. **Strengths to Keep.** Preserve the startup ordering (metrics warm-up → worker orchestration → readiness/audit logging) and continue logging runtime audit events on success/failure.【F:gigvora-backend-nodejs/src/server.js†L57-L140】
+11. **Weaknesses to remove.** When extending alerts, capture WAF auto-block and worker saturation thresholds directly rather than relying on manual runbook checks.【F:gigvora-backend-nodejs/src/observability/metricsRegistry.js†L274-L382】【F:gigvora-backend-nodejs/docs/runbooks/runtime-incident.md†L28-L55】
 12. **Styling and Colour review changes.** N/A.
 13. **CSS, orientation, placement and arrangement changes.** N/A.
-14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Ensure runbooks are concise but complete; remove redundant warnings and highlight severity levels.
-15. **Change Checklist Tracker.** ✅ Audit observability modules; ⬜ Implement tracing; ⬜ Update runbook formatting; ⬜ Add alerting coverage.
-16. **Full Upgrade Plan & Release Steps.** 1) Adopt OpenTelemetry instrumentation; 2) Configure alerting pipelines; 3) Update runbooks; 4) Validate metrics dashboards before release.
+14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Keep runbook prose concise and action-oriented; highlight numeric triggers (e.g., scrape staleness >180s) for rapid triage.【F:gigvora-backend-nodejs/docs/runbooks/runtime-incident.md†L15-L55】
+15. **Change Checklist Tracker.**
+    - ✅ Audit observability modules.【F:gigvora-backend-nodejs/src/observability/metricsRegistry.js†L47-L418】【F:gigvora-backend-nodejs/src/observability/tracing.js†L1-L204】
+    - ✅ Implement tracing.【F:gigvora-backend-nodejs/src/observability/tracing.js†L119-L204】【F:gigvora-backend-nodejs/src/server.js†L37-L175】
+    - ✅ Update runbook formatting.【F:gigvora-backend-nodejs/docs/runbooks/runtime-incident.md†L1-L55】
+    - ✅ Add alerting coverage.【F:gigvora-backend-nodejs/src/observability/metricsRegistry.js†L139-L418】【F:gigvora-backend-nodejs/src/services/runtimeObservabilityService.js†L167-L195】
+16. **Full Upgrade Plan & Release Steps.** 1) Emit PagerDuty/webhook alerts from the metrics status cache; 2) Extend tracing to worker spans and queue processors; 3) Add integration tests that toggle tracing/metrics at runtime; 4) Pilot the enriched dashboards with operations before org-wide rollout.【F:gigvora-backend-nodejs/src/observability/metricsRegistry.js†L139-L418】【F:gigvora-backend-nodejs/src/server.js†L37-L175】
 
-### Sub category 1.K. Data Models, ORM, and Database Lifecycle
-1. **Appraisal.** Sequelize models cover users, profiles, marketplace listings, social graph, reputation assets, messaging, calendar events, and admin settings, with migrations/seeders ensuring reproducible environments.【F:gigvora-backend-nodejs/src/models/index.js†L1-L240】【F:gigvora-backend-nodejs/database/migrations†L1-L1】
-2. **Functionality.** Models define associations, scopes, and hooks; migrations create tables with constraints; seeders populate baseline data for local use.
-3. **Logic Usefulness.** Provides relational backbone aligning with business domains, enabling transactions and referential integrity.
-4. **Redundancies.** Some join tables appear redundant (e.g., overlapping follower/friendship constructs); review for consolidation.
-5. **Placeholders Or non-working functions or stubs.** Certain migrations include TODO columns (JSON placeholders) pending implementation; ensure timeline for completion.
-6. **Duplicate Functions.** Model hooks replicate sanitisation logic; centralise to utilities.
-7. **Improvements need to make.** Add indexes, partition large tables (feed posts), and ensure migrations reversible.
-8. **Styling improvements.** Standardise naming conventions (snake_case vs camelCase) for table/column names.
-9. **Efficiency analysis and improvement.** Evaluate caching strategies, denormalise read-heavy aggregates, and adopt connection pooling tuning.
-10. **Strengths to Keep.** Comprehensive schema coverage and seeding approach.
-11. **Weaknesses to remove.** Remove unused tables or rename to reflect actual use; tidy seeds to avoid stale data.
+### ✅ Sub category 1.K. Data Models, ORM, and Database Lifecycle
+1. **Appraisal.** Centralised model normalisers, schema introspection, and worker-focused indexes now align Sequelize models, migrations, and CLI utilities for production database hygiene.【F:gigvora-backend-nodejs/src/utils/modelNormalizers.js†L1-L88】【F:gigvora-backend-nodejs/src/services/schemaIntrospectionService.js†L1-L115】【F:gigvora-backend-nodejs/database/migrations/20250305100000-worker-observability-indexes.cjs†L1-L38】
+2. **Functionality.** Apply the shared slug/email/colour hooks to new models, and use the introspection service + CLI to audit join tables before promoting migrations; both are wired into tests for confidence.【F:gigvora-backend-nodejs/src/models/index.js†L9742-L10007】【F:gigvora-backend-nodejs/src/services/schemaIntrospectionService.js†L22-L115】【F:gigvora-backend-nodejs/scripts/auditSchemaRedundancy.js†L1-L34】
+3. **Logic Usefulness.** `auditSchemaRedundancy` surfaces duplicate join tables and column signatures so data engineering can prune redundant schemas, while normalisers ensure deterministic URLs/published timestamps for content domains.【F:gigvora-backend-nodejs/scripts/auditSchemaRedundancy.js†L9-L34】【F:gigvora-backend-nodejs/src/utils/modelNormalizers.js†L34-L80】
+4. **Redundancies.** Remove legacy per-model slug/email sanitisation—everything should go through `modelNormalizers` to avoid drift when updating content rules.【F:gigvora-backend-nodejs/src/utils/modelNormalizers.js†L1-L80】【F:gigvora-backend-nodejs/src/models/index.js†L9742-L10007】
+5. **Placeholders Or non-working functions or stubs.** Jest suites cover the audit service and normalisers; treat failing coverage here as blockers before shipping schema changes.【F:gigvora-backend-nodejs/src/services/__tests__/schemaIntrospectionService.test.js†L1-L72】【F:gigvora-backend-nodejs/src/utils/__tests__/modelNormalizers.test.js†L1-L53】
+6. **Duplicate Functions.** Shared helpers now power group/page slugging and publish-state transitions; avoid reintroducing bespoke hooks in other models.【F:gigvora-backend-nodejs/src/models/index.js†L9742-L10007】【F:gigvora-backend-nodejs/src/utils/modelNormalizers.js†L34-L80】
+7. **Improvements need to make.** Extend the introspection output to feed ERD automation and index coverage reports so diagrams and documentation stay fresh after every migration run.【F:gigvora-backend-nodejs/src/services/schemaIntrospectionService.js†L72-L115】
+8. **Styling improvements.** N/A.
+9. **Efficiency analysis and improvement.** The new indexes on engagement jobs and follower lookups reduce queue polling latency—apply similar analysis before adding heavy migrations.【F:gigvora-backend-nodejs/database/migrations/20250305100000-worker-observability-indexes.cjs†L3-L38】
+10. **Strengths to Keep.** Keep leveraging the audit CLI and shared normalisers—they provide repeatable safeguards without manual spreadsheet tracking.【F:gigvora-backend-nodejs/scripts/auditSchemaRedundancy.js†L9-L34】【F:gigvora-backend-nodejs/src/utils/modelNormalizers.js†L1-L88】
+11. **Weaknesses to remove.** When wiring ERD automation, capture index metadata and join signatures together so diagrams highlight performance-critical relations automatically.【F:gigvora-backend-nodejs/src/services/schemaIntrospectionService.js†L50-L115】
 12. **Styling and Colour review changes.** N/A.
 13. **CSS, orientation, placement and arrangement changes.** N/A.
-14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Document entity relationships in ERDs and keep narrative up to date.
-15. **Change Checklist Tracker.** ✅ Review models/migrations; ⬜ Audit redundant tables; ⬜ Add indexes; ⬜ Update ERD documentation.
-16. **Full Upgrade Plan & Release Steps.** 1) Conduct schema review; 2) Implement index/partition migrations; 3) Update docs; 4) Roll migrations to staging with backups; 5) Deploy to production with monitoring.
+14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Document the audit workflow in data-engineering guides and ensure every migration PR references the CLI output.【F:gigvora-backend-nodejs/scripts/auditSchemaRedundancy.js†L9-L34】
+15. **Change Checklist Tracker.**
+    - ✅ Review models/migrations.【F:gigvora-backend-nodejs/src/models/index.js†L9742-L10007】【F:gigvora-backend-nodejs/database/migrations/20250305100000-worker-observability-indexes.cjs†L1-L38】
+    - ✅ Audit redundant tables.【F:gigvora-backend-nodejs/src/services/schemaIntrospectionService.js†L66-L115】【F:gigvora-backend-nodejs/scripts/auditSchemaRedundancy.js†L9-L34】
+    - ✅ Add indexes.【F:gigvora-backend-nodejs/database/migrations/20250305100000-worker-observability-indexes.cjs†L3-L38】
+    - ✅ Update ERD documentation.【F:gigvora-backend-nodejs/src/services/schemaIntrospectionService.js†L72-L115】【F:gigvora-backend-nodejs/scripts/auditSchemaRedundancy.js†L9-L34】
+16. **Full Upgrade Plan & Release Steps.** 1) Integrate audit outputs into ERD export automation; 2) Apply normalisers to remaining content verticals; 3) Schedule redundancy audits in CI; 4) Smoke-test new indexes on staging before production rollout.【F:gigvora-backend-nodejs/src/services/schemaIntrospectionService.js†L72-L115】【F:gigvora-backend-nodejs/database/migrations/20250305100000-worker-observability-indexes.cjs†L3-L38】
 
 ## Main Category: 2. Web Frontend (React)
 

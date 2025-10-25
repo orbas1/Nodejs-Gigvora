@@ -19,6 +19,7 @@ import { syncCriticalDependencies } from './observability/dependencyHealth.js';
 import { recordRuntimeSecurityEvent } from './services/securityAuditService.js';
 import orchestrateHttpShutdown from './lifecycle/httpShutdown.js';
 import { getMetricsStatus } from './observability/metricsRegistry.js';
+import { configureTracing, shutdownTracing } from './observability/tracing.js';
 import {
   getRuntimeConfig,
   whenRuntimeConfigReady,
@@ -35,6 +36,9 @@ let runtimeConfig = getRuntimeConfig();
 
 onRuntimeConfigChange(({ config }) => {
   runtimeConfig = config;
+  configureTracing(runtimeConfig).catch((error) => {
+    logger.warn({ err: error }, 'Failed to refresh tracing configuration after runtime update');
+  });
 });
 
 export async function start({ port = DEFAULT_PORT } = {}) {
@@ -44,6 +48,11 @@ export async function start({ port = DEFAULT_PORT } = {}) {
   }
 
   await whenRuntimeConfigReady();
+  try {
+    await configureTracing(runtimeConfig);
+  } catch (error) {
+    logger.warn({ err: error }, 'Tracing initialisation failed, continuing without tracing');
+  }
 
   markHttpServerStarting();
   await warmDatabaseConnections({ logger });
@@ -55,7 +64,7 @@ export async function start({ port = DEFAULT_PORT } = {}) {
   }
   await warmRuntimeDependencyHealth({ logger, forceRefresh: true });
   try {
-    getMetricsStatus();
+    await getMetricsStatus();
   } catch (error) {
     logger.warn({ err: error }, 'Failed to prime metrics exporter status during startup');
   }
@@ -135,6 +144,7 @@ export async function start({ port = DEFAULT_PORT } = {}) {
 export async function stop({ reason = 'shutdown' } = {}) {
   if (!httpServer) {
     markHttpServerStopped({ reason });
+    await shutdownTracing();
     return;
   }
 
@@ -159,6 +169,12 @@ export async function stop({ reason = 'shutdown' } = {}) {
       httpServer = null;
     },
   });
+
+  try {
+    await shutdownTracing();
+  } catch (error) {
+    logger.warn({ err: error }, 'Tracing shutdown encountered errors');
+  }
 }
 
 function registerSignalHandlers() {

@@ -4,6 +4,8 @@ import { getRateLimitSnapshot } from './rateLimitMetrics.js';
 import { getPerimeterSnapshot } from './perimeterMetrics.js';
 import { getWebApplicationFirewallSnapshot } from '../security/webApplicationFirewall.js';
 import { getDatabasePoolSnapshot } from '../services/databaseLifecycleService.js';
+import { collectWorkerTelemetry } from '../lifecycle/workerManager.js';
+import logger from '../utils/logger.js';
 
 const METRICS_ENDPOINT = '/health/metrics';
 const METRICS_PREFIX = 'gigvora_';
@@ -21,12 +23,12 @@ function ensureInitialized() {
   initialized = true;
 }
 
-function createCounter(name, help) {
-  return new Counter({ name: `${METRICS_PREFIX}${name}`, help, registers: [registry] });
+function createCounter(name, help, options = {}) {
+  return new Counter({ name: `${METRICS_PREFIX}${name}`, help, registers: [registry], ...options });
 }
 
-function createGauge(name, help) {
-  return new Gauge({ name: `${METRICS_PREFIX}${name}`, help, registers: [registry] });
+function createGauge(name, help, options = {}) {
+  return new Gauge({ name: `${METRICS_PREFIX}${name}`, help, registers: [registry], ...options });
 }
 
 function toNumber(value, fallback = 0) {
@@ -99,6 +101,37 @@ const databasePoolLastEventTimestamp = createGauge(
   'Unix timestamp of the last observed database pool event.',
 );
 
+const workerStatusGauge = createGauge(
+  'worker_status',
+  'Operational status indicator for background workers (1=healthy, 0=stopped, -1=error).',
+  { labelNames: ['worker'] },
+);
+const workerQueuePendingGauge = createGauge(
+  'worker_queue_pending',
+  'Pending jobs reported by worker telemetry.',
+  { labelNames: ['worker'] },
+);
+const workerQueueStuckGauge = createGauge(
+  'worker_queue_stuck',
+  'Jobs locked beyond the stale threshold for worker telemetry.',
+  { labelNames: ['worker'] },
+);
+const workerQueueFailedGauge = createGauge(
+  'worker_queue_failed',
+  'Failed jobs reported by worker telemetry.',
+  { labelNames: ['worker'] },
+);
+const workerLastSampleTimestamp = createGauge(
+  'worker_last_sample_timestamp',
+  'Unix timestamp of the latest worker telemetry sample.',
+  { labelNames: ['worker'] },
+);
+const workerIntervalGauge = createGauge(
+  'worker_interval_ms',
+  'Configured polling interval for worker telemetry.',
+  { labelNames: ['worker'] },
+);
+
 let previousRateLimitTotals = { hits: 0, allowed: 0, blocked: 0 };
 let previousWafTotals = { evaluated: 0, blocked: 0, autoBlocks: 0 };
 let previousPerimeterTotal = 0;
@@ -140,6 +173,7 @@ const metricsStatusCache = {
     lastEvent: null,
     updatedAt: null,
   },
+  workers: [],
 };
 
 function incrementCounter(counter, currentValue, previousValue) {
@@ -156,7 +190,32 @@ function incrementCounter(counter, currentValue, previousValue) {
   return previousValue;
 }
 
-function refreshMetricSnapshots({ updateCounters = false } = {}) {
+const WORKER_STATUS_VALUES = {
+  healthy: 1,
+  stopped: 0,
+  error: -1,
+};
+
+function deriveWorkerStatus(metrics = {}) {
+  if (metrics && metrics.error) {
+    return 'error';
+  }
+  if (metrics && metrics.isRunning === false) {
+    return 'stopped';
+  }
+  return 'healthy';
+}
+
+function normaliseWorkerTimestamp(snapshot) {
+  return (
+    toTimestamp(snapshot?.lastSampleAt) ||
+    toTimestamp(snapshot?.metrics?.generatedAt) ||
+    toTimestamp(snapshot?.metrics?.lastRunAt) ||
+    null
+  );
+}
+
+async function refreshMetricSnapshots({ updateCounters = false } = {}) {
   ensureInitialized();
 
   const rateLimitSnapshot = getRateLimitSnapshot();
@@ -273,10 +332,57 @@ function refreshMetricSnapshots({ updateCounters = false } = {}) {
     lastEvent: poolSnapshot.lastEvent ?? null,
     updatedAt: poolUpdatedAt,
   };
+
+  let workerSnapshots = [];
+  try {
+    workerSnapshots = await collectWorkerTelemetry({ forceRefresh: false });
+  } catch (error) {
+    logger.warn({ err: error }, 'Unable to collect worker telemetry for metrics');
+    workerSnapshots = [];
+  }
+
+  workerStatusGauge.reset();
+  workerQueuePendingGauge.reset();
+  workerQueueStuckGauge.reset();
+  workerQueueFailedGauge.reset();
+  workerLastSampleTimestamp.reset();
+  workerIntervalGauge.reset();
+
+  metricsStatusCache.workers = workerSnapshots.map((snapshot) => {
+    const metrics = snapshot?.metrics ?? {};
+    const status = deriveWorkerStatus(metrics);
+    const pending = toNumber(metrics.pending ?? metrics.queueDepth, 0);
+    const stuck = toNumber(metrics.stuck ?? metrics.locked ?? 0, 0);
+    const failed = toNumber(metrics.failed ?? metrics.errorCount, 0);
+    const interval = toNumber(snapshot?.metadata?.intervalMs ?? metrics.intervalMs, 0);
+    const sampleTimestamp = normaliseWorkerTimestamp(snapshot);
+
+    workerStatusGauge.set({ worker: snapshot.name }, WORKER_STATUS_VALUES[status] ?? 0);
+    workerQueuePendingGauge.set({ worker: snapshot.name }, pending);
+    workerQueueStuckGauge.set({ worker: snapshot.name }, stuck);
+    workerQueueFailedGauge.set({ worker: snapshot.name }, failed);
+    workerIntervalGauge.set({ worker: snapshot.name }, interval);
+    workerLastSampleTimestamp.set(
+      { worker: snapshot.name },
+      sampleTimestamp ? sampleTimestamp / 1000 : 0,
+    );
+
+    return {
+      name: snapshot.name,
+      status,
+      pending,
+      stuck,
+      failed,
+      intervalMs: interval,
+      lastSampleAt: sampleTimestamp ? new Date(sampleTimestamp).toISOString() : null,
+      metrics,
+      metadata: snapshot.metadata ?? {},
+    };
+  });
 }
 
 export async function collectMetrics() {
-  refreshMetricSnapshots({ updateCounters: true });
+  await refreshMetricSnapshots({ updateCounters: true });
 
   metricsScrapesTotal.inc();
   metricsStatusCache.scrapes += 1;
@@ -301,8 +407,8 @@ function computeSecondsSince(timestampIso) {
   return Math.max(0, Math.floor((Date.now() - parsed) / 1000));
 }
 
-export function getMetricsStatus() {
-  refreshMetricSnapshots({ updateCounters: false });
+export async function getMetricsStatus() {
+  await refreshMetricSnapshots({ updateCounters: false });
 
   const secondsSinceScrape = computeSecondsSince(metricsStatusCache.lastScrapeAt);
   metricsStatusCache.secondsSinceLastScrape = secondsSinceScrape;
@@ -356,6 +462,13 @@ export function resetMetricsForTesting() {
     lastEvent: null,
     updatedAt: null,
   };
+  metricsStatusCache.workers = [];
+  workerStatusGauge.reset();
+  workerQueuePendingGauge.reset();
+  workerQueueStuckGauge.reset();
+  workerQueueFailedGauge.reset();
+  workerLastSampleTimestamp.reset();
+  workerIntervalGauge.reset();
 }
 
 export default {

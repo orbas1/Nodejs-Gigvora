@@ -5,6 +5,13 @@ import logger from '../utils/logger.js';
 import { PlatformSetting } from './platformSetting.js';
 import { SiteSetting, SitePage, SiteNavigationLink, SITE_PAGE_STATUSES } from './siteManagementModels.js';
 import { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
+import {
+  normaliseSlug,
+  normaliseHexColor,
+  normaliseEmail,
+  applyModelSlug,
+  ensurePublishedTimestamp,
+} from '../utils/modelNormalizers.js';
 export { AdminTreasuryPolicy, AdminFeeRule, AdminPayoutSchedule, AdminEscrowAdjustment } from './adminFinanceModels.js';
 export { RouteRegistryEntry } from './routeRegistryModels.js';
 import './agencyWorkforceModels.js';
@@ -10264,43 +10271,6 @@ AdPlacementCoupon.prototype.toPublicObject = function toPublicObject({ now = new
     updatedAt: plain.updatedAt,
   };
 };
-function slugifyGroup(value, fallback = 'group') {
-  if (!value) {
-    return fallback;
-  }
-  return value
-    .toString()
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 80) || fallback;
-}
-
-function normalizeGroupColour(value) {
-  if (!value) {
-    return '#2563eb';
-  }
-  const colour = value.toString().trim().toLowerCase();
-  return /^#([0-9a-f]{6})$/.test(colour) ? colour : '#2563eb';
-}
-
-function slugifyCommunityContent(value, fallback = 'post') {
-  return slugifyGroup(value, fallback);
-}
-
-function slugifyPage(value, fallback = 'page') {
-  return slugifyGroup(value, fallback);
-}
-
-function normalizePageColour(value) {
-  if (!value) {
-    return '#0f172a';
-  }
-  const colour = value.toString().trim().toLowerCase();
-  return /^#([0-9a-f]{6})$/.test(colour) ? colour : '#0f172a';
-}
-
 export const Group = sequelize.define(
   'Group',
   {
@@ -10331,18 +10301,13 @@ export const Group = sequelize.define(
 
 Group.addHook('beforeValidate', (group) => {
   if (!group) return;
-  if (group.name && !group.slug) {
-    group.slug = slugifyGroup(group.name);
-  }
-  if (group.slug) {
-    group.slug = slugifyGroup(group.slug);
-  }
-  group.avatarColor = normalizeGroupColour(group.avatarColor);
+  applyModelSlug(group, { fallback: 'group', sourceField: 'name', maxLength: 80 });
+  group.avatarColor = normaliseHexColor(group.avatarColor, { fallback: '#2563eb' });
 });
 
 Group.addHook('beforeSave', (group) => {
   if (!group) return;
-  group.avatarColor = normalizeGroupColour(group.avatarColor);
+  group.avatarColor = normaliseHexColor(group.avatarColor, { fallback: '#2563eb' });
 });
 
 export const GroupMembership = sequelize.define(
@@ -10405,9 +10370,7 @@ export const GroupInvite = sequelize.define(
 
 GroupInvite.addHook('beforeValidate', (invite) => {
   if (!invite) return;
-  if (invite.email) {
-    invite.email = invite.email.toString().trim().toLowerCase();
-  }
+  invite.email = normaliseEmail(invite.email);
 });
 
 export const GroupPost = sequelize.define(
@@ -10442,23 +10405,18 @@ export const GroupPost = sequelize.define(
 
 GroupPost.addHook('beforeValidate', (post) => {
   if (!post) return;
-  const base = slugifyCommunityContent(post.slug || post.title, 'group-post');
-  if (post.isNewRecord || !post.slug) {
-    const uniqueSuffix = Math.random().toString(36).slice(2, 8);
-    post.slug = `${base}-${uniqueSuffix}`.slice(0, 160);
-  } else {
-    post.slug = base.slice(0, 160);
-  }
+  applyModelSlug(post, {
+    slugField: 'slug',
+    sourceField: 'title',
+    fallback: 'group-post',
+    maxLength: 160,
+    randomiseOnCreate: true,
+  });
 });
 
 GroupPost.addHook('beforeSave', (post) => {
   if (!post) return;
-  if (post.status === 'published' && !post.publishedAt) {
-    post.publishedAt = new Date();
-  }
-  if (post.status !== 'published' && post.publishedAt && post.changed('status')) {
-    post.publishedAt = null;
-  }
+  ensurePublishedTimestamp(post, { statusField: 'status', publishedAtField: 'publishedAt', publishStatuses: ['published'] });
 });
 
 export const Page = sequelize.define(
@@ -10489,21 +10447,14 @@ export const Page = sequelize.define(
 
 Page.addHook('beforeValidate', (page) => {
   if (!page) return;
-  if (page.name && !page.slug) {
-    page.slug = slugifyPage(page.name);
-  }
-  if (page.slug) {
-    page.slug = slugifyPage(page.slug);
-  }
-  if (page.contactEmail) {
-    page.contactEmail = page.contactEmail.toString().trim().toLowerCase();
-  }
-  page.avatarColor = normalizePageColour(page.avatarColor);
+  applyModelSlug(page, { fallback: 'page', sourceField: 'name', maxLength: 120 });
+  page.contactEmail = normaliseEmail(page.contactEmail);
+  page.avatarColor = normaliseHexColor(page.avatarColor, { fallback: '#0f172a' });
 });
 
 Page.addHook('beforeSave', (page) => {
   if (!page) return;
-  page.avatarColor = normalizePageColour(page.avatarColor);
+  page.avatarColor = normaliseHexColor(page.avatarColor, { fallback: '#0f172a' });
 });
 
 export const PageMembership = sequelize.define(
@@ -10566,9 +10517,7 @@ export const PageInvite = sequelize.define(
 
 PageInvite.addHook('beforeValidate', (invite) => {
   if (!invite) return;
-  if (invite.email) {
-    invite.email = invite.email.toString().trim().toLowerCase();
-  }
+  invite.email = normaliseEmail(invite.email);
 });
 
 export const PagePost = sequelize.define(
@@ -10603,23 +10552,18 @@ export const PagePost = sequelize.define(
 
 PagePost.addHook('beforeValidate', (post) => {
   if (!post) return;
-  const base = slugifyCommunityContent(post.slug || post.title, 'page-post');
-  if (post.isNewRecord || !post.slug) {
-    const uniqueSuffix = Math.random().toString(36).slice(2, 8);
-    post.slug = `${base}-${uniqueSuffix}`.slice(0, 160);
-  } else {
-    post.slug = base.slice(0, 160);
-  }
+  applyModelSlug(post, {
+    slugField: 'slug',
+    sourceField: 'title',
+    fallback: 'page-post',
+    maxLength: 160,
+    randomiseOnCreate: true,
+  });
 });
 
 PagePost.addHook('beforeSave', (post) => {
   if (!post) return;
-  if (post.status === 'published' && !post.publishedAt) {
-    post.publishedAt = new Date();
-  }
-  if (post.status !== 'published' && post.publishedAt && post.changed('status')) {
-    post.publishedAt = null;
-  }
+  ensurePublishedTimestamp(post, { statusField: 'status', publishedAtField: 'publishedAt', publishStatuses: ['published'] });
 });
 
 export const Connection = sequelize.define(
