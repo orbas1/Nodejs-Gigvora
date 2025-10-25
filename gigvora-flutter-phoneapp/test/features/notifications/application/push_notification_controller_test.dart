@@ -1,6 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:gigvora_mobile/features/notifications/application/push_notification_controller.dart';
+import 'package:gigvora_mobile/features/notifications/data/notification_schedule_repository.dart';
+import 'package:gigvora_mobile/features/notifications/domain/notification_schedule.dart';
 
 class FakePushNotificationService implements PushNotificationService {
   FakePushNotificationService();
@@ -59,12 +62,14 @@ void main() {
 
   group('PushNotificationController', () {
     late FakePushNotificationService service;
+    late FakeNotificationScheduleRepository scheduleRepository;
     late PushNotificationController controller;
 
     setUp(() {
       service = FakePushNotificationService()
         ..status = PushPermissionStatus.denied;
-      controller = PushNotificationController(service);
+      scheduleRepository = FakeNotificationScheduleRepository();
+      controller = PushNotificationController(service, scheduleRepository);
     });
 
     tearDown(() {
@@ -109,5 +114,42 @@ void main() {
 
       expect(controller.state.hasError, isTrue);
     });
+
+    test('toggleQuietHours persists preferences', () async {
+      expect(controller.state.schedule.quietHoursEnabled, isFalse);
+
+      await controller.toggleQuietHours(true);
+
+      expect(controller.state.schedule.quietHoursEnabled, isTrue);
+      expect(scheduleRepository.saveCount, 1);
+    });
+
+    test('updateDigestTime updates schedule and clears saving flag', () async {
+      expect(controller.state.isSavingSchedule, isFalse);
+
+      await controller.updateDigestTime(const TimeOfDay(hour: 9, minute: 30));
+
+      expect(controller.state.schedule.digestTime.hour, 9);
+      expect(controller.state.isSavingSchedule, isFalse);
+    });
   });
+}
+
+class FakeNotificationScheduleRepository implements NotificationScheduleRepository {
+  FakeNotificationScheduleRepository();
+
+  NotificationSchedule schedule = const NotificationSchedule();
+  int saveCount = 0;
+
+  @override
+  Future<NotificationSchedule> load() async {
+    return schedule;
+  }
+
+  @override
+  Future<NotificationSchedule> save(NotificationSchedule schedule) async {
+    this.schedule = schedule;
+    saveCount += 1;
+    return schedule;
+  }
 }

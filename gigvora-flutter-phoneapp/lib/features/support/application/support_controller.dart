@@ -41,6 +41,7 @@ class SupportController extends StateNotifier<ResourceState<SupportSnapshot>> {
         'mobile_support_snapshot_loaded',
         context: {
           'ticketCount': result.data.openTickets.length,
+          'incidentCount': result.data.incidents.length,
           'fromCache': result.fromCache,
         },
         metadata: const {'source': 'mobile_app'},
@@ -111,10 +112,20 @@ class SupportController extends StateNotifier<ResourceState<SupportSnapshot>> {
   }
 
   Future<void> closeTicket(String ticketId) async {
-    await _repository.updateTicketStatus(ticketId, 'solved');
+    final ticket = await _repository.updateTicketStatus(ticketId, 'solved');
+    final rawResolution = DateTime.now().difference(ticket.createdAt).inMinutes;
+    final resolutionMinutes = rawResolution < 0
+        ? 0
+        : rawResolution > 60 * 24 * 30
+            ? 60 * 24 * 30
+            : rawResolution;
     await _analytics.track(
       'mobile_support_ticket_solved',
-      context: {'ticketId': ticketId},
+      context: {
+        'ticketId': ticketId,
+        'category': ticket.category,
+        'resolutionMinutes': resolutionMinutes,
+      },
       metadata: const {'source': 'mobile_app'},
     );
     await load(forceRefresh: true);

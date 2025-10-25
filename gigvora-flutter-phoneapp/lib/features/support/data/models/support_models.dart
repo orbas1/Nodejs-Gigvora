@@ -44,6 +44,58 @@ class SupportArticle {
   }
 }
 
+class SupportIncident {
+  const SupportIncident({
+    required this.id,
+    required this.title,
+    required this.status,
+    required this.severity,
+    required this.summary,
+    required this.openedAt,
+    this.nextUpdateAt,
+    this.impactedSurfaces = const <String>[],
+  });
+
+  final String id;
+  final String title;
+  final String status;
+  final String severity;
+  final String summary;
+  final DateTime openedAt;
+  final DateTime? nextUpdateAt;
+  final List<String> impactedSurfaces;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'status': status,
+      'severity': severity,
+      'summary': summary,
+      'openedAt': openedAt.toIso8601String(),
+      'nextUpdateAt': nextUpdateAt?.toIso8601String(),
+      'impactedSurfaces': impactedSurfaces,
+    };
+  }
+
+  factory SupportIncident.fromJson(Map<String, dynamic> json) {
+    return SupportIncident(
+      id: (json['id'] as String? ?? '').trim(),
+      title: (json['title'] as String? ?? '').trim(),
+      status: (json['status'] as String? ?? 'investigating').trim(),
+      severity: (json['severity'] as String? ?? 'low').trim(),
+      summary: (json['summary'] as String? ?? '').trim(),
+      openedAt: DateTime.tryParse(json['openedAt'] as String? ?? '') ?? DateTime.now(),
+      nextUpdateAt: DateTime.tryParse(json['nextUpdateAt'] as String? ?? ''),
+      impactedSurfaces: (json['impactedSurfaces'] as List<dynamic>? ?? const [])
+          .whereType<String>()
+          .map((surface) => surface.trim())
+          .where((surface) => surface.isNotEmpty)
+          .toList(growable: false),
+    );
+  }
+}
+
 class SupportMessage {
   const SupportMessage({
     required this.id,
@@ -185,6 +237,7 @@ class SupportSnapshot {
     required this.articles,
     required this.firstResponseMinutes,
     required this.satisfactionScore,
+    this.incidents = const <SupportIncident>[],
   });
 
   final List<SupportTicket> openTickets;
@@ -192,6 +245,7 @@ class SupportSnapshot {
   final List<SupportArticle> articles;
   final int firstResponseMinutes;
   final double satisfactionScore;
+  final List<SupportIncident> incidents;
 
   SupportSnapshot copyWith({
     List<SupportTicket>? openTickets,
@@ -199,6 +253,7 @@ class SupportSnapshot {
     List<SupportArticle>? articles,
     int? firstResponseMinutes,
     double? satisfactionScore,
+    List<SupportIncident>? incidents,
   }) {
     return SupportSnapshot(
       openTickets: openTickets ?? this.openTickets,
@@ -206,6 +261,7 @@ class SupportSnapshot {
       articles: articles ?? this.articles,
       firstResponseMinutes: firstResponseMinutes ?? this.firstResponseMinutes,
       satisfactionScore: satisfactionScore ?? this.satisfactionScore,
+      incidents: incidents ?? this.incidents,
     );
   }
 }
