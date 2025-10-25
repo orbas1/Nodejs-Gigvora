@@ -1,14 +1,15 @@
 import { Op } from 'sequelize';
+
 import {
-  VolunteeringApplication,
-  VolunteeringResponse,
-  VolunteeringContract,
-  VolunteeringSpend,
+  FreelancerVolunteeringApplication as VolunteeringApplication,
+  FreelancerVolunteeringResponse as VolunteeringResponse,
+  FreelancerVolunteeringContract as VolunteeringContract,
+  FreelancerVolunteeringSpend as VolunteeringSpend,
   VOLUNTEERING_APPLICATION_STATUSES,
   VOLUNTEERING_RESPONSE_STATUSES,
   VOLUNTEERING_CONTRACT_STATUSES,
   VOLUNTEERING_SPEND_CATEGORIES,
-} from '../models/volunteeringModels.js';
+} from '../models/freelancerVolunteeringModels.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
 
 function parseDate(value) {
@@ -17,6 +18,11 @@ function parseDate(value) {
   }
   const date = value instanceof Date ? value : new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function toIso(value) {
+  const date = parseDate(value);
+  return date ? date.toISOString() : null;
 }
 
 function parseNumber(value) {
@@ -56,15 +62,37 @@ function toPlainApplication(instance) {
     return null;
   }
   const plain = instance.get({ plain: true });
-  plain.hoursPerWeek = parseNumber(plain.hoursPerWeek);
-  plain.skills = normaliseArray(Array.isArray(plain.skills) ? plain.skills : []);
-  if (plain.responses) {
-    plain.responses = plain.responses.map((response) => toPlainResponse(response));
-  }
-  if (plain.contracts) {
-    plain.contracts = plain.contracts.map((contract) => toPlainContract(contract));
-  }
-  return plain;
+  const responses = Array.isArray(plain.responses)
+    ? plain.responses.map((response) => toPlainResponse(response)).filter(Boolean)
+    : [];
+  const contracts = Array.isArray(plain.contracts)
+    ? plain.contracts.map((contract) => toPlainContract(contract)).filter(Boolean)
+    : [];
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    title: plain.title,
+    organizationName: plain.organizationName,
+    focusArea: plain.focusArea ?? null,
+    location: plain.location ?? null,
+    remoteFriendly: Boolean(plain.remoteFriendly),
+    skills: normaliseArray(Array.isArray(plain.skills) ? plain.skills : []),
+    status: plain.status,
+    appliedAt: toIso(plain.appliedAt),
+    targetStartDate: toIso(plain.targetStartDate),
+    hoursPerWeek: parseNumber(plain.hoursPerWeek),
+    impactSummary: plain.impactSummary ?? null,
+    notes: plain.notes ?? null,
+    coverImageUrl: plain.coverImageUrl ?? null,
+    metadata:
+      plain.metadata && typeof plain.metadata === 'object' && !Array.isArray(plain.metadata)
+        ? plain.metadata
+        : {},
+    createdAt: toIso(plain.createdAt),
+    updatedAt: toIso(plain.updatedAt),
+    responses,
+    contracts,
+  };
 }
 
 function toPlainResponse(instance) {
@@ -72,10 +100,24 @@ function toPlainResponse(instance) {
     return null;
   }
   const plain = instance.get({ plain: true });
-  if (plain.attachments && !Array.isArray(plain.attachments)) {
-    plain.attachments = [];
-  }
-  return plain;
+  return {
+    id: plain.id,
+    applicationId: plain.applicationId,
+    freelancerId: plain.freelancerId,
+    responderName: plain.responderName ?? null,
+    responderEmail: plain.responderEmail ?? null,
+    status: plain.status,
+    respondedAt: toIso(plain.respondedAt),
+    nextSteps: plain.nextSteps ?? null,
+    message: plain.message ?? null,
+    attachments: Array.isArray(plain.attachments) ? plain.attachments : [],
+    metadata:
+      plain.metadata && typeof plain.metadata === 'object' && !Array.isArray(plain.metadata)
+        ? plain.metadata
+        : {},
+    createdAt: toIso(plain.createdAt),
+    updatedAt: toIso(plain.updatedAt),
+  };
 }
 
 function toPlainSpend(instance) {
@@ -83,8 +125,23 @@ function toPlainSpend(instance) {
     return null;
   }
   const plain = instance.get({ plain: true });
-  plain.amount = parseNumber(plain.amount) ?? 0;
-  return plain;
+  return {
+    id: plain.id,
+    contractId: plain.contractId,
+    freelancerId: plain.freelancerId,
+    description: plain.description,
+    category: plain.category,
+    amount: parseNumber(plain.amount) ?? 0,
+    currencyCode: plain.currencyCode,
+    spentAt: toIso(plain.spentAt),
+    receiptUrl: plain.receiptUrl ?? null,
+    metadata:
+      plain.metadata && typeof plain.metadata === 'object' && !Array.isArray(plain.metadata)
+        ? plain.metadata
+        : {},
+    createdAt: toIso(plain.createdAt),
+    updatedAt: toIso(plain.updatedAt),
+  };
 }
 
 function toPlainContract(instance) {
@@ -92,13 +149,32 @@ function toPlainContract(instance) {
     return null;
   }
   const plain = instance.get({ plain: true });
-  plain.expectedHours = parseNumber(plain.expectedHours);
-  plain.hoursCommitted = parseNumber(plain.hoursCommitted);
-  plain.financialValue = parseNumber(plain.financialValue);
-  if (plain.spendEntries) {
-    plain.spendEntries = plain.spendEntries.map((entry) => toPlainSpend(entry));
-  }
-  return plain;
+  const spendEntries = Array.isArray(plain.spendEntries)
+    ? plain.spendEntries.map((entry) => toPlainSpend(entry)).filter(Boolean)
+    : [];
+  return {
+    id: plain.id,
+    freelancerId: plain.freelancerId,
+    applicationId: plain.applicationId ?? null,
+    title: plain.title,
+    organizationName: plain.organizationName,
+    status: plain.status,
+    startDate: toIso(plain.startDate),
+    endDate: toIso(plain.endDate),
+    expectedHours: parseNumber(plain.expectedHours),
+    hoursCommitted: parseNumber(plain.hoursCommitted),
+    financialValue: parseNumber(plain.financialValue),
+    currencyCode: plain.currencyCode,
+    impactNotes: plain.impactNotes ?? null,
+    agreementUrl: plain.agreementUrl ?? null,
+    metadata:
+      plain.metadata && typeof plain.metadata === 'object' && !Array.isArray(plain.metadata)
+        ? plain.metadata
+        : {},
+    createdAt: toIso(plain.createdAt),
+    updatedAt: toIso(plain.updatedAt),
+    spendEntries,
+  };
 }
 
 function computeMetrics({ applications = [], contracts = [], spendEntries = [] }) {
@@ -658,19 +734,3 @@ export async function summariseVolunteeringSpend(freelancerId, { since } = {}) {
   };
 }
 
-export default {
-  getVolunteeringWorkspace,
-  createApplication,
-  updateApplication,
-  deleteApplication,
-  createResponse,
-  updateResponse,
-  deleteResponse,
-  createContract,
-  updateContract,
-  deleteContract,
-  createSpend,
-  updateSpend,
-  deleteSpend,
-  summariseVolunteeringSpend,
-};
