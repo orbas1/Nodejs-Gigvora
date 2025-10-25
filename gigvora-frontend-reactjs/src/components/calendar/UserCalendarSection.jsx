@@ -27,6 +27,13 @@ import {
   updateCalendarSettings,
 } from '../../services/userCalendar.js';
 import { formatAbsolute, formatRelativeTime } from '../../utils/date.js';
+import {
+  buildCalendarExportBlob,
+  buildCalendarSummary,
+  detectBrowserTimezone,
+  downloadCalendarExport,
+  moveEventToDate,
+} from '../../utils/calendarDashboard.js';
 
 const TABS = [
   { key: 'dates', label: 'Dates', icon: CalendarDaysIcon },
@@ -163,6 +170,7 @@ export default function UserCalendarSection({ userId, insights, canManage = true
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const [exporting, setExporting] = useState(false);
 
   const reload = useCallback(
     async (toastMessage) => {
@@ -230,10 +238,11 @@ export default function UserCalendarSection({ userId, insights, canManage = true
 
   const summaryChips = useMemo(() => {
     const connectedIntegrations = integrations.filter((integration) => integration.status === 'connected');
+    const summary = buildCalendarSummary(events);
     return [
       {
         label: 'Next',
-        value: nextEvent?.startsAt ? formatRelativeTime(nextEvent.startsAt) : 'Open',
+        value: summary.nextEvent?.startsAt ? formatRelativeTime(summary.nextEvent.startsAt) : 'Open',
       },
       {
         label: 'Focus',
@@ -243,8 +252,12 @@ export default function UserCalendarSection({ userId, insights, canManage = true
         label: 'Sync',
         value: `${connectedIntegrations.length}/${integrations.length}`,
       },
+      {
+        label: 'Total',
+        value: summary.total,
+      },
     ];
-  }, [integrations, nextEvent?.startsAt, totalFocusMinutes]);
+  }, [events, integrations, totalFocusMinutes]);
 
   const focusSessionsSorted = useMemo(() => {
     return [...focusSessions].sort((a, b) => {
@@ -370,6 +383,69 @@ export default function UserCalendarSection({ userId, insights, canManage = true
     [userId],
   );
 
+  const timezone = useMemo(() => settings?.timezone ?? detectBrowserTimezone(), [settings?.timezone]);
+
+  const handleExportCalendar = useCallback(() => {
+    if (!events.length) {
+      setFeedback({ type: 'info', message: 'No events to export yet', timestamp: Date.now() });
+      return;
+    }
+
+    setExporting(true);
+    try {
+      const blob = buildCalendarExportBlob(events, {
+        calendarName: 'Gigvora personal schedule',
+        description: 'Calendar export from the Gigvora user dashboard',
+        timezone,
+        source: `user-${userId ?? 'anonymous'}`,
+      });
+      const filename = `gigvora-user-calendar-${new Date().toISOString().slice(0, 10)}.ics`;
+      downloadCalendarExport(blob, filename);
+      setFeedback({ type: 'success', message: 'Calendar export ready', timestamp: Date.now() });
+    } catch (exportError) {
+      console.error('Failed to export calendar', exportError);
+      setFeedback({ type: 'error', message: exportError?.message ?? 'Unable to export calendar', timestamp: Date.now() });
+    } finally {
+      setExporting(false);
+    }
+  }, [events, timezone, userId]);
+
+  const handleDropEvent = useCallback(
+    async ({ eventId, date }) => {
+      if (!userId || !eventId || !date) {
+        return;
+      }
+      const targetEvent = events.find((candidate) => String(candidate.id) === String(eventId));
+      if (!targetEvent) {
+        return;
+      }
+      setSaving(true);
+      try {
+        const { startsAt, endsAt } = moveEventToDate(targetEvent, date);
+        if (!startsAt) {
+          return;
+        }
+        await updateCalendarEvent(userId, targetEvent.id, {
+          startsAt,
+          ...(targetEvent.endsAt ? { endsAt } : {}),
+        });
+        setEvents((previous) =>
+          normalizeEvents(
+            previous.map((event) => (event.id === targetEvent.id ? { ...event, startsAt, endsAt } : event)),
+          ),
+        );
+        setFeedback({ type: 'success', message: 'Event rescheduled', timestamp: Date.now() });
+        await reload();
+      } catch (dropError) {
+        console.error('Failed to reschedule event', dropError);
+        setFeedback({ type: 'error', message: dropError?.message ?? 'Unable to reschedule', timestamp: Date.now() });
+      } finally {
+        setSaving(false);
+      }
+    },
+    [events, reload, userId],
+  );
+
   return (
     <section id="calendar-operations" className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -443,11 +519,30 @@ export default function UserCalendarSection({ userId, insights, canManage = true
             <ArrowTopRightOnSquareIcon className="h-5 w-5" />
             <span className="sr-only">Open full calendar page</span>
           </Link>
+          <button
+            type="button"
+            onClick={handleExportCalendar}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:border-accent hover:text-accent focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2"
+            title="Export calendar"
+            disabled={exporting}
+          >
+            <ArrowTopRightOnSquareIcon className={classNames('h-5 w-5', exporting ? 'animate-pulse' : '')} />
+            <span className="sr-only">Export calendar events</span>
+          </button>
         </div>
       </div>
 
       {feedback ? (
-        <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700">
+        <div
+          className={classNames(
+            'mt-4 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium',
+            feedback.type === 'error'
+              ? 'bg-rose-50 text-rose-700'
+              : feedback.type === 'info'
+              ? 'bg-blue-50 text-blue-600'
+              : 'bg-emerald-50 text-emerald-700',
+          )}
+        >
           {feedback.message}
         </div>
       ) : null}
@@ -480,7 +575,7 @@ export default function UserCalendarSection({ userId, insights, canManage = true
 
           <Tab.Panels className="flex-1">
             <Tab.Panel className="space-y-6">
-              <CalendarWeekStrip events={events} onSelect={setDetailEvent} />
+              <CalendarWeekStrip events={events} onSelect={setDetailEvent} enableDrop={canManage} onDropEvent={handleDropEvent} />
 
               <div className="rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-sm">
                 {typeSummary.length ? (
@@ -505,6 +600,9 @@ export default function UserCalendarSection({ userId, insights, canManage = true
                     } : undefined}
                     onDelete={canManage ? handleDeleteEvent : undefined}
                     onSelect={setDetailEvent}
+                    onEventDragStart={canManage ? () => setFeedback(null) : undefined}
+                    onEventDragEnd={canManage ? () => null : undefined}
+                    enableDrag={canManage}
                     emptyMessage={loading ? 'Loading events…' : 'No events yet. Add one to get started.'}
                   />
                 </div>

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { detectBrowserTimezone } from '../../utils/calendarDashboard.js';
 
 const TIMEZONE_OPTIONS = [
   'UTC',
@@ -36,8 +37,10 @@ function timeToMinutes(value) {
 }
 
 export default function CalendarSettingsForm({ initialSettings, onSubmit, onCancel, busy = false }) {
+  const fallbackTimezone = useMemo(() => detectBrowserTimezone(), []);
+
   const [formState, setFormState] = useState(() => ({
-    timezone: initialSettings?.timezone ?? 'UTC',
+    timezone: initialSettings?.timezone ?? fallbackTimezone ?? 'UTC',
     weekStart: Number.isFinite(initialSettings?.weekStart) ? initialSettings.weekStart : 1,
     workStart: minutesToTime(initialSettings?.workStartMinutes),
     workEnd: minutesToTime(initialSettings?.workEndMinutes ?? 1020),
@@ -52,6 +55,9 @@ export default function CalendarSettingsForm({ initialSettings, onSubmit, onCanc
 
   const timezoneOptions = useMemo(() => {
     const next = new Set(TIMEZONE_OPTIONS);
+    if (fallbackTimezone) {
+      next.add(fallbackTimezone);
+    }
     if (initialSettings?.timezone && !next.has(initialSettings.timezone)) {
       next.add(initialSettings.timezone);
     }

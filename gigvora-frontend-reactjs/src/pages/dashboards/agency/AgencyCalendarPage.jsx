@@ -15,6 +15,7 @@ import {
   updateAgencyCalendarEvent,
   deleteAgencyCalendarEvent,
 } from '../../../services/agency.js';
+import { buildCalendarExportBlob, detectBrowserTimezone, downloadCalendarExport } from '../../../utils/calendarDashboard.js';
 
 const EVENT_TYPE_ORDER = ['project', 'gig', 'interview', 'mentorship', 'volunteering'];
 
@@ -147,58 +148,6 @@ function buildEventsByDay(events = []) {
   return map;
 }
 
-function formatIcsTimestamp(value) {
-  if (!value) {
-    return null;
-  }
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-  return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
-}
-
-function escapeIcsText(text) {
-  if (!text) {
-    return '';
-  }
-  return String(text).replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
-}
-
-function buildIcsFeed(events = []) {
-  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Gigvora//Agency Calendar//EN'];
-  const dtStamp = formatIcsTimestamp(new Date());
-  events.forEach((event, index) => {
-    const dtStart = formatIcsTimestamp(event?.startsAt);
-    if (!dtStart) {
-      return;
-    }
-    const dtEnd = formatIcsTimestamp(event?.endsAt ?? event?.startsAt);
-    const uid = event?.id ? `gigvora-event-${event.id}` : `gigvora-event-${index}`;
-    lines.push('BEGIN:VEVENT');
-    lines.push(`UID:${uid}@gigvora.com`);
-    if (dtStamp) {
-      lines.push(`DTSTAMP:${dtStamp}`);
-    }
-    lines.push(`DTSTART:${dtStart}`);
-    if (dtEnd) {
-      lines.push(`DTEND:${dtEnd}`);
-    }
-    if (event?.title) {
-      lines.push(`SUMMARY:${escapeIcsText(event.title)}`);
-    }
-    if (event?.description) {
-      lines.push(`DESCRIPTION:${escapeIcsText(event.description)}`);
-    }
-    if (event?.location) {
-      lines.push(`LOCATION:${escapeIcsText(event.location)}`);
-    }
-    lines.push('END:VEVENT');
-  });
-  lines.push('END:VCALENDAR');
-  return `${lines.join('\r\n')}\r\n`;
-}
-
 export default function AgencyCalendarPage() {
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [workspace, setWorkspace] = useState(null);
@@ -269,24 +218,28 @@ export default function AgencyCalendarPage() {
       .slice(0, 3);
   }, [events]);
   const eventsByDay = useMemo(() => buildEventsByDay(events), [events]);
+  const calendarTimezone = useMemo(() => workspace?.timezone ?? detectBrowserTimezone(), [workspace?.timezone]);
 
   const handleExportCalendar = useCallback(() => {
     setExporting(true);
     try {
-      const feed = buildIcsFeed(events);
-      const blob = new Blob([feed], { type: 'text/calendar;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = `gigvora-agency-calendar-${Date.now()}.ics`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      document.body.removeChild(anchor);
-      URL.revokeObjectURL(url);
+      if (!events.length) {
+        return;
+      }
+      const blob = buildCalendarExportBlob(events, {
+        calendarName: `${workspace?.name ?? 'Agency'} schedule`,
+        description: 'Gigvora agency calendar export',
+        timezone: calendarTimezone,
+        source: `agency-${workspace?.id ?? 'workspace'}`,
+      });
+      const filename = `gigvora-agency-calendar-${new Date().toISOString().slice(0, 10)}.ics`;
+      downloadCalendarExport(blob, filename);
+    } catch (error) {
+      console.error('Unable to export calendar', error);
     } finally {
       setExporting(false);
     }
-  }, [events]);
+  }, [calendarTimezone, events, workspace?.id, workspace?.name]);
 
   const handleTypeToggle = (type) => {
     setFilters((prev) => {

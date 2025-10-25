@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import UserCalendarSection from '../UserCalendarSection.jsx';
 import { MemoryRouter } from 'react-router-dom';
@@ -19,6 +19,14 @@ vi.mock('../../../services/userCalendar.js', () => {
 });
 
 import * as calendarService from '../../../services/userCalendar.js';
+vi.mock('../../../utils/calendarDashboard.js', async () => {
+  const actual = await vi.importActual('../../../utils/calendarDashboard.js');
+  return {
+    ...actual,
+    downloadCalendarExport: vi.fn(),
+  };
+});
+import { downloadCalendarExport } from '../../../utils/calendarDashboard.js';
 
 const {
   fetchCalendarOverview,
@@ -135,6 +143,63 @@ describe('UserCalendarSection', () => {
       expect(confirmSpy).toHaveBeenCalled();
     } finally {
       consoleSpy.mockRestore();
+      confirmSpy.mockRestore();
+    }
+  });
+
+  it('supports drag-and-drop rescheduling and ICS export', async () => {
+    const user = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    try {
+      render(
+        <MemoryRouter>
+          <UserCalendarSection userId="user-123" insights={baseInsights} />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(fetchCalendarOverview).toHaveBeenCalled();
+      });
+
+      const eventCard = screen.getByRole('button', { name: /Interview with hiring manager/i });
+      const dropTarget = screen.getAllByText(/Free/i)[0].closest('div');
+      const dataTransfer = {
+        data: {},
+        setData(type, value) {
+          this.data[type] = value;
+        },
+        getData(type) {
+          return this.data[type];
+        },
+        effectAllowed: 'move',
+        dropEffect: 'move',
+      };
+
+      await act(async () => {
+        fireEvent.dragStart(eventCard, { dataTransfer });
+        fireEvent.dragOver(dropTarget, { dataTransfer });
+        fireEvent.drop(dropTarget, { dataTransfer });
+      });
+
+      await waitFor(() => {
+        expect(updateCalendarEvent).toHaveBeenCalledWith(
+          'user-123',
+          'evt-1',
+          expect.objectContaining({ startsAt: expect.any(String) }),
+        );
+      });
+
+      await waitFor(() => {
+        expect(fetchCalendarOverview).toHaveBeenCalledTimes(2);
+      });
+
+      await user.click(screen.getByTitle(/Export calendar/i));
+      expect(downloadCalendarExport).toHaveBeenCalledTimes(1);
+
+      // Clean up confirm usage triggered by delete handler in preceding test interactions.
+      expect(confirmSpy).not.toHaveBeenCalled();
+    } finally {
       confirmSpy.mockRestore();
     }
   });
