@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:gigvora_foundation/gigvora_foundation.dart';
 import 'package:gigvora_mobile/core/localization/gigvora_localizations.dart';
 import 'package:gigvora_mobile/core/localization/language_menu_button.dart';
+import 'package:share_plus/share_plus.dart';
 
+import '../../../core/providers.dart';
 import '../../auth/application/session_controller.dart';
 import '../../auth/domain/session.dart';
 import '../../ads/presentation/ad_coupon_strip.dart';
 import '../../finance/domain/finance_access_policy.dart';
 import '../../feed/application/feed_controller.dart';
 import '../../feed/data/models/feed_post.dart';
+import '../../feed/data/models/feed_comment.dart';
 import '../../connections/application/connections_controller.dart';
 import '../../connections/domain/connection_network.dart';
 import '../../../theme/widgets.dart';
@@ -189,6 +193,133 @@ class HomeScreen extends ConsumerWidget {
       }
     }
 
+    Uri buildShareUri(FeedPost post) {
+      final base = ref.watch(appConfigProvider).apiBaseUrl;
+      final segments = base.pathSegments
+          .where((segment) => segment.toLowerCase() != 'api' && segment.isNotEmpty)
+          .toList(growable: true)
+        ..addAll(['feed', post.id]);
+      return base.replace(pathSegments: segments);
+    }
+
+    Future<void> shareFeedPost(FeedPost post) async {
+      final uri = buildShareUri(post);
+      try {
+        await Share.shareUri(uri);
+        await feedController.recordShare(post, channel: 'system_share');
+      } catch (error) {
+        await Clipboard.setData(ClipboardData(text: uri.toString()));
+        await feedController.recordShare(post, channel: 'clipboard');
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Share unavailable. Link copied to clipboard. ($error)')),
+        );
+      }
+    }
+
+    Future<FeedComment?> commentOnFeedPost(FeedPost post) async {
+      final controller = TextEditingController();
+      final focusNode = FocusNode();
+      try {
+        final draft = await showModalBottomSheet<String>(
+          context: context,
+          isScrollControlled: true,
+          builder: (sheetContext) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 24,
+                bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 24,
+              ),
+              child: SafeArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Comment on ${post.author.name}\'s update',
+                      style: Theme.of(sheetContext).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      autofocus: true,
+                      minLines: 3,
+                      maxLines: 6,
+                      textInputAction: TextInputAction.newline,
+                      decoration: const InputDecoration(
+                        hintText: 'Share your insight or next step…',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.of(sheetContext).pop(),
+                          child: const Text('Cancel'),
+                        ),
+                        const SizedBox(width: 12),
+                        FilledButton(
+                          onPressed: () => Navigator.of(sheetContext).pop(controller.text.trim()),
+                          child: const Text('Post'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+
+        if (draft == null || draft.trim().isEmpty) {
+          return null;
+        }
+
+        final comment = await feedController.submitComment(post, draft);
+        if (!context.mounted) {
+          return comment;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Comment published to the timeline.')),
+        );
+        return comment;
+      } catch (error) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Unable to post comment. $error')),
+          );
+        }
+        return null;
+      } finally {
+        controller.dispose();
+        focusNode.dispose();
+      }
+    }
+
+    Future<void> reactToPost(FeedPost post, bool liked) {
+      return feedController.toggleReaction(post, active: liked).then((_) => null);
+    }
+
+    Future<void> requestIntroduction(ConnectionNode node) async {
+      try {
+        await connectionsController.requestIntroduction(node);
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Introduction request sent to ${node.name}.')),
+        );
+      } catch (error) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to request introduction. $error')),
+        );
+      }
+    }
+
     final activeRole = session.activeMembership;
     final activeDashboard = session.dashboardFor(activeRole) ??
         session.dashboardFor(session.memberships.first) ??
@@ -238,6 +369,9 @@ class HomeScreen extends ConsumerWidget {
               posts: feedPreview,
               onOpenTimeline: () => GoRouter.of(context).go('/feed'),
               onRefresh: () => feedController.refresh(),
+              onReact: reactToPost,
+              onComment: commentOnFeedPost,
+              onShare: shareFeedPost,
             ),
             const SizedBox(height: 24),
             const BlogSpotlightCard(),
@@ -273,6 +407,7 @@ class HomeScreen extends ConsumerWidget {
               state: connectionsState,
               onRefresh: () => connectionsController.refresh(),
               onOpenNetwork: () => GoRouter.of(context).go('/connections'),
+              onRequestIntroduction: requestIntroduction,
             ),
             const SizedBox(height: 16),
             const _SupportAndInfoCard(),
@@ -772,12 +907,18 @@ class _FeedPreviewCard extends StatelessWidget {
     required this.posts,
     required this.onOpenTimeline,
     required this.onRefresh,
+    required this.onReact,
+    required this.onComment,
+    required this.onShare,
   });
 
   final ResourceState<List<FeedPost>> state;
   final List<FeedPost> posts;
   final VoidCallback onOpenTimeline;
   final Future<void> Function() onRefresh;
+  final Future<void> Function(FeedPost post, bool liked) onReact;
+  final Future<FeedComment?> Function(FeedPost post) onComment;
+  final Future<void> Function(FeedPost post) onShare;
 
   @override
   Widget build(BuildContext context) {
@@ -862,7 +1003,12 @@ class _FeedPreviewCard extends StatelessWidget {
             ...posts.map(
               (post) => Padding(
                 padding: const EdgeInsets.only(bottom: 12),
-                child: _FeedPreviewTile(post: post),
+                child: _FeedPreviewTile(
+                  post: post,
+                  onReact: onReact,
+                  onComment: onComment,
+                  onShare: onShare,
+                ),
               ),
             ),
           ],
@@ -881,15 +1027,87 @@ class _FeedPreviewCard extends StatelessWidget {
   }
 }
 
-class _FeedPreviewTile extends StatelessWidget {
-  const _FeedPreviewTile({required this.post});
+class _FeedPreviewTile extends StatefulWidget {
+  const _FeedPreviewTile({
+    required this.post,
+    required this.onReact,
+    required this.onComment,
+    required this.onShare,
+  });
 
   final FeedPost post;
+  final Future<void> Function(FeedPost post, bool liked) onReact;
+  final Future<FeedComment?> Function(FeedPost post) onComment;
+  final Future<void> Function(FeedPost post) onShare;
+
+  @override
+  State<_FeedPreviewTile> createState() => _FeedPreviewTileState();
+}
+
+class _FeedPreviewTileState extends State<_FeedPreviewTile> {
+  late bool _liked;
+  late int _reactionCount;
+  late int _commentCount;
+  FeedComment? _latestComment;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncFromWidget(resetComment: true);
+  }
+
+  @override
+  void didUpdateWidget(covariant _FeedPreviewTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.post.id != widget.post.id) {
+      _syncFromWidget(resetComment: true);
+    } else if (oldWidget.post.reactionCount != widget.post.reactionCount ||
+        oldWidget.post.commentCount != widget.post.commentCount ||
+        oldWidget.post.viewerHasReacted != widget.post.viewerHasReacted) {
+      _syncFromWidget(resetComment: false);
+    }
+  }
+
+  void _syncFromWidget({required bool resetComment}) {
+    _liked = widget.post.viewerHasReacted;
+    _reactionCount = widget.post.reactionCount;
+    _commentCount = widget.post.commentCount;
+    if (resetComment) {
+      _latestComment = null;
+    }
+  }
+
+  void _toggleReaction() {
+    final nextLiked = !_liked;
+    setState(() {
+      _liked = nextLiked;
+      _reactionCount = (nextLiked ? _reactionCount + 1 : _reactionCount - 1).clamp(0, 1000000);
+    });
+    unawaited(widget.onReact(widget.post, nextLiked));
+  }
+
+  void _comment() {
+    unawaited(() async {
+      final comment = await widget.onComment(widget.post);
+      if (!mounted || comment == null) {
+        return;
+      }
+      setState(() {
+        _commentCount += 1;
+        _latestComment = comment;
+      });
+    }());
+  }
+
+  void _share() {
+    unawaited(widget.onShare(widget.post));
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final summaryText = widget.post.summary?.isNotEmpty == true ? widget.post.summary! : widget.post.content;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -906,7 +1124,9 @@ class _FeedPreviewTile extends StatelessWidget {
               CircleAvatar(
                 backgroundColor: colorScheme.primaryContainer,
                 child: Text(
-                  post.author.name.isNotEmpty ? post.author.name.characters.first.toUpperCase() : '?',
+                  widget.post.author.name.isNotEmpty
+                      ? widget.post.author.name.characters.first.toUpperCase()
+                      : '?',
                   style: theme.textTheme.titleMedium?.copyWith(color: colorScheme.onPrimaryContainer),
                 ),
               ),
@@ -916,17 +1136,17 @@ class _FeedPreviewTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      post.author.name,
+                      widget.post.author.name,
                       style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
                     ),
-                    if ((post.author.headline ?? '').isNotEmpty)
+                    if ((widget.post.author.headline ?? '').isNotEmpty)
                       Text(
-                        post.author.headline!,
+                        widget.post.author.headline!,
                         style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
                       ),
                     const SizedBox(height: 4),
                     Text(
-                      formatRelativeTime(post.publishedAt ?? post.createdAt),
+                      formatRelativeTime(widget.post.publishedAt ?? widget.post.createdAt),
                       style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
                     ),
                   ],
@@ -936,7 +1156,7 @@ class _FeedPreviewTile extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            post.summary?.isNotEmpty == true ? post.summary! : post.content,
+            summaryText,
             style: theme.textTheme.bodyMedium,
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
@@ -949,9 +1169,9 @@ class _FeedPreviewTile extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.favorite_border, size: 18),
+                  Icon(_liked ? Icons.favorite : Icons.favorite_border, size: 18),
                   const SizedBox(width: 4),
-                  Text('${post.reactionCount}'),
+                  Text('$_reactionCount'),
                 ],
               ),
               Row(
@@ -959,10 +1179,10 @@ class _FeedPreviewTile extends StatelessWidget {
                 children: [
                   const Icon(Icons.chat_bubble_outline, size: 18),
                   const SizedBox(width: 4),
-                  Text('${post.commentCount}'),
+                  Text('$_commentCount'),
                 ],
               ),
-              if (post.link != null)
+              if (widget.post.link != null)
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: const [
@@ -973,6 +1193,46 @@ class _FeedPreviewTile extends StatelessWidget {
                 ),
             ],
           ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _toggleReaction,
+                  icon: Icon(_liked ? Icons.favorite : Icons.favorite_border),
+                  label: Text(_reactionCount > 0 ? '$_reactionCount' : 'Appreciate'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _liked ? colorScheme.primary : colorScheme.onSurface,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _comment,
+                  icon: const Icon(Icons.mode_comment_outlined),
+                  label: Text(_commentCount > 0 ? '$_commentCount' : 'Comment'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _share,
+                  icon: const Icon(Icons.share_outlined),
+                  label: const Text('Share'),
+                ),
+              ),
+            ],
+          ),
+          if (_latestComment != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'You: ${_latestComment!.message}',
+              style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ],
       ),
     );
@@ -984,11 +1244,13 @@ class _NetworkHighlightsCard extends StatelessWidget {
     required this.state,
     required this.onRefresh,
     required this.onOpenNetwork,
+    required this.onRequestIntroduction,
   });
 
   final ResourceState<ConnectionNetwork> state;
   final Future<void> Function() onRefresh;
   final VoidCallback onOpenNetwork;
+  final Future<void> Function(ConnectionNode node) onRequestIntroduction;
 
   @override
   Widget build(BuildContext context) {
@@ -1116,7 +1378,10 @@ class _NetworkHighlightsCard extends StatelessWidget {
               ...suggestions.map(
                 (node) => Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: _NetworkSuggestionTile(node: node),
+                  child: _NetworkSuggestionTile(
+                    node: node,
+                    onRequestIntroduction: onRequestIntroduction,
+                  ),
                 ),
               ),
             ] else ...[
@@ -1183,16 +1448,41 @@ class _NetworkSummaryChip extends StatelessWidget {
   }
 }
 
-class _NetworkSuggestionTile extends StatelessWidget {
-  const _NetworkSuggestionTile({required this.node});
+class _NetworkSuggestionTile extends StatefulWidget {
+  const _NetworkSuggestionTile({
+    required this.node,
+    required this.onRequestIntroduction,
+  });
 
   final ConnectionNode node;
+  final Future<void> Function(ConnectionNode node) onRequestIntroduction;
+
+  @override
+  State<_NetworkSuggestionTile> createState() => _NetworkSuggestionTileState();
+}
+
+class _NetworkSuggestionTileState extends State<_NetworkSuggestionTile> {
+  bool _requesting = false;
+
+  Future<void> _handleRequest() async {
+    if (_requesting || !widget.node.actions.canRequestConnection) {
+      return;
+    }
+    setState(() => _requesting = true);
+    try {
+      await widget.onRequestIntroduction(widget.node);
+    } finally {
+      if (mounted) {
+        setState(() => _requesting = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final connectorNames = node.connectors.map((connector) => connector.name).take(3).join(', ');
+    final connectorNames = widget.node.connectors.map((connector) => connector.name).take(3).join(', ');
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1209,7 +1499,7 @@ class _NetworkSuggestionTile extends StatelessWidget {
               CircleAvatar(
                 backgroundColor: colorScheme.primaryContainer,
                 child: Text(
-                  node.name.isNotEmpty ? node.name.characters.first.toUpperCase() : '?',
+                  widget.node.name.isNotEmpty ? widget.node.name.characters.first.toUpperCase() : '?',
                   style: theme.textTheme.titleMedium?.copyWith(color: colorScheme.onPrimaryContainer),
                 ),
               ),
@@ -1218,10 +1508,10 @@ class _NetworkSuggestionTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(node.name, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-                    if ((node.headline ?? '').isNotEmpty)
+                    Text(widget.node.name, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                    if ((widget.node.headline ?? '').isNotEmpty)
                       Text(
-                        node.headline!,
+                        widget.node.headline!,
                         style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
                       ),
                     const SizedBox(height: 4),
@@ -1230,12 +1520,12 @@ class _NetworkSuggestionTile extends StatelessWidget {
                       runSpacing: 4,
                       children: [
                         Chip(
-                          label: Text('${node.mutualConnections} mutual'),
+                          label: Text('${widget.node.mutualConnections} mutual'),
                           avatar: const Icon(Icons.group_add, size: 18),
                           visualDensity: VisualDensity.compact,
                         ),
                         Chip(
-                          label: Text(node.degreeLabel),
+                          label: Text(widget.node.degreeLabel),
                           avatar: const Icon(Icons.timeline, size: 18),
                           visualDensity: VisualDensity.compact,
                         ),
@@ -1253,13 +1543,41 @@ class _NetworkSuggestionTile extends StatelessWidget {
               style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
             ),
           ],
-          if (node.actions.reason != null) ...[
+          if (widget.node.actions.reason != null) ...[
             const SizedBox(height: 8),
             Text(
-              node.actions.reason!,
+              widget.node.actions.reason!,
               style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
             ),
           ],
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (widget.node.actions.canRequestConnection)
+                FilledButton.tonalIcon(
+                  onPressed: _requesting ? null : _handleRequest,
+                  icon: _requesting
+                      ? SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(colorScheme.onPrimaryContainer),
+                          ),
+                        )
+                      : const Icon(Icons.handshake_outlined),
+                  label: Text(widget.node.actions.requiresIntroduction ? 'Request intro' : 'Connect'),
+                ),
+              if (widget.node.actions.canMessage)
+                OutlinedButton.icon(
+                  onPressed: () => GoRouter.of(context).go('/inbox'),
+                  icon: const Icon(Icons.chat_outlined),
+                  label: const Text('Message'),
+                ),
+            ],
+          ),
         ],
       ),
     );

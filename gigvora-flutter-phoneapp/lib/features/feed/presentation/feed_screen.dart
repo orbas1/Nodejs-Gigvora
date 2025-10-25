@@ -5,9 +5,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
+import 'package:share_plus/share_plus.dart';
+
+import '../../../core/providers.dart';
 import '../../../theme/widgets.dart';
 import '../../auth/application/session_controller.dart';
+import '../../notifications/application/push_notification_controller.dart';
 import '../application/feed_controller.dart';
+import '../data/models/feed_comment.dart';
 import '../data/models/feed_post.dart';
 import '../domain/feed_content_moderation.dart';
 
@@ -34,6 +39,9 @@ class FeedScreen extends ConsumerWidget {
 
     final state = ref.watch(feedControllerProvider);
     final controller = ref.read(feedControllerProvider.notifier);
+    final pushState = ref.watch(pushNotificationControllerProvider);
+    final pushController = ref.read(pushNotificationControllerProvider.notifier);
+    final appConfig = ref.watch(appConfigProvider);
     final posts = state.data ?? const <FeedPost>[];
     final realtimeEnabled = state.metadata['realtimeEnabled'] == true;
     final realtimeConnected = state.metadata['realtimeConnected'] == true;
@@ -136,6 +144,118 @@ class FeedScreen extends ConsumerWidget {
       }
     }
 
+    Uri buildShareUri(FeedPost post) {
+      final base = appConfig.apiBaseUrl;
+      final filteredSegments = base.pathSegments
+          .where((segment) => segment.toLowerCase() != 'api')
+          .toList(growable: true);
+      filteredSegments..removeWhere((segment) => segment.isEmpty)..addAll(['feed', post.id]);
+      return base.replace(pathSegments: filteredSegments);
+    }
+
+    Future<void> sharePost(FeedPost post) async {
+      final uri = buildShareUri(post);
+      try {
+        await Share.shareUri(uri);
+        await controller.recordShare(post, channel: 'system_share');
+      } catch (error) {
+        await Clipboard.setData(ClipboardData(text: uri.toString()));
+        await controller.recordShare(post, channel: 'clipboard');
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Share sheet unavailable. Link copied to clipboard. ($error)'),
+          ),
+        );
+      }
+    }
+
+    Future<FeedComment?> commentOnPost(FeedPost post) async {
+      final textController = TextEditingController();
+      final focusNode = FocusNode();
+      try {
+        final draft = await showModalBottomSheet<String>(
+          context: context,
+          isScrollControlled: true,
+          builder: (sheetContext) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 24,
+                bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 24,
+              ),
+              child: SafeArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Replying to ${post.author.name}',
+                      style: Theme.of(sheetContext).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: textController,
+                      focusNode: focusNode,
+                      autofocus: true,
+                      minLines: 3,
+                      maxLines: 6,
+                      textInputAction: TextInputAction.newline,
+                      decoration: const InputDecoration(
+                        hintText: 'Share feedback, context, or next steps for the community…',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.of(sheetContext).pop(),
+                          child: const Text('Cancel'),
+                        ),
+                        const SizedBox(width: 12),
+                        FilledButton(
+                          onPressed: () {
+                            Navigator.of(sheetContext).pop(textController.text.trim());
+                          },
+                          child: const Text('Post comment'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+
+        if (draft == null || draft.trim().isEmpty) {
+          return null;
+        }
+
+        final comment = await controller.submitComment(post, draft);
+        if (!context.mounted) {
+          return comment;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Comment published to the timeline.')),
+        );
+        return comment;
+      } catch (error) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Unable to publish comment. $error')),
+          );
+        }
+        return null;
+      } finally {
+        textController.dispose();
+        focusNode.dispose();
+      }
+    }
+
     final columnChildren = <Widget>[
       Wrap(
         spacing: 12,
@@ -208,6 +328,31 @@ class FeedScreen extends ConsumerWidget {
       columnChildren.add(const SizedBox(height: 12));
     }
 
+    final shouldPromptForPush = pushState.isSupported &&
+        pushState.status != PushPermissionStatus.granted &&
+        pushState.status != PushPermissionStatus.provisional;
+    if (shouldPromptForPush) {
+      columnChildren.add(
+        _PushEnableBanner(
+          status: pushState.status,
+          isLoading: pushState.isRequesting,
+          onEnable: () => pushController.requestPermission(),
+          error: pushState.error,
+        ),
+      );
+      columnChildren.add(const SizedBox(height: 12));
+    } else if (pushState.hasError) {
+      columnChildren.add(
+        _StatusBanner(
+          icon: Icons.notifications_off_outlined,
+          background: const Color(0xFFFFEDD5),
+          foreground: const Color(0xFF9A3412),
+          message: 'Push alerts are temporarily unavailable. Retry from settings shortly.',
+        ),
+      );
+      columnChildren.add(const SizedBox(height: 12));
+    }
+
     if (state.lastUpdated != null) {
       columnChildren.add(
         Padding(
@@ -254,28 +399,11 @@ class FeedScreen extends ConsumerWidget {
         listChildren.add(
           _FeedPostCard(
             post: post,
-            onReact: (target, liked) => controller.recordReaction(
-              target,
-              liked ? 'like' : 'unlike',
-            ),
-            onComment: (target) {
-              unawaited(controller.recordCommentIntent(target));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Commenting from mobile is coming soon.'),
-                  duration: Duration(seconds: 3),
-                ),
-              );
+            onReact: (target, liked) async {
+              await controller.toggleReaction(target, active: liked);
             },
-            onShare: (target) {
-              unawaited(controller.recordShareIntent(target));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Share integrations are coming soon.'),
-                  duration: Duration(seconds: 3),
-                ),
-              );
-            },
+            onComment: commentOnPost,
+            onShare: sharePost,
             onEdit: canManage ? (target) => openEditor(target) : null,
             onDelete: canManage ? (target) => removePost(target) : null,
           ),
@@ -882,7 +1010,7 @@ class _FeedPostCard extends StatefulWidget {
 
   final FeedPost post;
   final Future<void> Function(FeedPost post, bool liked) onReact;
-  final Future<void> Function(FeedPost post) onComment;
+  final Future<FeedComment?> Function(FeedPost post) onComment;
   final Future<void> Function(FeedPost post) onShare;
   final Future<void> Function(FeedPost post)? onEdit;
   final Future<void> Function(FeedPost post)? onDelete;
@@ -894,26 +1022,31 @@ class _FeedPostCard extends StatefulWidget {
 class _FeedPostCardState extends State<_FeedPostCard> {
   late bool _liked;
   late int _reactionCount;
+  List<FeedComment> _recentComments = <FeedComment>[];
 
   @override
   void initState() {
     super.initState();
-    _syncFromWidget();
+    _syncFromWidget(resetComments: true);
   }
 
   @override
   void didUpdateWidget(covariant _FeedPostCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.post.id != widget.post.id ||
-        oldWidget.post.reactionCount != widget.post.reactionCount ||
+    if (oldWidget.post.id != widget.post.id) {
+      _syncFromWidget(resetComments: true);
+    } else if (oldWidget.post.reactionCount != widget.post.reactionCount ||
         oldWidget.post.viewerHasReacted != widget.post.viewerHasReacted) {
-      _syncFromWidget();
+      _syncFromWidget(resetComments: false);
     }
   }
 
-  void _syncFromWidget() {
+  void _syncFromWidget({required bool resetComments}) {
     _liked = widget.post.viewerHasReacted;
     _reactionCount = widget.post.reactionCount;
+    if (resetComments) {
+      _recentComments = <FeedComment>[];
+    }
   }
 
   void _handleReact() {
@@ -927,7 +1060,15 @@ class _FeedPostCardState extends State<_FeedPostCard> {
   }
 
   void _handleComment() {
-    unawaited(widget.onComment(widget.post));
+    unawaited(() async {
+      final comment = await widget.onComment(widget.post);
+      if (!mounted || comment == null) {
+        return;
+      }
+      setState(() {
+        _recentComments = <FeedComment>[comment, ..._recentComments].take(3).toList();
+      });
+    }());
   }
 
   void _handleShare() {
@@ -1168,16 +1309,21 @@ class _FeedPostCardState extends State<_FeedPostCard> {
                 label: commentCount > 0 ? '$commentCount' : 'Comment',
                 onPressed: _handleComment,
               ),
-              _FeedActionButton(
-                icon: Icons.share_outlined,
-                label: 'Share',
-                onPressed: _handleShare,
-              ),
-            ],
+          _FeedActionButton(
+            icon: Icons.share_outlined,
+            label: 'Share',
+            onPressed: _handleShare,
           ),
         ],
       ),
-    );
+      if (_recentComments.isNotEmpty) ...[
+        const SizedBox(height: 12),
+        for (final comment in _recentComments)
+          _InlineCommentPreview(comment: comment),
+      ],
+    ],
+  ),
+);
   }
 }
 
@@ -1206,6 +1352,53 @@ class _FeedActionButton extends StatelessWidget {
         backgroundColor: active ? colorScheme.primary.withOpacity(0.08) : Colors.transparent,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+    );
+  }
+}
+
+class _InlineCommentPreview extends StatelessWidget {
+  const _InlineCommentPreview({required this.comment});
+
+  final FeedComment comment;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceVariant,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  comment.author.name,
+                  style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                formatRelativeTime(comment.createdAt),
+                style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            comment.message,
+            style: theme.textTheme.bodyMedium,
+          ),
+        ],
       ),
     );
   }
@@ -1566,6 +1759,90 @@ class _StatusBanner extends StatelessWidget {
                   ?.copyWith(color: foreground),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PushEnableBanner extends StatelessWidget {
+  const _PushEnableBanner({
+    required this.status,
+    required this.isLoading,
+    required this.onEnable,
+    this.error,
+  });
+
+  final PushPermissionStatus status;
+  final bool isLoading;
+  final VoidCallback onEnable;
+  final Object? error;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final denied = status == PushPermissionStatus.denied;
+    final message = denied
+        ? 'Push alerts were previously disabled. Re-enable them to receive reactions and comments instantly.'
+        : 'Stay in the loop when your posts spark activity. Enable push alerts for real-time nudges.';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.notifications_active_outlined, color: colorScheme.onSecondaryContainer),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Enable push alerts',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: colorScheme.onSecondaryContainer,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  message,
+                  style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSecondaryContainer),
+                ),
+                if (error != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Last attempt: $error',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSecondaryContainer.withOpacity(0.8),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          isLoading
+              ? SizedBox(
+                  height: 28,
+                  width: 28,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(colorScheme.onSecondaryContainer),
+                  ),
+                )
+              : FilledButton.tonal(
+                  onPressed: onEnable,
+                  style: FilledButton.styleFrom(
+                    foregroundColor: colorScheme.onSecondaryContainer,
+                  ),
+                  child: const Text('Enable'),
+                ),
         ],
       ),
     );

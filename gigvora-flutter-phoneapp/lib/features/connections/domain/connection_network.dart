@@ -280,3 +280,24 @@ class ConnectionNetwork {
     };
   }
 }
+
+class ConnectionRequestResult {
+  const ConnectionRequestResult({
+    required this.id,
+    required this.status,
+    required this.createdAt,
+  });
+
+  final int id;
+  final String status;
+  final DateTime createdAt;
+
+  factory ConnectionRequestResult.fromJson(Map<String, dynamic> json) {
+    return ConnectionRequestResult(
+      id: json['id'] is int ? json['id'] as int : int.tryParse('${json['id']}') ?? 0,
+      status: (json['status'] as String? ?? 'pending').toLowerCase(),
+      createdAt:
+          DateTime.tryParse(json['createdAt'] as String? ?? json['created_at'] as String? ?? '') ?? DateTime.now(),
+    );
+  }
+}
