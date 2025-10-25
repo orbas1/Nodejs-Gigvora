@@ -1,6 +1,11 @@
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { URL } from 'node:url';
+import fs from 'node:fs';
+import path from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
+
+import { createDefaultEvents, normaliseEventFixtures, DEFAULT_WORKSPACES } from './fixtures.mjs';
 
 const DEFAULT_HOST = process.env.CALENDAR_STUB_HOST || '0.0.0.0';
 const DEFAULT_PORT = Number.parseInt(process.env.CALENDAR_STUB_PORT || '4010', 10);
@@ -12,15 +17,37 @@ const DEFAULT_ALLOWED_HEADERS = [
   'x-roles',
   'x-api-key',
   'x-request-id',
+  'x-calendar-scenario',
+  'x-calendar-latency-ms',
 ];
 const SUPPORTED_EVENT_TYPES = ['project', 'interview', 'gig', 'mentorship', 'volunteering'];
 const DEFAULT_VIEW_ROLES = ['calendar:view', 'calendar:manage', 'platform:admin'];
 const DEFAULT_MANAGE_ROLES = ['calendar:manage', 'platform:admin'];
 
-const workspaces = [
-  { id: 101, name: 'Acme Talent Hub', timezone: 'UTC' },
-  { id: 202, name: 'Global Mentorship Guild', timezone: 'America/New_York' },
-];
+const DEFAULT_SCENARIO_HANDLERS = new Map([
+  [
+    'forbidden',
+    ({ request, response, origin }) =>
+      sendJson(response, request, origin, 403, {
+        message: 'Scenario forced forbidden response',
+      }),
+  ],
+  [
+    'rate-limit',
+    ({ request, response, origin }) =>
+      sendJson(response, request, origin, 429, {
+        message: 'Scenario forced rate limit response',
+        retryAfterSeconds: 30,
+      }),
+  ],
+  [
+    'server-error',
+    ({ request, response, origin }) =>
+      sendJson(response, request, origin, 500, {
+        message: 'Scenario forced server error',
+      }),
+  ],
+]);
 
 function parseList(value, { toLowerCase = false } = {}) {
   if (!value) {
@@ -31,6 +58,43 @@ function parseList(value, { toLowerCase = false } = {}) {
     .map((entry) => `${entry}`.trim())
     .filter(Boolean)
     .map((entry) => (toLowerCase ? entry.toLowerCase() : entry));
+}
+
+function parseInteger(value, fallback = null) {
+  if (value === undefined || value === null || value === '') {
+    return fallback;
+  }
+  const parsed = Number.parseInt(`${value}`, 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function loadJsonFile(filePath) {
+  if (!filePath) {
+    return null;
+  }
+  const trimmed = `${filePath}`.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const resolved = path.isAbsolute(trimmed) ? trimmed : path.resolve(process.cwd(), trimmed);
+  const raw = fs.readFileSync(resolved, 'utf8');
+  return JSON.parse(raw);
+}
+
+function normaliseWorkspaces(source) {
+  const catalogSource = Array.isArray(source) ? source : loadJsonFile(source);
+  const list = Array.isArray(catalogSource) && catalogSource.length ? catalogSource : DEFAULT_WORKSPACES;
+  return list
+    .map((workspace) => ({
+      id: Number.parseInt(`${workspace.id}`, 10),
+      name: `${workspace.name}`.trim(),
+      timezone: workspace.timezone ? `${workspace.timezone}` : 'UTC',
+    }))
+    .filter((workspace) => Number.isFinite(workspace.id) && workspace.name);
+}
+
+function findWorkspace(workspaceCatalog, workspaceId) {
+  return workspaceCatalog.find((workspace) => workspace.id === workspaceId) || null;
 }
 
 function resolveAllowedOrigins(option) {
@@ -72,6 +136,98 @@ function evaluateOrigin(request, allowedOrigins, fallbackOrigin) {
     origin: fallbackOrigin,
     message: 'Origin not allowed',
   };
+}
+
+function buildScenarioMap(overrides) {
+  const scenarios = new Map(DEFAULT_SCENARIO_HANDLERS);
+  if (!overrides) {
+    return scenarios;
+  }
+
+  const entries =
+    overrides instanceof Map
+      ? overrides.entries()
+      : typeof overrides === 'object'
+        ? Object.entries(overrides)
+        : [];
+
+  for (const [key, handler] of entries) {
+    const name = `${key}`.trim().toLowerCase();
+    if (!name) {
+      continue;
+    }
+    if (typeof handler === 'function') {
+      scenarios.set(name, handler);
+      continue;
+    }
+    if (handler && typeof handler === 'object') {
+      const statusCode = parseInteger(handler.statusCode ?? handler.status, 500) ?? 500;
+      const body = handler.body ?? { message: handler.message || 'Scenario response' };
+      scenarios.set(name, ({ request, response, origin }) => {
+        sendJson(response, request, origin, statusCode, body);
+      });
+    }
+  }
+
+  return scenarios;
+}
+
+function resolveScenario(request, url, scenarioMap) {
+  const headerScenario = request.headers['x-calendar-scenario'] ?? request.headers['x-scenario'];
+  const queryScenario = url.searchParams.get('scenario');
+  const raw = headerScenario ?? queryScenario;
+  if (!raw) {
+    return null;
+  }
+  const scenario = `${raw}`.trim().toLowerCase();
+  if (!scenario || scenario === 'none') {
+    return null;
+  }
+  return scenarioMap.has(scenario) ? scenario : null;
+}
+
+function createDefaultLatencyProvider({ minLatencyMs = 0, maxLatencyMs = 0 } = {}) {
+  const min = Math.max(0, parseInteger(minLatencyMs, 0) ?? 0);
+  const maxCandidate = parseInteger(maxLatencyMs, min);
+  const max = Math.max(min, maxCandidate ?? min);
+
+  return ({ request, url }) => {
+    const headerOverride = parseInteger(
+      request.headers['x-calendar-latency-ms'] ?? request.headers['x-latency-ms'],
+      null,
+    );
+    const queryOverride = parseInteger(url.searchParams.get('latencyMs'), null);
+    const override = headerOverride ?? queryOverride;
+    if (override && override > 0) {
+      return override;
+    }
+    if (max <= 0) {
+      return 0;
+    }
+    if (max === min) {
+      return max;
+    }
+    const delta = max - min;
+    return Math.floor(Math.random() * (delta + 1)) + min;
+  };
+}
+
+async function applyLatency(latencyProvider, context) {
+  if (!latencyProvider) {
+    return;
+  }
+  const result = await latencyProvider(context);
+  let delayMs = 0;
+
+  if (typeof result === 'number') {
+    delayMs = result;
+  } else if (result && typeof result === 'object') {
+    delayMs = parseInteger(result.delayMs ?? result.latencyMs, 0) ?? 0;
+  }
+
+  if (delayMs > 0) {
+    await delay(delayMs);
+  }
 }
 
 function applyCors(response, request, origin) {
@@ -128,10 +284,6 @@ function parseRequestBody(request) {
       })
       .on('error', reject);
   });
-}
-
-function getWorkspace(workspaceId) {
-  return workspaces.find((workspace) => workspace.id === workspaceId) || null;
 }
 
 function normaliseTypes(value) {
@@ -238,117 +390,27 @@ function sanitizeMetadata(value) {
   return structuredClone(value);
 }
 
+function resolveSeedEvents({ seedEvents, eventsFile, now }) {
+  if (Array.isArray(seedEvents)) {
+    return seedEvents.map(ensureEventShape);
+  }
+
+  if (eventsFile) {
+    const parsed = loadJsonFile(eventsFile);
+    if (!Array.isArray(parsed)) {
+      throw new Error('Calendar stub events file must export an array');
+    }
+    return normaliseEventFixtures(parsed, { now, allowEmpty: true }).map(ensureEventShape);
+  }
+
+  return createDefaultEvents(now).map(ensureEventShape);
+}
+
 function serializeEvent(event) {
   return {
     ...event,
     metadata: sanitizeMetadata(event.metadata),
   };
-}
-
-function buildDefaultEvents(now = Date.now()) {
-  const makeDate = (offsetHours) => new Date(now + offsetHours * 60 * 60 * 1000).toISOString();
-  const timestamp = new Date(now).toISOString();
-  return [
-    {
-      id: randomUUID(),
-      workspaceId: 101,
-      title: 'Revenue ops project kickoff',
-      eventType: 'project',
-      status: 'scheduled',
-      startsAt: makeDate(1),
-      endsAt: makeDate(2),
-      location: 'Hybrid · HQ Level 4',
-      metadata: {
-        relatedEntityName: 'Revenue intelligence rollout',
-        relatedEntityType: 'project',
-        ownerName: 'Alex Morgan',
-        ownerEmail: 'alex.morgan@example.com',
-        participants: [
-          { name: 'Alex Morgan', email: 'alex.morgan@example.com', role: 'project lead' },
-          { name: 'Jordan Li', email: 'jordan.li@example.com', role: 'operations' },
-        ],
-        notes: 'Share pre-read before the working session.',
-      },
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    },
-    {
-      id: randomUUID(),
-      workspaceId: 101,
-      title: 'Staff engineer panel interview',
-      eventType: 'interview',
-      status: 'scheduled',
-      startsAt: makeDate(4),
-      endsAt: makeDate(5),
-      location: 'Zoom',
-      metadata: {
-        relatedEntityName: 'Staff Engineer - Platform',
-        relatedEntityType: 'job',
-        ownerName: 'Recruiting squad',
-        participants: [
-          { name: 'Priya Patel', email: 'priya.patel@example.com', role: 'interviewer' },
-          { name: 'Jamie Lee', email: 'jamie.lee@example.com', role: 'interviewer' },
-        ],
-        notes: 'Panel: systems design, leadership, architecture deep dive.',
-      },
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    },
-    {
-      id: randomUUID(),
-      workspaceId: 101,
-      title: 'Growth marketing gig onboarding',
-      eventType: 'gig',
-      status: 'scheduled',
-      startsAt: makeDate(24),
-      endsAt: makeDate(25),
-      location: 'Async briefing',
-      metadata: {
-        relatedEntityName: 'Creator partnership sprint',
-        relatedEntityType: 'gig',
-        ownerName: 'Gig programs',
-        notes: 'Share campaign brief and analytics dashboard logins.',
-      },
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    },
-    {
-      id: randomUUID(),
-      workspaceId: 101,
-      title: 'Mentorship intro: product leadership',
-      eventType: 'mentorship',
-      status: 'scheduled',
-      startsAt: makeDate(48),
-      endsAt: makeDate(49),
-      location: 'Google Meet',
-      metadata: {
-        relatedEntityName: 'Growth mentorship',
-        relatedEntityType: 'program',
-        ownerName: 'Mentor success',
-        notes: 'Share growth plan template.',
-      },
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    },
-    {
-      id: randomUUID(),
-      workspaceId: 101,
-      title: 'Volunteer community briefing',
-      eventType: 'volunteering',
-      status: 'scheduled',
-      startsAt: makeDate(72),
-      endsAt: makeDate(72.5),
-      location: 'Community center',
-      metadata: {
-        relatedEntityName: 'STEM Futures',
-        relatedEntityType: 'volunteering',
-        ownerName: 'Community success',
-        notes: 'Confirm background checks and travel logistics.',
-      },
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    },
-  ];
 }
 
 function ensureEventShape(event) {
@@ -404,18 +466,37 @@ function authorizeRequest(request, response, origin, { permission, viewRoles, ma
   };
 }
 
-export function createCalendarServer({
-  seedEvents,
-  allowedOrigins = process.env.CALENDAR_STUB_ALLOWED_ORIGINS,
-  fallbackOrigin = process.env.CALENDAR_STUB_FALLBACK_ORIGIN || 'http://localhost:4173',
-  viewRoles = process.env.CALENDAR_STUB_VIEW_ROLES,
-  manageRoles = process.env.CALENDAR_STUB_MANAGE_ROLES,
-  logger = console,
-} = {}) {
+export function createCalendarServer(options = {}) {
+  const env = process.env;
+  const {
+    seedEvents,
+    eventsFile = env.CALENDAR_STUB_EVENTS_FILE,
+    workspaces: workspaceSource = env.CALENDAR_STUB_WORKSPACES_FILE,
+    allowedOrigins = env.CALENDAR_STUB_ALLOWED_ORIGINS,
+    fallbackOrigin = env.CALENDAR_STUB_FALLBACK_ORIGIN || 'http://localhost:4173',
+    viewRoles = env.CALENDAR_STUB_VIEW_ROLES,
+    manageRoles = env.CALENDAR_STUB_MANAGE_ROLES,
+    logger = console,
+    latencyProvider,
+    minLatencyMs = env.CALENDAR_STUB_MIN_LATENCY_MS,
+    maxLatencyMs = env.CALENDAR_STUB_MAX_LATENCY_MS,
+    scenarioHandlers,
+  } = options;
+
+  const baseSeed = { seedEvents, eventsFile };
   const allowedOriginList = resolveAllowedOrigins(allowedOrigins);
   const viewRoleSet = buildRoleSet(viewRoles, DEFAULT_VIEW_ROLES);
   const manageRoleSet = buildRoleSet(manageRoles, DEFAULT_MANAGE_ROLES);
-  let events = (seedEvents || buildDefaultEvents()).map(ensureEventShape);
+  const scenarioMap = buildScenarioMap(scenarioHandlers);
+  const minLatencyValue = Math.max(0, parseInteger(minLatencyMs, 0) ?? 0);
+  const maxLatencyValue = Math.max(
+    minLatencyValue,
+    parseInteger(maxLatencyMs, minLatencyValue) ?? minLatencyValue,
+  );
+  const latencyFn =
+    latencyProvider ?? createDefaultLatencyProvider({ minLatencyMs: minLatencyValue, maxLatencyMs: maxLatencyValue });
+  let workspaceCatalog = normaliseWorkspaces(workspaceSource);
+  let events = resolveSeedEvents({ ...baseSeed, now: Date.now() });
 
   const server = http.createServer(async (request, response) => {
     const requestId = randomUUID();
@@ -437,19 +518,35 @@ export function createCalendarServer({
 
     const url = new URL(request.url, `http://${request.headers.host}`);
     const pathname = url.pathname;
+    const isEventPath = pathname.startsWith('/api/company/calendar/events');
 
     response.on('finish', () => {
       if (typeof logger?.info === 'function') {
-        logger.info({ requestId, method: request.method, path: pathname, statusCode: response.statusCode }, 'calendar stub request');
+        logger.info(
+          { requestId, method: request.method, path: pathname, statusCode: response.statusCode },
+          'calendar stub request',
+        );
       }
     });
+
+    if (isEventPath) {
+      const scenarioName = resolveScenario(request, url, scenarioMap);
+      await applyLatency(latencyFn, { request, response, url, scenario: scenarioName });
+      if (scenarioName) {
+        const handler = scenarioMap.get(scenarioName);
+        if (handler) {
+          handler({ request, response, origin, url });
+          return;
+        }
+      }
+    }
 
     if (request.method === 'GET' && pathname === '/health') {
       sendJson(response, request, origin, 200, { status: 'ok', timestamp: new Date().toISOString() });
       return;
     }
 
-    if (!pathname.startsWith('/api/company/calendar/events')) {
+    if (!isEventPath) {
       sendJson(response, request, origin, 404, { message: 'Not found' });
       return;
     }
@@ -470,7 +567,7 @@ export function createCalendarServer({
         return;
       }
       const workspaceId = Number.parseInt(`${workspaceIdParam}`, 10);
-      const workspace = getWorkspace(workspaceId);
+      const workspace = findWorkspace(workspaceCatalog, workspaceId);
       if (!workspace) {
         sendJson(response, request, origin, 404, { message: 'Workspace not found' });
         return;
@@ -507,13 +604,18 @@ export function createCalendarServer({
         eventsByType: grouped,
         summary,
         meta: {
-          availableWorkspaces: workspaces.map((item) => ({
+          availableWorkspaces: workspaceCatalog.map((item) => ({
             id: item.id,
             name: item.name,
             timezone: item.timezone,
             permissions: ['manage_calendar', 'view_calendar'],
           })),
           supportedEventTypes: SUPPORTED_EVENT_TYPES,
+          scenarios: Array.from(scenarioMap.keys()),
+          latency: {
+            minMs: minLatencyValue,
+            maxMs: maxLatencyValue,
+          },
         },
       });
       return;
@@ -537,7 +639,7 @@ export function createCalendarServer({
         sendJson(response, request, origin, 404, { message: 'Event not found' });
         return;
       }
-      const workspace = getWorkspace(event.workspaceId);
+      const workspace = findWorkspace(workspaceCatalog, event.workspaceId);
       sendJson(response, request, origin, 200, {
         event: serializeEvent(event),
         workspace: workspace
@@ -573,7 +675,7 @@ export function createCalendarServer({
         }
 
         const workspaceId = Number.parseInt(`${payload.workspaceId}`, 10);
-        const workspace = getWorkspace(workspaceId);
+        const workspace = findWorkspace(workspaceCatalog, workspaceId);
         if (!workspace) {
           sendJson(response, request, origin, 404, { message: 'Workspace not found' });
           return;
@@ -717,10 +819,23 @@ export function createCalendarServer({
       return server.close(callback);
     },
     resetEvents(nextEvents = []) {
+      if (nextEvents === null) {
+        events = resolveSeedEvents({ ...baseSeed, now: Date.now() });
+        return;
+      }
+      if (!Array.isArray(nextEvents)) {
+        throw new TypeError('resetEvents expects an array of events or null');
+      }
       events = nextEvents.map(ensureEventShape);
     },
     getEvents() {
       return events.map(serializeEvent);
+    },
+    resetWorkspaces(nextWorkspaces = workspaceSource) {
+      workspaceCatalog = normaliseWorkspaces(nextWorkspaces);
+    },
+    getWorkspaces() {
+      return workspaceCatalog.map((workspace) => ({ ...workspace }));
     },
   };
 }

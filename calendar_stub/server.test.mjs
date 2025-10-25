@@ -122,3 +122,85 @@ test('rejects requests from disallowed origins', async () => {
   });
   assert.strictEqual(response.status, 403);
 });
+
+test('allows scenario toggles to force rate limits', async () => {
+  const response = await fetch(
+    `${baseUrl}/api/company/calendar/events?workspaceId=101&scenario=rate-limit`,
+    {
+      headers: buildHeaders({ 'x-roles': 'calendar:view', 'x-user-id': undefined }),
+    },
+  );
+  assert.strictEqual(response.status, 429);
+  const payload = await response.json();
+  assert.strictEqual(payload.retryAfterSeconds, 30);
+});
+
+test('invokes a custom latency provider for event requests', async () => {
+  let invoked = false;
+  const latencyApp = createCalendarServer({
+    logger: { info: () => {} },
+    latencyProvider: async () => {
+      invoked = true;
+      return 0;
+    },
+  });
+
+  await new Promise((resolve) => latencyApp.listen(0, '127.0.0.1', resolve));
+  const latencyAddress = latencyApp.server.address();
+
+  try {
+    const response = await fetch(
+      `http://127.0.0.1:${latencyAddress.port}/api/company/calendar/events?workspaceId=101`,
+      {
+        headers: buildHeaders({ 'x-roles': 'calendar:view', 'x-user-id': undefined }),
+      },
+    );
+    assert.strictEqual(response.status, 200);
+    assert.ok(invoked, 'expected latency provider to be invoked');
+  } finally {
+    await new Promise((resolve, reject) => {
+      latencyApp.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+});
+
+test('supports dynamic workspace fixtures', async () => {
+  const customWorkspaces = [{ id: 777, name: 'QA Workspace', timezone: 'Europe/London' }];
+  const customEvents = [
+    {
+      workspaceId: 777,
+      title: 'QA sync-up',
+      eventType: 'project',
+      startsAt: new Date(Date.now() + 3_600_000).toISOString(),
+    },
+  ];
+
+  const customApp = createCalendarServer({
+    logger: { info: () => {} },
+    workspaces: customWorkspaces,
+    seedEvents: customEvents,
+  });
+
+  await new Promise((resolve) => customApp.listen(0, '127.0.0.1', resolve));
+  const customAddress = customApp.server.address();
+
+  try {
+    const response = await fetch(
+      `http://127.0.0.1:${customAddress.port}/api/company/calendar/events?workspaceId=777`,
+      {
+        headers: buildHeaders({ 'x-roles': 'calendar:view', 'x-user-id': undefined }),
+      },
+    );
+    assert.strictEqual(response.status, 200);
+    const payload = await response.json();
+    assert.strictEqual(payload.workspace.name, 'QA Workspace');
+    assert.ok(
+      Array.isArray(payload.eventsByType.project) &&
+        payload.eventsByType.project.some((event) => event.title === 'QA sync-up'),
+    );
+  } finally {
+    await new Promise((resolve, reject) => {
+      customApp.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+});
