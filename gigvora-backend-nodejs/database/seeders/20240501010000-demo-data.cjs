@@ -22,6 +22,15 @@ const baseUsers = [
     userType: 'freelancer',
   },
   {
+    firstName: 'Jules',
+    lastName: 'Strategist',
+    email: 'jules@gigvora.com',
+    password: '$2b$10$n6MPrXwN6kPymBi/GsMBCecal.lOEWTWmr25RR80Gn3mtiq3IztUG',
+    address: '512 Collaboration Court, Remote City',
+    age: 31,
+    userType: 'freelancer',
+  },
+  {
     firstName: 'Mia',
     lastName: 'Operations',
     email: 'mia@gigvora.com',
@@ -69,6 +78,14 @@ const profileSeeds = [
     education: 'BSc Computer Science, Remote Tech University',
   },
   {
+    email: 'jules@gigvora.com',
+    headline: 'Fractional Product Strategist',
+    bio: 'Guides product-market fit experiments and operationalises feedback loops for remote delivery pods.',
+    skills: 'Product Strategy, Experiment Design, Facilitation, SQL, Mixpanel',
+    experience: '6 years leading discovery sprints and experimentation programs for B2B SaaS.',
+    education: 'MSc Human Computer Interaction, Remote Design Institute',
+  },
+  {
     email: 'mia@gigvora.com',
     headline: 'Director of Operations',
     bio: 'Transforms customer feedback into product roadmaps and ensures compliance guardrails across client workspaces.',
@@ -102,6 +119,12 @@ const freelancerProfileSeeds = [
     title: 'Fractional Staff Engineer',
     hourlyRate: 145.5,
     availability: '20 hrs/week · Remote within UTC±3',
+  },
+  {
+    email: 'jules@gigvora.com',
+    title: 'Product Experimentation Lead',
+    hourlyRate: 135.0,
+    availability: '15 hrs/week · Remote within UTC±1',
   },
 ];
 
@@ -217,6 +240,20 @@ const connectionSeeds = [
     status: 'accepted',
   },
 ];
+
+const autoAssignSettingsSeed = {
+  limit: 6,
+  expiresInMinutes: 240,
+  fairness: { ensureNewcomer: true, maxAssignments: 3 },
+  weights: {
+    recency: 0.24,
+    rating: 0.18,
+    completionRecency: 0.16,
+    completionQuality: 0.2,
+    earningsBalance: 0.12,
+    inclusion: 0.1,
+  },
+};
 
 async function ensureUsers(queryInterface, transaction) {
   const now = new Date();
@@ -526,6 +563,527 @@ module.exports = {
           { transaction },
         );
       }
+
+      const leoId = userIds.get('leo@gigvora.com');
+      const julesId = userIds.get('jules@gigvora.com');
+      const operationsActorId = userIds.get('mia@gigvora.com') ?? null;
+      const projectTitle = projectSeeds[0]?.title;
+
+      if (projectTitle && leoId) {
+        const [projectRow] = await queryInterface.sequelize.query(
+          'SELECT id FROM projects WHERE title = :title LIMIT 1',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { title: projectTitle },
+          },
+        );
+
+        if (projectRow?.id) {
+          const projectId = projectRow.id;
+          const queueGeneratedAt = new Date(now.getTime() - 45 * 60 * 1000);
+          const nextExpiryAt = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+          const acceptedCreatedAt = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          const acceptedNotifiedAt = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
+          const acceptedResolvedAt = new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000);
+          const acceptedRespondedAt = new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000);
+          const acceptedExpiresAt = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+          const projectValueSeed = 7200;
+
+          const queueEntrySeeds = [
+            {
+              key: 'leo-live',
+              record: {
+                targetType: 'project',
+                targetId: projectId,
+                freelancerId: leoId,
+                score: 0.9125,
+                priorityBucket: 1,
+                status: 'notified',
+                expiresAt: nextExpiryAt,
+                notifiedAt: new Date(now.getTime() - 15 * 60 * 1000),
+                resolvedAt: null,
+                projectValue: projectValueSeed,
+                metadata: {
+                  breakdown: {
+                    lastAssignmentDays: 0.5,
+                    recencyScore: 0.96,
+                    rating: 4.86,
+                    ratingScore: 0.972,
+                    lastCompletedDays: 9,
+                    completionRecencyScore: 0.91,
+                    completionRate: 0.92,
+                    earningsBalanceScore: 0.82,
+                    totalAssigned: 12,
+                    totalCompleted: 10,
+                    newFreelancerScore: 0.42,
+                  },
+                  projectName: projectTitle,
+                  generatedAt: queueGeneratedAt.toISOString(),
+                  generatedBy: operationsActorId,
+                  version: '2024.08.autoassign',
+                  weights: autoAssignSettingsSeed.weights,
+                  fairness: {
+                    ensuredNewcomer: false,
+                    newcomerFreelancerId: null,
+                    maxAssignmentsForPriority: autoAssignSettingsSeed.fairness.maxAssignments,
+                  },
+                },
+                responseMetadata: null,
+                createdAt: queueGeneratedAt,
+                updatedAt: now,
+              },
+            },
+            julesId
+              ? {
+                  key: 'jules-pending',
+                  record: {
+                    targetType: 'project',
+                    targetId: projectId,
+                    freelancerId: julesId,
+                    score: 0.8754,
+                    priorityBucket: 1,
+                    status: 'pending',
+                    expiresAt: nextExpiryAt,
+                    notifiedAt: null,
+                    resolvedAt: null,
+                    projectValue: projectValueSeed,
+                    metadata: {
+                      breakdown: {
+                        lastAssignmentDays: 3.2,
+                        recencyScore: 0.79,
+                        rating: 4.62,
+                        ratingScore: 0.924,
+                        lastCompletedDays: 18,
+                        completionRecencyScore: 0.8,
+                        completionRate: 0.88,
+                        earningsBalanceScore: 0.77,
+                        totalAssigned: 2,
+                        totalCompleted: 2,
+                        newFreelancerScore: 0.86,
+                      },
+                      projectName: projectTitle,
+                      generatedAt: queueGeneratedAt.toISOString(),
+                      generatedBy: operationsActorId,
+                      version: '2024.08.autoassign',
+                      weights: autoAssignSettingsSeed.weights,
+                      fairness: {
+                        ensuredNewcomer: true,
+                        newcomerFreelancerId: julesId,
+                        maxAssignmentsForPriority: autoAssignSettingsSeed.fairness.maxAssignments,
+                      },
+                    },
+                    responseMetadata: null,
+                    createdAt: queueGeneratedAt,
+                    updatedAt: now,
+                  },
+                }
+              : null,
+            {
+              key: 'leo-accepted',
+              record: {
+                targetType: 'project',
+                targetId: projectId,
+                freelancerId: leoId,
+                score: 0.8841,
+                priorityBucket: 2,
+                status: 'accepted',
+                expiresAt: acceptedExpiresAt,
+                notifiedAt: acceptedNotifiedAt,
+                resolvedAt: acceptedResolvedAt,
+                projectValue: 6400,
+                metadata: {
+                  breakdown: {
+                    lastAssignmentDays: 12.5,
+                    recencyScore: 0.58,
+                    rating: 4.78,
+                    ratingScore: 0.956,
+                    lastCompletedDays: 32,
+                    completionRecencyScore: 0.64,
+                    completionRate: 0.91,
+                    earningsBalanceScore: 0.74,
+                    totalAssigned: 9,
+                    totalCompleted: 8,
+                    newFreelancerScore: 0.48,
+                  },
+                  projectName: projectTitle,
+                  generatedAt: new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+                  generatedBy: operationsActorId,
+                  version: '2024.06.autoassign',
+                  weights: autoAssignSettingsSeed.weights,
+                  fairness: {
+                    ensuredNewcomer: false,
+                    newcomerFreelancerId: null,
+                    maxAssignmentsForPriority: autoAssignSettingsSeed.fairness.maxAssignments,
+                  },
+                },
+                responseMetadata: {
+                  responseTimeSeconds: 4200,
+                  rating: 4.9,
+                  completionValue: 6200,
+                  reasonCode: 'capacity_confirmed',
+                },
+                createdAt: acceptedCreatedAt,
+                updatedAt: acceptedResolvedAt,
+              },
+              response: {
+                status: 'accepted',
+                respondedBy: leoId,
+                respondedAt: acceptedRespondedAt,
+                reasonCode: 'capacity_confirmed',
+                reasonLabel: 'Capacity confirmed',
+                responseNotes: 'Able to start immediately with analytics pod.',
+                metadata: {
+                  responseTimeSeconds: 4200,
+                  rating: 4.9,
+                  completionValue: 6200,
+                },
+              },
+            },
+          ].filter(Boolean);
+
+          const activeEntryCount = queueEntrySeeds.filter((seed) =>
+            ['pending', 'notified'].includes(seed.record.status),
+          ).length;
+
+          await queryInterface.bulkUpdate(
+            'projects',
+            {
+              budgetAmount: 24000,
+              budgetCurrency: 'USD',
+              autoAssignEnabled: true,
+              autoAssignStatus: activeEntryCount ? 'queue_active' : 'awaiting_candidates',
+              autoAssignSettings: autoAssignSettingsSeed,
+              autoAssignLastRunAt: queueGeneratedAt,
+              autoAssignLastQueueSize: activeEntryCount,
+              updatedAt: now,
+            },
+            { id: projectId },
+            { transaction },
+          );
+
+          const assignmentMetricSeeds = [
+            {
+              freelancerId: leoId,
+              rating: 4.86,
+              completionRate: 0.92,
+              avgAssignedValue: 6150,
+              lifetimeAssignedValue: 49200,
+              lifetimeCompletedValue: 43800,
+              lastAssignedAt: queueGeneratedAt,
+              lastCompletedAt: new Date(now.getTime() - 9 * 24 * 60 * 60 * 1000),
+              totalAssigned: 12,
+              totalCompleted: 10,
+            },
+            julesId
+              ? {
+                  freelancerId: julesId,
+                  rating: 4.62,
+                  completionRate: 0.88,
+                  avgAssignedValue: 5400,
+                  lifetimeAssignedValue: 16200,
+                  lifetimeCompletedValue: 14200,
+                  lastAssignedAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000),
+                  lastCompletedAt: new Date(now.getTime() - 18 * 24 * 60 * 60 * 1000),
+                  totalAssigned: 2,
+                  totalCompleted: 2,
+                }
+              : null,
+          ].filter(Boolean);
+
+          for (const metric of assignmentMetricSeeds) {
+            const [existingMetric] = await queryInterface.sequelize.query(
+              'SELECT id FROM freelancer_assignment_metrics WHERE freelancerId = :freelancerId LIMIT 1',
+              {
+                type: QueryTypes.SELECT,
+                transaction,
+                replacements: { freelancerId: metric.freelancerId },
+              },
+            );
+
+            if (existingMetric?.id) {
+              await queryInterface.bulkUpdate(
+                'freelancer_assignment_metrics',
+                {
+                  rating: metric.rating,
+                  completionRate: metric.completionRate,
+                  avgAssignedValue: metric.avgAssignedValue,
+                  lifetimeAssignedValue: metric.lifetimeAssignedValue,
+                  lifetimeCompletedValue: metric.lifetimeCompletedValue,
+                  lastAssignedAt: metric.lastAssignedAt,
+                  lastCompletedAt: metric.lastCompletedAt,
+                  totalAssigned: metric.totalAssigned,
+                  totalCompleted: metric.totalCompleted,
+                  updatedAt: now,
+                },
+                { freelancerId: metric.freelancerId },
+                { transaction },
+              );
+            } else {
+              await queryInterface.bulkInsert(
+                'freelancer_assignment_metrics',
+                [
+                  {
+                    freelancerId: metric.freelancerId,
+                    rating: metric.rating,
+                    completionRate: metric.completionRate,
+                    avgAssignedValue: metric.avgAssignedValue,
+                    lifetimeAssignedValue: metric.lifetimeAssignedValue,
+                    lifetimeCompletedValue: metric.lifetimeCompletedValue,
+                    lastAssignedAt: metric.lastAssignedAt,
+                    lastCompletedAt: metric.lastCompletedAt,
+                    totalAssigned: metric.totalAssigned,
+                    totalCompleted: metric.totalCompleted,
+                    createdAt: now,
+                    updatedAt: now,
+                  },
+                ],
+                { transaction },
+              );
+            }
+          }
+
+          const preferenceSeeds = [
+            {
+              freelancerId: leoId,
+              availabilityStatus: 'available',
+              availabilityMode: 'always_on',
+              timezone: 'America/New_York',
+              dailyMatchLimit: 4,
+              autoAcceptThreshold: 82,
+              quietHoursStart: '22:00',
+              quietHoursEnd: '06:00',
+              snoozedUntil: null,
+              receiveEmailNotifications: true,
+              receiveInAppNotifications: true,
+              escalationContact: 'ops@gigvora.com',
+              notes: 'Prefers analytics pods and asynchronous updates.',
+              metadata: { channels: ['email', 'slack'], cadence: 'weekly' },
+            },
+            julesId
+              ? {
+                  freelancerId: julesId,
+                  availabilityStatus: 'snoozed',
+                  availabilityMode: 'manual',
+                  timezone: 'Europe/Lisbon',
+                  dailyMatchLimit: 2,
+                  autoAcceptThreshold: 75,
+                  quietHoursStart: '18:00',
+                  quietHoursEnd: '08:00',
+                  snoozedUntil: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000),
+                  receiveEmailNotifications: true,
+                  receiveInAppNotifications: false,
+                  escalationContact: 'ops@gigvora.com',
+                  notes: 'Snoozed while wrapping a product audit.',
+                  metadata: { coverage: ['email'], reminder: 'Notify when queue regenerates' },
+                }
+              : null,
+          ].filter(Boolean);
+
+          for (const preference of preferenceSeeds) {
+            const [existingPreference] = await queryInterface.sequelize.query(
+              'SELECT id FROM freelancer_auto_match_preferences WHERE freelancerId = :freelancerId LIMIT 1',
+              {
+                type: QueryTypes.SELECT,
+                transaction,
+                replacements: { freelancerId: preference.freelancerId },
+              },
+            );
+
+            const preferencePayload = {
+              availabilityStatus: preference.availabilityStatus,
+              availabilityMode: preference.availabilityMode,
+              timezone: preference.timezone,
+              dailyMatchLimit: preference.dailyMatchLimit,
+              autoAcceptThreshold: preference.autoAcceptThreshold,
+              quietHoursStart: preference.quietHoursStart,
+              quietHoursEnd: preference.quietHoursEnd,
+              snoozedUntil: preference.snoozedUntil,
+              receiveEmailNotifications: preference.receiveEmailNotifications,
+              receiveInAppNotifications: preference.receiveInAppNotifications,
+              escalationContact: preference.escalationContact,
+              notes: preference.notes,
+              metadata: preference.metadata,
+              updatedAt: now,
+            };
+
+            if (existingPreference?.id) {
+              await queryInterface.bulkUpdate(
+                'freelancer_auto_match_preferences',
+                preferencePayload,
+                { freelancerId: preference.freelancerId },
+                { transaction },
+              );
+            } else {
+              await queryInterface.bulkInsert(
+                'freelancer_auto_match_preferences',
+                [
+                  {
+                    freelancerId: preference.freelancerId,
+                    ...preferencePayload,
+                    createdAt: now,
+                  },
+                ],
+                { transaction },
+              );
+            }
+          }
+
+          for (const seed of queueEntrySeeds) {
+            const { record, response } = seed;
+            const [existingQueueEntry] = await queryInterface.sequelize.query(
+              `SELECT id FROM auto_assign_queue_entries
+               WHERE targetType = :targetType AND targetId = :targetId AND freelancerId = :freelancerId AND status = :status
+               LIMIT 1`,
+              {
+                type: QueryTypes.SELECT,
+                transaction,
+                replacements: {
+                  targetType: record.targetType,
+                  targetId: record.targetId,
+                  freelancerId: record.freelancerId,
+                  status: record.status,
+                },
+              },
+            );
+
+            let queueEntryId = existingQueueEntry?.id;
+
+            if (queueEntryId) {
+              await queryInterface.bulkUpdate(
+                'auto_assign_queue_entries',
+                {
+                  score: record.score,
+                  priorityBucket: record.priorityBucket,
+                  status: record.status,
+                  expiresAt: record.expiresAt,
+                  notifiedAt: record.notifiedAt,
+                  resolvedAt: record.resolvedAt,
+                  projectValue: record.projectValue,
+                  metadata: record.metadata,
+                  responseMetadata: record.responseMetadata,
+                  updatedAt: record.updatedAt ?? now,
+                },
+                { id: queueEntryId },
+                { transaction },
+              );
+            } else {
+              await queryInterface.bulkInsert(
+                'auto_assign_queue_entries',
+                [
+                  {
+                    ...record,
+                    createdAt: record.createdAt ?? now,
+                    updatedAt: record.updatedAt ?? now,
+                  },
+                ],
+                { transaction },
+              );
+              const [insertedQueueEntry] = await queryInterface.sequelize.query(
+                `SELECT id FROM auto_assign_queue_entries
+                 WHERE targetType = :targetType AND targetId = :targetId AND freelancerId = :freelancerId AND status = :status
+                 ORDER BY id DESC
+                 LIMIT 1`,
+                {
+                  type: QueryTypes.SELECT,
+                  transaction,
+                  replacements: {
+                    targetType: record.targetType,
+                    targetId: record.targetId,
+                    freelancerId: record.freelancerId,
+                    status: record.status,
+                  },
+                },
+              );
+              queueEntryId = insertedQueueEntry?.id;
+            }
+
+            if (queueEntryId && response) {
+              const [existingResponse] = await queryInterface.sequelize.query(
+                'SELECT id FROM auto_assign_responses WHERE queueEntryId = :queueEntryId LIMIT 1',
+                {
+                  type: QueryTypes.SELECT,
+                  transaction,
+                  replacements: { queueEntryId },
+                },
+              );
+
+              const responsePayload = {
+                queueEntryId,
+                freelancerId: record.freelancerId,
+                status: response.status,
+                respondedBy: response.respondedBy ?? null,
+                respondedAt: response.respondedAt,
+                reasonCode: response.reasonCode ?? null,
+                reasonLabel: response.reasonLabel ?? null,
+                responseNotes: response.responseNotes ?? null,
+                metadata: response.metadata ?? null,
+                updatedAt: response.respondedAt,
+              };
+
+              if (existingResponse?.id) {
+                await queryInterface.bulkUpdate(
+                  'auto_assign_responses',
+                  responsePayload,
+                  { id: existingResponse.id },
+                  { transaction },
+                );
+              } else {
+                await queryInterface.bulkInsert(
+                  'auto_assign_responses',
+                  [
+                    {
+                      ...responsePayload,
+                      createdAt: response.respondedAt,
+                    },
+                  ],
+                  { transaction },
+                );
+              }
+            }
+          }
+
+          const [existingEvent] = await queryInterface.sequelize.query(
+            'SELECT id FROM project_assignment_events WHERE projectId = :projectId AND eventType = :eventType LIMIT 1',
+            {
+              type: QueryTypes.SELECT,
+              transaction,
+              replacements: { projectId, eventType: 'auto_assign_queue_generated' },
+            },
+          );
+
+          const eventPayload = {
+            settings: autoAssignSettingsSeed,
+            activeQueueSize: activeEntryCount,
+            ensuredNewcomerId: julesId ?? null,
+            generatedAt: queueGeneratedAt.toISOString(),
+          };
+
+          if (existingEvent?.id) {
+            await queryInterface.bulkUpdate(
+              'project_assignment_events',
+              { payload: eventPayload, actorId: operationsActorId, updatedAt: queueGeneratedAt },
+              { id: existingEvent.id },
+              { transaction },
+            );
+          } else {
+            await queryInterface.bulkInsert(
+              'project_assignment_events',
+              [
+                {
+                  projectId,
+                  actorId: operationsActorId,
+                  eventType: 'auto_assign_queue_generated',
+                  payload: eventPayload,
+                  createdAt: queueGeneratedAt,
+                  updatedAt: queueGeneratedAt,
+                },
+              ],
+              { transaction },
+            );
+          }
+        }
+      }
     });
   },
 
@@ -556,10 +1114,69 @@ module.exports = {
           { userId: { [Op.in]: userIds } },
           { transaction },
         );
+        await queryInterface.bulkDelete(
+          'freelancer_auto_match_preferences',
+          { freelancerId: { [Op.in]: userIds } },
+          { transaction },
+        );
+        await queryInterface.bulkDelete(
+          'freelancer_assignment_metrics',
+          { freelancerId: { [Op.in]: userIds } },
+          { transaction },
+        );
+        await queryInterface.bulkDelete(
+          'auto_assign_responses',
+          { freelancerId: { [Op.in]: userIds } },
+          { transaction },
+        );
+        await queryInterface.bulkDelete(
+          'auto_assign_queue_entries',
+          { freelancerId: { [Op.in]: userIds } },
+          { transaction },
+        );
         await queryInterface.bulkDelete('freelancer_profiles', { userId: { [Op.in]: userIds } }, { transaction });
         await queryInterface.bulkDelete('agency_profiles', { userId: { [Op.in]: userIds } }, { transaction });
         await queryInterface.bulkDelete('company_profiles', { userId: { [Op.in]: userIds } }, { transaction });
         await queryInterface.bulkDelete('profiles', { userId: { [Op.in]: userIds } }, { transaction });
+      }
+
+      const projects = await queryInterface.sequelize.query(
+        'SELECT id FROM projects WHERE title IN (:titles)',
+        {
+          type: QueryTypes.SELECT,
+          transaction,
+          replacements: { titles: projectSeeds.map((project) => project.title) },
+        },
+      );
+      const projectIds = projects.map((project) => project.id);
+
+      if (projectIds.length) {
+        const queueEntries = await queryInterface.sequelize.query(
+          'SELECT id FROM auto_assign_queue_entries WHERE targetType = :targetType AND targetId IN (:projectIds)',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { targetType: 'project', projectIds },
+          },
+        );
+        const queueEntryIds = queueEntries.map((entry) => entry.id);
+        if (queueEntryIds.length) {
+          await queryInterface.bulkDelete(
+            'auto_assign_responses',
+            { queueEntryId: { [Op.in]: queueEntryIds } },
+            { transaction },
+          );
+        }
+        await queryInterface.bulkDelete(
+          'auto_assign_queue_entries',
+          { targetType: 'project', targetId: { [Op.in]: projectIds } },
+          { transaction },
+        );
+        await queryInterface.bulkDelete(
+          'project_assignment_events',
+          { projectId: { [Op.in]: projectIds }, eventType: 'auto_assign_queue_generated' },
+          { transaction },
+        );
       }
 
       await queryInterface.bulkDelete(

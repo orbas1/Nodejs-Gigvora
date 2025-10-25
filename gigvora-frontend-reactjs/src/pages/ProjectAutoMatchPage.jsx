@@ -29,27 +29,49 @@ const STATUS_PRESETS = {
   notified: {
     label: 'Live invitation',
     badge: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    tooltip: 'Freelancer has been notified and can respond in real time.',
   },
   pending: {
-    label: 'Pending rotation',
+    label: 'Queued rotation',
     badge: 'border-slate-200 bg-slate-100 text-slate-700',
+    tooltip: 'Queued to be notified once higher priority slots resolve.',
   },
-  completed: {
-    label: 'Completed rotation',
-    badge: 'border-blue-200 bg-blue-50 text-blue-700',
+  accepted: {
+    label: 'Accepted',
+    badge: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    tooltip: 'Freelancer accepted and is preparing for kickoff.',
+  },
+  declined: {
+    label: 'Declined',
+    badge: 'border-rose-200 bg-rose-50 text-rose-700',
+    tooltip: 'Freelancer declined this rotation invitation.',
   },
   expired: {
     label: 'Invitation expired',
     badge: 'border-amber-200 bg-amber-50 text-amber-700',
+    tooltip: 'Response window elapsed without a decision.',
   },
-  dropped: {
-    label: 'Manually removed',
-    badge: 'border-rose-200 bg-rose-50 text-rose-700',
+  reassigned: {
+    label: 'Reassigned',
+    badge: 'border-sky-200 bg-sky-50 text-sky-700',
+    tooltip: 'Rotation shifted to another freelancer for coverage.',
+  },
+  completed: {
+    label: 'Completed rotation',
+    badge: 'border-blue-200 bg-blue-50 text-blue-700',
+    tooltip: 'Engagement completed and logged in history.',
   },
   default: {
     label: 'Queued',
     badge: 'border-slate-200 bg-slate-100 text-slate-700',
+    tooltip: 'Queued for future notification.',
   },
+};
+
+const RESPONSE_LABELS = {
+  accepted: 'Accepted invitation',
+  declined: 'Declined invitation',
+  reassigned: 'Reassigned after triage',
 };
 
 function ensureObject(value) {
@@ -91,6 +113,7 @@ export default function ProjectAutoMatchPage() {
     ensureNewcomer: true,
   });
   const [weights, setWeights] = useState(WEIGHT_PRESET);
+  const [hasLocalOverrides, setHasLocalOverrides] = useState(false);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState(null);
 
@@ -200,13 +223,48 @@ export default function ProjectAutoMatchPage() {
     };
   }, [canView, queueStatus, refreshProject, refreshQueue, refreshTelemetry]);
 
+  useEffect(() => {
+    if (!canView || !project || hasLocalOverrides) {
+      return;
+    }
+    const settings = ensureObject(project.autoAssignSettings);
+    const fairnessSettings = ensureObject(settings.fairness);
+    const limitValue = Number(settings.limit);
+    const expiresValue = Number(settings.expiresInMinutes);
+    const budgetValue = Number(project?.budgetAmount);
+    const fairnessCapValue = Number(fairnessSettings.maxAssignments);
+
+    setFormState((prev) => ({
+      ...prev,
+      limit: Number.isFinite(limitValue) && limitValue > 0 ? limitValue : prev.limit,
+      expiresInMinutes:
+        Number.isFinite(expiresValue) && expiresValue > 0 ? expiresValue : prev.expiresInMinutes,
+      projectValue:
+        Number.isFinite(budgetValue) && budgetValue > 0 ? budgetValue : prev.projectValue,
+      fairnessMaxAssignments:
+        Number.isFinite(fairnessCapValue) && fairnessCapValue >= 0
+          ? fairnessCapValue
+          : prev.fairnessMaxAssignments,
+      ensureNewcomer:
+        fairnessSettings.ensureNewcomer == null
+          ? prev.ensureNewcomer
+          : Boolean(fairnessSettings.ensureNewcomer),
+    }));
+
+    if (settings.weights && Object.keys(settings.weights).length) {
+      setWeights((prev) => ({ ...prev, ...settings.weights }));
+    }
+  }, [canView, project, hasLocalOverrides]);
+
   const handleWeightChange = (key) => (event) => {
     const value = Number(event.target.value);
+    setHasLocalOverrides(true);
     setWeights((prev) => ({ ...prev, [key]: Number.isFinite(value) ? value : prev[key] }));
   };
 
   const handleFieldChange = (key) => (event) => {
     const value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
+    setHasLocalOverrides(true);
     setFormState((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -237,7 +295,9 @@ export default function ProjectAutoMatchPage() {
           { source: 'web_app' },
         );
         await refreshQueue({ force: true });
+        await refreshTelemetry({ force: true });
         await refreshProject({ force: true });
+        setHasLocalOverrides(false);
         setFeedback({ type: 'success', message: 'Queue regenerated successfully.' });
       } catch (error) {
         setFeedback({
@@ -303,7 +363,22 @@ export default function ProjectAutoMatchPage() {
           const breakdown = ensureObject(entry?.breakdown);
           const metadata = ensureObject(entry?.metadata);
           const fairness = ensureObject(metadata.fairness);
+          const response = ensureObject(entry?.response);
+          const responseMetadata = ensureObject(response.metadata);
           const projectName = entry.projectName ?? project?.title ?? `Project ${projectId}`;
+          const contactHref = entry.freelancer?.email
+            ? `mailto:${entry.freelancer.email}?subject=${encodeURIComponent(
+                `${projectName} invitation from Gigvora`,
+              )}`
+            : null;
+          const responseLabel = response.status
+            ? RESPONSE_LABELS[response.status] ?? response.status
+            : 'Awaiting response';
+          const lastRespondedLabel = response.respondedAt ? formatRelativeTime(response.respondedAt) : null;
+          const fairnessTooltip = fairness.maxAssignmentsForPriority
+            ? `Reserved newcomer slot while assignments ≤ ${fairness.maxAssignmentsForPriority}.`
+            : 'Rotation fairness safeguards active for this queue.';
+          const acceptanceNotes = response.reasonLabel || response.responseNotes;
           return (
             <article
               key={entry.id ?? `${entry.freelancerId}-${index}`}
@@ -326,11 +401,12 @@ export default function ProjectAutoMatchPage() {
                 </div>
                 <span
                   className={`inline-flex items-center justify-center rounded-full border px-4 py-1 text-xs font-semibold uppercase tracking-wide ${statusPreset.badge}`}
+                  title={statusPreset.tooltip}
                 >
                   {statusPreset.label}
                 </span>
               </div>
-              <div className="mt-4 grid gap-4 text-xs text-slate-600 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="mt-4 grid gap-4 text-xs text-slate-600 sm:grid-cols-2 lg:grid-cols-5">
                 <div className="rounded-2xl border border-slate-200 bg-surfaceMuted/70 px-4 py-3">
                   <p className="font-semibold text-slate-500">Project</p>
                   <p className="mt-1 text-base font-semibold text-slate-900">{projectName}</p>
@@ -349,12 +425,72 @@ export default function ProjectAutoMatchPage() {
                       : 'Awaiting first completion'}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-surfaceMuted/70 px-4 py-3">
+                <div className="rounded-2xl border border-slate-200 bg-surfaceMuted/70 px-4 py-3" title={fairnessTooltip}>
                   <p className="font-semibold text-slate-500">Fairness boost</p>
                   <p className="mt-1 text-base font-semibold text-slate-900">
                     {fairness.ensureNewcomer || fairness.ensuredNewcomer ? 'Reserved newcomer slot' : 'Rotation'}
                   </p>
+                  {fairness.maxAssignmentsForPriority != null ? (
+                    <p className="mt-1 text-xs text-slate-500">
+                      Max {fairness.maxAssignmentsForPriority} assignments before rebalancing
+                    </p>
+                  ) : null}
                 </div>
+                <div className="rounded-2xl border border-slate-200 bg-surfaceMuted/70 px-4 py-3">
+                  <p className="font-semibold text-slate-500">Latest response</p>
+                  <p
+                    className={`mt-1 text-base font-semibold ${
+                      response.status === 'declined' ? 'text-rose-600' : 'text-slate-900'
+                    }`}
+                  >
+                    {responseLabel}
+                  </p>
+                  {lastRespondedLabel ? (
+                    <p className="mt-1 text-xs text-slate-500">Received {lastRespondedLabel}</p>
+                  ) : null}
+                  {responseMetadata.rating != null ? (
+                    <p className="mt-1 text-xs text-slate-500">
+                      Rated {Number(responseMetadata.rating).toFixed(1)} / 5
+                      {responseMetadata.completionValue
+                        ? ` • ${formatCurrency(responseMetadata.completionValue)}`
+                        : ''}
+                    </p>
+                  ) : null}
+                  {acceptanceNotes ? <p className="mt-1 text-xs text-slate-400">{acceptanceNotes}</p> : null}
+                </div>
+              </div>
+              <div className="mt-5 flex flex-wrap items-center gap-3 text-xs">
+                {contactHref ? (
+                  <a
+                    href={contactHref}
+                    onClick={() =>
+                      analytics.track('web_project_auto_match_contact_freelancer', {
+                        projectId,
+                        queueEntryId: entry.id,
+                        status: entry.status,
+                      })
+                    }
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+                    title="Email the freelancer with project context"
+                  >
+                    Email {entry.freelancer?.firstName ?? 'freelancer'}
+                    <span aria-hidden="true">↗</span>
+                  </a>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() =>
+                    analytics.track('web_project_auto_match_entry_reviewed', {
+                      projectId,
+                      queueEntryId: entry.id,
+                      status: entry.status,
+                    })
+                  }
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+                  title="Log queue decision notes for this rotation"
+                >
+                  Log decision
+                </button>
               </div>
             </article>
           );
@@ -625,6 +761,20 @@ export default function ProjectAutoMatchPage() {
                     <dd className="mt-2 text-base font-semibold text-slate-900">{nextExpiryLabel ?? 'Not scheduled'}</dd>
                   </div>
                 </dl>
+                <div className="mt-6">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Decision outcomes</p>
+                  <div className="mt-3 grid gap-3 text-xs text-slate-600 sm:grid-cols-2 lg:grid-cols-5">
+                    {['accepted', 'declined', 'expired', 'reassigned', 'completed'].map((status) => {
+                      const title = status.charAt(0).toUpperCase() + status.slice(1);
+                      return (
+                        <div key={status} className="rounded-3xl border border-slate-200 bg-surfaceMuted/70 px-4 py-3">
+                          <p className="font-semibold text-slate-500">{title}</p>
+                          <p className="mt-2 text-base font-semibold text-slate-900">{statusSummary[status] ?? 0}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
                 {queueError ? (
                   <p className="mt-4 text-sm text-rose-600">{queueError.message || 'Unable to sync queue status.'}</p>
                 ) : null}

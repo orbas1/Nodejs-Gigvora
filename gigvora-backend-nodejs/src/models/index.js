@@ -16169,6 +16169,7 @@ export const AutoAssignQueueEntry = sequelize.define(
     resolvedAt: { type: DataTypes.DATE, allowNull: true },
     projectValue: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
     metadata: { type: jsonType, allowNull: true },
+    responseMetadata: { type: jsonType, allowNull: true },
   },
   {
     tableName: 'auto_assign_queue_entries',

@@ -2355,7 +2355,17 @@ This document catalogues the public marketing shell, pre-login journeys, and per
 
 ## 10. Summary Insights
 
+- **10.A. Production-grade auto-match telemetry ✅**
+  - Telemetry service aggregates queue counts, expiry windows, and recent responses so dashboards surface live health indicators without recomputing at request time.【F:gigvora-backend-nodejs/src/services/autoAssignService.js†L720-L840】【F:gigvora-backend-nodejs/src/services/autoAssignService.js†L840-L948】
+  - Controllers and routes lock telemetry, queue, and regeneration endpoints behind authenticated operator roles, ensuring only company, agency, or admin workspaces can orchestrate rotations.【F:gigvora-backend-nodejs/src/controllers/autoAssignController.js†L16-L78】【F:gigvora-backend-nodejs/src/routes/autoAssignRoutes.js†L9-L32】
+  - Project auto-match UI now presents queue status cards, decision outcome analytics, and refresh controls that tie into the telemetry service for real-time monitoring.【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L680-L808】
 
+- **10.B. Fairness-ready data model & seeding ✅**
+  - Auto-assign queue entries persist response metadata at the model layer so historical responses remain queryable alongside active queue payloads.【F:gigvora-backend-nodejs/src/models/index.js†L16149-L16190】
+  - Seed data provisions multiple freelancers, assignment metrics, preferences, queue entries, and responses that mirror fairness safeguards and notification workflows, keeping demo environments production-realistic.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L1-L1110】
+  - Seeder rollbacks cleanly delete preferences, metrics, queue entries, responses, and assignment events to maintain idempotence across reinstalls.【F:gigvora-backend-nodejs/database/seeders/20240501010000-demo-data.cjs†L1110-L1185】
 
-
-Across these experiences, the Gigvora frontend demonstrates a polished marketing funnel with floating assistance (messaging, support, policy) layered atop a powerful routing skeleton. Key next steps include unifying duplicated helpers, introducing lazy-loaded routes, connecting marketing content to CMS sources, and instrumenting analytics across persona journeys to inform iterative design. The floating messaging bubble already provides a strong baseline for real-time collaboration once backend services finalize.
+- **10.C. Operator experience & analytics ✅**
+  - Queue cards expose response telemetry, fairness tooltips, and actionable contact controls while dispatching analytics events for operator engagement tracking.【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L360-L520】
+  - Regeneration controls seed defaults from stored project settings and budgets yet respect operator adjustments, resetting local overrides after successful runs.【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L120-L220】
+  - Queue health panels highlight decision outcomes in addition to core counts so compliance and staffing reviews can trace acceptance and decline trends quickly.【F:gigvora-frontend-reactjs/src/pages/ProjectAutoMatchPage.jsx†L700-L770】

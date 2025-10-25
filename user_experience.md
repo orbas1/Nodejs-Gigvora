@@ -1461,7 +1461,10 @@ This document catalogues the public marketing shell, pre-login journeys, and per
 
 ## 10. Summary Insights
 
+Gigvora's auto-match experience now operates as a production-grade staffing cockpit rather than a static demo. Telemetry services aggregate queue counts, expiries, and historical decisions so dashboards stay in sync without recomputing on every request. Authenticated controllers and routes guarantee only company, agency, or admin operators can regenerate queues or inspect telemetry, while the Project Auto Match workspace exposes these insights through live status cards, decision outcome analytics, and refresh controls. Underneath, database seeds create realistic freelancers, fairness metrics, queue entries, and responses, giving every environment the same operational baseline that production teams rely on.
 
+Key upgrades:
 
-
-Across these experiences, the Gigvora frontend demonstrates a polished marketing funnel with floating assistance (messaging, support, policy) layered atop a powerful routing skeleton. Key next steps include unifying duplicated helpers, introducing lazy-loaded routes, connecting marketing content to CMS sources, and instrumenting analytics across persona journeys to inform iterative design. The floating messaging bubble already provides a strong baseline for real-time collaboration once backend services finalize.
+1. **Telemetry & instrumentation.** Queue telemetry now captures aggregate counts, expiry windows, and recent responses, and the UI polls these metrics so operators see live rotation health at a glance.
+2. **Data integrity & fairness.** Models persist response metadata, and seeders populate preferences, metrics, queue entries, and assignment events that respect newcomer safeguards and idempotent rollbacks.
+3. **Operator workflow enhancements.** Regeneration forms prefill with stored settings, queue cards surface response and fairness context, and analytics events log when operators contact or review freelancers, enabling measurable operations workflows.
