@@ -8,6 +8,7 @@ import {
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 import useSession from '../../hooks/useSession.js';
+import analytics from '../../services/analytics.js';
 import {
   fetchInbox,
   fetchThreadMessages,
@@ -27,6 +28,7 @@ import ConversationMessage from './ConversationMessage.jsx';
 import { classNames } from '../../utils/classNames.js';
 import { canAccessMessaging } from '../../constants/access.js';
 import { useLanguage } from '../../context/LanguageContext.jsx';
+import { MESSAGING_DOCK_OPEN_EVENT } from '../../constants/events.js';
 
 const THREAD_PAGE_SIZE = 20;
 
@@ -111,6 +113,7 @@ export default function MessagingDock() {
   const [callLoading, setCallLoading] = useState(false);
   const [callError, setCallError] = useState(null);
   const inboxDebounceTimer = useRef(null);
+  const [launchContext, setLaunchContext] = useState(null);
 
   const loadInbox = useCallback(async ({ page: requestedPage = 1, append = false, preserveSelection = true } = {}) => {
     if (!canUseMessaging) {
@@ -227,6 +230,12 @@ export default function MessagingDock() {
   }, [open, canUseMessaging, scheduleInboxLoad, threads.length]);
 
   useEffect(() => {
+    if (!open) {
+      setLaunchContext(null);
+    }
+  }, [open]);
+
+  useEffect(() => {
     if (!open || tab !== 'inbox' || !canUseMessaging) {
       return;
     }
@@ -242,6 +251,31 @@ export default function MessagingDock() {
   }, []);
 
   useEffect(() => {
+    const handleExternalOpen = (event) => {
+      const detail = event?.detail ?? {};
+      setOpen(true);
+      setTab('inbox');
+      if (detail.threadId) {
+        setSelectedThreadId(detail.threadId);
+      }
+      setLaunchContext(detail);
+      analytics.track(
+        'web_messaging_dock_opened',
+        {
+          origin: detail.source ?? 'external',
+          category: detail.category ?? null,
+          gigId: detail.gigId ?? null,
+        },
+        { source: 'web_app' },
+      );
+    };
+    window.addEventListener(MESSAGING_DOCK_OPEN_EVENT, handleExternalOpen);
+    return () => {
+      window.removeEventListener(MESSAGING_DOCK_OPEN_EVENT, handleExternalOpen);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!selectedThreadId) {
       setMessages([]);
       return;
@@ -253,6 +287,12 @@ export default function MessagingDock() {
     () => threads.find((thread) => thread.id === selectedThreadId) ?? null,
     [threads, selectedThreadId],
   );
+
+  useEffect(() => {
+    if (selectedThreadId) {
+      setLaunchContext(null);
+    }
+  }, [selectedThreadId]);
 
   const handleSend = useCallback(
     async (event) => {
@@ -418,6 +458,11 @@ export default function MessagingDock() {
                   )}
                 </p>
               )}
+              {launchContext?.gigTitle ? (
+                <div className="mt-3 rounded-2xl border border-accent/30 bg-accentSoft px-3 py-2 text-xs text-accentDark">
+                  {t('assistants.messaging.contextGig', 'Chat context:')} {launchContext.gigTitle}
+                </div>
+              ) : null}
               <div className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,0.9fr),minmax(0,1.4fr)]">
                 <div className="space-y-3">
                   {inboxError ? (

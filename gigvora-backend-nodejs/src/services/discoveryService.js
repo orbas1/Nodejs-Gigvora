@@ -12,16 +12,19 @@ import {
   MENTOR_AVAILABILITY_STATUSES,
   MENTOR_PRICE_TIERS,
 } from '../models/index.js';
-import { ApplicationError, ValidationError } from '../utils/errors.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
+import { ApplicationError, ValidationError } from '../utils/errors.js';
+
 import {
   searchOpportunityIndex,
   searchAcrossOpportunityIndexes,
   isRemoteRole,
+  parseBudgetValue,
+  extractCurrencyCode,
+  determineDurationCategory,
 } from './searchIndexService.js';
 import {
   CATEGORY_FACETS,
-  CATEGORY_SORTS,
   TAXONOMY_ENABLED_CATEGORIES,
   parseFiltersInput,
   normaliseViewport,
@@ -92,7 +95,7 @@ function normaliseClientFilters(raw = {}) {
 
   assign(['employmentType', 'employmentTypes'], 'employmentType');
   assign(['employmentCategory', 'employmentCategories'], 'employmentCategory');
-  assign(['durationCategory', 'durationCategories'], 'durationCategory');
+  assign(['durationCategory', 'durationCategories', 'deliverySpeed', 'deliverySpeeds'], 'durationCategory');
   assign(['budgetCurrency', 'budgetCurrencies'], 'budgetCurrency');
   assign(['status', 'statuses'], 'status');
   assign(['track', 'tracks'], 'track');
@@ -110,6 +113,41 @@ function normaliseClientFilters(raw = {}) {
 
   if (raw.updatedWithin) {
     filters.updatedWithin = `${raw.updatedWithin}`;
+  }
+
+  const parseBudgetNumber = (value) => {
+    if (value == null || value === '') {
+      return null;
+    }
+    const numeric = Number.parseFloat(`${value}`.replace(/[^0-9.]/g, ''));
+    if (!Number.isFinite(numeric)) {
+      return null;
+    }
+    return Math.max(0, Math.round(numeric));
+  };
+
+  const minBudget = parseBudgetNumber(raw.budgetValueMin ?? raw.budgetMin);
+  if (minBudget != null) {
+    filters.budgetValueMin = minBudget;
+  }
+
+  const maxBudget = parseBudgetNumber(raw.budgetValueMax ?? raw.budgetMax);
+  if (maxBudget != null) {
+    filters.budgetValueMax = maxBudget;
+  }
+
+  if (Array.isArray(filters.durationCategory) && filters.durationCategory.length) {
+    const uniqueDurations = Array.from(
+      new Set(
+        filters.durationCategory
+          .map((value) => `${value}`.trim())
+          .filter((value) => value.length > 0),
+      ),
+    );
+    filters.durationCategory = uniqueDurations;
+    if (!filters.durationCategory.length) {
+      delete filters.durationCategory;
+    }
   }
 
   return filters;
@@ -318,15 +356,27 @@ function toOpportunityDto(record, category) {
         employmentCategory: plain.employmentCategory ?? null,
         isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
       };
-    case 'gig':
+    case 'gig': {
+      const derivedDurationCategory =
+        plain.durationCategory ?? determineDurationCategory(plain.duration ?? null);
+      const derivedBudgetCurrency =
+        plain.budgetCurrency ?? extractCurrencyCode(plain.budget ?? plain.metadata?.budgetLabel ?? null);
+      const parsedBudgetAmount =
+        plain.budgetAmount != null && Number.isFinite(Number(plain.budgetAmount))
+          ? Number(plain.budgetAmount)
+          : parseBudgetValue(plain.budget ?? plain.metadata?.budgetLabel ?? null);
+      const normalisedBudgetAmount = Number.isFinite(parsedBudgetAmount) ? Number(parsedBudgetAmount) : null;
+
       return {
         ...base,
         budget: plain.budget ?? null,
-        budgetCurrency: plain.budgetCurrency ?? null,
+        budgetCurrency: derivedBudgetCurrency ?? null,
+        budgetAmount: normalisedBudgetAmount,
         duration: plain.duration ?? null,
-        durationCategory: plain.durationCategory ?? null,
+        durationCategory: derivedDurationCategory ?? null,
         isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
       };
+    }
     case 'project':
       return {
         ...base,
@@ -561,6 +611,33 @@ async function listOpportunities(category, { page, pageSize, query, filters, sor
 
   const where = buildSearchWhereClause(category, query);
   applyStructuredFilters(where, category, normalisedFilters);
+
+  if (category === 'gig') {
+    const minBudget = Number(normalisedFilters.budgetValueMin);
+    const maxBudget = Number(normalisedFilters.budgetValueMax);
+    if (Number.isFinite(minBudget) || Number.isFinite(maxBudget)) {
+      if (!where[Op.and]) {
+        where[Op.and] = [];
+      }
+      const numericType = DIALECT === 'postgres' ? 'numeric' : 'decimal';
+      const sanitizedBudget = sequelize.fn('REGEXP_REPLACE', sequelize.col('Gig.budget'), '[^0-9.]', '');
+      const castBudget = sequelize.cast(sequelize.fn('NULLIF', sanitizedBudget, ''), numericType);
+      if (Number.isFinite(minBudget)) {
+        where[Op.and].push(
+          sequelize.where(castBudget, {
+            [Op.gte]: Math.max(0, Math.round(minBudget)),
+          }),
+        );
+      }
+      if (Number.isFinite(maxBudget)) {
+        where[Op.and].push(
+          sequelize.where(castBudget, {
+            [Op.lte]: Math.max(0, Math.round(maxBudget)),
+          }),
+        );
+      }
+    }
+  }
 
   if (normalisedFilters.isRemote === true || normalisedFilters.isRemote === 'true' || normalisedFilters.isRemote === '1') {
     const remoteLike = buildLikeExpression('remote');

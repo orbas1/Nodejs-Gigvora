@@ -6170,6 +6170,7 @@ export const WORKSPACE_MEETING_STATUSES = ['scheduled', 'in_progress', 'complete
 export const WORKSPACE_ROLE_STATUSES = ['active', 'pending', 'inactive', 'offboarded'];
 export const WORKSPACE_SUBMISSION_STATUSES = ['draft', 'submitted', 'in_review', 'approved', 'returned'];
 export const WORKSPACE_INVITE_STATUSES = ['pending', 'accepted', 'declined', 'expired'];
+export const WORKSPACE_BUDGET_STATUSES = ['planned', 'approved', 'in_progress', 'completed', 'overbudget'];
 export const WORKSPACE_HR_STATUSES = ['pending', 'active', 'on_leave', 'completed'];
 export const WORKSPACE_OBJECT_TYPES = [
   'asset',
@@ -6828,108 +6829,6 @@ ProjectWorkspaceCalendarEntry.prototype.toPublicObject = function toPublicObject
     ownerName: plain.ownerName,
     visibility: plain.visibility,
     metadata: plain.metadata ?? null,
-    createdAt: plain.createdAt,
-    updatedAt: plain.updatedAt,
-  };
-};
-
-export const ProjectWorkspaceTimeLog = sequelize.define(
-  'ProjectWorkspaceTimeLog',
-  {
-    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
-    taskId: { type: DataTypes.INTEGER, allowNull: true },
-    memberName: { type: DataTypes.STRING(255), allowNull: false },
-    startedAt: { type: DataTypes.DATE, allowNull: false },
-    endedAt: { type: DataTypes.DATE, allowNull: true },
-    durationMinutes: { type: DataTypes.INTEGER, allowNull: true },
-    billable: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
-    rateCents: { type: DataTypes.INTEGER, allowNull: true },
-    notes: { type: DataTypes.TEXT, allowNull: true },
-  },
-  { tableName: 'project_workspace_time_logs' },
-);
-
-ProjectWorkspaceTimeLog.prototype.toPublicObject = function toPublicObject() {
-  const plain = this.get({ plain: true });
-  return {
-    id: plain.id,
-    workspaceId: plain.workspaceId,
-    taskId: plain.taskId,
-    memberName: plain.memberName,
-    startedAt: plain.startedAt,
-    endedAt: plain.endedAt,
-    durationMinutes: plain.durationMinutes == null ? null : Number(plain.durationMinutes),
-    billable: Boolean(plain.billable),
-    rateCents: plain.rateCents == null ? null : Number(plain.rateCents),
-    notes: plain.notes,
-    createdAt: plain.createdAt,
-    updatedAt: plain.updatedAt,
-  };
-};
-
-export const ProjectWorkspaceTarget = sequelize.define(
-  'ProjectWorkspaceTarget',
-  {
-    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
-    name: { type: DataTypes.STRING(255), allowNull: false },
-    description: { type: DataTypes.TEXT, allowNull: true },
-    targetValue: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
-    currentValue: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
-    unit: { type: DataTypes.STRING(40), allowNull: true },
-    dueAt: { type: DataTypes.DATE, allowNull: true },
-    status: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'on_track' },
-    ownerName: { type: DataTypes.STRING(255), allowNull: true },
-    trend: { type: DataTypes.STRING(60), allowNull: true },
-  },
-  { tableName: 'project_workspace_targets' },
-);
-
-ProjectWorkspaceTarget.prototype.toPublicObject = function toPublicObject() {
-  const plain = this.get({ plain: true });
-  return {
-    id: plain.id,
-    workspaceId: plain.workspaceId,
-    name: plain.name,
-    description: plain.description,
-    targetValue: plain.targetValue == null ? null : Number(plain.targetValue),
-    currentValue: plain.currentValue == null ? null : Number(plain.currentValue),
-    unit: plain.unit,
-    dueAt: plain.dueAt,
-    status: plain.status,
-    ownerName: plain.ownerName,
-    trend: plain.trend,
-    createdAt: plain.createdAt,
-    updatedAt: plain.updatedAt,
-  };
-};
-
-export const ProjectWorkspaceObjective = sequelize.define(
-  'ProjectWorkspaceObjective',
-  {
-    workspaceId: { type: DataTypes.INTEGER, allowNull: false },
-    title: { type: DataTypes.STRING(255), allowNull: false },
-    description: { type: DataTypes.TEXT, allowNull: true },
-    status: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'in_progress' },
-    ownerName: { type: DataTypes.STRING(255), allowNull: true },
-    dueAt: { type: DataTypes.DATE, allowNull: true },
-    progressPercent: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
-    keyResults: { type: jsonType, allowNull: true },
-  },
-  { tableName: 'project_workspace_objectives' },
-);
-
-ProjectWorkspaceObjective.prototype.toPublicObject = function toPublicObject() {
-  const plain = this.get({ plain: true });
-  return {
-    id: plain.id,
-    workspaceId: plain.workspaceId,
-    title: plain.title,
-    description: plain.description,
-    status: plain.status,
-    ownerName: plain.ownerName,
-    dueAt: plain.dueAt,
-    progressPercent: plain.progressPercent == null ? null : Number(plain.progressPercent),
-    keyResults: Array.isArray(plain.keyResults) ? plain.keyResults : [],
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };
@@ -7605,8 +7504,103 @@ ClientPortalScopeItem.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
-export const GIG_MARKETPLACE_STATUSES = ['draft', 'published', 'archived'];
+export const GIG_MARKETPLACE_STATUSES = ['draft', 'preview', 'published', 'archived'];
 export const GIG_VISIBILITY_OPTIONS = ['private', 'public', 'unlisted'];
+
+function normaliseGigList(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => {
+        if (entry == null) {
+          return null;
+        }
+        if (typeof entry === 'string') {
+          const trimmed = entry.trim();
+          return trimmed.length ? trimmed : null;
+        }
+        if (typeof entry === 'object') {
+          const textCandidate =
+            entry.description ??
+            entry.text ??
+            entry.body ??
+            entry.label ??
+            entry.title ??
+            entry.value ??
+            null;
+          if (typeof textCandidate === 'string') {
+            const trimmed = textCandidate.trim();
+            return trimmed.length ? trimmed : null;
+          }
+        }
+        return null;
+      })
+      .filter(Boolean);
+  }
+  if (value && typeof value === 'object') {
+    if (Array.isArray(value.items)) {
+      return normaliseGigList(value.items);
+    }
+    if (Array.isArray(value.value)) {
+      return normaliseGigList(value.value);
+    }
+    return normaliseGigList(Object.values(value));
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length ? [trimmed] : [];
+  }
+  if (value == null) {
+    return [];
+  }
+  return [value].filter((entry) => typeof entry === 'string' && entry.trim().length);
+}
+
+function parseGigBudgetAmount(value) {
+  if (value == null) {
+    return null;
+  }
+  const numeric = Number.parseFloat(String(value).replace(/[^0-9.]/g, ''));
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function inferGigBudgetCurrency(budget, fallback) {
+  if (fallback) {
+    return fallback;
+  }
+  if (typeof budget !== 'string') {
+    return null;
+  }
+  if (/\$/u.test(budget)) {
+    return 'USD';
+  }
+  if (/€/u.test(budget)) {
+    return 'EUR';
+  }
+  if (/£/u.test(budget)) {
+    return 'GBP';
+  }
+  return null;
+}
+
+function resolveGigDurationCategory(duration, storedCategory) {
+  if (storedCategory) {
+    return storedCategory;
+  }
+  if (!duration || typeof duration !== 'string') {
+    return null;
+  }
+  const text = duration.toLowerCase();
+  if (/week|sprint/.test(text)) {
+    return 'short_term';
+  }
+  if (/month|quarter/.test(text)) {
+    return 'medium_term';
+  }
+  if (/year|long/.test(text)) {
+    return 'long_term';
+  }
+  return null;
+}
 
 export const Gig = sequelize.define(
   'Gig',
@@ -7615,16 +7609,32 @@ export const Gig = sequelize.define(
     slug: { type: DataTypes.STRING(200), allowNull: true, unique: true },
     title: { type: DataTypes.STRING(255), allowNull: false },
     tagline: { type: DataTypes.STRING(255), allowNull: true },
+    summary: { type: DataTypes.TEXT, allowNull: true },
     description: { type: DataTypes.TEXT, allowNull: false },
     category: { type: DataTypes.STRING(120), allowNull: true },
     niche: { type: DataTypes.STRING(180), allowNull: true },
     deliveryModel: { type: DataTypes.STRING(160), allowNull: true },
     outcomePromise: { type: DataTypes.TEXT, allowNull: true },
     budget: { type: DataTypes.STRING(120), allowNull: true },
+    budgetCurrency: { type: DataTypes.STRING(6), allowNull: true },
+    budgetAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
     duration: { type: DataTypes.STRING(120), allowNull: true },
+    durationCategory: { type: DataTypes.STRING(60), allowNull: true },
     location: { type: DataTypes.STRING(255), allowNull: true },
     geoLocation: { type: jsonType, allowNull: true },
     heroAccent: { type: DataTypes.STRING(20), allowNull: true },
+    heroTitle: { type: DataTypes.STRING(255), allowNull: true },
+    heroSubtitle: { type: DataTypes.STRING(500), allowNull: true },
+    heroMediaUrl: { type: DataTypes.STRING(500), allowNull: true },
+    heroTheme: { type: DataTypes.STRING(120), allowNull: true },
+    heroBadge: { type: DataTypes.STRING(120), allowNull: true },
+    sellingPoints: { type: jsonType, allowNull: true },
+    requirements: { type: jsonType, allowNull: true },
+    faqs: { type: jsonType, allowNull: true },
+    conversionCopy: { type: jsonType, allowNull: true },
+    analyticsSettings: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    aiSignals: { type: jsonType, allowNull: true },
     targetMetric: { type: DataTypes.INTEGER, allowNull: true },
     status: {
       type: DataTypes.ENUM(...GIG_MARKETPLACE_STATUSES),
@@ -7649,46 +7659,53 @@ export const Gig = sequelize.define(
 
 Gig.prototype.toBuilderObject = function toBuilderObject() {
   const plain = this.get({ plain: true });
-  const normalizeList = (value) => {
-    if (Array.isArray(value)) {
-      return value;
-    }
-    if (value && typeof value === 'object') {
-      if (Array.isArray(value.items)) {
-        return value.items;
-      }
-      return Object.values(value);
-    }
-    if (value == null) {
-      return [];
-    }
-    return [value];
-  };
+  const conversionCopy =
+    plain.conversionCopy && typeof plain.conversionCopy === 'object' ? plain.conversionCopy : {};
+  const analyticsSettings =
+    plain.analyticsSettings && typeof plain.analyticsSettings === 'object' ? plain.analyticsSettings : {};
 
   return {
     id: plain.id,
     ownerId: plain.ownerId ?? null,
     slug: plain.slug ?? null,
     title: plain.title,
+    tagline: plain.tagline ?? null,
+    summary: plain.summary ?? null,
     description: plain.description,
-    summary: plain.summary,
+    category: plain.category ?? null,
+    niche: plain.niche ?? null,
+    deliveryModel: plain.deliveryModel ?? null,
+    outcomePromise: plain.outcomePromise ?? null,
     status: plain.status,
-    budget: plain.budget,
-    duration: plain.duration,
-    location: plain.location,
+    visibility: plain.visibility,
+    budget: plain.budget ?? null,
+    budgetCurrency: inferGigBudgetCurrency(plain.budget, plain.budgetCurrency ?? null),
+    budgetAmount:
+      plain.budgetAmount != null && Number.isFinite(Number(plain.budgetAmount))
+        ? Number(plain.budgetAmount)
+        : parseGigBudgetAmount(plain.budget),
+    duration: plain.duration ?? null,
+    durationCategory: resolveGigDurationCategory(plain.duration, plain.durationCategory),
+    location: plain.location ?? null,
     geoLocation: plain.geoLocation ?? null,
-    sellingPoints: normalizeList(plain.sellingPoints),
-    requirements: normalizeList(plain.requirements),
-    faqs: normalizeList(plain.faqs),
-    conversionCopy: plain.conversionCopy ?? {},
-    analyticsSettings: plain.analyticsSettings ?? {},
+    targetMetric: plain.targetMetric == null ? null : Number(plain.targetMetric),
+    sellingPoints: normaliseGigList(plain.sellingPoints),
+    requirements: normaliseGigList(plain.requirements),
+    faqs: normaliseGigList(plain.faqs),
+    conversionCopy,
+    analyticsSettings,
     hero: {
       title: plain.heroTitle ?? plain.title,
       subtitle: plain.heroSubtitle ?? null,
       mediaUrl: plain.heroMediaUrl ?? null,
-      theme: plain.heroTheme ?? null,
+      theme: plain.heroTheme ?? plain.heroAccent ?? null,
       badge: plain.heroBadge ?? null,
+      accent: plain.heroAccent ?? null,
     },
+    metadata: plain.metadata && typeof plain.metadata === 'object' ? plain.metadata : {},
+    availabilityTimezone: plain.availabilityTimezone ?? null,
+    availabilityLeadTimeDays:
+      plain.availabilityLeadTimeDays == null ? null : Number(plain.availabilityLeadTimeDays),
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };
@@ -7765,6 +7782,22 @@ Gig.prototype.toPublicObject = function toPublicObject() {
     ? this.availabilitySlots.map((slot) => slot.toPublicObject?.() ?? slot)
     : [];
   const owner = this.owner?.get?.({ plain: true }) ?? this.owner ?? null;
+  const conversionCopy =
+    plain.conversionCopy && typeof plain.conversionCopy === 'object' ? plain.conversionCopy : {};
+  const analyticsSettings =
+    plain.analyticsSettings && typeof plain.analyticsSettings === 'object' ? plain.analyticsSettings : {};
+  const metadata = plain.metadata && typeof plain.metadata === 'object' ? plain.metadata : {};
+  const aiSignals =
+    plain.aiSignals && typeof plain.aiSignals === 'object' ? { ...plain.aiSignals } : null;
+  const budgetCurrency = inferGigBudgetCurrency(plain.budget, plain.budgetCurrency ?? null);
+  const budgetAmount =
+    plain.budgetAmount != null && Number.isFinite(Number(plain.budgetAmount))
+      ? Number(plain.budgetAmount)
+      : parseGigBudgetAmount(plain.budget);
+  const durationCategory = resolveGigDurationCategory(plain.duration, plain.durationCategory);
+  const sellingPoints = normaliseGigList(plain.sellingPoints);
+  const requirements = normaliseGigList(plain.requirements);
+  const faqs = normaliseGigList(plain.faqs);
 
   return {
     id: plain.id,
@@ -7780,16 +7813,38 @@ Gig.prototype.toPublicObject = function toPublicObject() {
     slug: plain.slug,
     title: plain.title,
     tagline: plain.tagline,
+    summary: plain.summary ?? null,
     description: plain.description,
     category: plain.category,
     niche: plain.niche,
     deliveryModel: plain.deliveryModel,
     outcomePromise: plain.outcomePromise,
     budget: plain.budget,
+    budgetCurrency,
+    budgetAmount,
     duration: plain.duration,
+    durationCategory,
     location: plain.location,
     geoLocation: plain.geoLocation,
     heroAccent: plain.heroAccent,
+    hero: {
+      title: plain.heroTitle ?? plain.title,
+      subtitle: plain.heroSubtitle ?? null,
+      mediaUrl: plain.heroMediaUrl ?? null,
+      theme: plain.heroTheme ?? plain.heroAccent ?? null,
+      badge: plain.heroBadge ?? null,
+      accent: plain.heroAccent ?? null,
+    },
+    heroTitle: plain.heroTitle ?? null,
+    heroSubtitle: plain.heroSubtitle ?? null,
+    heroMediaUrl: plain.heroMediaUrl ?? null,
+    heroTheme: plain.heroTheme ?? null,
+    heroBadge: plain.heroBadge ?? null,
+    sellingPoints,
+    requirements,
+    faqs,
+    conversionCopy,
+    analyticsSettings,
     targetMetric: plain.targetMetric == null ? null : Number(plain.targetMetric),
     status: plain.status,
     visibility: plain.visibility,
@@ -7804,6 +7859,8 @@ Gig.prototype.toPublicObject = function toPublicObject() {
     packages,
     addOns,
     availabilitySlots,
+    metadata,
+    aiSignals,
   };
 };
 
@@ -20118,7 +20175,6 @@ IdentityVerification.hasMany(IdentityVerificationEvent, {
 });
 IdentityVerificationEvent.belongsTo(IdentityVerification, {
   foreignKey: 'identityVerificationId',
-  as: 'verification',
   as: 'identityVerification',
 });
 IdentityVerificationEvent.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
@@ -23447,7 +23503,6 @@ export default {
   ProjectWorkspaceTimeLog,
   ProjectWorkspaceTarget,
   ProjectWorkspaceObjective,
-  ProjectWorkspaceMessage,
   WorkspaceOperatingBlueprint,
   ResourceCapacitySnapshot,
   ResourceScenarioPlan,
