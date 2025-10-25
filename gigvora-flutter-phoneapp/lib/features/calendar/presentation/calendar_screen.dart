@@ -7,8 +7,12 @@ import 'package:intl/intl.dart';
 import '../../../theme/widgets.dart';
 import '../../auth/application/session_controller.dart';
 import '../application/calendar_controller.dart';
+import '../data/calendar_constants.dart';
 import '../data/models/calendar_event.dart';
-import '../data/models/calendar_recurrence.dart';
+import '../data/models/calendar_focus_session.dart';
+import '../data/models/calendar_integration.dart';
+import '../data/models/calendar_settings.dart';
+import '../data/models/calendar_overview.dart';
 import '../data/timezone_options.dart';
 
 class CalendarScreen extends ConsumerStatefulWidget {
@@ -35,47 +39,20 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final session = ref.watch(sessionControllerProvider).session;
     final controller = ref.read(calendarControllerProvider.notifier);
     final state = ref.watch(calendarControllerProvider);
-    final events = state.data ?? const <CalendarEvent>[];
+    final overview = state.data;
+    final events = overview?.events ?? const <CalendarEvent>[];
     final router = GoRouter.of(context);
-
-    final destinations = [
-      const GigvoraNavigationDestination(
-        label: 'Home',
-        icon: Icon(Icons.home_outlined),
-        selectedIcon: Icon(Icons.home),
-        route: '/home',
-      ),
-      const GigvoraNavigationDestination(
-        label: 'Calendar',
-        icon: Icon(Icons.event_available_outlined),
-        selectedIcon: Icon(Icons.event_available),
-        route: '/calendar',
-      ),
-      const GigvoraNavigationDestination(
-        label: 'Marketplace',
-        icon: Icon(Icons.storefront_outlined),
-        selectedIcon: Icon(Icons.storefront),
-        route: '/gigs',
-      ),
-      const GigvoraNavigationDestination(
-        label: 'Profile',
-        icon: Icon(Icons.person_outline),
-        selectedIcon: Icon(Icons.person),
-        route: '/profile',
-      ),
-    ];
 
     final grouped = <String, List<CalendarEvent>>{};
     for (final event in events) {
       grouped.putIfAbsent(event.dayKey, () => <CalendarEvent>[]).add(event);
     }
 
-    final sortedKeys = grouped.keys.toList()
-      ..sort((a, b) => a.compareTo(b));
+    final sortedKeys = grouped.keys.toList()..sort();
 
     return GigvoraScaffold(
       title: 'Team calendar',
-      subtitle: 'Production ready scheduling across $_selectedTimeZone',
+      subtitle: 'Scheduling across ${controller.timeZone}',
       useAppDrawer: true,
       actions: [
         IconButton(
@@ -87,38 +64,37 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (state.loading) const LinearProgressIndicator(),
           _CalendarHeader(
             focusedDay: _focusedDay,
             onPrevious: () {
               final previous = DateTime(_focusedDay.year, _focusedDay.month - 1, 1);
-              setState(() {
-                _focusedDay = previous;
-              });
+              setState(() => _focusedDay = previous);
               controller.focusMonth(previous);
             },
             onNext: () {
               final next = DateTime(_focusedDay.year, _focusedDay.month + 1, 1);
-              setState(() {
-                _focusedDay = next;
-              });
+              setState(() => _focusedDay = next);
               controller.focusMonth(next);
             },
           ),
           const SizedBox(height: 16),
-          _TimeZonePicker(
-            value: _selectedTimeZone,
-            onChanged: (value) async {
-              setState(() => _selectedTimeZone = value);
-              await controller.setTimeZone(value);
-            },
-          ),
-          const SizedBox(height: 16),
-          if (session != null)
+          if (controller.isAuthenticated)
+            _TimeZonePicker(
+              value: _selectedTimeZone,
+              onChanged: (value) async {
+                setState(() => _selectedTimeZone = value);
+                await controller.updateTimeZone(value);
+              },
+            ),
+          if (session != null) ...[
+            const SizedBox(height: 16),
             _PersonaBanner(
               name: session.name,
               email: session.email,
               activeMembership: session.activeMembership,
             ),
+          ],
           if (state.fromCache)
             Padding(
               padding: const EdgeInsets.only(top: 16),
@@ -127,7 +103,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                 background: const Color(0xFFFEF3C7),
                 foreground: const Color(0xFFB45309),
                 message:
-                    'Showing cached $_selectedTimeZone schedule. We\'ll sync fresh meetings as soon as connectivity resumes.',
+                    'Showing cached ${controller.timeZone} schedule. We\'ll sync fresh meetings as soon as connectivity resumes.',
               ),
             ),
           if (state.hasError)
@@ -140,6 +116,23 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                 message: 'Unable to refresh events. Pull down to retry.',
               ),
             ),
+          if (overview != null) ...[
+            const SizedBox(height: 16),
+            _OverviewStats(stats: overview.stats),
+            const SizedBox(height: 16),
+            _FocusSessionsSection(
+              sessions: overview.focusSessions,
+              onCreate: () => _openFocusSessionEditor(controller),
+              onEdit: (session) => _openFocusSessionEditor(controller, session: session),
+              onToggleCompletion: (session, completed) =>
+                  _toggleFocusSession(controller, session, completed),
+              onDelete: (session) => _deleteFocusSession(controller, session),
+            ),
+            if (overview.integrations.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _IntegrationsSection(integrations: overview.integrations),
+            ],
+          ],
           const SizedBox(height: 16),
           Expanded(
             child: RefreshIndicator(
@@ -161,9 +154,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                         return _DaySection(
                           date: date,
                           events: dayEvents,
-                          onEdit: (event) => _openEditor(controller, event: event),
-                          onDelete: (event) => controller.delete(event),
-                          onToggle: (event, completed) => controller.toggleCompletion(event, completed: completed),
+                          onEdit: (event) => _openEditor(controller, overview?.settings ?? CalendarSettings.fromJson(null), event: event),
+                          onDelete: controller.delete,
+                          timezone: controller.timeZone,
                         );
                       },
                     ),
@@ -172,29 +165,59 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openEditor(controller),
+        onPressed: () => _openEditor(controller, overview?.settings ?? CalendarSettings.fromJson(null)),
         icon: const Icon(Icons.add),
         label: const Text('Schedule'),
       ),
-      navigationDestinations: destinations,
+      navigationDestinations: const [
+        GigvoraNavigationDestination(
+          label: 'Home',
+          icon: Icon(Icons.home_outlined),
+          selectedIcon: Icon(Icons.home),
+          route: '/home',
+        ),
+        GigvoraNavigationDestination(
+          label: 'Calendar',
+          icon: Icon(Icons.event_available_outlined),
+          selectedIcon: Icon(Icons.event_available),
+          route: '/calendar',
+        ),
+        GigvoraNavigationDestination(
+          label: 'Marketplace',
+          icon: Icon(Icons.storefront_outlined),
+          selectedIcon: Icon(Icons.storefront),
+          route: '/gigs',
+        ),
+        GigvoraNavigationDestination(
+          label: 'Profile',
+          icon: Icon(Icons.person_outline),
+          selectedIcon: Icon(Icons.person),
+          route: '/profile',
+        ),
+      ],
       selectedDestination: 1,
       onDestinationSelected: (index) {
-        final destination = destinations[index];
-        if (destination.route != null && router.location != destination.route) {
-          context.go(destination.route!);
+        const destinations = ['/home', '/calendar', '/gigs', '/profile'];
+        final route = destinations[index];
+        if (router.location != route) {
+          context.go(route);
         }
       },
     );
   }
 
-  Future<void> _openEditor(CalendarController controller, {CalendarEvent? event}) async {
+  Future<void> _openEditor(
+    CalendarController controller,
+    CalendarSettings settings, {
+    CalendarEvent? event,
+  }) async {
     final result = await showModalBottomSheet<CalendarEvent>(
       context: context,
       isScrollControlled: true,
       builder: (context) {
         return _CalendarEventSheet(
           event: event,
-          defaultTimeZone: controller.timeZone,
+          settings: settings,
         );
       },
     );
@@ -217,6 +240,106 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Unable to persist event. $error')),
+      );
+    }
+  }
+
+  Future<void> _openFocusSessionEditor(
+    CalendarController controller, {
+    CalendarFocusSession? session,
+  }) async {
+    final result = await showModalBottomSheet<CalendarFocusSession>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => _FocusSessionSheet(session: session),
+    );
+
+    if (result == null) {
+      return;
+    }
+
+    try {
+      if (session == null) {
+        await controller.createFocusSession(result);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Focus session logged.')),
+        );
+      } else {
+        await controller.updateFocusSession(result);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Focus session updated.')),
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to persist focus session. $error')),
+      );
+    }
+  }
+
+  Future<void> _deleteFocusSession(
+    CalendarController controller,
+    CalendarFocusSession session,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete focus session'),
+        content: Text(
+          'Remove the ${session.focusType.replaceAll('_', ' ')} session logged on '
+          '${DateFormat.yMMMd().add_jm().format(session.startedAtLocal)}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton.tonal(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) {
+      return;
+    }
+    try {
+      await controller.deleteFocusSession(session);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Focus session removed.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to delete focus session. $error')),
+      );
+    }
+  }
+
+  Future<void> _toggleFocusSession(
+    CalendarController controller,
+    CalendarFocusSession session,
+    bool completed,
+  ) async {
+    try {
+      await controller.toggleFocusSessionCompletion(session, completed);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            completed ? 'Focus session marked complete.' : 'Focus session reopened.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to update focus session. $error')),
       );
     }
   }
@@ -259,20 +382,561 @@ class _CalendarHeader extends StatelessWidget {
   }
 }
 
+class _OverviewStats extends StatelessWidget {
+  const _OverviewStats({required this.stats});
+
+  final CalendarOverviewStats stats;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return GigvoraCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Overview', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 16,
+            runSpacing: 16,
+            children: [
+              _StatTile(label: 'Total events', value: stats.totalEvents.toString()),
+              _StatTile(label: 'Upcoming', value: stats.upcomingEvents.toString()),
+              if (stats.nextEvent != null)
+                _StatTile(
+                  label: 'Next event',
+                  value: DateFormat.yMMMd().add_jm().format(stats.nextEvent!.startsAtLocal),
+                ),
+              if (stats.eventsByType.isNotEmpty)
+                _StatTile(
+                  label: 'Top category',
+                  value: stats.eventsByType.entries
+                      .reduce((a, b) => a.value >= b.value ? a : b)
+                      .key
+                      .replaceAll('_', ' '),
+                ),
+            ],
+          ),
+          if (stats.eventsByType.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: stats.eventsByType.entries
+                  .map(
+                    (entry) => Chip(
+                      label: Text('${entry.key.replaceAll('_', ' ')} • ${entry.value}'),
+                      avatar: const Icon(Icons.event_outlined),
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _StatTile extends StatelessWidget {
+  const _StatTile({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceVariant.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context)
+                .textTheme
+                .labelMedium
+                ?.copyWith(color: colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FocusSessionsSection extends StatelessWidget {
+  const _FocusSessionsSection({
+    required this.sessions,
+    required this.onCreate,
+    required this.onEdit,
+    required this.onToggleCompletion,
+    required this.onDelete,
+  });
+
+  final List<CalendarFocusSession> sessions;
+  final VoidCallback onCreate;
+  final Future<void> Function(CalendarFocusSession) onEdit;
+  final Future<void> Function(CalendarFocusSession, bool) onToggleCompletion;
+  final Future<void> Function(CalendarFocusSession) onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final hasSessions = sessions.isNotEmpty;
+    return GigvoraCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Focus sessions',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              TextButton.icon(
+                onPressed: onCreate,
+                icon: const Icon(Icons.add_task_outlined),
+                label: const Text('Log session'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (!hasSessions)
+            Text(
+              'Track deep work, outreach, and accountability blocks right from mobile.',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: colorScheme.onSurfaceVariant),
+            )
+          else
+            ...sessions.map(
+              (session) => _FocusSessionTile(
+                session: session,
+                onEdit: onEdit,
+                onToggleCompletion: onToggleCompletion,
+                onDelete: onDelete,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FocusSessionTile extends StatelessWidget {
+  const _FocusSessionTile({
+    required this.session,
+    required this.onEdit,
+    required this.onToggleCompletion,
+    required this.onDelete,
+  });
+
+  final CalendarFocusSession session;
+  final Future<void> Function(CalendarFocusSession) onEdit;
+  final Future<void> Function(CalendarFocusSession, bool) onToggleCompletion;
+  final Future<void> Function(CalendarFocusSession) onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final duration = session.durationMinutes;
+    final durationLabel = duration != null && duration > 0 ? '$duration min' : null;
+    final notes = session.notes;
+    final startLabel = DateFormat.yMMMd().add_jm().format(session.startedAtLocal);
+    final end = session.endedAtLocal;
+    final rangeLabel = end != null
+        ? '$startLabel → ${DateFormat.jm().format(end)}'
+        : startLabel;
+    final subtitleChildren = <Widget>[];
+    if (durationLabel != null) {
+      subtitleChildren.add(
+        Text(
+          durationLabel,
+          style: Theme.of(context)
+              .textTheme
+              .labelMedium
+              ?.copyWith(color: colorScheme.onSurfaceVariant),
+        ),
+      );
+    }
+    if (notes != null && notes.isNotEmpty) {
+      if (subtitleChildren.isNotEmpty) {
+        subtitleChildren.add(const SizedBox(height: 4));
+      }
+      subtitleChildren.add(Text(notes, style: Theme.of(context).textTheme.bodySmall));
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Checkbox(
+          value: session.completed,
+          onChanged: (value) async {
+            if (value == null) {
+              return;
+            }
+            await onToggleCompletion(session, value);
+          },
+        ),
+        title: Text(
+          '${session.focusType.replaceAll('_', ' ')} • $rangeLabel',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        subtitle: subtitleChildren.isEmpty
+            ? null
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: subtitleChildren,
+              ),
+        trailing: PopupMenuButton<_FocusSessionAction>(
+          tooltip: 'More',
+          onSelected: (action) async {
+            switch (action) {
+              case _FocusSessionAction.edit:
+                await onEdit(session);
+                break;
+              case _FocusSessionAction.delete:
+                await onDelete(session);
+                break;
+            }
+          },
+          itemBuilder: (context) => const [
+            PopupMenuItem<_FocusSessionAction>(
+              value: _FocusSessionAction.edit,
+              child: Text('Edit'),
+            ),
+            PopupMenuItem<_FocusSessionAction>(
+              value: _FocusSessionAction.delete,
+              child: Text('Delete'),
+            ),
+          ],
+        ),
+        onTap: () => onEdit(session),
+      ),
+    );
+  }
+}
+
+enum _FocusSessionAction { edit, delete }
+
+class _FocusSessionSheet extends StatefulWidget {
+  const _FocusSessionSheet({this.session});
+
+  final CalendarFocusSession? session;
+
+  @override
+  State<_FocusSessionSheet> createState() => _FocusSessionSheetState();
+}
+
+class _FocusSessionSheetState extends State<_FocusSessionSheet> {
+  late final TextEditingController _notesController;
+  late final TextEditingController _durationController;
+  late DateTime _startedAt;
+  DateTime? _endedAt;
+  late String _focusType;
+  bool _completed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final session = widget.session;
+    _notesController = TextEditingController(text: session?.notes ?? '');
+    _durationController = TextEditingController(
+      text: session?.durationMinutes == null ? '' : '${session!.durationMinutes}',
+    );
+    _startedAt = session?.startedAtLocal ?? DateTime.now();
+    _endedAt = session?.endedAtLocal;
+    _focusType = session?.focusType ?? focusSessionTypes.first;
+    _completed = session?.completed ?? false;
+  }
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    _durationController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickStart() async {
+    final date = await showDatePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      initialDate: _startedAt,
+    );
+    if (date == null) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_startedAt),
+    );
+    if (time == null) return;
+    setState(() {
+      _startedAt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+      if (_endedAt != null && _endedAt!.isBefore(_startedAt)) {
+        _endedAt = _completed ? _startedAt.add(const Duration(hours: 1)) : null;
+      }
+    });
+  }
+
+  Future<void> _pickEnd() async {
+    final currentEnd = _endedAt ?? _startedAt.add(const Duration(hours: 1));
+    final date = await showDatePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      initialDate: currentEnd,
+    );
+    if (date == null) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(currentEnd),
+    );
+    if (time == null) return;
+    setState(() {
+      _endedAt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+      if (_endedAt!.isBefore(_startedAt)) {
+        _endedAt = _startedAt.add(const Duration(minutes: 30));
+      }
+    });
+  }
+
+  Future<void> _submit() async {
+    final durationText = _durationController.text.trim();
+    final parsedDuration = durationText.isEmpty ? null : int.tryParse(durationText);
+    if (parsedDuration != null && parsedDuration < 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Duration must be zero or greater.')),
+      );
+      return;
+    }
+    if (_completed) {
+      if (_endedAt == null) {
+        _endedAt = _startedAt.add(const Duration(hours: 1));
+      }
+      if (_endedAt!.isBefore(_startedAt)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('End time must be after the start time.')),
+        );
+        return;
+      }
+    } else {
+      _endedAt = null;
+    }
+
+    int? resolvedDuration = parsedDuration;
+    if (_completed && resolvedDuration == null && _endedAt != null) {
+      final diff = _endedAt!.difference(_startedAt).inMinutes;
+      if (diff > 0) {
+        resolvedDuration = diff;
+      }
+    }
+
+    final notes = _notesController.text.trim();
+    final session = CalendarFocusSession(
+      id: widget.session?.id,
+      focusType: _focusType,
+      startedAt: _startedAt,
+      endedAt: _endedAt,
+      durationMinutes: resolvedDuration,
+      completed: _completed,
+      notes: notes.isEmpty ? null : notes,
+      metadata: widget.session?.metadata ?? const <String, dynamic>{},
+    );
+    if (!mounted) return;
+    Navigator.of(context).pop(session);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              widget.session == null ? 'Log focus session' : 'Update focus session',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: _focusType,
+              decoration: const InputDecoration(
+                labelText: 'Focus type',
+                prefixIcon: Icon(Icons.category_outlined),
+              ),
+              items: [
+                for (final value in focusSessionTypes)
+                  DropdownMenuItem(
+                    value: value,
+                    child: Text(value.replaceAll('_', ' ')),
+                  ),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() => _focusType = value);
+              },
+            ),
+            const SizedBox(height: 12),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.play_arrow_outlined),
+              title: const Text('Started at'),
+              subtitle: Text(DateFormat.yMMMd().add_jm().format(_startedAt)),
+              onTap: _pickStart,
+            ),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              value: _completed,
+              title: const Text('Session completed'),
+              subtitle: const Text('Mark complete to capture end time and duration'),
+              onChanged: (value) {
+                setState(() {
+                  _completed = value;
+                  if (!value) {
+                    _endedAt = null;
+                  }
+                });
+              },
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.stop_circle_outlined),
+              title: const Text('Ended at'),
+              subtitle: Text(
+                _endedAt == null
+                    ? 'Not set'
+                    : DateFormat.yMMMd().add_jm().format(_endedAt!),
+              ),
+              onTap: _completed ? _pickEnd : null,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _durationController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Duration (minutes)',
+                helperText: 'Optional. Leave blank to calculate automatically.',
+                prefixIcon: Icon(Icons.timer_outlined),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _notesController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Notes',
+                prefixIcon: Icon(Icons.notes_outlined),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 12),
+                FilledButton(
+                  onPressed: _submit,
+                  child: Text(widget.session == null ? 'Save session' : 'Save changes'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _IntegrationsSection extends StatelessWidget {
+  const _IntegrationsSection({required this.integrations});
+
+  final List<CalendarIntegration> integrations;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return GigvoraCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Connected calendars', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 12),
+          ...integrations.map(
+            (integration) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  Icon(Icons.link, size: 18, color: colorScheme.primary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      integration.externalAccount ?? integration.provider,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: colorScheme.secondaryContainer,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      integration.status.replaceAll('_', ' '),
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelSmall
+                          ?.copyWith(color: colorScheme.onSecondaryContainer),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DaySection extends StatelessWidget {
   const _DaySection({
     required this.date,
     required this.events,
     required this.onEdit,
     required this.onDelete,
-    required this.onToggle,
+    required this.timezone,
   });
 
   final DateTime date;
   final List<CalendarEvent> events;
-  final ValueChanged<CalendarEvent> onEdit;
-  final ValueChanged<CalendarEvent> onDelete;
-  final void Function(CalendarEvent event, bool completed) onToggle;
+  final Future<void> Function(CalendarEvent) onEdit;
+  final Future<void> Function(CalendarEvent) onDelete;
+  final String timezone;
 
   @override
   Widget build(BuildContext context) {
@@ -298,7 +962,7 @@ class _DaySection extends StatelessWidget {
                 event: event,
                 onEdit: onEdit,
                 onDelete: onDelete,
-                onToggle: onToggle,
+                timezone: timezone,
               ),
             ),
           ),
@@ -315,22 +979,20 @@ class _EventCard extends StatelessWidget {
     required this.event,
     required this.onEdit,
     required this.onDelete,
-    required this.onToggle,
+    required this.timezone,
   });
 
   final CalendarEvent event;
-  final ValueChanged<CalendarEvent> onEdit;
-  final ValueChanged<CalendarEvent> onDelete;
-  final void Function(CalendarEvent event, bool completed) onToggle;
+  final Future<void> Function(CalendarEvent) onEdit;
+  final Future<void> Function(CalendarEvent) onDelete;
+  final String timezone;
 
   @override
   Widget build(BuildContext context) {
-    final timeRange = event.allDay
-        ? 'All day'
-        : '${DateFormat.jm().format(event.start)} – ${DateFormat.jm().format(event.end)}';
+    final timeRange = event.formatTimeRange();
     final colorScheme = Theme.of(context).colorScheme;
     return Dismissible(
-      key: ValueKey(event.id),
+      key: ValueKey(event.id ?? '${event.startsAt.millisecondsSinceEpoch}:${event.title}'),
       direction: DismissDirection.endToStart,
       background: Container(
         decoration: BoxDecoration(
@@ -360,7 +1022,7 @@ class _EventCard extends StatelessWidget {
           ),
         );
         if (confirmed == true) {
-          onDelete(event);
+          await onDelete(event);
         }
         return confirmed ?? false;
       },
@@ -381,11 +1043,6 @@ class _EventCard extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  tooltip: event.completed ? 'Mark incomplete' : 'Mark completed',
-                  onPressed: () => onToggle(event, !event.completed),
-                  icon: Icon(event.completed ? Icons.check_circle : Icons.radio_button_unchecked),
-                ),
-                IconButton(
                   tooltip: 'Edit event',
                   onPressed: () => onEdit(event),
                   icon: const Icon(Icons.edit_outlined),
@@ -394,7 +1051,9 @@ class _EventCard extends StatelessWidget {
                   tooltip: 'More actions',
                   onSelected: (action) async {
                     if (action == _EventCardAction.copyIcs) {
-                      await Clipboard.setData(ClipboardData(text: event.toIcs()));
+                      await Clipboard.setData(
+                        ClipboardData(text: event.toIcs(timezone: timezone)),
+                      );
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('ICS invite copied to clipboard.')),
@@ -424,16 +1083,9 @@ class _EventCard extends StatelessWidget {
               spacing: 12,
               runSpacing: 8,
               children: [
-                _EventMetaPill(
-                  icon: Icons.public,
-                  label: event.timeZone,
-                ),
-                if (event.recurrence != null)
-                  _EventMetaPill(
-                    icon: Icons.loop,
-                    label: event.recurrence!
-                        .describe(DateFormat.yMMMd()),
-                  ),
+                _EventMetaPill(icon: Icons.category_outlined, label: event.eventType.replaceAll('_', ' ')),
+                _EventMetaPill(icon: Icons.visibility_outlined, label: event.visibility),
+                _EventMetaPill(icon: Icons.sync_alt_outlined, label: event.source),
               ],
             ),
             if (event.location?.isNotEmpty ?? false) ...[
@@ -451,52 +1103,26 @@ class _EventCard extends StatelessWidget {
                 ],
               ),
             ],
+            if (event.videoConferenceLink?.isNotEmpty ?? false) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(Icons.videocam_outlined, size: 18, color: colorScheme.primary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      event.videoConferenceLink!,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                ],
+              ),
+            ],
             if (event.description?.isNotEmpty ?? false) ...[
               const SizedBox(height: 12),
               Text(
                 event.description!,
                 style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ],
-            if (event.attendees.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: event.attendees
-                    .map(
-                      (attendee) => Chip(
-                        avatar: const Icon(Icons.person_outline),
-                        label: Text(attendee),
-                      ),
-                    )
-                    .toList(growable: false),
-              ),
-            ],
-            if (event.attachments.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: event.attachments
-                    .map(
-                      (attachment) => Row(
-                        children: [
-                          const Icon(Icons.attach_file, size: 18),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              attachment,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.copyWith(color: colorScheme.primary),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                    .toList(growable: false),
               ),
             ],
           ],
@@ -693,11 +1319,11 @@ class _StatusBanner extends StatelessWidget {
 class _CalendarEventSheet extends StatefulWidget {
   const _CalendarEventSheet({
     this.event,
-    required this.defaultTimeZone,
+    required this.settings,
   });
 
   final CalendarEvent? event;
-  final String defaultTimeZone;
+  final CalendarSettings settings;
 
   @override
   State<_CalendarEventSheet> createState() => _CalendarEventSheetState();
@@ -707,17 +1333,18 @@ class _CalendarEventSheetState extends State<_CalendarEventSheet> {
   late final TextEditingController _titleController;
   late final TextEditingController _descriptionController;
   late final TextEditingController _locationController;
-  late final TextEditingController _attendeesController;
-  late final TextEditingController _attachmentsController;
+  late final TextEditingController _videoLinkController;
+  late final TextEditingController _relatedEntityIdController;
+  late final TextEditingController _colorHexController;
+  late final TextEditingController _focusModeController;
   late DateTime _start;
   late DateTime _end;
+  late String _eventType;
+  late String _source;
+  late String _visibility;
+  String? _relatedEntityType;
   bool _allDay = false;
   int? _reminderMinutes;
-  late String _timeZone;
-  CalendarRecurrenceFrequency? _recurrenceFrequency;
-  int _recurrenceInterval = 1;
-  DateTime? _recurrenceEnd;
-  bool _recurrenceHasEnd = false;
 
   @override
   void initState() {
@@ -726,19 +1353,22 @@ class _CalendarEventSheetState extends State<_CalendarEventSheet> {
     _titleController = TextEditingController(text: event?.title ?? '');
     _descriptionController = TextEditingController(text: event?.description ?? '');
     _locationController = TextEditingController(text: event?.location ?? '');
-    _attendeesController = TextEditingController(text: event == null ? '' : event.attendees.join(', '));
-    _attachmentsController = TextEditingController(text: event == null ? '' : event.attachments.join(', '));
-    _start = event?.start ?? DateTime.now();
-    _end = event?.end ?? DateTime.now().add(const Duration(hours: 1));
-    _allDay = event?.allDay ?? false;
+    _videoLinkController = TextEditingController(text: event?.videoConferenceLink ?? '');
+    _relatedEntityIdController =
+        TextEditingController(text: event?.relatedEntityId == null ? '' : event!.relatedEntityId.toString());
+    _colorHexController = TextEditingController(text: event?.colorHex ?? '');
+    _focusModeController = TextEditingController(text: event?.focusMode ?? '');
+    _start = event?.startsAtLocal ?? DateTime.now();
+    _end = event?.endsAtLocal ?? _start.add(const Duration(hours: 1));
+    _eventType = event?.eventType ?? calendarEventTypes.first;
+    _source = event?.source ?? 'manual';
+    _visibility = event?.visibility ?? calendarEventVisibilities.first;
+    _relatedEntityType = event?.relatedEntityType;
+    _allDay = event?.isAllDay ?? false;
     _reminderMinutes = event?.reminderMinutes;
-    _timeZone = event?.timeZone ?? widget.defaultTimeZone;
-    final recurrence = event?.recurrence;
-    if (recurrence != null) {
-      _recurrenceFrequency = recurrence.frequency;
-      _recurrenceInterval = recurrence.interval;
-      _recurrenceEnd = recurrence.until;
-      _recurrenceHasEnd = recurrence.until != null;
+    if (_allDay) {
+      _start = DateTime(_start.year, _start.month, _start.day, 0, 0);
+      _end = DateTime(_start.year, _start.month, _start.day, 23, 59);
     }
   }
 
@@ -747,8 +1377,10 @@ class _CalendarEventSheetState extends State<_CalendarEventSheet> {
     _titleController.dispose();
     _descriptionController.dispose();
     _locationController.dispose();
-    _attendeesController.dispose();
-    _attachmentsController.dispose();
+    _videoLinkController.dispose();
+    _relatedEntityIdController.dispose();
+    _colorHexController.dispose();
+    _focusModeController.dispose();
     super.dispose();
   }
 
@@ -776,7 +1408,9 @@ class _CalendarEventSheetState extends State<_CalendarEventSheet> {
         _allDay ? 0 : time?.minute ?? _start.minute,
       );
       if (_start.isAfter(_end)) {
-        _end = _start.add(const Duration(hours: 1));
+        _end = _allDay
+            ? DateTime(_start.year, _start.month, _start.day, 23, 59)
+            : _start.add(const Duration(hours: 1));
       }
     });
   }
@@ -807,25 +1441,6 @@ class _CalendarEventSheetState extends State<_CalendarEventSheet> {
       if (_end.isBefore(_start)) {
         _start = _end.subtract(const Duration(hours: 1));
       }
-    });
-  }
-
-  Future<void> _pickRecurrenceEnd() async {
-    final initial = _recurrenceEnd ?? _end;
-    final date = await showDatePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
-      initialDate: initial,
-    );
-    if (date == null) {
-      return;
-    }
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _recurrenceEnd = DateTime(date.year, date.month, date.day);
     });
   }
 
@@ -865,8 +1480,118 @@ class _CalendarEventSheetState extends State<_CalendarEventSheet> {
             TextField(
               controller: _locationController,
               decoration: const InputDecoration(
-                labelText: 'Location or meeting link',
+                labelText: 'Location or meeting room',
                 prefixIcon: Icon(Icons.location_on_outlined),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _videoLinkController,
+              decoration: const InputDecoration(
+                labelText: 'Video conference link',
+                prefixIcon: Icon(Icons.videocam_outlined),
+              ),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: _eventType,
+              decoration: const InputDecoration(
+                labelText: 'Event type',
+                prefixIcon: Icon(Icons.category_outlined),
+              ),
+              items: [
+                for (final value in calendarEventTypes)
+                  DropdownMenuItem(
+                    value: value,
+                    child: Text(value.replaceAll('_', ' ')),
+                  ),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() => _eventType = value);
+              },
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: _source,
+              decoration: const InputDecoration(
+                labelText: 'Source',
+                prefixIcon: Icon(Icons.sync_alt_outlined),
+              ),
+              items: [
+                for (final value in calendarEventSources)
+                  DropdownMenuItem(
+                    value: value,
+                    child: Text(value.replaceAll('_', ' ')),
+                  ),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() => _source = value);
+              },
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: _visibility,
+              decoration: const InputDecoration(
+                labelText: 'Visibility',
+                prefixIcon: Icon(Icons.visibility_outlined),
+              ),
+              items: [
+                for (final value in calendarEventVisibilities)
+                  DropdownMenuItem(
+                    value: value,
+                    child: Text(value.replaceAll('_', ' ')),
+                  ),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() => _visibility = value);
+              },
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String?>(
+              value: _relatedEntityType,
+              decoration: const InputDecoration(
+                labelText: 'Related record',
+                prefixIcon: Icon(Icons.link_outlined),
+              ),
+              items: [
+                const DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text('No related record'),
+                ),
+                for (final value in calendarRelatedEntityTypes)
+                  DropdownMenuItem<String?>(
+                    value: value,
+                    child: Text(value.replaceAll('_', ' ')),
+                  ),
+              ],
+              onChanged: (value) => setState(() => _relatedEntityType = value),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _relatedEntityIdController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Related entity ID',
+                prefixIcon: Icon(Icons.tag),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _colorHexController,
+              decoration: const InputDecoration(
+                labelText: 'Colour hex (optional)',
+                prefixIcon: Icon(Icons.palette_outlined),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _focusModeController,
+              decoration: const InputDecoration(
+                labelText: 'Focus mode (optional)',
+                prefixIcon: Icon(Icons.timelapse),
               ),
             ),
             const SizedBox(height: 12),
@@ -876,6 +1601,10 @@ class _CalendarEventSheetState extends State<_CalendarEventSheet> {
               onChanged: (value) {
                 setState(() {
                   _allDay = value;
+                  if (value) {
+                    _start = DateTime(_start.year, _start.month, _start.day, 0, 0);
+                    _end = DateTime(_start.year, _start.month, _start.day, 23, 59);
+                  }
                 });
               },
             ),
@@ -899,22 +1628,6 @@ class _CalendarEventSheetState extends State<_CalendarEventSheet> {
               ],
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: _attendeesController,
-              decoration: const InputDecoration(
-                labelText: 'Attendees (comma separated emails)',
-                prefixIcon: Icon(Icons.people_outline),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _attachmentsController,
-              decoration: const InputDecoration(
-                labelText: 'Attachments (comma separated URLs)',
-                prefixIcon: Icon(Icons.attach_file),
-              ),
-            ),
-            const SizedBox(height: 12),
             DropdownButtonFormField<int?>(
               value: _reminderMinutes,
               decoration: const InputDecoration(
@@ -931,107 +1644,6 @@ class _CalendarEventSheetState extends State<_CalendarEventSheet> {
               ],
               onChanged: (value) => setState(() => _reminderMinutes = value),
             ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: _timeZone,
-              decoration: const InputDecoration(
-                labelText: 'Event time zone',
-                prefixIcon: Icon(Icons.public),
-              ),
-              items: [
-                for (final option in supportedCalendarTimeZones)
-                  DropdownMenuItem(
-                    value: option.identifier,
-                    child: Text(option.label),
-                  ),
-              ],
-              onChanged: (value) {
-                if (value == null) return;
-                setState(() => _timeZone = value);
-              },
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<CalendarRecurrenceFrequency?>(
-              value: _recurrenceFrequency,
-              decoration: const InputDecoration(
-                labelText: 'Recurrence',
-                prefixIcon: Icon(Icons.loop),
-              ),
-              items: const [
-                DropdownMenuItem<CalendarRecurrenceFrequency?>(
-                  value: null,
-                  child: Text('Does not repeat'),
-                ),
-                DropdownMenuItem(
-                  value: CalendarRecurrenceFrequency.daily,
-                  child: Text('Daily'),
-                ),
-                DropdownMenuItem(
-                  value: CalendarRecurrenceFrequency.weekly,
-                  child: Text('Weekly'),
-                ),
-                DropdownMenuItem(
-                  value: CalendarRecurrenceFrequency.monthly,
-                  child: Text('Monthly'),
-                ),
-              ],
-              onChanged: (value) {
-                setState(() {
-                  _recurrenceFrequency = value;
-                  if (value == null) {
-                    _recurrenceInterval = 1;
-                    _recurrenceHasEnd = false;
-                    _recurrenceEnd = null;
-                  }
-                });
-              },
-            ),
-            if (_recurrenceFrequency != null) ...[
-              const SizedBox(height: 12),
-              DropdownButtonFormField<int>(
-                value: _recurrenceInterval,
-                decoration: InputDecoration(
-                  labelText: '${_recurrenceFrequency!.label} interval',
-                  prefixIcon: const Icon(Icons.timelapse),
-                ),
-                items: const [
-                  DropdownMenuItem(value: 1, child: Text('Every event')),
-                  DropdownMenuItem(value: 2, child: Text('Every 2 occurrences')),
-                  DropdownMenuItem(value: 3, child: Text('Every 3 occurrences')),
-                  DropdownMenuItem(value: 4, child: Text('Every 4 occurrences')),
-                ],
-                onChanged: (value) {
-                  if (value == null) return;
-                  setState(() => _recurrenceInterval = value);
-                },
-              ),
-              SwitchListTile.adaptive(
-                value: _recurrenceHasEnd,
-                title: const Text('Set recurrence end date'),
-                onChanged: (value) {
-                  setState(() {
-                    _recurrenceHasEnd = value;
-                    if (!value) {
-                      _recurrenceEnd = null;
-                    } else {
-                      _recurrenceEnd ??= _end;
-                    }
-                  });
-                },
-              ),
-              if (_recurrenceHasEnd)
-                ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                  title: const Text('Repeats until'),
-                  subtitle: Text(
-                    _recurrenceEnd == null
-                        ? 'Select date'
-                        : DateFormat.yMMMMd().format(_recurrenceEnd!),
-                  ),
-                  trailing: const Icon(Icons.event_repeat),
-                  onTap: _pickRecurrenceEnd,
-                ),
-            ],
             const SizedBox(height: 20),
             Row(
               children: [
@@ -1057,57 +1669,56 @@ class _CalendarEventSheetState extends State<_CalendarEventSheet> {
   }
 
   void _submit() {
-    if (_titleController.text.trim().isEmpty) {
+    final title = _titleController.text.trim();
+    if (title.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Enter a title before saving.')),
       );
       return;
     }
-    if (_recurrenceHasEnd && _recurrenceEnd == null) {
+
+    final relatedIdText = _relatedEntityIdController.text.trim();
+    final relatedId = relatedIdText.isEmpty ? null : int.tryParse(relatedIdText);
+
+    if (relatedIdText.isNotEmpty && relatedId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select when the recurrence should end.')),
+        const SnackBar(content: Text('Related entity ID must be a valid number.')),
       );
       return;
     }
-    final attendees = _attendeesController.text
-        .split(',')
-        .map((value) => value.trim())
-        .where((value) => value.isNotEmpty)
-        .toList(growable: false);
-    final attachments = _attachmentsController.text
-        .split(',')
-        .map((value) => value.trim())
-        .where((value) => value.isNotEmpty)
-        .toList(growable: false);
 
-    final base = widget.event ?? CalendarEvent(
-      id: '',
-      title: _titleController.text.trim(),
-      start: _start,
-      end: _end,
-    );
+    final end = _allDay
+        ? DateTime(_start.year, _start.month, _start.day, 23, 59)
+        : _end;
 
-    final recurrence = _recurrenceFrequency == null
-        ? null
-        : CalendarRecurrence(
-            frequency: _recurrenceFrequency!,
-            interval: _recurrenceInterval,
-            until: _recurrenceHasEnd ? _recurrenceEnd : null,
-          );
+    final base = widget.event ??
+        CalendarEvent(
+          id: null,
+          title: title,
+          startsAt: _start,
+          endsAt: end,
+          eventType: _eventType,
+          source: _source,
+          visibility: _visibility,
+        );
 
     final event = base.copyWith(
-      title: _titleController.text.trim(),
-      description:
-          _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
+      title: title,
+      startsAt: _start,
+      endsAt: end,
+      eventType: _eventType,
+      source: _source,
       location: _locationController.text.trim().isEmpty ? null : _locationController.text.trim(),
-      start: _start,
-      end: _end,
-      allDay: _allDay,
-      attendees: attendees,
-      attachments: attachments,
+      description: _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
+      videoConferenceLink:
+          _videoLinkController.text.trim().isEmpty ? null : _videoLinkController.text.trim(),
+      isAllDay: _allDay,
       reminderMinutes: _reminderMinutes,
-      timeZone: _timeZone,
-      recurrence: recurrence,
+      visibility: _visibility,
+      relatedEntityType: _relatedEntityType,
+      relatedEntityId: relatedId,
+      colorHex: _colorHexController.text.trim().isEmpty ? null : _colorHexController.text.trim(),
+      focusMode: _focusModeController.text.trim().isEmpty ? null : _focusModeController.text.trim(),
     );
 
     Navigator.of(context).pop(event);
@@ -1123,15 +1734,34 @@ class _DateTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      tileColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.35),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Text(label, style: Theme.of(context).textTheme.labelMedium),
-      subtitle: Text(value),
-      trailing: const Icon(Icons.calendar_today_outlined),
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
       onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: Theme.of(context)
+                  .textTheme
+                  .labelMedium
+                  ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
-
