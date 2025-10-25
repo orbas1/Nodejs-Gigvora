@@ -13,6 +13,13 @@ import {
   transactionParamsSchema,
   invoiceParamsSchema,
   payoutParamsSchema,
+  hubUpdateParamsSchema,
+  hubActionParamsSchema,
+  hubResourceParamsSchema,
+  orderParamsSchema,
+  campaignParamsSchema,
+  widgetParamsSchema,
+  creationStudioParamsSchema,
 } from '../validation/schemas/mentorWorkspaceSchemas.js';
 
 const router = Router();
@@ -129,6 +136,112 @@ router.delete(
   '/finance/payouts/:payoutId',
   validateRequest({ params: payoutParamsSchema }),
   asyncHandler(mentorshipController.deletePayout),
+);
+
+router.post('/hub/updates', asyncHandler(mentorshipController.createHubUpdate));
+router.put(
+  '/hub/updates/:updateId',
+  validateRequest({ params: hubUpdateParamsSchema }),
+  asyncHandler(mentorshipController.updateHubUpdate),
+);
+router.delete(
+  '/hub/updates/:updateId',
+  validateRequest({ params: hubUpdateParamsSchema }),
+  asyncHandler(mentorshipController.deleteHubUpdate),
+);
+
+router.post('/hub/actions', asyncHandler(mentorshipController.createHubAction));
+router.put(
+  '/hub/actions/:actionId',
+  validateRequest({ params: hubActionParamsSchema }),
+  asyncHandler(mentorshipController.updateHubAction),
+);
+router.delete(
+  '/hub/actions/:actionId',
+  validateRequest({ params: hubActionParamsSchema }),
+  asyncHandler(mentorshipController.deleteHubAction),
+);
+
+router.post('/hub/resources', asyncHandler(mentorshipController.createHubResource));
+router.put(
+  '/hub/resources/:resourceId',
+  validateRequest({ params: hubResourceParamsSchema }),
+  asyncHandler(mentorshipController.updateHubResource),
+);
+router.delete(
+  '/hub/resources/:resourceId',
+  validateRequest({ params: hubResourceParamsSchema }),
+  asyncHandler(mentorshipController.deleteHubResource),
+);
+
+router.put('/hub/spotlight', asyncHandler(mentorshipController.saveHubSpotlight));
+
+router.post('/orders', asyncHandler(mentorshipController.createOrder));
+router.put(
+  '/orders/:orderId',
+  validateRequest({ params: orderParamsSchema }),
+  asyncHandler(mentorshipController.updateOrder),
+);
+router.delete(
+  '/orders/:orderId',
+  validateRequest({ params: orderParamsSchema }),
+  asyncHandler(mentorshipController.deleteOrder),
+);
+
+router.post('/ads/campaigns', asyncHandler(mentorshipController.createAdCampaign));
+router.put(
+  '/ads/campaigns/:campaignId',
+  validateRequest({ params: campaignParamsSchema }),
+  asyncHandler(mentorshipController.updateAdCampaign),
+);
+router.delete(
+  '/ads/campaigns/:campaignId',
+  validateRequest({ params: campaignParamsSchema }),
+  asyncHandler(mentorshipController.deleteAdCampaign),
+);
+
+router.post('/metrics/widgets', asyncHandler(mentorshipController.createMetricWidget));
+router.put(
+  '/metrics/widgets/:widgetId',
+  validateRequest({ params: widgetParamsSchema }),
+  asyncHandler(mentorshipController.updateMetricWidget),
+);
+router.delete(
+  '/metrics/widgets/:widgetId',
+  validateRequest({ params: widgetParamsSchema }),
+  asyncHandler(mentorshipController.deleteMetricWidget),
+);
+router.put('/metrics/reporting', asyncHandler(mentorshipController.saveMetricReporting));
+
+router.put('/settings', asyncHandler(mentorshipController.saveSettings));
+router.put('/system/preferences', asyncHandler(mentorshipController.saveSystemPreferences));
+
+router.get('/creation-studio', asyncHandler(mentorshipController.creationStudioWorkspace));
+router.post('/creation-studio/items', asyncHandler(mentorshipController.createCreationStudioItem));
+router.put(
+  '/creation-studio/items/:itemId',
+  validateRequest({ params: creationStudioParamsSchema }),
+  asyncHandler(mentorshipController.updateCreationStudioItem),
+);
+router.post(
+  '/creation-studio/items/:itemId/publish',
+  validateRequest({ params: creationStudioParamsSchema }),
+  asyncHandler(mentorshipController.publishCreationStudioItem),
+);
+router.post(
+  '/creation-studio/items/:itemId/share',
+  validateRequest({ params: creationStudioParamsSchema }),
+  asyncHandler(mentorshipController.shareCreationStudioItem),
+);
+router.post(
+  '/creation-studio/items/:itemId/archive',
+  validateRequest({ params: creationStudioParamsSchema }),
+  asyncHandler(mentorshipController.archiveCreationStudioItem),
+);
+router.delete(
+  '/creation-studio/items/:itemId',
+  validateRequest({ params: creationStudioParamsSchema }),
+  asyncHandler(mentorshipController.deleteCreationStudioItem),
 );
 
 export default router;

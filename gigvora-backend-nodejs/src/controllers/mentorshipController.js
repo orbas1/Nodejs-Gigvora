@@ -37,6 +37,35 @@ import {
   createMentorPayout,
   updateMentorPayout,
   deleteMentorPayout,
+  createMentorHubUpdate,
+  updateMentorHubUpdate,
+  deleteMentorHubUpdate,
+  createMentorHubAction,
+  updateMentorHubAction,
+  deleteMentorHubAction,
+  createMentorHubResource,
+  updateMentorHubResource,
+  deleteMentorHubResource,
+  saveMentorHubSpotlight,
+  createMentorOrder,
+  updateMentorOrder,
+  deleteMentorOrder,
+  createMentorAdCampaign,
+  updateMentorAdCampaign,
+  deleteMentorAdCampaign,
+  createMentorMetricWidget,
+  updateMentorMetricWidget,
+  deleteMentorMetricWidget,
+  saveMentorMetricReporting,
+  updateMentorSettings,
+  updateMentorSystemPreferences,
+  getMentorCreationStudioWorkspace,
+  createMentorCreationStudioItem,
+  updateMentorCreationStudioItem,
+  publishMentorCreationStudioItem,
+  shareMentorCreationStudioItem,
+  archiveMentorCreationStudioItem,
+  deleteMentorCreationStudioItem,
 } from '../services/mentorshipService.js';
 
 const DASHBOARD_CACHE_SYMBOL = Symbol('mentorDashboardCache');
@@ -643,6 +672,371 @@ export async function deletePayout(req, res) {
   res.json({ dashboard });
 }
 
+export async function createHubUpdate(req, res) {
+  const mentorId = resolveMentorId(req);
+  ensureMentorRole(req, mentorId);
+  const update = await createMentorHubUpdate(
+    mentorId,
+    ensurePlainObject(req.body ?? {}, 'mentor hub update'),
+  );
+  clearDashboardCache(req);
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  res.status(201).json({ update, dashboard });
+}
+
+export async function updateHubUpdate(req, res) {
+  const mentorId = resolveMentorId(req);
+  ensureMentorRole(req, mentorId);
+  const updateId = toPositiveInteger(req.params?.updateId ?? req.body?.updateId, {
+    fieldName: 'updateId',
+  });
+  const update = await updateMentorHubUpdate(
+    mentorId,
+    updateId,
+    ensurePlainObject(req.body ?? {}, 'mentor hub update'),
+  );
+  clearDashboardCache(req);
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  res.json({ update, dashboard });
+}
+
+export async function deleteHubUpdate(req, res) {
+  const mentorId = resolveMentorId(req);
+  ensureMentorRole(req, mentorId);
+  const updateId = toPositiveInteger(req.params?.updateId, { fieldName: 'updateId' });
+  await deleteMentorHubUpdate(mentorId, updateId);
+  clearDashboardCache(req);
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  res.json({ dashboard });
+}
+
+export async function createHubAction(req, res) {
+  const mentorId = resolveMentorId(req);
+  ensureMentorRole(req, mentorId);
+  const action = await createMentorHubAction(
+    mentorId,
+    ensurePlainObject(req.body ?? {}, 'mentor hub action'),
+  );
+  clearDashboardCache(req);
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  res.status(201).json({ action, dashboard });
+}
+
+export async function updateHubAction(req, res) {
+  const mentorId = resolveMentorId(req);
+  ensureMentorRole(req, mentorId);
+  const actionId = toPositiveInteger(req.params?.actionId ?? req.body?.actionId, {
+    fieldName: 'actionId',
+  });
+  const action = await updateMentorHubAction(
+    mentorId,
+    actionId,
+    ensurePlainObject(req.body ?? {}, 'mentor hub action'),
+  );
+  clearDashboardCache(req);
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  res.json({ action, dashboard });
+}
+
+export async function deleteHubAction(req, res) {
+  const mentorId = resolveMentorId(req);
+  ensureMentorRole(req, mentorId);
+  const actionId = toPositiveInteger(req.params?.actionId, { fieldName: 'actionId' });
+  await deleteMentorHubAction(mentorId, actionId);
+  clearDashboardCache(req);
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  res.json({ dashboard });
+}
+
+export async function createHubResource(req, res) {
+  const mentorId = resolveMentorId(req);
+  ensureMentorRole(req, mentorId);
+  const resource = await createMentorHubResource(
+    mentorId,
+    ensurePlainObject(req.body ?? {}, 'mentor hub resource'),
+  );
+  clearDashboardCache(req);
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  res.status(201).json({ resource, dashboard });
+}
+
+export async function updateHubResource(req, res) {
+  const mentorId = resolveMentorId(req);
+  ensureMentorRole(req, mentorId);
+  const resourceId = toPositiveInteger(req.params?.resourceId ?? req.body?.resourceId, {
+    fieldName: 'resourceId',
+  });
+  const resource = await updateMentorHubResource(
+    mentorId,
+    resourceId,
+    ensurePlainObject(req.body ?? {}, 'mentor hub resource'),
+  );
+  clearDashboardCache(req);
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  res.json({ resource, dashboard });
+}
+
+export async function deleteHubResource(req, res) {
+  const mentorId = resolveMentorId(req);
+  ensureMentorRole(req, mentorId);
+  const resourceId = toPositiveInteger(req.params?.resourceId, { fieldName: 'resourceId' });
+  await deleteMentorHubResource(mentorId, resourceId);
+  clearDashboardCache(req);
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  res.json({ dashboard });
+}
+
+export async function saveHubSpotlight(req, res) {
+  const mentorId = resolveMentorId(req);
+  ensureMentorRole(req, mentorId);
+  const spotlight = await saveMentorHubSpotlight(
+    mentorId,
+    ensurePlainObject(req.body ?? {}, 'mentor hub spotlight'),
+  );
+  clearDashboardCache(req);
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  res.json({ spotlight, dashboard });
+}
+
+export async function createOrder(req, res) {
+  const mentorId = resolveMentorId(req);
+  ensureMentorRole(req, mentorId);
+  const order = await createMentorOrder(mentorId, ensurePlainObject(req.body ?? {}, 'mentor order'));
+  clearDashboardCache(req);
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  res.status(201).json({ order, dashboard });
+}
+
+export async function updateOrder(req, res) {
+  const mentorId = resolveMentorId(req);
+  ensureMentorRole(req, mentorId);
+  const orderId = toPositiveInteger(req.params?.orderId ?? req.body?.orderId, { fieldName: 'orderId' });
+  const order = await updateMentorOrder(
+    mentorId,
+    orderId,
+    ensurePlainObject(req.body ?? {}, 'mentor order update'),
+  );
+  clearDashboardCache(req);
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  res.json({ order, dashboard });
+}
+
+export async function deleteOrder(req, res) {
+  const mentorId = resolveMentorId(req);
+  ensureMentorRole(req, mentorId);
+  const orderId = toPositiveInteger(req.params?.orderId, { fieldName: 'orderId' });
+  await deleteMentorOrder(mentorId, orderId);
+  clearDashboardCache(req);
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  res.json({ dashboard });
+}
+
+export async function createAdCampaign(req, res) {
+  const mentorId = resolveMentorId(req);
+  ensureMentorRole(req, mentorId);
+  const campaign = await createMentorAdCampaign(
+    mentorId,
+    ensurePlainObject(req.body ?? {}, 'mentor ad campaign'),
+  );
+  clearDashboardCache(req);
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  res.status(201).json({ campaign, dashboard });
+}
+
+export async function updateAdCampaign(req, res) {
+  const mentorId = resolveMentorId(req);
+  ensureMentorRole(req, mentorId);
+  const campaignId = toPositiveInteger(req.params?.campaignId ?? req.body?.campaignId, {
+    fieldName: 'campaignId',
+  });
+  const campaign = await updateMentorAdCampaign(
+    mentorId,
+    campaignId,
+    ensurePlainObject(req.body ?? {}, 'mentor ad campaign'),
+  );
+  clearDashboardCache(req);
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  res.json({ campaign, dashboard });
+}
+
+export async function deleteAdCampaign(req, res) {
+  const mentorId = resolveMentorId(req);
+  ensureMentorRole(req, mentorId);
+  const campaignId = toPositiveInteger(req.params?.campaignId, { fieldName: 'campaignId' });
+  await deleteMentorAdCampaign(mentorId, campaignId);
+  clearDashboardCache(req);
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  res.json({ dashboard });
+}
+
+export async function createMetricWidget(req, res) {
+  const mentorId = resolveMentorId(req);
+  ensureMentorRole(req, mentorId);
+  const widget = await createMentorMetricWidget(
+    mentorId,
+    ensurePlainObject(req.body ?? {}, 'mentor metric widget'),
+  );
+  clearDashboardCache(req);
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  res.status(201).json({ widget, dashboard });
+}
+
+export async function updateMetricWidget(req, res) {
+  const mentorId = resolveMentorId(req);
+  ensureMentorRole(req, mentorId);
+  const widgetId = toPositiveInteger(req.params?.widgetId ?? req.body?.widgetId, { fieldName: 'widgetId' });
+  const widget = await updateMentorMetricWidget(
+    mentorId,
+    widgetId,
+    ensurePlainObject(req.body ?? {}, 'mentor metric widget'),
+  );
+  clearDashboardCache(req);
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  res.json({ widget, dashboard });
+}
+
+export async function deleteMetricWidget(req, res) {
+  const mentorId = resolveMentorId(req);
+  ensureMentorRole(req, mentorId);
+  const widgetId = toPositiveInteger(req.params?.widgetId, { fieldName: 'widgetId' });
+  await deleteMentorMetricWidget(mentorId, widgetId);
+  clearDashboardCache(req);
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  res.json({ dashboard });
+}
+
+export async function saveMetricReporting(req, res) {
+  const mentorId = resolveMentorId(req);
+  ensureMentorRole(req, mentorId);
+  const reporting = await saveMentorMetricReporting(
+    mentorId,
+    ensurePlainObject(req.body ?? {}, 'mentor metric reporting'),
+  );
+  clearDashboardCache(req);
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  res.json({ reporting, dashboard });
+}
+
+export async function saveSettings(req, res) {
+  const mentorId = resolveMentorId(req);
+  ensureMentorRole(req, mentorId);
+  const settings = await updateMentorSettings(
+    mentorId,
+    ensurePlainObject(req.body ?? {}, 'mentor settings'),
+  );
+  clearDashboardCache(req);
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  res.json({ settings, dashboard });
+}
+
+export async function saveSystemPreferences(req, res) {
+  const mentorId = resolveMentorId(req);
+  ensureMentorRole(req, mentorId);
+  const preferences = await updateMentorSystemPreferences(
+    mentorId,
+    ensurePlainObject(req.body ?? {}, 'mentor system preferences'),
+  );
+  clearDashboardCache(req);
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  res.json({ preferences, dashboard });
+}
+
+export async function creationStudioWorkspace(req, res) {
+  const mentorId = resolveMentorId(req);
+  ensureMentorRole(req, mentorId);
+  const workspace = await getMentorCreationStudioWorkspace(mentorId, {
+    includeArchived: req.query?.includeArchived === 'true',
+  });
+  res.json(workspace);
+}
+
+function resolveActorId(req, fallback) {
+  return resolveRequestUserId(req) ?? fallback;
+}
+
+export async function createCreationStudioItem(req, res) {
+  const mentorId = resolveMentorId(req);
+  ensureMentorRole(req, mentorId);
+  const actorId = resolveActorId(req, mentorId);
+  const item = await createMentorCreationStudioItem(
+    mentorId,
+    ensurePlainObject(req.body ?? {}, 'creation studio item'),
+    { actorId },
+  );
+  clearDashboardCache(req);
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  res.status(201).json({ item, dashboard });
+}
+
+export async function updateCreationStudioItem(req, res) {
+  const mentorId = resolveMentorId(req);
+  ensureMentorRole(req, mentorId);
+  const itemId = toPositiveInteger(req.params?.itemId ?? req.body?.itemId, { fieldName: 'itemId' });
+  const actorId = resolveActorId(req, mentorId);
+  const item = await updateMentorCreationStudioItem(
+    mentorId,
+    itemId,
+    ensurePlainObject(req.body ?? {}, 'creation studio item'),
+    { actorId },
+  );
+  clearDashboardCache(req);
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  res.json({ item, dashboard });
+}
+
+export async function publishCreationStudioItem(req, res) {
+  const mentorId = resolveMentorId(req);
+  ensureMentorRole(req, mentorId);
+  const itemId = toPositiveInteger(req.params?.itemId ?? req.body?.itemId, { fieldName: 'itemId' });
+  const actorId = resolveActorId(req, mentorId);
+  const item = await publishMentorCreationStudioItem(
+    mentorId,
+    itemId,
+    ensurePlainObject(req.body ?? {}, 'creation studio publish'),
+    { actorId },
+  );
+  clearDashboardCache(req);
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  res.json({ item, dashboard });
+}
+
+export async function shareCreationStudioItem(req, res) {
+  const mentorId = resolveMentorId(req);
+  ensureMentorRole(req, mentorId);
+  const itemId = toPositiveInteger(req.params?.itemId ?? req.body?.itemId, { fieldName: 'itemId' });
+  const actorId = resolveActorId(req, mentorId);
+  const item = await shareMentorCreationStudioItem(
+    mentorId,
+    itemId,
+    ensurePlainObject(req.body ?? {}, 'creation studio share'),
+    { actorId },
+  );
+  clearDashboardCache(req);
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  res.json({ item, dashboard });
+}
+
+export async function archiveCreationStudioItem(req, res) {
+  const mentorId = resolveMentorId(req);
+  ensureMentorRole(req, mentorId);
+  const itemId = toPositiveInteger(req.params?.itemId ?? req.body?.itemId, { fieldName: 'itemId' });
+  const actorId = resolveActorId(req, mentorId);
+  await archiveMentorCreationStudioItem(mentorId, itemId, { actorId });
+  clearDashboardCache(req);
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  res.json({ dashboard });
+}
+
+export async function deleteCreationStudioItem(req, res) {
+  const mentorId = resolveMentorId(req);
+  ensureMentorRole(req, mentorId);
+  const itemId = toPositiveInteger(req.params?.itemId, { fieldName: 'itemId' });
+  await deleteMentorCreationStudioItem(mentorId, itemId);
+  clearDashboardCache(req);
+  const dashboard = await getMemoizedDashboard(req, mentorId, { lookbackDays: null });
+  res.json({ dashboard });
+}
+
 export default {
   dashboard,
   saveAvailability,
@@ -676,4 +1070,33 @@ export default {
   createPayout,
   updatePayout,
   deletePayout,
+  createHubUpdate,
+  updateHubUpdate,
+  deleteHubUpdate,
+  createHubAction,
+  updateHubAction,
+  deleteHubAction,
+  createHubResource,
+  updateHubResource,
+  deleteHubResource,
+  saveHubSpotlight,
+  createOrder,
+  updateOrder,
+  deleteOrder,
+  createAdCampaign,
+  updateAdCampaign,
+  deleteAdCampaign,
+  createMetricWidget,
+  updateMetricWidget,
+  deleteMetricWidget,
+  saveMetricReporting,
+  saveSettings,
+  saveSystemPreferences,
+  creationStudioWorkspace,
+  createCreationStudioItem,
+  updateCreationStudioItem,
+  publishCreationStudioItem,
+  shareCreationStudioItem,
+  archiveCreationStudioItem,
+  deleteCreationStudioItem,
 };

@@ -2036,45 +2036,45 @@ This document catalogues the public marketing shell, pre-login journeys, and per
       2. Add testimonials/verification data drawn from mentor dashboards and trust centre.【F:gigvora-frontend-reactjs/src/pages/MentorsPage.jsx†L96-L120】
       3. Expand showcase manager with live success metrics feeding feed highlights and user dashboards.【F:gigvora-frontend-reactjs/src/pages/MentorsPage.jsx†L96-L124】
 
-### 5.B. Mentor Command Centre
+### 5.B. Mentor Command Centre ✅
 
 **Components**
 
-- **5.B.1. `MentorDashboardPage.jsx`**
-  1. **Appraisal.** Delivers end-to-end mentor operations covering availability, clients, finances, creation studio, ads, and analytics.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L1-L210】
-  2. **Functionality.** Wires extensive CRUD services for bookings, packages, invoices, payouts, support, verification, wallet, hub, metrics, settings, and ads.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L110】
-  3. **Logic Usefulness.** Section registry maps menu IDs to components enabling mentors to pivot between operations rapidly.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L110】
-  4. **Redundancies.** Numerous save handlers repeat patterns; abstract into reusable entity controllers.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L150】
-  5. **Placeholders Or Non-working Functions Or Stubs.** Relies on default snapshots until APIs connect; emphasise integration roadmap.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L4-L114】
-  6. **Duplicate Functions.** Relative time formatter duplicates util behaviours; consolidate with shared helper.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L168-L195】
-  7. **Improvements need to make.** Add analytics overlays summarising booking pipeline, revenue trends, and mentor demand.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L1-L210】
-  8. **Styling improvements.** Provide persona gradients and emphasise primary actions for clarity in dense sections.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L1-L110】
-  9. **Effeciency analysis and improvement.** Lazy-load heavy sections (hub, ads, creation studio) and adopt memoised entity store.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L1-L210】
-  10. **Strengths to Keep.** Breadth of operations showcases mentor-as-a-service maturity unmatched by simple gig boards.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L110】
-  11. **Weaknesses to remove.** Manual saving state flags clutter logic; adopt reducer or state machine.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L110-L150】
-  12. **Styling and Colour review changes.** Maintain high contrast for data-dense finance metrics to stay legible.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L110】
-  13. **Css, orientation, placement and arrangement changes.** Add sub-tabs or accordions inside complex sections (finance, clients).【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L150】
-  14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Provide tooltips or helper text for advanced actions like API key rotation.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L110】
-  15. **Text Spacing.** Harmonise spacing scale across forms to avoid cramped experiences.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L1-L210】
-  16. **Shaping.** Retain rounded containers but differentiate primary cards with accent borders.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L110】
-  17. **Shadow, hover, glow and effects.** Add success glow or toast after saving bookings/packages to reinforce completion.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L130】
-  18. **Thumbnails.** Embed mentor brand imagery within hub section to mirror marketplace cards.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L110】
-  19. **Images and media & Images and media previews.** Allow upload of marketing assets for creation studio cross-promotion.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L130】
-  20. **Button styling.** Ensure consistent CTA hierarchy and distinct destructive button styles across sections.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L130】
-  21. **Interactiveness.** Menu switching, CRUD operations, and support tooling keep mentors engaged without leaving dashboard.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L1-L210】
-  22. **Missing Components.** Add AI recommendations for pricing, availability, and client follow-ups leveraging analytics.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L1-L210】
-  23. **Design Changes.** Introduce engagement timeline summarising upcoming sessions and deliverables.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L110】
-  24. **Design Duplication.** Align wallet/escrow/ads modules with freelancer and agency dashboards for consistency.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L130】【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L13-L240】
-  25. **Design framework.** Maintains DashboardLayout structure with role guards ensuring secure access.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L1-L24】
+- **5.B.1. Mentor mission control stack**
+  1. **Appraisal.** `getMentorDashboard` now composes hub updates, orders, ads, metrics, settings, preferences, and creation studio snapshots so the UI consumes live production data rather than mocks.【F:gigvora-backend-nodejs/src/services/mentorshipService.js†L1394-L1534】
+  2. **Functionality.** Service helpers expose CRUD for hub, commerce, ads, metrics, settings, system preferences, and creation studio publishing with centralised sanitisation and secret rotation.【F:gigvora-backend-nodejs/src/services/mentorshipService.js†L1903-L2064】
+  3. **Logic Usefulness.** Express controllers and routes surface the new endpoints with cache-busting so every mutation immediately refreshes the dashboard payload mentors rely on.【F:gigvora-backend-nodejs/src/controllers/mentorshipController.js†L675-L938】【F:gigvora-backend-nodejs/src/routes/mentorshipRoutes.js†L141-L245】
+  4. **Redundancies.** Shared sanitizers normalise strings, enums, arrays, and dates before persistence, eliminating bespoke validators scattered across dashboard handlers.【F:gigvora-backend-nodejs/src/services/mentorshipService.js†L450-L771】
+  5. **Placeholders Or Non-working Functions Or Stubs.** Mission-control tables, models, and seed data now ship via dedicated migrations and demo seeds, so every section renders populated, production-shaped records out of the box.【F:gigvora-backend-nodejs/database/migrations/20250301120000-mentor-mission-control.cjs†L11-L255】【F:gigvora-backend-nodejs/database/seeders/20241230121000-mentor-operations-demo.cjs†L142-L838】
+  6. **Duplicate Functions.** Mentor creation studio flows reuse shared studio helpers rather than maintaining mentor-only clones, keeping behaviour aligned across personas.【F:gigvora-backend-nodejs/src/services/mentorshipService.js†L2036-L2064】
+  7. **Improvements need to make.** Finance, hub, ads, cohort, and revenue summaries now come from reusable builder utilities that feed the analytics overlays called out in the UX audit.【F:gigvora-backend-nodejs/src/services/mentorshipService.js†L1196-L1517】
+  8. **Styling improvements.** Spotlight and settings payloads carry gradients, video links, and brand colours so mentor dashboards retain persona theming with real content.【F:gigvora-backend-nodejs/database/seeders/20241230121000-mentor-operations-demo.cjs†L616-L800】
+  9. **Effeciency analysis and improvement.** Consolidated Promise.all fetches and reused creation studio snapshots keep dashboard hydration fast even as mission control grows.【F:gigvora-backend-nodejs/src/services/mentorshipService.js†L1368-L1456】
+  10. **Strengths to Keep.** Mission control now spans scheduling, CRM, support, finances, marketing, analytics, and publishing within one payload, matching Gigvora’s mentor-as-a-service positioning.【F:gigvora-backend-nodejs/src/services/mentorshipService.js†L1480-L1534】
+  11. **Weaknesses to remove.** Front-end save handlers can now be consolidated to consume uniform responses returned by the new controller endpoints.【F:gigvora-backend-nodejs/src/controllers/mentorshipController.js†L675-L938】
+  12. **Styling and Colour review changes.** Seeded spotlight/resources carry thumbnails and gradients so UI styling stays high fidelity during demos and QA.【F:gigvora-backend-nodejs/database/seeders/20241230121000-mentor-operations-demo.cjs†L589-L638】
+  13. **Css, orientation, placement and arrangement changes.** Structured hub data (updates/actions/resources) enables sub-tabs or accordions without additional backend work.【F:gigvora-backend-nodejs/src/services/mentorshipService.js†L1394-L1511】
+  14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Settings and preferences payloads include copy blocks, templates, and notification flags so tooltips and helper text can mirror backend truth.【F:gigvora-backend-nodejs/src/services/mentorshipService.js†L1997-L2034】
+  15. **Text Spacing.** Finance, orders, ads, and cohort summaries are calculated server-side, freeing the UI to focus on layout and spacing instead of recomputing metrics.【F:gigvora-backend-nodejs/src/services/mentorshipService.js†L964-L1478】
+  16. **Shaping.** Spotlight/resource payloads include thumbnails and gradients, allowing the UI to render shaped cards without client-side enrichment.【F:gigvora-backend-nodejs/database/seeders/20241230121000-mentor-operations-demo.cjs†L589-L638】
+  17. **Shadow, hover, glow and effects.** Controller responses always include a refreshed dashboard snapshot, keeping visual success cues and toasts in sync after each action.【F:gigvora-backend-nodejs/src/controllers/mentorshipController.js†L675-L938】
+  18. **Thumbnails.** Hub resources and spotlights seed CDN thumbnails so media cards display rich previews immediately.【F:gigvora-backend-nodejs/database/seeders/20241230121000-mentor-operations-demo.cjs†L589-L638】
+  19. **Images and media & Images and media previews.** Creation studio wrappers surface dashboard snapshots, catalog entries, and share destinations, powering media previews across mission control surfaces.【F:gigvora-backend-nodejs/src/services/mentorshipService.js†L1394-L1517】【F:gigvora-backend-nodejs/src/services/mentorshipService.js†L2036-L2064】
+  20. **Button styling.** Consistent `{ entity, dashboard }` responses let front-end buttons reuse shared loading/success states across hub, orders, ads, and metrics flows.【F:gigvora-backend-nodejs/src/controllers/mentorshipController.js†L675-L938】
+  21. **Interactiveness.** Router coverage spans hub, commerce, marketing, analytics, settings, and publishing, enabling mentors to run operations end-to-end without leaving the dashboard.【F:gigvora-backend-nodejs/src/routes/mentorshipRoutes.js†L141-L245】
+  22. **Missing Components.** API now exposes metric reporting cadence, creation studio share channels, and system preferences, unlocking upcoming AI nudges and alerting on top of real data.【F:gigvora-backend-nodejs/src/services/mentorshipService.js†L1458-L1534】【F:gigvora-backend-nodejs/src/services/mentorshipService.js†L1985-L2064】
+  23. **Design Changes.** Mission-control migrations establish hub, order, ad, metric, settings, and preference tables so the dashboard mirrors freelancer/agency mission control in structure.【F:gigvora-backend-nodejs/database/migrations/20250301120000-mentor-mission-control.cjs†L11-L205】
+  24. **Design Duplication.** Shared sanitizers and creation studio integrations keep mentor mission control behaviour aligned with other personas, reducing divergence over time.【F:gigvora-backend-nodejs/src/services/mentorshipService.js†L450-L2064】
+  25. **Design framework.** Controllers enforce mentor role checks and cache invalidation while services rely on the new models, keeping mission control consistent with platform access rules.【F:gigvora-backend-nodejs/src/controllers/mentorshipController.js†L24-L112】【F:gigvora-backend-nodejs/src/controllers/mentorshipController.js†L675-L938】
   26. **Change Checklist Tracker Extensive.**
-      - [ ] Replace manual saving flags with reducer/entity store.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L110-L150】
-      - [ ] Lazy-load heavy sections and share CRUD helpers across personas.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L210】
-      - [ ] Add analytics overlays and AI recommendations.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L1-L210】
-      - [ ] Wire live data sources instead of sample payloads.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L4-L150】
+      - [✓] Replace placeholder mission-control data with production-grade aggregations and summaries.【F:gigvora-backend-nodejs/src/services/mentorshipService.js†L1394-L1534】
+      - [✓] Expose CRUD routes for hub, commerce, ads, metrics, settings, preferences, and creation studio items.【F:gigvora-backend-nodejs/src/routes/mentorshipRoutes.js†L141-L245】
+      - [✓] Seed demo workspaces covering hub/newsroom, commerce, ads, metrics, and branding for QA parity.【F:gigvora-backend-nodejs/database/seeders/20241230121000-mentor-operations-demo.cjs†L525-L838】
+      - [✓] Provision migrations/models and indexes for every mission-control entity to match service expectations.【F:gigvora-backend-nodejs/database/migrations/20250301120000-mentor-mission-control.cjs†L11-L255】【F:gigvora-backend-nodejs/src/models/index.js†L9609-L10011】
   27. **Full Upgrade Plan & Release Steps  Extensive.**
-      1. Introduce shared entity controllers, lazy loading, and live data wiring for key sections, validating with mentor beta testers.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L210】
-      2. Layer analytics overlays and AI recommendations, measuring uplift in booking conversions and package sales.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L1-L210】
-      3. Align wallet/ads modules with freelancer/agency dashboards, ensuring consistent styling and behaviour.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L130】【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L13-L240】
+      1. Monitor mission-control adoption and performance now that backend wiring removes mock data; streamline legacy front-end reducers next.【F:gigvora-backend-nodejs/src/services/mentorshipService.js†L1394-L1534】
+      2. Layer AI recommendations and analytics overlays on top of server-calculated summaries to surface proactive mentor insights.【F:gigvora-backend-nodejs/src/services/mentorshipService.js†L964-L1517】
+      3. Reuse mission-control modules across personas to maintain consistent UX and reduce maintenance overhead.【F:gigvora-backend-nodejs/src/routes/mentorshipRoutes.js†L141-L245】
 
 ## 6. Freelancer Operating Suite
 
