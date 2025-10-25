@@ -114,6 +114,128 @@ const CATEGORIES = [
   },
 ];
 
+const QUICK_FILTER_PRESETS = {
+  job: [
+    {
+      id: 'remote',
+      label: 'Remote friendly',
+      filters: { isRemote: true },
+    },
+    {
+      id: 'recent',
+      label: 'Fresh in 7 days',
+      filters: { updatedWithin: '7d' },
+    },
+    {
+      id: 'contract',
+      label: 'Contract roles',
+      filters: { employmentTypes: ['contract', 'fixed_term'] },
+    },
+  ],
+  gig: [
+    {
+      id: 'remote',
+      label: 'Remote delivery',
+      filters: { isRemote: true },
+    },
+    {
+      id: 'budget',
+      label: 'High budget',
+      filters: { budgetCurrencies: ['USD', 'GBP', 'EUR'] },
+    },
+    {
+      id: 'recent',
+      label: 'Updated 30 days',
+      filters: { updatedWithin: '30d' },
+    },
+  ],
+  project: [
+    {
+      id: 'inflight',
+      label: 'In-flight',
+      filters: { statuses: ['active', 'in_progress'] },
+    },
+    {
+      id: 'longterm',
+      label: 'Long term',
+      filters: { durationCategories: ['long_term'] },
+    },
+    {
+      id: 'remote',
+      label: 'Remote team',
+      filters: { isRemote: true },
+    },
+  ],
+  mentor: [
+    {
+      id: 'top_rated',
+      label: 'Top rated',
+      filters: { statuses: ['featured', 'verified'], sort: 'rating' },
+    },
+    {
+      id: 'growth',
+      label: 'Growth clinics',
+      filters: { tracks: ['growth', 'product'] },
+    },
+    {
+      id: 'availability',
+      label: 'Available now',
+      filters: { availability: 'immediate' },
+    },
+  ],
+  talent: [
+    {
+      id: 'platform',
+      label: 'Platform engineering',
+      filters: { employmentCategories: ['platform engineering'] },
+    },
+    {
+      id: 'remote',
+      label: 'Remote talent',
+      filters: { isRemote: true },
+    },
+    {
+      id: 'available',
+      label: 'Available this week',
+      filters: { availability: 'immediate' },
+    },
+  ],
+  volunteering: [
+    {
+      id: 'stemed',
+      label: 'STEM causes',
+      filters: { tags: ['STEM', 'STEM education'] },
+    },
+    {
+      id: 'remote',
+      label: 'Remote friendly',
+      filters: { isRemote: true },
+    },
+    {
+      id: 'weekend',
+      label: 'Weekend missions',
+      filters: { durationCategories: ['short_term'], availability: 'weekend' },
+    },
+  ],
+  launchpad: [
+    {
+      id: 'product',
+      label: 'Product tracks',
+      filters: { tracks: ['product leadership', 'product'] },
+    },
+    {
+      id: 'remote',
+      label: 'Remote cohorts',
+      filters: { isRemote: true },
+    },
+    {
+      id: 'soon',
+      label: 'Starting soon',
+      filters: { statuses: ['enrolling', 'upcoming'], updatedWithin: '30d' },
+    },
+  ],
+};
+
 const SORT_OPTIONS = {
   job: [
     { id: 'default', label: 'Relevance' },
@@ -192,6 +314,7 @@ const DEFAULT_FILTERS = {
   organizations: [],
   statuses: [],
   isRemote: null,
+  availability: null,
   updatedWithin: '30d',
 };
 
@@ -262,7 +385,7 @@ function getCategoryById(id) {
   return CATEGORIES.find((category) => category.id === id) ?? CATEGORIES[0];
 }
 
-function buildCacheKey({ category, query, page, sort, filters, viewport }) {
+function buildCacheKey({ category, query, page, sort, filters, viewport, pageSize }) {
   return [
     'explorer',
     category,
@@ -271,7 +394,29 @@ function buildCacheKey({ category, query, page, sort, filters, viewport }) {
     page,
     filters ? JSON.stringify(filters) : '∅',
     viewport ? JSON.stringify(viewport) : '∅',
+    pageSize ?? '∅',
   ].join('::');
+}
+
+function isPresetActive(currentFilters, preset) {
+  if (!preset?.filters) {
+    return false;
+  }
+  const normalised = normaliseFilters(currentFilters);
+  return Object.entries(preset.filters).every(([key, value]) => {
+    if (Array.isArray(value)) {
+      const current = Array.isArray(normalised[key]) ? normalised[key] : [];
+      if (current.length !== value.length) {
+        return false;
+      }
+      const lookup = new Set(current.map((entry) => `${entry}`.toLowerCase()));
+      return value.every((entry) => lookup.has(`${entry}`.toLowerCase()));
+    }
+    if (typeof value === 'boolean') {
+      return normalised[key] === value;
+    }
+    return `${normalised[key] ?? ''}`.toLowerCase() === `${value ?? ''}`.toLowerCase();
+  });
 }
 
 function toResultMeta(item) {
@@ -300,7 +445,8 @@ function toResultMeta(item) {
   return tokens;
 }
 
-const PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 20;
+const MAP_PAGE_SIZE = 12;
 
 function resolveResultUrl(item) {
   if (!item || typeof item !== 'object') {
@@ -349,6 +495,10 @@ function openExternalLink(url) {
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 
+function escapeAttributeValue(value) {
+  return `${value}`.replace(/"/g, '\\"');
+}
+
 function resolveSuggestedName({ category, query }) {
   const categoryLabel = getCategoryById(category).label;
   if (query) {
@@ -376,6 +526,10 @@ export default function SearchPage() {
   const [resultDialogState, setResultDialogState] = useState({ open: false, item: null, externalUrl: null });
   const debouncedQuery = useDebounce(query.trim(), 400);
   const lastTrackedQueryRef = useRef(null);
+  const resultsContainerRef = useRef(null);
+  const shouldFocusResultsRef = useRef(false);
+  const focusTargetIdRef = useRef(null);
+  const lastFocusedResultIdRef = useRef(null);
 
   const explorerAccessEnabled = isAuthenticated && hasExplorerAccess(session);
   const isManagedCategory = useMemo(
@@ -409,6 +563,36 @@ export default function SearchPage() {
     () => (viewportBounds ? JSON.stringify({ boundingBox: viewportBounds }) : undefined),
     [viewportBounds],
   );
+  const pageSize = useMemo(() => (viewMode === 'map' ? MAP_PAGE_SIZE : DEFAULT_PAGE_SIZE), [viewMode]);
+  const focusResultCard = useCallback((preferredId = null) => {
+    const container = resultsContainerRef.current;
+    if (!container) {
+      return false;
+    }
+
+    let target = null;
+    if (preferredId) {
+      target = container.querySelector(
+        `[data-explorer-card-id="${escapeAttributeValue(preferredId)}"]`,
+      );
+    }
+
+    if (!target) {
+      target = container.querySelector('[data-explorer-card]');
+    }
+
+    if (target && typeof target.focus === 'function') {
+      target.focus();
+      return true;
+    }
+
+    return false;
+  }, []);
+
+  const scheduleFocus = useCallback((preferredId = null) => {
+    shouldFocusResultsRef.current = true;
+    focusTargetIdRef.current = preferredId ?? null;
+  }, []);
 
   useEffect(() => {
     setPage(1);
@@ -425,11 +609,15 @@ export default function SearchPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedQuery, filtersParam, sort, viewportParam]);
+  }, [debouncedQuery, filtersParam, sort, viewportParam, pageSize]);
 
   useEffect(() => {
     setIsManagementPanelOpen(false);
   }, [selectedCategory]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [viewMode]);
 
   const searchKey = useMemo(
     () =>
@@ -440,8 +628,9 @@ export default function SearchPage() {
         sort,
         filters: cleanedFilters,
         viewport: viewportBounds,
+        pageSize,
       }),
-    [selectedCategory, debouncedQuery, page, sort, cleanedFilters, viewportBounds],
+    [selectedCategory, debouncedQuery, page, sort, cleanedFilters, viewportBounds, pageSize],
   );
 
   const searchState = useCachedResource(
@@ -453,7 +642,7 @@ export default function SearchPage() {
           total: 0,
           totalPages: 1,
           page,
-          pageSize: PAGE_SIZE,
+          pageSize,
           facets: {},
           metrics: { source: 'explorer', processingTimeMs: 0 },
         };
@@ -462,7 +651,7 @@ export default function SearchPage() {
       const params = {
         q: debouncedQuery || undefined,
         page,
-        pageSize: PAGE_SIZE,
+        pageSize,
         sort,
         filters: filtersParam,
       };
@@ -492,6 +681,7 @@ export default function SearchPage() {
         sort,
         filtersParam,
         viewportParam,
+        pageSize,
         isManagedCategory,
         explorerAccessEnabled,
       ],
@@ -505,6 +695,68 @@ export default function SearchPage() {
     ({ signal }) => apiClient.get('/discovery/snapshot', { signal, params: { limit: 6 } }),
     { ttl: 120_000, enabled: explorerAccessEnabled },
   );
+
+  useEffect(() => {
+    if (!explorerAccessEnabled || viewMode === 'map') {
+      return undefined;
+    }
+
+    const cacheKey = buildCacheKey({
+      category: selectedCategory,
+      query: debouncedQuery,
+      page,
+      sort,
+      filters: cleanedFilters,
+      viewport: viewportBounds,
+      pageSize: MAP_PAGE_SIZE,
+    });
+
+    if (apiClient.readCache(cacheKey)) {
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const params = {
+      q: debouncedQuery || undefined,
+      page,
+      pageSize: MAP_PAGE_SIZE,
+      sort,
+      filters: filtersParam,
+      viewport: viewportParam,
+    };
+
+    const request = isManagedCategory
+      ? apiClient.get(`/explorer/${selectedCategory}`, { signal: controller.signal, params })
+      : apiClient.get('/search/opportunities', {
+          signal: controller.signal,
+          params: { ...params, category: selectedCategory, includeFacets: true },
+        });
+
+    request
+      .then((payload) => {
+        apiClient.writeCache(cacheKey, payload, 60_000);
+      })
+      .catch((error) => {
+        if (controller.signal.aborted || error?.name === 'AbortError') {
+          return;
+        }
+        console.warn('Failed to prefetch explorer map dataset', error);
+      });
+
+    return () => controller.abort();
+  }, [
+    explorerAccessEnabled,
+    viewMode,
+    selectedCategory,
+    debouncedQuery,
+    page,
+    sort,
+    cleanedFilters,
+    filtersParam,
+    viewportBounds,
+    viewportParam,
+    isManagedCategory,
+  ]);
 
   useEffect(() => {
     if (!debouncedQuery || !searchState.data) {
@@ -530,12 +782,48 @@ export default function SearchPage() {
   }, [debouncedQuery, searchState.data, selectedCategory, cleanedFilters, sort, page]);
 
   const results = searchState.data?.items ?? [];
-  const totalResults = searchState.data?.total ?? 0;
-  const totalPages = searchState.data?.totalPages ?? 1;
+  const totalResults = searchState.data?.total ?? results.length;
+  const totalPages = useMemo(() => {
+    const reported = searchState.data?.totalPages;
+    if (typeof reported === 'number' && Number.isFinite(reported)) {
+      return Math.max(1, reported);
+    }
+    return Math.max(1, Math.ceil((totalResults || 0) / Math.max(pageSize, 1)));
+  }, [searchState.data?.totalPages, totalResults, pageSize]);
   const facets = searchState.data?.facets ?? null;
   const metrics = searchState.data?.metrics ?? null;
 
   const activeResultId = resultDialogState.item?.id;
+
+  useEffect(() => {
+    if (!lastFocusedResultIdRef.current) {
+      return;
+    }
+    const stillVisible = results.some((item) => item.id === lastFocusedResultIdRef.current);
+    if (!stillVisible) {
+      lastFocusedResultIdRef.current = null;
+    }
+  }, [results]);
+
+  useEffect(() => {
+    if (!shouldFocusResultsRef.current) {
+      return;
+    }
+    if (!results.length) {
+      return;
+    }
+    const targetId = focusTargetIdRef.current;
+    shouldFocusResultsRef.current = false;
+    focusTargetIdRef.current = null;
+    const runFocus = () => {
+      focusResultCard(targetId);
+    };
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(runFocus);
+    } else {
+      runFocus();
+    }
+  }, [results, focusResultCard, viewMode]);
 
   useEffect(() => {
     if (!explorerAccessEnabled) {
@@ -588,36 +876,62 @@ export default function SearchPage() {
       if (!snapshot?.items?.length) {
         return;
       }
-      const cacheKey = buildCacheKey({
+
+      const defaultKey = buildCacheKey({
         category: category.id,
         query: '',
         page: 1,
         sort: SORT_OPTIONS[category.id]?.[0]?.id ?? 'default',
         filters: {},
         viewport: null,
+        pageSize: DEFAULT_PAGE_SIZE,
       });
-      const existing = apiClient.readCache(cacheKey);
-      if (existing) {
-        return;
+
+      const mapKey = buildCacheKey({
+        category: category.id,
+        query: '',
+        page: 1,
+        sort: SORT_OPTIONS[category.id]?.[0]?.id ?? 'default',
+        filters: {},
+        viewport: null,
+        pageSize: MAP_PAGE_SIZE,
+      });
+
+      const total = snapshot.total ?? snapshot.items.length;
+      const defaultItems = snapshot.items.slice(0, DEFAULT_PAGE_SIZE);
+      const mapItems = snapshot.items.slice(0, MAP_PAGE_SIZE);
+
+      if (!apiClient.readCache(defaultKey)) {
+        apiClient.writeCache(
+          defaultKey,
+          {
+            items: defaultItems,
+            total,
+            totalPages: Math.max(1, Math.ceil(total / DEFAULT_PAGE_SIZE)),
+            page: 1,
+            pageSize: DEFAULT_PAGE_SIZE,
+            facets: snapshot.facets ?? {},
+            metrics: { source: 'snapshot', processingTimeMs: 0 },
+          },
+          60_000,
+        );
       }
 
-      const items = snapshot.items.slice(0, PAGE_SIZE);
-      const total = snapshot.total ?? items.length;
-      const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-
-      apiClient.writeCache(
-        cacheKey,
-        {
-          items,
-          total,
-          totalPages,
-          page: 1,
-          pageSize: PAGE_SIZE,
-          facets: snapshot.facets ?? {},
-          metrics: { source: 'snapshot', processingTimeMs: 0 },
-        },
-        60_000,
-      );
+      if (!apiClient.readCache(mapKey)) {
+        apiClient.writeCache(
+          mapKey,
+          {
+            items: mapItems,
+            total,
+            totalPages: Math.max(1, Math.ceil(total / MAP_PAGE_SIZE)),
+            page: 1,
+            pageSize: MAP_PAGE_SIZE,
+            facets: snapshot.facets ?? {},
+            metrics: { source: 'snapshot', processingTimeMs: 0 },
+          },
+          60_000,
+        );
+      }
     });
   }, [explorerAccessEnabled, resolveSnapshotItems, snapshotState.data]);
 
@@ -628,20 +942,23 @@ export default function SearchPage() {
     setFilters(normaliseFilters());
     setQuery('');
     lastTrackedQueryRef.current = null;
-  }, []);
+    scheduleFocus(null);
+  }, [scheduleFocus]);
 
   const handleApplyFilters = useCallback((nextFilters) => {
     setFilters(normaliseFilters(nextFilters));
     setActiveSavedSearchId(null);
+    scheduleFocus(null);
     analytics.track('web_explorer_filters_applied', { category: selectedCategory, filters: cleanFilters(nextFilters) });
-  }, [selectedCategory]);
+  }, [selectedCategory, scheduleFocus]);
 
   const handleResetFilters = useCallback(() => {
     setFilters(normaliseFilters());
     setViewportBounds(null);
     setActiveSavedSearchId(null);
+    scheduleFocus(null);
     analytics.track('web_explorer_filters_reset', { category: selectedCategory });
-  }, [selectedCategory]);
+  }, [selectedCategory, scheduleFocus]);
 
   const handleRemoveFilterValue = useCallback(
     (key, value) => {
@@ -653,24 +970,28 @@ export default function SearchPage() {
         return { ...draft, [key]: null };
       });
       setActiveSavedSearchId(null);
+      scheduleFocus(null);
     },
-    [],
+    [scheduleFocus],
   );
 
   const handleRemoveRemoteFilter = useCallback(() => {
     setFilters((prev) => ({ ...normaliseFilters(prev), isRemote: null }));
     setActiveSavedSearchId(null);
-  }, []);
+    scheduleFocus(null);
+  }, [scheduleFocus]);
 
   const handleRemoveFreshnessFilter = useCallback(() => {
     setFilters((prev) => ({ ...normaliseFilters(prev), updatedWithin: null }));
     setActiveSavedSearchId(null);
-  }, []);
+    scheduleFocus(null);
+  }, [scheduleFocus]);
 
   const handleClearViewport = useCallback(() => {
     setViewportBounds(null);
     setActiveSavedSearchId(null);
-  }, []);
+    scheduleFocus(null);
+  }, [scheduleFocus]);
 
   const activeFilterChips = useMemo(() => {
     const chips = [];
@@ -740,6 +1061,7 @@ export default function SearchPage() {
         { source: 'web_app' },
       );
 
+      lastFocusedResultIdRef.current = item?.id ?? null;
       setResultDialogState({
         open: true,
         item,
@@ -763,14 +1085,16 @@ export default function SearchPage() {
         },
         { source: 'web_app' },
       );
+      lastFocusedResultIdRef.current = item?.id ?? null;
       navigate(`/explorer/${item.category}/${item.id}`);
     },
     [debouncedQuery, cleanedFilters, navigate],
   );
 
   const handleCloseResultDialog = useCallback(() => {
+    scheduleFocus(lastFocusedResultIdRef.current);
     setResultDialogState({ open: false, item: null, externalUrl: null });
-  }, []);
+  }, [scheduleFocus]);
 
   const handleOpenResultExternal = useCallback(() => {
     if (!resultDialogState.externalUrl || !resultDialogState.item) {
@@ -822,6 +1146,7 @@ export default function SearchPage() {
       sort,
       notifyByEmail: saveModalState.draft.notifyByEmail,
       notifyInApp: saveModalState.draft.notifyInApp,
+      mapViewport: viewportBounds ?? null,
     };
 
     try {
@@ -849,17 +1174,27 @@ export default function SearchPage() {
 
   const handleApplySavedSearch = useCallback(
     (search) => {
+      if (!search) {
+        return;
+      }
       setSelectedCategory(search.category ?? DEFAULT_CATEGORY);
       setQuery(search.query ?? '');
       setFilters(normaliseFilters(search.filters));
       setSort(search.sort ?? 'default');
       setActiveSavedSearchId(search.id);
-      setViewportBounds(null);
+      if (search.mapViewport) {
+        setViewportBounds(search.mapViewport);
+        setViewMode('map');
+      } else {
+        setViewportBounds(null);
+        setViewMode('list');
+      }
       setPage(1);
       lastTrackedQueryRef.current = null;
       analytics.track('web_explorer_saved_search_applied', { id: search.id, category: search.category });
+      scheduleFocus(null);
     },
-    [],
+    [scheduleFocus],
   );
 
   const handleDeleteSavedSearch = useCallback(async (search) => {
@@ -889,21 +1224,34 @@ export default function SearchPage() {
     const nextSort = event.target.value;
     setSort(nextSort);
     setActiveSavedSearchId(null);
+    scheduleFocus(null);
     analytics.track('web_explorer_sort_changed', { category: selectedCategory, sort: nextSort });
-  }, [selectedCategory]);
+  }, [selectedCategory, scheduleFocus]);
 
-  const handleViewModeChange = useCallback((mode) => {
-    setViewMode(mode);
-    analytics.track('web_explorer_view_mode_changed', { mode });
-  }, []);
+  const handleViewModeChange = useCallback(
+    (mode) => {
+      if (mode === viewMode) {
+        return;
+      }
+      const triggeredByKeyboard =
+        typeof document !== 'undefined' && document.activeElement?.dataset?.explorerViewToggle === 'true';
+      if (triggeredByKeyboard) {
+        scheduleFocus(lastFocusedResultIdRef.current);
+      }
+      setViewMode(mode);
+      analytics.track('web_explorer_view_mode_changed', { mode });
+    },
+    [viewMode, scheduleFocus],
+  );
 
   const handlePageChange = useCallback(
     (nextPage) => {
       const clamped = Math.max(1, Math.min(totalPages, nextPage));
       setPage(clamped);
+      scheduleFocus(null);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     },
-    [totalPages],
+    [totalPages, scheduleFocus],
   );
 
   const currentCategory = getCategoryById(selectedCategory);
@@ -1156,6 +1504,29 @@ export default function SearchPage() {
 
               <p className="mt-6 text-xs text-slate-500">{currentCategory.tagline}</p>
 
+              {quickFilterPresets.length ? (
+                <div className="mt-5 flex flex-wrap gap-2" aria-label="Quick filter presets">
+                  {quickFilterPresets.map((preset) => {
+                    const isActive = activeQuickFilters.includes(preset.id);
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => handleQuickFilterToggle(preset)}
+                        className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
+                          isActive
+                            ? 'bg-accent text-white shadow-soft'
+                            : 'border border-slate-200 text-slate-600 hover:border-accent hover:text-accent'
+                        }`}
+                        aria-pressed={isActive}
+                      >
+                        {preset.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+
               <div className="mt-6 flex flex-wrap items-center gap-3">
                 <button
                   type="button"
@@ -1178,6 +1549,9 @@ export default function SearchPage() {
                     className={`inline-flex items-center gap-1 rounded-full px-2 py-1 transition ${
                       viewMode === 'map' ? 'bg-accent/10 text-accent' : 'text-slate-500 hover:text-accent'
                     }`}
+                    data-explorer-view-toggle="true"
+                    aria-pressed={viewMode === 'map'}
+                    aria-label="Display explorer results on the map"
                   >
                     <MapIcon className="h-4 w-4" aria-hidden="true" />
                     <span className="sr-only">Map view</span>
@@ -1188,6 +1562,9 @@ export default function SearchPage() {
                     className={`inline-flex items-center gap-1 rounded-full px-2 py-1 transition ${
                       viewMode === 'list' ? 'bg-accent/10 text-accent' : 'text-slate-500 hover:text-accent'
                     }`}
+                    data-explorer-view-toggle="true"
+                    aria-pressed={viewMode === 'list'}
+                    aria-label="Display explorer results in a list"
                   >
                     <ListBulletIcon className="h-4 w-4" aria-hidden="true" />
                     <span className="sr-only">List view</span>
@@ -1278,10 +1655,31 @@ export default function SearchPage() {
               ) : null}
 
               {results.length ? (
-                viewMode === 'map' ? (
-                  <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-                    <ExplorerMap items={results} onViewportChange={handleViewportChange} className="h-[520px]" />
-                    <div className="max-h-[520px] space-y-4 overflow-y-auto pr-1">
+                <div ref={resultsContainerRef} className="mt-8">
+                  {viewMode === 'map' ? (
+                    <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+                      <ExplorerMap items={results} onViewportChange={handleViewportChange} className="h-[520px]" />
+                      <div className="max-h-[520px] space-y-4 overflow-y-auto pr-1">
+                        {results.map((item) => {
+                          const category = getCategoryById(item.category);
+                          return (
+                            <ExplorerResultCard
+                              key={`${item.category}-${item.id}`}
+                              item={item}
+                              categoryLabel={category.label}
+                              metaTokens={toResultMeta(item)}
+                              onPreview={handleResultClick}
+                              onOpen={handleOpenRecordPage}
+                              previewLabel="Preview"
+                              openLabel="Open profile →"
+                              variant="compact"
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid gap-5 lg:grid-cols-2">
                       {results.map((item) => {
                         const category = getCategoryById(item.category);
                         return (
@@ -1292,31 +1690,12 @@ export default function SearchPage() {
                             metaTokens={toResultMeta(item)}
                             onPreview={handleResultClick}
                             onOpen={handleOpenRecordPage}
-                            previewLabel="Preview"
-                            openLabel="Open profile →"
-                            variant="compact"
                           />
                         );
                       })}
                     </div>
-                  </div>
-                ) : (
-                  <div className="mt-8 grid gap-5 lg:grid-cols-2">
-                    {results.map((item) => {
-                      const category = getCategoryById(item.category);
-                      return (
-                        <ExplorerResultCard
-                          key={`${item.category}-${item.id}`}
-                          item={item}
-                          categoryLabel={category.label}
-                          metaTokens={toResultMeta(item)}
-                          onPreview={handleResultClick}
-                          onOpen={handleOpenRecordPage}
-                        />
-                      );
-                    })}
-                  </div>
-                )
+                  )}
+                </div>
               ) : null}
 
               {totalPages > 1 && results.length ? (
