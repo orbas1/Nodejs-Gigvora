@@ -21,7 +21,7 @@ const sequelize = {
   transaction: jest.fn(async (handler) => handler({})),
 };
 
-const ACTOR_TYPES = ['user', 'workspace'];
+const ACTOR_TYPES = ['user', 'system', 'anonymous'];
 
 await jest.unstable_mockModule(modelsModulePath, () => ({
   sequelize,
@@ -67,12 +67,12 @@ describe('analyticsService', () => {
 
       const result = await trackEvent({
         eventName: 'page_view',
-        userId: 7,
+        userId: '7',
         actorType: 'user',
         entityType: 'page',
-        entityId: 'landing',
+        entityId: '42',
         source: 'web',
-        context: { path: '/' },
+        context: { path: '/', omit: undefined },
       });
 
       expect(AnalyticsEvent.create).toHaveBeenCalledWith(expect.objectContaining({
@@ -80,8 +80,9 @@ describe('analyticsService', () => {
         userId: 7,
         actorType: 'user',
         entityType: 'page',
-        entityId: 'landing',
+        entityId: 42,
         source: 'web',
+        context: { path: '/' },
       }));
       expect(created.get).toHaveBeenCalledWith({ plain: true });
       expect(appCache.flushByPrefix).toHaveBeenCalledWith('analytics:events');
@@ -94,6 +95,39 @@ describe('analyticsService', () => {
       await expect(
         trackEvent({ eventName: 'invalid', actorType: 'robot' }),
       ).rejects.toThrow('Unsupported actor type "robot".');
+    });
+
+    it('sanitises payload attributes before persisting', async () => {
+      const created = { get: jest.fn(() => ({ id: 11 })) };
+      AnalyticsEvent.create.mockResolvedValue(created);
+
+      const occurredAt = new Date('2024-05-01T10:00:00.000Z');
+
+      await trackEvent({
+        eventName: 'route_viewed',
+        actorType: 'anonymous',
+        userId: 'abc',
+        entityType: '',
+        entityId: 'not-a-number',
+        context: {
+          routePersona: 'freelancer',
+          nested: { stamp: occurredAt, skip: undefined },
+          empty: undefined,
+        },
+        occurredAt,
+      });
+
+      expect(AnalyticsEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: null,
+          entityType: null,
+          entityId: null,
+          context: {
+            routePersona: 'freelancer',
+            nested: { stamp: occurredAt.toISOString() },
+          },
+        }),
+      );
     });
   });
 

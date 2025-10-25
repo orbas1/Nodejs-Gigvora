@@ -2398,7 +2398,22 @@ This document catalogues the public marketing shell, pre-login journeys, and per
 
 ## 10. Summary Insights
 
+### 10.A. Journey-aware analytics ✅
 
+- Route transitions map every registry collection to a canonical `journeySegment`, persist persona, route id, and marketing title into the global analytics context, and clear those keys on unmount so downstream interactions inherit the correct journey metadata documented in the user experience audit without stale bleed-over.【F:gigvora-frontend-reactjs/src/routes/RouteAnalyticsListener.jsx†L6-L83】【F:gigvora-frontend-reactjs/src/services/analytics.js†L8-L239】【F:user_experience.md†L1466-L1487】
+- The listener emits `web_route_viewed` events with the derived segment, persona, feature flag, and shell theme, aligning marketing-to-operations funnels with the persona journeys called out in the audit while preserving SSR-friendly fallbacks for document titles.【F:gigvora-frontend-reactjs/src/routes/RouteAnalyticsListener.jsx†L48-L77】【F:user_experience.md†L1466-L1487】
 
+### 10.B. Global context stewardship ✅
 
-Across these experiences, the Gigvora frontend demonstrates a polished marketing funnel with floating assistance (messaging, support, policy) layered atop a powerful routing skeleton. Key next steps include unifying duplicated helpers, introducing lazy-loaded routes, connecting marketing content to CMS sources, and instrumenting analytics across persona journeys to inform iterative design. The floating messaging bubble already provides a strong baseline for real-time collaboration once backend services finalize.
+- `normaliseContext` now serialises nested objects, arrays, and Date instances, stripping undefined keys before merging with the persistent global context so retries and buffered flushes ship production-safe payloads that mirror what the backend schema expects.【F:gigvora-frontend-reactjs/src/services/analytics.js†L8-L239】【F:gigvora-frontend-reactjs/src/services/__tests__/group125.services.test.js†L347-L430】
+- Telemetry automatically defaults the actor type based on whether a `userId` is present, preserving anonymous analytics for visitors while stamping authenticated journeys with `actorType: 'user'`—behaviour verified through targeted Jest coverage.【F:gigvora-frontend-reactjs/src/services/analytics.js†L168-L206】【F:gigvora-frontend-reactjs/src/services/__tests__/group125.services.test.js†L347-L430】
+
+### 10.C. Backend ingestion pipeline ✅
+
+- The Express controller and service layer coerce identifiers to integers, trim event metadata, lower-case actor types, and discard empty JSON structures before persisting so Sequelize models, migrations, and admin dashboards continue working with clean, production-grade analytics data.【F:gigvora-backend-nodejs/src/controllers/analyticsController.js†L1-L92】【F:gigvora-backend-nodejs/src/services/analyticsService.js†L1-L120】【F:gigvora-backend-nodejs/src/models/index.js†L13860-L13918】【F:gigvora-backend-nodejs/database/migrations/20240615080000-data-model-expansion.cjs†L420-L510】【F:gigvora-backend-nodejs/tests/services/analyticsService.test.js†L1-L140】
+- Validation still guards actor types and required fields while the service deduplicates empty JSON payloads, ensuring ingestion honours the schema used by cache invalidation, admin dashboards, and downstream rollups without manual clean-up.【F:gigvora-backend-nodejs/src/services/analyticsService.js†L1-L120】【F:gigvora-backend-nodejs/tests/services/analyticsService.test.js†L28-L120】【F:user_experience.md†L1489-L1499】
+
+### 10.D. Seeded telemetry baselines ✅
+
+- Added an idempotent seed that hydrates realistic `web_route_viewed` events and matching daily rollups for member launchpad, freelancer dashboard, and company operations journeys so demo workspaces, dashboards, and QA pipelines can validate the enriched analytics metadata end-to-end.【F:gigvora-backend-nodejs/database/seeders/20250115101500-analytics-journey-demo.cjs†L1-L198】
+- The seed tags each payload with `seed: 'analytics-journey-demo'`, enabling safe replays and down migrations while mirroring the production schema (events table, rollups, JSON dimensions) demanded by the summary insights audit.【F:gigvora-backend-nodejs/database/seeders/20250115101500-analytics-journey-demo.cjs†L1-L198】【F:user_experience.md†L1491-L1499】

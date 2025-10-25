@@ -11,6 +11,77 @@ import { appCache, buildCacheKey } from '../utils/cache.js';
 const EVENTS_CACHE_TTL = 30;
 const ROLLUP_CACHE_TTL = 120;
 
+function normaliseNumber(value) {
+  if (value == null) {
+    return null;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+  return Math.trunc(parsed);
+}
+
+function serialiseContextValue(value) {
+  if (value == null) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (Array.isArray(value)) {
+    const serialised = value
+      .map((item) => serialiseContextValue(item))
+      .filter((item) => item !== undefined && item !== null);
+
+    return serialised.length ? serialised : null;
+  }
+
+  if (typeof value === 'object') {
+    const serialisedEntries = Object.entries(value)
+      .filter(([key]) => key != null && key !== '')
+      .map(([key, item]) => [key, serialiseContextValue(item)])
+      .filter(([, item]) => item !== undefined && item !== null);
+
+    if (!serialisedEntries.length) {
+      return null;
+    }
+
+    return Object.fromEntries(serialisedEntries);
+  }
+
+  if (['string', 'number', 'boolean'].includes(typeof value)) {
+    return value;
+  }
+
+  return undefined;
+}
+
+function normaliseContext(context) {
+  if (!context || typeof context !== 'object') {
+    return null;
+  }
+
+  const entries = Object.entries(context)
+    .filter(([key]) => key != null && key !== '')
+    .map(([key, value]) => {
+      const serialised = serialiseContextValue(value);
+      if (serialised === undefined || serialised === null) {
+        return null;
+      }
+      return [key, serialised];
+    })
+    .filter(Boolean);
+
+  if (!entries.length) {
+    return null;
+  }
+
+  return Object.fromEntries(entries);
+}
+
 function assertActorType(actorType) {
   if (!ANALYTICS_ACTOR_TYPES.includes(actorType)) {
     throw new ValidationError(`Unsupported actor type "${actorType}".`);
@@ -18,7 +89,16 @@ function assertActorType(actorType) {
 }
 
 export async function trackEvent(eventPayload) {
-  const { eventName, userId = null, actorType = 'user', entityType = null, entityId = null, source = null, context = null, occurredAt = new Date() } = eventPayload;
+  const {
+    eventName,
+    userId = null,
+    actorType = 'user',
+    entityType = null,
+    entityId = null,
+    source = null,
+    context = null,
+    occurredAt = new Date(),
+  } = eventPayload;
 
   if (!eventName) {
     throw new ValidationError('eventName is required to record an analytics event.');
@@ -27,12 +107,12 @@ export async function trackEvent(eventPayload) {
 
   const event = await AnalyticsEvent.create({
     eventName,
-    userId,
+    userId: normaliseNumber(userId),
     actorType,
-    entityType,
-    entityId,
+    entityType: entityType || null,
+    entityId: normaliseNumber(entityId),
     source,
-    context: context && typeof context === 'object' ? context : null,
+    context: normaliseContext(context),
     occurredAt: occurredAt ? new Date(occurredAt) : new Date(),
     ingestedAt: new Date(),
   });
