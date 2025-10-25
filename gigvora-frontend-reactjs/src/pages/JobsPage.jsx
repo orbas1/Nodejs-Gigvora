@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
 import DataStatus from '../components/DataStatus.jsx';
+import Modal from '../components/ui/Modal.jsx';
 import useOpportunityListing from '../hooks/useOpportunityListing.js';
 import useSession from '../hooks/useSession.js';
 import useCachedResource from '../hooks/useCachedResource.js';
@@ -9,6 +10,7 @@ import analytics from '../services/analytics.js';
 import { fetchUserDashboard } from '../services/userDashboard.js';
 import { formatAbsolute, formatRelativeTime } from '../utils/date.js';
 import { classNames } from '../utils/classNames.js';
+import { formatInteger, formatPercent } from '../utils/number.js';
 import JobManagementWorkspace from '../components/jobs/JobManagementWorkspace.jsx';
 import OpportunityFilterPill from '../components/opportunity/OpportunityFilterPill.jsx';
 import SavedSearchList from '../components/explorer/SavedSearchList.jsx';
@@ -48,34 +50,18 @@ export const SORT_OPTIONS = [
   { id: 'alphabetical', label: 'A–Z' },
 ];
 
+export const SAVED_SEARCH_FREQUENCIES = [
+  { id: 'immediate', label: 'Immediate' },
+  { id: 'daily', label: 'Daily' },
+  { id: 'weekly', label: 'Weekly' },
+];
+
 export function createDefaultFilters() {
   return {
     employmentTypes: [],
     isRemote: null,
     updatedWithin: '30d',
   };
-}
-
-export function formatNumber(value) {
-  if (value == null) return '0';
-  try {
-    return new Intl.NumberFormat('en-GB').format(Number(value));
-  } catch (error) {
-    return `${value}`;
-  }
-}
-
-export function formatPercent(value) {
-  if (value == null || Number.isNaN(Number(value))) {
-    return '0%';
-  }
-  try {
-    return new Intl.NumberFormat('en-GB', { style: 'percent', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(
-      Number(value) / 100,
-    );
-  } catch (error) {
-    return `${value}%`;
-  }
 }
 
 export function formatStatusLabel(value) {
@@ -121,6 +107,10 @@ export default function JobsPage() {
   const [activeTab, setActiveTab] = useState('board');
   const [savedSearchName, setSavedSearchName] = useState('');
   const [activeSavedSearchId, setActiveSavedSearchId] = useState(null);
+  const [savedSearchFrequency, setSavedSearchFrequency] = useState('daily');
+  const [savedSearchNotifyEmail, setSavedSearchNotifyEmail] = useState(false);
+  const [savedSearchNotifyInApp, setSavedSearchNotifyInApp] = useState(true);
+  const [authPromptOpen, setAuthPromptOpen] = useState(false);
   const [applicationStages, setApplicationStages] = useState({});
 
   const memberships = useMemo(() => session?.memberships ?? [], [session?.memberships]);
@@ -141,9 +131,11 @@ export default function JobsPage() {
 
   useEffect(() => {
     if (!isAuthenticated) {
-      navigate('/login', { replace: true, state: { redirectTo: '/jobs' } });
+      setAuthPromptOpen(true);
+    } else {
+      setAuthPromptOpen(false);
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated]);
 
   const {
     data,
@@ -253,6 +245,90 @@ export default function JobsPage() {
     },
     { enabled: isAuthenticated && canAccessJobs && Boolean(userId) },
   );
+
+  const savedSearchAnalytics = useMemo(() => {
+    if (!dashboardData?.topSearch) {
+      return {
+        stats: null,
+        upcomingRuns: [],
+        keywordHighlights: [],
+        categoryHighlights: [],
+      };
+    }
+    const stats = dashboardData.topSearch.stats ?? null;
+    return {
+      stats,
+      upcomingRuns: Array.isArray(dashboardData.topSearch.upcomingRuns)
+        ? dashboardData.topSearch.upcomingRuns
+        : [],
+      keywordHighlights: stats?.keywordHighlights ?? [],
+      categoryHighlights: dashboardData.topSearch.recommendations?.categoryHighlights ?? [],
+    };
+  }, [dashboardData?.topSearch]);
+
+  const resumeInsights = useMemo(() => {
+    const cvStudio = dashboardData?.documentStudio?.cvStudio ?? null;
+    if (!cvStudio) {
+      return null;
+    }
+
+    const baseline = cvStudio.baseline ?? null;
+    const variants = Array.isArray(cvStudio.variants) ? cvStudio.variants : [];
+    const metrics = baseline?.latestVersion?.metrics ?? {};
+    const rawScore =
+      metrics.qualityScore ?? metrics.aiCopyScore ?? baseline?.aiCopyScore ?? null;
+
+    let scoreFraction = null;
+    if (rawScore != null && Number.isFinite(Number(rawScore))) {
+      const numeric = Number(rawScore);
+      scoreFraction = Math.abs(numeric) <= 1 ? numeric : numeric / 100;
+      if (!Number.isFinite(scoreFraction)) {
+        scoreFraction = null;
+      }
+    }
+
+    const clampedScore =
+      scoreFraction == null ? null : Math.max(0, Math.min(1, scoreFraction));
+
+    const summaryText =
+      baseline?.latestVersion?.aiSummary ?? baseline?.latestVersion?.summary ?? null;
+
+    const lastUpdated =
+      baseline?.updatedAt ??
+      baseline?.latestVersion?.updatedAt ??
+      cvStudio.summary?.lastUpdatedAt ??
+      null;
+
+    let recommendation;
+    if (!baseline) {
+      recommendation = 'Upload a baseline CV to unlock resume quality scoring.';
+    } else if (clampedScore != null && clampedScore < 0.75) {
+      recommendation = 'Incorporate recent achievements and keywords to raise your resume score.';
+    } else {
+      recommendation = 'Your baseline resume is ready for auto-apply workflows.';
+    }
+
+    return {
+      hasBaseline: Boolean(baseline),
+      score: clampedScore,
+      summary: summaryText,
+      lastUpdated,
+      variantCount: variants.length,
+      baselineTitle: baseline?.title ?? 'Baseline CV',
+      totalDocuments: cvStudio.summary?.cvCount ?? 0,
+      recommendation,
+      variantSamples: variants
+        .slice(0, 3)
+        .map((variant) => variant.title ?? variant.roleTag)
+        .filter(Boolean),
+    };
+  }, [dashboardData?.documentStudio]);
+
+  const savedSearchStats = savedSearchAnalytics.stats;
+  const savedSearchTotals = savedSearchStats?.totals ?? null;
+  const savedSearchSchedule = savedSearchStats?.schedule ?? null;
+  const savedSearchUpcomingRuns = savedSearchAnalytics.upcomingRuns;
+  const savedSearchKeywordHighlights = savedSearchAnalytics.keywordHighlights ?? [];
 
   const applicationSummary = dashboardData?.summary ?? {};
   const pipelineStatuses = useMemo(
@@ -565,7 +641,9 @@ export default function JobsPage() {
         query: trimmedQuery || '',
         filters,
         sort,
-        notifyInApp: true,
+        frequency: savedSearchFrequency,
+        notifyByEmail: savedSearchNotifyEmail,
+        notifyInApp: savedSearchNotifyInApp,
       };
       try {
         const created = await createSavedSearch(payload);
@@ -576,6 +654,9 @@ export default function JobsPage() {
             query: payload.query || null,
             sort: payload.sort,
             filters: payload.filters,
+            frequency: payload.frequency,
+            notifyByEmail: payload.notifyByEmail,
+            notifyInApp: payload.notifyInApp,
           },
           { source: 'web_app' },
         );
@@ -585,7 +666,7 @@ export default function JobsPage() {
         console.error('Unable to create saved search', error);
       }
     },
-    [savedSearchName, query, filters, sort, createSavedSearch],
+    [savedSearchName, query, filters, sort, savedSearchFrequency, savedSearchNotifyEmail, savedSearchNotifyInApp, createSavedSearch],
   );
 
   const handleApplySavedSearch = useCallback(
@@ -599,6 +680,9 @@ export default function JobsPage() {
       setQuery(search.query ?? '');
       setFilters(normalisedFilters);
       setSort(search.sort ?? 'default');
+      setSavedSearchFrequency((search.frequency ?? 'daily').toLowerCase());
+      setSavedSearchNotifyEmail(Boolean(search.notifyByEmail));
+      setSavedSearchNotifyInApp(search.notifyInApp !== false);
       analytics.track(
         'web_job_saved_search_applied',
         {
@@ -606,6 +690,9 @@ export default function JobsPage() {
           query: search.query ?? null,
           sort: search.sort ?? 'default',
           filters: normalisedFilters,
+          frequency: (search.frequency ?? 'daily').toLowerCase(),
+          notifyByEmail: Boolean(search.notifyByEmail),
+          notifyInApp: search.notifyInApp !== false,
         },
         { source: 'web_app' },
       );
@@ -728,24 +815,100 @@ export default function JobsPage() {
     [listing.source],
   );
 
+  const handleKeywordSuggestion = useCallback((keyword) => {
+    if (!keyword) {
+      return;
+    }
+    const trimmed = `${keyword}`.trim();
+    if (!trimmed) {
+      return;
+    }
+    setActiveTab('board');
+    setActiveSavedSearchId(null);
+    setQuery(trimmed);
+    analytics.track(
+      'web_job_keyword_suggestion_applied',
+      { keyword: trimmed },
+      { source: 'web_app' },
+    );
+  }, []);
+
   if (!isAuthenticated) {
     return (
-      <section className="relative overflow-hidden py-20">
-        <div
-          className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(191,219,254,0.35),_transparent_65%)]"
-          aria-hidden="true"
-        />
-        <div className="relative mx-auto max-w-5xl px-6">
-          <PageHeader
-            eyebrow="Jobs"
-            title="Securing the jobs workspace"
-            description="You’ll be redirected to the secure login to confirm your credentials before accessing the job marketplace."
+      <>
+        <section className="relative overflow-hidden py-20">
+          <div
+            className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(191,219,254,0.35),_transparent_65%)]"
+            aria-hidden="true"
           />
-          <div className="mt-10 rounded-3xl border border-slate-200 bg-white/80 p-8 text-sm text-slate-600 shadow-sm">
-            Preparing secure session…
+          <div className="relative mx-auto max-w-5xl px-6">
+            <PageHeader
+              eyebrow="Jobs"
+              title="Secure your curated job workspace"
+              description="Sign in to unlock saved searches, AI match insights, and resume readiness scoring for the Gigvora jobs marketplace."
+            />
+            <div className="mt-10 rounded-3xl border border-slate-200 bg-white/80 p-8 text-sm text-slate-600 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <p>Authenticate to continue exploring opportunities tailored to your memberships.</p>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setAuthPromptOpen(true)}
+                    className="inline-flex items-center rounded-full bg-accent px-5 py-2 text-xs font-semibold text-white shadow-soft transition hover:bg-accentDark"
+                  >
+                    Open sign-in prompt
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/')}
+                    className="inline-flex items-center rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+                  >
+                    Return home
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+        <Modal
+          open={authPromptOpen}
+          onClose={() => setAuthPromptOpen(false)}
+          title="Sign in to access Gigvora jobs"
+          description="Verify your account to view curated roles, saved filters, and automation guardrails."
+        >
+          <div className="space-y-4 text-sm text-slate-600">
+            <p>
+              Use your Gigvora credentials to continue. We’ll return you to the jobs marketplace with your filters and alerts
+              intact.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  navigate('/login', { state: { redirectTo: '/jobs', reason: 'jobs_board' } });
+                }}
+                className="inline-flex items-center rounded-full bg-accent px-5 py-2 text-xs font-semibold text-white shadow-soft transition hover:bg-accentDark"
+              >
+                Go to secure sign-in
+              </button>
+              <button
+                type="button"
+                onClick={() => setAuthPromptOpen(false)}
+                className="inline-flex items-center rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+              >
+                Maybe later
+              </button>
+            </div>
+            <p className="text-xs text-slate-500">
+              Need access? Email{' '}
+              <a href="mailto:support@gigvora.com" className="font-semibold text-accent">
+                support@gigvora.com
+              </a>{' '}
+              to request a job-seeker membership.
+            </p>
+          </div>
+        </Modal>
+      </>
     );
   }
 
@@ -777,20 +940,20 @@ export default function JobsPage() {
   const metrics = [
     metricCard({
       title: 'Open opportunities',
-      value: formatNumber(totalJobs),
+      value: formatInteger(totalJobs),
       description: 'Marketplace roles currently published for Gigvora talent.',
     }),
     metricCard({
       title: 'Remote friendly',
-      value: formatPercent(remoteStats.percentage),
-      description: `${formatNumber(remoteStats.remoteCount)} listings flagged as remote-first.`,
+      value: formatPercent(remoteStats.percentage, { maximumFractionDigits: 0 }),
+      description: `${formatInteger(remoteStats.remoteCount)} listings flagged as remote-first.`,
     }),
     metricCard({
       title: 'Updated this week',
-      value: formatNumber(freshnessStats),
+      value: formatInteger(freshnessStats),
       description: 'Roles refreshed in the last 7 days.',
       highlight: employmentTypeHighlight
-        ? `${formatNumber(employmentTypeHighlight.count)} ${employmentTypeHighlight.type.toLowerCase()} openings`
+        ? `${formatInteger(employmentTypeHighlight.count)} ${employmentTypeHighlight.type.toLowerCase()} openings`
         : null,
     }),
   ];
@@ -981,6 +1144,55 @@ export default function JobsPage() {
                   ))}
                 </div>
               ) : null}
+              {(() => {
+                const signals = job?.aiSignals ?? {};
+                const matchScore = signals.total ?? job?.matchScore ?? null;
+                const scoreValue = Number(matchScore);
+                const matchLabel = Number.isFinite(scoreValue)
+                  ? formatPercent(scoreValue, { maximumFractionDigits: 0 })
+                  : null;
+                const components = [
+                  { key: 'freshness', label: 'Freshness', value: signals.freshness },
+                  { key: 'queryAffinity', label: 'Query match', value: signals.queryAffinity },
+                  { key: 'taxonomy', label: 'Tag alignment', value: signals.taxonomy },
+                  { key: 'remoteFit', label: 'Remote fit', value: signals.remoteFit },
+                  { key: 'reputation', label: 'Company reputation', value: signals.reputation },
+                ].filter((entry) => Number.isFinite(Number(entry.value)));
+
+                if (!matchLabel && !components.length && !resumeInsights?.score) {
+                  return null;
+                }
+
+                return (
+                  <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">AI match insights</p>
+                      {matchLabel ? (
+                        <span className="inline-flex items-center rounded-full bg-accentSoft px-3 py-1 text-xs font-semibold text-accent">
+                          Match {matchLabel}
+                        </span>
+                      ) : null}
+                    </div>
+                    {components.length ? (
+                      <dl className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
+                        {components.map((entry) => (
+                          <div key={entry.key} className="flex items-center justify-between gap-2">
+                            <dt className="text-slate-500">{entry.label}</dt>
+                            <dd className="font-semibold text-slate-900">
+                              {formatPercent(entry.value, { maximumFractionDigits: 0 })}
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                    ) : null}
+                    {resumeInsights?.score != null ? (
+                      <p className="mt-3 text-xs text-slate-500">
+                        Resume baseline {formatPercent(resumeInsights.score, { maximumFractionDigits: 0 })} quality.
+                      </p>
+                    ) : null}
+                  </div>
+                );
+              })()}
               <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
                 <div className="text-xs text-slate-500">{job.geo?.country ? <span>{job.geo.country}</span> : null}</div>
                 <button
@@ -1001,25 +1213,71 @@ export default function JobsPage() {
           <p className="mt-2 text-xs text-slate-500">
             Capture favourite filters to receive proactive ATS nudges and interview prep prompts.
           </p>
-          <form onSubmit={handleSaveCurrentSearch} className="mt-4 flex flex-wrap gap-3">
-            <label htmlFor="jobs-saved-search-name" className="sr-only">
-              Name this search
-            </label>
-            <input
-              id="jobs-saved-search-name"
-              type="text"
-              value={savedSearchName}
-              onChange={(event) => setSavedSearchName(event.target.value)}
-              placeholder="Give it a name"
-              className="flex-1 min-w-[8rem] rounded-full border border-slate-200 bg-white px-4 py-2 text-sm shadow-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
-            />
-            <button
-              type="submit"
-              className="inline-flex items-center rounded-full bg-accent px-5 py-2 text-xs font-semibold text-white shadow-soft transition hover:bg-accentDark disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={savedSearchesLoading}
-            >
-              Save search
-            </button>
+          <form onSubmit={handleSaveCurrentSearch} className="mt-4 space-y-3">
+            <div className="flex flex-wrap gap-3">
+              <label htmlFor="jobs-saved-search-name" className="sr-only">
+                Name this search
+              </label>
+              <input
+                id="jobs-saved-search-name"
+                type="text"
+                value={savedSearchName}
+                onChange={(event) => setSavedSearchName(event.target.value)}
+                placeholder="Give it a name"
+                className="flex-1 min-w-[8rem] rounded-full border border-slate-200 bg-white px-4 py-2 text-sm shadow-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+              />
+              <button
+                type="submit"
+                className="inline-flex items-center rounded-full bg-accent px-5 py-2 text-xs font-semibold text-white shadow-soft transition hover:bg-accentDark disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={savedSearchesLoading}
+              >
+                Save search
+              </button>
+            </div>
+            <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
+              <label htmlFor="jobs-saved-search-frequency" className="flex items-center gap-2 font-semibold text-slate-600">
+                Frequency
+                <select
+                  id="jobs-saved-search-frequency"
+                  value={savedSearchFrequency}
+                  onChange={(event) => setSavedSearchFrequency(event.target.value)}
+                  className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+                  disabled={savedSearchesLoading}
+                >
+                  {SAVED_SEARCH_FREQUENCIES.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  id="jobs-saved-search-email"
+                  type="checkbox"
+                  checked={savedSearchNotifyEmail}
+                  onChange={(event) => setSavedSearchNotifyEmail(event.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent/40"
+                  disabled={savedSearchesLoading}
+                />
+                <label htmlFor="jobs-saved-search-email" className="font-semibold text-slate-600">
+                  Email alerts
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  id="jobs-saved-search-inapp"
+                  type="checkbox"
+                  checked={savedSearchNotifyInApp}
+                  onChange={(event) => setSavedSearchNotifyInApp(event.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent/40"
+                  disabled={savedSearchesLoading}
+                />
+                <label htmlFor="jobs-saved-search-inapp" className="font-semibold text-slate-600">
+                  In-app alerts
+                </label>
+              </div>
+            </div>
           </form>
           <div className="mt-4">
             <SavedSearchList
@@ -1031,7 +1289,83 @@ export default function JobsPage() {
               canManageServerSearches={canSyncSavedSearches}
             />
           </div>
+          {savedSearchKeywordHighlights.length ? (
+            <div className="mt-4 border-t border-slate-100 pt-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                Suggested keywords
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {savedSearchKeywordHighlights.slice(0, 5).map((keyword) => (
+                  <button
+                    key={keyword.keyword ?? keyword}
+                    type="button"
+                    onClick={() => handleKeywordSuggestion(keyword.keyword ?? keyword)}
+                    className="inline-flex items-center rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+                  >
+                    #{keyword.keyword ?? keyword}
+                    {keyword.count ? (
+                      <span className="ml-1 text-[11px] text-slate-400">({formatInteger(keyword.count)})</span>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
+        {savedSearchTotals ? (
+          <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Saved search automation</h3>
+            <div className="mt-3 space-y-3 text-sm text-slate-600">
+              <div className="flex items-center justify-between">
+                <span>Saved views</span>
+                <span className="font-semibold text-slate-900">{formatInteger(savedSearchTotals.saved)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Email alerts enabled</span>
+                <span className="font-semibold text-slate-900">{formatInteger(savedSearchTotals.withEmailAlerts)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Remote filters active</span>
+                <span className="font-semibold text-slate-900">{formatInteger(savedSearchTotals.remoteEnabled)}</span>
+              </div>
+            </div>
+            {savedSearchSchedule ? (
+              <div className="mt-4 space-y-2 text-xs text-slate-500">
+                {savedSearchSchedule.nextRunAt ? (
+                  <p>
+                    Next digest {formatRelativeTime(savedSearchSchedule.nextRunAt)}{' '}
+                    <span className="text-slate-400">({formatAbsolute(savedSearchSchedule.nextRunAt)})</span>
+                  </p>
+                ) : null}
+                {savedSearchSchedule.overdue ? (
+                  <p className="font-semibold text-amber-600">
+                    {formatInteger(savedSearchSchedule.overdue)} overdue run{savedSearchSchedule.overdue === 1 ? '' : 's'} awaiting sync
+                  </p>
+                ) : null}
+                {savedSearchSchedule.dueSoon ? (
+                  <p>
+                    {formatInteger(savedSearchSchedule.dueSoon)} run{savedSearchSchedule.dueSoon === 1 ? '' : 's'} scheduled within 72 hours.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+            {savedSearchUpcomingRuns.length ? (
+              <div className="mt-4 border-t border-slate-100 pt-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Upcoming runs</p>
+                <ul className="mt-2 space-y-2 text-xs text-slate-500">
+                  {savedSearchUpcomingRuns.slice(0, 3).map((run) => (
+                    <li key={run.id ?? run.name} className="flex items-center justify-between gap-3">
+                      <span className="truncate font-semibold text-slate-600">{run.name}</span>
+                      <span className="text-slate-400" title={run.nextRunAt ? formatAbsolute(run.nextRunAt) : undefined}>
+                        {run.nextRunAt ? formatRelativeTime(run.nextRunAt) : 'Pending'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
         <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Recommended roles</h3>
           <p className="mt-2 text-xs text-slate-500">
@@ -1042,6 +1376,10 @@ export default function JobsPage() {
               {recommendations.map((job, index) => {
                 const companyName = job?.companyName ?? job?.company?.name ?? job?.organisation ?? null;
                 const score = job?.matchScore ?? job?.suitabilityScore ?? job?.score;
+                const scoreValue = Number(score);
+                const matchLabel = Number.isFinite(scoreValue)
+                  ? formatPercent(scoreValue, { maximumFractionDigits: 0 })
+                  : null;
                 return (
                   <li
                     key={`recommendation-${job?.id ?? job?.title ?? index}`}
@@ -1062,9 +1400,9 @@ export default function JobsPage() {
                               {job.employmentType}
                             </span>
                           ) : null}
-                          {Number.isFinite(Number(score)) ? (
+                          {matchLabel ? (
                             <span className="inline-flex items-center rounded-full bg-accentSoft px-2 py-1 font-semibold text-accent">
-                              Match {Math.round(Number(score))}%
+                              Match {matchLabel}
                             </span>
                           ) : null}
                         </div>
@@ -1084,6 +1422,42 @@ export default function JobsPage() {
           ) : (
             <p className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-xs text-slate-500">
               Track a few applications to unlock tailored job picks and recruiter-ready insights.
+            </p>
+          )}
+        </div>
+        <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Resume readiness</h3>
+          {resumeInsights ? (
+            <div className="mt-3 space-y-3 text-sm text-slate-600">
+              <div className="flex items-center justify-between gap-3">
+                <span className="font-semibold text-slate-700">{resumeInsights.baselineTitle}</span>
+                {resumeInsights.score != null ? (
+                  <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                    {formatPercent(resumeInsights.score, { maximumFractionDigits: 0 })}
+                  </span>
+                ) : null}
+              </div>
+              {resumeInsights.summary ? (
+                <p className="text-xs text-slate-500">{resumeInsights.summary}</p>
+              ) : null}
+              <p className="text-xs text-slate-500">{resumeInsights.recommendation}</p>
+              <div className="text-xs text-slate-500">
+                <p>
+                  {formatInteger(resumeInsights.variantCount)} variant{resumeInsights.variantCount === 1 ? '' : 's'}
+                  {resumeInsights.variantSamples?.length
+                    ? ` · ${resumeInsights.variantSamples.join(', ')}`
+                    : ''}
+                </p>
+                {resumeInsights.lastUpdated ? (
+                  <p className="mt-1 text-slate-400">
+                    Updated {formatRelativeTime(resumeInsights.lastUpdated)}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            <p className="mt-3 text-xs text-slate-500">
+              Create or upload a baseline resume to unlock AI quality scoring and automation guardrails.
             </p>
           )}
         </div>
@@ -1110,19 +1484,19 @@ export default function JobsPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total applications</p>
-          <p className="mt-3 text-2xl font-semibold text-slate-900">{formatNumber(applicationSummary.totalApplications)}</p>
+          <p className="mt-3 text-2xl font-semibold text-slate-900">{formatInteger(applicationSummary.totalApplications)}</p>
         </div>
         <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Active</p>
-          <p className="mt-3 text-2xl font-semibold text-slate-900">{formatNumber(applicationSummary.activeApplications)}</p>
+          <p className="mt-3 text-2xl font-semibold text-slate-900">{formatInteger(applicationSummary.activeApplications)}</p>
         </div>
         <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Interviews</p>
-          <p className="mt-3 text-2xl font-semibold text-slate-900">{formatNumber(applicationSummary.interviewsScheduled)}</p>
+          <p className="mt-3 text-2xl font-semibold text-slate-900">{formatInteger(applicationSummary.interviewsScheduled)}</p>
         </div>
         <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Offers in play</p>
-          <p className="mt-3 text-2xl font-semibold text-slate-900">{formatNumber(applicationSummary.offersNegotiating)}</p>
+          <p className="mt-3 text-2xl font-semibold text-slate-900">{formatInteger(applicationSummary.offersNegotiating)}</p>
         </div>
       </div>
       <div className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm">
@@ -1132,7 +1506,7 @@ export default function JobsPage() {
             pipelineStatusDisplay.map((status) => (
               <li key={status.status ?? status} className="flex items-center justify-between text-sm text-slate-600">
                 <span>{formatStatusLabel(status.status ?? status)}</span>
-                <span className="font-semibold text-slate-900">{formatNumber(status.count)}</span>
+                <span className="font-semibold text-slate-900">{formatInteger(status.count)}</span>
               </li>
             ))
           ) : (
@@ -1234,21 +1608,21 @@ export default function JobsPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Upcoming</p>
-          <p className="mt-3 text-2xl font-semibold text-slate-900">{formatNumber(interviewSummary.upcoming)}</p>
+          <p className="mt-3 text-2xl font-semibold text-slate-900">{formatInteger(interviewSummary.upcoming)}</p>
         </div>
         <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Completed</p>
-          <p className="mt-3 text-2xl font-semibold text-slate-900">{formatNumber(interviewSummary.completed)}</p>
+          <p className="mt-3 text-2xl font-semibold text-slate-900">{formatInteger(interviewSummary.completed)}</p>
         </div>
         <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Readiness tasks</p>
           <p className="mt-3 text-2xl font-semibold text-slate-900">
-            {formatNumber(interviewReadiness.completedItems)} / {formatNumber(interviewReadiness.totalItems)}
+            {formatInteger(interviewReadiness.completedItems)} / {formatInteger(interviewReadiness.totalItems)}
           </p>
         </div>
         <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Interviews scheduled</p>
-          <p className="mt-3 text-2xl font-semibold text-slate-900">{formatNumber(interviews.length)}</p>
+          <p className="mt-3 text-2xl font-semibold text-slate-900">{formatInteger(interviews.length)}</p>
         </div>
       </div>
       {dashboardLoading && !interviews.length ? (
@@ -1311,9 +1685,9 @@ export default function JobsPage() {
           stageBuckets.map((stage) => (
             <div key={stage.id} className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{stage.name}</p>
-              <p className="mt-3 text-2xl font-semibold text-slate-900">{formatNumber(stage.metrics?.total)}</p>
+              <p className="mt-3 text-2xl font-semibold text-slate-900">{formatInteger(stage.metrics?.total)}</p>
               <p className="mt-1 text-xs text-amber-600">
-                {formatNumber(stage.metrics?.overdue)} overdue follow-ups
+                {formatInteger(stage.metrics?.overdue)} overdue follow-ups
               </p>
             </div>
           ))
@@ -1329,11 +1703,11 @@ export default function JobsPage() {
           <dl className="mt-4 grid gap-3 sm:grid-cols-2">
             <div>
               <dt className="text-xs text-slate-500">Manual review required</dt>
-              <dd className="text-lg font-semibold text-slate-900">{formatNumber(guardrails.manualReviewRequired)}</dd>
+              <dd className="text-lg font-semibold text-slate-900">{formatInteger(guardrails.manualReviewRequired)}</dd>
             </div>
             <div>
               <dt className="text-xs text-slate-500">Premium protected roles</dt>
-              <dd className="text-lg font-semibold text-slate-900">{formatNumber(guardrails.premiumProtected)}</dd>
+              <dd className="text-lg font-semibold text-slate-900">{formatInteger(guardrails.premiumProtected)}</dd>
             </div>
           </dl>
         </div>
@@ -1427,7 +1801,7 @@ export default function JobsPage() {
                 <span>{tab.label}</span>
                 {tabBadgeMap[tab.id] != null ? (
                   <span className="inline-flex min-w-[1.75rem] justify-center rounded-full bg-white/20 px-2 text-xs font-semibold">
-                    {formatNumber(tabBadgeMap[tab.id])}
+                    {formatInteger(tabBadgeMap[tab.id])}
                   </span>
                 ) : null}
               </button>
