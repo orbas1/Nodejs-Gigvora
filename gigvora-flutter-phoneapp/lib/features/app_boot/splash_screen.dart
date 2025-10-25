@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/providers.dart';
+import 'data/app_boot_providers.dart';
+import 'data/models/app_boot_snapshot.dart';
 import '../../router/app_routes.dart';
 import '../auth/application/session_controller.dart';
 
@@ -64,13 +66,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with TickerProvider
     final sessionState = ref.watch(sessionControllerProvider);
     final isAuthenticated = sessionState.isAuthenticated;
     final theme = Theme.of(context);
+    final bootSnapshot = ref.watch(appBootSnapshotProvider);
 
-    if (_bootstrapped && !_navigated) {
+    final snapshotReady = bootSnapshot is AsyncData<AppBootSnapshot> || bootSnapshot is AsyncError;
+    final targetRoute = _resolveDestination(isAuthenticated, bootSnapshot.valueOrNull);
+
+    if (_bootstrapped && snapshotReady && !_navigated) {
       Future.microtask(() {
         if (!_navigated && mounted) {
-          _navigate(
-            isAuthenticated ? AppRoute.home.path : AppRoute.login.path,
-          );
+          _navigate(targetRoute);
         }
       });
     }
@@ -80,6 +84,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with TickerProvider
     });
     ref.listen<AsyncValue<void>>(pushNotificationBootstrapProvider, (_, next) {
       next.whenOrNull(error: (error, _) => _showSnack('Push bootstrap failed: $error'));
+    });
+    ref.listen<AsyncValue<AppBootSnapshot>>(appBootSnapshotProvider, (_, next) {
+      next.whenOrNull(error: (error, _) => _showSnack('App boot sync failed: $error'));
     });
 
     final destinations = [
@@ -161,9 +168,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with TickerProvider
                         children: [
                           FilledButton(
                             onPressed: () => _navigate(
-                              isAuthenticated
-                                  ? AppRoute.home.path
-                                  : AppRoute.login.path,
+                              targetRoute,
                             ),
                             child: Text(
                               isAuthenticated ? 'Enter workspace' : 'Sign in',
@@ -201,6 +206,16 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with TickerProvider
     if (!mounted) return;
     _navigated = true;
     GoRouter.of(context).go(route);
+  }
+
+  String _resolveDestination(bool isAuthenticated, AppBootSnapshot? snapshot) {
+    if (!isAuthenticated) {
+      return AppRoute.login.path;
+    }
+    final preferences = snapshot?.preferences;
+    final startRouteId = preferences?.lastVisitedRouteId ?? preferences?.startRouteId;
+    final route = AppRoute.fromRouteId(startRouteId);
+    return route?.path ?? AppRoute.home.path;
   }
 
   void _showSnack(String message) {

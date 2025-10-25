@@ -101,3 +101,8 @@ final appThemeProvider = FutureProvider<ThemeData>((ref) async {
   return state.resolveActiveTheme();
 });
 
+final appThemePaletteProvider = FutureProvider<AppThemePalette>((ref) async {
+  final state = await ref.watch(appThemeStateProvider.future);
+  return state.palette;
+});
+

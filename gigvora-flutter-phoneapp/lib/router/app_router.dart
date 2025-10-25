@@ -53,6 +53,7 @@ import '../features/creation_studio/presentation/creation_studio_screen.dart';
 import '../features/app_boot/splash_screen.dart';
 import '../features/calendar/presentation/calendar_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
+import 'route_analytics_observer.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -104,6 +105,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: AppRoute.splash.path,
+    observers: (context, state) => [ref.watch(routeAnalyticsObserverProvider)],
     routes: [
       GoRoute(
         path: AppRoute.splash.path,

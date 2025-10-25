@@ -13,6 +13,8 @@ import 'core/localization/gigvora_localizations.dart';
 import 'core/localization/language_controller.dart';
 import 'core/providers.dart';
 import 'core/shared_preferences_provider.dart';
+import 'features/app_boot/data/app_boot_providers.dart';
+import 'features/app_boot/data/models/app_boot_snapshot.dart';
 import 'features/auth/application/session_bootstrapper.dart';
 import 'features/auth/domain/auth_token_store.dart';
 import 'features/runtime_health/application/runtime_health_provider.dart';
@@ -120,6 +122,7 @@ class _GigvoraAppState extends ConsumerState<GigvoraApp> {
     final themeState = ref.watch(appThemeStateProvider);
     final router = ref.watch(appRouterProvider);
     final locale = ref.watch(languageControllerProvider);
+    ref.watch(appBootSnapshotProvider);
     ref.watch(sessionBootstrapProvider);
     ref.watch(runtimeHealthStreamProvider);
     ref.watch(featureFlagsBootstrapProvider);
@@ -153,6 +156,20 @@ class _GigvoraAppState extends ConsumerState<GigvoraApp> {
         error: (error, stackTrace) {
           debugPrint('Session bootstrap failed: $error');
         },
+      );
+    });
+
+    ref.listen<AsyncValue<AppBootSnapshot>>(appBootSnapshotProvider, (_, next) {
+      next.when(
+        data: (snapshot) {
+          ref
+              .read(appThemeControllerProvider.notifier)
+              .applyRemotePreferences(snapshot.preferences);
+        },
+        error: (error, stackTrace) {
+          debugPrint('App boot sync failed: $error');
+        },
+        loading: () {},
       );
     });
 
