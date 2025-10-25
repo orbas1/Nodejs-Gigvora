@@ -1,10 +1,9 @@
-#!/usr/bin/env node
-import { spawn, execFile } from 'child_process';
-import { fileURLToPath } from 'url';
-import path from 'path';
-import os from 'os';
-import fs from 'fs/promises';
-import { promisify } from 'util';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+import os from 'node:os';
+import fs from 'node:fs/promises';
+import { promisify } from 'node:util';
+import { spawn, execFile } from 'node:child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
