@@ -9,31 +9,33 @@ import {
   createGigOrderEscrowCheckpoint,
   updateGigOrderEscrowCheckpoint,
 } from './projectGigManagementWorkflowService.js';
-import { GigOrder, GigTimelineEvent, GigSubmission } from '../models/index.js';
-import { AuthorizationError, NotFoundError } from '../utils/errors.js';
+import { GigOrder, GigTimelineEvent, GigSubmission } from '../models/projectGigManagementModels.js';
+import {
+  OrderAuthorizationError,
+  OrderEscrowAccessError,
+  OrderMessagingAccessError,
+  OrderNotFoundError,
+} from '../utils/errors.js';
 import {
   normalizeDeliverables,
   buildGigClassesFromDeliverables,
   deriveOrderMetrics,
   evaluateSlaAlerts,
 } from './utils/companyOrderNormalization.js';
+import {
+  PROJECT_ESCROW_SCOPE_HINTS,
+  PROJECT_FINANCE_ROLE_HINTS,
+  PROJECT_MESSAGE_SCOPE_HINTS,
+  PROJECT_OPERATIONS_ROLE_HINTS,
+} from '../utils/projectAccess.js';
+import { recordOrderMilestoneSync } from './atsSyncService.js';
 
 function ensureOrderOwnership(order, ownerId) {
   if (!order || Number(order.ownerId) !== Number(ownerId)) {
-    throw new NotFoundError('Gig order not found.');
+    throw new OrderNotFoundError('Company order not found.', { orderId: Number(order?.id ?? null) || null });
   }
   return order;
 }
-
-const FINANCE_ROLE_HINTS = ['finance', 'controller', 'accounting', 'treasury'];
-const OPERATIONS_ROLE_HINTS = ['operations', 'project', 'program'];
-const ESCROW_SCOPE_HINTS = ['company.escrow:manage', 'finance:manage', 'company:finance:manage'];
-const MESSAGE_SCOPE_HINTS = [
-  'company.orders:comment',
-  'project-gig-management:comment',
-  'gig-orders:comment',
-  'company.orders:manage',
-];
 
 function computePermissionFlags(access = {}) {
   const actorRole = access.actorRole ?? null;
@@ -43,14 +45,14 @@ function computePermissionFlags(access = {}) {
     : [];
 
   const hasFinanceRole = normalizedRole
-    ? FINANCE_ROLE_HINTS.some((role) => normalizedRole.includes(role))
+    ? PROJECT_FINANCE_ROLE_HINTS.some((role) => normalizedRole.includes(role))
     : false;
   const hasOperationsRole = normalizedRole
-    ? OPERATIONS_ROLE_HINTS.some((role) => normalizedRole.includes(role))
+    ? PROJECT_OPERATIONS_ROLE_HINTS.some((role) => normalizedRole.includes(role))
     : false;
 
-  const hasEscrowScope = permissions.some((permission) => ESCROW_SCOPE_HINTS.includes(permission));
-  const hasMessagingScope = permissions.some((permission) => MESSAGE_SCOPE_HINTS.includes(permission));
+  const hasEscrowScope = permissions.some((permission) => PROJECT_ESCROW_SCOPE_HINTS.includes(permission));
+  const hasMessagingScope = permissions.some((permission) => PROJECT_MESSAGE_SCOPE_HINTS.includes(permission));
 
   const canManage = Boolean(access.canManage);
   const canView = Boolean(access.canView || canManage);
@@ -72,25 +74,29 @@ function computePermissionFlags(access = {}) {
 
 function assertViewAccess(flags) {
   if (!flags.canView) {
-    throw new AuthorizationError('You do not have permission to view these company orders.');
+    throw new OrderAuthorizationError('You do not have permission to view these company orders.', {
+      code: 'ORDER_VIEW_FORBIDDEN',
+    });
   }
 }
 
 function assertManageAccess(flags) {
   if (!flags.canManage) {
-    throw new AuthorizationError(flags.reason ?? 'You do not have permission to manage these company orders.');
+    throw new OrderAuthorizationError(flags.reason ?? 'You do not have permission to manage these company orders.', {
+      code: 'ORDER_MANAGE_FORBIDDEN',
+    });
   }
 }
 
 function assertEscrowAccess(flags) {
   if (!flags.canManageEscrow) {
-    throw new AuthorizationError('Escrow checkpoints require finance or company admin privileges.');
+    throw new OrderEscrowAccessError('Escrow checkpoints require finance or company admin privileges.');
   }
 }
 
 function assertMessagingAccess(flags) {
   if (!flags.canPostMessages) {
-    throw new AuthorizationError('You do not have permission to post updates for this order.');
+    throw new OrderMessagingAccessError('You do not have permission to post updates for this order.');
   }
 }
 
@@ -102,6 +108,7 @@ function buildPermissionsSummary(flags) {
     actorRole: flags.actorRole,
     allowedRoles: flags.allowedRoles,
     reason: flags.canManage ? null : flags.reason ?? null,
+    deniedReasonCode: flags.canManage ? null : 'ORDER_MANAGE_FORBIDDEN',
   };
 }
 
@@ -131,18 +138,58 @@ async function syncAtsMilestone({ ownerId, order, previousStatus, actorId }) {
     return;
   }
 
+  const occurredAt = new Date().toISOString();
+  const timelineMetadata = {
+    previousStatus: previousStatus ?? null,
+    status: normalizedStatus,
+    progressPercent: order.progressPercent ?? null,
+    integration: {
+      provider: 'ats',
+      status: 'pending',
+      attempted: 0,
+      successes: 0,
+    },
+  };
+
+  try {
+    const syncSummary = await recordOrderMilestoneSync({
+      ownerId,
+      orderId: order.id,
+      orderNumber: order.orderNumber ?? null,
+      status: normalizedStatus,
+      previousStatus: previousStatus ?? null,
+      actorId: actorId ?? ownerId,
+      metadata: {
+        progressPercent: order.progressPercent ?? null,
+        milestone: milestone.title,
+        occurredAt,
+      },
+    });
+    if (syncSummary) {
+      timelineMetadata.integration = {
+        provider: 'ats',
+        status: syncSummary.successes > 0 ? 'success' : 'skipped',
+        attempted: syncSummary.attempted,
+        successes: syncSummary.successes,
+      };
+    }
+  } catch (error) {
+    timelineMetadata.integration = {
+      provider: 'ats',
+      status: 'failed',
+      attempted: 0,
+      successes: 0,
+      error: error.message,
+    };
+  }
+
   await addGigTimelineEvent(ownerId, order.id, {
     eventType: 'milestone',
     title: milestone.title,
     summary: `${milestone.summary} Previous status: ${previousStatus ?? 'unknown'}.`,
-    occurredAt: new Date().toISOString(),
+    occurredAt,
     visibility: 'internal',
-    metadata: {
-      integration: 'ats',
-      previousStatus: previousStatus ?? null,
-      status: normalizedStatus,
-      progressPercent: order.progressPercent ?? null,
-    },
+    metadata: timelineMetadata,
   }, {
     actorId: actorId ?? ownerId,
   });
@@ -177,20 +224,18 @@ async function escalateBreachedOrders({ ownerId, escalations, actorId }) {
         },
       );
 
-      await updateGigOrder(ownerId, entry.orderId, {
-        metadata: {
-          ...metadata,
-          slaEscalatedAt: triggeredAt,
-          slaStatus: 'breached',
-        },
-      });
+      metadata.slaEscalatedAt = triggeredAt;
+      metadata.slaStatus = 'breached';
+
+      await GigOrder.update(
+        { slaEscalatedAt: triggeredAt, slaStatus: 'breached', metadata },
+        { where: { id: entry.orderId, ownerId } },
+      );
 
       if (entry.order) {
-        entry.order.metadata = {
-          ...metadata,
-          slaEscalatedAt: triggeredAt,
-          slaStatus: 'breached',
-        };
+        entry.order.metadata = metadata;
+        entry.order.slaEscalatedAt = triggeredAt;
+        entry.order.slaStatus = 'breached';
       }
     }),
   );
@@ -260,6 +305,11 @@ export async function createCompanyOrder({ ownerId, payload = {}, accessContext 
     dueAt: payload.dueAt,
     status: payload.status,
     progressPercent: payload.progressPercent,
+    atsExternalId: payload.atsExternalId ?? null,
+    atsLastStatus: payload.status ?? 'requirements',
+    atsLastSyncedAt: new Date().toISOString(),
+    slaStatus: payload.slaStatus ?? 'on_track',
+    slaEscalatedAt: payload.slaEscalatedAt ?? null,
     requirements,
     metadata: {
       ...(payload.metadata ?? {}),
@@ -267,6 +317,7 @@ export async function createCompanyOrder({ ownerId, payload = {}, accessContext 
       atsIntegration: {
         lastSyncedStatus: payload.status ?? 'requirements',
         lastSyncedAt: new Date().toISOString(),
+        externalId: payload.atsExternalId ?? null,
       },
     },
     classes,
@@ -283,34 +334,100 @@ export async function updateCompanyOrder({ ownerId, orderId, payload = {}, acces
   ensureOrderOwnership(existingOrder, ownerId);
   const previousStatus = existingOrder.status ? String(existingOrder.status).toLowerCase() : null;
 
-  const updates = { ...payload };
+  const updates = {};
+  let metadata;
+  if (payload.metadata === null) {
+    metadata = null;
+  } else if (payload.metadata) {
+    metadata = { ...(existingOrder.metadata ?? {}), ...payload.metadata };
+  }
+
   if (payload.deliverables || payload.requirements) {
     const deliverables = normalizeDeliverables(payload.deliverables ?? payload.requirements);
     updates.requirements = deliverables.map((item) => ({
       id: item.id,
       title: item.title,
       dueAt: item.dueAt ?? null,
-      status: payload.status ?? 'pending',
+      status: payload.status ?? existingOrder.status ?? 'pending',
       notes: item.notes ?? null,
     }));
-    updates.classes = buildGigClassesFromDeliverables(deliverables, { amount: payload.amount, currency: payload.currency });
-    updates.metadata = {
-      ...(payload.metadata ?? {}),
-      deliverables,
-    };
+    updates.classes = buildGigClassesFromDeliverables(deliverables, {
+      amount: payload.amount ?? existingOrder.amount,
+      currency: payload.currency ?? existingOrder.currency,
+    });
+    metadata = metadata === null ? null : { ...(metadata ?? existingOrder.metadata ?? {}), deliverables };
+  }
+
+  if (payload.amount != null) {
+    updates.amount = payload.amount;
+  }
+  if (payload.currency != null) {
+    updates.currency = payload.currency;
+  }
+  if (payload.status != null) {
+    updates.status = payload.status;
+  }
+  if (payload.progressPercent != null) {
+    updates.progressPercent = payload.progressPercent;
+  }
+  if (payload.kickoffAt !== undefined) {
+    updates.kickoffAt = payload.kickoffAt;
+  }
+  if (payload.dueAt !== undefined) {
+    updates.dueAt = payload.dueAt;
   }
 
   const nextStatus = (payload.status ?? existingOrder.status ?? '').toString().toLowerCase();
-  if (previousStatus !== nextStatus) {
-    updates.metadata = {
-      ...(updates.metadata ?? payload.metadata ?? {}),
-      atsIntegration: {
-        ...(existingOrder.metadata?.atsIntegration ?? {}),
-        lastSyncedStatus: nextStatus,
-        previousStatus,
-        lastSyncedAt: new Date().toISOString(),
-      },
+  if (previousStatus !== nextStatus && nextStatus) {
+    const integrationMetadata = {
+      ...(metadata?.atsIntegration ?? existingOrder.metadata?.atsIntegration ?? {}),
+      lastSyncedStatus: nextStatus,
+      previousStatus,
+      lastSyncedAt: new Date().toISOString(),
     };
+    metadata = metadata === null ? null : { ...(metadata ?? existingOrder.metadata ?? {}), atsIntegration: integrationMetadata };
+    updates.atsLastStatus = nextStatus;
+    updates.atsLastSyncedAt = new Date().toISOString();
+  }
+
+  if (payload.atsExternalId !== undefined) {
+    updates.atsExternalId = payload.atsExternalId ?? null;
+    if (metadata !== null) {
+      const baseMetadata = metadata ?? existingOrder.metadata ?? {};
+      const integrationMetadata = {
+        ...(baseMetadata.atsIntegration ?? {}),
+        externalId: payload.atsExternalId ?? null,
+      };
+      metadata = { ...baseMetadata, atsIntegration: integrationMetadata };
+    }
+  }
+
+  if (payload.atsLastSyncedAt) {
+    updates.atsLastSyncedAt = payload.atsLastSyncedAt;
+  }
+
+  if (payload.slaStatus) {
+    updates.slaStatus = payload.slaStatus;
+  }
+  if (payload.slaEscalatedAt !== undefined) {
+    updates.slaEscalatedAt = payload.slaEscalatedAt ?? null;
+  }
+
+  if (metadata !== undefined) {
+    updates.metadata = metadata;
+  }
+
+  if (payload.scorecard) {
+    updates.scorecard = payload.scorecard;
+  }
+  if (Array.isArray(payload.newRevisions)) {
+    updates.newRevisions = payload.newRevisions;
+  }
+  if (Array.isArray(payload.requirements)) {
+    updates.requirements = updates.requirements ?? payload.requirements;
+  }
+  if (Array.isArray(payload.removeRequirementIds)) {
+    updates.removeRequirementIds = payload.removeRequirementIds;
   }
 
   const order = await updateGigOrder(ownerId, orderId, updates);

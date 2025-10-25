@@ -45,10 +45,12 @@ import {
   GIG_SUBMISSION_STATUSES,
   GIG_TIMELINE_VISIBILITIES,
   GIG_CHAT_VISIBILITIES,
+  COMPANY_ORDER_SLA_STATUSES,
   syncProjectGigManagementModels,
 } from '../models/projectGigManagementModels.js';
 import { GIG_ORDER_ACTIVITY_TYPES } from '../models/constants/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
+import { normalizeDeliverables } from './utils/companyOrderNormalization.js';
 
 function normalizeNumber(value, fallback = 0) {
   if (value == null) return fallback;
@@ -79,6 +81,17 @@ function ensureDate(value, { label } = {}) {
     throw new ValidationError(`${label ?? 'Date'} is not valid.`);
   }
   return date;
+}
+
+function normalizeSlaStatus(value) {
+  if (value == null) {
+    return 'on_track';
+  }
+  const normalized = value.toString().trim().toLowerCase();
+  if (!COMPANY_ORDER_SLA_STATUSES.includes(normalized)) {
+    throw new ValidationError('Invalid SLA status provided.');
+  }
+  return normalized;
 }
 
 function computeBudgetSnapshot(project) {
@@ -833,6 +846,11 @@ function sanitizeGigOrder(orderInstance, { includeAssociations = true } = {}) {
     tags: metadata.tags ?? [],
     media: metadata.media ?? [],
     faqs: metadata.faqs ?? [],
+    atsExternalId: order.atsExternalId ?? metadata.atsIntegration?.externalId ?? null,
+    atsLastStatus: order.atsLastStatus ?? metadata.atsIntegration?.lastSyncedStatus ?? null,
+    atsLastSyncedAt: order.atsLastSyncedAt ?? metadata.atsIntegration?.lastSyncedAt ?? null,
+    slaStatus: order.slaStatus ?? metadata.slaStatus ?? 'on_track',
+    slaEscalatedAt: order.slaEscalatedAt ?? metadata.slaEscalatedAt ?? null,
     createdAt: order.createdAt ?? null,
     updatedAt: order.updatedAt ?? null,
   };
@@ -2407,6 +2425,20 @@ export async function createGigOrder(ownerId, payload) {
 
   const currency = payload.currency ?? 'USD';
   const metadata = buildGigMetadata(payload, currency);
+  const atsExternalId = payload.atsExternalId ? payload.atsExternalId.toString().trim() || null : null;
+  const atsLastStatus = (payload.atsLastStatus ?? payload.status ?? 'requirements').toString().toLowerCase();
+  const atsLastSyncedAt = ensureDate(payload.atsLastSyncedAt ?? new Date(), { label: 'ATS sync time' }) ?? new Date();
+  const slaStatus = normalizeSlaStatus(payload.slaStatus);
+  const slaEscalatedAt = ensureDate(payload.slaEscalatedAt, { label: 'SLA escalation time' });
+
+  metadata.atsIntegration = {
+    ...(metadata.atsIntegration ?? {}),
+    lastSyncedStatus: atsLastStatus,
+    lastSyncedAt: atsLastSyncedAt.toISOString(),
+    externalId: atsExternalId,
+  };
+  metadata.slaStatus = slaStatus;
+  metadata.slaEscalatedAt = slaEscalatedAt ? slaEscalatedAt.toISOString() : metadata.slaEscalatedAt ?? null;
 
   return projectGigManagementSequelize.transaction(async (transaction) => {
     const order = await GigOrder.create(
@@ -2422,6 +2454,11 @@ export async function createGigOrder(ownerId, payload) {
         kickoffAt,
         dueAt,
         metadata,
+        atsExternalId,
+        atsLastStatus,
+        atsLastSyncedAt,
+        slaStatus,
+        slaEscalatedAt,
       },
       { transaction },
     );
@@ -2564,57 +2601,137 @@ export async function updateGigOrder(ownerId, orderId, payload) {
   if (payload.status && !GIG_ORDER_STATUSES.includes(payload.status)) {
     throw new ValidationError('Invalid gig order status provided.');
   }
-  if (payload.progressPercent != null) {
-    const progress = ensureNumber(payload.progressPercent, { label: 'Progress percent', allowNegative: false });
-    if (progress > 100) {
-      throw new ValidationError('Progress percent cannot exceed 100%.');
+  const normalizedProgress =
+    payload.progressPercent != null
+      ? ensureNumber(payload.progressPercent, { label: 'Progress percent', allowNegative: false })
+      : null;
+  if (normalizedProgress != null && normalizedProgress > 100) {
+    throw new ValidationError('Progress percent cannot exceed 100%.');
+  }
+
+  const normalizedAmount =
+    payload.amount != null ? ensureNumber(payload.amount, { label: 'Order amount', allowNegative: false }) : null;
+  const currency = payload.currency ?? order.currency;
+  const dueAt = payload.dueAt !== undefined ? ensureDate(payload.dueAt, { label: 'Delivery due date' }) : undefined;
+  const kickoffAt = payload.kickoffAt !== undefined ? ensureDate(payload.kickoffAt, { label: 'Kickoff date' }) : undefined;
+
+  const baseMetadata = order.metadata && typeof order.metadata === 'object' ? { ...order.metadata } : {};
+  let nextMetadata;
+  if (payload.metadata === null) {
+    nextMetadata = null;
+  } else if (payload.metadata) {
+    nextMetadata = { ...baseMetadata, ...payload.metadata };
+  } else {
+    nextMetadata = baseMetadata;
+  }
+
+  const metadataRequiresRebuild =
+    (payload.classes && payload.classes.length) ||
+    (payload.gigClasses && payload.gigClasses.length) ||
+    (payload.addons && payload.addons.length) ||
+    (payload.gigAddons && payload.gigAddons.length) ||
+    (payload.tags && payload.tags.length) ||
+    (payload.gigTags && payload.gigTags.length) ||
+    (payload.media && payload.media.length) ||
+    (payload.gigMedia && payload.gigMedia.length) ||
+    (payload.faqs && payload.faqs.length) ||
+    (payload.gigFaqs && payload.gigFaqs.length);
+
+  let normalizedDeliverables;
+  if (payload.deliverables || payload.requirements) {
+    normalizedDeliverables = normalizeDeliverables(payload.deliverables ?? payload.requirements);
+    if (nextMetadata !== null) {
+      nextMetadata = nextMetadata ?? {};
+      nextMetadata.deliverables = normalizedDeliverables;
     }
   }
-  const dueAt = ensureDate(payload.dueAt, { label: 'Delivery due date' });
 
-  const currentMetadata = order.metadata && typeof order.metadata === 'object' ? { ...order.metadata } : {};
-  const nextMetadata =
-    payload.metadata === null
-      ? null
-      : payload.metadata
-      ? { ...currentMetadata, ...payload.metadata }
-      : currentMetadata;
-  const currency = payload.currency ?? order.currency;
-  let nextMetadata = order.metadata ?? {};
-  if (
-    payload.classes ||
-    payload.gigClasses ||
-    payload.addons ||
-    payload.gigAddons ||
-    payload.tags ||
-    payload.gigTags ||
-    payload.media ||
-    payload.gigMedia ||
-    payload.faqs ||
-    payload.gigFaqs
-  ) {
-    nextMetadata = buildGigMetadata(
+  if (metadataRequiresRebuild && nextMetadata !== null) {
+    const rebuilt = buildGigMetadata(
       {
         ...payload,
-        metadata: { ...order.metadata, ...(payload.metadata ?? {}) },
-        classes: payload.classes ?? payload.gigClasses ?? order.metadata?.classes ?? [],
-        addons: payload.addons ?? payload.gigAddons ?? order.metadata?.addons ?? [],
-        tags: payload.tags ?? payload.gigTags ?? order.metadata?.tags ?? [],
-        media: payload.media ?? payload.gigMedia ?? order.metadata?.media ?? [],
-        faqs: payload.faqs ?? payload.gigFaqs ?? order.metadata?.faqs ?? [],
+        metadata: { ...(nextMetadata ?? {}) },
+        classes: payload.classes ?? payload.gigClasses ?? nextMetadata?.classes ?? [],
+        addons: payload.addons ?? payload.gigAddons ?? nextMetadata?.addons ?? [],
+        tags: payload.tags ?? payload.gigTags ?? nextMetadata?.tags ?? [],
+        media: payload.media ?? payload.gigMedia ?? nextMetadata?.media ?? [],
+        faqs: payload.faqs ?? payload.gigFaqs ?? nextMetadata?.faqs ?? [],
       },
       currency,
     );
-  } else if (payload.metadata) {
-    nextMetadata = { ...order.metadata, ...payload.metadata };
+    nextMetadata = rebuilt;
+  }
+
+  const normalizedSlaStatus = payload.slaStatus ? normalizeSlaStatus(payload.slaStatus) : null;
+  const normalizedSlaEscalatedAt =
+    payload.slaEscalatedAt !== undefined
+      ? payload.slaEscalatedAt == null
+        ? null
+        : ensureDate(payload.slaEscalatedAt, { label: 'SLA escalation time' })
+      : undefined;
+
+  const normalizedAtsExternalId =
+    payload.atsExternalId !== undefined
+      ? payload.atsExternalId
+        ? payload.atsExternalId.toString().trim() || null
+        : null
+      : undefined;
+  const normalizedAtsStatus = payload.atsLastStatus ?? (payload.status ? payload.status : null);
+  let normalizedAtsLastSyncedAt;
+  if (payload.atsLastSyncedAt !== undefined) {
+    normalizedAtsLastSyncedAt =
+      payload.atsLastSyncedAt == null
+        ? null
+        : ensureDate(payload.atsLastSyncedAt, { label: 'ATS sync time' }) ?? null;
+  } else if (payload.status && payload.status !== order.status) {
+    normalizedAtsLastSyncedAt = new Date();
+  }
+
+  if (nextMetadata !== null && nextMetadata !== undefined) {
+    const integrationMetadata = {
+      ...(nextMetadata.atsIntegration ?? order.metadata?.atsIntegration ?? {}),
+    };
+    if (normalizedAtsStatus) {
+      integrationMetadata.previousStatus = order.status ?? null;
+      integrationMetadata.lastSyncedStatus = normalizedAtsStatus.toString().toLowerCase();
+    }
+    if (normalizedAtsLastSyncedAt) {
+      integrationMetadata.lastSyncedAt =
+        normalizedAtsLastSyncedAt instanceof Date
+          ? normalizedAtsLastSyncedAt.toISOString()
+          : new Date(normalizedAtsLastSyncedAt).toISOString();
+    }
+    if (normalizedAtsExternalId !== undefined) {
+      integrationMetadata.externalId = normalizedAtsExternalId;
+    }
+    nextMetadata.atsIntegration = integrationMetadata;
+    if (normalizedSlaStatus) {
+      nextMetadata.slaStatus = normalizedSlaStatus;
+    }
+    if (normalizedSlaEscalatedAt !== undefined) {
+      nextMetadata.slaEscalatedAt =
+        normalizedSlaEscalatedAt == null
+          ? null
+          : normalizedSlaEscalatedAt instanceof Date
+          ? normalizedSlaEscalatedAt.toISOString()
+          : new Date(normalizedSlaEscalatedAt).toISOString();
+    }
   }
 
   await order.update({
     status: payload.status ?? order.status,
-    progressPercent:
-      payload.progressPercent != null ? Number(payload.progressPercent) : order.progressPercent,
+    progressPercent: normalizedProgress != null ? Number(normalizedProgress) : order.progressPercent,
+    amount: normalizedAmount != null ? normalizedAmount : order.amount,
+    currency,
+    kickoffAt: kickoffAt ?? order.kickoffAt,
     dueAt: dueAt ?? order.dueAt,
     metadata: nextMetadata,
+    atsExternalId: normalizedAtsExternalId !== undefined ? normalizedAtsExternalId : order.atsExternalId,
+    atsLastStatus: normalizedAtsStatus ? normalizedAtsStatus.toString().toLowerCase() : order.atsLastStatus,
+    atsLastSyncedAt: normalizedAtsLastSyncedAt ?? order.atsLastSyncedAt,
+    slaStatus: normalizedSlaStatus ?? order.slaStatus ?? 'on_track',
+    slaEscalatedAt:
+      normalizedSlaEscalatedAt !== undefined ? normalizedSlaEscalatedAt ?? null : order.slaEscalatedAt,
   });
 
   if (Array.isArray(payload.newRevisions)) {
@@ -2653,13 +2770,25 @@ export async function updateGigOrder(ownerId, orderId, payload) {
     }
   }
 
-  if (Array.isArray(payload.requirements)) {
+  const requirementUpdates = Array.isArray(payload.requirements)
+    ? payload.requirements
+    : normalizedDeliverables
+    ? normalizedDeliverables.map((item) => ({
+        id: item.id,
+        title: item.title,
+        status: payload.status ?? 'pending',
+        dueAt: item.dueAt ?? null,
+        notes: item.notes ?? null,
+      }))
+    : null;
+
+  if (Array.isArray(requirementUpdates)) {
     const existingRequirements = new Map(
       (order.requirements ?? []).map((requirement) => [Number(requirement.id), requirement]),
     );
 
     await Promise.all(
-      payload.requirements.map(async (requirementPayload) => {
+      requirementUpdates.map(async (requirementPayload) => {
         if (!requirementPayload) return;
         const requirementId = requirementPayload.id != null ? Number(requirementPayload.id) : null;
         const normalizedStatus = requirementPayload.status ?? existingRequirements.get(requirementId)?.status ?? 'pending';
@@ -2669,7 +2798,11 @@ export async function updateGigOrder(ownerId, orderId, payload) {
         }
 
         const updatePayload = {
-          title: requirementPayload.title?.trim() || existingRequirements.get(requirementId)?.title,
+          title:
+            requirementPayload.title?.trim() ||
+            existingRequirements.get(requirementId)?.title ||
+            normalizedDeliverables?.find((item) => item.id === requirementId)?.title ||
+            null,
           status: normalizedStatus,
           dueAt: ensureDate(requirementPayload.dueAt, { label: 'Requirement due date' }) ?? null,
           notes: requirementPayload.notes ?? existingRequirements.get(requirementId)?.notes ?? null,

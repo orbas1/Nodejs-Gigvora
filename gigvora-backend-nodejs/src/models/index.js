@@ -490,6 +490,7 @@ import {
   WORKSPACE_TEMPLATE_VISIBILITIES,
 } from './constants/index.js';
 import sequelizeClient from './sequelizeClient.js';
+import { COMPANY_ORDER_SLA_STATUSES } from './constants/index.js';
 
 
 export { sequelize } from './sequelizeClient.js';
@@ -4514,6 +4515,11 @@ export const GigOrder = sequelize.define(
     dueAt: { type: DataTypes.DATE, allowNull: true },
     completedAt: { type: DataTypes.DATE, allowNull: true },
     metadata: { type: jsonType, allowNull: true },
+    atsExternalId: { type: DataTypes.STRING(180), allowNull: true },
+    atsLastStatus: { type: DataTypes.STRING(60), allowNull: true },
+    atsLastSyncedAt: { type: DataTypes.DATE, allowNull: true },
+    slaStatus: { type: DataTypes.ENUM(...COMPANY_ORDER_SLA_STATUSES), allowNull: false, defaultValue: 'on_track' },
+    slaEscalatedAt: { type: DataTypes.DATE, allowNull: true },
   },
   { tableName: 'gig_orders' },
 );
@@ -4539,6 +4545,11 @@ GigOrder.prototype.toPublicObject = function toPublicObject() {
     dueAt: plain.dueAt ?? null,
     completedAt: plain.completedAt ?? null,
     metadata: plain.metadata ?? null,
+    atsExternalId: plain.atsExternalId ?? null,
+    atsLastStatus: plain.atsLastStatus ?? null,
+    atsLastSyncedAt: plain.atsLastSyncedAt ?? null,
+    slaStatus: plain.slaStatus ?? 'on_track',
+    slaEscalatedAt: plain.slaEscalatedAt ?? null,
   };
 };
 

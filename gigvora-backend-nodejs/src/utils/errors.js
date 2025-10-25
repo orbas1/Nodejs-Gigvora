@@ -52,6 +52,34 @@ export class AuthenticationError extends ApplicationError {
   }
 }
 
+export class OrderNotFoundError extends NotFoundError {
+  constructor(message = 'Company order not found.', details = {}) {
+    super(message, { code: 'ORDER_NOT_FOUND', ...details });
+    this.name = 'OrderNotFoundError';
+  }
+}
+
+export class OrderAuthorizationError extends AuthorizationError {
+  constructor(message = 'You do not have permission to manage this order.', details = {}) {
+    super(message, { code: 'ORDER_FORBIDDEN', ...details });
+    this.name = 'OrderAuthorizationError';
+  }
+}
+
+export class OrderEscrowAccessError extends AuthorizationError {
+  constructor(message = 'Escrow actions for this order are locked.', details = {}) {
+    super(message, { code: 'ESCROW_LOCKED', ...details });
+    this.name = 'OrderEscrowAccessError';
+  }
+}
+
+export class OrderMessagingAccessError extends AuthorizationError {
+  constructor(message = 'Messaging for this order is restricted.', details = {}) {
+    super(message, { code: 'ORDER_COMMENT_FORBIDDEN', ...details });
+    this.name = 'OrderMessagingAccessError';
+  }
+}
+
 export default {
   ApplicationError,
   ValidationError,
@@ -61,4 +89,8 @@ export default {
   ServiceUnavailableError,
   AuthorizationError,
   AuthenticationError,
+  OrderNotFoundError,
+  OrderAuthorizationError,
+  OrderEscrowAccessError,
+  OrderMessagingAccessError,
 };

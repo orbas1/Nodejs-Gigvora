@@ -621,6 +621,8 @@ export const GIG_ORDER_ACTIVITY_TYPES = Object.freeze([
   'system',
 ]);
 
+export const COMPANY_ORDER_SLA_STATUSES = Object.freeze(['on_track', 'at_risk', 'breached', 'resolved']);
+
 export const PROJECT_BLUEPRINT_HEALTH_STATUSES = Object.freeze(['on_track', 'at_risk', 'critical']);
 export const PROJECT_SPRINT_STATUSES = Object.freeze(['planned', 'in_progress', 'blocked', 'completed']);
 export const PROJECT_DEPENDENCY_TYPES = Object.freeze(['client', 'internal', 'external', 'third_party']);

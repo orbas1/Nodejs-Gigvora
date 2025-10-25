@@ -5,7 +5,7 @@ import {
   resolveRequestUserRole,
 } from './requestContext.js';
 
-const PROJECT_GIG_ALLOWED_ROLES = new Set([
+export const PROJECT_GIG_ALLOWED_ROLES = new Set([
   'client',
   'client_admin',
   'client_lead',
@@ -16,6 +16,20 @@ const PROJECT_GIG_ALLOWED_ROLES = new Set([
   'project_operator',
   'talent_lead',
   'admin',
+]);
+
+export const PROJECT_FINANCE_ROLE_HINTS = Object.freeze(['finance', 'controller', 'accounting', 'treasury']);
+export const PROJECT_OPERATIONS_ROLE_HINTS = Object.freeze(['operations', 'project', 'program']);
+export const PROJECT_ESCROW_SCOPE_HINTS = Object.freeze([
+  'company.escrow:manage',
+  'finance:manage',
+  'company:finance:manage',
+]);
+export const PROJECT_MESSAGE_SCOPE_HINTS = Object.freeze([
+  'company.orders:comment',
+  'project-gig-management:comment',
+  'gig-orders:comment',
+  'company.orders:manage',
 ]);
 
 export function normalizeRole(role) {

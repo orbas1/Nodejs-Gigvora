@@ -1,5 +1,6 @@
 import { Sequelize, DataTypes } from 'sequelize';
 import databaseConfig from '../config/database.js';
+import { COMPANY_ORDER_SLA_STATUSES as SHARED_COMPANY_ORDER_SLA_STATUSES } from './constants/index.js';
 
 const { url, ...sequelizeOptions } = databaseConfig;
 const connectionOptions = {
@@ -16,6 +17,7 @@ const jsonType = ['postgres', 'postgresql'].includes(dialect) ? DataTypes.JSONB 
 
 const GIG_ORDER_ACTIVITY_TYPES = Object.freeze(['system', 'client', 'vendor', 'internal']);
 const GIG_ORDER_ESCROW_STATUSES = Object.freeze(['pending', 'released', 'refunded', 'cancelled']);
+const COMPANY_ORDER_SLA_STATUSES = SHARED_COMPANY_ORDER_SLA_STATUSES;
 
 export const PROJECT_STATUSES = Object.freeze(['planning', 'in_progress', 'at_risk', 'completed', 'on_hold']);
 export const PROJECT_RISK_LEVELS = Object.freeze(['low', 'medium', 'high']);
@@ -234,6 +236,11 @@ export const GigOrder = projectGigManagementSequelize.define(
     kickoffAt: { type: DataTypes.DATE, allowNull: true },
     dueAt: { type: DataTypes.DATE, allowNull: true },
     metadata: { type: jsonType, allowNull: true },
+    atsExternalId: { type: DataTypes.STRING(180), allowNull: true },
+    atsLastStatus: { type: DataTypes.STRING(60), allowNull: true },
+    atsLastSyncedAt: { type: DataTypes.DATE, allowNull: true },
+    slaStatus: { type: DataTypes.ENUM(...COMPANY_ORDER_SLA_STATUSES), allowNull: false, defaultValue: 'on_track' },
+    slaEscalatedAt: { type: DataTypes.DATE, allowNull: true },
   },
   { tableName: 'pgm_gig_orders', underscored: true },
 );
