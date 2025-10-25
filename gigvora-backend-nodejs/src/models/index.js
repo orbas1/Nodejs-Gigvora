@@ -3490,6 +3490,173 @@ export const FreelancerTimelineWorkspace = sequelize.define(
   { tableName: 'freelancer_timeline_workspaces' },
 );
 
+export const ExplorerRecord = sequelize.define(
+  'ExplorerRecord',
+  {
+    id: { type: DataTypes.STRING(120), allowNull: false, primaryKey: true },
+    collection: { type: DataTypes.STRING(60), allowNull: false },
+    category: { type: DataTypes.STRING(60), allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    summary: { type: DataTypes.TEXT, allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: false },
+    longDescription: { type: DataTypes.TEXT, allowNull: true },
+    status: { type: DataTypes.STRING(80), allowNull: false },
+    organization: { type: DataTypes.STRING(180), allowNull: true },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    employmentType: { type: DataTypes.STRING(120), allowNull: true },
+    duration: { type: DataTypes.STRING(120), allowNull: true },
+    experienceLevel: { type: DataTypes.STRING(120), allowNull: true },
+    availability: { type: DataTypes.STRING(120), allowNull: true },
+    track: { type: DataTypes.STRING(120), allowNull: true },
+    isRemote: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    skills: { type: jsonType, allowNull: true },
+    tags: { type: jsonType, allowNull: true },
+    priceAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    priceCurrency: { type: DataTypes.STRING(12), allowNull: true },
+    priceUnit: { type: DataTypes.STRING(60), allowNull: true },
+    heroImage: { type: DataTypes.STRING(2048), allowNull: true },
+    gallery: { type: jsonType, allowNull: true },
+    videoUrl: { type: DataTypes.STRING(2048), allowNull: true },
+    detailUrl: { type: DataTypes.STRING(2048), allowNull: true },
+    applicationUrl: { type: DataTypes.STRING(2048), allowNull: true },
+    rating: { type: DataTypes.DECIMAL(4, 2), allowNull: true },
+    reviewCount: { type: DataTypes.INTEGER, allowNull: true },
+    ownerName: { type: DataTypes.STRING(180), allowNull: true },
+    ownerRole: { type: DataTypes.STRING(180), allowNull: true },
+    ownerAvatar: { type: DataTypes.STRING(2048), allowNull: true },
+    geoLat: { type: DataTypes.DECIMAL(10, 6), allowNull: true },
+    geoLng: { type: DataTypes.DECIMAL(10, 6), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'explorer_records' },
+);
+
+ExplorerRecord.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const createdAt = plain.createdAt ? new Date(plain.createdAt) : null;
+  const updatedAt = plain.updatedAt ? new Date(plain.updatedAt) : null;
+  const priceAmount = plain.priceAmount == null ? null : Number(plain.priceAmount);
+  const rating = plain.rating == null ? null : Number(plain.rating);
+  const reviewCount = plain.reviewCount == null ? null : Number(plain.reviewCount);
+  const geoLat = plain.geoLat == null ? null : Number(plain.geoLat);
+  const geoLng = plain.geoLng == null ? null : Number(plain.geoLng);
+  const price =
+    priceAmount != null || plain.priceCurrency || plain.priceUnit
+      ? {
+          amount: priceAmount,
+          currency: plain.priceCurrency ?? undefined,
+          unit: plain.priceUnit ?? undefined,
+        }
+      : null;
+  const owner =
+    plain.ownerName || plain.ownerRole || plain.ownerAvatar
+      ? {
+          name: plain.ownerName ?? undefined,
+          role: plain.ownerRole ?? undefined,
+          avatar: plain.ownerAvatar ?? undefined,
+        }
+      : null;
+  const geo = geoLat != null || geoLng != null ? { lat: geoLat ?? undefined, lng: geoLng ?? undefined } : null;
+
+  return {
+    id: plain.id,
+    collection: plain.collection,
+    category: plain.category,
+    title: plain.title,
+    summary: plain.summary,
+    description: plain.description,
+    longDescription: plain.longDescription ?? null,
+    status: plain.status,
+    organization: plain.organization ?? null,
+    location: plain.location ?? null,
+    employmentType: plain.employmentType ?? null,
+    duration: plain.duration ?? null,
+    experienceLevel: plain.experienceLevel ?? null,
+    availability: plain.availability ?? null,
+    track: plain.track ?? null,
+    isRemote: Boolean(plain.isRemote),
+    skills: Array.isArray(plain.skills) ? plain.skills : [],
+    tags: Array.isArray(plain.tags) ? plain.tags : [],
+    price: price ?? null,
+    heroImage: plain.heroImage ?? null,
+    gallery: Array.isArray(plain.gallery) ? plain.gallery : [],
+    videoUrl: plain.videoUrl ?? null,
+    detailUrl: plain.detailUrl ?? null,
+    applicationUrl: plain.applicationUrl ?? null,
+    rating,
+    reviewCount,
+    owner,
+    geo,
+    metadata: plain.metadata ?? null,
+    createdAt: createdAt ? createdAt.toISOString() : null,
+    updatedAt: updatedAt ? updatedAt.toISOString() : null,
+  };
+};
+
+export const ExplorerInteraction = sequelize.define(
+  'ExplorerInteraction',
+  {
+    id: { type: DataTypes.STRING(120), allowNull: false, primaryKey: true },
+    recordId: { type: DataTypes.STRING(120), allowNull: false },
+    collection: { type: DataTypes.STRING(60), allowNull: false },
+    category: { type: DataTypes.STRING(60), allowNull: false },
+    type: { type: DataTypes.STRING(60), allowNull: false },
+    name: { type: DataTypes.STRING(180), allowNull: false },
+    email: { type: DataTypes.STRING(255), allowNull: false },
+    phone: { type: DataTypes.STRING(80), allowNull: true },
+    company: { type: DataTypes.STRING(180), allowNull: true },
+    headline: { type: DataTypes.STRING(255), allowNull: true },
+    message: { type: DataTypes.TEXT, allowNull: false },
+    budgetAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+    budgetCurrency: { type: DataTypes.STRING(12), allowNull: true },
+    availability: { type: DataTypes.STRING(120), allowNull: true },
+    startDate: { type: DataTypes.STRING(120), allowNull: true },
+    attachments: { type: jsonType, allowNull: true },
+    linkedin: { type: DataTypes.STRING(2048), allowNull: true },
+    website: { type: DataTypes.STRING(2048), allowNull: true },
+    status: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'new' },
+    internalNotes: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'explorer_interactions' },
+);
+
+ExplorerInteraction.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  const createdAt = plain.createdAt ? new Date(plain.createdAt) : null;
+  const updatedAt = plain.updatedAt ? new Date(plain.updatedAt) : null;
+  const budgetAmount = plain.budgetAmount == null ? null : Number(plain.budgetAmount);
+
+  return {
+    id: plain.id,
+    recordId: plain.recordId,
+    collection: plain.collection,
+    category: plain.category,
+    type: plain.type,
+    name: plain.name,
+    email: plain.email,
+    phone: plain.phone ?? null,
+    company: plain.company ?? null,
+    headline: plain.headline ?? null,
+    message: plain.message,
+    budgetAmount,
+    budgetCurrency: plain.budgetCurrency ?? null,
+    availability: plain.availability ?? null,
+    startDate: plain.startDate ?? null,
+    attachments: Array.isArray(plain.attachments) ? plain.attachments : [],
+    linkedin: plain.linkedin ?? null,
+    website: plain.website ?? null,
+    status: plain.status,
+    internalNotes: plain.internalNotes ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: createdAt ? createdAt.toISOString() : null,
+    updatedAt: updatedAt ? updatedAt.toISOString() : null,
+  };
+};
+
+ExplorerRecord.hasMany(ExplorerInteraction, { foreignKey: 'recordId', sourceKey: 'id', as: 'interactions' });
+ExplorerInteraction.belongsTo(ExplorerRecord, { foreignKey: 'recordId', targetKey: 'id', as: 'record' });
+
 export const FreelancerTimelinePost = sequelize.define(
   'FreelancerTimelinePost',
   {

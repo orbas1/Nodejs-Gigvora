@@ -1,45 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { join } from 'node:path';
-import fs from 'fs-extra';
-import { getExplorerCollections } from '../utils/explorerCollections.js';
+import { ExplorerInteraction } from '../models/index.js';
+import { getExplorerCollections, inferExplorerCategoryFromCollection } from '../utils/explorerCollections.js';
 
 const SUPPORTED_COLLECTIONS = getExplorerCollections();
-
-const DEFAULT_DATASET = Object.fromEntries(
-  SUPPORTED_COLLECTIONS.map((collection) => [collection, Object.create(null)]),
-);
-
-function cloneDataset(dataset) {
-  return JSON.parse(JSON.stringify(dataset));
-}
-
-const DATA_FILE_PATH = join(process.cwd(), 'database', 'explorerEngagements.json');
-
-async function ensureDataset() {
-  const exists = await fs.pathExists(DATA_FILE_PATH);
-  if (!exists) {
-    await fs.ensureFile(DATA_FILE_PATH);
-    await fs.writeJson(DATA_FILE_PATH, DEFAULT_DATASET, { spaces: 2 });
-    return cloneDataset(DEFAULT_DATASET);
-  }
-
-  const data = await fs.readJson(DATA_FILE_PATH).catch(() => null);
-  if (!data || typeof data !== 'object') {
-    await fs.writeJson(DATA_FILE_PATH, DEFAULT_DATASET, { spaces: 2 });
-    return cloneDataset(DEFAULT_DATASET);
-  }
-
-  const merged = cloneDataset(DEFAULT_DATASET);
-  SUPPORTED_COLLECTIONS.forEach((collection) => {
-    const bucket = data[collection];
-    merged[collection] = bucket && typeof bucket === 'object' ? { ...bucket } : {};
-  });
-  return merged;
-}
-
-async function writeDataset(dataset) {
-  await fs.writeJson(DATA_FILE_PATH, dataset, { spaces: 2 });
-}
 
 function assertCollection(collection) {
   if (!SUPPORTED_COLLECTIONS.includes(collection)) {
@@ -49,79 +12,133 @@ function assertCollection(collection) {
   }
 }
 
-function getRecordInteractions(dataset, collection, recordId) {
-  const bucket = dataset[collection];
-  if (!bucket[recordId]) {
-    bucket[recordId] = [];
+function normaliseAttachments(value) {
+  if (!value) {
+    return [];
   }
-  return bucket[recordId];
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => (entry == null ? null : `${entry}`.trim()))
+      .filter((entry) => entry && entry.length);
+  }
+  if (typeof value === 'string' && value.trim().length) {
+    return value
+      .split(',')
+      .map((token) => token.trim())
+      .filter((token) => token.length);
+  }
+  return [];
+}
+
+function coerceNumber(value) {
+  if (value == null || value === '') {
+    return null;
+  }
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function applyInteractionAttributes(interaction, payload = {}) {
+  if ('type' in payload) interaction.type = payload.type;
+  if ('name' in payload) interaction.name = payload.name;
+  if ('email' in payload) interaction.email = payload.email;
+  if ('phone' in payload) interaction.phone = payload.phone ?? null;
+  if ('company' in payload) interaction.company = payload.company ?? null;
+  if ('headline' in payload) interaction.headline = payload.headline ?? null;
+  if ('message' in payload) interaction.message = payload.message;
+  if ('budgetAmount' in payload) interaction.budgetAmount = coerceNumber(payload.budgetAmount);
+  if ('budgetCurrency' in payload) interaction.budgetCurrency = payload.budgetCurrency ?? null;
+  if ('availability' in payload) interaction.availability = payload.availability ?? null;
+  if ('startDate' in payload) interaction.startDate = payload.startDate ?? null;
+  if ('attachments' in payload) interaction.attachments = normaliseAttachments(payload.attachments);
+  if ('linkedin' in payload) interaction.linkedin = payload.linkedin ?? null;
+  if ('website' in payload) interaction.website = payload.website ?? null;
+  if ('status' in payload) interaction.status = payload.status ?? 'new';
+  if ('internalNotes' in payload) interaction.internalNotes = payload.internalNotes ?? null;
+  if ('metadata' in payload) interaction.metadata = payload.metadata ?? null;
+}
+
+function inferCategory(collection, fallback) {
+  return fallback || inferExplorerCategoryFromCollection(collection);
 }
 
 export async function listInteractions(collection, recordId) {
   assertCollection(collection);
-  const dataset = await ensureDataset();
-  const bucket = dataset[collection];
-  const interactions = bucket?.[recordId];
-  return Array.isArray(interactions)
-    ? [...interactions].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-    : [];
+  if (!recordId) {
+    return [];
+  }
+  const rows = await ExplorerInteraction.findAll({
+    where: { collection, recordId },
+    order: [['createdAt', 'DESC']],
+  });
+  return rows.map((row) => row.toPublicObject());
 }
 
 export async function getInteraction(collection, recordId, interactionId) {
-  const interactions = await listInteractions(collection, recordId);
-  return interactions.find((interaction) => interaction.id === interactionId) ?? null;
-}
-
-export async function createInteraction(collection, recordId, payload) {
   assertCollection(collection);
-  const dataset = await ensureDataset();
-  const interactions = getRecordInteractions(dataset, collection, recordId);
-  const now = new Date().toISOString();
-  const interaction = {
-    id: payload.id || randomUUID(),
-    recordId,
-    categoryCollection: collection,
-    createdAt: now,
-    updatedAt: now,
-    status: payload.status ?? 'new',
-    ...payload,
-  };
-  interactions.unshift(interaction);
-  await writeDataset(dataset);
-  return interaction;
-}
-
-export async function updateInteraction(collection, recordId, interactionId, payload) {
-  assertCollection(collection);
-  const dataset = await ensureDataset();
-  const interactions = getRecordInteractions(dataset, collection, recordId);
-  const index = interactions.findIndex((interaction) => interaction.id === interactionId);
-  if (index === -1) {
+  if (!recordId || !interactionId) {
     return null;
   }
-  const now = new Date().toISOString();
-  const updated = {
-    ...interactions[index],
-    ...payload,
-    id: interactionId,
-    updatedAt: now,
-  };
-  interactions.splice(index, 1, updated);
-  await writeDataset(dataset);
-  return updated;
+  const interaction = await ExplorerInteraction.findOne({
+    where: { collection, recordId, id: interactionId },
+  });
+  return interaction ? interaction.toPublicObject() : null;
+}
+
+export async function createInteraction(collection, recordId, payload = {}) {
+  assertCollection(collection);
+  if (!recordId) {
+    throw new Error('A record identifier is required to create an interaction.');
+  }
+  const interaction = await ExplorerInteraction.create({
+    id: payload.id || randomUUID(),
+    recordId,
+    collection,
+    category: inferCategory(collection, payload.category),
+    type: payload.type,
+    name: payload.name,
+    email: payload.email,
+    phone: payload.phone ?? null,
+    company: payload.company ?? null,
+    headline: payload.headline ?? null,
+    message: payload.message,
+    budgetAmount: coerceNumber(payload.budgetAmount),
+    budgetCurrency: payload.budgetCurrency ?? null,
+    availability: payload.availability ?? null,
+    startDate: payload.startDate ?? null,
+    attachments: normaliseAttachments(payload.attachments),
+    linkedin: payload.linkedin ?? null,
+    website: payload.website ?? null,
+    status: payload.status ?? 'new',
+    internalNotes: payload.internalNotes ?? null,
+    metadata: payload.metadata ?? null,
+  });
+  return interaction.toPublicObject();
+}
+
+export async function updateInteraction(collection, recordId, interactionId, payload = {}) {
+  assertCollection(collection);
+  if (!recordId || !interactionId) {
+    return null;
+  }
+  const interaction = await ExplorerInteraction.findOne({
+    where: { collection, recordId, id: interactionId },
+  });
+  if (!interaction) {
+    return null;
+  }
+  applyInteractionAttributes(interaction, payload);
+  await interaction.save();
+  return interaction.toPublicObject();
 }
 
 export async function deleteInteraction(collection, recordId, interactionId) {
   assertCollection(collection);
-  const dataset = await ensureDataset();
-  const interactions = getRecordInteractions(dataset, collection, recordId);
-  const next = interactions.filter((interaction) => interaction.id !== interactionId);
-  const deleted = next.length !== interactions.length;
-  if (deleted) {
-    dataset[collection][recordId] = next;
-    await writeDataset(dataset);
+  if (!recordId || !interactionId) {
+    return false;
   }
-  return deleted;
+  const deleted = await ExplorerInteraction.destroy({ where: { collection, recordId, id: interactionId } });
+  return deleted > 0;
 }
 
 export default {
