@@ -138,6 +138,13 @@ export async function submitMentorReview(req, res) {
   res.status(201).json({ ...review, access: context });
 }
 
+export async function refreshMentorRecommendations(req, res) {
+  const userId = ensureUserId(req.params.userId ?? req.params.id);
+  const context = assertMentoringAccess(req, userId);
+  const recommendations = await userMentoringService.refreshMentorRecommendations(userId);
+  res.json({ recommendations, access: context });
+}
+
 export default {
   getMentoringDashboard,
   createMentoringSession,
@@ -147,4 +154,5 @@ export default {
   addFavouriteMentor,
   removeFavouriteMentor,
   submitMentorReview,
+  refreshMentorRecommendations,
 };

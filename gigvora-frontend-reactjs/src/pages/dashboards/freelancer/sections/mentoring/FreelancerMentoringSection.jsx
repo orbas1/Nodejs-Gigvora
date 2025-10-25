@@ -6,6 +6,9 @@ import MentoringSessionForm from './MentoringSessionForm.jsx';
 import MentoringSessionsPanel from './MentoringSessionsPanel.jsx';
 import MentoringPurchasesPanel from './MentoringPurchasesPanel.jsx';
 import MentoringMentorPanels from './MentoringMentorPanels.jsx';
+import MentoringAnalyticsOverlay from './MentoringAnalyticsOverlay.jsx';
+import MentorPreviewModal from './MentorPreviewModal.jsx';
+import { calculateMentorAnalytics, getMentorAnalyticsForId } from '../../../../../utils/mentoring.js';
 
 export default function FreelancerMentoringSection() {
   const { session } = useSession();
@@ -23,14 +26,33 @@ export default function FreelancerMentoringSection() {
     updatePurchase,
     addFavourite,
     removeFavourite,
+    refreshRecommendations,
   } = useFreelancerMentoring({ userId, enabled: Boolean(userId) });
   const [prefillMentorId, setPrefillMentorId] = useState(null);
+  const [activeMentorId, setActiveMentorId] = useState(null);
 
   const currency = summary?.currency ?? 'USD';
   const sessions = data?.sessions?.all ?? [];
   const purchases = data?.purchases ?? { orders: [] };
   const favourites = data?.favourites ?? [];
   const suggestions = data?.suggestions ?? [];
+
+  const analytics = useMemo(
+    () =>
+      calculateMentorAnalytics({
+        sessions,
+        orders: purchases?.orders ?? [],
+        favourites,
+        summary,
+      }),
+    [sessions, purchases, favourites, summary],
+  );
+
+  const selectedMentor = activeMentorId ? mentorLookup.get(Number(activeMentorId)) ?? null : null;
+  const selectedMentorAnalytics = useMemo(
+    () => getMentorAnalyticsForId(analytics, activeMentorId),
+    [analytics, activeMentorId],
+  );
 
   const headerSubtitle = useMemo(
     () =>
@@ -55,6 +77,15 @@ export default function FreelancerMentoringSection() {
     if (typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+  };
+
+  const handleOpenMentor = (mentorId) => {
+    if (!mentorId) return;
+    setActiveMentorId(Number(mentorId));
+  };
+
+  const handleCloseMentorModal = () => {
+    setActiveMentorId(null);
   };
 
   const openMentorDirectory = () => {
@@ -85,6 +116,13 @@ export default function FreelancerMentoringSection() {
     return (
       <div className="mt-8 space-y-10">
         <MentoringSummaryCards summary={summary} currency={currency} />
+
+        <MentoringAnalyticsOverlay
+          analytics={analytics}
+          currency={currency}
+          loading={loading}
+          onOpenMentor={handleOpenMentor}
+        />
 
         <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
@@ -124,6 +162,8 @@ export default function FreelancerMentoringSection() {
           mentorLookup={mentorLookup}
           onUpdate={updateSession}
           pending={pending}
+          loading={loading}
+          onOpenMentor={handleOpenMentor}
         />
 
         <MentoringPurchasesPanel
@@ -132,6 +172,8 @@ export default function FreelancerMentoringSection() {
           onCreate={recordPurchase}
           onUpdate={updatePurchase}
           pending={pending}
+          loading={loading}
+          onOpenMentor={handleOpenMentor}
         />
 
         <MentoringMentorPanels
@@ -141,6 +183,9 @@ export default function FreelancerMentoringSection() {
           onRemoveFavourite={removeFavourite}
           onStartSession={handleSuggestionStart}
           pending={pending}
+          loading={loading}
+          onOpenMentor={handleOpenMentor}
+          onRefreshRecommendations={refreshRecommendations}
         />
       </div>
     );
@@ -166,6 +211,14 @@ export default function FreelancerMentoringSection() {
       </header>
 
       {renderBody()}
+
+      {selectedMentor ? (
+        <MentorPreviewModal
+          mentor={selectedMentor}
+          analytics={selectedMentorAnalytics}
+          onClose={handleCloseMentorModal}
+        />
+      ) : null}
     </section>
   );
 }

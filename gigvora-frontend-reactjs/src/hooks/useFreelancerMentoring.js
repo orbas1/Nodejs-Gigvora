@@ -7,48 +7,14 @@ import {
   updateMentorshipPurchase,
   addFavouriteMentor,
   removeFavouriteMentor,
+  refreshMentorRecommendations,
 } from '../services/userMentoring.js';
+import { buildMentorLookupFromWorkspace } from '../utils/mentoring.js';
 
 function normaliseUserId(userId) {
   if (!userId) return null;
   const parsed = Number.parseInt(userId, 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-}
-
-function buildMentorLookup(data) {
-  const lookup = new Map();
-  if (!data) {
-    return lookup;
-  }
-
-  const sourceLists = [
-    data.favourites ?? [],
-    data.suggestions ?? [],
-    data.sessions?.all ?? [],
-    data.purchases?.orders ?? [],
-  ];
-
-  sourceLists.forEach((list) => {
-    list.forEach((entry) => {
-      const mentor = entry.mentor ?? entry;
-      if (!mentor) return;
-      const id = mentor.id ?? entry.mentorId ?? null;
-      if (!id) return;
-      if (!lookup.has(id)) {
-        lookup.set(id, {
-          id,
-          name:
-            mentor.name ||
-            [mentor.firstName, mentor.lastName].filter(Boolean).join(' ').trim() ||
-            entry.mentorName ||
-            'Mentor',
-          email: mentor.email ?? entry.mentorEmail ?? null,
-        });
-      }
-    });
-  });
-
-  return lookup;
 }
 
 export default function useFreelancerMentoring({ userId, enabled = true, fetchOnMount = true } = {}) {
@@ -144,8 +110,13 @@ export default function useFreelancerMentoring({ userId, enabled = true, fetchOn
     [runMutation],
   );
 
+  const handleRefreshRecommendations = useCallback(
+    () => runMutation((id) => refreshMentorRecommendations(id), { refreshAfter: true }),
+    [runMutation],
+  );
+
   const summary = state.data?.summary ?? null;
-  const mentorLookup = useMemo(() => buildMentorLookup(state.data), [state.data]);
+  const mentorLookup = useMemo(() => buildMentorLookupFromWorkspace(state.data), [state.data]);
 
   return {
     data: state.data,
@@ -161,5 +132,6 @@ export default function useFreelancerMentoring({ userId, enabled = true, fetchOn
     updatePurchase: handleUpdatePurchase,
     addFavourite: handleAddFavourite,
     removeFavourite: handleRemoveFavourite,
+    refreshRecommendations: handleRefreshRecommendations,
   };
 }

@@ -40,6 +40,10 @@ export function submitMentorReview(userId, payload) {
   return apiClient.post(`${buildBasePath(userId)}/reviews`, payload);
 }
 
+export function refreshMentorRecommendations(userId) {
+  return apiClient.post(`${buildBasePath(userId)}/recommendations/refresh`);
+}
+
 export default {
   fetchMentoringDashboard,
   createMentoringSession,
@@ -49,4 +53,5 @@ export default {
   addFavouriteMentor,
   removeFavouriteMentor,
   submitMentorReview,
+  refreshMentorRecommendations,
 };

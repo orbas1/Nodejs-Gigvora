@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
+import { formatMentorName, formatMentorContactLine } from '../../../../../utils/mentoring.js';
 
 const STATUS_OPTIONS = [
   { value: 'pending', label: 'Pending' },
@@ -96,6 +97,7 @@ function NewPurchaseForm({ mentorOptions, onSubmit, pending }) {
             {mentorOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
+                {option.contact ? ` (${option.contact})` : ''}
               </option>
             ))}
           </select>
@@ -242,12 +244,18 @@ function NewPurchaseForm({ mentorOptions, onSubmit, pending }) {
 }
 
 NewPurchaseForm.propTypes = {
-  mentorOptions: PropTypes.arrayOf(PropTypes.shape({ value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]) })),
+  mentorOptions: PropTypes.arrayOf(
+    PropTypes.shape({
+      value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      label: PropTypes.string,
+      contact: PropTypes.string,
+    }),
+  ),
   onSubmit: PropTypes.func.isRequired,
   pending: PropTypes.bool,
 };
 
-function PurchaseRow({ order, mentorLabel, onSave, pending }) {
+function PurchaseRow({ order, mentorName, mentorSubtitle, onSave, onOpenMentor, pending }) {
   const [expanded, setExpanded] = useState(false);
   const [form, setForm] = useState({
     status: order.status,
@@ -285,7 +293,14 @@ function PurchaseRow({ order, mentorLabel, onSave, pending }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-slate-900">{order.packageName}</p>
-          <p className="text-xs text-slate-500">{mentorLabel}</p>
+          <button
+            type="button"
+            onClick={() => onOpenMentor(order.mentorId)}
+            className="text-left text-xs font-semibold text-blue-600 transition hover:text-blue-700"
+          >
+            {mentorName}
+          </button>
+          {mentorSubtitle ? <p className="text-xs text-slate-500">{mentorSubtitle}</p> : null}
           <p className="text-xs text-slate-400">
             {formatDate(order.purchasedAt)} • {formatCurrency(order.totalAmount, order.currency)} • {order.sessionsRedeemed}/{order.sessionsPurchased} redeemed
           </p>
@@ -386,20 +401,32 @@ function PurchaseRow({ order, mentorLabel, onSave, pending }) {
 
 PurchaseRow.propTypes = {
   order: PropTypes.object.isRequired,
-  mentorLabel: PropTypes.string.isRequired,
+  mentorName: PropTypes.string.isRequired,
+  mentorSubtitle: PropTypes.string,
   onSave: PropTypes.func.isRequired,
+  onOpenMentor: PropTypes.func.isRequired,
   pending: PropTypes.bool,
 };
 
-export default function MentoringPurchasesPanel({ purchases, mentorLookup, onCreate, onUpdate, pending }) {
-  const mentorOptions = useMemo(
-    () =>
-      Array.from(mentorLookup?.values?.() ?? []).map((mentor) => ({
-        value: mentor.id,
-        label: mentor.name,
-      })),
-    [mentorLookup],
-  );
+export default function MentoringPurchasesPanel({
+  purchases,
+  mentorLookup,
+  onCreate,
+  onUpdate,
+  pending,
+  loading,
+  onOpenMentor,
+}) {
+  const mentorOptions = useMemo(() => {
+    if (!mentorLookup?.size) {
+      return [];
+    }
+    return Array.from(mentorLookup.values()).map((mentor) => ({
+      value: mentor.id,
+      label: formatMentorName(mentor),
+      contact: formatMentorContactLine(mentor),
+    }));
+  }, [mentorLookup]);
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
@@ -408,6 +435,11 @@ export default function MentoringPurchasesPanel({ purchases, mentorLookup, onCre
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Packages</p>
           <h3 className="text-lg font-semibold text-slate-900">Mentoring sessions purchased</h3>
         </div>
+        {loading ? (
+          <span className="flex items-center gap-1 text-xs text-slate-500">
+            <span className="h-2 w-2 animate-ping rounded-full bg-blue-500" aria-hidden /> Refreshing
+          </span>
+        ) : null}
         <a
           href="/mentors"
           target="_blank"
@@ -422,25 +454,38 @@ export default function MentoringPurchasesPanel({ purchases, mentorLookup, onCre
         <div className="space-y-4">
           <h4 className="text-sm font-semibold text-slate-800">Active packages</h4>
           <ul className="space-y-3">
-            {(purchases?.orders ?? []).length ? (
-              purchases.orders.map((order) => {
-                const mentor = mentorLookup?.get(order.mentorId);
-                const mentorLabel = mentor?.name || order.mentor?.name || 'Mentor';
-                return (
-                  <PurchaseRow
-                    key={order.id}
-                    order={order}
-                    mentorLabel={mentorLabel}
-                    onSave={(updates) => onUpdate(order.id, updates)}
-                    pending={pending}
-                  />
-                );
-              })
-            ) : (
-              <li className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-6 text-sm text-slate-500">
-                No mentorship packages recorded yet.
-              </li>
-            )}
+            {(purchases?.orders ?? []).length
+              ? purchases.orders.map((order) => {
+                  const mentor = mentorLookup?.get(order.mentorId) ?? order.mentor ?? null;
+                  const mentorName = formatMentorName(mentor ?? { id: order.mentorId });
+                  const mentorSubtitle = formatMentorContactLine(mentor);
+                  return (
+                    <PurchaseRow
+                      key={order.id}
+                      order={order}
+                      mentorName={mentorName}
+                      mentorSubtitle={mentorSubtitle === 'No contact set' ? null : mentorSubtitle}
+                      onSave={(updates) => onUpdate(order.id, updates)}
+                      onOpenMentor={onOpenMentor}
+                      pending={pending}
+                    />
+                  );
+                })
+              : loading
+              ? [
+                  <li
+                    key="purchases-skeleton"
+                    className="h-24 animate-pulse rounded-2xl border border-slate-200 bg-slate-50/80"
+                  />,
+                ]
+              : [
+                  <li
+                    key="no-purchases"
+                    className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-6 text-sm text-slate-500"
+                  >
+                    No mentorship packages recorded yet.
+                  </li>,
+                ]}
           </ul>
         </div>
 
@@ -466,4 +511,6 @@ MentoringPurchasesPanel.propTypes = {
   onCreate: PropTypes.func.isRequired,
   onUpdate: PropTypes.func.isRequired,
   pending: PropTypes.bool,
+  loading: PropTypes.bool,
+  onOpenMentor: PropTypes.func.isRequired,
 };

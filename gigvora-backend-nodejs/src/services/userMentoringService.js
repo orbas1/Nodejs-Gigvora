@@ -199,6 +199,127 @@ function calculateSummary(sessions, orders) {
   };
 }
 
+function registerLastInteraction(bucket, ...candidates) {
+  candidates.forEach((candidate) => {
+    if (!candidate) return;
+    const date = new Date(candidate);
+    const timestamp = date.getTime();
+    if (!Number.isFinite(timestamp)) return;
+    bucket.lastInteraction = bucket.lastInteraction ? Math.max(bucket.lastInteraction, timestamp) : timestamp;
+  });
+}
+
+function buildRecommendationSignals({ sessions = [], orders = [], favourites = [] }) {
+  const signals = new Map();
+
+  const ensureBucket = (mentor, mentorId) => {
+    const id = mentor?.id ?? mentorId;
+    if (!id) {
+      return null;
+    }
+    if (!signals.has(id)) {
+      signals.set(id, {
+        mentorId: id,
+        mentor: mentor ? { ...mentor } : { id: mentorId },
+        completedCount: 0,
+        upcomingCount: 0,
+        requestedCount: 0,
+        cancelledCount: 0,
+        orderCount: 0,
+        activeOrderCount: 0,
+        sessionsRedeemed: 0,
+        totalSpend: 0,
+        favourited: false,
+        lastInteraction: null,
+        score: 0,
+      });
+    }
+    const bucket = signals.get(id);
+    if (mentor && (!bucket.mentor || !bucket.mentor.firstName)) {
+      bucket.mentor = { ...mentor };
+    }
+    return bucket;
+  };
+
+  sessions.forEach((session) => {
+    if (!session) return;
+    const bucket = ensureBucket(session.mentor, session.mentorId);
+    if (!bucket) return;
+    bucket.sessionsRedeemed += session.status === 'completed' ? 1 : 0;
+    bucket.totalSpend += Number(session.pricePaid ?? 0) || 0;
+    registerLastInteraction(bucket, session.completedAt, session.scheduledAt, session.createdAt);
+
+    switch (session.status) {
+      case 'completed':
+        bucket.completedCount += 1;
+        bucket.score += 6;
+        break;
+      case 'scheduled':
+        bucket.upcomingCount += 1;
+        bucket.score += 4;
+        break;
+      case 'requested':
+        bucket.requestedCount += 1;
+        bucket.score += 3;
+        break;
+      case 'cancelled':
+        bucket.cancelledCount += 1;
+        break;
+      default:
+        break;
+    }
+  });
+
+  orders.forEach((order) => {
+    if (!order) return;
+    const bucket = ensureBucket(order.mentor, order.mentorId);
+    if (!bucket) return;
+    bucket.orderCount += 1;
+    if (['active', 'pending'].includes(order.status)) {
+      bucket.activeOrderCount += 1;
+      bucket.score += 4;
+    } else {
+      bucket.score += 2;
+    }
+    bucket.sessionsRedeemed += Number(order.sessionsRedeemed ?? 0);
+    bucket.totalSpend += Number(order.totalAmount ?? 0) || 0;
+    registerLastInteraction(bucket, order.updatedAt, order.purchasedAt, order.createdAt);
+  });
+
+  favourites.forEach((favourite) => {
+    if (!favourite) return;
+    const bucket = ensureBucket(favourite.mentor, favourite.mentorId);
+    if (!bucket) return;
+    bucket.favourited = true;
+    bucket.score += 1;
+    registerLastInteraction(bucket, favourite.updatedAt, favourite.createdAt);
+  });
+
+  return signals;
+}
+
+function describeWorkspaceRecommendation(entry) {
+  const parts = [];
+  if (entry.completedCount) {
+    parts.push(`${entry.completedCount} completed session${entry.completedCount === 1 ? '' : 's'}`);
+  }
+  if (entry.upcomingCount) {
+    parts.push(`${entry.upcomingCount} upcoming booking${entry.upcomingCount === 1 ? '' : 's'}`);
+  }
+  if (entry.activeOrderCount) {
+    parts.push(`${entry.activeOrderCount} active package${entry.activeOrderCount === 1 ? '' : 's'}`);
+  } else if (entry.orderCount) {
+    parts.push(`${entry.orderCount} past package${entry.orderCount === 1 ? '' : 's'}`);
+  }
+  if (entry.favourited) {
+    parts.push('Saved in favourites');
+  }
+  if (!parts.length) {
+    return 'Suggested from your mentoring workspace trends.';
+  }
+  return parts.join(' • ');
+}
+
 async function loadMentoringDashboard(userId) {
   const sessionQuery = PeerMentoringSession.findAll({
     where: { menteeId: userId },
@@ -632,6 +753,65 @@ export async function removeFavouriteMentor(userId, mentorId) {
   await record.destroy();
   forgetCachesForUser(normalisedUserId);
   return { success: true };
+}
+
+export async function refreshMentorRecommendations(userId) {
+  const normalisedUserId = normalizeUserId(userId);
+  const dashboard = await loadMentoringDashboard(normalisedUserId);
+
+  const signals = buildRecommendationSignals({
+    sessions: dashboard.sessions?.all ?? [],
+    orders: dashboard.purchases?.orders ?? [],
+    favourites: dashboard.favourites ?? [],
+  });
+
+  const ranked = Array.from(signals.values())
+    .map((entry) => ({
+      ...entry,
+      source: entry.favourited && entry.score <= 6 ? 'favourites' : 'workspace_insights',
+      reason: describeWorkspaceRecommendation(entry),
+    }))
+    .filter((entry) => entry.mentorId)
+    .sort((a, b) => {
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
+      if ((b.lastInteraction ?? 0) !== (a.lastInteraction ?? 0)) {
+        return (b.lastInteraction ?? 0) - (a.lastInteraction ?? 0);
+      }
+      return (b.completedCount ?? 0) - (a.completedCount ?? 0);
+    })
+    .slice(0, 8);
+
+  await MentorRecommendation.destroy({ where: { userId: normalisedUserId } });
+
+  if (ranked.length) {
+    const timestamp = new Date();
+    await Promise.all(
+      ranked.map((entry, index) =>
+        MentorRecommendation.create({
+          userId: normalisedUserId,
+          mentorId: entry.mentorId,
+          score: Number(entry.score ?? 0) + Math.max(0, 3 - index) * 0.1,
+          source: entry.source,
+          reason: entry.reason,
+          generatedAt: timestamp,
+        }),
+      ),
+    );
+  }
+
+  const refreshed = await MentorRecommendation.findAll({
+    where: { userId: normalisedUserId },
+    include: [buildMentorInclude()],
+    order: [
+      ['score', 'DESC'],
+      ['generatedAt', 'DESC'],
+    ],
+  });
+
+  forgetCachesForUser(normalisedUserId);
+  return refreshed.map(toPlainRecommendation);
 }
 
 function validateReviewPayload(payload) {
