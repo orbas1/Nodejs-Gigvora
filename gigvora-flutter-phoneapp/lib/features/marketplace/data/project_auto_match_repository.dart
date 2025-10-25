@@ -70,6 +70,12 @@ class ProjectAutoMatchEntry {
   });
 
   factory ProjectAutoMatchEntry.fromJson(Map<String, dynamic> json) {
+    final metadata = json['metadata'] is Map<String, dynamic>
+        ? Map<String, dynamic>.from(json['metadata'] as Map)
+        : const <String, dynamic>{};
+    final breakdown = json['breakdown'] is Map<String, dynamic>
+        ? Map<String, dynamic>.from(json['breakdown'] as Map)
+        : const <String, dynamic>{};
     return ProjectAutoMatchEntry(
       id: json['id'] is int ? json['id'] as int : int.tryParse('${json['id']}') ?? 0,
       freelancerId: json['freelancerId'] is int
@@ -77,18 +83,14 @@ class ProjectAutoMatchEntry {
           : int.tryParse('${json['freelancerId']}') ??
               ProjectAutoMatchFreelancer.fromJson(json['freelancer'] as Map<String, dynamic>?).id,
       status: '${json['status'] ?? 'pending'}',
-      score: _parseDouble(json['score']),
+      score: _resolveScore(json, metadata),
       priorityBucket: json['priorityBucket'] is int
           ? json['priorityBucket'] as int
           : int.tryParse('${json['priorityBucket']}'),
       position: json['position'] is int ? json['position'] as int : int.tryParse('${json['position']}'),
       expiresAt: _parseDate(json['expiresAt']),
-      metadata: json['metadata'] is Map<String, dynamic>
-          ? Map<String, dynamic>.from(json['metadata'] as Map)
-          : const <String, dynamic>{},
-      breakdown: json['breakdown'] is Map<String, dynamic>
-          ? Map<String, dynamic>.from(json['breakdown'] as Map)
-          : const <String, dynamic>{},
+      metadata: metadata,
+      breakdown: breakdown,
       freelancer: ProjectAutoMatchFreelancer.fromJson(
         json['freelancer'] is Map ? Map<String, dynamic>.from(json['freelancer'] as Map) : null,
       ),
@@ -200,10 +202,39 @@ class ProjectAutoMatchRepository {
   }
 }
 
+double? _resolveScore(Map<String, dynamic> json, Map<String, dynamic> metadata) {
+  final candidates = <dynamic>[
+    json['score'],
+    json['matchScore'],
+    metadata['score'],
+    metadata['matchScore'],
+  ];
+  for (final candidate in candidates) {
+    if (candidate == null) continue;
+    final parsed = _parseDouble(candidate);
+    if (parsed == null) {
+      continue;
+    }
+    final raw = '$candidate'.trim();
+    if (parsed >= 0 && parsed <= 1 && !raw.endsWith('%')) {
+      return (parsed * 100).clamp(0, 100);
+    }
+    return parsed;
+  }
+  return null;
+}
+
 double? _parseDouble(dynamic value) {
   if (value == null) return null;
   if (value is num) return value.toDouble();
-  return double.tryParse('$value');
+  final stringValue = '$value'.trim();
+  if (stringValue.isEmpty) {
+    return null;
+  }
+  final sanitized = stringValue.endsWith('%')
+      ? stringValue.substring(0, stringValue.length - 1).trim()
+      : stringValue;
+  return double.tryParse(sanitized);
 }
 
 DateTime? _parseDate(dynamic value) {

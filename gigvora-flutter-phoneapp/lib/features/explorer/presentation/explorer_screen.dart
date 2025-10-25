@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gigvora_foundation/gigvora_foundation.dart';
 import 'package:go_router/go_router.dart';
+import '../../../theme/filter_selector.dart';
 import '../../../theme/widgets.dart';
 import '../../../core/access/explorer_access.dart';
 import '../../auth/application/session_controller.dart';
@@ -202,37 +203,28 @@ class _ExplorerScreenState extends ConsumerState<ExplorerScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: categories.map((category) {
-                        final isActive = category.id == _selectedCategory;
-                        final textColor = isActive
-                            ? theme.colorScheme.onPrimaryContainer
-                            : theme.colorScheme.onSurfaceVariant;
-                        return ChoiceChip(
-                          label: Text(category.label),
-                          showCheckmark: false,
-                          labelPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          selected: isActive,
-                          selectedColor: theme.colorScheme.primaryContainer,
-                          backgroundColor: theme.colorScheme.surfaceVariant.withOpacity(0.6),
-                          labelStyle: theme.textTheme.labelLarge?.copyWith(
-                            color: textColor,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          side: BorderSide(
-                            color: isActive
-                                ? theme.colorScheme.primary.withOpacity(0.45)
-                                : theme.dividerColor.withOpacity(0.8),
-                          ),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                          onSelected: (_) {
-                            setState(() => _selectedCategory = category.id);
-                            controller.recordFilterSelection(category.category);
-                          },
-                        );
-                      }).toList(),
+                    GigvoraFilterGroup<String>(
+                      options: categories
+                          .map(
+                            (category) => GigvoraFilterOption<String>(
+                              value: category.id,
+                              label: category.label,
+                              tooltip: category.isPeople
+                                  ? 'Explore collaborators and networking leads matched to your workspace.'
+                                  : 'View ${category.label.toLowerCase()} curated for your memberships and search query.',
+                            ),
+                          )
+                          .toList(growable: false),
+                      selectedValue: _selectedCategory,
+                      onSelected: (value) {
+                        if (_selectedCategory == value) {
+                          return;
+                        }
+                        setState(() => _selectedCategory = value);
+                        final selectedCategory =
+                            categories.firstWhere((element) => element.id == value);
+                        controller.recordFilterSelection(selectedCategory.category);
+                      },
                     ),
                   ],
                 ),

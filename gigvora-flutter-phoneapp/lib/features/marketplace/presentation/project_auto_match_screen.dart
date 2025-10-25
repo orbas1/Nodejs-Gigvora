@@ -391,9 +391,21 @@ class _QueueEntryCard extends ConsumerWidget {
     final theme = Theme.of(context);
     final status = entry.status.toLowerCase();
     final preset = _statusPresets[status] ?? _statusPresets['default']!;
+    final metadata = _ensureMap(entry.metadata);
     final breakdown = _ensureMap(entry.breakdown);
-    final fairness = _ensureMap(_ensureMap(entry.metadata)['fairness']);
+    final fairness = _ensureMap(metadata['fairness']);
     final position = entry.position ?? index + 1;
+    final scoreText = entry.score != null ? '${entry.score!.toStringAsFixed(1)}%' : '—';
+    final priorityText = entry.priorityBucket != null
+        ? 'Priority bucket ${entry.priorityBucket}'
+        : 'Priority pending';
+    final confidenceLabel = () {
+      final confidence = metadata['confidence'];
+      final parsed = confidence is num ? confidence.toDouble() : double.tryParse('$confidence');
+      if (parsed == null) return null;
+      final normalised = parsed >= 0 && parsed <= 1 ? parsed * 100 : parsed;
+      return '${normalised.toStringAsFixed(1)}%';
+    }();
 
     return GigvoraCard(
       child: Column(
@@ -413,7 +425,7 @@ class _QueueEntryCard extends ConsumerWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Score ${(entry.score ?? 0).toStringAsFixed(2)} • Priority bucket ${entry.priorityBucket ?? '—'}',
+                      'Score $scoreText • $priorityText',
                       style: theme.textTheme.bodySmall
                           ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                     ),
@@ -461,6 +473,11 @@ class _QueueEntryCard extends ConsumerWidget {
                     ? 'Reserved newcomer slot'
                     : 'Rotation',
               ),
+              if (confidenceLabel != null)
+                _InfoPill(
+                  label: 'Match confidence',
+                  value: confidenceLabel,
+                ),
             ],
           ),
         ],
