@@ -8,9 +8,8 @@ import {
   updateNavigation,
   deleteNavigation,
 } from '../services/siteManagementService.js';
-import { ValidationError } from '../utils/errors.js';
-import logger from '../utils/logger.js';
 import { extractAdminActor, stampPayloadWithActor, coercePositiveInteger } from '../utils/adminRequestContext.js';
+import logger from '../utils/logger.js';
 
 export async function overview(req, res) {
   const snapshot = await getSiteManagementOverview();
@@ -70,13 +69,3 @@ export async function deleteNavigationLink(req, res) {
   res.status(204).send();
 }
 
-export default {
-  overview,
-  updateSettings,
-  createPage,
-  updatePage,
-  deletePage,
-  createNavigationLink,
-  updateNavigationLink,
-  deleteNavigationLink,
-};

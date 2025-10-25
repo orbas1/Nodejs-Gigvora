@@ -1,4 +1,5 @@
 import { Op } from 'sequelize';
+
 import {
   SiteSetting,
   SitePage,
@@ -942,17 +943,3 @@ export async function getPublishedSitePage(slug, { allowDraft = false } = {}) {
   return page.toPublicObject();
 }
 
-export default {
-  getSiteManagementOverview,
-  getSiteSettings,
-  getSiteNavigation,
-  saveSiteSettings,
-  createNavigation,
-  updateNavigation,
-  deleteNavigation,
-  createSitePage,
-  updateSitePageById,
-  deleteSitePageById,
-  listSitePages,
-  getPublishedSitePage,
-};

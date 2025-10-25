@@ -55,7 +55,7 @@ export { default as agencyTimelineService } from './agencyTimelineService.js';
 export { default as blogService } from './blogService.js';
 export { default as careerDocumentService } from './careerDocumentService.js';
 export { default as creationStudioService } from './creationStudioService.js';
-export { default as runtimeMaintenanceService } from './runtimeMaintenanceService.js';
+export * as runtimeMaintenanceService from './runtimeMaintenanceService.js';
 export { default as runtimeObservabilityService } from './runtimeObservabilityService.js';
 export { default as liveServiceTelemetryService } from './liveServiceTelemetryService.js';
 export { default as networkingService } from './networkingService.js';

@@ -93,7 +93,11 @@ describe('server lifecycle start/stop orchestration', () => {
       createServer,
     }));
 
-    await jest.unstable_mockModule(modulePath('../../src/app.js'), () => ({ default: {} }));
+    await jest.unstable_mockModule(modulePath('../../src/app.js'), () => ({
+      __esModule: true,
+      app: {},
+      default: {},
+    }));
 
     await jest.unstable_mockModule(modulePath('../../src/utils/logger.js'), () => ({ default: logger }));
     await jest.unstable_mockModule(modulePath('../../src/lifecycle/workerManager.js'), () => ({

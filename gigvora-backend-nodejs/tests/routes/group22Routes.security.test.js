@@ -104,7 +104,18 @@ await stubDefaultController('../../src/controllers/agencyIntegrationController.j
 await stubDefaultController('../../src/controllers/agencyAiController.js', 'agencyAiController');
 await stubDefaultController('../../src/controllers/agencyWorkforceController.js', 'agencyWorkforceController');
 await stubDefaultController('../../src/controllers/agencyClientKanbanController.js', 'agencyClientKanbanController');
-await stubDefaultController('../../src/controllers/autoAssignController.js', 'autoAssignController');
+await stubNamedController(
+  '../../src/controllers/autoAssignController.js',
+  [
+    'enqueueProjectAssignments',
+    'projectMetrics',
+    'streamProjectQueue',
+    'listQueue',
+    'updateQueueEntryStatus',
+    'projectQueue',
+  ],
+  'autoAssignController',
+);
 await stubDefaultController('../../src/controllers/blogAdminController.js', 'blogAdminController');
 await stubDefaultController('../../src/controllers/clientPortalController.js', 'clientPortalController');
 await stubNamedController(

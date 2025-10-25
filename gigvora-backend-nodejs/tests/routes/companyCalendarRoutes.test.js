@@ -3,7 +3,7 @@ process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'false';
 
 import crypto from 'node:crypto';
 import request from 'supertest';
-import app from '../../src/app.js';
+import { app } from '../../src/app.js';
 import '../setupTestEnv.js';
 import {
   RecruitingCalendarEvent,

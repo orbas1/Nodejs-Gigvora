@@ -3,36 +3,39 @@ import {
   updateAdminOverview,
 } from '../services/adminDashboardService.js';
 import {
-  getPlatformSettings,
-  updatePlatformSettings,
-  getHomepageSettings,
-  updateHomepageSettings,
-  listPlatformSettingsAuditEvents,
-} from '../services/platformSettingsService.js';
-import { getAffiliateSettings, updateAffiliateSettings } from '../services/affiliateSettingsService.js';
-import { getSystemSettings, updateSystemSettings } from '../services/systemSettingsService.js';
+  getAffiliateSettings,
+  updateAffiliateSettings,
+} from '../services/affiliateSettingsService.js';
+import { getGdprSettings, updateGdprSettings } from '../services/gdprSettingsService.js';
 import {
   listPageSettings,
   createPageSetting,
   updatePageSetting,
   deletePageSetting,
 } from '../services/pageSettingsService.js';
-import { getGdprSettings, updateGdprSettings } from '../services/gdprSettingsService.js';
-import { getSeoSettings, updateSeoSettings } from '../services/seoSettingsService.js';
+import {
+  getHomepageSettings,
+  getPlatformSettings,
+  listPlatformSettingsAuditEvents,
+  updateHomepageSettings,
+  updatePlatformSettings,
+} from '../services/platformSettingsService.js';
+import {
+  createPlatformSettingsWatcher,
+  deletePlatformSettingsWatcher,
+  listPlatformSettingsWatchers,
+  updatePlatformSettingsWatcher,
+} from '../services/platformSettingsWatchersService.js';
 import { getRuntimeOperationalSnapshot } from '../services/runtimeObservabilityService.js';
+import { getSeoSettings, updateSeoSettings } from '../services/seoSettingsService.js';
+import { getSystemSettings, updateSystemSettings } from '../services/systemSettingsService.js';
 import {
   sanitizeAdminDashboardFilters,
+  sanitizeAffiliateSettingsInput,
+  sanitizeHomepageSettingsInput,
   sanitizePlatformSettingsAuditFilters,
   sanitizePlatformSettingsInput,
-  sanitizeHomepageSettingsInput,
-  sanitizeAffiliateSettingsInput,
 } from '../utils/adminSanitizers.js';
-import {
-  listPlatformSettingsWatchers,
-  createPlatformSettingsWatcher,
-  updatePlatformSettingsWatcher,
-  deletePlatformSettingsWatcher,
-} from '../services/platformSettingsWatchersService.js';
 
 function resolveActorId(user) {
   if (!user) {
@@ -204,29 +207,3 @@ export async function persistAdminOverview(req, res) {
   res.json(overview);
 }
 
-export default {
-  dashboard,
-  fetchPlatformSettings,
-  persistPlatformSettings,
-  listPlatformSettingsAuditTrail,
-  listPlatformSettingsWatchersController,
-  createPlatformSettingsWatcherController,
-  updatePlatformSettingsWatcherController,
-  removePlatformSettingsWatcher,
-  fetchHomepageSettings,
-  persistHomepageSettings,
-  fetchAffiliateSettings,
-  persistAffiliateSettings,
-  fetchSystemSettings,
-  persistSystemSettings,
-  fetchPageSettings,
-  createAdminPageSetting,
-  persistPageSetting,
-  removePageSetting,
-  fetchGdprSettings,
-  persistGdprSettings,
-  fetchSeoSettings,
-  persistSeoSettings,
-  runtimeHealth,
-  persistAdminOverview,
-};

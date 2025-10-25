@@ -15,7 +15,6 @@ import {
   createBlogMedia,
 } from '../services/blogService.js';
 import { ProviderWorkspace, ProviderWorkspaceMember } from '../models/index.js';
-import { ValidationError } from '../utils/errors.js';
 import {
   buildAgencyActorContext,
   ensurePlainObject,
@@ -28,6 +27,7 @@ import {
   resolveWorkspaceForActor,
   resolveWorkspaceIdentifiersFromRequest,
 } from '../utils/agencyWorkspaceAccess.js';
+import { ValidationError } from '../utils/errors.js';
 
 function resolvePostIdentifier(rawId, { fieldName = 'postId' } = {}) {
   if (rawId == null) {

@@ -1,5 +1,5 @@
-import sequelize from '../models/sequelizeClient.js';
 import { SeoPageOverride, SeoSetting } from '../models/seoSetting.js';
+import { sequelize } from '../models/sequelizeClient.js';
 import { ValidationError } from '../utils/errors.js';
 import logger from '../utils/logger.js';
 
@@ -531,7 +531,3 @@ export async function updateSeoSettings(payload = {}) {
   });
 }
 
-export default {
-  getSeoSettings,
-  updateSeoSettings,
-};

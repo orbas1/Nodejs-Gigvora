@@ -1,4 +1,5 @@
 import { Op } from 'sequelize';
+
 import {
   RuntimeAnnouncement,
   normaliseAnnouncementSeverity,
@@ -396,11 +397,3 @@ export async function getAnnouncement(identifier) {
   return announcement.toPublicObject();
 }
 
-export default {
-  createAnnouncement,
-  updateAnnouncement,
-  updateAnnouncementStatus,
-  listAnnouncements,
-  getVisibleAnnouncements,
-  getAnnouncement,
-};

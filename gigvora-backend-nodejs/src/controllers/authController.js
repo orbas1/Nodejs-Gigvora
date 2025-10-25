@@ -1,6 +1,6 @@
-import { CompanyProfile, AgencyProfile } from '../models/index.js';
-import { normalizeLocationPayload } from '../utils/location.js';
+import { AgencyProfile, CompanyProfile } from '../models/index.js';
 import authService from '../services/authService.js';
+import { normalizeLocationPayload } from '../utils/location.js';
 
 export async function registerUser(req, res) {
   const user = await authService.register({ ...req.body, userType: 'user' });

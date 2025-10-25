@@ -1,7 +1,15 @@
 import { Router } from 'express';
-import asyncHandler from '../utils/asyncHandler.js';
-import autoAssignController from '../controllers/autoAssignController.js';
+
+import {
+  enqueueProjectAssignments,
+  listQueue,
+  projectMetrics,
+  projectQueue,
+  streamProjectQueue,
+  updateQueueEntryStatus,
+} from '../controllers/autoAssignController.js';
 import { authenticate, requireRoles } from '../middleware/authenticate.js';
+import asyncHandler from '../utils/asyncHandler.js';
 
 const router = Router();
 
@@ -10,32 +18,33 @@ router.use(authenticate);
 router.post(
   '/projects/:projectId/enqueue',
   requireRoles('company', 'agency', 'admin'),
-  asyncHandler(autoAssignController.enqueueProjectAssignments),
+  asyncHandler(enqueueProjectAssignments),
 );
 router.get(
   '/projects/metrics',
   requireRoles('company', 'agency', 'admin'),
-  asyncHandler(autoAssignController.projectMetrics),
+  asyncHandler(projectMetrics),
 );
 router.get(
   '/projects/:projectId/queue/stream',
   requireRoles('company', 'agency', 'admin'),
-  asyncHandler(autoAssignController.streamProjectQueue),
+  asyncHandler(streamProjectQueue),
 );
 router.get(
   '/queue',
   requireRoles('freelancer', 'admin', 'agency', 'company'),
-  asyncHandler(autoAssignController.listQueue),
+  asyncHandler(listQueue),
 );
 router.patch(
   '/queue/:entryId',
   requireRoles('freelancer', 'admin', 'agency', 'company'),
-  asyncHandler(autoAssignController.updateQueueEntryStatus),
+  asyncHandler(updateQueueEntryStatus),
 );
 router.get(
   '/projects/:projectId/queue',
   requireRoles('company', 'agency', 'admin'),
-  asyncHandler(autoAssignController.projectQueue),
+  asyncHandler(projectQueue),
 );
 
+// eslint-disable-next-line import/no-default-export
 export default router;

@@ -7,7 +7,7 @@ let app;
 let resetMetricsForTesting;
 
 beforeAll(async () => {
-  ({ default: app } = await import('../../src/app.js'));
+  ({ app } = await import('../../src/app.js'));
   ({ resetMetricsForTesting } = await import('../../src/observability/metricsRegistry.js'));
 });
 

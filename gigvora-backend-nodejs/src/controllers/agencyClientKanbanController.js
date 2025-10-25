@@ -13,12 +13,12 @@ import {
   createClient,
   updateClient,
 } from '../services/agencyClientKanbanService.js';
+import { resolveWorkspaceForActor, resolveWorkspaceIdentifiersFromRequest } from '../utils/agencyWorkspaceAccess.js';
 import {
   buildAgencyActorContext,
   ensurePlainObject,
   toPositiveInteger,
 } from '../utils/controllerUtils.js';
-import { resolveWorkspaceForActor, resolveWorkspaceIdentifiersFromRequest } from '../utils/agencyWorkspaceAccess.js';
 
 async function resolveContext(req, body = {}) {
   const actor = buildAgencyActorContext(req);
