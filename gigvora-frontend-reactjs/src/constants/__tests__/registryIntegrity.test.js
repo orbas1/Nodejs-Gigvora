@@ -47,6 +47,7 @@ import {
   ALLOWED_FEED_MEMBERSHIPS,
 } from '../feedMeta.js';
 import {
+  PRIMARY_NAVIGATION,
   marketingNavigation,
   roleDashboardMapping,
   timelineAccessRoles,
@@ -166,6 +167,13 @@ describe('navigation', () => {
     });
   });
 
+  it('provides a frozen primary navigation object with search metadata', () => {
+    expect(Object.isFrozen(PRIMARY_NAVIGATION)).toBe(true);
+    expect(PRIMARY_NAVIGATION.search.placeholder).toMatch(/courses/i);
+    expect(Array.isArray(PRIMARY_NAVIGATION.menus)).toBe(true);
+    expect(PRIMARY_NAVIGATION.menus.length).toBeGreaterThanOrEqual(1);
+  });
+
   it('provides frozen role mappings', () => {
     expectFrozen(roleDashboardMapping);
     expect(roleDashboardMapping.admin).toBe('/dashboard/admin');
@@ -206,7 +214,7 @@ describe('branding', () => {
     expectFrozen(BRAND_ASSETS);
     expect(BRAND_ASSETS.logo.src).toBe(LOGO_URL);
     expect(BRAND_ASSETS.favicon.src).toBe(FAVICON_URL);
-    expect(BRAND_ASSETS.logo.alt).toMatch(/Gigvora/);
+    expect(BRAND_ASSETS.logo.alt).toMatch(/Edulure/);
   });
 });
 

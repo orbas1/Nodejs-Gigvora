@@ -5,18 +5,20 @@ import { SparklesIcon } from '@heroicons/react/24/outline';
 import LanguageSelector from '../LanguageSelector.jsx';
 import RoleSwitcher from './RoleSwitcher.jsx';
 import { classNames } from '../../utils/classNames.js';
+import MobileMegaMenu from './MobileMegaMenu.jsx';
 
 export default function MobileNavigation({
   open,
   onClose,
   isAuthenticated,
   primaryNavigation,
-  marketingLinks,
+  marketingNavigation,
+  marketingSearch,
   onLogout,
   roleOptions,
   currentRoleKey,
+  onMarketingSearch,
 }) {
-  const resolvedMarketingLinks = useMemo(() => marketingLinks ?? [], [marketingLinks]);
   const resolvedPrimaryNavigation = useMemo(() => primaryNavigation ?? [], [primaryNavigation]);
 
   return (
@@ -107,19 +109,15 @@ export default function MobileNavigation({
                 </div>
               ) : (
                 <div className="space-y-6">
-                  <nav className="space-y-2">
-                    {resolvedMarketingLinks.map((item) => (
-                      <Link
-                        key={item.id}
-                        to={item.to}
-                        onClick={onClose}
-                        className="block rounded-2xl px-3 py-2 transition hover:bg-slate-100 hover:text-slate-900"
-                      >
-                        <p className="font-semibold text-slate-800">{item.label}</p>
-                        <p className="text-xs text-slate-500">{item.description}</p>
-                      </Link>
-                    ))}
-                  </nav>
+                  <MobileMegaMenu
+                    menus={marketingNavigation}
+                    search={marketingSearch}
+                    onNavigate={onClose}
+                    onSearch={(value) => {
+                      onClose();
+                      onMarketingSearch?.(value);
+                    }}
+                  />
                   <div className="grid gap-2">
                     <Link
                       to="/login"
