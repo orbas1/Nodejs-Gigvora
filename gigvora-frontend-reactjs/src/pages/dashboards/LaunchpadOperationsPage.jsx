@@ -12,6 +12,9 @@ import DataStatus from '../../components/DataStatus.jsx';
 import useOpportunityListing from '../../hooks/useOpportunityListing.js';
 import { fetchLaunchpadWorkflow } from '../../services/launchpad.js';
 import { formatRelativeTime } from '../../utils/date.js';
+import LaunchpadSummaryCard from '../../components/launchpad/LaunchpadSummaryCard.jsx';
+import ResponsiveLaunchpadSection from '../../components/launchpad/ResponsiveLaunchpadSection.jsx';
+import AutomationTelemetry from '../../components/launchpad/AutomationTelemetry.jsx';
 
 const MENU_SECTIONS = [
   {
@@ -75,32 +78,6 @@ function formatScore(value) {
     return '—';
   }
   return `${numeric.toFixed(1)}`;
-}
-
-function SectionHeader({ title, description, icon: Icon }) {
-  return (
-    <div className="flex items-start gap-3">
-      {Icon ? (
-        <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-accent/10 text-accent">
-          <Icon className="h-5 w-5" />
-        </span>
-      ) : null}
-      <div>
-        <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-        {description ? <p className="mt-1 text-sm text-slate-600">{description}</p> : null}
-      </div>
-    </div>
-  );
-}
-
-function SummaryCard({ label, value, helper }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
-      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</div>
-      <div className="mt-2 text-2xl font-semibold text-slate-900">{value}</div>
-      {helper ? <div className="mt-2 text-sm text-slate-500">{helper}</div> : null}
-    </div>
-  );
 }
 
 function CandidateList({ items, emptyState }) {
@@ -262,7 +239,8 @@ export default function LaunchpadOperationsPage() {
       try {
         const result = await fetchLaunchpadWorkflow({ launchpadId, lookbackDays: options.lookbackDays ?? lookback });
         setWorkflow(result);
-        setLastUpdated(new Date());
+        const refreshedAt = result?.refreshedAt ? new Date(result.refreshedAt) : new Date();
+        setLastUpdated(refreshedAt);
       } catch (loadError) {
         setError(loadError);
       } finally {
@@ -393,22 +371,22 @@ export default function LaunchpadOperationsPage() {
             ) : null}
           </div>
           <div className="grid gap-4 md:grid-cols-4">
-            <SummaryCard
+            <LaunchpadSummaryCard
               label="Active applications"
               value={readinessSummary.totalApplications ?? 0}
               helper={`${readinessSummary.flaggedCandidates ?? 0} waitlisted · ${readinessSummary.upskillingCandidates ?? 0} building skills`}
             />
-            <SummaryCard
+            <LaunchpadSummaryCard
               label="Average readiness"
               value={formatScore(readinessSummary.averageReadinessScore)}
               helper={`${readinessSummary.autoInterviewRecommended ?? 0} recommended for interview`}
             />
-            <SummaryCard
+            <LaunchpadSummaryCard
               label="Matches tracked"
               value={workflow?.automation?.totalMatches ?? 0}
               helper={`${workflow?.automation?.autoAssignable ?? 0} auto-assign ready`}
             />
-            <SummaryCard
+            <LaunchpadSummaryCard
               label="Placements in motion"
               value={workflow?.placements?.active?.length ?? 0}
               helper={`${workflow?.placements?.totals?.scheduled ?? 0} scheduled · ${workflow?.placements?.totals?.in_progress ?? 0} delivering`}
@@ -416,87 +394,88 @@ export default function LaunchpadOperationsPage() {
           </div>
         </section>
 
-        <section id="intake-triage" className="space-y-4">
-          <SectionHeader
-            title="Intake triage"
-            description="Review new applicants and prioritise those aligned to growth goals or employer demand."
-            icon={UsersIcon}
-          />
+        <ResponsiveLaunchpadSection
+          id="intake-triage"
+          title="Intake triage"
+          description="Review new applicants and prioritise those aligned to growth goals or employer demand."
+          icon={UsersIcon}
+        >
           <CandidateList
             items={intakeQueue}
             emptyState={loading ? 'Syncing intake queue…' : 'Intake queue is clear.'}
           />
-        </section>
+        </ResponsiveLaunchpadSection>
 
-        <section id="interview-coordination" className="space-y-4">
-          <SectionHeader
-            title="Interview coordination"
-            description="Track scheduling gaps and keep interview-ready talent moving."
-            icon={ClipboardDocumentCheckIcon}
-          />
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
-              <div className="text-sm font-semibold text-slate-900">Upcoming interviews</div>
-              <CandidateList
-                items={workflow?.interviews?.upcoming ?? []}
-                emptyState={loading ? 'Gathering interview roster…' : 'No scheduled interviews in this window.'}
-              />
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
-              <div className="text-sm font-semibold text-slate-900">Needs scheduling</div>
-              <CandidateList
-                items={interviewQueue.filter((entry) => !entry.interviewScheduledAt)}
-                emptyState={loading ? 'Reviewing interview queue…' : 'Every interview is scheduled. Great work!'}
-              />
-            </div>
+        <ResponsiveLaunchpadSection
+          id="interview-coordination"
+          title="Interview coordination"
+          description="Track scheduling gaps and keep interview-ready talent moving."
+          icon={ClipboardDocumentCheckIcon}
+          bodyClassName="grid gap-6 lg:grid-cols-2"
+        >
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
+            <div className="text-sm font-semibold text-slate-900">Upcoming interviews</div>
+            <CandidateList
+              items={workflow?.interviews?.upcoming ?? []}
+              emptyState={loading ? 'Gathering interview roster…' : 'No scheduled interviews in this window.'}
+            />
           </div>
-        </section>
-
-        <section id="placements" className="space-y-6">
-          <SectionHeader
-            title="Placement runway"
-            description="Manage active experiences, deployment-ready talent, and alumni outcomes."
-            icon={BriefcaseIcon}
-          />
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold text-slate-900">In delivery</div>
-                <span className="text-xs text-slate-500">
-                  {workflow?.placements?.totals?.in_progress ?? 0} active
-                </span>
-              </div>
-              <PlacementList items={placementActive} emptyState={loading ? 'Loading placements…' : 'No live placements right now.'} />
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold text-slate-900">Ready for placement</div>
-                <span className="text-xs text-slate-500">{placementReady.length} candidates</span>
-              </div>
-              <CandidateList
-                items={placementReady}
-                emptyState={loading ? 'Evaluating candidate bench…' : 'No accepted candidates awaiting placement.'}
-              />
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold text-slate-900">Alumni wrap-up</div>
-                <span className="text-xs text-slate-500">{placementCompleted.length} recent</span>
-              </div>
-              <PlacementList
-                items={placementCompleted}
-                emptyState={loading ? 'Checking alumni outcomes…' : 'No completed placements in this window.'}
-              />
-            </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
+            <div className="text-sm font-semibold text-slate-900">Needs scheduling</div>
+            <CandidateList
+              items={interviewQueue.filter((entry) => !entry.interviewScheduledAt)}
+              emptyState={loading ? 'Reviewing interview queue…' : 'Every interview is scheduled. Great work!'}
+            />
           </div>
-        </section>
+        </ResponsiveLaunchpadSection>
 
-        <section id="employer-briefs" className="space-y-4">
-          <SectionHeader
-            title="Employer briefs"
-            description="Align partner demand, respond to SLAs, and unlock new experiences."
-            icon={ArrowPathIcon}
-          />
+        <ResponsiveLaunchpadSection
+          id="placements"
+          title="Placement runway"
+          description="Manage active experiences, deployment-ready talent, and alumni outcomes."
+          icon={BriefcaseIcon}
+          bodyClassName="grid gap-6 lg:grid-cols-3"
+        >
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold text-slate-900">In delivery</div>
+              <span className="text-xs text-slate-500">
+                {workflow?.placements?.totals?.in_progress ?? 0} active
+              </span>
+            </div>
+            <PlacementList
+              items={placementActive}
+              emptyState={loading ? 'Loading placements…' : 'No live placements right now.'}
+            />
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold text-slate-900">Ready for placement</div>
+              <span className="text-xs text-slate-500">{placementReady.length} candidates</span>
+            </div>
+            <CandidateList
+              items={placementReady}
+              emptyState={loading ? 'Evaluating candidate bench…' : 'No accepted candidates awaiting placement.'}
+            />
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold text-slate-900">Alumni wrap-up</div>
+              <span className="text-xs text-slate-500">{placementCompleted.length} recent</span>
+            </div>
+            <PlacementList
+              items={placementCompleted}
+              emptyState={loading ? 'Checking alumni outcomes…' : 'No completed placements in this window.'}
+            />
+          </div>
+        </ResponsiveLaunchpadSection>
+
+        <ResponsiveLaunchpadSection
+          id="employer-briefs"
+          title="Employer briefs"
+          description="Align partner demand, respond to SLAs, and unlock new experiences."
+          icon={ArrowPathIcon}
+        >
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
             {employerQueue?.length ? (
               <ul className="space-y-3">
@@ -524,16 +503,18 @@ export default function LaunchpadOperationsPage() {
               <p className="text-sm text-slate-500">{loading ? 'Syncing employer demand…' : 'No employer briefs pending review.'}</p>
             )}
           </div>
-        </section>
+        </ResponsiveLaunchpadSection>
 
-        <section id="automation" className="space-y-4">
-          <SectionHeader
-            title="Automation radar"
-            description="Surface machine-suggested pairings and monitor match quality."
-            icon={BoltIcon}
-          />
+        <ResponsiveLaunchpadSection
+          id="automation"
+          title="Automation radar"
+          description="Surface machine-suggested pairings and monitor match quality."
+          icon={BoltIcon}
+          bodyClassName="space-y-4"
+        >
+          <AutomationTelemetry automation={workflow?.automation} />
           <MatchList items={matchHighlights} />
-        </section>
+        </ResponsiveLaunchpadSection>
       </div>
       </DashboardLayout>
     </DashboardAccessGuard>
