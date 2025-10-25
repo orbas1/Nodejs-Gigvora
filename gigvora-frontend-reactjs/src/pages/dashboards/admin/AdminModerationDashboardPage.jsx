@@ -1,7 +1,9 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
-import DashboardLayout from '../../../layouts/DashboardLayout.jsx';
-import DataStatus from '../../../components/DataStatus.jsx';
+import { ArrowDownTrayIcon, ClipboardDocumentCheckIcon } from '@heroicons/react/24/outline';
+import { useNavigate } from 'react-router-dom';
+import AdminGovernanceLayout from '../../../components/admin/AdminGovernanceLayout.jsx';
+import AdminAuditLogDrawer from '../../../components/admin/AdminAuditLogDrawer.jsx';
 import useSession from '../../../hooks/useSession.js';
 import ModerationOverviewCards from '../../../components/admin/moderation/ModerationOverviewCards.jsx';
 import ModerationQueueTable from '../../../components/admin/moderation/ModerationQueueTable.jsx';
@@ -12,14 +14,30 @@ import {
   fetchModerationEvents,
   resolveModerationEvent,
 } from '../../../services/moderation.js';
+import { exportToCsv } from '../../../utils/exportUtils.js';
 
-const MENU_SECTIONS = [
+const MENU_CONFIG = [
   {
     label: 'Moderation',
     items: [
-      { id: 'summary', name: 'Overview', sectionId: 'section-summary' },
-      { id: 'queue', name: 'Review queue', sectionId: 'section-queue' },
-      { id: 'audit', name: 'Audit trail', sectionId: 'section-audit' },
+      {
+        id: 'summary',
+        name: 'Overview',
+        sectionId: 'section-summary',
+        requiredPermissions: ['admin:moderation', 'admin:trust'],
+      },
+      {
+        id: 'queue',
+        name: 'Review queue',
+        sectionId: 'section-queue',
+        requiredPermissions: ['admin:moderation'],
+      },
+      {
+        id: 'audit',
+        name: 'Audit trail',
+        sectionId: 'section-audit',
+        requiredPermissions: ['admin:moderation'],
+      },
     ],
   },
   {
@@ -31,6 +49,12 @@ const MENU_SECTIONS = [
   },
 ];
 
+const SECTION_IDS = {
+  summary: 'section-summary',
+  queue: 'section-queue',
+  audit: 'section-audit',
+};
+
 const SEVERITY_OPTIONS = ['critical', 'high', 'medium', 'low'];
 const STATUS_OPTIONS = ['open', 'acknowledged', 'resolved', 'dismissed'];
 
@@ -40,12 +64,35 @@ const DEFAULT_FILTERS = {
   search: '',
 };
 
-function scrollToSection(sectionId) {
-  if (typeof document === 'undefined') {
+const MODERATION_CACHE_KEY = 'admin-moderation-snapshot';
+
+function restoreModerationCache() {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    const stored = window.sessionStorage.getItem(MODERATION_CACHE_KEY);
+    if (!stored) {
+      return null;
+    }
+    const parsed = JSON.parse(stored);
+    return parsed ?? null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function persistModerationCache(snapshot) {
+  if (typeof window === 'undefined') {
     return;
   }
-  const element = document.getElementById(sectionId);
-  element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  try {
+    window.sessionStorage.setItem(MODERATION_CACHE_KEY, JSON.stringify(snapshot));
+  } catch (error) {
+    // Non-blocking persistence failure.
+  }
 }
 
 function QueuePagination({ pagination, onPageChange, disabled }) {
@@ -162,114 +209,185 @@ function ModerationResolveDialog({ open, event, notes, busy, onNotesChange, onCl
 
 export default function AdminModerationDashboardPage() {
   const { session } = useSession();
+  const navigate = useNavigate();
   const [overview, setOverview] = useState(null);
   const [queueResponse, setQueueResponse] = useState({ items: [], pagination: { page: 1, totalPages: 1 } });
   const [eventsResponse, setEventsResponse] = useState([]);
   const [overviewLoading, setOverviewLoading] = useState(false);
   const [queueLoading, setQueueLoading] = useState(false);
   const [eventsLoading, setEventsLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState('');
   const [lastUpdated, setLastUpdated] = useState(null);
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [page, setPage] = useState(1);
-  const [flashMessage, setFlashMessage] = useState(null);
+  const [statusMessage, setStatusMessage] = useState('Moderation queue streaming live updates.');
   const [resolveDialog, setResolveDialog] = useState({ open: false, event: null, notes: '' });
   const [resolveBusy, setResolveBusy] = useState(false);
+  const [auditDrawerOpen, setAuditDrawerOpen] = useState(false);
 
   const queueItems = queueResponse?.items ?? [];
   const queuePagination = queueResponse?.pagination ?? { page: 1, totalPages: 1 };
+  const initialQueueSync = useRef(true);
 
-  const loadOverview = useCallback(async () => {
-    try {
+  const [fromCache, setFromCache] = useState(false);
+
+  const loadOverview = useCallback(
+    async ({ signal } = {}) => {
       setOverviewLoading(true);
-      const data = await fetchModerationOverview();
-      setOverview(data ?? null);
-    } catch (err) {
-      setError(err);
-    } finally {
-      setOverviewLoading(false);
-    }
-  }, []);
+      try {
+        const data = await fetchModerationOverview({}, { signal });
+        setOverview(data ?? null);
+        setError('');
+        setFromCache(false);
+        return data ?? null;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unable to load moderation overview.';
+        setError((previous) => previous || message);
+        throw err;
+      } finally {
+        setOverviewLoading(false);
+      }
+    },
+    [],
+  );
 
-  const loadQueue = useCallback(async () => {
-    try {
+  const loadQueue = useCallback(
+    async ({ signal, pageOverride } = {}) => {
       setQueueLoading(true);
-      const params = {
-        page,
-        pageSize: 25,
-      };
-      if (Array.isArray(filters.severities) && filters.severities.length) {
-        params.severities = filters.severities.join(',');
+      try {
+        const params = {
+          page: pageOverride ?? page,
+          pageSize: 25,
+        };
+        if (Array.isArray(filters.severities) && filters.severities.length) {
+          params.severities = filters.severities.join(',');
+        }
+        if (Array.isArray(filters.status) && filters.status.length) {
+          params.status = filters.status.join(',');
+        }
+        if (filters.search) {
+          params.search = filters.search.trim();
+        }
+        const response = await fetchModerationQueue(params, { signal });
+        const snapshot = response ?? { items: [], pagination: { page: params.page, totalPages: 1 } };
+        setQueueResponse({
+          items: snapshot.items ?? [],
+          pagination: snapshot.pagination ?? { page: params.page, totalPages: 1 },
+        });
+        const now = new Date();
+        setLastUpdated(now);
+        setError('');
+        setStatusMessage('Queue refreshed with live moderation events.');
+        setFromCache(false);
+        return snapshot;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unable to load moderation queue.';
+        setError(message);
+        throw err;
+      } finally {
+        setQueueLoading(false);
       }
-      if (Array.isArray(filters.status) && filters.status.length) {
-        params.status = filters.status.join(',');
-      }
-      if (filters.search) {
-        params.search = filters.search.trim();
-      }
-      const response = await fetchModerationQueue(params);
-      setQueueResponse(response ?? { items: [], pagination: { page: 1, totalPages: 1 } });
-      setLastUpdated(new Date().toISOString());
-      setError(null);
-    } catch (err) {
-      setError(err);
-    } finally {
-      setQueueLoading(false);
-    }
-  }, [filters, page]);
+    },
+    [filters, page],
+  );
 
-  const loadEvents = useCallback(async () => {
-    try {
+  const loadEvents = useCallback(
+    async ({ signal } = {}) => {
       setEventsLoading(true);
-      const response = await fetchModerationEvents({ status: 'resolved,dismissed', pageSize: 25 });
-      setEventsResponse(response?.items ?? []);
-    } catch (err) {
-      setError((previous) => previous ?? err);
-    } finally {
-      setEventsLoading(false);
+      try {
+        const response = await fetchModerationEvents({ status: 'resolved,dismissed', pageSize: 50 }, { signal });
+        const events = Array.isArray(response?.items) ? response.items : Array.isArray(response) ? response : [];
+        setEventsResponse(events);
+        setError('');
+        setFromCache(false);
+        return events;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unable to load moderation audit trail.';
+        setError((previous) => previous || message);
+        throw err;
+      } finally {
+        setEventsLoading(false);
+      }
+    },
+    [],
+  );
+
+  const refreshAll = useCallback(
+    async ({ signal } = {}) => {
+      let hadError = false;
+      await Promise.all([
+        loadOverview({ signal }).catch(() => {
+          hadError = true;
+          return null;
+        }),
+        loadQueue({ signal }).catch(() => {
+          hadError = true;
+          return null;
+        }),
+        loadEvents({ signal }).catch(() => {
+          hadError = true;
+          return null;
+        }),
+      ]);
+      if (hadError) {
+        setStatusMessage('Loaded cached moderation snapshot. Retry to sync live data.');
+      } else {
+        setStatusMessage('Live moderation data synced successfully.');
+      }
+    },
+    [loadEvents, loadOverview, loadQueue],
+  );
+
+  useEffect(() => {
+    const cached = restoreModerationCache();
+    if (cached) {
+      setOverview(cached.overview ?? null);
+      setQueueResponse(
+        cached.queueResponse ?? {
+          items: [],
+          pagination: { page: 1, totalPages: 1 },
+        },
+      );
+      setEventsResponse(cached.eventsResponse ?? []);
+      if (cached.lastUpdated) {
+        const cachedDate = new Date(cached.lastUpdated);
+        if (!Number.isNaN(cachedDate.getTime())) {
+          setLastUpdated(cachedDate);
+        }
+      }
+      setStatusMessage('Showing cached moderation snapshot while syncing live data.');
+      setFromCache(true);
     }
-  }, []);
-
-  const handleRefresh = useCallback(() => {
-    loadOverview();
-    loadQueue();
-    loadEvents();
-  }, [loadOverview, loadQueue, loadEvents]);
+    const controller = new AbortController();
+    refreshAll({ signal: controller.signal });
+    return () => controller.abort();
+  }, [refreshAll]);
 
   useEffect(() => {
-    loadOverview();
-  }, [loadOverview]);
-
-  useEffect(() => {
-    loadQueue();
-  }, [loadQueue]);
-
-  useEffect(() => {
-    loadEvents();
-  }, [loadEvents]);
-
-  useEffect(() => {
-    if (!flashMessage) {
-      return undefined;
+    if (fromCache) {
+      return;
     }
-    const timeout = setTimeout(() => setFlashMessage(null), 4000);
-    return () => clearTimeout(timeout);
-  }, [flashMessage]);
-
-  const handleMenuItemSelect = (itemId) => {
-    switch (itemId) {
-      case 'queue':
-        scrollToSection('section-queue');
-        break;
-      case 'audit':
-        scrollToSection('section-audit');
-        break;
-      case 'summary':
-      default:
-        scrollToSection('section-summary');
-        break;
+    if (!overview && !queueItems.length && !eventsResponse.length) {
+      return;
     }
-  };
+    const payload = {
+      overview,
+      queueResponse,
+      eventsResponse,
+      lastUpdated: lastUpdated instanceof Date ? lastUpdated.toISOString() : lastUpdated,
+    };
+    persistModerationCache(payload);
+  }, [eventsResponse, fromCache, overview, queueItems.length, queueResponse, lastUpdated]);
+
+  useEffect(() => {
+    if (initialQueueSync.current) {
+      initialQueueSync.current = false;
+      return;
+    }
+    const controller = new AbortController();
+    loadQueue({ signal: controller.signal }).catch(() => {});
+    return () => controller.abort();
+  }, [filters, page, loadQueue]);
 
   const toggleSeverity = (severity) => {
     setFilters((current) => {
@@ -317,13 +435,14 @@ export default function AdminModerationDashboardPage() {
         status: 'resolved',
         notes: resolveDialog.notes,
       });
-      setFlashMessage('Moderation event resolved.');
+      setStatusMessage('Moderation event resolved.');
+      setError('');
       closeResolveDialog();
-      await loadQueue();
-      await loadOverview();
-      await loadEvents();
+      await Promise.all([loadQueue(), loadOverview(), loadEvents()]);
     } catch (err) {
-      setFlashMessage(err?.message || 'Failed to resolve moderation event.');
+      const message = err instanceof Error ? err.message : 'Failed to resolve moderation event.';
+      setStatusMessage(message);
+      setError(message);
     } finally {
       setResolveBusy(false);
     }
@@ -331,40 +450,147 @@ export default function AdminModerationDashboardPage() {
 
   const severitySelection = useMemo(() => new Set(filters.severities.map((value) => value.toLowerCase())), [filters.severities]);
   const statusSelection = useMemo(() => new Set(filters.status.map((value) => value.toLowerCase())), [filters.status]);
+  const handlePageChange = useCallback(
+    (nextPage) => {
+      setPage(nextPage);
+      loadQueue({ pageOverride: nextPage }).catch(() => {});
+    },
+    [loadQueue],
+  );
 
-  const isErrorFlash = typeof flashMessage === 'string' && flashMessage.toLowerCase().includes('fail');
-  const flashTone = isErrorFlash
-    ? 'bg-rose-100 text-rose-800 border-rose-200'
-    : 'bg-emerald-100 text-emerald-800 border-emerald-200';
+  const handleRefreshAll = useCallback(() => {
+    refreshAll();
+  }, [refreshAll]);
+
+  const handleNavigate = useCallback((href) => navigate(href), [navigate]);
+
+  const handleExportQueue = useCallback(() => {
+    if (!queueItems.length) {
+      setStatusMessage('No moderation events available to export.');
+      return;
+    }
+    const timestamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19);
+    exportToCsv({
+      filename: `moderation-queue-${timestamp}.csv`,
+      headers: [
+        { key: 'id', label: 'Event ID' },
+        { key: 'createdAt', label: 'Created' },
+        { key: 'channelSlug', label: 'Channel' },
+        { key: 'severity', label: 'Severity' },
+        { key: 'status', label: 'Status' },
+        { key: 'reason', label: 'Reason' },
+        { key: 'signals', label: 'Signals' },
+        { key: 'score', label: 'Score' },
+      ],
+      rows: queueItems.map((item) => ({
+        id: item.id,
+        createdAt: item.createdAt,
+        channelSlug: item.channelSlug,
+        severity: item.severity,
+        status: item.status,
+        reason: item.reason,
+        signals: (item.metadata?.signals ?? []).map((signal) => signal.message || signal.code).join(' | '),
+        score: item.metadata?.score ?? item.metadata?.moderationScore ?? '',
+      })),
+    });
+    setStatusMessage('Exported moderation queue to CSV.');
+  }, [queueItems]);
+
+  const filterSummary = useMemo(() => {
+    const severityLabel =
+      filters.severities.length === SEVERITY_OPTIONS.length
+        ? 'All severities'
+        : filters.severities.length
+          ? `Severity: ${filters.severities.join(', ')}`
+          : 'No severities selected';
+    const statusLabel =
+      filters.status.length === STATUS_OPTIONS.length
+        ? 'All statuses'
+        : filters.status.length
+          ? `Status: ${filters.status.join(', ')}`
+          : 'No statuses selected';
+    const searchLabel = filters.search ? `Search: “${filters.search}”` : null;
+    return [severityLabel, statusLabel, searchLabel].filter(Boolean).join(' • ');
+  }, [filters]);
+
+  const statusContent = useMemo(
+    () => (
+      <div className="space-y-1 text-sm text-slate-600">
+        <p>{statusMessage}</p>
+        <p className="text-xs text-slate-500">{filterSummary}</p>
+      </div>
+    ),
+    [filterSummary, statusMessage],
+  );
+
+  const headerActions = useMemo(
+    () => [
+      {
+        label: 'Export queue CSV',
+        onClick: handleExportQueue,
+        variant: 'secondary',
+        icon: ArrowDownTrayIcon,
+        disabled: !queueItems.length,
+        title: 'Download the current moderation queue',
+      },
+      {
+        label: 'Open audit log',
+        onClick: () => setAuditDrawerOpen(true),
+        variant: 'primary',
+        icon: ClipboardDocumentCheckIcon,
+      },
+    ],
+    [handleExportQueue, queueItems.length],
+  );
+
+  const auditLogEntries = useMemo(
+    () =>
+      eventsResponse.map((event) => ({
+        id: event.id,
+        title: event.action?.replace(/_/g, ' ') ?? 'Moderation event',
+        description: event.reason,
+        actor: event.actorId ? `User #${event.actorId}` : 'System',
+        timestamp: event.createdAt,
+        metadata: {
+          channel: event.channelSlug,
+          severity: event.severity,
+          status: event.status,
+          resolutionNotes: event.metadata?.resolutionNotes,
+        },
+      })),
+    [eventsResponse],
+  );
+
+  const scrollToQueue = useCallback(() => {
+    const element = typeof document !== 'undefined' ? document.getElementById(SECTION_IDS.queue) : null;
+    element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
 
   return (
-    <DashboardLayout
-      currentDashboard="admin"
-      title="Moderation"
-      subtitle="Community safety desk"
-      description="Monitor community signals, review flagged conversations, and capture decision trails for compliance."
-      menuSections={MENU_SECTIONS}
-      activeMenuItem="summary"
-      onMenuItemSelect={handleMenuItemSelect}
-      session={session}
-    >
-      <div className="relative flex h-full flex-col gap-8 px-4 py-6 sm:px-6">
-        {flashMessage ? (
-          <div className={`pointer-events-none fixed right-6 top-6 z-30 max-w-sm rounded-2xl border px-4 py-3 text-sm font-semibold shadow-lg ${flashTone}`}>
-            {flashMessage}
-          </div>
-        ) : null}
-
-        <section id="section-summary" className="space-y-6">
+    <Fragment>
+      <AdminGovernanceLayout
+        session={session}
+        title="Moderation"
+        subtitle="Community safety desk"
+        description="Monitor community signals, review flagged conversations, and capture decision trails for compliance."
+        menuConfig={MENU_CONFIG}
+        sections={[
+          { id: SECTION_IDS.summary, title: 'Overview' },
+          { id: SECTION_IDS.queue, title: 'Review queue' },
+          { id: SECTION_IDS.audit, title: 'Audit trail' },
+        ]}
+        statusLabel={fromCache ? 'Offline snapshot' : 'Trust & safety data'}
+        fromCache={fromCache}
+        statusChildren={statusContent}
+        lastUpdated={lastUpdated}
+        loading={overviewLoading || queueLoading || eventsLoading}
+        error={error}
+        onRefresh={handleRefreshAll}
+        headerActions={headerActions}
+        onNavigate={handleNavigate}
+      >
+        <section id={SECTION_IDS.summary} className="space-y-6">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <DataStatus
-              loading={overviewLoading || queueLoading}
-              error={error}
-              lastUpdated={lastUpdated}
-              onRefresh={handleRefresh}
-              statusLabel="Live"
-              fromCache={false}
-            />
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex flex-wrap gap-2">
                 {SEVERITY_OPTIONS.map((severity) => {
@@ -420,24 +646,22 @@ export default function AdminModerationDashboardPage() {
               </button>
             </div>
           </div>
-          <ModerationOverviewCards overview={overview} onSelect={() => scrollToSection('section-queue')} />
+          <ModerationOverviewCards overview={overview} onSelect={scrollToQueue} />
         </section>
 
-        <section id="section-queue" className="space-y-6">
+        <section id={SECTION_IDS.queue} className="space-y-6">
           <ModerationQueueTable items={queueItems} loading={queueLoading} onResolve={handleResolve} />
-          <QueuePagination pagination={queuePagination} onPageChange={setPage} disabled={queueLoading} />
+          <QueuePagination pagination={queuePagination} onPageChange={handlePageChange} disabled={queueLoading} />
         </section>
 
-        <section id="section-audit" className="space-y-4">
+        <section id={SECTION_IDS.audit} className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-slate-900">Recent moderation activity</h2>
-            {eventsLoading ? (
-              <span className="text-xs text-slate-500">Refreshing…</span>
-            ) : null}
+            {eventsLoading ? <span className="text-xs text-slate-500">Refreshing…</span> : null}
           </div>
           <ModerationAuditTimeline events={eventsResponse} />
         </section>
-      </div>
+      </AdminGovernanceLayout>
 
       <ModerationResolveDialog
         open={resolveDialog.open}
@@ -448,7 +672,17 @@ export default function AdminModerationDashboardPage() {
         onClose={closeResolveDialog}
         onConfirm={confirmResolve}
       />
-    </DashboardLayout>
+
+      <AdminAuditLogDrawer
+        open={auditDrawerOpen}
+        onClose={() => setAuditDrawerOpen(false)}
+        logs={auditLogEntries}
+        loading={eventsLoading}
+        title="Moderation audit log"
+        description="Review every decision captured across the moderation desks."
+        emptyState="No moderation actions recorded yet."
+      />
+    </Fragment>
   );
 }
 

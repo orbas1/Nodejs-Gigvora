@@ -3,6 +3,7 @@ import { Router } from 'express';
 import adRoutes from './adRoutes.js';
 import adminRoutes from './adminRoutes.js';
 import adminModerationRoutes from './adminModerationRoutes.js';
+import adminComplianceRoutes from './adminComplianceRoutes.js';
 import agencyRoutes from './agencyRoutes.js';
 import agencyJobManagementRoutes from './agencyJobManagementRoutes.js';
 import agencyBlogRoutes from './agencyBlogRoutes.js';
@@ -65,6 +66,7 @@ const routeDefinitions = [
   ['/ads', adRoutes],
   ['/admin/blog', blogAdminRoutes],
   ['/admin/moderation', adminModerationRoutes],
+  ['/admin/compliance', adminComplianceRoutes],
   ['/admin', adminRoutes],
   ['/agency/job-management', agencyJobManagementRoutes],
   ['/agency/wallet', agencyWalletRoutes],
