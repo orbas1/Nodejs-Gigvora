@@ -11,6 +11,7 @@ import '../../../core/providers.dart';
 import '../../../theme/widgets.dart';
 import '../../auth/application/session_controller.dart';
 import '../../notifications/application/push_notification_controller.dart';
+import '../../notifications/domain/push_permission_copy.dart';
 import '../application/feed_controller.dart';
 import '../data/models/feed_comment.dart';
 import '../data/models/feed_post.dart';
@@ -1782,44 +1783,63 @@ class _PushEnableBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final denied = status == PushPermissionStatus.denied;
-    final message = denied
-        ? 'Push alerts were previously disabled. Re-enable them to receive reactions and comments instantly.'
-        : 'Stay in the loop when your posts spark activity. Enable push alerts for real-time nudges.';
+    final copy = PushPermissionMessaging.resolveEnablePrompt(status);
+    final (Color background, Color foreground) = switch (copy.severity) {
+      PermissionSeverity.success => (
+          colorScheme.primary.withOpacity(0.14),
+          colorScheme.primary,
+        ),
+      PermissionSeverity.warning => (
+          colorScheme.errorContainer,
+          colorScheme.error,
+        ),
+      PermissionSeverity.danger => (
+          colorScheme.errorContainer,
+          colorScheme.error,
+        ),
+      PermissionSeverity.info => (
+          colorScheme.secondaryContainer,
+          colorScheme.onSecondaryContainer,
+        ),
+      PermissionSeverity.neutral => (
+          colorScheme.surfaceVariant,
+          colorScheme.onSurfaceVariant,
+        ),
+    };
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colorScheme.secondaryContainer,
+        color: background,
         borderRadius: BorderRadius.circular(18),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.notifications_active_outlined, color: colorScheme.onSecondaryContainer),
+          Icon(Icons.notifications_active_outlined, color: foreground),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Enable push alerts',
+                  copy.headline,
                   style: theme.textTheme.titleSmall?.copyWith(
-                    color: colorScheme.onSecondaryContainer,
+                    color: foreground,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  message,
-                  style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSecondaryContainer),
+                  copy.message,
+                  style: theme.textTheme.bodySmall?.copyWith(color: foreground.withOpacity(0.85)),
                 ),
                 if (error != null) ...[
                   const SizedBox(height: 4),
                   Text(
                     'Last attempt: $error',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSecondaryContainer.withOpacity(0.8),
+                      color: foreground.withOpacity(0.75),
                     ),
                   ),
                 ],
@@ -1833,13 +1853,14 @@ class _PushEnableBanner extends StatelessWidget {
                   width: 28,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(colorScheme.onSecondaryContainer),
+                    valueColor: AlwaysStoppedAnimation<Color>(foreground),
                   ),
                 )
               : FilledButton.tonal(
                   onPressed: onEnable,
                   style: FilledButton.styleFrom(
-                    foregroundColor: colorScheme.onSecondaryContainer,
+                    foregroundColor: foreground,
+                    backgroundColor: foreground.withOpacity(0.12),
                   ),
                   child: const Text('Enable'),
                 ),
