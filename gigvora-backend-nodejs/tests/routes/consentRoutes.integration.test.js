@@ -2,8 +2,8 @@ process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'true';
 process.env.LOG_LEVEL = 'silent';
 process.env.JWT_SECRET = 'test-admin-secret';
 
-import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import request from 'supertest';
 
 import '../setupTestEnv.js';
 
@@ -14,10 +14,10 @@ import {
   UserConsent,
   User,
 } from '../../src/models/index.js';
+import { sequelize } from '../../src/models/sequelizeClient.js';
 import {
   createConsentPolicy,
 } from '../../src/services/consentService.js';
-import sequelize from '../../src/models/sequelizeClient.js';
 
 let app;
 
@@ -57,7 +57,7 @@ beforeAll(async () => {
   const expressModule = await import('express');
   const { default: correlationId } = await import('../../src/middleware/correlationId.js');
   const { default: errorHandler } = await import('../../src/middleware/errorHandler.js');
-  const { default: adminRoutes } = await import('../../src/routes/adminRoutes.js');
+  const { adminRoutes } = await import('../../src/routes/adminRoutes.js');
   const { default: userRoutes } = await import('../../src/routes/userRoutes.js');
 
   const express = expressModule.default;

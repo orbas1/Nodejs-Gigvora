@@ -1,6 +1,6 @@
-import request from 'supertest';
-import jwt from 'jsonwebtoken';
 import { jest } from '@jest/globals';
+import jwt from 'jsonwebtoken';
+import request from 'supertest';
 
 process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'true';
 process.env.JWT_SECRET = 'test-admin-secret';
@@ -46,7 +46,7 @@ beforeAll(async () => {
   const expressModule = await import('express');
   const { default: correlationId } = await import('../../src/middleware/correlationId.js');
   const { default: errorHandler } = await import('../../src/middleware/errorHandler.js');
-  const { default: adminRoutes } = await import('../../src/routes/adminRoutes.js');
+  const { adminRoutes } = await import('../../src/routes/adminRoutes.js');
   const express = expressModule.default;
   app = express();
   app.use(express.json());
