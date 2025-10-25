@@ -169,13 +169,37 @@ const gigSeeds = [
     description:
       'Two-week engagement pairing UX research with CRO experiments. Includes experiment backlog and reporting template.',
     budget: 'USD 4,800',
+    budgetCurrency: 'USD',
+    budgetMinAmount: 4200,
+    budgetMaxAmount: 5200,
     duration: '2 weeks',
+    deliverySpeed: '14d',
+    deliveryWindowDays: 14,
+    trustSignals: {
+      verifiedBuyer: true,
+      escrowProtected: true,
+      reviewCount: 26,
+      repeatHireRate: 0.72,
+      satisfactionScore: 4.8,
+    },
   },
   {
     title: '[demo] Marketplace trust and safety audit',
     description: 'Assess community guidelines, moderation queues, and automation coverage with actionable roadmap.',
     budget: 'USD 6,200',
+    budgetCurrency: 'USD',
+    budgetMinAmount: 5800,
+    budgetMaxAmount: 7200,
     duration: '3 weeks',
+    deliverySpeed: '21d',
+    deliveryWindowDays: 21,
+    trustSignals: {
+      verifiedBuyer: true,
+      escrowProtected: true,
+      reviewCount: 18,
+      repeatHireRate: 0.64,
+      satisfactionScore: 4.9,
+    },
   },
 ];
 

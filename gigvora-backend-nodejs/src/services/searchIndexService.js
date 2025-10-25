@@ -54,6 +54,10 @@ const opportunityIndexDefinitions = {
     filterableAttributes: [
       'durationCategory',
       'budgetCurrency',
+      'budgetMinAmount',
+      'budgetMaxAmount',
+      'deliverySpeed',
+      'deliveryWindowDays',
       'location',
       'geoCountry',
       'geoRegion',
@@ -228,6 +232,51 @@ function parseBudgetValue(budget) {
   return null;
 }
 
+function coerceDecimal(value) {
+  if (value == null || value === '') {
+    return null;
+  }
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function normaliseTrustSignalsForIndex(raw) {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+  const source = typeof raw.get === 'function' ? raw.get({ plain: true }) : raw;
+  if (!source || typeof source !== 'object') {
+    return null;
+  }
+
+  const payload = {
+    verifiedBuyer: source.verifiedBuyer ?? source.verified ?? source.isVerified ?? undefined,
+    escrowProtected: source.escrowProtected ?? source.escrow ?? undefined,
+    reviewCount:
+      source.reviewCount != null && Number.isFinite(Number(source.reviewCount))
+        ? Number(source.reviewCount)
+        : undefined,
+    repeatHireRate:
+      source.repeatHireRate != null && Number.isFinite(Number(source.repeatHireRate))
+        ? Number(source.repeatHireRate)
+        : undefined,
+    satisfactionScore:
+      source.satisfactionScore != null && Number.isFinite(Number(source.satisfactionScore))
+        ? Number(source.satisfactionScore)
+        : undefined,
+  };
+
+  const entries = Object.entries(payload).filter(([, value]) => value !== undefined && value !== null);
+  if (!entries.length) {
+    return null;
+  }
+
+  return entries.reduce((accumulator, [key, value]) => {
+    accumulator[key] = value;
+    return accumulator;
+  }, {});
+}
+
 function determineDurationCategory(duration) {
   if (!duration) return null;
   const text = duration.toLowerCase();
@@ -400,14 +449,23 @@ function mapRecordToDocument(category, record) {
         isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
       };
     case 'gig':
+      const minAmount = coerceDecimal(plain.budgetMinAmount) ?? parseBudgetValue(plain.budget);
+      const maxAmount = coerceDecimal(plain.budgetMaxAmount) ?? parseBudgetValue(plain.budget);
+      const budgetValue =
+        coerceDecimal(plain.budgetMaxAmount ?? plain.budgetMinAmount) ?? parseBudgetValue(plain.budget) ?? 0;
       return {
         ...baseDocument,
         budget: plain.budget ?? null,
-        budgetValue: parseBudgetValue(plain.budget) ?? 0,
-        budgetCurrency: extractCurrencyCode(plain.budget),
+        budgetValue,
+        budgetCurrency: plain.budgetCurrency ?? extractCurrencyCode(plain.budget),
+        budgetMinAmount: minAmount,
+        budgetMaxAmount: maxAmount,
         duration: plain.duration ?? null,
         durationCategory: determineDurationCategory(plain.duration),
         isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
+        deliverySpeed: plain.deliverySpeed ?? null,
+        deliveryWindowDays: coerceDecimal(plain.deliveryWindowDays),
+        trustSignals: normaliseTrustSignalsForIndex(plain.trustSignals),
       };
     case 'project':
       return {

@@ -52,16 +52,45 @@ function normaliseGig(gig) {
   const taxonomyLabels = Array.isArray(gig.taxonomyLabels) ? gig.taxonomyLabels : [];
   const taxonomySlugs = Array.isArray(gig.taxonomySlugs) ? gig.taxonomySlugs : [];
   const skills = Array.isArray(gig.skills) ? gig.skills : [];
+  const budgetMinAmount = Number.isFinite(Number(gig.budgetMinAmount))
+    ? Number(gig.budgetMinAmount)
+    : null;
+  const budgetMaxAmount = Number.isFinite(Number(gig.budgetMaxAmount))
+    ? Number(gig.budgetMaxAmount)
+    : null;
+  const budgetCurrency = gig.budgetCurrency ?? null;
+  const deliverySpeed = gig.deliverySpeed ?? null;
+  const deliveryWindowDays = Number.isFinite(Number(gig.deliveryWindowDays))
+    ? Number(gig.deliveryWindowDays)
+    : null;
 
   return {
     id: gig.id,
     title: gig.title ?? 'Gig',
     budget: gig.budget ?? null,
+    budgetMinAmount,
+    budgetMaxAmount,
+    budgetCurrency,
     duration: gig.duration ?? null,
+    deliverySpeed,
+    deliveryWindowDays,
     taxonomyLabels,
     taxonomySlugs,
     skills,
-    clientName: gig.poster?.name ?? gig.clientName ?? null,
+    clientName: gig.poster?.name ?? gig.poster?.companyName ?? gig.clientName ?? null,
+    trustSignals: gig.trustSignals ?? null,
+    filters: {
+      budget:
+        budgetMinAmount != null || budgetMaxAmount != null
+          ? {
+              min: budgetMinAmount,
+              max: budgetMaxAmount,
+              currency: budgetCurrency,
+            }
+          : null,
+      deliverySpeeds: deliverySpeed ? [deliverySpeed] : [],
+      taxonomySlugs,
+    },
     savedAt: new Date().toISOString(),
   };
 }

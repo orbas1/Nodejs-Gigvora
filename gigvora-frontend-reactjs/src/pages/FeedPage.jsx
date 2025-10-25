@@ -213,12 +213,11 @@ function normaliseCommentEntry(comment, { index = 0, prefix, fallbackAuthor } = 
   const user = comment.user ?? comment.User ?? {};
   const profile = user.Profile ?? user.profile ?? {};
   const id = comment.id ?? `${basePrefix}-${index + 1}`;
-  const author =
-    comment.author ??
-    comment.authorName ??
+  const fallbackName =
     [user.firstName, user.lastName, user.name].filter(Boolean).join(' ') ||
     fallbackAuthor?.name ||
     'Community member';
+  const author = comment.author ?? comment.authorName ?? fallbackName;
   const headline =
     comment.authorHeadline ??
     user.title ??

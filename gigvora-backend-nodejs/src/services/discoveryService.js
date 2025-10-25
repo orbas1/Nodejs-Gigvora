@@ -7,6 +7,7 @@ import {
   ExperienceLaunchpad,
   Volunteering,
   MentorProfile,
+  User,
   OpportunityTaxonomyAssignment,
   OpportunityTaxonomy,
   MENTOR_AVAILABILITY_STATUSES,
@@ -67,6 +68,24 @@ const CURRENCY_SYMBOLS = {
   SGD: '$',
 };
 
+function deriveDurationCategory(duration) {
+  if (!duration) {
+    return null;
+  }
+
+  const text = `${duration}`.toLowerCase();
+  if (/(48\s?hour|2\s?day|48h|week|sprint)/.test(text)) {
+    return 'short_term';
+  }
+  if (/(month|quarter)/.test(text)) {
+    return 'medium_term';
+  }
+  if (/(year|long)/.test(text)) {
+    return 'long_term';
+  }
+  return 'unspecified';
+}
+
 function coerceArray(value) {
   if (Array.isArray(value)) {
     return value
@@ -103,6 +122,61 @@ function normaliseClientFilters(raw = {}) {
   assign(['geoCity', 'cities'], 'geoCity');
   assign(['taxonomySlugs'], 'taxonomySlugs');
   assign(['taxonomyTypes'], 'taxonomyTypes');
+  assign(['deliverySpeed', 'deliverySpeeds'], 'deliverySpeed');
+
+  if (raw.budget && typeof raw.budget === 'object') {
+    const parseAmount = (value) => {
+      if (value == null) {
+        return null;
+      }
+      const numeric = Number.parseFloat(`${value}`.replace(/[,]/g, ''));
+      return Number.isFinite(numeric) ? numeric : null;
+    };
+
+    const candidateCurrency =
+      raw.budget.currency ?? raw.budget.currencyCode ?? raw.budget.code ?? raw.budget.symbol;
+    if (candidateCurrency) {
+      const token = `${candidateCurrency}`.trim().toUpperCase();
+      if (token) {
+        filters.budgetCurrency = [token];
+      }
+    }
+
+    const minimum =
+      parseAmount(raw.budget.min ?? raw.budget.minimum ?? raw.budget.start ?? raw.budget.minAmount);
+    const maximum =
+      parseAmount(raw.budget.max ?? raw.budget.maximum ?? raw.budget.end ?? raw.budget.maxAmount);
+
+    if (minimum != null) {
+      filters.budgetMinAmount = minimum;
+    }
+    if (maximum != null) {
+      filters.budgetMaxAmount = maximum;
+    }
+    if (
+      filters.budgetMinAmount != null &&
+      filters.budgetMaxAmount != null &&
+      filters.budgetMinAmount > filters.budgetMaxAmount
+    ) {
+      const { budgetMinAmount, budgetMaxAmount } = filters;
+      filters.budgetMinAmount = budgetMaxAmount;
+      filters.budgetMaxAmount = budgetMinAmount;
+    }
+  }
+
+  if (raw.budgetMinAmount != null && filters.budgetMinAmount == null) {
+    const numeric = Number.parseFloat(`${raw.budgetMinAmount}`.replace(/[,]/g, ''));
+    if (Number.isFinite(numeric)) {
+      filters.budgetMinAmount = numeric;
+    }
+  }
+
+  if (raw.budgetMaxAmount != null && filters.budgetMaxAmount == null) {
+    const numeric = Number.parseFloat(`${raw.budgetMaxAmount}`.replace(/[,]/g, ''));
+    if (Number.isFinite(numeric)) {
+      filters.budgetMaxAmount = numeric;
+    }
+  }
 
   if (raw.isRemote !== undefined) {
     filters.isRemote = raw.isRemote === true || raw.isRemote === 'true' || raw.isRemote === '1';
@@ -283,6 +357,74 @@ function toGeoDto(geoLocation, fallbackLocation = null) {
   };
 }
 
+function normaliseTrustSignals(raw) {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+  const source = typeof raw.get === 'function' ? raw.get({ plain: true }) : raw;
+  if (!source || typeof source !== 'object') {
+    return null;
+  }
+
+  const payload = {
+    verifiedBuyer:
+      source.verifiedBuyer ?? source.verified ?? source.isVerified ?? undefined,
+    escrowProtected: source.escrowProtected ?? source.escrow ?? undefined,
+    reviewCount:
+      source.reviewCount != null && Number.isFinite(Number(source.reviewCount))
+        ? Number(source.reviewCount)
+        : undefined,
+    repeatHireRate:
+      source.repeatHireRate != null && Number.isFinite(Number(source.repeatHireRate))
+        ? Number(source.repeatHireRate)
+        : undefined,
+    satisfactionScore:
+      source.satisfactionScore != null && Number.isFinite(Number(source.satisfactionScore))
+        ? Number(source.satisfactionScore)
+        : undefined,
+  };
+
+  const entries = Object.entries(payload).filter(([, value]) => value !== undefined && value !== null);
+  if (!entries.length) {
+    return null;
+  }
+
+  return entries.reduce((accumulator, [key, value]) => {
+    accumulator[key] = value;
+    return accumulator;
+  }, {});
+}
+
+function resolvePoster(record) {
+  if (!record) {
+    return null;
+  }
+  const ownerInstance = record.owner ?? record.get?.('owner');
+  if (!ownerInstance) {
+    return null;
+  }
+  const owner = typeof ownerInstance.get === 'function' ? ownerInstance.get({ plain: true }) : ownerInstance;
+  if (!owner || typeof owner !== 'object') {
+    return null;
+  }
+
+  const fullName = [owner.firstName, owner.lastName].filter(Boolean).join(' ').trim();
+  const companyName = owner.companyName ?? null;
+  const email = owner.email ?? null;
+  const name = fullName || companyName || email || null;
+
+  return {
+    id: owner.id ?? null,
+    firstName: owner.firstName ?? null,
+    lastName: owner.lastName ?? null,
+    companyName,
+    email,
+    name,
+    status: owner.status ?? null,
+    avatarUrl: owner.profilePhotoUrl ?? owner.avatarUrl ?? null,
+  };
+}
+
 function toOpportunityDto(record, category) {
   if (!record) {
     return null;
@@ -323,9 +465,16 @@ function toOpportunityDto(record, category) {
         ...base,
         budget: plain.budget ?? null,
         budgetCurrency: plain.budgetCurrency ?? null,
+        budgetMinAmount: plain.budgetMinAmount == null ? null : Number(plain.budgetMinAmount),
+        budgetMaxAmount: plain.budgetMaxAmount == null ? null : Number(plain.budgetMaxAmount),
         duration: plain.duration ?? null,
-        durationCategory: plain.durationCategory ?? null,
+        durationCategory: plain.durationCategory ?? deriveDurationCategory(plain.duration),
         isRemote: geo?.isRemote ?? isRemoteRole(plain.location, plain.description),
+        deliverySpeed: plain.deliverySpeed ?? null,
+        deliveryWindowDays:
+          plain.deliveryWindowDays == null ? null : Number(plain.deliveryWindowDays),
+        trustSignals: normaliseTrustSignals(plain.trustSignals),
+        poster: resolvePoster(record),
       };
     case 'project':
       return {
@@ -522,6 +671,14 @@ async function listOpportunities(category, { page, pageSize, query, filters, sor
   if (taxonomyInclude) {
     includes.push(taxonomyInclude);
   }
+  if (category === 'gig') {
+    includes.push({
+      model: User,
+      as: 'owner',
+      required: false,
+      attributes: ['id', 'firstName', 'lastName', 'companyName', 'email', 'profilePhotoUrl', 'status'],
+    });
+  }
 
   const searchResult = await searchOpportunityIndex(
     category,
@@ -616,12 +773,95 @@ async function listOpportunities(category, { page, pageSize, query, filters, sor
   };
 }
 
+function buildGigWhereClause(query, filters) {
+  const safeFilters = filters ?? {};
+  const where = buildSearchWhereClause('gig', query);
+  applyStructuredFilters(where, 'gig', safeFilters);
+
+  if (safeFilters.isRemote === true || safeFilters.isRemote === 'true' || safeFilters.isRemote === '1') {
+    const remoteLike = buildLikeExpression('remote');
+    if (!where[Op.and]) {
+      where[Op.and] = [];
+    }
+    where[Op.and].push({
+      [Op.or]: [
+        { location: remoteLike },
+        { description: remoteLike },
+        { deliveryModel: remoteLike },
+      ],
+    });
+  }
+
+  return where;
+}
+
+async function computeGigMetrics({ query, filters }) {
+  const baseWhere = buildGigWhereClause(query, filters);
+
+  const freshWhere = buildGigWhereClause(query, filters);
+  const freshThreshold = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  if (!freshWhere[Op.and]) {
+    freshWhere[Op.and] = [];
+  }
+  freshWhere[Op.and].push({ updatedAt: { [Op.gte]: freshThreshold } });
+
+  const budgetWhere = buildGigWhereClause(query, filters);
+  if (!budgetWhere[Op.and]) {
+    budgetWhere[Op.and] = [];
+  }
+  budgetWhere[Op.and].push({
+    [Op.or]: [
+      { budgetMinAmount: { [Op.not]: null } },
+      { budgetMaxAmount: { [Op.not]: null } },
+      { budget: { [Op.not]: null } },
+    ],
+  });
+
+  const remoteWhere = buildGigWhereClause(query, filters);
+  const remoteLike = buildLikeExpression('remote');
+  if (!remoteWhere[Op.and]) {
+    remoteWhere[Op.and] = [];
+  }
+  remoteWhere[Op.and].push({
+    [Op.or]: [
+      { location: remoteLike },
+      { description: remoteLike },
+      { deliveryModel: remoteLike },
+    ],
+  });
+
+  const [total, fresh, remoteFriendly, withBudgets] = await Promise.all([
+    Gig.count({ where: baseWhere }),
+    Gig.count({ where: freshWhere }),
+    Gig.count({ where: remoteWhere }),
+    Gig.count({ where: budgetWhere }),
+  ]);
+
+  return {
+    total,
+    fresh,
+    remoteFriendly,
+    withBudgets,
+  };
+}
+
 export async function listJobs(options = {}) {
   return listOpportunities('job', options);
 }
 
 export async function listGigs(options = {}) {
-  return listOpportunities('gig', options);
+  const result = await listOpportunities('gig', options);
+  const rawFilters = parseFiltersInput(options.filters);
+  const normalisedFilters = normaliseClientFilters(rawFilters);
+  const metrics = await computeGigMetrics({ query: options.query, filters: normalisedFilters });
+
+  return {
+    ...result,
+    metrics: {
+      ...(result.metrics ?? {}),
+      ...metrics,
+    },
+  };
 }
 
 export async function listProjects(options = {}) {

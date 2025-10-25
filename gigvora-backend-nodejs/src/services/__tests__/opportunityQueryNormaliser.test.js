@@ -28,14 +28,20 @@ describe('opportunityQueryNormaliser', () => {
       {
         durationCategory: ['short_term'],
         budgetCurrency: ['usd'],
+        budgetMinAmount: 1500,
+        budgetMaxAmount: 6000,
         location: ['Remote'],
         taxonomySlugs: ['design'],
+        deliverySpeed: ['14d'],
       },
     );
     expect(expression).toContain('durationCategory');
     expect(expression).toContain('budgetCurrency');
+    expect(expression).toContain('budgetMinAmount');
+    expect(expression).toContain('budgetMaxAmount');
     expect(expression).toContain('location');
     expect(expression).toContain('taxonomySlugs');
+    expect(expression).toContain('deliverySpeed');
   });
 
   it('applies structured filters for database fallbacks', () => {
@@ -46,6 +52,9 @@ describe('opportunityQueryNormaliser', () => {
       {
         durationCategory: ['short_term', 'fixed'],
         budgetCurrency: ['usd'],
+        budgetMinAmount: 1200,
+        budgetMaxAmount: 4800,
+        deliverySpeed: ['7d'],
         location: ['Remote'],
         geoCountry: ['NL'],
       },
@@ -61,6 +70,9 @@ describe('opportunityQueryNormaliser', () => {
         expect.objectContaining({ budgetCurrency: expect.any(String) }),
         expect.objectContaining({ location: expect.any(String) }),
         expect.objectContaining({ geoCountry: expect.any(String) }),
+        expect.objectContaining({ deliverySpeed: expect.any(String) }),
+        expect.objectContaining({ budgetMaxAmount: { [Op.gte]: 1200 } }),
+        expect.objectContaining({ budgetMinAmount: { [Op.lte]: 4800 } }),
       ]),
     );
   });

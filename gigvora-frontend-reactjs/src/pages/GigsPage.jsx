@@ -57,7 +57,28 @@ function computeTrustBadges(gig) {
   if (!gig) {
     return [];
   }
-  if (Array.isArray(gig.trustBadges) && gig.trustBadges.length) {
+  const badges = [];
+
+  if (gig.trustSignals && typeof gig.trustSignals === 'object') {
+    const { verifiedBuyer, escrowProtected, reviewCount, repeatHireRate, satisfactionScore } = gig.trustSignals;
+    if (verifiedBuyer) {
+      badges.push({ label: 'Verified client', tone: 'emerald' });
+    }
+    if (escrowProtected) {
+      badges.push({ label: 'Escrow protected', tone: 'sky' });
+    }
+    if (Number.isFinite(Number(reviewCount)) && Number(reviewCount) > 0) {
+      badges.push({ label: `${formatNumber(reviewCount)} reviews`, tone: 'indigo' });
+    }
+    if (Number.isFinite(Number(repeatHireRate)) && Number(repeatHireRate) >= 0.6) {
+      badges.push({ label: 'High repeat hires', tone: 'accent' });
+    }
+    if (Number.isFinite(Number(satisfactionScore)) && Number(satisfactionScore) >= 4.5) {
+      badges.push({ label: 'Top satisfaction', tone: 'amber' });
+    }
+  }
+
+  if (!badges.length && Array.isArray(gig.trustBadges) && gig.trustBadges.length) {
     return gig.trustBadges
       .map((badge) => {
         if (!badge) {
@@ -78,7 +99,6 @@ function computeTrustBadges(gig) {
       .slice(0, 3);
   }
 
-  const badges = [];
   if (gig.poster?.verified || gig.poster?.isVerified || gig.poster?.status === 'verified' || gig.verifiedBuyer) {
     badges.push({ label: 'Verified client', tone: 'emerald' });
   }
@@ -88,8 +108,20 @@ function computeTrustBadges(gig) {
   if (Array.isArray(gig.reviews) && gig.reviews.length) {
     badges.push({ label: 'Rated by freelancers', tone: 'indigo' });
   }
-  if (gig.deliverySla || gig.deliveryWindow) {
-    badges.push({ label: `${gig.deliverySla ?? gig.deliveryWindow} SLA`, tone: 'amber' });
+  if (gig.deliverySpeed || gig.deliverySla || gig.deliveryWindow) {
+    const windowLabel =
+      gig.deliverySpeed === '48h'
+        ? '48h SLA'
+        : gig.deliverySpeed === '7d'
+        ? '1 week SLA'
+        : gig.deliverySpeed === '14d'
+        ? '2 week SLA'
+        : gig.deliverySpeed === '21d'
+        ? '3 week SLA'
+        : gig.deliverySla ?? gig.deliveryWindow ?? null;
+    if (windowLabel) {
+      badges.push({ label: windowLabel, tone: 'amber' });
+    }
   }
 
   return badges.slice(0, 3);
@@ -179,6 +211,7 @@ export default function GigsPage() {
     () => (Array.isArray(listing.items) ? listing.items : []),
     [listing.items],
   );
+  const listingMetrics = listing.metrics ?? null;
 
   useEffect(() => {
     if (!isAuthenticated || !hasFreelancerAccess) {
@@ -252,6 +285,19 @@ export default function GigsPage() {
     [selectedTagSlugs, tagDirectory],
   );
   const derivedSignals = useMemo(() => {
+    if (listingMetrics && typeof listingMetrics === 'object') {
+      const toNumber = (value) => {
+        const numeric = Number(value);
+        return Number.isFinite(numeric) ? numeric : 0;
+      };
+      return {
+        total: toNumber(listingMetrics.total),
+        fresh: toNumber(listingMetrics.fresh),
+        remoteFriendly: toNumber(listingMetrics.remoteFriendly),
+        withBudgets: toNumber(listingMetrics.withBudgets),
+      };
+    }
+
     if (!items.length) {
       return {
         total: 0,
@@ -283,7 +329,11 @@ export default function GigsPage() {
         remoteFriendly += 1;
       }
 
-      if (typeof gig?.budget === 'string' ? gig.budget.trim().length > 0 : Boolean(gig?.budget)) {
+      if (
+        gig?.budgetMinAmount != null ||
+        gig?.budgetMaxAmount != null ||
+        (typeof gig?.budget === 'string' ? gig.budget.trim().length > 0 : Boolean(gig?.budget))
+      ) {
         withBudgets += 1;
       }
     });
@@ -294,7 +344,7 @@ export default function GigsPage() {
       remoteFriendly,
       withBudgets,
     };
-  }, [items]);
+  }, [items, listingMetrics]);
 
   const paginationMeta = useMemo(() => {
     const currentPage = Number(listing.page ?? page ?? 1);
@@ -390,6 +440,27 @@ export default function GigsPage() {
       if (Array.isArray(saved.taxonomySlugs) && saved.taxonomySlugs.length) {
         setSelectedTagSlugs(Array.from(new Set(saved.taxonomySlugs)));
       }
+      if (saved.filters?.budget) {
+        const { min, max, currency } = saved.filters.budget;
+        const lowerBound = Number.isFinite(Number(min)) ? Number(min) : budgetRange[0];
+        const upperBound = Number.isFinite(Number(max)) ? Number(max) : budgetRange[1];
+        setBudgetRange([lowerBound, upperBound]);
+        setBudgetEnabled(true);
+        if (currency && currency !== defaultCurrency) {
+          analytics.track(
+            'web_gig_saved_currency_variant',
+            { savedCurrency: currency, defaultCurrency },
+            { source: 'web_app' },
+          );
+        }
+      } else {
+        setBudgetEnabled(false);
+      }
+      if (Array.isArray(saved.filters?.deliverySpeeds)) {
+        setSelectedDeliverySpeeds(saved.filters.deliverySpeeds);
+      } else {
+        setSelectedDeliverySpeeds([]);
+      }
       analytics.track(
         'web_gig_saved_applied',
         {
@@ -399,7 +470,16 @@ export default function GigsPage() {
         { source: 'web_app' },
       );
     },
-    [setQuery, setSelectedTagSlugs],
+    [
+      setQuery,
+      setSelectedTagSlugs,
+      budgetRange,
+      setBudgetRange,
+      setBudgetEnabled,
+      setSelectedDeliverySpeeds,
+      analytics,
+      defaultCurrency,
+    ],
   );
 
   const handleClearSavedGigs = useCallback(() => {
@@ -770,6 +850,28 @@ export default function GigsPage() {
                 const trustBadges = computeTrustBadges(gig);
                 const taxonomyLabels = Array.isArray(gig.taxonomyLabels) ? gig.taxonomyLabels : [];
                 const skills = Array.isArray(gig.skills) ? gig.skills : [];
+                const minAmount = Number.isFinite(Number(gig.budgetMinAmount))
+                  ? Number(gig.budgetMinAmount)
+                  : null;
+                const maxAmount = Number.isFinite(Number(gig.budgetMaxAmount))
+                  ? Number(gig.budgetMaxAmount)
+                  : null;
+                const hasRange = minAmount != null || maxAmount != null;
+                const resolvedCurrency = gig.budgetCurrency ?? defaultCurrency;
+                const budgetLabel = hasRange
+                  ? formatCurrencyRange(minAmount ?? maxAmount ?? 0, maxAmount ?? minAmount ?? 0, resolvedCurrency, {
+                      maximumFractionDigits: 0,
+                    })
+                  : gig.budget ?? null;
+                const deliveryLabel = gig.deliverySpeed
+                  ? {
+                      '48h': '48 hour turnaround',
+                      '7d': '1 week delivery',
+                      '14d': '2 week delivery',
+                      '21d': '3 week delivery',
+                      flex: 'Flexible delivery',
+                    }[gig.deliverySpeed] ?? gig.deliverySpeed
+                  : gig.deliverySla ?? gig.deliveryWindow ?? null;
                 return (
                   <article
                     key={resolveGigKey(gig, index)}
@@ -782,9 +884,14 @@ export default function GigsPage() {
                             {gig.duration}
                           </span>
                         ) : null}
-                        {gig.budget ? (
+                        {budgetLabel ? (
                           <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 font-semibold text-emerald-600">
-                            {gig.budget}
+                            {budgetLabel}
+                          </span>
+                        ) : null}
+                        {deliveryLabel ? (
+                          <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-600">
+                            {deliveryLabel}
                           </span>
                         ) : null}
                       </div>
@@ -807,6 +914,9 @@ export default function GigsPage() {
                       </div>
                     </div>
                     <h2 className="mt-3 text-xl font-semibold text-slate-900">{gig.title}</h2>
+                    {gig.poster?.name ? (
+                      <p className="mt-1 text-xs text-slate-500">Client: {gig.poster.name}</p>
+                    ) : null}
                     <p className="mt-2 text-sm text-slate-600">{gig.description}</p>
                     {trustBadges.length ? (
                       <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-wide">
@@ -967,6 +1077,18 @@ export default function GigsPage() {
                     <li key={saved.id} className="rounded-2xl border border-slate-200 px-4 py-3">
                       <p className="text-sm font-semibold text-slate-800">{saved.title}</p>
                       {saved.clientName ? <p className="text-xs text-slate-500">{saved.clientName}</p> : null}
+                      {saved.budgetMinAmount != null || saved.budgetMaxAmount != null ? (
+                        <p className="text-xs text-slate-500">
+                          {formatCurrencyRange(
+                            saved.budgetMinAmount ?? saved.budgetMaxAmount ?? 0,
+                            saved.budgetMaxAmount ?? saved.budgetMinAmount ?? 0,
+                            saved.budgetCurrency ?? defaultCurrency,
+                            { maximumFractionDigits: 0 },
+                          )}
+                        </p>
+                      ) : saved.budget ? (
+                        <p className="text-xs text-slate-500">{saved.budget}</p>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => handleLoadSavedGig(saved)}

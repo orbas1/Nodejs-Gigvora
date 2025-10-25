@@ -276,6 +276,20 @@ export function buildFilterExpressions(category, filters = {}, viewport = null) 
           if (group) groups.push(group);
         }
         break;
+      case 'budgetMinAmount': {
+        const value = Number(rawValue);
+        if (!Number.isNaN(value)) {
+          groups.push(`budgetMaxAmount >= ${value}`);
+        }
+        break;
+      }
+      case 'budgetMaxAmount': {
+        const value = Number(rawValue);
+        if (!Number.isNaN(value)) {
+          groups.push(`budgetMinAmount <= ${value}`);
+        }
+        break;
+      }
       case 'status':
         if (category === 'project') {
           const group = buildEqualityGroup(key, ensureArray(rawValue));
@@ -337,6 +351,13 @@ export function buildFilterExpressions(category, filters = {}, viewport = null) 
         }
         break;
       }
+      case 'deliverySpeed': {
+        const group = buildEqualityGroup('deliverySpeed', ensureArray(rawValue));
+        if (group) {
+          groups.push(group);
+        }
+        break;
+      }
       default:
         break;
     }
@@ -387,6 +408,16 @@ export function applyStructuredFilters(where, category, filters = {}) {
     }
   };
 
+  const pushRange = (field, operator, value) => {
+    if (value == null || Number.isNaN(Number(value))) {
+      return;
+    }
+    if (!where[Op.and]) {
+      where[Op.and] = [];
+    }
+    where[Op.and].push({ [field]: { [operator]: Number(value) } });
+  };
+
   if (category === 'job') {
     pushEquality('employmentType', filters.employmentType);
     pushEquality('employmentCategory', filters.employmentCategory);
@@ -395,6 +426,13 @@ export function applyStructuredFilters(where, category, filters = {}) {
   if (category === 'gig') {
     pushEquality('durationCategory', filters.durationCategory);
     pushEquality('budgetCurrency', filters.budgetCurrency);
+    pushEquality('deliverySpeed', filters.deliverySpeed);
+    if (filters.budgetMinAmount != null) {
+      pushRange('budgetMaxAmount', Op.gte, filters.budgetMinAmount);
+    }
+    if (filters.budgetMaxAmount != null) {
+      pushRange('budgetMinAmount', Op.lte, filters.budgetMaxAmount);
+    }
   }
 
   if (category === 'project') {
