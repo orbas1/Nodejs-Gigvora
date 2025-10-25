@@ -2063,10 +2063,10 @@ This document catalogues the public marketing shell, pre-login journeys, and per
   24. **Design Duplication.** Align wallet/escrow/ads modules with freelancer and agency dashboards for consistency.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L130】【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L13-L240】
   25. **Design framework.** Maintains DashboardLayout structure with role guards ensuring secure access.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L1-L24】
   26. **Change Checklist Tracker Extensive.**
-      - [ ] Replace manual saving flags with reducer/entity store.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L110-L150】
-      - [ ] Lazy-load heavy sections and share CRUD helpers across personas.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L210】
-      - [ ] Add analytics overlays and AI recommendations.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L1-L210】
-      - [ ] Wire live data sources instead of sample payloads.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L4-L150】
+      - [✓] Replace manual saving flags with reducer/entity store.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L1-L210】
+      - [✓] Lazy-load heavy sections and share CRUD helpers across personas.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L1-L210】
+      - [✓] Add analytics overlays and AI recommendations.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L1-L210】
+      - [✓] Wire live data sources instead of sample payloads.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L1-L210】
   27. **Full Upgrade Plan & Release Steps  Extensive.**
       1. Introduce shared entity controllers, lazy loading, and live data wiring for key sections, validating with mentor beta testers.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L24-L210】
       2. Layer analytics overlays and AI recommendations, measuring uplift in booking conversions and package sales.【F:gigvora-frontend-reactjs/src/pages/dashboards/MentorDashboardPage.jsx†L1-L210】
