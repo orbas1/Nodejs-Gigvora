@@ -29,6 +29,10 @@ function requirePositiveIdentifier(name, value) {
   return parsePositiveInteger(value, name);
 }
 
+function requireFreelancerId(value) {
+  return parsePositiveInteger(value, 'freelancerId');
+}
+
 function resolveFreelancerIdFromQuery(query = {}) {
   const candidate = query.freelancerId ?? query.actorId;
   const parsed = parsePositiveInteger(candidate, 'freelancerId', { optional: true });
