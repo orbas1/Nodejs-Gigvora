@@ -21,6 +21,9 @@ import {
   participantParamsSchema,
   threadDetailQuerySchema,
   typingStateBodySchema,
+  searchThreadsQuerySchema,
+  createTranscriptBodySchema,
+  enforceRetentionBodySchema,
 } from '../validation/schemas/messagingSchemas.js';
 
 const router = Router();
@@ -38,6 +41,12 @@ router.post(
   asyncHandler(messagingController.createConversation),
 );
 router.get(
+  '/threads/search',
+  validateRequest({ query: searchThreadsQuerySchema }),
+  asyncHandler(messagingController.searchThreads),
+);
+
+router.get(
   '/threads/:threadId',
   validateRequest({ params: threadParamsSchema, query: threadDetailQuerySchema }),
   asyncHandler(messagingController.openThread),
@@ -51,6 +60,16 @@ router.post(
   '/threads/:threadId/messages',
   validateRequest({ params: threadParamsSchema, body: createMessageBodySchema }),
   asyncHandler(messagingController.postMessage),
+);
+router.get(
+  '/threads/:threadId/transcripts',
+  validateRequest({ params: threadParamsSchema }),
+  asyncHandler(messagingController.listThreadTranscripts),
+);
+router.post(
+  '/threads/:threadId/transcripts',
+  validateRequest({ params: threadParamsSchema, body: createTranscriptBodySchema }),
+  asyncHandler(messagingController.createThreadTranscript),
 );
 router.post(
   '/threads/:threadId/calls',
@@ -92,6 +111,12 @@ router.post(
   validateRequest({ params: threadParamsSchema, body: supportStatusBodySchema }),
   asyncHandler(messagingController.updateSupportStatus),
 );
+router.post(
+  '/threads/retention/enforce',
+  validateRequest({ body: enforceRetentionBodySchema }),
+  asyncHandler(messagingController.enforceRetention),
+);
+
 router.post(
   '/threads/:threadId/settings',
   validateRequest({ params: threadParamsSchema, body: threadSettingsBodySchema }),

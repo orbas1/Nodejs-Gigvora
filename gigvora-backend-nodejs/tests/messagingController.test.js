@@ -238,6 +238,35 @@ describe('messagingController HTTP flow', () => {
 
       expect(threadResponse.body.participants).toHaveLength(2);
       expect(threadResponse.body.supportCase).toMatchObject({ status: 'resolved' });
+
+      const searchResponse = await request(app)
+        .get('/api/messaging/threads/search')
+        .set('Authorization', `Bearer ${requesterToken}`)
+        .query({ q: 'Escalation', includeMessages: true })
+        .expect(200);
+      expect(searchResponse.body.threads).toEqual(
+        expect.arrayContaining([expect.objectContaining({ id: threadId })]),
+      );
+
+      const transcriptsBefore = await request(app)
+        .get(`/api/messaging/threads/${threadId}/transcripts`)
+        .set('Authorization', `Bearer ${requesterToken}`)
+        .expect(200);
+      expect(transcriptsBefore.body.transcripts).toHaveLength(0);
+
+      const transcriptCreate = await request(app)
+        .post(`/api/messaging/threads/${threadId}/transcripts`)
+        .set('Authorization', `Bearer ${requesterToken}`)
+        .send({ userId: requester.id })
+        .expect(201);
+      expect(transcriptCreate.body).toMatchObject({ threadId });
+
+      const retentionEnforcement = await request(app)
+        .post('/api/messaging/threads/retention/enforce')
+        .set('Authorization', `Bearer ${agentToken}`)
+        .send({ limit: 5, dryRun: true })
+        .expect(200);
+      expect(Array.isArray(retentionEnforcement.body.results)).toBe(true);
     } finally {
       process.env.AGORA_APP_ID = originalAppId;
       process.env.AGORA_APP_CERTIFICATE = originalCertificate;

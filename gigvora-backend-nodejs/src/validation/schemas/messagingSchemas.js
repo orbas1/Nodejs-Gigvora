@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { optionalBoolean, optionalNumber, optionalTrimmedString, requiredTrimmedString } from '../primitives.js';
+import {
+  optionalBoolean,
+  optionalNumber,
+  optionalTrimmedString,
+  requiredTrimmedString,
+} from '../primitives.js';
 
 const positiveId = (field) =>
   z
@@ -137,8 +142,20 @@ export const threadSettingsBodySchema = z
       }, z.array(requiredTrimmedString({ max: 120 })))
       .max(20, { message: 'labels accepts a maximum of 20 entries.' })
       .optional(),
+    retentionPolicy: optionalTrimmedString({ max: 60 }).transform((value) => value ?? undefined),
+    retentionDays: optionalNumber({ min: 1, max: 3650, integer: true }).transform((value) => value ?? undefined),
+    retentionLocked: optionalBoolean(),
   })
-  .strip();
+  .strip()
+  .superRefine((value, ctx) => {
+    if (value.retentionDays != null && value.retentionPolicy !== 'custom') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['retentionDays'],
+        message: 'retentionDays may only be supplied when retentionPolicy is custom.',
+      });
+    }
+  });
 
 export const addParticipantsBodySchema = z
   .object({
@@ -187,6 +204,58 @@ export const threadDetailQuerySchema = z
   })
   .strip();
 
+const isoDateTime = z
+  .preprocess((value) => {
+    if (value == null || value === '') {
+      return undefined;
+    }
+    const text = `${value}`.trim();
+    return text || undefined;
+  }, z.string().max(60))
+  .refine((value) => (value == null ? true : !Number.isNaN(Date.parse(value))), {
+    message: 'cutoff must be a valid ISO-8601 datetime.',
+  });
+
+export const createTranscriptBodySchema = z
+  .object({
+    cutoff: isoDateTime.transform((value) => value ?? undefined),
+  })
+  .strip();
+
+export const searchThreadsQuerySchema = z
+  .object({
+    q: optionalTrimmedString({ max: 255 }).transform((value) => value ?? undefined),
+    channelType: optionalTrimmedString({ max: 60 }).transform((value) => value ?? undefined),
+    limit: optionalNumber({ min: 1, max: 50, integer: true }).transform((value) => value ?? undefined),
+    includeMessages: optionalBoolean(),
+  })
+  .strip()
+  .superRefine((value, ctx) => {
+    if (!value.q) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['q'],
+        message: 'q is required for thread search.',
+      });
+    } else if (value.q.length < 2) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.too_small,
+        path: ['q'],
+        minimum: 2,
+        type: 'string',
+        inclusive: true,
+        message: 'q must be at least two characters.',
+      });
+    }
+  });
+
+export const enforceRetentionBodySchema = z
+  .object({
+    limit: optionalNumber({ min: 1, max: 200, integer: true }).transform((value) => value ?? undefined),
+    dryRun: optionalBoolean(),
+  })
+  .strip();
+
 export default {
   threadParamsSchema,
   messageParamsSchema,
@@ -206,4 +275,7 @@ export default {
   listThreadsQuerySchema,
   listMessagesQuerySchema,
   threadDetailQuerySchema,
+  createTranscriptBodySchema,
+  searchThreadsQuerySchema,
+  enforceRetentionBodySchema,
 };

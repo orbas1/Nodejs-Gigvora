@@ -5,13 +5,19 @@ import {
   listMessages,
   getThread,
   updateThreadState,
+  updateThreadSettings,
   markThreadRead,
   listThreadsForUser,
   escalateThreadToSupport,
   assignSupportAgent,
   updateSupportCaseStatus,
   startOrJoinCall,
+  generateThreadTranscript,
+  listThreadTranscripts,
+  enforceThreadRetention,
+  searchThreads,
 } from '../src/services/messagingService.js';
+import { Message } from '../src/models/messagingModels.js';
 import { createUser } from './helpers/factories.js';
 import { AuthorizationError } from '../src/utils/errors.js';
 
@@ -39,6 +45,9 @@ describe('messagingService', () => {
     });
     expect(thread.metadata).toEqual(expect.objectContaining({ projectId: 404 }));
     expect(thread.metadata).not.toHaveProperty('_internalRoute');
+    expect(thread.retentionPolicy).toBe('inherit');
+    expect(thread.retentionLocked).toBe(false);
+    expect(new Date(thread.retentionExpiresAt).getTime()).toBeGreaterThan(Date.now());
 
     const message = await appendMessage(thread.id, owner.id, {
       messageType: 'text',
@@ -163,6 +172,71 @@ describe('messagingService', () => {
 
     const unreadOnly = await listThreadsForUser(requester.id, { unreadOnly: true }, { pageSize: 5 });
     expect(unreadOnly.data).toHaveLength(0);
+  });
+
+  it('supports transcript generation, retention enforcement, and thread search', async () => {
+    const owner = await createUser({ email: 'retention-owner@gigvora.test', userType: 'user' });
+    const teammate = await createUser({ email: 'retention-collab@gigvora.test', userType: 'user' });
+
+    const thread = await createThread({
+      subject: 'Retention Test Thread',
+      createdBy: owner.id,
+      participantIds: [teammate.id],
+      metadata: { projectId: 909, channel: 'retention-suite' },
+    });
+
+    await updateThreadSettings(thread.id, owner.id, {
+      retentionPolicy: 'custom',
+      retentionDays: 30,
+      retentionLocked: true,
+    });
+
+    const olderMessage = await appendMessage(thread.id, owner.id, {
+      messageType: 'text',
+      body: 'Old retention context that should be archived and purged.',
+    });
+    const oldTimestamp = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+    await Message.update(
+      { createdAt: oldTimestamp, updatedAt: oldTimestamp },
+      { where: { id: olderMessage.id } },
+    );
+
+    await appendMessage(thread.id, teammate.id, {
+      messageType: 'text',
+      body: 'Fresh update to keep in the thread.',
+    });
+
+    const transcriptsBefore = await listThreadTranscripts(thread.id, owner.id);
+    expect(transcriptsBefore).toHaveLength(0);
+
+    const searchResult = await searchThreads(owner.id, { query: 'Retention', includeMessages: true });
+    const searchedThread = searchResult.threads.find((entry) => entry.id === thread.id);
+    expect(searchedThread).toBeDefined();
+    expect((searchedThread.matches ?? []).length).toBeGreaterThanOrEqual(1);
+    expect(searchedThread.matches?.[0]?.body ?? '').toEqual(expect.stringContaining('retention'));
+
+    const transcript = await generateThreadTranscript(thread.id, owner.id, { cutoff: new Date().toISOString() });
+    expect(transcript).toMatchObject({
+      threadId: thread.id,
+      retentionPolicy: 'custom',
+    });
+    expect(transcript.metadata).toEqual(expect.objectContaining({ messageCount: 2, hasAttachments: false }));
+
+    const transcriptsAfter = await listThreadTranscripts(thread.id, owner.id);
+    expect(transcriptsAfter.length).toBeGreaterThanOrEqual(1);
+
+    const retentionResults = await enforceThreadRetention({ limit: 5, actorId: owner.id });
+    expect(retentionResults).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ threadId: thread.id, messagesPurged: expect.any(Number) }),
+      ]),
+    );
+    const latestRetention = retentionResults.find((entry) => entry.threadId === thread.id);
+    expect(latestRetention?.messagesPurged).toBeGreaterThanOrEqual(1);
+
+    const messagesAfter = await listMessages(thread.id, { pageSize: 10 });
+    expect(messagesAfter.data.length).toBe(1);
+    expect(messagesAfter.data[0].body).toContain('Fresh update');
   });
 
   it('creates realtime call sessions with Agora tokens', async () => {
