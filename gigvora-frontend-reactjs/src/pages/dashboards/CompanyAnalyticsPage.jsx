@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useId, useMemo } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowTrendingUpIcon,
@@ -65,6 +65,96 @@ function formatCurrency(value, currency = 'USD', { fallback = '—', decimals = 
   }).format(numeric);
 }
 
+function buildNarrativeStatements({
+  analyticsForecasting,
+  conversionRates,
+  workforceAnalytics,
+  candidateExperience,
+  alerts,
+  lookbackDays,
+}) {
+  const statements = [];
+
+  if (analyticsForecasting?.projectedHires != null) {
+    const projectedHires = formatNumber(analyticsForecasting.projectedHires);
+    const backlogRaw =
+      analyticsForecasting.backlog != null && Number.isFinite(Number(analyticsForecasting.backlog))
+        ? Number(analyticsForecasting.backlog)
+        : null;
+    const backlog = backlogRaw != null ? formatNumber(backlogRaw) : null;
+    const backlogDeltaRaw =
+      analyticsForecasting.backlogDelta != null && Number.isFinite(Number(analyticsForecasting.backlogDelta))
+        ? Number(analyticsForecasting.backlogDelta)
+        : null;
+    let backlogContext = null;
+    if (backlog != null) {
+      backlogContext = `Backlog sits at ${backlog}${
+        backlogRaw > 0 && backlogDeltaRaw != null
+          ? ` (${backlogDeltaRaw > 0 ? '+' : ''}${formatNumber(backlogDeltaRaw)} period shift)`
+          : ''
+      }`;
+    }
+    statements.push(
+      `Plan for ${projectedHires} hires over the last ${lookbackDays} days window${
+        backlogContext ? ` while ${backlogContext}` : ''
+      }.`
+    );
+  }
+
+  if (conversionRates?.hireRate != null || conversionRates?.offerRate != null) {
+    const hireRate = conversionRates?.hireRate != null ? formatPercent(conversionRates.hireRate) : null;
+    const offerRate = conversionRates?.offerRate != null ? formatPercent(conversionRates.offerRate) : null;
+    const interviewRate =
+      conversionRates?.interviewRate != null ? formatPercent(conversionRates.interviewRate) : null;
+    const fragments = [];
+    if (hireRate) {
+      fragments.push(`offer-to-hire is ${hireRate}`);
+    }
+    if (offerRate) {
+      fragments.push(`offer acceptance holds at ${offerRate}`);
+    }
+    if (interviewRate) {
+      fragments.push(`application to interview converts at ${interviewRate}`);
+    }
+    if (fragments.length) {
+      statements.push(`Talent funnel ${fragments.join(', ')}.`);
+    }
+  }
+
+  if (workforceAnalytics?.attritionRiskScore != null) {
+    const attrition = Number(workforceAnalytics.attritionRiskScore).toFixed(1);
+    const mobility =
+      workforceAnalytics?.mobilityOpportunities != null
+        ? formatNumber(workforceAnalytics.mobilityOpportunities)
+        : null;
+    statements.push(
+      `Workforce attrition risk reads ${attrition}${
+        mobility ? ` with ${mobility} internal mobility openings to absorb movement` : ''
+      }.`
+    );
+  }
+
+  if (candidateExperience?.nps != null || candidateExperience?.responseCount != null) {
+    const nps = candidateExperience?.nps != null ? Number(candidateExperience.nps).toFixed(1) : null;
+    const responses =
+      candidateExperience?.responseCount != null
+        ? `${formatNumber(candidateExperience.responseCount)} survey responses`
+        : null;
+    statements.push(
+      `Candidate experience signals${nps ? ` score ${nps} NPS` : ''}${
+        responses ? ` from ${responses}` : ''
+      }.`
+    );
+  }
+
+  const openAlerts = Array.isArray(alerts?.items) ? alerts.items.filter(Boolean).length : 0;
+  if (openAlerts > 0) {
+    statements.push(`There are ${formatNumber(openAlerts)} active governance alerts requiring follow-up.`);
+  }
+
+  return statements.filter(Boolean);
+}
+
 function buildProfile(data, summaryCards) {
   if (!data) {
     return null;
@@ -127,51 +217,156 @@ function AnalyticsSummaryGrid({ metrics }) {
   );
 }
 
-function InsightList({ title, items, icon: Icon }) {
+function InsightList({ title, items, icon: Icon, description }) {
   const safeItems = Array.isArray(items) ? items.filter(Boolean) : [];
   if (!safeItems.length) {
     return null;
   }
+  const listId = useId();
+  const descriptionId = description ? `${listId}-description` : undefined;
+  const normalizedItems = safeItems
+    .map((item) => {
+      if (typeof item === 'string') {
+        return { label: null, value: item, context: null };
+      }
+      if (item && typeof item === 'object') {
+        const label = item.label ?? null;
+        const value = item.value ?? null;
+        const context = item.context ?? null;
+        if (!label && !value && !context) {
+          return null;
+        }
+        return { label, value, context };
+      }
+      return null;
+    })
+    .filter(Boolean);
+
+  if (!normalizedItems.length) {
+    return null;
+  }
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="flex items-center gap-3">
+    <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm" aria-labelledby={listId}>
+      <div className="flex items-start gap-3">
         <div className="rounded-2xl bg-blue-50 p-2 text-blue-600">
-          <Icon className="h-5 w-5" />
+          <Icon className="h-5 w-5" aria-hidden="true" />
         </div>
-        <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+        <div>
+          <h3 id={listId} className="text-base font-semibold text-slate-900">
+            {title}
+          </h3>
+          {description ? (
+            <p id={descriptionId} className="mt-1 text-sm text-slate-500">
+              {description}
+            </p>
+          ) : null}
+        </div>
       </div>
-      <ul className="mt-4 space-y-3 text-sm text-slate-600">
-        {safeItems.map((item, index) => (
+      <ul className="mt-4 space-y-3" aria-describedby={descriptionId}>
+        {normalizedItems.map((item, index) => (
           <li key={index} className="flex items-start gap-3">
-            <span className="mt-1 inline-flex h-2 w-2 flex-shrink-0 rounded-full bg-blue-400" aria-hidden="true" />
-            <span>{item}</span>
+            <span className="mt-2 inline-flex h-2 w-2 flex-shrink-0 rounded-full bg-blue-400" aria-hidden="true" />
+            <div>
+              {item.label ? (
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{item.label}</p>
+              ) : null}
+              {item.value ? <p className="text-sm font-medium text-slate-900">{item.value}</p> : null}
+              {item.context ? <p className="text-xs text-slate-500">{item.context}</p> : null}
+            </div>
           </li>
         ))}
       </ul>
-    </div>
+    </section>
   );
 }
 
 function ForecastCard({ forecast, scenarioPlanning }) {
   const highlights = [
-    `Projected hires: ${formatNumber(forecast.projectedHires)}`,
-    `Time to fill: ${formatNumber(forecast.timeToFillDays, { suffix: ' days' })}`,
-    `Backlog: ${formatNumber(forecast.backlog)}`,
-    `Projects at risk: ${formatNumber(forecast.atRiskProjects)}`,
+    forecast?.projectedHires != null
+      ? {
+          label: 'Projected hires',
+          value: formatNumber(forecast.projectedHires),
+          context:
+            forecast?.projectedHiresDelta != null
+              ? `${forecast.projectedHiresDelta > 0 ? '+' : ''}${formatNumber(
+                  forecast.projectedHiresDelta
+                )} vs prior period`
+              : null,
+        }
+      : null,
+    forecast?.timeToFillDays != null
+      ? {
+          label: 'Time to fill',
+          value: formatNumber(forecast.timeToFillDays, { suffix: ' days' }),
+          context:
+            forecast?.timeToFillTrend != null
+              ? `Trend: ${forecast.timeToFillTrend}`
+              : 'Monitor requisitions nearing SLA.',
+        }
+      : null,
+    forecast?.backlog != null
+      ? {
+          label: 'Backlog roles',
+          value: formatNumber(forecast.backlog),
+          context:
+            forecast?.backlogDelta != null
+              ? `${forecast.backlogDelta > 0 ? '+' : ''}${formatNumber(forecast.backlogDelta)} change`
+              : null,
+        }
+      : null,
+    forecast?.atRiskProjects != null
+      ? {
+          label: 'Projects at risk',
+          value: formatNumber(forecast.atRiskProjects),
+          context: 'Prioritise mitigation plans for high-impact workstreams.',
+        }
+      : null,
   ];
   const scenarioHighlights = [
-    `Draft scenarios: ${formatNumber(scenarioPlanning.total)}`,
-    `Acceleration plans: ${formatNumber(scenarioPlanning.accelerationPlans)}`,
-    `Hiring freezes: ${formatNumber(scenarioPlanning.freezePlans)}`,
-    scenarioPlanning.nextReviewAt
-      ? `Next review: ${formatAbsolute(scenarioPlanning.nextReviewAt)}`
+    scenarioPlanning?.total != null
+      ? {
+          label: 'Draft scenarios',
+          value: formatNumber(scenarioPlanning.total),
+          context: 'Active scenario plans covering hiring outcomes.',
+        }
+      : null,
+    scenarioPlanning?.accelerationPlans != null
+      ? {
+          label: 'Acceleration plans',
+          value: formatNumber(scenarioPlanning.accelerationPlans),
+          context: 'Growth initiatives ready for activation.',
+        }
+      : null,
+    scenarioPlanning?.freezePlans != null
+      ? {
+          label: 'Hiring freezes',
+          value: formatNumber(scenarioPlanning.freezePlans),
+          context: 'Contingencies available for downturn protection.',
+        }
+      : null,
+    scenarioPlanning?.nextReviewAt
+      ? {
+          label: 'Next review',
+          value: formatAbsolute(scenarioPlanning.nextReviewAt),
+          context: 'Ensure executive steering committee is prepared.',
+        }
       : null,
   ];
   return (
     <div className="space-y-4" id="analytics-forecasting">
-      <InsightList title="Forecast signals" icon={ArrowTrendingUpIcon} items={highlights} />
+      <InsightList
+        title="Forecast signals"
+        icon={ArrowTrendingUpIcon}
+        items={highlights}
+        description="Forward-looking hiring health indicators for the selected workspace."
+      />
       <div id="scenarios">
-        <InsightList title="Scenario planning" icon={Squares2X2Icon} items={scenarioHighlights} />
+        <InsightList
+          title="Scenario planning"
+          icon={Squares2X2Icon}
+          items={scenarioHighlights}
+          description="Scenario coverage ensures leadership can pivot without sacrificing momentum."
+        />
       </div>
     </div>
   );
@@ -179,26 +374,72 @@ function ForecastCard({ forecast, scenarioPlanning }) {
 
 function ConversionCard({ conversionRates, velocity, candidateExperience }) {
   const conversionItems = [
-    `Application to interview: ${formatPercent(conversionRates.interviewRate)}`,
-    `Interview to offer: ${formatPercent(conversionRates.offerRate)}`,
-    `Offer to hire: ${formatPercent(conversionRates.hireRate)}`,
-    `Average days to decision: ${formatNumber(velocity.averageDaysToDecision, { suffix: ' days' })}`,
+    conversionRates?.interviewRate != null
+      ? {
+          label: 'Application → interview',
+          value: formatPercent(conversionRates.interviewRate),
+          context: 'Velocity of early funnel screening.',
+        }
+      : null,
+    conversionRates?.offerRate != null
+      ? {
+          label: 'Interview → offer',
+          value: formatPercent(conversionRates.offerRate),
+          context: 'Close alignment between interview teams and hiring managers.',
+        }
+      : null,
+    conversionRates?.hireRate != null
+      ? {
+          label: 'Offer → hire',
+          value: formatPercent(conversionRates.hireRate),
+          context: 'Signals health of compensation and candidate experience.',
+        }
+      : null,
+    velocity?.averageDaysToDecision != null
+      ? {
+          label: 'Average days to decision',
+          value: formatNumber(velocity.averageDaysToDecision, { suffix: ' days' }),
+          context: 'Tracks time to consensus after final interviews.',
+        }
+      : null,
   ];
   const experienceItems = [
     candidateExperience?.nps != null
-      ? `Candidate NPS: ${Number(candidateExperience.nps).toFixed(1)}`
+      ? {
+          label: 'Candidate NPS',
+          value: Number(candidateExperience.nps).toFixed(1),
+          context: 'Quality of experience from application to offer.',
+        }
       : null,
     candidateExperience?.responseCount != null
-      ? `Survey responses: ${formatNumber(candidateExperience.responseCount)}`
+      ? {
+          label: 'Survey responses',
+          value: formatNumber(candidateExperience.responseCount),
+          context: 'Volume of recent qualitative feedback.',
+        }
       : null,
     candidateExperience?.followUpsPending != null
-      ? `Follow-ups pending: ${formatNumber(candidateExperience.followUpsPending)}`
+      ? {
+          label: 'Follow-ups pending',
+          value: formatNumber(candidateExperience.followUpsPending),
+          context: 'Outstanding actions for recruitment operations.',
+        }
       : null,
   ];
   return (
     <div className="space-y-4">
-      <InsightList title="Conversion health" icon={ChartBarIcon} items={conversionItems} />
-      <InsightList title="Experience telemetry" icon={SparklesIcon} items={experienceItems} />
+      <InsightList
+        title="Conversion health"
+        icon={ChartBarIcon}
+        items={conversionItems}
+        description="Monitor pipeline efficiency across each talent funnel milestone."
+      />
+      <InsightList
+        title="Experience telemetry"
+        icon={SparklesIcon}
+        items={experienceItems}
+        description="Sentiment and survey throughput from recent candidates."
+      />
     </div>
   );
 }
@@ -206,39 +447,88 @@ function ConversionCard({ conversionRates, velocity, candidateExperience }) {
 function WorkforceCard({ workforce, mobility }) {
   const workforceItems = [
     workforce?.attritionRiskScore != null
-      ? `Attrition risk score: ${Number(workforce.attritionRiskScore).toFixed(1)}`
+      ? {
+          label: 'Attrition risk score',
+          value: Number(workforce.attritionRiskScore).toFixed(1),
+          context: 'Probability of regrettable departures across the organisation.',
+        }
       : null,
     workforce?.mobilityOpportunities != null
-      ? `Mobility opportunities: ${formatNumber(workforce.mobilityOpportunities)}`
+      ? {
+          label: 'Mobility opportunities',
+          value: formatNumber(workforce.mobilityOpportunities),
+          context: 'Roles surfaced for re-deployment and growth.',
+        }
       : null,
     workforce?.skillGapAlerts != null
-      ? `Skill gap alerts: ${formatNumber(workforce.skillGapAlerts)}`
+      ? {
+          label: 'Skill gap alerts',
+          value: formatNumber(workforce.skillGapAlerts),
+          context: 'Skills requiring enablement or hiring support.',
+        }
       : null,
     workforce?.planAlignment?.variance != null
-      ? `Headcount variance: ${formatNumber(workforce.planAlignment.variance)}`
+      ? {
+          label: 'Headcount variance',
+          value: formatNumber(workforce.planAlignment.variance),
+          context: 'Difference between committed plan and actual headcount.',
+        }
       : null,
   ];
   const cohortItems = Array.isArray(workforce?.cohortComparisons)
     ? workforce.cohortComparisons.slice(0, 3).map((cohort) => {
         const retention = cohort.retentionRate != null ? formatPercent(cohort.retentionRate) : '—';
         const performance = cohort.performanceIndex != null ? cohort.performanceIndex.toFixed(1) : '—';
-        return `${cohort.label}: retention ${retention}, performance ${performance}`;
+        return {
+          label: cohort.label,
+          value: `${retention} retention`,
+          context: `Performance index ${performance}`,
+        };
       })
     : [];
   const mobilityItems = [
-    mobility?.openRoles != null ? `Open internal roles: ${formatNumber(mobility.openRoles)}` : null,
+    mobility?.openRoles != null
+      ? {
+          label: 'Open internal roles',
+          value: formatNumber(mobility.openRoles),
+          context: 'Opportunities available for current team members.',
+        }
+      : null,
     mobility?.referralConversionRate != null
-      ? `Referral conversion: ${formatPercent(mobility.referralConversionRate)}`
+      ? {
+          label: 'Referral conversion',
+          value: formatPercent(mobility.referralConversionRate),
+          context: 'Conversion rate of internal referrals to hires.',
+        }
       : null,
     mobility?.rewardBudgetUsed != null
-      ? `Referral rewards used: ${formatCurrency(mobility.rewardBudgetUsed)}`
+      ? {
+          label: 'Referral rewards used',
+          value: formatCurrency(mobility.rewardBudgetUsed),
+          context: 'Budget consumed to incentivise internal mobility.',
+        }
       : null,
   ];
   return (
     <div className="space-y-4" id="workforce">
-      <InsightList title="Workforce health" icon={UsersIcon} items={workforceItems} />
-      <InsightList title="Cohort benchmarks" icon={QueueListIcon} items={cohortItems} />
-      <InsightList title="Mobility programs" icon={ArrowPathIcon} items={mobilityItems} />
+      <InsightList
+        title="Workforce health"
+        icon={UsersIcon}
+        items={workforceItems}
+        description="Signals that inform retention, enablement, and workforce planning."
+      />
+      <InsightList
+        title="Cohort benchmarks"
+        icon={QueueListIcon}
+        items={cohortItems}
+        description="Compare retention and performance across critical cohorts."
+      />
+      <InsightList
+        title="Mobility programs"
+        icon={ArrowPathIcon}
+        items={mobilityItems}
+        description="Activation points for re-skilling and lateral movement."
+      />
     </div>
   );
 }
@@ -246,25 +536,86 @@ function WorkforceCard({ workforce, mobility }) {
 function SecurityCard({ governance, alerts }) {
   const governanceItems = [
     governance?.pendingApprovals != null
-      ? `Pending approvals: ${formatNumber(governance.pendingApprovals)}`
+      ? {
+          label: 'Pending approvals',
+          value: formatNumber(governance.pendingApprovals),
+          context: 'Awaiting review from compliance or finance leads.',
+        }
       : null,
     governance?.criticalAlerts != null
-      ? `Critical alerts: ${formatNumber(governance.criticalAlerts)}`
+      ? {
+          label: 'Critical alerts',
+          value: formatNumber(governance.criticalAlerts),
+          context: 'High priority items requiring same-day attention.',
+        }
       : null,
-    governance?.workspaceActive === false ? 'Workspace inactive — review billing status' : null,
+    governance?.workspaceActive === false
+      ? {
+          label: 'Workspace status',
+          value: 'Inactive',
+          context: 'Review billing and license configuration.',
+        }
+      : null,
   ];
   const alertItems = Array.isArray(alerts?.items)
     ? alerts.items.slice(0, 3).map((alert) => {
         const label = alert.title ?? alert.type ?? 'Alert';
         const detected = alert.detectedAt ? formatRelativeTime(alert.detectedAt) : 'Recently';
-        return `${label} • ${detected}`;
+        return {
+          label,
+          value: detected,
+          context: alert.summary ?? 'Review incident details in governance workspace.',
+        };
       })
     : [];
   return (
     <div className="space-y-4">
-      <InsightList title="Governance" icon={ShieldCheckIcon} items={governanceItems} />
-      <InsightList title="Recent alerts" icon={ClockIcon} items={alertItems} />
+      <InsightList
+        title="Governance"
+        icon={ShieldCheckIcon}
+        items={governanceItems}
+        description="Compliance and approval checkpoints safeguarding the workspace."
+      />
+      <InsightList
+        title="Recent alerts"
+        icon={ClockIcon}
+        items={alertItems}
+        description="Latest escalations to triage with legal, finance, or security teams."
+      />
     </div>
+  );
+}
+
+function AnalyticsNarrative({ statements, lookbackDays, lastUpdated }) {
+  const titleId = useId();
+  if (!Array.isArray(statements) || statements.length === 0) {
+    return null;
+  }
+  return (
+    <section
+      className="rounded-3xl bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 p-6 text-slate-100 shadow-xl"
+      aria-labelledby={titleId}
+    >
+      <div className="flex flex-col gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-200">Executive summary</p>
+          <h2 id={titleId} className="mt-1 text-2xl font-semibold">
+            What changed in the last {lookbackDays} days
+          </h2>
+        </div>
+        <ul className="space-y-3 text-sm leading-6 text-slate-100">
+          {statements.map((statement, index) => (
+            <li key={index} className="flex items-start gap-3">
+              <span className="mt-2 inline-flex h-1.5 w-1.5 flex-shrink-0 rounded-full bg-emerald-300" aria-hidden="true" />
+              <span>{statement}</span>
+            </li>
+          ))}
+        </ul>
+        {lastUpdated ? (
+          <p className="text-xs text-slate-300">Synced {formatRelativeTime(lastUpdated)}.</p>
+        ) : null}
+      </div>
+    </section>
   );
 }
 
@@ -386,6 +737,19 @@ export default function CompanyAnalyticsPage() {
     ];
   }, [analyticsForecasting, workforceAnalytics, conversionRates]);
 
+  const narrativeStatements = useMemo(
+    () =>
+      buildNarrativeStatements({
+        analyticsForecasting,
+        conversionRates,
+        workforceAnalytics,
+        candidateExperience,
+        alerts,
+        lookbackDays,
+      }),
+    [analyticsForecasting, conversionRates, workforceAnalytics, candidateExperience, alerts, lookbackDays]
+  );
+
   const membershipsList = useMemo(() => (Array.isArray(memberships) ? memberships : []), [memberships]);
 
   const handleWorkspaceChange = (event) => {
@@ -487,6 +851,8 @@ export default function CompanyAnalyticsPage() {
             onRefresh={() => refresh({ force: true })}
           />
         </div>
+
+        <AnalyticsNarrative statements={narrativeStatements} lookbackDays={lookbackDays} lastUpdated={lastUpdated} />
 
         {error ? (
           <div className="rounded-3xl border border-rose-200 bg-rose-50/80 p-6 text-sm text-rose-700">

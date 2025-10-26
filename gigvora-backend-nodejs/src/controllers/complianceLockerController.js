@@ -95,9 +95,9 @@ export async function acknowledgeReminder(req, res) {
     parsePositiveInteger(reminderId, 'reminderId'),
     status ?? 'acknowledged',
     {
-    actorId,
-    logger: req.log,
-    requestId: req.id,
+      actorId,
+      logger: req.log,
+      requestId: req.id,
     },
   );
   res.json(reminder);

@@ -72,6 +72,28 @@ export async function deleteAppearanceLayout(layoutId) {
   return apiClient.delete(`/admin/appearance/layouts/${layoutId}`);
 }
 
+export async function fetchAppearanceComponentProfiles(params = {}) {
+  return apiClient.get('/admin/appearance/components', { params });
+}
+
+export async function createAppearanceComponentProfile(payload) {
+  return apiClient.post('/admin/appearance/components', payload);
+}
+
+export async function updateAppearanceComponentProfile(componentProfileId, payload) {
+  if (!componentProfileId) {
+    throw new Error('componentProfileId is required');
+  }
+  return apiClient.put(`/admin/appearance/components/${componentProfileId}`, payload);
+}
+
+export async function deleteAppearanceComponentProfile(componentProfileId) {
+  if (!componentProfileId) {
+    throw new Error('componentProfileId is required');
+  }
+  return apiClient.delete(`/admin/appearance/components/${componentProfileId}`);
+}
+
 export default {
   fetchAppearanceSummary,
   createAppearanceTheme,
@@ -85,4 +107,8 @@ export default {
   updateAppearanceLayout,
   publishAppearanceLayout,
   deleteAppearanceLayout,
+  fetchAppearanceComponentProfiles,
+  createAppearanceComponentProfile,
+  updateAppearanceComponentProfile,
+  deleteAppearanceComponentProfile,
 };

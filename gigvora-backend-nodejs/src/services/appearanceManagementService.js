@@ -5,16 +5,37 @@ import {
   AppearanceTheme,
   AppearanceAsset,
   AppearanceLayout,
+  AppearanceComponentProfile,
   APPEARANCE_THEME_STATUSES,
   APPEARANCE_ASSET_TYPES,
   APPEARANCE_ASSET_STATUSES,
   APPEARANCE_LAYOUT_STATUSES,
   APPEARANCE_LAYOUT_PAGES,
+  APPEARANCE_COMPONENT_PROFILE_STATUSES,
 } from '../models/appearanceModels.js';
 import { ConflictError, NotFoundError, ValidationError } from '../utils/errors.js';
 import logger from '../utils/logger.js';
+import {
+  DEFAULT_COMPONENT_TOKENS,
+  mergeComponentTokens,
+} from '../../../shared-contracts/domain/platform/component-tokens.js';
 
 const log = logger.child({ module: 'AppearanceManagementService' });
+
+const COMPONENT_KEYS = Object.freeze(['buttonSuite', 'inputFieldSet', 'cardScaffold']);
+const COMPONENT_KEY_LOOKUP = new Map(
+  [
+    ['buttonsuite', 'buttonSuite'],
+    ['buttonsuitejsx', 'buttonSuite'],
+    ['button_suite', 'buttonSuite'],
+    ['inputfieldset', 'inputFieldSet'],
+    ['inputfieldsetjsx', 'inputFieldSet'],
+    ['input_field_set', 'inputFieldSet'],
+    ['cardscaffold', 'cardScaffold'],
+    ['cardscaffoldjsx', 'cardScaffold'],
+    ['card_scaffold', 'cardScaffold'],
+  ].map(([key, value]) => [key.replace(/[^a-z0-9]/gi, '').toLowerCase(), value]),
+);
 
 const DEFAULT_THEME_TOKENS = Object.freeze({
   colors: {
@@ -372,6 +393,30 @@ function sanitizeLayoutConfig(config = {}) {
   return sanitized;
 }
 
+function normalizeComponentKey(value) {
+  const canonical = value && COMPONENT_KEYS.includes(value) ? value : null;
+  if (canonical) {
+    return canonical;
+  }
+  const normalized = coerceString(value)
+    .replace(/[^a-z0-9]/gi, '')
+    .toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+  return COMPONENT_KEY_LOOKUP.get(normalized) ?? null;
+}
+
+function sanitizeComponentDefinition(componentKey, definition) {
+  const overrides = definition && typeof definition === 'object' ? { [componentKey]: definition } : {};
+  const merged = mergeComponentTokens(overrides)[componentKey];
+  return JSON.parse(JSON.stringify(merged));
+}
+
+function sanitizeComponentMetadata(input) {
+  return sanitizeMetadata(input);
+}
+
 function assertThemeExists(theme) {
   if (!theme) {
     throw new NotFoundError('Theme not found.');
@@ -387,6 +432,17 @@ async function ensureThemeById(themeId, { transaction } = {}) {
     throw new ValidationError('Specified theme does not exist.');
   }
   return theme;
+}
+
+async function ensureComponentProfileById(componentId, { transaction } = {}) {
+  if (!componentId) {
+    throw new ValidationError('componentProfileId is required.');
+  }
+  const profile = await AppearanceComponentProfile.findByPk(componentId, { transaction });
+  if (!profile) {
+    throw new NotFoundError('Component profile not found.');
+  }
+  return profile;
 }
 
 function serializeTheme(theme, { includeRelations = false } = {}) {
@@ -419,8 +475,26 @@ function serializeLayout(layout) {
   return object;
 }
 
+function serializeComponentProfile(profile) {
+  if (!profile) {
+    return null;
+  }
+  const object = profile.toPublicObject();
+  const componentKey = normalizeComponentKey(object.componentKey);
+  if (!componentKey) {
+    log.warn({ componentKey: object.componentKey }, 'Encountered component profile with unknown key.');
+    return null;
+  }
+  return {
+    ...object,
+    componentKey,
+    definition: sanitizeComponentDefinition(componentKey, object.definition),
+    metadata: sanitizeComponentMetadata(object.metadata),
+  };
+}
+
 export async function getAppearanceSummary() {
-  const [themes, assets, layouts] = await Promise.all([
+  const [themes, assets, layouts, componentProfiles] = await Promise.all([
     AppearanceTheme.findAll({
       order: [
         ['isDefault', 'DESC'],
@@ -439,9 +513,18 @@ export async function getAppearanceSummary() {
         ['name', 'ASC'],
       ],
     }),
+    AppearanceComponentProfile.findAll({
+      order: [
+        ['componentKey', 'ASC'],
+        ['createdAt', 'DESC'],
+      ],
+    }),
   ]);
 
   const serializedThemes = themes.map((theme) => serializeTheme(theme));
+  const serializedComponentProfiles = componentProfiles
+    .map((profile) => serializeComponentProfile(profile))
+    .filter(Boolean);
   const assetsByTheme = assets.reduce((acc, asset) => {
     const key = asset.themeId ?? 'unassigned';
     if (!acc[key]) acc[key] = [];
@@ -454,12 +537,20 @@ export async function getAppearanceSummary() {
     acc[key].push(layout);
     return acc;
   }, {});
+  const componentsByTheme = serializedComponentProfiles.reduce((acc, component) => {
+    const key = component.themeId ?? 'unassigned';
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(component);
+    return acc;
+  }, {});
 
   const enrichedThemes = serializedThemes.map((theme) => ({
     ...theme,
+    componentProfiles: componentsByTheme[theme.id] ?? [],
     stats: {
       assetCount: (assetsByTheme[theme.id] ?? []).length,
       layoutCount: (layoutsByTheme[theme.id] ?? []).length,
+      componentProfileCount: (componentsByTheme[theme.id] ?? []).length,
     },
   }));
 
@@ -467,6 +558,7 @@ export async function getAppearanceSummary() {
     themes: enrichedThemes,
     assets: assets.map((asset) => serializeAsset(asset)),
     layouts: layouts.map((layout) => serializeLayout(layout)),
+    componentProfiles: serializedComponentProfiles,
     stats: {
       totalThemes: themes.length,
       activeThemes: themes.filter((theme) => theme.status === 'active').length,
@@ -475,6 +567,8 @@ export async function getAppearanceSummary() {
       activeAssets: assets.filter((asset) => asset.status === 'active').length,
       totalLayouts: layouts.length,
       publishedLayouts: layouts.filter((layout) => layout.status === 'published').length,
+      totalComponentProfiles: serializedComponentProfiles.length,
+      activeComponentProfiles: serializedComponentProfiles.filter((profile) => profile.status === 'active').length,
     },
   };
 }
@@ -876,6 +970,148 @@ export async function deleteLayout(layoutId) {
   return { success: true };
 }
 
+export async function listComponentProfiles({ themeId, status } = {}) {
+  const where = {};
+  if (themeId) {
+    where.themeId = themeId;
+  }
+  if (status) {
+    const normalizedStatus = normalizeStatus(status, APPEARANCE_COMPONENT_PROFILE_STATUSES, null);
+    if (!normalizedStatus) {
+      throw new ValidationError(
+        `status must be one of: ${APPEARANCE_COMPONENT_PROFILE_STATUSES.join(', ')}`,
+      );
+    }
+    where.status = normalizedStatus;
+  }
+
+  const profiles = await AppearanceComponentProfile.findAll({
+    where,
+    order: [
+      ['componentKey', 'ASC'],
+      ['createdAt', 'DESC'],
+    ],
+  });
+
+  return profiles
+    .map((profile) => serializeComponentProfile(profile))
+    .filter(Boolean);
+}
+
+export async function createComponentProfile(payload = {}, { actorId } = {}) {
+  const componentKey = normalizeComponentKey(payload.componentKey);
+  if (!componentKey) {
+    throw new ValidationError(`componentKey must be one of: ${COMPONENT_KEYS.join(', ')}`);
+  }
+
+  let themeId = null;
+  if (payload.themeId) {
+    const theme = await ensureThemeById(payload.themeId);
+    themeId = theme.id;
+  }
+
+  const status = normalizeStatus(payload.status, APPEARANCE_COMPONENT_PROFILE_STATUSES, 'active');
+  const definition = sanitizeComponentDefinition(componentKey, payload.definition);
+  const metadata = sanitizeComponentMetadata(payload.metadata);
+
+  const profile = await sequelize.transaction(async (transaction) => {
+    const existing = await AppearanceComponentProfile.findOne({
+      where: { themeId, componentKey },
+      transaction,
+    });
+    if (existing) {
+      throw new ConflictError('A component profile already exists for this theme.');
+    }
+
+    const created = await AppearanceComponentProfile.create(
+      {
+        themeId,
+        componentKey,
+        status,
+        definition,
+        metadata,
+        createdBy: actorId ?? null,
+        updatedBy: actorId ?? null,
+      },
+      { transaction },
+    );
+
+    return created;
+  });
+
+  return serializeComponentProfile(profile);
+}
+
+export async function updateComponentProfile(componentProfileId, payload = {}, { actorId } = {}) {
+  const profile = await ensureComponentProfileById(componentProfileId);
+
+  return sequelize.transaction(async (transaction) => {
+    let nextThemeId = profile.themeId;
+    if (payload.themeId !== undefined) {
+      if (!payload.themeId) {
+        nextThemeId = null;
+      } else {
+        const theme = await ensureThemeById(payload.themeId, { transaction });
+        nextThemeId = theme.id;
+      }
+    }
+
+    let nextComponentKey = profile.componentKey;
+    if (payload.componentKey !== undefined) {
+      const normalizedKey = normalizeComponentKey(payload.componentKey);
+      if (!normalizedKey) {
+        throw new ValidationError(`componentKey must be one of: ${COMPONENT_KEYS.join(', ')}`);
+      }
+      nextComponentKey = normalizedKey;
+    }
+
+    const updates = {};
+
+    if (payload.status !== undefined) {
+      updates.status = normalizeStatus(
+        payload.status,
+        APPEARANCE_COMPONENT_PROFILE_STATUSES,
+        profile.status,
+      );
+    }
+
+    if (payload.definition !== undefined) {
+      updates.definition = sanitizeComponentDefinition(nextComponentKey, payload.definition);
+    }
+
+    if (payload.metadata !== undefined) {
+      updates.metadata = sanitizeComponentMetadata(payload.metadata);
+    }
+
+    updates.componentKey = nextComponentKey;
+    updates.themeId = nextThemeId;
+    updates.updatedBy = actorId ?? profile.updatedBy ?? null;
+
+    const duplicate = await AppearanceComponentProfile.findOne({
+      where: {
+        id: { [Op.ne]: profile.id },
+        themeId: nextThemeId,
+        componentKey: nextComponentKey,
+      },
+      transaction,
+    });
+
+    if (duplicate) {
+      throw new ConflictError('A component profile already exists for this theme.');
+    }
+
+    await profile.update(updates, { transaction });
+
+    return serializeComponentProfile(profile);
+  });
+}
+
+export async function deleteComponentProfile(componentProfileId) {
+  const profile = await ensureComponentProfileById(componentProfileId);
+  await profile.destroy();
+  return { id: componentProfileId, deleted: true };
+}
+
 export default {
   getAppearanceSummary,
   createTheme,
@@ -889,4 +1125,8 @@ export default {
   updateLayout,
   publishLayout,
   deleteLayout,
+  listComponentProfiles,
+  createComponentProfile,
+  updateComponentProfile,
+  deleteComponentProfile,
 };

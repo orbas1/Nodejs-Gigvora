@@ -1,6 +1,6 @@
-import { Navigate, useLocation, Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { ShieldExclamationIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline';
-import useSession from '../../hooks/useSession.js';
+import ProtectedRoute from '../routing/ProtectedRoute.jsx';
 
 function AccessDeniedNotice({ role }) {
   const normalizedRole = role ? role.charAt(0).toUpperCase() + role.slice(1) : 'workspace';
@@ -65,25 +65,32 @@ function AccessDeniedNotice({ role }) {
 }
 
 export default function RequireMembership({ role, children, fallback = null }) {
-  const location = useLocation();
-  const { session, isAuthenticated } = useSession();
+  const normalizedRole = role ? role.toLowerCase() : null;
+  const allowed = normalizedRole ? [normalizedRole] : [];
 
-  if (!isAuthenticated) {
+  const renderForbidden = () => {
+    if (fallback) {
+      return fallback;
+    }
+    return <AccessDeniedNotice role={normalizedRole} />;
+  };
+
+  const renderUnauthenticated = ({ location }) => {
     if (fallback) {
       return fallback;
     }
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
-  }
+  };
 
-  const memberships = Array.isArray(session?.memberships) ? session.memberships : [];
-  const hasAccess = role ? memberships.includes(role) : true;
-
-  if (!hasAccess) {
-    if (fallback) {
-      return fallback;
-    }
-    return <AccessDeniedNotice role={role} />;
-  }
-
-  return children;
+  return (
+    <ProtectedRoute
+      allowedMemberships={allowed}
+      allowedRoles={allowed}
+      preferDashboardRedirect={false}
+      fallback={renderForbidden}
+      unauthenticatedFallback={renderUnauthenticated}
+    >
+      {children}
+    </ProtectedRoute>
+  );
 }

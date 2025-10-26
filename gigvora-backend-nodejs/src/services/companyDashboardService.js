@@ -118,6 +118,8 @@ const {
   NetworkingBusinessCard: NetworkingBusinessCardRaw,
   WorkspaceIntegration: WorkspaceIntegrationRaw,
   WorkspaceCalendarConnection: WorkspaceCalendarConnectionRaw,
+  ExecutiveScenarioPlan: ExecutiveScenarioPlanRaw,
+  ExecutiveScenarioBreakdown: ExecutiveScenarioBreakdownRaw,
 } = models;
 
 const EmployerBrandAssetModel = withDefaultModel(EmployerBrandAsset);
@@ -176,6 +178,8 @@ const NetworkingSessionSignupModel = withDefaultModel(NetworkingSessionSignupRaw
 const NetworkingBusinessCardModel = withDefaultModel(NetworkingBusinessCardRaw);
 const WorkspaceIntegrationModel = withDefaultModel(WorkspaceIntegrationRaw);
 const WorkspaceCalendarConnectionModel = withDefaultModel(WorkspaceCalendarConnectionRaw);
+const ExecutiveScenarioPlanModel = withDefaultModel(ExecutiveScenarioPlanRaw);
+const ExecutiveScenarioBreakdownModel = withDefaultModel(ExecutiveScenarioBreakdownRaw);
 const PartnerAgreementModel = withDefaultModel(PartnerAgreementRaw);
 const PartnerCommissionModel = withDefaultModel(PartnerCommissionRaw);
 const PartnerSlaSnapshotModel = withDefaultModel(PartnerSlaSnapshotRaw);
@@ -464,6 +468,72 @@ function toDateKey(value) {
     return null;
   }
   return date.toISOString().slice(0, 10);
+}
+
+function parseDate(value) {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function summariseApplicationsByWindow(applications = [], { start, end }) {
+  const records = (Array.isArray(applications) ? applications : []).map((application) =>
+    toPlainRecord(application),
+  );
+  const decisionDurations = [];
+  let applicationsCount = 0;
+  let hiresCount = 0;
+
+  records.forEach((application) => {
+    const submittedAt = parseDate(application?.submittedAt ?? application?.createdAt);
+    if (!submittedAt) {
+      return;
+    }
+    if (start && submittedAt < start) {
+      return;
+    }
+    if (end && submittedAt >= end) {
+      return;
+    }
+
+    applicationsCount += 1;
+    if (`${application?.status ?? ''}`.toLowerCase() === 'hired') {
+      hiresCount += 1;
+    }
+
+    const decisionAt = parseDate(application?.decisionAt);
+    if (decisionAt) {
+      const duration = differenceInDays(submittedAt, decisionAt);
+      if (Number.isFinite(duration)) {
+        decisionDurations.push(duration);
+      }
+    }
+  });
+
+  return {
+    applications: applicationsCount,
+    hires: hiresCount,
+    averageDecisionTime: decisionDurations.length ? Number(average(decisionDurations).toFixed(1)) : null,
+  };
+}
+
+function summariseJobsByWindow(jobs = [], { start, end }) {
+  const records = (Array.isArray(jobs) ? jobs : []).map((job) => toPlainRecord(job));
+  return records.reduce((count, job) => {
+    const createdAt = parseDate(job?.createdAt ?? job?.postedAt ?? job?.openedAt ?? job?.updatedAt);
+    if (!createdAt) {
+      return count;
+    }
+    if (start && createdAt < start) {
+      return count;
+    }
+    if (end && createdAt >= end) {
+      return count;
+    }
+    return count + 1;
+  }, 0);
 }
 
 function normalizeStageKey(value) {
@@ -1756,6 +1826,24 @@ async function fetchCalendarConnections({ workspaceId }) {
   });
 }
 
+async function fetchScenarioPlans({ workspaceId }) {
+  return safeFindAll(ExecutiveScenarioPlanModel, {
+    where: { workspaceId },
+    include: [
+      {
+        model: ExecutiveScenarioBreakdownModel,
+        as: 'breakdowns',
+        required: false,
+      },
+    ],
+    order: [
+      ['timeframeEnd', 'ASC'],
+      ['updatedAt', 'DESC'],
+    ],
+    limit: 30,
+  });
+}
+
 function buildJobSummary({ jobs, gigs }) {
   const total = jobs.length + gigs.length;
   const byType = {
@@ -2430,6 +2518,11 @@ function buildDiversityMetrics(snapshots) {
 
 function sanitizeAlert(alert) {
   const plain = alert?.get ? alert.get({ plain: true }) : alert;
+  const metadata = normaliseMetadata(plain?.metadata);
+  const title = metadata?.title ?? normalizeCategory(plain?.category ?? 'Alert');
+  const summary = metadata?.summary ?? plain?.message ?? null;
+  const type = metadata?.type ?? plain?.category ?? null;
+
   return {
     id: plain.id,
     category: plain.category,
@@ -2438,6 +2531,10 @@ function sanitizeAlert(alert) {
     message: plain.message,
     detectedAt: plain.detectedAt,
     resolvedAt: plain.resolvedAt,
+    title,
+    summary,
+    type,
+    link: metadata?.link ?? null,
   };
 }
 
@@ -3169,18 +3266,101 @@ function buildApplicantRelationshipManagerSummary({ surveys, pipelineSummary, pa
   };
 }
 
-function buildAnalyticsForecastingSummary({ pipelineSummary, jobSummary, projectSummary }) {
-  const applications = pipelineSummary?.totals?.applications ?? 0;
-  const hireRate = pipelineSummary?.conversionRates?.hireRate ?? 0;
-  const projectedHires = Math.round((applications * hireRate) / 100);
-  const backlog = (jobSummary?.total ?? 0) - projectedHires;
+function buildAnalyticsForecastingSummary({
+  pipelineSummary,
+  jobSummary,
+  projectSummary,
+  applications,
+  jobs,
+  lookbackDays,
+  now = new Date(),
+  scenarioPlanning = null,
+}) {
+  const totals = pipelineSummary?.totals ?? {};
+  const conversion = pipelineSummary?.conversionRates ?? {};
+  const velocity = pipelineSummary?.velocity ?? {};
+
+  const totalApplications = Number(totals.applications ?? 0);
+  const hireRate = Number(conversion.hireRate ?? 0);
+  const projectedHires = Math.max(0, Math.round((totalApplications * hireRate) / 100));
+  const backlogRaw = (jobSummary?.total ?? 0) - projectedHires;
+  const backlog = backlogRaw > 0 ? backlogRaw : 0;
   const atRiskProjects = projectSummary?.totals?.atRisk ?? 0;
+
+  const windowDays = clamp(lookbackDays ?? MIN_LOOKBACK_DAYS, {
+    min: MIN_LOOKBACK_DAYS,
+    max: MAX_LOOKBACK_DAYS,
+    fallback: MIN_LOOKBACK_DAYS,
+  });
+  const windowMs = windowDays * 24 * 60 * 60 * 1000;
+  const halfWindowMs = Math.max(windowMs / 2, 24 * 60 * 60 * 1000);
+  const periodStart = new Date(now.getTime() - windowMs);
+  const periodMidpoint = new Date(now.getTime() - halfWindowMs);
+
+  const previousWindow = summariseApplicationsByWindow(applications, {
+    start: periodStart,
+    end: periodMidpoint,
+  });
+  const recentWindow = summariseApplicationsByWindow(applications, {
+    start: periodMidpoint,
+    end: now,
+  });
+
+  const previousHireRate = previousWindow.applications
+    ? (previousWindow.hires / previousWindow.applications) * 100
+    : 0;
+  const previousProjected = previousWindow.applications
+    ? Math.round((previousWindow.applications * previousHireRate) / 100)
+    : previousWindow.hires;
+  const projectedHiresDelta = projectedHires - previousProjected;
+
+  const jobRecords = Array.isArray(jobs) ? jobs : [];
+  const previousJobCount = summariseJobsByWindow(jobRecords, {
+    start: periodStart,
+    end: periodMidpoint,
+  });
+  const backlogPrevious = Math.max(0, previousJobCount - previousProjected);
+  const backlogDelta = backlog - backlogPrevious;
+
+  const currentTimeToFill = velocity?.averageDaysToDecision != null ? Number(velocity.averageDaysToDecision) : null;
+  const previousAverageDecision = previousWindow.averageDecisionTime;
+  let timeToFillTrend = null;
+
+  if (currentTimeToFill != null && previousAverageDecision != null) {
+    const delta = Number((currentTimeToFill - previousAverageDecision).toFixed(1));
+    if (Math.abs(delta) < 0.1) {
+      timeToFillTrend = 'Stable vs prior window';
+    } else if (delta > 0) {
+      timeToFillTrend = `Up ${Math.abs(delta).toFixed(1)} days vs prior window`;
+    } else {
+      timeToFillTrend = `Down ${Math.abs(delta).toFixed(1)} days vs prior window`;
+    }
+  } else if (currentTimeToFill != null) {
+    timeToFillTrend = 'Tracking current period';
+  }
 
   return {
     projectedHires,
-    backlog: backlog > 0 ? backlog : 0,
-    timeToFillDays: pipelineSummary?.velocity?.averageDaysToDecision ?? null,
+    projectedHiresDelta,
+    backlog,
+    backlogDelta,
+    timeToFillDays: currentTimeToFill != null ? Number(currentTimeToFill.toFixed(1)) : null,
+    timeToFillTrend,
     atRiskProjects,
+    scenarios: scenarioPlanning,
+    windows: {
+      lookbackDays: windowDays,
+      previous: {
+        applications: previousWindow.applications,
+        hires: previousWindow.hires,
+        averageDaysToDecision: previousWindow.averageDecisionTime,
+      },
+      recent: {
+        applications: recentWindow.applications,
+        hires: recentWindow.hires,
+        averageDaysToDecision: recentWindow.averageDecisionTime,
+      },
+    },
   };
 }
 
@@ -5833,6 +6013,78 @@ function buildGovernanceComplianceSummary({ policies, audits, accessibilityAudit
   };
 }
 
+function buildScenarioPlanningSummary({ plans = [], now = new Date(), lookbackDays }) {
+  const planRecords = (Array.isArray(plans) ? plans : []).map((plan) => {
+    const plain = plan?.get ? plan.get({ plain: true }) : plan;
+    const breakdowns = Array.isArray(plain?.breakdowns)
+      ? plain.breakdowns.map((breakdown) => (breakdown?.get ? breakdown.get({ plain: true }) : breakdown))
+      : [];
+    return { ...plain, breakdowns };
+  });
+
+  if (!planRecords.length) {
+    return {
+      total: 0,
+      accelerationPlans: 0,
+      freezePlans: 0,
+      basePlans: 0,
+      nextReviewAt: null,
+      coverageByDimension: {},
+      highlights: [],
+      lastUpdatedAt: null,
+    };
+  }
+
+  const total = planRecords.length;
+  const accelerationPlans = planRecords.filter((plan) => plan.scenarioType === 'best').length;
+  const freezePlans = planRecords.filter((plan) => plan.scenarioType === 'worst').length;
+  const basePlans = planRecords.filter((plan) => plan.scenarioType === 'base').length;
+
+  const coverageByDimension = planRecords.reduce((acc, plan) => {
+    (plan.breakdowns ?? []).forEach((breakdown) => {
+      const type = breakdown?.dimensionType ?? 'segment';
+      acc.set(type, (acc.get(type) ?? 0) + 1);
+    });
+    return acc;
+  }, new Map());
+
+  const upcomingReview = planRecords
+    .map((plan) => parseDate(plan.timeframeEnd))
+    .filter((date) => date && date >= now)
+    .sort((a, b) => a - b)[0];
+
+  const highlights = planRecords
+    .flatMap((plan) => {
+      const breakdowns = Array.isArray(plan.breakdowns) ? plan.breakdowns : [];
+      return breakdowns.slice(0, 2).map((breakdown) => ({
+        scenarioId: plan.id,
+        scenarioType: plan.scenarioType,
+        dimensionLabel: breakdown.dimensionLabel,
+        revenueImpact: safeNumber(breakdown.revenue, 2, 0),
+        utilization: breakdown.utilization == null ? null : Number(breakdown.utilization),
+        owner: breakdown.owner ?? null,
+      }));
+    })
+    .slice(0, 5);
+
+  const lastUpdatedAt = planRecords
+    .map((plan) => parseDate(plan.updatedAt))
+    .filter(Boolean)
+    .sort((a, b) => b - a)[0];
+
+  return {
+    total,
+    accelerationPlans,
+    freezePlans,
+    basePlans,
+    nextReviewAt: upcomingReview ? upcomingReview.toISOString() : null,
+    coverageByDimension: Object.fromEntries(coverageByDimension.entries()),
+    highlights,
+    lastUpdatedAt: lastUpdatedAt ? lastUpdatedAt.toISOString() : null,
+    lookbackDays: lookbackDays ?? null,
+  };
+}
+
 function buildEmployerBrandWorkforceIntelligence({
   profile,
   sections,
@@ -6664,6 +6916,7 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       agencyMentoringSessions,
       agencyMentoringPurchases,
       agencyMentorPreferences,
+      scenarioPlans,
     ] = await Promise.all([
       fetchApplications({ workspaceId: workspace.id, since }),
       fetchJobs({ since }),
@@ -6706,6 +6959,7 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       fetchAgencyMentoringSessions({ workspaceId: workspace.id, since }),
       fetchAgencyMentoringPurchases({ workspaceId: workspace.id, since }),
       fetchAgencyMentorPreferences({ workspaceId: workspace.id }),
+      fetchScenarioPlans({ workspaceId: workspace.id }),
     ]);
 
     const agencyCollaborationIds = agencyCollaborations.map((collaboration) => collaboration.id).filter((id) => id != null);
@@ -6816,6 +7070,8 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
 
     const recentNotes = buildRecentNotes(notes);
 
+    const now = new Date();
+
     const offersAccepted = pipelineSummary.totals.hires;
     const offersExtended = pipelineSummary.totals.offers;
     const offers = {
@@ -6843,7 +7099,21 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       pipelineSummary,
       partnerSummary,
     });
-    const analyticsForecasting = buildAnalyticsForecastingSummary({ pipelineSummary, jobSummary, projectSummary });
+    const scenarioPlanning = buildScenarioPlanningSummary({
+      plans: scenarioPlans,
+      now,
+      lookbackDays: lookback,
+    });
+    const analyticsForecasting = buildAnalyticsForecastingSummary({
+      pipelineSummary,
+      jobSummary,
+      projectSummary,
+      applications,
+      jobs: [...jobs, ...gigs],
+      lookbackDays: lookback,
+      now,
+      scenarioPlanning,
+    });
     const interviewScheduler = buildInterviewSchedulerDetail({
       schedules: interviewSchedules,
       availability: interviewerAvailability,
@@ -7093,7 +7363,6 @@ export async function getCompanyDashboard({ workspaceId, workspaceSlug, lookback
       });
     }
 
-    const now = new Date();
     const formattedDate = new Intl.DateTimeFormat('en-US', {
       timeZone: timezone,
       dateStyle: 'full',

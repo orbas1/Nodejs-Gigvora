@@ -174,6 +174,31 @@ export const addParticipantsBodySchema = z
   })
   .strip();
 
+const pinnedOrderArray = z.preprocess((value) => {
+  if (value == null) {
+    return [];
+  }
+  if (Array.isArray(value)) {
+    return value;
+  }
+  return [`${value}`];
+}, z.array(positiveId('threadId')).max(50, { message: 'threadIds supports a maximum of 50 entries.' }));
+
+export const reorderPinnedThreadsBodySchema = z
+  .object({
+    userId: positiveId('userId').optional(),
+    threadIds: pinnedOrderArray.optional(),
+    order: pinnedOrderArray.optional(),
+  })
+  .strip()
+  .transform((value) => {
+    const result = { threadIds: value.threadIds ?? value.order ?? [] };
+    if (value.userId != null) {
+      result.userId = value.userId;
+    }
+    return result;
+  });
+
 export const listThreadsQuerySchema = z
   .object({
     channelTypes: optionalTrimmedString({ max: 255 }).transform((value) => value ?? undefined),
