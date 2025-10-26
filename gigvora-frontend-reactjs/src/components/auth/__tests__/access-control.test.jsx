@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import ProtectedRoute from '../ProtectedRoute.jsx';
+import ProtectedRoute from '../../routing/ProtectedRoute.jsx';
 import MembershipGate from '../MembershipGate.jsx';
 
 vi.mock('../../../hooks/useSession.js', () => ({
@@ -50,7 +50,7 @@ describe('Access control components', () => {
           <Route
             path="/secure"
             element={
-              <ProtectedRoute allowedMemberships={['company']}>
+              <ProtectedRoute allowedMemberships={['company']} preferDashboardRedirect>
                 <div>Hidden content</div>
               </ProtectedRoute>
             }
