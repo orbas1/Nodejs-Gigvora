@@ -12,6 +12,7 @@ import {
 import { useLayout } from '../context/LayoutContext.jsx';
 import { fetchInbox } from '../services/messaging.js';
 import analytics from '../services/analytics.js';
+import useNotificationCenter from '../hooks/useNotificationCenter.js';
 
 function normaliseThreadPreview(thread) {
   if (!thread) {
@@ -37,11 +38,23 @@ function normaliseThreadPreview(thread) {
   };
 }
 
+const noop = () => {};
+
 export default function Header() {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const { session, isAuthenticated, logout } = useSession();
   const { navOpen, openNav, closeNav } = useLayout();
+  const {
+    notifications: trayNotifications,
+    unreadNotificationCount,
+    markNotificationAsRead,
+    markAllNotificationsAsRead,
+    messageThreads: trayThreads,
+    unreadMessageCount,
+    markThreadAsRead,
+    markAllThreadsAsRead,
+  } = useNotificationCenter(session);
   const isMountedRef = useRef(true);
   const [inboxPreview, setInboxPreview] = useState({
     threads: [],
@@ -100,6 +113,104 @@ export default function Header() {
   const roleOptions = useMemo(() => buildRoleOptions(session), [session]);
   const marketingMenus = useMemo(() => PRIMARY_NAVIGATION.menus, []);
   const marketingSearch = PRIMARY_NAVIGATION.search;
+  const headerNotifications = useMemo(
+    () => (Array.isArray(trayNotifications) ? trayNotifications : []),
+    [trayNotifications],
+  );
+  const headerThreads = useMemo(() => (Array.isArray(trayThreads) ? trayThreads : []), [trayThreads]);
+  const safeMarkNotification = typeof markNotificationAsRead === 'function' ? markNotificationAsRead : noop;
+  const safeMarkAllNotifications =
+    typeof markAllNotificationsAsRead === 'function' ? markAllNotificationsAsRead : noop;
+  const safeMarkThread = typeof markThreadAsRead === 'function' ? markThreadAsRead : noop;
+  const safeMarkAllThreads = typeof markAllThreadsAsRead === 'function' ? markAllThreadsAsRead : noop;
+  const unreadBellNotifications = Number.isFinite(unreadNotificationCount) ? unreadNotificationCount : 0;
+  const unreadBellThreads = Number.isFinite(unreadMessageCount) ? unreadMessageCount : 0;
+
+  const handleNotificationBellOpen = useCallback(() => {
+    analytics.track('web_header_notification_popover_opened', {
+      unread: unreadBellNotifications,
+      unreadThreads: unreadBellThreads,
+    });
+  }, [unreadBellNotifications, unreadBellThreads]);
+
+  const handleNotificationBellSelect = useCallback(
+    (notification) => {
+      if (!notification) {
+        return;
+      }
+      analytics.track('web_header_notification_preview_selected', {
+        notificationId: notification.id,
+        type: notification.type || notification.category || 'activity',
+      });
+      if (notification?.id != null) {
+        safeMarkNotification(notification.id);
+      }
+      if (notification.action?.href && typeof window !== 'undefined') {
+        try {
+          const url = new URL(notification.action.href, window.location.origin);
+          if (url.protocol === 'https:' || url.origin === window.location.origin) {
+            window.location.assign(url.toString());
+          }
+        } catch (error) {
+          console.warn('Unable to open header notification action', error);
+        }
+      }
+    },
+    [safeMarkNotification],
+  );
+
+  const handleNotificationPreferences = useCallback(() => {
+    analytics.track('web_header_notification_preferences_shortcut', {});
+    navigate('/settings/notifications');
+  }, [navigate]);
+
+  const handleBellThreadOpen = useCallback(
+    (thread) => {
+      if (!thread) {
+        return;
+      }
+      analytics.track('web_header_notification_thread_selected', {
+        threadId: thread.id,
+      });
+      if (thread.id != null) {
+        safeMarkThread(thread.id);
+      }
+      navigate(`/inbox?thread=${encodeURIComponent(thread.id)}`);
+    },
+    [navigate, safeMarkThread],
+  );
+
+  const handleBellMarkAll = useCallback(() => {
+    safeMarkAllNotifications();
+    safeMarkAllThreads();
+  }, [safeMarkAllNotifications, safeMarkAllThreads]);
+
+  const notificationTray = useMemo(
+    () => ({
+      notifications: headerNotifications,
+      messageThreads: headerThreads,
+      unreadNotificationCount: unreadBellNotifications,
+      unreadMessageCount: unreadBellThreads,
+      onNotificationOpen: handleNotificationBellSelect,
+      onNotificationRead: safeMarkNotification,
+      onThreadOpen: handleBellThreadOpen,
+      onMarkAllNotifications: handleBellMarkAll,
+      onOpenPreferences: handleNotificationPreferences,
+      onBellOpen: handleNotificationBellOpen,
+    }),
+    [
+      headerNotifications,
+      headerThreads,
+      unreadBellNotifications,
+      unreadBellThreads,
+      handleNotificationBellSelect,
+      safeMarkNotification,
+      handleBellThreadOpen,
+      handleBellMarkAll,
+      handleNotificationPreferences,
+      handleNotificationBellOpen,
+    ],
+  );
 
   const refreshInboxPreview = useCallback(async () => {
     if (!isAuthenticated) {
@@ -221,6 +332,7 @@ export default function Header() {
       t={t}
       session={session}
       onMarketingSearch={handleMarketingSearch}
+      notificationTray={notificationTray}
     />
   );
 }

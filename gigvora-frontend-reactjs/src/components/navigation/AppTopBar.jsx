@@ -13,6 +13,7 @@ import { LOGO_SRCSET, LOGO_URL } from '../../constants/branding.js';
 import { classNames } from '../../utils/classNames.js';
 import { resolveInitials } from '../../utils/user.js';
 import { formatRelativeTime } from '../../utils/date.js';
+import NotificationBell from '../notifications/NotificationBell.jsx';
 
 function UserMenu({ session, onLogout }) {
   const initials = resolveInitials(session?.name ?? session?.email ?? 'GV');
@@ -301,9 +302,24 @@ export default function AppTopBar({
   t,
   session,
   onMarketingSearch,
+  notificationTray,
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const resolvedMarketingMenus = marketingNavigation ?? [];
+
+  const {
+    notifications: trayNotifications = [],
+    messageThreads: trayThreads = [],
+    unreadNotificationCount: trayUnreadNotifications = 0,
+    unreadMessageCount: trayUnreadThreads = 0,
+    onNotificationOpen,
+    onNotificationRead,
+    onThreadOpen,
+    onMarkAllNotifications,
+    onOpenPreferences,
+    onBellOpen,
+    markAllNotificationsBusy: trayMarkAllBusy = false,
+  } = notificationTray ?? {};
 
   const handleSearchSubmit = (event) => {
     event.preventDefault();
@@ -392,6 +408,21 @@ export default function AppTopBar({
               onOpen={onInboxMenuOpen}
               onThreadClick={onInboxThreadClick}
               status={connectionState}
+            />
+          ) : null}
+          {isAuthenticated ? (
+            <NotificationBell
+              notifications={trayNotifications}
+              messageThreads={trayThreads}
+              unreadNotificationCount={trayUnreadNotifications}
+              unreadMessageCount={trayUnreadThreads}
+              onNotificationOpen={onNotificationOpen}
+              onNotificationRead={onNotificationRead}
+              onThreadOpen={onThreadOpen}
+              onMarkAllNotifications={onMarkAllNotifications}
+              onOpenPreferences={onOpenPreferences}
+              onBellOpen={onBellOpen}
+              markAllBusy={trayMarkAllBusy}
             />
           ) : null}
           <LanguageSelector className="hidden flex-none sm:inline-flex" />
@@ -489,6 +520,19 @@ AppTopBar.propTypes = {
   t: PropTypes.func.isRequired,
   session: PropTypes.object,
   onMarketingSearch: PropTypes.func,
+  notificationTray: PropTypes.shape({
+    notifications: PropTypes.array,
+    messageThreads: PropTypes.array,
+    unreadNotificationCount: PropTypes.number,
+    unreadMessageCount: PropTypes.number,
+    onNotificationOpen: PropTypes.func,
+    onNotificationRead: PropTypes.func,
+    onThreadOpen: PropTypes.func,
+    onMarkAllNotifications: PropTypes.func,
+    onOpenPreferences: PropTypes.func,
+    onBellOpen: PropTypes.func,
+    markAllNotificationsBusy: PropTypes.bool,
+  }),
 };
 
 AppTopBar.defaultProps = {
@@ -498,4 +542,5 @@ AppTopBar.defaultProps = {
   currentRoleKey: 'user',
   session: null,
   onMarketingSearch: undefined,
+  notificationTray: null,
 };

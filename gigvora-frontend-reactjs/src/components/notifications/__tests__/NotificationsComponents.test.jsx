@@ -1,10 +1,14 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import AlertComposer from '../AlertComposer.jsx';
 import AlertInbox from '../AlertInbox.jsx';
 import AlertSettings from '../AlertSettings.jsx';
 import AlertWorkspaceDrawer from '../AlertWorkspaceDrawer.jsx';
 import DashboardNotificationCenterSection from '../DashboardNotificationCenterSection.jsx';
+import NotificationBell from '../NotificationBell.jsx';
+import NotificationCenter from '../NotificationCenter.jsx';
+import AlertPreferences from '../AlertPreferences.jsx';
 import {
   createUserNotification,
   fetchUserNotifications,
@@ -190,6 +194,119 @@ describe('AlertWorkspaceDrawer', () => {
       />,
     );
     expect(await screen.findByText('Channels')).toBeInTheDocument();
+  });
+});
+
+describe('NotificationBell', () => {
+  it('opens tray and triggers mark all handler', async () => {
+    const onMarkAll = vi.fn();
+    render(
+      <MemoryRouter>
+        <NotificationBell
+          notifications={[
+            {
+              id: 'notif-1',
+              title: 'Co-host invite',
+              body: 'Atlas Studio invited you to co-host a sprint.',
+              timestamp: new Date().toISOString(),
+              type: 'invite',
+            },
+          ]}
+          unreadNotificationCount={1}
+          onMarkAllNotifications={onMarkAll}
+          onNotificationOpen={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText(/1 unread alerts/i));
+    });
+
+    const markAllButton = await screen.findByRole('button', { name: /mark all read/i });
+
+    await act(async () => {
+      fireEvent.click(markAllButton);
+    });
+
+    expect(onMarkAll).toHaveBeenCalled();
+  });
+});
+
+describe('NotificationCenter', () => {
+  it('filters between alerts and messages', async () => {
+    const onNotificationRead = vi.fn();
+    const onThreadRead = vi.fn();
+
+    render(
+      <NotificationCenter
+        notifications={[
+          {
+            id: 'alert-1',
+            title: 'Co-host invite',
+            body: 'Atlas Studio invited you to co-host a sprint.',
+            type: 'invite',
+            timestamp: '2024-03-10T10:00:00Z',
+          },
+        ]}
+        messageThreads={[
+          {
+            id: 'thread-1',
+            sender: 'Talent Concierge',
+            preview: 'New designers shortlisted.',
+            timestamp: '2024-03-10T08:00:00Z',
+            unread: true,
+          },
+        ]}
+        unreadNotificationCount={1}
+        unreadMessageCount={1}
+        onNotificationRead={onNotificationRead}
+        onThreadRead={onThreadRead}
+      />,
+    );
+
+    expect(await screen.findByText(/co-host invite/i)).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /messages/i }));
+    });
+
+    expect(await screen.findByText(/talent concierge/i)).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /view thread/i }));
+    });
+
+    expect(onThreadRead).toHaveBeenCalledWith('thread-1');
+  });
+});
+
+describe('AlertPreferences', () => {
+  it('saves customised channel and cadence settings', async () => {
+    const onSave = vi.fn(() => Promise.resolve(true));
+    const onTestNotification = vi.fn(() => Promise.resolve(true));
+
+    render(
+      <AlertPreferences
+        initialPreferences={null}
+        onSave={onSave}
+        onTestNotification={onTestNotification}
+      />,
+    );
+
+    await act(async () => {
+      const [smsChannelToggle] = screen.getAllByLabelText(/SMS/);
+      fireEvent.click(smsChannelToggle);
+      fireEvent.change(screen.getByLabelText('Digest frequency'), { target: { value: 'weekly' } });
+      fireEvent.click(screen.getByRole('button', { name: /send test alert/i }));
+      fireEvent.click(screen.getByRole('button', { name: /save preferences/i }));
+    });
+
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    const payload = onSave.mock.calls[0][0];
+    expect(payload.channels.sms).toBe(true);
+    expect(payload.digest.frequency).toBe('weekly');
+    expect(onTestNotification).toHaveBeenCalled();
   });
 });
 

@@ -1,89 +1,44 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BellAlertIcon } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
 import useSession from '../hooks/useSession.js';
 import useNotificationCenter from '../hooks/useNotificationCenter.js';
 import useAuthorization from '../hooks/useAuthorization.js';
-import { formatRelativeTime } from '../utils/date.js';
+import NotificationCenter from '../components/notifications/NotificationCenter.jsx';
+import AlertPreferences from '../components/notifications/AlertPreferences.jsx';
+import analytics from '../services/analytics.js';
 
 const noop = () => {};
 
-function NotificationCard({ notification, onOpen }) {
-  const {
-    type = 'Alert',
-    title = 'Notification update',
-    body = 'No additional details provided yet.',
-    read = false,
-  } = notification ?? {};
+const PREFERENCES_STORAGE_KEY = 'gigvora:notification-preferences:v1';
 
-  const timestampLabel = formatRelativeTime(notification?.timestamp) || 'Just now';
-
-  const action = useMemo(() => {
-    const rawHref = notification?.action?.href;
-    const label = notification?.action?.label ?? 'Open';
-
-    if (!rawHref || typeof rawHref !== 'string') {
+function loadStoredPreferences() {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  try {
+    const raw = window.localStorage.getItem(PREFERENCES_STORAGE_KEY);
+    if (!raw) {
       return null;
     }
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch (error) {
+    console.warn('Unable to parse stored notification preferences', error);
+    return null;
+  }
+}
 
-    if (typeof window === 'undefined') {
-      return { label, href: rawHref };
-    }
-
-    try {
-      const url = new URL(rawHref, window.location.origin);
-      const isSameOrigin = url.origin === window.location.origin;
-      const isSecure = url.protocol === 'https:';
-
-      if (!isSameOrigin && !isSecure) {
-        return null;
-      }
-
-      return { label, href: url.toString() };
-    } catch (error) {
-      console.warn('Blocked invalid notification action href', error);
-      return null;
-    }
-  }, [notification?.action?.href, notification?.action?.label]);
-
-  const handleClick = () => {
-    if (typeof onOpen === 'function') {
-      onOpen(notification);
-    }
-
-    if (action?.href && typeof window !== 'undefined') {
-      window.location.assign(action.href);
-    }
-  };
-
-  return (
-    <article
-      className={`group relative overflow-hidden rounded-3xl border px-5 py-4 transition focus-within:ring-2 focus-within:ring-accent/40 ${
-        read
-          ? 'border-slate-200 bg-white'
-          : 'border-accent/40 bg-accentSoft shadow-sm shadow-accent/10'
-      }`}
-    >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-        <div className="min-w-0 space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{type}</p>
-          <h3 className="text-base font-semibold text-slate-900 [text-wrap:balance]">{title}</h3>
-          <p className="text-sm text-slate-600 [overflow-wrap:anywhere]">{body}</p>
-          <p className="pt-1 text-xs font-medium text-slate-400">{timestampLabel}</p>
-        </div>
-        {action ? (
-          <button
-            type="button"
-            onClick={handleClick}
-            className="inline-flex shrink-0 items-center justify-center rounded-full border border-accent/30 bg-white px-4 py-2 text-xs font-semibold text-accent transition hover:border-accent hover:bg-accent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-          >
-            {action.label}
-          </button>
-        ) : null}
-      </div>
-    </article>
-  );
+function persistStoredPreferences(preferences) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  try {
+    window.localStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(preferences));
+  } catch (error) {
+    console.warn('Unable to persist notification preferences', error);
+  }
 }
 
 export default function NotificationsPage() {
@@ -95,8 +50,15 @@ export default function NotificationsPage() {
     unreadNotificationCount,
     markNotificationAsRead,
     markAllNotificationsAsRead,
+    messageThreads,
+    unreadMessageCount,
+    markThreadAsRead,
+    markAllThreadsAsRead,
   } = useNotificationCenter(session);
   const [pushStatus, setPushStatus] = useState('idle');
+  const [preferences, setPreferences] = useState(() => loadStoredPreferences());
+  const [savingPreferences, setSavingPreferences] = useState(false);
+  const [preferencesError, setPreferencesError] = useState(null);
   const redirectGuardRef = useRef(false);
   const isAuthorizedForCenter = canAccess('notifications:center');
   const canManagePush = canAccess('notifications:push');
@@ -130,6 +92,9 @@ export default function NotificationsPage() {
     typeof markNotificationAsRead === 'function' ? markNotificationAsRead : noop;
   const safeMarkAllNotificationsAsRead =
     typeof markAllNotificationsAsRead === 'function' ? markAllNotificationsAsRead : noop;
+  const safeMarkThreadAsRead = typeof markThreadAsRead === 'function' ? markThreadAsRead : noop;
+  const safeMarkAllThreadsAsRead =
+    typeof markAllThreadsAsRead === 'function' ? markAllThreadsAsRead : noop;
 
   const sortedNotifications = useMemo(
     () =>
@@ -140,8 +105,11 @@ export default function NotificationsPage() {
   );
 
   const numericUnreadCount = Number.isFinite(unreadNotificationCount) ? unreadNotificationCount : 0;
-  const displayUnreadCount = isAuthorizedForCenter ? numericUnreadCount : 0;
-  const hasNotifications = sortedNotifications.length > 0;
+  const numericUnreadThreads = Number.isFinite(unreadMessageCount) ? unreadMessageCount : 0;
+  const displayUnreadCount = isAuthorizedForCenter ? numericUnreadCount + numericUnreadThreads : 0;
+  const hasNotifications = sortedNotifications.length > 0 || (Array.isArray(messageThreads) && messageThreads.length > 0);
+  const quietHours = preferences?.quietHours ?? null;
+  const digestFrequency = preferences?.digest?.frequency ?? 'daily';
 
   useEffect(() => {
     if (!isAuthorizedForCenter) {
@@ -181,6 +149,97 @@ export default function NotificationsPage() {
       console.error('Unable to request notification permission', error);
     }
   };
+
+  const handleSavePreferences = useCallback(
+    async (nextPreferences) => {
+      setSavingPreferences(true);
+      setPreferencesError(null);
+      try {
+        persistStoredPreferences(nextPreferences);
+        setPreferences(nextPreferences);
+        analytics.track('web_notifications_preferences_saved', {
+          activeChannels: Object.entries(nextPreferences.channels || {})
+            .filter(([, value]) => Boolean(value))
+            .map(([key]) => key),
+          priorityStreams: Object.entries(nextPreferences.categories || {})
+            .filter(([, value]) => value?.cadence === 'priority')
+            .map(([key]) => key),
+        });
+        return true;
+      } catch (error) {
+        const normalised = error instanceof Error ? error : new Error('Unable to save preferences.');
+        setPreferencesError(normalised);
+        return false;
+      } finally {
+        setSavingPreferences(false);
+      }
+    },
+    [],
+  );
+
+  const handleResetPreferencesError = useCallback(() => {
+    setPreferencesError(null);
+  }, []);
+
+  const handleTestPreferences = useCallback(async (payload) => {
+    analytics.track('web_notifications_preferences_test_triggered', {
+      channels: Object.entries(payload.channels || {})
+        .filter(([, value]) => Boolean(value))
+        .map(([key]) => key),
+      digest: payload.digest?.frequency || 'daily',
+    });
+    if (typeof window !== 'undefined') {
+      console.info('Test notification payload', payload);
+    }
+    return true;
+  }, []);
+
+  const handleNotificationOpen = useCallback(
+    (notification) => {
+      if (!notification) {
+        return;
+      }
+      analytics.track('web_notifications_center_notification_opened', {
+        notificationId: notification.id,
+        type: notification.type || notification.category || 'activity',
+      });
+      if (notification?.id != null) {
+        safeMarkNotificationAsRead(notification.id);
+      }
+      if (notification.action?.href && typeof window !== 'undefined') {
+        try {
+          const url = new URL(notification.action.href, window.location.origin);
+          if (url.protocol === 'https:' || url.origin === window.location.origin) {
+            window.location.assign(url.toString());
+          }
+        } catch (error) {
+          console.warn('Unable to open notification action', error);
+        }
+      }
+    },
+    [safeMarkNotificationAsRead],
+  );
+
+  const handleThreadOpen = useCallback(
+    (thread) => {
+      if (!thread) {
+        return;
+      }
+      analytics.track('web_notifications_center_thread_opened', {
+        threadId: thread.id,
+      });
+      if (thread.id != null) {
+        safeMarkThreadAsRead(thread.id);
+      }
+      navigate(`/inbox?thread=${encodeURIComponent(thread.id)}`);
+    },
+    [navigate, safeMarkThreadAsRead],
+  );
+
+  const handleMarkAll = useCallback(() => {
+    safeMarkAllNotificationsAsRead();
+    safeMarkAllThreadsAsRead();
+  }, [safeMarkAllNotificationsAsRead, safeMarkAllThreadsAsRead]);
 
   const renderPushStatus = () => {
     switch (pushStatus) {
@@ -259,7 +318,7 @@ export default function NotificationsPage() {
           actions={
             <button
               type="button"
-              onClick={safeMarkAllNotificationsAsRead}
+              onClick={handleMarkAll}
               disabled={!hasNotifications || displayUnreadCount === 0}
               className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
             >
@@ -273,7 +332,7 @@ export default function NotificationsPage() {
           }
         />
 
-        <div className="mt-10 grid gap-6">
+        <div className="mt-10 grid gap-8">
           <div className="rounded-3xl border border-accent/40 bg-white p-6 shadow-soft">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="max-w-xl">
@@ -293,24 +352,41 @@ export default function NotificationsPage() {
               </button>
             </div>
           </div>
+          <NotificationCenter
+            notifications={sortedNotifications}
+            messageThreads={messageThreads}
+            unreadNotificationCount={numericUnreadCount}
+            unreadMessageCount={numericUnreadThreads}
+            quietHours={quietHours}
+            digestFrequency={digestFrequency}
+            onNotificationOpen={handleNotificationOpen}
+            onNotificationRead={safeMarkNotificationAsRead}
+            onThreadOpen={handleThreadOpen}
+            onThreadRead={safeMarkThreadAsRead}
+            onMarkAllNotifications={safeMarkAllNotificationsAsRead}
+            onMarkAllThreads={safeMarkAllThreadsAsRead}
+          />
 
-          {hasNotifications ? (
-            sortedNotifications.map((notification) => (
-              <NotificationCard
-                key={notification.id}
-                notification={notification}
-                onOpen={() => {
-                  if (notification?.id != null) {
-                    safeMarkNotificationAsRead(notification.id);
-                  }
-                }}
-              />
-            ))
-          ) : (
-            <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500">
-              You’re all caught up. New activity will land here first.
+          <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-soft">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-slate-900">Personalise alerts</h2>
+                <p className="text-xs text-slate-500">
+                  Fine-tune channels, cadence, and escalation rules to match your leadership rhythm.
+                </p>
+              </div>
             </div>
-          )}
+            <div className="mt-6">
+              <AlertPreferences
+                initialPreferences={preferences}
+                onSave={handleSavePreferences}
+                saving={savingPreferences}
+                error={preferencesError}
+                onResetError={handleResetPreferencesError}
+                onTestNotification={handleTestPreferences}
+              />
+            </div>
+          </div>
         </div>
       </div>
     </section>

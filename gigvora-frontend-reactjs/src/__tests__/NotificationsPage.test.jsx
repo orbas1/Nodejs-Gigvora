@@ -128,7 +128,12 @@ describe('NotificationsPage', () => {
 
     expect(screen.getByRole('button', { name: 'Mark all read' })).toBeEnabled();
 
-    const notificationHeadings = screen.getAllByRole('heading', { level: 3 });
+    const notificationHeadings = screen
+      .getAllByRole('heading', { level: 3 })
+      .filter((heading) => {
+        const text = heading.textContent ?? '';
+        return text.includes('Fresh invite') || text.includes('Earlier update');
+      });
     expect(notificationHeadings[0]).toHaveTextContent('Fresh invite');
     expect(notificationHeadings[1]).toHaveTextContent('Earlier update');
 

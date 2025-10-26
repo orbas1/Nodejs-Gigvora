@@ -3915,3 +3915,123 @@ Creation endpoints now return fully-sanitised documents, preserving fresh versio
 25. **Design framework.** ThemeProvider anchors tokens, density scales, and overlays as foundational primitives inside the enterprise design system.【F:user_experience.md†L15045-L15049】【F:gigvora-frontend-reactjs/src/context/ThemeProvider.tsx†L323-L417】 DataFetchingLayer aligns with infrastructure and shared contracts, ensuring design docs describe how data flows map to UI rhythm.【F:user_experience.md†L15182-L15186】【F:gigvora-frontend-reactjs/src/main.jsx†L1-L43】 FeatureFlagToggle consumes these framework tokens, demonstrating how admin components inherit spacing, color, and motion consistently.【F:user_experience.md†L15319-L15323】【F:gigvora-frontend-reactjs/src/components/system/FeatureFlagToggle.jsx†L174-L205】
 26. **Change Checklist Tracker Extensive.** ThemeProvider’s rollout checklist spans discovery through QA with analytics and governance sign-offs, mirroring the documentation mandate.【F:user_experience.md†L15050-L15054】【F:gigvora-frontend-reactjs/src/context/ThemeProvider.tsx†L323-L474】 DataFetchingLayer’s tracker covers cache migration, service adoption, telemetry, and load testing across squads.【F:user_experience.md†L15187-L15191】【F:gigvora-frontend-reactjs/src/context/DataFetchingLayer.js†L196-L520】 FeatureFlagToggle’s launch sequencing ensures design, legal, compliance, and support review toggles align before wide release, with backend migrations, validation schemas, routes, and seed data all accounted for in the same checklist.【F:user_experience.md†L15324-L15328】【F:gigvora-frontend-reactjs/src/components/system/FeatureFlagToggle.jsx†L174-L206】【F:gigvora-backend-nodejs/src/routes/adminPlatformRoutes.js†L1-L31】【F:gigvora-backend-nodejs/database/seeders/20250115094500-platform-feature-flags-seed.cjs†L1-L117】
 27. **Full Upgrade Plan & Release Steps Extensive.** ThemeProvider defines phased pilots, telemetry gates, and rollback paths as we ship enterprise theming globally.【F:user_experience.md†L15055-L15059】【F:gigvora-frontend-reactjs/src/context/ThemeProvider.tsx†L323-L474】 DataFetchingLayer sequences migrations, monitoring, and contingency planning for data orchestration upgrades.【F:user_experience.md†L15192-L15196】【F:gigvora-frontend-reactjs/src/context/DataFetchingLayer.js†L196-L520】 FeatureFlagToggle pilots admin cohorts through staged analytics and compliance reviews before unlocking to the full network.【F:user_experience.md†L15329-L15333】【F:gigvora-frontend-reactjs/src/components/system/FeatureFlagToggle.jsx†L174-L206】
+
+
+  - Main Category: 8. Support, Trust & Assurance
+    - 8.B. Notifications & Alerts ✓
+      - 8.B.1. NotificationBell.jsx ✓
+      - 8.B.2. NotificationCenter.jsx ✓
+      - 8.B.3. AlertPreferences.jsx ✓
+      - 8.B.1. NotificationBell.jsx ✓
+      - 8.B.2. NotificationCenter.jsx ✓
+      - 8.B.3. AlertPreferences.jsx ✓
+   - 1. **Appraisal.**
+     - NotificationBell.jsx: The bell opens into a headless-UI tray with a luminous badge, priority hero, latest updates stack, and conversation capsule so executives grasp urgency and breadth within a single glance.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationBell.jsx†L205-L276】
+     - NotificationCenter.jsx: The hub greets members with a "Curate your momentum" hero, filter chips, and metrics rail framed inside glassmorphism cards to mirror LinkedIn-grade dashboards.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationCenter.jsx†L336-L492】
+     - AlertPreferences.jsx: The preferences canvas surfaces KPI tiles, channel grid, and escalation stories within sculpted cards that signal concierge-level control immediately.【F:gigvora-frontend-reactjs/src/components/notifications/AlertPreferences.jsx†L278-L504】
+   - 2. **Functionality.**
+     - NotificationBell.jsx: useMemo-powered sorting, mark-all gating, and quick navigation actions wire the tray to real notification data, with tests exercising tray open and mark-all behaviours.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationBell.jsx†L159-L205】【F:gigvora-frontend-reactjs/src/components/notifications/__tests__/NotificationsComponents.test.jsx†L200-L232】
+     - NotificationCenter.jsx: Deterministic filters, search, mark-read buttons, and quiet-hours insights orchestrate alerts and messages end-to-end, validated by vitest coverage toggling between feeds.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationCenter.jsx†L240-L510】【F:gigvora-frontend-reactjs/src/components/notifications/__tests__/NotificationsComponents.test.jsx†L233-L281】
+     - AlertPreferences.jsx: Channel toggles, cadence selectors, quiet-hour inputs, and escalation switches persist through a shared payload builder, with tests confirming save and test-alert flows.【F:gigvora-frontend-reactjs/src/components/notifications/AlertPreferences.jsx†L107-L538】【F:gigvora-frontend-reactjs/src/components/notifications/__tests__/NotificationsComponents.test.jsx†L284-L310】
+   - 3. **Logic Usefulness.**
+     - NotificationBell.jsx: Priority heuristics elevate high-severity and invite types, dedupe reads, and emit analytics hooks when the tray animates in, ensuring decisive outcomes for support personas.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationBell.jsx†L170-L205】
+     - NotificationCenter.jsx: Normalisers classify alerts into priority, updates, community, and messages while unread summaries quantify impact per stream for operational triage.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationCenter.jsx†L43-L311】
+     - AlertPreferences.jsx: Normalisation and payload builders translate channel, cadence, quiet hours, and escalation toggles into audit-ready configurations for each persona.【F:gigvora-frontend-reactjs/src/components/notifications/AlertPreferences.jsx†L77-L146】
+   - 4. **Redundancies.**
+     - NotificationBell.jsx: Header supplies shared `useNotificationCenter` data so the tray no longer maintains bespoke polling or duplicate counters.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L48-L58】【F:gigvora-frontend-reactjs/src/components/navigation/AppTopBar.jsx†L310-L323】
+     - NotificationCenter.jsx: Unified filtering handles alerts and conversations without parallel list widgets, reusing the same normalisers for every view.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationCenter.jsx†L240-L437】
+     - AlertPreferences.jsx: All delivery, cadence, and escalation controls route through single handlers and a shared payload composer, eliminating shadow forms.【F:gigvora-frontend-reactjs/src/components/notifications/AlertPreferences.jsx†L150-L253】
+   - 5. **Placeholders or non-working functions or stubs.**
+     - NotificationBell.jsx: Every section renders real notification copy, timestamps, and CTAs, avoiding lorem states even when lists are empty.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationBell.jsx†L229-L276】
+     - NotificationCenter.jsx: Empty views communicate next steps, while actionable buttons remain live only when unread totals exist, removing stub affordances.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationCenter.jsx†L406-L490】
+     - AlertPreferences.jsx: Inputs, helper copy, and escalation toggles are production wired with reset/test controls replacing placeholder messaging.【F:gigvora-frontend-reactjs/src/components/notifications/AlertPreferences.jsx†L296-L536】
+   - 6. **Duplicate Functions.**
+     - NotificationBell.jsx: Shared utility imports (`classNames`, `formatRelativeTime`) and callback hooks prevent custom formatter forks inside the tray.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationBell.jsx†L13-L205】
+     - NotificationCenter.jsx: Notification and thread normalisers live alongside a single unread summary derivation, replacing earlier duplicate reducers.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationCenter.jsx†L43-L314】
+     - AlertPreferences.jsx: Handler factories reuse pattern-matched setters so cadence, quiet hours, and escalation toggles reference one canonical path.【F:gigvora-frontend-reactjs/src/components/notifications/AlertPreferences.jsx†L150-L253】
+   - 7. **Improvements need to make.**
+     - NotificationBell.jsx: Adds urgency badge, quick preferences entry, and conversation previews so leaders fast-track decisions from the header alone.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationBell.jsx†L205-L276】
+     - NotificationCenter.jsx: Introduces digest cadence, quiet-hours tile, and mark-all analytics rail to elevate support dashboards toward premium parity.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationCenter.jsx†L440-L510】
+     - AlertPreferences.jsx: Delivers escalation safety net, digest timing, and category cadences so admins tune trust levers holistically.【F:gigvora-frontend-reactjs/src/components/notifications/AlertPreferences.jsx†L296-L504】
+   - 8. **Styling improvements.**
+     - NotificationBell.jsx: Gradient badges, translucent surfaces, and rounded 3XL cards align the tray with enterprise chroma.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationBell.jsx†L205-L276】
+     - NotificationCenter.jsx: Glass panels, badge pills, and accent typography mirror professional social networks’ notification hubs.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationCenter.jsx†L336-L492】
+     - AlertPreferences.jsx: Sculpted sections, icon capsules, and tonal grids give the settings experience premium depth.【F:gigvora-frontend-reactjs/src/components/notifications/AlertPreferences.jsx†L278-L504】
+   - 9. **Efficiency analysis and improvement.**
+     - NotificationBell.jsx: Memoised derivations limit sorting and slicing overhead even as counts grow, while mark-all guards against duplicate submissions.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationBell.jsx†L162-L205】
+     - NotificationCenter.jsx: Filtering, thread derivation, and unread summaries run through memoised selectors for steady performance at enterprise volume.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationCenter.jsx†L240-L314】
+     - AlertPreferences.jsx: Normalisation and payload generation reuse default blueprints so form rerenders stay light despite rich controls.【F:gigvora-frontend-reactjs/src/components/notifications/AlertPreferences.jsx†L77-L141】
+   - 10. **Strengths to Keep.**
+     - NotificationBell.jsx: One-click overview with priority, latest, and conversation slices preserves the trusted snapshot executives rely on.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationBell.jsx†L229-L276】
+     - NotificationCenter.jsx: Filterable dual-column layout and actionable insights cement the hub as the organisation’s nerve center.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationCenter.jsx†L336-L510】
+     - AlertPreferences.jsx: Transparent KPI tiles and escalation toggles keep trust cues intact while layering sophistication.【F:gigvora-frontend-reactjs/src/components/notifications/AlertPreferences.jsx†L278-L504】
+   - 11. **Weaknesses to remove.**
+     - NotificationBell.jsx: Flat iconography and missing previews are replaced by vivid badges, quick links, and copy that clarifies unread impact.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationBell.jsx†L205-L276】
+     - NotificationCenter.jsx: The former flat list becomes a guided workflow with search, filters, and mark-all controls that resolve prior confusion.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationCenter.jsx†L336-L492】
+     - AlertPreferences.jsx: Sparse toggles evolve into a strategic matrix covering channels, cadences, quiet hours, and safety nets.【F:gigvora-frontend-reactjs/src/components/notifications/AlertPreferences.jsx†L296-L504】
+   - 12. **Styling and Colour review changes.**
+     - NotificationBell.jsx: Accent, amber, and purple palettes distinguish urgency tiers while maintaining contrast for screen-readers.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationBell.jsx†L205-L276】
+     - NotificationCenter.jsx: Rose, amber, blue, and purple tokens highlight category metrics and reinforce trust across surfaces.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationCenter.jsx†L440-L466】
+     - AlertPreferences.jsx: Accent, emerald, and rose cues guide state across channels and escalations without overwhelming accessibility.【F:gigvora-frontend-reactjs/src/components/notifications/AlertPreferences.jsx†L296-L500】
+   - 13. **CSS, orientation, placement and arrangement changes.**
+     - NotificationBell.jsx: Responsive grid stacks ensure previews breathe within the popover while aligning to header spacing tokens.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationBell.jsx†L229-L276】
+     - NotificationCenter.jsx: A responsive two-column layout collapses gracefully, keeping filters, lists, and insights legible across breakpoints.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationCenter.jsx†L336-L510】
+     - AlertPreferences.jsx: Grid-driven sections adapt between single and dual column states so complex controls stay approachable on any device.【F:gigvora-frontend-reactjs/src/components/notifications/AlertPreferences.jsx†L296-L504】
+   - 14. **Text analysis, placement, length, redundancy, quality.**
+     - NotificationBell.jsx: Microcopy like “Stay ahead of every pulse” and section summaries balance aspiration with brevity for immediate clarity.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationBell.jsx†L229-L276】
+     - NotificationCenter.jsx: Hero copy, empty states, and quiet-hours messaging stay directive without redundancy, guiding action decisively.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationCenter.jsx†L336-L510】
+     - AlertPreferences.jsx: Explanatory sentences accompany every toggle and selector, ensuring intent and impact remain explicit.【F:gigvora-frontend-reactjs/src/components/notifications/AlertPreferences.jsx†L296-L504】
+   - 15. **Text Spacing.**
+     - NotificationBell.jsx: Tight control over padding, gap utilities, and uppercase tracking preserves the 8/12/16 rhythm for readability.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationBell.jsx†L47-L276】
+     - NotificationCenter.jsx: Vertical spacing between hero, filters, and cards follows consistent `space-y` utilities for measured pacing.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationCenter.jsx†L336-L490】
+     - AlertPreferences.jsx: Form labels, helper text, and KPI tiles lean on consistent padding and gap tokens to prevent crowding.【F:gigvora-frontend-reactjs/src/components/notifications/AlertPreferences.jsx†L296-L504】
+   - 16. **Shaping.**
+     - NotificationBell.jsx: Rounded-2xl and 3xl edges align the tray silhouette with Gigvora’s trust-forward identity.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationBell.jsx†L205-L276】
+     - NotificationCenter.jsx: Section shells and buttons use generous radii, reinforcing approachability within enterprise context.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationCenter.jsx†L336-L510】
+     - AlertPreferences.jsx: Every control block sits inside rounded-2xl frames, creating cohesion across the full preferences journey.【F:gigvora-frontend-reactjs/src/components/notifications/AlertPreferences.jsx†L296-L504】
+   - 17. **Shadow, hover, glow and effects.**
+     - NotificationBell.jsx: Hover transitions, subtle shadows, and animated badges reinforce interactivity without visual noise.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationBell.jsx†L205-L276】
+     - NotificationCenter.jsx: Cards elevate on hover and use accent glows for priority counts, signalling actionable elements.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationCenter.jsx†L336-L492】
+     - AlertPreferences.jsx: Shadow-sm treatments and focus rings highlight selectable areas while keeping accessibility intact.【F:gigvora-frontend-reactjs/src/components/notifications/AlertPreferences.jsx†L296-L504】
+   - 18. **Thumbnails.**
+     - NotificationBell.jsx: Iconography and badges stand in for avatars, giving each preview a recognisable visual anchor.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationBell.jsx†L205-L276】
+     - NotificationCenter.jsx: Category icons decorate metrics and rows, while message threads display sender context for instant recognition.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationCenter.jsx†L336-L466】
+     - AlertPreferences.jsx: Icon capsules introduce each category and KPI, delivering visual shorthand across the matrix.【F:gigvora-frontend-reactjs/src/components/notifications/AlertPreferences.jsx†L296-L383】
+   - 19. **Images and media & Images and media previews.**
+     - NotificationBell.jsx: Real notification snippets, timestamps, and CTAs provide living previews instead of static placeholders.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationBell.jsx†L229-L276】
+     - NotificationCenter.jsx: Digest cadence, quiet-hours readouts, and message previews give contextual media-like insight without empty shells.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationCenter.jsx†L406-L510】
+     - AlertPreferences.jsx: Copy-led storytelling and KPI counters communicate outcomes without resorting to blank imagery, keeping focus on configuration.【F:gigvora-frontend-reactjs/src/components/notifications/AlertPreferences.jsx†L278-L504】
+   - 20. **Button styling.**
+     - NotificationBell.jsx: Rounded-full buttons with accent fills and ghost treatments align with the global button system.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationBell.jsx†L205-L276】
+     - NotificationCenter.jsx: Primary and secondary mark-all buttons adopt accent and ghost variants with disabled safeguards tied to unread counts.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationCenter.jsx†L470-L489】
+     - AlertPreferences.jsx: Save, reset, and test controls share rounded-full silhouettes and icon spacing for cohesive ergonomics.【F:gigvora-frontend-reactjs/src/components/notifications/AlertPreferences.jsx†L296-L536】
+   - 21. **Interactiveness.**
+     - NotificationBell.jsx: Menu and Transition primitives, aria labels, and event callbacks capture bell-open analytics and mark-read actions.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationBell.jsx†L203-L276】
+     - NotificationCenter.jsx: Search, filter pills, mark-all buttons, and empty-state CTAs respond instantly with deterministic handlers.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationCenter.jsx†L336-L510】
+     - AlertPreferences.jsx: Every toggle updates state, triggers error resets, and powers payloads, while send-test ensures feedback loops.【F:gigvora-frontend-reactjs/src/components/notifications/AlertPreferences.jsx†L150-L536】
+   - 22. **Missing Components.**
+     - NotificationBell.jsx: Priority, updates, and conversation slices deliver all promised modules, leaving no placeholder panels behind.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationBell.jsx†L229-L276】
+     - NotificationCenter.jsx: Digest cadence and quiet-hours callouts close prior gaps such as snooze awareness.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationCenter.jsx†L440-L506】
+     - AlertPreferences.jsx: Escalation safety net, digest schedule, and quiet-hour tooling cover backlog asks enumerated in user experience docs.【F:gigvora-frontend-reactjs/src/components/notifications/AlertPreferences.jsx†L296-L504】
+   - 23. **Design Changes.**
+     - NotificationBell.jsx: Reimagined from a static icon to a narrative tray with quick actions, analytics hook, and conversation previews.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationBell.jsx†L203-L276】
+     - NotificationCenter.jsx: Upgraded into a two-column, insight-rich hub with hero storytelling, filters, and metrics compared to the prior flat feed.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationCenter.jsx†L336-L510】
+     - AlertPreferences.jsx: Expanded into a multi-section experience bundling KPIs, delivery grids, and escalation toggles for enterprise readiness.【F:gigvora-frontend-reactjs/src/components/notifications/AlertPreferences.jsx†L278-L536】
+   - 24. **Design Duplication.**
+     - NotificationBell.jsx: Consumes the same notification tray prop contract shared with `AppTopBar`, preventing divergent header treatments.【F:gigvora-frontend-reactjs/src/components/navigation/AppTopBar.jsx†L310-L323】
+     - NotificationCenter.jsx: Shares normalised data and handlers with the header tray so alerts render identically across surfaces.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L48-L58】【F:gigvora-frontend-reactjs/src/components/notifications/NotificationCenter.jsx†L240-L437】
+     - AlertPreferences.jsx: Serves as the single preference surface consumed by notifications page logic, avoiding alternate setting forms.【F:gigvora-frontend-reactjs/src/pages/NotificationsPage.jsx†L1-L352】
+   - 25. **Design framework.**
+     - NotificationBell.jsx: Aligns with navigation tokens via shared accent classes and button styles defined for the enterprise top bar.【F:gigvora-frontend-reactjs/src/components/navigation/AppTopBar.jsx†L334-L399】【F:gigvora-frontend-reactjs/src/components/notifications/NotificationBell.jsx†L205-L276】
+     - NotificationCenter.jsx: Implements trust-and-assurance design primitives—hero copy, pill filters, and insights rail—described in the user experience matrices.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationCenter.jsx†L336-L510】
+     - AlertPreferences.jsx: Applies system typography, spacing, and iconography tokens to reinforce the broader design framework.【F:gigvora-frontend-reactjs/src/components/notifications/AlertPreferences.jsx†L296-L536】
+   - 26. **Change Checklist Tracker Extensive.**
+     - NotificationBell.jsx: Tests, analytics hooks, and shared tray contract document mark-all, preference routing, and accessibility checks for rollout.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationBell.jsx†L196-L276】【F:gigvora-frontend-reactjs/src/components/notifications/__tests__/NotificationsComponents.test.jsx†L200-L232】
+     - NotificationCenter.jsx: Coverage of filter toggles, mark-read actions, and empty states ensures QA and analytics checkpoints remain traceable.【F:gigvora-frontend-reactjs/src/components/notifications/NotificationCenter.jsx†L336-L510】【F:gigvora-frontend-reactjs/src/components/notifications/__tests__/NotificationsComponents.test.jsx†L233-L281】
+     - AlertPreferences.jsx: Save, reset, error-reset, and send-test flows, alongside payload builder documentation, complete the enterprise checklist.【F:gigvora-frontend-reactjs/src/components/notifications/AlertPreferences.jsx†L150-L536】【F:gigvora-frontend-reactjs/src/components/notifications/__tests__/NotificationsComponents.test.jsx†L284-L310】
+   - 27. **Full Upgrade Plan & Release Steps Extensive.**
+     - NotificationBell.jsx: Integrates with header analytics and NotificationCenter navigation, enabling staged launches monitored from the top bar.【F:gigvora-frontend-reactjs/src/components/navigation/AppTopBar.jsx†L310-L335】【F:gigvora-frontend-reactjs/src/components/notifications/NotificationBell.jsx†L203-L276】
+     - NotificationCenter.jsx: Shares handlers with the header tray and notifications page, giving ops a single rollout surface with mark-all safeties.【F:gigvora-frontend-reactjs/src/components/Header.jsx†L48-L58】【F:gigvora-frontend-reactjs/src/pages/NotificationsPage.jsx†L1-L352】
+     - AlertPreferences.jsx: Notification pages persist preferences to storage and analytics, outlining pilot-to-wide-release sequencing in code.【F:gigvora-frontend-reactjs/src/pages/NotificationsPage.jsx†L150-L352】【F:gigvora-frontend-reactjs/src/components/notifications/AlertPreferences.jsx†L107-L536】
+
+
