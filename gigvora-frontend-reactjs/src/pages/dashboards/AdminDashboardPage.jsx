@@ -9,6 +9,7 @@ import AdminFreelancerManagementSection from '../../components/admin/freelancer-
 import AdminUserManagementSection from '../../components/admin/user-management/AdminUserManagementSection.jsx';
 import AdminSettingsSection from '../../components/admin/settings/AdminSettingsSection.jsx';
 import AdminOperationsHubSection from '../../components/admin/hub/AdminOperationsHubSection.jsx';
+import AdminCommandCenter from '../../components/admin/command-center/AdminDashboard.jsx';
 import AccessDeniedPanel from '../../components/dashboard/AccessDeniedPanel.jsx';
 import useSession from '../../hooks/useSession.js';
 import { fetchAdminDashboard, updateAdminOverview } from '../../services/admin.js';
@@ -182,6 +183,7 @@ export default function AdminDashboardPage() {
       onMenuItemSelect={handleMenuSelect}
     >
       <div className="space-y-16">
+        <AdminCommandCenter overview={overview} loading={loading} onRefresh={handleRefresh} />
         {overviewContent}
         <AdminAgencyManagementSection />
         <AdminCompanyManagementSection />
