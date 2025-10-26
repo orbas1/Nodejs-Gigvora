@@ -45,6 +45,9 @@ const FALLBACK_STATUS = {
     latencyP95: 184,
     errorRate: 0.002,
     activeIncidents: 0,
+    sloTarget: 99.95,
+    usersImpacted: 0,
+    escalationsOpen: 1,
   },
   incidents: [
     {
@@ -65,6 +68,58 @@ const FALLBACK_STATUS = {
   runbookUrl: 'https://gigvora.notion.site/maintenance-runbook',
   acknowledgedAt: null,
   acknowledgedBy: null,
+  nextUpdateDue: new Date(Date.now() + 1000 * 60 * 15).toISOString(),
+  window: {
+    title: 'Network maintenance window',
+    startAt: new Date(Date.now() + 1000 * 60 * 30).toISOString(),
+    endAt: new Date(Date.now() + 1000 * 60 * 90).toISOString(),
+    region: 'Global',
+    owner: 'Site reliability',
+    summary: 'Coordinated upgrades rolling across API edge and onboarding surfaces.',
+  },
+  broadcasts: [
+    {
+      id: 'broadcast-status',
+      channel: 'Status page',
+      status: 'Published',
+      sentAt: new Date(Date.now() - 1000 * 60 * 25).toISOString(),
+    },
+    {
+      id: 'broadcast-email',
+      channel: 'Customer email',
+      status: 'Scheduled',
+      sentAt: new Date(Date.now() - 1000 * 60 * 40).toISOString(),
+    },
+  ],
+  escalationContacts: [
+    {
+      id: 'contact-sre',
+      name: 'Amelia Park',
+      team: 'SRE On-call',
+      channel: '#gigvora-ops',
+      onCall: true,
+    },
+    {
+      id: 'contact-support',
+      name: 'Jordan Malik',
+      team: 'Customer Support',
+      channel: 'PagerDuty',
+      onCall: false,
+    },
+  ],
+  nextSteps: [
+    {
+      id: 'step-runbook',
+      label: 'Validate rollback checklist',
+      description: 'Confirm backups and failover readiness before window begins.',
+      href: 'https://gigvora.notion.site/runbook-checklist',
+    },
+    {
+      id: 'step-briefing',
+      label: 'Send APAC customer briefing',
+      description: 'Share upcoming window context with high-touch accounts.',
+    },
+  ],
   feedback: {
     experienceScore: 4.6,
     trendDelta: 0.2,
@@ -72,6 +127,11 @@ const FALLBACK_STATUS = {
     medianResponseMinutes: 3,
     lastUpdated: new Date().toISOString(),
     reviewUrl: 'https://gigvora.com/ops/feedback',
+    targetScore: 4.7,
+    pendingResponses: 18,
+    health: 'On track',
+    aiSummary:
+      'Enterprise sentiment remains strong thanks to proactive comms, while SMB concerns focus on after-hours notifications. Queue volume is steady and response speed meets SLO.',
     segments: [
       { id: 'enterprise', label: 'Enterprise', score: 4.8, delta: 0.3, sampleSize: 126 },
       { id: 'smb', label: 'SMB', score: 4.4, delta: 0.1, sampleSize: 212 },
@@ -92,6 +152,19 @@ const FALLBACK_STATUS = {
         quote: 'We need more notice for APAC teams—queue volume spikes post-maintenance.',
         recordedAt: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
       },
+    ],
+    alerts: [
+      {
+        id: 'alert-apac',
+        title: 'APAC satisfaction dip',
+        description: 'APAC cohort sentiment dropped 0.4 following last maintenance window.',
+        recommendedAction: 'Schedule earlier notifications for APAC customers.',
+      },
+    ],
+    channels: [
+      { id: 'in-product', label: 'In-product banner' },
+      { id: 'email', label: 'Lifecycle email' },
+      { id: 'trust-centre', label: 'Trust centre' },
     ],
   },
 };

@@ -10,6 +10,14 @@ const ANALYTICS = {
   medianResponseMinutes: 3,
   lastUpdated: '2024-05-11T22:50:00.000Z',
   reviewUrl: 'https://gigvora.com/ops/feedback',
+  targetScore: 4.7,
+  pendingResponses: 11,
+  health: 'Watchlist',
+  aiSummary: 'Sentiment softens for SMB cohort. Address backlog and follow up with top accounts.',
+  channels: [
+    { id: 'status', label: 'Status page banner' },
+    { id: 'email', label: 'Lifecycle email' },
+  ],
   segments: [
     { id: 'enterprise', label: 'Enterprise', score: 4.8, delta: 0.2, sampleSize: 124 },
     { id: 'smb', label: 'SMB', score: 4.3, delta: -0.1, sampleSize: 98 },
@@ -21,6 +29,14 @@ const ANALYTICS = {
       quote: 'Love the proactive comms during maintenance.',
       sentiment: 'Positive',
       recordedAt: '2024-05-11T22:40:00.000Z',
+    },
+  ],
+  alerts: [
+    {
+      id: 'alert-smb',
+      title: 'SMB backlog',
+      description: 'SMB queue wait times exceeded 6m average.',
+      recommendedAction: 'Spin up concierge shift.',
     },
   ],
 };
@@ -41,6 +57,9 @@ describe('FeedbackPulse', () => {
     expect(screen.getByText('Enterprise')).toBeInTheDocument();
     expect(screen.getByText(/Positive/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /review insights/i })).toBeInTheDocument();
+    expect(screen.getByText(/AI summary/i)).toBeInTheDocument();
+    expect(screen.getByText(/SMB backlog/i)).toBeInTheDocument();
+    expect(screen.getByText(/Status page banner/i)).toBeInTheDocument();
   });
 
   it('invokes review handler when CTA clicked', async () => {

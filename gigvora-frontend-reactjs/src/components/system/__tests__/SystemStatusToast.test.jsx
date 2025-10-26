@@ -18,6 +18,9 @@ function buildStatus(overrides = {}) {
       latencyP95: 182,
       errorRate: 0.003,
       activeIncidents: 1,
+      sloTarget: 99.95,
+      usersImpacted: 1200,
+      escalationsOpen: 2,
     },
     incidents: [
       {
@@ -32,6 +35,29 @@ function buildStatus(overrides = {}) {
       { id: 'status', label: 'Status page' },
       { id: 'email', label: 'Customer email' },
     ],
+    broadcasts: [
+      { id: 'broadcast-status', channel: 'Status page', status: 'Published', sentAt: '2024-05-11T22:30:00.000Z' },
+    ],
+    escalationContacts: [
+      { id: 'contact-sre', name: 'Ops lead', team: 'SRE', channel: '#gigvora-ops', onCall: true },
+    ],
+    nextSteps: [
+      {
+        id: 'step-briefing',
+        label: 'Notify enterprise customers',
+        description: 'Send tailored update to enterprise accounts.',
+        href: 'https://gigvora.com/ops/briefing',
+      },
+    ],
+    window: {
+      title: 'Network maintenance',
+      startAt: '2024-05-11T23:00:00.000Z',
+      endAt: '2024-05-12T00:00:00.000Z',
+      region: 'Global',
+      owner: 'SRE',
+      summary: 'Coordinated upgrade across API edge.',
+    },
+    nextUpdateDue: '2024-05-11T22:55:00.000Z',
     ...overrides,
   };
 }
@@ -51,7 +77,11 @@ describe('SystemStatusToast', () => {
     expect(screen.getByText('API latency spike')).toBeInTheDocument();
     expect(screen.getByText('99.982%')).toBeInTheDocument();
     expect(screen.getByText('182 ms')).toBeInTheDocument();
-    expect(screen.getByText('Status page')).toBeInTheDocument();
+    expect(screen.getByText('Customer email')).toBeInTheDocument();
+    expect(screen.getByText('Network maintenance')).toBeInTheDocument();
+    expect(screen.getByText(/Broadcast log/i)).toBeInTheDocument();
+    expect(screen.getByText(/Escalation contacts/i)).toBeInTheDocument();
+    expect(screen.getByText(/Notify enterprise customers/i)).toBeInTheDocument();
   });
 
   it('disables acknowledge button once acknowledged and triggers callback', async () => {

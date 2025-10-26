@@ -1,10 +1,14 @@
 import PropTypes from 'prop-types';
 import {
   BoltIcon,
+  CalendarDaysIcon,
   CheckBadgeIcon,
+  ClockIcon,
   ExclamationTriangleIcon,
+  MegaphoneIcon,
   ShieldCheckIcon,
   SignalIcon,
+  UserCircleIcon,
 } from '@heroicons/react/24/outline';
 import { formatDistanceToNowStrict, parseISO } from 'date-fns';
 
@@ -49,6 +53,31 @@ function formatDuration(value) {
   }
 }
 
+function formatTimestamp(value) {
+  if (!value) return 'TBC';
+  try {
+    const date = typeof value === 'string' ? parseISO(value) : new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return 'TBC';
+    }
+    return new Intl.DateTimeFormat('en', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(date);
+  } catch (error) {
+    return 'TBC';
+  }
+}
+
+function formatWindowRange(windowDetails) {
+  if (!windowDetails) return null;
+  const { startAt, endAt, region } = windowDetails;
+  const start = formatTimestamp(startAt);
+  const end = formatTimestamp(endAt);
+  const label = region ? `${region} · ${start} → ${end}` : `${start} → ${end}`;
+  return label;
+}
+
 export default function SystemStatusToast({
   status,
   onAcknowledge,
@@ -60,9 +89,18 @@ export default function SystemStatusToast({
   const incidents = Array.isArray(status.incidents) ? status.incidents : [];
   const channels = Array.isArray(status.channels) ? status.channels : [];
   const metrics = status.metrics ?? {};
+  const broadcasts = Array.isArray(status.broadcasts) ? status.broadcasts : [];
+  const escalationContacts = Array.isArray(status.escalationContacts) ? status.escalationContacts : [];
+  const nextSteps = Array.isArray(status.nextSteps) ? status.nextSteps : [];
+  const maintenanceWindow = status.window ?? null;
+  const nextUpdate = status.nextUpdateDue ?? status.nextUpdateAt ?? null;
 
   return (
-    <aside className="pointer-events-auto w-full max-w-xl rounded-3xl border border-white/20 bg-slate-900/95 p-6 shadow-[0_25px_65px_-30px_rgba(15,23,42,0.75)] backdrop-blur-xl">
+    <aside
+      className="pointer-events-auto w-full max-w-xl rounded-3xl border border-white/20 bg-slate-900/95 p-6 shadow-[0_25px_65px_-30px_rgba(15,23,42,0.75)] backdrop-blur-xl"
+      role="status"
+      aria-live="polite"
+    >
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2">
           <span
@@ -107,7 +145,43 @@ export default function SystemStatusToast({
           label="Active incidents"
           value={metrics.activeIncidents ?? incidents.length ?? 0}
         />
+        <MetricCard
+          label="SLO target"
+          value={metrics.sloTarget ? `${metrics.sloTarget.toFixed(2)}%` : '99.95%'}
+        />
+        <MetricCard
+          label="Users impacted"
+          value={typeof metrics.usersImpacted === 'number' ? metrics.usersImpacted.toLocaleString() : 'Minimal'}
+        />
+        <MetricCard
+          label="Next update"
+          value={nextUpdate ? formatDuration(nextUpdate) : 'Within 15 minutes'}
+        />
+        <MetricCard
+          label="Escalations open"
+          value={typeof metrics.escalationsOpen === 'number' ? metrics.escalationsOpen : escalationContacts.length}
+        />
       </dl>
+
+      {maintenanceWindow ? (
+        <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-xs text-slate-200">
+          <p className="flex items-center gap-2 font-semibold uppercase tracking-wide text-slate-300">
+            <CalendarDaysIcon className="h-4 w-4 text-slate-200" aria-hidden="true" />
+            Scheduled window
+          </p>
+          <p className="mt-2 text-sm text-white">{maintenanceWindow.title}</p>
+          <p className="mt-1 text-slate-300">{formatWindowRange(maintenanceWindow)}</p>
+          {maintenanceWindow.owner ? (
+            <p className="mt-1 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-slate-200">
+              <UserCircleIcon className="h-4 w-4" aria-hidden="true" />
+              {maintenanceWindow.owner}
+            </p>
+          ) : null}
+          {maintenanceWindow.summary ? (
+            <p className="mt-2 text-slate-300">{maintenanceWindow.summary}</p>
+          ) : null}
+        </div>
+      ) : null}
 
       {incidents.length > 0 ? (
         <div className="mt-6 space-y-3">
@@ -156,6 +230,88 @@ export default function SystemStatusToast({
               </span>
             ))}
           </div>
+        </div>
+      ) : null}
+
+      {broadcasts.length > 0 ? (
+        <div className="mt-6">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Broadcast log</p>
+          <ul className="mt-2 space-y-2">
+            {broadcasts.map((broadcast) => (
+              <li
+                key={broadcast.id || broadcast.channel}
+                className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-200"
+              >
+                <MegaphoneIcon className="mt-0.5 h-4 w-4 text-slate-300" aria-hidden="true" />
+                <div className="space-y-1">
+                  <p className="font-semibold text-white">{broadcast.channel}</p>
+                  <p className="text-slate-300">
+                    {broadcast.status || 'Ready'} · Sent {formatDuration(broadcast.sentAt)}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {escalationContacts.length > 0 ? (
+        <div className="mt-6">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Escalation contacts</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {escalationContacts.map((contact) => (
+              <div
+                key={contact.id || contact.team || contact.name}
+                className="rounded-2xl border border-white/10 bg-white/5 p-3 text-xs text-slate-200"
+              >
+                <p className="flex items-center gap-2 font-semibold text-white">
+                  <UserCircleIcon className="h-4 w-4 text-slate-200" aria-hidden="true" />
+                  {contact.name || contact.team}
+                </p>
+                {contact.team ? (
+                  <p className="mt-1 text-slate-300">{contact.team}</p>
+                ) : null}
+                {contact.channel ? (
+                  <p className="mt-1 text-slate-300">{contact.channel}</p>
+                ) : null}
+                {contact.onCall ? (
+                  <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-1 font-semibold text-emerald-200">
+                    <CheckBadgeIcon className="h-4 w-4" aria-hidden="true" /> On call
+                  </p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {nextSteps.length > 0 ? (
+        <div className="mt-6">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Next actions</p>
+          <ul className="mt-3 space-y-2">
+            {nextSteps.map((step) => (
+              <li
+                key={step.id || step.label}
+                className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-xs text-slate-200"
+              >
+                <ClockIcon className="mt-0.5 h-4 w-4 text-slate-300" aria-hidden="true" />
+                <div className="space-y-1">
+                  <p className="font-semibold text-white">{step.label}</p>
+                  {step.description ? <p className="text-slate-300">{step.description}</p> : null}
+                  {step.href ? (
+                    <a
+                      href={step.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-sky-200 transition hover:text-sky-100"
+                    >
+                      Open detail
+                    </a>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
       ) : null}
 
@@ -214,6 +370,9 @@ SystemStatusToast.propTypes = {
       latencyP95: PropTypes.number,
       errorRate: PropTypes.number,
       activeIncidents: PropTypes.number,
+      sloTarget: PropTypes.number,
+      usersImpacted: PropTypes.number,
+      escalationsOpen: PropTypes.number,
     }),
     incidents: PropTypes.arrayOf(
       PropTypes.shape({
@@ -234,6 +393,41 @@ SystemStatusToast.propTypes = {
         }),
       ]),
     ),
+    broadcasts: PropTypes.arrayOf(
+      PropTypes.shape({
+        id: PropTypes.string,
+        channel: PropTypes.string.isRequired,
+        status: PropTypes.string,
+        sentAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+      }),
+    ),
+    escalationContacts: PropTypes.arrayOf(
+      PropTypes.shape({
+        id: PropTypes.string,
+        name: PropTypes.string,
+        team: PropTypes.string,
+        channel: PropTypes.string,
+        onCall: PropTypes.bool,
+      }),
+    ),
+    nextSteps: PropTypes.arrayOf(
+      PropTypes.shape({
+        id: PropTypes.string,
+        label: PropTypes.string.isRequired,
+        description: PropTypes.string,
+        href: PropTypes.string,
+      }),
+    ),
+    window: PropTypes.shape({
+      title: PropTypes.string,
+      startAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+      endAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+      region: PropTypes.string,
+      owner: PropTypes.string,
+      summary: PropTypes.string,
+    }),
+    nextUpdateDue: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    nextUpdateAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
   }).isRequired,
   onAcknowledge: PropTypes.func,
   onViewIncidents: PropTypes.func,
