@@ -7,3 +7,5 @@
    - *Localization & Accessibility.* Provide translation keys, pluralisation rules, and pronunciation guidance for screen readers so international professionals experience parity.
    - *Editorial QA.* Establish linting scripts and manual checklists to flag jargon, passive constructions, or outdated CTA verbs before copy ships.
    - *Performance Feedback.* Instrument impression-to-response metrics per copy variant, feeding insights back into the UX writing backlog for continuous refinement.
+  - [x] Subcategory 5.A. Inbox & Threads
+14. **Text analysis, placement, length, redundancy, quality.** Improve empty state copy to encourage building relationships.
