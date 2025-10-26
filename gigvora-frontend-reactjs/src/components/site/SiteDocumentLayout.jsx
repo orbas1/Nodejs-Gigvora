@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import {
   ArrowDownTrayIcon,
@@ -11,6 +11,7 @@ import {
   ShareIcon,
 } from '@heroicons/react/24/outline';
 import PageHeader from '../PageHeader.jsx';
+import { scrollToElement, announcePolite } from '../../utils/accessibility.js';
 
 function classNames(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -115,8 +116,15 @@ export default function SiteDocumentLayout({
   refresh,
 }) {
   const [query, setQuery] = useState('');
-  const [feedback, setFeedback] = useState({ rating: '', message: '', submitted: false });
+  const [feedback, setFeedback] = useState({ rating: '', message: '' });
+  const [feedbackStatus, setFeedbackStatus] = useState({ type: 'idle', message: '' });
   const [activeSectionId, setActiveSectionId] = useState(sections[0]?.id ?? null);
+  const [shareStatus, setShareStatus] = useState({ type: 'idle', message: '' });
+  const [resultsAnnouncement, setResultsAnnouncement] = useState('');
+  const shareFeedbackTimeout = useRef(null);
+  const shareFeedbackId = useId();
+  const feedbackStatusId = useId();
+  const resultsLiveRegionId = useId();
   const filteredSections = useMemo(() => {
     if (!query.trim()) {
       return sections;
@@ -168,6 +176,55 @@ export default function SiteDocumentLayout({
     }
   }, [activeSectionId, sections]);
 
+  useEffect(() => {
+    if (!sections.length) {
+      setResultsAnnouncement('This document has no sections yet.');
+      return;
+    }
+    if (!query.trim()) {
+      const total = sections.length;
+      setResultsAnnouncement(`Showing all ${total} ${total === 1 ? 'section' : 'sections'}.`);
+      return;
+    }
+    const matches = filteredSections.length;
+    setResultsAnnouncement(
+      `${matches} ${matches === 1 ? 'section' : 'sections'} matching “${query.trim()}”.`,
+    );
+  }, [filteredSections.length, query, sections.length]);
+
+  useEffect(() => {
+    if (resultsAnnouncement) {
+      announcePolite(resultsAnnouncement);
+    }
+  }, [resultsAnnouncement]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+    if (!shareStatus.message) {
+      return undefined;
+    }
+    if (shareFeedbackTimeout.current) {
+      window.clearTimeout(shareFeedbackTimeout.current);
+    }
+    shareFeedbackTimeout.current = window.setTimeout(() => {
+      setShareStatus({ type: 'idle', message: '' });
+    }, 4000);
+
+    return () => {
+      if (shareFeedbackTimeout.current) {
+        window.clearTimeout(shareFeedbackTimeout.current);
+      }
+    };
+  }, [shareStatus.message]);
+
+  useEffect(() => {
+    if (shareStatus.message) {
+      announcePolite(shareStatus.message);
+    }
+  }, [shareStatus.message]);
+
   const handleShare = async () => {
     if (typeof window === 'undefined') {
       return;
@@ -175,8 +232,13 @@ export default function SiteDocumentLayout({
     const url = window.location.href;
     try {
       await navigator.clipboard.writeText(url);
+      setShareStatus({ type: 'success', message: 'Link copied to clipboard.' });
     } catch (clipboardError) {
       console.warn('Unable to copy link', clipboardError);
+      setShareStatus({
+        type: 'error',
+        message: 'Unable to copy link automatically. Use your browser share controls instead.',
+      });
     }
   };
 
@@ -189,9 +251,13 @@ export default function SiteDocumentLayout({
   const handleSubmitFeedback = (event) => {
     event.preventDefault();
     if (!feedback.rating) {
+      setFeedbackStatus({ type: 'error', message: 'Select a response before submitting your feedback.' });
       return;
     }
-    setFeedback((prev) => ({ ...prev, submitted: true }));
+    setFeedbackStatus({
+      type: 'success',
+      message: 'Thank you for your feedback. Our legal and support teams review submissions within two UK business days.',
+    });
   };
 
   const metadataItems = useMemo(() => {
@@ -233,7 +299,8 @@ export default function SiteDocumentLayout({
         key="download"
         type="button"
         onClick={() => downloadDocument({ title: hero?.title, sections, fileName: `${metadata?.documentCode}.txt` })}
-        className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-accent/30 transition hover:-translate-y-0.5 hover:bg-accentDark"
+        className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-accent/30 transition hover:-translate-y-0.5 hover:bg-accentDark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accentDark"
+        aria-label={`Download a copy of ${hero?.title ?? 'this document'}`}
       >
         <ArrowDownTrayIcon className="h-4 w-4" /> Download copy
       </button>,
@@ -241,7 +308,7 @@ export default function SiteDocumentLayout({
         key="print"
         type="button"
         onClick={handlePrint}
-        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       >
         <PrinterIcon className="h-4 w-4" /> Print
       </button>,
@@ -249,10 +316,14 @@ export default function SiteDocumentLayout({
         key="share"
         type="button"
         onClick={handleShare}
-        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        aria-describedby={shareStatus.message ? shareFeedbackId : undefined}
       >
         <ShareIcon className="h-4 w-4" /> Copy link
       </button>,
+      <span key="share-feedback" id={shareFeedbackId} role="status" aria-live="polite" className="sr-only">
+        {shareStatus.message}
+      </span>,
     ];
     if (hero?.ctaLabel && hero?.ctaUrl) {
       actions.unshift(
@@ -268,7 +339,7 @@ export default function SiteDocumentLayout({
       );
     }
     return actions;
-  }, [handlePrint, handleShare, hero?.ctaLabel, hero?.ctaUrl, hero?.title, metadata?.documentCode, sections]);
+  }, [handlePrint, handleShare, hero?.ctaLabel, hero?.ctaUrl, hero?.title, metadata?.documentCode, sections, shareStatus.message]);
 
   if (loading) {
     return (
@@ -327,13 +398,14 @@ export default function SiteDocumentLayout({
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Filter sections"
+                  aria-describedby={resultsLiveRegionId}
                   className="flex-1 border-none bg-transparent text-sm text-slate-700 outline-none"
                 />
               </div>
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Contents</p>
-              <nav className="mt-3 space-y-2 text-sm">
+              <nav className="mt-3 space-y-2 text-sm" aria-label="Document sections">
                 {sections.map((section) => {
                   const isActive = section.id === activeSectionId;
                   return (
@@ -343,7 +415,7 @@ export default function SiteDocumentLayout({
                       onClick={() => {
                         const element = document.getElementById(section.id);
                         if (element) {
-                          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          scrollToElement(element, { focus: true });
                         }
                         setActiveSectionId(section.id);
                       }}
@@ -352,13 +424,22 @@ export default function SiteDocumentLayout({
                         isActive
                           ? 'border-accent bg-accent/10 text-accent'
                           : 'border-transparent text-slate-600 hover:border-accent/40 hover:bg-accent/5 hover:text-accent',
+                        'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
                       )}
+                      aria-controls={section.id}
+                      aria-current={isActive ? 'true' : undefined}
                     >
-                      {section.title}
+                      <span className="block font-semibold">{section.title}</span>
+                      {section.summary ? (
+                        <span className="mt-1 block text-xs text-slate-500">{section.summary}</span>
+                      ) : null}
                     </button>
                   );
                 })}
               </nav>
+              <p id={resultsLiveRegionId} role="status" aria-live="polite" className="sr-only">
+                {resultsAnnouncement}
+              </p>
             </div>
             <div className="space-y-2 text-xs text-slate-500">
               {metadataItems.map((item) => (
@@ -407,7 +488,7 @@ export default function SiteDocumentLayout({
               </div>
             ) : (
               filteredSections.map((section) => (
-                <section key={section.id} id={section.id} className="scroll-mt-28 space-y-4">
+                <section key={section.id} id={section.id} className="scroll-mt-28 space-y-4" tabIndex={-1}>
                   <div className="flex items-center gap-3">
                     <ClipboardDocumentCheckIcon className="h-6 w-6 text-accent" />
                     <h2 className="text-2xl font-semibold text-slate-900">{section.title}</h2>
@@ -423,51 +504,88 @@ export default function SiteDocumentLayout({
           </article>
 
           <div className="grid gap-8 rounded-3xl border border-slate-200 bg-white/90 p-8 shadow-soft lg:grid-cols-2">
-            <form onSubmit={handleSubmitFeedback} className="space-y-4">
-              <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                <CheckCircleIcon className="h-5 w-5 text-emerald-500" />
-                Was this page helpful?
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {['Yes, it answered my question', 'Partially helpful', 'No, I still need help'].map((label) => {
-                  const value = label.split(' ')[0].toLowerCase();
-                  const isActive = feedback.rating === value;
-                  return (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => setFeedback((prev) => ({ ...prev, rating: value }))}
-                      className={classNames(
-                        'rounded-full px-4 py-2 text-sm font-semibold transition',
-                        isActive
-                          ? 'bg-emerald-500 text-white shadow'
-                          : 'border border-slate-200 bg-white text-slate-600 hover:border-emerald-400 hover:text-emerald-600',
-                      )}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
+            <form
+              onSubmit={handleSubmitFeedback}
+              className="space-y-4"
+              aria-describedby={feedbackStatus.message ? feedbackStatusId : undefined}
+            >
+              <fieldset className="space-y-4">
+                <legend className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                  <CheckCircleIcon className="h-5 w-5 text-emerald-500" />
+                  Was this page helpful?
+                </legend>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { label: 'Yes, it answered my question', value: 'yes' },
+                    { label: 'Partially helpful', value: 'partially' },
+                    { label: 'No, I still need help', value: 'no' },
+                  ].map(({ label, value }) => {
+                    const isActive = feedback.rating === value;
+                    return (
+                      <label
+                        key={value}
+                        className={classNames(
+                          'cursor-pointer rounded-full px-4 py-2 text-sm font-semibold transition focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-emerald-500',
+                          isActive
+                            ? 'bg-emerald-500 text-white shadow'
+                            : 'border border-slate-200 bg-white text-slate-600 hover:border-emerald-400 hover:text-emerald-600',
+                        )}
+                      >
+                        <input
+                          type="radio"
+                          name="document-feedback-rating"
+                          value={value}
+                          checked={isActive}
+                          onChange={() => {
+                            setFeedback((prev) => ({ ...prev, rating: value }));
+                            if (feedbackStatus.type !== 'idle') {
+                              setFeedbackStatus({ type: 'idle', message: '' });
+                            }
+                          }}
+                          className="sr-only"
+                        />
+                        {label}
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
               <label className="block text-sm text-slate-700">
                 <span className="font-semibold text-slate-900">Share optional feedback</span>
                 <textarea
                   rows={3}
                   value={feedback.message}
-                  onChange={(event) => setFeedback((prev) => ({ ...prev, message: event.target.value }))}
+                  onChange={(event) => {
+                    setFeedback((prev) => ({ ...prev, message: event.target.value }));
+                    if (feedbackStatus.type === 'error') {
+                      setFeedbackStatus({ type: 'idle', message: '' });
+                    }
+                  }}
                   placeholder="Let us know what you were looking for."
                   className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-inner focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                 />
               </label>
               <button
                 type="submit"
-                className="inline-flex items-center justify-center rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-600"
+                className="inline-flex items-center justify-center rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
               >
                 Submit feedback
               </button>
-              {feedback.submitted ? (
-                <p className="text-xs text-emerald-600">Thank you. We review feedback within two UK business days.</p>
-              ) : null}
+              <p
+                id={feedbackStatusId}
+                role="status"
+                aria-live="polite"
+                className={classNames(
+                  'text-xs',
+                  feedbackStatus.type === 'success'
+                    ? 'text-emerald-600'
+                    : feedbackStatus.type === 'error'
+                      ? 'text-rose-600'
+                      : 'text-slate-500',
+                )}
+              >
+                {feedbackStatus.message}
+              </p>
             </form>
             <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-6 text-sm text-slate-700">
               <h3 className="text-lg font-semibold text-slate-900">Need tailored guidance?</h3>
@@ -518,7 +636,12 @@ SiteDocumentLayout.propTypes = {
     summary: PropTypes.string,
     heroSubtitle: PropTypes.string,
     lastUpdated: PropTypes.string,
-    reviewedBy: PropTypes.string,
+    lastReviewed: PropTypes.string,
+    publishedAt: PropTypes.string,
+    version: PropTypes.string,
+    jurisdiction: PropTypes.string,
+    contactEmail: PropTypes.string,
+    contactPhone: PropTypes.string,
   }),
   loading: PropTypes.bool,
   error: PropTypes.instanceOf(Error),
