@@ -10,6 +10,8 @@ import OffersForm from '../OffersForm.jsx';
 import ProofForm from '../ProofForm.jsx';
 import SeoForm from '../SeoForm.jsx';
 import SocialForm from '../SocialForm.jsx';
+import ContentSubscriptions from '../../personalization/ContentSubscriptions.jsx';
+import { DEFAULT_SUBSCRIPTION_MODULES } from '../../defaults.js';
 
 const baseSettings = {
   siteTitle: 'Launch Studio',
@@ -34,6 +36,15 @@ const baseTheme = {
   buttonShape: 'rounded',
   logoUrl: '',
   faviconUrl: '',
+};
+
+const baseSubscriptions = {
+  digestTime: 'monday-08:00',
+  autoPersonalize: true,
+  modules: DEFAULT_SUBSCRIPTION_MODULES.map((module) => ({
+    ...module,
+    sampleContent: module.sampleContent?.map((item) => ({ ...item })) ?? [],
+  })),
 };
 
 const baseHero = {
@@ -195,6 +206,17 @@ function SocialHarness({ initialSocial = baseSocial, canEdit = true }) {
   );
 }
 
+function ContentSubscriptionsHarness({ initialSubscriptions = baseSubscriptions, canEdit = true }) {
+  const [subscriptions, setSubscriptions] = useState(initialSubscriptions);
+  return (
+    <ContentSubscriptions
+      subscriptions={subscriptions}
+      onChange={setSubscriptions}
+      canEdit={canEdit}
+    />
+  );
+}
+
 describe('BasicsForm', () => {
   it('updates settings fields and toggles publish status with live state', async () => {
     const user = userEvent.setup();
@@ -266,7 +288,7 @@ describe('BrandForm', () => {
     await user.click(darkButton);
 
     await waitFor(() => {
-      expect(darkButton.className).toContain('text-accent');
+      expect(darkButton.className).toContain('bg-slate-900');
     });
 
     const fontSelect = screen.getByDisplayValue('Inter');
@@ -287,6 +309,49 @@ describe('BrandForm', () => {
     await user.click(backgroundButtons[0]);
 
     expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
+describe('ContentSubscriptions', () => {
+  it('enables paused modules and updates cadence controls', async () => {
+    const user = userEvent.setup();
+
+    render(<ContentSubscriptionsHarness />);
+
+    await user.click(screen.getByRole('button', { name: 'Learning paths' }));
+
+    const pausedToggle = screen.getByRole('button', { name: /Paused/i });
+    await user.click(pausedToggle);
+
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /Paused/i })).toBeNull();
+    });
+
+    const weeklyButton = screen.getByRole('button', { name: 'Weekly digest' });
+    await user.click(weeklyButton);
+
+    await waitFor(() => {
+      expect(weeklyButton.className).toContain('bg-slate-900');
+    });
+  });
+
+  it('adds custom feeds to the module list', async () => {
+    const user = userEvent.setup();
+
+    render(<ContentSubscriptionsHarness />);
+
+    await user.type(screen.getByPlaceholderText('Series name (e.g. Studio radio)'), 'Studio radio');
+    await user.type(
+      screen.getByPlaceholderText('Describe what subscribers receive'),
+      'Behind-the-scenes audio drops',
+    );
+
+    const addButton = screen.getByRole('button', { name: /Add feed/i });
+    await user.click(addButton);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Studio radio' })).toBeInTheDocument();
+    });
   });
 });
 

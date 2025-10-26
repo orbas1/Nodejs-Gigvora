@@ -11,6 +11,7 @@ import ProofForm from './forms/ProofForm.jsx';
 import ContactForm from './forms/ContactForm.jsx';
 import SeoForm from './forms/SeoForm.jsx';
 import SocialForm from './forms/SocialForm.jsx';
+import ContentSubscriptions from './personalization/ContentSubscriptions.jsx';
 import WebsitePreferencesPreview from './WebsitePreferencesPreview.jsx';
 import { saveWebsitePreferences } from '../../services/websitePreferences.js';
 import websitePreferencesShape, { WEBSITE_SECTION_IDS } from './propTypes.js';
@@ -24,6 +25,7 @@ const SECTION_LABELS = {
   contact: 'Contact',
   seo: 'Seo',
   social: 'Social',
+  subscriptions: 'Subscriptions',
 };
 
 const SECTION_CONFIG = WEBSITE_SECTION_IDS.map((id) => ({ id, label: SECTION_LABELS[id] }));
@@ -103,6 +105,14 @@ export default function WebsitePreferencesDesigner({
           <SocialForm
             social={draft.social}
             onChange={(next) => setDraft((current) => ({ ...current, social: { ...current.social, ...next } }))}
+            canEdit={canEdit}
+          />
+        );
+      case 'subscriptions':
+        return (
+          <ContentSubscriptions
+            subscriptions={draft.subscriptions}
+            onChange={(next) => setDraft((current) => ({ ...current, subscriptions: next }))}
             canEdit={canEdit}
           />
         );

@@ -3,7 +3,7 @@ import { ensureArray, withDefaults } from './defaults.js';
 import { formatDateTime } from './utils.js';
 import websitePreferencesShape, { WEBSITE_SECTION_IDS } from './propTypes.js';
 
-const SUMMARY_ORDER = ['basics', 'brand', 'hero', 'offers', 'proof', 'contact', 'seo', 'social'];
+const SUMMARY_ORDER = ['basics', 'brand', 'hero', 'offers', 'proof', 'contact', 'seo', 'social', 'subscriptions'];
 
 function SummaryCard({ id, label, value, onSelect }) {
   return (
@@ -27,6 +27,9 @@ SummaryCard.propTypes = {
 
 export default function WebsitePreferencesSummary({ preferences, updatedAt, onSelectSection }) {
   const merged = withDefaults(preferences);
+  const accessibilityLabel = merged.theme.accessibilityPreset
+    ? merged.theme.accessibilityPreset.replace(/-/g, ' ')
+    : 'standard';
   const cards = {
     basics: {
       label: 'Site',
@@ -34,7 +37,7 @@ export default function WebsitePreferencesSummary({ preferences, updatedAt, onSe
     },
     brand: {
       label: 'Brand',
-      value: `${merged.theme.primaryColor} • ${merged.theme.fontFamily}`,
+      value: `${merged.theme.primaryColor} • ${merged.theme.fontFamily} • ${accessibilityLabel}`,
     },
     hero: {
       label: 'Hero',
@@ -59,6 +62,10 @@ export default function WebsitePreferencesSummary({ preferences, updatedAt, onSe
     social: {
       label: 'Social',
       value: `${ensureArray(merged.social.links).length} profiles linked`,
+    },
+    subscriptions: {
+      label: 'Subscriptions',
+      value: `${ensureArray(merged.subscriptions?.modules).filter((module) => module.enabled !== false).length} feeds live`,
     },
   };
 

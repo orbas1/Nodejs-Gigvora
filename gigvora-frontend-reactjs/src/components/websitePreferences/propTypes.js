@@ -57,6 +57,12 @@ export const websitePreferencesShape = PropTypes.shape({
     buttonShape: PropTypes.string,
     logoUrl: PropTypes.string,
     faviconUrl: PropTypes.string,
+    presetId: PropTypes.string,
+    systemSync: PropTypes.bool,
+    lastSyncedAt: PropTypes.string,
+    accentPalette: PropTypes.arrayOf(PropTypes.string),
+    accessibilityPreset: PropTypes.string,
+    reduceMotion: PropTypes.bool,
   }),
   hero: PropTypes.shape({
     kicker: PropTypes.string,
@@ -114,6 +120,28 @@ export const websitePreferencesShape = PropTypes.shape({
   social: PropTypes.shape({
     links: PropTypes.arrayOf(socialLinkShape),
   }),
+  subscriptions: PropTypes.shape({
+    digestTime: PropTypes.string,
+    autoPersonalize: PropTypes.bool,
+    modules: PropTypes.arrayOf(
+      PropTypes.shape({
+        id: PropTypes.string.isRequired,
+        title: PropTypes.string.isRequired,
+        description: PropTypes.string,
+        enabled: PropTypes.bool,
+        frequency: PropTypes.string,
+        channels: PropTypes.arrayOf(PropTypes.string),
+        segments: PropTypes.arrayOf(PropTypes.string),
+        sampleContent: PropTypes.arrayOf(
+          PropTypes.shape({
+            id: PropTypes.string,
+            title: PropTypes.string,
+            metric: PropTypes.string,
+          }),
+        ),
+      }),
+    ),
+  }),
   updatedAt: PropTypes.string,
 });
 
@@ -126,6 +154,7 @@ export const WEBSITE_SECTION_IDS = [
   'contact',
   'seo',
   'social',
+  'subscriptions',
 ];
 
 export default websitePreferencesShape;
