@@ -10,7 +10,7 @@ import {
   LightBulbIcon,
   PaperAirplaneIcon,
   PhotoIcon,
-  QuestionMarkCircleIcon,
+  HeartIcon,
   ShareIcon,
   SparklesIcon,
 } from '@heroicons/react/24/outline';
@@ -127,6 +127,15 @@ const REACTION_OPTIONS = [
     description: 'Signal you have their back.',
   },
   {
+    id: 'love',
+    label: 'Champion',
+    activeLabel: 'Championing',
+    Icon: HeartIcon,
+    activeClasses: 'border-rose-200 bg-rose-50 text-rose-700',
+    dotClassName: 'bg-rose-500',
+    description: 'Spotlight heartfelt wins and gratitude.',
+  },
+  {
     id: 'insightful',
     label: 'Insightful',
     activeLabel: 'Finding insightful',
@@ -134,15 +143,6 @@ const REACTION_OPTIONS = [
     activeClasses: 'border-violet-200 bg-violet-50 text-violet-700',
     dotClassName: 'bg-violet-500',
     description: 'Highlight thought leadership.',
-  },
-  {
-    id: 'curious',
-    label: 'Curious',
-    activeLabel: 'Curious',
-    Icon: QuestionMarkCircleIcon,
-    activeClasses: 'border-rose-200 bg-rose-50 text-rose-700',
-    dotClassName: 'bg-rose-500',
-    description: 'Invite deeper conversation.',
   },
 ];
 
@@ -154,17 +154,22 @@ const REACTION_LOOKUP = REACTION_OPTIONS.reduce((map, option) => {
 const REACTION_ALIASES = {
   like: 'like',
   likes: 'like',
-  heart: 'support',
-  love: 'support',
+  heart: 'love',
+  hearts: 'love',
+  love: 'love',
+  loved: 'love',
   celebrate: 'celebrate',
   celebration: 'celebrate',
   celebrations: 'celebrate',
   support: 'support',
   supportive: 'support',
+  care: 'support',
+  caring: 'support',
   insightful: 'insightful',
   insight: 'insightful',
-  curious: 'curious',
-  curiosity: 'curious',
+  insights: 'insightful',
+  curious: 'insightful',
+  curiosity: 'insightful',
 };
 
 export function resolveAuthor(post) {
