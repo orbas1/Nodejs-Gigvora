@@ -746,6 +746,75 @@ async function refreshSession(refreshToken, options = {}) {
   return { session };
 }
 
+function normaliseWorkspaceIds(input) {
+  if (!input) {
+    return [];
+  }
+
+  const source = Array.isArray(input) ? input : `${input}`.split(',');
+  const ids = new Set();
+  source
+    .map((value) => {
+      if (value == null) {
+        return null;
+      }
+      const trimmed = `${value}`.trim();
+      if (!trimmed) {
+        return null;
+      }
+      const numeric = Number.parseInt(trimmed, 10);
+      if (Number.isFinite(numeric)) {
+        return numeric;
+      }
+      return trimmed;
+    })
+    .filter((value) => value !== null)
+    .forEach((value) => ids.add(value));
+
+  return Array.from(ids);
+}
+
+async function describeSession(userId, options = {}) {
+  if (!userId) {
+    throw buildError('Authentication required.', 401);
+  }
+
+  const user = await authDomainService.findUserById(userId);
+  if (!user) {
+    throw buildError('Account not found.', 404);
+  }
+
+  const sanitizedUser = sanitizeUser(user);
+  const traits = {
+    loginContext: 'active_session',
+    ...(options.traits ?? {}),
+  };
+
+  const featureFlags = await featureFlagService.evaluateForUser(sanitizedUser, {
+    workspaceIds: normaliseWorkspaceIds(options.workspaceIds),
+    traits,
+  });
+
+  const accessToken = options.accessToken ?? null;
+  const expiresAt = accessToken ? decodeExpiry(accessToken) : null;
+
+  return {
+    session: {
+      user: sanitizedUser,
+      featureFlags,
+      isAuthenticated: true,
+      memberships: sanitizedUser.memberships ?? [],
+      roles: sanitizedUser.roles ?? [],
+      permissions: sanitizedUser.permissions ?? [],
+      capabilities: sanitizedUser.capabilities ?? [],
+      tokenExpiresAt: expiresAt ?? undefined,
+      featureFlagsUpdatedAt: new Date().toISOString(),
+      fetchedAt: new Date().toISOString(),
+      sessionRisk: { level: 'low', score: 0 },
+    },
+  };
+}
+
 async function requestPasswordReset(email, options = {}) {
   if (!email) {
     throw buildError('Email is required to request a password reset.', 422);
@@ -912,6 +981,7 @@ export default {
   loginWithGoogle,
   loginWithApple,
   loginWithLinkedIn,
+  describeSession,
   refreshSession,
   requestPasswordReset,
   verifyPasswordResetToken,

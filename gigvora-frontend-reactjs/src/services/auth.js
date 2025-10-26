@@ -88,6 +88,17 @@ export async function loginWithGoogle(idToken) {
   return apiClient.post('/auth/login/google', { idToken });
 }
 
+export async function refreshSession(refreshToken) {
+  if (!refreshToken) {
+    throw new Error('A refresh token is required to continue the session.');
+  }
+  return apiClient.post('/auth/refresh', { refreshToken });
+}
+
+export async function fetchCurrentSession(params = {}) {
+  return apiClient.get('/auth/session', { params });
+}
+
 const authService = {
   requestAdminTwoFactor,
   verifyTwoFactorCode,
@@ -99,6 +110,8 @@ const authService = {
   verifyTwoFactor,
   resendTwoFactor,
   loginWithGoogle,
+  refreshSession,
+  fetchCurrentSession,
   requestPasswordReset,
   verifyPasswordResetToken,
   resetPassword,
