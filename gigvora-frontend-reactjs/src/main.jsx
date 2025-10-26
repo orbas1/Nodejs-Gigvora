@@ -5,6 +5,7 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import './index.css';
 import { SessionProvider } from './context/SessionContext.jsx';
 import { MessagingProvider } from './context/MessagingContext.jsx';
+import { NavigationChromeProvider } from './context/NavigationChromeContext.jsx';
 import { LanguageProvider } from './context/LanguageContext.jsx';
 import { ThemeProvider } from './context/ThemeProvider.tsx';
 import { DataFetchingProvider } from './context/DataFetchingLayer.js';
@@ -38,17 +39,19 @@ async function bootstrap() {
       <React.StrictMode>
         <BrowserRouter>
           <OAuthProvider clientId={googleClientId}>
-            <LanguageProvider>
-              <SessionProvider>
-                <ThemeProvider>
-                  <DataFetchingProvider>
-                    <MessagingProvider>
-                      <AppComponent />
-                    </MessagingProvider>
-                  </DataFetchingProvider>
-                </ThemeProvider>
-              </SessionProvider>
-            </LanguageProvider>
+            <NavigationChromeProvider>
+              <LanguageProvider>
+                <SessionProvider>
+                  <ThemeProvider>
+                    <DataFetchingProvider>
+                      <MessagingProvider>
+                        <AppComponent />
+                      </MessagingProvider>
+                    </DataFetchingProvider>
+                  </ThemeProvider>
+                </SessionProvider>
+              </LanguageProvider>
+            </NavigationChromeProvider>
           </OAuthProvider>
         </BrowserRouter>
       </React.StrictMode>,

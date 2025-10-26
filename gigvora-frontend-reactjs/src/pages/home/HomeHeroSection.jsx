@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ArrowUpRightIcon, RocketLaunchIcon, SparklesIcon, UsersIcon } from '@heroicons/react/24/outline';
-import analytics from '../../services/analytics.js';
+import PropTypes from 'prop-types';
+import PublicHero from '../../components/marketing/PublicHero.jsx';
 import { HOME_GRADIENTS } from './homeThemeTokens.js';
 
 const DEFAULT_HEADLINE =
@@ -28,6 +27,49 @@ const FALLBACK_MEDIA = {
     'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=800&q=80',
 };
 
+const FALLBACK_PERSONA_CHIPS = [
+  'Founders accelerating go-to-market',
+  'Agencies scaling delivery pods',
+  'Mentors and operators guiding cohorts',
+  'Recruiters hiring across global hubs',
+];
+
+const FALLBACK_VALUE_PILLARS = [
+  {
+    id: 'command-centre',
+    title: 'One command centre for every crew',
+    description:
+      'Roadmaps, launchpads, and async updates stay in sync so founders, agencies, and talent leaders never lose context.',
+    highlights: [
+      'Launch timelines and blockers surface instantly for every persona',
+      'Shared rituals and AI nudges keep cohorts accountable across timezones',
+    ],
+    metric: { label: 'Operational clarity', value: '8.6/10 team confidence score' },
+  },
+  {
+    id: 'compliance-trust',
+    title: 'Enterprise trust without slowing momentum',
+    description:
+      'Integrated compliance, payments, and approvals let finance and legal sleep well while the work keeps moving.',
+    highlights: [
+      'Role-aware access, SOC2 controls, and audit-ready histories in one view',
+      'Escrow, payouts, and renewals governed by the same telemetry',
+    ],
+    metric: { label: 'Trust signals', value: 'SOC2 monitored · 99.95% uptime' },
+  },
+  {
+    id: 'talent-network',
+    title: 'Curated network that moves at your speed',
+    description:
+      'Mentor guilds, community launches, and AI-matched specialists plug into your roadmap with measurable impact.',
+    highlights: [
+      '9-day average time-to-hire across global missions',
+      'Mentor and pod insights reveal engagement, NPS, and readiness',
+    ],
+    metric: { label: 'Network activation', value: '7,800+ mentors & specialists' },
+  },
+];
+
 function normaliseKeywords(keywords) {
   if (!Array.isArray(keywords)) {
     return [];
@@ -54,296 +96,142 @@ export function HomeHeroSection({
   onClaimWorkspace,
   onBrowseOpportunities,
   productMedia,
+  personaChips,
+  valuePillars,
 }) {
-  const [reduceMotion, setReduceMotion] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-      return undefined;
-    }
-
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-
-    const updatePreference = (event) => {
-      setReduceMotion(event.matches);
-    };
-
-    // Initialise with the current preference
-    setReduceMotion(mediaQuery.matches);
-
-    if (typeof mediaQuery.addEventListener === 'function') {
-      mediaQuery.addEventListener('change', updatePreference);
-      return () => mediaQuery.removeEventListener('change', updatePreference);
-    }
-
-    mediaQuery.addListener(updatePreference);
-    return () => mediaQuery.removeListener(updatePreference);
-  }, []);
-
-  const displayHeadline = error ? 'Stay tuned for what is next.' : headline ?? DEFAULT_HEADLINE;
-  const displaySubheading =
-    loading && !subheading
-      ? 'Gathering the latest programmes…'
-      : subheading ?? DEFAULT_SUBHEADING;
-
   const resolvedKeywords = normaliseKeywords(keywords);
   const hasCustomKeywords = resolvedKeywords.length > 0;
-  const showTickerSkeleton = loading && !hasCustomKeywords;
-  const tickerItems = showTickerSkeleton ? [] : hasCustomKeywords ? resolvedKeywords : FALLBACK_KEYWORDS;
-  const doubledTickerItems = [...tickerItems, ...tickerItems];
-  const tickerRenderList = reduceMotion ? tickerItems : doubledTickerItems;
+  const tickerItems = hasCustomKeywords ? resolvedKeywords : undefined;
+  const fallbackTickerItems = hasCustomKeywords ? resolvedKeywords : FALLBACK_KEYWORDS;
 
-  const showCopySkeleton = loading && !headline && !error;
   const heroMedia = { ...FALLBACK_MEDIA, ...(productMedia ?? {}) };
-  const hasProvidedVideo = Boolean(
-    (productMedia?.videoSources && Array.isArray(productMedia.videoSources) && productMedia.videoSources.length) ||
-      productMedia?.videoUrl,
-  );
-  const showMediaSkeleton = loading && !productMedia?.imageUrl && !hasProvidedVideo;
-  const hasVideo = Boolean(
-    (heroMedia.videoSources && Array.isArray(heroMedia.videoSources) && heroMedia.videoSources.length) || heroMedia.videoUrl,
-  );
-  const heroVideoSources = hasVideo
-    ? Array.isArray(heroMedia.videoSources) && heroMedia.videoSources.length
-      ? heroMedia.videoSources
-          .map((source) =>
-            source && (source.src || source.url)
-              ? { src: source.src ?? source.url, type: source.type ?? 'video/mp4' }
-              : null,
-          )
-          .filter(Boolean)
-      : [
-          {
-            src: heroMedia.videoUrl,
-            type: heroMedia.videoType ?? 'video/mp4',
-          },
-        ]
-    : [];
-  const canRenderVideo = hasVideo && heroVideoSources.length;
 
-  const handleClaimWorkspace = () => {
-    analytics.track(
-      'web_home_hero_cta',
-      { action: 'claim_workspace', hasCustomHeadline: Boolean(headline) },
-      { source: 'web_marketing_site' },
-    );
-    if (typeof onClaimWorkspace === 'function') {
-      onClaimWorkspace();
-    }
+  const heroPersonaChips = Array.isArray(personaChips) && personaChips.length ? personaChips : FALLBACK_PERSONA_CHIPS;
+  const heroValuePillars = Array.isArray(valuePillars) && valuePillars.length ? valuePillars : FALLBACK_VALUE_PILLARS;
+
+  const primaryAction = {
+    id: 'claim_workspace',
+    label: 'Claim your workspace',
+    onClick: () => {
+      if (typeof onClaimWorkspace === 'function') {
+        onClaimWorkspace();
+      }
+    },
   };
 
-  const handleBrowseOpportunities = () => {
-    analytics.track(
-      'web_home_hero_cta',
-      { action: 'browse_opportunities', hasCustomHeadline: Boolean(headline) },
-      { source: 'web_marketing_site' },
-    );
-    if (typeof onBrowseOpportunities === 'function') {
-      onBrowseOpportunities();
-    }
+  const secondaryAction = {
+    id: 'browse_opportunities',
+    label: 'Browse live opportunities',
+    onClick: () => {
+      if (typeof onBrowseOpportunities === 'function') {
+        onBrowseOpportunities();
+      }
+    },
   };
 
   return (
-    <section className={HOME_GRADIENTS.hero.background}>
-      <div className="pointer-events-none absolute inset-0">
-        {HOME_GRADIENTS.hero.overlays.map((className) => (
-          <div key={className} className={className} aria-hidden="true" />
-        ))}
-      </div>
-
-      <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-24 lg:flex lg:items-center lg:gap-16">
-        <div className="mx-auto max-w-2xl space-y-10 text-center lg:mx-0 lg:text-left">
-          <div className="space-y-6">
-            <span className="mx-auto inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1 text-xs font-semibold uppercase tracking-[0.35em] text-accent lg:mx-0">
-              Community OS
-            </span>
-            <h1 className="text-balance text-3xl font-semibold leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl">
-              {showCopySkeleton ? (
-                <span className="block h-12 w-3/4 animate-pulse rounded-full bg-white/10 sm:h-16" />
-              ) : (
-                displayHeadline
-              )}
-            </h1>
-            <p className="text-pretty text-base text-slate-200 sm:text-xl">
-              {showCopySkeleton ? (
-                <span className="mt-2 block h-6 w-full max-w-md animate-pulse rounded-full bg-white/10" />
-              ) : (
-                displaySubheading
-              )}
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center lg:justify-start">
-            <button
-              type="button"
-              onClick={handleClaimWorkspace}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-accent px-8 py-3 text-base font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-accentDark sm:w-auto"
-            >
-              Claim your workspace
-              <ArrowUpRightIcon className="h-5 w-5" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={handleBrowseOpportunities}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/30 bg-white/5 px-8 py-3 text-base font-semibold text-white transition hover:border-white/60 hover:bg-white/10 sm:w-auto"
-            >
-              Browse live opportunities
-              <ArrowUpRightIcon className="h-5 w-5" aria-hidden="true" />
-            </button>
-          </div>
-
-          <div className="relative mt-8 h-auto min-h-[3.25rem] overflow-hidden rounded-full border border-white/10 bg-white/5 sm:mt-10 sm:h-14">
-            <div className={HOME_GRADIENTS.hero.tickerFades.start} aria-hidden="true" />
-            <div className={HOME_GRADIENTS.hero.tickerFades.end} aria-hidden="true" />
-            <div
-              className={
-                reduceMotion
-                  ? 'flex h-full flex-wrap items-center justify-center gap-3 px-6 py-3'
-                  : 'flex h-full min-w-max items-center gap-6 animate-marquee'
-              }
-              aria-hidden={reduceMotion ? undefined : true}
-            >
-              {showTickerSkeleton
-                ? Array.from({ length: 4 }).map((_, index) => (
-                    <span
-                      key={`ticker-skeleton-${index}`}
-                      className="inline-flex min-w-[7rem] items-center gap-2 rounded-full border border-white/10 bg-white/10 px-5 py-1.5 text-sm text-white/80"
-                    >
-                      <span className="h-4 w-4 animate-pulse rounded-full bg-white/20" aria-hidden="true" />
-                      <span className="h-3 w-24 animate-pulse rounded-full bg-white/20" aria-hidden="true" />
-                    </span>
-                  ))
-                : tickerRenderList.map((item, index) => (
-                    <span
-                      key={`ticker-primary-${index}`}
-                      className="inline-flex min-w-max items-center gap-2 rounded-full border border-white/10 bg-white/10 px-5 py-1.5 text-sm font-medium text-white/90"
-                    >
-                      <UsersIcon className="h-4 w-4" aria-hidden="true" />
-                      {item}
-                    </span>
-                  ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-16 w-full max-w-lg px-2 sm:px-0 lg:mt-0 lg:max-w-none">
-          <div className="relative mx-auto max-w-md space-y-6 lg:ml-auto lg:mr-0">
-            <div className="absolute -top-12 left-1/2 h-24 w-24 -translate-x-1/2 rounded-full bg-accent/40 blur-2xl" aria-hidden="true" />
-
-            <div className="rounded-[2rem] bg-white/95 p-8 text-slate-900 shadow-2xl ring-1 ring-white/60 backdrop-blur">
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10 text-accent">
-                  <SparklesIcon className="h-6 w-6" aria-hidden="true" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">Creation Studio draft</p>
-                  <p className="text-xs text-slate-500">Campaign kickoff • 78% ready</p>
-                </div>
-              </div>
-              <div className="mt-6 space-y-3 text-sm text-slate-600">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-slate-900">Storyboard deck</span>
-                  <span className="text-xs text-slate-400">Last edit 3m ago</span>
-                </div>
-                <div className="flex items-center justify-between rounded-2xl bg-slate-100/80 px-4 py-3">
-                  <span className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Launchpad sync</span>
-                  <span className="text-xs font-medium text-slate-600">Mentor feedback pending</span>
-                </div>
-                <p>
-                  Notes stream: <span className="font-medium text-slate-900">Prototype v3 ready for review</span>
-                </p>
-              </div>
-              <div className="mt-6 flex items-center gap-3">
-                {['AG', 'JT', 'LK'].map((initials) => (
-                  <span
-                    key={initials}
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-accent via-accentDark to-slate-900 text-sm font-semibold text-white shadow-soft"
-                  >
-                    {initials}
-                  </span>
-                ))}
-                <span className="rounded-full border border-slate-200/60 px-3 py-1 text-xs font-medium text-slate-500">
-                  +5 mentors watching
-                </span>
-              </div>
-            </div>
-
-            <div className="rounded-[2rem] border border-white/10 bg-white/10 p-7 text-white shadow-2xl backdrop-blur">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-white">Explorer opportunity card</p>
-                  <p className="text-xs text-slate-300">UX research mission • Volunteering</p>
-                </div>
-                <RocketLaunchIcon className="h-6 w-6 text-accent" aria-hidden="true" />
-              </div>
-
-              <div className="mt-6 space-y-4 text-sm text-slate-100">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-base font-semibold text-white">
-                    CJ
-                  </span>
-                  <div>
-                    <p className="font-medium text-white">Casey · product mentor</p>
-                    <p className="text-xs text-slate-300">Hosting live portfolio review, 12 seats remaining</p>
-                  </div>
-                </div>
-                <div className="rounded-2xl bg-white/10 p-4 text-xs text-slate-200">
-                  Next session: Today · 18:30 UTC · collaborative whiteboard with volunteers & clients.
-                </div>
-              </div>
-
-              <div className="mt-6 overflow-hidden rounded-2xl border border-white/10 bg-white/5">
-                {showMediaSkeleton ? (
-                  <div className="h-40 w-full animate-pulse bg-slate-800/50" aria-hidden="true" />
-                ) : canRenderVideo ? (
-                  <figure>
-                    <video
-                      className="h-40 w-full object-cover"
-                      poster={heroMedia.posterUrl ?? heroMedia.imageUrl}
-                      autoPlay={heroMedia.autoPlay ?? true}
-                      muted={heroMedia.muted ?? true}
-                      loop={heroMedia.loop ?? true}
-                      playsInline
-                      controls={heroMedia.controls ?? false}
-                      preload="metadata"
-                      aria-label={heroMedia.alt ?? 'Gigvora product preview'}
-                      data-testid="home-hero-media-video"
-                    >
-                      {heroVideoSources.map((source) => (
-                        <source key={`${source.src ?? source.url}-${source.type ?? 'video/mp4'}`} src={source.src ?? source.url} type={source.type ?? 'video/mp4'} />
-                      ))}
-                    </video>
-                    {heroMedia.caption ? (
-                      <figcaption className="px-4 py-3 text-xs text-slate-200/80">{heroMedia.caption}</figcaption>
-                    ) : null}
-                  </figure>
-                ) : (
-                  <figure>
-                    <img
-                      src={heroMedia.imageUrl}
-                      alt={heroMedia.alt ?? 'Gigvora product preview'}
-                      className="h-40 w-full object-cover"
-                      loading="lazy"
-                      data-testid="home-hero-media-image"
-                    />
-                    {heroMedia.caption ? (
-                      <figcaption className="px-4 py-3 text-xs text-slate-200/80">{heroMedia.caption}</figcaption>
-                    ) : null}
-                  </figure>
-                )}
-              </div>
-
-              <div className="mt-6 flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-300">Community ticker</span>
-                <span className="inline-flex items-center gap-1 text-sm font-semibold text-accent">
-                  Join mission
-                  <ArrowUpRightIcon className="h-4 w-4" aria-hidden="true" />
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
+    <PublicHero
+      componentId="home-hero"
+      gradient={HOME_GRADIENTS.hero}
+      eyebrow="Community OS"
+      headline={headline}
+      subheading={subheading}
+      fallbackHeadline={DEFAULT_HEADLINE}
+      fallbackSubheading={DEFAULT_SUBHEADING}
+      highlightBadge="Freelancers, founders, mentors, agencies, and hiring teams win together."
+      tickerItems={tickerItems}
+      fallbackTickerItems={fallbackTickerItems}
+      loading={loading}
+      error={error}
+      primaryAction={primaryAction}
+      secondaryAction={secondaryAction}
+      personaChips={heroPersonaChips}
+      valuePillars={heroValuePillars}
+      media={heroMedia}
+      mediaCaption={productMedia?.caption}
+      analyticsMetadata={{
+        source: 'web_marketing_site',
+        viewEventName: 'web_home_hero_viewed',
+        ctaEventName: 'web_home_hero_cta',
+        pillarEventName: 'web_home_value_pillar_action',
+      }}
+    />
   );
 }
+
+HomeHeroSection.propTypes = {
+  headline: PropTypes.string,
+  subheading: PropTypes.string,
+  keywords: PropTypes.arrayOf(
+    PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.shape({
+        label: PropTypes.string,
+        title: PropTypes.string,
+        keyword: PropTypes.string,
+        name: PropTypes.string,
+      }),
+    ]),
+  ),
+  loading: PropTypes.bool,
+  error: PropTypes.oneOfType([PropTypes.bool, PropTypes.string]),
+  onClaimWorkspace: PropTypes.func,
+  onBrowseOpportunities: PropTypes.func,
+  productMedia: PropTypes.shape({
+    imageUrl: PropTypes.string,
+    alt: PropTypes.string,
+    posterUrl: PropTypes.string,
+    videoUrl: PropTypes.string,
+    videoType: PropTypes.string,
+    videoSources: PropTypes.arrayOf(
+      PropTypes.shape({
+        src: PropTypes.string,
+        url: PropTypes.string,
+        type: PropTypes.string,
+      }),
+    ),
+    caption: PropTypes.string,
+  }),
+  personaChips: PropTypes.arrayOf(
+    PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.shape({
+        label: PropTypes.string,
+      }),
+    ]),
+  ),
+  valuePillars: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string,
+      title: PropTypes.string,
+      description: PropTypes.string,
+      highlights: PropTypes.arrayOf(PropTypes.string),
+      metric: PropTypes.shape({
+        label: PropTypes.string,
+        value: PropTypes.string,
+      }),
+      icon: PropTypes.oneOfType([PropTypes.string, PropTypes.func]),
+      action: PropTypes.shape({
+        id: PropTypes.string,
+        label: PropTypes.string,
+        href: PropTypes.string,
+        to: PropTypes.string,
+      }),
+    }),
+  ),
+};
+
+HomeHeroSection.defaultProps = {
+  headline: undefined,
+  subheading: undefined,
+  keywords: undefined,
+  loading: false,
+  error: null,
+  onClaimWorkspace: undefined,
+  onBrowseOpportunities: undefined,
+  productMedia: undefined,
+  personaChips: undefined,
+  valuePillars: undefined,
+};
+
+export default HomeHeroSection;

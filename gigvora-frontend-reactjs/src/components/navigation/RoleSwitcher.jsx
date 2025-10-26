@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import { Menu, Transition } from '@headlessui/react';
@@ -13,6 +13,7 @@ import {
   MagnifyingGlassCircleIcon,
 } from '@heroicons/react/24/outline';
 import { classNames } from '../../utils/classNames.js';
+import { useNavigationChrome } from '../../context/NavigationChromeContext.jsx';
 
 const personaIcons = Object.freeze({
   user: UserCircleIcon,
@@ -22,19 +23,60 @@ const personaIcons = Object.freeze({
   headhunter: MagnifyingGlassCircleIcon,
   mentor: AcademicCapIcon,
   admin: ShieldCheckIcon,
+  founder: SparklesIcon,
 });
 
+const FALLBACK_BLUEPRINT = Object.freeze({
+  tagline: 'Tailored workspaces with analytics, approvals, and concierge support.',
+  focusAreas: ['Workspace', 'Insights'],
+  metrics: [
+    { label: 'Licences', value: 'Included' },
+    { label: 'Support', value: 'Priority chat' },
+  ],
+  primaryCta: 'Switch persona',
+  defaultRoute: '/',
+  timelineEnabled: true,
+});
+
+function resolveIcon(key) {
+  return personaIcons[key] ?? UserCircleIcon;
+}
+
 export default function RoleSwitcher({ options, currentKey, onSelect }) {
+  const { personas } = useNavigationChrome();
+  const personaMap = useMemo(() => {
+    const map = new Map();
+    if (Array.isArray(personas)) {
+      personas.forEach((persona) => {
+        if (persona?.key) {
+          map.set(persona.key, persona);
+        }
+      });
+    }
+    return map;
+  }, [personas]);
+
   if (!options.length) {
     return null;
   }
 
   const activeOption = options.find((option) => option.key === currentKey) ?? options[0];
-  const ActiveIcon = personaIcons[activeOption.key] ?? UserCircleIcon;
+  const ActiveIcon = resolveIcon(activeOption.key);
+  const activeBlueprint = personaMap.get(activeOption.key) ?? FALLBACK_BLUEPRINT;
+  const activeFocusAreas = Array.isArray(activeBlueprint.focusAreas)
+    ? activeBlueprint.focusAreas
+    : FALLBACK_BLUEPRINT.focusAreas;
+  const activeMetrics = Array.isArray(activeBlueprint.metrics)
+    ? activeBlueprint.metrics
+    : FALLBACK_BLUEPRINT.metrics;
+  const activePrimaryCta = activeBlueprint.primaryCta ?? FALLBACK_BLUEPRINT.primaryCta;
 
   return (
     <Menu as="div" className="relative inline-flex">
-      <Menu.Button className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/95 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.3em] text-slate-500 shadow-sm transition hover:border-slate-300 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white">
+      <Menu.Button
+        className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/95 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.3em] text-slate-500 shadow-sm transition hover:border-slate-300 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+        aria-label={`Switch persona – ${activeOption.label}`}
+      >
         <ArrowsRightLeftIcon className="h-3.5 w-3.5" aria-hidden="true" />
         <ActiveIcon className="h-3.5 w-3.5" aria-hidden="true" />
         <span>{activeOption.label}</span>
@@ -48,35 +90,125 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
         leaveFrom="transform opacity-100 scale-100"
         leaveTo="transform opacity-0 scale-95"
       >
-        <Menu.Items className="absolute right-0 z-50 mt-2 w-64 origin-top-right space-y-1 rounded-3xl border border-slate-200/70 bg-white p-3 text-sm shadow-xl focus:outline-none">
+        <Menu.Items className="absolute right-0 z-50 mt-2 w-[22rem] origin-top-right space-y-3 rounded-3xl border border-slate-200/70 bg-white p-4 text-sm shadow-xl focus:outline-none">
+          <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-3">
+            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-slate-400">Current persona</p>
+            <div className="mt-2 flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-white">
+                  <ActiveIcon className="h-4 w-4" aria-hidden="true" />
+                </span>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-slate-900">{activeOption.label}</p>
+                  <p className="text-xs text-slate-500">{activeBlueprint.tagline ?? FALLBACK_BLUEPRINT.tagline}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {activeFocusAreas.map((area) => (
+                      <span
+                        key={area}
+                        className="rounded-full bg-white/70 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-slate-400"
+                      >
+                        {area}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <span className="rounded-full bg-slate-900 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-white">
+                {activePrimaryCta}
+              </span>
+            </div>
+            <dl className="mt-3 grid grid-cols-2 gap-3 text-[0.65rem] uppercase tracking-[0.3em] text-slate-400">
+              {activeMetrics.map((metric) => (
+                <div key={`${activeOption.key}-${metric.label}`} className="space-y-1">
+                  <dt>{metric.label}</dt>
+                  <dd className="text-xs font-semibold text-slate-700">{metric.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
           {options.map((option) => {
-            const OptionIcon = personaIcons[option.key] ?? UserCircleIcon;
+            const OptionIcon = resolveIcon(option.key);
+            const blueprint = personaMap.get(option.key) ?? FALLBACK_BLUEPRINT;
+            const focusAreas = Array.isArray(blueprint.focusAreas)
+              ? blueprint.focusAreas
+              : FALLBACK_BLUEPRINT.focusAreas;
+            const metrics = Array.isArray(blueprint.metrics) ? blueprint.metrics : FALLBACK_BLUEPRINT.metrics;
+            const primaryCta = blueprint.primaryCta ?? FALLBACK_BLUEPRINT.primaryCta;
+            const timelineActive = option.timelineEnabled ?? blueprint.timelineEnabled ?? false;
+            const destination = option.to ?? blueprint.defaultRoute ?? '#';
             return (
               <Menu.Item key={option.key}>
                 {({ active }) => (
                   <Link
-                    to={option.to}
+                    to={destination}
                     onClick={onSelect}
                     className={classNames(
-                      'flex items-center justify-between gap-3 rounded-2xl px-3 py-2 transition',
+                      'flex flex-col gap-3 rounded-2xl border border-transparent px-3 py-3 transition',
                       option.key === activeOption.key
-                        ? 'bg-slate-900 text-white shadow-sm'
+                        ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
                         : active
-                          ? 'bg-slate-100 text-slate-900'
-                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+                          ? 'border-slate-200 bg-slate-50 text-slate-900'
+                          : 'text-slate-600 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-900',
                     )}
                   >
-                    <span className="flex items-center gap-2">
-                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-                        <OptionIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-full bg-slate-900/90 text-white">
+                        <OptionIcon className="h-4 w-4" aria-hidden="true" />
                       </span>
-                      {option.label}
+                      <div className="flex-1 space-y-1">
+                        <p className={classNames('text-sm font-semibold', option.key === activeOption.key ? 'text-white' : 'text-slate-900')}>
+                          {option.label}
+                        </p>
+                        <p className={classNames('text-xs', option.key === activeOption.key ? 'text-slate-100/80' : 'text-slate-500')}>
+                          {blueprint.tagline ?? FALLBACK_BLUEPRINT.tagline}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {focusAreas.map((area) => (
+                            <span
+                              key={`${option.key}-${area}`}
+                              className={classNames(
+                                'rounded-full px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-[0.3em]',
+                                option.key === activeOption.key ? 'bg-white/10 text-white' : 'bg-white/80 text-slate-500',
+                              )}
+                            >
+                              {area}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <span
+                        className={classNames(
+                          'inline-flex items-center rounded-full px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.35em]',
+                          timelineActive
+                            ? option.key === activeOption.key
+                              ? 'bg-emerald-400/20 text-white'
+                              : 'bg-emerald-100 text-emerald-700'
+                            : option.key === activeOption.key
+                              ? 'bg-amber-400/20 text-white'
+                              : 'bg-amber-100 text-amber-700',
+                        )}
+                      >
+                        {timelineActive ? 'Timeline live' : 'Timeline pending'}
+                      </span>
+                    </div>
+                    <dl
+                      className={classNames(
+                        'grid grid-cols-2 gap-3 text-[0.65rem] uppercase tracking-[0.3em]',
+                        option.key === activeOption.key ? 'text-slate-100/80' : 'text-slate-400',
+                      )}
+                    >
+                      {metrics.map((metric) => (
+                        <div key={`${option.key}-${metric.label}`} className="space-y-1">
+                          <dt>{metric.label}</dt>
+                          <dd className={classNames('text-xs font-semibold', option.key === activeOption.key ? 'text-white' : 'text-slate-600')}>
+                            {metric.value}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                    <span className="text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-slate-400">
+                      {primaryCta}
                     </span>
-                    {option.timelineEnabled ? (
-                      <span className="text-xs font-semibold uppercase tracking-[0.3em] text-accent">Timeline</span>
-                    ) : (
-                      <span className="text-xs text-slate-400">Timeline setup needed</span>
-                    )}
                   </Link>
                 )}
               </Menu.Item>
@@ -93,7 +225,7 @@ RoleSwitcher.propTypes = {
     PropTypes.shape({
       key: PropTypes.string.isRequired,
       label: PropTypes.string.isRequired,
-      to: PropTypes.string.isRequired,
+      to: PropTypes.string,
       timelineEnabled: PropTypes.bool,
     }),
   ),

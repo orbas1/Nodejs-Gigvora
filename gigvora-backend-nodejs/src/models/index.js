@@ -616,6 +616,13 @@ export {
   registerAdminTimelineAssociations,
 } from './adminTimelineModels.js';
 export { SiteSetting, SitePage, SiteNavigationLink, SITE_PAGE_STATUSES } from './siteManagementModels.js';
+export {
+  NavigationLocale,
+  NavigationPersona,
+  NavigationChromeConfig,
+  NAVIGATION_LOCALE_STATUSES,
+  NAVIGATION_DIRECTIONS,
+} from './navigationChromeModels.js';
 export { EmailSmtpConfig, EmailTemplate } from './emailModels.js';
 export {
   CreationStudioItem,
@@ -3655,6 +3662,9 @@ export const FeedShare = sequelize.define(
     message: { type: DataTypes.TEXT, allowNull: false },
     link: { type: DataTypes.STRING(2048), allowNull: true },
     metadata: { type: jsonType, allowNull: true },
+    scheduledFor: { type: DataTypes.DATE, allowNull: true },
+    notifyList: { type: jsonType, allowNull: true },
+    complianceAcknowledged: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
   },
   {
     tableName: 'feed_shares',
@@ -14432,6 +14442,34 @@ export const MessageAttachment = sequelize.define(
   },
 );
 
+export const MessageThreadMetric = sequelize.define(
+  'MessageThreadMetric',
+  {
+    threadId: { type: DataTypes.INTEGER, allowNull: false, primaryKey: true },
+    messageCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    participantCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    collaboratorCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    avgResponseMinutes: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+    medianResponseMinutes: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+    awaitingResponse: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    awaitingResponseUserId: { type: DataTypes.INTEGER, allowNull: true },
+    awaitingResponseSince: { type: DataTypes.DATE, allowNull: true },
+    lastInboundAt: { type: DataTypes.DATE, allowNull: true },
+    lastOutboundAt: { type: DataTypes.DATE, allowNull: true },
+    lastTouchedBy: { type: DataTypes.INTEGER, allowNull: true },
+    engagementScore: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+    previousEngagementScore: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+    engagementTrend: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+    momentumDirection: { type: DataTypes.STRING(20), allowNull: true },
+    momentumDelta: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+    dormantSince: { type: DataTypes.DATE, allowNull: true },
+    nextResponseDueAt: { type: DataTypes.DATE, allowNull: true },
+    progressPercent: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'message_thread_metrics' },
+);
+
 Message.prototype.toPublicObject = function toPublicObject() {
   const plain = this.get({ plain: true });
   let sanitizedMetadata = null;
@@ -23867,6 +23905,7 @@ MessageThread.hasMany(MessageParticipant, { foreignKey: 'threadId', as: 'partici
 MessageThread.hasMany(MessageParticipant, { foreignKey: 'threadId', as: 'viewerParticipants' });
 MessageThread.hasMany(Message, { foreignKey: 'threadId', as: 'messages' });
 MessageThread.hasOne(SupportCase, { foreignKey: 'threadId', as: 'supportCase' });
+MessageThread.hasOne(MessageThreadMetric, { foreignKey: 'threadId', as: 'metrics' });
 
 MessageParticipant.belongsTo(MessageThread, { foreignKey: 'threadId', as: 'thread' });
 MessageParticipant.belongsTo(User, { foreignKey: 'userId', as: 'user' });
@@ -23876,6 +23915,7 @@ Message.belongsTo(User, { foreignKey: 'senderId', as: 'sender' });
 Message.hasMany(MessageAttachment, { foreignKey: 'messageId', as: 'attachments' });
 
 MessageAttachment.belongsTo(Message, { foreignKey: 'messageId', as: 'message' });
+MessageThreadMetric.belongsTo(MessageThread, { foreignKey: 'threadId', as: 'thread' });
 
 SupportCase.belongsTo(MessageThread, { foreignKey: 'threadId', as: 'thread' });
 SupportCase.belongsTo(User, { foreignKey: 'escalatedBy', as: 'escalatedByUser' });
@@ -25401,6 +25441,7 @@ export default {
   MessageParticipant,
   Message,
   MessageAttachment,
+  MessageThreadMetric,
   MessageTranscript,
   SupportCase,
   SupportPlaybook,

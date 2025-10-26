@@ -332,7 +332,14 @@ export default function SignInForm({ className }) {
             </button>
             <div className="grid gap-3">
               {SOCIAL_PROVIDERS.map((provider) => (
-                <SocialAuthButton key={provider} provider={provider} onClick={() => handleSocialRedirect(provider)} disabled={status !== 'idle'} />
+                <SocialAuthButton
+                  key={provider}
+                  provider={provider}
+                  intent="login"
+                  loading={status !== 'idle'}
+                  disabled={status !== 'idle'}
+                  onClick={() => handleSocialRedirect(provider)}
+                />
               ))}
               <div className="w-full">
                 {googleEnabled ? (

@@ -3,27 +3,35 @@ import {
   DEFAULT_LANGUAGE,
   LANGUAGE_DIRECTIONS,
   LANGUAGE_STORAGE_KEY,
-  SUPPORTED_LANGUAGES,
   translations,
 } from '../i18n/translations.js';
+import { useNavigationChrome } from './NavigationChromeContext.jsx';
 
 const LanguageContext = createContext(null);
 
-function normaliseLanguage(code) {
+const FALLBACK_LOCALES = [
+  { code: DEFAULT_LANGUAGE, label: 'English', nativeLabel: 'English', direction: 'ltr' },
+];
+
+function normaliseLanguage(code, availableLocales = FALLBACK_LOCALES) {
+  const list = Array.isArray(availableLocales) && availableLocales.length ? availableLocales : FALLBACK_LOCALES;
+  const first = list[0]?.code ?? DEFAULT_LANGUAGE;
   if (!code) {
-    return DEFAULT_LANGUAGE;
+    return first;
   }
   const value = `${code}`.trim().toLowerCase();
   if (!value.length) {
-    return DEFAULT_LANGUAGE;
+    return first;
   }
-  const match = SUPPORTED_LANGUAGES.find((language) => language.code === value);
-  return match ? match.code : DEFAULT_LANGUAGE;
+  const match = list.find((language) => language.code === value);
+  return match ? match.code : first;
 }
 
-function getBrowserLanguage() {
+function getBrowserLanguage(availableLocales = FALLBACK_LOCALES) {
+  const list = Array.isArray(availableLocales) && availableLocales.length ? availableLocales : FALLBACK_LOCALES;
+  const fallback = list[0]?.code ?? DEFAULT_LANGUAGE;
   if (typeof navigator === 'undefined') {
-    return DEFAULT_LANGUAGE;
+    return fallback;
   }
   const candidates = [];
   if (Array.isArray(navigator.languages)) {
@@ -37,22 +45,22 @@ function getBrowserLanguage() {
       continue;
     }
     const [base] = `${candidate}`.toLowerCase().split('-');
-    const match = SUPPORTED_LANGUAGES.find((language) => language.code === base);
+    const match = list.find((language) => language.code === base);
     if (match) {
       return match.code;
     }
   }
-  return DEFAULT_LANGUAGE;
+  return fallback;
 }
 
-function readStoredLanguage() {
+function readStoredLanguage(availableLocales = FALLBACK_LOCALES) {
   if (typeof window === 'undefined') {
     return null;
   }
   try {
     const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
     if (stored) {
-      return normaliseLanguage(stored);
+      return normaliseLanguage(stored, availableLocales);
     }
   } catch (error) {
     console.warn('Unable to read stored language preference', error);
@@ -74,10 +82,26 @@ function getTranslationValue(language, key) {
 }
 
 export function LanguageProvider({ children }) {
-  const initialLanguage = useMemo(() => readStoredLanguage() ?? getBrowserLanguage(), []);
+  const { locales: chromeLocales } = useNavigationChrome();
+  const availableLocales = useMemo(() => {
+    if (Array.isArray(chromeLocales) && chromeLocales.length) {
+      return chromeLocales;
+    }
+    return FALLBACK_LOCALES;
+  }, [chromeLocales]);
+
+  const initialLanguage = useMemo(
+    () => readStoredLanguage(availableLocales) ?? getBrowserLanguage(availableLocales),
+    [availableLocales],
+  );
   const [language, setLanguageState] = useState(initialLanguage);
 
-  const direction = LANGUAGE_DIRECTIONS[language] ?? 'ltr';
+  const activeLocale = useMemo(
+    () => availableLocales.find((locale) => locale.code === language) ?? availableLocales[0],
+    [availableLocales, language],
+  );
+
+  const direction = activeLocale?.direction ?? LANGUAGE_DIRECTIONS[language] ?? 'ltr';
 
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -85,6 +109,10 @@ export function LanguageProvider({ children }) {
       document.documentElement.dir = direction;
     }
   }, [direction, language]);
+
+  useEffect(() => {
+    setLanguageState((current) => normaliseLanguage(current, availableLocales));
+  }, [availableLocales]);
 
   const translate = useCallback(
     (key, fallback) => {
@@ -107,7 +135,7 @@ export function LanguageProvider({ children }) {
   );
 
   const setLanguage = useCallback((next) => {
-    const resolved = normaliseLanguage(next);
+    const resolved = normaliseLanguage(next, availableLocales);
     setLanguageState((current) => (current === resolved ? current : resolved));
     if (typeof window !== 'undefined') {
       try {
@@ -116,18 +144,18 @@ export function LanguageProvider({ children }) {
         console.warn('Unable to persist language preference', error);
       }
     }
-  }, []);
+  }, [availableLocales]);
 
   const value = useMemo(
     () => ({
       language,
       direction,
-      availableLanguages: SUPPORTED_LANGUAGES,
+      availableLanguages: availableLocales,
       setLanguage,
       t: translate,
       translations: translations[language] ?? translations[DEFAULT_LANGUAGE],
     }),
-    [direction, language, setLanguage, translate],
+    [availableLocales, direction, language, setLanguage, translate],
   );
 
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;

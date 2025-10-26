@@ -156,6 +156,15 @@ export async function shareFeedPost(postId, payload = {}, { signal } = {}) {
     message: payload.message,
     link: payload.link ?? null,
   };
+  if (payload.scheduledFor) {
+    body.scheduledFor = payload.scheduledFor;
+  }
+  if (Array.isArray(payload.notifyList) && payload.notifyList.length) {
+    body.notifyList = payload.notifyList;
+  }
+  if (typeof payload.complianceAcknowledged === 'boolean') {
+    body.complianceAcknowledged = payload.complianceAcknowledged;
+  }
   return apiClient.post(`/feed/${postId}/shares`, body, { signal });
 }
 

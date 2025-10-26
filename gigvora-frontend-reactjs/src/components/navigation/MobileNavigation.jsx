@@ -1,11 +1,59 @@
 import { Dialog, Transition } from '@headlessui/react';
+import PropTypes from 'prop-types';
 import { Fragment, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { SparklesIcon } from '@heroicons/react/24/outline';
+import { SignalIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import LanguageSelector from '../LanguageSelector.jsx';
 import RoleSwitcher from './RoleSwitcher.jsx';
 import MobileMegaMenu from './MobileMegaMenu.jsx';
 import PrimaryNavItem from './PrimaryNavItem.jsx';
+import { deriveNavigationPulse } from '../../utils/navigationPulse.js';
+
+function PersonaPulse({ insights }) {
+  if (!Array.isArray(insights) || insights.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="space-y-3 rounded-3xl border border-slate-200/80 bg-white/80 p-4 shadow-lg">
+      <header className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
+        <span className="inline-flex items-center gap-2 text-slate-600">
+          <SignalIcon className="h-4 w-4 text-accent" aria-hidden="true" />
+          Live pulse
+        </span>
+        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.3em] text-emerald-600">
+          Today
+        </span>
+      </header>
+      <div className="grid grid-cols-2 gap-2">
+        {insights.map((insight) => (
+          <div key={insight.id} className="rounded-2xl border border-slate-200/60 bg-white/90 px-3 py-2 shadow-sm">
+            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-slate-400">{insight.label}</p>
+            <p className="mt-1 text-lg font-semibold text-slate-900">{insight.value}</p>
+            {insight.delta ? <p className="mt-1 text-xs font-medium text-emerald-600">{insight.delta}</p> : null}
+            {insight.hint ? <p className="mt-1 text-[0.65rem] text-slate-400">{insight.hint}</p> : null}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+PersonaPulse.propTypes = {
+  insights: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+      value: PropTypes.string.isRequired,
+      delta: PropTypes.string,
+      hint: PropTypes.string,
+    }),
+  ),
+};
+
+PersonaPulse.defaultProps = {
+  insights: [],
+};
 
 export default function MobileNavigation({
   open,
@@ -18,8 +66,17 @@ export default function MobileNavigation({
   roleOptions,
   currentRoleKey,
   onMarketingSearch,
+  session,
+  navigationPulse,
+  trendingEntries,
 }) {
   const resolvedPrimaryNavigation = useMemo(() => primaryNavigation ?? [], [primaryNavigation]);
+  const personaPulse = useMemo(() => {
+    if (Array.isArray(navigationPulse) && navigationPulse.length > 0) {
+      return navigationPulse;
+    }
+    return deriveNavigationPulse(session, marketingNavigation, resolvedPrimaryNavigation);
+  }, [marketingNavigation, navigationPulse, resolvedPrimaryNavigation, session]);
 
   return (
     <Transition show={open} as={Fragment}>
@@ -70,6 +127,7 @@ export default function MobileNavigation({
                       <PrimaryNavItem key={item.id} item={item} variant="mobile" onNavigate={onClose} />
                     ))}
                   </nav>
+                  <PersonaPulse insights={personaPulse} />
                   <div className="grid gap-2">
                     <Link
                       to="/dashboard/user/creation-studio"
@@ -95,6 +153,7 @@ export default function MobileNavigation({
                   <MobileMegaMenu
                     menus={marketingNavigation}
                     search={marketingSearch}
+                    trendingEntries={trendingEntries}
                     onNavigate={onClose}
                     onSearch={(value) => {
                       onClose();
@@ -130,3 +189,88 @@ export default function MobileNavigation({
     </Transition>
   );
 }
+
+MobileNavigation.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  isAuthenticated: PropTypes.bool.isRequired,
+  primaryNavigation: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+      to: PropTypes.string.isRequired,
+      badge: PropTypes.string,
+    }),
+  ),
+  marketingNavigation: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+      description: PropTypes.string,
+      sections: PropTypes.arrayOf(
+        PropTypes.shape({
+          title: PropTypes.string.isRequired,
+          items: PropTypes.arrayOf(
+            PropTypes.shape({
+              name: PropTypes.string.isRequired,
+              description: PropTypes.string.isRequired,
+              to: PropTypes.string.isRequired,
+              icon: PropTypes.elementType.isRequired,
+            }),
+          ).isRequired,
+        }),
+      ).isRequired,
+    }),
+  ),
+  marketingSearch: PropTypes.shape({
+    id: PropTypes.string,
+    label: PropTypes.string,
+    placeholder: PropTypes.string,
+    ariaLabel: PropTypes.string,
+    helperText: PropTypes.string,
+    trendingHelper: PropTypes.string,
+    trending: PropTypes.array,
+  }),
+  onLogout: PropTypes.func,
+  roleOptions: PropTypes.arrayOf(
+    PropTypes.shape({
+      key: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+      to: PropTypes.string.isRequired,
+      timelineEnabled: PropTypes.bool,
+    }),
+  ),
+  currentRoleKey: PropTypes.string,
+  onMarketingSearch: PropTypes.func,
+  session: PropTypes.object,
+  navigationPulse: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+      value: PropTypes.string.isRequired,
+      delta: PropTypes.string,
+      hint: PropTypes.string,
+    }),
+  ),
+  trendingEntries: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+      description: PropTypes.string,
+      to: PropTypes.string,
+    }),
+  ),
+};
+
+MobileNavigation.defaultProps = {
+  primaryNavigation: [],
+  marketingNavigation: [],
+  marketingSearch: null,
+  onLogout: undefined,
+  roleOptions: [],
+  currentRoleKey: 'user',
+  onMarketingSearch: undefined,
+  session: null,
+  navigationPulse: null,
+  trendingEntries: null,
+};
