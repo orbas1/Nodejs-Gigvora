@@ -52,7 +52,15 @@ describe('PublicHero', () => {
         fallbackSubheading="Premium positioning across personas."
         fallbackTickerItems={[{ label: 'Verified launch telemetry' }]}
         personaChips={[{ label: 'Founders' }, 'Agencies']}
-        valuePillars={[{ id: 'pillar', title: 'Premium storytelling', description: 'Showcases proof points.' }]}
+        valuePillars={[
+          {
+            id: 'pillar',
+            title: 'Premium storytelling',
+            description: 'Showcases proof points.',
+            icon: 'ShieldCheckIcon',
+            highlights: ['Every persona sees tailored proof.'],
+          },
+        ]}
         analyticsMetadata={{ source: 'unit-test', viewEventName: 'hero_view' }}
       />,
     );
@@ -107,6 +115,14 @@ describe('ValuePillars', () => {
             metric: { label: 'Pipeline lift', value: '34%' },
             action: { id: 'explore', label: 'See playbook', onClick: actionSpy },
           },
+          {
+            id: 'trust',
+            title: 'Trust guardrails',
+            description: 'Compliance and audit in one timeline.',
+            highlights: ['SOC2 ready with guardrails'],
+            icon: 'ShieldCheckIcon',
+            action: { label: 'Review trust centre', href: '/trust' },
+          },
         ]}
       />,
     );
@@ -120,6 +136,15 @@ describe('ValuePillars', () => {
     expect(analyticsMock.track).toHaveBeenCalledWith(
       'pillar_action',
       expect.objectContaining({ pillarId: 'growth', heroId: 'marketing-hero' }),
+      expect.objectContaining({ source: 'unit-test' }),
+    );
+
+    const trustLink = screen.getByRole('link', { name: /review trust centre/i });
+    trustLink.addEventListener('click', (event) => event.preventDefault());
+    fireEvent.click(trustLink);
+    expect(analyticsMock.track).toHaveBeenCalledWith(
+      'pillar_action',
+      expect.objectContaining({ pillarId: 'trust', heroId: 'marketing-hero' }),
       expect.objectContaining({ source: 'unit-test' }),
     );
   });

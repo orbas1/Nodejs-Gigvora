@@ -5,12 +5,15 @@
 2. **Functionality.** Hero orchestrates analytics instrumentation, CTA handling, and value-pillars so marketing funnels tie brand storytelling to measurable activation steps.
    - *Analytics & CTAs.* View + CTA events fire with hero IDs for telemetry, while actions trigger callbacks, router links, or external URLs without duplicating click logic.
    - *Ticker & media.* Reduced-motion aware ticker, skeleton loaders, and progressive image/video panels keep the experience resilient across network states.
+   - *Full-stack hydration.* Site settings sanitise persona chips and value pillars, the 20250418 migration seeds defaults, and the marketing home hook hydrates them into the hero so growth teams can edit without redeploying code.【F:gigvora-backend-nodejs/src/services/siteManagementService.js†L42-L152】【F:gigvora-backend-nodejs/database/migrations/20250418091500-site-hero-pillars.cjs†L5-L320】【F:gigvora-frontend-reactjs/src/hooks/useHomeExperience.js†L5-L166】【F:gigvora-frontend-reactjs/src/pages/home/HomeHeroSection.jsx†L30-L158】
+   - *Test coverage.* Jest migrations and Vitest hero specs lock the new hydration and analytics behaviour for back-end payloads and front-end CTAs.【F:gigvora-backend-nodejs/tests/migrations/group118Migrations.test.js†L286-L362】【F:gigvora-frontend-reactjs/src/components/marketing/__tests__/PublicHero.test.jsx†L12-L122】
 3. **Styling & Motion.** Gradient backgrounds, glassmorphism cards, and responsive grids reproduce the premium aesthetic across desktop and mobile while respecting reduced-motion preferences.
    - *Gradient storytelling.* Radial overlays and blur halos hug hero media and cards to match premium marketing moodboards.
    - *Responsive layout.* Two-column hero, ticker rail, and card grid collapse elegantly into stacked mobile shells with consistent rhythm.
 4. **Value Pillars.** Dedicated pillar cards pair icons, metrics, highlights, and analytics hooks so the hero doubles as a conversion-ready proof stack.
    - *Metric storytelling.* Each pillar couples copy with measurable stats (cycle-time, uptime, network scale) to reinforce trust.
    - *Action instrumentation.* Optional CTA per pillar routes through analytics so growth teams can iterate on which proof points convert.
+   - *Backend alignment.* ValuePillars now resolves backend icon keys, analytics metadata, and fallbacks so proof points render consistently across shared hero surfaces.【F:gigvora-frontend-reactjs/src/components/marketing/ValuePillars.jsx†L1-L237】
 
 2.B. Onboarding Journeys
 1. **Appraisal.** OnboardingWizard welcomes members with a premium hero shell, progress telemetry, and persona storytelling that mirrors leading social platforms.

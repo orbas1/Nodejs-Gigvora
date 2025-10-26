@@ -320,8 +320,7 @@ describe('JoinCommunitySection', () => {
 describe('TestimonialsSection', () => {
   it('renders testimonials with fallback data', () => {
     renderWithRouter(<TestimonialsSection loading error />);
-    expect(screen.getByText(/Trusted by leaders and makers/i)).toBeInTheDocument();
-    // ensures fallback testimonial present
-    expect(screen.getAllByRole('article').length).toBeGreaterThan(0);
+    expect(screen.getByText(/We could not load testimonials right now/i)).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: /customer testimonials/i })).toBeInTheDocument();
   });
 });

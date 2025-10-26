@@ -39,6 +39,55 @@ const DEFAULT_HERO_MEDIA = {
   ],
 };
 
+const DEFAULT_HERO_PERSONA_CHIPS = [
+  'Founders orchestrating cross-functional squads',
+  'Agencies scaling delivery pods with trust guardrails',
+  'Mentors, operators, and advisors guiding cohorts',
+  'Recruiters and talent leads hiring with real-time telemetry',
+];
+
+const DEFAULT_HERO_VALUE_PILLARS = [
+  {
+    id: 'command-centre',
+    title: 'One command centre for every mission',
+    description:
+      'Run launches, mentoring, and operations from a single glassmorphic HQ with telemetry every stakeholder trusts.',
+    highlights: [
+      'Real-time launchpad, finance, and compliance visibility for every persona',
+      'Async rituals, pulse digests, and AI nudges keep crews accountable across timezones',
+    ],
+    metric: { label: 'Operational clarity', value: '8.6/10 team confidence score' },
+    icon: 'SparklesIcon',
+    action: { id: 'command-centre', label: 'Explore HQ playbook', href: '/platform/command-centre' },
+  },
+  {
+    id: 'compliance-trust',
+    title: 'Enterprise trust without slowdowns',
+    description:
+      'Treasury, legal, and risk automation wire into every engagement so finance and compliance teams ship with confidence.',
+    highlights: [
+      'Role-aware access, SOC 2 audits, and escrow guardrails in one shared ledger',
+      'Regulated payouts, renewals, and invoicing run through a verified treasury spine',
+    ],
+    metric: { label: 'Trust signals', value: '99.95% uptime · SOC 2 monitored' },
+    icon: 'ShieldCheckIcon',
+    action: { id: 'trust-centre', label: 'Review trust centre', href: '/trust-center' },
+  },
+  {
+    id: 'talent-network',
+    title: 'Curated network activated in days',
+    description:
+      'Mentor guilds, specialists, and community pods assemble instantly with readiness scores and engagement insights.',
+    highlights: [
+      'AI matching, guild programming, and readiness scoring surface the right crew instantly',
+      'Live NPS, utilisation, and sentiment analytics keep teams tuned to outcomes',
+    ],
+    metric: { label: 'Network activation', value: '7,800+ mentors & specialists' },
+    icon: 'ChartBarIcon',
+    action: { id: 'talent-network', label: 'Meet the network', href: '/network' },
+  },
+];
+
 const DEFAULT_COMMUNITY_STATS = [
   { label: 'Global specialists', value: '12,400+' },
   { label: 'Average NPS', value: '68' },
@@ -608,6 +657,120 @@ function sanitizeStringArray(list, fallback = []) {
     .filter((item) => item.length > 0)
     .slice(0, 12);
   return cleaned.length ? cleaned : [...fallback];
+}
+
+function sanitizeHeroPersonaChips(chips, fallback = DEFAULT_HERO_PERSONA_CHIPS) {
+  const cleaned = sanitizeStringArray(chips, fallback).slice(0, 8);
+  return cleaned.length ? cleaned : [...DEFAULT_HERO_PERSONA_CHIPS];
+}
+
+const ALLOWED_HERO_PILLAR_ICONS = new Set([
+  'SparklesIcon',
+  'ShieldCheckIcon',
+  'ChartBarIcon',
+  'CurrencyDollarIcon',
+  'BoltIcon',
+  'GlobeAltIcon',
+  'BuildingOffice2Icon',
+]);
+
+function sanitizeHeroPillarMetric(metric, fallback = null) {
+  const base = fallback && typeof fallback === 'object' ? { ...fallback } : null;
+  if (!metric || typeof metric !== 'object') {
+    return base;
+  }
+  const label = coerceOptionalString(metric.label ?? metric.title, base?.label ?? 'Key metric');
+  const value = coerceOptionalString(metric.value ?? metric.copy ?? metric.stat, base?.value ?? null);
+  if (!label && !value) {
+    return base;
+  }
+  return {
+    label: label || base?.label || 'Key metric',
+    value: value || base?.value || null,
+  };
+}
+
+function sanitizeHeroPillarAction(action, fallback = null) {
+  const candidate = action && typeof action === 'object' ? action : null;
+  const base = fallback && typeof fallback === 'object' ? fallback : null;
+  if (!candidate && !base) {
+    return null;
+  }
+
+  const label = coerceOptionalString(candidate?.label ?? candidate?.title, base?.label ?? 'Explore pillar');
+  const href = coerceOptionalString(candidate?.href ?? candidate?.url ?? base?.href ?? base?.url);
+  const to = coerceOptionalString(candidate?.to ?? base?.to);
+  const actionId = normalizeSlug(candidate?.id ?? base?.id ?? label);
+
+  if (!label) {
+    return base ? { ...base } : null;
+  }
+
+  const result = { id: actionId || 'cta', label };
+  if (href) {
+    result.href = href;
+  }
+  if (to) {
+    result.to = to;
+  }
+  return result;
+}
+
+function clonePillar(pillar) {
+  return {
+    ...pillar,
+    highlights: Array.isArray(pillar?.highlights) ? [...pillar.highlights] : [],
+    metric: pillar?.metric ? { ...pillar.metric } : null,
+    action: pillar?.action ? { ...pillar.action } : null,
+  };
+}
+
+function sanitizeHeroValuePillars(pillars, fallback = DEFAULT_HERO_VALUE_PILLARS) {
+  const source = Array.isArray(pillars) ? pillars : [];
+  const base = Array.isArray(fallback) && fallback.length ? fallback : DEFAULT_HERO_VALUE_PILLARS;
+  const sanitized = source
+    .map((pillar, index) => {
+      const ref = base[index] ?? base[0];
+      const title = coerceOptionalString(pillar?.title ?? pillar?.name ?? pillar?.label, ref?.title ?? null);
+      if (!title) {
+        return null;
+      }
+
+      const description = coerceOptionalString(pillar?.description ?? pillar?.copy ?? pillar?.summary, ref?.description ?? '');
+      const id = normalizeSlug(pillar?.id ?? title) || normalizeSlug(ref?.id ?? title) || `pillar-${index + 1}`;
+      const highlightsSource = Array.isArray(pillar?.highlights)
+        ? pillar.highlights
+        : pillar?.bullets && Array.isArray(pillar.bullets)
+        ? pillar.bullets.map((item) => (typeof item === 'string' ? item : item?.text))
+        : [];
+      const highlights = highlightsSource
+        .map((value) => coerceOptionalString(value))
+        .filter((value) => value && value.length > 0)
+        .slice(0, 4);
+
+      const metric = sanitizeHeroPillarMetric(pillar?.metric, ref?.metric);
+      const iconCandidate = coerceOptionalString(pillar?.icon ?? pillar?.Icon ?? pillar?.iconName, ref?.icon);
+      const icon = iconCandidate && ALLOWED_HERO_PILLAR_ICONS.has(iconCandidate) ? iconCandidate : ref?.icon ?? 'SparklesIcon';
+      const action = sanitizeHeroPillarAction(pillar?.action ?? pillar?.cta, ref?.action);
+
+      return {
+        id,
+        title,
+        description,
+        highlights: highlights.length ? highlights : Array.isArray(ref?.highlights) ? [...ref.highlights] : [],
+        metric,
+        icon,
+        action,
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 6);
+
+  if (sanitized.length) {
+    return sanitized;
+  }
+
+  return base.map((pillar) => clonePillar(pillar));
 }
 
 function sanitizeHeroMedia(media = {}, fallback = {}) {
@@ -1261,6 +1424,8 @@ function buildDefaultSiteSettings() {
     ),
     heroKeywords: [...DEFAULT_HERO_KEYWORDS],
     heroMedia: { ...DEFAULT_HERO_MEDIA },
+    heroPersonaChips: [...DEFAULT_HERO_PERSONA_CHIPS],
+    heroValuePillars: DEFAULT_HERO_VALUE_PILLARS.map((pillar) => clonePillar(pillar)),
     communityStats: [...DEFAULT_COMMUNITY_STATS],
     personaJourneys: [...DEFAULT_PERSONA_JOURNEYS],
     personaMetrics: [...DEFAULT_PERSONA_METRICS],
@@ -1307,6 +1472,14 @@ function sanitizeSettingsCandidate(candidate = {}) {
   settings.heroSubheading = coerceString(candidate.heroSubheading, baseline.heroSubheading);
   settings.heroKeywords = sanitizeStringArray(candidate.heroKeywords ?? candidate.hero?.keywords, baseline.heroKeywords);
   settings.heroMedia = sanitizeHeroMedia(candidate.heroMedia ?? candidate.hero?.media, baseline.heroMedia);
+  settings.heroPersonaChips = sanitizeHeroPersonaChips(
+    candidate.heroPersonaChips ?? candidate.hero?.personaChips,
+    baseline.heroPersonaChips,
+  );
+  settings.heroValuePillars = sanitizeHeroValuePillars(
+    candidate.heroValuePillars ?? candidate.hero?.valuePillars ?? candidate.hero?.valueProps,
+    baseline.heroValuePillars,
+  );
   settings.communityStats = sanitizeCommunityStats(candidate.communityStats, baseline.communityStats);
   settings.personaJourneys = sanitizePersonaJourneys(candidate.personaJourneys, baseline.personaJourneys);
   settings.personaMetrics = sanitizePersonaMetrics(candidate.personaMetrics, baseline.personaMetrics);

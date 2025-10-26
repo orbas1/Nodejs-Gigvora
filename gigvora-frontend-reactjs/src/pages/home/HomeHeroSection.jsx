@@ -27,14 +27,14 @@ const FALLBACK_MEDIA = {
     'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=800&q=80',
 };
 
-const PERSONA_CHIPS = [
+const FALLBACK_PERSONA_CHIPS = [
   'Founders accelerating go-to-market',
   'Agencies scaling delivery pods',
   'Mentors and operators guiding cohorts',
   'Recruiters hiring across global hubs',
 ];
 
-const HOME_VALUE_PILLARS = [
+const FALLBACK_VALUE_PILLARS = [
   {
     id: 'command-centre',
     title: 'One command centre for every crew',
@@ -96,6 +96,8 @@ export function HomeHeroSection({
   onClaimWorkspace,
   onBrowseOpportunities,
   productMedia,
+  personaChips,
+  valuePillars,
 }) {
   const resolvedKeywords = normaliseKeywords(keywords);
   const hasCustomKeywords = resolvedKeywords.length > 0;
@@ -103,6 +105,9 @@ export function HomeHeroSection({
   const fallbackTickerItems = hasCustomKeywords ? resolvedKeywords : FALLBACK_KEYWORDS;
 
   const heroMedia = { ...FALLBACK_MEDIA, ...(productMedia ?? {}) };
+
+  const heroPersonaChips = Array.isArray(personaChips) && personaChips.length ? personaChips : FALLBACK_PERSONA_CHIPS;
+  const heroValuePillars = Array.isArray(valuePillars) && valuePillars.length ? valuePillars : FALLBACK_VALUE_PILLARS;
 
   const primaryAction = {
     id: 'claim_workspace',
@@ -140,8 +145,8 @@ export function HomeHeroSection({
       error={error}
       primaryAction={primaryAction}
       secondaryAction={secondaryAction}
-      personaChips={PERSONA_CHIPS}
-      valuePillars={HOME_VALUE_PILLARS}
+      personaChips={heroPersonaChips}
+      valuePillars={heroValuePillars}
       media={heroMedia}
       mediaCaption={productMedia?.caption}
       analyticsMetadata={{
@@ -187,6 +192,33 @@ HomeHeroSection.propTypes = {
     ),
     caption: PropTypes.string,
   }),
+  personaChips: PropTypes.arrayOf(
+    PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.shape({
+        label: PropTypes.string,
+      }),
+    ]),
+  ),
+  valuePillars: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string,
+      title: PropTypes.string,
+      description: PropTypes.string,
+      highlights: PropTypes.arrayOf(PropTypes.string),
+      metric: PropTypes.shape({
+        label: PropTypes.string,
+        value: PropTypes.string,
+      }),
+      icon: PropTypes.oneOfType([PropTypes.string, PropTypes.func]),
+      action: PropTypes.shape({
+        id: PropTypes.string,
+        label: PropTypes.string,
+        href: PropTypes.string,
+        to: PropTypes.string,
+      }),
+    }),
+  ),
 };
 
 HomeHeroSection.defaultProps = {
@@ -198,6 +230,8 @@ HomeHeroSection.defaultProps = {
   onClaimWorkspace: undefined,
   onBrowseOpportunities: undefined,
   productMedia: undefined,
+  personaChips: undefined,
+  valuePillars: undefined,
 };
 
 export default HomeHeroSection;
