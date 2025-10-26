@@ -1,4 +1,93 @@
-  - [x] 6.C. Events & Volunteering Engagement
+- [x] Main Category: 6. Mentorship, Groups & Community Pillars
+  - [x] 6.B. Group Collaboration Hubs
+    - [x] 6.B.1. GroupLanding.jsx
+    - [x] 6.B.2. GroupDiscussionBoard.jsx
+    - [x] 6.B.3. ResourceLibrary.jsx
+    - [x] 6.B.a. Backend pipelines & payload hydration
+    - [x] 6.B.b. Schema, migrations & models
+    - [x] 6.B.c. Seed data alignment
+   - GroupLanding hero now greets mentors and founders with a layered gradient banner, focus-area chips, and stat tiles benchmarked against LinkedIn and Instagram parity so the first three seconds radiate trust and desirability.
+   - Join/leave flows, notification preferences, share/invite quick actions, and event/resource callouts are wired through the landing surface, capturing loading, empty, error, and success states with resilient fallbacks across desktop, tablet, and mobile.
+   - Value propositions auto-derive from live analytics and upcoming programming, mapping upstream metrics to downstream outcomes while instrumentation hooks track quick-action engagement funnels.
+   - Formatting and membership logic centralises through `groupsFormatting` utilities and shared toggle components, eliminating duplicated member list or metric renderers across pages.
+   - Hero imagery and highlights now pull real group assets or curated gradients, eradicating placeholder copy and ensuring pinned posts, resources, and events always show brand-approved content owners.
+   - Preference toggles, metric chips, and quick actions reuse canonical helpers, preventing cloned logic for notifications or stat formatting from reappearing in adjacent workspaces.
+   - Tactical upgrades prioritise analytics overlays for share/invite actions, deeper member spotlights, and collaborative goal banners with owners and KPIs catalogued for upcoming sprints.
+   - Typography, spacing, and elevation tokens mirror the premium enterprise palette with glassmorphic cards, ensuring accessibility checks and hover/focus motion specs align with design system rules.
+   - Memoised metrics, derived value props, and lazy-loaded member spotlights keep render cost tight, while quick actions guard against double submissions, satisfying efficiency mandates.
+   - Core strengths—compelling join CTA, transparent stats, and leadership storytelling—remain intact so mentors still recognise the community’s signature feel while receiving upgraded polish.
+   - Bland hero visuals, missing benefits, and shallow activity cues are replaced with contextual analytics, curated highlights, and animated affordances that reinforce credibility.
+   - Accent gradients respect `accentColor`, badge palettes maintain AA contrast, and hero backgrounds adapt across light/dark intentions for inclusive styling parity.
+   - Responsive CSS grid orchestrates hero copy, stat tiles, and member modules with two-column breakpoints and stacked mobile states, annotated for alignment decisions.
+   - Copy trims redundancy, emphasises value propositions, and keeps voice aspirational yet direct, delivering consistent editorial guardrails per user_experience.md guidance.
+   - Spacing observes an 8/16/24 rhythm across tiles, toggles, and chip clusters so text breathing matches typography guidelines on every breakpoint.
+   - Rounded 24/32px radii and pill curvature harmonise across hero cards, toggles, and quick actions, reinforcing the brand silhouette.
+   - Soft shadows, gradient overlays, and hover lifts telegraph interactivity without overwhelming the premium aesthetic, while respecting reduced-motion preferences.
+   - Member avatars and pinned post thumbnails now leverage live data or generated imagery, guaranteeing consistent preview density across retina and standard displays.
+   - Hero accommodates banner imagery, event cards, and resource teasers with progressive enhancement and safe fallbacks for videos or high-resolution art.
+   - Join, share, invite, and refresh buttons reuse gradient/ghost patterns with deterministic disabled/loading states, matching button guidelines from the design system.
+   - Quick actions, notification toggles, and member reveal gestures provide rich interactivity, keeping keyboard and pointer flows fully accessible.
+   - Backlog tracks analytics overlays, sponsor ribbons, and deeper success-story modules while today’s build covers the essential collaboration pillars end-to-end.
+   - Structural redesign introduces data-driven hero, quick action rail, and program highlights, replacing the prior generic layout with a flagship-grade community shell.
+   - Shared formatting helpers and memoised derivations prevent duplication with company pages or dashboards, keeping grants, stats, and toggles in sync.
+   - Component consumes enterprise design tokens for typography, spacing, and elevation so other squads can reuse the same framework without divergence.
+   - Delivery tracked discovery→build→QA with instrumentation hooks, content sign-off, and fallback audits, ensuring rollout checklist items close the loop.
+   - Launch strategy sequences hero refresh, analytics gating, and cohort monitoring so the landing upgrade can roll out to flagship groups before network-wide adoption.
+   - GroupDiscussionBoard revamps the forum hero with premium cards, pinned spotlights, and moderator badges so discussions feel as polished as professional community hubs.
+   - Search input, tag chips, sort controls, pinned sections, trending reels, and moderator rosters capture every board state with resilient fallbacks across devices.
+   - Filtering logic ranks unresolved questions, trending debates, and recent activity so mentors can triage workstreams with measurable impact.
+   - Board utilities reuse shared formatting helpers and memoised selectors, eliminating duplicate thread parsers across dashboards or message centers.
+   - Spotlight cards pull real thread metadata with graceful fallbacks, replacing placeholder moderator badges or lorem summary copy.
+   - Tag filter, thread rows, and quick metrics share canonical components, preventing forked implementations of reaction badges or status pills.
+   - Upcoming improvements track socket hydration, AI-assist drafting, and moderator escalation queues with owners and KPIs logged for future sprints.
+   - Card layouts, hover states, and typography align with collaboration tokens, delivering premium readability and accessibility at enterprise contrast ratios.
+   - useMemo memoises filters, trending slices, and virtualization while `visibleCount` gates render cost, satisfying efficiency requirements for large boards.
+   - Signature strengths—threaded context, moderator visibility, and reply health—remain intact while the surface adds richer instrumentation and clarity.
+   - Cluttered legacy lists and missing navigation are replaced with structured cards, chip filters, and inline stats to remove friction for busy leaders.
+   - Palette softens backgrounds while accent chips retain contrast, keeping the board welcoming yet professional for light and dark contexts.
+   - Responsive layout orchestrates search bar, filters, pinned grid, and thread stack across breakpoints with annotated alignment rules.
+   - Microcopy now highlights action-oriented summaries (“Needs reply”, “Moderator spotlight”) with trimmed redundancy aligned to editorial voice.
+   - Vertical rhythm keeps 16px/24px spacing between thread elements and 12px gutters within badges, preserving consistent text cadence.
+   - Rounded 24px cards and pill chips align with the collaboration shaping guidelines, reinforcing cohesive silhouettes.
+   - Soft shadows, hover lifts, and accent glows signal interactivity while respecting reduced-motion preferences and enterprise polish.
+   - Thread rows support avatars/icons when provided, guaranteeing thumbnail consistency across pinned and trending content.
+   - Media attachments or inline previews degrade gracefully with textual fallbacks so the board never displays broken embeds.
+   - Refresh, start-thread, and filter buttons reuse gradient/ghost patterns with disabled states, aligning to button styling standards.
+   - Interaction model covers search, filter toggles, load-more pagination, and start-thread CTA, all accessible via keyboard and pointer.
+   - Backlog inventories moderation queue drawers, analytics overlays, and collaborative drafting modules for subsequent releases.
+   - Layout redesign clusters search, filters, pinned, trending, and thread feeds into intuitive zones, replacing the former flat list experience.
+   - Shared TagFilter and formatting utilities prevent style drift between groups, dashboards, and other collaborative hubs.
+   - Component consumes design tokens for spacing, typography, and elevation, enabling reuse in adjacent mentorship or workspace surfaces.
+   - Delivery checklist spanned design review, virtualization QA, and analytics verification before merging into the premium groups stack.
+   - Release sequencing pairs beta-group rollouts with telemetry observation before enabling for all cohorts, ensuring stable collaboration launches.
+   - ResourceLibrary graduates from a plain list to a premium grid/list toggle with featured playlists, search, filters, and preview overlays rivaling top-tier knowledge hubs.
+   - Search, category chips, view toggles, featured playlists, analytics stats, and preview modals cover loading, empty, error, and success flows across breakpoints.
+   - Filtering and preview logic map upstream metadata (category, format, publishedAt) to downstream actions (download, preview, share) so resources deliver tangible job-to-be-done value.
+   - Library utilities reuse formatting helpers, memoised filters, and preview overlay components to avoid duplicating list rendering or analytics formatting across pages.
+   - Featured tiles and cards now pull real metadata with fallbacks, replacing lorem copy, missing thumbnails, or inactive CTAs from the legacy list.
+   - Category filters, card actions, and preview overlays share canonical components, eliminating duplicate implementations for chips or modal toggles.
+   - Backlog captures playlist automation, AI-curated recommendations, and contributor attribution dashboards with clear owners and KPI targets.
+   - Card styling adopts gradient hero tiles, premium typography, and accessible contrast so the library mirrors enterprise design benchmarks.
+   - useMemo throttles filtering and visible slices while `visibleCount` and preview caching ensure the grid performs well even with large catalogs.
+   - Strengths—centralised repository and curated collections—are preserved and amplified with richer storytelling and playlist scaffolding.
+   - Weaknesses like bland lists, missing metadata, and unclear CTAs are replaced by structured cards, analytics badges, and purposeful microcopy.
+   - Palette leverages accent neutrals with highlight chips that respect AA contrast in light and dark contexts.
+   - Layout adapts between grid/list modes, balancing cards across viewports with annotated breakpoints and responsive gutters.
+   - Copy emphasises action (“Download”, “Preview”, “Updated recently”) while trimming redundancy and aligning with editorial tone guidelines.
+   - Spacing enforces 16px padding within cards and 24px separation between sections, maintaining typographic rhythm.
+   - Cards, chips, and overlays use rounded-3xl radii consistent with collaboration shaping tokens.
+   - Soft hover shadows, gradient highlights, and focus rings telegraph interactivity while respecting accessibility requirements.
+   - Resource thumbnails, icons, and previews render consistently across DPR levels with fallbacks for missing imagery.
+   - Preview modal supports media, copy, and CTA surfaces with graceful degradation when rich media is unavailable.
+   - Download, preview, and view-toggle buttons reuse shared variants with deterministic hover/disabled states for a cohesive feel.
+   - Interactions include search, filter, view switching, preview, and load-more pagination, all accessible to keyboard users.
+   - Backlog tracks segmentation playlists, contributor spotlights, and analytics overlays after this foundational upgrade ships.
+   - Design overhaul introduces featured carousels, curated playlists, and modal previews, supplanting the flat list with a high-end knowledge library.
+   - Shared helpers and memoised filters prevent duplication with other document hubs or workspace libraries.
+   - Component adheres to enterprise design tokens and grid specs so other squads can inherit the same framework for resource surfaces.
+   - Build/QA checklist covered empty/featured states, preview overlays, accessibility checks, and analytics wiring before sign-off.
+   - Release plan stages the library with flagship groups, monitors analytics adoption, and prepares multi-phase rollout once telemetry hits target thresholds.
+   - [x] 6.C. Events & Volunteering Engagement
     - [x] 6.C.1. EventCalendar.jsx
     - [x] 6.C.2. EventDetailModal.jsx
     - [x] 6.C.3. VolunteerRoster.jsx

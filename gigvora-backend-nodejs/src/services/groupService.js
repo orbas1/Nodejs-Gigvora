@@ -4,6 +4,10 @@ import {
   GroupMembership,
   GroupInvite,
   GroupPost,
+  GroupEvent,
+  GroupResource,
+  GroupGuideline,
+  GroupTimelineEvent,
   User,
   sequelize,
   GROUP_VISIBILITIES,
@@ -69,392 +73,130 @@ function asBoolean(value, fallback = false) {
   return fallback;
 }
 
-const GROUP_BLUEPRINTS = [
-  {
-    key: 'future-of-work-collective',
-    name: 'Future of Work Collective',
-    summary:
-      'Weekly salons on marketplaces, distributed teams, and community building with operators from 40+ countries.',
-    focusAreas: ['Future of work', 'Product strategy', 'Marketplace design'],
-    accentColor: '#2563EB',
-    joinPolicy: 'moderated',
-    allowedUserTypes: ['freelancer', 'agency', 'company', 'user'],
-    baselineMembers: 2140,
-    metrics: {
-      weeklyActiveMembers: 427,
-      opportunitiesSharedThisWeek: 38,
-      retentionRate: 0.93,
-      conversationVelocity: 0.82,
-    },
-    insights: {
-      signalStrength: 'surging',
-      trendingTopics: [
-        'Compensation systems for global-first teams',
-        'AI copilots for discovery sprints',
-        'Community-to-commerce case studies',
-      ],
-    },
-    upcomingEvents: [
-      {
-        id: 'fowc-ops-guild',
-        title: 'Ops Guild: Autonomous pods in enterprise marketplaces',
-        startAt: () => minutesFromNow(3 * 24 * 60),
-        timezone: 'UTC',
-        format: 'Roundtable',
-        host: {
-          name: 'Sophie Mayer',
-          title: 'Chief Storyteller · Momentum Collective',
-        },
-        registrationRequired: true,
-      },
-      {
-        id: 'fowc-office-hours',
-        title: 'Office hours: Launching async-first onboarding',
-        startAt: () => minutesFromNow(7 * 24 * 60 + 180),
-        timezone: 'UTC',
-        format: 'Office hours',
-        host: {
-          name: 'Dario Fernández',
-          title: 'Head of Product · Signal Eight',
-        },
-        registrationRequired: false,
-      },
-    ],
-    leadership: [
-      {
-        name: 'Leila Odum',
-        title: 'Talent Partner · Northwind Ventures',
-        role: 'Community Chair',
-        avatarSeed: 'Leila Odum',
-      },
-      {
-        name: 'Mateo Ruiz',
-        title: 'Innovation Lead · Aurora Labs',
-        role: 'Program Curator',
-        avatarSeed: 'Mateo Ruiz',
-      },
-    ],
-    resources: [
-      {
-        id: 'fowc-playbook',
-        title: 'Distributed Team Activation Playbook',
-        type: 'Playbook',
-        url: 'https://guides.gigvora.com/future-of-work-playbook',
-      },
-      {
-        id: 'fowc-signal-digest',
-        title: 'Signal digest · Week 42',
-        type: 'Digest',
-        url: 'https://signals.gigvora.com/fowc-weekly',
-      },
-      {
-        id: 'fowc-template',
-        title: 'Async Stand-up Template (Notion)',
-        type: 'Template',
-        url: 'https://templates.gigvora.com/fowc-async-standup',
-      },
-    ],
-    guidelines: [
-      'Confidential pilots require consent before sharing outside the circle.',
-      'Bring a case study or open question to every salon.',
-      'Peer coaching happens in public threads before DMs.',
-    ],
-    timeline: [
-      {
-        label: 'Launch pilot cohorts',
-        occursAt: () => minutesFromNow(-30 * 24 * 60),
-        description: 'First cohort of 50 members shaped the governance model and cadence.',
-      },
-      {
-        label: 'Marketplace benchmark release',
-        occursAt: () => minutesFromNow(-12 * 24 * 60),
-        description: 'Annual report shared with 18 partner companies and agencies.',
-      },
-      {
-        label: 'Circle expansion vote',
-        occursAt: () => minutesFromNow(14 * 24 * 60),
-        description: 'Community vote on opening two sub-circles for talent leads and product ops.',
-      },
-    ],
-  },
-  {
-    key: 'launchpad-alumni-guild',
-    name: 'Launchpad Alumni Guild',
-    summary:
-      'Alumni-only working groups sharing frameworks, retros, and partner leads to accelerate Launchpad missions.',
-    focusAreas: ['Experience launchpad', 'Community', 'Career acceleration'],
-    accentColor: '#7C3AED',
-    joinPolicy: 'invite_only',
-    allowedUserTypes: ['freelancer', 'user', 'mentor'],
-    baselineMembers: 860,
-    metrics: {
-      weeklyActiveMembers: 268,
-      opportunitiesSharedThisWeek: 24,
-      retentionRate: 0.97,
-      conversationVelocity: 0.88,
-    },
-    insights: {
-      signalStrength: 'steady',
-      trendingTopics: [
-        'Fellowship hiring pods',
-        'Mentor sprint retrospectives',
-        'Partner readiness scorecards',
-      ],
-    },
-    upcomingEvents: [
-      {
-        id: 'launchpad-mastermind',
-        title: 'Mastermind: Post-cohort monetisation systems',
-        startAt: () => minutesFromNow(5 * 24 * 60 + 90),
-        timezone: 'UTC',
-        format: 'Workshop',
-        host: {
-          name: 'Ava Chen',
-          title: 'Product Marketing Lead · Nova Labs',
-        },
-        registrationRequired: true,
-      },
-    ],
-    leadership: [
-      {
-        name: 'Nikhil Shah',
-        title: 'Director of Ecosystem · Atlas Studio',
-        role: 'Guild Host',
-        avatarSeed: 'Nikhil Shah',
-      },
-    ],
-    resources: [
-      {
-        id: 'launchpad-checklist',
-        title: 'Post-cohort transition checklist',
-        type: 'Checklist',
-        url: 'https://guides.gigvora.com/launchpad-transition',
-      },
-      {
-        id: 'launchpad-intros',
-        title: 'Partner intro tracker',
-        type: 'Tracker',
-        url: 'https://workspace.gigvora.com/launchpad-intros',
-      },
-    ],
-    guidelines: [
-      'Confidential partner data must stay inside guild workspaces.',
-      'Celebrate wins weekly to unlock referral boosts.',
-      'Mentor office hours are recorded and archived for 30 days.',
-    ],
-    timeline: [
-      {
-        label: 'Guild launch',
-        occursAt: () => minutesFromNow(-45 * 24 * 60),
-        description: 'Formed after the inaugural Launchpad cohort to keep mission velocity.',
-      },
-      {
-        label: 'Mentor pairing programme',
-        occursAt: () => minutesFromNow(-10 * 24 * 60),
-        description: 'Rolled out structured mentor loops with 92% satisfaction.',
-      },
-    ],
-  },
-  {
-    key: 'purpose-lab',
-    name: 'Purpose Lab',
-    summary:
-      'Cross-functional volunteers mobilising for climate-positive missions with enterprise partners.',
-    focusAreas: ['Sustainability', 'Volunteering', 'Social impact'],
-    accentColor: '#10B981',
-    joinPolicy: 'open',
-    allowedUserTypes: ['user', 'freelancer', 'agency', 'company'],
-    baselineMembers: 530,
-    metrics: {
-      weeklyActiveMembers: 189,
-      opportunitiesSharedThisWeek: 17,
-      retentionRate: 0.9,
-      conversationVelocity: 0.71,
-    },
-    insights: {
-      signalStrength: 'emerging',
-      trendingTopics: [
-        'Climate hackathons',
-        'Pro-bono discovery sprints',
-        'Impact measurement frameworks',
-      ],
-    },
-    upcomingEvents: [
-      {
-        id: 'purpose-lab-briefing',
-        title: 'Briefing: Circular retail pilots Q1',
-        startAt: () => minutesFromNow(2 * 24 * 60 + 120),
-        timezone: 'UTC',
-        format: 'Briefing',
-        host: {
-          name: 'Leila Odum',
-          title: 'Talent Partner · Northwind Ventures',
-        },
-        registrationRequired: true,
-      },
-      {
-        id: 'purpose-lab-demo-day',
-        title: 'Demo day: Impact sprint outcomes',
-        startAt: () => minutesFromNow(12 * 24 * 60),
-        timezone: 'UTC',
-        format: 'Showcase',
-        host: {
-          name: 'Gigvora Impact Office',
-          title: 'Impact Programmes Team',
-        },
-        registrationRequired: false,
-      },
-    ],
-    leadership: [
-      {
-        name: 'Gigvora Impact Office',
-        title: 'Programme Managers',
-        role: 'Coordinators',
-        avatarSeed: 'Purpose Lab',
-      },
-    ],
-    resources: [
-      {
-        id: 'purpose-sprint-kit',
-        title: 'Impact sprint facilitation kit',
-        type: 'Kit',
-        url: 'https://impact.gigvora.com/sprint-kit',
-      },
-      {
-        id: 'purpose-insights',
-        title: 'Climate venture partner map',
-        type: 'Intelligence',
-        url: 'https://impact.gigvora.com/partner-map',
-      },
-    ],
-    guidelines: [
-      'Volunteer commitments require weekly stand-ups during active sprints.',
-      'Share field photos only with consent from on-site partners.',
-      'Escalate safety concerns within 24 hours using the trust desk.',
-    ],
-    timeline: [
-      {
-        label: 'Enterprise cohort onboarding',
-        occursAt: () => minutesFromNow(-20 * 24 * 60),
-        description: 'Three enterprise partners onboarded with 120 volunteers activated.',
-      },
-      {
-        label: 'Impact measurement release',
-        occursAt: () => minutesFromNow(20 * 24 * 60),
-        description: 'Publishing the first shared impact measurement dashboard.',
-      },
-    ],
-  },
-];
+const DEFAULT_NOTIFICATION_PREFERENCES = { digest: true, newThread: true, upcomingEvent: true };
+const MODERATOR_ROLES = new Set(['owner', 'chair', 'moderator']);
 
-const BLUEPRINT_BY_NAME = new Map(GROUP_BLUEPRINTS.map((item) => [item.name, item]));
-const BLUEPRINT_BY_KEY = new Map(GROUP_BLUEPRINTS.map((item) => [item.key, item]));
+async function assertActor(actorId) {
+  const id = toNumber(actorId, null);
+  if (!id) {
+    throw new AuthorizationError('Authentication is required to access community groups.');
+  }
 
-function minutesFromNow(minutes) {
-  const date = new Date(Date.now() + minutes * 60 * 1000);
-  return date.toISOString();
+  const user = await User.findByPk(id, {
+    attributes: ['id', 'userType', 'firstName', 'lastName', 'email'],
+  });
+
+  if (!user) {
+    throw new NotFoundError('User not found.');
+  }
+
+  if (!DEFAULT_ALLOWED_USER_TYPES.includes(user.userType)) {
+    throw new AuthorizationError('Your account type does not have access to community groups.');
+  }
+
+  return user;
 }
 
-function resolveBlueprint(group) {
-  if (!group) {
-    return null;
-  }
-  const byName = BLUEPRINT_BY_NAME.get(group.name);
-  if (byName) {
-    return byName;
-  }
+function subDays(date, days) {
+  const result = new Date(date);
+  result.setDate(result.getDate() - days);
+  return result;
+}
+
+function normaliseNotifications(preferences) {
+  const source = preferences && typeof preferences === 'object' ? preferences : {};
   return {
-    key: slugify(group.name || `group-${group.id}`),
-    name: group.name,
-    summary: group.description || 'A Gigvora community group.',
-    focusAreas: [],
-    accentColor: '#2563EB',
-    joinPolicy: DEFAULT_JOIN_POLICY,
-    allowedUserTypes: [...DEFAULT_ALLOWED_USER_TYPES],
-    baselineMembers: 0,
-    metrics: {
-      weeklyActiveMembers: 0,
-      opportunitiesSharedThisWeek: 0,
-      retentionRate: 0.85,
-      conversationVelocity: 0.5,
-    },
-    insights: { signalStrength: 'steady', trendingTopics: [] },
-    upcomingEvents: [],
-    leadership: [],
-    resources: [],
-    guidelines: [],
-    timeline: [],
+    digest: asBoolean(source.digest, true),
+    newThread: asBoolean(source.newThread, true),
+    upcomingEvent: asBoolean(source.upcomingEvent, true),
   };
 }
 
-async function ensureBlueprintGroups(transaction) {
-  for (const blueprint of GROUP_BLUEPRINTS) {
-    const [record, created] = await Group.findOrCreate({
-      where: { name: blueprint.name },
-      defaults: {
-        description: blueprint.summary,
-      },
-      transaction,
-    });
-    if (!created && !record.description) {
-      record.description = blueprint.summary;
-      await record.save({ transaction });
+async function loadGroupByIdentifier(groupIdOrSlug) {
+  const numericId = toNumber(groupIdOrSlug, null);
+  if (numericId) {
+    const byId = await Group.findByPk(numericId);
+    if (byId) {
+      return byId;
     }
   }
+  if (groupIdOrSlug == null) {
+    return null;
+  }
+  const trimmed = `${groupIdOrSlug}`.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const slugCandidate = slugify(trimmed);
+  if (slugCandidate) {
+    const bySlug = await Group.findOne({ where: { slug: slugCandidate } });
+    if (bySlug) {
+      return bySlug;
+    }
+  }
+  return Group.findOne({
+    where: { name: { [Op.iLike ?? Op.like]: trimmed.replace(/-/g, ' ') } },
+  });
 }
 
-async function fetchMemberCounts(groupIds) {
-  if (!Array.isArray(groupIds) || groupIds.length === 0) {
-    return new Map();
+async function fetchMembershipForActor(groupId, actorId) {
+  if (!actorId) {
+    return null;
   }
-  const rows = await GroupMembership.findAll({
-    attributes: ['groupId', [fn('COUNT', col('*')), 'count']],
-    where: { groupId: groupIds },
-    group: ['groupId'],
+  return GroupMembership.findOne({
+    where: { groupId, userId: actorId },
   });
-  const map = new Map();
-  rows.forEach((row) => {
-    const groupId = Number(row.get('groupId'));
-    const count = Number(row.get('count'));
-    map.set(groupId, Number.isFinite(count) ? count : 0);
-  });
-  return map;
 }
 
-async function fetchActorMemberships(actorId, groupIds) {
-  if (!actorId || !Array.isArray(groupIds) || groupIds.length === 0) {
-    return new Map();
-  }
-  const rows = await GroupMembership.findAll({
-    where: { groupId: groupIds, userId: actorId },
-  });
-  const map = new Map();
-  rows.forEach((row) => {
-    map.set(Number(row.groupId), {
-      role: row.role,
-      joinedAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
-      metadata: row.metadata ?? {},
-    });
-  });
-  return map;
-}
+async function fetchMembershipMetrics(groupId) {
+  const [statusCounts, roleCounts, joinedInLast30Days] = await Promise.all([
+    GroupMembership.findAll({
+      where: { groupId },
+      attributes: ['status', [fn('COUNT', col('*')), 'count']],
+      group: ['status'],
+    }),
+    GroupMembership.findAll({
+      where: { groupId, status: 'active' },
+      attributes: ['role', [fn('COUNT', col('*')), 'count']],
+      group: ['role'],
+    }),
+    GroupMembership.count({
+      where: {
+        groupId,
+        status: 'active',
+        joinedAt: { [Op.gte]: subDays(new Date(), 30) },
+      },
+    }),
+  ]);
 
-async function assertActor(actorId) {
-  const numericId = toNumber(actorId, null);
-  if (!numericId) {
-    throw new ValidationError('An authenticated actorId is required for this operation.');
-  }
-  const user = await User.findByPk(numericId, {
-    attributes: ['id', 'userType'],
+  const totals = { total: 0, active: 0, pending: 0, invited: 0, suspended: 0 };
+  statusCounts.forEach((row) => {
+    const status = row.get('status');
+    const count = Number(row.get('count')) || 0;
+    totals.total += count;
+    if (status === 'active') {
+      totals.active += count;
+    } else if (status === 'pending') {
+      totals.pending += count;
+    } else if (status === 'invited') {
+      totals.invited += count;
+    } else if (status === 'suspended') {
+      totals.suspended += count;
+    }
   });
-  if (!user) {
-    throw new NotFoundError('User not found for the requested action.');
-  }
-  const allowed = new Set(DEFAULT_ALLOWED_USER_TYPES);
-  if (!allowed.has(user.userType)) {
-    throw new AuthorizationError('Your account does not have access to community groups yet.');
-  }
-  return user;
+
+  const retentionRate = totals.total ? Number((totals.active / totals.total).toFixed(2)) : 0;
+  const breakdownByRole = roleCounts.map((row) => ({
+    role: row.get('role'),
+    count: Number(row.get('count')) || 0,
+  }));
+
+  return {
+    totals,
+    retentionRate,
+    joinedInLast30Days: Number(joinedInLast30Days) || 0,
+    breakdownByRole,
+  };
 }
 
 function buildMembershipState({ membership, joinPolicy }) {
@@ -463,81 +205,491 @@ function buildMembershipState({ membership, joinPolicy }) {
       status: joinPolicy === 'invite_only' ? 'request_required' : 'not_member',
       role: null,
       joinedAt: null,
-      preferences: {
-        notifications: { digest: true, newThread: true, upcomingEvent: true },
-      },
+      preferences: { notifications: { ...DEFAULT_NOTIFICATION_PREFERENCES } },
     };
   }
-  const metadata = membership.metadata ?? {};
-  const notifications = metadata.notifications ?? { digest: true, newThread: true, upcomingEvent: true };
+  const plain = membership.get ? membership.get({ plain: true }) : membership;
+  const preferenceSource =
+    (plain.preferences && typeof plain.preferences === 'object' && plain.preferences.notifications) ??
+    plain.preferences ??
+    plain.metadata?.notifications ??
+    {};
+  const notifications = normaliseNotifications(preferenceSource);
+  const status = plain.status === 'active' ? 'member' : plain.status ?? 'pending';
   return {
-    status: 'member',
-    role: membership.role,
-    joinedAt: membership.joinedAt,
+    status,
+    role: plain.role,
+    joinedAt: plain.joinedAt ? new Date(plain.joinedAt).toISOString() : null,
     preferences: { notifications },
   };
 }
 
-function computeEngagementScore({ memberCount, metrics }) {
-  const base = toNumber(metrics?.conversationVelocity, 0.5);
-  const active = toNumber(metrics?.weeklyActiveMembers, 0);
-  if (!memberCount) {
-    return Number(base.toFixed(2));
-  }
-  const ratio = Math.min(1, active / memberCount);
-  return Number(Math.max(base, ratio).toFixed(2));
+function mapMembershipMember(membership) {
+  const plain = membership.get ? membership.get({ plain: true }) : membership;
+  const member = plain.member ?? plain.Member;
+  const name = member ? [member.firstName, member.lastName].filter(Boolean).join(' ') : plain.metadata?.name ?? null;
+  const title = plain.metadata?.title ?? member?.headline ?? member?.title ?? null;
+  return {
+    id: member?.id ?? plain.userId,
+    name: name || `Member ${plain.userId}`,
+    title,
+    role: plain.role,
+    focus: plain.metadata?.focus ?? null,
+    avatarUrl: plain.metadata?.avatarUrl ?? null,
+  };
 }
 
-function mapGroupRecord(group, { memberCount, membership, blueprint }) {
-  const summary = blueprint.summary || group.description || 'A Gigvora community group.';
-  const joinPolicy = blueprint.joinPolicy || DEFAULT_JOIN_POLICY;
-  const focusAreas = unique(blueprint.focusAreas || []);
-  const metrics = blueprint.metrics || {};
-  const insights = blueprint.insights || {};
-  const events = (blueprint.upcomingEvents || []).map((event) => ({
-    ...event,
-    startAt: typeof event.startAt === 'function' ? event.startAt() : event.startAt,
-  }));
-  const timeline = (blueprint.timeline || []).map((entry) => ({
-    ...entry,
-    occursAt: typeof entry.occursAt === 'function' ? entry.occursAt() : entry.occursAt,
-  }));
-
-  const effectiveMemberCount = memberCount ?? blueprint.baselineMembers ?? 0;
-  const engagementScore = computeEngagementScore({
-    memberCount: effectiveMemberCount,
-    metrics,
+async function buildLeadershipProfiles(groupId) {
+  const memberships = await GroupMembership.findAll({
+    where: { groupId, status: 'active' },
+    include: [
+      {
+        model: User,
+        as: 'member',
+        attributes: ['id', 'firstName', 'lastName', 'headline', 'title'],
+      },
+    ],
+    order: [
+      [sequelize.literal(`CASE WHEN "GroupMembership"."role" IN ('owner','chair','moderator') THEN 0 ELSE 1 END`), 'ASC'],
+      ['role', 'ASC'],
+      ['joinedAt', 'DESC'],
+      ['id', 'ASC'],
+    ],
   });
 
+  const profiles = memberships.map((membership) => mapMembershipMember(membership));
+  const leadership = profiles.filter((profile) => MODERATOR_ROLES.has(profile.role));
+  const spotlight = profiles.slice(0, 12);
+
+  return { leadership, spotlight };
+}
+
+async function buildUpcomingEvents(groupId) {
+  const now = new Date();
+  const recentCutoff = subDays(now, 1);
+  const events = await GroupEvent.findAll({
+    where: {
+      groupId,
+      status: 'scheduled',
+    },
+    order: [['startAt', 'ASC']],
+    limit: 6,
+  });
+
+  return events
+    .map((event) => {
+      const plain = event.get ? event.get({ plain: true }) : event;
+      return {
+        id: plain.id,
+        title: plain.title,
+        description: plain.description ?? null,
+        startAt: plain.startAt ? new Date(plain.startAt).toISOString() : null,
+        endAt: plain.endAt ? new Date(plain.endAt).toISOString() : null,
+        timezone: plain.timezone ?? null,
+        format: plain.format ?? null,
+        host: plain.hostName ? { name: plain.hostName, title: plain.hostTitle ?? null } : null,
+        url: plain.registrationUrl ?? null,
+        isVirtual: plain.isVirtual ?? true,
+        status: plain.status,
+      };
+    })
+    .filter((event) => {
+      if (!event.startAt) {
+        return true;
+      }
+      return new Date(event.startAt) >= recentCutoff;
+    });
+}
+
+async function buildGroupGuidelines(groupId) {
+  const rows = await GroupGuideline.findAll({
+    where: { groupId },
+    order: [
+      ['displayOrder', 'ASC'],
+      ['id', 'ASC'],
+    ],
+  });
+  return rows.map((row) => {
+    const plain = row.get ? row.get({ plain: true }) : row;
+    return plain.content;
+  });
+}
+
+async function buildGroupTimeline(groupId) {
+  const rows = await GroupTimelineEvent.findAll({
+    where: { groupId },
+    order: [
+      ['occursAt', 'DESC'],
+      ['id', 'DESC'],
+    ],
+    limit: 12,
+  });
+  return rows.map((row) => {
+    const plain = row.get ? row.get({ plain: true }) : row;
+    return {
+      label: plain.title,
+      description: plain.description ?? null,
+      occursAt: plain.occursAt ? new Date(plain.occursAt).toISOString() : null,
+      category: plain.category ?? null,
+    };
+  });
+}
+
+function mapResourceRecord(resource) {
+  const plain = resource.get ? resource.get({ plain: true }) : resource;
+  const tags = Array.isArray(plain.tags) ? plain.tags.filter(Boolean) : [];
   return {
-    id: group.id,
-    slug: blueprint.key || slugify(group.name || `group-${group.id}`),
-    name: group.name,
+    id: plain.id,
+    title: plain.title,
+    description: plain.summary ?? null,
+    summary: plain.summary ?? null,
+    url: plain.url,
+    type: plain.type,
+    category: plain.category ?? null,
+    collection: plain.collection ?? null,
+    author: plain.author ?? null,
+    format: plain.format ?? null,
+    difficulty: plain.difficulty ?? null,
+    duration: plain.duration ?? null,
+    previewImageUrl: plain.previewImageUrl ?? null,
+    isFeatured: Boolean(plain.isFeatured),
+    tags,
+    metadata: plain.metadata ?? {},
+    publishedAt: plain.publishedAt ? new Date(plain.publishedAt).toISOString() : null,
+    updatedAt: plain.updatedAt ? new Date(plain.updatedAt).toISOString() : null,
+  };
+}
+
+function summariseCollections(items) {
+  const collectionMap = new Map();
+  items.forEach((item) => {
+    if (!item.collection) {
+      return;
+    }
+    const entry = collectionMap.get(item.collection) ?? { name: item.collection, count: 0 };
+    entry.count += 1;
+    collectionMap.set(item.collection, entry);
+  });
+  return Array.from(collectionMap.values()).sort((a, b) => b.count - a.count);
+}
+
+function computeResourceAnalytics(records) {
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  let downloads = 0;
+  let newThisMonth = 0;
+
+  records.forEach((record) => {
+    const plain = record.get ? record.get({ plain: true }) : record;
+    downloads += Number(plain.downloadCount ?? 0);
+    if (plain.publishedAt) {
+      const publishedAt = new Date(plain.publishedAt);
+      if (!Number.isNaN(publishedAt.getTime()) && publishedAt >= startOfMonth) {
+        newThisMonth += 1;
+      }
+    }
+  });
+
+  return { downloads, newThisMonth };
+}
+
+async function buildResourceLibrary(groupId) {
+  const resources = await GroupResource.findAll({
+    where: { groupId, status: 'published' },
+    order: [
+      ['isFeatured', 'DESC'],
+      ['publishedAt', 'DESC'],
+      ['title', 'ASC'],
+    ],
+  });
+
+  const items = resources.map(mapResourceRecord);
+  const featured = items.filter((item) => item.isFeatured).slice(0, 6);
+  const categories = unique(items.map((item) => item.category || item.type)).filter(Boolean);
+  const collections = summariseCollections(items);
+  const analytics = computeResourceAnalytics(resources);
+
+  return {
+    items,
+    categories,
+    collections,
+    featured,
+    analytics: {
+      downloads: analytics.downloads,
+      newThisMonth: analytics.newThisMonth,
+    },
+  };
+}
+
+function mapThreadRecord(post) {
+  const plain = post.get ? post.get({ plain: true }) : post;
+  const author = plain.createdBy ?? plain.CreatedBy;
+  const metadata = plain.metadata ?? {};
+  const tags = Array.isArray(plain.topicTags) ? plain.topicTags.filter(Boolean) : [];
+  const reactionSummary = plain.reactionSummary ?? metadata.reactionSummary ?? {};
+  const totalReactions = Number(reactionSummary.total ?? reactionSummary.totalReactions ?? 0);
+  const replyCount = Number(plain.replyCount ?? metadata.replyCount ?? 0);
+  const lastActivitySource = plain.lastActivityAt || plain.updatedAt || plain.publishedAt || plain.createdAt;
+
+  return {
+    id: plain.id,
+    title: plain.title,
+    summary: plain.summary ?? metadata.summary ?? null,
+    slug: plain.slug,
+    author: author
+      ? {
+          id: author.id ?? plain.createdById ?? null,
+          name: [author.firstName, author.lastName].filter(Boolean).join(' ') || metadata.authorName || null,
+        }
+      : null,
+    authorId: author?.id ?? plain.createdById ?? null,
+    replyCount,
+    tags,
+    topics: tags,
+    pinnedAt: plain.pinnedAt ? new Date(plain.pinnedAt).toISOString() : null,
+    lastActivityAt: lastActivitySource ? new Date(lastActivitySource).toISOString() : null,
+    createdAt: plain.createdAt ? new Date(plain.createdAt).toISOString() : null,
+    updatedAt: plain.updatedAt ? new Date(plain.updatedAt).toISOString() : null,
+    unresolved: plain.resolutionState ? plain.resolutionState !== 'resolved' : metadata.resolved === false,
+    unread: metadata.unread ?? plain.resolutionState === 'open',
+    metrics: {
+      replies: replyCount,
+      reactions: totalReactions,
+    },
+  };
+}
+
+async function buildDiscussionBoard(groupId) {
+  const posts = await GroupPost.findAll({
+    where: { groupId, status: 'published' },
+    include: [
+      {
+        model: User,
+        as: 'createdBy',
+        attributes: ['id', 'firstName', 'lastName', 'headline', 'title'],
+      },
+    ],
+    order: [
+      [sequelize.literal('CASE WHEN "GroupPost"."pinnedAt" IS NULL THEN 1 ELSE 0 END'), 'ASC'],
+      ['pinnedAt', 'DESC'],
+      ['lastActivityAt', 'DESC'],
+      ['publishedAt', 'DESC'],
+    ],
+    limit: 80,
+  });
+
+  const threads = posts.map(mapThreadRecord);
+  const sortedThreads = [...threads].sort((a, b) => {
+    const aDate = a.lastActivityAt ? new Date(a.lastActivityAt).getTime() : 0;
+    const bDate = b.lastActivityAt ? new Date(b.lastActivityAt).getTime() : 0;
+    return bDate - aDate;
+  });
+  const pinned = sortedThreads.filter((thread) => Boolean(thread.pinnedAt)).slice(0, 5);
+
+  const tagSet = new Set();
+  sortedThreads.forEach((thread) => (thread.tags || []).forEach((tag) => tag && tagSet.add(tag)));
+
+  const now = new Date();
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+  const sevenDaysAgo = subDays(now, 7);
+
+  const activeToday = sortedThreads.filter(
+    (thread) => thread.lastActivityAt && new Date(thread.lastActivityAt) >= startOfToday,
+  ).length;
+  const unresolved = sortedThreads.filter((thread) => thread.unresolved).length;
+  const contributors = new Set(
+    sortedThreads
+      .filter((thread) => thread.authorId && thread.lastActivityAt && new Date(thread.lastActivityAt) >= sevenDaysAgo)
+      .map((thread) => thread.authorId),
+  );
+
+  const trending = sortedThreads
+    .filter((thread) => thread.lastActivityAt && new Date(thread.lastActivityAt) >= sevenDaysAgo)
+    .sort((a, b) => {
+      const aScore = (a.replyCount ?? 0) + (a.metrics?.reactions ?? 0);
+      const bScore = (b.replyCount ?? 0) + (b.metrics?.reactions ?? 0);
+      return bScore - aScore;
+    })
+    .slice(0, 6);
+
+  const moderatorMemberships = await GroupMembership.findAll({
+    where: { groupId, status: 'active', role: { [Op.in]: Array.from(MODERATOR_ROLES) } },
+    include: [{ model: User, as: 'member', attributes: ['id', 'firstName', 'lastName', 'headline', 'title'] }],
+    order: [['role', 'ASC'], ['joinedAt', 'ASC']],
+    limit: 12,
+  });
+  const moderators = moderatorMemberships.map((membership) => mapMembershipMember(membership));
+
+  return {
+    pinned,
+    threads: sortedThreads,
+    trending,
+    moderators,
+    tags: Array.from(tagSet).slice(0, 20),
+    stats: {
+      activeToday,
+      unresolved,
+      contributorsThisWeek: contributors.size,
+    },
+  };
+}
+
+function deriveSignalStrength({ boardStats, membershipTotals }) {
+  const activeMembers = membershipTotals?.active ?? 0;
+  if (!activeMembers) {
+    return boardStats?.activeToday ? 'growing' : 'emerging';
+  }
+  const activityRatio = (boardStats?.activeToday ?? 0) / activeMembers;
+  const contributorRatio = (boardStats?.contributorsThisWeek ?? 0) / activeMembers;
+  if (activityRatio >= 0.3 || contributorRatio >= 0.4) {
+    return 'surging';
+  }
+  if (activityRatio >= 0.15 || contributorRatio >= 0.25) {
+    return 'growing';
+  }
+  if (activityRatio >= 0.05) {
+    return 'steady';
+  }
+  return 'emerging';
+}
+
+function buildGroupInsights({ board, resourceLibrary, membershipMetrics }) {
+  const trendingMap = new Map();
+  const now = new Date();
+  const thirtyDaysAgo = subDays(now, 30);
+
+  (board?.threads ?? []).forEach((thread) => {
+    if (!thread.lastActivityAt) {
+      return;
+    }
+    const activityDate = new Date(thread.lastActivityAt);
+    if (Number.isNaN(activityDate.getTime()) || activityDate < thirtyDaysAgo) {
+      return;
+    }
+    (thread.tags ?? thread.topics ?? []).forEach((tag) => {
+      if (!tag) {
+        return;
+      }
+      trendingMap.set(tag, (trendingMap.get(tag) ?? 0) + 1);
+    });
+  });
+
+  const trendingTopics = Array.from(trendingMap.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([tag]) => tag)
+    .slice(0, 6);
+
+  return {
+    signalStrength: deriveSignalStrength({ boardStats: board?.stats ?? {}, membershipTotals: membershipMetrics?.totals ?? {} }),
+    trendingTopics,
+    board: board?.stats ?? {},
+    resources: resourceLibrary?.analytics ?? {},
+  };
+}
+
+function computeEngagementScore({ memberCount, boardStats }) {
+  if (!memberCount) {
+    return Number((boardStats?.activeToday ? 0.5 : 0.2).toFixed(2));
+  }
+  const contributorRatio = (boardStats?.contributorsThisWeek ?? 0) / memberCount;
+  const activityRatio = (boardStats?.activeToday ?? 0) / memberCount;
+  const base = Math.max(0.15, contributorRatio * 0.7 + activityRatio * 0.3);
+  return Number(Math.min(1, base).toFixed(2));
+}
+
+function computeGroupStats({ membershipMetrics, board, resourceLibrary }) {
+  const memberCount = membershipMetrics?.totals?.active ?? 0;
+  const weeklyActiveMembers = board?.stats?.contributorsThisWeek ?? 0;
+  const opportunitiesSharedThisWeek = (resourceLibrary?.items ?? []).filter((item) => {
+    if (!item.publishedAt) {
+      return false;
+    }
+    const publishedAt = new Date(item.publishedAt);
+    return !Number.isNaN(publishedAt.getTime()) && publishedAt >= subDays(new Date(), 7);
+  }).length;
+
+  return {
+    memberCount,
+    weeklyActiveMembers,
+    opportunitiesSharedThisWeek,
+    retentionRate: membershipMetrics?.retentionRate ?? 0,
+    engagementScore: computeEngagementScore({ memberCount, boardStats: board?.stats ?? {} }),
+  };
+}
+
+function normalizeAllowedUserTypes(group) {
+  const settings = group.settings ?? {};
+  const metadata = group.metadata ?? {};
+  const configured = settings.allowedUserTypes ?? metadata.allowedUserTypes;
+  if (Array.isArray(configured) && configured.length) {
+    return unique(
+      configured
+        .map((value) => `${value}`.trim().toLowerCase())
+        .filter((value) => value && value.length > 0),
+    );
+  }
+  return [...DEFAULT_ALLOWED_USER_TYPES];
+}
+
+function mapGroupRecord(group, context) {
+  const plain = group.get ? group.get({ plain: true }) : group;
+  const settings = plain.settings ?? {};
+  const metadata = plain.metadata ?? {};
+
+  const joinPolicy = plain.memberPolicy ?? settings.joinPolicy ?? metadata.joinPolicy ?? DEFAULT_JOIN_POLICY;
+  const allowedUserTypes = normalizeAllowedUserTypes(plain);
+  const focusAreas = unique([...(metadata.focusAreas ?? []), ...(settings.focusAreas ?? [])]);
+  const accentColor = metadata.accentColor ?? settings.accentColor ?? plain.avatarColor ?? '#2563EB';
+  const summary = metadata.summary ?? plain.description ?? 'A Gigvora community group.';
+  const stats = computeGroupStats({
+    membershipMetrics: context.membershipMetrics,
+    board: context.board,
+    resourceLibrary: context.resourceLibrary,
+  });
+
+  const derivedValueProps = [
+    context.board?.stats?.activeToday ? `${context.board.stats.activeToday} conversations active today` : null,
+    context.board?.stats?.unresolved ? `${context.board.stats.unresolved} open questions awaiting replies` : null,
+    context.resourceLibrary?.analytics?.downloads
+      ? `${context.resourceLibrary.analytics.downloads} resource downloads this quarter`
+      : null,
+    context.events?.[0]?.title ? `Next session: ${context.events[0].title}` : null,
+  ].filter(Boolean);
+
+  const valuePropositions = unique([...(metadata.valuePropositions ?? []), ...derivedValueProps]).slice(0, 6);
+
+  return {
+    id: plain.id,
+    slug: plain.slug ?? slugify(plain.name || `group-${plain.id}`),
+    name: plain.name,
     summary,
-    description: group.description || summary,
-    accentColor: blueprint.accentColor || '#2563EB',
+    description: plain.description ?? summary,
+    accentColor,
     focusAreas,
     joinPolicy,
-    allowedUserTypes: unique(blueprint.allowedUserTypes || DEFAULT_ALLOWED_USER_TYPES),
-    membership: buildMembershipState({ membership, joinPolicy }),
-    stats: {
-      memberCount: effectiveMemberCount,
-      weeklyActiveMembers: toNumber(metrics.weeklyActiveMembers, Math.round(effectiveMemberCount * 0.25)),
-      opportunitiesSharedThisWeek: toNumber(metrics.opportunitiesSharedThisWeek, 0),
-      retentionRate: Number(toNumber(metrics.retentionRate, 0.9).toFixed(2)),
-      engagementScore,
-    },
-    insights: {
-      signalStrength: insights.signalStrength || 'steady',
-      trendingTopics: insights.trendingTopics || [],
-    },
-    upcomingEvents: events,
-    leadership: blueprint.leadership || [],
-    resources: blueprint.resources || [],
-    guidelines: blueprint.guidelines || [],
-    timeline,
+    allowedUserTypes,
+    membership: buildMembershipState({ membership: context.membership, joinPolicy }),
+    stats,
+    insights: context.insights ?? { board: {}, resources: {}, signalStrength: 'emerging', trendingTopics: [] },
+    upcomingEvents: context.events ?? [],
+    leadership: context.leadership ?? [],
+    resources: context.resourceLibrary?.items ?? [],
+    resourceLibrary: context.resourceLibrary ?? { items: [] },
+    guidelines: context.guidelines ?? [],
+    timeline: context.timeline ?? [],
+    memberSpotlight: context.memberSpotlight ?? [],
+    members: { spotlight: context.memberSpotlight ?? [] },
+    discussionBoard: context.board ?? { threads: [], stats: {} },
+    valuePropositions,
     metadata: {
-      baselineMembers: blueprint.baselineMembers ?? 0,
+      baselineMembers: context.membershipMetrics?.totals?.total ?? 0,
+      retentionRate: stats.retentionRate,
+    },
+    access: {
+      joinPolicy,
+      allowedUserTypes,
+      invitationRequired: joinPolicy === 'invite_only',
     },
   };
 }
@@ -546,61 +698,54 @@ export async function getGroupProfile(groupIdOrSlug, { actorId } = {}) {
   if (!groupIdOrSlug) {
     throw new ValidationError('A group identifier is required.');
   }
-  const normalizedActorId = toNumber(actorId, null);
-  if (!normalizedActorId) {
-    throw new AuthorizationError('Authentication is required to view group profiles.');
-  }
-  const actor = await assertActor(normalizedActorId);
 
-  await sequelize.transaction(async (transaction) => ensureBlueprintGroups(transaction));
+  const actor = await assertActor(actorId);
+  const group = await loadGroupByIdentifier(groupIdOrSlug);
 
-  const numericId = toNumber(groupIdOrSlug, null);
-  let group = null;
-  if (numericId) {
-    group = await Group.findByPk(numericId);
-  }
-  if (!group) {
-    const slug = `${groupIdOrSlug}`.trim().toLowerCase();
-    const blueprint = BLUEPRINT_BY_KEY.get(slug);
-    if (blueprint) {
-      group = await Group.findOne({ where: { name: blueprint.name } });
-    }
-  }
-  if (!group) {
-    group = await Group.findOne({
-      where: { name: { [Op.iLike ?? Op.like]: `${groupIdOrSlug}`.replace(/-/g, ' ') } },
-    });
-  }
   if (!group) {
     throw new NotFoundError('Group not found.');
   }
 
-  const blueprint = resolveBlueprint(group);
-  const memberCountMap = await fetchMemberCounts([group.id]);
-  const membershipMap = await fetchActorMemberships(normalizedActorId, [group.id]);
+  const [
+    membership,
+    membershipMetrics,
+    leadershipProfiles,
+    events,
+    guidelines,
+    timeline,
+    resourceLibrary,
+    board,
+  ] = await Promise.all([
+    fetchMembershipForActor(group.id, actor.id),
+    fetchMembershipMetrics(group.id),
+    buildLeadershipProfiles(group.id),
+    buildUpcomingEvents(group.id),
+    buildGroupGuidelines(group.id),
+    buildGroupTimeline(group.id),
+    buildResourceLibrary(group.id),
+    buildDiscussionBoard(group.id),
+  ]);
+
+  const insights = buildGroupInsights({
+    board,
+    resourceLibrary,
+    membershipMetrics,
+  });
 
   const record = mapGroupRecord(group, {
-    memberCount: memberCountMap.get(group.id),
-    membership: membershipMap.get(group.id),
-    blueprint,
+    membership,
+    membershipMetrics,
+    leadership: leadershipProfiles.leadership,
+    memberSpotlight: leadershipProfiles.spotlight,
+    events,
+    guidelines,
+    timeline,
+    resourceLibrary,
+    board,
+    insights,
   });
 
-  const membershipBreakdown = await GroupMembership.findAll({
-    where: { groupId: group.id },
-    attributes: ['role', [fn('COUNT', col('*')), 'count']],
-    group: ['role'],
-  });
-
-  record.membershipBreakdown = membershipBreakdown.map((row) => ({
-    role: row.get('role'),
-    count: Number(row.get('count')),
-  }));
-
-  record.access = {
-    joinPolicy: record.joinPolicy,
-    allowedUserTypes: record.allowedUserTypes,
-    invitationRequired: record.joinPolicy === 'invite_only',
-  };
+  record.membershipBreakdown = membershipMetrics.breakdownByRole ?? [];
 
   const allowed = new Set((record.allowedUserTypes || []).map((value) => value.toLowerCase()));
   if (allowed.size && !allowed.has(actor.userType.toLowerCase())) {
@@ -2028,12 +2173,11 @@ export const __testing = {
   unique,
   toNumber,
   asBoolean,
-  minutesFromNow,
-  resolveBlueprint,
   buildMembershipState,
   computeEngagementScore,
   mapGroupRecord,
-  GROUP_BLUEPRINTS,
+  fetchMembershipMetrics,
+  buildGroupInsights,
 };
 
 export default {

@@ -41,6 +41,17 @@ function parseOptionalPositiveInteger(value, label) {
   return parsed;
 }
 
+function resolveGroupIdentifier(value, label = 'groupId') {
+  if (value == null || value === '') {
+    throw new ValidationError(`${label} is required.`);
+  }
+  const identifier = String(value).trim();
+  if (!identifier) {
+    throw new ValidationError(`${label} is required.`);
+  }
+  return identifier;
+}
+
 function normaliseBoolean(value, fallback = false) {
   if (value == null) {
     return fallback;
@@ -252,9 +263,9 @@ export async function index(req, res) {
 }
 
 export async function show(req, res) {
-  const groupId = parsePositiveInteger(req.params?.groupId, 'groupId');
-  const actorId = resolveActorId(req);
-  const result = await getGroupProfile(groupId, { actorId });
+  const groupIdentifier = resolveGroupIdentifier(req.params?.groupIdOrSlug ?? req.params?.groupId, 'groupId');
+  const actorId = resolveActorId(req, { required: true });
+  const result = await getGroupProfile(groupIdentifier, { actorId });
   res.json(result);
 }
 
@@ -306,7 +317,7 @@ export async function removeMemberController(req, res) {
 }
 
 export async function join(req, res) {
-  const groupId = parsePositiveInteger(req.params?.groupId, 'groupId');
+  const groupIdentifier = resolveGroupIdentifier(req.params?.groupIdOrSlug ?? req.params?.groupId, 'groupId');
   const actorId = resolveActorId(req, { required: true });
   const { role } = req.body ?? {};
   const payload = {};
@@ -317,24 +328,24 @@ export async function join(req, res) {
     }
     payload.role = normalisedRole;
   }
-  const result = await joinGroup(groupId, { actorId, ...payload });
+  const result = await joinGroup(groupIdentifier, { actorId, ...payload });
   res.status(201).json(result);
 }
 
 export async function leave(req, res) {
-  const groupId = parsePositiveInteger(req.params?.groupId, 'groupId');
+  const groupIdentifier = resolveGroupIdentifier(req.params?.groupIdOrSlug ?? req.params?.groupId, 'groupId');
   const actorId = resolveActorId(req, { required: true });
-  const result = await leaveGroup(groupId, { actorId });
+  const result = await leaveGroup(groupIdentifier, { actorId });
   res.json(result);
 }
 
 export async function updateMembership(req, res) {
-  const groupId = parsePositiveInteger(req.params?.groupId, 'groupId');
+  const groupIdentifier = resolveGroupIdentifier(req.params?.groupIdOrSlug ?? req.params?.groupId, 'groupId');
   const payload = req.body ?? {};
   if (payload == null || typeof payload !== 'object' || Array.isArray(payload)) {
     throw new ValidationError('Membership settings payload must be an object.');
   }
-  const result = await updateMembershipSettings(groupId, {
+  const result = await updateMembershipSettings(groupIdentifier, {
     actorId: resolveActorId(req, { required: true }),
     ...JSON.parse(JSON.stringify(payload)),
   });
@@ -342,7 +353,7 @@ export async function updateMembership(req, res) {
 }
 
 export async function requestMembershipController(req, res) {
-  const groupId = parsePositiveInteger(req.params?.groupId, 'groupId');
+  const groupIdentifier = resolveGroupIdentifier(req.params?.groupIdOrSlug ?? req.params?.groupId, 'groupId');
   const actor = resolveActor(req, { required: true });
   const { message } = req.body ?? {};
   const payload = {};
@@ -353,7 +364,7 @@ export async function requestMembershipController(req, res) {
     }
     payload.message = trimmed;
   }
-  const result = await requestMembership(groupId, { actor, ...payload });
+  const result = await requestMembership(groupIdentifier, { actor, ...payload });
   res.status(202).json(result);
 }
 
