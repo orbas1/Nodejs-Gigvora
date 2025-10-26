@@ -138,6 +138,18 @@ router.put(
 );
 
 router.get(
+  '/:id/sessions',
+  authenticate({ roles: DASHBOARD_OWNER_ROLES, matchParam: 'id' }),
+  asyncHandler(userController.listUserSessions),
+);
+
+router.post(
+  '/:id/sessions/:sessionId/revoke',
+  authenticate({ roles: DASHBOARD_OWNER_ROLES, matchParam: 'id' }),
+  asyncHandler(userController.revokeUserSession),
+);
+
+router.get(
   '/:id/security-preferences',
   authenticate({ roles: DASHBOARD_OWNER_ROLES, matchParam: 'id' }),
   asyncHandler(userController.getUserSecurityPreferences),

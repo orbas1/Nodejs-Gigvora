@@ -1,3 +1,10 @@
+  - [x] 9.B. Settings & Preferences
+    - [x] 9.B.1. AccountSettingsForm.jsx
+    - [x] 9.B.2. NotificationPreferences.jsx
+    - [x] 9.B.3. PrivacyControls.jsx
+    - [x] 9.B.1. AccountSettingsForm.jsx
+    - [x] 9.B.2. NotificationPreferences.jsx
+    - [x] 9.B.3. PrivacyControls.jsx
   - [x] 10.C. Content & Governance
     - [x] 10.C.1. ContentApprovalQueue.jsx
     - [x] 10.C.2. PolicyEditor.jsx

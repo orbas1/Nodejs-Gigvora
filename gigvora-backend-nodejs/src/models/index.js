@@ -659,6 +659,7 @@ export const User = sequelize.define(
     password: { type: DataTypes.STRING(255), allowNull: false },
     address: { type: DataTypes.STRING(255), allowNull: true },
     location: { type: DataTypes.STRING(255), allowNull: true },
+    timezone: { type: DataTypes.STRING(120), allowNull: true },
     geoLocation: { type: jsonType, allowNull: true },
     age: { type: DataTypes.INTEGER, allowNull: true, validate: { min: 13 } },
     phoneNumber: { type: DataTypes.STRING(30), allowNull: true },
