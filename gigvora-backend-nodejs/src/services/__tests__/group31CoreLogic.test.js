@@ -1,4 +1,5 @@
 import { describe, expect, it, beforeAll, afterEach, jest } from '@jest/globals';
+import { readFileSync } from 'node:fs';
 
 import { ValidationError } from '../../utils/errors.js';
 
@@ -33,6 +34,7 @@ const sequelizeStub = {
 
 jest.unstable_mockModule(modelsIndexModule, () => {
   const base = {
+    __esModule: true,
     sequelize: sequelizeStub,
     Gig: createModelProxy(),
     GigPackage: createModelProxy(),
@@ -42,6 +44,10 @@ jest.unstable_mockModule(modelsIndexModule, () => {
     GroupMembership: createModelProxy(),
     GroupInvite: createModelProxy(),
     GroupPost: createModelProxy(),
+    GroupEvent: createModelProxy(),
+    GroupResource: createModelProxy(),
+    GroupGuideline: createModelProxy(),
+    GroupTimelineEvent: createModelProxy(),
     User: createModelProxy(),
     ProviderWorkspace: createModelProxy(),
     ProviderWorkspaceMember: createModelProxy(),
@@ -125,14 +131,61 @@ jest.unstable_mockModule(modelsIndexModule, () => {
     NETWORKING_SESSION_SIGNUP_SOURCES: ['self_service', 'admin'],
     NETWORKING_BUSINESS_CARD_STATUSES: ['active', 'archived'],
     NETWORKING_ROTATION_STATUSES: ['scheduled', 'in_progress', 'completed'],
+    MENTOR_AVAILABILITY_DAYS: [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ],
   };
 
+  const fileContents = readFileSync(modelsIndexModule, 'utf8');
+  const exportMatches = fileContents.matchAll(/export const\s+([A-Za-z0-9_]+)/g);
+
+  for (const [, name] of exportMatches) {
+    if (name in base) {
+      continue;
+    }
+
+    const startsWithUppercase = /^[A-Z]/.test(name);
+    const isAllCaps = name === name.toUpperCase();
+
+    if (startsWithUppercase && !isAllCaps) {
+      base[name] = createModelProxy();
+    } else if (isAllCaps && !(name in base)) {
+      base[name] = [];
+    }
+  }
+
   return new Proxy(base, {
+    has(target, prop) {
+      if (!(prop in target) && typeof prop === 'string' && /^[A-Z]/.test(prop)) {
+        target[prop] = createModelProxy();
+      }
+      return true;
+    },
     get(target, prop) {
-      if (!(prop in target)) {
+      if (!(prop in target) && typeof prop === 'string' && /^[A-Z]/.test(prop)) {
         target[prop] = createModelProxy();
       }
       return target[prop];
+    },
+    getOwnPropertyDescriptor(target, prop) {
+      if (!(prop in target) && typeof prop === 'string' && /^[A-Z]/.test(prop)) {
+        target[prop] = createModelProxy();
+      }
+      return Object.getOwnPropertyDescriptor(target, prop) ?? {
+        configurable: true,
+        enumerable: true,
+        value: target[prop],
+        writable: true,
+      };
+    },
+    ownKeys(target) {
+      return Reflect.ownKeys(target);
     },
   });
 });
@@ -266,22 +319,55 @@ describe('gigService helpers', () => {
 });
 
 describe('groupService helpers', () => {
-  it('computes engagement score using blueprint defaults', () => {
-    const group = { id: 4, name: 'Mentor Guild', description: 'Peer mentoring.' };
-    const blueprint = groupHelpers.resolveBlueprint(group);
-    const mapped = groupHelpers.mapGroupRecord(group, {
-      memberCount: 80,
-      membership: null,
-      blueprint,
-    });
-    expect(mapped.slug).toContain('mentor-guild');
-    expect(mapped.stats.engagementScore).toBeGreaterThan(0.4);
-  });
+  it('maps group records with derived insights and stats', () => {
+    const group = {
+      id: 4,
+      name: 'Mentor Guild',
+      description: 'Peer mentoring.',
+      memberPolicy: 'moderated',
+      settings: {},
+      metadata: {},
+    };
+    const membershipMetrics = {
+      totals: { total: 120, active: 96, pending: 12, invited: 6, suspended: 6 },
+      retentionRate: 0.8,
+      joinedInLast30Days: 14,
+      breakdownByRole: [
+        { role: 'owner', count: 2 },
+        { role: 'moderator', count: 6 },
+      ],
+    };
+    const board = {
+      stats: { activeToday: 18, unresolved: 5, contributorsThisWeek: 24 },
+      threads: [
+        { id: 1, lastActivityAt: new Date().toISOString(), tags: ['growth'], replyCount: 6, metrics: { reactions: 4 } },
+        { id: 2, lastActivityAt: new Date().toISOString(), tags: ['ops'], replyCount: 2, metrics: { reactions: 3 } },
+      ],
+      pinned: [],
+      trending: [],
+    };
+    const resourceLibrary = {
+      analytics: { downloads: 210, newThisMonth: 9 },
+      items: [
+        { id: 9, publishedAt: new Date().toISOString(), category: 'growth' },
+        { id: 10, publishedAt: new Date(Date.now() - 86400000).toISOString(), category: 'ops' },
+      ],
+    };
 
-  it('ensures minutesFromNow returns ISO strings', () => {
-    const result = groupHelpers.minutesFromNow(30);
-    expect(typeof result).toBe('string');
-    expect(() => new Date(result)).not.toThrow();
+    const insights = groupHelpers.buildGroupInsights({ board, resourceLibrary, membershipMetrics });
+    const mapped = groupHelpers.mapGroupRecord(group, {
+      membership: null,
+      membershipMetrics,
+      board,
+      resourceLibrary,
+      events: [],
+      insights,
+    });
+
+    expect(mapped.slug).toContain('mentor-guild');
+    expect(mapped.stats.memberCount).toBe(96);
+    expect(mapped.insights.signalStrength).toBeDefined();
+    expect(mapped.valuePropositions.length).toBeGreaterThan(0);
   });
 });
 

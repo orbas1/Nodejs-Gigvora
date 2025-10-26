@@ -293,7 +293,11 @@ export async function getFreelancerDisputeDashboard(freelancerIdInput, options =
     whereClause.stage = options.stage;
   }
   if (options.status && DISPUTE_STATUSES.includes(options.status)) {
-    whereClause.status = options.status;
+    if (options.status === 'open') {
+      whereClause.status = { [Op.in]: Array.from(ACTIVE_DISPUTE_STATUSES) };
+    } else {
+      whereClause.status = options.status;
+    }
   } else if (!includeClosed) {
     whereClause.status = { [Op.ne]: 'closed' };
   }

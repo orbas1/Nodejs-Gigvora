@@ -32,6 +32,7 @@ const baseData = {
       { id: 201, title: 'Founders Hub' },
     ],
   },
+  projectBids: { bids: [], stats: {} },
   projectLifecycle: {
     open: [
       {
@@ -107,6 +108,61 @@ const baseData = {
       },
     ],
   },
+  gigBoard: {
+    opportunities: [
+      {
+        id: 301,
+        title: 'Alpha Project',
+        client: 'Acme Corp',
+        stage: 'qualify',
+        value: 54000,
+        currency: 'USD',
+        responseTimeHours: 12,
+        healthScore: 72,
+        personaFit: ['Operations'],
+        blockers: [],
+        activityLog: [
+          { at: '2024-05-01T10:00:00Z', label: 'Discovery call', actor: 'Operations lead' },
+        ],
+        nextAction: 'Schedule kickoff',
+        summary: 'Build a branded onboarding flow.',
+      },
+    ],
+  },
+  contractOperations: {
+    contracts: [
+      {
+        id: 'ct-1',
+        title: 'Alpha Retainer',
+        counterpart: 'Acme Corp',
+        statusKey: 'onTrack',
+        statusLabel: 'On track',
+        startDate: '2024-01-01T00:00:00Z',
+        endDate: null,
+        phases: [],
+        obligations: [
+          {
+            id: 'ob-1',
+            label: 'Kickoff deck',
+            owner: 'Operations lead',
+            dueDate: '2024-06-01T00:00:00Z',
+            severity: 'medium',
+            type: 'workspace',
+            completed: false,
+            checklistItemId: 'chk-1',
+            cardId: 'card-1',
+          },
+        ],
+        deliverables: [],
+        risks: [],
+        touchpoints: ['Weekly sync'],
+        analytics: { renewalProbability: 78, satisfaction: 85, compliance: 70 },
+        financials: { currency: 'USD', totalValue: 120000, paidToDate: 45000, upcoming: 30000, burnRate: '45' },
+        renewal: { targetDate: '2024-12-31T00:00:00Z', notes: 'Renew 30 days prior' },
+        metadata: { workspaceId: 'ws-1', clientAccountId: 'client-1', cardId: 'card-1' },
+      },
+    ],
+  },
 };
 
 describe('ProjectGigManagementSection', () => {
@@ -153,5 +209,13 @@ describe('ProjectGigManagementSection', () => {
     expect(screen.getByText('Balance')).toBeInTheDocument();
     expect(screen.getByText(/USD 4,200.00/)).toBeInTheDocument();
     expect(screen.getByText('Initial funding')).toBeInTheDocument();
+  });
+
+  it('renders proposal builder and bid workspace in the bids tab', () => {
+    renderSection({ activeTab: 'bids' });
+
+    expect(screen.getByText('Compose proposal')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Save proposal to bids/i })).toBeInTheDocument();
+    expect(screen.getByLabelText('Opportunity')).toBeInTheDocument();
   });
 });

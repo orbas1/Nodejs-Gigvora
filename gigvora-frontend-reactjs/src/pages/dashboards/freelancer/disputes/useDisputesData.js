@@ -21,7 +21,7 @@ export function useDisputesData(freelancerId) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
-  const [filters, setFilters] = useState({ stage: 'all', status: 'open', includeClosed: false });
+  const [filters, setFilters] = useState({ stage: 'all', status: 'all', includeClosed: false });
 
   const [selectedId, setSelectedId] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -37,7 +37,7 @@ export function useDisputesData(freelancerId) {
     if (filters.status && filters.status !== 'all') {
       params.status = filters.status;
     }
-    if (filters.includeClosed || filters.status === 'all') {
+    if (filters.includeClosed) {
       params.includeClosed = true;
     }
     return params;

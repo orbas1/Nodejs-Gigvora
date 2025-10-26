@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
+import { readFileAsBase64 } from '../../../../../utils/file.js';
 
 const INITIAL_FORM = {
   notes: '',
@@ -27,25 +28,6 @@ function formatDate(value, options = { withTime: true }) {
     year: 'numeric',
     hour: options.withTime ? 'numeric' : undefined,
     minute: options.withTime ? '2-digit' : undefined,
-  });
-}
-
-async function fileToBase64(file) {
-  if (!file) {
-    return null;
-  }
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result !== 'string') {
-        reject(new Error('Unable to read file'));
-        return;
-      }
-      const [, base64] = reader.result.split('base64,');
-      resolve(base64 ?? '');
-    };
-    reader.onerror = () => reject(new Error('Unable to read file'));
-    reader.readAsDataURL(file);
   });
 }
 
@@ -123,7 +105,7 @@ export default function DisputeDrawer({ open, detail, loading, error, onClose, o
     try {
       let evidence = null;
       if (form.file) {
-        const content = await fileToBase64(form.file);
+        const content = await readFileAsBase64(form.file);
         evidence = {
           content,
           encoding: 'base64',

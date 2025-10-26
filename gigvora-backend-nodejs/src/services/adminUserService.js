@@ -6,7 +6,18 @@ import {
   literal,
 } from 'sequelize';
 
-import { User, Profile, UserLoginAudit, UserRole, UserNote, USER_STATUSES } from '../models/index.js';
+import {
+  User,
+  Profile,
+  UserLoginAudit,
+  UserRole,
+  UserNote,
+  UserRiskAssessment,
+  IdentityVerification,
+  USER_STATUSES,
+  USER_RISK_LEVELS,
+  ID_VERIFICATION_STATUSES,
+} from '../models/index.js';
 import { getAuthDomainService } from '../domains/serviceCatalog.js';
 import { normalizeLocationPayload } from '../utils/location.js';
 import { NotFoundError, ValidationError } from '../utils/errors.js';
@@ -16,6 +27,22 @@ const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
 const DEFAULT_RECENT_AUDIT_LIMIT = 25;
 const authDomainService = getAuthDomainService();
+
+const ACTIVITY_ORDER = literal(
+  'COALESCE("User"."lastSeenAt","User"."lastLoginAt","User"."updatedAt","User"."createdAt")',
+);
+const RISK_LEVEL_ORDER = literal(
+  'CASE WHEN "riskAssessment"."riskLevel" = \'high\' THEN 3 ' +
+    'WHEN "riskAssessment"."riskLevel" = \'medium\' THEN 2 ELSE 1 END',
+);
+const VERIFICATION_ORDER = literal(
+  'CASE WHEN EXISTS (SELECT 1 FROM identity_verifications iv ' +
+    'WHERE iv.user_id = "User"."id" AND iv.status = \'verified\') THEN 2 ' +
+    'WHEN "User"."twoFactorEnabled" = TRUE THEN 1 ELSE 0 END',
+);
+const ROLE_COUNT_ORDER = literal(
+  '(SELECT COUNT(*) FROM user_roles ur WHERE ur.user_id = "User"."id")',
+);
 
 const SORT_MAP = new Map([
   ['created_desc', [['createdAt', 'DESC']]],
@@ -28,8 +55,24 @@ const SORT_MAP = new Map([
     ['lastName', 'DESC'],
     ['firstName', 'DESC'],
   ]],
-  ['last_login_desc', [['lastLoginAt', 'DESC']]],
-  ['last_login_asc', [['lastLoginAt', 'ASC']]],
+  ['last_login_desc', [[ACTIVITY_ORDER, 'DESC']]],
+  ['last_login_asc', [[ACTIVITY_ORDER, 'ASC']]],
+  ['activity_desc', [[ACTIVITY_ORDER, 'DESC']]],
+  ['activity_asc', [[ACTIVITY_ORDER, 'ASC']]],
+  ['risk_desc', [
+    [RISK_LEVEL_ORDER, 'DESC'],
+    [{ model: UserRiskAssessment, as: 'riskAssessment' }, 'riskScore', 'DESC'],
+  ]],
+  ['risk_asc', [
+    [RISK_LEVEL_ORDER, 'ASC'],
+    [{ model: UserRiskAssessment, as: 'riskAssessment' }, 'riskScore', 'ASC'],
+  ]],
+  ['status_desc', [['status', 'DESC']]],
+  ['status_asc', [['status', 'ASC']]],
+  ['roles_desc', [[ROLE_COUNT_ORDER, 'DESC']]],
+  ['roles_asc', [[ROLE_COUNT_ORDER, 'ASC']]],
+  ['verification_desc', [[VERIFICATION_ORDER, 'DESC']]],
+  ['verification_asc', [[VERIFICATION_ORDER, 'ASC']]],
 ]);
 
 function coerceLimit(value) {
@@ -52,8 +95,22 @@ function resolveSort(sort) {
   if (typeof sort !== 'string' || !sort.trim()) {
     return SORT_MAP.get('created_desc');
   }
-  const key = sort.trim().toLowerCase();
-  return SORT_MAP.get(key) ?? SORT_MAP.get('created_desc');
+  const trimmed = sort.trim().toLowerCase();
+  const normalised = trimmed.replace(/[:\s]+/g, '_');
+  if (SORT_MAP.has(normalised)) {
+    return SORT_MAP.get(normalised);
+  }
+  if (trimmed.includes(':')) {
+    const [field, direction] = trimmed.split(':');
+    const fallback = `${field}_${direction}`;
+    if (SORT_MAP.has(fallback)) {
+      return SORT_MAP.get(fallback);
+    }
+  }
+  if (SORT_MAP.has(trimmed)) {
+    return SORT_MAP.get(trimmed);
+  }
+  return SORT_MAP.get('created_desc');
 }
 
 function buildSearchWhere(search) {
@@ -74,6 +131,35 @@ function buildSearchWhere(search) {
   };
 }
 
+function normaliseCounts(rows, key) {
+  if (!Array.isArray(rows)) {
+    return {};
+  }
+
+  return rows.reduce((acc, row) => {
+    if (!row) {
+      return acc;
+    }
+    const label = row[key] ?? 'unknown';
+    const normalised = typeof label === 'string' ? label.toLowerCase() : label;
+    const countValue = row.count ?? row.total ?? row.value ?? 0;
+    const count = Number.parseInt(countValue, 10);
+    acc[normalised ?? 'unknown'] = (acc[normalised ?? 'unknown'] ?? 0) + (Number.isFinite(count) ? count : 0);
+    return acc;
+  }, {});
+}
+
+function ensureAllKeys(counts, expectedKeys = []) {
+  const result = { ...(counts ?? {}) };
+  expectedKeys.forEach((key) => {
+    const normalised = typeof key === 'string' ? key.toLowerCase() : key;
+    if (result[normalised] == null) {
+      result[normalised] = 0;
+    }
+  });
+  return result;
+}
+
 function sanitizeUserRecord(userInstance) {
   const sanitized = authDomainService.sanitizeUser(userInstance);
   const profile = userInstance.Profile
@@ -86,6 +172,65 @@ function sanitizeUserRecord(userInstance) {
   const roles = Array.isArray(userInstance.roleAssignments)
     ? userInstance.roleAssignments.map((assignment) => assignment.role).filter(Boolean)
     : sanitized.roles ?? [];
+
+  const toIsoString = (value) => {
+    if (!value) {
+      return null;
+    }
+    if (value instanceof Date) {
+      return Number.isNaN(value.getTime()) ? null : value.toISOString();
+    }
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+  };
+
+  const riskPlain = userInstance.riskAssessment
+    ? typeof userInstance.riskAssessment.get === 'function'
+      ? userInstance.riskAssessment.get({ plain: true })
+      : userInstance.riskAssessment
+    : null;
+
+  let riskFactors = [];
+  if (riskPlain?.riskFactors) {
+    if (Array.isArray(riskPlain.riskFactors)) {
+      riskFactors = riskPlain.riskFactors;
+    } else if (typeof riskPlain.riskFactors === 'string') {
+      try {
+        const parsed = JSON.parse(riskPlain.riskFactors);
+        if (Array.isArray(parsed)) {
+          riskFactors = parsed;
+        }
+      } catch (error) {
+        riskFactors = [];
+      }
+    } else if (typeof riskPlain.riskFactors === 'object') {
+      riskFactors = riskPlain.riskFactors;
+    }
+  }
+
+  const riskLevel = riskPlain?.riskLevel ?? 'low';
+  const riskScore = riskPlain?.riskScore != null ? Number(riskPlain.riskScore) : null;
+  const riskSummary = riskPlain?.riskSummary ?? null;
+  const riskAssessedAt = toIsoString(riskPlain?.assessedAt ?? riskPlain?.updatedAt ?? riskPlain?.createdAt ?? null);
+
+  const identitySource = Array.isArray(userInstance.identityVerifications)
+    ? userInstance.identityVerifications[0]
+    : null;
+  const identityPlain = identitySource
+    ? typeof identitySource.get === 'function'
+      ? identitySource.get({ plain: true })
+      : identitySource
+    : null;
+  const identity = identityPlain
+    ? {
+        id: identityPlain.id ?? null,
+        status: identityPlain.status ?? null,
+        provider: identityPlain.verificationProvider ?? null,
+        reviewedAt: toIsoString(identityPlain.reviewedAt ?? identityPlain.reviewed_at ?? null),
+        submittedAt: toIsoString(identityPlain.submittedAt ?? identityPlain.submitted_at ?? null),
+      }
+    : null;
+  const identityVerified = identity?.status === 'verified';
 
   return {
     ...sanitized,
@@ -100,11 +245,25 @@ function sanitizeUserRecord(userInstance) {
     lastLoginAt: userInstance.lastLoginAt?.toISOString?.() ?? sanitized.lastLoginAt ?? null,
     lastSeenAt: userInstance.lastSeenAt?.toISOString?.() ?? sanitized.lastSeenAt ?? null,
     profile,
+    identity,
+    identityVerified,
+    riskLevel,
+    riskScore,
+    riskSummary,
+    riskFactors,
+    riskAssessedAt,
+    risk: {
+      level: riskLevel,
+      score: riskScore,
+      summary: riskSummary,
+      assessedAt: riskAssessedAt,
+      factors: riskFactors,
+    },
   };
 }
 
 async function computeSummary() {
-  const [statusRows, typeRows, roleRows, twoFactorRows] = await Promise.all([
+  const [statusRows, typeRows, roleRows, twoFactorRows, riskRows] = await Promise.all([
     User.findAll({
       attributes: ['status', [fn('COUNT', col('id')), 'count']],
       group: ['status'],
@@ -126,6 +285,11 @@ async function computeSummary() {
         [fn('COUNT', col('id')), 'count'],
       ],
       group: ['twoFactorEnabled'],
+      raw: true,
+    }),
+    UserRiskAssessment.findAll({
+      attributes: ['riskLevel', [fn('COUNT', col('id')), 'count']],
+      group: ['riskLevel'],
       raw: true,
     }),
   ]);
@@ -154,6 +318,7 @@ async function computeSummary() {
   );
 
   const total = Object.values(status).reduce((sum, value) => sum + value, 0);
+  const risk = ensureAllKeys(normaliseCounts(riskRows, 'riskLevel'), USER_RISK_LEVELS);
 
   return {
     total,
@@ -161,6 +326,8 @@ async function computeSummary() {
     membership,
     roles,
     twoFactor,
+    risk,
+    counts: { ...status },
     refreshedAt: new Date().toISOString(),
   };
 }
@@ -184,6 +351,19 @@ export async function listUsers(filters = {}) {
   }
 
   const roleFilter = filters.role ? authDomainService.normalizeRole(filters.role) : null;
+  const riskCandidate = filters.risk ? `${filters.risk}`.trim().toLowerCase() : null;
+  const riskFilter = riskCandidate && USER_RISK_LEVELS.includes(riskCandidate) ? riskCandidate : null;
+
+  let twoFactorFilter = null;
+  if (filters.twoFactor === true || filters.twoFactor === 'true' || filters.twoFactor === 'enabled') {
+    twoFactorFilter = true;
+  } else if (filters.twoFactor === false || filters.twoFactor === 'false' || filters.twoFactor === 'disabled') {
+    twoFactorFilter = false;
+  }
+
+  if (twoFactorFilter !== null) {
+    where.twoFactorEnabled = twoFactorFilter;
+  }
 
   const include = [
     {
@@ -197,6 +377,22 @@ export async function listUsers(filters = {}) {
       required: Boolean(roleFilter),
       where: roleFilter ? { role: roleFilter } : undefined,
       attributes: ['role'],
+    },
+    {
+      model: UserRiskAssessment,
+      as: 'riskAssessment',
+      required: Boolean(riskFilter),
+      where: riskFilter ? { riskLevel: riskFilter } : undefined,
+      attributes: ['riskLevel', 'riskScore', 'riskSummary', 'riskFactors', 'assessedAt', 'updatedAt', 'createdAt'],
+    },
+    {
+      model: IdentityVerification,
+      as: 'identityVerifications',
+      separate: true,
+      limit: 1,
+      order: [['createdAt', 'DESC']],
+      attributes: ['id', 'status', 'verificationProvider', 'reviewedAt', 'submittedAt'],
+      where: { status: { [Op.in]: ID_VERIFICATION_STATUSES } },
     },
   ];
 
@@ -220,6 +416,9 @@ export async function listUsers(filters = {}) {
       status: filters.status ? authDomainService.normalizeStatus(filters.status) : undefined,
       membership: filters.membership ?? undefined,
       role: roleFilter ?? undefined,
+      risk: riskFilter ?? undefined,
+      twoFactor:
+        twoFactorFilter === null ? undefined : twoFactorFilter ? 'enabled' : 'disabled',
     },
   };
 }
@@ -243,6 +442,20 @@ export async function getUser(userId, { includeNotesLimit = DEFAULT_RECENT_AUDIT
           },
         ],
         order: [['assignedAt', 'DESC']],
+      },
+      {
+        model: UserRiskAssessment,
+        as: 'riskAssessment',
+        required: false,
+      },
+      {
+        model: IdentityVerification,
+        as: 'identityVerifications',
+        separate: true,
+        limit: 5,
+        order: [['createdAt', 'DESC']],
+        attributes: ['id', 'status', 'verificationProvider', 'reviewedAt', 'submittedAt'],
+        where: { status: { [Op.in]: ID_VERIFICATION_STATUSES } },
       },
       {
         model: UserLoginAudit,
@@ -499,6 +712,7 @@ export async function getMetadata() {
     roles: Object.keys(summary.roles ?? {}).sort(),
     statuses: USER_STATUSES,
     memberships: Object.keys(summary.membership ?? {}).sort(),
+    riskLevels: USER_RISK_LEVELS,
   };
 }
 
