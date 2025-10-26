@@ -1,27 +1,45 @@
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import PropTypes from 'prop-types';
+import OverlayFrame from '../design-system/OverlayFrame.jsx';
 
-export default function SideDrawer({ open, onClose, title, children, widthClass = 'max-w-xl' }) {
-  if (!open) {
-    return null;
-  }
+const WIDTH_ALIAS = {
+  'max-w-md': 'md',
+  'max-w-lg': 'lg',
+  'max-w-xl': 'lg',
+  'max-w-2xl': 'xl',
+};
+
+export default function SideDrawer({ open, onClose, title, children, widthClass = 'max-w-xl', footer }) {
+  const width = WIDTH_ALIAS[widthClass] ?? 'lg';
 
   return (
-    <div className="fixed inset-0 z-40 flex">
-      <div className="hidden flex-1 bg-slate-900/40 lg:block" onClick={onClose} aria-hidden="true" />
-      <div className={`relative w-full ${widthClass} bg-white shadow-2xl`}>
-        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4">
-          {title ? <h3 className="text-lg font-semibold text-slate-900">{title}</h3> : <span />}
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500 transition hover:border-blue-300 hover:text-blue-600"
-          >
-            <XMarkIcon className="h-4 w-4" />
-            Close
-          </button>
-        </div>
-        <div className="max-h-[calc(100vh-4rem)] overflow-y-auto px-4 py-6">{children}</div>
-      </div>
-    </div>
+    <OverlayFrame
+      open={open}
+      onClose={onClose}
+      title={title}
+      width={width}
+      variant="drawer"
+      footer={footer}
+      bodyClassName="px-5 py-6"
+    >
+      {children}
+    </OverlayFrame>
   );
 }
+
+SideDrawer.propTypes = {
+  open: PropTypes.bool,
+  onClose: PropTypes.func,
+  title: PropTypes.node,
+  children: PropTypes.node,
+  widthClass: PropTypes.string,
+  footer: PropTypes.node,
+};
+
+SideDrawer.defaultProps = {
+  open: false,
+  onClose: undefined,
+  title: null,
+  children: null,
+  widthClass: 'max-w-xl',
+  footer: null,
+};

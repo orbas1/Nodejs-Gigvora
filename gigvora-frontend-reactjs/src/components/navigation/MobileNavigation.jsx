@@ -3,6 +3,7 @@ import { Fragment, useMemo } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { SparklesIcon } from '@heroicons/react/24/outline';
 import LanguageSelector from '../LanguageSelector.jsx';
+import ThemeSwitcher from './ThemeSwitcher.jsx';
 import RoleSwitcher from './RoleSwitcher.jsx';
 import { classNames } from '../../utils/classNames.js';
 import MobileMegaMenu from './MobileMegaMenu.jsx';
@@ -138,8 +139,9 @@ export default function MobileNavigation({
               )}
             </div>
 
-            <div className="mt-auto border-t border-slate-200/70 pt-4">
+            <div className="mt-auto space-y-3 border-t border-slate-200/70 pt-4">
               <LanguageSelector variant="mobile" />
+              <ThemeSwitcher variant="mobile" />
             </div>
           </Dialog.Panel>
         </Transition.Child>

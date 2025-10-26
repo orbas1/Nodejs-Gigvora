@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types';
-import { useState } from 'react';
+import { useId, useMemo, useRef, useState } from 'react';
 
 function normalizeUnique(values = []) {
   const unique = [];
@@ -29,8 +29,19 @@ export default function TagInput({
   disabled = false,
 }) {
   const [draft, setDraft] = useState('');
+  const componentId = useId();
+  const chipRefs = useRef([]);
 
   const normalizedItems = Array.isArray(items) ? items : [];
+  const orderedItems = useMemo(() => normalizedItems, [normalizedItems]);
+  chipRefs.current = chipRefs.current.slice(0, orderedItems.length);
+
+  const focusChipAtIndex = (index) => {
+    const node = chipRefs.current[index];
+    if (node && typeof node.focus === 'function') {
+      node.focus();
+    }
+  };
 
   const handleAdd = () => {
     const trimmed = draft.trim();
@@ -47,6 +58,19 @@ export default function TagInput({
   };
 
   const handleKeyDown = (event) => {
+    if (event.key === 'ArrowLeft' && !draft.trim() && orderedItems.length > 0) {
+      event.preventDefault();
+      focusChipAtIndex(orderedItems.length - 1);
+      return;
+    }
+
+    if (event.key === 'Backspace' && !draft.trim() && orderedItems.length > 0) {
+      event.preventDefault();
+      const next = orderedItems.slice(0, -1);
+      onChange(next);
+      return;
+    }
+
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       handleAdd();
@@ -58,6 +82,39 @@ export default function TagInput({
     onChange(next);
   };
 
+  const handleChipKeyDown = (event, index) => {
+    if (event.key === 'Backspace' || event.key === 'Delete') {
+      event.preventDefault();
+      handleRemove(index);
+      const nextIndex = Math.min(index, orderedItems.length - 2);
+      if (nextIndex >= 0) {
+        requestAnimationFrame(() => focusChipAtIndex(nextIndex));
+      } else {
+        requestAnimationFrame(() => {
+          const inputNode = document.getElementById(`${componentId}-input`);
+          inputNode?.focus();
+        });
+      }
+      return;
+    }
+
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      const previousIndex = Math.max(0, index - 1);
+      focusChipAtIndex(previousIndex);
+    }
+
+    if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      if (index + 1 < orderedItems.length) {
+        focusChipAtIndex(index + 1);
+      } else {
+        const inputNode = document.getElementById(`${componentId}-input`);
+        inputNode?.focus();
+      }
+    }
+  };
+
   return (
     <div>
       {label ? (
@@ -67,16 +124,21 @@ export default function TagInput({
         </div>
       ) : null}
       <div className="mt-2 flex flex-wrap gap-2">
-        {normalizedItems.map((item, index) => (
+        {orderedItems.map((item, index) => (
           <span
             key={`${item}-${index}`}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-surfaceMuted/70 px-3 py-1 text-xs text-slate-700"
+            className="gv-chip inline-flex items-center gap-2 rounded-full bg-[var(--gv-color-surface)]/70 px-3 py-1 text-xs text-[var(--gv-color-text)] shadow-subtle/40 transition"
           >
             {item}
             <button
               type="button"
-              className="rounded-full bg-transparent text-[11px] font-semibold text-slate-400 transition hover:text-red-500"
+              ref={(node) => {
+                chipRefs.current[index] = node;
+              }}
+              id={`${componentId}-chip-${index}`}
+              className="rounded-full bg-transparent px-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--gv-color-text-muted)] transition hover:text-[var(--gv-color-danger)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gv-color-primary)]"
               onClick={() => handleRemove(index)}
+              onKeyDown={(event) => handleChipKeyDown(event, index)}
               disabled={disabled}
               aria-label={`Remove ${item}`}
             >
@@ -85,7 +147,7 @@ export default function TagInput({
           </span>
         ))}
         {normalizedItems.length === 0 ? (
-          <span className="rounded-full border border-dashed border-slate-200 px-3 py-1 text-xs text-slate-400">
+          <span className="rounded-full border border-dashed border-[var(--gv-color-border)] px-3 py-1 text-xs text-[var(--gv-color-text-muted)]">
             No entries yet
           </span>
         ) : null}
@@ -99,13 +161,14 @@ export default function TagInput({
           placeholder={placeholder}
           disabled={disabled}
           autoComplete="off"
-          className="flex-1 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-inner focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+          id={`${componentId}-input`}
+          className="flex-1 rounded-2xl border border-[var(--gv-color-border)] bg-[var(--gv-color-surface)] px-3 py-2 text-sm text-[var(--gv-color-text)] shadow-inner transition focus:border-[var(--gv-color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--gv-color-primary-soft)]"
         />
         <button
           type="button"
           onClick={handleAdd}
           disabled={disabled || !draft.trim()}
-          className="inline-flex items-center justify-center rounded-2xl bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:cursor-not-allowed disabled:bg-slate-300"
+          className="inline-flex items-center justify-center rounded-2xl bg-[var(--gv-color-accent)] px-4 py-2 text-sm font-semibold text-white shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gv-color-accent)]/30 disabled:cursor-not-allowed disabled:bg-[var(--gv-color-border)] disabled:text-[var(--gv-color-text-muted)]"
         >
           {addButtonLabel}
         </button>

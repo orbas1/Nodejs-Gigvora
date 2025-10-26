@@ -8,11 +8,11 @@ import { useLanguage } from '../context/LanguageContext.jsx';
 
 const BUTTON_STYLES = {
   header:
-    'rounded-full border border-slate-200/70 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-accent/50 hover:text-accent focus-visible:ring-white',
+    'rounded-full border border-[var(--gv-color-border)] bg-[var(--gv-color-surface)] px-3 py-1.5 text-xs font-semibold text-[var(--gv-color-text-muted)] shadow-subtle transition hover:border-[var(--gv-color-border-strong)] hover:text-[var(--gv-color-text)] focus-visible:ring-[var(--gv-color-primary)] focus-visible:ring-offset-2',
   hero:
-    'rounded-full border border-white/70 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 shadow-[0_10px_30px_rgba(15,23,42,0.1)] transition hover:border-accent/40 hover:text-accent focus-visible:ring-white',
+    'rounded-full border border-white/80 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 shadow-[0_10px_30px_rgba(15,23,42,0.1)] transition hover:border-accent/40 hover:text-accent focus-visible:ring-white',
   mobile:
-    'w-full justify-between rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent hover:text-accent',
+    'w-full justify-between rounded-2xl border border-[var(--gv-color-border)] bg-[var(--gv-color-surface)] px-4 py-2 text-sm font-semibold text-[var(--gv-color-text-muted)] transition hover:border-[var(--gv-color-border-strong)] hover:text-[var(--gv-color-text)] focus-visible:ring-[var(--gv-color-primary)] focus-visible:ring-offset-2',
 };
 
 const MENU_POSITION = {
@@ -36,13 +36,13 @@ export default function LanguageSelector({ variant = 'header', className }) {
   return (
     <Menu as="div" className={classNames('relative', variant === 'mobile' ? 'w-full' : '', className)}>
       <Menu.Button
-        className={classNames(
-          'inline-flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2',
-          buttonStyles,
-        )}
+        className={classNames('inline-flex items-center gap-2 focus:outline-none', buttonStyles)}
         aria-label={t('language.ariaLabel', 'Change language')}
       >
-        <GlobeAltIcon className={variant === 'mobile' ? 'h-5 w-5 text-accent' : 'h-4 w-4 text-accent'} aria-hidden="true" />
+        <GlobeAltIcon
+          className={variant === 'mobile' ? 'h-5 w-5 text-[var(--gv-color-accent)]' : 'h-4 w-4 text-[var(--gv-color-accent)]'}
+          aria-hidden="true"
+        />
         <span className="flex items-center gap-1">
           <span>{activeLanguage.nativeLabel}</span>
           {variant === 'mobile' ? <ChevronUpDownIcon className="h-4 w-4 text-slate-400" aria-hidden="true" /> : null}
@@ -59,11 +59,11 @@ export default function LanguageSelector({ variant = 'header', className }) {
       >
         <Menu.Items
           className={classNames(
-            'absolute z-50 mt-2 max-h-72 w-64 overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-2 text-sm shadow-2xl focus:outline-none',
+            'absolute z-50 mt-2 max-h-72 w-64 overflow-hidden rounded-2xl border border-[var(--gv-color-border)] bg-[var(--gv-color-surface)] p-2 text-sm shadow-[var(--gv-shadow-elevated)] focus:outline-none',
             menuPosition,
           )}
         >
-          <p className="px-3 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">
+          <p className="px-3 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-[var(--gv-color-text-muted)]">
             {t('language.menuTitle', 'Choose your language')}
           </p>
           <div className="max-h-60 overflow-y-auto">
@@ -76,18 +76,18 @@ export default function LanguageSelector({ variant = 'header', className }) {
                     className={classNames(
                       'flex w-full items-center justify-between rounded-xl px-3 py-2 text-left transition',
                       active || option.code === language
-                        ? 'bg-accentSoft/60 text-accent'
-                        : 'text-slate-600 hover:bg-slate-100',
+                        ? 'bg-[var(--gv-color-primary-soft)] text-[var(--gv-color-primary)]'
+                        : 'text-[var(--gv-color-text-muted)] hover:bg-[color-mix(in_srgb,var(--gv-color-surface-muted)_80%,transparent)]',
                     )}
                   >
                     <span className="flex flex-col text-sm">
                       <span className="font-semibold">{option.nativeLabel}</span>
-                      <span className="text-xs text-slate-400">{option.label}</span>
+                      <span className="text-xs text-[var(--gv-color-text-muted)]/80">{option.label}</span>
                     </span>
                     {option.code === language ? (
-                      <CheckIcon className="h-4 w-4 text-accent" aria-hidden="true" />
+                      <CheckIcon className="h-4 w-4 text-[var(--gv-color-primary)]" aria-hidden="true" />
                     ) : (
-                      <span className="text-xs font-semibold uppercase text-slate-400">{option.code}</span>
+                      <span className="text-xs font-semibold uppercase text-[var(--gv-color-text-muted)]">{option.code}</span>
                     )}
                   </button>
                 )}

@@ -10,14 +10,17 @@
   --gv-radius-sm: 0.75rem;
   --gv-radius-md: 1.5rem;
   --gv-radius-lg: 2.5rem;
+  --gv-radius-xl: 3.5rem;
   --gv-space-xs: 0.25rem;
   --gv-space-sm: 0.5rem;
   --gv-space-md: 1rem;
   --gv-space-lg: 1.5rem;
   --gv-space-xl: 2.5rem;
+  --gv-space-2xl: 3.5rem;
   --gv-color-background: #f8fafc;
   --gv-color-surface: #ffffff;
   --gv-color-surface-muted: #f1f5f9;
+  --gv-color-surface-elevated: #fdfdff;
   --gv-color-border: rgba(148, 163, 184, 0.45);
   --gv-color-border-strong: rgba(71, 85, 105, 0.6);
   --gv-color-text: #0f172a;
@@ -27,9 +30,60 @@
   --gv-color-primary-strong: #1d4ed8;
   --gv-color-accent: #0ea5e9;
   --gv-color-accent-strong: #0284c7;
+  --gv-color-success: #22c55e;
+  --gv-color-warning: #f59e0b;
+  --gv-color-danger: #ef4444;
   --gv-focus-ring: rgba(14, 165, 233, 0.35);
   --gv-shadow-soft: 0 24px 60px -30px rgba(15, 23, 42, 0.25);
   --gv-shadow-subtle: 0 10px 25px -15px rgba(15, 23, 42, 0.18);
+  --gv-shadow-elevated: 0 32px 60px -24px rgba(15, 23, 42, 0.32);
+  --gv-overlay-backdrop: rgba(15, 23, 42, 0.62);
+  --gv-overlay-backdrop-contrast: rgba(15, 23, 42, 0.78);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --gv-color-background: #020617;
+  --gv-color-surface: #0f172a;
+  --gv-color-surface-muted: #1e293b;
+  --gv-color-surface-elevated: #111c33;
+  --gv-color-border: rgba(148, 163, 184, 0.28);
+  --gv-color-border-strong: rgba(148, 163, 184, 0.55);
+  --gv-color-text: #f8fafc;
+  --gv-color-text-muted: rgba(226, 232, 240, 0.75);
+  --gv-color-primary: #60a5fa;
+  --gv-color-primary-soft: rgba(96, 165, 250, 0.16);
+  --gv-color-primary-strong: #3b82f6;
+  --gv-color-accent: #38bdf8;
+  --gv-color-accent-strong: #0ea5e9;
+  --gv-focus-ring: rgba(96, 165, 250, 0.55);
+  --gv-shadow-soft: 0 32px 80px -30px rgba(2, 6, 23, 0.75);
+  --gv-shadow-subtle: 0 18px 45px -20px rgba(2, 6, 23, 0.65);
+  --gv-shadow-elevated: 0 40px 90px -32px rgba(15, 23, 42, 0.85);
+  --gv-overlay-backdrop: rgba(2, 6, 23, 0.75);
+  --gv-overlay-backdrop-contrast: rgba(2, 6, 23, 0.9);
+}
+
+:root[data-theme='contrast'] {
+  --gv-color-background: #f9fafb;
+  --gv-color-surface: #ffffff;
+  --gv-color-surface-muted: #e2e8f0;
+  --gv-color-surface-elevated: #ffffff;
+  --gv-color-border: rgba(30, 41, 59, 0.72);
+  --gv-color-border-strong: rgba(15, 23, 42, 0.9);
+  --gv-color-text: #020617;
+  --gv-color-text-muted: rgba(30, 41, 59, 0.85);
+  --gv-color-primary: #1d4ed8;
+  --gv-color-primary-soft: rgba(29, 78, 216, 0.16);
+  --gv-color-primary-strong: #1e40af;
+  --gv-color-accent: #0f766e;
+  --gv-color-accent-strong: #115e59;
+  --gv-focus-ring: rgba(15, 118, 110, 0.55);
+  --gv-shadow-soft: 0 28px 68px -32px rgba(15, 23, 42, 0.4);
+  --gv-shadow-subtle: 0 16px 40px -24px rgba(15, 23, 42, 0.35);
+  --gv-shadow-elevated: 0 36px 80px -28px rgba(15, 23, 42, 0.5);
+  --gv-overlay-backdrop: rgba(15, 23, 42, 0.72);
+  --gv-overlay-backdrop-contrast: rgba(15, 23, 42, 0.88);
 }
 
 @layer base {
@@ -44,7 +98,7 @@
     background-color: var(--gv-color-background);
     background-image: radial-gradient(circle at 10% 20%, rgba(14, 165, 233, 0.08), transparent 50%),
       radial-gradient(circle at 80% -10%, rgba(37, 99, 235, 0.06), transparent 45%),
-      linear-gradient(180deg, var(--gv-color-surface), #eef2ff 140%);
+      linear-gradient(180deg, var(--gv-color-surface), rgba(238, 242, 255, 0.65) 140%);
     color: var(--gv-color-text);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
@@ -62,7 +116,7 @@
   *:focus-visible {
     outline: 2px solid var(--gv-focus-ring);
     outline-offset: 3px;
-    box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.15);
+    box-shadow: var(--gv-shadow-focus, 0 0 0 4px rgba(14, 165, 233, 0.25));
   }
 }
 
@@ -97,6 +151,34 @@
   .gv-shell-overlay-desktop {
     @apply pointer-events-none absolute inset-y-0 right-0 hidden w-1/4 lg:block;
     background-image: var(--shell-overlay-desktop);
+  }
+
+  .gv-overlay-backdrop {
+    background: var(--gv-overlay-backdrop);
+  }
+
+  .gv-overlay-backdrop-contrast {
+    background: var(--gv-overlay-backdrop-contrast);
+  }
+
+  .gv-overlay-surface {
+    background: var(--gv-color-surface-elevated);
+    border-radius: var(--gv-radius-lg);
+    box-shadow: var(--gv-shadow-elevated);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+  }
+
+  .gv-overlay-section {
+    border-bottom: 1px solid var(--gv-color-border);
+  }
+
+  .gv-chip {
+    background-color: color-mix(in srgb, var(--gv-color-surface-muted) 82%, transparent);
+    border: 1px solid color-mix(in srgb, var(--gv-color-border) 90%, transparent);
+  }
+
+  .gv-chip:hover {
+    border-color: var(--gv-color-border-strong);
   }
 }
 

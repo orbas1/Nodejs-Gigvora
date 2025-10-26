@@ -21,6 +21,7 @@ import {
 import MobileNavigation from './MobileNavigation.jsx';
 import RoleSwitcher from './RoleSwitcher.jsx';
 import LanguageSelector from '../LanguageSelector.jsx';
+import ThemeSwitcher from './ThemeSwitcher.jsx';
 import HeaderMegaMenu from './HeaderMegaMenu.jsx';
 import { LOGO_SRCSET, LOGO_URL } from '../../constants/branding.js';
 import { classNames } from '../../utils/classNames.js';
@@ -441,7 +442,10 @@ export default function AppTopBar({
               status={connectionState}
             />
           ) : null}
-          <LanguageSelector className="hidden flex-none sm:inline-flex" />
+          <div className="hidden items-center gap-2 sm:flex">
+            <LanguageSelector className="flex-none" />
+            <ThemeSwitcher className="flex-none" />
+          </div>
           {isAuthenticated ? (
             <div className="flex items-center gap-3">
               <Link

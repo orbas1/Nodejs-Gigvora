@@ -1,26 +1,37 @@
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import PropTypes from 'prop-types';
+import OverlayFrame from '../design-system/OverlayFrame.jsx';
 
-export default function OverlayModal({ open, onClose, title, children, maxWidth = 'max-w-3xl' }) {
-  if (!open) {
-    return null;
-  }
+const WIDTH_ALIAS = {
+  'max-w-2xl': 'md',
+  'max-w-3xl': 'lg',
+  'max-w-4xl': 'lg',
+  'max-w-5xl': 'xl',
+};
+
+export default function OverlayModal({ open, onClose, title, children, maxWidth = 'max-w-3xl', footer }) {
+  const width = WIDTH_ALIAS[maxWidth] ?? 'lg';
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/60 px-4 py-10">
-      <div className={`relative w-full ${maxWidth} rounded-3xl bg-white p-6 shadow-2xl`}>
-        <div className="flex items-start justify-between gap-4">
-          {title ? <h3 className="text-lg font-semibold text-slate-900">{title}</h3> : <span />}
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500 transition hover:border-blue-300 hover:text-blue-600"
-          >
-            <XMarkIcon className="h-4 w-4" />
-            Close
-          </button>
-        </div>
-        <div className="mt-6 max-h-[70vh] overflow-y-auto pr-2">{children}</div>
-      </div>
-    </div>
+    <OverlayFrame open={open} onClose={onClose} title={title} width={width} variant="panel" footer={footer}>
+      <div className="space-y-4 text-[var(--gv-color-text-muted)]">{children}</div>
+    </OverlayFrame>
   );
 }
+
+OverlayModal.propTypes = {
+  open: PropTypes.bool,
+  onClose: PropTypes.func,
+  title: PropTypes.node,
+  children: PropTypes.node,
+  maxWidth: PropTypes.string,
+  footer: PropTypes.node,
+};
+
+OverlayModal.defaultProps = {
+  open: false,
+  onClose: undefined,
+  title: null,
+  children: null,
+  maxWidth: 'max-w-3xl',
+  footer: null,
+};
