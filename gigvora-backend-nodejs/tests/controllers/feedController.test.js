@@ -19,6 +19,12 @@ const feedReactionMock = {
   findAll: jest.fn(),
 };
 
+const feedShareMock = {
+  findAll: jest.fn(),
+  count: jest.fn(),
+  create: jest.fn(),
+};
+
 const userModelMock = {
   findByPk: jest.fn(),
 };
@@ -29,6 +35,7 @@ const modelsMock = {
   FeedPost: feedPostMock,
   FeedComment: feedCommentMock,
   FeedReaction: feedReactionMock,
+  FeedShare: feedShareMock,
   User: userModelMock,
   Profile: profileModelMock,
 };
@@ -74,6 +81,9 @@ describe('feedController', () => {
     moderationMock.enforceFeedPostPolicies.mockReset();
     moderationMock.enforceFeedCommentPolicies.mockReset();
     userModelMock.findByPk.mockReset();
+    feedShareMock.findAll.mockResolvedValue([]);
+    feedShareMock.count.mockResolvedValue(0);
+    feedShareMock.create.mockResolvedValue({});
     suggestionMock.getFeedSuggestions.mockClear().mockResolvedValue({
       generatedAt: new Date().toISOString(),
       connections: [],

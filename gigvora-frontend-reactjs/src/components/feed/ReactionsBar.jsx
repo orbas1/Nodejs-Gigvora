@@ -42,6 +42,7 @@ export default function ReactionsBar({
   activeReaction,
   onSelect,
   totalConversationCount,
+  shareCount,
   onShare,
   insights,
 }) {
@@ -225,6 +226,11 @@ export default function ReactionsBar({
           className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 transition hover:border-accent hover:text-accent"
         >
           <ShareIcon className="h-4 w-4" /> Share externally
+          {typeof shareCount === 'number' ? (
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[0.65rem] font-semibold text-slate-500">
+              {shareCount}
+            </span>
+          ) : null}
         </button>
         <button
           type="button"
@@ -334,6 +340,7 @@ ReactionsBar.propTypes = {
   activeReaction: PropTypes.string,
   onSelect: PropTypes.func,
   totalConversationCount: PropTypes.number,
+  shareCount: PropTypes.number,
   onShare: PropTypes.func,
   insights: PropTypes.arrayOf(
     PropTypes.shape({
@@ -349,6 +356,7 @@ ReactionsBar.defaultProps = {
   activeReaction: null,
   onSelect: undefined,
   totalConversationCount: 0,
+  shareCount: 0,
   onShare: undefined,
   insights: undefined,
 };

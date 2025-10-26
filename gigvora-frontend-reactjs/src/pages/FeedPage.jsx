@@ -254,6 +254,31 @@ export function normaliseFeedPost(post, fallbackSession) {
     normalised.source = post.source;
   }
 
+  const shareCount = (() => {
+    const candidates = [
+      post.metrics?.shares,
+      post.metrics?.shareCount,
+      post.metrics?.share_count,
+      post.shareCount,
+      post.shares,
+    ];
+    for (const candidate of candidates) {
+      const numeric = Number.parseInt(candidate, 10);
+      if (Number.isFinite(numeric) && numeric >= 0) {
+        return numeric;
+      }
+    }
+    return 0;
+  })();
+
+  normalised.shareCount = shareCount;
+  if (post.metrics || shareCount) {
+    normalised.metrics = {
+      ...(post.metrics ?? {}),
+      shares: shareCount,
+    };
+  }
+
   return normalised;
 }
 
@@ -1221,6 +1246,7 @@ function FeedPostCard({
             activeReaction={activeReaction}
             onSelect={handleReactionSelect}
             totalConversationCount={totalConversationCount}
+            shareCount={post.shareCount ?? post.metrics?.shares ?? 0}
             onShare={() => onShare?.(post)}
             insights={post.reactionInsights}
           />
@@ -1885,6 +1911,37 @@ export default function FeedPage() {
     [],
   );
 
+  const handleShareComplete = useCallback(
+    (result) => {
+      if (!result?.postId) {
+        setShareContext(null);
+        return;
+      }
+
+      const resolvedCount = Number.isFinite(result.shareCount)
+        ? Number(result.shareCount)
+        : undefined;
+
+      const applyShareCount = (post) => {
+        if (!post || `${post.id}` !== `${result.postId}`) {
+          return post;
+        }
+        const current = Number.isFinite(post.shareCount) ? Number(post.shareCount) : 0;
+        const nextCount = resolvedCount ?? current + 1;
+        return {
+          ...post,
+          shareCount: nextCount,
+          metrics: { ...(post.metrics ?? {}), shares: nextCount },
+        };
+      };
+
+      setLocalPosts((previous) => previous.map(applyShareCount));
+      setRemotePosts((previous) => previous.map(applyShareCount));
+      setShareContext(null);
+    },
+    [setLocalPosts, setRemotePosts],
+  );
+
   const trackOpportunityTelemetry = useCallback(
     (phase, payload) => {
       if (!payload?.type || !OPPORTUNITY_POST_TYPES.has(payload.type)) {
@@ -2410,7 +2467,7 @@ export default function FeedPage() {
       <ShareModal
         open={Boolean(shareContext)}
         onClose={() => setShareContext(null)}
-        onComplete={() => setShareContext(null)}
+        onComplete={handleShareComplete}
         post={shareContext}
         viewer={session}
       />

@@ -12,6 +12,8 @@ import {
 } from '@heroicons/react/24/outline';
 import { Dialog, Transition } from '@headlessui/react';
 import analytics from '../../services/analytics.js';
+import apiClient from '../../services/apiClient.js';
+import { shareFeedPost } from '../../services/liveFeed.js';
 import { formatRelativeTime } from '../../utils/date.js';
 
 const SHARE_AUDIENCES = [
@@ -65,6 +67,8 @@ export default function ShareModal({ open, onClose, post, viewer, onComplete }) 
   const [channel, setChannel] = useState('copy');
   const [message, setMessage] = useState('');
   const [copied, setCopied] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
   const link = useMemo(() => buildShareLink(post), [post]);
   const sharePreview = useMemo(() => {
     if (!post) {
@@ -84,9 +88,14 @@ export default function ShareModal({ open, onClose, post, viewer, onComplete }) 
       setChannel('copy');
       setMessage('');
       setCopied(false);
+      setError(null);
+      setSubmitting(false);
     } else if (post) {
       const baseMessage = `Sharing: ${post.title || post.summary || post.content?.slice(0, 80) || 'New update'}\n\nWhy it matters: `;
       setMessage(baseMessage);
+      setError(null);
+      setSubmitting(false);
+      setCopied(false);
       analytics.track('web_feed_share_modal_open', { postId: post.id }, { source: 'web_app' });
     }
   }, [open, post]);
@@ -98,39 +107,85 @@ export default function ShareModal({ open, onClose, post, viewer, onComplete }) 
         setCopied(true);
         analytics.track('web_feed_share_copy_link', { postId: post?.id }, { source: 'web_app' });
         setTimeout(() => setCopied(false), 2400);
+        return true;
       }
     } catch (error) {
       console.warn('Failed to copy link', error);
       setCopied(false);
     }
+    return false;
   };
 
   const handleShare = async () => {
+    if (!post?.id || submitting) {
+      return;
+    }
+
+    const trimmedMessage = message.trim();
+    if (!trimmedMessage) {
+      setError('Add a short note to explain why you are sharing this update.');
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+
     const payload = {
-      postId: post?.id,
       audience,
       channel,
-      message: message.trim(),
+      message: trimmedMessage,
       link,
     };
-    analytics.track('web_feed_share_submit', payload, { source: 'web_app' });
 
-    if (channel === 'copy') {
-      await handleCopyLink();
-    }
-    if (channel === 'email') {
-      const subject = encodeURIComponent(`Gigvora update: ${sharePreview?.title ?? 'New update'}`);
-      const body = encodeURIComponent(`${message}\n\nView: ${link}`);
-      if (typeof window !== 'undefined') {
-        window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
+    try {
+      analytics.track(
+        'web_feed_share_submit_attempt',
+        { postId: post.id, audience, channel },
+        { source: 'web_app' },
+      );
+
+      const response = await shareFeedPost(post.id, payload);
+
+      analytics.track(
+        'web_feed_share_submit',
+        { postId: post.id, audience, channel, shareId: response?.share?.id },
+        { source: 'web_app' },
+      );
+
+      if (channel === 'copy') {
+        await handleCopyLink();
+      } else if (channel === 'email') {
+        const subject = encodeURIComponent(`Gigvora update: ${sharePreview?.title ?? 'New update'}`);
+        const body = encodeURIComponent(`${trimmedMessage}\n\nView: ${link}`);
+        if (typeof window !== 'undefined') {
+          window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
+        }
+      } else if (channel === 'secure') {
+        analytics.track('web_feed_share_secure_route', { postId: post.id }, { source: 'web_app' });
       }
-    }
-    if (channel === 'secure') {
-      console.info('Route share to secure workspace', payload);
-    }
 
-    onComplete?.(payload);
-    onClose?.();
+      onComplete?.({
+        postId: post.id,
+        share: response?.share ?? null,
+        shareCount: response?.metrics?.shares,
+      });
+      onClose?.();
+    } catch (shareError) {
+      let errorMessage = 'We could not process your share request. Please try again.';
+      if (shareError instanceof apiClient.ApiError) {
+        errorMessage = shareError.body?.message ?? errorMessage;
+      } else if (shareError?.message) {
+        errorMessage = shareError.message;
+      }
+      setError(errorMessage);
+      analytics.track(
+        'web_feed_share_failed',
+        { postId: post?.id ?? null, audience, channel },
+        { source: 'web_app' },
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const selectedAudience = SHARE_AUDIENCES.find((option) => option.id === audience) ?? SHARE_AUDIENCES[0];
@@ -324,6 +379,12 @@ export default function ShareModal({ open, onClose, post, viewer, onComplete }) 
                   </aside>
                 </div>
 
+                {error ? (
+                  <p className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs text-rose-700">
+                    {error}
+                  </p>
+                ) : null}
+
                 <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
                   <button
                     type="button"
@@ -335,9 +396,12 @@ export default function ShareModal({ open, onClose, post, viewer, onComplete }) 
                   <button
                     type="button"
                     onClick={handleShare}
-                    className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-accentDark"
+                    disabled={submitting}
+                    className={`inline-flex items-center gap-2 rounded-full px-5 py-2 text-xs font-semibold uppercase tracking-wide text-white transition ${
+                      submitting ? 'cursor-not-allowed bg-accent/60' : 'bg-accent hover:bg-accentDark'
+                    }`}
                   >
-                    Share now
+                    {submitting ? 'Sharing…' : 'Share now'}
                   </button>
                 </div>
               </Dialog.Panel>
