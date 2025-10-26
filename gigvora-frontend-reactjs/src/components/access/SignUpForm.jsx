@@ -8,7 +8,12 @@ import useFormState from '../../hooks/useFormState.js';
 import { registerUser, loginWithGoogle } from '../../services/auth.js';
 import apiClient from '../../services/apiClient.js';
 import useSession from '../../hooks/useSession.js';
-import { isValidEmail, validatePasswordStrength } from '../../utils/validation.js';
+import {
+  describePasswordPolicy,
+  isValidEmail,
+  PASSWORD_STRENGTH_REQUIREMENTS,
+  validatePasswordStrength,
+} from '../../utils/validation.js';
 import { normaliseEmail, saveRememberedLogin, redirectToSocialAuth } from '../../utils/authHelpers.js';
 import { resolveLanding } from '../../utils/authNavigation.js';
 
@@ -127,13 +132,13 @@ export default function SignUpForm({ className, showHighlightsPanel = true }) {
   const passwordInsights = useMemo(() => validatePasswordStrength(form.password), [form.password]);
   const passwordRules = useMemo(() => {
     const value = typeof form.password === 'string' ? form.password.trim() : '';
-    return [
-      { id: 'length', label: 'At least 8 characters', met: value.length >= 8 },
-      { id: 'letter', label: 'Includes a letter', met: /[a-zA-Z]/.test(value) },
-      { id: 'number', label: 'Includes a number', met: /\d/.test(value) },
-      { id: 'symbol', label: 'Includes a symbol', met: /[^\da-zA-Z]/.test(value) },
-    ];
+    return PASSWORD_STRENGTH_REQUIREMENTS.map((rule) => ({
+      id: rule.id,
+      label: rule.shortLabel,
+      met: rule.test(value),
+    }));
   }, [form.password]);
+  const passwordPolicySummary = useMemo(() => describePasswordPolicy(), []);
   const passwordScore = useMemo(() => passwordRules.filter((rule) => rule.met).length, [passwordRules]);
   const passwordStrengthPercent = useMemo(
     () => (passwordRules.length ? Math.round((passwordScore / passwordRules.length) * 100) : 0),
@@ -414,6 +419,7 @@ export default function SignUpForm({ className, showHighlightsPanel = true }) {
                 onChange={handleChange}
                 className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 pr-24 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                 required
+                minLength={12}
               />
               <button
                 type="button"
@@ -425,6 +431,7 @@ export default function SignUpForm({ className, showHighlightsPanel = true }) {
                 {showPassword ? 'Hide' : 'Show'}
               </button>
             </div>
+            {passwordPolicySummary ? <p className="text-xs text-slate-500">{passwordPolicySummary}</p> : null}
           </div>
           <div className="space-y-2">
             <label htmlFor="confirmPassword" className="text-sm font-medium text-slate-700">
@@ -439,6 +446,7 @@ export default function SignUpForm({ className, showHighlightsPanel = true }) {
                 onChange={handleChange}
                 className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 pr-24 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                 required
+                minLength={12}
               />
               <button
                 type="button"

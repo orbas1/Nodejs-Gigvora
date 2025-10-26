@@ -3,32 +3,13 @@ import PropTypes from 'prop-types';
 import useFormState from '../../hooks/useFormState.js';
 import FormStatusMessage from '../forms/FormStatusMessage.jsx';
 import { validateMatchingPasswords } from '../../utils/authHelpers.js';
-import { validatePasswordStrength } from '../../utils/validation.js';
+import {
+  PASSWORD_STRENGTH_REQUIREMENTS,
+  describePasswordPolicy,
+  validatePasswordStrength,
+} from '../../utils/validation.js';
 import { resetPassword, verifyPasswordResetToken } from '../../services/auth.js';
 import apiClient from '../../services/apiClient.js';
-
-const STRENGTH_RULES = [
-  {
-    id: 'length',
-    label: 'Use at least 8 characters.',
-    test: (value) => value.length >= 8,
-  },
-  {
-    id: 'number',
-    label: 'Include at least one number.',
-    test: (value) => /\d/.test(value),
-  },
-  {
-    id: 'letter',
-    label: 'Mix uppercase or lowercase letters.',
-    test: (value) => /[a-zA-Z]/.test(value),
-  },
-  {
-    id: 'symbol',
-    label: 'Add a symbol for extra security.',
-    test: (value) => /[^\da-zA-Z]/.test(value),
-  },
-];
 
 const STRENGTH_LABELS = [
   { score: 0, label: 'Weak', toneClass: 'bg-rose-500' },
@@ -36,18 +17,21 @@ const STRENGTH_LABELS = [
   { score: 2, label: 'Fair', toneClass: 'bg-amber-400' },
   { score: 3, label: 'Good', toneClass: 'bg-amber-500' },
   { score: 4, label: 'Strong', toneClass: 'bg-emerald-500' },
+  { score: 5, label: 'Excellent', toneClass: 'bg-emerald-600' },
 ];
 
 function computeStrength(password) {
   const value = typeof password === 'string' ? password.trim() : '';
-  const evaluatedRules = STRENGTH_RULES.map((rule) => ({
-    ...rule,
+  const evaluatedRules = PASSWORD_STRENGTH_REQUIREMENTS.map((rule) => ({
+    id: rule.id,
+    label: rule.label,
+    shortLabel: rule.shortLabel,
     passes: rule.test(value),
   }));
   const score = evaluatedRules.filter((rule) => rule.passes).length;
   const cappedScore = Math.max(0, Math.min(STRENGTH_LABELS.length - 1, score));
   const labelMeta = STRENGTH_LABELS[cappedScore];
-  const percentage = Math.min(100, Math.round((score / STRENGTH_RULES.length) * 100));
+  const percentage = Math.min(100, Math.round((score / PASSWORD_STRENGTH_REQUIREMENTS.length) * 100));
 
   return {
     score,
@@ -177,6 +161,13 @@ export default function PasswordReset({ token, className = '', onResetComplete }
 
   const strength = useMemo(() => computeStrength(password), [password]);
   const strengthGuidance = useMemo(() => validatePasswordStrength(password), [password]);
+  const passwordPolicySummary = useMemo(() => {
+    if (tokenMeta?.passwordPolicy) {
+      return describePasswordPolicy(tokenMeta.passwordPolicy);
+    }
+    const fallback = describePasswordPolicy();
+    return fallback || null;
+  }, [tokenMeta?.passwordPolicy]);
   const passwordsMatch = useMemo(() => password && confirmPassword && password === confirmPassword, [password, confirmPassword]);
   const formattedRemaining = useMemo(() => formatRemaining(remainingSeconds), [remainingSeconds]);
   const progress = useMemo(() => {
@@ -280,7 +271,7 @@ export default function PasswordReset({ token, className = '', onResetComplete }
             className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:bg-slate-50"
             placeholder="Create a secure password"
             autoComplete="new-password"
-            minLength={8}
+            minLength={12}
             required
           />
           <button
@@ -292,15 +283,18 @@ export default function PasswordReset({ token, className = '', onResetComplete }
             {showPassword ? 'Hide' : 'Show'}
           </button>
         </div>
+        {passwordPolicySummary ? <p className="text-xs text-slate-500">{passwordPolicySummary}</p> : null}
         {capsLockOn ? <p className="text-xs font-medium text-amber-600">Caps Lock appears to be on.</p> : null}
       </div>
 
       <div className="space-y-3 rounded-2xl bg-slate-50 p-4">
         <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
           <span>Password strength</span>
-          <span className={`flex items-center gap-2 text-xs font-semibold ${
-            strength.score >= 3 ? 'text-emerald-600' : strength.score === 2 ? 'text-amber-600' : 'text-rose-600'
-          }`}>
+          <span
+            className={`flex items-center gap-2 text-xs font-semibold ${
+              strength.score >= 4 ? 'text-emerald-600' : strength.score >= 2 ? 'text-amber-600' : 'text-rose-600'
+            }`}
+          >
             <span className={`inline-flex h-2 w-12 overflow-hidden rounded-full bg-slate-200`}>
               <span className={`h-2 rounded-full ${strength.toneClass}`} style={{ width: `${Math.max(strength.percentage, 8)}%` }} />
             </span>
@@ -345,7 +339,7 @@ export default function PasswordReset({ token, className = '', onResetComplete }
             className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:bg-slate-50"
             placeholder="Re-enter your password"
             autoComplete="new-password"
-            minLength={8}
+            minLength={12}
             required
           />
           <button

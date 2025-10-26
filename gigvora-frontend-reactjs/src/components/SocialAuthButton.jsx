@@ -64,8 +64,11 @@ export default function SocialAuthButton({
         onClick={isBusy ? undefined : onClick}
         disabled={isBusy}
         data-provider={provider}
+        data-intent={intent}
+        data-component="social-auth-button"
         className={`flex w-full items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold shadow-soft transition focus-visible:outline focus-visible:outline-2 focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 ${style.classes}`}
         aria-label={computedLabel}
+        aria-busy={loading}
       >
         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/15">
           {loading ? SPINNER_ICON : style.icon}

@@ -37,6 +37,14 @@ let passwordResetTransporter = null;
 const PASSWORD_RESET_DEFAULT_COOLDOWN_SECONDS = 120;
 const PASSWORD_RESET_MAX_COOLDOWN_SECONDS = 900;
 
+const PASSWORD_POLICY = {
+  minLength: 12,
+  requireUppercase: true,
+  requireLowercase: true,
+  requireNumber: true,
+  requireSymbol: true,
+};
+
 const linkedinClientId = process.env.LINKEDIN_CLIENT_ID;
 const linkedinClientSecret = process.env.LINKEDIN_CLIENT_SECRET;
 const defaultLinkedinRedirectUri = process.env.LINKEDIN_REDIRECT_URI;
@@ -548,8 +556,33 @@ async function issueSession(user, { context = null } = {}) {
 }
 
 function ensurePasswordStrength(password) {
-  if (typeof password !== 'string' || password.length < 8) {
-    throw buildError('Password must be at least 8 characters long.', 422);
+  const value = typeof password === 'string' ? password.trim() : '';
+  const missing = [];
+
+  if (value.length < PASSWORD_POLICY.minLength) {
+    missing.push(`at least ${PASSWORD_POLICY.minLength} characters`);
+  }
+  if (PASSWORD_POLICY.requireUppercase && !/[A-Z]/.test(value)) {
+    missing.push('an uppercase letter');
+  }
+  if (PASSWORD_POLICY.requireLowercase && !/[a-z]/.test(value)) {
+    missing.push('a lowercase letter');
+  }
+  if (PASSWORD_POLICY.requireNumber && !/\d/.test(value)) {
+    missing.push('a number');
+  }
+  if (PASSWORD_POLICY.requireSymbol && !/[^A-Za-z0-9]/.test(value)) {
+    missing.push('a symbol');
+  }
+
+  if (missing.length > 0) {
+    const requirements = missing.join(', ').replace(/, ([^,]*)$/, ', and $1');
+    const error = buildError(`Password must include ${requirements}.`, 422);
+    error.meta = {
+      policy: PASSWORD_POLICY,
+      missing,
+    };
+    throw error;
   }
 }
 
@@ -911,6 +944,7 @@ async function verifyPasswordResetToken(token) {
     valid: true,
     expiresAt: record.expiresAt.toISOString(),
     maskedEmail: maskEmail(user.email),
+    passwordPolicy: PASSWORD_POLICY,
   };
 }
 
