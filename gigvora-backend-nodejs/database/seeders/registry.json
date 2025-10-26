@@ -26,5 +26,12 @@
     "personas": ["platform-ops", "product", "mentorship"],
     "domains": ["feature-flags", "mentorship", "workspaces"],
     "tags": ["flags", "rollout", "experiments"]
+  },
+  "20250323130000-profile-hub-experience-demo": {
+    "title": "Profile hub timeline & portfolio showcase",
+    "summary": "Seeds freelancer timeline entries, metrics, and portfolio case studies to power the premium profile hub experience.",
+    "personas": ["freelancer", "recruiter", "mentor"],
+    "domains": ["profiles", "timeline", "portfolio"],
+    "tags": ["profile-hub", "storytelling", "showcase"]
   }
 }
