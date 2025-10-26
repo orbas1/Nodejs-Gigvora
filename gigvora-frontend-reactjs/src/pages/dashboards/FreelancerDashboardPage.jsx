@@ -12,8 +12,10 @@ import {
 } from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import DashboardAccessGuard from '../../components/security/DashboardAccessGuard.jsx';
+import QuickCreateFab from '../../components/navigation/QuickCreateFab.jsx';
 import useSession from '../../hooks/useSession.js';
 import useDashboardOverviewResource from '../../hooks/useDashboardOverviewResource.js';
+import useCachedResource from '../../hooks/useCachedResource.js';
 import useFreelancerProfileOverview from '../../hooks/useFreelancerProfileOverview.js';
 import useFreelancerOperationsHQ from '../../hooks/useFreelancerOperationsHQ.js';
 import useProjectGigManagement from '../../hooks/useProjectGigManagement.js';
@@ -29,6 +31,7 @@ import SupportSection from './freelancer/sections/SupportSection.jsx';
 import FreelancerWalletSection from './freelancer/sections/FreelancerWalletSection.jsx';
 import { IdentityVerificationSection } from '../../features/identityVerification/index.js';
 import { fetchFreelancerDashboardOverview, saveFreelancerDashboardOverview } from '../../services/freelancerDashboard.js';
+import { fetchUserQuickActions } from '../../services/userQuickActions.js';
 import { resolveActorId } from '../../utils/session.js';
 import { trackDashboardEvent } from '../../utils/analytics.js';
 import {
@@ -223,12 +226,38 @@ export default function FreelancerDashboardPage() {
     ttl: 1000 * 45,
   });
 
+  const quickActionsResource = useCachedResource(
+    freelancerId ? `user:${freelancerId}:quick-actions` : 'user:quick-actions:pending',
+    useCallback(
+      ({ signal, force } = {}) => {
+        if (!freelancerId) {
+          return Promise.resolve(null);
+        }
+        return fetchUserQuickActions(freelancerId, { signal, fresh: Boolean(force) });
+      },
+      [freelancerId],
+    ),
+    {
+      enabled: Boolean(freelancerId),
+      dependencies: [freelancerId],
+      ttl: 1000 * 90,
+    },
+  );
+
   const {
     data: overviewData,
     loading: overviewLoading,
     error: overviewError,
     refresh: refreshOverview,
   } = overviewResource;
+
+  const {
+    data: quickActionsData,
+    loading: quickActionsLoading,
+    error: quickActionsError,
+    refresh: refreshQuickActions,
+    fromCache: quickActionsFromCache,
+  } = quickActionsResource;
 
   const {
     overview: profileOverview,
@@ -250,6 +279,60 @@ export default function FreelancerDashboardPage() {
 
   const operationsResource = useFreelancerOperationsHQ({ freelancerId, enabled: Boolean(freelancerId) });
   const projectResource = useProjectGigManagement(freelancerId, { enabled: Boolean(freelancerId) });
+
+  useEffect(() => {
+    if (quickActionsError) {
+      console.warn('Unable to load quick actions for freelancer dashboard.', quickActionsError);
+    }
+  }, [quickActionsError]);
+
+  const quickActionDefaultId = quickActionsData?.recommendedActionId ?? null;
+
+  const quickActionItems = useMemo(() => {
+    if (!quickActionsData?.actions?.length) {
+      return null;
+    }
+    return quickActionsData.actions.map((action) => ({
+      id: action.id,
+      label: action.label,
+      description: action.description,
+      icon: action.icon ?? null,
+      tone: action.tone ?? null,
+      href: action.href ?? null,
+      badge: action.badge ?? null,
+      disabled: Boolean(action.disabled),
+      recommended: Boolean(action.recommended),
+    }));
+  }, [quickActionsData]);
+
+  const handleQuickActionSelect = useCallback(
+    (action) => {
+      if (!action) {
+        return;
+      }
+      trackDashboardEvent('freelancer.dashboard.quick-action.select', {
+        freelancerId,
+        actionId: action.id ?? null,
+        recommended: action.recommended === true || action.id === quickActionDefaultId,
+        fromCache: quickActionsFromCache,
+      });
+    },
+    [freelancerId, quickActionDefaultId, quickActionsFromCache],
+  );
+
+  const handleQuickFabOpenChange = useCallback(
+    (isOpen) => {
+      trackDashboardEvent('freelancer.dashboard.quick-action.toggle', {
+        freelancerId,
+        open: isOpen,
+        cached: quickActionsFromCache,
+      });
+      if (isOpen && typeof refreshQuickActions === 'function' && !quickActionsLoading) {
+        refreshQuickActions({ force: false });
+      }
+    },
+    [freelancerId, quickActionsFromCache, quickActionsLoading, refreshQuickActions],
+  );
 
   const lifecycleStats = projectResource.data?.projectLifecycle?.stats ?? null;
   const insightCards = useMemo(
@@ -415,6 +498,13 @@ export default function FreelancerDashboardPage() {
             <SupportSection userId={actorId} freelancerId={freelancerId} />
           </div>
         </div>
+        <QuickCreateFab
+          actions={quickActionItems ?? undefined}
+          defaultActionId={quickActionDefaultId ?? null}
+          onAction={handleQuickActionSelect}
+          onOpenChange={handleQuickFabOpenChange}
+          label="Quick launch"
+        />
       </DashboardLayout>
     </DashboardAccessGuard>
   );

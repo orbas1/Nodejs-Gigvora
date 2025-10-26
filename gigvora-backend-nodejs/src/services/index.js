@@ -69,3 +69,4 @@ export { default as adminUserService } from './adminUserService.js';
 export { default as gdprSettingsService } from './gdprSettingsService.js';
 export { default as pageService } from './pageService.js';
 export { default as pageSettingsService } from './pageSettingsService.js';
+export { default as userQuickActionService } from './userQuickActionService.js';
