@@ -2,10 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import {
   ArrowPathIcon,
+  ArrowSmallLeftIcon,
   ArrowSmallRightIcon,
+  ArrowTrendingUpIcon,
   BookmarkIcon,
   CheckIcon,
   SparklesIcon,
+  UserGroupIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 
@@ -314,7 +317,7 @@ export default function SuggestionRail({
   analyticsSource,
 }) {
   const scrollRef = useRef(null);
-  const [viewport, setViewport] = useState({ width: 0, scrollLeft: 0 });
+  const [viewport, setViewport] = useState({ width: 0, scrollLeft: 0, scrollWidth: 0 });
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -324,10 +327,15 @@ export default function SuggestionRail({
       setViewport((prev) => {
         const nextWidth = container.clientWidth;
         const nextScroll = container.scrollLeft;
-        if (prev.width === nextWidth && prev.scrollLeft === nextScroll) {
+        const nextScrollWidth = container.scrollWidth;
+        if (
+          prev.width === nextWidth &&
+          prev.scrollLeft === nextScroll &&
+          prev.scrollWidth === nextScrollWidth
+        ) {
           return prev;
         }
-        return { width: nextWidth, scrollLeft: nextScroll };
+        return { width: nextWidth, scrollLeft: nextScroll, scrollWidth: nextScrollWidth };
       });
     };
 
@@ -343,17 +351,31 @@ export default function SuggestionRail({
     };
   }, []);
 
+  const orderedSuggestions = useMemo(() => {
+    if (!Array.isArray(suggestions)) {
+      return [];
+    }
+    return [...suggestions].sort((a, b) => {
+      if (a?.pinned && !b?.pinned) return -1;
+      if (!a?.pinned && b?.pinned) return 1;
+      const scoreA = a?.personalizationScore ?? 0;
+      const scoreB = b?.personalizationScore ?? 0;
+      if (scoreA === scoreB) return 0;
+      return scoreB - scoreA;
+    });
+  }, [suggestions]);
+
   const filteredSuggestions = useMemo(() => {
     if (!activeFilter || !filters?.length) {
-      return suggestions;
+      return orderedSuggestions;
     }
 
     const filter = filters.find((entry) => entry.id === activeFilter);
     if (!filter?.predicate) {
-      return suggestions;
+      return orderedSuggestions;
     }
-    return suggestions.filter((suggestion) => filter.predicate(suggestion));
-  }, [activeFilter, filters, suggestions]);
+    return orderedSuggestions.filter((suggestion) => filter.predicate(suggestion));
+  }, [activeFilter, filters, orderedSuggestions]);
 
   const virtualisation = useMemo(() => {
     const total = filteredSuggestions.length;
@@ -374,6 +396,58 @@ export default function SuggestionRail({
   }, [filteredSuggestions, viewport.scrollLeft, viewport.width]);
 
   const showEmptyState = !loading && !filteredSuggestions.length && !error;
+
+  const canScrollLeft = viewport.scrollLeft > 8;
+  const canScrollRight =
+    viewport.scrollLeft + viewport.width < viewport.scrollWidth - CARD_WIDTH / 2;
+
+  const handleScrollBy = useCallback((direction) => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const delta = (CARD_WIDTH + CARD_GAP) * 2 * (direction === 'left' ? -1 : 1);
+    container.scrollBy({ left: delta, behavior: 'smooth' });
+  }, []);
+
+  const insightMetrics = useMemo(() => {
+    if (!filteredSuggestions.length) {
+      return [];
+    }
+
+    const total = filteredSuggestions.length;
+    const curated = filteredSuggestions.filter((item) => item.pinned).length;
+    const averageScore = filteredSuggestions.reduce(
+      (acc, item) => acc + (item.personalizationScore ?? 0),
+      0,
+    );
+    const averageMutuals = filteredSuggestions.reduce(
+      (acc, item) => acc + (item.mutualConnections ?? 0),
+      0,
+    );
+
+    return [
+      {
+        id: 'recommendations',
+        label: 'Recommendations',
+        value: total,
+        description: curated ? `${curated} curated picks` : 'Personalised mix',
+        icon: SparklesIcon,
+      },
+      {
+        id: 'match',
+        label: 'Avg match',
+        value: total ? `${Math.round(averageScore / total)}%` : '—',
+        description: 'Personalisation score',
+        icon: ArrowTrendingUpIcon,
+      },
+      {
+        id: 'mutuals',
+        label: 'Mutual overlap',
+        value: total && averageMutuals ? Math.round(averageMutuals / total) : '—',
+        description: 'Shared connections',
+        icon: UserGroupIcon,
+      },
+    ];
+  }, [filteredSuggestions]);
 
   return (
     <section className="relative space-y-6 rounded-[28px] border border-slate-100/80 bg-white/80 p-6 shadow-2xl backdrop-blur-xl">
@@ -423,6 +497,35 @@ export default function SuggestionRail({
         </div>
       </div>
 
+      {insightMetrics.length ? (
+        <dl className="grid gap-4 sm:grid-cols-3">
+          {insightMetrics.map((metric) => {
+            const Icon = metric.icon;
+            return (
+              <div
+                key={metric.id}
+                className="flex items-center justify-between rounded-2xl border border-white/60 bg-white/70 p-4 shadow-sm"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+                    <Icon className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      {metric.label}
+                    </dt>
+                    <dd className="text-lg font-semibold text-slate-900">{metric.value}</dd>
+                  </div>
+                </div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                  {metric.description}
+                </p>
+              </div>
+            );
+          })}
+        </dl>
+      ) : null}
+
       {loading ? (
         <div className="flex gap-4 overflow-hidden">
           {Array.from({ length: 3 }).map((_, index) => (
@@ -452,6 +555,34 @@ export default function SuggestionRail({
         <div className="relative">
           <div className="pointer-events-none absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-white via-white/70 to-transparent" aria-hidden />
           <div className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-white via-white/70 to-transparent" aria-hidden />
+          <div className="pointer-events-none absolute inset-y-0 left-2 flex items-center">
+            <button
+              type="button"
+              onClick={() => handleScrollBy('left')}
+              disabled={!canScrollLeft}
+              className={classNames(
+                'pointer-events-auto hidden h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-500 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-slate-200 focus:ring-offset-2 md:flex',
+                canScrollLeft ? 'hover:text-slate-700' : 'opacity-0'
+              )}
+              aria-label="Scroll suggestions left"
+            >
+              <ArrowSmallLeftIcon className="h-5 w-5" aria-hidden="true" />
+            </button>
+          </div>
+          <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+            <button
+              type="button"
+              onClick={() => handleScrollBy('right')}
+              disabled={!canScrollRight}
+              className={classNames(
+                'pointer-events-auto hidden h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-500 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-slate-200 focus:ring-offset-2 md:flex',
+                canScrollRight ? 'hover:text-slate-700' : 'opacity-0'
+              )}
+              aria-label="Scroll suggestions right"
+            >
+              <ArrowSmallRightIcon className="h-5 w-5" aria-hidden="true" />
+            </button>
+          </div>
           <div
             ref={scrollRef}
             className="hide-scrollbar -mx-4 overflow-x-auto px-4"

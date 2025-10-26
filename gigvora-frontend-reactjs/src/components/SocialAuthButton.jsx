@@ -1,9 +1,19 @@
 import PropTypes from 'prop-types';
 
+const INTENT_LABELS = {
+  login: 'Continue with',
+  register: 'Join with',
+  connect: 'Connect with',
+};
+
 const PROVIDER_STYLES = {
   linkedin: {
-    label: 'Continue with LinkedIn',
-    baseClass:
+    name: 'LinkedIn',
+    tagline: {
+      login: 'Instantly sync your professional identity and get back to your projects.',
+      register: 'Bring your network, experience, and endorsements with a single click.',
+    },
+    classes:
       'bg-[#0A66C2] text-white hover:bg-[#0a61b6] focus-visible:outline-[#0A66C2]/80 focus-visible:ring-[#0A66C2]/40',
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-current">
@@ -13,24 +23,64 @@ const PROVIDER_STYLES = {
   },
 };
 
-export default function SocialAuthButton({ provider, label, onClick = () => {}, disabled = false }) {
+const SPINNER_ICON = (
+  <svg viewBox="0 0 24 24" className="h-4 w-4 animate-spin" aria-hidden="true">
+    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" className="opacity-20" fill="none" />
+    <path
+      d="M22 12a10 10 0 0 1-10 10"
+      stroke="currentColor"
+      strokeWidth="2"
+      className="origin-center opacity-80"
+      fill="none"
+    />
+  </svg>
+);
+
+export default function SocialAuthButton({
+  provider,
+  label,
+  intent = 'login',
+  tagline,
+  onClick = () => {},
+  disabled = false,
+  loading = false,
+  className = '',
+  showTagline = true,
+}) {
   const style = PROVIDER_STYLES[provider];
 
   if (!style) {
     return null;
   }
 
+  const computedLabel = label || `${INTENT_LABELS[intent] ?? INTENT_LABELS.login} ${style.name}`;
+  const resolvedTagline = tagline || style.tagline?.[intent] || style.tagline?.login || null;
+  const isBusy = disabled || loading;
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={`flex w-full items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold shadow-soft transition focus-visible:outline focus-visible:outline-2 focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 ${style.baseClass}`}
-      aria-label={label || style.label}
-    >
-      {style.icon}
-      <span>{label || style.label}</span>
-    </button>
+    <div className={`group space-y-2 ${className}`}>
+      <button
+        type="button"
+        onClick={isBusy ? undefined : onClick}
+        disabled={isBusy}
+        data-provider={provider}
+        data-intent={intent}
+        data-component="social-auth-button"
+        className={`flex w-full items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold shadow-soft transition focus-visible:outline focus-visible:outline-2 focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 ${style.classes}`}
+        aria-label={computedLabel}
+        aria-busy={loading}
+      >
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/15">
+          {loading ? SPINNER_ICON : style.icon}
+        </span>
+        <span>{computedLabel}</span>
+      </button>
+      {showTagline && resolvedTagline ? (
+        <p className="text-center text-xs text-slate-500 transition group-hover:text-slate-600">
+          {resolvedTagline}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -39,6 +89,22 @@ export const SOCIAL_PROVIDERS = Object.keys(PROVIDER_STYLES);
 SocialAuthButton.propTypes = {
   provider: PropTypes.oneOf(SOCIAL_PROVIDERS).isRequired,
   label: PropTypes.string,
+  intent: PropTypes.oneOf(Object.keys(INTENT_LABELS)),
+  tagline: PropTypes.string,
   onClick: PropTypes.func,
   disabled: PropTypes.bool,
+  loading: PropTypes.bool,
+  className: PropTypes.string,
+  showTagline: PropTypes.bool,
+};
+
+SocialAuthButton.defaultProps = {
+  label: undefined,
+  intent: 'login',
+  tagline: undefined,
+  onClick: undefined,
+  disabled: false,
+  loading: false,
+  className: '',
+  showTagline: true,
 };

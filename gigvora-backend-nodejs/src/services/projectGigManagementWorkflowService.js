@@ -102,6 +102,324 @@ function coerceDate(value) {
   return candidate;
 }
 
+const PROJECT_LIFECYCLE_STATES = Object.freeze(['open', 'closed']);
+
+function ensureInteger(value, { label, min, max, allowNull = false } = {}) {
+  if (value == null || value === '') {
+    if (allowNull) {
+      return null;
+    }
+    throw new ValidationError(`${label ?? 'Value'} must be provided.`);
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    throw new ValidationError(`${label ?? 'Value'} must be a valid number.`);
+  }
+  const integer = Math.trunc(parsed);
+  if (min != null && integer < min) {
+    throw new ValidationError(`${label ?? 'Value'} cannot be less than ${min}.`);
+  }
+  if (max != null && integer > max) {
+    throw new ValidationError(`${label ?? 'Value'} cannot be greater than ${max}.`);
+  }
+  return integer;
+}
+
+function normalizeStringArray(input, { label, maxItems = 25, maxLength = 120 } = {}) {
+  if (input == null) {
+    return [];
+  }
+  const raw = Array.isArray(input)
+    ? input
+    : typeof input === 'string'
+      ? input.split(',')
+      : [];
+  const values = [];
+  for (const entry of raw) {
+    if (values.length >= maxItems) {
+      break;
+    }
+    const candidate = entry == null ? '' : entry.toString().trim();
+    if (!candidate) {
+      continue;
+    }
+    if (candidate.length > maxLength) {
+      throw new ValidationError(
+        `${label ?? 'Value'} entries must be ${maxLength} characters or fewer.`,
+      );
+    }
+    if (!values.includes(candidate)) {
+      values.push(candidate);
+    }
+  }
+  return values;
+}
+
+function normalizeCategory(value, defaultValue = 'General') {
+  if (value == null) {
+    return defaultValue;
+  }
+  const category = value.toString().trim();
+  if (!category) {
+    return defaultValue;
+  }
+  if (category.length > 120) {
+    throw new ValidationError('Project category must be 120 characters or fewer.');
+  }
+  return category;
+}
+
+function normalizeLifecycleState(value, defaultValue = 'open') {
+  if (value == null) {
+    return defaultValue;
+  }
+  const lifecycle = value.toString().trim().toLowerCase();
+  if (!PROJECT_LIFECYCLE_STATES.includes(lifecycle)) {
+    throw new ValidationError('Invalid project lifecycle state provided.');
+  }
+  return lifecycle;
+}
+
+function normalizeMoneyValue(value, { label, allowZero = true } = {}) {
+  if (value == null || value === '') {
+    return null;
+  }
+  const numeric = ensureNumber(value, { label, allowNegative: false, allowZero });
+  return Number(numeric.toFixed(2));
+}
+
+function normalizeHoursValue(value, { label } = {}) {
+  if (value == null || value === '') {
+    return null;
+  }
+  const numeric = ensureNumber(value, { label, allowNegative: false, allowZero: true });
+  return Number(numeric.toFixed(2));
+}
+
+function normalizeWorkspaceStatusInput(status, { fallback } = {}) {
+  if (status == null || status === '') {
+    return fallback ?? null;
+  }
+  const candidate = status.toString().trim().toLowerCase();
+  if (WORKSPACE_STATUSES.includes(candidate)) {
+    return candidate;
+  }
+  if (PROJECT_STATUSES.includes(candidate)) {
+    return resolveWorkspaceStatusFromProject(candidate);
+  }
+  throw new ValidationError('Invalid workspace status provided.');
+}
+
+function normalizeWorkspaceRiskLevel(riskLevel, fallback) {
+  if (riskLevel == null || riskLevel === '') {
+    return fallback ?? 'low';
+  }
+  const candidate = riskLevel.toString().trim().toLowerCase();
+  if (!WORKSPACE_RISK_LEVELS.includes(candidate)) {
+    throw new ValidationError('Invalid workspace risk level provided.');
+  }
+  return candidate;
+}
+
+function normalizeMetricsSnapshot(value, fallback = {}) {
+  if (value === undefined) {
+    return fallback;
+  }
+  if (value === null) {
+    return {};
+  }
+  if (typeof value === 'object') {
+    return value;
+  }
+  throw new ValidationError('Workspace metrics snapshot must be an object.');
+}
+
+function normalizeAutoMatchPayload(ownerId, payload, { existing = {}, mode = 'create' } = {}) {
+  const autoMatchInput = payload.autoMatch ?? {};
+  const resolve = (key, alias) => {
+    if (payload[key] !== undefined) {
+      return payload[key];
+    }
+    if (autoMatchInput[alias ?? key] !== undefined) {
+      return autoMatchInput[alias ?? key];
+    }
+    return undefined;
+  };
+
+  const updates = {};
+  let touched = false;
+
+  const enabledInput = resolve('autoMatchEnabled', 'enabled');
+  const acceptInput = resolve('autoMatchAcceptEnabled', 'acceptEnabled');
+  const rejectInput = resolve('autoMatchRejectEnabled', 'rejectEnabled');
+
+  if (mode === 'create') {
+    updates.autoMatchEnabled = Boolean(enabledInput ?? existing.autoMatchEnabled ?? false);
+    updates.autoMatchAcceptEnabled = Boolean(acceptInput ?? existing.autoMatchAcceptEnabled ?? false);
+    updates.autoMatchRejectEnabled = Boolean(rejectInput ?? existing.autoMatchRejectEnabled ?? false);
+  } else {
+    if (enabledInput !== undefined) {
+      updates.autoMatchEnabled = Boolean(enabledInput);
+      touched = true;
+    }
+    if (acceptInput !== undefined) {
+      updates.autoMatchAcceptEnabled = Boolean(acceptInput);
+      touched = true;
+    }
+    if (rejectInput !== undefined) {
+      updates.autoMatchRejectEnabled = Boolean(rejectInput);
+      touched = true;
+    }
+  }
+
+  const budgetMinInput = resolve('autoMatchBudgetMin', 'budgetMin');
+  const budgetMaxInput = resolve('autoMatchBudgetMax', 'budgetMax');
+
+  if (mode === 'create' || budgetMinInput !== undefined) {
+    updates.autoMatchBudgetMin = normalizeMoneyValue(budgetMinInput, {
+      label: 'Auto-match minimum budget',
+      allowZero: true,
+    });
+    if (budgetMinInput !== undefined) {
+      touched = true;
+    }
+  }
+
+  if (mode === 'create' || budgetMaxInput !== undefined) {
+    updates.autoMatchBudgetMax = normalizeMoneyValue(budgetMaxInput, {
+      label: 'Auto-match maximum budget',
+      allowZero: true,
+    });
+    if (budgetMaxInput !== undefined) {
+      touched = true;
+    }
+  }
+
+  if (
+    updates.autoMatchBudgetMin != null &&
+    updates.autoMatchBudgetMax != null &&
+    updates.autoMatchBudgetMin > updates.autoMatchBudgetMax
+  ) {
+    throw new ValidationError('Auto-match minimum budget cannot exceed the maximum budget.');
+  }
+
+  const weeklyHoursMinInput = resolve('autoMatchWeeklyHoursMin', 'weeklyHoursMin');
+  const weeklyHoursMaxInput = resolve('autoMatchWeeklyHoursMax', 'weeklyHoursMax');
+
+  if (mode === 'create' || weeklyHoursMinInput !== undefined) {
+    updates.autoMatchWeeklyHoursMin = normalizeHoursValue(weeklyHoursMinInput, {
+      label: 'Auto-match minimum weekly hours',
+    });
+    if (weeklyHoursMinInput !== undefined) {
+      touched = true;
+    }
+  }
+
+  if (mode === 'create' || weeklyHoursMaxInput !== undefined) {
+    updates.autoMatchWeeklyHoursMax = normalizeHoursValue(weeklyHoursMaxInput, {
+      label: 'Auto-match maximum weekly hours',
+    });
+    if (weeklyHoursMaxInput !== undefined) {
+      touched = true;
+    }
+  }
+
+  if (
+    updates.autoMatchWeeklyHoursMin != null &&
+    updates.autoMatchWeeklyHoursMax != null &&
+    updates.autoMatchWeeklyHoursMin > updates.autoMatchWeeklyHoursMax
+  ) {
+    throw new ValidationError('Auto-match weekly hours minimum cannot exceed the maximum.');
+  }
+
+  const durationMinInput = resolve('autoMatchDurationWeeksMin', 'durationWeeksMin');
+  const durationMaxInput = resolve('autoMatchDurationWeeksMax', 'durationWeeksMax');
+
+  if (mode === 'create' || durationMinInput !== undefined) {
+    updates.autoMatchDurationWeeksMin = durationMinInput == null || durationMinInput === ''
+      ? null
+      : ensureInteger(durationMinInput, { label: 'Auto-match minimum duration (weeks)', min: 1, allowNull: true });
+    if (durationMinInput !== undefined) {
+      touched = true;
+    }
+  }
+
+  if (mode === 'create' || durationMaxInput !== undefined) {
+    updates.autoMatchDurationWeeksMax = durationMaxInput == null || durationMaxInput === ''
+      ? null
+      : ensureInteger(durationMaxInput, { label: 'Auto-match maximum duration (weeks)', min: 1, allowNull: true });
+    if (durationMaxInput !== undefined) {
+      touched = true;
+    }
+  }
+
+  if (
+    updates.autoMatchDurationWeeksMin != null &&
+    updates.autoMatchDurationWeeksMax != null &&
+    updates.autoMatchDurationWeeksMin > updates.autoMatchDurationWeeksMax
+  ) {
+    throw new ValidationError('Auto-match minimum duration cannot exceed the maximum duration.');
+  }
+
+  const autoMatchSkillsInput = resolve('autoMatchSkills', 'skills');
+  if (mode === 'create' || autoMatchSkillsInput !== undefined) {
+    updates.autoMatchSkills = normalizeStringArray(autoMatchSkillsInput, {
+      label: 'Auto-match skill',
+      maxItems: 30,
+    });
+    if (autoMatchSkillsInput !== undefined) {
+      touched = true;
+    }
+  }
+
+  const notesInput = resolve('autoMatchNotes', 'notes');
+  if (mode === 'create' || notesInput !== undefined) {
+    const notes = notesInput == null ? null : notesInput.toString().trim();
+    updates.autoMatchNotes = notes && notes.length ? notes : null;
+    if (notesInput !== undefined) {
+      touched = true;
+    }
+  }
+
+  const updatedByInput = resolve('autoMatchUpdatedBy', 'updatedBy');
+  if (mode === 'create') {
+    const shouldDefaultUpdatedBy =
+      updates.autoMatchEnabled ||
+      updates.autoMatchAcceptEnabled ||
+      updates.autoMatchRejectEnabled ||
+      (updates.autoMatchSkills && updates.autoMatchSkills.length) ||
+      updates.autoMatchNotes ||
+      updates.autoMatchBudgetMin != null ||
+      updates.autoMatchBudgetMax != null ||
+      updates.autoMatchWeeklyHoursMin != null ||
+      updates.autoMatchWeeklyHoursMax != null ||
+      updates.autoMatchDurationWeeksMin != null ||
+      updates.autoMatchDurationWeeksMax != null;
+
+    if (updatedByInput != null && updatedByInput !== '') {
+      updates.autoMatchUpdatedBy = ensureInteger(updatedByInput, {
+        label: 'Auto-match updated by',
+        min: 1,
+        allowNull: true,
+      });
+    } else if (shouldDefaultUpdatedBy) {
+      updates.autoMatchUpdatedBy = ownerId;
+    } else {
+      updates.autoMatchUpdatedBy = null;
+    }
+  } else if (updatedByInput !== undefined) {
+    updates.autoMatchUpdatedBy =
+      updatedByInput == null || updatedByInput === ''
+        ? null
+        : ensureInteger(updatedByInput, { label: 'Auto-match updated by', min: 1, allowNull: true });
+    touched = true;
+  } else if (touched) {
+    updates.autoMatchUpdatedBy = ownerId;
+  }
+
+  return { updates, touched };
+}
+
 function computeBudgetSnapshot(project) {
   const allocated = normalizeNumber(project.budgetAllocated);
   const spent = normalizeNumber(project.budgetSpent);
@@ -2472,17 +2790,54 @@ export async function createProject(ownerId, payload) {
     throw new ValidationError('Invalid project status provided.');
   }
 
-  if (payload.workspace?.riskLevel && !WORKSPACE_RISK_LEVELS.includes(payload.workspace.riskLevel)) {
-    throw new ValidationError('Invalid project risk level provided.');
-  }
+  const category = normalizeCategory(payload.category);
+  const skills = normalizeStringArray(payload.skills, { label: 'Project skill' });
+  const durationWeeks = ensureInteger(payload.durationWeeks ?? 4, { label: 'Duration weeks', min: 1 });
+  const lifecycleState = normalizeLifecycleState(
+    payload.lifecycleState ?? (payload.status === 'completed' ? 'closed' : 'open'),
+  );
+  const { updates: autoMatchConfig } = normalizeAutoMatchPayload(ownerId, payload, { mode: 'create' });
 
-  if (payload.workspace?.status && !WORKSPACE_STATUSES.includes(payload.workspace.status)) {
-    throw new ValidationError('Invalid workspace status provided.');
-  }
-
-  const budgetAllocated = ensureNumber(payload.budgetAllocated ?? 0, {
-    label: 'Budget allocated',
+  const workspaceInput = payload.workspace ?? {};
+  const workspaceStatus = normalizeWorkspaceStatusInput(workspaceInput.status, {
+    fallback: resolveWorkspaceStatusFromProject(payload.status ?? 'planning'),
   });
+  const workspaceRiskLevel = normalizeWorkspaceRiskLevel(workspaceInput.riskLevel, 'low');
+  const workspaceProgress =
+    normaliseWorkspaceScore(workspaceInput.progressPercent ?? 5, {
+      label: 'Workspace progress percent',
+      max: 100,
+    }) ?? 0;
+  const workspaceHealthScore = normaliseWorkspaceScore(workspaceInput.healthScore, {
+    label: 'Workspace health score',
+    max: 100,
+  });
+  const workspaceVelocityScore = normaliseWorkspaceScore(workspaceInput.velocityScore, {
+    label: 'Workspace velocity score',
+    max: 100,
+  });
+  const workspaceClientSatisfaction = normaliseWorkspaceScore(workspaceInput.clientSatisfaction, {
+    label: 'Workspace client satisfaction',
+    max: 5,
+  });
+  const workspaceAutomationCoverage = normaliseWorkspaceScore(workspaceInput.automationCoverage, {
+    label: 'Workspace automation coverage',
+    max: 100,
+  });
+  const workspaceBillingStatus =
+    workspaceInput.billingStatus == null || workspaceInput.billingStatus === ''
+      ? null
+      : workspaceInput.billingStatus.toString().trim();
+  const workspaceUpdatedById =
+    workspaceInput.updatedById == null || workspaceInput.updatedById === ''
+      ? null
+      : ensureInteger(workspaceInput.updatedById, { label: 'Workspace updated by', min: 1, allowNull: true });
+  const workspaceMetricsSnapshot = normalizeMetricsSnapshot(
+    workspaceInput.metricsSnapshot ?? workspaceInput.metrics ?? {},
+    {},
+  );
+
+  const budgetAllocated = ensureNumber(payload.budgetAllocated ?? 0, { label: 'Budget allocated' });
   const budgetSpent = ensureNumber(payload.budgetSpent ?? 0, { label: 'Budget spent' });
   if (budgetSpent > budgetAllocated) {
     throw new ValidationError('Budget spent cannot exceed the allocated amount.');
@@ -2494,6 +2849,9 @@ export async function createProject(ownerId, payload) {
     throw new ValidationError('Due date cannot be earlier than the project start date.');
   }
 
+  const metadata =
+    payload.metadata && typeof payload.metadata === 'object' ? payload.metadata : payload.metadata == null ? {} : {};
+
   return projectGigManagementSequelize.transaction(async (transaction) => {
     const project = await Project.create(
       {
@@ -2501,77 +2859,47 @@ export async function createProject(ownerId, payload) {
         title: payload.title,
         description: payload.description,
         status: payload.status ?? 'planning',
+        category,
+        skills,
+        durationWeeks,
+        lifecycleState,
         startDate: startDate ?? null,
         dueDate: dueDate ?? null,
         budgetCurrency: payload.budgetCurrency ?? 'USD',
         budgetAllocated,
         budgetSpent,
-        metadata: payload.metadata ?? {},
+        metadata,
+        ...autoMatchConfig,
       },
       { transaction },
     );
 
-    const workspaceStatus = payload.workspace?.status && WORKSPACE_STATUSES.includes(payload.workspace.status)
-      ? payload.workspace.status
-      : resolveWorkspaceStatusFromProject(payload.status ?? project.status);
-    const progressPercent =
-      normaliseWorkspaceScore(payload.workspace?.progressPercent ?? 5, {
-        label: 'Workspace progress percent',
-        max: 100,
-      }) ?? 0;
-    const healthScore = normaliseWorkspaceScore(payload.workspace?.healthScore, {
-      label: 'Workspace health score',
-      max: 100,
-    });
-    const velocityScore = normaliseWorkspaceScore(payload.workspace?.velocityScore, {
-      label: 'Workspace velocity score',
-      max: 100,
-    });
-    const clientSatisfaction = normaliseWorkspaceScore(payload.workspace?.clientSatisfaction, {
-      label: 'Workspace client satisfaction',
-      max: 5,
-    });
-    const automationCoverage = normaliseWorkspaceScore(payload.workspace?.automationCoverage, {
-      label: 'Workspace automation coverage',
-      max: 100,
-    });
-
-    const nextMilestoneDueAt = ensureDate(payload.workspace?.nextMilestoneDueAt ?? payload.dueDate, {
+    const nextMilestoneDueAt = ensureDate(workspaceInput.nextMilestoneDueAt ?? payload.dueDate, {
       label: 'Next milestone due date',
     });
     const lastActivityAt =
-      ensureDate(payload.workspace?.lastActivityAt, { label: 'Workspace last activity at' }) ??
+      ensureDate(workspaceInput.lastActivityAt, { label: 'Workspace last activity at' }) ??
       project.updatedAt ??
       project.createdAt ??
       new Date();
-
-    const metricsSnapshot =
-      payload.workspace?.metricsSnapshot && typeof payload.workspace.metricsSnapshot === 'object'
-        ? payload.workspace.metricsSnapshot
-        : payload.workspace?.metrics && typeof payload.workspace.metrics === 'object'
-          ? payload.workspace.metrics
-          : {};
 
     await ProjectWorkspace.create(
       {
         projectId: project.id,
         status: workspaceStatus,
-        progressPercent,
-        riskLevel:
-          payload.workspace?.riskLevel && WORKSPACE_RISK_LEVELS.includes(payload.workspace.riskLevel)
-            ? payload.workspace.riskLevel
-            : 'low',
-        healthScore,
-        velocityScore,
-        clientSatisfaction,
-        automationCoverage,
-        billingStatus: payload.workspace?.billingStatus ?? null,
-        nextMilestone: payload.workspace?.nextMilestone ?? null,
+        progressPercent: workspaceProgress,
+        riskLevel: workspaceRiskLevel,
+        healthScore: workspaceHealthScore,
+        velocityScore: workspaceVelocityScore,
+        clientSatisfaction: workspaceClientSatisfaction,
+        automationCoverage: workspaceAutomationCoverage,
+        billingStatus: workspaceBillingStatus,
+        nextMilestone: workspaceInput.nextMilestone ?? null,
         nextMilestoneDueAt,
         lastActivityAt,
-        updatedById: payload.workspace?.updatedById ?? null,
-        notes: payload.workspace?.notes ?? null,
-        metricsSnapshot,
+        updatedById: workspaceUpdatedById,
+        notes: workspaceInput.notes ?? null,
+        metricsSnapshot: workspaceMetricsSnapshot,
       },
       { transaction },
     );
@@ -2579,12 +2907,13 @@ export async function createProject(ownerId, payload) {
     if (Array.isArray(payload.milestones)) {
       const milestones = payload.milestones.map((milestone, index) => ({
         projectId: project.id,
-        title: milestone.title,
+        title: milestone.title?.toString().trim() || `Milestone ${index + 1}`,
         description: milestone.description ?? null,
-        ordinal: milestone.ordinal ?? index,
+        ordinal: Number.isFinite(milestone.ordinal) ? Number(milestone.ordinal) : index,
         dueDate: ensureDate(milestone.dueDate, { label: 'Milestone due date' }),
         status: milestone.status ?? 'planned',
         budget: milestone.budget ?? 0,
+        metrics: milestone.metrics ?? {},
       }));
       await ProjectMilestone.bulkCreate(milestones, { transaction });
     }
@@ -2592,11 +2921,17 @@ export async function createProject(ownerId, payload) {
     if (Array.isArray(payload.collaborators)) {
       const collaborators = payload.collaborators.map((collaborator) => ({
         projectId: project.id,
-        fullName: collaborator.fullName,
+        fullName: collaborator.fullName?.toString().trim() || 'Project collaborator',
         email: collaborator.email ?? null,
         role: collaborator.role ?? 'Collaborator',
         status: collaborator.status ?? 'invited',
-        hourlyRate: collaborator.hourlyRate ?? null,
+        hourlyRate:
+          collaborator.hourlyRate == null || collaborator.hourlyRate === ''
+            ? null
+            : ensureNumber(collaborator.hourlyRate, {
+                label: 'Collaborator hourly rate',
+                allowZero: false,
+              }),
         permissions: collaborator.permissions ?? {},
       }));
       await ProjectCollaborator.bulkCreate(collaborators, { transaction });
@@ -2615,7 +2950,19 @@ export async function createProject(ownerId, payload) {
 
     await ensureTemplatesSeeded(transaction);
 
-    return project;
+    const hydrated = await Project.findByPk(project.id, {
+      include: [
+        { model: ProjectWorkspace, as: 'workspace' },
+        { model: ProjectMilestone, as: 'milestones', separate: true, order: [['ordinal', 'ASC']] },
+        { model: ProjectCollaborator, as: 'collaborators' },
+        { model: ProjectIntegration, as: 'integrations' },
+        { model: ProjectRetrospective, as: 'retrospectives', separate: true, order: [['generatedAt', 'DESC']] },
+        { model: ProjectAsset, as: 'assets' },
+      ],
+      transaction,
+    });
+
+    return sanitizeProject(hydrated);
   });
 }
 
@@ -2720,31 +3067,97 @@ export async function updateProjectWorkspace(ownerId, projectId, payload) {
     throw new NotFoundError('Workspace not initialized for project.');
   }
 
-  if (payload.status && !PROJECT_STATUSES.includes(payload.status)) {
-    throw new ValidationError('Invalid workspace status provided.');
-  }
-  if (payload.riskLevel && !PROJECT_RISK_LEVELS.includes(payload.riskLevel)) {
-    throw new ValidationError('Invalid workspace risk level provided.');
-  }
-  if (payload.progressPercent != null) {
-    const parsed = ensureNumber(payload.progressPercent, { label: 'Progress percent', allowNegative: false });
-    if (parsed > 100) {
-      throw new ValidationError('Progress percent cannot exceed 100%.');
-    }
-  }
-  const nextDueAt = ensureDate(payload.nextMilestoneDueAt, { label: 'Next milestone due date' });
+  const updates = {};
 
-  await project.workspace.update({
-    status: payload.status ?? project.workspace.status,
-    progressPercent:
-      payload.progressPercent != null ? Number(payload.progressPercent) : project.workspace.progressPercent,
-    riskLevel: payload.riskLevel ?? project.workspace.riskLevel,
-    nextMilestone: payload.nextMilestone ?? project.workspace.nextMilestone,
-    nextMilestoneDueAt: nextDueAt ?? project.workspace.nextMilestoneDueAt,
-    notes: payload.notes ?? project.workspace.notes,
-    metricsSnapshot: payload.metricsSnapshot ?? project.workspace.metricsSnapshot,
-  });
+  if (payload.status !== undefined) {
+    updates.status = normalizeWorkspaceStatusInput(payload.status, {
+      fallback: project.workspace.status,
+    });
+  }
 
+  if (payload.progressPercent !== undefined) {
+    updates.progressPercent =
+      normaliseWorkspaceScore(payload.progressPercent, {
+        label: 'Progress percent',
+        max: 100,
+      }) ?? project.workspace.progressPercent;
+  }
+
+  if (payload.riskLevel !== undefined) {
+    updates.riskLevel = normalizeWorkspaceRiskLevel(payload.riskLevel, project.workspace.riskLevel);
+  }
+
+  if (payload.healthScore !== undefined) {
+    updates.healthScore = normaliseWorkspaceScore(payload.healthScore, {
+      label: 'Workspace health score',
+      max: 100,
+    });
+  }
+
+  if (payload.velocityScore !== undefined) {
+    updates.velocityScore = normaliseWorkspaceScore(payload.velocityScore, {
+      label: 'Workspace velocity score',
+      max: 100,
+    });
+  }
+
+  if (payload.clientSatisfaction !== undefined) {
+    updates.clientSatisfaction = normaliseWorkspaceScore(payload.clientSatisfaction, {
+      label: 'Workspace client satisfaction',
+      max: 5,
+    });
+  }
+
+  if (payload.automationCoverage !== undefined) {
+    updates.automationCoverage = normaliseWorkspaceScore(payload.automationCoverage, {
+      label: 'Workspace automation coverage',
+      max: 100,
+    });
+  }
+
+  if (payload.billingStatus !== undefined) {
+    updates.billingStatus =
+      payload.billingStatus == null || payload.billingStatus === ''
+        ? null
+        : payload.billingStatus.toString().trim();
+  }
+
+  if (payload.nextMilestone !== undefined) {
+    updates.nextMilestone = payload.nextMilestone ?? null;
+  }
+
+  if (payload.nextMilestoneDueAt !== undefined) {
+    updates.nextMilestoneDueAt = ensureDate(payload.nextMilestoneDueAt, {
+      label: 'Next milestone due date',
+    });
+  }
+
+  if (payload.notes !== undefined) {
+    updates.notes = payload.notes ?? null;
+  }
+
+  const metricsInput =
+    payload.metricsSnapshot !== undefined ? payload.metricsSnapshot : payload.metrics !== undefined ? payload.metrics : undefined;
+  if (metricsInput !== undefined) {
+    updates.metricsSnapshot = normalizeMetricsSnapshot(metricsInput, project.workspace.metricsSnapshot ?? {});
+  }
+
+  if (payload.lastActivityAt !== undefined) {
+    updates.lastActivityAt = ensureDate(payload.lastActivityAt, { label: 'Workspace last activity at' });
+  }
+
+  if (payload.updatedById !== undefined) {
+    updates.updatedById =
+      payload.updatedById == null || payload.updatedById === ''
+        ? null
+        : ensureInteger(payload.updatedById, { label: 'Workspace updated by', min: 1, allowNull: true });
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return project.workspace;
+  }
+
+  await project.workspace.update(updates);
   return project.workspace.reload();
 }
 
@@ -2779,6 +3192,22 @@ export async function updateProject(ownerId, projectId, payload = {}) {
       throw new ValidationError('Invalid project status provided.');
     }
     updates.status = payload.status ?? project.status;
+  }
+
+  if (payload.category !== undefined) {
+    updates.category = normalizeCategory(payload.category, project.category ?? 'General');
+  }
+
+  if (payload.skills !== undefined) {
+    updates.skills = normalizeStringArray(payload.skills, { label: 'Project skill' });
+  }
+
+  if (payload.durationWeeks !== undefined) {
+    updates.durationWeeks = ensureInteger(payload.durationWeeks, { label: 'Duration weeks', min: 1 });
+  }
+
+  if (payload.lifecycleState !== undefined) {
+    updates.lifecycleState = normalizeLifecycleState(payload.lifecycleState ?? project.lifecycleState ?? 'open');
   }
 
   const startDate =
@@ -2820,8 +3249,20 @@ export async function updateProject(ownerId, projectId, payload = {}) {
   }
 
   if (payload.metadata !== undefined) {
-    updates.metadata = payload.metadata ?? project.metadata ?? {};
+    updates.metadata =
+      payload.metadata && typeof payload.metadata === 'object'
+        ? payload.metadata
+        : payload.metadata == null
+          ? project.metadata ?? {}
+          : project.metadata ?? {};
   }
+
+  const { updates: autoMatchUpdates } = normalizeAutoMatchPayload(ownerId, payload, {
+    mode: 'update',
+    existing: project.get({ plain: true }),
+  });
+
+  Object.assign(updates, autoMatchUpdates);
 
   if (Object.keys(updates).length > 0) {
     await project.update(updates);

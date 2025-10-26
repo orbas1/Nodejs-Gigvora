@@ -83,12 +83,29 @@ describe('MaintenanceScheduleTable', () => {
 
     await user.click(screen.getByRole('button', { name: /new window/i }));
 
+    await screen.findByRole('heading', { name: /new window/i });
+
     await user.type(screen.getByLabelText('Title'), 'Database upgrade');
-    await user.type(screen.getByLabelText('Owner'), 'Platform');
-    await user.type(screen.getByLabelText('Impact'), 'Database');
-    await user.type(screen.getByLabelText(/Notify before/i), '90');
-    await user.type(screen.getByLabelText('Start'), '2024-06-01T10:00');
-    await user.type(screen.getByLabelText('End'), '2024-06-01T12:00');
+
+    const ownerInput = screen.getByLabelText('Owner');
+    await user.clear(ownerInput);
+    await user.type(ownerInput, 'Platform');
+
+    const impactInput = screen.getByLabelText('Impact');
+    await user.clear(impactInput);
+    await user.type(impactInput, 'Database');
+
+    const notifyInput = screen.getByLabelText(/Notify before/i);
+    await user.clear(notifyInput);
+    await user.type(notifyInput, '90');
+
+    const startInput = screen.getByLabelText('Start');
+    await user.clear(startInput);
+    await user.type(startInput, '2024-06-01T10:00');
+
+    const endInput = screen.getByLabelText('End');
+    await user.clear(endInput);
+    await user.type(endInput, '2024-06-01T12:00');
     await user.selectOptions(screen.getByLabelText('Channels'), ['email', 'sms']);
     await user.type(screen.getByLabelText('Rollback plan'), 'Rollback via snapshot');
 
@@ -104,7 +121,7 @@ describe('MaintenanceScheduleTable', () => {
     });
 
     await waitFor(() => {
-      expect(screen.queryByText('New window')).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: /new window/i })).not.toBeInTheDocument();
     });
   });
 
@@ -159,5 +176,36 @@ describe('MaintenanceStatusCard', () => {
     await user.click(toggle);
 
     expect(onToggle).toHaveBeenCalledWith({ enabled: true });
+  });
+
+  it('renders feedback analytics when provided', () => {
+    render(
+      <MaintenanceStatusCard
+        status={{
+          enabled: true,
+          message: 'Maintenance active',
+          feedback: {
+            experienceScore: 4.7,
+            trendDelta: 0.4,
+            queueDepth: 6,
+            medianResponseMinutes: 2,
+            lastUpdated: '2024-05-11T22:40:00.000Z',
+            segments: [{ id: 'ops', label: 'Operations', score: 4.7, delta: 0.2 }],
+            highlights: [
+              {
+                id: 'ops-lead',
+                persona: 'Ops Lead',
+                quote: 'Updates are clear and timely.',
+                sentiment: 'Positive',
+                recordedAt: '2024-05-11T22:35:00.000Z',
+              },
+            ],
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByText(/Experience pulse/i)).toBeInTheDocument();
+    expect(screen.getByText('Ops Lead')).toBeInTheDocument();
   });
 });

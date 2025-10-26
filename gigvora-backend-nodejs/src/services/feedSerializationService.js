@@ -152,7 +152,8 @@ function serialiseComment(instance, replyMap = new Map()) {
   const authorUser = raw?.author || raw?.User || raw?.user || null;
   const profile = authorUser?.Profile || authorUser?.profile || null;
   const authorSnapshot = resolveAuthorSnapshot(authorUser, profile, 'Gigvora member');
-  const repliesSource = replyMap instanceof Map ? replyMap.get(raw?.id) ?? [] : raw?.replies ?? [];
+  const mapReplies = replyMap instanceof Map ? replyMap.get(raw?.id) : undefined;
+  const repliesSource = Array.isArray(mapReplies) && mapReplies.length ? mapReplies : raw?.replies ?? [];
   const replies = repliesSource.map((reply) => serialiseComment(reply, replyMap));
   const userPayload = authorUser
     ? {
@@ -171,6 +172,20 @@ function serialiseComment(instance, replyMap = new Map()) {
       }
     : null;
 
+  const metadata = raw?.metadata && typeof raw.metadata === 'object' ? { ...raw.metadata } : null;
+  const metadataFlags = metadata ?? {};
+  const pinned = Boolean(metadataFlags.isPinned ?? metadataFlags.pinned ?? raw?.isPinned);
+  const official = Boolean(metadataFlags.isOfficial ?? metadataFlags.official ?? raw?.isOfficial);
+  const insightTags = Array.isArray(raw?.insightTags)
+    ? raw.insightTags
+    : Array.isArray(metadataFlags.insightTags)
+    ? metadataFlags.insightTags
+    : [];
+  const guidance = typeof (raw?.guidance ?? metadataFlags.guidance) === 'string'
+    ? (raw?.guidance ?? metadataFlags.guidance)
+    : null;
+  const language = metadataFlags.language || raw?.language || null;
+
   return {
     id: raw?.id,
     postId: raw?.postId,
@@ -186,6 +201,12 @@ function serialiseComment(instance, replyMap = new Map()) {
     replies,
     User: userPayload,
     user: userPayload,
+    metadata,
+    isPinned: pinned,
+    isOfficial: official,
+    insightTags,
+    guidance,
+    language,
   };
 }
 

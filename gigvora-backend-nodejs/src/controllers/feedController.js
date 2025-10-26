@@ -38,6 +38,7 @@ const MAX_PAGE_SIZE = 50;
 const DEFAULT_COMMENT_LIMIT = 20;
 const MAX_COMMENT_LIMIT = 100;
 const SUGGESTION_LIMIT = 6;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 
 function resolveRole(req) {
   const candidate =
@@ -54,6 +55,49 @@ function resolveRole(req) {
 
 function hasOwn(object, key) {
   return Object.prototype.hasOwnProperty.call(object ?? {}, key);
+}
+
+function sanitiseNotifyList(value) {
+  if (value == null) {
+    return [];
+  }
+  const source = Array.isArray(value) ? value : String(value).split(/[,;\n\s]+/);
+  const unique = new Set();
+  const emails = [];
+  for (const entry of source) {
+    const trimmed = String(entry ?? '')
+      .trim()
+      .toLowerCase();
+    if (!trimmed) {
+      continue;
+    }
+    if (!EMAIL_PATTERN.test(trimmed)) {
+      throw new ValidationError(`Invalid notification email provided: ${entry}`);
+    }
+    if (!unique.has(trimmed)) {
+      unique.add(trimmed);
+      emails.push(trimmed);
+    }
+    if (emails.length >= 15) {
+      break;
+    }
+  }
+  return emails;
+}
+
+function sanitiseScheduleTimestamp(value) {
+  if (!value) {
+    return null;
+  }
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new ValidationError('Provide a valid schedule timestamp.');
+  }
+  const now = Date.now();
+  if (date.getTime() < now + 60000) {
+    throw new ValidationError('Scheduled shares should be at least one minute in the future.');
+  }
+  return date.toISOString();
 }
 
 async function resolveUserSnapshot(userId) {
@@ -679,7 +723,11 @@ export async function sharePost(req, res) {
     throw new ValidationError('Feed post not found.');
   }
 
-  const { audience, channel, message, link } = req.body ?? {};
+  const { audience, channel, message, link, scheduledFor: requestedSchedule, notifyList: notifyListPayload } =
+    req.body ?? {};
+  const rawComplianceAcknowledged = hasOwn(req.body, 'complianceAcknowledged')
+    ? req.body.complianceAcknowledged
+    : null;
   const normalisedAudience = (audience ?? 'internal').toString().toLowerCase().trim();
   if (!ALLOWED_SHARE_AUDIENCES.has(normalisedAudience)) {
     throw new ValidationError('Unsupported share audience provided.');
@@ -696,6 +744,19 @@ export async function sharePost(req, res) {
   }
 
   const sanitisedLink = sanitizeUrl(link);
+  const complianceAcknowledged =
+    normalisedAudience === 'external'
+      ? Boolean(rawComplianceAcknowledged)
+      : rawComplianceAcknowledged == null
+      ? true
+      : Boolean(rawComplianceAcknowledged);
+  if (normalisedAudience === 'external' && !complianceAcknowledged) {
+    throw new ValidationError('Compliance acknowledgement is required for external shares.');
+  }
+  const scheduledForIso = hasOwn(req.body ?? {}, 'scheduledFor')
+    ? sanitiseScheduleTimestamp(requestedSchedule)
+    : null;
+  const notifyList = sanitiseNotifyList(notifyListPayload);
   const snapshot = await resolveUserSnapshot(actor.id);
   const metadata = {
     actor: {
@@ -707,6 +768,11 @@ export async function sharePost(req, res) {
       audience: normalisedAudience,
       channel: normalisedChannel,
       recordedAt: new Date().toISOString(),
+      acknowledged: complianceAcknowledged,
+    },
+    distribution: {
+      scheduledFor: scheduledForIso,
+      notifyList,
     },
   };
 
@@ -718,6 +784,9 @@ export async function sharePost(req, res) {
     message: sanitisedMessage.trim(),
     link: sanitisedLink,
     metadata,
+    scheduledFor: scheduledForIso ? new Date(scheduledForIso) : null,
+    notifyList: notifyList.length ? notifyList : null,
+    complianceAcknowledged,
   });
 
   const shareCount = await FeedShare.count({ where: { postId: numericId } });
@@ -732,6 +801,9 @@ export async function sharePost(req, res) {
       channel: record.channel,
       message: record.message,
       link: record.link,
+      scheduledFor: record.scheduledFor ? record.scheduledFor.toISOString?.() ?? record.scheduledFor : null,
+      notifyList: Array.isArray(record.notifyList) ? record.notifyList : null,
+      complianceAcknowledged: Boolean(record.complianceAcknowledged),
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
     },

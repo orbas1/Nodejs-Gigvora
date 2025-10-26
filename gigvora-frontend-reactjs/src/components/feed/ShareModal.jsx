@@ -1,13 +1,16 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import {
+  BellAlertIcon,
   CheckCircleIcon,
   ClipboardDocumentIcon,
+  ClockIcon,
   EnvelopeIcon,
   ExclamationTriangleIcon,
   GlobeAltIcon,
   LinkIcon,
   LockClosedIcon,
+  ShieldCheckIcon,
   UsersIcon,
 } from '@heroicons/react/24/outline';
 import { Dialog, Transition } from '@headlessui/react';
@@ -62,6 +65,32 @@ function buildShareLink(post) {
   return `${base}/feed/${encodeURIComponent(post?.id ?? 'post')}`;
 }
 
+function normaliseNotifyList(value) {
+  if (!value) {
+    return [];
+  }
+  const source = Array.isArray(value) ? value : String(value).split(/[,;\n\s]+/);
+  const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
+  const unique = new Set();
+  const valid = [];
+  source.forEach((entry) => {
+    const trimmed = String(entry || '')
+      .trim()
+      .toLowerCase();
+    if (!trimmed) {
+      return;
+    }
+    if (!EMAIL_PATTERN.test(trimmed)) {
+      throw new Error(`Invalid email: ${entry}`);
+    }
+    if (!unique.has(trimmed)) {
+      unique.add(trimmed);
+      valid.push(trimmed);
+    }
+  });
+  return valid.slice(0, 15);
+}
+
 export default function ShareModal({ open, onClose, post, viewer, onComplete }) {
   const [audience, setAudience] = useState('internal');
   const [channel, setChannel] = useState('copy');
@@ -69,6 +98,10 @@ export default function ShareModal({ open, onClose, post, viewer, onComplete }) 
   const [copied, setCopied] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const [scheduleEnabled, setScheduleEnabled] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState('');
+  const [notifyListInput, setNotifyListInput] = useState('');
+  const [complianceAcknowledged, setComplianceAcknowledged] = useState(true);
   const link = useMemo(() => buildShareLink(post), [post]);
   const sharePreview = useMemo(() => {
     if (!post) {
@@ -90,6 +123,10 @@ export default function ShareModal({ open, onClose, post, viewer, onComplete }) 
       setCopied(false);
       setError(null);
       setSubmitting(false);
+      setScheduleEnabled(false);
+      setScheduledAt('');
+      setNotifyListInput('');
+      setComplianceAcknowledged(true);
     } else if (post) {
       const baseMessage = `Sharing: ${post.title || post.summary || post.content?.slice(0, 80) || 'New update'}\n\nWhy it matters: `;
       setMessage(baseMessage);
@@ -99,6 +136,10 @@ export default function ShareModal({ open, onClose, post, viewer, onComplete }) 
       analytics.track('web_feed_share_modal_open', { postId: post.id }, { source: 'web_app' });
     }
   }, [open, post]);
+
+  useEffect(() => {
+    setComplianceAcknowledged(audience !== 'external');
+  }, [audience]);
 
   const handleCopyLink = async () => {
     try {
@@ -127,6 +168,37 @@ export default function ShareModal({ open, onClose, post, viewer, onComplete }) 
       return;
     }
 
+    if (audience === 'external' && !complianceAcknowledged) {
+      setError('Confirm you have reviewed compliance guidance before sharing externally.');
+      return;
+    }
+
+    let notifyList = [];
+    try {
+      notifyList = normaliseNotifyList(notifyListInput);
+    } catch (listError) {
+      setError(listError.message);
+      return;
+    }
+
+    let scheduledFor = null;
+    if (scheduleEnabled) {
+      if (!scheduledAt) {
+        setError('Choose a time to schedule this share.');
+        return;
+      }
+      const parsed = new Date(scheduledAt);
+      if (Number.isNaN(parsed.getTime())) {
+        setError('Provide a valid date and time for the scheduled share.');
+        return;
+      }
+      if (parsed.getTime() < Date.now() + 60000) {
+        setError('Scheduled shares should be at least one minute in the future.');
+        return;
+      }
+      scheduledFor = parsed.toISOString();
+    }
+
     setSubmitting(true);
     setError(null);
 
@@ -135,6 +207,9 @@ export default function ShareModal({ open, onClose, post, viewer, onComplete }) 
       channel,
       message: trimmedMessage,
       link,
+      scheduledFor,
+      notifyList,
+      complianceAcknowledged,
     };
 
     try {
@@ -168,6 +243,8 @@ export default function ShareModal({ open, onClose, post, viewer, onComplete }) 
         postId: post.id,
         share: response?.share ?? null,
         shareCount: response?.metrics?.shares,
+        scheduledFor,
+        notifyList,
       });
       onClose?.();
     } catch (shareError) {
@@ -313,6 +390,62 @@ export default function ShareModal({ open, onClose, post, viewer, onComplete }) 
                         {message.length} characters · Include next steps or key intros
                       </p>
                     </section>
+
+                    <section>
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Distribution controls</h3>
+                      <div className="mt-3 space-y-3">
+                        <label className="flex items-center gap-3 text-sm text-slate-600">
+                          <span
+                            className={`inline-flex h-9 w-9 items-center justify-center rounded-full ${
+                              scheduleEnabled ? 'bg-accent text-white' : 'bg-slate-100 text-slate-500'
+                            }`}
+                          >
+                            <ClockIcon className="h-5 w-5" />
+                          </span>
+                          <span className="flex-1">
+                            <span className="flex items-center gap-2 font-semibold text-slate-700">
+                              Schedule this share
+                              <input
+                                type="checkbox"
+                                checked={scheduleEnabled}
+                                onChange={(event) => {
+                                  const next = event.target.checked;
+                                  setScheduleEnabled(next);
+                                  analytics.track(
+                                    'web_feed_share_schedule_toggle',
+                                    { postId: post?.id, enabled: next },
+                                    { source: 'web_app' },
+                                  );
+                                }}
+                                className="h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent"
+                              />
+                            </span>
+                            <span className="text-xs text-slate-500">Coordinate with launch windows or embargoes.</span>
+                          </span>
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={scheduledAt}
+                          onChange={(event) => setScheduledAt(event.target.value)}
+                          disabled={!scheduleEnabled}
+                          className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-inner focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:bg-slate-50"
+                        />
+                        <div>
+                          <label htmlFor="share-notify-list" className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                            <BellAlertIcon className="h-5 w-5 text-indigo-500" /> Notify teammates
+                          </label>
+                          <textarea
+                            id="share-notify-list"
+                            value={notifyListInput}
+                            onChange={(event) => setNotifyListInput(event.target.value)}
+                            rows={2}
+                            className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-inner focus:border-accent focus:ring-2 focus:ring-accent/20"
+                            placeholder="Add email addresses separated by commas"
+                          />
+                          <p className="mt-1 text-[0.65rem] text-slate-500">We will route analytics pings to everyone you notify.</p>
+                        </div>
+                      </div>
+                    </section>
                   </div>
 
                   <aside className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50/80 p-4">
@@ -362,6 +495,26 @@ export default function ShareModal({ open, onClose, post, viewer, onComplete }) 
                           : 'Internal shares respect workspace permissions and thread-level privacy controls.'}
                       </p>
                     </div>
+
+                    {selectedAudience.id === 'external' ? (
+                      <label className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-[0.7rem] text-rose-700">
+                        <span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-rose-100 text-rose-600">
+                          <ShieldCheckIcon className="h-4 w-4" />
+                        </span>
+                        <span className="space-y-1">
+                          <span className="block font-semibold uppercase tracking-wide">Compliance acknowledgement</span>
+                          <span>
+                            <input
+                              type="checkbox"
+                              className="mr-2 h-4 w-4 rounded border-rose-300 text-rose-600 focus:ring-rose-500"
+                              checked={complianceAcknowledged}
+                              onChange={(event) => setComplianceAcknowledged(event.target.checked)}
+                            />
+                            I confirm attachments have approvals and sensitive data is redacted.
+                          </span>
+                        </span>
+                      </label>
+                    ) : null}
 
                     <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[0.65rem] text-amber-700">
                       <p className="font-semibold uppercase tracking-wide">Reminder</p>
