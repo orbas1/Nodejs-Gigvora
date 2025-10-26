@@ -222,6 +222,17 @@ function validateAvailability(slots) {
   return sanitised;
 }
 
+function parsePackagePrice(value, index = 0) {
+  const numeric = Number.parseFloat(value ?? 0);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    throw new ValidationError(`Package ${index + 1} price must be greater than 0.`);
+  }
+  if (numeric > MAX_PACKAGE_PRICE) {
+    throw new ValidationError(`Package ${index + 1} price must be between 0 and ${MAX_PACKAGE_PRICE}.`);
+  }
+  return Math.round(numeric * 100) / 100;
+}
+
 function sanitisePackage(pack, index) {
   const name = `${pack.name ?? ''}`.trim();
   if (!name) {
@@ -235,15 +246,12 @@ function sanitisePackage(pack, index) {
   if (!Number.isInteger(sessions) || sessions <= 0) {
     throw new ValidationError(`Package ${index + 1} must include at least one session.`);
   }
-  const price = Number.parseFloat(pack.price ?? 0);
-  if (!Number.isFinite(price) || price <= 0 || price > MAX_PACKAGE_PRICE) {
-    throw new ValidationError(`Package ${index + 1} price must be between 0 and ${MAX_PACKAGE_PRICE}.`);
-  }
+  const price = parsePackagePrice(pack.price, index);
   return {
     name,
     description,
     sessions,
-    price: Math.round(price * 100) / 100,
+    price,
     currency: `${pack.currency ?? 'GBP'}`.trim() || 'GBP',
     format: `${pack.format ?? 'Virtual'}`.trim() || 'Virtual',
     outcome: `${pack.outcome ?? ''}`.trim(),
@@ -2097,6 +2105,13 @@ export async function deleteMentorCreationStudioItem(mentorId, itemId) {
   await deleteCreationStudioItem(itemId);
   return { success: true };
 }
+
+export const __testing = {
+  validateAvailability,
+  sanitiseAvailabilitySlot,
+  parsePackagePrice,
+  sanitisePackage,
+};
 
 export default {
   getMentorDashboard,

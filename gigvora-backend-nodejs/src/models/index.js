@@ -10894,6 +10894,7 @@ export const GroupMembership = sequelize.define(
     userId: { type: DataTypes.INTEGER, allowNull: false },
     groupId: { type: DataTypes.INTEGER, allowNull: false },
     metadata: { type: jsonType, allowNull: true },
+    preferences: { type: jsonType, allowNull: true },
     role: {
       type: DataTypes.STRING(120),
       allowNull: false,
@@ -10960,6 +10961,7 @@ export const GroupPost = sequelize.define(
     summary: { type: DataTypes.STRING(280), allowNull: true },
     content: { type: DataTypes.TEXT, allowNull: false },
     attachments: { type: jsonType, allowNull: true },
+    topicTags: { type: jsonType, allowNull: true },
     status: {
       type: DataTypes.ENUM(...GROUP_POST_STATUSES),
       allowNull: false,
@@ -10974,6 +10976,16 @@ export const GroupPost = sequelize.define(
     },
     scheduledAt: { type: DataTypes.DATE, allowNull: true },
     publishedAt: { type: DataTypes.DATE, allowNull: true },
+    pinnedAt: { type: DataTypes.DATE, allowNull: true },
+    lastActivityAt: { type: DataTypes.DATE, allowNull: true },
+    replyCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    reactionSummary: { type: jsonType, allowNull: true },
+    resolutionState: {
+      type: DataTypes.ENUM('open', 'in_progress', 'resolved'),
+      allowNull: false,
+      defaultValue: 'open',
+      validate: { isIn: [['open', 'in_progress', 'resolved']] },
+    },
     createdById: { type: DataTypes.INTEGER, allowNull: false },
     updatedById: { type: DataTypes.INTEGER, allowNull: true },
     metadata: { type: jsonType, allowNull: true },
@@ -10995,7 +11007,93 @@ GroupPost.addHook('beforeValidate', (post) => {
 GroupPost.addHook('beforeSave', (post) => {
   if (!post) return;
   ensurePublishedTimestamp(post, { statusField: 'status', publishedAtField: 'publishedAt', publishStatuses: ['published'] });
+  if (!post.lastActivityAt) {
+    post.lastActivityAt = post.updatedAt || post.publishedAt || new Date();
+  }
+  if (post.replyCount == null) {
+    post.replyCount = 0;
+  }
+  if (!post.resolutionState) {
+    post.resolutionState = 'open';
+  }
 });
+
+export const GroupEvent = sequelize.define(
+  'GroupEvent',
+  {
+    groupId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(180), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    startAt: { type: DataTypes.DATE, allowNull: false },
+    endAt: { type: DataTypes.DATE, allowNull: true },
+    timezone: { type: DataTypes.STRING(64), allowNull: true },
+    format: { type: DataTypes.STRING(64), allowNull: true },
+    location: { type: DataTypes.STRING(255), allowNull: true },
+    hostName: { type: DataTypes.STRING(160), allowNull: true },
+    hostTitle: { type: DataTypes.STRING(160), allowNull: true },
+    registrationUrl: { type: DataTypes.STRING(500), allowNull: true },
+    isVirtual: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    status: { type: DataTypes.ENUM('draft', 'scheduled', 'completed', 'cancelled'), allowNull: false, defaultValue: 'scheduled' },
+    metadata: { type: jsonType, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  { tableName: 'group_events' },
+);
+
+export const GroupResource = sequelize.define(
+  'GroupResource',
+  {
+    groupId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(200), allowNull: false },
+    summary: { type: DataTypes.TEXT, allowNull: true },
+    url: { type: DataTypes.STRING(1000), allowNull: false },
+    type: { type: DataTypes.STRING(64), allowNull: false },
+    category: { type: DataTypes.STRING(64), allowNull: true },
+    collection: { type: DataTypes.STRING(120), allowNull: true },
+    author: { type: DataTypes.STRING(160), allowNull: true },
+    format: { type: DataTypes.STRING(120), allowNull: true },
+    difficulty: { type: DataTypes.STRING(60), allowNull: true },
+    duration: { type: DataTypes.STRING(60), allowNull: true },
+    previewImageUrl: { type: DataTypes.STRING(500), allowNull: true },
+    isFeatured: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    tags: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    status: { type: DataTypes.ENUM('draft', 'published', 'archived'), allowNull: false, defaultValue: 'published' },
+    viewCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    downloadCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    lastAccessedAt: { type: DataTypes.DATE, allowNull: true },
+    publishedAt: { type: DataTypes.DATE, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    updatedById: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  { tableName: 'group_resources' },
+);
+
+export const GroupGuideline = sequelize.define(
+  'GroupGuideline',
+  {
+    groupId: { type: DataTypes.INTEGER, allowNull: false },
+    content: { type: DataTypes.TEXT, allowNull: false },
+    displayOrder: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    isRequired: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+  },
+  { tableName: 'group_guidelines' },
+);
+
+export const GroupTimelineEvent = sequelize.define(
+  'GroupTimelineEvent',
+  {
+    groupId: { type: DataTypes.INTEGER, allowNull: false },
+    title: { type: DataTypes.STRING(200), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    occursAt: { type: DataTypes.DATE, allowNull: false },
+    category: { type: DataTypes.STRING(80), allowNull: true },
+    visibility: { type: DataTypes.ENUM('internal', 'members', 'public'), allowNull: false, defaultValue: 'members' },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'group_timeline_events' },
+);
 
 export const Page = sequelize.define(
   'Page',
@@ -22367,6 +22465,18 @@ GroupMembership.belongsTo(User, { foreignKey: 'userId', as: 'member' });
 GroupMembership.belongsTo(User, { foreignKey: 'invitedById', as: 'invitedBy' });
 Group.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
 Group.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
+Group.hasMany(GroupEvent, { foreignKey: 'groupId', as: 'events' });
+GroupEvent.belongsTo(Group, { foreignKey: 'groupId', as: 'group' });
+GroupEvent.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+GroupEvent.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
+Group.hasMany(GroupResource, { foreignKey: 'groupId', as: 'resources' });
+GroupResource.belongsTo(Group, { foreignKey: 'groupId', as: 'group' });
+GroupResource.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+GroupResource.belongsTo(User, { foreignKey: 'updatedById', as: 'updatedBy' });
+Group.hasMany(GroupGuideline, { foreignKey: 'groupId', as: 'guidelines' });
+GroupGuideline.belongsTo(Group, { foreignKey: 'groupId', as: 'group' });
+Group.hasMany(GroupTimelineEvent, { foreignKey: 'groupId', as: 'timelineEvents' });
+GroupTimelineEvent.belongsTo(Group, { foreignKey: 'groupId', as: 'group' });
 User.hasMany(GroupMembership, { foreignKey: 'userId', as: 'groupMemberships' });
 
 Group.hasMany(GroupInvite, { foreignKey: 'groupId', as: 'invites' });

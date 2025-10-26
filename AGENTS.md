@@ -3,6 +3,9 @@
     - [x] 6.B.1. GroupLanding.jsx
     - [x] 6.B.2. GroupDiscussionBoard.jsx
     - [x] 6.B.3. ResourceLibrary.jsx
+    - [x] 6.B.a. Backend pipelines & payload hydration
+    - [x] 6.B.b. Schema, migrations & models
+    - [x] 6.B.c. Seed data alignment
    - GroupLanding hero now greets mentors and founders with a layered gradient banner, focus-area chips, and stat tiles benchmarked against LinkedIn and Instagram parity so the first three seconds radiate trust and desirability.
    - Join/leave flows, notification preferences, share/invite quick actions, and event/resource callouts are wired through the landing surface, capturing loading, empty, error, and success states with resilient fallbacks across desktop, tablet, and mobile.
    - Value propositions auto-derive from live analytics and upcoming programming, mapping upstream metrics to downstream outcomes while instrumentation hooks track quick-action engagement funnels.

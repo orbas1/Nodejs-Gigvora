@@ -16,7 +16,7 @@ router.get(
 router.get('/', ...requireManager, asyncHandler(groupController.index));
 router.post('/', ...requireManager, asyncHandler(groupController.create));
 
-router.get('/:groupId', ...requireManager, asyncHandler(groupController.show));
+router.get('/:groupIdOrSlug', authenticateRequest(), asyncHandler(groupController.show));
 router.put('/:groupId', ...requireManager, asyncHandler(groupController.update));
 
 router.post(
@@ -51,11 +51,11 @@ router.delete(
   asyncHandler(groupController.removeMember),
 );
 
-router.post('/:groupId/join', authenticateRequest(), asyncHandler(groupController.join));
-router.delete('/:groupId/leave', authenticateRequest(), asyncHandler(groupController.leave));
-router.patch('/:groupId/membership', authenticateRequest(), asyncHandler(groupController.updateMembership));
+router.post('/:groupIdOrSlug/join', authenticateRequest(), asyncHandler(groupController.join));
+router.delete('/:groupIdOrSlug/leave', authenticateRequest(), asyncHandler(groupController.leave));
+router.patch('/:groupIdOrSlug/membership', authenticateRequest(), asyncHandler(groupController.updateMembership));
 router.post(
-  '/:groupId/memberships/request',
+  '/:groupIdOrSlug/memberships/request',
   authenticateRequest(),
   asyncHandler(groupController.requestMembership),
 );
