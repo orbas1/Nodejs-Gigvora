@@ -642,7 +642,7 @@ export async function searchAcrossOpportunityIndexes(query, params = {}, options
   }
 
   const limit = normaliseLimit(params.limit ?? 5);
-  const aggregated = {};
+  const categories = {};
 
   for (const category of Object.keys(opportunityModels)) {
     const result = await searchOpportunityIndex(
@@ -650,10 +650,19 @@ export async function searchAcrossOpportunityIndexes(query, params = {}, options
       { query: trimmed, page: 1, pageSize: limit },
       options,
     );
-    aggregated[category] = result?.hits ?? [];
+    categories[category] = {
+      hits: result?.hits ?? [],
+      total: result?.total ?? (result?.hits?.length ?? 0),
+      processingTimeMs: result?.processingTimeMs ?? null,
+      query: result?.query ?? trimmed,
+    };
   }
 
-  return aggregated;
+  return {
+    query: trimmed,
+    limit,
+    categories,
+  };
 }
 
 export async function bootstrapOpportunitySearch(options = {}) {

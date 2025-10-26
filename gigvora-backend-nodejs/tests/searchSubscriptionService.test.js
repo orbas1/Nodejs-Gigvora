@@ -2,6 +2,8 @@ import { describe, beforeEach, it, expect, jest } from '@jest/globals';
 import { ValidationError, NotFoundError } from '../src/utils/errors.js';
 
 const modelModuleUrl = new URL('../src/models/index.js', import.meta.url);
+const queueModuleUrl = new URL('../src/services/searchSubscriptionQueue.js', import.meta.url);
+const metricsModuleUrl = new URL('../src/observability/searchMetrics.js', import.meta.url);
 
 const subscriptionStore = new Map();
 let subscriptionId = 1;
@@ -110,6 +112,10 @@ await jest.unstable_mockModule(modelModuleUrl.pathname, () => ({
   SearchSubscription,
 }));
 
+const queueModule = await import(queueModuleUrl.pathname);
+const { resetSearchSubscriptionQueue, drainSearchSubscriptionJobs, getSearchSubscriptionQueueSnapshot } = queueModule;
+const { resetSearchMetrics } = await import(metricsModuleUrl.pathname);
+
 const service = await import('../src/services/searchSubscriptionService.js');
 const { listSubscriptions, createSubscription, updateSubscription, deleteSubscription, runSubscription } = service;
 
@@ -120,6 +126,8 @@ describe('searchSubscriptionService', () => {
 
   beforeEach(() => {
     resetSubscriptionStore();
+    resetSearchSubscriptionQueue();
+    resetSearchMetrics();
     user = {
       id: userCounter++,
       email: `user-${Date.now()}@gigvora.test`,
@@ -189,9 +197,17 @@ describe('searchSubscriptionService', () => {
 
     const run = await runSubscription(created.id, user.id);
 
-    expect(run.lastTriggeredAt).toBeTruthy();
+    expect(run.lastTriggeredAt).toBeNull();
     expect(run.nextRunAt).toBeTruthy();
-    expect(new Date(run.nextRunAt).getTime()).toBeGreaterThanOrEqual(new Date(run.lastTriggeredAt).getTime());
+    expect(run.queue.enqueued).toBe(true);
+    expect(run.queue.jobId).toBeTruthy();
+    expect(run.queue.snapshot.pendingJobs).toBeGreaterThanOrEqual(1);
+
+    const drained = drainSearchSubscriptionJobs({ limit: 5 });
+    expect(drained).toHaveLength(1);
+    expect(drained[0].subscriptionId).toBe(created.id);
+    expect(getSearchSubscriptionQueueSnapshot().pending).toBe(0);
+    expect(new Date(run.nextRunAt).getTime()).toBeGreaterThan(Date.now());
   });
 
   it('validates input payloads', async () => {

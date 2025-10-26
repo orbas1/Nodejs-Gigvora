@@ -28,6 +28,11 @@ import {
   stopPlatformSettingsAuditWorker,
   getPlatformSettingsAuditWorkerStatus,
 } from '../services/platformSettingsAuditWorker.js';
+import {
+  startSearchSubscriptionWorker,
+  stopSearchSubscriptionWorker,
+  getSearchSubscriptionWorkerStatus,
+} from '../services/searchSubscriptionWorker.js';
 
 const workerStops = new Map();
 const workerTelemetry = new Map();
@@ -186,6 +191,37 @@ async function startPlatformSettingsAudit(logger) {
   }
 }
 
+async function startSearchSubscriptions(logger) {
+  const config = runtimeConfig?.workers?.searchSubscriptions ?? {};
+  if (runtimeConfig?.workers?.autoStart === false || config.enabled === false) {
+    markWorkerStopped('searchSubscriptions', { disabled: true });
+    registerWorkerTelemetry('searchSubscriptions', { sampler: null });
+    workerStops.delete('searchSubscriptions');
+    return { started: false, reason: 'disabled' };
+  }
+
+  try {
+    const intervalMs = config.intervalMs ?? 60_000;
+    const result = startSearchSubscriptionWorker({ logger, intervalMs });
+    registerWorkerStop('searchSubscriptions', async () => {
+      await stopSearchSubscriptionWorker({ logger });
+      markWorkerStopped('searchSubscriptions');
+    });
+    registerWorkerTelemetry('searchSubscriptions', {
+      sampler: () => getSearchSubscriptionWorkerStatus(),
+      ttlMs: 15_000,
+      metadata: { intervalMs: result.intervalMs ?? intervalMs },
+    });
+    markWorkerHealthy('searchSubscriptions', { intervalMs: result.intervalMs ?? intervalMs });
+    return { started: true, intervalMs: result.intervalMs ?? intervalMs };
+  } catch (error) {
+    toLogger(logger).error?.({ err: error }, 'Failed to start search subscription worker');
+    markWorkerFailed('searchSubscriptions', error);
+    registerWorkerTelemetry('searchSubscriptions', { sampler: null });
+    throw error;
+  }
+}
+
 export async function startBackgroundWorkers({ logger } = {}) {
   const log = toLogger(logger);
   const results = [];
@@ -198,6 +234,8 @@ export async function startBackgroundWorkers({ logger } = {}) {
     results.push({ name: 'newsAggregation', ...newsResult });
     const auditResult = await startPlatformSettingsAudit(log);
     results.push({ name: 'platformSettingsAudit', ...auditResult });
+    const searchResult = await startSearchSubscriptions(log);
+    results.push({ name: 'searchSubscriptions', ...searchResult });
     return results;
   } catch (error) {
     log.error?.({ err: error }, 'Background worker initialisation failed, stopping partially started workers');

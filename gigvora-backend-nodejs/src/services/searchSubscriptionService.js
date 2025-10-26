@@ -1,5 +1,7 @@
 import { SearchSubscription, DIGEST_FREQUENCIES } from '../models/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
+import { enqueueSearchSubscriptionJob, getSearchSubscriptionQueueSnapshot } from './searchSubscriptionQueue.js';
+import { recordSearchEnqueue } from '../observability/searchMetrics.js';
 
 const ALLOWED_FILTER_KEYS = [
   'employmentTypes',
@@ -136,6 +138,16 @@ export function getNextRunTimestamp(frequency) {
   return computeNextRunAt(frequency);
 }
 
+function serialiseQueueMetadata() {
+  const snapshot = getSearchSubscriptionQueueSnapshot();
+  return {
+    pendingJobs: snapshot.pending,
+    maxSize: snapshot.maxSize,
+    oldestJobAt: snapshot.oldestEnqueuedAt,
+    newestJobAt: snapshot.newestEnqueuedAt,
+  };
+}
+
 export async function listSubscriptions(userId) {
   const subscriptions = await SearchSubscription.findAll({
     where: { userId },
@@ -256,12 +268,31 @@ export async function runSubscription(id, userId) {
   }
 
   const frequency = subscription.frequency ?? 'daily';
-  const lastTriggeredAt = new Date();
+  const enqueued = enqueueSearchSubscriptionJob({
+    subscriptionId: subscription.id,
+    userId: subscription.userId,
+    reason: 'manual_run',
+    priority: 10,
+  });
+
   const nextRunAt = computeNextRunAt(frequency);
 
-  await subscription.update({ lastTriggeredAt, nextRunAt });
+  await subscription.update({ nextRunAt });
 
-  return subscription.toPublicObject();
+  recordSearchEnqueue({
+    surface: 'subscription_manual',
+    category: subscription.category,
+    userId: subscription.userId,
+  });
+
+  return {
+    ...subscription.toPublicObject(),
+    queue: {
+      enqueued: enqueued.queued,
+      jobId: enqueued.job.id,
+      snapshot: serialiseQueueMetadata(),
+    },
+  };
 }
 
 export default {

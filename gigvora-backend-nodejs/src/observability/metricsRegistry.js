@@ -23,6 +23,34 @@ function ensureInitialized() {
   initialized = true;
 }
 
+export function getMetricsRegistry() {
+  ensureInitialized();
+  return registry;
+}
+
+export function registerMetric(metric) {
+  ensureInitialized();
+  return metric;
+}
+
+export function updateSearchMetricsStatus({
+  surface = null,
+  category = null,
+  durationMs = null,
+  resultCount = null,
+  queueEnqueued = false,
+} = {}) {
+  metricsStatusCache.search.totalRequests += 1;
+  metricsStatusCache.search.lastSurface = surface ?? metricsStatusCache.search.lastSurface;
+  metricsStatusCache.search.lastCategory = category ?? metricsStatusCache.search.lastCategory;
+  metricsStatusCache.search.lastDurationMs = durationMs ?? metricsStatusCache.search.lastDurationMs;
+  metricsStatusCache.search.lastResultCount = resultCount ?? metricsStatusCache.search.lastResultCount;
+  if (queueEnqueued) {
+    metricsStatusCache.search.queueEnqueued += 1;
+  }
+  metricsStatusCache.search.lastUpdatedAt = new Date().toISOString();
+}
+
 function createCounter(name, help, options = {}) {
   return new Counter({ name: `${METRICS_PREFIX}${name}`, help, registers: [registry], ...options });
 }
@@ -163,6 +191,15 @@ const metricsStatusCache = {
     totalBlocked: 0,
     activeOrigins: 0,
     lastBlockedAt: null,
+  },
+  search: {
+    totalRequests: 0,
+    lastSurface: null,
+    lastCategory: null,
+    lastDurationMs: null,
+    lastResultCount: null,
+    queueEnqueued: 0,
+    lastUpdatedAt: null,
   },
   database: {
     vendor: null,
@@ -452,6 +489,15 @@ export function resetMetricsForTesting() {
     totalBlocked: 0,
     activeOrigins: 0,
     lastBlockedAt: null,
+  };
+  metricsStatusCache.search = {
+    totalRequests: 0,
+    lastSurface: null,
+    lastCategory: null,
+    lastDurationMs: null,
+    lastResultCount: null,
+    queueEnqueued: 0,
+    lastUpdatedAt: null,
   };
   metricsStatusCache.database = {
     vendor: null,

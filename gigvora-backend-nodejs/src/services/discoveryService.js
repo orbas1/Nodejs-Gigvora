@@ -586,6 +586,7 @@ async function listOpportunities(category, { page, pageSize, query, filters, sor
 
   if (searchResult) {
     const totalPages = Math.max(1, Math.ceil(searchResult.total / safeSize));
+    const hasMore = safePage < totalPages;
     const items = annotateWithScores(
       searchResult.hits.map((hit) => toOpportunityDto(hit, category)),
       { query: searchQuery, filters: normalisedFilters, viewport: normalisedViewport, category },
@@ -605,6 +606,17 @@ async function listOpportunities(category, { page, pageSize, query, filters, sor
       },
       appliedFilters: normalisedFilters,
       viewport: normalisedViewport,
+      meta: {
+        query: searchQuery,
+        page: safePage,
+        pageSize: safeSize,
+        total: searchResult.total,
+        totalPages,
+        hasMore,
+        processingTimeMs: searchResult.processingTimeMs ?? null,
+        source: 'internal_search',
+        fetchedAt: new Date().toISOString(),
+      },
     };
   }
 
@@ -679,16 +691,30 @@ async function listOpportunities(category, { page, pageSize, query, filters, sor
     { query: searchQuery, filters: normalisedFilters, viewport: normalisedViewport, category },
   );
 
+  const totalPages = Math.ceil(count / safeSize) || 1;
+  const hasMore = offset + rows.length < count;
+
   return {
     items,
     total: count,
     page: safePage,
     pageSize: safeSize,
-    totalPages: Math.ceil(count / safeSize) || 1,
+    totalPages,
     facets: null,
     metrics: { source: 'database' },
     appliedFilters: normalisedFilters,
     viewport: normalisedViewport,
+    meta: {
+      query: searchQuery,
+      page: safePage,
+      pageSize: safeSize,
+      total: count,
+      totalPages,
+      hasMore,
+      processingTimeMs: null,
+      source: 'database',
+      fetchedAt: new Date().toISOString(),
+    },
   };
 }
 
@@ -918,29 +944,59 @@ export async function searchOpportunitiesAcrossCategories(query, { limit } = {})
   const searchHits = await searchAcrossOpportunityIndexes(trimmed, { limit: safeLimit });
 
   if (searchHits) {
+    const categories = searchHits.categories ?? {};
+    const analytics = {};
+
+    const mapCategory = (key) => {
+      const entry = categories[key] ?? { hits: [] };
+      const items = annotateWithScores(
+        (entry.hits ?? []).map((hit) => toOpportunityDto(hit, key)),
+        { query: trimmed, filters: {}, category: key },
+      );
+      analytics[key] = {
+        total: entry.total ?? items.length,
+        processingTimeMs: entry.processingTimeMs ?? null,
+        source: 'internal_search',
+      };
+      return items;
+    };
+
+    const jobs = mapCategory('job');
+    const gigs = mapCategory('gig');
+    const projects = mapCategory('project');
+    const launchpads = mapCategory('launchpad');
+    const volunteering = mapCategory('volunteering');
+
     const mentors = await listMentors({ page: 1, pageSize: safeLimit, query: trimmed });
+    analytics.mentors = {
+      total: mentors.total ?? mentors.items.length,
+      processingTimeMs: mentors.metrics?.processingTimeMs ?? null,
+      source: mentors.metrics?.source ?? 'directory',
+    };
+
     return {
-      jobs: annotateWithScores(
-        (searchHits.job ?? []).map((hit) => toOpportunityDto(hit, 'job')),
-        { query: trimmed, filters: {}, category: 'job' },
-      ),
-      gigs: annotateWithScores(
-        (searchHits.gig ?? []).map((hit) => toOpportunityDto(hit, 'gig')),
-        { query: trimmed, filters: {}, category: 'gig' },
-      ),
-      projects: annotateWithScores(
-        (searchHits.project ?? []).map((hit) => toOpportunityDto(hit, 'project')),
-        { query: trimmed, filters: {}, category: 'project' },
-      ),
-      launchpads: annotateWithScores(
-        (searchHits.launchpad ?? []).map((hit) => toOpportunityDto(hit, 'launchpad')),
-        { query: trimmed, filters: {}, category: 'launchpad' },
-      ),
-      volunteering: annotateWithScores(
-        (searchHits.volunteering ?? []).map((hit) => toOpportunityDto(hit, 'volunteering')),
-        { query: trimmed, filters: {}, category: 'volunteering' },
-      ),
+      jobs,
+      gigs,
+      projects,
+      launchpads,
+      volunteering,
       mentors: mentors.items,
+      analytics: {
+        query: searchHits.query ?? trimmed,
+        limit: searchHits.limit ?? safeLimit,
+        surfaces: analytics,
+        fetchedAt: new Date().toISOString(),
+      },
+      meta: {
+        query: searchHits.query ?? trimmed,
+        limit: searchHits.limit ?? safeLimit,
+        processingTimeMs: Math.max(
+          0,
+          ...Object.values(analytics)
+            .map((entry) => entry.processingTimeMs ?? 0)
+            .filter((value) => Number.isFinite(value)),
+        ),
+      },
     };
   }
 
@@ -953,6 +1009,15 @@ export async function searchOpportunitiesAcrossCategories(query, { limit } = {})
     listMentors({ page: 1, pageSize: safeLimit, query: trimmed }),
   ]);
 
+  const analytics = {
+    job: { total: jobs.items.length, source: 'database', processingTimeMs: null },
+    gig: { total: gigs.items.length, source: 'database', processingTimeMs: null },
+    project: { total: projects.items.length, source: 'database', processingTimeMs: null },
+    launchpad: { total: launchpads.items.length, source: 'database', processingTimeMs: null },
+    volunteering: { total: volunteering.items.length, source: 'database', processingTimeMs: null },
+    mentors: { total: mentors.items.length, source: mentors.metrics?.source ?? 'directory', processingTimeMs: null },
+  };
+
   return {
     jobs: jobs.items,
     gigs: gigs.items,
@@ -960,6 +1025,17 @@ export async function searchOpportunitiesAcrossCategories(query, { limit } = {})
     launchpads: launchpads.items,
     volunteering: volunteering.items,
     mentors: mentors.items,
+    analytics: {
+      query: trimmed,
+      limit: safeLimit,
+      surfaces: analytics,
+      fetchedAt: new Date().toISOString(),
+    },
+    meta: {
+      query: trimmed,
+      limit: safeLimit,
+      processingTimeMs: 0,
+    },
   };
 }
 
