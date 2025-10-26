@@ -157,10 +157,6 @@ export default function QuickCreateFab({
     }
   }, [isOpen]);
 
-  useEffect(() => {
-    actionRefs.current = [];
-  }, [resolvedActions]);
-
   const navigate = useCallback(
     (targetHref, action) => {
       if (!targetHref) {
