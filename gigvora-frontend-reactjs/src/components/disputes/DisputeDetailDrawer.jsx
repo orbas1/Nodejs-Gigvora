@@ -5,11 +5,20 @@ import {
   ArrowTopRightOnSquareIcon,
   DocumentArrowDownIcon,
   PaperClipIcon,
+  ShieldCheckIcon,
+  SparklesIcon,
 } from '@heroicons/react/24/outline';
 
 const DEFAULT_STAGE_OPTIONS = ['intake', 'mediation', 'arbitration', 'resolved'];
 const DEFAULT_STATUS_OPTIONS = ['open', 'awaiting_customer', 'under_review', 'settled', 'closed'];
 const DEFAULT_PRIORITY_OPTIONS = ['urgent', 'high', 'medium', 'low'];
+
+const TRUST_BADGE_TONES = {
+  platinum: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
+  gold: 'bg-blue-100 text-blue-700 border border-blue-200',
+  silver: 'bg-slate-100 text-slate-600 border border-slate-200',
+  monitored: 'bg-amber-100 text-amber-700 border border-amber-200',
+};
 
 function formatDateInput(value) {
   if (!value) {
@@ -27,6 +36,39 @@ function humanize(value) {
     return '';
   }
   return value.replace(/_/g, ' ');
+}
+
+function toNumber(value) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function formatRelativeTime(value) {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  const diffMs = date.getTime() - Date.now();
+  const absMs = Math.abs(diffMs);
+  const units = [
+    { unit: 'day', ms: 86_400_000 },
+    { unit: 'hour', ms: 3_600_000 },
+    { unit: 'minute', ms: 60_000 },
+  ];
+  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+  for (const { unit, ms } of units) {
+    if (absMs >= ms || unit === 'minute') {
+      const valueRounded = Math.round(diffMs / ms);
+      return formatter.format(valueRounded, unit);
+    }
+  }
+  return null;
 }
 
 async function fileToBase64(file) {
@@ -106,6 +148,110 @@ export default function DisputeDetailDrawer({
     () => normalizeOptionList(metadata?.priorities, DEFAULT_PRIORITY_OPTIONS),
     [metadata?.priorities],
   );
+
+  const trustSummary = useMemo(() => {
+    if (!dispute) {
+      return {
+        hasData: false,
+        scorePercent: null,
+        scoreDisplay: null,
+        levelDisplay: null,
+        badgeClass: TRUST_BADGE_TONES.silver,
+        subtitle: null,
+        highlights: [],
+        lastReviewedRelative: null,
+        lastReviewedAbsolute: null,
+      };
+    }
+
+    const trust = dispute.trust ?? {};
+    const signals = Array.isArray(trust.signals)
+      ? trust.signals
+      : Array.isArray(dispute.trustSignals)
+      ? dispute.trustSignals
+      : [];
+    const insights = Array.isArray(dispute.trustInsights)
+      ? dispute.trustInsights
+      : Array.isArray(trust.insights)
+      ? trust.insights
+      : [];
+    const flags = Array.isArray(trust.flags) ? trust.flags : [];
+
+    const scoreValue =
+      toNumber(trust.score) ??
+      toNumber(dispute.trustScore) ??
+      toNumber(trust.confidence) ??
+      toNumber(dispute.confidenceScore) ??
+      toNumber(dispute.transaction?.trustScore);
+
+    const scorePercent = scoreValue != null ? Math.max(0, Math.min(100, Math.round(scoreValue))) : null;
+    const rawLevel =
+      trust.level ??
+      trust.label ??
+      dispute.trustLabel ??
+      dispute.trustTier ??
+      (scorePercent != null
+        ? scorePercent >= 90
+          ? 'platinum'
+          : scorePercent >= 75
+          ? 'gold'
+          : scorePercent >= 55
+          ? 'silver'
+          : 'monitored'
+        : null);
+
+    const normalizedLevel = typeof rawLevel === 'string' ? rawLevel.toLowerCase() : null;
+    const badgeClass =
+      (normalizedLevel && TRUST_BADGE_TONES[normalizedLevel]) ||
+      (scorePercent != null && scorePercent >= 75
+        ? TRUST_BADGE_TONES.gold
+        : scorePercent != null && scorePercent < 55
+        ? TRUST_BADGE_TONES.monitored
+        : TRUST_BADGE_TONES.silver);
+
+    const levelDisplay = normalizedLevel
+      ? `${normalizedLevel.charAt(0).toUpperCase()}${normalizedLevel.slice(1)} trust`
+      : scorePercent != null
+      ? `Trust ${scorePercent}%`
+      : null;
+
+    const subtitle =
+      trust.subtitle ??
+      trust.description ??
+      (scorePercent != null ? `Confidence index ${scorePercent} / 100` : null);
+
+    const highlights = [...new Set([...signals, ...insights, ...flags].filter(Boolean))];
+
+    const lastReviewedRaw =
+      trust.reviewedAt ??
+      trust.updatedAt ??
+      dispute.trustReviewedAt ??
+      dispute.verifiedAt ??
+      dispute.updatedAt ??
+      null;
+    const lastReviewedRelative = formatRelativeTime(lastReviewedRaw);
+    const lastReviewedDate = lastReviewedRaw ? new Date(lastReviewedRaw) : null;
+    const lastReviewedAbsolute =
+      lastReviewedDate && !Number.isNaN(lastReviewedDate.getTime())
+        ? lastReviewedDate.toLocaleString()
+        : null;
+
+    return {
+      hasData:
+        (Array.isArray(highlights) && highlights.length > 0) ||
+        scorePercent != null ||
+        Boolean(levelDisplay) ||
+        Boolean(subtitle),
+      scorePercent,
+      scoreLabel: scorePercent != null ? `${scorePercent}%` : null,
+      levelDisplay,
+      badgeClass,
+      subtitle,
+      highlights,
+      lastReviewedRelative,
+      lastReviewedAbsolute,
+    };
+  }, [dispute]);
 
   useEffect(() => {
     if (dispute) {
@@ -287,6 +433,68 @@ export default function DisputeDetailDrawer({
                     : '—'}
                 </p>
               </div>
+            </div>
+            <div className="mt-5 rounded-2xl border border-blue-100 bg-blue-50/60 p-4 shadow-inner">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Trust &amp; confidence</p>
+                  {trustSummary.lastReviewedRelative || trustSummary.lastReviewedAbsolute ? (
+                    <p className="mt-1 text-xs text-blue-900/70">
+                      Last reviewed {trustSummary.lastReviewedRelative ?? trustSummary.lastReviewedAbsolute}
+                      {trustSummary.lastReviewedRelative && trustSummary.lastReviewedAbsolute
+                        ? ` • ${trustSummary.lastReviewedAbsolute}`
+                        : ''}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs text-blue-900/70">
+                      Align case integrity with Escrow Trust telemetry to unlock real-time verifications.
+                    </p>
+                  )}
+                </div>
+                <SparklesIcon className="h-5 w-5 text-blue-500" />
+              </div>
+              {trustSummary.hasData ? (
+                <>
+                  {trustSummary.scorePercent != null ? (
+                    <div className="mt-4">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <p className="text-2xl font-semibold text-blue-900">{trustSummary.scoreLabel}</p>
+                        {trustSummary.levelDisplay ? (
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${trustSummary.badgeClass}`}
+                          >
+                            <ShieldCheckIcon className="h-4 w-4" />
+                            {trustSummary.levelDisplay}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/60">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500 transition-[width]"
+                          style={{ width: `${trustSummary.scorePercent}%` }}
+                        />
+                      </div>
+                      {trustSummary.subtitle ? (
+                        <p className="mt-2 text-xs text-blue-900/70">{trustSummary.subtitle}</p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {trustSummary.highlights.length ? (
+                    <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+                      {trustSummary.highlights.map((highlight) => (
+                        <li key={highlight} className="flex items-start gap-2 text-sm text-blue-900/80">
+                          <ShieldCheckIcon className="mt-0.5 h-4 w-4 text-blue-500" />
+                          <span>{highlight}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </>
+              ) : (
+                <p className="mt-3 text-sm text-blue-900/80">
+                  No trust telemetry captured yet. Link this case to Escrow Trust services to surface verifications automatically.
+                </p>
+              )}
             </div>
           </section>
 

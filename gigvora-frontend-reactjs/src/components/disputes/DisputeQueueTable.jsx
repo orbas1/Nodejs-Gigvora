@@ -1,5 +1,13 @@
 import { useMemo, useState } from 'react';
-import { ArrowTopRightOnSquareIcon, FunnelIcon, PlusIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import {
+  ArrowTopRightOnSquareIcon,
+  BellAlertIcon,
+  ClockIcon,
+  FunnelIcon,
+  PlusIcon,
+  ShieldCheckIcon,
+  XMarkIcon,
+} from '@heroicons/react/24/outline';
 import { Link } from 'react-router-dom';
 
 const STATUS_OPTIONS = [
@@ -67,6 +75,179 @@ const PRIORITY_BADGES = {
   low: 'bg-slate-100 text-slate-600 border border-slate-200',
 };
 
+const DEADLINE_BADGES = {
+  danger: 'bg-rose-100 text-rose-700 border border-rose-200',
+  warning: 'bg-amber-100 text-amber-700 border border-amber-200',
+  neutral: 'bg-slate-100 text-slate-600 border border-slate-200',
+  success: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
+};
+
+const TRUST_BADGES = {
+  platinum: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
+  gold: 'bg-blue-100 text-blue-700 border border-blue-200',
+  silver: 'bg-slate-100 text-slate-600 border border-slate-200',
+  monitored: 'bg-amber-100 text-amber-700 border border-amber-200',
+};
+
+function toNumber(value) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function formatRelativeTime(value) {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  const diffMs = date.getTime() - Date.now();
+  const absMs = Math.abs(diffMs);
+  const units = [
+    { unit: 'day', ms: 86_400_000 },
+    { unit: 'hour', ms: 3_600_000 },
+    { unit: 'minute', ms: 60_000 },
+  ];
+  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+  for (const { unit, ms } of units) {
+    if (absMs >= ms || unit === 'minute') {
+      const valueRounded = Math.round(diffMs / ms);
+      return formatter.format(valueRounded, unit);
+    }
+  }
+  return null;
+}
+
+function resolveDeadline(dispute) {
+  const deadlines = [
+    dispute?.customerDeadlineAt ? { at: dispute.customerDeadlineAt, source: 'Customer deadline' } : null,
+    dispute?.providerDeadlineAt ? { at: dispute.providerDeadlineAt, source: 'Provider deadline' } : null,
+    dispute?.slaDueAt ? { at: dispute.slaDueAt, source: 'SLA breach threshold' } : null,
+  ]
+    .filter(Boolean)
+    .sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+
+  if (!deadlines.length) {
+    return { label: 'No SLA set', tone: 'neutral', source: 'Awaiting schedule', dueAt: null, canRemind: false };
+  }
+
+  const nextDeadline = deadlines[0];
+  const date = new Date(nextDeadline.at);
+  if (Number.isNaN(date.getTime())) {
+    return { label: 'Invalid deadline', tone: 'neutral', source: nextDeadline.source, dueAt: null, canRemind: false };
+  }
+
+  const diff = date.getTime() - Date.now();
+  const relative = formatRelativeTime(date);
+  if (diff < 0) {
+    return {
+      label: relative ? `Overdue ${relative.replace('ago', '').trim()}` : 'Overdue',
+      tone: 'danger',
+      source: nextDeadline.source,
+      dueAt: date,
+      canRemind: true,
+    };
+  }
+  if (diff <= 4 * 3_600_000) {
+    return {
+      label: relative ? `Due ${relative}` : 'Due soon',
+      tone: 'warning',
+      source: nextDeadline.source,
+      dueAt: date,
+      canRemind: true,
+    };
+  }
+  return {
+    label: relative ?? date.toLocaleString(),
+    tone: 'success',
+    source: nextDeadline.source,
+    dueAt: date,
+    canRemind: false,
+  };
+}
+
+function resolveTrust(dispute) {
+  const trust = dispute?.trust ?? {};
+  const trustSignals = Array.isArray(trust.signals)
+    ? trust.signals
+    : Array.isArray(dispute?.trustSignals)
+    ? dispute.trustSignals
+    : [];
+  const trustInsights = Array.isArray(dispute?.trustInsights)
+    ? dispute.trustInsights
+    : Array.isArray(trust?.insights)
+    ? trust.insights
+    : [];
+  const score =
+    toNumber(trust.score) ??
+    toNumber(dispute?.trustScore) ??
+    toNumber(dispute?.confidenceScore) ??
+    toNumber(trust?.confidence) ??
+    toNumber(dispute?.transaction?.trustScore);
+
+  const level =
+    trust.label ??
+    trust.level ??
+    dispute?.trustLabel ??
+    dispute?.trustTier ??
+    (score != null
+      ? score >= 90
+        ? 'platinum'
+        : score >= 75
+        ? 'gold'
+        : score >= 55
+        ? 'silver'
+        : 'monitored'
+      : null);
+
+  const badgeKey = typeof level === 'string' && TRUST_BADGES[level.toLowerCase()] ? level.toLowerCase() : null;
+  const badgeClass = badgeKey ? TRUST_BADGES[badgeKey] : TRUST_BADGES.silver;
+  const label =
+    typeof level === 'string' && badgeKey
+      ? `${level.charAt(0).toUpperCase()}${level.slice(1)} trust`
+      : score != null
+      ? `Trust ${Math.round(score)}%`
+      : null;
+  const subtitle =
+    score != null
+      ? `Confidence index ${Math.round(score)} / 100`
+      : trust.subtitle ?? trust.description ?? trustSignals.at?.(0);
+  const lastReviewed = trust.reviewedAt ?? trust.updatedAt ?? dispute?.trustReviewedAt ?? dispute?.verifiedAt ?? null;
+
+  return {
+    score,
+    label,
+    subtitle,
+    badgeClass,
+    lastReviewed,
+    highlights: [...new Set([...trustSignals, ...trustInsights].filter(Boolean))],
+  };
+}
+
+function formatAssignee(dispute) {
+  const assignee = dispute?.assignedTo;
+  if (assignee?.displayName) {
+    return assignee.displayName;
+  }
+  if (assignee?.name) {
+    return assignee.name;
+  }
+  if (assignee?.email) {
+    return assignee.email;
+  }
+  if (dispute?.assignedToId) {
+    return `User #${dispute.assignedToId}`;
+  }
+  if (dispute?.assignedTeam?.name) {
+    return dispute.assignedTeam.name;
+  }
+  return 'Unassigned';
+}
+
 export default function DisputeQueueTable({
   disputes,
   loading,
@@ -76,6 +257,7 @@ export default function DisputeQueueTable({
   onCreateDispute,
   pagination,
   onRefresh,
+  onRequestReminder,
 }) {
   const [searchValue, setSearchValue] = useState(filters?.search ?? '');
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -100,6 +282,15 @@ export default function DisputeQueueTable({
   const handleSearchSubmit = (event) => {
     event.preventDefault();
     handleFilterChange({ search: searchValue.trim() });
+  };
+
+  const handleReminder = (event, disputeId) => {
+    event.stopPropagation();
+    if (typeof onRequestReminder === 'function') {
+      onRequestReminder(disputeId);
+      return;
+    }
+    onSelectDispute?.(disputeId);
   };
 
   return (
@@ -221,6 +412,8 @@ export default function DisputeQueueTable({
               <th className="px-4 py-3">Stage</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Priority</th>
+              <th className="px-4 py-3">SLA deadline</th>
+              <th className="px-4 py-3">Owner</th>
               <th className="px-4 py-3">Amount on hold</th>
               <th className="px-4 py-3">Updated</th>
             </tr>
@@ -228,12 +421,23 @@ export default function DisputeQueueTable({
           <tbody className="divide-y divide-slate-100">
             {loading ? (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-sm text-slate-500">Loading…</td>
+                <td colSpan={8} className="px-4 py-6 text-center text-sm text-slate-500">Loading…</td>
               </tr>
             ) : disputes.length ? (
               disputes.map((dispute) => {
                 const transaction = dispute.transaction ?? {};
                 const badgeClass = PRIORITY_BADGES[dispute.priority] ?? PRIORITY_BADGES.medium;
+                const deadline = resolveDeadline(dispute);
+                const deadlineBadge = DEADLINE_BADGES[deadline.tone] ?? DEADLINE_BADGES.neutral;
+                const trust = resolveTrust(dispute);
+                const updatedRelative = formatRelativeTime(dispute.updatedAt);
+                const assignee = formatAssignee(dispute);
+                const reviewedRelative = trust.lastReviewed ? formatRelativeTime(trust.lastReviewed) : null;
+                const reviewedAbsolute = trust.lastReviewed ? new Date(trust.lastReviewed) : null;
+                const reviewedAbsoluteLabel =
+                  reviewedAbsolute && !Number.isNaN(reviewedAbsolute.getTime())
+                    ? reviewedAbsolute.toLocaleString()
+                    : null;
                 return (
                   <tr
                     key={dispute.id}
@@ -242,8 +446,28 @@ export default function DisputeQueueTable({
                   >
                     <td className="px-4 py-3">
                       <p className="font-semibold text-slate-900">Case #{dispute.id}</p>
-                      <p className="text-xs text-slate-600">{dispute.reasonCode?.replace(/_/g, ' ')}</p>
-                      <p className="text-xs text-slate-500">{dispute.summary}</p>
+                      <p className="text-xs uppercase tracking-wide text-slate-400">
+                        {dispute.reasonCode?.replace(/_/g, ' ') ?? 'No reason provided'}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">{dispute.summary}</p>
+                      {trust.label ? (
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${trust.badgeClass}`}
+                          >
+                            <ShieldCheckIcon className="h-4 w-4" />
+                            {trust.label}
+                          </span>
+                          {trust.subtitle ? (
+                            <span className="text-xs font-medium text-slate-500">{trust.subtitle}</span>
+                          ) : null}
+                        </div>
+                      ) : null}
+                      {trust.lastReviewed ? (
+                        <p className="mt-1 text-xs text-slate-400">
+                          Reviewed {reviewedRelative ?? reviewedAbsoluteLabel ?? '—'}
+                        </p>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3 capitalize text-slate-700">{dispute.stage?.replace(/_/g, ' ')}</td>
                     <td className="px-4 py-3 capitalize text-slate-700">{dispute.status?.replace(/_/g, ' ')}</td>
@@ -252,16 +476,51 @@ export default function DisputeQueueTable({
                         {dispute.priority}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-slate-700">
-                      {formatCurrency(transaction.amount, transaction.currencyCode)}
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col gap-2">
+                        <span
+                          className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${deadlineBadge}`}
+                        >
+                          <ClockIcon className="h-4 w-4" />
+                          {deadline.label}
+                        </span>
+                        <span className="text-xs text-slate-500">{deadline.source}</span>
+                        {deadline.canRemind ? (
+                          <button
+                            type="button"
+                            onClick={(event) => handleReminder(event, dispute.id)}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 transition hover:text-blue-700"
+                          >
+                            <BellAlertIcon className="h-4 w-4" />
+                            Send reminder
+                          </button>
+                        ) : null}
+                      </div>
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{formatDate(dispute.updatedAt)}</td>
+                    <td className="px-4 py-3">
+                      <p className="text-sm font-semibold text-slate-700">{assignee}</p>
+                      {dispute.assignedTeam?.name ? (
+                        <p className="text-xs text-slate-500">Team {dispute.assignedTeam.name}</p>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3 text-slate-700">
+                      <p className="font-medium">
+                        {formatCurrency(transaction.amount, transaction.currencyCode)}
+                      </p>
+                      {transaction.reference ? (
+                        <p className="text-xs text-slate-500">Ref {transaction.reference}</p>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">
+                      <p className="text-sm font-medium text-slate-700">{updatedRelative ?? '—'}</p>
+                      <p className="text-xs text-slate-500">{formatDate(dispute.updatedAt)}</p>
+                    </td>
                   </tr>
                 );
               })
             ) : (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-sm text-slate-500">No cases found.</td>
+                <td colSpan={8} className="px-4 py-6 text-center text-sm text-slate-500">No cases found.</td>
               </tr>
             )}
           </tbody>

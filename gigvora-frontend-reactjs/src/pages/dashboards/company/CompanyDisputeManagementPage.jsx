@@ -179,6 +179,7 @@ export default function CompanyDisputeManagementPage() {
             onCreateDispute={() => setCreateModalOpen(true)}
             pagination={pagination}
             onRefresh={refresh}
+            onRequestReminder={(id) => selectCase(id)}
           />
         </section>
 
