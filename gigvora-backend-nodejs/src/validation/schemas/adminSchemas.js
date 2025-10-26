@@ -272,12 +272,30 @@ const homepageTestimonialSchema = z
   .object({
     id: optionalTrimmedString({ max: 120 }),
     quote: optionalTrimmedString({ max: 500 }),
+    name: optionalTrimmedString({ max: 160 }),
     authorName: optionalTrimmedString({ max: 160 }),
+    role: optionalTrimmedString({ max: 160 }),
     authorRole: optionalTrimmedString({ max: 160 }),
+    company: optionalTrimmedString({ max: 160 }),
+    authorCompany: optionalTrimmedString({ max: 160 }),
     avatarUrl: optionalTrimmedString({ max: 2048 }),
-    highlight: optionalBoolean(),
+    avatarAlt: optionalTrimmedString({ max: 255 }),
+    highlight: optionalTrimmedString({ max: 240 }),
+    highlightSummary: optionalTrimmedString({ max: 240 }),
+    badge: optionalTrimmedString({ max: 120 }),
+    tag: optionalTrimmedString({ max: 120 }),
+    segment: optionalTrimmedString({ max: 120 }),
   })
-  .strip();
+  .strip()
+  .superRefine((value, ctx) => {
+    if (!value.quote && !(value.authorName ?? value.name)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'must include at least a quote or author name.',
+        path: ['quote'],
+      });
+    }
+  });
 
 const homepageFaqSchema = z
   .object({

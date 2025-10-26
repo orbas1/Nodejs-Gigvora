@@ -534,35 +534,86 @@ function sanitizeHomepageTestimonials(items) {
         label: `testimonials[${index}].quote`,
         maxLength: 500,
       });
-      const authorName = ensureOptionalString(item?.authorName, {
+      const providedName = ensureOptionalString(item?.name, {
+        label: `testimonials[${index}].name`,
+        maxLength: 160,
+      });
+      const providedAuthorName = ensureOptionalString(item?.authorName, {
         label: `testimonials[${index}].authorName`,
         maxLength: 160,
       });
-      if (!quote && !authorName) {
+      const name = providedAuthorName ?? providedName;
+      if (!quote && !name) {
         return null;
       }
+
       const id = ensureOptionalString(item?.id, {
         label: `testimonials[${index}].id`,
         maxLength: 120,
       });
-      const authorRole = ensureOptionalString(item?.authorRole, {
+      const providedRole = ensureOptionalString(item?.role, {
+        label: `testimonials[${index}].role`,
+        maxLength: 160,
+      });
+      const providedAuthorRole = ensureOptionalString(item?.authorRole, {
         label: `testimonials[${index}].authorRole`,
         maxLength: 160,
       });
-      const avatarUrl = ensureOptionalString(item?.avatarUrl, {
+      const role = providedAuthorRole ?? providedRole;
+
+      const companyCandidate =
+        item?.authorCompany ??
+        item?.company ??
+        item?.organisation ??
+        item?.organization ??
+        item?.org;
+      const company = ensureOptionalString(companyCandidate, {
+        label: `testimonials[${index}].company`,
+        maxLength: 160,
+      });
+
+      const avatarSrc = item?.avatarUrl ?? item?.avatar?.src ?? item?.avatar;
+      const avatarUrl = ensureOptionalString(avatarSrc, {
         label: `testimonials[${index}].avatarUrl`,
         maxLength: 2048,
       });
-      const highlight = ensureOptionalBoolean(item?.highlight, {
-        label: `testimonials[${index}].highlight`,
+
+      const avatarAlt = ensureOptionalString(item?.avatarAlt ?? item?.avatar?.alt ?? item?.avatarAltText, {
+        label: `testimonials[${index}].avatarAlt`,
+        maxLength: 255,
       });
+
+      let highlightSource =
+        item?.highlight ??
+        item?.highlightSummary ??
+        item?.result ??
+        item?.outcome ??
+        item?.impact;
+      if (typeof highlightSource === 'boolean') {
+        highlightSource = highlightSource ? item?.highlightSummary ?? item?.result ?? item?.outcome ?? '' : '';
+      }
+      const highlight = ensureOptionalString(highlightSource, {
+        label: `testimonials[${index}].highlight`,
+        maxLength: 240,
+        allowEmpty: false,
+      });
+
+      const badgeSource = item?.badge ?? item?.tag ?? item?.segment ?? item?.persona;
+      const badge = ensureOptionalString(badgeSource, {
+        label: `testimonials[${index}].badge`,
+        maxLength: 120,
+      });
+
       return {
         ...(id !== undefined ? { id } : {}),
         ...(quote ? { quote } : {}),
-        ...(authorName ? { authorName } : {}),
-        ...(authorRole ? { authorRole } : {}),
+        ...(name ? { authorName: name, name } : {}),
+        ...(role ? { authorRole: role, role } : {}),
+        ...(company ? { authorCompany: company, company } : {}),
         ...(avatarUrl ? { avatarUrl } : {}),
-        ...(highlight !== undefined ? { highlight } : {}),
+        ...(avatarAlt ? { avatarAlt } : {}),
+        ...(highlight ? { highlight } : {}),
+        ...(badge ? { badge } : {}),
       };
     })
     .filter(Boolean);

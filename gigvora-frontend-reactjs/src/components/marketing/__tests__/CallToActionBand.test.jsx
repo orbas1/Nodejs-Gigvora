@@ -1,6 +1,7 @@
 import { MemoryRouter } from 'react-router-dom';
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
 import { CallToActionBand } from '../CallToActionBand.jsx';
 
 const STATS = [
@@ -39,5 +40,34 @@ describe('CallToActionBand', () => {
     expect(screen.getByText(/curated crews aligned/i)).toBeInTheDocument();
     expect(screen.getByText(/northwind digital/i)).toBeInTheDocument();
     expect(screen.getByText(/telemetry-backed confidence/i)).toBeInTheDocument();
+  });
+
+  it('wires analytics callbacks and disabled states for CTAs', async () => {
+    const user = userEvent.setup();
+    const onAction = vi.fn();
+    const secondaryClick = vi.fn();
+
+    render(
+      <MemoryRouter>
+        <CallToActionBand
+          title="Join the community"
+          primaryAction={{ label: 'Claim your seat', to: '/register', analyticsId: 'cta-primary' }}
+          secondaryAction={{
+            label: 'Talk with our team',
+            href: 'mailto:hello@gigvora.com',
+            disabled: true,
+            onClick: secondaryClick,
+          }}
+          onAction={onAction}
+        />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole('link', { name: /claim your seat/i }));
+    expect(onAction).toHaveBeenCalledWith('primary', expect.objectContaining({ label: 'Claim your seat' }));
+
+    await user.click(screen.getByRole('link', { name: /talk with our team/i }));
+    expect(onAction).toHaveBeenCalledTimes(1);
+    expect(secondaryClick).not.toHaveBeenCalled();
   });
 });
