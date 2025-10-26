@@ -33,6 +33,7 @@ module.exports = {
         {
           id: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
           workspace_id: { type: Sequelize.STRING(120), allowNull: false },
+          slug: { type: Sequelize.STRING(180), allowNull: false },
           title: { type: Sequelize.STRING(180), allowNull: false },
           client_name: { type: Sequelize.STRING(180), allowNull: true },
           location: { type: Sequelize.STRING(180), allowNull: true },
@@ -82,6 +83,11 @@ module.exports = {
       await queryInterface.addIndex('agency_jobs', ['workspace_id', 'status', 'updated_at'], {
         transaction,
         name: 'agency_jobs_workspace_status_updated_at',
+      });
+      await queryInterface.addIndex('agency_jobs', ['workspace_id', 'slug'], {
+        transaction,
+        unique: true,
+        name: 'agency_jobs_workspace_slug_unique',
       });
 
       await addCheckConstraint(

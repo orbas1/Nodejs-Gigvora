@@ -27,6 +27,10 @@ describe('summariseSessions', () => {
         joinLimit: 12,
         rotationDurationSeconds: 90,
         metrics: { averageSatisfaction: 4.5, registered: 10, waitlisted: 2, checkedIn: 8, completed: 7, noShows: 1, messagesSent: 15 },
+        signups: [
+          { followUpsScheduled: 2, connectionsSaved: 3 },
+          { followUpsScheduled: 1, connectionsTracked: 1 },
+        ],
       },
       {
         status: 'completed',
@@ -34,6 +38,9 @@ describe('summariseSessions', () => {
         joinLimit: 8,
         rotationDurationSeconds: 120,
         metrics: { averageSatisfaction: 4.0, registered: 8, waitlisted: 1, checkedIn: 6, completed: 6, noShows: 0, messagesSent: 5 },
+        signups: [
+          { followUpsScheduled: 3, connectionsSaved: 2 },
+        ],
       },
     ]);
 
@@ -45,6 +52,11 @@ describe('summariseSessions', () => {
     expect(summary.averageSatisfaction).toBeCloseTo(4.25, 2);
     expect(summary.noShowRate).toBeCloseTo(2, 1);
     expect(summary.averageMessages).toBeCloseTo(10, 1);
+    expect(summary.totalFollowUps).toBe(6);
+    expect(summary.averageFollowUpsPerSession).toBeCloseTo(3, 1);
+    expect(summary.averageFollowUpsPerAttendee).toBeCloseTo(2, 2);
+    expect(summary.connectionsCaptured).toBe(6);
+    expect(summary.averageConnectionsPerSession).toBeCloseTo(3, 1);
   });
 });
 
