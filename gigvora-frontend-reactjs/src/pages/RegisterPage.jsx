@@ -8,6 +8,9 @@ import useSession from '../hooks/useSession.js';
 import SocialAuthButton, { SOCIAL_PROVIDERS } from '../components/SocialAuthButton.jsx';
 import useFormState from '../hooks/useFormState.js';
 import FormStatusMessage from '../components/forms/FormStatusMessage.jsx';
+import PersonaSelection from '../components/onboarding/PersonaSelection.jsx';
+import ProfileBasicsForm from '../components/onboarding/ProfileBasicsForm.jsx';
+import WorkspacePrimerCarousel from '../components/onboarding/WorkspacePrimerCarousel.jsx';
 import { isValidEmail, validatePasswordStrength } from '../utils/validation.js';
 import { normaliseEmail, saveRememberedLogin, redirectToSocialAuth } from '../utils/authHelpers.js';
 
@@ -39,30 +42,56 @@ const ROLE_OPTIONS = [
     title: 'Freelancer',
     description: 'Showcase your craft, pitch new clients, and access project-ready workspaces.',
     badge: 'Solo talent',
+    icon: '✦',
+    insights: ['AI bid summaries & proposal templates', 'Invoice-ready workspace with ledger syncing'],
+    accentClass: 'from-emerald-500 to-teal-500',
+    selectedAccentClass: 'from-emerald-500 to-teal-500',
+    badgeClass: 'bg-slate-100 text-slate-500',
+    selectedBadgeClass: 'bg-emerald-100 text-emerald-600',
+    runtimeEstimate: '5 min setup',
   },
   {
     value: 'agency',
     title: 'Agency',
     description: 'Coordinate teams, manage retainers, and collaborate on large-scale briefs.',
     badge: 'Collective',
+    icon: '◎',
+    insights: ['Shared pipelines & deal health analytics', 'Role-aware permissions for collaborators'],
+    accentClass: 'from-purple-500 to-indigo-500',
+    selectedAccentClass: 'from-purple-500 to-indigo-500',
+    badgeClass: 'bg-slate-100 text-slate-500',
+    selectedBadgeClass: 'bg-indigo-100 text-indigo-600',
+    runtimeEstimate: '7 min setup',
   },
   {
     value: 'company',
     title: 'Company',
     description: 'Hire premium talent, manage vendor pipelines, and monitor onboarding.',
     badge: 'Hiring team',
+    icon: '▣',
+    insights: ['Hiring dashboards & vendor governance', 'Compliance and onboarding checklists baked in'],
+    accentClass: 'from-blue-500 to-sky-500',
+    selectedAccentClass: 'from-blue-500 to-sky-500',
+    badgeClass: 'bg-slate-100 text-slate-500',
+    selectedBadgeClass: 'bg-sky-100 text-sky-600',
+    runtimeEstimate: '6 min setup',
   },
   {
     value: 'mentor',
     title: 'Mentor',
     description: 'Guide rising professionals, host sessions, and share playbooks with the community.',
     badge: 'Advisor',
+    icon: '✺',
+    insights: ['Session scheduling & resource sharing', 'Progress tracking with mentee insights'],
+    accentClass: 'from-rose-500 to-amber-500',
+    selectedAccentClass: 'from-rose-500 to-amber-500',
+    badgeClass: 'bg-slate-100 text-slate-500',
+    selectedBadgeClass: 'bg-rose-100 text-rose-600',
+    runtimeEstimate: '4 min setup',
   },
 ];
 
 const DEFAULT_MEMBERSHIP = 'user';
-
-const PASSWORD_STRENGTH_LABELS = ['Needs improvement', 'Getting there', 'Strong', 'Elite'];
 
 const initialState = {
   firstName: '',
@@ -74,17 +103,41 @@ const initialState = {
 };
 
 const onboardingHighlights = [
-  'Curate persona-based dashboards with guided onboarding journeys.',
-  'Unlock tailored feeds across jobs, gigs, projects, and volunteering with analytics overlays.',
-  'Secure your workspace with two-factor defaults and compliance-ready templates.',
+  {
+    id: 'dashboards',
+    title: 'Launch-ready dashboards',
+    description: 'Curate persona-based dashboards with guided onboarding journeys for every role you enable.',
+    metrics: ['Persona briefings', 'Checklist automation', 'AI tour overlays'],
+    icon: '📊',
+    accent: 'from-amber-500 to-rose-500',
+    footer: 'We preload analytics tiles, tasks, and success metrics as soon as you complete sign-up.',
+  },
+  {
+    id: 'discovery',
+    title: 'Tailored discovery rails',
+    description: 'Unlock feeds across jobs, gigs, projects, and volunteering with analytics overlays tuned to your goals.',
+    metrics: ['Saved searches', 'Persona signals', 'Cross-network alerts'],
+    icon: '🌐',
+    accent: 'from-teal-500 to-cyan-500',
+    footer: 'Recommendations refresh instantly based on personas and preferences you confirm.',
+  },
+  {
+    id: 'security',
+    title: 'Enterprise-grade security',
+    description: 'Secure your workspace with two-factor defaults, compliance-ready templates, and device fingerprinting.',
+    metrics: ['2FA auto-enrolment', 'Session trust scoring', 'Audit-ready playbooks'],
+    icon: '🛡️',
+    accent: 'from-slate-800 to-slate-600',
+    footer: 'Security guardrails stay on from day one so your data and teams remain protected.',
+  },
 ];
 
 const ROLE_HIGHLIGHTS = {
   [DEFAULT_MEMBERSHIP]: 'Universal feed, saved searches, and cross-network notifications to keep you in sync.',
-  freelancer: 'Proposal workspace, AI-powered brief summaries, and invoice-ready templates.',
-  agency: 'Shared pipelines, deal health analytics, and team permissions tuned for agencies.',
-  company: 'Hiring dashboards, vendor governance, and compliance controls in one hub.',
-  mentor: 'Session scheduling, resource sharing, and mentee progress tracking tools.',
+  freelancer: 'Proposal workspace with AI summaries, invoice-ready ledgers, and reputation insights per pitch.',
+  agency: 'Shared pipelines, deal health analytics, client governance, and collaborative permissions for every engagement.',
+  company: 'Hiring dashboards, vendor governance, onboarding automations, and compliance controls in one hub.',
+  mentor: 'Session scheduling, resource sharing, mentee progress tracking, and automated follow-up reminders.',
 };
 
 export default function RegisterPage() {
@@ -95,49 +148,9 @@ export default function RegisterPage() {
   const [roleSelections, setRoleSelections] = useState(() => new Set());
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [communicationsOptIn, setCommunicationsOptIn] = useState(true);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const googleEnabled = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
   const maxBirthDate = new Date().toISOString().split('T')[0];
-
-  const passwordInsights = useMemo(() => validatePasswordStrength(form.password), [form.password]);
-  const passwordRules = useMemo(() => {
-    const value = typeof form.password === 'string' ? form.password.trim() : '';
-    return [
-      { id: 'length', label: 'At least 8 characters', met: value.length >= 8 },
-      { id: 'letter', label: 'Includes a letter', met: /[a-zA-Z]/.test(value) },
-      { id: 'number', label: 'Includes a number', met: /\d/.test(value) },
-      { id: 'symbol', label: 'Includes a symbol', met: /[^\da-zA-Z]/.test(value) },
-    ];
-  }, [form.password]);
-  const passwordScore = useMemo(() => passwordRules.filter((rule) => rule.met).length, [passwordRules]);
-  const passwordStrengthPercent = useMemo(
-    () => (passwordRules.length ? Math.round((passwordScore / passwordRules.length) * 100) : 0),
-    [passwordRules.length, passwordScore],
-  );
-  const passwordStrengthMeta = useMemo(() => {
-    const ratio = passwordRules.length ? passwordScore / passwordRules.length : 0;
-    if (ratio >= 0.95) {
-      return { label: PASSWORD_STRENGTH_LABELS[3], barClass: 'bg-blue-600' };
-    }
-    if (ratio >= 0.75) {
-      return { label: PASSWORD_STRENGTH_LABELS[2], barClass: 'bg-emerald-500' };
-    }
-    if (ratio >= 0.5) {
-      return { label: PASSWORD_STRENGTH_LABELS[1], barClass: 'bg-amber-500' };
-    }
-    return { label: PASSWORD_STRENGTH_LABELS[0], barClass: 'bg-rose-500' };
-  }, [passwordRules.length, passwordScore]);
-  const passwordStrengthWidth = useMemo(() => {
-    if (!passwordRules.length) {
-      return 0;
-    }
-    if (passwordScore === 0) {
-      return 12;
-    }
-    return Math.min(100, Math.max(passwordStrengthPercent, 32));
-  }, [passwordRules.length, passwordScore, passwordStrengthPercent]);
 
   const selectedRoles = useMemo(() => Array.from(roleSelections), [roleSelections]);
   const membershipPayload = useMemo(() => {
@@ -146,25 +159,58 @@ export default function RegisterPage() {
     }
     return Array.from(new Set([...selectedRoles, DEFAULT_MEMBERSHIP]));
   }, [selectedRoles]);
+
+  const roleTitleMap = useMemo(() => {
+    const map = new Map([[DEFAULT_MEMBERSHIP, 'Community member']]);
+    ROLE_OPTIONS.forEach((option) => {
+      map.set(option.value, option.title);
+    });
+    return map;
+  }, []);
+
   const personaHighlights = useMemo(() => {
-    const keys = membershipPayload;
-    return keys
+    const optionMap = new Map(ROLE_OPTIONS.map((option) => [option.value, option]));
+    return membershipPayload
       .map((key) => {
         const highlight = ROLE_HIGHLIGHTS[key];
         if (!highlight) {
           return null;
         }
-        return { key, text: highlight };
+        if (key === DEFAULT_MEMBERSHIP) {
+          return {
+            key,
+            title: roleTitleMap.get(key) ?? 'Community member',
+            description: highlight,
+            accent: 'from-slate-500 to-slate-700',
+            metrics: ['Universal feed access', 'Saved searches sync', 'Cross-network notifications'],
+          };
+        }
+        const option = optionMap.get(key);
+        if (!option) {
+          return null;
+        }
+        return {
+          key,
+          title: option.title,
+          description: highlight,
+          accent: option.selectedAccentClass,
+          metrics: option.insights,
+        };
       })
       .filter(Boolean);
-  }, [membershipPayload]);
+  }, [membershipPayload, roleTitleMap]);
+
+  const membershipSummary = useMemo(() => {
+    const labels = membershipPayload
+      .map((key) => roleTitleMap.get(key))
+      .filter(Boolean);
+    if (!labels.length) {
+      return 'Tailored for you';
+    }
+    return labels.join(' • ');
+  }, [membershipPayload, roleTitleMap]);
 
   const disableSubmit = status !== 'idle' || !acceptTerms;
-
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-  };
 
   const handleRoleToggle = (value) => {
     setRoleSelections((previous) => {
@@ -186,13 +232,9 @@ export default function RegisterPage() {
     setCommunicationsOptIn(event.target.checked);
   };
 
-  const roleTitleMap = useMemo(() => {
-    const map = new Map([[DEFAULT_MEMBERSHIP, 'Community member']]);
-    ROLE_OPTIONS.forEach((option) => {
-      map.set(option.value, option.title);
-    });
-    return map;
-  }, []);
+  const handleBasicsFieldChange = (field, nextValue) => {
+    setForm((prev) => ({ ...prev, [field]: nextValue }));
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -209,6 +251,7 @@ export default function RegisterPage() {
       setError('Please share your date of birth.');
       return;
     }
+    const passwordInsights = validatePasswordStrength(form.password);
     if (!passwordInsights.valid) {
       setError(`Choose a stronger password. ${passwordInsights.recommendations.join(' ')}`);
       return;
@@ -312,178 +355,19 @@ export default function RegisterPage() {
               message={message}
               {...feedbackProps}
             />
-            <div className="grid gap-6 md:grid-cols-2">
-              <div className="space-y-2">
-                <label htmlFor="firstName" className="text-sm font-medium text-slate-700">
-                  First name
-                </label>
-                <input
-                  id="firstName"
-                  name="firstName"
-                  value={form.firstName}
-                  onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="lastName" className="text-sm font-medium text-slate-700">
-                  Last name
-                </label>
-                <input
-                  id="lastName"
-                  name="lastName"
-                  value={form.lastName}
-                  onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                  required
-                />
-              </div>
-              <div className="md:col-span-2 space-y-2">
-                <label htmlFor="email" className="text-sm font-medium text-slate-700">
-                  Email address
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  value={form.email}
-                  onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="dateOfBirth" className="text-sm font-medium text-slate-700">
-                  Date of birth
-                </label>
-                <input
-                  id="dateOfBirth"
-                  name="dateOfBirth"
-                  type="date"
-                  value={form.dateOfBirth}
-                  onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                  required
-                  max={maxBirthDate}
-                />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="password" className="text-sm font-medium text-slate-700">
-                  Password
-                </label>
-                <div className="relative">
-                  <input
-                    id="password"
-                    name="password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={form.password}
-                    onChange={handleChange}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 pr-24 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((previous) => !previous)}
-                    className="absolute inset-y-0 right-4 flex items-center text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 transition hover:text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                    aria-pressed={showPassword}
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  >
-                    {showPassword ? 'Hide' : 'Show'}
-                  </button>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="confirmPassword" className="text-sm font-medium text-slate-700">
-                  Confirm password
-                </label>
-                <div className="relative">
-                  <input
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    value={form.confirmPassword}
-                    onChange={handleChange}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 pr-24 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword((previous) => !previous)}
-                    className="absolute inset-y-0 right-4 flex items-center text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 transition hover:text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                    aria-pressed={showConfirmPassword}
-                    aria-label={showConfirmPassword ? 'Hide confirmation password' : 'Show confirmation password'}
-                  >
-                    {showConfirmPassword ? 'Hide' : 'Show'}
-                  </button>
-                </div>
-              </div>
-              <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
-                  <span>{passwordStrengthMeta.label}</span>
-                  <span>{passwordStrengthPercent}% secure</span>
-                </div>
-                <div className="mt-3 h-2 rounded-full bg-slate-200" aria-hidden="true">
-                  <div
-                    className={`h-2 rounded-full transition-all duration-300 ${passwordStrengthMeta.barClass}`}
-                    style={{ width: `${passwordStrengthWidth}%` }}
-                  />
-                </div>
-                <ul className="mt-3 grid gap-2 text-xs text-slate-500 sm:grid-cols-2">
-                  {passwordRules.map((rule) => (
-                    <li key={rule.id} className={`flex items-center gap-2 ${rule.met ? 'text-emerald-600' : ''}`}>
-                      <span
-                        className={`inline-flex h-2.5 w-2.5 rounded-full ${rule.met ? 'bg-emerald-500' : 'bg-slate-300'}`}
-                        aria-hidden="true"
-                      />
-                      <span>{rule.label}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-            <div className="space-y-4 rounded-3xl border border-slate-200 bg-surfaceMuted/60 p-6">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-base font-semibold text-slate-900">Choose the journeys you need on day one</h3>
-                  <p className="text-xs text-slate-500">Select the experiences that match how you plan to use Gigvora. Add more anytime.</p>
-                </div>
-                <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-500">
-                  {selectedRoles.length ? `${selectedRoles.length} selected` : 'Optional'}
-                </span>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {ROLE_OPTIONS.map((option) => {
-                  const selected = roleSelections.has(option.value);
-                  return (
-                    <label
-                      key={option.value}
-                      className={`group flex cursor-pointer flex-col gap-2 rounded-2xl border p-4 transition ${selected ? 'border-accent bg-white shadow-soft' : 'border-slate-200 bg-white/70 hover:border-accent/50 hover:shadow-sm'}`}
-                    >
-                      <input
-                        type="checkbox"
-                        className="sr-only"
-                        checked={selected}
-                        onChange={() => handleRoleToggle(option.value)}
-                      />
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-sm font-semibold text-slate-900">{option.title}</span>
-                        <span
-                          className={`rounded-full px-3 py-1 text-[11px] font-semibold ${selected ? 'bg-accent/10 text-accent' : 'bg-slate-100 text-slate-500'}`}
-                        >
-                          {option.badge}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-600">{option.description}</p>
-                      <span className={`text-xs font-semibold ${selected ? 'text-accent' : 'text-slate-400'}`}>
-                        {selected ? 'Included at launch' : 'Tap to include'}
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
-              <p className="text-xs text-slate-500">We&apos;ll preload dashboards for the personas you select and surface curated onboarding tasks.</p>
-            </div>
+            <ProfileBasicsForm
+              value={form}
+              onFieldChange={handleBasicsFieldChange}
+              maxBirthDate={maxBirthDate}
+            />
+            <PersonaSelection
+              options={ROLE_OPTIONS}
+              selectedValues={roleSelections}
+              onToggle={handleRoleToggle}
+              title="Choose the journeys you need on day one"
+              subtitle="Select the experiences that match how you plan to use Gigvora. Add more anytime."
+              helperText="We\u2019ll preload dashboards for the personas you select and surface curated onboarding tasks."
+            />
             <div className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6">
               <label className="flex items-start gap-3 text-xs text-slate-600">
                 <input
@@ -578,7 +462,7 @@ export default function RegisterPage() {
           </form>
           <aside className="space-y-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
             <div className="space-y-3">
-              <h2 className="text-xl font-semibold text-slate-900">What you unlock</h2>
+              <h2 className="text-xl font-semibold text-slate-900">Your persona mix</h2>
               <div className="flex flex-wrap gap-2">
                 {membershipPayload.map((key) => (
                   <span
@@ -590,20 +474,11 @@ export default function RegisterPage() {
                 ))}
               </div>
             </div>
-            <ul className="space-y-4 text-sm text-slate-600">
-              {personaHighlights.map((item) => (
-                <li key={item.key} className="flex gap-3">
-                  <span className="mt-1 inline-flex h-2.5 w-2.5 rounded-full bg-accent" aria-hidden="true" />
-                  <span>{item.text}</span>
-                </li>
-              ))}
-              {onboardingHighlights.map((item) => (
-                <li key={item} className="flex gap-3">
-                  <span className="mt-1 inline-flex h-2.5 w-2.5 rounded-full bg-accent/60" aria-hidden="true" />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
+            <WorkspacePrimerCarousel
+              personaHighlights={personaHighlights}
+              onboardingHighlights={onboardingHighlights}
+              membershipSummary={membershipSummary}
+            />
             <div className="space-y-3 rounded-2xl border border-slate-200 bg-surfaceMuted p-5 text-sm text-slate-600">
               <p className="font-semibold text-slate-900">Create once, shine everywhere.</p>
               <p>
