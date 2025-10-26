@@ -478,7 +478,7 @@ export const LAUNCHPAD_APPLICATION_STATUSES = Object.freeze([
 ]);
 export const LAUNCHPAD_EMPLOYER_REQUEST_STATUSES = Object.freeze(['new', 'needs_review', 'approved', 'declined', 'paused']);
 export const LAUNCHPAD_PLACEMENT_STATUSES = Object.freeze(['scheduled', 'in_progress', 'completed', 'cancelled']);
-export const LAUNCHPAD_TARGET_TYPES = Object.freeze(['job', 'gig', 'project']);
+export const LAUNCHPAD_TARGET_TYPES = Object.freeze(['job', 'gig', 'project', 'volunteering']);
 export const LAUNCHPAD_OPPORTUNITY_SOURCES = Object.freeze(['employer_request', 'placement', 'manual']);
 export const WORKSPACE_TEMPLATE_STATUSES = Object.freeze(['draft', 'active', 'deprecated']);
 export const TALENT_CANDIDATE_TYPES = Object.freeze(['permanent', 'contractor', 'collective']);

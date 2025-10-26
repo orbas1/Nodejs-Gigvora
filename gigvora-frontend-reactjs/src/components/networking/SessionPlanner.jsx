@@ -29,6 +29,18 @@ function formatPercent(value, { fallback = '—', digits = 1 } = {}) {
   return `${numeric.toFixed(digits)}%`;
 }
 
+function formatDecimal(value, { fallback = '—', digits = 1 } = {}) {
+  if (value == null) return fallback;
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+  return numeric.toLocaleString(undefined, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+}
+
 function formatDateTime(value) {
   if (!value) return 'Not scheduled';
   const date = new Date(value);
@@ -212,8 +224,33 @@ export default function SessionPlanner({
       { label: 'Satisfaction', value: formatPercent(summary?.averageSatisfaction) },
       { label: 'No-show', value: formatPercent(summary?.noShowRate) },
       { label: 'Messages', value: formatNumber(summary?.averageMessages) },
+      { label: 'Follow-ups', value: formatNumber(summary?.totalFollowUps) },
+      { label: 'Avg follow-ups / session', value: formatDecimal(summary?.averageFollowUpsPerSession) },
+      {
+        label: 'Avg follow-ups / attendee',
+        value: formatDecimal(summary?.averageFollowUpsPerAttendee, { digits: 2 }),
+      },
+      { label: 'Connections saved', value: formatNumber(summary?.connectionsCaptured) },
+      {
+        label: 'Avg connections / session',
+        value: formatDecimal(summary?.averageConnectionsPerSession),
+      },
     ],
-    [summary?.averageJoinLimit, summary?.averageMessages, summary?.averageRotation, summary?.averageSatisfaction, summary?.done, summary?.live, summary?.noShowRate, summary?.upcoming],
+    [
+      summary?.averageConnectionsPerSession,
+      summary?.averageFollowUpsPerAttendee,
+      summary?.averageFollowUpsPerSession,
+      summary?.averageJoinLimit,
+      summary?.averageMessages,
+      summary?.averageRotation,
+      summary?.averageSatisfaction,
+      summary?.connectionsCaptured,
+      summary?.done,
+      summary?.live,
+      summary?.noShowRate,
+      summary?.totalFollowUps,
+      summary?.upcoming,
+    ],
   );
 
   const openCreate = () => {
