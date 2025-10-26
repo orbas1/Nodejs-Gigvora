@@ -50,7 +50,7 @@ describe('Access control components', () => {
           <Route
             path="/secure"
             element={
-              <ProtectedRoute allowedMemberships={['company']}>
+              <ProtectedRoute allowedMemberships={['company']} preferDashboardRedirect>
                 <div>Hidden content</div>
               </ProtectedRoute>
             }

@@ -7,7 +7,6 @@ import ProtectedDashboardRoute from '../ProtectedDashboardRoute.jsx';
 import ProtectedRoute from '../../routing/ProtectedRoute.jsx';
 import RequireDashboardAccess from '../RequireDashboardAccess.jsx';
 import RequireMembership from '../RequireMembership.jsx';
-import RoleProtectedRoute from '../RoleProtectedRoute.jsx';
 
 const { mockUseSession } = vi.hoisted(() => ({
   mockUseSession: vi.fn(),
@@ -137,19 +136,19 @@ describe('ProtectedDashboardRoute', () => {
 });
 
 describe('ProtectedRoute', () => {
-  it('redirects unauthorised members to their available dashboard', () => {
+  it('redirects unauthorised members to their available dashboard when preferred', () => {
     mockUseSession.mockImplementation(() => ({
       isAuthenticated: true,
       session: { memberships: ['user'], primaryDashboard: 'user' },
     }));
 
     render(
-      <MemoryRouter initialEntries={['/agency']}> 
+      <MemoryRouter initialEntries={['/agency']}>
         <Routes>
           <Route
             path="/agency"
             element={
-              <ProtectedRoute allowedMemberships={['agency']}>
+              <ProtectedRoute allowedMemberships={['agency']} preferDashboardRedirect>
                 <div>Agency only</div>
               </ProtectedRoute>
             }
@@ -286,59 +285,3 @@ describe('RequireMembership', () => {
   });
 });
 
-describe('RoleProtectedRoute', () => {
-  it('redirects to fallback dashboard when role does not match', () => {
-    mockUseSession.mockImplementation(() => ({
-      isAuthenticated: true,
-      session: {
-        memberships: ['user'],
-        primaryDashboard: 'user',
-      },
-    }));
-
-    render(
-      <MemoryRouter initialEntries={['/agency']}> 
-        <Routes>
-          <Route
-            path="/agency"
-            element={
-              <RoleProtectedRoute allowedRoles={['agency']}>
-                <div>Agency portal</div>
-              </RoleProtectedRoute>
-            }
-          />
-          <Route path="/dashboard/user" element={<div>User portal</div>} />
-        </Routes>
-      </MemoryRouter>,
-    );
-
-    expect(screen.getByText(/User portal/)).toBeInTheDocument();
-  });
-
-  it('renders children when role is allowed', () => {
-    mockUseSession.mockImplementation(() => ({
-      isAuthenticated: true,
-      session: {
-        memberships: ['agency'],
-        primaryDashboard: 'agency',
-      },
-    }));
-
-    render(
-      <MemoryRouter initialEntries={['/agency']}>
-        <Routes>
-          <Route
-            path="/agency"
-            element={
-              <RoleProtectedRoute allowedRoles={['agency']}>
-                <div>Agency portal</div>
-              </RoleProtectedRoute>
-            }
-          />
-        </Routes>
-      </MemoryRouter>,
-    );
-
-    expect(screen.getByText('Agency portal')).toBeInTheDocument();
-  });
-});
