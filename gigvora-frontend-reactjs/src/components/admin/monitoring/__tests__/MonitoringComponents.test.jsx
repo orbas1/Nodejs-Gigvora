@@ -18,9 +18,9 @@ vi.mock('../../../../services/analytics.js', () => ({
   },
 }));
 
-const insightsResponse = {
+const fetchInsightsOverviewMock = vi.fn(async () => ({
   summary: {
-    totalReach: 128903,
+    totalReach: 150000,
     totalReachDelta: 0.12,
     engagementRate: 0.41,
     engagementRateDelta: 0.08,
@@ -29,27 +29,29 @@ const insightsResponse = {
     anomalyCoverage: 0.9,
     anomalyCoverageDelta: 0.15,
   },
-  timeline: [
-    { value: 0.2 },
-    { value: 0.24 },
-    { value: 0.3 },
-  ],
+  timeline: [{ value: 0.2 }, { value: 0.24 }, { value: 0.3 }],
   personas: [
     {
       key: 'creators',
       label: 'Creators',
       engagementRate: 0.56,
-      conversionRate: 0.31,
-      adoptionRate: 0.72,
       delta: { engagementRate: 0.12 },
       headline: 'Creators are accelerating adoption',
       story: 'Creators responded to the latest spotlight with record uplift.',
+    },
+    {
+      key: 'mentors',
+      label: 'Mentors',
+      engagementRate: 0.33,
+      delta: { engagementRate: -0.04 },
+      headline: 'Mentor cohorts require prompts',
+      story: 'Mentors slowed outreach after the compliance policy update.',
     },
   ],
   anomalies: [
     {
       id: 'anomaly-1',
-      title: 'Drop in mentorship completions',
+      title: 'Mentorship drop',
       description: 'Mentorship cohorts dipped 12% week over week.',
       severity: 'high',
       timestamp: new Date('2024-06-01T08:00:00Z').toISOString(),
@@ -64,12 +66,13 @@ const insightsResponse = {
       title: 'Launch mentor concierge',
       description: 'Pair mentors with curated prompts to reduce drop-off.',
       impactScore: 9.4,
+      targetDate: '2024-07-15',
     },
   ],
   narratives: [
     {
       headline: 'Momentum is surging',
-      body: 'Leadership sees a 3x uplift in campaign resonance following the story-driven rollouts.',
+      body: 'Leadership sees a 3x uplift following the story-driven rollouts.',
     },
   ],
   journeys: [
@@ -83,40 +86,39 @@ const insightsResponse = {
   qa: {
     sourceCount: 12,
     trustScore: 0.98,
+    notes: 'Validated with Mixpanel, CRM, and finance exports.',
   },
-};
+}));
 
-const metricsResponse = {
+const fetchMetricsExplorerMock = vi.fn(async () => ({
   metrics: [
     {
+      id: 'metric-1',
       key: 'engagementRate',
       label: 'Engagement rate',
       value: 0.41,
       delta: 0.05,
       sampleSize: 9302,
       narrative: 'High intent cohorts are engaging with story-led narratives.',
-      sparkline: [{ value: 0.2 }, { value: 0.24 }],
       tags: ['storytelling'],
-    },
-    {
-      key: 'conversionRate',
-      label: 'Conversion rate',
-      value: 0.29,
-      delta: -0.03,
-      sampleSize: 5582,
-      narrative: 'Conversion lags due to missing nurture follow-ups.',
-      sparkline: [{ value: 0.32 }, { value: 0.29 }],
-      tags: ['nurture'],
+      persona: 'creators',
+      personaLabel: 'Creators',
+      channel: 'email',
+      channelLabel: 'Email',
+      includeBenchmarks: true,
+      timeframe: '14d',
     },
   ],
   alerts: [
     {
       id: 'alert-1',
+      metricKey: 'conversionRate',
       title: 'Conversion threshold breached',
       description: 'Conversion dropped below the 30% guardrail.',
       status: 'at_risk',
       threshold: 0.3,
       value: 0.29,
+      timeframe: '14d',
     },
   ],
   filters: {
@@ -124,16 +126,12 @@ const metricsResponse = {
       { value: 'engagementRate', label: 'Engagement rate' },
       { value: 'conversionRate', label: 'Conversion rate' },
     ],
-    personas: [
-      { value: 'creators', label: 'Creators' },
-    ],
-    channels: [
-      { value: 'email', label: 'Email' },
-    ],
+    personas: [{ value: 'creators', label: 'Creators' }],
+    channels: [{ value: 'email', label: 'Email' }],
   },
-};
+}));
 
-const metricsViewsResponse = {
+const fetchMetricsExplorerViewsMock = vi.fn(async () => ({
   views: [
     {
       id: 'view-analytics',
@@ -150,9 +148,18 @@ const metricsViewsResponse = {
       },
     },
   ],
-};
+}));
 
-const auditResponse = {
+const createMetricsExplorerViewMock = vi.fn(async (payload) => ({
+  id: 'view-new',
+  name: payload.name,
+  timeframe: payload.query.timeframe,
+  query: payload.query,
+}));
+
+const deleteMetricsExplorerViewMock = vi.fn(async () => ({ success: true }));
+
+const fetchAuditTrailMock = vi.fn(async () => ({
   items: [
     {
       id: 'audit-1',
@@ -162,7 +169,7 @@ const auditResponse = {
       actor: { name: 'Sonia Malik', type: 'compliance_manager' },
       resource: { key: 'policy-12', label: 'Consent policy', type: 'policy' },
       timestamp: new Date('2024-06-01T10:00:00Z').toISOString(),
-      metadata: { version: 4, locale: 'en-GB' },
+      metadata: { version: 4, locale: 'en-GB', responseMinutes: 28 },
       relatedIncidents: [
         { id: 'incident-4', title: 'Consent review', status: 'resolved', openedAt: new Date('2024-05-28T10:00:00Z').toISOString() },
       ],
@@ -176,138 +183,112 @@ const auditResponse = {
     residualRiskNarrative: 'Review webhook verification before next release.',
   },
   filters: {
-    severities: [
-      { value: 'high', label: 'High severity' },
-    ],
-    actorTypes: [
-      { value: 'compliance_manager', label: 'Compliance managers' },
-    ],
-    resources: [
-      { value: 'policy', label: 'Policies' },
-    ],
+    severities: [{ value: 'high', label: 'High' }],
+    actorTypes: [{ value: 'compliance_manager', label: 'Compliance manager' }],
+    resources: [{ value: 'policy', label: 'Policy' }],
   },
-  pagination: { page: 1, pageSize: 50, totalPages: 1 },
-};
+  pagination: { page: 1, pageSize: 10, totalPages: 1 },
+}));
 
-const exportResponse = {
-  fileUrl: 'https://example.com/audit.csv',
-};
+const exportAuditTrailMock = vi.fn(async () => ({
+  fileUrl: 'https://cdn.gigvora.com/exports/monitoring/audit.csv',
+  filePath: '/tmp/audit.csv',
+  expiresAt: new Date(Date.now() + 900000).toISOString(),
+}));
 
 vi.mock('../../../../services/adminMonitoring.js', () => ({
   __esModule: true,
-  fetchInsightsOverview: vi.fn(async () => insightsResponse),
-  fetchMetricsExplorer: vi.fn(async () => metricsResponse),
-  fetchMetricsExplorerViews: vi.fn(async () => metricsViewsResponse),
-  createMetricsExplorerView: vi.fn(async (payload) => ({ id: `server-${payload.name}` })),
-  deleteMetricsExplorerView: vi.fn(async () => ({ success: true })),
-  fetchAuditTrail: vi.fn(async () => auditResponse),
-  exportAuditTrail: vi.fn(async () => exportResponse),
+  fetchInsightsOverview: (...args) => fetchInsightsOverviewMock(...args),
+  fetchMetricsExplorer: (...args) => fetchMetricsExplorerMock(...args),
+  fetchMetricsExplorerViews: (...args) => fetchMetricsExplorerViewsMock(...args),
+  createMetricsExplorerView: (...args) => createMetricsExplorerViewMock(...args),
+  deleteMetricsExplorerView: (...args) => deleteMetricsExplorerViewMock(...args),
+  fetchAuditTrail: (...args) => fetchAuditTrailMock(...args),
+  exportAuditTrail: (...args) => exportAuditTrailMock(...args),
 }));
 
-const adminMonitoring = await import('../../../../services/adminMonitoring.js');
-
-describe('InsightsOverview', () => {
+describe('Monitoring components', () => {
   beforeEach(() => {
     trackMock.mockClear();
-    adminMonitoring.fetchInsightsOverview.mockClear();
-  });
-
-  it('renders summary metrics and persona spotlight', async () => {
-    const onSelectPersona = vi.fn();
-    render(<InsightsOverview onSelectPersona={onSelectPersona} />);
-
-    await waitFor(() => expect(adminMonitoring.fetchInsightsOverview).toHaveBeenCalled());
-
-    expect(await screen.findByText('Total reach')).toBeInTheDocument();
-    expect(await screen.findByText('128,903')).toBeInTheDocument();
-    expect((await screen.findAllByText('Engagement rate')).length).toBeGreaterThan(0);
-
-    const personaSelect = screen.getByLabelText('Select persona', { selector: 'select' });
-    await userEvent.selectOptions(personaSelect, 'creators');
-
-    await waitFor(() => expect(onSelectPersona).toHaveBeenCalledWith(expect.objectContaining({ key: 'creators' })));
-    expect(trackMock).toHaveBeenCalled();
-  });
-});
-
-describe('MetricsExplorer', () => {
-  const originalPrompt = window.prompt;
-  const originalOpen = window.open;
-
-  beforeEach(() => {
-    window.prompt = vi.fn(() => 'Leadership spotlight');
-    window.open = vi.fn();
-    trackMock.mockClear();
-    adminMonitoring.fetchMetricsExplorer.mockClear();
-    adminMonitoring.fetchMetricsExplorerViews.mockClear();
-    adminMonitoring.createMetricsExplorerView.mockClear();
-    adminMonitoring.deleteMetricsExplorerView.mockClear();
-    window.localStorage.clear();
+    fetchInsightsOverviewMock.mockClear();
+    fetchMetricsExplorerMock.mockClear();
+    fetchMetricsExplorerViewsMock.mockClear();
+    createMetricsExplorerViewMock.mockClear();
+    deleteMetricsExplorerViewMock.mockClear();
+    fetchAuditTrailMock.mockClear();
+    exportAuditTrailMock.mockClear();
   });
 
   afterEach(() => {
-    window.prompt = originalPrompt;
-    window.open = originalOpen;
+    vi.clearAllMocks();
   });
 
-  it('loads metrics, saves a view, and filters results', async () => {
-    render(<MetricsExplorer />);
+  describe('InsightsOverview', () => {
+    it('renders premium summary metrics and persona details', async () => {
+      render(<InsightsOverview />);
+      expect(await screen.findByText('Insights overview')).toBeInTheDocument();
+      const totals = await screen.findAllByText(/150,000/);
+      expect(totals.length).toBeGreaterThan(0);
+      expect(screen.getByText('Momentum is surging')).toBeInTheDocument();
 
-    await waitFor(() => expect(adminMonitoring.fetchMetricsExplorer).toHaveBeenCalled());
-
-    const metricLabels = await screen.findAllByText('Engagement rate');
-    expect(metricLabels.length).toBeGreaterThan(0);
-
-    const searchInput = screen.getByPlaceholderText('Search metrics, tags, thresholds…');
-    await userEvent.type(searchInput, 'nurture');
-
-    await waitFor(() => {
-      expect(screen.getByText('Conversion rate')).toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: /Mentors/i }));
+      await waitFor(() => expect(trackMock).toHaveBeenCalledWith('admin.monitoring.insights.persona.selected', expect.any(Object)));
+      expect(screen.getByText('Mentor cohorts require prompts')).toBeInTheDocument();
     });
 
-    const saveButton = screen.getByRole('button', { name: /Save view/i });
-    await userEvent.click(saveButton);
-
-    await waitFor(() => expect(adminMonitoring.createMetricsExplorerView).toHaveBeenCalled());
-    expect(await screen.findByText('Leadership spotlight')).toBeInTheDocument();
-
-    const savedViewButtons = screen.getAllByRole('button', { name: /Executive daily pulse/i });
-    await userEvent.click(savedViewButtons[0]);
-    expect(trackMock).toHaveBeenCalled();
-  });
-});
-
-describe('AuditTrailViewer', () => {
-  const originalOpen = window.open;
-
-  beforeEach(() => {
-    window.open = vi.fn();
-    trackMock.mockClear();
-    adminMonitoring.fetchAuditTrail.mockClear();
-    adminMonitoring.exportAuditTrail.mockClear();
+    it('changes timeframe and triggers analytics', async () => {
+      render(<InsightsOverview />);
+      const select = await screen.findByLabelText('Timeframe');
+      await userEvent.selectOptions(select, '30d');
+      await waitFor(() => expect(trackMock).toHaveBeenCalledWith('admin.monitoring.insights.timeframe.changed', expect.any(Object)));
+      await waitFor(() => expect(fetchInsightsOverviewMock).toHaveBeenCalledTimes(2));
+    });
   });
 
-  afterEach(() => {
-    window.open = originalOpen;
+  describe('MetricsExplorer', () => {
+    it('renders metrics, saved views, and allows saving a new view', async () => {
+      render(<MetricsExplorer />);
+      expect(await screen.findByText('Metrics explorer')).toBeInTheDocument();
+      const metricLabels = await screen.findAllByText('Engagement rate');
+      expect(metricLabels.length).toBeGreaterThan(0);
+      expect(screen.getByText('Conversion threshold breached')).toBeInTheDocument();
+      expect(screen.getByText('Executive daily pulse')).toBeInTheDocument();
+
+      await userEvent.type(screen.getByPlaceholderText('Name this view'), 'All creators');
+      await userEvent.click(screen.getByRole('button', { name: /Save view/i }));
+
+      await waitFor(() => expect(createMetricsExplorerViewMock).toHaveBeenCalled());
+      expect(screen.getByText('All creators')).toBeInTheDocument();
+    });
+
+    it('applies and deletes a saved view', async () => {
+      render(<MetricsExplorer />);
+      await screen.findByText('Executive daily pulse');
+
+      await userEvent.click(screen.getByText('Executive daily pulse'));
+      await waitFor(() => expect(fetchMetricsExplorerMock).toHaveBeenCalledTimes(2));
+
+      await userEvent.click(screen.getByRole('button', { name: /Delete view Executive daily pulse/i }));
+      await waitFor(() => expect(deleteMetricsExplorerViewMock).toHaveBeenCalled());
+    });
   });
 
-  it('renders audit events and exports data', async () => {
-    render(<AuditTrailViewer />);
+  describe('AuditTrailViewer', () => {
+    it('renders audit events and summary cards, and exports data', async () => {
+      const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+      render(<AuditTrailViewer />);
 
-    await waitFor(() => expect(adminMonitoring.fetchAuditTrail).toHaveBeenCalled());
+      expect(await screen.findByText('Audit trail viewer')).toBeInTheDocument();
+      expect(screen.getByText('Total events')).toBeInTheDocument();
+      expect(screen.getByText('Updated consent document for EU markets')).toBeInTheDocument();
 
-    const actionCell = await screen.findByText('policy.updated');
-    expect(actionCell).toBeInTheDocument();
+      await userEvent.click(screen.getByText('Updated consent document for EU markets'));
+      expect(screen.getByText('Metadata')).toBeInTheDocument();
 
-    const viewContextButtons = screen.getAllByRole('button', { name: /View context/i });
-    await userEvent.click(viewContextButtons[0]);
-
-    expect(await screen.findByText('Event context')).toBeInTheDocument();
-
-    const exportButton = screen.getByRole('button', { name: /Export CSV/i });
-    await userEvent.click(exportButton);
-
-    await waitFor(() => expect(adminMonitoring.exportAuditTrail).toHaveBeenCalled());
-    expect(window.open).toHaveBeenCalledWith('https://example.com/audit.csv', '_blank', 'noopener');
+      await userEvent.click(screen.getByRole('button', { name: /Export CSV/i }));
+      await waitFor(() => expect(exportAuditTrailMock).toHaveBeenCalled());
+      expect(openSpy).toHaveBeenCalledWith('https://cdn.gigvora.com/exports/monitoring/audit.csv', '_blank', 'noopener');
+      openSpy.mockRestore();
+    });
   });
 });

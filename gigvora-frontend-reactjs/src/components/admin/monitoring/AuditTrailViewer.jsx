@@ -1,529 +1,439 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import {
   ArrowDownTrayIcon,
-  ArrowPathIcon,
-  BookmarkIcon,
-  CalendarDaysIcon,
-  CheckCircleIcon,
-  ExclamationCircleIcon,
-  FunnelIcon,
-  MagnifyingGlassIcon,
+  ArrowTopRightOnSquareIcon,
+  ClockIcon,
+  ExclamationTriangleIcon,
   ShieldCheckIcon,
-  SparklesIcon,
+  UserIcon,
 } from '@heroicons/react/24/outline';
+
 import analytics from '../../../services/analytics.js';
 import { exportAuditTrail, fetchAuditTrail } from '../../../services/adminMonitoring.js';
 import classNames from '../../../utils/classNames.js';
 
-const DEFAULT_FILTERS = {
+const INITIAL_FILTERS = {
   timeframe: '14d',
-  severity: 'all',
-  actorType: 'all',
-  resource: 'all',
+  severity: '',
+  actorType: '',
+  resourceType: '',
   search: '',
+  startDate: '',
+  endDate: '',
+  page: 1,
+  pageSize: 10,
 };
 
-const SEVERITY_STYLES = {
-  critical: 'border-rose-200 bg-rose-50 text-rose-700',
-  high: 'border-amber-200 bg-amber-50 text-amber-700',
-  medium: 'border-sky-200 bg-sky-50 text-sky-700',
-  low: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-};
-
-function formatTimestamp(timestamp) {
-  if (!timestamp) {
-    return '—';
-  }
-  const date = new Date(timestamp);
-  if (Number.isNaN(date.getTime())) {
-    return '—';
-  }
-  return date.toLocaleString();
-}
-
-function formatRelative(timestamp) {
-  if (!timestamp) {
-    return 'moments ago';
-  }
-  const date = new Date(timestamp);
-  const diffMs = Date.now() - date.getTime();
-  if (!Number.isFinite(diffMs) || diffMs < 0) {
-    return 'moments ago';
-  }
-  const diffMinutes = Math.floor(diffMs / (1000 * 60));
-  if (diffMinutes < 1) {
-    return 'moments ago';
-  }
-  if (diffMinutes < 60) {
-    return `${diffMinutes}m ago`;
-  }
-  const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) {
-    return `${diffHours}h ago`;
-  }
-  const diffDays = Math.floor(diffHours / 24);
-  return `${diffDays}d ago`;
-}
-
-function severityTone(severity) {
-  if (!severity) {
-    return 'border-slate-200 bg-slate-50 text-slate-600';
-  }
-  return SEVERITY_STYLES[severity] ?? 'border-slate-200 bg-slate-50 text-slate-600';
-}
-
-function TrailRow({ event, onRevealContext }) {
+function SummaryCard({ title, value, icon: Icon, tone = 'default', description }) {
   return (
-    <tr className="border-b border-slate-100 bg-white hover:bg-slate-50">
-      <td className="px-4 py-3 align-top">
-        <div className={classNames('inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold', severityTone(event.severity))}>
-          {event.severity?.toUpperCase() ?? 'INFO'}
+    <article
+      className={classNames('rounded-3xl border p-6 shadow-sm', {
+        'border-emerald-200 bg-emerald-50/70 text-emerald-900': tone === 'success',
+        'border-amber-200 bg-amber-50/70 text-amber-900': tone === 'warning',
+        'border-slate-200 bg-white/80 text-slate-900': tone === 'default',
+      })}
+    >
+      <div className="flex items-center gap-3">
+        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/70 shadow-inner">
+          <Icon className="h-6 w-6" aria-hidden />
+        </span>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>
+          <p className="mt-1 text-2xl font-semibold">{value}</p>
         </div>
-      </td>
-      <td className="px-4 py-3 align-top">
-        <div className="text-sm font-semibold text-slate-800">{event.action}</div>
-        <p className="mt-1 text-xs text-slate-500">{event.summary}</p>
-        <button
-          type="button"
-          onClick={() => onRevealContext(event)}
-          className="mt-2 inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-slate-300"
-        >
-          View context
-        </button>
-      </td>
-      <td className="px-4 py-3 align-top text-sm text-slate-600">
-        <p>{event.actor?.name ?? 'System'}</p>
-        <p className="text-xs text-slate-500">{event.actor?.type ?? 'service'}</p>
-      </td>
-      <td className="px-4 py-3 align-top text-sm text-slate-600">
-        <p>{event.resource?.label ?? event.resource?.key}</p>
-        <p className="text-xs text-slate-500">{event.resource?.type}</p>
-      </td>
-      <td className="px-4 py-3 align-top text-right text-sm text-slate-600">
-        <p>{formatTimestamp(event.timestamp)}</p>
-        <p className="text-xs text-slate-500">{formatRelative(event.timestamp)}</p>
-      </td>
+      </div>
+      {description ? <p className="mt-3 text-sm leading-6 text-slate-600">{description}</p> : null}
+    </article>
+  );
+}
+
+SummaryCard.propTypes = {
+  title: PropTypes.string.isRequired,
+  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  icon: PropTypes.elementType.isRequired,
+  tone: PropTypes.oneOf(['default', 'success', 'warning']),
+  description: PropTypes.string,
+};
+
+function EventRow({ event, onSelect, isActive }) {
+  return (
+    <tr
+      className={classNames('cursor-pointer border-b border-slate-100 text-sm text-slate-700 transition hover:bg-slate-50', {
+        'bg-sky-50': isActive,
+      })}
+      onClick={() => onSelect?.(event)}
+    >
+      <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-900">{event.summary}</td>
+      <td className="whitespace-nowrap px-4 py-3 capitalize">{event.severity}</td>
+      <td className="whitespace-nowrap px-4 py-3">{event.actor?.name}</td>
+      <td className="whitespace-nowrap px-4 py-3">{event.resource?.label}</td>
+      <td className="whitespace-nowrap px-4 py-3 text-slate-500">{event.timestamp ? new Date(event.timestamp).toLocaleString() : '—'}</td>
     </tr>
   );
 }
 
-TrailRow.propTypes = {
-  event: PropTypes.shape({
-    id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
-    severity: PropTypes.string,
-    action: PropTypes.string,
-    summary: PropTypes.string,
-    actor: PropTypes.shape({
-      name: PropTypes.string,
-      type: PropTypes.string,
-    }),
-    resource: PropTypes.shape({
-      key: PropTypes.string,
-      label: PropTypes.string,
-      type: PropTypes.string,
-    }),
-    timestamp: PropTypes.string,
-  }).isRequired,
-  onRevealContext: PropTypes.func.isRequired,
+EventRow.propTypes = {
+  event: PropTypes.object.isRequired,
+  onSelect: PropTypes.func,
+  isActive: PropTypes.bool,
 };
 
-function ContextDrawer({ event }) {
+function EventDetails({ event, onClose }) {
   if (!event) {
     return (
-      <div className="rounded-3xl border border-slate-200 bg-white/70 p-6 text-sm text-slate-500">
-        Select an audit event to inspect its decision context, payloads, and downstream impact.
+      <div className="rounded-3xl border border-slate-200 bg-white/60 p-6 text-sm text-slate-500">
+        Select an audit event to review actor context, metadata, and related incidents.
       </div>
     );
   }
-
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-lg">
-      <div className="flex items-center justify-between gap-3">
+    <div className="space-y-4 rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm">
+      <header className="flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Event context</h3>
-          <p className="mt-1 text-lg font-semibold text-slate-900">{event.action}</p>
-          <p className="mt-1 text-sm text-slate-600">{event.summary}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{event.severity}</p>
+          <h3 className="mt-1 text-base font-semibold text-slate-900">{event.summary}</h3>
         </div>
-        <div className={classNames('rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide', severityTone(event.severity))}>
-          {event.severity?.toUpperCase() ?? 'INFO'}
-        </div>
-      </div>
-      <dl className="mt-4 grid gap-3 text-sm">
+        {onClose ? (
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500"
+          >
+            Close
+          </button>
+        ) : null}
+      </header>
+      <dl className="grid grid-cols-2 gap-4 text-sm text-slate-600">
         <div>
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Timestamp</dt>
-          <dd className="text-slate-800">{formatTimestamp(event.timestamp)}</dd>
+          <dt className="font-semibold text-slate-900">Actor</dt>
+          <dd>{event.actor?.name}</dd>
+          <dd className="text-xs uppercase tracking-wide text-slate-500">{event.actor?.type}</dd>
         </div>
         <div>
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Actor</dt>
-          <dd className="text-slate-800">{event.actor?.name ?? 'System'}</dd>
-          <dd className="text-xs text-slate-500">{event.actor?.type ?? 'service'}</dd>
+          <dt className="font-semibold text-slate-900">Resource</dt>
+          <dd>{event.resource?.label}</dd>
+          <dd className="text-xs uppercase tracking-wide text-slate-500">{event.resource?.type}</dd>
         </div>
         <div>
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Resource</dt>
-          <dd className="text-slate-800">{event.resource?.label ?? event.resource?.key}</dd>
-          <dd className="text-xs text-slate-500">{event.resource?.type}</dd>
+          <dt className="font-semibold text-slate-900">Action</dt>
+          <dd>{event.action}</dd>
+        </div>
+        <div>
+          <dt className="font-semibold text-slate-900">Timestamp</dt>
+          <dd>{event.timestamp ? new Date(event.timestamp).toLocaleString() : '—'}</dd>
         </div>
       </dl>
       {event.metadata ? (
-        <div className="mt-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Metadata</p>
-          <pre className="mt-2 max-h-64 overflow-auto rounded-2xl bg-slate-900/90 p-4 text-xs text-emerald-200">
-            {JSON.stringify(event.metadata, null, 2)}
-          </pre>
-        </div>
+        <section className="rounded-2xl border border-slate-200 bg-white p-4">
+          <h4 className="text-sm font-semibold text-slate-900">Metadata</h4>
+          <pre className="mt-2 overflow-x-auto text-xs text-slate-600">{JSON.stringify(event.metadata, null, 2)}</pre>
+        </section>
       ) : null}
       {event.relatedIncidents?.length ? (
-        <div className="mt-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Related incidents</p>
-          <ul className="mt-2 space-y-2 text-sm">
+        <section className="rounded-2xl border border-slate-200 bg-white p-4">
+          <h4 className="text-sm font-semibold text-slate-900">Related incidents</h4>
+          <ul className="mt-2 space-y-2 text-sm text-slate-600">
             {event.relatedIncidents.map((incident) => (
-              <li key={incident.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                <p className="font-semibold text-slate-800">{incident.title}</p>
-                <p className="text-xs text-slate-500">{incident.status} · {formatTimestamp(incident.openedAt)}</p>
+              <li key={incident.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2">
+                <span>{incident.title}</span>
+                <ArrowTopRightOnSquareIcon className="h-4 w-4 text-slate-400" aria-hidden />
               </li>
             ))}
           </ul>
-        </div>
+        </section>
       ) : null}
     </div>
   );
 }
 
-ContextDrawer.propTypes = {
-  event: PropTypes.shape({
-    action: PropTypes.string,
-    summary: PropTypes.string,
-    severity: PropTypes.string,
-    timestamp: PropTypes.string,
-    actor: PropTypes.object,
-    resource: PropTypes.object,
-    metadata: PropTypes.object,
-    relatedIncidents: PropTypes.arrayOf(PropTypes.object),
-  }),
+EventDetails.propTypes = {
+  event: PropTypes.object,
+  onClose: PropTypes.func,
 };
 
-export default function AuditTrailViewer({ defaultFilters = {} }) {
-  const [filters, setFilters] = useState({ ...DEFAULT_FILTERS, ...defaultFilters });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [events, setEvents] = useState([]);
-  const [summary, setSummary] = useState({ total: 0, critical: 0, high: 0, medianResponseMinutes: 0 });
-  const [context, setContext] = useState(null);
-  const [pagination, setPagination] = useState({ page: 1, pageSize: 50, totalPages: 1 });
-  const [availableFilters, setAvailableFilters] = useState({ severities: [], actorTypes: [], resources: [] });
-
-  const loadEvents = useCallback(async (activeFilters, paginationState) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetchAuditTrail({ ...activeFilters, page: paginationState.page, pageSize: paginationState.pageSize });
-      setEvents(response.items ?? []);
-      setSummary(response.summary ?? {});
-      setAvailableFilters({
-        severities: response.filters?.severities ?? [],
-        actorTypes: response.filters?.actorTypes ?? [],
-        resources: response.filters?.resources ?? [],
-      });
-      setPagination((current) => ({
-        ...current,
-        page: response.pagination?.page ?? paginationState.page,
-        pageSize: response.pagination?.pageSize ?? paginationState.pageSize,
-        totalPages: response.pagination?.totalPages ?? response.pagination?.page ?? 1,
-      }));
-      analytics.track('admin.monitoring.audit.loaded', {
-        severity: activeFilters.severity,
-        actorType: activeFilters.actorType,
-        resource: activeFilters.resource,
-        results: (response.items ?? []).length,
-      }).catch(() => {});
-    } catch (loadError) {
-      setError(loadError);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+export default function AuditTrailViewer() {
+  const [filters, setFilters] = useState(INITIAL_FILTERS);
+  const [state, setState] = useState({ status: 'idle', data: null, error: null });
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
-    loadEvents(filters, pagination);
-  }, [filters, loadEvents]);
-
-  const severityOptions = useMemo(() => [{ value: 'all', label: 'All severities' }, ...(availableFilters.severities ?? [])], [availableFilters.severities]);
-  const actorTypeOptions = useMemo(() => [{ value: 'all', label: 'All actors' }, ...(availableFilters.actorTypes ?? [])], [availableFilters.actorTypes]);
-  const resourceOptions = useMemo(() => [{ value: 'all', label: 'All resources' }, ...(availableFilters.resources ?? [])], [availableFilters.resources]);
-
-  const groupedEvents = useMemo(() => {
-    const groups = new Map();
-    for (const event of events) {
-      const day = event.timestamp ? new Date(event.timestamp).toDateString() : 'Unknown';
-      if (!groups.has(day)) {
-        groups.set(day, []);
+    let isMounted = true;
+    async function load() {
+      setState((prev) => ({ ...prev, status: 'loading' }));
+      try {
+        const payload = await fetchAuditTrail(filters);
+        if (!isMounted) {
+          return;
+        }
+        setState({ status: 'success', data: payload, error: null });
+        setSelectedEvent((prev) => (prev ? payload.items?.find((item) => item.id === prev.id) ?? null : null));
+        analytics.track('admin.monitoring.audit.loaded', filters);
+      } catch (error) {
+        console.error('Failed to load audit trail', error);
+        if (!isMounted) {
+          return;
+        }
+        setState({ status: 'error', data: null, error });
       }
-      groups.get(day).push(event);
     }
-    return Array.from(groups.entries()).map(([day, dayEvents]) => ({ day, events: dayEvents }));
-  }, [events]);
+    load();
+    return () => {
+      isMounted = false;
+    };
+  }, [filters]);
 
-  const handleExport = useCallback(async () => {
+  const summary = state.data?.summary ?? {
+    total: 0,
+    critical: 0,
+    medianResponseMinutes: 0,
+    compliancePosture: '—',
+    residualRiskNarrative: '—',
+  };
+
+  function updateFilter(key, value) {
+    setFilters((prev) => ({ ...prev, page: 1, [key]: value }));
+  }
+
+  function updatePagination(page) {
+    setFilters((prev) => ({ ...prev, page }));
+  }
+
+  async function handleExport() {
     try {
-      const payload = await exportAuditTrail(filters);
-      analytics.track('admin.monitoring.audit.exported', filters).catch(() => {});
-      if (payload?.fileUrl) {
-        window.open(payload.fileUrl, '_blank', 'noopener');
+      setExporting(true);
+      const result = await exportAuditTrail(filters);
+      analytics.track('admin.monitoring.audit.exported', { rows: state.data?.items?.length ?? 0, ...filters });
+      if (result.fileUrl && typeof window !== 'undefined') {
+        window.open(result.fileUrl, '_blank', 'noopener');
       }
-    } catch (exportError) {
-      console.warn('Unable to export audit trail', exportError);
+    } catch (error) {
+      console.error('Failed to export audit trail', error);
+    } finally {
+      setExporting(false);
     }
-  }, [filters]);
+  }
 
-  const handleBookmark = useCallback(() => {
-    analytics.track('admin.monitoring.audit.bookmarked', filters).catch(() => {});
-  }, [filters]);
+  const pagination = state.data?.pagination ?? { page: filters.page, totalPages: 1, pageSize: filters.pageSize };
+  const events = state.data?.items ?? [];
+  const filterOptions = state.data?.filters ?? { severities: [], actorTypes: [], resources: [] };
+
+  const summaryCards = useMemo(
+    () => [
+      {
+        title: 'Total events',
+        value: summary.total,
+        icon: ShieldCheckIcon,
+        tone: 'default',
+        description: summary.compliancePosture,
+      },
+      {
+        title: 'Critical events',
+        value: summary.critical,
+        icon: ExclamationTriangleIcon,
+        tone: 'warning',
+      },
+      {
+        title: 'Median response',
+        value: `${summary.medianResponseMinutes} minutes`,
+        icon: ClockIcon,
+        tone: 'success',
+      },
+    ],
+    [summary],
+  );
 
   return (
     <section className="space-y-6">
-      <header className="rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Monitoring &amp; analytics</p>
-            <h2 className="mt-1 text-2xl font-semibold text-slate-900">Audit trail</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-              Deliver regulator-ready transparency. Investigate every policy decision, membership change, and risk signal with premium
-              filtering, context, and export tooling.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={handleExport}
-              className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700"
-            >
-              <ArrowDownTrayIcon className="h-5 w-5" aria-hidden />
-              Export CSV
-            </button>
-            <button
-              type="button"
-              onClick={handleBookmark}
-              className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-400"
-            >
-              <BookmarkIcon className="h-5 w-5" aria-hidden />
-              Bookmark filter
-            </button>
-          </div>
+      <header className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm md:flex-row md:items-center md:justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-slate-900">Audit trail viewer</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Monitor governance events, policy updates, and operational changes with severity context and exportable evidence.
+          </p>
         </div>
-        <div className="mt-6 grid gap-4 lg:grid-cols-5">
-          <label className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 shadow-sm">
-            <CalendarDaysIcon className={classNames('h-4 w-4', loading ? 'animate-spin text-sky-500' : 'text-slate-500')} aria-hidden />
-            <span className="sr-only">Timeframe</span>
-            <select
-              value={filters.timeframe}
-              onChange={(event) => setFilters((current) => ({ ...current, timeframe: event.target.value }))}
-              className="w-full rounded-xl border-none bg-transparent text-sm font-semibold text-slate-900 focus:outline-none"
-            >
-              <option value="7d">Last 7 days</option>
-              <option value="14d">Last 14 days</option>
-              <option value="30d">Last 30 days</option>
-              <option value="90d">Last 90 days</option>
-            </select>
-          </label>
-          <label className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 shadow-sm">
-            <FunnelIcon className="h-4 w-4" aria-hidden />
-            <span className="sr-only">Severity</span>
-            <select
-              value={filters.severity}
-              onChange={(event) => setFilters((current) => ({ ...current, severity: event.target.value }))}
-              className="w-full rounded-xl border-none bg-transparent text-sm font-semibold text-slate-900 focus:outline-none"
-            >
-              {severityOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 shadow-sm">
-            <ShieldCheckIcon className="h-4 w-4" aria-hidden />
-            <span className="sr-only">Actor</span>
-            <select
-              value={filters.actorType}
-              onChange={(event) => setFilters((current) => ({ ...current, actorType: event.target.value }))}
-              className="w-full rounded-xl border-none bg-transparent text-sm font-semibold text-slate-900 focus:outline-none"
-            >
-              {actorTypeOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 shadow-sm">
-            <SparklesIcon className="h-4 w-4" aria-hidden />
-            <span className="sr-only">Resource</span>
-            <select
-              value={filters.resource}
-              onChange={(event) => setFilters((current) => ({ ...current, resource: event.target.value }))}
-              className="w-full rounded-xl border-none bg-transparent text-sm font-semibold text-slate-900 focus:outline-none"
-            >
-              {resourceOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 shadow-sm lg:col-span-1">
-            <MagnifyingGlassIcon className="h-4 w-4" aria-hidden />
-            <span className="sr-only">Search</span>
+        <button
+          type="button"
+          onClick={handleExport}
+          disabled={exporting}
+          className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700 disabled:cursor-wait disabled:bg-slate-500"
+        >
+          <ArrowDownTrayIcon className="h-4 w-4" aria-hidden /> Export CSV
+        </button>
+      </header>
+
+      <div className="grid gap-6 lg:grid-cols-12">
+        <section className="space-y-6 rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm lg:col-span-8">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <label className="flex flex-col text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Timeframe
+              <select
+                className="mt-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-sky-400 focus:outline-none"
+                value={filters.timeframe}
+                onChange={(event) => updateFilter('timeframe', event.target.value)}
+              >
+                {['7d', '14d', '30d', '90d'].map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Severity
+              <select
+                className="mt-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-sky-400 focus:outline-none"
+                value={filters.severity}
+                onChange={(event) => updateFilter('severity', event.target.value)}
+              >
+                <option value="">All severities</option>
+                {filterOptions.severities?.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Actor
+              <select
+                className="mt-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-sky-400 focus:outline-none"
+                value={filters.actorType}
+                onChange={(event) => updateFilter('actorType', event.target.value)}
+              >
+                <option value="">All actors</option>
+                {filterOptions.actorTypes?.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <label className="flex flex-col text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Resource
+              <select
+                className="mt-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-sky-400 focus:outline-none"
+                value={filters.resourceType}
+                onChange={(event) => updateFilter('resourceType', event.target.value)}
+              >
+                <option value="">All resources</option>
+                {filterOptions.resources?.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Start date
+              <input
+                type="date"
+                className="mt-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-sky-400 focus:outline-none"
+                value={filters.startDate}
+                onChange={(event) => updateFilter('startDate', event.target.value)}
+              />
+            </label>
+            <label className="flex flex-col text-xs font-semibold uppercase tracking-wide text-slate-500">
+              End date
+              <input
+                type="date"
+                className="mt-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-sky-400 focus:outline-none"
+                value={filters.endDate}
+                onChange={(event) => updateFilter('endDate', event.target.value)}
+              />
+            </label>
+          </div>
+
+          <label className="relative mt-2 flex items-center">
+            <UserIcon className="pointer-events-none absolute left-3 h-4 w-4 text-slate-400" aria-hidden />
             <input
               type="search"
               value={filters.search}
-              onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
-              placeholder="Search actor, resource, decision…"
-              className="w-full rounded-xl border-none bg-transparent text-sm font-semibold text-slate-900 focus:outline-none"
+              onChange={(event) => updateFilter('search', event.target.value)}
+              placeholder="Search actors, resources, or summaries"
+              className="w-full rounded-full border border-slate-200 bg-white px-8 py-2 text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
             />
           </label>
-        </div>
-        <div className="mt-4 grid gap-3 text-sm text-slate-600 sm:grid-cols-3">
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Events reviewed</p>
-            <p className="mt-1 text-2xl font-semibold text-slate-900">{summary.total ?? 0}</p>
-          </div>
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-700">
-            <p className="text-xs font-semibold uppercase tracking-wide">Critical incidents</p>
-            <p className="mt-1 text-2xl font-semibold">{summary.critical ?? 0}</p>
-          </div>
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700">
-            <p className="text-xs font-semibold uppercase tracking-wide">Median response</p>
-            <p className="mt-1 text-2xl font-semibold">{summary.medianResponseMinutes ?? 0} minutes</p>
-          </div>
-        </div>
-      </header>
 
-      {error ? (
-        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 shadow-sm">
-          <p className="text-sm font-semibold text-rose-700">We were unable to load the audit trail.</p>
-          <p className="mt-1 text-sm text-rose-600">{error.message ?? 'Unknown error encountered.'}</p>
-          <button
-            type="button"
-            onClick={() => loadEvents(filters, pagination)}
-            className="mt-4 inline-flex items-center gap-2 rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-500"
-          >
-            <ArrowPathIcon className="h-4 w-4" aria-hidden />
-            Retry fetch
-          </button>
-        </div>
-      ) : null}
+          {state.status === 'loading' ? (
+            <div className="h-64 animate-pulse rounded-3xl bg-slate-100" aria-hidden />
+          ) : null}
 
-      <section className="grid gap-6 lg:grid-cols-12">
-        <div className="lg:col-span-8">
-          <div className="overflow-hidden rounded-3xl border border-slate-200 shadow-sm">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th scope="col" className="px-4 py-3 text-left font-semibold">Severity</th>
-                  <th scope="col" className="px-4 py-3 text-left font-semibold">Action</th>
-                  <th scope="col" className="px-4 py-3 text-left font-semibold">Actor</th>
-                  <th scope="col" className="px-4 py-3 text-left font-semibold">Resource</th>
-                  <th scope="col" className="px-4 py-3 text-right font-semibold">Timestamp</th>
-                </tr>
-              </thead>
-              <tbody>
-                {groupedEvents.map((group) => (
-                  <Fragment key={group.day}>
-                    <tr className="bg-slate-900/90 text-left text-xs font-semibold uppercase tracking-wide text-slate-300">
-                      <td colSpan={5} className="px-4 py-2">
-                        {group.day}
-                      </td>
-                    </tr>
-                    {group.events.map((event) => (
-                      <TrailRow key={event.id} event={event} onRevealContext={setContext} />
-                    ))}
-                  </Fragment>
-                ))}
-                {!loading && groupedEvents.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-500">
-                      No audit events match the selected filters yet. Adjust criteria or expand the timeframe to continue your investigation.
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-            {loading ? (
-              <div className="flex items-center justify-center gap-2 border-t border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
-                <ArrowPathIcon className="h-4 w-4 animate-spin text-sky-500" aria-hidden />
-                Loading events…
+          {state.status === 'error' ? (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+              <div className="flex items-center gap-2">
+                <ExclamationTriangleIcon className="h-5 w-5" aria-hidden />
+                Unable to load audit events at this time.
               </div>
-            ) : null}
-          </div>
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
-            <p>
+            </div>
+          ) : null}
+
+          {state.status === 'success' ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200">
+                <thead>
+                  <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <th scope="col" className="px-4 py-3">Summary</th>
+                    <th scope="col" className="px-4 py-3">Severity</th>
+                    <th scope="col" className="px-4 py-3">Actor</th>
+                    <th scope="col" className="px-4 py-3">Resource</th>
+                    <th scope="col" className="px-4 py-3">Timestamp</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {events.map((event) => (
+                    <EventRow key={event.id} event={event} isActive={selectedEvent?.id === event.id} onSelect={setSelectedEvent} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+
+          <footer className="flex flex-col items-center justify-between gap-3 pt-4 text-sm text-slate-600 sm:flex-row">
+            <span>
               Page {pagination.page} of {pagination.totalPages}
-            </p>
-            <div className="flex items-center gap-2">
+            </span>
+            <div className="flex items-center gap-3">
               <button
                 type="button"
-                onClick={() =>
-                  setPagination((current) => {
-                    const nextPage = Math.max(1, current.page - 1);
-                    const next = { ...current, page: nextPage };
-                    loadEvents(filters, next);
-                    return next;
-                  })
-                }
-                className="rounded-full border border-slate-200 px-3 py-1 font-semibold text-slate-600 transition hover:border-slate-300"
+                onClick={() => updatePagination(Math.max(1, pagination.page - 1))}
+                disabled={pagination.page <= 1}
+                className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 disabled:opacity-50"
               >
                 Previous
               </button>
               <button
                 type="button"
-                onClick={() =>
-                  setPagination((current) => {
-                    const nextPage = Math.min(current.totalPages, current.page + 1);
-                    const next = { ...current, page: nextPage };
-                    loadEvents(filters, next);
-                    return next;
-                  })
-                }
-                className="rounded-full border border-slate-200 px-3 py-1 font-semibold text-slate-600 transition hover:border-slate-300"
+                onClick={() => updatePagination(Math.min(pagination.totalPages, pagination.page + 1))}
+                disabled={pagination.page >= pagination.totalPages}
+                className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 disabled:opacity-50"
               >
                 Next
               </button>
             </div>
+          </footer>
+        </section>
+
+        <aside className="space-y-6 rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm lg:col-span-4">
+          <div className="grid gap-4">
+            {summaryCards.map((card) => (
+              <SummaryCard
+                key={card.title}
+                title={card.title}
+                value={card.value}
+                icon={card.icon}
+                tone={card.tone}
+                description={card.description}
+              />
+            ))}
           </div>
-        </div>
-        <aside className="space-y-5 lg:col-span-4">
-          <ContextDrawer event={context} />
-          <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-700">
-            <div className="flex items-center gap-2 font-semibold">
-              <CheckCircleIcon className="h-5 w-5" aria-hidden />
-              {summary.compliancePosture ?? 'Compliance posture: healthy'}
-            </div>
-            <p className="mt-2">
-              Every export, bookmark, and filter change is logged. Shareable permalinks keep governance teams aligned to the same investigation trail.
-            </p>
-          </div>
-          <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">
-            <div className="flex items-center gap-2 font-semibold">
-              <ExclamationCircleIcon className="h-5 w-5" aria-hidden />
-              Residual risk
-            </div>
-            <p className="mt-2">
-              {summary.residualRiskNarrative ?? 'No outstanding risks reported. Continue scheduled reviews to maintain regulator confidence.'}
-            </p>
-          </div>
+          <EventDetails event={selectedEvent} onClose={() => setSelectedEvent(null)} />
         </aside>
-      </section>
+      </div>
     </section>
   );
 }
-
-AuditTrailViewer.propTypes = {
-  defaultFilters: PropTypes.shape({
-    timeframe: PropTypes.string,
-    severity: PropTypes.string,
-    actorType: PropTypes.string,
-    resource: PropTypes.string,
-    search: PropTypes.string,
-  }),
-};
