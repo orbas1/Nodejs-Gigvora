@@ -1,14 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import PageHeader from '../components/PageHeader.jsx';
-import DataStatus from '../components/DataStatus.jsx';
 import useOpportunityListing from '../hooks/useOpportunityListing.js';
 import analytics from '../services/analytics.js';
-import MentorProfileCard from '../components/mentor/MentorProfileCard.jsx';
-import MentorOnboardingForm from '../components/mentor/MentorOnboardingForm.jsx';
-import MentorShowcaseManager from '../components/mentors/MentorShowcaseManager.jsx';
-import MarketplaceSearchInput from '../components/marketplace/MarketplaceSearchInput.jsx';
 import useSavedMentors from '../hooks/useSavedMentors.js';
-import SavedMentorsPanel from '../components/mentor/SavedMentorsPanel.jsx';
+import MentorDirectory from '../components/mentor/MentorDirectory.jsx';
 
 export const MENTOR_LISTING_RESOURCE = 'mentors';
 const PAGE_SIZE = 12;
@@ -98,6 +92,7 @@ export default function MentorsPage() {
   const [selectedDisciplines, setSelectedDisciplines] = useState([]);
   const [priceTier, setPriceTier] = useState('all');
   const [availabilityFilter, setAvailabilityFilter] = useState('all');
+  const [minimumRating, setMinimumRating] = useState(0);
 
   const filtersPayload = useMemo(() => {
     const payload = {};
@@ -119,8 +114,9 @@ export default function MentorsPage() {
         disciplines: [...selectedDisciplines].sort(),
         priceTier,
         availability: availabilityFilter,
+        minimumRating,
       }),
-    [selectedDisciplines, priceTier, availabilityFilter],
+    [selectedDisciplines, priceTier, availabilityFilter, minimumRating],
   );
 
   const {
@@ -197,9 +193,16 @@ export default function MentorsPage() {
         const availabilityStatus = normaliseAvailability(mentor);
         const matchesAvailability = availabilityFilter === 'all' || availabilityStatus === availabilityFilter;
 
-        return matchesDisciplines && matchesPrice && matchesAvailability;
+        const ratingValue = Number.isFinite(mentor?.rating)
+          ? Number(mentor.rating)
+          : Number.isFinite(Number(mentor?.score))
+          ? Number(mentor.score)
+          : 0;
+        const matchesRating = !minimumRating || ratingValue >= minimumRating;
+
+        return matchesDisciplines && matchesPrice && matchesAvailability && matchesRating;
       }),
-    [accumulatedMentors, selectedDisciplinesLower, priceTier, availabilityFilter],
+    [accumulatedMentors, selectedDisciplinesLower, priceTier, availabilityFilter, minimumRating],
   );
 
   const isInitialLoading = loading && page === 1 && !accumulatedMentors.length;
@@ -297,183 +300,41 @@ export default function MentorsPage() {
   }, []);
 
   return (
-    <section className="relative overflow-hidden py-20">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(221,232,255,0.45),_transparent_65%)]" aria-hidden="true" />
-      <div className="relative mx-auto max-w-6xl px-6">
-        <PageHeader
-          eyebrow="Mentor marketplace"
-          title="Work with leaders who accelerate your next leap"
-          description="Book 1:1 sessions, cohort clinics, and mentorship packages with operators across product, design, revenue, and operations."
-          meta={
-            <DataStatus
-              loading={loading}
-              fromCache={fromCache}
-              lastUpdated={lastUpdated}
-              onRefresh={handleRefresh}
-            />
-          }
-        />
-        <div className="mb-8 space-y-4">
-          <MarketplaceSearchInput
-            id="mentor-search"
-            label="Search mentors"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search mentors by craft, industry, or outcomes"
-          />
-          <div className="flex flex-wrap gap-6 rounded-3xl border border-slate-200 bg-white/70 p-4 shadow-sm">
-            <div className="min-w-[14rem]">
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Discipline</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {disciplineOptions.map((option) => {
-                  const active = selectedDisciplines.includes(option.value);
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => handleToggleDiscipline(option.value)}
-                      aria-pressed={active}
-                      className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                        active
-                          ? 'border-accent bg-accent/10 text-accent'
-                          : 'border-slate-300 text-slate-600 hover:border-accent hover:text-accent'
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-                {!disciplineOptions.length ? (
-                  <p className="text-xs text-slate-400">Disciplines appear once mentors load.</p>
-                ) : null}
-              </div>
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Price</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {priceOptions.map((option) => {
-                  const active = priceTier === option.value;
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setPriceTier(option.value)}
-                      aria-pressed={active}
-                      className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                        active
-                          ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                          : 'border-slate-300 text-slate-600 hover:border-emerald-300 hover:text-emerald-700'
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Availability</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {availabilityOptions.map((option) => {
-                  const active = availabilityFilter === option.value;
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setAvailabilityFilter(option.value)}
-                      aria-pressed={active}
-                      className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                        active
-                          ? 'border-sky-300 bg-sky-50 text-sky-700'
-                          : 'border-slate-300 text-slate-600 hover:border-sky-300 hover:text-sky-700'
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-        {error ? (
-          <div className="mb-6 rounded-3xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
-            Unable to load mentors right now. {error.message || 'Refresh to try again.'}
-          </div>
-        ) : null}
-        {isInitialLoading ? (
-          <div className="grid gap-4 md:grid-cols-2">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="animate-pulse rounded-3xl border border-slate-200 bg-white p-6">
-                <div className="h-3 w-1/4 rounded bg-slate-200" />
-                <div className="mt-3 h-4 w-2/3 rounded bg-slate-200" />
-                <div className="mt-4 h-3 w-full rounded bg-slate-200" />
-                <div className="mt-2 h-3 w-2/5 rounded bg-slate-200" />
-              </div>
-            ))}
-          </div>
-        ) : null}
-        {!loading && !filteredMentors.length ? (
-          <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
-            {debouncedQuery || selectedDisciplines.length || priceTier !== 'all' || availabilityFilter !== 'all'
-              ? 'No mentors match your filters yet. Try broadening your search or clearing filters to explore more mentors.'
-              : 'Our mentor guild is onboarding now. Share your practice to be featured in Explorer.'}
-          </div>
-        ) : null}
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr),minmax(0,1fr)]">
-          <div className="space-y-5">
-            {filteredMentors.map((mentor) => (
-              <MentorProfileCard
-                key={mentor.id ?? mentor.name}
-                mentor={mentor}
-                onBook={handleBookMentor}
-                onView={handleViewMentor}
-                onToggleSaved={handleToggleSavedMentor}
-                isSaved={isSaved(mentor.id)}
-                availability={normaliseAvailability(mentor)}
-              />
-            ))}
-            {hasMore ? (
-              <div className="pt-4 text-center">
-                <button
-                  type="button"
-                  onClick={handleLoadMore}
-                  disabled={isLoadingMore}
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-semibold text-slate-600 transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isLoadingMore ? 'Loading more mentors…' : 'Load more mentors'}
-                </button>
-              </div>
-            ) : null}
-          </div>
-          <div className="space-y-6">
-            <SavedMentorsPanel
-              mentors={savedMentors}
-              onSelect={handleSelectSavedMentor}
-              onRemove={handleRemoveMentorById}
-            />
-            <div className="rounded-3xl border border-slate-200 bg-slate-900 p-6 text-white shadow-soft">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-300">Featured formats</p>
-              <ul className="mt-4 space-y-3 text-sm">
-                <li>
-                  <span className="font-semibold text-white">Leadership pods</span> • 6-week sprints combining live sessions and async feedback.
-                </li>
-                <li>
-                  <span className="font-semibold text-white">Revenue labs</span> • Diagnose pipeline blockers with GTM mentors and co-create playbooks.
-                </li>
-                <li>
-                  <span className="font-semibold text-white">Portfolio clinics</span> • Intensive storytelling reviews to prep for promotions and interviews.
-                </li>
-              </ul>
-              <p className="mt-5 text-xs text-slate-300">
-                Mentor packages sync with Explorer alerts and the new mentor dashboard so you can manage demand centrally.
-              </p>
-            </div>
-            <MentorOnboardingForm onSubmitted={handleRefresh} ctaLabel="List my mentorship" />
-          </div>
-        </div>
-        <MentorShowcaseManager />
-      </div>
-    </section>
+    <MentorDirectory
+      query={query}
+      onQueryChange={setQuery}
+      loading={loading}
+      fromCache={fromCache}
+      lastUpdated={lastUpdated}
+      onRefresh={handleRefresh}
+      onRetry={handleRefresh}
+      error={error}
+      mentors={filteredMentors}
+      allMentors={accumulatedMentors}
+      isInitialLoading={isInitialLoading}
+      isLoadingMore={isLoadingMore}
+      hasMore={hasMore}
+      onLoadMore={handleLoadMore}
+      disciplineOptions={disciplineOptions}
+      selectedDisciplines={selectedDisciplines}
+      onToggleDiscipline={handleToggleDiscipline}
+      priceOptions={priceOptions}
+      priceTier={priceTier}
+      onPriceTierChange={setPriceTier}
+      availabilityOptions={availabilityOptions}
+      availabilityFilter={availabilityFilter}
+      onAvailabilityChange={setAvailabilityFilter}
+      minimumRating={minimumRating}
+      onMinimumRatingChange={setMinimumRating}
+      savedMentors={savedMentors}
+      onSelectSavedMentor={handleSelectSavedMentor}
+      onRemoveSavedMentor={handleRemoveMentorById}
+      onToggleSavedMentor={handleToggleSavedMentor}
+      isMentorSaved={isSaved}
+      onBookMentor={handleBookMentor}
+      onViewMentor={handleViewMentor}
+      debouncedQuery={debouncedQuery}
+      totalMentorCount={totalFromMeta}
+    />
   );
 }

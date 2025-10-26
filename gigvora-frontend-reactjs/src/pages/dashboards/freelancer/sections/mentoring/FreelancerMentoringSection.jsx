@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import useSession from '../../../../../hooks/useSession.js';
 import useFreelancerMentoring from '../../../../../hooks/useFreelancerMentoring.js';
 import MentoringSummaryCards from './MentoringSummaryCards.jsx';
@@ -66,6 +66,38 @@ export default function FreelancerMentoringSection() {
     await createSession(payload);
     setPrefillMentorId(null);
   };
+
+  const viewerTimezone = useMemo(() => {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone;
+    } catch (error) {
+      return 'UTC';
+    }
+  }, []);
+
+  const handleScheduleFromPreview = useCallback(
+    async (payload) => {
+      if (!payload?.mentorId || !payload?.scheduledAt) {
+        throw new Error('Select a slot to schedule this session.');
+      }
+
+      const sessionPayload = {
+        mentorId: Number(payload.mentorId ?? payload.mentor?.id ?? selectedMentor?.id),
+        topic: payload.topic ?? selectedMentor?.headline ?? 'Mentorship session',
+        agenda: payload.agenda ?? undefined,
+        scheduledAt: payload.scheduledAt,
+        durationMinutes: payload.durationMinutes ?? 60,
+        meetingType: payload.meetingType ?? 'virtual',
+        meetingUrl: payload.meetingUrl ?? undefined,
+        status: 'scheduled',
+      };
+
+      await createSession(sessionPayload);
+      setPrefillMentorId(sessionPayload.mentorId);
+      setActiveMentorId(null);
+    },
+    [createSession, selectedMentor?.headline, selectedMentor?.id],
+  );
 
   const handleFavourite = async (mentorId, notes) => {
     if (!mentorId) return;
@@ -217,6 +249,9 @@ export default function FreelancerMentoringSection() {
           mentor={selectedMentor}
           analytics={selectedMentorAnalytics}
           onClose={handleCloseMentorModal}
+          onSchedule={handleScheduleFromPreview}
+          pending={pending}
+          viewerTimezone={viewerTimezone}
         />
       ) : null}
     </section>
