@@ -1,11 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  ArrowTrendingUpIcon,
+  BanknotesIcon,
+  ChartBarIcon,
+  ClockIcon,
+  HandThumbUpIcon,
+  ShieldCheckIcon,
+  UsersIcon,
+} from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import useSession from '../../hooks/useSession.js';
 import { useAgencyOverview } from '../../hooks/useAgencyOverview.js';
 import useAgencyDashboard from '../../hooks/useAgencyDashboard.js';
 import useProjectGigManagement from '../../hooks/useProjectGigManagement.js';
 import useGigOrderDetail from '../../hooks/useGigOrderDetail.js';
+import useAgencyWorkforceDashboard from '../../hooks/useAgencyWorkforceDashboard.js';
 import DataStatus from '../../components/DataStatus.jsx';
 import FinanceControlTowerFeature from '../../components/dashboard/FinanceControlTowerFeature.jsx';
 import DashboardInsightsBand from '../../components/dashboard/shared/DashboardInsightsBand.jsx';
@@ -123,6 +133,27 @@ function formatNumber(value) {
   return new Intl.NumberFormat('en-US').format(Number(value));
 }
 
+function parseMetricNumber(value) {
+  if (value == null) {
+    return null;
+  }
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value === 'string') {
+    const numeric = Number.parseFloat(value.replace(/[^0-9.-]/g, ''));
+    return Number.isFinite(numeric) ? numeric : null;
+  }
+  return null;
+}
+
+function clampPercent(value) {
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+  return Math.min(100, Math.max(0, value));
+}
+
 export default function AgencyDashboardPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -210,6 +241,13 @@ export default function AgencyDashboardPage() {
   } = useAgencyDashboard({
     workspaceId,
     workspaceSlug: workspaceSlugParam,
+    enabled: isAuthenticated && isAgencyMember,
+  });
+
+  const effectiveWorkspaceId = workspace?.id ?? workspaceId ?? overviewPayload?.meta?.selectedWorkspaceId ?? undefined;
+
+  const workforceDashboard = useAgencyWorkforceDashboard({
+    workspaceId: effectiveWorkspaceId,
     enabled: isAuthenticated && isAgencyMember,
   });
 
@@ -352,6 +390,32 @@ export default function AgencyDashboardPage() {
   const gigSummary = studioInsights.summary ?? null;
   const gigDeliverables = studioInsights.deliverables ?? null;
   const financeSnapshot = agencyDashboard?.finance ?? {};
+  const workforceMetrics = useMemo(() => {
+    const entries = Array.isArray(workforceDashboard.summaryCards) ? workforceDashboard.summaryCards : [];
+    return entries.reduce((accumulator, card) => {
+      if (!card) {
+        return accumulator;
+      }
+      const key = card.id ?? card.label;
+      if (key) {
+        accumulator[key] = card;
+      }
+      return accumulator;
+    }, {});
+  }, [workforceDashboard.summaryCards]);
+
+  const headcountValue = parseMetricNumber(workforceMetrics.headcount?.value);
+  const activeMemberCount = parseMetricNumber(workforceMetrics.active?.value);
+  const benchHoursValue = parseMetricNumber(workforceMetrics.benchHours?.value);
+  const utilisationPercent = clampPercent(parseMetricNumber(workforceMetrics.utilisation?.value));
+  const benchCapacity = useMemo(() => {
+    if (headcountValue == null || activeMemberCount == null) {
+      return null;
+    }
+    return Math.max(0, headcountValue - activeMemberCount);
+  }, [headcountValue, activeMemberCount]);
+  const trustScore = clampPercent(parseMetricNumber(overview?.trustScore));
+  const ratingScore = parseMetricNumber(overview?.rating);
   const gigStats = useMemo(() => {
     const stats = projectGigData?.purchasedGigs?.stats ?? {};
     const submissionStats = projectGigData?.purchasedGigs?.submissions?.stats ?? {};
@@ -504,6 +568,173 @@ export default function AgencyDashboardPage() {
     return 0;
   }, [financeSnapshot.awaitingPayment, financeSnapshot.overdueInvoices, financeSnapshot.unpaidInvoices]);
 
+  const marginDisplay = numericMargin != null ? `${numericMargin.toFixed(1)}%` : null;
+  const utilisationDisplay = utilisationPercent != null ? `${utilisationPercent.toFixed(1)}%` : null;
+  const benchHoursDisplay = benchHoursValue != null ? `${benchHoursValue.toFixed(1)}` : null;
+
+  const executiveSignals = useMemo(() => {
+    const signals = [];
+    if (trustScore != null) {
+      signals.push({
+        id: 'trust-score',
+        label: 'Trust score',
+        value: `${Math.round(trustScore)}/100`,
+        description: 'Confidence level across client and talent feedback loops.',
+        icon: ShieldCheckIcon,
+        iconBackgroundClassName: 'bg-indigo-600/90',
+        href: '#agency-management',
+        badge: 'Trust',
+      });
+    }
+    if (ratingScore != null) {
+      signals.push({
+        id: 'csat-rating',
+        label: 'CSAT rating',
+        value: `${ratingScore.toFixed(1)}/5`,
+        description: 'Average post-engagement reviews across programmes.',
+        icon: HandThumbUpIcon,
+        iconBackgroundClassName: 'bg-amber-500/90',
+        href: '#agency-inbox',
+        badge: 'Experience',
+      });
+    }
+    if (activeMemberCount != null) {
+      signals.push({
+        id: 'active-team',
+        label: 'Active team',
+        value: formatNumber(activeMemberCount),
+        description: 'Members deployed on live gigs and retainers.',
+        icon: UsersIcon,
+        iconBackgroundClassName: 'bg-blue-600/90',
+        href: '#agency-hr',
+        badge: 'People',
+      });
+    }
+    if (utilisationDisplay) {
+      signals.push({
+        id: 'team-utilisation',
+        label: 'Utilisation',
+        value: utilisationDisplay,
+        description: 'Capacity allocation across squads this week.',
+        icon: ChartBarIcon,
+        iconBackgroundClassName: 'bg-sky-600/90',
+        href: '#agency-hr',
+        badge: 'Delivery',
+      });
+    }
+    if (marginDisplay) {
+      signals.push({
+        id: 'gross-margin',
+        label: 'Gross margin',
+        value: marginDisplay,
+        description: 'Blended margin across recent invoices.',
+        icon: BanknotesIcon,
+        iconBackgroundClassName: 'bg-emerald-600/90',
+        href: '#agency-finance',
+        badge: 'Finance',
+      });
+    }
+    if (financeSnapshot.runRate != null) {
+      signals.push({
+        id: 'run-rate-signal',
+        label: 'Revenue run-rate',
+        value: runRateDisplay,
+        description: 'Annualised revenue projection for this workspace.',
+        icon: ArrowTrendingUpIcon,
+        iconBackgroundClassName: 'bg-violet-600/90',
+        href: '#agency-finance',
+        badge: 'Growth',
+      });
+    }
+    if (benchHoursDisplay) {
+      signals.push({
+        id: 'bench-hours',
+        label: 'Bench hours',
+        value: benchHoursDisplay,
+        description: 'Unassigned capacity recorded across teams.',
+        icon: ClockIcon,
+        iconBackgroundClassName: 'bg-rose-500/90',
+        href: '#agency-hr',
+        badge: 'Capacity',
+      });
+    }
+    return signals;
+  }, [
+    trustScore,
+    ratingScore,
+    activeMemberCount,
+    utilisationDisplay,
+    marginDisplay,
+    financeSnapshot.runRate,
+    runRateDisplay,
+    benchHoursDisplay,
+  ]);
+
+  const executiveAlerts = useMemo(() => {
+    const alerts = [];
+    if (trustScore != null && trustScore < 70) {
+      alerts.push({
+        tone: 'warning',
+        title: 'Trust score requires attention',
+        message: `Trust score is ${Math.round(trustScore)} / 100. Review feedback and client touchpoints to reinforce confidence.`,
+        actions: [
+          <a
+            key="agency-management"
+            href="#agency-management"
+            className="inline-flex items-center rounded-full border border-amber-200 bg-white/80 px-3 py-1 text-xs font-semibold text-amber-700 transition hover:border-amber-300 hover:text-amber-800"
+          >
+            Open agency management
+          </a>,
+        ],
+      });
+    }
+
+    const lowUtilisation = utilisationPercent != null && utilisationPercent < 70;
+    const heavyBench = benchHoursValue != null && benchHoursValue > 40;
+    if (lowUtilisation || heavyBench || (benchCapacity != null && benchCapacity >= 3)) {
+      const benchHeadline = benchCapacity != null && benchCapacity >= 3 ? `${formatNumber(benchCapacity)} team members` : 'Bench capacity';
+      alerts.push({
+        tone: 'info',
+        title: `${benchHeadline} ready for redeployment`,
+        message:
+          heavyBench || benchHoursDisplay
+            ? `Utilisation is ${utilisationDisplay ?? '—'} with ${benchHoursDisplay ?? '0'} bench hours logged. Reassign talent to upcoming gigs or proposals.`
+            : `Utilisation is ${utilisationDisplay ?? '—'}. Reassign available members to keep teams fully engaged.`,
+        actions: [
+          <a
+            key="agency-hr"
+            href="#agency-hr"
+            className="inline-flex items-center rounded-full border border-sky-200 bg-white/80 px-3 py-1 text-xs font-semibold text-sky-600 transition hover:border-sky-300 hover:text-sky-800"
+          >
+            Review HR management
+          </a>,
+        ],
+      });
+    }
+
+    return alerts;
+  }, [
+    benchCapacity,
+    benchHoursDisplay,
+    benchHoursValue,
+    trustScore,
+    utilisationDisplay,
+    utilisationPercent,
+  ]);
+
+  const executiveInsightsLoading = overviewLoading || dashboardLoading || workforceDashboard.loading;
+
+  const handleRefreshExecutiveSignals = useCallback(async () => {
+    const tasks = [refreshAgencyDashboard({ force: true })];
+    if (typeof refreshOverview === 'function') {
+      tasks.push(refreshOverview({ force: true }));
+    }
+    if (typeof workforceDashboard.refresh === 'function') {
+      tasks.push(workforceDashboard.refresh({ force: true }));
+    }
+    await Promise.all(tasks);
+  }, [refreshAgencyDashboard, refreshOverview, workforceDashboard.refresh]);
+
   const pipelineAlerts = useMemo(() => {
     const alerts = [];
     if (dueSoonCount > 0 && averageProgress < 60) {
@@ -641,6 +872,34 @@ export default function AgencyDashboardPage() {
           currentDate={overviewPayload?.currentDate}
         />
 
+        {(executiveSignals.length || executiveAlerts.length) ? (
+          <section className="space-y-4">
+            {executiveSignals.length ? (
+              <DashboardInsightsBand
+                title="Executive signal board"
+                subtitle="Blended health indicators across brand, delivery, and finance."
+                insights={executiveSignals}
+                loading={executiveInsightsLoading}
+                onRefresh={handleRefreshExecutiveSignals}
+              />
+            ) : null}
+
+            {executiveAlerts.length ? (
+              <div className="grid gap-4 lg:grid-cols-2">
+                {executiveAlerts.map((alert) => (
+                  <DashboardAlertBanner
+                    key={`${alert.title}-${alert.tone}`}
+                    tone={alert.tone}
+                    title={alert.title}
+                    message={alert.message}
+                    actions={alert.actions}
+                  />
+                ))}
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+
         <DashboardCollapsibleSection
           id="agency-analytics"
           anchorId="agency-analytics"
@@ -677,7 +936,11 @@ export default function AgencyDashboardPage() {
           onRefresh={() => refreshOverview?.()}
         />
 
-        <AgencyHrManagementSection workspaceId={workspace?.id ?? workspaceId} canEdit={canManageOverview} />
+        <AgencyHrManagementSection
+          workspaceId={workspace?.id ?? workspaceId}
+          canEdit={canManageOverview}
+          workforceResource={workforceDashboard}
+        />
 
         <AgencyCrmLeadPipelineSection workspaceId={workspace?.id ?? workspaceId} />
 
