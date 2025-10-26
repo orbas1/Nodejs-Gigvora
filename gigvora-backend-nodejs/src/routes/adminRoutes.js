@@ -16,6 +16,11 @@ import {
   platformSettingsWatcherParamsSchema,
   platformSettingsWatcherQuerySchema,
   platformSettingsWatcherUpdateSchema,
+  seoConsoleGenerateSitemapBodySchema,
+  seoConsoleListJobsQuerySchema,
+  seoConsoleSubmitJobBodySchema,
+  seoConsoleSubmitJobParamsSchema,
+  seoConsoleSchemaTemplatesQuerySchema,
   seoSettingsBodySchema,
   systemSettingsBodySchema,
 } from '../validation/schemas/adminSchemas.js';
@@ -133,6 +138,34 @@ adminRoutes.put(
   validateRequest({ body: seoSettingsBodySchema }),
   asyncHandler(adminController.persistSeoSettings),
 );
+adminRoutes.get(
+  '/seo/console/snapshot',
+  asyncHandler(adminController.fetchSeoConsoleSnapshotController),
+);
+adminRoutes.post(
+  '/seo/console/sitemap',
+  validateRequest({ body: seoConsoleGenerateSitemapBodySchema }),
+  asyncHandler(adminController.generateSeoConsoleSitemap),
+);
+adminRoutes.get(
+  '/seo/console/sitemap/jobs',
+  validateRequest({ query: seoConsoleListJobsQuerySchema }),
+  asyncHandler(adminController.listSeoConsoleSitemapJobs),
+);
+adminRoutes.post(
+  '/seo/console/sitemap/jobs/:jobId/submit',
+  validateRequest({
+    params: seoConsoleSubmitJobParamsSchema,
+    body: seoConsoleSubmitJobBodySchema,
+  }),
+  asyncHandler(adminController.submitSeoConsoleSitemapJob),
+);
+adminRoutes.get(
+  '/seo/console/schema-templates',
+  validateRequest({ query: seoConsoleSchemaTemplatesQuerySchema }),
+  asyncHandler(adminController.listSeoConsoleSchemaTemplates),
+);
+adminRoutes.get('/seo/console/meta-templates', asyncHandler(adminController.listSeoConsoleMetaTemplates));
 
 adminRoutes.use('/ads/coupons', adminAdRoutes);
 adminRoutes.use('/ads/settings', adminAdSettingsRoutes);

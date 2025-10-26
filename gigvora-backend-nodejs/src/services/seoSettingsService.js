@@ -258,7 +258,9 @@ function sanitizeSeoPayload(payload = {}) {
       title: normalizeOptionalString(entry.title).slice(0, 180),
       description: normalizeOptionalString(entry.description).slice(0, 5000),
       keywords,
+      focusKeyword: normalizeOptionalString(entry.focusKeyword).slice(0, 120),
       canonicalUrl: normalizeOptionalString(entry.canonicalUrl).slice(0, 2048),
+      robots: normalizeOptionalString(entry.robots).slice(0, 160),
       social,
       twitter: {
         title: social.twitterTitle,
@@ -346,7 +348,9 @@ function normalizeOverrideRecord(record) {
     title: payload.title ?? '',
     description: payload.description ?? '',
     keywords: Array.isArray(payload.keywords) ? payload.keywords : [],
+    focusKeyword: typeof payload.focusKeyword === 'string' ? payload.focusKeyword : '',
     canonicalUrl: payload.canonicalUrl ?? '',
+    robots: typeof payload.robots === 'string' ? payload.robots : '',
     ogTitle: social.ogTitle,
     ogDescription: social.ogDescription,
     ogImageUrl: social.ogImageUrl,
@@ -374,6 +378,7 @@ function normalizeSeoRecord(record) {
     ? payload.overrides.map(normalizeOverrideRecord).filter(Boolean)
     : [];
   return {
+    id: payload.id ?? null,
     siteName: payload.siteName ?? 'Gigvora',
     defaultTitle: payload.defaultTitle ?? payload.siteName ?? 'Gigvora',
     defaultDescription: payload.defaultDescription ?? '',
@@ -420,26 +425,7 @@ export async function updateSeoSettings(payload = {}) {
   const sanitized = sanitizeSeoPayload(payload);
 
   return sequelize.transaction(async (transaction) => {
-    const [setting] = await SeoSetting.findOrCreate({
-      where: { key: DEFAULT_KEY },
-      defaults: {
-        key: DEFAULT_KEY,
-        siteName: sanitized.siteName,
-        defaultTitle: sanitized.defaultTitle,
-        defaultDescription: sanitized.defaultDescription,
-        defaultKeywords: sanitized.defaultKeywords,
-        canonicalBaseUrl: sanitized.canonicalBaseUrl || null,
-        sitemapUrl: sanitized.sitemapUrl || null,
-        allowIndexing: sanitized.allowIndexing,
-        robotsPolicy: sanitized.robotsPolicy || null,
-        noindexPaths: sanitized.noindexPaths,
-        verificationCodes: sanitized.verificationCodes,
-        socialDefaults: sanitized.socialDefaults,
-        structuredData: sanitized.structuredData,
-      },
-      transaction,
-      lock: transaction.LOCK.UPDATE,
-    });
+    const setting = await findOrCreateSeoSettingModel({ transaction, defaults: sanitized });
 
     await setting.update(
       {
@@ -476,7 +462,9 @@ export async function updateSeoSettings(payload = {}) {
             title: override.title || null,
             description: override.description || null,
             keywords: override.keywords,
+            focusKeyword: override.focusKeyword || null,
             canonicalUrl: override.canonicalUrl || null,
+            robots: override.robots || null,
             social: override.social,
             twitter: override.twitter,
             structuredData: override.structuredData,
@@ -493,7 +481,9 @@ export async function updateSeoSettings(payload = {}) {
             title: override.title || null,
             description: override.description || null,
             keywords: override.keywords,
+            focusKeyword: override.focusKeyword || null,
             canonicalUrl: override.canonicalUrl || null,
+            robots: override.robots || null,
             social: override.social,
             twitter: override.twitter,
             structuredData: override.structuredData,
@@ -534,4 +524,32 @@ export async function updateSeoSettings(payload = {}) {
 export default {
   getSeoSettings,
   updateSeoSettings,
+  findOrCreateSeoSettingModel,
 };
+
+export const DEFAULT_SEO_SETTING_KEY = DEFAULT_KEY;
+
+export async function findOrCreateSeoSettingModel({ transaction, defaults } = {}) {
+  const baseline = sanitizeSeoPayload(defaults ?? {});
+  const [setting] = await SeoSetting.findOrCreate({
+    where: { key: DEFAULT_KEY },
+    defaults: {
+      key: DEFAULT_KEY,
+      siteName: baseline.siteName,
+      defaultTitle: baseline.defaultTitle,
+      defaultDescription: baseline.defaultDescription,
+      defaultKeywords: baseline.defaultKeywords,
+      canonicalBaseUrl: baseline.canonicalBaseUrl || null,
+      sitemapUrl: baseline.sitemapUrl || null,
+      allowIndexing: baseline.allowIndexing,
+      robotsPolicy: baseline.robotsPolicy || null,
+      noindexPaths: baseline.noindexPaths,
+      verificationCodes: baseline.verificationCodes,
+      socialDefaults: baseline.socialDefaults,
+      structuredData: baseline.structuredData,
+    },
+    transaction,
+    lock: transaction?.LOCK?.UPDATE,
+  });
+  return setting;
+}
