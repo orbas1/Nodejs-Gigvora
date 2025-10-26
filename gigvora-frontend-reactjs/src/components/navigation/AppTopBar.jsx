@@ -1,8 +1,9 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useCallback, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import { Menu, Transition } from '@headlessui/react';
 import {
+  ArrowTrendingUpIcon,
   Bars3Icon,
   ChatBubbleLeftRightIcon,
   MagnifyingGlassIcon,
@@ -349,6 +350,104 @@ NetworkPulse.defaultProps = {
   insights: [],
 };
 
+export function TrendingRail({ entries, onNavigate }) {
+  const curatedEntries = useMemo(() => {
+    if (!Array.isArray(entries) || !entries.length) {
+      return [];
+    }
+    return entries.slice(0, 5);
+  }, [entries]);
+
+  if (!curatedEntries.length) {
+    return null;
+  }
+
+  const [featured, ...rest] = curatedEntries;
+  const supporting = rest.slice(0, 2);
+  const tertiary = rest.slice(2);
+
+  return (
+    <section
+      className="hidden w-[18rem] flex-col gap-3 rounded-3xl border border-slate-200/70 bg-gradient-to-br from-slate-900 via-slate-900/95 to-slate-900/80 p-4 text-white shadow-xl ring-1 ring-white/10 backdrop-blur xl:flex"
+      aria-label="Trending destinations"
+    >
+      <header className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.3em] text-white/70">
+        <span className="inline-flex items-center gap-2">
+          <ArrowTrendingUpIcon className="h-4 w-4 text-accent" aria-hidden="true" />
+          Trending now
+        </span>
+        <span className="rounded-full border border-white/30 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.3em] text-white/80">
+          Updated
+        </span>
+      </header>
+      {featured ? (
+        <Link
+          to={featured.to ?? '#'}
+          onClick={() => onNavigate?.(featured)}
+          className="group relative overflow-hidden rounded-3xl border border-white/20 bg-white/10 px-4 py-3 text-left shadow-lg transition hover:border-white/50 hover:bg-white/20"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-accent/40 via-accent/10 to-transparent opacity-90 transition group-hover:opacity-100" aria-hidden="true" />
+          <div className="relative z-10 flex items-center justify-between text-[0.6rem] font-semibold uppercase tracking-[0.3em] text-white/70">
+            <span>{featured.badge ?? 'Spotlight'}</span>
+            <ArrowTrendingUpIcon className="h-4 w-4 text-white/70" aria-hidden="true" />
+          </div>
+          <p className="relative z-10 mt-2 text-sm font-semibold text-white">{featured.label}</p>
+          {featured.description ? (
+            <p className="relative z-10 mt-1 text-xs text-white/80">{featured.description}</p>
+          ) : null}
+        </Link>
+      ) : null}
+      {supporting.length ? (
+        <div className="grid gap-2">
+          {supporting.map((entry) => (
+            <Link
+              key={entry.id}
+              to={entry.to ?? '#'}
+              onClick={() => onNavigate?.(entry)}
+              className="group flex items-center justify-between rounded-2xl border border-white/25 bg-white/5 px-3 py-2 text-sm font-semibold text-white transition hover:border-white/40 hover:bg-white/15"
+            >
+              <span className="line-clamp-2 text-left leading-snug">{entry.label}</span>
+              <ArrowTrendingUpIcon className="h-4 w-4 text-white/60 group-hover:text-white" aria-hidden="true" />
+            </Link>
+          ))}
+        </div>
+      ) : null}
+      {tertiary.length ? (
+        <div className="flex flex-wrap gap-2">
+          {tertiary.map((entry) => (
+            <Link
+              key={entry.id}
+              to={entry.to ?? '#'}
+              onClick={() => onNavigate?.(entry)}
+              className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.28em] text-white/80 transition hover:border-white/40 hover:text-white"
+            >
+              <span>{entry.label}</span>
+            </Link>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+TrendingRail.propTypes = {
+  entries: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+      description: PropTypes.string,
+      to: PropTypes.string,
+      badge: PropTypes.string,
+    }),
+  ),
+  onNavigate: PropTypes.func,
+};
+
+TrendingRail.defaultProps = {
+  entries: [],
+  onNavigate: undefined,
+};
+
 export default function AppTopBar({
   navOpen,
   onOpenNav,
@@ -386,6 +485,20 @@ export default function AppTopBar({
     }
     return deriveNavigationTrending(resolvedMarketingMenus, 6);
   }, [navigationTrending, resolvedMarketingMenus]);
+
+  const handleTrendingNavigate = useCallback(
+    (entry) => {
+      if (!entry) {
+        return;
+      }
+      analytics.track('web_header_trending_navigate', {
+        entryId: entry.id,
+        label: entry.label,
+        destination: entry.to ?? null,
+      });
+    },
+    [],
+  );
 
   const handleSearchSubmit = (event) => {
     event.preventDefault();
@@ -454,6 +567,7 @@ export default function AppTopBar({
         ) : null}
 
         <div className="ml-auto hidden flex-none items-center justify-end gap-2 sm:flex sm:gap-3 lg:gap-4">
+          <TrendingRail entries={trendingEntries} onNavigate={handleTrendingNavigate} />
           <NetworkPulse insights={pulseInsights} />
           {marketingSearch ? (
             <form

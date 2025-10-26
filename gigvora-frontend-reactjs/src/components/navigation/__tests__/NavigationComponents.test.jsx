@@ -1,9 +1,11 @@
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import MegaMenu from '../MegaMenu.jsx';
 import RoleSwitcher from '../RoleSwitcher.jsx';
+import { TrendingRail } from '../AppTopBar.jsx';
+import { TrendingQuickLinks } from '../MobileNavigation.jsx';
 import NavigationChromeContext from '../../../context/NavigationChromeContext.jsx';
 import { DEFAULT_LANGUAGE } from '../../../i18n/translations.js';
 
@@ -139,5 +141,54 @@ describe('RoleSwitcher', () => {
     expect(within(founderOption).getByText(/timeline/i)).toBeInTheDocument();
     const capitalBadges = within(founderOption).getAllByText(/capital/i);
     expect(capitalBadges.length).toBeGreaterThan(0);
+  });
+});
+
+describe('TrendingRail', () => {
+  it('renders featured and supporting entries', async () => {
+    const user = userEvent.setup();
+    const entries = [
+      { id: '1', label: 'Deal room', description: 'Track warm investors', to: '/deals', badge: 'Spotlight' },
+      { id: '2', label: 'Mentor lounge', description: 'Book 1:1 time', to: '/mentors' },
+      { id: '3', label: 'Pipeline', description: 'Review active projects', to: '/pipeline' },
+    ];
+
+    const navigateSpy = vi.fn();
+    renderWithRouter(<TrendingRail entries={entries} onNavigate={navigateSpy} />);
+
+    expect(screen.getByText(/trending now/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Deal room/i })).toHaveAttribute('href', '/deals');
+    await act(async () => {
+      await user.click(screen.getByRole('link', { name: /pipeline/i }));
+    });
+    expect(navigateSpy).toHaveBeenCalledWith(expect.objectContaining({ id: '3' }));
+  });
+
+  it('hides when no entries are provided', () => {
+    const { container } = renderWithRouter(<TrendingRail entries={[]} />);
+    expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe('TrendingQuickLinks', () => {
+  it('renders trending quick links and closes on navigate', async () => {
+    const user = userEvent.setup();
+    const entries = [
+      { id: 'a', label: 'Creator studio', description: 'Launch premium content', to: '/studio' },
+      { id: 'b', label: 'Analytics', description: 'Review performance', to: '/analytics' },
+      { id: 'c', label: 'Live events', to: '/events' },
+    ];
+    const navigateSpy = vi.fn();
+
+    renderWithRouter(<TrendingQuickLinks entries={entries} onNavigate={navigateSpy} />);
+
+    expect(screen.getByText(/creator studio/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /analytics/i })).toHaveAttribute('href', '/analytics');
+
+    await act(async () => {
+      await user.click(screen.getByRole('link', { name: /live events/i }));
+    });
+
+    expect(navigateSpy).toHaveBeenCalledWith(expect.objectContaining({ id: 'c' }));
   });
 });
