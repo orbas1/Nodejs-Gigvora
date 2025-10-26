@@ -1130,6 +1130,7 @@ export async function getLaunchpadDashboard(launchpadId, { lookbackDays = 60 } =
       launchpad,
       opportunityLinks,
       activeApplications,
+      placementSamples,
     ] = await Promise.all([
       ExperienceLaunchpadApplication.findAll({
         attributes: ['status', [fn('COUNT', col('id')), 'count']],
@@ -1183,6 +1184,18 @@ export async function getLaunchpadDashboard(launchpadId, { lookbackDays = 60 } =
             include: [{ model: User, as: 'applicant', attributes: ['id', 'firstName', 'lastName'] }],
           })
         : [],
+      launchpadId
+        ? ExperienceLaunchpadPlacement.findAll({
+            attributes: ['placementDate', 'createdAt'],
+            where: {
+              launchpadId,
+              placementDate: { [Op.ne]: null, [Op.gte]: lookbackDate },
+            },
+            order: [['placementDate', 'DESC']],
+            limit: 25,
+            raw: true,
+          })
+        : [],
     ]);
 
     const pipeline = Object.fromEntries(LAUNCHPAD_APPLICATION_STATUSES.map((status) => [status, 0]));
@@ -1208,6 +1221,44 @@ export async function getLaunchpadDashboard(launchpadId, { lookbackDays = 60 } =
     const matches = launchpadId ? await computeOpportunityMatches(opportunityLinks, activeApplications) : [];
     const autoAssignmentsCount = matches.filter((match) => match.autoAssigned).length;
 
+    const totalOpportunities = Object.values(opportunities).reduce((sum, value) => sum + value, 0);
+    const volunteerTotals =
+      (opportunities.volunteer ?? 0) +
+      (opportunities.volunteering ?? 0) +
+      (opportunities.community ?? 0);
+    const volunteerOpportunityShare =
+      totalOpportunities > 0 ? Math.round((volunteerTotals / totalOpportunities) * 100) : 0;
+
+    const interviewRate =
+      totalApplications > 0 ? Math.round(((pipeline.interview ?? 0) / totalApplications) * 100) : 0;
+
+    const placementVelocityDays = (() => {
+      if (!placementSamples.length) {
+        return null;
+      }
+      const durations = placementSamples
+        .map((placement) => {
+          const placementDate = placement.placementDate ? new Date(placement.placementDate) : null;
+          const createdAt = placement.createdAt ? new Date(placement.createdAt) : null;
+          if (!placementDate || Number.isNaN(placementDate.getTime())) {
+            return null;
+          }
+          const end = placementDate.getTime();
+          const start = createdAt && !Number.isNaN(createdAt.getTime()) ? createdAt.getTime() : end;
+          const deltaDays = (end - start) / (1000 * 60 * 60 * 24);
+          if (!Number.isFinite(deltaDays) || deltaDays < 0) {
+            return null;
+          }
+          return deltaDays;
+        })
+        .filter((value) => Number.isFinite(value));
+      if (!durations.length) {
+        return null;
+      }
+      const total = durations.reduce((sum, value) => sum + value, 0);
+      return Math.round((total / durations.length) * 10) / 10;
+    })();
+
     return {
       launchpad: launchpad ? launchpad.toPublicObject() : null,
       totals: {
@@ -1218,6 +1269,11 @@ export async function getLaunchpadDashboard(launchpadId, { lookbackDays = 60 } =
       },
       pipeline,
       placements,
+      impactHighlights: {
+        interviewRate,
+        placementVelocityDays,
+        volunteerOpportunityShare,
+      },
       upcomingInterviews: upcomingInterviews.map((record) => ({
         ...record.toPublicObject(),
         applicant: record.applicant
