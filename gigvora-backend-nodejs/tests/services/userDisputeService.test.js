@@ -66,9 +66,17 @@ describe('userDisputeService', () => {
     expect(payload.disputes[0]).toMatchObject({
       transaction: expect.objectContaining({ reference: 'ESCROW-3001' }),
       permissions: expect.objectContaining({ canAddEvidence: true }),
+      financials: expect.objectContaining({ amountDisputed: 420, currency: 'USD' }),
     });
     expect(payload.eligibleTransactions.some((item) => item.id === transaction.id)).toBe(true);
     expect(payload.metadata.reasonCodes.length).toBeGreaterThan(0);
+    expect(payload.disputes[0].participants).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ role: 'customer' }),
+        expect.objectContaining({ role: 'provider' }),
+      ]),
+    );
+    expect(payload.disputes[0].events?.length).toBeGreaterThan(0);
   });
 
   it('creates disputes and allows users to append updates', async () => {
@@ -118,5 +126,9 @@ describe('userDisputeService', () => {
     expect(updated.stage).toBe('mediation');
     expect(updated.status).toBe('under_review');
     expect(updated.events.length).toBeGreaterThan(created.events.length);
+    expect(updated.decisionLog.some((entry) => entry.stage === 'mediation')).toBe(true);
+    expect(updated.participants.find((participant) => participant.role === 'requester')).toBeDefined();
+    expect(updated.financials.amountDisputed).toBe(250);
+    expect(updated.lastCommunicatedAt).toBeTruthy();
   });
 });

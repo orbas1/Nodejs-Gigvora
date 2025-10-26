@@ -33,7 +33,7 @@ function toSentence(value) {
 function computeInsights(summary = {}, cases = []) {
   const total = summary.total ?? cases.length;
   const escalated = summary.escalatedCount ?? cases.filter((item) => item.status === 'escalated').length;
-  const breaches = cases.filter((item) => item.alert?.type === 'deadline').length;
+  const breaches = cases.filter((item) => item.alert?.type === 'deadline' && item.alert?.severity === 'critical').length;
   const onTrack = total > 0 ? Math.max(total - breaches, 0) : 0;
   const collaboration = cases.reduce((acc, item) => acc + (item.participants?.length ?? 0), 0);
   const averageParticipants = total > 0 ? Math.round(collaboration / total) : 0;
@@ -43,6 +43,56 @@ function computeInsights(summary = {}, cases = []) {
     breaches,
     onTrack,
     averageParticipants,
+  };
+}
+
+function median(values) {
+  if (!Array.isArray(values) || values.length === 0) {
+    return null;
+  }
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 0) {
+    return (sorted[mid - 1] + sorted[mid]) / 2;
+  }
+  return sorted[mid];
+}
+
+function computePerformanceStats(cases = [], summary = {}) {
+  if (!Array.isArray(cases) || cases.length === 0) {
+    return {
+      topReason: summary.topReasonCode ? toSentence(summary.topReasonCode) : '—',
+      medianResponse: '—',
+      automationCoverage: '—',
+    };
+  }
+
+  const reasonCounts = new Map();
+  const responseTimes = [];
+  let automatedCases = 0;
+
+  cases.forEach((dispute) => {
+    const reason = dispute.reasonCode ? toSentence(dispute.reasonCode) : null;
+    if (reason) {
+      reasonCounts.set(reason, (reasonCounts.get(reason) ?? 0) + 1);
+    }
+    const responseHours = Number(dispute.metrics?.firstResponseHours);
+    if (Number.isFinite(responseHours)) {
+      responseTimes.push(responseHours);
+    }
+    if (dispute.events?.some((event) => event.actorType === 'system' || event.actionType === 'system_notice')) {
+      automatedCases += 1;
+    }
+  });
+
+  const topReason = [...reasonCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '—';
+  const medianResponseHours = median(responseTimes);
+  const automationRate = Math.round((automatedCases / cases.length) * 100);
+
+  return {
+    topReason,
+    medianResponse: Number.isFinite(medianResponseHours) ? `${medianResponseHours.toFixed(1)} hrs` : '—',
+    automationCoverage: `${automationRate}% of cases auto-triaged`,
   };
 }
 
@@ -138,6 +188,7 @@ export default function DisputeDashboard({
 }) {
   const insights = useMemo(() => computeInsights(summary, cases), [summary, cases]);
   const lastUpdatedLabel = lastUpdated ? formatAbsolute(lastUpdated) : summary?.lastUpdatedAt ? formatAbsolute(summary.lastUpdatedAt) : '—';
+  const performanceStats = useMemo(() => computePerformanceStats(cases, summary), [cases, summary]);
 
   return (
     <section className="space-y-6 rounded-4xl border border-white/40 bg-white/70 p-6 shadow-xl backdrop-blur">
@@ -261,9 +312,9 @@ export default function DisputeDashboard({
             <ChartBarIcon className="h-5 w-5 text-slate-400" aria-hidden="true" />
           </header>
           <ul className="mt-3 space-y-2 text-xs text-slate-500">
-            <li>Top reason code: {toSentence(summary.topReasonCode ?? cases[0]?.reasonCode ?? 'Awaiting data')}</li>
-            <li>Median response time: {summary.medianResponseTime ?? 'under 2 hours'}.</li>
-            <li>Automation coverage: {summary.automationCoverage ?? '58% of cases auto-triaged'}.</li>
+            <li>Top reason code: {performanceStats.topReason}</li>
+            <li>Median response time: {performanceStats.medianResponse}</li>
+            <li>Automation coverage: {performanceStats.automationCoverage}</li>
           </ul>
         </article>
       </div>

@@ -19,6 +19,25 @@ if (typeof process.env.SKIP_SEQUELIZE_BOOTSTRAP === 'undefined') {
   process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'true';
 }
 
+const useRealSequelize = process.env.USE_REAL_SEQUELIZE === 'true';
+
+const moduleNameMapper = {
+  '^pino-http$': '<rootDir>/tests/stubs/pinoHttpStub.js',
+  '^pino$': '<rootDir>/tests/stubs/pinoStub.js',
+  '^express-rate-limit$': '<rootDir>/tests/stubs/expressRateLimitStub.js',
+  '^zod$': '<rootDir>/tests/stubs/zodStub.js',
+  '^compression$': '<rootDir>/tests/stubs/compressionStub.js',
+  '(.*/)?models/index\\.js$': '<rootDir>/tests/stubs/modelsIndexStub.js',
+  '(.*/)?models/moderationModels\\.js$': '<rootDir>/tests/stubs/moderationModelsStub.js',
+  '(.*/)?models/messagingModels\\.js$': '<rootDir>/tests/stubs/messagingModelsStub.js',
+  '(.*/)?models/constants/index\\.js$': '<rootDir>/tests/stubs/modelConstantsStub.js',
+};
+
+if (useRealSequelize) {
+  delete moduleNameMapper['(.*/)?models/index\\.js$'];
+  delete moduleNameMapper['(.*/)?models/constants/index\\.js$'];
+}
+
 export default {
   testEnvironment: 'node',
   verbose: false,
@@ -28,17 +47,7 @@ export default {
     '^.+\\.js$': ['babel-jest', { configFile: babelConfigPath, rootMode: 'upward-optional' }],
   },
   extensionsToTreatAsEsm: [],
-  moduleNameMapper: {
-    '^pino-http$': '<rootDir>/tests/stubs/pinoHttpStub.js',
-    '^pino$': '<rootDir>/tests/stubs/pinoStub.js',
-    '^express-rate-limit$': '<rootDir>/tests/stubs/expressRateLimitStub.js',
-    '^zod$': '<rootDir>/tests/stubs/zodStub.js',
-    '^compression$': '<rootDir>/tests/stubs/compressionStub.js',
-    '(.*/)?models/index\\.js$': '<rootDir>/tests/stubs/modelsIndexStub.js',
-    '(.*/)?models/moderationModels\\.js$': '<rootDir>/tests/stubs/moderationModelsStub.js',
-    '(.*/)?models/messagingModels\\.js$': '<rootDir>/tests/stubs/messagingModelsStub.js',
-    '(.*/)?models/constants/index\\.js$': '<rootDir>/tests/stubs/modelConstantsStub.js',
-  },
+  moduleNameMapper,
   testMatch: TEST_DIRECTORIES,
   testPathIgnorePatterns: ['/node_modules/'],
   moduleFileExtensions: ['js', 'json'],

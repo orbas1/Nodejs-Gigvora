@@ -47,7 +47,9 @@ export default function DisputeCaseList({ disputes, onSelect, selectedId }) {
                 <div
                   className={classNames(
                     'rounded-3xl border bg-white shadow-sm transition',
-                    isActive ? 'border-accent ring-2 ring-accent/40' : 'border-slate-200 hover:border-slate-300',
+                    isActive
+                      ? 'border-blue-500 ring-2 ring-blue-200/60'
+                      : 'border-slate-200 hover:border-slate-300',
                   )}
                 >
                   <button

@@ -42,6 +42,12 @@ let AgencyRetainerNegotiation = stubModel;
 let AgencyRetainerEvent = stubModel;
 let ClientSuccessAffiliateLink = stubModel;
 let ClientSuccessAffiliateMetric = stubModel;
+let DisputeCase = stubModel;
+let DisputeEvent = stubModel;
+let DisputeWorkflowSetting = stubModel;
+let DisputeTemplate = stubModel;
+let EscrowAccount = stubModel;
+let EscrowTransaction = stubModel;
 
 export const __setModelStubs = (overrides = {}) => {
   const assignIfPresent = (key, setter) => {
@@ -134,6 +140,24 @@ export const __setModelStubs = (overrides = {}) => {
   assignIfPresent('ClientSuccessAffiliateMetric', (value) => {
     ClientSuccessAffiliateMetric = value;
   });
+  assignIfPresent('DisputeCase', (value) => {
+    DisputeCase = value;
+  });
+  assignIfPresent('DisputeEvent', (value) => {
+    DisputeEvent = value;
+  });
+  assignIfPresent('DisputeWorkflowSetting', (value) => {
+    DisputeWorkflowSetting = value;
+  });
+  assignIfPresent('DisputeTemplate', (value) => {
+    DisputeTemplate = value;
+  });
+  assignIfPresent('EscrowAccount', (value) => {
+    EscrowAccount = value;
+  });
+  assignIfPresent('EscrowTransaction', (value) => {
+    EscrowTransaction = value;
+  });
 };
 
 export const domainRegistry = {
@@ -142,6 +166,16 @@ export const domainRegistry = {
   listContexts: () => [],
   getUnassignedModelNames: () => [],
 };
+
+export const DISPUTE_PRIORITIES = ['low', 'medium', 'high', 'urgent'];
+export const DISPUTE_STATUSES = ['open', 'awaiting_customer', 'under_review', 'settled'];
+export const DISPUTE_STAGES = ['intake', 'mediation', 'arbitration', 'resolved'];
+export const DISPUTE_REASON_CODES = ['quality_issue', 'scope_disagreement', 'communication_breakdown'];
+export const DISPUTE_ACTION_TYPES = ['comment', 'evidence_upload', 'deadline_adjusted', 'stage_advanced', 'status_change'];
+export const DISPUTE_ACTOR_TYPES = ['customer', 'provider', 'mediator', 'admin', 'system'];
+export const ESCROW_ACCOUNT_STATUSES = ['active', 'suspended'];
+export const ESCROW_TRANSACTION_TYPES = ['project', 'milestone'];
+export const ESCROW_TRANSACTION_STATUSES = ['initiated', 'funded', 'in_escrow', 'disputed', 'released', 'refunded'];
 
 export {
   FeedPost,
@@ -172,6 +206,12 @@ export {
   AgencyRetainerEvent,
   ClientSuccessAffiliateLink,
   ClientSuccessAffiliateMetric,
+  DisputeCase,
+  DisputeEvent,
+  DisputeWorkflowSetting,
+  DisputeTemplate,
+  EscrowAccount,
+  EscrowTransaction,
 };
 
 export default stubModel;

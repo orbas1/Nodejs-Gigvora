@@ -1,1 +1,7 @@
   - [x] 8.A. Disputes & Support Operations
+    - [x] 8.A.1. DisputeDashboard.jsx
+    - [x] 8.A.2. CaseDetailView.jsx
+    - [x] 8.A.3. ResolutionTimeline.jsx
+    - [x] 8.A.1. DisputeDashboard.jsx
+    - [x] 8.A.2. CaseDetailView.jsx
+    - [x] 8.A.3. ResolutionTimeline.jsx
