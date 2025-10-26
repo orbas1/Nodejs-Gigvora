@@ -243,6 +243,34 @@ export const MessageAttachment = sequelize.define(
   },
 );
 
+export const MessageThreadMetric = sequelize.define(
+  'MessageThreadMetric',
+  {
+    threadId: { type: DataTypes.INTEGER, allowNull: false, primaryKey: true },
+    messageCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    participantCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    collaboratorCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    avgResponseMinutes: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+    medianResponseMinutes: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+    awaitingResponse: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    awaitingResponseUserId: { type: DataTypes.INTEGER, allowNull: true },
+    awaitingResponseSince: { type: DataTypes.DATE, allowNull: true },
+    lastInboundAt: { type: DataTypes.DATE, allowNull: true },
+    lastOutboundAt: { type: DataTypes.DATE, allowNull: true },
+    lastTouchedBy: { type: DataTypes.INTEGER, allowNull: true },
+    engagementScore: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+    previousEngagementScore: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+    engagementTrend: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+    momentumDirection: { type: DataTypes.STRING(20), allowNull: true },
+    momentumDelta: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+    dormantSince: { type: DataTypes.DATE, allowNull: true },
+    nextResponseDueAt: { type: DataTypes.DATE, allowNull: true },
+    progressPercent: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  { tableName: 'message_thread_metrics' },
+);
+
 export const MessageReadReceipt = sequelize.define(
   'MessageReadReceipt',
   {
@@ -760,6 +788,8 @@ SupportCase.belongsTo(User, { as: 'escalatedByUser', foreignKey: 'escalatedBy' }
 SupportCase.belongsTo(User, { as: 'assignedAgent', foreignKey: 'assignedTo' });
 SupportCase.belongsTo(User, { as: 'assignedByUser', foreignKey: 'assignedBy' });
 SupportCase.belongsTo(User, { as: 'resolvedByUser', foreignKey: 'resolvedBy' });
+MessageThread.hasOne(MessageThreadMetric, { as: 'metrics', foreignKey: 'threadId' });
+MessageThreadMetric.belongsTo(MessageThread, { as: 'thread', foreignKey: 'threadId' });
 
 UserAiProviderSetting.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasMany(UserAiProviderSetting, { foreignKey: 'userId', as: 'aiProviderSettings' });
@@ -793,6 +823,7 @@ export default {
   MessageParticipant,
   Message,
   MessageAttachment,
+  MessageThreadMetric,
   MessageReadReceipt,
   MessageLabel,
   MessageThreadLabel,

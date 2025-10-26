@@ -84,6 +84,12 @@ router.get(
 );
 
 router.get(
+  '/:id/quick-actions',
+  authenticate({ roles: COMMUNITY_ROLES, matchParam: 'id' }),
+  asyncHandler(userController.getUserQuickActions),
+);
+
+router.get(
   '/:id/catalog-insights',
   authenticate({ roles: COMMUNITY_ROLES, matchParam: 'id' }),
   asyncHandler(userController.getFreelancerCatalogInsights),

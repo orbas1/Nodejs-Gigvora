@@ -9,6 +9,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { Transition } from '@headlessui/react';
 import analytics from '../../services/analytics.js';
+import UserAvatar from '../UserAvatar.jsx';
 import {
   DEFAULT_REACTION_ICON,
   REACTION_OPTIONS,
@@ -36,6 +37,43 @@ function buildTopReactions(summary) {
   return { total, sorted };
 }
 
+function computeEngagementHighlights({
+  total,
+  totalConversationCount,
+  shareCount,
+  sorted,
+  previousTotal,
+  audienceReach,
+}) {
+  const conversationRatio = total > 0 ? Math.round((totalConversationCount / total) * 100) : 0;
+  const shareRatio = total > 0 ? Math.round((shareCount / total) * 100) : 0;
+  const dominant = sorted[0]?.option ?? null;
+  const dominantLabel = dominant?.label ?? 'Appreciations';
+  const delta = Number.isFinite(previousTotal) ? total - Number(previousTotal) : null;
+  let momentumLabel = 'Holding steady';
+  if (delta != null) {
+    if (delta > 0) {
+      momentumLabel = `+${delta} since the last pulse`;
+    } else if (delta < 0) {
+      momentumLabel = `${delta} since the last pulse`;
+    }
+  }
+
+  const energy = conversationRatio >= 60 ? 'Conversation-led' : shareRatio >= 25 ? 'Share-driven' : 'Balanced';
+  const reachLabel = audienceReach
+    ? `${audienceReach.toLocaleString()} members in reach`
+    : 'Growing audience visibility';
+
+  return {
+    conversationRatio,
+    shareRatio,
+    dominantLabel,
+    momentumLabel,
+    energy,
+    reachLabel,
+  };
+}
+
 export default function ReactionsBar({
   postId,
   reactionSummary,
@@ -45,6 +83,9 @@ export default function ReactionsBar({
   shareCount,
   onShare,
   insights,
+  previousTotal,
+  audienceReach,
+  topSupporters,
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
@@ -54,6 +95,25 @@ export default function ReactionsBar({
   const activeReactionOption = getReactionOption(activeReaction);
   const ReactionIcon = activeReactionOption?.Icon ?? DEFAULT_REACTION_ICON;
   const summaryLabel = formatReactionSummaryLabel(total);
+  const engagementHighlights = useMemo(
+    () =>
+      computeEngagementHighlights({
+        total,
+        totalConversationCount,
+        shareCount,
+        sorted,
+        previousTotal,
+        audienceReach,
+      }),
+    [audienceReach, previousTotal, shareCount, sorted, total, totalConversationCount],
+  );
+  const supporterSpotlight = useMemo(
+    () =>
+      (Array.isArray(topSupporters) ? topSupporters : [])
+        .filter((supporter) => supporter && supporter.name)
+        .slice(0, 4),
+    [topSupporters],
+  );
 
   useEffect(() => {
     if (!pickerOpen) {
@@ -312,6 +372,51 @@ export default function ReactionsBar({
               );
             })}
           </dl>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+              <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-slate-400">Momentum</p>
+              <p className="mt-1 text-sm font-semibold text-slate-700">{engagementHighlights.dominantLabel}</p>
+              <p className="mt-1 text-[0.65rem] text-slate-500">{engagementHighlights.momentumLabel}</p>
+              <dl className="mt-2 flex flex-wrap items-center gap-3 text-[0.65rem] text-slate-500">
+                <div>
+                  <dt className="font-semibold text-slate-700">Conversations</dt>
+                  <dd>{engagementHighlights.conversationRatio}% of reactions</dd>
+                </div>
+                <div>
+                  <dt className="font-semibold text-slate-700">Shares</dt>
+                  <dd>{engagementHighlights.shareRatio}% signal amplification</dd>
+                </div>
+              </dl>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+              <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-slate-400">Energy</p>
+              <p className="mt-1 text-sm font-semibold text-slate-700">{engagementHighlights.energy}</p>
+              <p className="mt-1 text-[0.65rem] text-slate-500">{engagementHighlights.reachLabel}</p>
+            </div>
+          </div>
+          {supporterSpotlight.length ? (
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+              <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-slate-400">Supporter spotlight</p>
+              <ul className="mt-2 grid gap-3 text-sm text-slate-700 sm:grid-cols-2">
+                {supporterSpotlight.map((supporter) => (
+                  <li key={supporter.id ?? supporter.name} className="flex items-center gap-3">
+                    <UserAvatar
+                      name={supporter.name}
+                      seed={supporter.avatarSeed ?? supporter.name}
+                      size="xs"
+                      showGlow={false}
+                    />
+                    <div>
+                      <p className="font-semibold text-slate-700">{supporter.name}</p>
+                      {supporter.headline ? (
+                        <p className="text-[0.65rem] text-slate-500">{supporter.headline}</p>
+                      ) : null}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           {insights?.length ? (
             <ul className="mt-4 space-y-2 text-[0.65rem]">
               {insights.map((insight) => (
@@ -349,6 +454,16 @@ ReactionsBar.propTypes = {
       description: PropTypes.string,
     }),
   ),
+  previousTotal: PropTypes.number,
+  audienceReach: PropTypes.number,
+  topSupporters: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      name: PropTypes.string.isRequired,
+      headline: PropTypes.string,
+      avatarSeed: PropTypes.string,
+    }),
+  ),
 };
 
 ReactionsBar.defaultProps = {
@@ -359,4 +474,7 @@ ReactionsBar.defaultProps = {
   shareCount: 0,
   onShare: undefined,
   insights: undefined,
+  previousTotal: null,
+  audienceReach: null,
+  topSupporters: [],
 };

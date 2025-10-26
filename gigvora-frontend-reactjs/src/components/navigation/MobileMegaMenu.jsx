@@ -1,13 +1,34 @@
 import { Disclosure } from '@headlessui/react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
-import { ChevronDownIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { ArrowUpRightIcon, ChevronDownIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 
 import { classNames } from '../../utils/classNames.js';
+import { deriveNavigationTrending, normaliseTrendingEntries } from '../../utils/navigationPulse.js';
 
-export default function MobileMegaMenu({ menus, search, onNavigate, onSearch }) {
+export default function MobileMegaMenu({ menus, search, onNavigate, onSearch, trendingEntries }) {
   const [query, setQuery] = useState('');
+  const searchTrending = search?.trending;
+  const trendingItems = useMemo(() => {
+    if (Array.isArray(trendingEntries) && trendingEntries.length > 0) {
+      return trendingEntries;
+    }
+    if (Array.isArray(searchTrending) && searchTrending.length > 0) {
+      return normaliseTrendingEntries(searchTrending, search);
+    }
+    return deriveNavigationTrending(menus, 6);
+  }, [menus, search, searchTrending, trendingEntries]);
+  const primaryTrending = trendingItems.slice(0, 2);
+  const secondaryTrending = trendingItems.slice(2);
+  const trendingHelperText =
+    search?.helperText ?? search?.trendingHelper ?? 'Popular destinations curated for your workspace.';
+  const handleTrendingNavigate = (item) => {
+    onNavigate?.();
+    if (item?.id?.startsWith('search-trending-')) {
+      onSearch?.(item.label);
+    }
+  };
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -21,6 +42,50 @@ export default function MobileMegaMenu({ menus, search, onNavigate, onSearch }) 
 
   return (
     <div className="space-y-6">
+      {trendingItems.length ? (
+        <div className="space-y-3 rounded-3xl border border-slate-200/70 bg-gradient-to-br from-slate-900 via-slate-900/95 to-slate-900/70 p-5 text-white shadow-xl">
+          <header className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.3em] text-white/70">
+            <span>Trending now</span>
+            <span className="rounded-full border border-white/40 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.3em] text-white/80">
+              Updated
+            </span>
+          </header>
+          <p className="text-sm text-white/80">{trendingHelperText}</p>
+          <div className="grid gap-2">
+            {primaryTrending.map((item) => (
+              <Link
+                key={`primary-${item.id}`}
+                to={item.to}
+                onClick={() => handleTrendingNavigate(item)}
+                className="group flex items-start justify-between gap-4 rounded-3xl border border-white/30 bg-white/10 px-4 py-3 text-left shadow-lg transition hover:border-white/60 hover:bg-white/20"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-white">{item.label}</p>
+                  {item.description ? (
+                    <p className="mt-1 text-xs text-white/80">{item.description}</p>
+                  ) : null}
+                </div>
+                <ArrowUpRightIcon className="h-5 w-5 text-white/70" aria-hidden="true" />
+              </Link>
+            ))}
+          </div>
+          {secondaryTrending.length ? (
+            <div className="flex flex-wrap gap-2">
+              {secondaryTrending.map((item) => (
+                <Link
+                  key={`secondary-${item.id}`}
+                  to={item.to}
+                  onClick={() => handleTrendingNavigate(item)}
+                  className="group inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-3 py-1.5 text-sm font-semibold text-white transition hover:border-white/60 hover:bg-white/20"
+                >
+                  <span>{item.label}</span>
+                  <ArrowUpRightIcon className="h-4 w-4 text-white/70 group-hover:text-white" aria-hidden="true" />
+                </Link>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       {search ? (
         <form onSubmit={handleSubmit} className="space-y-2" role="search" aria-label={search.ariaLabel}>
           <label htmlFor="mobile-mega-menu-search" className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
@@ -123,9 +188,32 @@ MobileMegaMenu.propTypes = {
     label: PropTypes.string,
     placeholder: PropTypes.string,
     ariaLabel: PropTypes.string,
+    helperText: PropTypes.string,
+    trendingHelper: PropTypes.string,
+    trending: PropTypes.arrayOf(
+      PropTypes.oneOfType([
+        PropTypes.string,
+        PropTypes.shape({
+          id: PropTypes.string,
+          label: PropTypes.string,
+          description: PropTypes.string,
+          to: PropTypes.string,
+          query: PropTypes.string,
+          helperText: PropTypes.string,
+        }),
+      ]),
+    ),
   }),
   onNavigate: PropTypes.func,
   onSearch: PropTypes.func,
+  trendingEntries: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+      description: PropTypes.string,
+      to: PropTypes.string,
+    }),
+  ),
 };
 
 MobileMegaMenu.defaultProps = {
@@ -133,4 +221,5 @@ MobileMegaMenu.defaultProps = {
   search: null,
   onNavigate: undefined,
   onSearch: undefined,
+  trendingEntries: null,
 };

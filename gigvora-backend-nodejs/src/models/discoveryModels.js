@@ -149,6 +149,17 @@ export const DiscoveryTrendingTopic = sequelize.define(
 DiscoveryTrendingTopic.prototype.toPanelRow = function toPanelRow() {
   const plain = this.get({ plain: true });
   const metrics = plain.metrics && typeof plain.metrics === 'object' ? plain.metrics : {};
+  const industries = Array.isArray(metrics.industries)
+    ? metrics.industries
+    : metrics.industryTags && typeof metrics.industryTags === 'object'
+      ? Object.values(metrics.industryTags)
+      : [];
+  const audience =
+    metrics.audience ?? metrics.memberPersona ?? plain.metadata?.audience ?? plain.metadata?.audienceSummary ?? null;
+  const momentum =
+    metrics.momentum ?? metrics.momentumScore ?? plain.metadata?.momentum ?? plain.metadata?.momentumScore ?? null;
+  const confidence =
+    metrics.confidenceLabel ?? metrics.confidence ?? plain.metadata?.confidence ?? plain.metadata?.confidenceLabel ?? null;
   return {
     id: plain.id,
     topic: plain.topic,
@@ -166,6 +177,13 @@ DiscoveryTrendingTopic.prototype.toPanelRow = function toPanelRow() {
     followCount: plain.followCount ?? metrics.follows ?? null,
     sentimentScore: plain.sentimentScore != null ? Number(plain.sentimentScore) : null,
     metrics,
+    industries: industries.filter(Boolean).map((entry) => `${entry}`.trim()).filter((entry) => entry.length),
+    audience,
+    momentum,
+    confidence,
+    isNew: Boolean(plain.metadata?.isNew ?? metrics.isNew ?? false),
+    href: plain.metadata?.href ?? null,
+    shareUrl: plain.metadata?.shareUrl ?? null,
   };
 };
 
@@ -189,6 +207,11 @@ export const DiscoveryConnectionProfile = sequelize.define(
     industryFocus: { type: DataTypes.STRING(120), allowNull: true },
     relationshipStatus: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'new' },
     priorityScore: { type: DataTypes.DECIMAL(8, 2), allowNull: true },
+    pronouns: { type: DataTypes.STRING(60), allowNull: true },
+    matchScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    responseTimeLabel: { type: DataTypes.STRING(120), allowNull: true },
+    availabilityWindow: { type: DataTypes.STRING(160), allowNull: true },
+    focusAreas: { type: jsonType, allowNull: true },
     active: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
     metadata: { type: jsonType, allowNull: true },
   },
@@ -231,6 +254,7 @@ DiscoveryConnectionProfile.prototype.toCardObject = function toCardObject({
     avatarUrl: plain.avatarUrl,
     verified: Boolean(plain.verified),
     trustSignal: plain.trustSignal,
+    pronouns: plain.pronouns ?? plain.metadata?.pronouns ?? null,
     mutualConnections:
       mutualConnections != null
         ? mutualConnections
@@ -244,6 +268,28 @@ DiscoveryConnectionProfile.prototype.toCardObject = function toCardObject({
     tags: Array.from(new Set([...tags, ...supplementalTags].filter(Boolean))),
     successStory: plain.successStory ?? plain.metadata?.successStory ?? null,
     status: statusOverride ?? plain.relationshipStatus ?? 'new',
+    matchScore:
+      plain.matchScore != null
+        ? Number(plain.matchScore)
+        : plain.metadata?.matchScore != null
+          ? Number(plain.metadata.matchScore)
+          : null,
+    responseTime:
+      plain.responseTimeLabel ?? plain.metadata?.responseTime ?? plain.metadata?.responseTimeLabel ?? null,
+    availability:
+      plain.availabilityWindow ?? plain.metadata?.availability ?? plain.metadata?.availabilityWindow ?? null,
+    focusAreas: (
+      Array.isArray(plain.focusAreas)
+        ? plain.focusAreas
+        : plain.focusAreas && typeof plain.focusAreas === 'object'
+          ? Object.values(plain.focusAreas)
+          : Array.isArray(plain.metadata?.focusAreas)
+            ? plain.metadata.focusAreas
+            : []
+    )
+      .filter(Boolean)
+      .map((entry) => `${entry}`.trim())
+      .filter((entry) => entry.length),
     primaryAction: primary,
     secondaryAction:
       plain.secondaryAction && typeof plain.secondaryAction === 'object'

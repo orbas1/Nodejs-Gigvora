@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useMemo, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { Popover, Transition } from '@headlessui/react';
-import { ChevronDownIcon } from '@heroicons/react/24/outline';
+import { ArrowUpRightIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 import { Link } from 'react-router-dom';
 import analytics from '../../services/analytics.js';
 import { classNames } from '../../utils/classNames.js';
@@ -68,6 +68,35 @@ export default function MegaMenu({ item }) {
   );
 
   const theme = item.theme ?? {};
+  const highlightEntries = useMemo(() => {
+    if (Array.isArray(item.highlights) && item.highlights.length > 0) {
+      return item.highlights.map((highlight, index) => ({
+        id: highlight.id ?? `${item.id}-highlight-${index}`,
+        label: highlight.label ?? highlight.name ?? highlight.title ?? item.label,
+        description: highlight.description ?? highlight.subtitle ?? '',
+        to: highlight.to ?? highlight.href ?? '/',
+        badge: highlight.badge ?? 'Trending',
+      }));
+    }
+
+    const aggregated = [];
+    item.sections.forEach((section) => {
+      section.items.forEach((entry, index) => {
+        if (aggregated.length >= 3) {
+          return;
+        }
+        aggregated.push({
+          id: `${item.id}-${section.title}-${entry.name}-${index}`,
+          label: entry.name,
+          description: entry.description,
+          to: entry.to,
+          badge: 'Spotlight',
+        });
+      });
+    });
+    return aggregated;
+  }, [item]);
+
   const sectionColumns = useMemo(() => {
     if (item.sections.length >= 3) {
       return 'md:grid-cols-3';
@@ -115,8 +144,49 @@ export default function MegaMenu({ item }) {
           >
             <div className={classNames('overflow-hidden rounded-3xl border border-slate-200 bg-white/95 shadow-xl backdrop-blur', theme.panel)}>
               <div className={classNames('border-b border-slate-200/60 px-6 py-4', theme.header)}>
-                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">{item.label}</p>
-                <p className="mt-1 text-sm text-slate-600">{item.description}</p>
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">{item.label}</p>
+                    <p className="mt-1 max-w-xl text-sm text-slate-600">{item.description}</p>
+                  </div>
+                  {highlightEntries.length ? (
+                    <div className="grid w-full gap-2 sm:grid-cols-2 lg:max-w-sm">
+                      {highlightEntries.slice(0, 2).map((highlight) => (
+                        <Link
+                          key={highlight.id}
+                          to={highlight.to}
+                          className="group relative overflow-hidden rounded-3xl border border-white/20 bg-slate-900/90 px-4 py-3 text-white shadow-lg transition hover:border-accent/40 hover:bg-slate-900"
+                          onClick={() => handleItemClick({ to: highlight.to, name: highlight.label })}
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-br from-accent/40 via-accent/20 to-transparent opacity-80" aria-hidden="true" />
+                          <div className="relative z-10 flex items-center justify-between text-[0.6rem] font-semibold uppercase tracking-[0.3em] text-white/70">
+                            <span>{highlight.badge}</span>
+                            <ArrowUpRightIcon className="h-4 w-4 text-white/80" aria-hidden="true" />
+                          </div>
+                          <p className="relative z-10 mt-2 text-sm font-semibold text-white">{highlight.label}</p>
+                          {highlight.description ? (
+                            <p className="relative z-10 mt-1 text-xs text-white/80">{highlight.description}</p>
+                          ) : null}
+                        </Link>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+                {highlightEntries.length > 2 ? (
+                  <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                    {highlightEntries.slice(2, 5).map((highlight) => (
+                      <Link
+                        key={highlight.id}
+                        to={highlight.to}
+                        className="group flex items-center justify-between rounded-3xl border border-slate-200/70 bg-white/90 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-accent/50 hover:text-accent"
+                        onClick={() => handleItemClick({ to: highlight.to, name: highlight.label })}
+                      >
+                        <span className="truncate">{highlight.label}</span>
+                        <ArrowUpRightIcon className="h-4 w-4 text-slate-400 group-hover:text-accent" aria-hidden="true" />
+                      </Link>
+                    ))}
+                  </div>
+                ) : null}
               </div>
               <div className={classNames('grid gap-6 px-6 py-6', sectionColumns, theme.grid)}>
                 {item.sections.map((section) => (
@@ -175,6 +245,15 @@ MegaMenu.propTypes = {
       item: PropTypes.string,
       icon: PropTypes.string,
     }),
+    highlights: PropTypes.arrayOf(
+      PropTypes.shape({
+        id: PropTypes.string,
+        label: PropTypes.string,
+        description: PropTypes.string,
+        to: PropTypes.string,
+        badge: PropTypes.string,
+      }),
+    ),
     sections: PropTypes.arrayOf(
       PropTypes.shape({
         title: PropTypes.string.isRequired,

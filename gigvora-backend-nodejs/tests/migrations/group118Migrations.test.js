@@ -3,6 +3,7 @@ import { Sequelize as SequelizeLib, DataTypes } from 'sequelize';
 
 import homepageSettingsMigration from '../../database/migrations/20241022100000-admin-homepage-settings.cjs';
 import siteHomepageExperienceMigration from '../../database/migrations/20241205130000-site-homepage-experience.cjs';
+import siteHeroPillarsMigration from '../../database/migrations/20250418091500-site-hero-pillars.cjs';
 
 const { HOMEPAGE_DEFAULT } = homepageSettingsMigration;
 
@@ -269,6 +270,7 @@ describe('20241205130000-site-homepage-experience.cjs', () => {
 
   it('populates marketing experience defaults when none stored', async () => {
     await siteHomepageExperienceMigration.up(queryInterface, SequelizeLib);
+    await siteHeroPillarsMigration.up(queryInterface, SequelizeLib);
 
     const row = await fetchSiteRow(sequelize);
     expect(row).toBeDefined();
@@ -283,6 +285,8 @@ describe('20241205130000-site-homepage-experience.cjs', () => {
     expect(parsed.marketing.personas).toHaveLength(3);
     expect(parsed.marketing.productTour.steps).toHaveLength(4);
     expect(parsed.marketing.pricing.plans).toHaveLength(3);
+    expect(parsed.heroPersonaChips.length).toBeGreaterThan(0);
+    expect(parsed.heroValuePillars.length).toBeGreaterThan(0);
   });
 
   it('sanitizes existing homepage settings and keeps safe overrides', async () => {
@@ -328,6 +332,7 @@ describe('20241205130000-site-homepage-experience.cjs', () => {
     );
 
     await siteHomepageExperienceMigration.up(queryInterface, SequelizeLib);
+    await siteHeroPillarsMigration.up(queryInterface, SequelizeLib);
 
     const row = await fetchSiteRow(sequelize);
     const parsed = parseValue(row.value);
@@ -347,6 +352,11 @@ describe('20241205130000-site-homepage-experience.cjs', () => {
     expect(parsed.marketing.trustBadges[0].label).toBe('SOC 2 Type II');
     expect(parsed.marketing.productTour.steps[0].title).toContain('Command centre');
     expect(parsed.marketing.pricing.plans.find((plan) => plan.id === 'launch').metrics['Seats included']).toBe('25');
+    expect(parsed.heroPersonaChips[0]).toContain('Founders');
+    expect(parsed.heroValuePillars[0].highlights.length).toBeGreaterThan(0);
+    expect(parsed.heroValuePillars[0].action).toEqual(
+      expect.objectContaining({ id: expect.any(String), label: expect.any(String) }),
+    );
   });
 
   it('removes marketing fragment on down migration', async () => {
@@ -362,13 +372,25 @@ describe('20241205130000-site-homepage-experience.cjs', () => {
       ],
     );
 
+    await siteHomepageExperienceMigration.up(queryInterface, SequelizeLib);
+    await siteHeroPillarsMigration.up(queryInterface, SequelizeLib);
+
+    let row = await fetchSiteRow(sequelize);
+    let parsed = parseValue(row.value);
+    expect(parsed.heroHeadline).toBe('Keep me');
+    expect(parsed.heroValuePillars).toBeDefined();
+    expect(parsed.heroPersonaChips).toBeDefined();
+
+    await siteHeroPillarsMigration.down(queryInterface, SequelizeLib);
     await siteHomepageExperienceMigration.down(queryInterface, SequelizeLib);
 
-    const row = await fetchSiteRow(sequelize);
-    const parsed = parseValue(row.value);
+    row = await fetchSiteRow(sequelize);
+    parsed = parseValue(row.value);
     expect(parsed.heroHeadline).toBeUndefined();
     expect(parsed.heroMedia).toBeUndefined();
     expect(parsed.marketing).toBeUndefined();
+    expect(parsed.heroPersonaChips).toBeUndefined();
+    expect(parsed.heroValuePillars).toBeUndefined();
   });
 });
 
