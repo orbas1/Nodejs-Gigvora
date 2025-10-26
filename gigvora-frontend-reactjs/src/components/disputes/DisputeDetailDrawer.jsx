@@ -6,6 +6,7 @@ import {
   DocumentArrowDownIcon,
   PaperClipIcon,
 } from '@heroicons/react/24/outline';
+import { readFileAsBase64 } from '../../utils/file.js';
 
 const DEFAULT_STAGE_OPTIONS = ['intake', 'mediation', 'arbitration', 'resolved'];
 const DEFAULT_STATUS_OPTIONS = ['open', 'awaiting_customer', 'under_review', 'settled', 'closed'];
@@ -27,23 +28,6 @@ function humanize(value) {
     return '';
   }
   return value.replace(/_/g, ' ');
-}
-
-async function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result;
-      if (typeof result === 'string') {
-        const base64 = result.split(',')[1] ?? result;
-        resolve(base64);
-      } else {
-        reject(new Error('Unsupported file result'));
-      }
-    };
-    reader.onerror = (error) => reject(error);
-    reader.readAsDataURL(file);
-  });
 }
 
 export default function DisputeDetailDrawer({
@@ -191,7 +175,7 @@ export default function DisputeDetailDrawer({
     try {
       let evidence = null;
       if (eventState.file) {
-        const content = await fileToBase64(eventState.file);
+        const content = await readFileAsBase64(eventState.file);
         evidence = {
           content,
           fileName: eventState.file.name,

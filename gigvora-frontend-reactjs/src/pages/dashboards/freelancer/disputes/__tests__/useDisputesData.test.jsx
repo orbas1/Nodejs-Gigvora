@@ -59,7 +59,7 @@ describe('useDisputesData', () => {
 
     await flushAsync();
 
-    expect(fetchDisputeDashboard).toHaveBeenCalledWith('freelancer-1', { status: 'open' });
+    expect(fetchDisputeDashboard).toHaveBeenCalledWith('freelancer-1', {});
     expect(result.current.dashboard).toEqual(dashboardResponse);
     expect(result.current.loading).toBe(false);
     expect(result.current.error).toBeNull();

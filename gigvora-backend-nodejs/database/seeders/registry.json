@@ -13,6 +13,13 @@
     "domains": ["workspace", "automation", "design"],
     "tags": ["templates", "automation", "design-system"]
   },
+  "20250201101500-support-dispute-demo": {
+    "title": "Support dispute workspace showcase",
+    "summary": "Populates freelancer dispute cases, trust workflow defaults, and mediation templates for premium support demos.",
+    "personas": ["freelancer", "support", "trust"],
+    "domains": ["disputes", "trust", "support-operations"],
+    "tags": ["disputes", "support", "demo-data"]
+  },
   "20250120091500-feature-flag-demo": {
     "title": "Feature flag and rollout governance",
     "summary": "Populates feature flag definitions and assignments for operations, AI pilots, and mentorship cohorts.",
