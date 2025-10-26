@@ -6,6 +6,8 @@ import './index.css';
 import { SessionProvider } from './context/SessionContext.jsx';
 import { MessagingProvider } from './context/MessagingContext.jsx';
 import { LanguageProvider } from './context/LanguageContext.jsx';
+import { ThemeProvider } from './context/ThemeProvider.tsx';
+import { DataFetchingProvider } from './context/DataFetchingLayer.js';
 
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 const isStandaloneAdminProfile = import.meta.env.VITE_STANDALONE_ADMIN_PROFILE === 'true';
@@ -38,9 +40,13 @@ async function bootstrap() {
           <OAuthProvider clientId={googleClientId}>
             <LanguageProvider>
               <SessionProvider>
-                <MessagingProvider>
-                  <AppComponent />
-                </MessagingProvider>
+                <ThemeProvider>
+                  <DataFetchingProvider>
+                    <MessagingProvider>
+                      <AppComponent />
+                    </MessagingProvider>
+                  </DataFetchingProvider>
+                </ThemeProvider>
               </SessionProvider>
             </LanguageProvider>
           </OAuthProvider>

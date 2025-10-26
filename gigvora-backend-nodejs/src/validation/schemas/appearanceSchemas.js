@@ -214,6 +214,33 @@ export const appearanceLayoutPublishSchema = z
   })
   .strip();
 
+export const appearanceComponentProfileParamsSchema = z
+  .object({
+    componentProfileId: z.string().uuid({ message: 'componentProfileId must be a valid UUID.' }),
+  })
+  .strip();
+
+export const appearanceComponentProfileQuerySchema = z
+  .object({
+    themeId: optionalUuid(),
+    status: optionalTrimmedString({ max: 32 }).transform((value) => value?.toLowerCase()),
+  })
+  .strip();
+
+export const appearanceComponentProfileCreateSchema = z
+  .object({
+    themeId: optionalUuid(),
+    componentKey: requiredTrimmedString({ max: 120 }),
+    status: optionalTrimmedString({ max: 40 }).transform((value) => value?.toLowerCase()),
+    definition: z.record(z.any()).optional(),
+    metadata: z.record(z.any()).optional(),
+  })
+  .strip();
+
+export const appearanceComponentProfileUpdateSchema = appearanceComponentProfileCreateSchema
+  .partial({ componentKey: true })
+  .strip();
+
 export default {
   appearanceSummaryQuerySchema,
   appearanceThemeParamsSchema,
@@ -226,4 +253,8 @@ export default {
   appearanceLayoutCreateSchema,
   appearanceLayoutUpdateSchema,
   appearanceLayoutPublishSchema,
+  appearanceComponentProfileParamsSchema,
+  appearanceComponentProfileQuerySchema,
+  appearanceComponentProfileCreateSchema,
+  appearanceComponentProfileUpdateSchema,
 };

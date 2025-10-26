@@ -1,14 +1,17 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowPathIcon,
   ChatBubbleLeftRightIcon,
   PhoneIcon,
   VideoCameraIcon,
+  StarIcon as StarOutlineIcon,
 } from '@heroicons/react/24/outline';
+import { StarIcon as StarSolidIcon } from '@heroicons/react/24/solid';
 import PageHeader from '../components/PageHeader.jsx';
 import useSession from '../hooks/useSession.js';
 import useMessaging from '../hooks/useMessaging.js';
+import useFreelancerInboxWorkspace from '../hooks/useFreelancerInboxWorkspace.js';
 import {
   buildThreadTitle,
   formatThreadParticipants,
@@ -32,16 +35,33 @@ export function formatMembershipLabel(key) {
   return DASHBOARD_LINKS[key]?.label ?? key.replace(/-/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-export function ThreadCard({ thread, actorId, onSelect, selected }) {
+export function ThreadCard({ thread, actorId, onSelect, selected, onTogglePin, pinning = false }) {
   const title = buildThreadTitle(thread, actorId);
   const participants = formatThreadParticipants(thread, actorId);
   const unread = isThreadUnread(thread);
   const activity = describeLastActivity(thread);
+  const unreadCount = typeof thread.unreadCount === 'number' ? thread.unreadCount : unread ? 1 : 0;
+
+  const handleSelect = useCallback(() => {
+    onSelect(thread.id);
+  }, [onSelect, thread.id]);
+
+  const handleKeyDown = useCallback(
+    (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        handleSelect();
+      }
+    },
+    [handleSelect],
+  );
 
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(thread.id)}
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={handleSelect}
+      onKeyDown={handleKeyDown}
       className={classNames(
         'w-full rounded-3xl border px-5 py-4 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
         selected
@@ -49,13 +69,54 @@ export function ThreadCard({ thread, actorId, onSelect, selected }) {
           : unread
           ? 'border-slate-200 bg-white shadow-sm hover:border-accent/60'
           : 'border-slate-200 bg-white hover:border-accent/60',
+        'cursor-pointer',
       )}
       aria-pressed={selected}
       aria-label={`Open conversation ${title}`}
     >
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-slate-900">{title}</p>
-        <span className="text-xs text-slate-400">{activity}</span>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-1 items-center gap-2">
+          <p className="text-sm font-semibold text-slate-900">{title}</p>
+          {thread.pinned ? (
+            <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+              Pinned
+            </span>
+          ) : null}
+        </div>
+        <div className="flex items-center gap-2">
+          {unreadCount > 0 ? (
+            <span className="inline-flex min-w-[1.75rem] justify-center rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+              {unreadCount}
+            </span>
+          ) : null}
+          {onTogglePin ? (
+            <button
+              type="button"
+              aria-label={thread.pinned ? `Unpin ${title}` : `Pin ${title}`}
+              className={classNames(
+                'rounded-full p-1.5 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+                thread.pinned
+                  ? 'bg-amber-500 text-white hover:bg-amber-600'
+                  : 'border border-slate-200 text-slate-400 hover:border-accent/60 hover:text-accent',
+                pinning ? 'cursor-wait opacity-70' : '',
+              )}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (!pinning) {
+                  onTogglePin(thread, !thread.pinned);
+                }
+              }}
+              disabled={pinning}
+            >
+              {thread.pinned ? (
+                <StarSolidIcon className="h-4 w-4" />
+              ) : (
+                <StarOutlineIcon className="h-4 w-4" />
+              )}
+            </button>
+          ) : null}
+          <span className="text-xs text-slate-400">{activity}</span>
+        </div>
       </div>
       {participants.length ? (
         <p className="mt-1 text-xs text-slate-500">{participants.join(', ')}</p>
@@ -63,12 +124,7 @@ export function ThreadCard({ thread, actorId, onSelect, selected }) {
       {thread.lastMessagePreview ? (
         <p className="mt-2 text-sm text-slate-600 line-clamp-2">{thread.lastMessagePreview}</p>
       ) : null}
-      {unread ? (
-        <span className="mt-3 inline-flex items-center rounded-full bg-accent px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
-          Unread
-        </span>
-      ) : null}
-    </button>
+    </div>
   );
 }
 
@@ -77,6 +133,12 @@ export default function InboxPage() {
   const navigate = useNavigate();
   const actorId = resolveActorId(session);
   const messaging = useMessaging();
+  const {
+    workspace,
+    loading: workspaceLoading,
+    pinThread: pinWorkspaceThread,
+    unpinThread: unpinWorkspaceThread,
+  } = useFreelancerInboxWorkspace({ userId: actorId, enabled: Boolean(isAuthenticated && actorId) });
 
   const {
     hasMessagingAccess,
@@ -105,12 +167,16 @@ export default function InboxPage() {
     closeCall,
     lastSyncedAt,
   } = messaging;
+  const [pinningThreadIds, setPinningThreadIds] = useState([]);
+  const [pinError, setPinError] = useState(null);
 
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login', { replace: true });
     }
   }, [isAuthenticated, navigate]);
+
+  const pinningSet = useMemo(() => new Set(pinningThreadIds), [pinningThreadIds]);
 
   const messagingMemberships = useMemo(() => getMessagingMemberships(session), [session]);
   const allowedMembershipLabels = useMemo(
@@ -158,6 +224,71 @@ export default function InboxPage() {
   const handleLoadOlderMessages = useCallback(async () => {
     await loadOlderMessages();
   }, [loadOlderMessages]);
+
+  const handlePinningState = useCallback((threadId, active) => {
+    setPinningThreadIds((current) => {
+      const next = new Set(current);
+      if (active) {
+        next.add(threadId);
+      } else {
+        next.delete(threadId);
+      }
+      return Array.from(next);
+    });
+  }, []);
+
+  const handleTogglePin = useCallback(
+    async (thread, shouldPin) => {
+      if (!thread?.id) {
+        return;
+      }
+      setPinError(null);
+      handlePinningState(thread.id, true);
+      try {
+        if (shouldPin) {
+          await pinWorkspaceThread(thread.id);
+        } else {
+          await unpinWorkspaceThread(thread.id);
+        }
+        await refreshInbox({ silent: true });
+      } catch (error) {
+        const message = error?.body?.message ?? error?.message ?? 'Unable to update pin state.';
+        setPinError(message);
+      } finally {
+        handlePinningState(thread.id, false);
+      }
+    },
+    [handlePinningState, pinWorkspaceThread, refreshInbox, unpinWorkspaceThread],
+  );
+
+  const savedReplies = useMemo(
+    () => (Array.isArray(workspace?.savedReplies) ? workspace.savedReplies : []),
+    [workspace?.savedReplies],
+  );
+
+  const pinnedThreadList = useMemo(() => threads.filter((thread) => thread.pinned), [threads]);
+  const regularThreadList = useMemo(() => threads.filter((thread) => !thread.pinned), [threads]);
+
+  const handleInsertSavedReply = useCallback(
+    (reply) => {
+      if (!reply || !selectedThreadId) {
+        return;
+      }
+      const snippet = typeof reply.body === 'string' ? reply.body.trim() : '';
+      if (!snippet) {
+        return;
+      }
+      const base = composer ?? '';
+      if (!base.trim()) {
+        updateComposer(snippet);
+        return;
+      }
+      const needsDoubleNewline = !base.endsWith('\n') && !base.endsWith('\n\n');
+      const separator = needsDoubleNewline ? '\n\n' : base.endsWith('\n') ? '\n' : '';
+      updateComposer(`${base}${separator}${snippet}`);
+    },
+    [composer, selectedThreadId, updateComposer],
+  );
 
   if (isAuthenticated && !hasMessagingAccess) {
     return (
@@ -280,6 +411,11 @@ export default function InboxPage() {
                     {threadsError}
                   </p>
                 ) : null}
+                {pinError ? (
+                  <p className="rounded-3xl bg-amber-50 px-4 py-3 text-xs text-amber-700" role="alert">
+                    {pinError}
+                  </p>
+                ) : null}
                 {loadingThreads ? (
                   <div className="space-y-2">
                     {Array.from({ length: 4 }).map((_, index) => (
@@ -287,15 +423,35 @@ export default function InboxPage() {
                     ))}
                   </div>
                 ) : threads.length ? (
-                  threads.map((thread) => (
-                    <ThreadCard
-                      key={thread.id}
-                      thread={thread}
-                      actorId={actorId}
-                      selected={selectedThreadId === thread.id}
-                      onSelect={selectThread}
-                    />
-                  ))
+                  <div className="space-y-3">
+                    {pinnedThreadList.length ? (
+                      <div className="space-y-2">
+                        <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Pinned</p>
+                        {pinnedThreadList.map((thread) => (
+                          <ThreadCard
+                            key={thread.id}
+                            thread={thread}
+                            actorId={actorId}
+                            selected={selectedThreadId === thread.id}
+                            onSelect={selectThread}
+                            onTogglePin={handleTogglePin}
+                            pinning={pinningSet.has(thread.id)}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
+                    {regularThreadList.map((thread) => (
+                      <ThreadCard
+                        key={thread.id}
+                        thread={thread}
+                        actorId={actorId}
+                        selected={selectedThreadId === thread.id}
+                        onSelect={selectThread}
+                        onTogglePin={handleTogglePin}
+                        pinning={pinningSet.has(thread.id)}
+                      />
+                    ))}
+                  </div>
                 ) : (
                   <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
                     No conversations yet. Start a thread from any project or invite collaborators to connect.
@@ -409,6 +565,47 @@ export default function InboxPage() {
                 </button>
               </div>
             </form>
+            {savedReplies.length ? (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Saved replies</p>
+                  <span className="text-[11px] text-slate-400">
+                    {workspaceLoading ? 'Syncing…' : `${savedReplies.length} templates`}
+                  </span>
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {savedReplies.map((reply) => (
+                    <button
+                      key={reply.id}
+                      type="button"
+                      onClick={() => handleInsertSavedReply(reply)}
+                      className="group rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-accent/60 hover:shadow-sm"
+                      disabled={!selectedThreadId}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-slate-900 group-hover:text-accent">{reply.title}</p>
+                        <span className="text-[11px] text-slate-400">
+                          {reply.shortcuts?.length
+                            ? reply.shortcuts
+                                .slice(0, 2)
+                                .map((shortcut) => `/${shortcut}`)
+                                .join(' ')
+                            : reply.shortcut
+                            ? `/${reply.shortcut}`
+                            : ''}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500 line-clamp-3">{reply.body}</p>
+                      {reply.isDefault ? (
+                        <span className="mt-2 inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                          Default
+                        </span>
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

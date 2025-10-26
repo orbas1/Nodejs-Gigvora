@@ -11,6 +11,10 @@ import {
   updateLayout,
   publishLayout,
   deleteLayout,
+  listComponentProfiles,
+  createComponentProfile,
+  updateComponentProfile,
+  deleteComponentProfile,
 } from '../services/appearanceManagementService.js';
 
 function getActorId(req) {
@@ -85,6 +89,28 @@ export async function deleteLayoutHandler(req, res) {
   res.json(response);
 }
 
+export async function listComponentProfilesHandler(req, res) {
+  const profiles = await listComponentProfiles(req.query ?? {});
+  res.json({ componentProfiles: profiles, total: profiles.length });
+}
+
+export async function createComponentProfileHandler(req, res) {
+  const profile = await createComponentProfile(req.body ?? {}, { actorId: getActorId(req) });
+  res.status(201).json(profile);
+}
+
+export async function updateComponentProfileHandler(req, res) {
+  const { componentProfileId } = req.params;
+  const profile = await updateComponentProfile(componentProfileId, req.body ?? {}, { actorId: getActorId(req) });
+  res.json(profile);
+}
+
+export async function deleteComponentProfileHandler(req, res) {
+  const { componentProfileId } = req.params;
+  const response = await deleteComponentProfile(componentProfileId);
+  res.json(response);
+}
+
 export default {
   summary,
   createTheme: createThemeHandler,
@@ -98,4 +124,8 @@ export default {
   updateLayout: updateLayoutHandler,
   publishLayout: publishLayoutHandler,
   deleteLayout: deleteLayoutHandler,
+  listComponentProfiles: listComponentProfilesHandler,
+  createComponentProfile: createComponentProfileHandler,
+  updateComponentProfile: updateComponentProfileHandler,
+  deleteComponentProfile: deleteComponentProfileHandler,
 };

@@ -36,6 +36,21 @@ function normalizeList(value) {
   return [value];
 }
 
+function resolveActorId(session) {
+  if (!session) {
+    return null;
+  }
+  const candidate = session.id ?? session.userId ?? null;
+  if (typeof candidate === 'number' && Number.isFinite(candidate) && candidate > 0) {
+    return candidate;
+  }
+  const parsed = Number.parseInt(candidate, 10);
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return parsed;
+  }
+  return null;
+}
+
 function describeNextEvent(event) {
   if (!event) {
     return 'No next milestone yet';
@@ -52,10 +67,21 @@ function describeNextEvent(event) {
   })}`;
 }
 
+function buildIcsFilename(event) {
+  if (!event) {
+    return 'gigvora-event.ics';
+  }
+  const base = `${event.title ?? 'gigvora-event'}`.toLowerCase().trim();
+  const safe = base.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'gigvora-event';
+  const suffix = event.id != null ? `-${event.id}` : '';
+  return `${safe}${suffix}.ics`;
+}
+
 export default function PlannerWorkspace({ session }) {
   const freelancerId = session?.id ?? null;
   const memberships = normalizeList(session?.memberships);
   const canManage = memberships.includes('freelancer') || session?.userType === 'freelancer';
+  const actorId = resolveActorId(session);
 
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState('create');
@@ -80,6 +106,7 @@ export default function PlannerWorkspace({ session }) {
     createEvent,
     updateEvent,
     deleteEvent,
+    downloadEventInvite,
     setFilters,
   } = useFreelancerCalendar({ freelancerId, enabled: true, lookbackDays, lookaheadDays });
 
@@ -95,6 +122,8 @@ export default function PlannerWorkspace({ session }) {
   const [availabilityMessage, setAvailabilityMessage] = useState('Accepting new client launches this quarter.');
   const [availabilityChannels, setAvailabilityChannels] = useState({ referrals: true, guild: true, clients: false });
   const [availabilitySavedAt, setAvailabilitySavedAt] = useState(null);
+  const [downloadingEventId, setDownloadingEventId] = useState(null);
+  const [downloadError, setDownloadError] = useState(null);
 
   const totalEvents = metrics?.total ?? events.length ?? 0;
   const upcomingCount = metrics?.upcomingCount ?? 0;
@@ -134,6 +163,13 @@ export default function PlannerWorkspace({ session }) {
       caption: nextEventDescription,
     },
   ];
+
+  useEffect(() => {
+    if (!detailsEvent) {
+      setDownloadError(null);
+      setDownloadingEventId(null);
+    }
+  }, [detailsEvent?.id]);
 
   const timelineEmptyState = (
     <div className="flex h-full flex-col items-center justify-center gap-4 rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
@@ -214,9 +250,11 @@ export default function PlannerWorkspace({ session }) {
     setFormSubmitting(true);
     try {
       if (formMode === 'edit' && selectedEvent?.id) {
-        await updateEvent(selectedEvent.id, payload, { actorId: session?.id });
+        const actorOptions = actorId ? { actorId } : {};
+        await updateEvent(selectedEvent.id, payload, actorOptions);
       } else {
-        await createEvent(payload, { actorId: session?.id });
+        const actorOptions = actorId ? { actorId } : {};
+        await createEvent(payload, actorOptions);
       }
       await refresh();
       setFormOpen(false);
@@ -236,7 +274,8 @@ export default function PlannerWorkspace({ session }) {
     }
     setStatusUpdatingId(event.id);
     try {
-      await updateEvent(event.id, { status: nextStatus }, { actorId: session?.id });
+      const actorOptions = actorId ? { actorId } : {};
+      await updateEvent(event.id, { status: nextStatus }, actorOptions);
       await refresh();
     } catch (err) {
       console.error('Unable to update status', err);
@@ -251,8 +290,10 @@ export default function PlannerWorkspace({ session }) {
     }
     setStatusUpdatingId(event.id);
     try {
-      await deleteEvent(event.id, { actorId: session?.id });
+      const actorOptions = actorId ? { actorId } : {};
+      await deleteEvent(event.id, actorOptions);
       setDetailsEvent(null);
+      setDownloadError(null);
       await refresh();
     } catch (err) {
       console.error('Unable to delete event', err);
@@ -265,6 +306,7 @@ export default function PlannerWorkspace({ session }) {
     if (!event) {
       return;
     }
+    setDownloadError(null);
     const startsAt = event.startsAt ? new Date(event.startsAt) : new Date();
     const duplicate = {
       ...event,
@@ -276,6 +318,35 @@ export default function PlannerWorkspace({ session }) {
     setSelectedEvent(duplicate);
     setFormMode('create');
     setFormOpen(true);
+  };
+
+  const handleDownloadEvent = async (event) => {
+    if (!event?.id) {
+      return;
+    }
+    try {
+      setDownloadError(null);
+      setDownloadingEventId(event.id);
+      const options = actorId ? { actorId } : {};
+      const icsPayload = await downloadEventInvite(event.id, options);
+      if (typeof icsPayload !== 'string' || !icsPayload.trim()) {
+        throw new Error('Empty calendar response');
+      }
+      const blob = new Blob([icsPayload], { type: 'text/calendar;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = buildIcsFilename(event);
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Unable to export calendar invite', err);
+      setDownloadError('Unable to generate a calendar invite right now. Please try again later.');
+    } finally {
+      setDownloadingEventId(null);
+    }
   };
 
   const handleAvailabilitySubmit = (event) => {
@@ -363,36 +434,36 @@ export default function PlannerWorkspace({ session }) {
           <section className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2">
-                {DEFAULT_LOOKBACK_OPTIONS.map((option) => (
+                {DEFAULT_LOOKBACK_OPTIONS.map((value) => (
                   <button
-                    key={option.value}
+                    key={value}
                     type="button"
-                    onClick={() => handleTimeWindowChange(option.value, lookaheadDays)}
+                    onClick={() => handleTimeWindowChange(value, lookaheadDays)}
                     className={classNames(
                       'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition',
-                      lookbackDays === option.value
+                      lookbackDays === value
                         ? 'border-blue-500 bg-blue-600 text-white'
                         : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-700',
                     )}
                   >
-                    <ClockIcon className="h-4 w-4" /> -{option.value}d
+                    <ClockIcon className="h-4 w-4" /> -{value}d
                   </button>
                 ))}
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {DEFAULT_LOOKAHEAD_OPTIONS.map((option) => (
+                {DEFAULT_LOOKAHEAD_OPTIONS.map((value) => (
                   <button
-                    key={option.value}
+                    key={value}
                     type="button"
-                    onClick={() => handleTimeWindowChange(lookbackDays, option.value)}
+                    onClick={() => handleTimeWindowChange(lookbackDays, value)}
                     className={classNames(
                       'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition',
-                      lookaheadDays === option.value
+                      lookaheadDays === value
                         ? 'border-blue-500 bg-blue-600 text-white'
                         : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-700',
                     )}
                   >
-                    <ClockIcon className="h-4 w-4" /> +{option.value}d
+                    <ClockIcon className="h-4 w-4" /> +{value}d
                   </button>
                 ))}
               </div>
@@ -610,17 +681,24 @@ export default function PlannerWorkspace({ session }) {
       <CalendarEventDetailsDrawer
         open={Boolean(detailsEvent)}
         event={detailsEvent}
-        onClose={() => setDetailsEvent(null)}
+        onClose={() => {
+          setDetailsEvent(null);
+          setDownloadError(null);
+        }}
         onEdit={(event) => {
           setSelectedEvent(event);
           setFormMode('edit');
           setFormOpen(true);
+          setDownloadError(null);
         }}
         onDelete={handleDeleteEvent}
         onStatusChange={handleStatusChange}
         canManage={canManage}
         statusUpdating={statusUpdatingId === detailsEvent?.id}
         onDuplicate={handleDuplicateEvent}
+        onDownload={handleDownloadEvent}
+        downloading={downloadingEventId === detailsEvent?.id}
+        downloadError={downloadError}
       />
     </div>
   );

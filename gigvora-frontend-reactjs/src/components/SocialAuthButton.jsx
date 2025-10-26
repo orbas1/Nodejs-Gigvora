@@ -1,16 +1,6 @@
 import PropTypes from 'prop-types';
 
 const PROVIDER_STYLES = {
-  x: {
-    label: 'Continue with X',
-    baseClass:
-      'bg-black text-white hover:bg-black/90 focus-visible:outline-black/70 focus-visible:ring-black/40',
-    icon: (
-      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-current">
-        <path d="M3.3 2h5.1l4 5.7L15.7 2H21l-6.7 9.1L21 22h-5.1l-4.2-6-4.2 6H2l6.7-9.2z" />
-      </svg>
-    ),
-  },
   linkedin: {
     label: 'Continue with LinkedIn',
     baseClass:
@@ -21,19 +11,9 @@ const PROVIDER_STYLES = {
       </svg>
     ),
   },
-  facebook: {
-    label: 'Continue with Facebook',
-    baseClass:
-      'bg-[#1877F2] text-white hover:bg-[#166ee6] focus-visible:outline-[#1877F2]/80 focus-visible:ring-[#1877F2]/40',
-    icon: (
-      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-current">
-        <path d="M13 22v-8h2.6l.4-3h-3V8.5c0-.9.3-1.5 1.5-1.5H16V4.2c-.3 0-1.2-.1-2.3-.1-2.3 0-3.7 1.4-3.7 3.9V11H7v3h3v8z" />
-      </svg>
-    ),
-  },
 };
 
-export default function SocialAuthButton({ provider, label, onClick, disabled = false }) {
+export default function SocialAuthButton({ provider, label, onClick = () => {}, disabled = false }) {
   const style = PROVIDER_STYLES[provider];
 
   if (!style) {
@@ -46,6 +26,7 @@ export default function SocialAuthButton({ provider, label, onClick, disabled = 
       onClick={onClick}
       disabled={disabled}
       className={`flex w-full items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold shadow-soft transition focus-visible:outline focus-visible:outline-2 focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 ${style.baseClass}`}
+      aria-label={label || style.label}
     >
       {style.icon}
       <span>{label || style.label}</span>
