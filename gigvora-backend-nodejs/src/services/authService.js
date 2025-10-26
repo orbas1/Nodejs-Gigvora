@@ -27,6 +27,7 @@ const appleClientId =
 const LINKEDIN_USERINFO_URL = 'https://api.linkedin.com/v2/userinfo';
 const LINKEDIN_EMAIL_URL =
   'https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))';
+const LINKEDIN_TOKEN_URL = 'https://www.linkedin.com/oauth/v2/accessToken';
 const APPLE_KEYS_URL = 'https://appleid.apple.com/auth/keys';
 const APPLE_KEYS_TTL = 1000 * 60 * 60; // 1 hour
 let appleSigningKeys = new Map();
@@ -35,6 +36,10 @@ let oauthClient = null;
 let passwordResetTransporter = null;
 const PASSWORD_RESET_DEFAULT_COOLDOWN_SECONDS = 120;
 const PASSWORD_RESET_MAX_COOLDOWN_SECONDS = 900;
+
+const linkedinClientId = process.env.LINKEDIN_CLIENT_ID;
+const linkedinClientSecret = process.env.LINKEDIN_CLIENT_SECRET;
+const defaultLinkedinRedirectUri = process.env.LINKEDIN_REDIRECT_URI;
 
 const SOCIAL_LOGIN_CONFIG = {
   google: {
@@ -210,6 +215,57 @@ async function fetchLinkedInProfile(accessToken) {
     email,
     firstName,
     lastName,
+  };
+}
+
+function resolveLinkedInRedirectUri(override) {
+  const redirectUri = override || defaultLinkedinRedirectUri;
+  if (!redirectUri) {
+    throw buildError('LinkedIn redirect URI is not configured.', 500);
+  }
+  return redirectUri;
+}
+
+async function exchangeLinkedInAuthorizationCode(code, overrideRedirectUri) {
+  if (!code) {
+    throw buildError('LinkedIn authorization code is required.', 422);
+  }
+  if (!linkedinClientId || !linkedinClientSecret) {
+    throw buildError('LinkedIn login is not configured.', 503);
+  }
+
+  const redirectUri = resolveLinkedInRedirectUri(overrideRedirectUri);
+  const body = new URLSearchParams({
+    grant_type: 'authorization_code',
+    code,
+    redirect_uri: redirectUri,
+    client_id: linkedinClientId,
+    client_secret: linkedinClientSecret,
+  });
+
+  const response = await fetch(LINKEDIN_TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  });
+
+  if (!response.ok) {
+    const payload = await response.text();
+    throw buildError(
+      `Unable to exchange LinkedIn authorization code. (${response.status}) ${payload || ''}`.trim(),
+      response.status === 401 ? 401 : 502,
+    );
+  }
+
+  const payload = await response.json();
+  const accessToken = payload?.access_token;
+  if (!accessToken) {
+    throw buildError('LinkedIn token exchange response missing access_token.', 502);
+  }
+
+  return {
+    accessToken,
+    expiresIn: payload?.expires_in ?? null,
   };
 }
 
@@ -680,11 +736,18 @@ async function loginWithApple(identityToken, options = {}) {
 }
 
 async function loginWithLinkedIn(accessToken, options = {}) {
-  if (!accessToken) {
-    throw buildError('LinkedIn access token is required.', 422);
+  let resolvedAccessToken = accessToken;
+
+  if (!resolvedAccessToken) {
+    const authorizationCode = options.authorizationCode;
+    if (!authorizationCode) {
+      throw buildError('LinkedIn access token or authorization code is required.', 422);
+    }
+    const exchange = await exchangeLinkedInAuthorizationCode(authorizationCode, options.redirectUri);
+    resolvedAccessToken = exchange.accessToken;
   }
 
-  const profile = await fetchLinkedInProfile(accessToken);
+  const profile = await fetchLinkedInProfile(resolvedAccessToken);
   const user = await resolveSocialUser({
     provider: 'linkedin',
     providerId: profile.id,

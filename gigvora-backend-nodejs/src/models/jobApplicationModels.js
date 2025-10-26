@@ -42,12 +42,14 @@ export const JOB_APPLICATION_INTERVIEW_TYPES = Object.freeze([
   'onsite',
   'panel',
   'assignment',
+  'other',
 ]);
 
 export const JOB_APPLICATION_INTERVIEW_STATUSES = Object.freeze([
   'scheduled',
   'completed',
   'cancelled',
+  'rescheduled',
   'no_show',
 ]);
 
@@ -240,7 +242,7 @@ export const JobApplicationInterview = sequelize.define(
     scheduledAt: { type: DataTypes.DATE, allowNull: false },
     timezone: { type: DataTypes.STRING(120), allowNull: true },
     durationMinutes: { type: DataTypes.INTEGER, allowNull: true },
-    type: { type: DataTypes.ENUM(...JOB_APPLICATION_INTERVIEW_TYPES), allowNull: false, defaultValue: 'video' },
+    type: { type: DataTypes.ENUM(...JOB_APPLICATION_INTERVIEW_TYPES), allowNull: false, defaultValue: 'phone' },
     status: { type: DataTypes.ENUM(...JOB_APPLICATION_INTERVIEW_STATUSES), allowNull: false, defaultValue: 'scheduled' },
     location: { type: DataTypes.STRING(255), allowNull: true },
     meetingLink: { type: DataTypes.STRING(2048), allowNull: true },

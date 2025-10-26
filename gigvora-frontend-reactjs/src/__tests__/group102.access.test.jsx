@@ -1,4 +1,5 @@
 import { renderHook } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import useRoleAccess from '../hooks/useRoleAccess.js';
 
 const sessionState = vi.hoisted(() => ({
@@ -58,6 +59,17 @@ describe('useRoleAccess', () => {
 
     expect(result.current.hasAccess).toBe(true);
     expect(sessionState.value.updateSession).not.toHaveBeenCalled();
+  });
+
+  it('returns metadata for missing roles when defined in the matrix', () => {
+    sessionState.value.session = { memberships: ['user'], activeMembership: 'user' };
+
+    const { result } = renderHook(() => useRoleAccess({ anyOf: ['workspace_admin'] }));
+
+    expect(result.current.hasAccess).toBe(false);
+    expect(result.current.missingRoles).toContain('workspace_admin');
+    expect(result.current.missingRoleDetails[0].key).toBe('workspace_admin');
+    expect(result.current.allowedRoleDetails[0].tier).toBe('elevated');
   });
 });
 

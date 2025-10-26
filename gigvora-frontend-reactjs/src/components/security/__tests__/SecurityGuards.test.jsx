@@ -53,7 +53,7 @@ describe('ProtectedRoute', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('Community access locked')).toBeInTheDocument();
+    expect(screen.getByText('Secure area')).toBeInTheDocument();
     expect(screen.queryByText('Community feed')).not.toBeInTheDocument();
   });
 
