@@ -186,6 +186,583 @@ function generateInviteToken() {
   return crypto.randomBytes(16).toString('hex');
 }
 
+const SEARCH_METADATA_VERSION = '2024.11.workspace-search.v1';
+const SEARCH_FRESHNESS_BANDS = [
+  { maxDays: 3, status: 'vibrant' },
+  { maxDays: 14, status: 'active' },
+  { maxDays: 30, status: 'cooling' },
+  { maxDays: Infinity, status: 'dormant' },
+];
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function coerceNumber(value) {
+  if (value == null || value === '') {
+    return null;
+  }
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function coerceScore(value) {
+  const numeric = coerceNumber(value);
+  if (numeric == null) {
+    return null;
+  }
+  return Math.max(0, Math.min(100, Number(numeric.toFixed(1))));
+}
+
+function coerceSatisfaction(value) {
+  const numeric = coerceNumber(value);
+  if (numeric == null) {
+    return null;
+  }
+  if (numeric <= 5) {
+    return Math.max(0, Math.min(100, Number((numeric * 20).toFixed(1))));
+  }
+  return Math.max(0, Math.min(100, Number(numeric.toFixed(1))));
+}
+
+function safeIsoDate(value) {
+  if (!value) {
+    return null;
+  }
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date.toISOString();
+}
+
+function uniqueStrings(values) {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+  return Array.from(
+    new Set(
+      values
+        .filter((value) => typeof value === 'string')
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
+}
+
+function uniqueNumbers(values) {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+  return Array.from(
+    new Set(
+      values
+        .map((value) => Number(value))
+        .filter((value) => Number.isInteger(value) && value > 0),
+    ),
+  ).sort((a, b) => a - b);
+}
+
+function extractProperty(record, keys = []) {
+  if (!record || typeof record !== 'object') {
+    return undefined;
+  }
+  for (const key of keys) {
+    if (record[key] != null) {
+      return record[key];
+    }
+  }
+  return undefined;
+}
+
+function collectWorkspaceSignals(context = {}) {
+  const {
+    approvals = [],
+    budgets = [],
+    conversations = [],
+    timelineEntries = [],
+    hrRecords = [],
+    meetings = [],
+    tasks = [],
+  } = context;
+
+  const now = Date.now();
+
+  const pendingApprovals = approvals.filter((approval) => {
+    const status = String(approval.status ?? '').toLowerCase();
+    return status && status !== 'approved';
+  }).length;
+
+  const overBudgetLines = budgets.filter((budget) => {
+    const status = String(budget.status ?? '').toLowerCase();
+    return status === 'overbudget';
+  }).length;
+
+  let plannedTotal = 0;
+  let actualTotal = 0;
+  budgets.forEach((budget) => {
+    const planned = coerceNumber(
+      extractProperty(budget, ['plannedAmount', 'planned_amount', 'allocatedAmount', 'allocated_amount']),
+    );
+    const actual = coerceNumber(
+      extractProperty(budget, ['actualAmount', 'actual_amount', 'spentAmount', 'spent_amount']),
+    );
+    if (planned != null) {
+      plannedTotal += planned;
+    }
+    if (actual != null) {
+      actualTotal += actual;
+    }
+  });
+  const budgetVariance =
+    plannedTotal > 0 ? Number(((actualTotal - plannedTotal) / plannedTotal).toFixed(3)) : 0;
+
+  const unreadMessages = conversations.reduce((total, conversation) => {
+    const unread = coerceNumber(extractProperty(conversation, ['unreadCount', 'unread_count']));
+    return total + (unread ?? 0);
+  }, 0);
+
+  const activeContributors = hrRecords.filter((record) => {
+    const status = String(record.status ?? '').toLowerCase();
+    return status === 'active';
+  }).length;
+
+  const upcomingMeetings = meetings.filter((meeting) => {
+    const start = safeIsoDate(extractProperty(meeting, ['startAt', 'start_at']));
+    if (!start) {
+      return false;
+    }
+    const timestamp = Date.parse(start);
+    return Number.isFinite(timestamp) && timestamp > now;
+  }).length;
+
+  const atRiskTimelineEntries = timelineEntries.filter((entry) => {
+    const status = String(entry.status ?? '').toLowerCase();
+    return status === 'at_risk';
+  }).length;
+
+  const recentTimelineEvents = timelineEntries.filter((entry) => {
+    const updatedAt = safeIsoDate(
+      extractProperty(entry, ['updatedAt', 'updated_at', 'endAt', 'end_at', 'startAt', 'start_at']),
+    );
+    if (!updatedAt) {
+      return false;
+    }
+    const timestamp = Date.parse(updatedAt);
+    return Number.isFinite(timestamp) && now - timestamp <= 7 * MS_PER_DAY;
+  }).length;
+
+  const totalTasks = tasks.length;
+  const completedTasks = tasks.filter((task) => {
+    const status = String(task.status ?? '').toLowerCase();
+    return status === 'completed';
+  }).length;
+
+  return {
+    pendingApprovals,
+    overBudgetLines,
+    budgetVariance,
+    unreadMessages,
+    activeContributors,
+    upcomingMeetings,
+    atRiskTimelineEntries,
+    recentTimelineEvents,
+    totalTasks,
+    completedTasks,
+  };
+}
+
+function resolveRankingTier(score) {
+  if (!Number.isFinite(score)) {
+    return 'emerging';
+  }
+  if (score >= 90) {
+    return 'signature';
+  }
+  if (score >= 75) {
+    return 'premium';
+  }
+  if (score >= 55) {
+    return 'core';
+  }
+  return 'emerging';
+}
+
+function computeRankingScoreFromWorkspace(workspace = {}) {
+  const contributions = [];
+  const health = coerceScore(workspace.healthScore);
+  if (health != null) {
+    contributions.push({ weight: 0.35, value: health });
+  }
+  const velocity = coerceScore(workspace.velocityScore);
+  if (velocity != null) {
+    contributions.push({ weight: 0.25, value: velocity });
+  }
+  const progress = coerceScore(workspace.progressPercent);
+  if (progress != null) {
+    contributions.push({ weight: 0.2, value: progress });
+  }
+  const automation = coerceScore(workspace.automationCoverage);
+  if (automation != null) {
+    contributions.push({ weight: 0.1, value: automation });
+  }
+  const satisfaction = coerceSatisfaction(workspace.clientSatisfaction);
+  if (satisfaction != null) {
+    contributions.push({ weight: 0.1, value: satisfaction });
+  }
+  const totalWeight = contributions.reduce((sum, entry) => sum + entry.weight, 0);
+  if (!totalWeight) {
+    return 40;
+  }
+  const score =
+    contributions.reduce((sum, entry) => sum + entry.value * entry.weight, 0) / totalWeight;
+  return Math.max(0, Math.min(100, Number(score.toFixed(1))));
+}
+
+function deriveWorkspaceSearchFilters(workspace = {}, project = {}, context = {}) {
+  const metricsSnapshot =
+    workspace.metricsSnapshot && typeof workspace.metricsSnapshot === 'object'
+      ? workspace.metricsSnapshot
+      : {};
+
+  const computedSignals = collectWorkspaceSignals(context);
+  const mergedSignals = {
+    ...computedSignals,
+  };
+  if (context.metrics && typeof context.metrics === 'object') {
+    const base = context.metrics;
+    if (base.budgetVariance != null) {
+      mergedSignals.budgetVariance = Number(base.budgetVariance);
+    }
+    if (base.overBudgetLines != null) {
+      mergedSignals.overBudgetLines = Number(base.overBudgetLines);
+    }
+    if (base.pendingApprovals != null) {
+      mergedSignals.pendingApprovals = Number(base.pendingApprovals);
+    }
+    if (base.unreadMessages != null) {
+      mergedSignals.unreadMessages = Number(base.unreadMessages);
+    }
+    if (base.activeContributors != null) {
+      mergedSignals.activeContributors = Number(base.activeContributors);
+    }
+    if (base.upcomingMeetings != null) {
+      mergedSignals.upcomingMeetings = Number(base.upcomingMeetings);
+    }
+    if (base.atRiskTimelineEntries != null) {
+      mergedSignals.atRiskTimelineEntries = Number(base.atRiskTimelineEntries);
+    }
+  }
+
+  const rankingScore = computeRankingScoreFromWorkspace(workspace);
+  const rankingSignals = new Set();
+
+  const health = coerceScore(workspace.healthScore);
+  if (health != null && health >= 85) {
+    rankingSignals.add('health_elite');
+  }
+  const velocity = coerceScore(workspace.velocityScore);
+  if (velocity != null && velocity >= 80) {
+    rankingSignals.add('velocity_prime');
+  }
+  if (rankingScore >= 70) {
+    rankingSignals.add('momentum_on_track');
+  }
+  const automation = coerceScore(workspace.automationCoverage);
+  if (automation != null && automation >= 65) {
+    rankingSignals.add('automation_scaled');
+  }
+  const satisfaction = coerceSatisfaction(workspace.clientSatisfaction);
+  if (satisfaction != null && satisfaction >= 90) {
+    rankingSignals.add('client_delight');
+  }
+  if (mergedSignals.pendingApprovals === 0 && mergedSignals.overBudgetLines === 0) {
+    rankingSignals.add('operations_confident');
+  }
+  if (mergedSignals.budgetVariance != null && mergedSignals.budgetVariance <= 0.05) {
+    rankingSignals.add('budget_disciplined');
+  }
+  if (mergedSignals.totalTasks && mergedSignals.completedTasks) {
+    const completionRate = mergedSignals.totalTasks
+      ? mergedSignals.completedTasks / mergedSignals.totalTasks
+      : 0;
+    if (completionRate >= 0.6) {
+      rankingSignals.add('delivery_progressing');
+    }
+  }
+  if (mergedSignals.activeContributors >= 5) {
+    rankingSignals.add('collaboration_hub');
+  }
+
+  const lastActivityCandidates = [];
+  const addActivityCandidate = (value) => {
+    const iso = safeIsoDate(value);
+    if (!iso) {
+      return;
+    }
+    const timestamp = Date.parse(iso);
+    if (Number.isFinite(timestamp)) {
+      lastActivityCandidates.push(timestamp);
+    }
+  };
+  addActivityCandidate(workspace.lastActivityAt);
+  if (metricsSnapshot.lastInteractionAt) {
+    addActivityCandidate(metricsSnapshot.lastInteractionAt);
+  }
+  if (metricsSnapshot.updatedAt) {
+    addActivityCandidate(metricsSnapshot.updatedAt);
+  }
+
+  (context.timelineEntries ?? []).forEach((entry) => {
+    addActivityCandidate(
+      extractProperty(entry, ['updatedAt', 'updated_at', 'endAt', 'end_at', 'startAt', 'start_at']),
+    );
+  });
+  (context.conversations ?? []).forEach((conversation) => {
+    addActivityCandidate(
+      extractProperty(conversation, ['lastMessageAt', 'last_message_at', 'updatedAt', 'updated_at']),
+    );
+    const messages = Array.isArray(conversation.messages) ? conversation.messages : [];
+    if (messages.length) {
+      const lastMessage = messages[messages.length - 1];
+      addActivityCandidate(
+        extractProperty(lastMessage, ['postedAt', 'posted_at', 'createdAt', 'created_at']),
+      );
+    }
+  });
+  (context.meetings ?? []).forEach((meeting) => {
+    addActivityCandidate(extractProperty(meeting, ['updatedAt', 'updated_at', 'startAt', 'start_at']));
+  });
+  (context.submissions ?? []).forEach((submission) => {
+    addActivityCandidate(
+      extractProperty(submission, ['submittedAt', 'submitted_at', 'updatedAt', 'updated_at']),
+    );
+  });
+  (context.invites ?? []).forEach((invite) => {
+    addActivityCandidate(extractProperty(invite, ['createdAt', 'created_at', 'updatedAt', 'updated_at']));
+  });
+  (context.tasks ?? []).forEach((task) => {
+    addActivityCandidate(extractProperty(task, ['updatedAt', 'updated_at', 'completedAt', 'completed_at']));
+  });
+
+  const lastActivityTimestamp = lastActivityCandidates.length
+    ? Math.max(...lastActivityCandidates)
+    : null;
+  const lastActivityDate = lastActivityTimestamp != null ? new Date(lastActivityTimestamp) : null;
+  const daysSinceInteraction =
+    lastActivityDate != null
+      ? Math.max(0, Math.floor((Date.now() - lastActivityDate.getTime()) / MS_PER_DAY))
+      : null;
+
+  const freshnessBand =
+    daysSinceInteraction == null
+      ? SEARCH_FRESHNESS_BANDS[SEARCH_FRESHNESS_BANDS.length - 1]
+      : SEARCH_FRESHNESS_BANDS.find((band) => daysSinceInteraction <= band.maxDays) ??
+        SEARCH_FRESHNESS_BANDS[SEARCH_FRESHNESS_BANDS.length - 1];
+
+  const freshnessSignals = new Set();
+  if (daysSinceInteraction != null && daysSinceInteraction <= 2) {
+    freshnessSignals.add('recent_activity');
+  }
+  if (mergedSignals.unreadMessages > 0) {
+    freshnessSignals.add('messages_waiting');
+  }
+  if (mergedSignals.pendingApprovals > 0) {
+    freshnessSignals.add('approvals_pending');
+  }
+  if (mergedSignals.upcomingMeetings > 0) {
+    freshnessSignals.add('meetings_scheduled');
+  }
+  if (freshnessBand.status === 'dormant') {
+    freshnessSignals.add('reengage_campaign');
+  }
+  if (mergedSignals.recentTimelineEvents > 0) {
+    freshnessSignals.add('timeline_updates');
+  }
+
+  const audienceTags = new Set();
+  const workspaceStatus = String(workspace.status ?? '').toLowerCase();
+  if (workspaceStatus === 'active' || workspaceStatus === 'in_progress' || workspaceStatus === 'briefing') {
+    audienceTags.add('active-engagement');
+  }
+  const riskLevel = String(workspace.riskLevel ?? '').toLowerCase();
+  if (riskLevel === 'low') {
+    audienceTags.add('low-risk');
+  } else if (riskLevel === 'high') {
+    audienceTags.add('critical-support');
+  }
+  if (automation != null && automation >= 70) {
+    audienceTags.add('automation-led');
+  }
+  if (satisfaction != null && satisfaction >= 85) {
+    audienceTags.add('client-favorite');
+  }
+  const billingStatus = String(workspace.billingStatus ?? '').toLowerCase();
+  if (billingStatus === 'retainer' || billingStatus === 'active') {
+    audienceTags.add('enterprise-ready');
+  }
+  if (mergedSignals.atRiskTimelineEntries > 0) {
+    audienceTags.add('timeline-watch');
+  }
+  if (mergedSignals.pendingApprovals > 0 || mergedSignals.overBudgetLines > 0) {
+    audienceTags.add('operations-alert');
+  }
+  if (mergedSignals.activeContributors >= 5) {
+    audienceTags.add('cross-functional');
+  }
+  if (mergedSignals.upcomingMeetings > 0) {
+    audienceTags.add('program-led');
+  }
+  if (project?.autoAssignEnabled) {
+    audienceTags.add('auto-assign-ready');
+  }
+
+  const highlightedMentors = new Set();
+  if (Array.isArray(metricsSnapshot.highlightedMentors)) {
+    metricsSnapshot.highlightedMentors.forEach((value) => {
+      const numeric = coerceNumber(value);
+      if (Number.isInteger(numeric) && numeric > 0) {
+        highlightedMentors.add(Number(numeric));
+      }
+    });
+  }
+  (context.roleDefinitions ?? []).forEach((definition) => {
+    const roleName = String(definition.name ?? definition.roleName ?? '').toLowerCase();
+    const isMentorRole = roleName.includes('mentor') || roleName.includes('coach');
+    const assignments = Array.isArray(definition.assignments) ? definition.assignments : [];
+    assignments.forEach((assignment) => {
+      const collaboratorId = coerceNumber(
+        extractProperty(assignment, ['collaboratorId', 'collaborator_id', 'memberId', 'member_id']),
+      );
+      const assignmentRole = String(assignment.role ?? assignment.collaboratorRole ?? '').toLowerCase();
+      const isActive = String(assignment.status ?? '').toLowerCase() === 'active';
+      if (
+        isActive &&
+        Number.isInteger(collaboratorId) &&
+        collaboratorId > 0 &&
+        (isMentorRole || assignmentRole.includes('mentor'))
+      ) {
+        highlightedMentors.add(Number(collaboratorId));
+      }
+    });
+  });
+
+  if (highlightedMentors.size > 0) {
+    audienceTags.add('mentorship-pod');
+  }
+
+  const featuredGroups = new Set();
+  const addGroup = (value) => {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed) {
+        featuredGroups.add(trimmed);
+      }
+    }
+  };
+  const addGroupCollection = (collection) => {
+    if (!collection) {
+      return;
+    }
+    if (Array.isArray(collection)) {
+      collection.forEach((value) => {
+        if (value && typeof value === 'object') {
+          addGroup(value.name ?? value.slug ?? value.label);
+        } else {
+          addGroup(value);
+        }
+      });
+    } else {
+      addGroup(collection);
+    }
+  };
+
+  addGroupCollection(metricsSnapshot.featuredGroups);
+  addGroupCollection(metricsSnapshot.audienceSegments);
+  addGroupCollection(metricsSnapshot.communityHighlights);
+  addGroup(metricsSnapshot.primaryGuild);
+
+  const autoAssignSettings =
+    project && typeof project.autoAssignSettings === 'object' ? project.autoAssignSettings : {};
+  addGroupCollection(autoAssignSettings.targetSegments);
+  addGroupCollection(autoAssignSettings.targetCommunities);
+  addGroup(autoAssignSettings.primarySegment);
+
+  (context.conversations ?? []).forEach((conversation) => {
+    const channelType = extractProperty(conversation, ['channelType', 'channel_type']);
+    if (channelType && channelType !== 'project') {
+      addGroup(channelType);
+    }
+    const topic = extractProperty(conversation, ['topic']);
+    if (typeof topic === 'string') {
+      const lowered = topic.toLowerCase();
+      if (lowered.includes('guild') || lowered.includes('pod') || lowered.includes('chapter')) {
+        addGroup(topic);
+      }
+    }
+  });
+  (context.hrRecords ?? []).forEach((record) => {
+    const metadata = record && typeof record === 'object' ? record.metadata ?? {} : {};
+    addGroup(metadata.squad);
+    addGroup(metadata.practice);
+    addGroup(metadata.chapter);
+  });
+  (context.timelineEntries ?? []).forEach((entry) => {
+    const metadata = entry && typeof entry === 'object' ? entry.metadata ?? {} : {};
+    addGroup(metadata.focusGroup);
+    addGroup(metadata.segment);
+  });
+
+  const highlightedMentorIds = uniqueNumbers(Array.from(highlightedMentors));
+  const featuredGroupList = uniqueStrings(Array.from(featuredGroups));
+
+  return {
+    ranking: {
+      score: rankingScore,
+      tier: resolveRankingTier(rankingScore),
+      lastEvaluatedAt: new Date().toISOString(),
+      algorithmVersion: SEARCH_METADATA_VERSION,
+      signals: uniqueStrings(Array.from(rankingSignals)),
+    },
+    freshness: {
+      status: freshnessBand.status,
+      updatedAt: lastActivityDate ? lastActivityDate.toISOString() : null,
+      daysSinceInteraction,
+      decayRate:
+        daysSinceInteraction == null
+          ? null
+          : Number(Math.min(daysSinceInteraction / 30, 1).toFixed(2)),
+      signals: uniqueStrings(Array.from(freshnessSignals)),
+    },
+    audienceTags: uniqueStrings(Array.from(audienceTags)),
+    highlightedMentors: highlightedMentorIds,
+    featuredGroups: featuredGroupList,
+  };
+}
+
+async function syncWorkspaceSearchMetadata(workspace, filters, { transaction } = {}) {
+  if (!workspace || typeof workspace.set !== 'function' || !filters) {
+    return;
+  }
+
+  workspace.set({
+    searchMetadata: filters,
+    searchMetadataVersion: SEARCH_METADATA_VERSION,
+    searchRankingScore: filters.ranking?.score ?? null,
+    searchRankingTier: filters.ranking?.tier ?? null,
+    searchRankingSignals: filters.ranking?.signals ?? [],
+    searchFreshnessStatus: filters.freshness?.status ?? null,
+    searchFreshnessUpdatedAt: filters.freshness?.updatedAt
+      ? new Date(filters.freshness.updatedAt)
+      : null,
+    searchFreshnessSignals: filters.freshness?.signals ?? [],
+    searchAudienceTags: filters.audienceTags ?? [],
+    searchHighlightedMentorIds: filters.highlightedMentors ?? [],
+    searchFeaturedGroupSlugs: filters.featuredGroups ?? [],
+  });
+
+  if (workspace.changed()) {
+    await workspace.save({ transaction });
+  }
+}
+
 async function mutateWorkspace(projectId, actorId, mutator) {
   if (!projectId) {
     throw new ValidationError('projectId is required.');
@@ -871,18 +1448,56 @@ async function buildProjectPayload(project) {
     return null;
   }
 
-  const channels = Array.isArray(plain.chatChannels) ? plain.chatChannels : [];
-  const messages = [];
-  channels.forEach((channel) => {
-    if (Array.isArray(channel.messages)) {
-      channel.messages
-        .slice()
-        .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0))
-        .forEach((message) => {
-          messages.push({ ...message, channelId: channel.id });
-        });
-    }
+  const workspaceInstance =
+    project && typeof project.get === 'function'
+      ? project.workspace ?? project.getDataValue?.('workspace')
+      : plain.workspace;
+  const workspacePlain = workspaceInstance?.get?.({ plain: true }) ?? sanitizeRecord(plain.workspace);
+
+  const rawChannels =
+    project && typeof project.get === 'function'
+      ? project.chatChannels ?? project.getDataValue?.('chatChannels')
+      : plain.chatChannels;
+  const channelRecords = Array.isArray(rawChannels) ? rawChannels : [];
+
+  const channelPlains = channelRecords.map((channel) => sanitizeRecord(channel));
+  const chatMessages = [];
+  const conversationContext = channelPlains.map((channel) => {
+    const messages = Array.isArray(channel.messages) ? channel.messages.map((message) => sanitizeRecord(message)) : [];
+    messages.sort((a, b) => new Date(a.createdAt ?? a.postedAt ?? 0) - new Date(b.createdAt ?? b.postedAt ?? 0));
+
+    messages.forEach((message) => {
+      chatMessages.push({
+        ...message,
+        channelId: channel.id,
+        createdAt: message.createdAt ?? message.postedAt ?? null,
+        postedAt: message.postedAt ?? message.createdAt ?? null,
+      });
+    });
+
+    const lastMessage = messages[messages.length - 1];
+    const metadata = channel.metadata && typeof channel.metadata === 'object' ? channel.metadata : {};
+
+    return {
+      id: channel.id,
+      channelType: metadata.channelType ?? metadata.type ?? 'project',
+      topic: channel.topic ?? channel.name,
+      unreadCount: channel.unreadCount ?? metadata.unreadCount ?? 0,
+      lastMessageAt: metadata.lastMessageAt ?? lastMessage?.createdAt ?? lastMessage?.postedAt ?? null,
+      updatedAt: channel.updatedAt ?? null,
+      messages,
+    };
   });
+
+  const channelPayloads = channelPlains.map((channel) => ({
+    id: channel.id,
+    name: channel.name,
+    topic: channel.topic,
+    isPrivate: channel.isPrivate ?? false,
+    metadata: channel.metadata ?? null,
+    createdAt: channel.createdAt ?? null,
+    updatedAt: channel.updatedAt ?? null,
+  }));
 
   const tasks = Array.isArray(plain.tasks)
     ? plain.tasks.map((task) => ({
@@ -892,19 +1507,95 @@ async function buildProjectPayload(project) {
       }))
     : [];
 
+  const budgets = Array.isArray(plain.budgetLines)
+    ? plain.budgetLines.map((budget) => ({
+        ...budget,
+        allocatedAmount: budget.allocatedAmount ?? budget.plannedAmount ?? 0,
+        actualAmount: budget.actualAmount ?? 0,
+      }))
+    : [];
+
+  const files = Array.isArray(plain.files) ? plain.files.map((file) => ({ ...file })) : [];
+  const timelineEntries = Array.isArray(plain.timelineEntries)
+    ? plain.timelineEntries.map((entry) => ({
+        ...entry,
+        startAt: entry.startAt ?? entry.occurredAt ?? null,
+        endAt: entry.endAt ?? entry.occurredAt ?? null,
+      }))
+    : [];
+  const hrRecords = Array.isArray(plain.hrRecords) ? plain.hrRecords.map((record) => ({ ...record })) : [];
+  const meetings = Array.isArray(plain.meetings)
+    ? plain.meetings.map((meeting) => ({
+        ...meeting,
+        startAt: meeting.startAt ?? meeting.scheduledAt ?? null,
+      }))
+    : [];
+  const submissions = Array.isArray(plain.submissions)
+    ? plain.submissions.map((submission) => ({ ...submission }))
+    : [];
+  const invites = Array.isArray(plain.invitations)
+    ? plain.invitations.map((invite) => ({ ...invite }))
+    : [];
+  const roleDefinitions = Array.isArray(plain.roleDefinitions)
+    ? plain.roleDefinitions.map((definition) => ({
+        ...definition,
+        assignments: Array.isArray(definition.assignments) ? definition.assignments : [],
+      }))
+    : [];
+
+  const metricsPayload = workspacePlain
+    ? computeWorkspaceMetrics(workspacePlain, {
+        approvals: [],
+        files,
+        conversations: conversationContext,
+        whiteboards: [],
+        budgets,
+        timelineEntries,
+        hrRecords,
+      })
+    : null;
+
+  const searchFilters = workspacePlain
+    ? deriveWorkspaceSearchFilters(workspacePlain, plain, {
+        approvals: [],
+        budgets,
+        conversations: conversationContext,
+        timelineEntries,
+        hrRecords,
+        roleDefinitions,
+        meetings,
+        submissions,
+        invites,
+        tasks,
+        metrics: metricsPayload ?? {},
+      })
+    : null;
+
+  if (workspaceInstance?.set) {
+    await syncWorkspaceSearchMetadata(workspaceInstance, searchFilters);
+  }
+
+  let workspacePayload = null;
+  if (workspaceInstance?.toPublicObject) {
+    workspacePayload = workspaceInstance.toPublicObject();
+  } else if (workspacePlain) {
+    workspacePayload = { ...workspacePlain };
+    if (!workspacePayload.searchFilters && searchFilters) {
+      workspacePayload.searchFilters = searchFilters;
+    }
+  }
+
+  if (workspacePayload && searchFilters) {
+    workspacePayload = { ...workspacePayload, searchFilters };
+  }
+
   return {
     ...plain,
+    workspace: workspacePayload,
+    metrics: metricsPayload ?? plain.metrics ?? null,
     chat: {
-      channels: channels.map((channel) => ({
-        id: channel.id,
-        name: channel.name,
-        topic: channel.topic,
-        isPrivate: channel.isPrivate,
-        metadata: channel.metadata ?? null,
-        createdAt: channel.createdAt,
-        updatedAt: channel.updatedAt,
-      })),
-      messages,
+      channels: channelPayloads,
+      messages: chatMessages,
     },
     tasks,
   };
@@ -1217,6 +1908,7 @@ export async function getWorkspaceDashboard(projectId) {
     timelineEntries,
     meetings,
     roles,
+    roleDefinitions,
     submissions,
     invites,
     hrRecords,
@@ -1287,6 +1979,11 @@ export async function getWorkspaceDashboard(projectId) {
         ['memberName', 'ASC'],
       ],
     }),
+    ProjectRoleDefinition.findAll({
+      where: { projectId: project.id },
+      include: [{ model: ProjectRoleAssignment, as: 'assignments' }],
+      order: [['name', 'ASC']],
+    }),
     ProjectWorkspaceSubmission.findAll({
       where: { workspaceId: workspace.id },
       order: [
@@ -1352,9 +2049,42 @@ export async function getWorkspaceDashboard(projectId) {
   const invitesPayload = invites.map((invite) => invite.toPublicObject());
   const hrRecordsPayload = hrRecords.map((record) => record.toPublicObject());
 
+  const metricsPayload = computeWorkspaceMetrics(workspace, {
+    approvals: approvalsPayload,
+    files: filesPayload,
+    conversations: conversationsPayload,
+    whiteboards: whiteboardsPayload,
+    budgets: budgetsPayload,
+    timelineEntries: timelinePayload,
+    hrRecords: hrRecordsPayload,
+  });
+
+  const roleDefinitionsPlain = roleDefinitions.map((definition) => definition.get({ plain: true }));
+  const workspacePlain = workspace.get({ plain: true });
+  const projectPlain = project.get({ plain: true });
+
+  const searchFilters = deriveWorkspaceSearchFilters(workspacePlain, projectPlain, {
+    approvals: approvalsPayload,
+    budgets: budgetsPayload,
+    conversations: conversationsPayload,
+    timelineEntries: timelinePayload,
+    hrRecords: hrRecordsPayload,
+    roleDefinitions: roleDefinitionsPlain,
+    meetings: meetingsPayload,
+    submissions: submissionsPayload,
+    invites: invitesPayload,
+    tasks: [],
+    metrics: metricsPayload,
+  });
+
+  await syncWorkspaceSearchMetadata(workspace, searchFilters);
+
+  const workspacePayload = workspace.toPublicObject();
+  workspacePayload.searchFilters = searchFilters;
+
   return {
     project: project.toPublicObject(),
-    workspace: workspace.toPublicObject(),
+    workspace: workspacePayload,
     brief: briefPayload,
     whiteboards: whiteboardsPayload,
     files: filesPayload,
@@ -1368,15 +2098,7 @@ export async function getWorkspaceDashboard(projectId) {
     submissions: submissionsPayload,
     invites: invitesPayload,
     hrRecords: hrRecordsPayload,
-    metrics: computeWorkspaceMetrics(workspace, {
-      approvals: approvalsPayload,
-      files: filesPayload,
-      conversations: conversationsPayload,
-      whiteboards: whiteboardsPayload,
-      budgets: budgetsPayload,
-      timelineEntries: timelinePayload,
-      hrRecords: hrRecordsPayload,
-    }),
+    metrics: metricsPayload,
   };
 }
 export async function deleteBudgetLine(ownerId, projectId, budgetLineId) {

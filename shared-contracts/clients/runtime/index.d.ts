@@ -29,6 +29,25 @@ declare namespace SharedContractsRuntime {
       dueAt: string | null;
     };
     lastActivityAt: string | null;
+    searchFilters: {
+      ranking: {
+        score: number | null;
+        tier: Workspace['searchFilters']['ranking']['tier'];
+        lastEvaluatedAt: string | null;
+        algorithmVersion: string | null;
+        signals: string[];
+      };
+      freshness: {
+        status: Workspace['searchFilters']['freshness']['status'];
+        updatedAt: string | null;
+        daysSinceInteraction: number | null;
+        decayRate: number | null;
+        signals: string[];
+      };
+      audienceTags: string[];
+      highlightedMentors: number[];
+      featuredGroups: string[];
+    };
   }
 }
 
@@ -40,3 +59,9 @@ export declare function normaliseWorkspaceHealth(workspace: Workspace): Normalis
 export declare function computeAutomationCoverageLabel(
   coverage: number | null | undefined,
 ): AutomationScoreSummary['coverageLabel'];
+export declare function computeRankingTier(
+  score: number | null | undefined,
+): Workspace['searchFilters']['ranking']['tier'];
+export declare function computeFreshnessStatus(
+  freshness: Workspace['searchFilters']['freshness'] | undefined | null,
+): Workspace['searchFilters']['freshness']['status'];

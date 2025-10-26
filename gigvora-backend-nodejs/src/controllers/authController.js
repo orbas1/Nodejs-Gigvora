@@ -86,8 +86,10 @@ export async function appleLogin(req, res) {
 }
 
 export async function linkedinLogin(req, res) {
-  const { accessToken } = req.body;
+  const { accessToken, authorizationCode, redirectUri } = req.body;
   const response = await authService.loginWithLinkedIn(accessToken, {
+    authorizationCode,
+    redirectUri,
     context: { ipAddress: req.ip, userAgent: req.get('user-agent') },
   });
   res.json(response);

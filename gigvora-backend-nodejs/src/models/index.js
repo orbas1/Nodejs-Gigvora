@@ -9,6 +9,7 @@ import {
   PLATFORM_SETTINGS_WATCHER_CHANNELS,
   PLATFORM_SETTINGS_WATCHER_DIGEST_FREQUENCIES,
 } from './platformSettingsWatcher.js';
+import { SchemaMigrationAudit, SeedExecutionAudit } from './schemaGovernanceModels.js';
 import { SiteSetting, SitePage, SiteNavigationLink, SITE_PAGE_STATUSES } from './siteManagementModels.js';
 import { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
 import {
@@ -20,6 +21,7 @@ import {
 } from '../utils/modelNormalizers.js';
 export { AdminTreasuryPolicy, AdminFeeRule, AdminPayoutSchedule, AdminEscrowAdjustment } from './adminFinanceModels.js';
 export { RouteRegistryEntry } from './routeRegistryModels.js';
+export { SchemaMigrationAudit, SeedExecutionAudit } from './schemaGovernanceModels.js';
 import './agencyWorkforceModels.js';
 import { RbacPolicyAuditEvent } from './rbacPolicyAuditEvent.js';
 import { RuntimeAnnouncement } from './runtimeAnnouncement.js';
@@ -5697,11 +5699,165 @@ export const ProjectWorkspace = sequelize.define(
     nextMilestone: { type: DataTypes.STRING(255), allowNull: true },
     nextMilestoneDueAt: { type: DataTypes.DATE, allowNull: true },
     metricsSnapshot: { type: jsonType, allowNull: true },
+    searchMetadata: { type: jsonType, allowNull: true },
+    searchMetadataVersion: { type: DataTypes.STRING(32), allowNull: true },
+    searchRankingScore: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+    searchRankingTier: { type: DataTypes.STRING(32), allowNull: true },
+    searchRankingSignals: { type: jsonType, allowNull: true },
+    searchFreshnessStatus: { type: DataTypes.STRING(32), allowNull: true },
+    searchFreshnessUpdatedAt: { type: DataTypes.DATE, allowNull: true },
+    searchFreshnessSignals: { type: jsonType, allowNull: true },
+    searchAudienceTags: { type: jsonType, allowNull: true },
+    searchHighlightedMentorIds: { type: jsonType, allowNull: true },
+    searchFeaturedGroupSlugs: { type: jsonType, allowNull: true },
     lastActivityAt: { type: DataTypes.DATE, allowNull: true },
     updatedById: { type: DataTypes.INTEGER, allowNull: true },
   },
   { tableName: 'project_workspaces' },
 );
+
+const WORKSPACE_RANKING_BANDS = [
+  { threshold: 90, tier: 'signature' },
+  { threshold: 75, tier: 'premium' },
+  { threshold: 55, tier: 'core' },
+  { threshold: 0, tier: 'emerging' },
+];
+
+const WORKSPACE_RANKING_TIERS = new Set(WORKSPACE_RANKING_BANDS.map((entry) => entry.tier));
+const WORKSPACE_FRESHNESS_STATUSES = new Set(['vibrant', 'active', 'cooling', 'dormant']);
+
+function toIsoString(value) {
+  if (!value) {
+    return null;
+  }
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date.toISOString();
+}
+
+function normaliseStringArray(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return Array.from(
+    new Set(
+      value
+        .filter((item) => typeof item === 'string')
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0),
+    ),
+  );
+}
+
+function normaliseNumberArray(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return Array.from(
+    new Set(
+      value
+        .map((item) => Number(item))
+        .filter((item) => Number.isInteger(item) && item > 0),
+    ),
+  ).sort((a, b) => a - b);
+}
+
+function computeTierFromScore(score) {
+  if (!Number.isFinite(score)) {
+    return 'emerging';
+  }
+  const band = WORKSPACE_RANKING_BANDS.find((entry) => score >= entry.threshold);
+  return band ? band.tier : 'emerging';
+}
+
+function parseScore(value) {
+  if (value == null) {
+    return null;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+  return Math.max(0, Math.min(100, Number(numeric.toFixed(1))));
+}
+
+function normaliseWorkspaceSearchFilters(plain) {
+  const metadata = plain.searchMetadata && typeof plain.searchMetadata === 'object' ? plain.searchMetadata : null;
+  const rankingSource = metadata?.ranking ?? {};
+
+  const score = parseScore(
+    rankingSource.score != null ? rankingSource.score : plain.searchRankingScore,
+  ) ?? 40;
+
+  const tierCandidate = typeof rankingSource.tier === 'string' ? rankingSource.tier : plain.searchRankingTier;
+  const tier = WORKSPACE_RANKING_TIERS.has(tierCandidate) ? tierCandidate : computeTierFromScore(score);
+
+  const rankingSignals = normaliseStringArray(
+    rankingSource.signals && rankingSource.signals.length ? rankingSource.signals : plain.searchRankingSignals,
+  );
+
+  const freshnessSource = metadata?.freshness ?? {};
+  const freshnessStatusCandidate =
+    typeof freshnessSource.status === 'string' ? freshnessSource.status : plain.searchFreshnessStatus;
+  const freshnessStatus = WORKSPACE_FRESHNESS_STATUSES.has(freshnessStatusCandidate)
+    ? freshnessStatusCandidate
+    : 'dormant';
+
+  const daysSinceInteraction = freshnessSource.daysSinceInteraction != null
+    ? Math.max(0, Math.round(Number(freshnessSource.daysSinceInteraction)))
+    : null;
+
+  const decayRate = freshnessSource.decayRate != null && Number.isFinite(Number(freshnessSource.decayRate))
+    ? Number(Number(freshnessSource.decayRate).toFixed(2))
+    : null;
+
+  const freshnessSignals = normaliseStringArray(
+    freshnessSource.signals && freshnessSource.signals.length
+      ? freshnessSource.signals
+      : plain.searchFreshnessSignals,
+  );
+
+  const audienceTags = normaliseStringArray(
+    metadata?.audienceTags && metadata.audienceTags.length
+      ? metadata.audienceTags
+      : plain.searchAudienceTags,
+  );
+
+  const highlightedMentors = normaliseNumberArray(
+    metadata?.highlightedMentors && metadata.highlightedMentors.length
+      ? metadata.highlightedMentors
+      : plain.searchHighlightedMentorIds,
+  );
+
+  const featuredGroups = normaliseStringArray(
+    metadata?.featuredGroups && metadata.featuredGroups.length
+      ? metadata.featuredGroups
+      : plain.searchFeaturedGroupSlugs,
+  );
+
+  return {
+    ranking: {
+      score,
+      tier,
+      lastEvaluatedAt:
+        rankingSource.lastEvaluatedAt ?? toIsoString(plain.searchFreshnessUpdatedAt) ?? null,
+      algorithmVersion: rankingSource.algorithmVersion ?? plain.searchMetadataVersion ?? null,
+      signals: rankingSignals,
+    },
+    freshness: {
+      status: freshnessStatus,
+      updatedAt: freshnessSource.updatedAt ?? toIsoString(plain.searchFreshnessUpdatedAt) ?? null,
+      daysSinceInteraction,
+      decayRate,
+      signals: freshnessSignals,
+    },
+    audienceTags,
+    highlightedMentors,
+    featuredGroups,
+  };
+}
 
 ProjectWorkspace.prototype.toPublicObject = function toPublicObject() {
   const plain = this.get({ plain: true });
@@ -5723,6 +5879,7 @@ ProjectWorkspace.prototype.toPublicObject = function toPublicObject() {
     updatedById: plain.updatedById,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
+    searchFilters: normaliseWorkspaceSearchFilters(plain),
   };
 };
 
@@ -24759,6 +24916,8 @@ export default {
   PlatformSetting,
   PlatformSettingsAuditEvent,
   PlatformSettingsWatcher,
+  SchemaMigrationAudit,
+  SeedExecutionAudit,
   RuntimeSecurityAuditEvent,
   RbacPolicyAuditEvent,
   RuntimeAnnouncement,
@@ -24986,6 +25145,8 @@ domainRegistry.registerContext({
     'PlatformSetting',
     'PlatformSettingsAuditEvent',
     'PlatformSettingsWatcher',
+    'SchemaMigrationAudit',
+    'SeedExecutionAudit',
     'RuntimeSecurityAuditEvent',
     'RuntimeAnnouncement',
     'AdminCalendarAccount',
@@ -25007,6 +25168,13 @@ if (unassignedModels.length) {
     models: unassignedModels,
   });
 }
+
+export {
+  SCHEMA_MIGRATION_DIRECTIONS,
+  SCHEMA_MIGRATION_STATUSES,
+  SEED_EXECUTION_DIRECTIONS,
+  SEED_EXECUTION_STATUSES,
+} from './schemaGovernanceModels.js';
 
 export { domainRegistry };
 

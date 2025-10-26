@@ -27,3 +27,8 @@ export { default as TimelineAnalyticsSection } from './TimelineAnalyticsSection.
 export { default as TimelineInsightsDrawer } from './TimelineInsightsDrawer.jsx';
 export { default as TimelinePostComposer } from './TimelinePostComposer.jsx';
 export { default as WeatherDetailDialog } from './WeatherDetailDialog.jsx';
+export { default as ExecutiveSignalsSection } from './ExecutiveSignalsSection.jsx';
+export { default as PipelineHealthSection } from './PipelineHealthSection.jsx';
+export { default as GigOperationsSection } from './GigOperationsSection.jsx';
+export { default as EscrowManagementSection } from './EscrowManagementSection.jsx';
+export { default as FinanceManagementSection } from './FinanceManagementSection.jsx';
