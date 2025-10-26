@@ -12,6 +12,26 @@ function buildFlagPath(flagKey) {
   return `${FEATURE_FLAG_BASE_PATH}/${encodeURIComponent(flagKey)}`;
 }
 
+function extractFlagPayload(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+  if (payload.flag && typeof payload.flag === 'object') {
+    return payload.flag;
+  }
+  return payload;
+}
+
+function normaliseFlagPayload(payload) {
+  const flag = extractFlagPayload(payload);
+  if (!flag || typeof flag !== 'object') {
+    return null;
+  }
+  const enabled = flag.enabled ?? (flag.status ? flag.status === 'active' : false);
+  const status = flag.status ?? (enabled ? 'active' : 'disabled');
+  return { ...flag, enabled, status };
+}
+
 function formatUpdatedAt(value) {
   if (!value) {
     return 'Never synced';
@@ -75,7 +95,17 @@ export function FeatureFlagToggle({
     })
       .then((data) => {
         if (!mounted) return;
-        setState({ status: 'ready', enabled: Boolean(data?.enabled), error: null, flag: data });
+        const flag = normaliseFlagPayload(data);
+        if (!flag) {
+          setState({
+            status: 'error',
+            enabled: false,
+            error: 'Feature flag payload is unavailable.',
+            flag: null,
+          });
+          return;
+        }
+        setState({ status: 'ready', enabled: Boolean(flag.enabled), error: null, flag });
       })
       .catch((error) => {
         if (!mounted) return;
@@ -89,11 +119,15 @@ export function FeatureFlagToggle({
       if (!payload?.data) {
         return;
       }
+      const flag = normaliseFlagPayload(payload.data);
+      if (!flag) {
+        return;
+      }
       setState((previous) => ({
         ...previous,
         status: previous.status === 'loading' ? 'ready' : previous.status,
-        enabled: Boolean(payload.data.enabled),
-        flag: payload.data,
+        enabled: Boolean(flag.enabled),
+        flag,
         error: null,
       }));
     });
@@ -114,17 +148,34 @@ export function FeatureFlagToggle({
         metadata: { featureFlag: flagKey, origin: 'FeatureFlagToggle' },
         invalidate: [cacheKey],
         optimisticUpdate: (updateCache) => {
-          const snapshot = updateCache(cacheKey, (previous = {}) => ({
-            ...previous,
-            enabled: nextEnabled,
-            updatedAt: new Date().toISOString(),
-          }));
+          const snapshot = updateCache(cacheKey, (previous = {}) => {
+            const current = normaliseFlagPayload(previous) ?? { key: flagKey };
+            const updated = {
+              ...current,
+              enabled: nextEnabled,
+              status: nextEnabled ? 'active' : 'disabled',
+              updatedAt: new Date().toISOString(),
+            };
+            return { flag: updated };
+          });
           return () => {
             updateCache(cacheKey, snapshot?.previous ?? null, { silent: true });
           };
         },
       });
-      setState((previous) => ({ ...previous, status: 'ready', error: null }));
+      setState((previous) => ({
+        ...previous,
+        status: 'ready',
+        error: null,
+        flag: previous.flag
+          ? {
+              ...previous.flag,
+              enabled: nextEnabled,
+              status: nextEnabled ? 'active' : 'disabled',
+              updatedAt: new Date().toISOString(),
+            }
+          : previous.flag,
+      }));
       onChange?.(nextEnabled);
       analytics.track('feature_flag_toggled', {
         featureFlag: flagKey,

@@ -15,18 +15,25 @@ function buildPath(flagKey) {
 }
 
 export async function listFeatureFlags(params = {}, { signal } = {}) {
-  return apiClient.get(BASE_PATH, { params, signal });
+  const response = await apiClient.get(BASE_PATH, { params, signal });
+  const flags = Array.isArray(response?.flags) ? response.flags : [];
+  return {
+    flags,
+    pagination: response?.pagination ?? { total: flags.length, limit: flags.length, offset: 0 },
+  };
 }
 
 export async function fetchFeatureFlag(flagKey, { signal } = {}) {
-  return apiClient.get(buildPath(flagKey), { signal });
+  const response = await apiClient.get(buildPath(flagKey), { signal });
+  return response?.flag ?? response;
 }
 
 export async function updateFeatureFlag(flagKey, payload = {}, { signal } = {}) {
   if (!payload || typeof payload !== 'object') {
     throw new Error('A payload object is required to update a feature flag.');
   }
-  return apiClient.patch(buildPath(flagKey), payload, { signal });
+  const response = await apiClient.patch(buildPath(flagKey), payload, { signal });
+  return response?.flag ?? response;
 }
 
 export async function toggleFeatureFlag(flagKey, enabled, { signal } = {}) {

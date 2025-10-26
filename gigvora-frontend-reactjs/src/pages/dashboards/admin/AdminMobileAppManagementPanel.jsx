@@ -18,6 +18,7 @@ import {
   updateAdminMobileAppFeature,
   deleteAdminMobileAppFeature,
 } from '../../../services/mobileApps.js';
+import { listFeatureFlags } from '../../../services/featureFlags.js';
 import FeatureFlagToggle from '../../../components/system/FeatureFlagToggle.jsx';
 
 const PLATFORM_OPTIONS = [
@@ -279,7 +280,16 @@ export default function AdminMobileAppManagementPanel({ standalone = false }) {
   const loadApps = useCallback(async () => {
     setState((previous) => ({ ...previous, loading: true }));
     try {
-      const response = await fetchAdminMobileApps({ includeInactive: true });
+      const [appsResult, flagsResult] = await Promise.allSettled([
+        fetchAdminMobileApps({ includeInactive: true }),
+        listFeatureFlags({ status: 'active' }),
+      ]);
+
+      if (appsResult.status !== 'fulfilled') {
+        throw appsResult.reason;
+      }
+
+      const response = appsResult.value ?? {};
       const apps = response?.apps ?? [];
       const nextAppForms = {};
       const nextAppDrafts = {};
@@ -312,7 +322,33 @@ export default function AdminMobileAppManagementPanel({ standalone = false }) {
         });
       });
 
-      setState({ loading: false, error: null, apps, summary: response?.summary ?? {} });
+      const flags =
+        flagsResult.status === 'fulfilled' && Array.isArray(flagsResult.value?.flags)
+          ? flagsResult.value.flags
+          : [];
+      const activeFlagCount = flags.filter((flag) => {
+        if (!flag || typeof flag !== 'object') {
+          return false;
+        }
+        if (flag.enabled != null) {
+          return Boolean(flag.enabled);
+        }
+        if (flag.status) {
+          return `${flag.status}`.toLowerCase() === 'active';
+        }
+        return false;
+      }).length;
+
+      if (flagsResult.status === 'rejected') {
+        console.warn('Unable to load feature flag summary for mobile apps.', flagsResult.reason);
+      }
+
+      const summaryPayload = {
+        ...(response?.summary ?? {}),
+        activeFeatures: activeFlagCount,
+      };
+
+      setState({ loading: false, error: null, apps, summary: summaryPayload });
       setAppForms(nextAppForms);
       setAppDrafts(nextAppDrafts);
       setVersionForms(nextVersionForms);
