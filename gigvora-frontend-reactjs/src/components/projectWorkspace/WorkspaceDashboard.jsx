@@ -26,6 +26,14 @@ function formatCurrency(value, currency = 'USD') {
   }
 }
 
+function formatStatusLabel(value) {
+  if (!value) {
+    return '—';
+  }
+  const label = String(value).replace(/_/g, ' ');
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 function computeProgress(project) {
   const explicit = Number(project?.workspace?.progressPercent);
   if (!Number.isNaN(explicit) && explicit >= 0) {
@@ -149,7 +157,8 @@ export default function WorkspaceDashboard({ project = {}, actions, canManage = 
   const insights = useWorkspaceInsights(project);
 
   const [form, setForm] = useState({
-    status: workspace.status || project.status || 'planning',
+    projectStatus: project.status || 'planning',
+    workspaceStatus: workspace.status || 'briefing',
     progressPercent: progress,
     riskLevel: workspace.riskLevel || 'low',
     nextMilestone: workspace.nextMilestone || '',
@@ -161,7 +170,8 @@ export default function WorkspaceDashboard({ project = {}, actions, canManage = 
 
   useEffect(() => {
     setForm({
-      status: workspace.status || project.status || 'planning',
+      projectStatus: project.status || 'planning',
+      workspaceStatus: workspace.status || 'briefing',
       progressPercent: progress,
       riskLevel: workspace.riskLevel || 'low',
       nextMilestone: workspace.nextMilestone || '',
@@ -192,11 +202,12 @@ export default function WorkspaceDashboard({ project = {}, actions, canManage = 
     setSaving(true);
     setFeedback(null);
     try {
+      const progressValue = Number(form.progressPercent);
       await actions.updateProject(project.id, {
-        status: form.status,
+        status: form.projectStatus,
         workspace: {
-          status: form.status,
-          progressPercent: Number.isNaN(Number(form.progressPercent)) ? progress : Number(form.progressPercent),
+          status: form.workspaceStatus,
+          progressPercent: Number.isNaN(progressValue) ? progress : progressValue,
           riskLevel: form.riskLevel,
           nextMilestone: form.nextMilestone || null,
           nextMilestoneDueAt: form.nextMilestoneDueAt || null,
@@ -236,6 +247,17 @@ export default function WorkspaceDashboard({ project = {}, actions, canManage = 
         .slice(0, 4)
     : [];
 
+  const latestFile = useMemo(() => {
+    if (!Array.isArray(insights.files) || !insights.files.length) {
+      return null;
+    }
+    return insights.files
+      .slice()
+      .sort(
+        (a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0),
+      )[0];
+  }, [insights.files]);
+
   return (
     <div className="space-y-8">
       <section className="overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-slate-100 p-8 shadow-sm">
@@ -248,8 +270,13 @@ export default function WorkspaceDashboard({ project = {}, actions, canManage = 
               and communication signals so leaders can act within seconds.
             </p>
             <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
-              <span className="rounded-full bg-white/80 px-3 py-1">Status: {form.status.replace(/_/g, ' ')}</span>
-              <span className="rounded-full bg-white/80 px-3 py-1">Risk: {form.riskLevel}</span>
+              <span className="rounded-full bg-white/80 px-3 py-1">
+                Project: {formatStatusLabel(form.projectStatus)}
+              </span>
+              <span className="rounded-full bg-white/80 px-3 py-1">
+                Workspace: {formatStatusLabel(form.workspaceStatus)}
+              </span>
+              <span className="rounded-full bg-white/80 px-3 py-1">Risk: {formatStatusLabel(form.riskLevel)}</span>
               <span className="rounded-full bg-white/80 px-3 py-1">
                 Due {formatDate(project.dueDate) || '—'}
               </span>
@@ -281,7 +308,9 @@ export default function WorkspaceDashboard({ project = {}, actions, canManage = 
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Storage footprint</p>
           <p className="mt-2 text-2xl font-semibold text-slate-900">{insights.files.length} files</p>
-          <p className="mt-1 text-xs text-slate-500">{project.files?.[0]?.uploadedBy ? `Latest by ${project.files[0].uploadedBy}` : '—'}</p>
+          <p className="mt-1 text-xs text-slate-500">
+            {latestFile?.uploadedBy ? `Latest by ${latestFile.uploadedBy}` : '—'}
+          </p>
         </div>
       </section>
 
@@ -352,10 +381,10 @@ export default function WorkspaceDashboard({ project = {}, actions, canManage = 
             </p>
             <form onSubmit={handleSubmit} className="mt-6 grid gap-4 md:grid-cols-2">
               <label className="flex flex-col gap-2 text-sm text-slate-700">
-                Status
+                Project status
                 <select
-                  name="status"
-                  value={form.status}
+                  name="projectStatus"
+                  value={form.projectStatus}
                   onChange={handleChange}
                   disabled={!canManage || saving}
                   className="rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-70"
@@ -364,6 +393,21 @@ export default function WorkspaceDashboard({ project = {}, actions, canManage = 
                   <option value="in_progress">In progress</option>
                   <option value="at_risk">At risk</option>
                   <option value="on_hold">On hold</option>
+                  <option value="completed">Completed</option>
+                </select>
+              </label>
+              <label className="flex flex-col gap-2 text-sm text-slate-700">
+                Workspace status
+                <select
+                  name="workspaceStatus"
+                  value={form.workspaceStatus}
+                  onChange={handleChange}
+                  disabled={!canManage || saving}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  <option value="briefing">Briefing</option>
+                  <option value="active">Active</option>
+                  <option value="blocked">Blocked</option>
                   <option value="completed">Completed</option>
                 </select>
               </label>

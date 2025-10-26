@@ -2,23 +2,25 @@ import { useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import classNames from '../../utils/classNames.js';
 
-const DEFAULT_STATUSES = ['backlog', 'in_progress', 'blocked', 'completed'];
+const DEFAULT_STATUSES = ['planned', 'in_progress', 'blocked', 'completed'];
 
 const STATUS_LABELS = {
-  backlog: 'Backlog',
+  planned: 'Planned',
   in_progress: 'In progress',
   blocked: 'Blocked',
   completed: 'Completed',
+  cancelled: 'Cancelled',
 };
 
 const STATUS_ACCENTS = {
-  backlog: 'bg-slate-100 text-slate-600',
+  planned: 'bg-slate-100 text-slate-600',
   in_progress: 'bg-sky-100 text-sky-700',
-  blocked: 'bg-rose-100 text-rose-700',
+  blocked: 'bg-amber-100 text-amber-700',
   completed: 'bg-emerald-100 text-emerald-700',
+  cancelled: 'bg-rose-100 text-rose-700',
 };
 
-function normaliseStatus(status, fallback = 'backlog') {
+function normaliseStatus(status, fallback = 'planned') {
   if (!status) {
     return fallback;
   }
@@ -26,7 +28,10 @@ function normaliseStatus(status, fallback = 'backlog') {
   if (DEFAULT_STATUSES.includes(key)) {
     return key;
   }
-  return fallback;
+  if (key === 'canceled') {
+    return 'cancelled';
+  }
+  return ['cancelled'].includes(key) ? key : fallback;
 }
 
 function nextStatus(status, statuses) {
@@ -54,6 +59,14 @@ function formatDate(value) {
   }
 }
 
+function formatPriority(priority) {
+  if (!priority) {
+    return 'Normal';
+  }
+  const label = String(priority).replace(/_/g, ' ');
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 function TaskCard({ task, canManage = true, onMoveForward, onMoveBackward, onFocus }) {
   const dueSoon = task.dueDate
     ? (() => {
@@ -71,7 +84,7 @@ function TaskCard({ task, canManage = true, onMoveForward, onMoveBackward, onFoc
       <div className="flex items-start justify-between gap-3">
         <div>
           <h5 className="text-sm font-semibold text-slate-900">{task.title}</h5>
-          <p className="mt-1 text-xs uppercase tracking-wide text-slate-500">Priority {task.priority ?? 'normal'}</p>
+          <p className="mt-1 text-xs uppercase tracking-wide text-slate-500">Priority {formatPriority(task.priority)}</p>
         </div>
         <button
           type="button"
@@ -160,7 +173,7 @@ function TaskDetails({ task = null, onClose }) {
         </div>
         <div>
           <dt className="text-xs uppercase tracking-wide text-slate-500">Priority</dt>
-          <dd className="mt-1 text-sm font-semibold text-slate-800">{task.priority ?? 'Normal'}</dd>
+          <dd className="mt-1 text-sm font-semibold text-slate-800">{formatPriority(task.priority)}</dd>
         </div>
         <div>
           <dt className="text-xs uppercase tracking-wide text-slate-500">Schedule</dt>
@@ -180,7 +193,7 @@ function TaskDetails({ task = null, onClose }) {
             {Array.isArray(task.assignments) && task.assignments.length ? (
               task.assignments.map((assignment) => (
                 <li key={assignment.id} className="rounded-full bg-slate-100 px-3 py-1">
-                  {assignment.memberName || assignment.memberEmail || assignment.memberId}
+                  {assignment.assigneeName || assignment.assigneeEmail || assignment.assigneeRole || assignment.id}
                 </li>
               ))
             ) : (
@@ -231,9 +244,12 @@ export default function TaskKanban({ project, actions, canManage = true }) {
     tasks.forEach((task) => {
       if (!Array.isArray(task.assignments)) return;
       task.assignments.forEach((assignment) => {
-        const key = assignment.memberEmail || assignment.memberName || assignment.memberId;
+        const key =
+          assignment.assigneeEmail || assignment.assigneeName || assignment.assigneeRole || assignment.id;
         if (!key) return;
-        lookup.set(key, assignment.memberName || assignment.memberEmail || String(assignment.memberId));
+        const label =
+          assignment.assigneeName || assignment.assigneeEmail || assignment.assigneeRole || String(key);
+        lookup.set(String(key), label);
       });
     });
     return Array.from(lookup.entries()).map(([id, label]) => ({ id, label }));
@@ -252,7 +268,8 @@ export default function TaskKanban({ project, actions, canManage = true }) {
       if (ownerFilter !== 'all') {
         const hasOwner = Array.isArray(task.assignments)
           ? task.assignments.some((assignment) => {
-              const key = assignment.memberEmail || assignment.memberName || assignment.memberId;
+              const key =
+                assignment.assigneeEmail || assignment.assigneeName || assignment.assigneeRole || assignment.id;
               return key && String(key) === ownerFilter;
             })
           : false;
@@ -296,7 +313,7 @@ export default function TaskKanban({ project, actions, canManage = true }) {
     }
     const currentStatus = normaliseStatus(task.status);
     const targetStatus = direction === 'forward' ? nextStatus(currentStatus, statuses) : previousStatus(currentStatus, statuses);
-    if (targetStatus === currentStatus) {
+    if (targetStatus === currentStatus || (direction === 'forward' && targetStatus === 'cancelled')) {
       return;
     }
     await actions.updateTask(project.id, task.id, { status: targetStatus });
@@ -381,24 +398,26 @@ export default function TaskKanban({ project, actions, canManage = true }) {
                 </header>
                 <div className="flex-1 space-y-3 overflow-y-auto">
                   {column.tasks.length ? (
-                    column.tasks.map((task) => (
-                      <TaskCard
-                        key={task.id}
-                        task={task}
-                        canManage={canManage}
-                        onFocus={setFocusedTask}
-                        onMoveBackward={
-                          canManage && normaliseStatus(task.status) !== statuses[0]
-                            ? () => handleMove(task, 'backward')
-                            : undefined
-                        }
-                        onMoveForward={
-                          canManage && normaliseStatus(task.status) !== statuses[statuses.length - 1]
-                            ? () => handleMove(task, 'forward')
-                            : undefined
-                        }
-                      />
-                    ))
+                    column.tasks.map((task) => {
+                      const normalisedStatus = normaliseStatus(task.status);
+                      const forwardTarget = nextStatus(normalisedStatus, statuses);
+                      const backwardEnabled = canManage && normalisedStatus !== statuses[0];
+                      const forwardEnabled =
+                        canManage &&
+                        normalisedStatus !== statuses[statuses.length - 1] &&
+                        forwardTarget !== normalisedStatus &&
+                        forwardTarget !== 'cancelled';
+                      return (
+                        <TaskCard
+                          key={task.id}
+                          task={task}
+                          canManage={canManage}
+                          onFocus={setFocusedTask}
+                          onMoveBackward={backwardEnabled ? () => handleMove(task, 'backward') : undefined}
+                          onMoveForward={forwardEnabled ? () => handleMove(task, 'forward') : undefined}
+                        />
+                      );
+                    })
                   ) : (
                     <p className="rounded-2xl border border-dashed border-slate-200 bg-white/70 p-4 text-xs text-slate-500">
                       No tasks in this column yet.

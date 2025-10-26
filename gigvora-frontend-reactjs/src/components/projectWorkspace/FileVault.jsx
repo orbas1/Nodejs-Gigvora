@@ -35,11 +35,13 @@ function formatFileSize(bytes) {
 }
 
 function buildPayload(payload) {
+  const sizeValue = payload.sizeBytes === '' || payload.sizeBytes == null ? undefined : Number(payload.sizeBytes);
   return {
     label: payload.label,
     storageUrl: payload.storageUrl,
     fileType: payload.fileType || undefined,
-    sizeBytes: payload.sizeBytes ? Number(payload.sizeBytes) : undefined,
+    sizeBytes:
+      sizeValue == null || Number.isNaN(sizeValue) || sizeValue < 0 ? undefined : Math.round(sizeValue),
     uploadedBy: payload.uploadedBy || undefined,
     visibility: payload.visibility || 'internal',
   };
@@ -120,13 +122,25 @@ export default function FileVault({ project = {}, actions, canManage = true }) {
   const [submitting, setSubmitting] = useState(false);
 
   const storageSummary = useMemo(() => {
+    if (!files.length) {
+      return {
+        totalFiles: 0,
+        totalBytes: 0,
+        readable: formatFileSize(0),
+        uniqueVisibilities: [],
+        lastUploader: '—',
+      };
+    }
     const totalBytes = files.reduce((sum, file) => sum + Number(file.sizeBytes ?? 0), 0);
+    const sortedByRecency = files
+      .slice()
+      .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
     return {
       totalFiles: files.length,
       totalBytes,
       readable: formatFileSize(totalBytes),
       uniqueVisibilities: Array.from(new Set(files.map((file) => file.visibility || 'internal'))),
-      lastUploader: files[0]?.uploadedBy || '—',
+      lastUploader: sortedByRecency[0]?.uploadedBy || '—',
     };
   }, [files]);
 
@@ -153,8 +167,8 @@ export default function FileVault({ project = {}, actions, canManage = true }) {
       const matchesVisibility = visibility === 'all' ? true : file.visibility === visibility;
       const matchesSearch = search
         ? [file.label, file.fileType, file.uploadedBy]
-            .filter(Boolean)
-            .some((value) => value.toLowerCase().includes(search.toLowerCase()))
+            .filter((value) => value != null)
+            .some((value) => String(value).toLowerCase().includes(search.toLowerCase()))
         : true;
       return matchesVisibility && matchesSearch;
     });

@@ -3920,15 +3920,6 @@ Creation endpoints now return fully-sanitised documents, preserving fresh versio
         - [x] 5.C.1. WorkspaceDashboard.jsx
         - [x] 5.C.2. TaskKanban.jsx
         - [x] 5.C.3. FileVault.jsx
-   - WorkspaceDashboard pairs executive hero copy, progress donut, and finance-ready budget math so founders, producers, and sponsors align on velocity, due dates, and risk in one scan.
-   - Insight aggregators normalise tasks, approvals, submissions, timelines, meetings, files, and conversations to power “due soon”, “pending approvals”, unread comms, and budget rollups without redundant reducers.
-   - Operational pulse spotlights timeline commitments and conversation priorities with risk-coded badges, letting leadership triage blockers before standups.
-   - Broadcast form unifies status, progress, risk, milestone, and notes with disabled safeguards, optimistic feedback, and analytics-friendly payloads for `actions.updateProject`.
-   - Team coverage and approvals sidebars expose staffing depth, review backlog, meeting cadence, and invite pipelines to match LinkedIn-tier workspace analytics polish.
-   - TaskKanban standardises status taxonomies, accent tokens, and summary meters so every column carries counts, completion ratios, and due-soon alerts backed by memoised selectors.
-   - Search, status grouping, and collaborator filters collapse enterprise-scale boards instantly, while task focus drawers surface assignments, dependencies, and schedules without navigation loss.
-   - Movement controls respect legal transitions, emit `actions.updateTask` payloads, and keep UI state in sync with backend updates through optimistic `handleMove` orchestration.
-   - FileVault layers storage analytics, unique visibility auditing, and last uploader context above a premium, sortable vault table mirroring modern document systems.
-   - Filter, search, visibility, and sort controls compose through resilient chips and dropdowns to isolate compliance-ready or client-facing assets without exports.
-   - Create, edit, and delete flows validate metadata, normalise byte counts, and surface success or error feedback while reusing payload builders for consistency.
-   - Tab wrappers now simply forward props into the premium modules, ensuring the workspace overview, task board, and file manager adopt the same executive-grade experiences.
+   - WorkspaceDashboard now separates project and workspace lifecycle controls, syncs progress updates, and broadcasts the latest storage contributor so leadership sees production data without invalid enum collisions.【F:gigvora-frontend-reactjs/src/components/projectWorkspace/WorkspaceDashboard.jsx†L159-L314】
+   - TaskKanban aligns with backend task/status enumerations, normalises assignee identities, and blocks accidental advances into cancelled states while keeping analytics tiles live for executive scans.【F:gigvora-frontend-reactjs/src/components/projectWorkspace/TaskKanban.jsx†L5-L418】
+   - FileVault computes storage analytics from real records, sanitises upload metadata, and honours visibility/search filters so compliance-ready assets reflect the live schema.【F:gigvora-frontend-reactjs/src/components/projectWorkspace/FileVault.jsx†L37-L240】

@@ -9,7 +9,7 @@ const project = {
   status: 'in_progress',
   dueDate: '2025-04-10T00:00:00.000Z',
   workspace: {
-    status: 'in_progress',
+    status: 'active',
     progressPercent: 35,
     riskLevel: 'medium',
     nextMilestone: 'Design freeze',
@@ -24,7 +24,7 @@ const project = {
   deliverables: [
     { id: 4, status: 'approved' },
     { id: 5, status: 'draft' },
-    { id: 6, status: 'review' },
+    { id: 6, status: 'in_review' },
   ],
   approvals: [
     { id: 9, title: 'Brand board', status: 'pending', dueAt: '2025-02-12T00:00:00.000Z' },
@@ -66,6 +66,7 @@ describe('WorkspaceDashboard', () => {
     const actions = { updateProject: vi.fn().mockResolvedValue({}) };
     render(<WorkspaceDashboard project={project} actions={actions} canManage />);
 
+    await userEvent.selectOptions(screen.getByLabelText(/Workspace status/i), 'blocked');
     await userEvent.selectOptions(screen.getByLabelText(/Risk level/i), 'high');
     await userEvent.clear(screen.getByLabelText(/Progress/i));
     await userEvent.type(screen.getByLabelText(/Progress/i), '55');
@@ -73,7 +74,7 @@ describe('WorkspaceDashboard', () => {
 
     expect(actions.updateProject).toHaveBeenCalledWith(project.id, expect.objectContaining({
       status: 'in_progress',
-      workspace: expect.objectContaining({ riskLevel: 'high', progressPercent: 55 }),
+      workspace: expect.objectContaining({ riskLevel: 'high', progressPercent: 55, status: 'blocked' }),
     }));
   });
 });

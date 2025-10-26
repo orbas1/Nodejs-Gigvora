@@ -9,7 +9,7 @@ const buildProject = () => ({
     {
       id: 1,
       title: 'Research user journeys',
-      status: 'backlog',
+      status: 'planned',
       description: 'Interview top customers and map new flows.',
       dueDate: '2025-02-10T00:00:00.000Z',
       priority: 'high',
@@ -22,7 +22,7 @@ const buildProject = () => ({
       dueDate: '2025-02-05T00:00:00.000Z',
       priority: 'high',
       assignments: [
-        { id: 'assignee-1', memberEmail: 'design@gigvora.com', memberName: 'Design Lead' },
+        { id: 'assignee-1', assigneeEmail: 'design@gigvora.com', assigneeName: 'Design Lead' },
       ],
     },
     {
@@ -32,7 +32,7 @@ const buildProject = () => ({
       dueDate: '2025-02-12T00:00:00.000Z',
       priority: 'medium',
       assignments: [
-        { id: 'assignee-2', memberEmail: 'legal@gigvora.com', memberName: 'Legal Ops' },
+        { id: 'assignee-2', assigneeEmail: 'legal@gigvora.com', assigneeName: 'Legal Ops' },
       ],
     },
   ],
