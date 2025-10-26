@@ -75,8 +75,23 @@ export async function respondToConnection(
   );
 }
 
+export async function withdrawConnection(
+  { connectionId, actorId, workspaceId, workspaceSlug } = {},
+  options = {},
+) {
+  const resolvedConnectionId = requireIdentifier(connectionId, 'connectionId');
+  const resolvedActorId = requireIdentifier(actorId, 'actorId');
+  const params = mergeWorkspace({ actorId: resolvedActorId }, { workspaceId, workspaceSlug });
+
+  return apiClient.delete(
+    `/connections/${resolvedConnectionId}`,
+    combineRequestOptions({ params }, options),
+  );
+}
+
 export default {
   fetchConnectionNetwork,
   createConnectionRequest,
   respondToConnection,
+  withdrawConnection,
 };
