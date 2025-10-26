@@ -149,15 +149,101 @@
       - Component-level tests confirm CTA links, stats, and supporting copy render correctly within router context, keeping landing conversions reliable.【F:gigvora-frontend-reactjs/src/components/marketing/__tests__/CallToActionBand.test.jsx†L1-L42】
 - ✓ 2.B. Onboarding Journeys
   - ✓ 2.B.1. OnboardingWizard.jsx
+    1. **Appraisal.**
+      - Gradient hero copy, trust badges, and progress telemetry deliver the LinkedIn/Instagram-grade first impression prescribed in the UX brief.【F:user_experience.md†L52-L58】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L769-L838】
+      - Persona storytelling pairs PersonaSelection with primer insights so newcomers instantly see tailored value.【F:user_experience.md†L52-L58】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L440-L467】
+    2. **Functionality.**
+      - Multi-step orchestration spans persona, profile, team, preferences, and review with guarded validation and analytics instrumentation on every step.【F:user_experience.md†L59-L67】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L8-L152】
+      - Launch summary and payload submission persist persona, profile, invite, and preference data through the onboarding API stack.【F:user_experience.md†L59-L67】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L296-L366】【F:gigvora-backend-nodejs/src/services/onboardingService.js†L1-L185】
+    3. **Logic Usefulness.**
+      - Persona insights surface signature wins, recommended modules, and metrics that power downstream automations.【F:user_experience.md†L59-L67】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L153-L221】
+      - Invite validation and preference toggles feed actionable data for analytics, digests, and automation queues.【F:user_experience.md†L59-L67】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L486-L666】
+    4. **Redundancies.**
+      - Canonical persona data sourced from backend listings keeps the wizard, PersonaSelection, and seeds aligned without forks.【F:user_experience.md†L60-L62】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L48-L118】【F:gigvora-frontend-reactjs/src/services/onboarding.js†L1-L20】
+      - Shared invite, theme, and signal handlers prevent duplicated onboarding logic across surfaces.【F:user_experience.md†L62-L68】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L486-L666】
+    5. **Placeholders Or non-working functions or stubs.**
+      - Production copy, error states, and CTA flows replace lorem text with actionable launch guidance inside the summary rail.【F:user_experience.md†L63-L65】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L699-L747】
+      - Persona previews hydrate live benefits and modules via backend payloads, eliminating placeholder bullets.【F:user_experience.md†L64-L65】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L153-L221】
+    6. **Duplicate Functions.**
+      - Set-based focus signal and story theme toggles centralise behavioural logic for future onboarding modules.【F:user_experience.md†L66-L68】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L607-L666】
+      - Invite add/remove utilities centralise team management rather than duplicating per-step code.【F:user_experience.md†L66-L68】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L486-L545】
+    7. **Improvements need to make.**
+      - Default persona, preference, and invite scaffolding keeps the door open for CRM auto-fill and concierge extensions highlighted in the roadmap.【F:user_experience.md†L69-L71】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L20-L72】
+      - Review summaries and analytics hooks log the data needed to stage future personalised save-for-later flows.【F:user_experience.md†L69-L71】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L699-L747】
+    8. **Styling improvements.**
+      - Gradient shells, rounded containers, and glassmorphic panels align onboarding aesthetics with enterprise tokens.【F:user_experience.md†L72-L74】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L769-L838】
+      - Persona insights and review cards leverage elevated surfaces with accessible contrast per the design direction.【F:user_experience.md†L72-L74】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/ProfileBasicsForm.jsx†L83-L205】
+    9. **Effeciency analysis and improvement.**
+      - Persona, invite, and review derivations memoise heavy computations to keep renders responsive.【F:user_experience.md†L75-L77】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L132-L222】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L340-L378】
+      - Validation gates block step progression until inputs are ready, preventing wasteful re-renders or API calls.【F:user_experience.md†L75-L77】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L320-L409】
+    10. **Strengths to Keep.**
+      - Persona empathy remains front-and-centre through card storytelling and primer highlights that celebrate each journey.【F:user_experience.md†L78-L80】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L440-L467】
+      - Collaboration-first invites, roles, and milestones ensure teams launch together without losing the platform’s community feel.【F:user_experience.md†L78-L80】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L486-L747】
+    11. **Weaknesses to remove.**
+      - Guided launch checklist and milestone copy replace the formerly vague confirmation experience.【F:user_experience.md†L81-L83】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L699-L747】
+      - Persona and preference panels now ship rich copy and insights, eradicating the bland onboarding gaps called out previously.【F:user_experience.md†L81-L83】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/ProfileBasicsForm.jsx†L83-L205】
+    12. **Styling and Colour review changes.**
+      - Progress gradients and accent CTAs map exactly to the palette guidance for trusted onboarding journeys.【F:user_experience.md†L84-L86】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L769-L838】
+      - Metric badges and success pills mirror emerald/sapphire contrast requirements inside the summary rail.【F:user_experience.md†L84-L86】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L699-L747】
+    13. **Css, orientation, placement and arrangement changes.**
+      - Five-step rail adapts responsively from grid to stacked layout while preserving the documented rhythm.【F:user_experience.md†L87-L89】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L783-L803】
+      - Hero, primer, and form grids use the 8/16/24 spacing cadence across desktop and mobile breakpoints.【F:user_experience.md†L87-L89】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/ProfileBasicsForm.jsx†L83-L205】
+    14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.**
+      - Persona and milestone copy stays aspirational yet directive, echoing the editorial guardrails.【F:user_experience.md†L90-L92】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L699-L747】
+      - Primer highlights and persona insights emphasise outcomes without redundant filler.【F:user_experience.md†L90-L92】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/ProfileBasicsForm.jsx†L83-L205】
+    15. **Text Spacing.**
+      - Form fields, chips, and paragraphs honour the 8pt rhythm for readability across breakpoints.【F:user_experience.md†L93-L95】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/ProfileBasicsForm.jsx†L83-L205】
+      - Persona step and summary stacks keep consistent gaps for copy legibility.【F:user_experience.md†L93-L95】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L440-L467】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L699-L747】
+    16. **Shaping.**
+      - Rounded-3xl cards, pill buttons, and capsule toggles align with onboarding shaping tokens.【F:user_experience.md†L96-L98】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L783-L838】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/ProfileBasicsForm.jsx†L83-L205】
+      - Persona chips and focus toggles reuse soft radii to keep silhouettes cohesive.【F:user_experience.md†L96-L98】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L607-L666】
+    17. **Shadow, hover, glow and effects.**
+      - Stepper states, CTA pills, and primer tiles include accessible elevation and gradient glows respecting reduced motion guidance.【F:user_experience.md†L99-L101】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L783-L838】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/WorkspacePrimerCarousel.jsx†L131-L205】
+      - Focus-visible outlines and hover lifts ensure interactive cards feel premium without overwhelming users.【F:user_experience.md†L99-L101】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L486-L666】
+    18. **Thumbnails.**
+      - Persona cards and primer highlights substitute imagery with signature moments and metrics per the spec.【F:user_experience.md†L102-L104】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/PersonaSelection.jsx†L26-L256】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/WorkspacePrimerCarousel.jsx†L131-L205】
+      - Summary rail surfaces inline stats so imagery gaps never leave blank shells.【F:user_experience.md†L102-L104】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L699-L747】
+    19. **Images and media & Images and media previews.**
+      - Hero and primer sections are media-ready with gradient placeholders and narrative copy when assets are unavailable.【F:user_experience.md†L105-L107】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L769-L838】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/WorkspacePrimerCarousel.jsx†L121-L205】
+      - Persona insights supply textual storytelling that sustains engagement without heavy media.【F:user_experience.md†L105-L107】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/ProfileBasicsForm.jsx†L200-L227】
+    20. **Button styling.**
+      - Gradient primaries, ghost secondaries, and dashed add-row buttons follow system tokens for launch and navigation controls.【F:user_experience.md†L108-L110】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L823-L838】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L500-L520】
+      - Persona and preference toggles reuse rounded-full patterns with deterministic disabled states.【F:user_experience.md†L108-L110】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L607-L666】
+    21. **Interactiveness.**
+      - Analytics tracking fires on step views, persona changes, primer interactions, and completion events for measurement parity.【F:user_experience.md†L111-L113】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L142-L151】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/WorkspacePrimerCarousel.jsx†L64-L119】
+      - Keyboard-accessible buttons, toggles, and focus outlines keep onboarding inclusive across devices.【F:user_experience.md†L111-L113】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L486-L838】
+    22. **Missing Components.**
+      - Persona, profile, team, preferences, and review flows now ship end-to-end so no core onboarding component is absent.【F:user_experience.md†L114-L116】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L8-L747】
+      - Primer carousel bridges workspace education within the wizard, closing the gap identified in prior audits.【F:user_experience.md†L114-L116】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/WorkspacePrimerCarousel.jsx†L121-L205】
+    23. **Design Changes.**
+      - Gradient hero, five-step rail, and guided review reflect the redesigned onboarding experience approved in UX docs.【F:user_experience.md†L117-L119】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L769-L838】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L699-L747】
+      - Embedded primer carousel and persona insights replace the utilitarian profile form layout.【F:user_experience.md†L117-L119】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/ProfileBasicsForm.jsx†L83-L205】
+    24. **Design Duplication.**
+      - Shared persona catalogue and PropTypes prevent forks across onboarding contexts.【F:user_experience.md†L120-L122】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L48-L118】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L856-L895】
+      - Focus signal/story theme toggles and primer slides reuse canonical utilities rather than bespoke variants.【F:user_experience.md†L120-L122】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L607-L666】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/WorkspacePrimerCarousel.jsx†L39-L205】
+    25. **Design framework.**
+      - PropTypes codify personas, invites, preferences, and primer slides so integrators inherit explicit contracts.【F:user_experience.md†L123-L125】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L856-L895】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/WorkspacePrimerCarousel.jsx†L210-L238】
+      - Typography, spacing, and elevation align with enterprise tokens across hero, forms, and summary.【F:user_experience.md†L123-L125】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/ProfileBasicsForm.jsx†L83-L205】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L769-L838】
+    26. **Change Checklist Tracker Extensive.**
+      - Analytics hooks, validation guards, and summary output provide the QA artefacts mandated for release.【F:user_experience.md†L126-L128】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L142-L151】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L699-L747】
+      - Backlog hooks for concierge personalisation remain documented through state scaffolding for future epics.【F:user_experience.md†L126-L128】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L20-L72】
+    27. **Full Upgrade Plan & Release Steps Extensive.**
+      - HandleLaunch coordinates API persistence, analytics tracking, and error handling for staged cohort rollouts.【F:user_experience.md†L129-L131】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L296-L366】
+      - Exit controls and journey payloads enable safe rollback and manual invite fallbacks during launch sequencing.【F:user_experience.md†L129-L131】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L820-L847】
   - ✓ 2.B.2. PersonaSelection.jsx
-   - OnboardingWizard orchestrates persona, profile, team, preferences, and review steps with premium hero storytelling and progress telemetry, delivering LinkedIn/Instagram-grade onboarding.【F:user_experience.md†L1-L16】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L5-L120】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L620-L666】
-   - PersonaSelection spotlights benefits, metrics, signature moments, and core modules so every persona sees tailored value in seconds.【F:user_experience.md†L1-L18】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/PersonaSelection.jsx†L26-L256】
-   - Full-stack launch persists persona, profile, invite, and preference payloads via `/onboarding/journeys`, new onboarding models, migrations, and seed data while the wizard calls `createOnboardingJourney` for production-grade submissions.【F:gigvora-backend-nodejs/src/routes/onboardingRoutes.js†L1-L11】【F:gigvora-backend-nodejs/src/services/onboardingService.js†L1-L185】【F:gigvora-backend-nodejs/src/models/onboardingModels.js†L1-L86】【F:gigvora-backend-nodejs/database/migrations/20250401100000-create-onboarding-tables.cjs†L1-L123】【F:gigvora-backend-nodejs/database/seeders/20250401101500-onboarding-personas-seed.cjs†L1-L74】【F:gigvora-frontend-reactjs/src/services/onboarding.js†L1-L20】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L240-L337】
-   - Profile calibration, persona insights, and gradient overview panels personalise automation guidance and surface recommended wins for the chosen journey.【F:user_experience.md†L3-L35】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L240-L335】
-   - Team invitations, collaborator guidance, and review checklist translate setup inputs into actionable launch milestones with next-step narratives.【F:user_experience.md†L29-L60】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L340-L616】
-   - Preference tuning, signal chips, story themes, and AI draft toggles centralise behavioural controls without duplicate handlers.【F:user_experience.md†L17-L56】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L415-L547】
-   - Analytics instrumentation, validation guards, and polished CTAs ensure reliable launches with accessible focus treatments and error feedback.【F:user_experience.md†L21-L64】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L65-L708】
-   - Roadmap notes capture future personalisation and concierge support while today’s build ships end-to-end persona journeys.【F:user_experience.md†L20-L67】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L35-L118】
+    - PersonaSelection spotlights benefits, metrics, signature moments, and core modules so every persona sees tailored value in seconds.【F:user_experience.md†L52-L58】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/PersonaSelection.jsx†L26-L256】
+  - ✓ 2.B.3. ProfileBasicsForm.jsx
+    1. **Appraisal.** Persona-aware profile basics pair executive copy with persona badges and primer integration to match the premium onboarding narrative.【F:user_experience.md†L52-L58】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/ProfileBasicsForm.jsx†L83-L205】
+    2. **Functionality.** Controlled inputs, validation helpers, and messaging capture company, role, timezone, headline, and north-star data without gaps.【F:user_experience.md†L59-L67】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/ProfileBasicsForm.jsx†L100-L190】
+    3. **Logic Usefulness.** Validity reporting, trimmed payloads, and persona insights ensure onboarding automations receive production-grade profile data.【F:user_experience.md†L59-L67】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/ProfileBasicsForm.jsx†L23-L76】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/ProfileBasicsForm.jsx†L200-L227】
+    4. **Styling & Motion.** Rounded-3xl cards, gradient insights, and focus-visible inputs uphold the styling requirements for onboarding basics.【F:user_experience.md†L72-L86】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/ProfileBasicsForm.jsx†L83-L205】
+    5. **Interactiveness.** Accessibility-friendly validation, touched states, and analytics-ready primer carousel integration keep the step responsive and inclusive.【F:user_experience.md†L111-L113】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/ProfileBasicsForm.jsx†L44-L205】
+  - ✓ 2.B.4. WorkspacePrimerCarousel.jsx
+    1. **Appraisal.** Gradient carousel storytelling contextualises modules, collaboration, and signal value with the cinematic polish demanded by the UX brief.【F:user_experience.md†L52-L58】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/WorkspacePrimerCarousel.jsx†L131-L205】
+    2. **Functionality.** Auto-advance timers, manual navigation, and analytics hooks educate members on launch outcomes while tracking engagement.【F:user_experience.md†L59-L67】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/WorkspacePrimerCarousel.jsx†L39-L205】
+    3. **Logic Usefulness.** Slide metrics and highlights synthesise persona modules, invite counts, and signal settings into actionable primers.【F:user_experience.md†L59-L67】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/OnboardingWizard.jsx†L184-L247】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/WorkspacePrimerCarousel.jsx†L131-L205】
+    4. **Styling & Motion.** Glassmorphism shells, pill indicators, and hover-friendly controls satisfy styling and motion guidance for premium onboarding tours.【F:user_experience.md†L72-L101】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/WorkspacePrimerCarousel.jsx†L131-L205】
+    5. **Resilience.** Fallback messaging and PropTypes guard against missing slides while default props keep the carousel production-ready.【F:user_experience.md†L63-L65】【F:gigvora-frontend-reactjs/src/components/auth/onboarding/WorkspacePrimerCarousel.jsx†L121-L238】
 - [x] Main Category: 6. Mentorship, Groups & Community Pillars
   - [x] 6.B. Group Collaboration Hubs
     - [x] 6.B.1. GroupLanding.jsx
