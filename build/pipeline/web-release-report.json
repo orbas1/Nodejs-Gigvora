@@ -1,0 +1,28 @@
+{
+  "id": "web-release",
+  "name": "Web Release Pipeline",
+  "description": "Runs premium web release checks across frontend, backend, and shared libraries so launch bundles mirror enterprise cadence.",
+  "status": "failed",
+  "startedAt": "2025-10-26T23:36:17.091Z",
+  "finishedAt": "2025-10-26T23:36:17.465Z",
+  "durationMs": 374,
+  "steps": [
+    {
+      "id": "frontend-quality",
+      "name": "Frontend quality gates",
+      "workingDirectory": "/workspace/Nodejs-Gigvora/gigvora-frontend-reactjs",
+      "status": "failed",
+      "durationMs": 369.589097,
+      "commands": [
+        {
+          "id": "frontend-lint",
+          "label": "npm run lint",
+          "command": "npm run lint",
+          "workingDirectory": "/workspace/Nodejs-Gigvora/gigvora-frontend-reactjs",
+          "status": "failed",
+          "durationMs": 369.074453
+        }
+      ]
+    }
+  ]
+}

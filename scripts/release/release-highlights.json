@@ -1,0 +1,47 @@
+{
+  "highlights": [
+    {
+      "title": "Unified web release pipeline",
+      "summary": "Automates frontend, backend, and shared library gates so exec-ready bundles match LinkedIn-class polish across environments.",
+      "owners": ["Web Platform"],
+      "metrics": {
+        "coverage": 0.98,
+        "defects": 0
+      }
+    },
+    {
+      "title": "Enterprise release narration",
+      "summary": "Generates premium release notes with persona framing, success metrics, and quality gate evidence in minutes instead of hours.",
+      "owners": ["Product Marketing", "Release Engineering"],
+      "metrics": {
+        "timeSavedMinutes": 45
+      }
+    }
+  ],
+  "breakingChanges": [
+    {
+      "title": "API telemetry payload updates",
+      "summary": "Ensure monitoring clients accept optional rollout health fields for staged upgrade dashboards.",
+      "actionRequired": "Update internal monitoring agents to parse cohortHealth before next release window.",
+      "owners": ["Observability"],
+      "due": "2025-05-01"
+    }
+  ],
+  "qualityGates": [
+    {
+      "name": "Frontend quality",
+      "status": "pass",
+      "evidence": "npm run check"
+    },
+    {
+      "name": "Backend reliability",
+      "status": "pass",
+      "evidence": "npm run lint && npm run test"
+    },
+    {
+      "name": "Contracts integrity",
+      "status": "pass",
+      "evidence": "npm run test (shared-contracts)"
+    }
+  ]
+}

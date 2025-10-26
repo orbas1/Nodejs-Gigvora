@@ -1,0 +1,105 @@
+{
+  "defaultPipeline": "web-release",
+  "pipelines": [
+    {
+      "id": "web-release",
+      "name": "Web Release Pipeline",
+      "description": "Runs premium web release checks across frontend, backend, and shared libraries so launch bundles mirror enterprise cadence.",
+      "steps": [
+        {
+          "id": "frontend-quality",
+          "name": "Frontend quality gates",
+          "workingDirectory": "gigvora-frontend-reactjs",
+          "commands": [
+            {
+              "id": "frontend-lint",
+              "display": "npm run lint",
+              "run": "npm",
+              "args": [
+                "run",
+                "lint"
+              ]
+            },
+            {
+              "id": "frontend-test",
+              "display": "npm run test -- --run",
+              "run": "npm",
+              "args": [
+                "run",
+                "test",
+                "--",
+                "--run"
+              ]
+            },
+            {
+              "id": "frontend-build",
+              "display": "npm run build",
+              "run": "npm",
+              "args": [
+                "run",
+                "build"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "backend-quality",
+          "name": "Backend quality gates",
+          "workingDirectory": "gigvora-backend-nodejs",
+          "commands": [
+            {
+              "id": "backend-lint",
+              "display": "npm run lint",
+              "run": "npm",
+              "args": [
+                "run",
+                "lint"
+              ]
+            },
+            {
+              "id": "backend-test",
+              "display": "npm run test",
+              "run": "npm",
+              "args": [
+                "run",
+                "test"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "shared-contracts",
+          "name": "Shared contracts verification",
+          "workingDirectory": "shared-contracts",
+          "commands": [
+            {
+              "id": "shared-test",
+              "display": "npm run test",
+              "run": "npm",
+              "args": [
+                "run",
+                "test"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "calendar-stub",
+          "name": "Calendar stub verification",
+          "workingDirectory": "calendar_stub",
+          "commands": [
+            {
+              "id": "calendar-test",
+              "display": "npm run test",
+              "run": "npm",
+              "args": [
+                "run",
+                "test"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
