@@ -6,6 +6,7 @@ import {
   NotFoundError,
   ValidationError,
 } from '../utils/errors.js';
+import { invalidateFeedSuggestions } from './feedSuggestionService.js';
 
 const CONNECTION_ACCESS_MATRIX = {
   user: ['user', 'freelancer', 'agency', 'company', 'mentor', 'headhunter'],
@@ -406,6 +407,8 @@ export async function requestConnection(requesterId, targetId) {
     status: 'pending',
   });
 
+  invalidateFeedSuggestions(requesterId, targetId);
+
   return {
     id: record.id,
     status: record.status,
@@ -440,6 +443,8 @@ export async function respondToConnection({ connectionId, actorId, decision }) {
 
   record.status = normalizedDecision === 'accept' ? 'accepted' : 'rejected';
   await record.save();
+
+  invalidateFeedSuggestions(record.requesterId, record.addresseeId);
 
   return record;
 }

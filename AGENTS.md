@@ -8,3 +8,5 @@
    - *Localization Pipeline.* Connect copy keys to translation files, define fallbacks, and flag culturally sensitive phrases requiring bespoke localisation.
    - *Data Integrity.* Ensure dynamic stats (mutual connections, shared interests) include numeric context words (“3 shared founders”) and automatically pluralize with ICU messages.
    - *Governance.* Establish editorial review cadence, changelog, and ownership for copy updates so experimentation never drifts from approved brand voice.
+  - [ ] Subcategory 3.C. Suggested Connections & Signals
+14. **Text analysis, placement, length, redundancy, quality.** Use concise bios (≤80 chars) and highlight call-to-action buttons.
