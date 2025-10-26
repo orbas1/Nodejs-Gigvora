@@ -555,9 +555,11 @@ export default function SignUpForm({ className, showHighlightsPanel = true }) {
               <SocialAuthButton
                 key={provider}
                 provider={provider}
+                intent="register"
+                loading={status !== 'idle'}
+                disabled={status !== 'idle'}
                 label={`Sign up with ${PROVIDER_LABELS[provider] ?? provider.charAt(0).toUpperCase() + provider.slice(1)}`}
                 onClick={() => handleSocialRedirect(provider)}
-                disabled={status !== 'idle'}
               />
             ))}
             <div className="w-full">

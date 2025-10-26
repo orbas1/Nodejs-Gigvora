@@ -1,3 +1,24 @@
+2.A. Authentication Surfaces
+2.A.3. PasswordReset.jsx
+1. **Appraisal.** Password reset must feel like a concierge experience that mirrors the polish of flagship social networks—glassmorphic shells, confident typography, and security-first messaging that reassures members their account is safe while they complete the flow.
+2. **Functionality.** Verify tokens on load, stream countdown telemetry, enforce strength requirements, and expire links in-line so members always know the state of their secure link without guessing.
+3. **Logic Usefulness.** Masked email confirmation, countdown timers, and cross-session revocation copy should explain exactly what happens as soon as a password is updated, removing ambiguity for teams and individuals alike.
+4. **Redundancies.** Strength meters, checklist copy, and CTA messaging must pull from shared auth helpers so we never rewrite validation or editorial guidance across authentication surfaces.
+5. **Placeholders Or non-working functions or stubs.** Retire lorem ipsum alerts, generic buttons, or dormant timers; everything—from caps-lock notices to completion messages—needs to be wired to live behaviour.
+6. **Styling and Colour review changes.** Rounded-3xl cards, accent gradients, and accessible contrast should align with the authentication theme so the surface feels premium while remaining trustworthy.
+7. **Css, orientation, placement and arrangement changes.** Arrange hero copy, form controls, meters, and secondary guidance in responsive grids that collapse gracefully from desktop to mobile without losing hierarchy.
+8. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Tone stays direct yet empathetic, acknowledging security stakes while keeping copy concise, avoiding filler, and highlighting next steps.
+
+2.A.4. SocialAuthButtons.jsx
+1. **Appraisal.** Social buttons need to instantly telegraph brand trust with polished badges, consistent motion, and descriptive taglines that feel as curated as LinkedIn or Instagram entry points.
+2. **Functionality.** Buttons should respect loading/disabled states, surface analytics-friendly data attributes, and prevent duplicate clicks while redirects prepare OAuth handshakes.
+3. **Logic Usefulness.** Intent-aware labels and taglines must adapt for sign-in versus sign-up so users always understand what action a provider performs in context.
+4. **Redundancies.** Centralise provider metadata—icons, labels, copy—inside one definition to stop scattershot brand treatments across forms or experiments.
+5. **Placeholders Or non-working functions or stubs.** Eliminate placeholder icons, lorem helper text, or inert analytics hooks; every provider rendered should be ready for production traffic.
+6. **Styling and Colour review changes.** Respect each network’s palette while matching Gigvora’s rounded shells, hover glows, and focus treatments so accessibility and brand governance coexist.
+7. **Css, orientation, placement and arrangement changes.** Maintain consistent spacing, full-width alignment, and responsive stack behaviour so multi-provider rails feel balanced on any viewport.
+8. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Labels stay punchy, capitalisation follows editorial rules, and supporting copy explains value without repeating the button text.
+
 2.B. Onboarding Journeys
 1. **Appraisal.** OnboardingWizard welcomes members with a premium hero shell, progress telemetry, and persona storytelling that mirrors leading social platforms.
    - *Hero narrative.* Gradient headline, trust copy, and progress bar showcase readiness to operate like LinkedIn or Instagram from the first screen.
