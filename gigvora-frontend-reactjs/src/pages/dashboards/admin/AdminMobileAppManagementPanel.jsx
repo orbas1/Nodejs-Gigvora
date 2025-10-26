@@ -18,6 +18,7 @@ import {
   updateAdminMobileAppFeature,
   deleteAdminMobileAppFeature,
 } from '../../../services/mobileApps.js';
+import FeatureFlagToggle from '../../../components/system/FeatureFlagToggle.jsx';
 
 const PLATFORM_OPTIONS = [
   { value: 'ios', label: 'iOS (App Store)' },
@@ -739,6 +740,23 @@ export default function AdminMobileAppManagementPanel({ standalone = false }) {
         <SummaryTile title="In review" value={summary.pendingReviews ?? 0} subtitle="Store submissions" />
         <SummaryTile title="Scheduled releases" value={summary.upcomingReleases ?? 0} subtitle="Upcoming deploys" />
         <SummaryTile title="Active feature flags" value={summary.activeFeatures ?? 0} subtitle="Enabled cohorts" />
+      </div>
+
+      <div className="mt-8 grid gap-4 lg:grid-cols-2">
+        <FeatureFlagToggle
+          flagKey="mobile-app-beta"
+          label="Mobile companion beta"
+          description="Control beta companion distribution before a general app store rollout, aligning rollout pace with support readiness."
+          audience="Founders & mentors"
+          rollout="25% staged"
+        />
+        <FeatureFlagToggle
+          flagKey="mobile-profiles-ai-insights"
+          label="AI-driven profile insights"
+          description="Enable personalised AI annotations in the mobile profile hub while compliance validates messaging and audit trails."
+          audience="Executive admins"
+          rollout="Ops review"
+        />
       </div>
 
       <form
