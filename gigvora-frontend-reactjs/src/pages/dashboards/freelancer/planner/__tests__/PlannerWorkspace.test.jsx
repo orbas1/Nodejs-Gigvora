@@ -93,7 +93,7 @@ function buildCalendarSnapshot() {
 
 function renderWorkspace(overrides) {
   const snapshot = buildCalendarSnapshot();
-  const session = { id: 'freelancer-1', memberships: ['freelancer'], ...overrides };
+  const session = { id: 401, memberships: ['freelancer'], ...overrides };
   render(<PlannerWorkspace session={session} />);
   return snapshot;
 }
@@ -144,7 +144,7 @@ describe('PlannerWorkspace', () => {
       await formProps.onSubmit({ title: 'Strategy sync' });
     });
 
-    expect(createEvent).toHaveBeenCalledWith({ title: 'Strategy sync' }, { actorId: 'freelancer-1' });
+    expect(createEvent).toHaveBeenCalledWith({ title: 'Strategy sync' }, { actorId: 401 });
     expect(refresh).toHaveBeenCalledTimes(1);
 
     act(() => {
@@ -157,14 +157,14 @@ describe('PlannerWorkspace', () => {
       await editCall.onSubmit({ title: 'Client kickoff updated' });
     });
 
-    expect(updateEvent).toHaveBeenCalledWith('evt-1', { title: 'Client kickoff updated' }, { actorId: 'freelancer-1' });
+    expect(updateEvent).toHaveBeenCalledWith('evt-1', { title: 'Client kickoff updated' }, { actorId: 401 });
     expect(refresh).toHaveBeenCalledTimes(2);
 
     await act(async () => {
       await timelineProps.onStatusChange({ id: 'evt-1' }, 'completed');
     });
 
-    expect(updateEvent).toHaveBeenCalledWith('evt-1', { status: 'completed' }, { actorId: 'freelancer-1' });
+    expect(updateEvent).toHaveBeenCalledWith('evt-1', { status: 'completed' }, { actorId: 401 });
     expect(refresh).toHaveBeenCalledTimes(3);
   });
 
@@ -213,7 +213,7 @@ describe('PlannerWorkspace', () => {
       await props.onDownload({ id: 'evt-1', title: 'Client kickoff' });
     });
 
-    expect(downloadEventInvite).toHaveBeenCalledWith('evt-1', { actorId: 'freelancer-1' });
+    expect(downloadEventInvite).toHaveBeenCalledWith('evt-1', { actorId: 401 });
     expect(createObjectUrl).toHaveBeenCalled();
     expect(clickSpy).toHaveBeenCalled();
     expect(revokeObjectUrl).toHaveBeenCalled();

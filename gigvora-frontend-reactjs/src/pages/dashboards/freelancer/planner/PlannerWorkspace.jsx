@@ -36,6 +36,21 @@ function normalizeList(value) {
   return [value];
 }
 
+function resolveActorId(session) {
+  if (!session) {
+    return null;
+  }
+  const candidate = session.id ?? session.userId ?? null;
+  if (typeof candidate === 'number' && Number.isFinite(candidate) && candidate > 0) {
+    return candidate;
+  }
+  const parsed = Number.parseInt(candidate, 10);
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return parsed;
+  }
+  return null;
+}
+
 function describeNextEvent(event) {
   if (!event) {
     return 'No next milestone yet';
@@ -66,6 +81,7 @@ export default function PlannerWorkspace({ session }) {
   const freelancerId = session?.id ?? null;
   const memberships = normalizeList(session?.memberships);
   const canManage = memberships.includes('freelancer') || session?.userType === 'freelancer';
+  const actorId = resolveActorId(session);
 
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState('create');
@@ -234,9 +250,11 @@ export default function PlannerWorkspace({ session }) {
     setFormSubmitting(true);
     try {
       if (formMode === 'edit' && selectedEvent?.id) {
-        await updateEvent(selectedEvent.id, payload, { actorId: session?.id });
+        const actorOptions = actorId ? { actorId } : {};
+        await updateEvent(selectedEvent.id, payload, actorOptions);
       } else {
-        await createEvent(payload, { actorId: session?.id });
+        const actorOptions = actorId ? { actorId } : {};
+        await createEvent(payload, actorOptions);
       }
       await refresh();
       setFormOpen(false);
@@ -256,7 +274,8 @@ export default function PlannerWorkspace({ session }) {
     }
     setStatusUpdatingId(event.id);
     try {
-      await updateEvent(event.id, { status: nextStatus }, { actorId: session?.id });
+      const actorOptions = actorId ? { actorId } : {};
+      await updateEvent(event.id, { status: nextStatus }, actorOptions);
       await refresh();
     } catch (err) {
       console.error('Unable to update status', err);
@@ -271,7 +290,8 @@ export default function PlannerWorkspace({ session }) {
     }
     setStatusUpdatingId(event.id);
     try {
-      await deleteEvent(event.id, { actorId: session?.id });
+      const actorOptions = actorId ? { actorId } : {};
+      await deleteEvent(event.id, actorOptions);
       setDetailsEvent(null);
       setDownloadError(null);
       await refresh();
@@ -307,7 +327,8 @@ export default function PlannerWorkspace({ session }) {
     try {
       setDownloadError(null);
       setDownloadingEventId(event.id);
-      const icsPayload = await downloadEventInvite(event.id, { actorId: session?.id });
+      const options = actorId ? { actorId } : {};
+      const icsPayload = await downloadEventInvite(event.id, options);
       if (typeof icsPayload !== 'string' || !icsPayload.trim()) {
         throw new Error('Empty calendar response');
       }
