@@ -1,3 +1,17 @@
+1.B. Landing & Hero Surfaces
+1. **Appraisal.** Public marketing hero greets visitors with gradient shells, persona chips, and immersive media that mirror LinkedIn/Instagram polish while spelling out Gigvora’s multi-persona promise from the first screen.
+   - *First impression.* Layered halos, capsule CTAs, and trust copy telegraph a premium, enterprise-ready network within seconds of arrival.
+   - *Persona empathy.* Capsule chips and value cards call out founders, agencies, mentors, recruiters, and talent cohorts to ensure every visitor sees themselves reflected instantly.
+2. **Functionality.** Hero orchestrates analytics instrumentation, CTA handling, and value-pillars so marketing funnels tie brand storytelling to measurable activation steps.
+   - *Analytics & CTAs.* View + CTA events fire with hero IDs for telemetry, while actions trigger callbacks, router links, or external URLs without duplicating click logic.
+   - *Ticker & media.* Reduced-motion aware ticker, skeleton loaders, and progressive image/video panels keep the experience resilient across network states.
+3. **Styling & Motion.** Gradient backgrounds, glassmorphism cards, and responsive grids reproduce the premium aesthetic across desktop and mobile while respecting reduced-motion preferences.
+   - *Gradient storytelling.* Radial overlays and blur halos hug hero media and cards to match premium marketing moodboards.
+   - *Responsive layout.* Two-column hero, ticker rail, and card grid collapse elegantly into stacked mobile shells with consistent rhythm.
+4. **Value Pillars.** Dedicated pillar cards pair icons, metrics, highlights, and analytics hooks so the hero doubles as a conversion-ready proof stack.
+   - *Metric storytelling.* Each pillar couples copy with measurable stats (cycle-time, uptime, network scale) to reinforce trust.
+   - *Action instrumentation.* Optional CTA per pillar routes through analytics so growth teams can iterate on which proof points convert.
+
 2.B. Onboarding Journeys
 1. **Appraisal.** OnboardingWizard welcomes members with a premium hero shell, progress telemetry, and persona storytelling that mirrors leading social platforms.
    - *Hero narrative.* Gradient headline, trust copy, and progress bar showcase readiness to operate like LinkedIn or Instagram from the first screen.

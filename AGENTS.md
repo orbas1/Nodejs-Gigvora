@@ -1,5 +1,12 @@
 - [x] Main Category: 1. Landing & Hero Surfaces
   - [x] 1.B. Landing & Hero Surfaces
+    - [x] 1.B.1. PublicHero.jsx
+      - Gradient marketing hero layers radial halos, persona chips, analytics hooks, and premium CTAs so the first impression hits the LinkedIn/Instagram polish bar while tracking hero-level telemetry for growth teams.【F:gigvora-frontend-reactjs/src/components/marketing/PublicHero.jsx†L1-L218】【F:user_experience.md†L1-L7】
+      - Reduced-motion ticker, skeleton loaders, and progressive media handling ensure the hero stays resilient across network conditions while still showcasing immersive video or imagery with trust captions.【F:gigvora-frontend-reactjs/src/components/marketing/PublicHero.jsx†L69-L205】【F:user_experience.md†L5-L10】
+      - Wrapper now accepts reusable analytics event names, fallback copy, and persona chips so other landing experiences can inherit the same polished shell without duplicating CTA logic or editorial tone.【F:gigvora-frontend-reactjs/src/components/marketing/PublicHero.jsx†L107-L187】【F:user_experience.md†L1-L4】
+    - [x] 1.B.2. ValuePillars.jsx
+      - Pillar grid composes icons, metrics, highlights, and CTA wiring into glassmorphic cards that reinforce Gigvora’s proof stack directly beneath the hero headline.【F:gigvora-frontend-reactjs/src/components/marketing/ValuePillars.jsx†L1-L103】【F:user_experience.md†L11-L13】
+      - Analytics-friendly CTA hooks allow growth squads to iterate on which proof points convert while keeping premium copy, stats, and highlights aligned with marketing tone.【F:gigvora-frontend-reactjs/src/components/marketing/ValuePillars.jsx†L45-L102】【F:user_experience.md†L11-L13】
     - [x] 1.B.3. TestimonialsCarousel.jsx
       - Immersive carousel introduces memoised autoplay, accessible controls, and metric-rich framing so the landing hero mirrors the LinkedIn-class polish mandated for first-impression trust checks.【F:gigvora-frontend-reactjs/src/components/marketing/TestimonialsCarousel.jsx†L1-L338】【F:user_experience.md†L109-L148】
       - Home section wrapper layers gradient halos, partner badges, and resilient fallbacks while piping enriched testimonial content to the carousel, ensuring operators see real voices instead of placeholders.【F:gigvora-frontend-reactjs/src/pages/home/TestimonialsSection.jsx†L1-L52】【F:gigvora-frontend-reactjs/src/content/home/testimonials.js†L1-L52】【F:user_experience.md†L125-L148】
