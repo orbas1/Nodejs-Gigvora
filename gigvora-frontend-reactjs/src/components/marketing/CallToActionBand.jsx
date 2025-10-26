@@ -1,33 +1,75 @@
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
-import { ArrowRightIcon, CheckIcon } from '@heroicons/react/24/outline';
+import { ArrowRightIcon, ArrowPathIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { classNames } from '../../utils/classNames.js';
 
-function ActionElement({ action, variant }) {
+function ActionElement({ action, variant, actionRole, onAction }) {
   if (!action || typeof action !== 'object') {
     return null;
   }
 
-  const { label, href, to, onClick, icon: Icon = ArrowRightIcon, target, rel } = action;
+  const {
+    label,
+    href,
+    to,
+    onClick,
+    icon: Icon = ArrowRightIcon,
+    target,
+    rel,
+    analyticsId,
+    disabled,
+    loading,
+    ariaLabel,
+  } = action;
 
   if (!label) {
     return null;
   }
 
+  const isDisabled = Boolean(disabled);
+  const isLoading = Boolean(loading);
   const baseClasses =
     'inline-flex items-center justify-center gap-2 rounded-full px-7 py-3 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white';
-
   const variantClasses =
     variant === 'primary'
-      ? 'bg-white text-accent shadow-[0_18px_45px_rgba(15,23,42,0.3)] hover:-translate-y-0.5 hover:bg-white/90'
-      : 'border border-white/60 bg-transparent text-white hover:border-white hover:bg-white/10';
+      ? classNames(
+          'bg-white text-accent shadow-[0_18px_45px_rgba(15,23,42,0.3)]',
+          isDisabled || isLoading ? '' : 'hover:-translate-y-0.5 hover:bg-white/90',
+        )
+      : classNames(
+          'border border-white/60 bg-transparent text-white',
+          isDisabled || isLoading ? '' : 'hover:border-white hover:bg-white/10',
+        );
+  const stateClasses = isDisabled || isLoading ? 'cursor-not-allowed opacity-60' : '';
+  const EffectiveIcon = isLoading ? ArrowPathIcon : Icon;
 
   const content = (
     <span className="flex items-center gap-2 whitespace-nowrap">
       <span>{label}</span>
-      {Icon ? <Icon className="h-4 w-4" aria-hidden="true" /> : null}
+      {EffectiveIcon ? (
+        <EffectiveIcon
+          className={classNames('h-4 w-4', isLoading ? 'animate-spin' : undefined)}
+          aria-hidden="true"
+        />
+      ) : null}
     </span>
   );
+
+  const handleInteraction = (event) => {
+    if (isDisabled || isLoading) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    if (typeof onAction === 'function') {
+      onAction(actionRole, action);
+    }
+
+    if (typeof onClick === 'function') {
+      onClick(event);
+    }
+  };
 
   if (href) {
     return (
@@ -35,8 +77,12 @@ function ActionElement({ action, variant }) {
         href={href}
         target={target ?? '_self'}
         rel={target === '_blank' ? rel ?? 'noreferrer noopener' : rel}
-        onClick={onClick}
-        className={classNames(baseClasses, variantClasses)}
+        onClick={handleInteraction}
+        className={classNames(baseClasses, variantClasses, stateClasses)}
+        data-analytics-id={analyticsId}
+        aria-disabled={isDisabled || isLoading || undefined}
+        aria-busy={isLoading || undefined}
+        aria-label={ariaLabel}
       >
         {content}
       </a>
@@ -45,14 +91,30 @@ function ActionElement({ action, variant }) {
 
   if (to) {
     return (
-      <Link to={to} onClick={onClick} className={classNames(baseClasses, variantClasses)}>
+      <Link
+        to={to}
+        onClick={handleInteraction}
+        className={classNames(baseClasses, variantClasses, stateClasses)}
+        data-analytics-id={analyticsId}
+        aria-disabled={isDisabled || isLoading || undefined}
+        aria-busy={isLoading || undefined}
+        aria-label={ariaLabel}
+      >
         {content}
       </Link>
     );
   }
 
   return (
-    <button type="button" onClick={onClick} className={classNames(baseClasses, variantClasses)}>
+    <button
+      type="button"
+      onClick={handleInteraction}
+      className={classNames(baseClasses, variantClasses, stateClasses)}
+      data-analytics-id={analyticsId}
+      disabled={isDisabled || isLoading}
+      aria-busy={isLoading || undefined}
+      aria-label={ariaLabel}
+    >
       {content}
     </button>
   );
@@ -67,13 +129,20 @@ ActionElement.propTypes = {
     icon: PropTypes.elementType,
     target: PropTypes.string,
     rel: PropTypes.string,
+    analyticsId: PropTypes.string,
+    disabled: PropTypes.bool,
+    loading: PropTypes.bool,
+    ariaLabel: PropTypes.string,
   }),
   variant: PropTypes.oneOf(['primary', 'secondary']),
+  actionRole: PropTypes.oneOf(['primary', 'secondary']).isRequired,
+  onAction: PropTypes.func,
 };
 
 ActionElement.defaultProps = {
   action: undefined,
   variant: 'primary',
+  onAction: undefined,
 };
 
 function SupportingPoint({ point }) {
@@ -124,6 +193,7 @@ export function CallToActionBand({
   logos,
   footnote,
   className,
+  onAction,
 }) {
   const hasStats = Array.isArray(stats) && stats.length > 0;
   const hasLogos = Array.isArray(logos) && logos.length > 0;
@@ -157,8 +227,8 @@ export function CallToActionBand({
           ) : null}
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-            <ActionElement action={primaryAction} variant="primary" />
-            <ActionElement action={secondaryAction} variant="secondary" />
+            <ActionElement action={primaryAction} variant="primary" actionRole="primary" onAction={onAction} />
+            <ActionElement action={secondaryAction} variant="secondary" actionRole="secondary" onAction={onAction} />
           </div>
 
           {footnote ? <p className="text-xs text-white/60">{footnote}</p> : null}
@@ -218,6 +288,10 @@ CallToActionBand.propTypes = {
     icon: PropTypes.elementType,
     target: PropTypes.string,
     rel: PropTypes.string,
+    analyticsId: PropTypes.string,
+    disabled: PropTypes.bool,
+    loading: PropTypes.bool,
+    ariaLabel: PropTypes.string,
   }).isRequired,
   secondaryAction: PropTypes.shape({
     label: PropTypes.string.isRequired,
@@ -227,6 +301,10 @@ CallToActionBand.propTypes = {
     icon: PropTypes.elementType,
     target: PropTypes.string,
     rel: PropTypes.string,
+    analyticsId: PropTypes.string,
+    disabled: PropTypes.bool,
+    loading: PropTypes.bool,
+    ariaLabel: PropTypes.string,
   }),
   supportingPoints: PropTypes.arrayOf(
     PropTypes.oneOfType([
@@ -255,6 +333,7 @@ CallToActionBand.propTypes = {
   ),
   footnote: PropTypes.string,
   className: PropTypes.string,
+  onAction: PropTypes.func,
 };
 
 CallToActionBand.defaultProps = {
@@ -266,6 +345,7 @@ CallToActionBand.defaultProps = {
   logos: undefined,
   footnote: undefined,
   className: undefined,
+  onAction: undefined,
 };
 
 export default CallToActionBand;

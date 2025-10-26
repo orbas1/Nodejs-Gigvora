@@ -170,7 +170,9 @@ export function TestimonialsCarousel({
   const [activeIndex, setActiveIndex] = useState(0);
   const [isManualPause, setIsManualPause] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
+  const [isInView, setIsInView] = useState(true);
   const intervalRef = useRef(null);
+  const sectionRef = useRef(null);
   const carouselId = useId();
 
   useEffect(() => {
@@ -190,7 +192,34 @@ export function TestimonialsCarousel({
   }, [activeIndex, items, onSlideChange]);
 
   useEffect(() => {
-    if (!autoPlay || prefersReducedMotion || isManualPause || isHovering || items.length <= 1) {
+    if (typeof window === 'undefined' || typeof window.IntersectionObserver !== 'function') {
+      return undefined;
+    }
+
+    const element = sectionRef.current;
+    if (!element) {
+      return undefined;
+    }
+
+    const observer = new window.IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry) {
+          setIsInView(entry.isIntersecting);
+        }
+      },
+      { threshold: 0.45 },
+    );
+
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!autoPlay || prefersReducedMotion || isManualPause || isHovering || !isInView || items.length <= 1) {
       return undefined;
     }
 
@@ -208,7 +237,7 @@ export function TestimonialsCarousel({
         intervalRef.current = null;
       }
     };
-  }, [autoPlay, autoPlayInterval, prefersReducedMotion, isManualPause, isHovering, items.length]);
+  }, [autoPlay, autoPlayInterval, prefersReducedMotion, isManualPause, isHovering, isInView, items.length]);
 
   const goTo = (index) => {
     setActiveIndex((index + items.length) % items.length);
@@ -236,10 +265,53 @@ export function TestimonialsCarousel({
     setIsHovering(false);
   };
 
+  const handleKeyDown = (event) => {
+    if (items.length <= 1) {
+      return;
+    }
+
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      handlePrevious();
+      return;
+    }
+
+    if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      handleNext();
+      return;
+    }
+
+    if (event.key === 'Home') {
+      event.preventDefault();
+      goTo(0);
+      setIsManualPause(true);
+      return;
+    }
+
+    if (event.key === 'End') {
+      event.preventDefault();
+      goTo(items.length - 1);
+      setIsManualPause(true);
+    }
+  };
+
   const isSkeleton = loading && !error;
+  const ariaLive =
+    !isSkeleton &&
+    !error &&
+    autoPlay &&
+    !prefersReducedMotion &&
+    !isManualPause &&
+    !isHovering &&
+    isInView
+      ? 'polite'
+      : 'off';
+  const slideTransitionClass = prefersReducedMotion ? 'transition-none' : 'transition-all duration-500 ease-out';
 
   return (
     <section
+      ref={sectionRef}
       className={classNames(
         'relative overflow-hidden rounded-[42px] border border-white/15 bg-slate-950/40 p-8 shadow-[0_42px_120px_-60px_rgba(15,23,42,0.65)] backdrop-blur-xl sm:p-12',
         'before:pointer-events-none before:absolute before:-left-24 before:top-16 before:h-64 before:w-64 before:rounded-full before:bg-accent/20 before:blur-3xl',
@@ -277,7 +349,7 @@ export function TestimonialsCarousel({
         <div
           role="group"
           aria-roledescription="carousel"
-          aria-live={isSkeleton ? 'off' : 'polite'}
+          aria-live={ariaLive}
           aria-label="Gigvora customer testimonials"
           id={carouselId}
           className="relative"
@@ -285,6 +357,8 @@ export function TestimonialsCarousel({
           onMouseLeave={handleMouseLeave}
           onFocus={handleMouseEnter}
           onBlur={handleMouseLeave}
+          onKeyDown={handleKeyDown}
+          tabIndex={0}
         >
           <div className="relative h-full min-h-[320px]">
             {isSkeleton ? (
@@ -300,7 +374,8 @@ export function TestimonialsCarousel({
                 <article
                   key={item.id ?? index}
                   className={classNames(
-                    'absolute inset-0 flex h-full flex-col justify-between rounded-3xl border border-white/20 bg-gradient-to-br from-white/8 via-white/4 to-white/5 p-8 text-left text-white shadow-[0_24px_90px_rgba(15,23,42,0.45)] transition-all duration-500 ease-out sm:p-10',
+                    'absolute inset-0 flex h-full flex-col justify-between rounded-3xl border border-white/20 bg-gradient-to-br from-white/8 via-white/4 to-white/5 p-8 text-left text-white shadow-[0_24px_90px_rgba(15,23,42,0.45)] sm:p-10',
+                    slideTransitionClass,
                     index === activeIndex
                       ? 'pointer-events-auto opacity-100 translate-y-0'
                       : 'pointer-events-none opacity-0 translate-y-6',
