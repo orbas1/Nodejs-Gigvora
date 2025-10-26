@@ -2,7 +2,13 @@ import { Fragment, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import { Menu, Transition } from '@headlessui/react';
-import { Bars3Icon, ChatBubbleLeftRightIcon, MagnifyingGlassIcon, SparklesIcon } from '@heroicons/react/24/outline';
+import {
+  Bars3Icon,
+  ChatBubbleLeftRightIcon,
+  MagnifyingGlassIcon,
+  SignalIcon,
+  SparklesIcon,
+} from '@heroicons/react/24/outline';
 
 import MobileNavigation from './MobileNavigation.jsx';
 import RoleSwitcher from './RoleSwitcher.jsx';
@@ -14,6 +20,7 @@ import { LOGO_SRCSET, LOGO_URL } from '../../constants/branding.js';
 import { classNames } from '../../utils/classNames.js';
 import { resolveInitials } from '../../utils/user.js';
 import { formatRelativeTime } from '../../utils/date.js';
+import { deriveNavigationPulse } from '../../utils/navigationPulse.js';
 
 function UserMenu({ session, onLogout }) {
   const initials = resolveInitials(session?.name ?? session?.email ?? 'GV');
@@ -283,6 +290,65 @@ InboxPreview.defaultProps = {
   status: 'idle',
 };
 
+function NetworkPulse({ insights }) {
+  if (!Array.isArray(insights) || insights.length === 0) {
+    return null;
+  }
+
+  return (
+    <section
+      className="hidden min-w-[14rem] flex-col gap-3 rounded-3xl border border-slate-200/60 bg-white/70 p-4 text-left shadow-lg ring-1 ring-white/60 backdrop-blur xl:flex"
+      aria-label="Workspace pulse"
+    >
+      <header className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+        <span className="inline-flex items-center gap-1 text-slate-500">
+          <SignalIcon className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
+          Live pulse
+        </span>
+        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.3em] text-emerald-600">
+          Updated
+        </span>
+      </header>
+      <dl className="grid grid-cols-1 gap-2 text-slate-600 sm:grid-cols-2 xl:grid-cols-1">
+        {insights.map((insight) => (
+          <div
+            key={insight.id}
+            className="group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white/90 px-3 py-2 shadow-sm transition hover:border-accent/60 hover:shadow-md"
+          >
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-accent/0 via-accent/5 to-accent/10 opacity-0 transition group-hover:opacity-100" />
+            <dt className="relative z-10 text-[0.6rem] font-semibold uppercase tracking-[0.28em] text-slate-400">
+              {insight.label}
+            </dt>
+            <dd className="relative z-10 mt-1 text-xl font-semibold text-slate-900">{insight.value}</dd>
+            {insight.delta ? (
+              <p className="relative z-10 mt-1 text-xs font-medium text-emerald-600">{insight.delta}</p>
+            ) : null}
+            {insight.hint ? (
+              <p className="relative z-10 mt-1 text-[0.65rem] text-slate-400">{insight.hint}</p>
+            ) : null}
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+NetworkPulse.propTypes = {
+  insights: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+      value: PropTypes.string.isRequired,
+      delta: PropTypes.string,
+      hint: PropTypes.string,
+    }),
+  ),
+};
+
+NetworkPulse.defaultProps = {
+  insights: [],
+};
+
 export default function AppTopBar({
   navOpen,
   onOpenNav,
@@ -305,6 +371,10 @@ export default function AppTopBar({
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const resolvedMarketingMenus = marketingNavigation ?? [];
+  const pulseInsights = useMemo(
+    () => deriveNavigationPulse(session, resolvedMarketingMenus, primaryNavigation),
+    [primaryNavigation, resolvedMarketingMenus, session],
+  );
 
   const handleSearchSubmit = (event) => {
     event.preventDefault();
@@ -317,7 +387,11 @@ export default function AppTopBar({
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur">
+    <header className="relative sticky top-0 z-40 border-b border-transparent bg-white/80 backdrop-blur">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute left-1/2 top-[-35%] h-40 w-[70%] -translate-x-1/2 rounded-[50%] bg-accent/10 blur-3xl" />
+        <div className="absolute right-0 top-0 h-full w-24 bg-gradient-to-b from-white/40 via-white/5 to-transparent" />
+      </div>
       <MobileNavigation
         open={navOpen}
         onClose={onCloseNav}
@@ -329,8 +403,9 @@ export default function AppTopBar({
         roleOptions={roleOptions}
         currentRoleKey={currentRoleKey}
         onMarketingSearch={onMarketingSearch}
+        session={session}
       />
-      <div className="mx-auto flex h-16 w-full items-center gap-3 px-4 sm:h-[4.75rem] sm:gap-4 sm:px-6 2xl:px-10">
+      <div className="relative mx-auto flex h-16 w-full items-center gap-3 px-4 sm:h-[4.75rem] sm:gap-4 sm:px-6 2xl:px-10">
         <div className="flex flex-1 items-center gap-3 lg:gap-5">
           <button
             type="button"
@@ -366,6 +441,7 @@ export default function AppTopBar({
         ) : null}
 
         <div className="ml-auto hidden flex-none items-center justify-end gap-2 sm:flex sm:gap-3 lg:gap-4">
+          <NetworkPulse insights={pulseInsights} />
           {marketingSearch ? (
             <form
               className="hidden min-w-[12rem] flex-1 items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-sm shadow-inner ring-1 ring-transparent transition focus-within:bg-white focus-within:ring-2 focus-within:ring-accent/20 md:flex lg:min-w-[18rem]"

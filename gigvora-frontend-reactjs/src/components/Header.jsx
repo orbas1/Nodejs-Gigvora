@@ -41,8 +41,9 @@ export default function Header() {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const { session, isAuthenticated, logout } = useSession();
-  const { navOpen, openNav, closeNav } = useLayout();
+  const { navOpen, openNav, closeNav, setShellTheme, resetShellTheme } = useLayout();
   const isMountedRef = useRef(true);
+  const appliedShellTheme = useRef(null);
   const [inboxPreview, setInboxPreview] = useState({
     threads: [],
     loading: false,
@@ -100,6 +101,9 @@ export default function Header() {
   const roleOptions = useMemo(() => buildRoleOptions(session), [session]);
   const marketingMenus = useMemo(() => PRIMARY_NAVIGATION.menus, []);
   const marketingSearch = PRIMARY_NAVIGATION.search;
+
+  const preferredShellTheme =
+    session?.preferences?.shellTheme ?? session?.branding?.shellTheme ?? session?.shellTheme ?? null;
 
   const refreshInboxPreview = useCallback(async () => {
     if (!isAuthenticated) {
@@ -174,6 +178,28 @@ export default function Header() {
       window.clearInterval(interval);
     };
   }, [isAuthenticated, refreshInboxPreview]);
+
+  useEffect(() => {
+    if (!setShellTheme || !resetShellTheme) {
+      return undefined;
+    }
+
+    if (!preferredShellTheme) {
+      if (appliedShellTheme.current) {
+        resetShellTheme();
+        appliedShellTheme.current = null;
+      }
+      return undefined;
+    }
+
+    appliedShellTheme.current = preferredShellTheme;
+    setShellTheme(preferredShellTheme);
+
+    return () => {
+      resetShellTheme();
+      appliedShellTheme.current = null;
+    };
+  }, [preferredShellTheme, resetShellTheme, setShellTheme]);
 
   const handleInboxMenuOpen = useCallback(() => {
     analytics.track('web_header_inbox_preview_opened', {
