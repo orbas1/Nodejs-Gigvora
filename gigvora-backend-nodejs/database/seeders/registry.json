@@ -40,5 +40,12 @@
     "personas": ["freelancer", "trust", "marketing"],
     "domains": ["reputation", "testimonials", "reviews"],
     "tags": ["reputation", "social-proof", "demo-data"]
+  },
+  "20250328134500-platform-status-feedback-demo": {
+    "title": "Platform status signals and executive feedback pulse",
+    "summary": "Seeds live status reports, impacted services, and premium feedback prompts so operations dashboards surface real telemetry.",
+    "personas": ["platform-ops", "product", "support"],
+    "domains": ["platform-status", "feedback", "operations"],
+    "tags": ["status", "feedback", "executive-insight"]
   }
 }

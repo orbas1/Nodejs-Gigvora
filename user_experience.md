@@ -163,6 +163,7 @@
 
 - **Appraisal.** Live status toast projects an executive-grade gradient shell, severity iconography, and premium copy that mirror major-network trust banners while surfacing issues within a single glance.
 - **Functionality.** The component polls `/platform/status/summary`, hydrates via the data fetching layer, listens for cache broadcasts, and debounces refreshes so degraded systems broadcast updates instantly without flooding the UI.
+- **Data integration.** `/platform/status/summary` now aggregates `PlatformStatusReport`, incident, and maintenance records persisted through the new service layer so every toast reflects the canonical operations ledger in real time.【F:gigvora-backend-nodejs/src/services/platformStatusService.js†L3-L38】【F:gigvora-backend-nodejs/src/models/platformStatusModels.js†L1-L248】
 - **Logic usefulness.** Acknowledgement fingerprints, severity thresholds, and maintenance windows ensure the toast only reappears when business-critical signals change, protecting operator focus while keeping compliance teams informed.
 - **Redundancies.** Centralised normalisation collapses disparate status payloads, eliminating ad-hoc toast implementations and ensuring every surface consumes the same status summary.
 - **Placeholders or non-working functions or stubs.** Operational, incident, and maintenance cases render production copy, CTA routing, and analytics, replacing the placeholder banners called out in earlier audits.
@@ -193,6 +194,7 @@
 
 - **Appraisal.** Floating feedback pulse showcases a premium voice-of-customer panel with glowing trigger, editorial copy, and executive reassurance to match LinkedIn-grade UX councils.
 - **Functionality.** Eligibility checks, auto-open timers, reaction buttons, text capture, analytics, and submission flows ensure feedback loops operate end-to-end without dead ends.
+- **Data integration.** `/platform/feedback/pulse` endpoints persist prompt states, responses, and cooldown windows so the pulse honours executive feedback policy across sessions and devices.【F:gigvora-backend-nodejs/src/services/platformFeedbackService.js†L1-L175】【F:gigvora-backend-nodejs/src/routes/platformFeedbackRoutes.js†L1-L45】
 - **Logic usefulness.** Snooze windows, reaction telemetry, and persona-aware prompts guarantee signals remain actionable and respectful of operator focus.
 - **Redundancies.** Shared helpers govern storage, eligibility, and theming so teams retire bespoke modals or survey banners.
 - **Placeholders or non-working functions or stubs.** Real prompts, analytics, and submission endpoints replace placeholder dialogs, shipping a production-grade pulse.

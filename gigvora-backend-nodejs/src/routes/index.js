@@ -14,6 +14,8 @@ import authRoutes from './authRoutes.js';
 import autoAssignRoutes from './autoAssignRoutes.js';
 import blogAdminRoutes from './blogAdminRoutes.js';
 import blogRoutes from './blogRoutes.js';
+import platformStatusRoutes from './platformStatusRoutes.js';
+import platformFeedbackRoutes from './platformFeedbackRoutes.js';
 import clientPortalRoutes from './clientPortalRoutes.js';
 import collaborationRoutes from './collaborationRoutes.js';
 import companyRoutes from './companyRoutes.js';
@@ -84,6 +86,8 @@ const routeDefinitions = [
   ['/client-portals', clientPortalRoutes],
   ['/collaboration', collaborationRoutes],
   ['/presence', presenceRoutes],
+  ['/platform/status', platformStatusRoutes],
+  ['/platform/feedback', platformFeedbackRoutes],
   ['/company/creation-studio', creationStudioRoutes],
   ['/company/id-verifications', companyIdentityVerificationRoutes],
   ['/company/integrations', companyIntegrationRoutes],

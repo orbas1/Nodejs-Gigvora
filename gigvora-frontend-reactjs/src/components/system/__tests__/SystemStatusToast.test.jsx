@@ -1,18 +1,21 @@
+import { act } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import SystemStatusToast from '../SystemStatusToast.jsx';
 
-const fetchResourceMock = vi.fn();
-const subscribeMock = vi.fn();
-const analyticsTrackMock = vi.fn();
+const mocks = vi.hoisted(() => ({
+  fetchResourceMock: vi.fn(),
+  subscribeMock: vi.fn(),
+  analyticsTrackMock: vi.fn(),
+}));
 
 vi.mock('../../../context/DataFetchingLayer.js', () => ({
   __esModule: true,
   useDataFetchingLayer: () => ({
     buildKey: (method, path) => `${method}:${path}`,
-    fetchResource: fetchResourceMock,
-    subscribe: subscribeMock,
+    fetchResource: mocks.fetchResourceMock,
+    subscribe: mocks.subscribeMock,
   }),
 }));
 
@@ -26,7 +29,7 @@ vi.mock('../../../context/ThemeProvider.tsx', () => ({
 
 vi.mock('../../../services/analytics.js', () => ({
   __esModule: true,
-  default: { track: analyticsTrackMock },
+  default: { track: mocks.analyticsTrackMock },
 }));
 
 vi.mock('../../../context/SessionContext.jsx', () => ({
@@ -37,7 +40,7 @@ describe('SystemStatusToast', () => {
   let storage;
 
   beforeEach(() => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     storage = new Map();
     Object.defineProperty(window, 'localStorage', {
       configurable: true,
@@ -51,35 +54,44 @@ describe('SystemStatusToast', () => {
         },
       },
     });
-    subscribeMock.mockReset();
-    subscribeMock.mockReturnValue(() => {});
-    fetchResourceMock.mockReset();
-    analyticsTrackMock.mockReset();
+    mocks.subscribeMock.mockReset();
+    mocks.subscribeMock.mockReturnValue(() => {});
+    mocks.fetchResourceMock.mockReset();
+    mocks.fetchResourceMock.mockImplementation(() =>
+      Promise.resolve({ severity: 'operational', summary: 'All good', incidents: [], maintenances: [] }),
+    );
+    mocks.analyticsTrackMock.mockReset();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await act(async () => {
+      vi.runOnlyPendingTimers();
+      vi.clearAllTimers();
+    });
     vi.useRealTimers();
     vi.clearAllMocks();
     Reflect.deleteProperty(window, 'localStorage');
   });
 
   it('does not display toast when system is operational', async () => {
-    fetchResourceMock.mockResolvedValueOnce({ severity: 'operational', summary: 'All good' });
-
     render(<SystemStatusToast />);
 
-    await waitFor(() => expect(fetchResourceMock).toHaveBeenCalled());
+    await waitFor(() => expect(mocks.fetchResourceMock).toHaveBeenCalled());
+    await act(async () => {
+      await Promise.resolve();
+    });
     expect(screen.queryByRole('status')).toBeNull();
   });
 
   it('renders degraded incident details and stores acknowledgement on dismiss', async () => {
     const updatedAt = new Date().toISOString();
-    fetchResourceMock.mockResolvedValueOnce({
-      severity: 'degraded',
-      summary: 'Investigating messaging delays',
-      incidents: [
-        {
-          id: 'inc-1',
+    mocks.fetchResourceMock.mockImplementation(() =>
+      Promise.resolve({
+        severity: 'degraded',
+        summary: 'Investigating messaging delays',
+        incidents: [
+          {
+            id: 'inc-1',
           title: 'Messaging delays',
           severity: 'degraded',
           status: 'investigating',
@@ -87,11 +99,16 @@ describe('SystemStatusToast', () => {
           services: ['Messaging'],
         },
       ],
-      statusPageUrl: 'https://status.gigvora.com',
-      updatedAt,
-    });
+        statusPageUrl: 'https://status.gigvora.com',
+        updatedAt,
+      }),
+    );
 
     render(<SystemStatusToast autoHideMinutes={12} />);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     const status = await screen.findByRole('status');
     expect(status).toHaveTextContent('Messaging delays');
@@ -108,24 +125,30 @@ describe('SystemStatusToast', () => {
 
   it('invokes onNavigate when opening the status page', async () => {
     const updatedAt = new Date().toISOString();
-    fetchResourceMock.mockResolvedValueOnce({
-      severity: 'degraded',
-      summary: 'Partial outage',
-      statusPageUrl: 'https://status.gigvora.com',
-      incidents: [
-        {
-          id: 'inc-2',
-          title: 'API latency',
-          severity: 'degraded',
-          status: 'investigating',
-          updatedAt,
-        },
-      ],
-      updatedAt,
-    });
+    mocks.fetchResourceMock.mockImplementation(() =>
+      Promise.resolve({
+        severity: 'degraded',
+        summary: 'Partial outage',
+        statusPageUrl: 'https://status.gigvora.com',
+        incidents: [
+          {
+            id: 'inc-2',
+            title: 'API latency',
+            severity: 'degraded',
+            status: 'investigating',
+            updatedAt,
+          },
+        ],
+        updatedAt,
+      }),
+    );
     const handleNavigate = vi.fn();
 
     render(<SystemStatusToast onNavigate={handleNavigate} />);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     await screen.findByRole('status');
 

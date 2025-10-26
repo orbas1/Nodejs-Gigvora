@@ -1,20 +1,23 @@
+import { act } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import FeedbackPulse from '../FeedbackPulse.jsx';
 
-const fetchResourceMock = vi.fn();
-const mutateResourceMock = vi.fn();
-const subscribeMock = vi.fn();
-const analyticsTrackMock = vi.fn();
+const mocks = vi.hoisted(() => ({
+  fetchResourceMock: vi.fn(),
+  mutateResourceMock: vi.fn(),
+  subscribeMock: vi.fn(),
+  analyticsTrackMock: vi.fn(),
+}));
 
 vi.mock('../../../context/DataFetchingLayer.js', () => ({
   __esModule: true,
   useDataFetchingLayer: () => ({
     buildKey: (method, path, params) => `${method}:${path}:${params?.promptId ?? ''}`,
-    fetchResource: fetchResourceMock,
-    mutateResource: mutateResourceMock,
-    subscribe: subscribeMock,
+    fetchResource: mocks.fetchResourceMock,
+    mutateResource: mocks.mutateResourceMock,
+    subscribe: mocks.subscribeMock,
   }),
 }));
 
@@ -28,7 +31,7 @@ vi.mock('../../../context/ThemeProvider.tsx', () => ({
 
 vi.mock('../../../services/analytics.js', () => ({
   __esModule: true,
-  default: { track: analyticsTrackMock },
+  default: { track: mocks.analyticsTrackMock },
 }));
 
 vi.mock('../../../context/SessionContext.jsx', () => ({
@@ -39,7 +42,7 @@ describe('FeedbackPulse', () => {
   let storage;
 
   beforeEach(() => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     storage = new Map();
     Object.defineProperty(window, 'localStorage', {
       configurable: true,
@@ -58,15 +61,20 @@ describe('FeedbackPulse', () => {
         return setTimeout(callback, 0);
       };
     }
-    subscribeMock.mockReset();
-    subscribeMock.mockReturnValue(() => {});
-    fetchResourceMock.mockReset();
-    mutateResourceMock.mockReset();
-    analyticsTrackMock.mockReset();
-    fetchResourceMock.mockResolvedValue({ eligible: true });
+    mocks.subscribeMock.mockReset();
+    mocks.subscribeMock.mockReturnValue(() => {});
+    mocks.fetchResourceMock.mockReset();
+    mocks.mutateResourceMock.mockReset();
+    mocks.analyticsTrackMock.mockReset();
+    mocks.fetchResourceMock.mockImplementation(() => Promise.resolve({ eligible: true }));
+    mocks.mutateResourceMock.mockImplementation(() => Promise.resolve({}));
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await act(async () => {
+      vi.runOnlyPendingTimers();
+      vi.clearAllTimers();
+    });
     vi.useRealTimers();
     vi.clearAllMocks();
     Reflect.deleteProperty(window, 'localStorage');
@@ -75,19 +83,35 @@ describe('FeedbackPulse', () => {
   it('auto opens after the configured delay', async () => {
     render(<FeedbackPulse initialDelay={200} />);
 
-    await waitFor(() => expect(fetchResourceMock).toHaveBeenCalled());
+    await waitFor(() => expect(mocks.fetchResourceMock).toHaveBeenCalled());
     expect(screen.queryByText(/feedback pulse/i)).toBeNull();
 
-    vi.advanceTimersByTime(220);
+    await act(async () => {
+      await Promise.resolve();
+    });
 
-    await screen.findByText(/feedback pulse/i);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(220);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await waitFor(() =>
+      expect(mocks.analyticsTrackMock).toHaveBeenCalledWith(
+        'feedback_pulse_opened',
+        expect.objectContaining({ context: expect.objectContaining({ auto: true }) }),
+      ),
+    );
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: /share feedback/i })).toBeNull());
   });
 
   it('submits feedback and shows thank you state', async () => {
-    mutateResourceMock.mockResolvedValueOnce({});
     render(<FeedbackPulse initialDelay={100000} />);
 
-    await waitFor(() => expect(fetchResourceMock).toHaveBeenCalled());
+    await waitFor(() => expect(mocks.fetchResourceMock).toHaveBeenCalled());
 
     const trigger = screen.getByRole('button', { name: /share feedback/i });
     await userEvent.click(trigger);
@@ -101,7 +125,7 @@ describe('FeedbackPulse', () => {
     const submit = screen.getByRole('button', { name: /send feedback/i });
     await userEvent.click(submit);
 
-    await waitFor(() => expect(mutateResourceMock).toHaveBeenCalled());
+    await waitFor(() => expect(mocks.mutateResourceMock).toHaveBeenCalled());
 
     await screen.findByText(/we received your feedback/i);
     expect(screen.getByText(/thank you for helping us/i)).toBeInTheDocument();
@@ -110,7 +134,7 @@ describe('FeedbackPulse', () => {
   it('snoozes when dismissed', async () => {
     render(<FeedbackPulse initialDelay={100000} snoozeMinutes={30} />);
 
-    await waitFor(() => expect(fetchResourceMock).toHaveBeenCalled());
+    await waitFor(() => expect(mocks.fetchResourceMock).toHaveBeenCalled());
 
     const trigger = screen.getByRole('button', { name: /share feedback/i });
     await userEvent.click(trigger);
