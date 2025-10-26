@@ -70,6 +70,7 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
     ? activeBlueprint.metrics
     : FALLBACK_BLUEPRINT.metrics;
   const activePrimaryCta = activeBlueprint.primaryCta ?? FALLBACK_BLUEPRINT.primaryCta;
+  const activeSupportLead = activeBlueprint.supportLead;
 
   return (
     <Menu as="div" className="relative inline-flex">
@@ -101,6 +102,11 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
                 <div className="space-y-1">
                   <p className="text-sm font-semibold text-slate-900">{activeOption.label}</p>
                   <p className="text-xs text-slate-500">{activeBlueprint.tagline ?? FALLBACK_BLUEPRINT.tagline}</p>
+                  {activeSupportLead ? (
+                    <p className="text-[0.65rem] uppercase tracking-[0.3em] text-slate-400">
+                      {activeSupportLead}
+                    </p>
+                  ) : null}
                   <div className="flex flex-wrap gap-2">
                     {activeFocusAreas.map((area) => (
                       <span
@@ -136,12 +142,13 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
             const primaryCta = blueprint.primaryCta ?? FALLBACK_BLUEPRINT.primaryCta;
             const timelineActive = option.timelineEnabled ?? blueprint.timelineEnabled ?? false;
             const destination = option.to ?? blueprint.defaultRoute ?? '#';
+            const timelineLabel = blueprint.timelineLabel ?? (timelineActive ? 'Timeline live' : 'Timeline pending');
             return (
               <Menu.Item key={option.key}>
                 {({ active }) => (
                   <Link
                     to={destination}
-                    onClick={onSelect}
+                    onClick={() => onSelect?.(option.key, { option, blueprint })}
                     className={classNames(
                       'flex flex-col gap-3 rounded-2xl border border-transparent px-3 py-3 transition',
                       option.key === activeOption.key
@@ -188,7 +195,7 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
                               : 'bg-amber-100 text-amber-700',
                         )}
                       >
-                        {timelineActive ? 'Timeline live' : 'Timeline pending'}
+                        {timelineLabel}
                       </span>
                     </div>
                     <dl
