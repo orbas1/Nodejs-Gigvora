@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import DataStatus from '../../components/DataStatus.jsx';
@@ -9,6 +9,9 @@ import EscrowTransactionsPanel from '../../components/company/escrow/EscrowTrans
 import EscrowAutomationPanel from '../../components/company/escrow/EscrowAutomationPanel.jsx';
 import EscrowDisputesPanel from '../../components/company/escrow/EscrowDisputesPanel.jsx';
 import EscrowActivityPanel from '../../components/company/escrow/EscrowActivityPanel.jsx';
+import EscrowMilestoneTracker from '../../components/company/escrow/EscrowMilestoneTracker.jsx';
+import InvoiceGenerator from '../../components/company/escrow/InvoiceGenerator.jsx';
+import SubscriptionManager from '../../components/company/escrow/SubscriptionManager.jsx';
 import { useSession } from '../../context/SessionContext.jsx';
 import { useCompanyEscrowManagement } from '../../hooks/useCompanyEscrowManagement.js';
 import { COMPANY_DASHBOARD_MENU_SECTIONS } from '../../constants/companyDashboardMenu.js';
@@ -19,7 +22,10 @@ const SECTION_NAV = [
   { id: 'overview', label: 'Overview' },
   { id: 'accounts', label: 'Accounts' },
   { id: 'flow', label: 'Flow' },
+  { id: 'milestones', label: 'Milestones' },
   { id: 'automation', label: 'Automation' },
+  { id: 'billing', label: 'Invoices' },
+  { id: 'subscriptions', label: 'Subscriptions' },
   { id: 'disputes', label: 'Disputes' },
   { id: 'activity', label: 'Activity' },
 ];
@@ -173,6 +179,215 @@ export default function CompanyEscrowManagementPage() {
   const profile = useMemo(() => buildProfile(data), [data]);
   const currency = data?.workspace?.defaultCurrency ?? 'USD';
   const summary = data?.summary ?? null;
+  const automation = data?.automation ?? null;
+
+  const [milestoneTrackerState, setMilestoneTrackerState] = useState({
+    milestones: [],
+    releaseQueue: [],
+  });
+
+  useEffect(() => {
+    setMilestoneTrackerState({
+      milestones: Array.isArray(data?.milestones) ? data.milestones : [],
+      releaseQueue: Array.isArray(data?.releaseQueue) ? data.releaseQueue : [],
+    });
+  }, [data?.milestones, data?.releaseQueue]);
+
+  const milestoneSummary = useMemo(
+    () => ({
+      currency,
+      automationMode:
+        automation?.releasePolicy === 'manual'
+          ? 'Manual review'
+          : automation?.releasePolicy === 'time_based'
+          ? 'Scheduled releases'
+          : 'Dual control',
+      coverage:
+        (milestoneTrackerState.milestones?.length ?? 0) +
+        (milestoneTrackerState.releaseQueue?.length ?? 0),
+    }),
+    [automation?.releasePolicy, currency, milestoneTrackerState.milestones?.length, milestoneTrackerState.releaseQueue?.length],
+  );
+
+  const riskInsights = data?.riskInsights ?? summary?.riskInsights ?? null;
+
+  const getMilestoneKey = useCallback((value) => {
+    if (!value || typeof value !== 'object') {
+      return value;
+    }
+    return (
+      value.id ??
+      value.transactionId ??
+      value.releaseTransactionId ??
+      value.reference ??
+      value.milestoneId ??
+      value.milestoneLabel ??
+      null
+    );
+  }, []);
+
+  const handleApproveMilestone = useCallback(
+    (milestone) => {
+      const key = getMilestoneKey(milestone);
+      setMilestoneTrackerState((previous) => ({
+        milestones: previous.milestones.map((item) =>
+          getMilestoneKey(item) === key
+            ? {
+                ...item,
+                status: 'approved',
+                releaseEligible: true,
+                approvals: [],
+              }
+            : item,
+        ),
+        releaseQueue: previous.releaseQueue.map((item) =>
+          getMilestoneKey(item) === key
+            ? {
+                ...item,
+                status: 'approved',
+                releaseEligible: true,
+              }
+            : item,
+        ),
+      }));
+      return Promise.resolve();
+    },
+    [getMilestoneKey],
+  );
+
+  const handleReleaseMilestone = useCallback(
+    (milestone) => {
+      const key = getMilestoneKey(milestone);
+      setMilestoneTrackerState((previous) => ({
+        milestones: previous.milestones.map((item) =>
+          getMilestoneKey(item) === key
+            ? {
+                ...item,
+                status: 'released',
+                releaseEligible: false,
+              }
+            : item,
+        ),
+        releaseQueue: previous.releaseQueue.filter((item) => getMilestoneKey(item) !== key),
+      }));
+
+      const transactionId = milestone.releaseTransactionId ?? milestone.transactionId ?? milestone.id;
+      if (!transactionId) {
+        return refresh({ force: true });
+      }
+
+      return releaseTransaction(transactionId, {
+        origin: 'company-escrow-tracker',
+        milestoneId: key,
+      }).then(() => refresh({ force: true }));
+    },
+    [getMilestoneKey, refresh, releaseTransaction],
+  );
+
+  const handleEscalateMilestone = useCallback(
+    (milestone) => {
+      const key = getMilestoneKey(milestone);
+      setMilestoneTrackerState((previous) => ({
+        milestones: previous.milestones.map((item) =>
+          getMilestoneKey(item) === key
+            ? {
+                ...item,
+                status: 'disputed',
+                disputed: true,
+              }
+            : item,
+        ),
+        releaseQueue: previous.releaseQueue,
+      }));
+
+      const transactionId = milestone.releaseTransactionId ?? milestone.transactionId ?? milestone.id;
+      if (!transactionId) {
+        return Promise.resolve();
+      }
+
+      return refundTransaction(transactionId, {
+        reason: 'dispute_escalated',
+        milestoneId: key,
+      }).then(() => refresh({ force: true }));
+    },
+    [getMilestoneKey, refundTransaction, refresh],
+  );
+
+  const invoiceDraft = useMemo(
+    () => data?.billing?.draftInvoice ?? data?.draftInvoice ?? null,
+    [data?.billing?.draftInvoice, data?.draftInvoice],
+  );
+  const invoiceTemplates = useMemo(
+    () => data?.billing?.templates ?? data?.invoiceTemplates ?? [],
+    [data?.billing?.templates, data?.invoiceTemplates],
+  );
+  const invoiceItemLibrary = useMemo(
+    () => data?.billing?.itemLibrary ?? data?.itemLibrary ?? [],
+    [data?.billing?.itemLibrary, data?.itemLibrary],
+  );
+  const invoiceClients = useMemo(() => {
+    if (Array.isArray(data?.clients)) {
+      return data.clients;
+    }
+    if (Array.isArray(data?.members)) {
+      return data.members.map((member) => ({
+        id: member.id ?? member.email ?? member.name,
+        name: member.name ?? member.displayName ?? member.email ?? 'Client',
+        email: member.email ?? '',
+        company: member.company ?? member.organization ?? '',
+      }));
+    }
+    return [];
+  }, [data?.clients, data?.members]);
+
+  const [savedInvoiceDraft, setSavedInvoiceDraft] = useState(invoiceDraft);
+  useEffect(() => {
+    setSavedInvoiceDraft(invoiceDraft);
+  }, [invoiceDraft]);
+
+  const handleInvoicePreview = useCallback((payload) => Promise.resolve(payload), []);
+
+  const handleInvoiceSaveDraft = useCallback(
+    (payload) => {
+      setSavedInvoiceDraft(payload);
+      return refresh({ force: true });
+    },
+    [refresh],
+  );
+
+  const handleInvoiceGenerate = useCallback((payload) => Promise.resolve(payload), []);
+  const handleInvoiceSend = useCallback((payload) => Promise.resolve(payload), []);
+
+  const subscriptionSource = useMemo(
+    () => data?.subscriptions ?? data?.subscriptionManagement ?? {},
+    [data?.subscriptionManagement, data?.subscriptions],
+  );
+
+  const [subscriptionUsage, setSubscriptionUsage] = useState(subscriptionSource.usage ?? null);
+  useEffect(() => {
+    setSubscriptionUsage(subscriptionSource.usage ?? null);
+  }, [subscriptionSource.usage]);
+
+  const handlePlanChange = useCallback(
+    (plan, billingCycle) => {
+      setSubscriptionUsage((previous) => ({
+        ...(previous ?? {}),
+        planId: plan.id,
+        seatsIncluded: plan.seatsIncluded ?? previous?.seatsIncluded ?? plan.metrics?.seats ?? 0,
+        billingCycle,
+      }));
+      return refresh({ force: true });
+    },
+    [refresh],
+  );
+
+  const handleManageSeats = useCallback(() => {
+    navigate('/dashboard/company/workforce?focus=seats');
+  }, [navigate]);
+
+  const handleManageAddOns = useCallback(() => {
+    navigate('/dashboard/company/integrations?focus=addons');
+  }, [navigate]);
 
   const handleWorkspaceChange = (event) => {
     const value = event.target.value;
@@ -314,12 +529,67 @@ export default function CompanyEscrowManagementPage() {
           </section>
 
           <section
+            id="milestones"
+            data-section-id="milestones"
+            ref={registerSectionRef('milestones')}
+            className="scroll-mt-28"
+          >
+            <EscrowMilestoneTracker
+              milestones={milestoneTrackerState.milestones}
+              releaseQueue={milestoneTrackerState.releaseQueue}
+              summary={milestoneSummary}
+              riskInsights={riskInsights}
+              currency={currency}
+              onApproveMilestone={handleApproveMilestone}
+              onReleaseMilestone={handleReleaseMilestone}
+              onEscalateMilestone={handleEscalateMilestone}
+              onRefresh={() => refresh({ force: true })}
+            />
+          </section>
+
+          <section
             id="automation"
             data-section-id="automation"
             ref={registerSectionRef('automation')}
             className="scroll-mt-28"
           >
             <EscrowAutomationPanel automation={data?.automation} onUpdate={updateAutomation} currentUserId={session?.id} />
+          </section>
+
+          <section
+            id="billing"
+            data-section-id="billing"
+            ref={registerSectionRef('billing')}
+            className="scroll-mt-28"
+          >
+            <InvoiceGenerator
+              draft={savedInvoiceDraft ?? invoiceDraft}
+              currency={currency}
+              clients={invoiceClients}
+              templates={invoiceTemplates}
+              itemLibrary={invoiceItemLibrary}
+              onPreview={handleInvoicePreview}
+              onSaveDraft={handleInvoiceSaveDraft}
+              onGenerate={handleInvoiceGenerate}
+              onSend={handleInvoiceSend}
+            />
+          </section>
+
+          <section
+            id="subscriptions"
+            data-section-id="subscriptions"
+            ref={registerSectionRef('subscriptions')}
+            className="scroll-mt-28"
+          >
+            <SubscriptionManager
+              plans={subscriptionSource.plans ?? []}
+              usage={subscriptionUsage}
+              currency={currency}
+              onChangePlan={handlePlanChange}
+              onManageSeats={handleManageSeats}
+              onManageAddOns={handleManageAddOns}
+              onRefresh={() => refresh({ force: true })}
+            />
           </section>
 
           <section className="grid gap-6 lg:grid-cols-2">

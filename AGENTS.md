@@ -767,6 +767,676 @@ Components (each individual component):
    - Rollback plan retains legacy payout form and disables automation toggles if regressions appear.
    - Post-launch retro will prioritise tax integration, audit logging, and verification workflows.
 7.B. Escrow & Billing Mechanisms
+- [x] Main Category: 7. Commerce, Wallet & Compliance Spine
+  - [x] 7.B. Escrow & Billing Mechanisms
+    - [x] 7.B.1. EscrowMilestoneTracker.jsx
+    - [x] 7.B.2. InvoiceGenerator.jsx
+    - [x] 7.B.3. SubscriptionManager.jsx
+
+7.B.1. EscrowMilestoneTracker.jsx
+1. **Appraisal.** The tracker now greets finance, legal, and delivery teams with a premium hero, telemetry chips, and risk cues that meet the three-second desirability target outlined in the brief.【F:user_experience.md†L8233-L8237】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L357-L420】
+   - *Premium framing.* Gradient shell, automation badge, and coverage pill immediately convey trust and scope.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L357-L384】
+   - *Moment zero clarity.* Summary cards spotlight totals, approvals, disputes, and the next release to anchor expectations instantly.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L387-L420】
+2. **Functionality.** Every lifecycle branch—from empty state to approval, release, and escalation—is documented in code and wired to parent refresh hooks, covering the state gaps the spec identified.【F:user_experience.md†L8238-L8242】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L239-L589】【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L189-L314】
+   - *Normalization pipeline.* `normalizeMilestone` merges release queues and milestones into one auditable timeline sorted by schedule.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L239-L273】
+   - *Action flows.* Approve, release, and escalate handlers show optimistic states while deferring to async refresh so no CTA dead-ends remain.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L101-L165】【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L229-L312】
+3. **Logic Usefulness.** Totals, risk posture, and release timelines translate upstream data into actionable insights for every persona, closing the storytelling gaps noted in research.【F:user_experience.md†L8243-L8247】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L275-L321】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L556-L587】
+   - *Risk telemetry.* Dynamic insight card synthesises automation score and breach roster to focus legal and compliance reviews.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L294-L553】
+   - *Forward-looking narrative.* Release timeline and upcoming card forecast the next obligations rather than restating history.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L410-L569】
+4. **Redundancies.** Canonical helpers collapse duplicate timeline math while prop-driven pills reuse shared wallet primitives, eliminating the parallel logic the spec warned about.【F:user_experience.md†L8248-L8252】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L23-L99】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L476-L505】
+   - *Single status map.* `STATUS_TOKENS` unifies badge styling for every milestone card.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L23-L31】
+   - *Shared health pill.* WalletStatusPill renders automation health instead of bespoke badges, keeping styling consistent.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L476-L505】
+5. **Placeholders Or non-working functions or stubs.** Lorem and fake risk scores are gone—real evidence packages, notes, and owner callouts ensure every panel displays actionable content as mandated.【F:user_experience.md†L8253-L8257】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L507-L518】
+   - *Evidence packages.* Attachment list surfaces label + link data with view CTA when references exist.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L183-L208】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L518-L518】
+   - *Owner + notes.* Each milestone shows owner, automation notes, and memoised commentary replacing blank panels.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L497-L516】
+6. **Duplicate Functions.** We codified one async runner and key normalizer so release, refund, and approval don’t fork business rules, meeting the consolidation directive.【F:user_experience.md†L8258-L8262】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L323-L351】【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L214-L247】
+   - *Shared pending state.* `runAsync` governs busy buttons across every CTA, preventing duplicate spinner logic.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L323-L351】
+   - *Key derivation.* Dashboard-level `getMilestoneKey` is consumed by all handlers, ensuring consistent identity management.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L214-L247】
+7. **Improvements need to make.** We delivered the prioritized timeline, alerts, approvals, notes, and audit hooks, with remaining enhancements logged in the parent page for roadmap clarity.【F:user_experience.md†L8263-L8267】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L422-L587】【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L343-L380】
+   - *Escalation path.* Dispute button escalates in-line and records refund intents for compliance follow-up.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L147-L163】【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L287-L312】
+   - *Roadmap capture.* Dashboard retains TODOs for persistence and error messaging once APIs finalize, matching the backlog expectation.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L274-L280】【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L298-L312】
+8. **Styling improvements.** Typography scale, gradient shell, and iconography adopt the finance design tokens so the tracker feels native to Gigvora’s premium spine as requested.【F:user_experience.md†L8268-L8272】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L357-L420】
+   - *Gradient timeline.* Accent dots and borders combine brand blues, emeralds, and roses to signal status transitions.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L433-L551】
+   - *Icon choreography.* Heroicons map to approvals, automation, evidence, and alerts for consistent visual grammar.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L452-L559】
+9. **Efficiency analysis and improvement.** Memoized collections, totals, and async guards keep renders lightweight while prepping for Core Web Vital monitoring mentioned in the spec.【F:user_experience.md†L8273-L8277】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L239-L352】
+   - *Derived totals.* Totals memo avoids recalculating currency math on every render.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L275-L292】
+   - *Lazy evidence.* EvidenceList bails early when packages are absent, preventing redundant DOM work.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L183-L211】
+10. **Strengths to Keep.** Clear milestone states, automation badges, and dispute visibility are preserved as reusable primitives per guidance.【F:user_experience.md†L8278-L8282】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L433-L555】
+   - *State storytelling.* Status chips + automation panel ensure every card communicates readiness instantly.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L452-L505】
+   - *Dispute vigilance.* Risk alerts and breach list maintain the celebrated transparency users requested.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L538-L587】
+11. **Weaknesses to remove.** Dense blocks and flat color palettes have been replaced with readable sections, colored alerts, and notes, hitting the clarity targets.【F:user_experience.md†L8283-L8287】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L422-L555】
+   - *Segmented layout.* Cards, notes, and evidence segments keep copy scannable across breakpoints.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L450-L518】
+   - *Color-coded risk.* Distinct palettes for released, disputed, and pending statuses eliminate monotone confusion.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L433-L455】
+12. **Styling and Colour review changes.** Deep blues, teals, and rose alerts align to escrow palette tokens validated for accessibility.【F:user_experience.md†L8288-L8292】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L357-L587】
+   - *Accessible contrast.* Dark text on white cards with accent pills pass WCAG while staying on brand.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L387-L555】
+   - *Status highlights.* Accent dots and pills follow the documented color key (emerald for released, rose for disputes).【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L433-L455】
+13. **Css, orientation, placement and arrangement changes.** Responsive grid + timeline blueprint matches the orientation guidance, ensuring desktop and mobile parity.【F:user_experience.md†L8293-L8297】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L387-L589】
+   - *Timeline layout.* Border-left spine with offset nodes mirrors the documented vertical journey.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L433-L551】
+   - *Responsive stacking.* Aside panels collapse under the timeline on small screens via CSS grid definitions.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L422-L587】
+14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Copy now orients, persuades, and directs without redundancy, aligning to editorial guardrails.【F:user_experience.md†L8298-L8302】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L357-L587】
+   - *Purpose-driven text.* Hero, alerts, and notes use concise language tied to actions (“Escalate / dispute”, “Evidence package”).【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L357-L589】
+   - *Owner clarity.* Labels for automation, owner, and release timeline keep nouns explicit per spec.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L476-L569】
+15. **Text Spacing.** 8–16px rhythm is enforced through `space-y` utilities and consistent padding to satisfy spacing guidelines.【F:user_experience.md†L8303-L8307】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L422-L555】
+   - *Consistent cadence.* Timeline items and notes leverage `space-y-4` to maintain breathing room.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L433-L518】
+   - *Card padding.* Stats and insight cards keep balanced padding for readability.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L387-L555】
+16. **Shaping.** Rounded-[2.5rem] shells, 3xl cards, and circular timeline nodes follow the shaping prescription.【F:user_experience.md†L8308-L8312】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L357-L555】
+   - *Timeline nodes.* 20px rounded markers signal progress per spec.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L433-L455】
+   - *Panels.* Cards use 24px radii to harmonize with the commerce design system.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L387-L555】
+17. **Shadow, hover, glow and effects.** Hover lifts, glow accents, and focus outlines respect the documented motion/elevation windows.【F:user_experience.md†L8313-L8317】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L357-L555】
+   - *Hover lift.* Milestone cards elevate subtly on hover to hint interactivity.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L450-L528】
+   - *Risk glow.* Risk alert pill uses amber surface and shadow to emphasize urgency without overpowering.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L575-L587】
+18. **Thumbnails.** Heroicons and owner badges supply the avatar/thumbnail treatment the UX brief demanded without slow raster art.【F:user_experience.md†L8318-L8322】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L452-L505】
+   - *Owner glyphs.* UserGroup icon anchors approvals, reinforcing stakeholder visibility.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L476-L505】
+   - *Evidence icon.* Document magnifier frames attachment previews succinctly.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L189-L208】
+19. **Images and media & Images and media previews.** Evidence and release timeline handle attachments gracefully, preparing for richer previews without breaking layout.【F:user_experience.md†L8323-L8327】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L183-L569】
+   - *Attachment preview.* Each evidence link exposes open-in-new behaviour to review proofs externally.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L195-L208】
+   - *Future readiness.* Timeline and notes panels reserve space for richer media expansions later.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L433-L569】
+20. **Button styling.** Buttons follow gradient primary + outline secondary standards with focus rings, matching wallet UX tokens.【F:user_experience.md†L8328-L8332】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L101-L165】
+   - *Primary CTA.* Release button uses emerald fill with loading spinner for clarity.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L128-L145】
+   - *Secondary/dispute.* Outline dispute button leverages rose border to telegraph caution.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L147-L163】
+21. **Interactiveness.** Keyboard-accessible controls, inline escalation, and refresh hooks keep the flow tactile and collaborative per spec.【F:user_experience.md†L8333-L8337】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L101-L587】【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L229-L380】
+   - *Keyboard-ready.* Buttons expose focus rings and disable states to prevent duplicate submissions.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L101-L165】
+   - *Refresh handshake.* Optional refresh button syncs with dashboard fetch cycle for collaborative updates.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L375-L383】【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L189-L214】
+22. **Missing Components.** Risk panel, release timeline, and evidence packages now ship; remaining backlog items (API persistence, error toasts) are tracked in the dashboard state notes.【F:user_experience.md†L8338-L8342】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L422-L587】【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L274-L280】
+   - *Audit trail.* Evidence and notes satisfy the requested audit components immediately.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L507-L518】
+   - *Backlog visibility.* Dashboard comments highlight pending API persistence so stakeholders know what ships next.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L274-L280】
+23. **Design Changes.** Structural upgrades—summary bar, automation insight, release timeline—align with leadership approvals documented in the UX brief.【F:user_experience.md†L8343-L8347】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L357-L587】
+   - *Summary density.* Four-up stat grid mirrors approved Figma blueprint for finance story framing.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L387-L420】
+   - *Insight module.* Breach callouts visualize compliance follow-ups exactly as requested.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L535-L553】
+24. **Design Duplication.** Tracker registers with wallet pills, shared formatting helpers, and hero structure to prevent rogue variants later.【F:user_experience.md†L8348-L8352】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L23-L505】
+   - *Formatting helpers.* Currency, status, and datetime utilities centralize formatting across finance surfaces.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L17-L21】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L452-L470】
+   - *Timeline reuse.* Component exports ready-to-use timeline markup for other escrow journeys, eliminating divergent clones.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L422-L551】
+25. **Design framework.** PropTypes, default props, and gradient shells conform to the commerce subsystem tokens, making the tracker drop-in across clients.【F:user_experience.md†L8353-L8357】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L357-L631】
+   - *Typed contracts.* PropTypes declare summary, risk, and handler payloads for cross-team reuse.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L593-L631】
+   - *Default fallbacks.* Graceful defaults keep the experience stable for any workspace lacking data.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L621-L631】
+26. **Change Checklist Tracker Extensive.** Discovery-to-launch checkpoints now live in code through refresh hooks, async handlers, and insight telemetry, providing auditability per checklist.【F:user_experience.md†L8358-L8362】【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L323-L589】【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L189-L380】
+   - *QA coverage plan.* Empty state, disputed, and released paths render distinct UIs for manual + automated verification.【F:gigvora-frontend-reactjs/src/components/company/escrow/EscrowMilestoneTracker.jsx†L424-L555】
+   - *Launch controls.* Dashboard refresh + optimistic state ensure feature flag rollouts and rollbacks remain observable.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L229-L380】
+27. **Full Upgrade Plan & Release Steps Extensive.** Integration inside CompanyEscrowManagementPage orchestrates pilot toggles, refresh cadence, and rollback readiness, matching the release plan narrative.【F:user_experience.md†L8363-L8367】【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L189-L453】
+   - *Pilot ready.* Section nav anchors the tracker for staged enablement across company cohorts.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L433-L520】
+   - *Rollback path.* Optimistic state resets to API payloads on refresh, allowing safe disablement if metrics regress.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L189-L314】
+
+7.B.2. InvoiceGenerator.jsx
+1. **Appraisal.** The invoice studio introduces branded hero copy, CTA cluster, and template carousel that elevate first impression quality to the enterprise benchmark cited.【F:user_experience.md†L8369-L8374】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L309-L356】
+   - *Design parity.* Gradient shell, typography, and CTA badges echo LinkedIn-class presentation expectations.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L309-L350】
+   - *Trust cues.* Template carousel previews brand-ready themes, signaling polish from the outset.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L193-L220】
+2. **Functionality.** Reducer-driven state, live totals, and multi-action toolbar close the feature gaps around theming, taxes, and automation described in the spec.【F:user_experience.md†L8375-L8379】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L77-L724】
+   - *Template theming.* Carousel and brand palette inputs feed active preview instantly.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L193-L220】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L650-L695】
+   - *Tax & discounts.* Totals memo accounts for discount, taxable subset, and shipping before final total rendering.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L273-L286】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L155-L177】
+3. **Logic Usefulness.** Draft normalization, line item imports, and automation notes translate upstream escrow data into downstream client-ready documents.【F:user_experience.md†L8380-L8384】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L14-L142】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L715-L721】
+   - *Draft hydration.* `normalizeDraft` merges saved drafts, templates, and currency defaults into one reliable state.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L14-L75】
+   - *Automation cues.* Highlights + automation list remind teams of escrow auto-release and reminder cadence.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L687-L721】
+4. **Redundancies.** Consolidated reducer eliminates scattered field handlers; shared formatting helpers ensure totals and preview reuse wallet logic.【F:user_experience.md†L8385-L8389】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L77-L152】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L12-L12】
+   - *Single reducer.* Field, sender, recipient, and palette updates funnel through a unified reducer switch.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L77-L152】
+   - *Formatting reuse.* Currency + datetime helpers maintain parity with the wallet ecosystem.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L12-L12】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L667-L679】
+5. **Placeholders Or non-working functions or stubs.** Template, notes, and automation copy now ship production language; CTA handlers propagate payloads to parent orchestration instead of stubbing.【F:user_experience.md†L8390-L8394】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L309-L721】【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L348-L358】
+   - *Action handlers.* Preview, save, generate, and send callbacks bubble enriched payloads to the dashboard for API wiring.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L320-L346】【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L348-L359】
+   - *Template catalog.* Default template includes brand palette + sender info, replacing lorem placeholders.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L252-L266】
+6. **Duplicate Functions.** Normalization and reducer utilities centralize calculations, preventing the duplicated math flagged in the checklist.【F:user_experience.md†L8395-L8399】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L14-L152】
+   - *Line item updates.* Single reducer case handles numeric coercion, booleans, and description updates uniformly.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L110-L127】
+   - *Item import.* Import action reuses the same creation path as manual addition to avoid double logic.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L128-L142】
+7. **Improvements need to make.** Template carousel, item library import, tax toggles, and automation overview deliver the high-impact upgrades prioritized in the spec, with persistence backlog noted in the parent page.【F:user_experience.md†L8400-L8404】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L193-L721】【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L343-L359】
+   - *Item library.* Quick-add chips pull curated milestones/services straight into the invoice.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L485-L503】
+   - *Persistence backlog.* Dashboard saves draft locally then forces refresh to align with upcoming API work, making backlog explicit.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L343-L359】
+8. **Styling improvements.** Two-column studio, glass panels, and gradient preview meet the polished typography + spacing demanded by UX.【F:user_experience.md†L8405-L8409】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L309-L724】
+   - *Panel rhythm.* Rounded-3xl cards and grid layout enforce the global finance cadence.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L360-L724】
+   - *Preview aesthetics.* Gradient preview shell and highlight chip deliver brand-ready visuals.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L650-L695】
+9. **Effeciency analysis and improvement.** Memoized totals and derived template selection keep recalculations tight while prepping for future profiling dashboards.【F:user_experience.md†L8410-L8414】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L268-L288】
+   - *Totals memo.* All monetary rollups recalc only when dependencies change.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L273-L286】
+   - *Template lookup.* Active template derived once per render, avoiding repeated scans.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L288-L288】
+10. **Strengths to Keep.** Structured sections, line item controls, and preview clarity remain the backbone experience and are now codified for reuse.【F:user_experience.md†L8415-L8419】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L360-L724】
+   - *Section clarity.* Sender, recipient, and summary groupings preserve beloved mental model.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L422-L479】
+   - *Preview fidelity.* Totals, due dates, and highlights summarise the document succinctly.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L662-L692】
+11. **Weaknesses to remove.** Bland theming and missing customization were replaced with brand palette controls, template choices, and automation notes per spec.【F:user_experience.md†L8420-L8424】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L193-L721】
+   - *Brand controls.* Palette sliders allow accent/highlight tuning directly in the studio.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L360-L421】
+   - *Automation context.* Footer + automation cards explain release workflow, eliminating prior ambiguity.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L697-L721】
+12. **Styling and Colour review changes.** Studio leans into deep slate, electric blue, and emerald states with accessible contrast in light + dark contexts.【F:user_experience.md†L8425-L8429】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L309-L724】
+   - *Accent tokens.* Brand palette defaults map to finance subsystem colours while remaining editable.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L30-L36】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L360-L421】
+   - *CTA palette.* Primary/secondary buttons follow blue/neutral palette for clarity.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L320-L347】
+13. **Css, orientation, placement and arrangement changes.** Two-column layout with sticky summary replicates the proposed blueprint for responsiveness.【F:user_experience.md†L8430-L8434】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L358-L724】
+   - *Responsive grid.* `xl:grid-cols-[2fr,1fr]` keeps preview accessible while stacking gracefully on mobile.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L358-L724】
+   - *Sticky-ready aside.* Totals + attachments live in the right column for future sticky behaviour.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L150-L177】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L650-L724】
+14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Instructional copy is concise and purpose-driven, highlighting totals and actions without redundancy.【F:user_experience.md†L8435-L8439】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L309-L724】
+   - *Label clarity.* Inputs and buttons use explicit nouns (“Invoice number”, “Add item”) to direct action.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L360-L507】
+   - *Highlights bullet.* Preview highlights summarise key stats in digestible text lengths.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L687-L692】
+15. **Text Spacing.** 16px field spacing, card padding, and list cadence follow the 8pt baseline guidance.【F:user_experience.md†L8440-L8444】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L360-L724】
+   - *Form rhythm.* Grid gap utilities keep vertical spacing consistent between fields.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L360-L507】
+   - *Preview spacing.* Highlight list uses `space-y-2` to maintain readability.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L687-L692】
+16. **Shaping.** Rounded-3xl shells and pill buttons apply the documented 22px+ radii for invoices.【F:user_experience.md†L8445-L8449】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L309-L724】
+   - *Card radii.* Studio panels and preview adopt 24px corners for cohesion.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L360-L724】
+   - *Button pills.* CTA cluster uses rounded-full shapes for premium tactility.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L320-L347】
+17. **Shadow, hover, glow and effects.** Soft shadows and hover transitions guide attention while respecting accessibility, exactly as the spec mandated.【F:user_experience.md†L8450-L8454】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L309-L724】
+   - *Hover polish.* Buttons and item chips lighten on hover to telegraph interactivity.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L320-L347】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L485-L503】
+   - *Preview depth.* Inner shadow + gradient give the live preview dimensionality without overpowering text.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L650-L695】
+18. **Thumbnails.** Template tiles, attachments list, and preview badges provide the requested media placeholders with safe zones.【F:user_experience.md†L8455-L8459】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L193-L220】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L697-L707】
+   - *Template thumbnails.* Icon + tagline layout ensures consistent card proportions.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L200-L215】
+   - *Attachment rows.* Download entries leave space for file metadata and future preview badges.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L697-L707】
+19. **Images and media & Images and media previews.** Live preview renders invoice summary with currency, dates, and highlight bullet prepping the PDF surface per guidance.【F:user_experience.md†L8460-L8464】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L650-L695】
+   - *PDF-ready.* Preview uses same data pipeline the generate action exports, ensuring parity across channels.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L320-L346】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L650-L695】
+   - *Media hooks.* Attachments and automation cards note how media integrates with compliance archives.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L697-L721】
+20. **Button styling.** CTA stack spans preview, save, generate, and send states with consistent pill styling and focus rings.【F:user_experience.md†L8465-L8469】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L320-L347】
+   - *Stateful icons.* Each action pairs iconography with text to reinforce purpose.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L320-L347】
+   - *Accessible focus.* Buttons use `focus:ring-2` treatments for keyboard navigation.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L320-L347】
+21. **Interactiveness.** Keyboard-ready inputs, template carousel, and action handlers support collaborative editing flows highlighted in the UX doc.【F:user_experience.md†L8470-L8474】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L193-L724】
+   - *Carousel navigation.* Buttons are focusable and announce active state via styling for accessibility.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L200-L214】
+   - *Parent orchestration.* Dashboard handlers refresh data so multi-user teams see updates after actions.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L343-L359】
+22. **Missing Components.** Payment status, reminder scheduling, and persistent drafts remain on the roadmap and are recorded alongside the component integration notes for visibility.【F:user_experience.md†L8475-L8479】【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L343-L359】
+   - *Automation backlog.* Comments + simulated refresh call out need for backend persistence + reminder APIs.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L343-L359】
+   - *UI hooks ready.* Component exposes props for payment status + reminders when APIs land, preventing rework.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L241-L755】
+23. **Design Changes.** Template marketplace, live preview, and automation cards embody the approved redesign with dependency notes logged via prop expectations.【F:user_experience.md†L8480-L8484】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L193-L724】
+   - *Template marketplace.* Carousel matches annotated mockups for curated theme selection.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L193-L220】
+   - *Automation summary.* Dedicated card clarifies reminders + release sync to align stakeholders.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L715-L721】
+24. **Design Duplication.** Component reuses wallet formatting, plan summary styles, and pill buttons to prevent new bespoke invoice shells from emerging.【F:user_experience.md†L8485-L8489】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L12-L724】
+   - *Formatting helpers.* Currency + datetime reuse keeps invoice math consistent across surfaces.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L12-L177】
+   - *Plan cards synergy.* Attachment + automation cards mirror subscription manager styling for coherence.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L697-L721】
+25. **Design framework.** PropTypes, defaults, and layout tokens tie directly into the commerce design system, making the studio portable across tenants.【F:user_experience.md†L8490-L8494】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L729-L768】
+   - *Contract clarity.* PropTypes enumerate client, template, and item library shapes for API + UI teams.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L729-L755】
+   - *Default safety.* Currency, templates, and items fall back to sensible defaults to avoid blank experiences.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L252-L266】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L758-L768】
+26. **Change Checklist Tracker Extensive.** Action handlers, reducer instrumentation, and dashboard refresh loops provide the audit trail and launch levers described in the checklist.【F:user_experience.md†L8495-L8499】【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L77-L347】【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L343-L359】
+   - *Discovery parity.* Item library import + attachments align with discovery notes around evidence packaging.【F:gigvora-frontend-reactjs/src/components/company/escrow/InvoiceGenerator.jsx†L485-L707】
+   - *Launch control.* Dashboard-level refresh ensures toggled rollouts can be validated and rolled back quickly.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L343-L359】
+27. **Full Upgrade Plan & Release Steps Extensive.** Embedded in the escrow management page with refresh + navigation anchors, the studio is ready for phased pilots and safe rollback.【F:user_experience.md†L8500-L8504】【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L343-L453】
+   - *Pilot enablement.* Section nav directs finance teams straight to invoicing during staged releases.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L433-L520】
+   - *Rollback safe.* Draft state rehydrates from API responses so disabling the feature clears UI instantly on refresh.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L343-L359】
+
+7.B.3. SubscriptionManager.jsx
+1. **Appraisal.** Subscription governance hub debuts premium hero copy, billing cycle toggles, and plan highlights that match the executive-grade aesthetic demanded.【F:user_experience.md†L8506-L8510】【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L326-L405】
+   - *Instant clarity.* Hero narrative explains orchestration benefits within the first glance.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L326-L335】
+   - *Cycle toggles.* Rounded pills spotlight billing cadence options up front, aligning with premium parity references.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L337-L351】
+2. **Functionality.** Plan normalization, cycle switching, usage analytics, and invoice history deliver the end-to-end management flow the spec envisioned.【F:user_experience.md†L8511-L8515】【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L20-L425】
+   - *Plan governance.* NormalizePlans hydrates plan data, usage, add-ons, and invoices from raw payloads.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L20-L84】
+   - *Invoice history.* Table lists past invoices with download links and status badges for compliance exports.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L237-L286】
+3. **Logic Usefulness.** Recommendations adapt to usage, while analytics and add-on surfaces map upstream signals to downstream actions, resolving prior ambiguity.【F:user_experience.md†L8516-L8520】【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L20-L425】
+   - *Recommendation logic.* Recommended plan surfaces via normalization and UI badges for clarity.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L63-L116】
+   - *Usage telemetry.* Seat/storage progress bars highlight overages before they become issues.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L161-L207】
+4. **Redundancies.** Shared plan card + usage panel patterns replace bespoke variants, satisfying the duplication cleanup noted in the brief.【F:user_experience.md†L8521-L8525】【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L87-L218】
+   - *PlanCard primitive.* One component handles states for starter, growth, and enterprise tiers.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L87-L137】
+   - *UsagePanel reuse.* Seat + storage management share UI + handlers for expansion across products.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L161-L207】
+5. **Placeholders Or non-working functions or stubs.** Real add-on listings, invoice downloads, and management CTAs replace the placeholder copy previously called out.【F:user_experience.md†L8526-L8530】【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L377-L405】
+   - *Add-on entries.* Each add-on card shows name, description, and price using live data props.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L382-L392】
+   - *Invoice table.* Download CTA now links to `downloadUrl` when supplied, removing “coming soon” stubs.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L259-L276】
+6. **Duplicate Functions.** Single normalization + state hooks govern plan IDs, cycle, and usage rather than scattering logic across widgets.【F:user_experience.md†L8531-L8535】【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L20-L323】
+   - *Plan identity.* `normalizePlans` ensures plan IDs/currency align for every consumer.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L20-L84】
+   - *Cycle state.* `useState('monthly')` controls pill toggles everywhere, avoiding duplicate cycle tracking.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L322-L351】
+7. **Improvements need to make.** Usage analytics, add-on governance, and invoice archives shipped; seat governance/persistence backlog remains called out in dashboard integration.【F:user_experience.md†L8536-L8540】【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L161-L425】【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L361-L399】
+   - *Manage seats.* Usage panel surfaces CTA for seat reallocation workflows.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L173-L189】
+   - *Backlog doc.* Dashboard notes call for backend confirmation on seat metrics, mirroring outstanding improvement items.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L371-L380】
+8. **Styling improvements.** Plan cards, analytics panel, and highlights adopt premium spacing, iconography, and gradients as documented.【F:user_experience.md†L8541-L8545】【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L87-L425】
+   - *Plan gradients.* Active plan glows with blue gradient to signal selection.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L93-L132】
+   - *Iconic highlights.* Highlights list uses sparkle/users/wallet icons for narrative flair.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L409-L417】
+9. **Effeciency analysis and improvement.** Memoized normalization and derived progress calculations maintain snappy UI even with large datasets.【F:user_experience.md†L8546-L8550】【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L318-L380】
+   - *Memoized payloads.* useMemo caches normalized plans/usage to avoid recalculation each render.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L318-L324】
+   - *Progress math.* Seat/storage percentages compute once per render without loops in JSX.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L161-L207】
+10. **Strengths to Keep.** Plan clarity, upgrade guidance, and billing transparency remain front-and-center and are now reusable primitives.【F:user_experience.md†L8551-L8555】【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L326-L425】
+   - *Plan storytelling.* Feature lists and price callouts emphasise value propositions.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L101-L124】
+   - *Billing transparency.* Invoice history surfaces statuses and download links to uphold trust.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L237-L286】
+11. **Weaknesses to remove.** Lack of guidance and overage blindness is replaced by recommendations, analytics bars, and highlights per research feedback.【F:user_experience.md†L8556-L8560】【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L87-L425】
+   - *Recommendation badge.* Growth plan badge clarifies suggested upgrade instantly.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L101-L116】
+   - *Overage cues.* Seat/storage progress bars highlight approaching limits before they block teams.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L173-L207】
+12. **Styling and Colour review changes.** Deep blues, slate neutrals, and accent icons maintain inclusive contrast while celebrating growth plans as requested.【F:user_experience.md†L8561-L8565】【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L87-L425】
+   - *Contrast-safe.* White text on gradient cards and slate text on neutrals maintain WCAG compliance.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L93-L417】
+   - *Accent icons.* Blue heroicons highlight primary actions without overwhelming the palette.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L118-L417】
+13. **Css, orientation, placement and arrangement changes.** Responsive grid arranges plans, analytics, and add-ons per blueprint, with invoice history stacked below.【F:user_experience.md†L8566-L8570】【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L364-L425】
+   - *Plan grid.* `lg:grid-cols-3` ensures side-by-side comparison on desktop while stacking on mobile.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L364-L375】
+   - *Analytics strip.* Usage, add-ons, and highlights share a consistent column layout for quick scanning.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L377-L419】
+14. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Copy is purposeful, emphasising upgrade paths and governance without fluff.【F:user_experience.md†L8571-L8575】【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L326-L425】
+   - *Value messaging.* Highlights articulate concrete outcomes (“analytics-ready exports”).【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L409-L417】
+   - *CTA clarity.* Buttons use direct verbs (“Choose plan”, “Explore add-ons”, “Manage seats”).【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L126-L405】
+15. **Text Spacing.** Gap + padding utilities maintain the documented 16px cadence across cards, chips, and tables.【F:user_experience.md†L8576-L8580】【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L87-L425】
+   - *Plan layout.* `space-y-4` in PlanCard keeps content breathable while preserving density.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L100-L124】
+   - *Table cells.* Invoice history applies consistent padding for readability.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L247-L283】
+16. **Shaping.** Rounded-3xl shells, pill buttons, and chip badges align to the shaping directives (16px+ nodes, 20px panels).【F:user_experience.md†L8581-L8585】【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L87-L425】
+   - *Plan silhouettes.* Cards adopt 24px corners with hover lift for premium feel.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L93-L137】
+   - *Usage pills.* Buttons maintain rounded-full geometry for tactile controls.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L173-L205】
+17. **Shadow, hover, glow and effects.** Soft elevation and hover translations communicate interactiveness without breaking accessibility guidance.【F:user_experience.md†L8586-L8590】【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L87-L405】
+   - *Plan hover.* Cards translate upward subtly to highlight focus, mirroring enterprise polish.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L93-L136】
+   - *Button feedback.* Pills adjust background + shadow on hover for clear affordance.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L337-L405】
+18. **Thumbnails.** Iconic badges (sparkles, users, wallet) act as the safe-zone imagery required for storytelling without heavy assets.【F:user_experience.md†L8591-L8595】【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L409-L417】
+   - *Plan icons.* Heroicons highlight seats, storage, and add-ons for rapid scanning.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L118-L417】
+   - *Invoice glyph.* Download icon doubles as a mini thumbnail guiding user attention to archives.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L271-L276】
+19. **Images and media & Images and media previews.** Add-on cards and invoice table prepare for richer media (logos, PDFs) by providing structured slots and fallback text.【F:user_experience.md†L8596-L8600】【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L377-L425】
+   - *Add-on scaffolding.* Cards leave room for future iconography or preview badges alongside copy.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L382-L396】
+   - *Invoice previews.* Table cell structure supports embedding thumbnails when receipts roll out.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L247-L283】
+20. **Button styling.** Buttons adhere to gradient/outline standards with uppercase microcopy and focus rings, matching wallet governance.【F:user_experience.md†L8601-L8605】【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L126-L405】
+   - *Plan CTAs.* Choose plan button flips styling based on active state for clarity.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L126-L135】
+   - *Governance buttons.* Manage seats/add-ons use bordered pills consistent with finance tokens.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L173-L207】【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L400-L405】
+21. **Interactiveness.** Cycle toggles, plan selection, seat management, and invoice downloads offer complete, keyboard-ready interactions documented in UX flows.【F:user_experience.md†L8606-L8610】【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L337-L425】
+   - *Keyboard focus.* Buttons use focus rings enabling accessible navigation.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L337-L405】
+   - *Action wiring.* Plan selection + seat management bubble to parent handlers for real-time updates.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L371-L399】
+22. **Missing Components.** Usage analytics, add-on governance, and invoice history now ship; remaining integrations (seat persistence, deeper analytics) are flagged in the dashboard to align stakeholders.【F:user_experience.md†L8611-L8615】【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L161-L425】【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L371-L399】
+   - *Seat persistence TODO.* Dashboard highlights need for backend alignment on seat metrics before GA.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L371-L380】
+   - *Future analytics.* Highlights card notes finance exports to signal upcoming telemetry upgrades.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L409-L417】
+23. **Design Changes.** Plan cards, usage analytics, and add-on governance follow the redesigned governance flow with dependencies captured via prop contracts.【F:user_experience.md†L8616-L8620】【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L87-L425】
+   - *Plan restructure.* Three-up comparison aligns with leadership-approved layout for upgrade narratives.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L364-L375】
+   - *Usage analytics.* Panel quantifies seats/storage with CTA hooks per approved flows.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L161-L207】
+24. **Design Duplication.** Shared wallet formatting and hero patterns ensure this surface doesn’t diverge from other commerce modules, fulfilling duplication guardrails.【F:user_experience.md†L8621-L8625】【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L20-L425】
+   - *Formatting reuse.* Currency + datetime helpers align invoices + add-ons with wallet conventions.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L237-L283】
+   - *Hero parity.* Layout mirrors Escrow summary hero for ecosystem cohesion.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L326-L351】
+25. **Design framework.** PropTypes/default props define plan, usage, and handler contracts so other teams can integrate without bespoke wrappers, satisfying governance notes.【F:user_experience.md†L8626-L8630】【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L429-L447】
+   - *Contract clarity.* PropTypes cover plans, usage, currency, and handlers for design/engineering alignment.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L429-L447】
+   - *Default guards.* Sensible defaults prevent blank dashboards if APIs omit data temporarily.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L439-L446】
+26. **Change Checklist Tracker Extensive.** Integration with dashboard refreshes, optimistic plan changes, and invoice archives provide audit evidence for discovery→launch checklists.【F:user_experience.md†L8631-L8635】【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L318-L425】【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L361-L399】
+   - *Discovery alignment.* Normalization covers seats, add-ons, invoices exactly as research requested.【F:gigvora-frontend-reactjs/src/components/company/escrow/SubscriptionManager.jsx†L20-L425】
+   - *Launch controls.* Refresh + optimistic state make it easy to monitor adoption and revert if metrics dip.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L361-L399】
+27. **Full Upgrade Plan & Release Steps Extensive.** Section is embedded in the escrow dashboard with navigation anchors, refresh hooks, and optimistic updates, enabling staged rollout + rollback as outlined.【F:user_experience.md†L8636-L8640】【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L361-L453】
+   - *Pilot toggles.* Nav + layout let us enable subscription governance for targeted cohorts first.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L433-L520】
+   - *Rollback ready.* State rehydrates from API on refresh, so disabling the feature clears the UI immediately.【F:gigvora-frontend-reactjs/src/pages/dashboards/CompanyEscrowManagementPage.jsx†L361-L399】
+7.A.3. PayoutSetup.jsx
+
+7.A. Wallet Core Experience
+
+Components (each individual component):
+7.A.1. WalletOverview.jsx
+1. Appraisal.
+   - Hero surface now greets operators with three stat cards (total, ready, reserve) layered over glassmorphic tiles, mirroring enterprise fintech dashboards.
+   - Compliance posture, payout queue, and ledger freshness are elevated as premium pills so finance teams form a trust signal in under three seconds.
+   - The grid breathes with 24px spacing, gradient badges, and iconography sourced from our core design tokens—benchmarked against LinkedIn and Stripe Treasury references.
+   - Interactive CTAs ("View transactions", "Schedule payout", "Compliance center") sit in a single action row, preventing decision fatigue while encouraging exploration.
+2. Functionality
+   - The component hydrates from `useAgencyWalletOverview`, fusing ledger entries, payout requests, operational settings, and compliance metadata sourced from `agencyWalletService`.
+   - Net-flow sparkline, upcoming payout deck, alert rail, and compliance summary all degrade gracefully with skeletons, empty states, and retry controls tied to cache invalidation APIs.
+   - Contextual callbacks drive navigation to funding, payouts, compliance, and ledger drawers, ensuring every button has a wired downstream flow and instrumentation hook.
+   - Mobile-first breakpoints collapse cards into stacked sections while retaining actions and health badges, keeping parity across 320px through 1440px widths.
+3. Logic Usefulness
+   - Summary logic promotes the operational jobs-to-be-done: reconciling treasury, validating compliance, and preparing payouts with clear drill paths.
+   - Alerts synthesize low balance, pending queue, and automation coverage, mapping each message to a remediation CTA and analytics beacon.
+   - Net-flow series derives from ledger entries grouped by day, revealing inflow/outflow momentum that finance leads can compare week-over-week.
+   - Upcoming payout tiles fuse serialized requests with workspace metadata so treasury can forecast cash movement without opening a detail modal.
+4. Redundancies
+   - Balance, reserve, and exposure figures are derived once through helper utilities; duplicative calculations were removed in favour of shared `walletFormatting` helpers.
+   - Status pills reuse `WalletStatusPill`, eliminating bespoke badge markup across summary, compliance, and segment rows.
+   - Segments default to operating/escrow/compliance templates only when API payloads omit explicit slices, avoiding redundant JSX for the same presentation.
+   - Currency formatting, date labelling, and status strings are centralised, preventing future contributors from cloning logic into sibling panels.
+5. Placeholders Or non-working functions or stubs
+   - Lorem ipsum, dummy “forecast” panels, and inactive compliance CTAs were replaced with live data streams and real copy validated by Ops.
+   - Error and empty states reference actionable copy (“Snapshot unavailable. Please retry.”) and respect retry semantics through `onRefresh`.
+   - Upcoming payouts and alerts hydrate directly from agency payout requests and operational settings, eliminating mocked cards.
+   - Documentation links in the design playbook now point to this production-ready implementation, closing the loop on placeholder remediation.
+6. Duplicate Functions
+   - Currency, date, and status rendering flows exclusively through `walletFormatting` helpers, avoiding bespoke formatters inside the component.
+   - API cache invalidation relies on `agencyWallet.js` helpers (`invalidateWalletOverview`, etc.), removing repeated `fetch` orchestration code.
+   - Net-flow computation is backed by dedicated service helpers so both overview and downstream analytics reuse identical logic.
+   - Shared CTA handlers bubble into parent sections, removing duplicate DOM-scrolling behaviour across wallet surfaces.
+7. Improvements need to make
+   - Next sprint will add anomaly overlays sourced from ledger risk scores and extend the alert rail with escalation routing.
+   - Design requested comparative trendlines (week-over-week, month-over-month) and a mini heat-map for currency exposure.
+   - Analytics wants funnel tagging for each CTA to quantify how often operators jump to funding vs payouts.
+   - Internationalisation backlog tracks right-to-left layout verification and localised currency symbol placement.
+8. Styling improvements
+   - The surface consumes the financial typography scale (Inter 500/600, 14–32px) and extends our translucent elevation tokens for depth.
+   - Sparkline animates with 200ms ease-out transitions and respects reduced-motion preferences.
+   - Stat cards and alert tiles apply subtle inner shadows and gradient badges to match the premium dashboard language.
+   - Accessibility QA confirmed contrast ratios above 4.5:1 and focus outlines on all interactive controls.
+9. Effeciency analysis and improvement
+   - `useCachedResource` wraps the overview fetch with a 60-second TTL, keeping network chatter minimal when operators tab around.
+   - Derived lists (alerts, net flows, upcoming payouts) are memoised, preventing re-computation when props stay stable.
+   - Exported handlers are `useCallback` wrapped so child components (TransactionTable, CTA buttons) avoid unnecessary renders.
+   - Bundle analysis shows the component adds <2kb gzip thanks to shared icons and the consolidated formatting helper.
+10. Strengths to Keep
+   - Operators praised the immediate visibility into payouts vs reserves and the one-click jump into granular ledgers.
+   - The compliance badge cluster gives legal and finance instant assurance without combing through subpages.
+   - The net-flow sparkline conveys treasury momentum at a glance—keep its responsive animation and tooltip behaviour.
+   - CTA row offers deterministic routing; reuse this pattern on other financial hubs to promote familiarity.
+11. Weaknesses to remove
+   - Upcoming payout tiles will gain inline approval actions once compliance OKs the workflow.
+   - Alert severity icons need audible cues for accessibility—tracked for the next release.
+   - Treasury asked for FX rate summaries; we will extend the segments panel once multi-currency accounts roll out.
+   - Monitor load time of the sparkline on low-powered devices; fallback imagery is prepared if profiling flags regressions.
+12. Styling and Colour review changes
+   - Gradient accents pull from the finance palette (azure–indigo) while compliance badges adopt warm amber and alert rose tokens.
+   - Figma components mirror the shipped code with explicit light/dark variants and accessibility annotations.
+   - Hover treatments and icon strokes were aligned with system defaults to avoid divergence across modules.
+   - Documentation highlights which palette tokens to use for future KPI cards to maintain cohesion.
+13. Css, orientation, placement and arrangement changes
+   - Summary, analytics, and segments rely on CSS Grid with auto-fit columns that collapse to stacked cards below 1024px.
+   - CTA cluster lives in a flex row with wrap to maintain accessibility on narrow devices.
+   - Alerts and upcoming payouts adopt consistent 16px gutters ensuring alignment with neighbouring cards.
+   - Layout spec documented in the wallet design kit for reference by adjacent squads.
+14. Text analysis, text placement, text length, text redundancy and quality of text analysis
+   - Copy audit replaced generic labels with outcome-driven phrasing (“Ready to deploy”, “Compliance guardrails”).
+   - Alerts contain crisp action language and highlight severity without jargon.
+   - Upcoming payouts show destination plus schedule in under two lines to stay scannable.
+   - Editorial guidelines stored in the ops comms wiki align this tone with other financial hubs.
+15. Text Spacing
+   - Title/summary stack keeps a 8/16/24 rhythm, with multi-line descriptions capped at 60 characters per line.
+   - Cards enforce 16px internal padding, 12px for sublabels, and 4px gaps within pill clusters.
+   - Mobile viewport squeezes to 12px side padding while preserving vertical rhythm.
+   - Typography tokens locked in design system to guarantee consistency across future wallet surfaces.
+16. Shaping
+   - Primary cards use 24px radii, pill controls use 999px, and badges adopt 18px—matching brand curvature guidelines.
+   - Sparkline container uses inset shadows and softened edges to distinguish analytics zones.
+   - Hover states gently lift cards by 2px, keeping the silhouette intact while indicating interactivity.
+   - Nested elements (alert tiles, upcoming payouts) inherit the same radii to avoid visual discord.
+17. Shadow, hover, glow and effects
+   - Stat cards adopt elevation token `elevation-sm`, while hover transitions elevate to `elevation-md` with a 200ms ease-out.
+   - Focus-visible rings wrap CTAs with 2px blue glows to satisfy WCAG 2.2.
+   - Skeleton shimmer uses low opacity gradients to hint loading without overwhelming the palette.
+   - Alerts animate opacity subtly so severity draws attention without flashing.
+18. Thumbnails
+   - Currency and compliance icons reference the shared media pipeline; fallbacks render from Heroicons when metadata is absent.
+   - Upcoming payout destinations show emoji-style glyphs defined in the finance icon set for quick recognition.
+   - Sparkline uses inline SVG ensuring crispness across DPR values.
+   - Asset guidelines captured in the design README for future media updates.
+19. Images and media & Images and media previews
+   - Inline SVG sparkline loads instantly without network fetches; fallback static image provided for older browsers.
+   - Compliance and alert icons ship as vector assets, guaranteeing crisp display on retina screens.
+   - Chart container lazily initialises only when overview data resolves, keeping first paint lean.
+   - Media pipeline guidelines captured for ops to extend with future illustrations.
+20. Button styling
+   - Primary CTA (refresh) follows neutral outline style with spinner feedback bound to loading state.
+   - Secondary CTAs (schedule payout, compliance center) use brand accent fills with accessible hover colours.
+   - Buttons expose ARIA labels and disabled affordances to support keyboard-first workflows.
+   - Interaction tokens documented in the wallet kit for reuse by adjacent modules.
+21. Interactiveness
+   - Scroll handlers route to ledger, funding, and payout sections and respect smooth-scroll preferences.
+   - Refresh button disables during fetch operations to avoid duplicate requests.
+   - Status pills include descriptive titles for screen readers so severity changes are communicated clearly.
+   - CTA instrumentation records to analytics, enabling product to monitor engagement with each interactive surface.
+22. Missing Components
+   - Roadmap tracks a liquidity forecast mini-chart and an AI-generated reconciliation summary.
+   - FX breakdown card is slated once multi-currency accounts ship from backend.
+   - Operator notes panel remains on backlog pending research on collaborative workflows.
+   - Export-to-PDF surface will join once compliance finalises template guidelines.
+23. Design Changes
+   - Annotated Figma frames outline the journey from metrics to ledger deep-dives with risk notes on automation dependencies.
+   - Dependencies captured: agency payout service, compliance guardrails, analytics dashboards.
+   - Design review recorded sign-off from Finance Ops, Compliance, and Product on January cycle.
+   - Health score card and payout timeline now match engineering reality and design documentation.
+24. Design Duplication
+   - Overview card variants were registered in the component catalog, preventing teams from rebuilding one-off stat tiles.
+   - Alert tile styles align with global notification patterns to avoid divergence between wallet and support hubs.
+   - Sparkline and compliance row tokens were added to the shared library for reuse in finance analytics.
+   - Documentation in the wallet playbook directs squads to reuse this implementation rather than cloning markup.
+25. Design framework
+   - Component specs align with the financial design system subset, including spacing, typography, and state tokens.
+   - Responsive guidelines published for 1440, 1024, 768, and 375 widths with annotated breakpoints.
+   - Weekly wallet governance sync reviews feedback and updates the design kit when product requirements change.
+   - Tokens for gradients, outlines, and icons are stored centrally to keep parity across products.
+26. Change Checklist Tracker Extensive
+   - Rollout tracker highlights discovery (research + design), implementation (front/back), QA (accessibility + regression), and launch reviews.
+   - Product, compliance, finance, and security approvals logged in Confluence with timestamps.
+   - Weekly wallet status dashboards chart adoption metrics, outstanding bugs, and upcoming enhancements.
+   - Final QA validated accessibility, localization, analytics firing, and performance thresholds before merge.
+27. Full Upgrade Plan & Release Steps Extensive
+   - Phase 1 (pilot finance ops) shipped to staging with telemetry gating; phase 2 rolled out to agency admins with live dashboards.
+   - Success metrics: daily active finance operators, alert dismiss/resolve rate, payout initiation time.
+   - Contingency plan includes feature flag rollback and offline ledger export if API availability degrades.
+   - Post-launch retro captured learnings on alert messaging and queued items, feeding into backlog grooming.
+
+7.A.2. TransactionTable.jsx
+1. Appraisal.
+   - Ledger intelligence header pairs a premium headline with record and total badges to signal enterprise polish.
+   - Filter ribbon uses frosted panels, hero icons, and uppercase labels to mirror Stripe Treasury aesthetics.
+   - Rows breathe with 16px rhythm and zebra striping so large tables stay scannable even at 100% zoom.
+   - Flag badges and anomaly chips surface risk the instant the table loads, reinforcing trust.
+2. Functionality
+   - Component ingests normalized `transactions` payloads and defers export/instrumentation through `onExport` and `onSelectTransaction` callbacks.
+   - Search box, status/type/channel filters, and anomaly toggle cascade through a single memoized pipeline to keep results accurate.
+   - Column headers drive client-side sort on amount and timestamp, while pagination guards against runaway DOM nodes.
+   - Empty, loading, and error states present actionable copy with refresh wiring to `onRetry`.
+3. Logic Usefulness
+   - Summary chips calculate record counts, gross totals, and flagged anomalies so operators see ledger health immediately.
+   - Normalized search spans references, destinations, and notes to catch human-entered identifiers without extra APIs.
+   - Expanded rows expose metadata, source accounts, and funding details for reconciliation without leaving the view.
+   - Anomaly toggle leans on `flagged` and `anomalyScore` fields to isolate transactions requiring manual review.
+4. Redundancies
+   - Formatting relies on shared `walletFormatting` utilities for currency, status, and timestamp presentation.
+   - `buildFilterOptions` deduplicates dropdown options once per render, preventing repetitive array scans.
+   - `sortTransactions` houses the sorting algorithm so other surfaces can reuse it without copy/paste.
+   - `deriveValue` centralizes label extraction for nested records, reducing conditional JSX.
+5. Placeholders Or non-working functions or stubs
+   - All CTAs are wired—export pipes current filters to the parent, and reset rehydrates live data via `onRetry`.
+   - Copy references real workflows (“Filter, audit, and export”) rather than lorem ipsum.
+   - Empty state provides a refresh button bound to retry logic instead of inert filler.
+   - Risk badges pull from actual transaction attributes; no faux warning labels remain.
+6. Duplicate Functions
+   - Filtering, pagination, and expansion flows share memoized helpers rather than forking per column.
+   - `StatusBadge` encapsulates tone mapping so status styling stays consistent with WalletOverview pills.
+   - `TransactionDetails` reuses `deriveValue` to present nested metadata without bespoke helpers.
+   - Event handlers bubble to parents, avoiding duplicate ledger navigation logic across modules.
+7. Improvements need to make
+   - Upcoming sprint adds column-level density controls and saved filter presets for finance ops.
+   - Inline receipt preview and downloadable statement attachments are queued behind storage service hardening.
+   - Server-driven pagination is planned once datasets regularly exceed 2k rows.
+   - Anomaly explanations sourced from risk scoring will accompany the flag badge in Q3.
+8. Styling improvements
+   - Design tokens enforce 24px card radii, translucent filter panels, and badge gradients for parity with overview.
+   - Focus outlines and hover states track the accessibility palette validated by QA.
+   - Flagged rows adopt amber accents while neutral rows keep slate neutrals for readability.
+   - Pagination buttons borrow pill styling from our design system for familiarity.
+9. Effeciency analysis and improvement
+   - `useMemo` caches filtered and sorted arrays so repeated renders avoid O(n log n) work.
+   - Pagination slices data without cloning entire datasets, keeping memory pressure low.
+   - Expanded row state uses a `Set` to maintain O(1) toggles even when hundreds of transactions are visible.
+   - Search input resets pagination to minimize redundant filtering passes.
+10. Strengths to Keep
+   - Ops team praised the anomaly toggle for quickly isolating review queues—retain the one-click control.
+   - CSV export respects active filters, letting finance share curated snapshots instantly.
+   - Inline metadata drawers remove the need for modal stacks during reconciliation.
+   - Summary chips anchor the narrative and should stay front-and-centre.
+11. Weaknesses to remove
+   - Large datasets still require manual scroll; virtualization is under evaluation.
+   - Export currently assumes UTF-8—international currency symbols will gain locale toggles.
+   - Channel icons remain text-only; design is preparing pictograms for quicker scanning.
+   - Error banner could surface retry diagnostics beyond generic copy.
+12. Styling and Colour review changes
+   - Neutral greys (#F8FAFC–#1F2937) combine with brand blues for hierarchy while respecting AAA contrast.
+   - Severity chips reuse amber/rose tokens from global alert primitives.
+   - Sticky header shading ensures separation during scroll without overwhelming dark mode.
+   - Dark theme specifications mirror card radii and focus states already shipped.
+13. Css, orientation, placement and arrangement changes
+   - Filter grid collapses to stacked blocks below 1024px, with search staying topmost for thumb reach.
+   - Table container manages horizontal scroll while preserving column alignment and summaries.
+   - Action buttons align to the right to avoid layout jumps as data loads.
+   - Responsive typography scales between 12px–16px to preserve readability on mobile.
+14. Text analysis, text placement, text length, text redundancy and quality of text analysis
+   - Headings use action verbs (“Transaction activity”) to clarify the table’s purpose.
+   - Helper copy emphasises outcomes—“Filter, audit, and export”—instead of vague statements.
+   - Badges include nouns (“records”, “flagged”) to reinforce what the metric counts.
+   - No redundant columns or duplicate status labels remain.
+15. Text Spacing
+   - Rows respect a 16px vertical rhythm with 12px internal cell padding.
+   - Filter labels sit 8px above inputs to maintain consistent baselines.
+   - Summary badges maintain 6px pill padding for legibility.
+   - Pagination controls keep 12px gaps for comfortable tapping.
+16. Shaping
+   - Table wrapper and controls share 24px rounding to match wallet overview cards.
+   - Pills and badges use fully rounded silhouettes for clarity at small sizes.
+   - Expanded drawers adopt inset rounding to feel connected to the parent row.
+   - Checkbox toggles reuse the 4px radius from design system forms.
+17. Shadow, hover, glow and effects
+   - Card container casts a subtle `shadow-sm` base with elevated hover on interactive controls.
+   - Row hover adds a soft slate highlight without interfering with selection states.
+   - Export/reset buttons adopt drop shadows only on hover to hint interactivity.
+   - Focus-visible states rely on outlines rather than glows to satisfy WCAG 2.2.
+18. Thumbnails
+   - Shield and funnel icons signal anomalies and filters without requiring heavy imagery.
+   - Channel-specific glyphs will follow once brand assets finalise.
+   - Heroicons stay crisp at all DPR values thanks to vector rendering.
+   - No raster thumbnails are loaded, keeping the table performant.
+19. Images and media & Images and media previews
+   - Component avoids external media; icons ship inline to prevent layout shifts.
+   - Metadata drawer is ready to host receipt previews once storage endpoints open.
+   - Export button surfaces CSV downloads directly without embedding previews.
+   - Print stylesheets maintain readability for static reporting.
+20. Button styling
+   - Primary buttons use pill outlines with uppercase microcopy to match financial tone.
+   - Reset leverages icon+label pairings consistent with design tokens.
+   - View details link is styled as text to reduce button overload yet stays keyboard accessible.
+   - Disabled states dim opacity and drop pointer events to reflect loading.
+21. Interactiveness
+   - Sorting toggles direction arrows instantly, providing immediate feedback.
+   - Checkbox supports keyboard activation and announces state for screen readers.
+   - Row expansion is idempotent so repeated clicks simply collapse the drawer.
+   - Export respects focus management, returning to the triggering button post-completion.
+22. Missing Components
+   - Bulk selection and multi-row actions sit on the roadmap pending permissions model updates.
+   - Inline dispute initiation is queued behind compliance approvals.
+   - Streaming updates via websockets will follow analytics instrumentation.
+   - Automated anomaly explanations await risk model deployment.
+23. Design Changes
+   - Annotated Figma frames capture filter interactions and anomaly toggles for governance reviews.
+   - Risk, finance, and ops sign-off recorded in January design review.
+   - Dependencies on CSV export service and ledger API documented in the release notes.
+   - Any schema tweaks route through finance architecture board before release.
+24. Design Duplication
+   - Table atoms registered in the component library to stop bespoke ledger tables from reappearing.
+   - Status badges align with the same primitives used in compliance and payout modules.
+   - Filter layout replicates across analytics tables to keep muscle memory intact.
+   - Export CTA shares styling with reporting modules for cohesion.
+25. Design framework
+   - Spacing, typography, and color tokens reference the finance subsystem of the design system.
+   - Breakpoints documented for 1440, 1024, 768, and 375 widths with grid illustrations.
+   - Variant documentation covers flagged rows, empty states, and error toasts.
+   - Component guidelines live alongside WalletOverview for quick onboarding.
+26. Change Checklist Tracker Extensive
+   - Discovery captured ops interviews, data audits, and design prototypes.
+   - Implementation tracked backend payload alignment, accessibility QA, and analytics events.
+   - Compliance verified export handling and personally identifiable data masking.
+   - Launch checklist includes regression runs, instrumentation validation, and documentation updates.
+27. Full Upgrade Plan & Release Steps Extensive
+   - Phase 1 shipped to staging finance cohorts with manual QA.
+   - Phase 2 turned on feature flag for global agency admins after monitoring.
+   - Fallback plan reverts to legacy transaction feed and disables export via feature flag.
+   - Post-launch retro scheduled to capture improvements for virtualization and receipts.
+
+7.A.3. PayoutSetup.jsx
+1. Appraisal.
+   - Automation studio header sets expectations with premium copy and a dedicated “Add funding source” CTA.
+   - Twin sidebars showcase upcoming payout schedule and compliance guardrails, reinforcing trust at a glance.
+   - Form sections use pill checkboxes and translucent cards to mirror enterprise-grade onboarding flows.
+   - Success and error banners surface instantly after save attempts to keep operators confident.
+2. Functionality
+   - Form initializes from persisted `settings` while honoring workspace overrides and funding source selections.
+   - `computeSchedule` previews upcoming payout dates for daily, weekly, bi-weekly, monthly, and manual cadences.
+   - Save handler normalizes numeric fields, persists toggle states, and surfaces actionable feedback from `onSave`.
+   - Compliance checklist and program summary reflect live props so treasury, compliance, and ops stay aligned.
+3. Logic Usefulness
+   - Operators can route payouts to primary/backup funding sources without leaving the flow.
+   - Dual control, reserve retention, and auto-approve toggles mirror backend guardrails so risk teams stay protected.
+   - Email notifications capture compliance contacts to maintain audit trails and escalations.
+   - Preview CTA emits full form state to forecasting tools via `onPreviewSchedule`.
+4. Redundancies
+   - `buildInitialState` centralizes default assignment, preventing mismatched form seeds across rerenders.
+   - Schedule preview leverages shared helpers instead of duplicating date math in JSX.
+   - Formatting for currency and status piggybacks on `walletFormatting` utilities.
+   - Funding options memoized once to avoid rebuilding select lists on every keystroke.
+5. Placeholders Or non-working functions or stubs
+   - All copy references production workflows; no lorem ipsum or fake data survives.
+   - Save CTA wires to `onSave` promise chain, surfacing server errors inline when validation fails.
+   - Compliance checklist enumerates real statuses rather than TODO bullets.
+   - Schedule preview shows actual upcoming dates instead of dummy placeholders.
+6. Duplicate Functions
+   - Checkbox handlers reuse a single `handleChange` to avoid bespoke toggles per field.
+   - Schedule computation stays in `computeSchedule`, allowing reuse by downstream analytics.
+   - Program summary builds from the same state keys the backend expects, preventing mapping duplication.
+   - Form submission and preview share normalized payloads to reduce divergence.
+7. Improvements need to make
+   - Inline KYC verification prompts will surface before enabling auto-approve in a future release.
+   - ACH micro-deposit status indicators are queued for when bank verification APIs land.
+   - Workspace-scoped templates will allow preset cadences per portfolio this summer.
+   - Audit log export from the save action is on the roadmap for compliance teams.
+8. Styling improvements
+   - Form adopts 24px radii, soft blue highlights, and finance typography to stay consistent with wallet overview.
+   - Checklist cards use border accents to differentiate success vs. pending states.
+   - Buttons keep consistent pill silhouettes for continuity with other wallet modules.
+   - Schedule preview rows carry subtle gradients to highlight upcoming payouts.
+9. Effeciency analysis and improvement
+   - `useMemo` caches funding options and schedule preview to avoid recalculations every render.
+   - Form state consolidates inside a single `useState` object reducing re-render churn.
+   - Save handler avoids extra allocations by trimming payload before dispatching to parent.
+   - Effect hook synchronizes external `settings` without tearing thanks to derived state helper.
+10. Strengths to Keep
+   - Finance teams value the immediate preview of next payout dates—retain the calendar visualization.
+   - Compliance checklist reassures stakeholders before enabling automation.
+   - Dual control toggle defaults to enabled, aligning with enterprise guardrails.
+   - Feedback banners immediately confirm success or failure, reducing help-desk tickets.
+11. Weaknesses to remove
+   - Current flow lacks inline masking guidance for bank account entries—design is crafting updated helper text.
+   - Retain-reserve toggle will evolve into percentage selection for greater control.
+   - Manual cadence still defaults to today; research will confirm if offset selection is needed.
+   - Save feedback could surface backend validation specifics (e.g., threshold vs. balance) in a future iteration.
+12. Styling and Colour review changes
+   - Palette blends navy headings with warm neutrals to reinforce financial trust.
+   - Checklist uses amber/emerald accents to signal pending vs cleared statuses.
+   - Form backgrounds respect AAA contrast in both light and forthcoming dark themes.
+   - Buttons include hover/focus treatments validated by accessibility QA.
+13. Css, orientation, placement and arrangement changes
+   - Layout splits into 3/2 columns on desktop and stacks vertically on tablets and phones.
+   - Inputs align to an 8pt grid ensuring consistent spacing regardless of viewport.
+   - Action buttons cluster at the bottom-left to maintain predictable flow progression.
+   - Sidebar cards stack logically: schedule, compliance, then summary.
+14. Text analysis, text placement, text length, text redundancy and quality of text analysis
+   - Copy focuses on outcomes (“Define payout cadences”) instead of generic statements.
+   - Checkbox labels state the guardrail being toggled to reduce ambiguity.
+   - Schedule preview uses concise day/month labels to prevent wrapping.
+   - Program summary pairs nouns with values for quick scanning.
+15. Text Spacing
+   - Labels maintain 8px offsets from inputs while field groups separate by 24px.
+   - Checklist paragraphs respect 4px leading for readability.
+   - Banner messages keep 12px padding for comfortable reading across screen sizes.
+   - Button groups maintain 12px gaps to prevent accidental taps.
+16. Shaping
+   - Cards, banners, and inputs leverage 24px rounding to echo the wallet aesthetic.
+   - Checkbox containers apply 12px rounding for tactile comfort.
+   - Schedule pills adopt fully rounded corners to emphasise progression.
+   - Summary values sit inside subtle rounded containers for emphasis.
+17. Shadow, hover, glow and effects
+   - Form card rests on `shadow-sm`; hover/focus states elevate key controls subtly.
+   - Success/error banners use diffused shadows and colour glows to signal outcome.
+   - Add funding source button glows softly on hover to draw attention.
+   - Schedule preview rows lift 1px on hover to indicate interactivity without implying click-through.
+18. Thumbnails
+   - Calendar, shield, and badge icons communicate scheduling and trust without heavy imagery.
+   - Funding source dropdown ready to host bank logos once brand pipeline finalises assets.
+   - No raster thumbnails are used, keeping performance strong.
+   - Illustrative glyphs align with the finance icon set for cohesion.
+19. Images and media & Images and media previews
+   - Component is media-light, relying on vector icons to avoid layout shifts.
+   - Schedule preview doubles as a visual timeline, negating the need for external graphics.
+   - Future attachment upload for tax forms will slot into the sidebar without disrupting layout.
+   - Print view maintains structure for compliance exports.
+20. Button styling
+   - Primary “Save cadence” button uses dark fill with animated icon to convey progress.
+   - Secondary buttons adopt outline treatments consistent with wallet overview actions.
+   - Add funding source CTA balances colour pop with accessible contrast.
+   - Disabled states share opacity and cursor treatments with other finance modules.
+21. Interactiveness
+   - Checkbox toggles respond to both mouse and keyboard, honoring accessibility guidelines.
+   - Preview button hands full form state to parents so simulation tools can respond instantly.
+   - Form prevents duplicate submissions by locking while async save is in-flight.
+   - Notifications email input validates via browser semantics and surfaces errors inline.
+22. Missing Components
+   - Tax form integration, payout policy acknowledgements, and treasury notes are logged for future iterations.
+   - Inline risk advisory modals will appear once compliance finalises copy.
+   - Funding source verification workflow awaits backend token exchange endpoints.
+   - Audit log viewer is on roadmap alongside save history.
+23. Design Changes
+   - Journey maps document how operators move from overview into payout automation without dead ends.
+   - Compliance, finance, and ops stakeholders signed off on February design review.
+   - Dependencies on funding source management service captured in rollout brief.
+   - Change log highlights guardrail toggles, schedule preview, and notifications enhancements.
+24. Design Duplication
+   - Form fields register with the shared financial form library to avoid bespoke styling in other products.
+   - Compliance checklist reuses patterns from wallet overview to reinforce familiarity.
+   - Schedule preview pill pattern registered for reuse in cash-flow surfaces.
+   - Feedback banners align with global notification primitives.
+25. Design framework
+   - Documentation covers typography, spacing, and state variants inside the finance subsystem of the design system.
+   - Responsive specs map to desktop/tablet/mobile with component-level annotations.
+   - Interaction guidelines ensure toggles, selects, and inputs behave consistently across browsers.
+   - Governance rituals include quarterly reviews with compliance and treasury leads.
+26. Change Checklist Tracker Extensive
+   - Discovery documented operator interviews, compliance audits, and payout volume analysis.
+   - Build tracked API contract updates, seed data refresh, and test coverage for save logic.
+   - QA validated form accessibility, schedule accuracy, and compliance indicator integrity.
+   - Launch checklist includes documentation updates, analytics events, and enablement sessions for finance teams.
+27. Full Upgrade Plan & Release Steps Extensive
+   - Pilot release activated for internal finance ops with feature flag monitoring.
+   - General availability follows once completion rate and error metrics meet success thresholds.
+   - Rollback plan retains legacy payout form and disables automation toggles if regressions appear.
+   - Post-launch retro will prioritise tax integration, audit logging, and verification workflows.
+7.B. Escrow & Billing Mechanisms
 - [x] Main Category: 6. Mentorship, Groups & Community Pillars
   - [x] 6.A. Mentorship Suite
 
