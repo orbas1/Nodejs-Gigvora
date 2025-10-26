@@ -32,6 +32,13 @@ import {
   CompanyPageCollaborator,
   CompanyPageMedia,
 } from './companyPageModels.js';
+import {
+  DiscoverySuggestion,
+  DiscoveryTrendingTopic,
+  DiscoveryConnectionProfile,
+  DiscoverySuggestionEngagement,
+  DiscoverySuggestionSubscription,
+} from './discoveryModels.js';
 import { FormBlueprint, FormBlueprintStep, FormBlueprintField, FormBlueprintValidation } from './formBlueprintModels.js';
 export { FORM_BLUEPRINT_STATUSES, FORM_BLUEPRINT_VALIDATION_SEVERITIES } from './formBlueprintModels.js';
 import {
@@ -707,6 +714,24 @@ JobApplicationDocument.belongsTo(User, { foreignKey: 'uploadedById', as: 'upload
 User.hasMany(JobApplicationDocument, { foreignKey: 'uploadedById', as: 'jobApplicationDocuments' });
 JobApplicationInterview.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
 User.hasMany(JobApplicationInterview, { foreignKey: 'createdById', as: 'jobApplicationInterviews' });
+
+DiscoveryConnectionProfile.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(DiscoveryConnectionProfile, {
+  foreignKey: 'userId',
+  as: 'discoveryConnectionProfiles',
+});
+
+DiscoverySuggestionEngagement.belongsTo(User, { foreignKey: 'userId', as: 'actor' });
+User.hasMany(DiscoverySuggestionEngagement, {
+  foreignKey: 'userId',
+  as: 'discoverySuggestionEngagements',
+});
+
+DiscoverySuggestionSubscription.belongsTo(User, { foreignKey: 'userId', as: 'subscriber' });
+User.hasMany(DiscoverySuggestionSubscription, {
+  foreignKey: 'userId',
+  as: 'discoverySuggestionSubscriptions',
+});
 
 export const UserDashboardOverview = sequelize.define(
   'UserDashboardOverview',
@@ -25245,6 +25270,20 @@ domainRegistry.registerContext({
       /^Deliverable/.test(modelName),
   ],
   metadata: domainMetadata.marketplace,
+});
+
+domainRegistry.registerContext({
+  name: 'discovery',
+  displayName: 'Discovery & Suggestions',
+  description: 'Personalised suggestion rails, trending topics, and networking spotlights powering the explorer.',
+  models: [
+    'DiscoverySuggestion',
+    'DiscoverySuggestionEngagement',
+    'DiscoverySuggestionSubscription',
+    'DiscoveryTrendingTopic',
+    'DiscoveryConnectionProfile',
+  ],
+  metadata: domainMetadata.discovery,
 });
 
 domainRegistry.registerContext({
