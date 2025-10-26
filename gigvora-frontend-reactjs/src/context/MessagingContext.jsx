@@ -9,6 +9,7 @@ import {
   createCallSession,
   markThreadRead,
   updateTypingState,
+  muteThread,
 } from '../services/messaging.js';
 import { resolveActorId, sortMessages, sortThreads } from '../utils/messaging.js';
 import { canAccessMessaging } from '../constants/access.js';
@@ -46,6 +47,12 @@ const defaultValue = {
   joinCall: () => {},
   closeCall: () => {},
   lastSyncedAt: null,
+  markThreadAsRead: async () => {},
+  markThreadAsUnread: () => {},
+  snoozeThread: async () => {},
+  unsnoozeThread: () => {},
+  snoozedThreads: {},
+  unreadOverrides: {},
 };
 
 const initialState = {
@@ -63,7 +70,42 @@ const initialState = {
   lastSyncedAt: null,
   offlineHydrated: false,
   viewLimitByThread: {},
+  snoozedThreads: {},
+  unreadOverrides: {},
 };
+
+function applyUnreadOverride(thread, overrides = {}) {
+  if (!thread?.id) {
+    return thread;
+  }
+  if (!overrides[thread.id]) {
+    return thread;
+  }
+  const unreadCount = Math.max(Number(thread?.unreadCount) || 0, 1);
+  return {
+    ...thread,
+    unread: true,
+    unreadCount: unreadCount || 1,
+    viewerState: { ...(thread.viewerState ?? {}), lastReadAt: null },
+  };
+}
+
+function removeExpiredSnoozes(snoozed = {}) {
+  const now = Date.now();
+  return Object.fromEntries(
+    Object.entries(snoozed).filter(([, entry]) => {
+      const until = entry?.until ?? entry;
+      if (!until) {
+        return false;
+      }
+      const expiresAt = new Date(until).getTime();
+      if (!Number.isFinite(expiresAt)) {
+        return false;
+      }
+      return expiresAt > now;
+    }),
+  );
+}
 
 function determineViewLimit(messageCount, previousLimit) {
   if (!Number.isFinite(messageCount) || messageCount <= 0) {
@@ -80,7 +122,11 @@ function messagingReducer(state, action) {
     case 'resetState':
       return { ...initialState };
     case 'hydrate': {
-      const threads = sortThreads(action.payload?.threads ?? []);
+      const overrides = action.payload?.unreadOverrides ?? {};
+      const snoozedThreads = removeExpiredSnoozes(action.payload?.snoozedThreads ?? {});
+      const threads = sortThreads(action.payload?.threads ?? []).map((thread) =>
+        applyUnreadOverride(thread, overrides),
+      );
       const selectedThreadId = action.payload?.selectedThreadId ?? threads[0]?.id ?? null;
       return {
         ...state,
@@ -89,6 +135,8 @@ function messagingReducer(state, action) {
         messagesByThread: action.payload?.messagesByThread ?? {},
         composerByThread: action.payload?.composerByThread ?? {},
         viewLimitByThread: action.payload?.viewLimitByThread ?? {},
+        snoozedThreads,
+        unreadOverrides: overrides,
         offlineHydrated: true,
       };
     }
@@ -99,7 +147,11 @@ function messagingReducer(state, action) {
         errors: { ...state.errors, threads: action.loading ? null : state.errors.threads },
       };
     case 'setThreads': {
-      const threads = sortThreads(action.threads ?? []);
+      const overrides = state.unreadOverrides ?? {};
+      const cleanedSnoozed = removeExpiredSnoozes(state.snoozedThreads ?? {});
+      const threads = sortThreads(action.threads ?? []).map((thread) =>
+        applyUnreadOverride(thread, overrides),
+      );
       const preferred = action.preferredThreadId ?? state.selectedThreadId;
       const selectedThreadId = preferred && threads.some((thread) => thread.id === preferred)
         ? preferred
@@ -111,6 +163,7 @@ function messagingReducer(state, action) {
         errors: { ...state.errors, threads: null },
         selectedThreadId,
         lastSyncedAt: action.syncedAt ?? new Date().toISOString(),
+        snoozedThreads: cleanedSnoozed,
       };
     }
     case 'setThreadsError':
@@ -179,7 +232,8 @@ function messagingReducer(state, action) {
     }
     case 'setSending':
       return { ...state, sending: action.sending };
-    case 'acknowledgeThread':
+    case 'acknowledgeThread': {
+      const { [action.threadId]: _removedOverride, ...restOverrides } = state.unreadOverrides ?? {};
       return {
         ...state,
         threads: state.threads.map((thread) =>
@@ -192,7 +246,44 @@ function messagingReducer(state, action) {
               }
             : thread,
         ),
+        unreadOverrides: restOverrides,
       };
+    }
+    case 'markThreadUnread': {
+      if (!action.threadId) {
+        return state;
+      }
+      const overrides = { ...(state.unreadOverrides ?? {}), [action.threadId]: true };
+      return {
+        ...state,
+        threads: state.threads.map((thread) =>
+          thread.id === action.threadId ? applyUnreadOverride(thread, overrides) : thread,
+        ),
+        unreadOverrides: overrides,
+      };
+    }
+    case 'snoozeThread': {
+      if (!action.threadId || !action.until) {
+        return state;
+      }
+      return {
+        ...state,
+        snoozedThreads: {
+          ...(state.snoozedThreads ?? {}),
+          [action.threadId]: { until: action.until },
+        },
+      };
+    }
+    case 'clearSnooze': {
+      if (!action.threadId) {
+        return state;
+      }
+      const { [action.threadId]: _removedSnooze, ...rest } = state.snoozedThreads ?? {};
+      return {
+        ...state,
+        snoozedThreads: rest,
+      };
+    }
     case 'setTypingParticipants':
       return {
         ...state,
@@ -635,14 +726,27 @@ export function MessagingProvider({ children }) {
       return;
     }
     persistState(actorId, {
-      version: 1,
+      version: 2,
       threads: state.threads,
       messagesByThread: state.messagesByThread,
       selectedThreadId: state.selectedThreadId,
       composerByThread: state.composerByThread,
       viewLimitByThread: state.viewLimitByThread,
+      snoozedThreads: state.snoozedThreads,
+      unreadOverrides: state.unreadOverrides,
     });
-  }, [actorId, hasMessagingAccess, state.offlineHydrated, state.threads, state.messagesByThread, state.selectedThreadId, state.composerByThread, state.viewLimitByThread]);
+  }, [
+    actorId,
+    hasMessagingAccess,
+    state.offlineHydrated,
+    state.threads,
+    state.messagesByThread,
+    state.selectedThreadId,
+    state.composerByThread,
+    state.viewLimitByThread,
+    state.snoozedThreads,
+    state.unreadOverrides,
+  ]);
 
   useEffect(() => () => {
     typingTimersRef.current.forEach((entry) => {
@@ -652,6 +756,30 @@ export function MessagingProvider({ children }) {
     });
     typingTimersRef.current.clear();
   }, []);
+
+  useEffect(() => {
+    const timers = [];
+    Object.entries(state.snoozedThreads ?? {}).forEach(([threadId, entry]) => {
+      const until = entry?.until ?? entry;
+      if (!until) {
+        dispatch({ type: 'clearSnooze', threadId });
+        return;
+      }
+      const expiresAt = new Date(until).getTime();
+      if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+        dispatch({ type: 'clearSnooze', threadId });
+        return;
+      }
+      const delay = Math.min(expiresAt - Date.now(), 2147483647);
+      const timeoutId = window.setTimeout(() => {
+        dispatch({ type: 'clearSnooze', threadId });
+      }, delay);
+      timers.push(timeoutId);
+    });
+    return () => {
+      timers.forEach((timeoutId) => window.clearTimeout(timeoutId));
+    };
+  }, [state.snoozedThreads]);
 
   const sendMessageForSelectedThread = useCallback(
     async (body) => {
@@ -708,6 +836,71 @@ export function MessagingProvider({ children }) {
     closeCall(selectedThreadId);
   }, [selectedThreadId, closeCall]);
 
+  const markThreadAsRead = useCallback(
+    async (threadId) => {
+      if (!threadId || !actorId || !hasMessagingAccess || !isAuthenticated) {
+        return;
+      }
+      const timestamp = new Date().toISOString();
+      dispatch({ type: 'acknowledgeThread', threadId, timestamp });
+      try {
+        await markThreadRead(threadId, { userId: actorId });
+      } catch (error) {
+        // Ignore backend failures to keep optimistic UI responsive.
+      }
+    },
+    [actorId, hasMessagingAccess, isAuthenticated],
+  );
+
+  const markThreadAsUnread = useCallback((threadId) => {
+    if (!threadId) {
+      return;
+    }
+    dispatch({ type: 'markThreadUnread', threadId });
+  }, []);
+
+  const snoozeThread = useCallback(
+    async (threadId, durationMinutes = 60) => {
+      if (!threadId) {
+        return;
+      }
+      const until = new Date(Date.now() + durationMinutes * 60_000).toISOString();
+      dispatch({ type: 'snoozeThread', threadId, until });
+      if (!actorId || !hasMessagingAccess || !isAuthenticated) {
+        return;
+      }
+      try {
+        await muteThread(threadId, { userId: actorId, until });
+      } catch (error) {
+        dispatch({ type: 'clearSnooze', threadId });
+        throw error;
+      }
+    },
+    [actorId, hasMessagingAccess, isAuthenticated],
+  );
+
+  const unsnoozeThread = useCallback(
+    async (threadId) => {
+      if (!threadId) {
+        return;
+      }
+      const previous = state.snoozedThreads?.[threadId] ?? null;
+      dispatch({ type: 'clearSnooze', threadId });
+      if (!actorId || !hasMessagingAccess || !isAuthenticated) {
+        return;
+      }
+      try {
+        await muteThread(threadId, { userId: actorId, until: null });
+      } catch (error) {
+        if (previous?.until) {
+          dispatch({ type: 'snoozeThread', threadId, until: previous.until });
+        }
+        throw error;
+      }
+    },
+    [actorId, hasMessagingAccess, isAuthenticated, state.snoozedThreads],
+  );
+
   const contextValue = useMemo(
     () => ({
       hasMessagingAccess: Boolean(hasMessagingAccess && isAuthenticated),
@@ -736,6 +929,12 @@ export function MessagingProvider({ children }) {
       joinCall,
       closeCall: closeCallForSelectedThread,
       lastSyncedAt: state.lastSyncedAt,
+      markThreadAsRead,
+      markThreadAsUnread,
+      snoozeThread,
+      unsnoozeThread,
+      snoozedThreads: state.snoozedThreads,
+      unreadOverrides: state.unreadOverrides,
     }),
     [
       hasMessagingAccess,
@@ -765,6 +964,12 @@ export function MessagingProvider({ children }) {
       joinCall,
       closeCallForSelectedThread,
       state.lastSyncedAt,
+      markThreadAsRead,
+      markThreadAsUnread,
+      snoozeThread,
+      unsnoozeThread,
+      state.snoozedThreads,
+      state.unreadOverrides,
     ],
   );
 
