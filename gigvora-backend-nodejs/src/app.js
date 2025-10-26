@@ -61,6 +61,32 @@ const buildHttpLogger = (config) =>
       }
       return 'info';
     },
+    serializers: {
+      req(request) {
+        return {
+          method: request.method,
+          url: request.url,
+          requestId: request.id,
+          remoteAddress: request.socket?.remoteAddress,
+          remotePort: request.socket?.remotePort,
+        };
+      },
+      res(response) {
+        return {
+          statusCode: response.statusCode,
+        };
+      },
+      err(error) {
+        if (!error) {
+          return undefined;
+        }
+        return {
+          type: error.name,
+          message: error.message,
+          stack: error.stack,
+        };
+      },
+    },
     quietReqLogger: process.env.NODE_ENV === 'test',
   });
 

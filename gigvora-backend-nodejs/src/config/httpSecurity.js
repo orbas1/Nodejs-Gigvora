@@ -282,33 +282,29 @@ export function applyHttpSecurity(app, { env = process.env, logger: providedLogg
     app.set('trust proxy', trustProxy);
   }
 
-  app.use(
-    helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'self'"],
-          scriptSrc: cachedCsp.scriptSrc,
-          connectSrc: cachedCsp.connectSrc,
-          imgSrc: cachedCsp.imgSrc,
-          styleSrc: cachedCsp.styleSrc,
-        },
+  const helmetConfig = {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: cachedCsp.scriptSrc,
+        connectSrc: cachedCsp.connectSrc,
+        imgSrc: cachedCsp.imgSrc,
+        styleSrc: cachedCsp.styleSrc,
       },
-      crossOriginEmbedderPolicy: false,
-      crossOriginResourcePolicy: { policy: 'cross-origin' },
-      referrerPolicy: { policy: 'no-referrer' },
-      strictTransportSecurity: {
-        maxAge: 63072000,
-        includeSubDomains: true,
-        preload: true,
-      },
-    }),
-  );
+    },
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    referrerPolicy: { policy: 'no-referrer' },
+    hsts: {
+      maxAge: 63072000,
+      includeSubDomains: true,
+      preload: true,
+    },
+    frameguard: { action: 'deny' },
+    noSniff: true,
+  };
 
-  app.use((req, res, next) => {
-    res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    next();
-  });
+  app.use(helmet(helmetConfig));
 
   app.use(createCorsMiddleware({ env, logger: log }));
 
