@@ -30,7 +30,7 @@ function computeFinancialProgress(financials) {
   return Math.min(Math.round((paid / financials.totalValue) * 100), 100);
 }
 
-function ContractTracker({ contract, persona, onObligationToggle }) {
+function ContractTracker({ contract, persona, onObligationToggle, updating }) {
   const obligations = contract.obligations ?? [];
   const deliverables = contract.deliverables ?? [];
   const [severityFilter, setSeverityFilter] = useState('all');
@@ -67,6 +67,9 @@ function ContractTracker({ contract, persona, onObligationToggle }) {
   }, [phaseProgress, financialProgress, obligations, completedObligations, contract.risks, contract.touchpoints]);
 
   const handleObligationToggle = (obligation) => {
+    if (updating) {
+      return;
+    }
     const next = new Set(completedObligations);
     if (next.has(obligation.id)) {
       next.delete(obligation.id);
@@ -184,6 +187,7 @@ function ContractTracker({ contract, persona, onObligationToggle }) {
                           className="h-4 w-4 rounded border border-emerald-300 text-emerald-600 focus:ring-emerald-400"
                           checked={checked}
                           onChange={() => handleObligationToggle(obligation)}
+                          disabled={updating}
                         />
                         <p className="font-semibold text-slate-800">{obligation.label}</p>
                       </div>
@@ -207,6 +211,9 @@ function ContractTracker({ contract, persona, onObligationToggle }) {
                       </div>
                     </div>
                     {obligation.notes ? <p className="text-xs text-slate-500">{obligation.notes}</p> : null}
+                    {updating && (
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Syncing update…</p>
+                    )}
                   </div>
                 );
               })}
@@ -466,11 +473,13 @@ ContractTracker.propTypes = {
   }).isRequired,
   persona: PropTypes.string,
   onObligationToggle: PropTypes.func,
+  updating: PropTypes.bool,
 };
 
 ContractTracker.defaultProps = {
   persona: 'operations',
   onObligationToggle: undefined,
+  updating: false,
 };
 
 BadgeMetric.propTypes = {
