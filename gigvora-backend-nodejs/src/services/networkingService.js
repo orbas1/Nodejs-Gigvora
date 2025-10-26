@@ -143,6 +143,138 @@ function ensureBusinessCard(card) {
   }
 }
 
+function safeInteger(value, fallback = 0) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? Math.round(numeric) : fallback;
+}
+
+function deriveSessionMetrics(signups = []) {
+  const metrics = {
+    totalSignups: 0,
+    registered: 0,
+    waitlisted: 0,
+    checkedIn: 0,
+    completed: 0,
+    removed: 0,
+    noShows: 0,
+    messagesSent: 0,
+    profileShares: 0,
+    followUpsScheduled: 0,
+    connectionsSaved: 0,
+    satisfactionResponses: 0,
+    averageSatisfaction: null,
+    followUpVelocityHours: null,
+    connectionDepth: null,
+    checkInRate: null,
+    noShowRate: null,
+    followUpCaptureRate: null,
+    rsvpTotal: 0,
+  };
+
+  const satisfactionScores = [];
+  const followUpLatencies = [];
+
+  signups.forEach((signup) => {
+    metrics.totalSignups += 1;
+    const status = signup.status ?? signup.get?.('status');
+    switch (status) {
+      case 'waitlisted':
+        metrics.waitlisted += 1;
+        break;
+      case 'checked_in':
+        metrics.checkedIn += 1;
+        break;
+      case 'completed':
+        metrics.completed += 1;
+        break;
+      case 'removed':
+        metrics.removed += 1;
+        break;
+      case 'no_show':
+        metrics.noShows += 1;
+        break;
+      case 'registered':
+      default:
+        metrics.registered += 1;
+    }
+
+    metrics.rsvpTotal += 1;
+
+    metrics.messagesSent += safeInteger(
+      signup.messagesSent ?? signup.get?.('messagesSent'),
+    );
+    metrics.profileShares += safeInteger(
+      signup.profileSharedCount ?? signup.get?.('profileSharedCount'),
+    );
+
+    const savedConnections = safeInteger(
+      signup.connectionsSaved ??
+        signup.get?.('connectionsSaved') ??
+        signup.connectionsTracked ??
+        signup.get?.('connectionsTracked') ??
+        signup.connectionsRecorded ??
+        signup.get?.('connectionsRecorded'),
+    );
+    metrics.connectionsSaved += Math.max(0, savedConnections);
+
+    const followUps = safeInteger(
+      signup.followUpsScheduled ?? signup.get?.('followUpsScheduled'),
+    );
+    metrics.followUpsScheduled += Math.max(0, followUps);
+
+    const satisfactionRaw = signup.satisfactionScore ?? signup.get?.('satisfactionScore');
+    if (satisfactionRaw != null) {
+      const numeric = Number(satisfactionRaw);
+      if (Number.isFinite(numeric)) {
+        satisfactionScores.push(numeric);
+      }
+    }
+
+    if (followUps > 0) {
+      const completedAt = toDate(signup.completedAt ?? signup.get?.('completedAt'));
+      const followUpRecordedAt =
+        toDate(signup.metadata?.lastFollowUpAt ?? signup.get?.('metadata')?.lastFollowUpAt) ||
+        toDate(signup.updatedAt ?? signup.get?.('updatedAt')) ||
+        completedAt;
+      if (completedAt && followUpRecordedAt) {
+        const diffMs = followUpRecordedAt.getTime() - completedAt.getTime();
+        if (Number.isFinite(diffMs) && diffMs >= 0) {
+          followUpLatencies.push(diffMs / (1000 * 60 * 60));
+        }
+      }
+    }
+  });
+
+  if (satisfactionScores.length) {
+    const total = satisfactionScores.reduce((sum, score) => sum + score, 0);
+    metrics.satisfactionResponses = satisfactionScores.length;
+    metrics.averageSatisfaction = Number((total / satisfactionScores.length).toFixed(2));
+  }
+
+  if (followUpLatencies.length) {
+    const totalLatency = followUpLatencies.reduce((sum, value) => sum + value, 0);
+    metrics.followUpVelocityHours = Number((totalLatency / followUpLatencies.length).toFixed(1));
+  }
+
+  if (metrics.totalSignups > 0) {
+    metrics.connectionDepth = Number((metrics.connectionsSaved / metrics.totalSignups).toFixed(2));
+  }
+
+  if (metrics.rsvpTotal > 0) {
+    const attendees = metrics.checkedIn + metrics.completed;
+    metrics.checkInRate = Number(((attendees / metrics.rsvpTotal) * 100).toFixed(1));
+    metrics.noShowRate = Number(((metrics.noShows / metrics.rsvpTotal) * 100).toFixed(1));
+  }
+
+  if (metrics.completed > 0) {
+    metrics.followUpCaptureRate = Number(
+      ((metrics.followUpsScheduled / metrics.completed) || 0).toFixed(2),
+    );
+  }
+
+  return metrics;
+}
+
 function serialiseSession(session, { includeAssociations = true } = {}) {
   if (!session) {
     return null;
@@ -161,10 +293,12 @@ function serialiseSession(session, { includeAssociations = true } = {}) {
         typeof signup.toPublicObject === 'function' ? signup.toPublicObject() : signup,
       )
     : [];
+  const metrics = deriveSessionMetrics(signups);
   return {
     ...base,
     rotations,
     signups,
+    metrics,
   };
 }
 
@@ -310,6 +444,8 @@ function summariseSessions(sessions = []) {
   const satisfactionScores = [];
   const followUps = { total: 0, sessions: 0, attendees: 0 };
   const connections = { total: 0, sessions: 0 };
+  const messageStats = { total: 0, sessions: 0 };
+  const noShow = { missed: 0, total: 0 };
 
   sessions.forEach((session) => {
     const status = session.status ?? session.get?.('status');
@@ -327,39 +463,39 @@ function summariseSessions(sessions = []) {
       rotationDurations.push(Number(session.rotationDurationSeconds));
     }
     const signups = Array.isArray(session.signups) ? session.signups : [];
-    if (signups.length) {
+    const metrics = session.metrics ?? deriveSessionMetrics(signups);
+    summary.registered += metrics.registered;
+    summary.waitlist += metrics.waitlisted;
+    summary.checkedIn += metrics.checkedIn;
+    summary.completedAttendees += metrics.completed;
+    summary.totalFollowUps += metrics.followUpsScheduled;
+    summary.connectionsCaptured += metrics.connectionsSaved;
+
+    if (metrics.totalSignups > 0) {
       followUps.sessions += 1;
       connections.sessions += 1;
+      followUps.attendees += metrics.totalSignups;
     }
-    signups.forEach((signup) => {
-      const signupStatus = signup.status ?? signup.get?.('status');
-      if (signupStatus === 'registered') summary.registered += 1;
-      if (signupStatus === 'waitlisted') summary.waitlist += 1;
-      if (signupStatus === 'checked_in') summary.checkedIn += 1;
-      if (signupStatus === 'completed') summary.completedAttendees += 1;
-      followUps.attendees += 1;
-      const scheduled = Number(signup.followUpsScheduled ?? signup.get?.('followUpsScheduled'));
-      if (Number.isFinite(scheduled)) {
-        followUps.total += Math.max(0, scheduled);
-      }
-      const savedConnections = Number(
-        signup.connectionsSaved ??
-          signup.get?.('connectionsSaved') ??
-          signup.connectionsTracked ??
-          signup.get?.('connectionsTracked') ??
-          signup.connectionsRecorded ??
-          signup.get?.('connectionsRecorded'),
-      );
-      if (Number.isFinite(savedConnections)) {
-        connections.total += Math.max(0, savedConnections);
-      }
-      if (signup.satisfactionScore != null) {
-        const score = Number(signup.satisfactionScore);
-        if (Number.isFinite(score)) {
-          satisfactionScores.push(score);
-        }
-      }
-    });
+
+    followUps.total += metrics.followUpsScheduled;
+    connections.total += metrics.connectionsSaved;
+
+    if (metrics.messagesSent != null) {
+      messageStats.total += metrics.messagesSent;
+      messageStats.sessions += 1;
+    }
+
+    if (metrics.averageSatisfaction != null) {
+      satisfactionScores.push(metrics.averageSatisfaction);
+    }
+
+    if (metrics.rsvpTotal > 0 && metrics.noShows != null) {
+      noShow.total += metrics.rsvpTotal;
+      noShow.missed += metrics.noShows;
+    } else {
+      noShow.total += metrics.totalSignups;
+      noShow.missed += metrics.noShows;
+    }
     if (session.accessType === 'paid') {
       summary.paid += 1;
       const price = Number(session.priceCents ?? 0);
@@ -378,19 +514,22 @@ function summariseSessions(sessions = []) {
   if (rotationDurations.length) {
     const total = rotationDurations.reduce((sum, value) => sum + value, 0);
     summary.rotationDurationSeconds = Math.round(total / rotationDurations.length);
+    summary.averageRotation = summary.rotationDurationSeconds;
   }
   if (satisfactionScores.length) {
     const total = satisfactionScores.reduce((sum, value) => sum + value, 0);
     summary.satisfactionAverage = Number((total / satisfactionScores.length).toFixed(2));
+    summary.averageSatisfaction = summary.satisfactionAverage;
   }
-  summary.totalFollowUps = followUps.total;
   if (followUps.sessions > 0) {
     summary.averageFollowUpsPerSession = Number((followUps.total / followUps.sessions).toFixed(1));
   }
   if (followUps.attendees > 0) {
     summary.averageFollowUpsPerAttendee = Number((followUps.total / followUps.attendees).toFixed(2));
   }
-  summary.connectionsCaptured = connections.total;
+  if (messageStats.sessions > 0) {
+    summary.averageMessages = Number((messageStats.total / messageStats.sessions).toFixed(1));
+  }
   if (connections.sessions > 0) {
     summary.averageConnectionsPerSession = Number((connections.total / connections.sessions).toFixed(1));
   }
@@ -1235,6 +1374,8 @@ export const __testing = {
   serialiseSignup,
   serialiseBusinessCard,
   defaultVideoConfig,
+  deriveSessionMetrics,
+  summariseSessions,
 };
 
 export default {
