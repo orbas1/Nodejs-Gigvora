@@ -1,9 +1,12 @@
+import { createHash } from 'node:crypto';
 import { Op } from 'sequelize';
 import {
   SiteSetting,
   SitePage,
   SiteNavigationLink,
+  SitePageFeedback,
   SITE_PAGE_STATUSES,
+  SITE_PAGE_FEEDBACK_RESPONSES,
   sequelize,
 } from '../models/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
@@ -519,6 +522,85 @@ function normalizeRoles(value) {
   return Array.from(unique);
 }
 
+const FEEDBACK_RESPONSE_SET = new Set(SITE_PAGE_FEEDBACK_RESPONSES);
+
+function normalizeFeedbackRating(value) {
+  const response = String(value ?? '')
+    .trim()
+    .toLowerCase();
+  if (!response) {
+    throw new ValidationError('rating is required for site page feedback.');
+  }
+  if (!FEEDBACK_RESPONSE_SET.has(response)) {
+    throw new ValidationError(
+      `rating must be one of ${Array.from(FEEDBACK_RESPONSE_SET).join(', ')}.`,
+    );
+  }
+  return response;
+}
+
+function sanitizeFeedbackMessage(value) {
+  const text = String(value ?? '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!text) {
+    return null;
+  }
+  return text.slice(0, 2000);
+}
+
+function sanitizeFeedbackRoles(roles) {
+  if (!roles) {
+    return [];
+  }
+  const source = Array.isArray(roles) ? roles : `${roles}`.split(',');
+  const unique = new Set();
+  source.forEach((role) => {
+    if (typeof role !== 'string') {
+      return;
+    }
+    const trimmed = role.trim();
+    if (!trimmed) {
+      return;
+    }
+    unique.add(trimmed.toLowerCase());
+  });
+  return Array.from(unique);
+}
+
+function hashIpAddress(value) {
+  if (!value) {
+    return null;
+  }
+  try {
+    return createHash('sha256').update(String(value).trim()).digest('hex');
+  } catch (error) {
+    return null;
+  }
+}
+
+function sanitizeUserAgent(value) {
+  const text = String(value ?? '').trim();
+  if (!text) {
+    return null;
+  }
+  return text.slice(0, 512);
+}
+
+function buildFeedbackMetadata({ referer, source, extra } = {}) {
+  const metadata = {};
+  if (referer) {
+    metadata.referer = coerceString(referer);
+  }
+  if (source) {
+    metadata.source = coerceString(source, 'web');
+  }
+  if (extra && typeof extra === 'object') {
+    Object.assign(metadata, extra);
+  }
+  return metadata;
+}
+
 function coerceDate(value) {
   if (!value) {
     return null;
@@ -942,6 +1024,44 @@ export async function getPublishedSitePage(slug, { allowDraft = false } = {}) {
   return page.toPublicObject();
 }
 
+export async function submitSitePageFeedback(slug, payload = {}, context = {}) {
+  const normalisedSlug = coerceString(slug);
+  if (!normalisedSlug) {
+    throw new ValidationError('slug is required for site page feedback.');
+  }
+
+  const page = await SitePage.findOne({ where: { slug: normalisedSlug } });
+  if (!page) {
+    throw new NotFoundError('Page not found.');
+  }
+
+  const response = normalizeFeedbackRating(payload.rating ?? payload.response);
+  const message = sanitizeFeedbackMessage(payload.message ?? payload.comment);
+  const actorId = Number.isInteger(context.actorId) && context.actorId > 0 ? context.actorId : null;
+  const actorRoles = sanitizeFeedbackRoles(
+    context.roles ?? context.actorRoles ?? context.userRoles ?? context.primaryRole ?? [],
+  );
+  const metadata = buildFeedbackMetadata({
+    referer: context.referer ?? context.referrer,
+    source: context.source ?? 'public-site',
+    extra: context.metadata,
+  });
+
+  const feedback = await SitePageFeedback.create({
+    pageId: page.id,
+    response,
+    message,
+    actorId,
+    actorRoles,
+    ipHash: hashIpAddress(context.ipAddress),
+    userAgent: sanitizeUserAgent(context.userAgent),
+    metadata,
+    submittedAt: new Date(),
+  });
+
+  return feedback.toPublicObject();
+}
+
 export default {
   getSiteManagementOverview,
   getSiteSettings,
@@ -955,4 +1075,5 @@ export default {
   deleteSitePageById,
   listSitePages,
   getPublishedSitePage,
+  submitSitePageFeedback,
 };

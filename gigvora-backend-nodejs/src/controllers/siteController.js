@@ -3,6 +3,7 @@ import {
   getSiteNavigation,
   listSitePages,
   getPublishedSitePage,
+  submitSitePageFeedback,
 } from '../services/siteManagementService.js';
 import { AuthorizationError, ValidationError } from '../utils/errors.js';
 import { resolveRequestPermissions, resolveRequestUserId } from '../utils/requestContext.js';
@@ -26,6 +27,63 @@ function normalise(value) {
     return null;
   }
   return `${value}`.trim().toLowerCase();
+}
+
+function extractIpAddress(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string' && forwarded.trim()) {
+    return forwarded.split(',')[0].trim();
+  }
+  if (Array.isArray(forwarded) && forwarded.length) {
+    const candidate = forwarded.find((value) => typeof value === 'string' && value.trim());
+    if (candidate) {
+      return candidate.trim();
+    }
+  }
+  if (typeof req.ip === 'string' && req.ip.trim()) {
+    return req.ip.trim();
+  }
+  if (req.socket?.remoteAddress) {
+    return `${req.socket.remoteAddress}`.trim();
+  }
+  if (req.connection?.remoteAddress) {
+    return `${req.connection.remoteAddress}`.trim();
+  }
+  return null;
+}
+
+function resolveActorContext(req) {
+  const actorId = resolveRequestUserId(req);
+  const roles = new Set();
+  const primaryRole = normalise(req.user?.type ?? req.user?.role ?? req.headers['x-user-type']);
+  if (primaryRole) {
+    roles.add(primaryRole);
+  }
+  if (Array.isArray(req.user?.roles)) {
+    req.user.roles.forEach((role) => {
+      const normalised = normalise(role);
+      if (normalised) {
+        roles.add(normalised);
+      }
+    });
+  }
+  const headerRoles = typeof req.headers['x-roles'] === 'string' ? req.headers['x-roles'].split(',') : [];
+  headerRoles.forEach((role) => {
+    const normalised = normalise(role);
+    if (normalised) {
+      roles.add(normalised);
+    }
+  });
+
+  return {
+    actorId: actorId ?? null,
+    roles: Array.from(roles),
+    primaryRole: primaryRole ?? null,
+    ipAddress: extractIpAddress(req),
+    userAgent: req.get?.('user-agent') ?? req.headers['user-agent'] ?? null,
+    referer: req.get?.('referer') ?? req.get?.('referrer') ?? req.headers.referer ?? req.headers.referrer,
+    source: 'public-site',
+  };
 }
 
 function ensureSiteManageAccess(req) {
@@ -97,9 +155,16 @@ export async function show(req, res) {
   res.json({ page });
 }
 
+export async function feedback(req, res) {
+  const { slug } = req.params;
+  const feedback = await submitSitePageFeedback(slug, req.body ?? {}, resolveActorContext(req));
+  res.status(202).json({ feedback });
+}
+
 export default {
   settings,
   navigation,
   index,
   show,
+  feedback,
 };

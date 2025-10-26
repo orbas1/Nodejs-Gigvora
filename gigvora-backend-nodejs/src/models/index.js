@@ -9,7 +9,14 @@ import {
   PLATFORM_SETTINGS_WATCHER_CHANNELS,
   PLATFORM_SETTINGS_WATCHER_DIGEST_FREQUENCIES,
 } from './platformSettingsWatcher.js';
-import { SiteSetting, SitePage, SiteNavigationLink, SITE_PAGE_STATUSES } from './siteManagementModels.js';
+import {
+  SiteSetting,
+  SitePage,
+  SiteNavigationLink,
+  SitePageFeedback,
+  SITE_PAGE_STATUSES,
+  SITE_PAGE_FEEDBACK_RESPONSES,
+} from './siteManagementModels.js';
 import { RuntimeSecurityAuditEvent } from './runtimeSecurityAuditEvent.js';
 import {
   normaliseSlug,
@@ -588,7 +595,14 @@ export {
   ADMIN_TIMELINE_EVENT_TYPES,
   registerAdminTimelineAssociations,
 } from './adminTimelineModels.js';
-export { SiteSetting, SitePage, SiteNavigationLink, SITE_PAGE_STATUSES } from './siteManagementModels.js';
+export {
+  SiteSetting,
+  SitePage,
+  SiteNavigationLink,
+  SitePageFeedback,
+  SITE_PAGE_STATUSES,
+  SITE_PAGE_FEEDBACK_RESPONSES,
+} from './siteManagementModels.js';
 export { EmailSmtpConfig, EmailTemplate } from './emailModels.js';
 export {
   CreationStudioItem,

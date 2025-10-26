@@ -1,6 +1,6 @@
 import request from 'supertest';
 import { app } from '../src/app.js';
-import { SitePage, sequelize } from '../src/models/index.js';
+import { SitePage, SitePageFeedback, sequelize } from '../src/models/index.js';
 
 describe('site routes', () => {
   beforeAll(async () => {
@@ -76,5 +76,34 @@ describe('site routes', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.pages).toHaveLength(2);
+  });
+
+  test('POST /api/site/pages/:slug/feedback persists submissions with hashed metadata', async () => {
+    const page = await SitePage.create({
+      title: 'Privacy policy',
+      slug: 'privacy-policy',
+      status: 'published',
+      summary: 'Privacy details',
+    });
+
+    const response = await request(app)
+      .post(`/api/site/pages/${page.slug}/feedback`)
+      .set('x-forwarded-for', '203.0.113.42')
+      .set('user-agent', 'SupertestSuite/1.0')
+      .send({ rating: 'yes', message: '  Thanks for the clarity!  ' });
+
+    expect(response.status).toBe(202);
+    expect(response.body.feedback.response).toBe('yes');
+    expect(response.body.feedback.message).toBe('Thanks for the clarity!');
+
+    const entries = await SitePageFeedback.findAll({ where: { pageId: page.id } });
+    expect(entries).toHaveLength(1);
+    const entry = entries[0];
+    expect(entry.message).toBe('Thanks for the clarity!');
+    expect(entry.ipHash).toHaveLength(64);
+    expect(entry.ipHash).not.toBe('203.0.113.42');
+    expect(entry.userAgent).toBe('SupertestSuite/1.0');
+    expect(entry.metadata).toMatchObject({ source: 'public-site' });
+    expect(new Date(entry.submittedAt).getTime()).not.toBeNaN();
   });
 });

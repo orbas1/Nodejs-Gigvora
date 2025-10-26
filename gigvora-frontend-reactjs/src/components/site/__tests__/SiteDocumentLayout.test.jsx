@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 
 const scrollToElementMock = vi.hoisted(() => vi.fn());
 const announcePoliteMock = vi.hoisted(() => vi.fn());
+const submitSitePageFeedbackMock = vi.hoisted(() => vi.fn());
 let clipboardWriteMock;
 
 vi.mock('../../../utils/accessibility.js', () => ({
@@ -15,6 +16,11 @@ vi.mock('../../../utils/accessibility.js', () => ({
     focusElement: vi.fn(),
     announcePolite: announcePoliteMock,
   },
+}));
+
+vi.mock('../../../services/publicSite.js', () => ({
+  submitSitePageFeedback: submitSitePageFeedbackMock,
+  default: { submitSitePageFeedback: submitSitePageFeedbackMock },
 }));
 
 import SiteDocumentLayout from '../SiteDocumentLayout.jsx';
@@ -47,6 +53,8 @@ describe('SiteDocumentLayout accessibility experience', () => {
       value: { writeText: clipboardWriteMock },
       configurable: true,
     });
+    submitSitePageFeedbackMock.mockReset();
+    submitSitePageFeedbackMock.mockResolvedValue({ id: 1, response: 'yes' });
   });
 
   afterEach(() => {
@@ -127,6 +135,7 @@ describe('SiteDocumentLayout accessibility experience', () => {
     render(<SiteDocumentLayout {...defaultProps} />);
 
     await user.click(screen.getByLabelText('Yes, it answered my question'));
+    await user.type(screen.getByRole('textbox', { name: /share optional feedback/i }), 'Great insights');
     await user.click(screen.getByRole('button', { name: /submit feedback/i }));
 
     expect(
@@ -134,6 +143,11 @@ describe('SiteDocumentLayout accessibility experience', () => {
         /Thank you for your feedback. Our legal and support teams review submissions within two UK business days./i,
       ),
     ).toBeInTheDocument();
+    expect(submitSitePageFeedbackMock).toHaveBeenCalledWith('POL-001', {
+      rating: 'yes',
+      message: 'Great insights',
+    });
+    expect(screen.getByRole('textbox', { name: /share optional feedback/i }).value).toBe('');
   });
 
   it('copies the share link and announces the outcome via status message', async () => {
@@ -145,5 +159,24 @@ describe('SiteDocumentLayout accessibility experience', () => {
 
     expect(await screen.findByText('Link copied to clipboard.')).toBeInTheDocument();
     expect(announcePoliteMock).toHaveBeenCalledWith('Link copied to clipboard.');
+  });
+
+  it('surfaces an error message if the feedback request fails', async () => {
+    const user = userEvent.setup();
+    submitSitePageFeedbackMock.mockRejectedValueOnce(new Error('Network issue'));
+    render(<SiteDocumentLayout {...defaultProps} />);
+
+    await user.click(screen.getByLabelText('Partially helpful'));
+    await user.click(screen.getByRole('button', { name: /submit feedback/i }));
+
+    expect(
+      await screen.findByText(
+        /We could not send your feedback right now. Please try again later or email legal@gigvora.com./i,
+      ),
+    ).toBeInTheDocument();
+    expect(submitSitePageFeedbackMock).toHaveBeenCalledWith('POL-001', {
+      rating: 'partially',
+      message: '',
+    });
   });
 });

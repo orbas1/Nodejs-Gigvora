@@ -11,6 +11,7 @@ export const sequelize = {
   models: {},
   authenticate: async () => {},
   close: async () => {},
+  sync: async () => {},
   getDialect: () => 'postgres',
 };
 
@@ -20,6 +21,10 @@ let FeedReaction = stubModel;
 let User = stubModel;
 let Profile = stubModel;
 let Connection = stubModel;
+let SiteSetting = stubModel;
+let SitePage = stubModel;
+let SiteNavigationLink = stubModel;
+let SitePageFeedback = stubModel;
 let RuntimeSecurityAuditEvent = stubModel;
 let MentorAdCampaign = stubModel;
 let MentorProfile = stubModel;
@@ -67,6 +72,18 @@ export const __setModelStubs = (overrides = {}) => {
   });
   assignIfPresent('Connection', (value) => {
     Connection = value;
+  });
+  assignIfPresent('SiteSetting', (value) => {
+    SiteSetting = value;
+  });
+  assignIfPresent('SitePage', (value) => {
+    SitePage = value;
+  });
+  assignIfPresent('SiteNavigationLink', (value) => {
+    SiteNavigationLink = value;
+  });
+  assignIfPresent('SitePageFeedback', (value) => {
+    SitePageFeedback = value;
   });
   assignIfPresent('RuntimeSecurityAuditEvent', (value) => {
     RuntimeSecurityAuditEvent = value;
@@ -150,6 +167,10 @@ export {
   User,
   Profile,
   Connection,
+  SiteSetting,
+  SitePage,
+  SiteNavigationLink,
+  SitePageFeedback,
   RuntimeSecurityAuditEvent,
   MentorAdCampaign,
   MentorProfile,
@@ -173,5 +194,8 @@ export {
   ClientSuccessAffiliateLink,
   ClientSuccessAffiliateMetric,
 };
+
+export const SITE_PAGE_STATUSES = ['draft', 'review', 'published', 'archived'];
+export const SITE_PAGE_FEEDBACK_RESPONSES = ['yes', 'partially', 'no'];
 
 export default stubModel;

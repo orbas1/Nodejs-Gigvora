@@ -80,9 +80,48 @@ export async function fetchSitePage(slug, params = {}, options = {}) {
   return response?.page ?? response;
 }
 
+export async function submitSitePageFeedback(slug, payload = {}, options = {}) {
+  const safeSlug = encodeURIComponent(ensureSlug(slug));
+  const safeOptions = ensureOptions(options);
+  const allowedRatings = new Set(['yes', 'partially', 'no']);
+
+  const rating = `${payload?.rating ?? ''}`.trim().toLowerCase();
+  if (!rating) {
+    throw new Error('rating is required to submit feedback');
+  }
+  if (!allowedRatings.has(rating)) {
+    throw new Error('rating must be one of yes, partially, or no');
+  }
+
+  const body = { rating };
+  const message = payload?.message != null ? `${payload.message}`.trim() : '';
+  if (message) {
+    body.message = message.slice(0, 2000);
+  }
+
+  const requestOptions = {};
+  if (safeOptions.signal) {
+    requestOptions.signal = safeOptions.signal;
+  }
+  if (safeOptions.headers) {
+    requestOptions.headers = safeOptions.headers;
+  }
+  if (safeOptions.params) {
+    requestOptions.params = ensureParams(safeOptions.params);
+  }
+
+  const response = await apiClient.post(
+    `/site/pages/${safeSlug}/feedback`,
+    body,
+    Object.keys(requestOptions).length ? requestOptions : undefined,
+  );
+  return response?.feedback ?? response;
+}
+
 export default {
   fetchSiteSettings,
   fetchSiteNavigation,
   fetchSitePages,
   fetchSitePage,
+  submitSitePageFeedback,
 };

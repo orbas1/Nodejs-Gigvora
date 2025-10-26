@@ -12,6 +12,7 @@ import {
 } from '@heroicons/react/24/outline';
 import PageHeader from '../PageHeader.jsx';
 import { scrollToElement, announcePolite } from '../../utils/accessibility.js';
+import { submitSitePageFeedback } from '../../services/publicSite.js';
 
 function classNames(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -118,6 +119,7 @@ export default function SiteDocumentLayout({
   const [query, setQuery] = useState('');
   const [feedback, setFeedback] = useState({ rating: '', message: '' });
   const [feedbackStatus, setFeedbackStatus] = useState({ type: 'idle', message: '' });
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
   const [activeSectionId, setActiveSectionId] = useState(sections[0]?.id ?? null);
   const [shareStatus, setShareStatus] = useState({ type: 'idle', message: '' });
   const [resultsAnnouncement, setResultsAnnouncement] = useState('');
@@ -225,6 +227,12 @@ export default function SiteDocumentLayout({
     }
   }, [shareStatus.message]);
 
+  useEffect(() => {
+    if (feedbackStatus.message) {
+      announcePolite(feedbackStatus.message);
+    }
+  }, [feedbackStatus.message]);
+
   const handleShare = async () => {
     if (typeof window === 'undefined') {
       return;
@@ -248,16 +256,42 @@ export default function SiteDocumentLayout({
     }
   };
 
-  const handleSubmitFeedback = (event) => {
+  const handleSubmitFeedback = async (event) => {
     event.preventDefault();
     if (!feedback.rating) {
       setFeedbackStatus({ type: 'error', message: 'Select a response before submitting your feedback.' });
       return;
     }
-    setFeedbackStatus({
-      type: 'success',
-      message: 'Thank you for your feedback. Our legal and support teams review submissions within two UK business days.',
-    });
+    const slug = metadata?.documentCode;
+    if (!slug) {
+      setFeedbackStatus({
+        type: 'error',
+        message: 'We could not determine which document this feedback relates to. Please refresh and try again.',
+      });
+      return;
+    }
+
+    setFeedbackSubmitting(true);
+    try {
+      await submitSitePageFeedback(slug, {
+        rating: feedback.rating,
+        message: feedback.message,
+      });
+      setFeedback({ rating: '', message: '' });
+      setFeedbackStatus({
+        type: 'success',
+        message:
+          'Thank you for your feedback. Our legal and support teams review submissions within two UK business days.',
+      });
+    } catch (error) {
+      console.error('Failed to submit site document feedback', error);
+      setFeedbackStatus({
+        type: 'error',
+        message: 'We could not send your feedback right now. Please try again later or email legal@gigvora.com.',
+      });
+    } finally {
+      setFeedbackSubmitting(false);
+    }
   };
 
   const metadataItems = useMemo(() => {
@@ -567,9 +601,15 @@ export default function SiteDocumentLayout({
               </label>
               <button
                 type="submit"
-                className="inline-flex items-center justify-center rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+                disabled={feedbackSubmitting}
+                className={classNames(
+                  'inline-flex items-center justify-center rounded-full px-5 py-2 text-sm font-semibold text-white shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600',
+                  feedbackSubmitting
+                    ? 'cursor-not-allowed bg-emerald-400 opacity-80'
+                    : 'bg-emerald-500 hover:bg-emerald-600',
+                )}
               >
-                Submit feedback
+                {feedbackSubmitting ? 'Sending…' : 'Submit feedback'}
               </button>
               <p
                 id={feedbackStatusId}

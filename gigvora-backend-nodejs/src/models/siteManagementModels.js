@@ -8,6 +8,7 @@ const DEFAULT_ALLOWED_ROLES = ['guest'];
 
 export const SITE_PAGE_STATUSES = ['draft', 'review', 'published', 'archived'];
 export const SITE_PAGE_LAYOUTS = ['standard', 'feature', 'landing', 'legal'];
+export const SITE_PAGE_FEEDBACK_RESPONSES = ['yes', 'partially', 'no'];
 
 const SITE_PAGE_STATUS_TRANSITIONS = {
   draft: new Set(['review', 'published', 'archived']),
@@ -49,6 +50,30 @@ const mergeMetadata = (existing, incoming) => {
     return existing ?? {};
   }
   return { ...(existing ?? {}), ...incoming };
+};
+
+const normalizeFeedbackResponse = (value) => {
+  const response = String(value ?? '')
+    .trim()
+    .toLowerCase();
+  if (!SITE_PAGE_FEEDBACK_RESPONSES.includes(response)) {
+    return null;
+  }
+  return response;
+};
+
+const clampString = (value, maxLength) => {
+  if (value == null) {
+    return null;
+  }
+  const text = String(value).trim();
+  if (!text) {
+    return null;
+  }
+  if (typeof maxLength === 'number' && maxLength > 0) {
+    return text.slice(0, maxLength);
+  }
+  return text;
 };
 
 export const SiteSetting = sequelize.define(
@@ -414,10 +439,71 @@ SiteNavigationLink.loadMenuTree = async function loadMenuTree(menuKey, { actorRo
   return tree;
 };
 
+export const SitePageFeedback = sequelize.define(
+  'SitePageFeedback',
+  {
+    id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+    pageId: { type: DataTypes.INTEGER, allowNull: false },
+    response: {
+      type: DataTypes.ENUM(...SITE_PAGE_FEEDBACK_RESPONSES),
+      allowNull: false,
+      validate: { isIn: [SITE_PAGE_FEEDBACK_RESPONSES] },
+    },
+    message: { type: DataTypes.TEXT('long'), allowNull: true },
+    actorId: { type: DataTypes.INTEGER, allowNull: true },
+    actorRoles: { type: jsonType, allowNull: true, defaultValue: [] },
+    ipHash: { type: DataTypes.STRING(128), allowNull: true },
+    userAgent: { type: DataTypes.STRING(512), allowNull: true },
+    metadata: { type: jsonType, allowNull: false, defaultValue: {} },
+    submittedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+  },
+  {
+    tableName: 'site_page_feedback',
+    indexes: [
+      { fields: ['pageId'] },
+      { fields: ['response'] },
+      { fields: ['submittedAt'] },
+    ],
+  },
+);
+
+SitePageFeedback.addHook('beforeValidate', (feedback) => {
+  feedback.response = normalizeFeedbackResponse(feedback.response) ?? 'yes';
+  feedback.message = clampString(feedback.message, 2000);
+  feedback.actorRoles = sanitizeArrayOfStrings(feedback.actorRoles, []);
+  feedback.ipHash = clampString(feedback.ipHash, 128);
+  feedback.userAgent = clampString(feedback.userAgent, 512);
+  if (!feedback.metadata || typeof feedback.metadata !== 'object') {
+    feedback.metadata = {};
+  }
+  if (!feedback.submittedAt) {
+    feedback.submittedAt = new Date();
+  }
+});
+
+SitePage.hasMany(SitePageFeedback, { as: 'feedbackEntries', foreignKey: 'pageId', onDelete: 'CASCADE' });
+SitePageFeedback.belongsTo(SitePage, { as: 'page', foreignKey: 'pageId' });
+
+SitePageFeedback.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    pageId: plain.pageId,
+    response: plain.response,
+    message: plain.message ?? null,
+    actorId: plain.actorId ?? null,
+    actorRoles: Array.isArray(plain.actorRoles) ? plain.actorRoles : [],
+    submittedAt: plain.submittedAt,
+    metadata: plain.metadata ?? {},
+  };
+};
+
 export default {
   SiteSetting,
   SitePage,
   SiteNavigationLink,
+  SitePageFeedback,
   SITE_PAGE_STATUSES,
   SITE_PAGE_LAYOUTS,
+  SITE_PAGE_FEEDBACK_RESPONSES,
 };
