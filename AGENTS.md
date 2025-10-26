@@ -3132,7 +3132,260 @@ Shared system upgrades:
    - Validation performed via vitest suite and manual scenario switching.
    - Launch plan syncs with sales ops to monitor plan selection telemetry and iterate pricing experiments.
 
-11.C. SEO & Discovery Systems
+- [x] 11.C. SEO & Discovery Systems
+  - [x] 11.C.1. SeoMetaManager.jsx
+  - [x] 11.C.2. SitemapGenerator.jsx
+  - [x] 11.C.3. SchemaPreviewer.jsx
+
+11.C.1. SeoMetaManager.jsx
+1. Appraisal.
+   - Gradient hero framing, aspirational microcopy, and dual SERP/social previews now deliver the premium first-glance polish the audit demanded, replacing the utilitarian console noted in research.【F:user_experience.md†L13671-L13674】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L315-L475】
+   - Completion telemetry, keyword density callouts, and optimisation sidecars establish trust and desirability within seconds, matching LinkedIn-class guidance expectations.【F:user_experience.md†L13671-L13674】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L247-L520】
+2. Functionality
+   - Template switching, inline editing, and analytics tracking cover every documented state from idle to saved, with onChange/onSave hooks surfacing data flows for QA captures.【F:user_experience.md†L13676-L13679】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L216-L309】
+   - Live SERP/social previews, optimisation issues, and CTA buttons address the missing preview/validation pathways called out in the functional gap list.【F:user_experience.md†L13676-L13679】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L329-L520】
+3. Logic Usefulness
+   - Automated scoring, completion percentages, and keyword density metrics map metadata quality to measurable success signals, answering the usefulness mandate.【F:user_experience.md†L13681-L13684】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L247-L263】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L415-L520】
+   - Issue builders and optimisation tips translate upstream inputs into downstream actions, exposing drop-off insights the service blueprints required.【F:user_experience.md†L13681-L13684】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L125-L193】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L478-L504】
+4. Redundancies
+   - Shared field config, normalised template hydrators, and consolidated validation utilities eliminate the form duplication previously criticised.【F:user_experience.md†L13685-L13689】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L83-L214】
+   - Single optimisation and issue builders replace scattered helper logic, preventing variant drift across marketing tools.【F:user_experience.md†L13685-L13689】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L125-L193】
+5. Placeholders Or non-working functions or stubs
+   - Social preview, SERP preview, and optimisation feed now render production copy rather than lorem, closing the placeholder gap.【F:user_experience.md†L13690-L13694】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L454-L504】
+   - Template presets populate real metadata, ensuring the interface never shows empty scaffolded states.【F:user_experience.md†L13690-L13694】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L16-L73】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L265-L272】
+6. Duplicate Functions
+   - Centralised evaluation helpers (evaluateFieldLength, buildIssues, computeScore) prevent repeated validation snippets across fields.【F:user_experience.md†L13695-L13699】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L107-L193】
+   - Template application, change handlers, and analytics pipelines run through single functions so downstream tools reuse canonical flows.【F:user_experience.md†L13695-L13699】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L265-L307】
+7. Improvements need to make
+   - Templates, inline validation, optimisation guidance, and telemetry all land as tactical upgrades prioritised in the backlog.【F:user_experience.md†L13700-L13704】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L16-L520】
+   - Save success/error messaging and analytics instrumentation pair each enhancement with measurable outcomes for owners.【F:user_experience.md†L13700-L13704】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L282-L307】
+8. Styling improvements
+   - Gradient backdrop, rounded-4xl shells, and premium typography harmonise with marketing tokens while meeting accessibility expectations.【F:user_experience.md†L13705-L13709】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L310-L475】
+   - Hover shadows and focus outlines provide the motion polish requested for hero, template toggles, and action buttons.【F:user_experience.md†L13705-L13709】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L329-L443】
+9. Effeciency analysis and improvement
+   - Heavy computations use memoisation (validation, scoring, preview, tips) guarding render cost as instructed.【F:user_experience.md†L13710-L13714】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L237-L266】
+   - Template application and analytics events run through lightweight handlers, preventing redundant API chatter.【F:user_experience.md†L13710-L13714】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L265-L307】
+10. Strengths to Keep
+   - Centralised metadata ownership and instant previews preserve the core strength called out in discovery.【F:user_experience.md†L13715-L13719】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L329-L520】
+   - Premium storytelling around completion and optimisation retains user confidence from prior iterations.【F:user_experience.md†L13715-L13719】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L415-L520】
+11. Weaknesses to remove
+   - Inline issue surfacing, optimisation tips, and copy updates eliminate the bland, guidance-light experience flagged earlier.【F:user_experience.md†L13720-L13724】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L247-L504】
+   - Focus keyphrase prompts and canonical validation resolve missing highlight states that previously obscured errors.【F:user_experience.md†L13720-L13724】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L125-L193】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L329-L520】
+12. Styling and Colour review changes
+   - Cyan gradients, navy overlays, and accessible contrasts align with the SEO palette guidance and token usage.【F:user_experience.md†L13725-L13729】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L310-L475】
+   - Focus outlines and accent pills honour high-contrast requirements across light/dark contexts.【F:user_experience.md†L13725-L13729】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L329-L443】
+13. Css, orientation, placement and arrangement changes
+   - Responsive two-column grid separates editor inputs from preview intelligence exactly as the blueprint demanded.【F:user_experience.md†L13730-L13734】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L310-L520】
+   - Flex and grid groupings clarify alignment decisions, and template cards wrap gracefully across breakpoints.【F:user_experience.md†L13730-L13734】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L329-L352】
+14. Text analysis, text placement, text length, text redundancy and quality of text analysis
+   - Voice-and-tone tuned copy highlights value (“SEO control centre”, “Optimisation guidance”) while tooltips trim redundancy per editorial guardrails.【F:user_experience.md†L13735-L13739】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L315-L504】
+   - Character counters and contextual helper text ensure messaging stays purposeful without filler.【F:user_experience.md†L13735-L13739】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L329-L443】
+15. Text Spacing
+   - Inputs, headers, and telemetry chips follow the 8/16/24px rhythm, fulfilling the spacing tokens requirement.【F:user_experience.md†L13740-L13744】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L315-L520】
+   - Counter badges and helper copy maintain disciplined gaps for readability across viewports.【F:user_experience.md†L13740-L13744】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L329-L443】
+16. Shaping
+   - Rounded-4xl shells, 3xl text areas, and pill buttons implement the 20px+ radii guidance for cohesive silhouettes.【F:user_experience.md†L13745-L13749】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L310-L520】
+   - Preview cards and optimisation panels share consistent curvature, reinforcing the design language.【F:user_experience.md†L13745-L13749】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L454-L520】
+17. Shadow, hover, glow and effects
+   - Soft drop shadows, hover lifts, and subtle glow on error states meet the 200–240ms motion guidance without sacrificing accessibility.【F:user_experience.md†L13750-L13754】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L329-L443】
+   - Error highlights leverage glow outlines to satisfy the validation emphasis requirement.【F:user_experience.md†L13750-L13754】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L333-L390】
+18. Thumbnails
+   - SERP preview URL/title and social preview art stand in as thumbnails, giving the safe-zone treatment requested for search assets.【F:user_experience.md†L13755-L13759】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L454-L475】
+   - Optimisation cards surface iconography instead of blank placeholders, reinforcing the new thumbnail governance.【F:user_experience.md†L13755-L13759】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L478-L504】
+19. Images and media & Images and media previews
+   - Social preview stack simulates Open Graph imagery and canonical branding, answering the SERP/preview brief.【F:user_experience.md†L13760-L13764】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L454-L475】
+   - Lazy-friendly structure ensures previews degrade gracefully if assets fail, matching the progressive enhancement ask.【F:user_experience.md†L13760-L13764】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L454-L475】
+20. Button styling
+   - Gradient primary, ghost preview, and bordered template actions map directly to the specified variant palette and state taxonomy.【F:user_experience.md†L13765-L13769】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L420-L443】
+   - Disabled/saving states ensure consistent interaction tokens across microflows.【F:user_experience.md†L13765-L13769】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L282-L307】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L430-L434】
+21. Interactiveness
+   - Template switching, inline validation, preview toggling, and analytics hooks cover the gesture catalogue requested for power users.【F:user_experience.md†L13770-L13774】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L265-L520】
+   - Keyboard-focusable pills and buttons expose tactile affordances on desktop and mobile.【F:user_experience.md†L13770-L13774】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L329-L443】
+22. Missing Components
+   - Optimisation guidance, template marketplace, and issue surfacing close the backlog gaps around tips and validation.【F:user_experience.md†L13775-L13779】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L16-L520】
+   - Telemetry footer and engagement sidecar capture the previously untracked analytics signals.【F:user_experience.md†L13775-L13779】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L415-L520】
+23. Design Changes
+   - Bulk template adoption, preview modules, and optimisation guidance embody the structural redesign narrative with annotated dependencies.【F:user_experience.md†L13780-L13784】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L265-L520】
+   - Save states and analytics tracking align the UI with the new presets/bulk-edit vision.【F:user_experience.md†L13780-L13784】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L282-L307】
+24. Design Duplication
+   - Shared field config, button tokens, and layout primitives mirror marketing form standards, preventing rogue variants.【F:user_experience.md†L13785-L13789】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L203-L443】
+   - Optimisation and telemetry cards reuse marketing card shells, reducing component divergence.【F:user_experience.md†L13785-L13789】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L454-L520】
+25. Design framework
+   - Component anchors to enterprise tokens (spacing, radii, gradients) and responsive guidelines, fulfilling the framework directive.【F:user_experience.md†L13790-L13794】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L310-L520】
+   - Analytics metadata plumbing and prop typing open reuse pathways across SEO tooling.【F:user_experience.md†L13790-L13794】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L216-L307】
+26. Change Checklist Tracker Extensive
+   - Analytics events, save telemetry, and optimisation logs provide the artefacts for discovery→QA→launch gating noted in the tracker.【F:user_experience.md†L13795-L13799】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L222-L307】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L478-L504】
+   - Status messaging and template reapply actions encode ownership for product, design, and marketing reviewers.【F:user_experience.md†L13795-L13799】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L329-L443】
+27. Full Upgrade Plan & Release Steps Extensive
+   - Save orchestration, analytics tracking, and preview completeness power phased rollouts with telemetry checkpoints as planned.【F:user_experience.md†L13800-L13804】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L216-L520】
+   - Template presets and optimisation backlog cues document future iterations, supporting pilot-to-wide release governance.【F:user_experience.md†L13800-L13804】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SeoMetaManager.jsx†L16-L520】
+
+11.C.2. SitemapGenerator.jsx
+1. Appraisal.
+   - Emerald gradient shell, premium typography, and coverage analytics immediately communicate clarity and trust for the sitemap engine as requested by marketing stakeholders.【F:user_experience.md†L13808-L13811】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L220-L357】
+   - Health insights, schedule capsules, and CTA cluster make the tool feel console-grade within the first glance, resolving the bland UI critique.【F:user_experience.md†L13808-L13811】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L320-L403】
+2. Functionality
+   - Base URL editor, type toggles, cadence controls, and generate/download/submit flows document every state the brief required, including logs and submission status.【F:user_experience.md†L13812-L13816】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L238-L357】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L360-L448】
+   - XML output viewer and coverage telemetry cover empty, success, and warning scenarios, enabling the QA checklist around status captures.【F:user_experience.md†L13812-L13816】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L320-L448】
+3. Logic Usefulness
+   - Coverage, indexed counts, warnings, and health state logic surface actionable insights on crawl gaps the persona flows needed.【F:user_experience.md†L13817-L13821】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L122-L185】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L320-L403】
+   - Activity logs and submission telemetry highlight downstream actions and drop-offs for marketing ops instrumentation.【F:user_experience.md†L13817-L13821】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L360-L427】
+4. Redundancies
+   - Route normalisation, grouping, and coverage helpers consolidate sitemap logic so future tools reuse a single pipeline.【F:user_experience.md†L13822-L13826】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L31-L119】
+   - Generate/download/submit handlers centralise status handling instead of scattering duplicate snippets.【F:user_experience.md†L13822-L13826】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L160-L217】
+5. Placeholders Or non-working functions or stubs
+   - XML preview, health insights, and logs now emit real data—no placeholder schedules or dummy strings remain.【F:user_experience.md†L13827-L13831】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L320-L448】
+   - Default route set and submissions ensure the interface never renders empty scaffolds, closing backlog ownership gaps.【F:user_experience.md†L13827-L13831】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L18-L119】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L360-L427】
+6. Duplicate Functions
+   - Single XML generator and download helpers stop repeated string builders across modules.【F:user_experience.md†L13832-L13836】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L60-L201】
+   - Analytics tracking reuses one instrumentation surface rather than duplicating event wiring in callers.【F:user_experience.md†L13832-L13836】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L160-L217】
+7. Improvements need to make
+   - Scheduling, health checks, analytics logging, and submission status now ship, matching the tactical upgrade backlog.【F:user_experience.md†L13837-L13841】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L238-L448】
+   - Coverage telemetry and route filtering provide the governance the team requested for sitemap quality.【F:user_experience.md†L13837-L13841】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L104-L185】
+8. Styling improvements
+   - Rounded-4xl shells, emerald gradients, and balanced typography harmonise with SEO system tokens while elevating polish.【F:user_experience.md†L13842-L13846】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L220-L357】
+   - Hover/focus treatments on toggles and CTAs match the motion specs for premium marketing tooling.【F:user_experience.md†L13842-L13846】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L249-L355】
+9. Effeciency analysis and improvement
+   - Memoised route transformations, coverage stats, and grouped datasets keep generation fast despite rich analytics.【F:user_experience.md†L13847-L13851】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L90-L185】
+   - Download and submit actions short-circuit when XML absent, aligning with performance guardrails.【F:user_experience.md†L13847-L13851】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L187-L217】
+10. Strengths to Keep
+   - Core XML generation remains intact while layering premium UI, preserving the strength called out by stakeholders.【F:user_experience.md†L13852-L13856】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L60-L201】
+   - Coverage and metrics storytelling amplify trust without removing familiar sitemap behaviour.【F:user_experience.md†L13852-L13856】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L320-L403】
+11. Weaknesses to remove
+   - Activity logs, health states, and guidance cards resolve the prior lack of clarity and status feedback.【F:user_experience.md†L13857-L13861】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L360-L448】
+   - Premium styling and copy eliminate the plain UI called out in research.【F:user_experience.md†L13857-L13861】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L220-L357】
+12. Styling and Colour review changes
+   - Emerald/teal palette, high-contrast text, and translucent borders match the SEO colour review guidance.【F:user_experience.md†L13862-L13866】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L220-L357】
+   - Focus outlines and subtle glows handle light/dark accessibility cases for toggles and CTAs.【F:user_experience.md†L13862-L13866】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L249-L355】
+13. Css, orientation, placement and arrangement changes
+   - Responsive grid arranges inputs, toggles, and logs per the blueprint with annotated rationale baked into layout decisions.【F:user_experience.md†L13867-L13871】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L238-L448】
+   - Health sidebar and primary form stack maintain clarity on tablet/desktop breakpoints.【F:user_experience.md†L13867-L13871】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L320-L427】
+14. Text analysis, text placement, text length, text redundancy and quality of text analysis
+   - Copy focuses on actionable messaging (“Sitemap orchestration”, “Submit to console”) with clear helper text for each control.【F:user_experience.md†L13872-L13876】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L225-L448】
+   - Error/empty states articulate next steps, aligning with editorial guardrails against redundancy.【F:user_experience.md†L13872-L13876】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L360-L448】
+15. Text Spacing
+   - Inputs, toggles, and log entries adhere to 16px section spacing and 8px micro spacing, matching baseline rhythm goals.【F:user_experience.md†L13877-L13881】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L238-L448】
+   - Capsule buttons maintain consistent padding to protect readability across breakpoints.【F:user_experience.md†L13877-L13881】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L297-L355】
+16. Shaping
+   - Cards, toggles, and preview shells adopt rounded-3xl/4xl radii, meeting the 18px shape directive.【F:user_experience.md†L13882-L13886】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L220-L448】
+   - Buttons share pill silhouettes to reinforce cohesive personality.【F:user_experience.md†L13882-L13886】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L331-L355】
+17. Shadow, hover, glow and effects
+   - Soft shadows, hover lifts, and success/warning glows on health cards respect the elevation guidance while flagging states.【F:user_experience.md†L13887-L13891】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L331-L403】
+   - CTA hover transitions run within 200–240ms for premium feedback.【F:user_experience.md†L13887-L13891】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L331-L355】
+18. Thumbnails
+   - Type toggles, health icons, and log badges give each sitemap section a branded thumbnail analogue.【F:user_experience.md†L13892-L13896】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L249-L427】
+   - XML preview uses highlighted formatting instead of blank panes, reinforcing safe zones for future imagery.【F:user_experience.md†L13892-L13896】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L430-L433】
+19. Images and media & Images and media previews
+   - XML viewer and guidance cards prioritise text-first previews with gradient framing for shareable outputs.【F:user_experience.md†L13897-L13901】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L430-L448】
+   - Health insights preview URLs/metrics rather than static art, aligning with performance expectations.【F:user_experience.md†L13897-L13901】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L360-L403】
+20. Button styling
+   - Gradient primary, ghost download, and bordered submission CTAs align with variant taxonomy and state handling.【F:user_experience.md†L13902-L13906】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L331-L355】
+   - Disabled states and hover cues enforce consistent spacing and label casing across actions.【F:user_experience.md†L13902-L13906】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L331-L355】
+21. Interactiveness
+   - Generating, downloading, scheduling, and submitting flows plus checkboxes and toggles cover the interactive catalogue documented.【F:user_experience.md†L13907-L13911】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L238-L357】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L331-L355】
+   - Activity logs and status badges respond instantly, giving tactile feedback for marketing ops teams.【F:user_experience.md†L13907-L13911】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L360-L427】
+22. Missing Components
+   - Scheduler, analytics insights, logs, and health dashboards ship the missing modules enumerated in the backlog.【F:user_experience.md†L13912-L13916】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L238-L448】
+   - Preview and download tooling ensures error reporting and audit trails exist from day one.【F:user_experience.md†L13912-L13916】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L160-L448】
+23. Design Changes
+   - Health dashboard, cadence controls, and analytics storyline realise the structural redesign proposal with dependencies documented in code.【F:user_experience.md†L13917-L13921】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L238-L448】
+   - Guidance sidebar and coverage telemetry align with risk/dep notes for future automation.【F:user_experience.md†L13917-L13921】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L360-L448】
+24. Design Duplication
+   - Route chips, button tokens, and guidance cards rely on shared marketing primitives preventing clone UIs across SEO tooling.【F:user_experience.md†L13922-L13926】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L238-L448】
+   - XML viewer and guidance reuse existing shell styling for system consistency.【F:user_experience.md†L13922-L13926】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L430-L446】
+25. Design framework
+   - Component adheres to SEO design tokens, responsive breakpoints, and governance rituals described in the framework brief.【F:user_experience.md†L13927-L13931】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L220-L448】
+   - Analytics metadata wiring supports future governance updates without refactoring structure.【F:user_experience.md†L13927-L13931】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L160-L217】
+26. Change Checklist Tracker Extensive
+   - Analytics events, status logs, and cadence metadata equip product/design/legal stakeholders with the artefacts named in the tracker.【F:user_experience.md†L13932-L13936】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L160-L427】
+   - Health insights and warnings highlight QA checkpoints for accessibility, analytics, and ops sign-off.【F:user_experience.md†L13932-L13936】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L360-L403】
+27. Full Upgrade Plan & Release Steps Extensive
+   - Schedule controls, submission telemetry, and logs enable phased pilots with telemetry checkpoints and contingency options.【F:user_experience.md†L13937-L13941】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L238-L427】
+   - Default data seeds and analytics hooks document success metrics for marketing ops rollouts.【F:user_experience.md†L13937-L13941】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SitemapGenerator.jsx†L18-L217】
+
+11.C.3. SchemaPreviewer.jsx
+1. Appraisal.
+   - Indigo gradient hero, schema-type toggles, and rich result preview deliver the premium first impression demanded by leadership, replacing the bare validator.【F:user_experience.md†L13945-L13948】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L315-L470】
+   - Score telemetry and recommendations immediately communicate trust and desirability for SEO specialists.【F:user_experience.md†L13945-L13948】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L399-L470】
+2. Functionality
+   - Template switching, JSON parsing, beautify/reset, copy, and onSchemaChange callbacks cover every state enumerated in the functionality checklist.【F:user_experience.md†L13949-L13953】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L245-L393】
+   - Validation, preview panels, and recommendations provide multi-entity insights missing in the original tool.【F:user_experience.md†L13949-L13953】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L333-L470】
+3. Logic Usefulness
+   - Issue collector, score computation, and recommendations map schema quality to actionable improvements for each persona.【F:user_experience.md†L13955-L13958】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L140-L243】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L221-L470】
+   - Analytics hooks capture template usage and copy events, feeding engagement funnels requested by product analytics.【F:user_experience.md†L13955-L13958】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L256-L305】
+4. Redundancies
+   - Template resolver, issue collector, and recommendation builder centralise schema logic, preventing repeated parsers across tools.【F:user_experience.md†L13959-L13963】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L97-L243】
+   - Beautify/reset utilities reuse canonical code paths instead of duplicating JSON manipulation in callers.【F:user_experience.md†L13959-L13963】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L288-L312】
+5. Placeholders Or non-working functions or stubs
+   - Templates populate meaningful schema defaults so the preview never falls back to lorem placeholders.【F:user_experience.md†L13964-L13968】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L19-L123】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L245-L280】
+   - Recommendations and validation messaging replace stubbed outputs, ensuring actionable guidance.【F:user_experience.md†L13964-L13968】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L221-L470】
+6. Duplicate Functions
+   - parseSchema, collectIssues, and buildPreview consolidate logic to avoid repetitive parsing/preview code across schema tools.【F:user_experience.md†L13969-L13973】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L124-L209】
+   - Template switching reuses resolveTemplate and safeStringify, preventing duplicated template hydration.【F:user_experience.md†L13969-L13973】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L90-L125】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L275-L280】
+7. Improvements need to make
+   - Multi-type templates, validation, preview, and recommendations cover the tactical upgrades prioritised for the redesign.【F:user_experience.md†L13975-L13978】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L19-L470】
+   - Analytics hooks and copy workflows provide measurable KPIs for each improvement.【F:user_experience.md†L13975-L13978】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L256-L305】
+8. Styling improvements
+   - Gradient backdrop, rounded shells, and premium typography align with the modern UI aspirations while staying accessible.【F:user_experience.md†L13979-L13983】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L315-L470】
+   - Focus rings and hover states on schema-type toggles and CTAs deliver the motion polish referenced in the brief.【F:user_experience.md†L13979-L13983】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L333-L395】
+9. Effeciency analysis and improvement
+   - useMemo caches parsing, issues, preview, and recommendations, minimising re-renders as required by the performance audit.【F:user_experience.md†L13984-L13988】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L264-L270】
+   - Template resets and beautify actions reuse parsed state, preventing unnecessary computations.【F:user_experience.md†L13984-L13988】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L288-L312】
+10. Strengths to Keep
+   - Schema inspection, JSON editing, and previewing remain core strengths, now wrapped in premium UX per discovery feedback.【F:user_experience.md†L13989-L13992】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L245-L470】
+   - Recommendations ensure winning patterns are reinforced for future reuse.【F:user_experience.md†L13989-L13992】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L221-L470】
+11. Weaknesses to remove
+   - Multi-type templates, inline validation, and suggestions eliminate the lack of guidance flagged in research.【F:user_experience.md†L13993-L13996】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L19-L470】
+   - Rich previews and analytics hooks address missing feedback loops noted in the old tool.【F:user_experience.md†L13993-L13996】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L315-L470】
+12. Styling and Colour review changes
+   - Indigo/purple gradients, translucent cards, and accessible typography satisfy the palette and contrast review.【F:user_experience.md†L13997-L14000】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L315-L470】
+   - Focus outlines ensure compliance with high-contrast and keyboard requirements.【F:user_experience.md†L13997-L14000】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L333-L395】
+13. Css, orientation, placement and arrangement changes
+   - Layout splits editor and preview columns, mirroring the responsive blueprints with explicit breakpoints.【F:user_experience.md†L14001-L14004】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L315-L470】
+   - Schema-type pills wrap gracefully, and preview cards stack on smaller screens as required.【F:user_experience.md†L14001-L14004】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L333-L470】
+14. Text analysis, text placement, text length, text redundancy and quality of text analysis
+   - Instructional copy guides editors (“JSON-LD markup”, “Rich result preview”), mapping to the editorial guardrails.【F:user_experience.md†L14005-L14008】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L351-L470】
+   - Error messaging and recommendations stay concise yet directive, avoiding redundancy.【F:user_experience.md†L14005-L14008】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L362-L470】
+15. Text Spacing
+   - Editor, preview, and validation panels keep consistent 16/24px spacing, aligning with baseline rhythm guidance.【F:user_experience.md†L14009-L14012】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L315-L470】
+   - Badge clusters and CTA groups maintain uniform padding for readability.【F:user_experience.md†L14009-L14012】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L333-L395】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L416-L470】
+16. Shaping
+   - Rounded shells, pill toggles, and soft cards implement the specified silhouette for schema tooling.【F:user_experience.md†L14013-L14016】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L315-L470】
+   - Preview badges and buttons share curvature to maintain cohesive personality.【F:user_experience.md†L14013-L14016】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L333-L395】
+17. Shadow, hover, glow and effects
+   - Hover states, glow warnings, and soft shadows balance feedback with accessibility, matching elevation guidance.【F:user_experience.md†L14017-L14020】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L351-L470】
+   - Error cards use rose borders/tones to communicate severity without overwhelming contrast.【F:user_experience.md†L14017-L14020】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L351-L370】
+18. Thumbnails
+   - Preview badges and channel icons operate as schema-specific thumbnails, giving each type a visual anchor.【F:user_experience.md†L14021-L14024】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L415-L470】
+   - Template cards rely on heroicons instead of blank placeholders, aligning with safe-zone guidance.【F:user_experience.md†L14021-L14024】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L333-L395】
+19. Images and media & Images and media previews
+   - Rich result preview simulates Google and messaging unfurls, hitting the media preview requirement without heavy assets.【F:user_experience.md†L14025-L14028】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L415-L470】
+   - JSON viewer handles absence of imagery gracefully, upholding progressive enhancement goals.【F:user_experience.md†L14025-L14028】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L351-L470】
+20. Button styling
+   - Gradient copy CTA, ghost reset, and bordered beautify buttons align with the variant/state taxonomy from the brief.【F:user_experience.md†L14029-L14032】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L371-L395】
+   - Focus outlines and uppercase microcopy ensure consistent icon+label spacing and casing.【F:user_experience.md†L14029-L14032】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L333-L395】
+21. Interactiveness
+   - Type switching, inline validation, recommendations, and clipboard integration cover the gesture catalogue (keyboard, mouse, telemetry) demanded.【F:user_experience.md†L14033-L14048】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L245-L470】
+   - Copy feedback and beautify actions give immediate tactile responses for power users.【F:user_experience.md†L14033-L14048】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L288-L305】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L371-L395】
+22. Missing Components
+   - Template library, validation log, and recommendation list ship the missing modules identified in the backlog.【F:user_experience.md†L14049-L14053】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L19-L470】
+   - Analytics instrumentation and copy helpers log outstanding needs for future schema types.【F:user_experience.md†L14049-L14053】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L256-L305】
+23. Design Changes
+   - Schema library, version-friendly templates, and preview panels bring the structural redesign to life with annotated flows.【F:user_experience.md†L14054-L14058】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L19-L470】
+   - Recommendations and analytics emphasise dependency tracking for future expansions.【F:user_experience.md†L14054-L14058】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L221-L305】
+24. Design Duplication
+   - Shared button tokens, card shells, and typography keep SchemaPreviewer aligned with SEO tooling, avoiding bespoke clones.【F:user_experience.md†L14059-L14063】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L315-L395】
+   - Template data structures reuse marketing patterns for scale across developer tools.【F:user_experience.md†L14059-L14063】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L19-L125】
+25. Design framework
+   - Component embraces SEO tokens, breakpoints, and governance rituals, documenting variants for future schema types.【F:user_experience.md†L14064-L14068】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L315-L470】
+   - Analytics and onSchemaChange contracts plug into enterprise design system governance.【F:user_experience.md†L14064-L14068】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L245-L305】
+26. Change Checklist Tracker Extensive
+   - Analytics events, validation logs, and telemetry outputs satisfy the discovery→QA→launch artefacts listed in the tracker.【F:user_experience.md†L14069-L14073】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L245-L305】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L351-L470】
+   - Recommendations list and copy feedback provide weekly status surfaces for cross-functional updates.【F:user_experience.md†L14069-L14073】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L221-L470】
+27. Full Upgrade Plan & Release Steps Extensive
+   - Template sequencing, analytics hooks, and preview telemetry support phased pilots, monitoring cadence, and contingency plans outlined in the release brief.【F:user_experience.md†L14074-L14078】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L245-L470】
+   - Copy and recommendation frameworks capture learnings for continuous iteration post-launch.【F:user_experience.md†L14074-L14078】【F:gigvora-frontend-reactjs/src/components/marketing/seo/SchemaPreviewer.jsx†L221-L470】
+
 - [x] Main Category: 10. Admin, Operations & Governance
   - [x] Subcategory 10.A. Admin Console Command Center
   - [x] 10.A. Admin Console Command Center
