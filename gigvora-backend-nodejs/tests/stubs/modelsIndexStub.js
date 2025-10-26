@@ -19,8 +19,11 @@ let FeedComment = stubModel;
 let FeedReaction = stubModel;
 let User = stubModel;
 let Profile = stubModel;
+let FreelancerProfile = stubModel;
 let Connection = stubModel;
 let RuntimeSecurityAuditEvent = stubModel;
+let ReputationTestimonial = stubModel;
+let IdentityVerification = stubModel;
 let MentorAdCampaign = stubModel;
 let MentorProfile = stubModel;
 let MentorAvailabilitySlot = stubModel;
@@ -65,11 +68,20 @@ export const __setModelStubs = (overrides = {}) => {
   assignIfPresent('Profile', (value) => {
     Profile = value;
   });
+  assignIfPresent('FreelancerProfile', (value) => {
+    FreelancerProfile = value;
+  });
   assignIfPresent('Connection', (value) => {
     Connection = value;
   });
   assignIfPresent('RuntimeSecurityAuditEvent', (value) => {
     RuntimeSecurityAuditEvent = value;
+  });
+  assignIfPresent('ReputationTestimonial', (value) => {
+    ReputationTestimonial = value;
+  });
+  assignIfPresent('IdentityVerification', (value) => {
+    IdentityVerification = value;
   });
   assignIfPresent('MentorAdCampaign', (value) => {
     MentorAdCampaign = value;
@@ -149,8 +161,11 @@ export {
   FeedReaction,
   User,
   Profile,
+  FreelancerProfile,
   Connection,
   RuntimeSecurityAuditEvent,
+  ReputationTestimonial,
+  IdentityVerification,
   MentorAdCampaign,
   MentorProfile,
   MentorAvailabilitySlot,

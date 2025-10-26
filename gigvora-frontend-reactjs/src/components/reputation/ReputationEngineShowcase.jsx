@@ -11,6 +11,8 @@ import DataStatus from '../DataStatus.jsx';
 import UserAvatar from '../UserAvatar.jsx';
 import { formatRelativeTime, formatAbsolute } from '../../utils/date.js';
 
+const monthFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' });
+
 function formatBadgeDate(value) {
   if (!value) return null;
   try {
@@ -36,6 +38,42 @@ function formatMetricDescription(metric) {
 
 function classNames(...values) {
   return values.filter(Boolean).join(' ');
+}
+
+function formatShare(value) {
+  if (!Number.isFinite(value)) {
+    return '0%';
+  }
+  return `${Math.round(value * 100)}%`;
+}
+
+function formatMonthKey(value) {
+  if (!value) {
+    return '';
+  }
+  const [year, month] = `${value}`.split('-').map((part) => Number.parseInt(part, 10));
+  if (!Number.isFinite(year) || !Number.isFinite(month)) {
+    return value;
+  }
+  try {
+    return monthFormatter.format(new Date(Date.UTC(year, month - 1, 1)));
+  } catch (error) {
+    return value;
+  }
+}
+
+function describeMomentum(trend) {
+  switch (trend) {
+    case 'accelerating':
+      return 'Accelerating review cadence';
+    case 'cooling':
+      return 'Review velocity cooling';
+    case 'idle':
+      return 'Awaiting recent reviews';
+    case 'steady':
+    default:
+      return 'Steady testimonial flow';
+  }
 }
 
 function TrendPill({ trendDirection, trendLabel }) {
@@ -242,11 +280,15 @@ export default function ReputationEngineShowcase({
   const automationPlaybooks = data?.automationPlaybooks ?? [];
   const integrationTouchpoints = data?.integrationTouchpoints ?? [];
   const shareableLinks = data?.shareableLinks ?? [];
+  const ratingSummary = summary?.ratings;
+  const reviewActivity = summary?.recentActivity;
 
   const metricsToRender = metrics.slice(0, 4);
   const secondaryMetrics = metrics.slice(4, 8);
   const verifiedRelative = summary?.lastVerifiedAt ? formatRelativeTime(summary.lastVerifiedAt) : null;
   const verifiedAbsolute = summary?.lastVerifiedAt ? formatAbsolute(summary.lastVerifiedAt) : null;
+  const lastReviewRelative = reviewActivity?.lastReviewAt ? formatRelativeTime(reviewActivity.lastReviewAt) : null;
+  const lastReviewAbsolute = reviewActivity?.lastReviewAt ? formatAbsolute(reviewActivity.lastReviewAt) : null;
 
   return (
     <div className="space-y-12">
@@ -317,6 +359,89 @@ export default function ReputationEngineShowcase({
                 ) : null}
               </div>
             ))}
+          </div>
+        ) : null}
+
+        {ratingSummary?.count ? (
+          <div className="mt-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <div className="flex flex-col justify-between rounded-3xl border border-slate-900/10 bg-slate-900/95 p-6 text-white shadow-xl">
+              <div className="space-y-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-blue-200/80">Review sentiment</p>
+                <div>
+                  <h3 className="text-4xl font-semibold">
+                    {ratingSummary.average != null ? ratingSummary.average.toFixed(2) : '—'}
+                  </h3>
+                  <p className="mt-1 text-sm text-blue-100/90">
+                    Based on {ratingSummary.count} published ratings
+                  </p>
+                </div>
+                <dl className="space-y-2 text-sm text-blue-100/90">
+                  <div className="flex items-center justify-between">
+                    <dt>Verified reviewers</dt>
+                    <dd className="font-semibold text-white">{formatShare(ratingSummary.verifiedShare)}</dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt>Recent testimonials (90d)</dt>
+                    <dd className="font-semibold text-white">{reviewActivity?.recentCount ?? 0}</dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt>Average per month</dt>
+                    <dd className="font-semibold text-white">
+                      {reviewActivity?.velocityPerMonth != null ? reviewActivity.velocityPerMonth : 0}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+              <div className="mt-6 space-y-1 text-xs text-blue-100/80">
+                <p className="font-semibold uppercase tracking-wide">{describeMomentum(reviewActivity?.trend)}</p>
+                {lastReviewRelative ? (
+                  <p>
+                    Last review {lastReviewRelative}
+                    {lastReviewAbsolute ? <span className="ml-1 opacity-70">({lastReviewAbsolute})</span> : null}
+                  </p>
+                ) : (
+                  <p>No recent testimonials recorded.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Rating distribution</h3>
+              <div className="mt-4 space-y-3">
+                {ratingSummary.distribution.map((bucket) => (
+                  <div key={bucket.rating} className="flex items-center gap-3">
+                    <span className="w-10 text-sm font-semibold text-slate-700">{bucket.rating}★</span>
+                    <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-slate-200">
+                      <div
+                        className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-blue-500 via-indigo-500 to-slate-600"
+                        style={{ width: formatShare(bucket.share) }}
+                      />
+                    </div>
+                    <span className="w-12 text-right text-xs text-slate-500">{formatShare(bucket.share)}</span>
+                  </div>
+                ))}
+              </div>
+
+              {reviewActivity?.monthlyBreakdown?.length ? (
+                <div className="mt-6">
+                  <h4 className="text-sm font-semibold text-slate-900">Monthly momentum</h4>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Signals the cadence of testimonials flowing through Gigvora surfaces.
+                  </p>
+                  <dl className="mt-4 grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
+                    {reviewActivity.monthlyBreakdown.map((entry) => (
+                      <div
+                        key={entry.month}
+                        className="flex items-center justify-between rounded-2xl bg-slate-100 px-3 py-2"
+                      >
+                        <dt>{formatMonthKey(entry.month)}</dt>
+                        <dd className="font-semibold text-slate-800">{entry.count}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              ) : null}
+            </div>
           </div>
         ) : null}
 
@@ -474,6 +599,30 @@ ReputationEngineShowcase.propTypes = {
       reviewAverage: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
       responseTime: PropTypes.string,
       publishedWidgets: PropTypes.number,
+      ratings: PropTypes.shape({
+        average: PropTypes.number,
+        count: PropTypes.number,
+        verifiedShare: PropTypes.number,
+        distribution: PropTypes.arrayOf(
+          PropTypes.shape({
+            rating: PropTypes.number,
+            count: PropTypes.number,
+            share: PropTypes.number,
+          }),
+        ),
+      }),
+      recentActivity: PropTypes.shape({
+        lastReviewAt: PropTypes.string,
+        recentCount: PropTypes.number,
+        velocityPerMonth: PropTypes.number,
+        trend: PropTypes.string,
+        monthlyBreakdown: PropTypes.arrayOf(
+          PropTypes.shape({
+            month: PropTypes.string,
+            count: PropTypes.number,
+          }),
+        ),
+      }),
     }),
     testimonials: PropTypes.shape({
       featured: PropTypes.object,

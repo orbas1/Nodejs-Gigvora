@@ -1,5 +1,6 @@
 import { sequelize, UserSecurityPreference } from '../models/index.js';
-import { ValidationError } from '../utils/errors.js';
+import { ValidationError, NotFoundError } from '../utils/errors.js';
+import { getIdentityVerificationOverview } from './complianceService.js';
 import { recordRuntimeSecurityEvent } from './securityAuditService.js';
 
 const MIN_TIMEOUT_MINUTES = 5;
@@ -61,10 +62,125 @@ function sanitizePreference(record, userId) {
   return record.toPublicObject();
 }
 
+function buildIdentitySummary(snapshot) {
+  if (!snapshot) {
+    return null;
+  }
+
+  const documents = snapshot.current?.documents ?? {};
+  return {
+    status: snapshot.current?.status ?? 'pending',
+    submitted: Boolean(snapshot.current?.submitted),
+    verificationProvider: snapshot.current?.verificationProvider ?? 'manual_review',
+    submittedAt: snapshot.current?.submittedAt ?? null,
+    reviewedAt: snapshot.current?.reviewedAt ?? null,
+    expiresAt: snapshot.current?.expiresAt ?? null,
+    lastUpdated: snapshot.current?.lastUpdated ?? null,
+    reviewerId: snapshot.current?.reviewerId ?? null,
+    declinedReason: snapshot.current?.declinedReason ?? null,
+    complianceFlags: Array.isArray(snapshot.current?.complianceFlags)
+      ? snapshot.current.complianceFlags
+      : [],
+    documents: {
+      frontUploaded: Boolean(documents.front),
+      backUploaded: Boolean(documents.back),
+      selfieUploaded: Boolean(documents.selfie),
+    },
+    nextActions: Array.isArray(snapshot.nextActions) ? snapshot.nextActions : [],
+    reviewSlaHours: snapshot.requirements?.reviewSlaHours ?? null,
+    supportContact: snapshot.requirements?.supportContact ?? null,
+  };
+}
+
+function buildSecurityInsights(preference, identitySummary) {
+  const recommendations = [];
+  let score = 50;
+
+  const timeout = preference.sessionTimeoutMinutes ?? 30;
+  if (timeout <= 15) {
+    score += 20;
+  } else if (timeout <= 30) {
+    score += 10;
+  } else if (timeout > 60) {
+    score -= 10;
+    recommendations.push('Reduce the session timeout to limit unattended access risk.');
+  }
+
+  if (preference.biometricApprovalsEnabled) {
+    score += 20;
+  } else {
+    recommendations.push('Enable biometric approvals to protect payouts and data exports.');
+  }
+
+  if (preference.deviceApprovalsEnabled) {
+    score += 15;
+  } else {
+    score -= 5;
+    recommendations.push('Activate trusted device approvals to catch unfamiliar sign-ins.');
+  }
+
+  if (identitySummary?.status === 'verified') {
+    score += 20;
+  } else if (identitySummary?.submitted) {
+    score += 5;
+    recommendations.push('Finish identity review to unlock enterprise workspaces.');
+  } else {
+    score -= 5;
+    recommendations.push('Submit government ID and proof of address to complete verification.');
+  }
+
+  if (identitySummary?.complianceFlags?.includes('identity_documents_incomplete')) {
+    score -= 5;
+    recommendations.push('Upload missing front, back, or selfie documents for identity checks.');
+  }
+
+  const normalizedScore = Math.max(0, Math.min(100, Math.round(score)));
+  let label = 'Fair';
+  if (normalizedScore >= 90) {
+    label = 'Excellent';
+  } else if (normalizedScore >= 75) {
+    label = 'Strong';
+  } else if (normalizedScore < 55) {
+    label = 'Needs attention';
+  }
+
+  return {
+    score: normalizedScore,
+    label,
+    identityStatus: identitySummary?.status ?? 'pending',
+    recommendations,
+  };
+}
+
+async function loadIdentitySnapshot(userId) {
+  try {
+    const snapshot = await getIdentityVerificationOverview(userId, {
+      includeHistory: false,
+      actorRoles: ['user'],
+    });
+    return buildIdentitySummary(snapshot);
+  } catch (error) {
+    if (error instanceof NotFoundError || error?.status === 404 || error?.statusCode === 404) {
+      return null;
+    }
+    if (error?.name === 'ValidationError') {
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function buildSecurityPreferenceResponse(userId, preferenceRecord) {
+  const preference = sanitizePreference(preferenceRecord, userId);
+  const identity = await loadIdentitySnapshot(userId);
+  const insights = buildSecurityInsights(preference, identity);
+  return { ...preference, identity, insights };
+}
+
 export async function getUserSecurityPreferences(userId) {
   const numericId = normaliseUserId(userId);
   const record = await UserSecurityPreference.findOne({ where: { userId: numericId } });
-  return sanitizePreference(record, numericId);
+  return buildSecurityPreferenceResponse(numericId, record);
 }
 
 export async function upsertUserSecurityPreferences(userId, patch = {}, { actorId } = {}) {
@@ -120,10 +236,15 @@ export async function upsertUserSecurityPreferences(userId, patch = {}, { actorI
     { logger: null },
   );
 
-  return sanitizePreference(preference, numericId);
+  return buildSecurityPreferenceResponse(numericId, preference);
 }
 
 export default {
   getUserSecurityPreferences,
   upsertUserSecurityPreferences,
+};
+
+export const __testables = {
+  buildIdentitySummary,
+  buildSecurityInsights,
 };

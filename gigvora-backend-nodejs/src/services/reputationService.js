@@ -208,6 +208,115 @@ function formatPeriodLabel(period) {
   }
 }
 
+function summariseRatings(testimonials = []) {
+  const buckets = new Map(
+    [5, 4, 3, 2, 1].map((rating) => [rating, { rating, count: 0, share: 0 }]),
+  );
+
+  let ratedCount = 0;
+  let weightedTotal = 0;
+  let verifiedCount = 0;
+
+  testimonials.forEach((testimonial) => {
+    const rating = Number.parseFloat(testimonial.rating ?? testimonial.score);
+    if (!Number.isFinite(rating)) {
+      return;
+    }
+
+    const clamped = Math.max(1, Math.min(5, Math.round(rating)));
+    const bucket = buckets.get(clamped);
+    if (bucket) {
+      bucket.count += 1;
+    }
+
+    ratedCount += 1;
+    weightedTotal += rating;
+
+    if (testimonial.verifiedClient || testimonial.verified === true) {
+      verifiedCount += 1;
+    }
+  });
+
+  if (ratedCount > 0) {
+    buckets.forEach((bucket) => {
+      bucket.share = bucket.count / ratedCount;
+    });
+  }
+
+  return {
+    average: ratedCount ? Number((weightedTotal / ratedCount).toFixed(2)) : null,
+    count: ratedCount,
+    verifiedShare: ratedCount ? verifiedCount / ratedCount : 0,
+    distribution: Array.from(buckets.values()),
+  };
+}
+
+function deriveReviewActivity(testimonials = []) {
+  if (!testimonials.length) {
+    return {
+      lastReviewAt: null,
+      recentCount: 0,
+      velocityPerMonth: 0,
+      trend: 'idle',
+      monthlyBreakdown: [],
+    };
+  }
+
+  const now = Date.now();
+  const ninetyDaysAgo = now - 1000 * 60 * 60 * 24 * 90;
+  const monthlyBuckets = new Map();
+
+  let lastReviewTime = 0;
+  let recentCount = 0;
+
+  testimonials.forEach((testimonial) => {
+    const timestamp = testimonial.capturedAt ?? testimonial.createdAt ?? testimonial.updatedAt;
+    if (!timestamp) {
+      return;
+    }
+    const instant = new Date(timestamp).getTime();
+    if (!Number.isFinite(instant)) {
+      return;
+    }
+
+    if (instant > lastReviewTime) {
+      lastReviewTime = instant;
+    }
+    if (instant >= ninetyDaysAgo) {
+      recentCount += 1;
+    }
+
+    const date = new Date(instant);
+    const key = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+    monthlyBuckets.set(key, (monthlyBuckets.get(key) ?? 0) + 1);
+  });
+
+  const months = Array.from(monthlyBuckets.entries())
+    .map(([month, count]) => ({ month, count }))
+    .sort((a, b) => (a.month > b.month ? 1 : -1));
+
+  const velocityPerMonth = months.length
+    ? Number((months.reduce((total, entry) => total + entry.count, 0) / months.length).toFixed(2))
+    : 0;
+
+  let trend = 'steady';
+  if (velocityPerMonth === 0 && recentCount === 0) {
+    trend = 'idle';
+  } else if (recentCount >= velocityPerMonth * 1.25) {
+    trend = 'accelerating';
+  } else if (recentCount <= velocityPerMonth * 0.6) {
+    trend = 'cooling';
+  }
+
+  return {
+    lastReviewAt: lastReviewTime ? new Date(lastReviewTime).toISOString() : null,
+    recentCount,
+    velocityPerMonth,
+    trend,
+    monthlyBreakdown: months.slice(-6),
+  };
+}
+
 function mapFreelancerProfile(record) {
   const plain = record.get({ plain: true });
   const profile = plain.Profile ?? {};
@@ -414,6 +523,14 @@ export async function getFreelancerReputationOverview({
     },
     lastVerifiedAt: lastVerification ? new Date(lastVerification).toISOString() : null,
   };
+
+  const ratings = summariseRatings(testimonials);
+  const activity = deriveReviewActivity(testimonials);
+
+  summary.ratings = ratings;
+  summary.recentActivity = activity;
+  summary.performance.reviewVelocity = activity.velocityPerMonth;
+  summary.performance.recentTestimonials = activity.recentCount;
 
   const automationPlaybooks = deriveAutomationPlaybooks({ metricsByType, promotedBadges, widgets });
   const integrationTouchpoints = deriveIntegrationTouchpoints({ successStories: publishedStories, widgets });
@@ -813,5 +930,10 @@ export default {
   createBadge,
   createReviewWidget,
   generateReviewWidgetEmbed,
+};
+
+export const __testables = {
+  summariseRatings,
+  deriveReviewActivity,
 };
 

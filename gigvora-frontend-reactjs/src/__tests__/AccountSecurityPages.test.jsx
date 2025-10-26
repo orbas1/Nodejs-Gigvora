@@ -260,6 +260,75 @@ describe('Account and security pages', () => {
     });
   });
 
+  it('surfaces security and identity insights on SettingsPage', async () => {
+    const { fetchUserConsentSnapshot } = await import('../services/consent.js');
+    const { apiClient } = await import('../services/apiClient.js');
+
+    fetchUserConsentSnapshot.mockResolvedValue({ policies: [], outstandingRequired: 0 });
+    apiClient.get.mockImplementation((path) => {
+      if (path.includes('/notifications/preferences')) {
+        return Promise.resolve({ digestFrequency: 'immediate', smsEnabled: false, metadata: {} });
+      }
+      if (path.includes('/security-preferences')) {
+        return Promise.resolve({
+          sessionTimeoutMinutes: 45,
+          biometricApprovalsEnabled: false,
+          deviceApprovalsEnabled: true,
+          identity: {
+            status: 'submitted',
+            submitted: true,
+            submittedAt: '2024-04-03T09:00:00Z',
+            reviewedAt: null,
+            documents: {
+              frontUploaded: true,
+              backUploaded: false,
+              selfieUploaded: true,
+            },
+            nextActions: [
+              {
+                id: 'await-review',
+                label: 'Await compliance review',
+                description: 'Compliance will validate documents shortly.',
+              },
+            ],
+            supportContact: { email: 'trust@gigvora.com' },
+          },
+          insights: {
+            score: 72,
+            label: 'Strong',
+            identityStatus: 'submitted',
+            recommendations: ['Enable biometric approvals to protect payouts.'],
+          },
+        });
+      }
+      if (path.includes('/ai-settings')) {
+        return Promise.resolve({ experiencePreferences: {} });
+      }
+      if (path.includes('/data-exports')) {
+        return Promise.resolve({ items: [] });
+      }
+      return Promise.resolve({});
+    });
+
+    useSession.mockReturnValue({ session: { id: 'user-99' }, isAuthenticated: true });
+
+    render(
+      <MemoryRouter>
+        <SettingsPage />
+      </MemoryRouter>,
+    );
+
+    const securityTab = await screen.findByRole('tab', { name: /Security & Sessions/i });
+    await act(async () => {
+      await userEvent.click(securityTab);
+    });
+
+    expect(await screen.findByText('Security health')).toBeInTheDocument();
+    expect(screen.getByText('Session timeout: 45m')).toBeInTheDocument();
+    expect(screen.getByText('Await compliance review')).toBeInTheDocument();
+    expect(screen.getByText(/trust@gigvora.com/)).toBeInTheDocument();
+  });
+
   it('blocks access to security operations when permissions are missing', async () => {
     const { hasSecurityOperationsAccess } = await import('../utils/permissions.js');
     hasSecurityOperationsAccess.mockReturnValue(false);

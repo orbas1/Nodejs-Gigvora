@@ -229,7 +229,34 @@ describe('ReputationEngineShowcase', () => {
             { id: 1, label: 'Win rate', value: '82%', trendDirection: 'up', trendLabel: '▲ 6% vs last quarter' },
             { id: 2, label: 'Review score', value: '4.9', source: 'Gigvora', periodLabel: 'Last 12 months' },
           ],
-          summary: { lastVerifiedAt: '2024-04-01T00:00:00Z', totalReviews: 48, reviewAverage: 4.9, responseTime: '2h' },
+          summary: {
+            lastVerifiedAt: '2024-04-01T00:00:00Z',
+            totalReviews: 48,
+            reviewAverage: 4.9,
+            responseTime: '2h',
+            ratings: {
+              average: 4.9,
+              count: 48,
+              verifiedShare: 0.75,
+              distribution: [
+                { rating: 5, count: 32, share: 0.66 },
+                { rating: 4, count: 12, share: 0.25 },
+                { rating: 3, count: 3, share: 0.06 },
+                { rating: 2, count: 1, share: 0.02 },
+                { rating: 1, count: 0, share: 0 },
+              ],
+            },
+            recentActivity: {
+              lastReviewAt: '2024-04-05T10:00:00Z',
+              recentCount: 6,
+              velocityPerMonth: 4.5,
+              trend: 'accelerating',
+              monthlyBreakdown: [
+                { month: '2024-03', count: 5 },
+                { month: '2024-04', count: 6 },
+              ],
+            },
+          },
           testimonials: { featured: { clientName: 'Acme Corp', comment: 'Phenomenal delivery.' } },
           successStories: { featured: { title: 'Scaled Series A pipeline', summary: 'Grew inbound SQLs 3x.' }, collection: [] },
           badges: { promoted: [], collection: [{ name: 'Top Strategist', badgeType: 'Verified badge' }] },
@@ -250,6 +277,8 @@ describe('ReputationEngineShowcase', () => {
     expect(screen.getByText('Win rate')).toBeInTheDocument();
     expect(screen.getByText('▲ 6% vs last quarter')).toBeInTheDocument();
     expect(screen.getByText('Phenomenal delivery.')).toBeInTheDocument();
+    expect(screen.getByText('Review sentiment')).toBeInTheDocument();
+    expect(screen.getByText('Based on 48 published ratings')).toBeInTheDocument();
   });
 });
 

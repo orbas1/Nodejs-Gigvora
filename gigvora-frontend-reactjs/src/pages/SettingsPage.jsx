@@ -19,6 +19,41 @@ import { listDataExportRequests, createDataExportRequest } from '../services/pri
 import formatDateTime from '../utils/formatDateTime.js';
 import ConsentHistoryTimeline from '../components/compliance/ConsentHistoryTimeline.jsx';
 
+const identityStatusLabels = {
+  verified: 'Verified',
+  submitted: 'Submitted',
+  in_review: 'In review',
+  pending: 'Not started',
+  expired: 'Expired',
+  rejected: 'Declined',
+};
+
+const documentBadgeStyles = {
+  complete: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
+  missing: 'bg-amber-50 text-amber-700 border border-amber-200',
+};
+
+function formatIdentityStatus(status) {
+  if (!status) {
+    return identityStatusLabels.pending;
+  }
+  const normalised = identityStatusLabels[status] ?? status.replace(/_/g, ' ');
+  return normalised.charAt(0).toUpperCase() + normalised.slice(1);
+}
+
+function buildDocumentBadge(label, available) {
+  return (
+    <span
+      key={label}
+      className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${
+        available ? documentBadgeStyles.complete : documentBadgeStyles.missing
+      }`}
+    >
+      {available ? '✓' : '!'} {label}
+    </span>
+  );
+}
+
 function Toggle({ enabled, disabled, onClick, label }) {
   return (
     <button
@@ -193,6 +228,8 @@ export default function SettingsPage() {
     sessionTimeoutMinutes: 30,
     biometricApprovalsEnabled: false,
     deviceApprovalsEnabled: true,
+    identity: null,
+    insights: { score: 50, label: 'Fair', identityStatus: 'pending', recommendations: [] },
   });
   const [securitySaving, setSecuritySaving] = useState(false);
   const [aiPrefs, setAiPrefs] = useState({
@@ -296,13 +333,62 @@ export default function SettingsPage() {
     };
   };
 
-  const normaliseSecurityState = (payload) => ({
-    sessionTimeoutMinutes: Number.isFinite(payload?.sessionTimeoutMinutes)
-      ? payload.sessionTimeoutMinutes
-      : 30,
-    biometricApprovalsEnabled: Boolean(payload?.biometricApprovalsEnabled),
-    deviceApprovalsEnabled: payload?.deviceApprovalsEnabled !== false,
-  });
+  const normaliseSecurityState = (payload) => {
+    const identityPayload = payload?.identity ?? null;
+    const identity = identityPayload
+      ? {
+          status: identityPayload.status ?? 'pending',
+          submitted: Boolean(identityPayload.submitted),
+          verificationProvider: identityPayload.verificationProvider ?? 'manual_review',
+          submittedAt: identityPayload.submittedAt ?? null,
+          reviewedAt: identityPayload.reviewedAt ?? null,
+          expiresAt: identityPayload.expiresAt ?? null,
+          lastUpdated: identityPayload.lastUpdated ?? null,
+          reviewerId: identityPayload.reviewerId ?? null,
+          declinedReason: identityPayload.declinedReason ?? null,
+          complianceFlags: Array.isArray(identityPayload.complianceFlags)
+            ? identityPayload.complianceFlags
+            : [],
+          documents: {
+            frontUploaded: Boolean(identityPayload.documents?.frontUploaded),
+            backUploaded: Boolean(identityPayload.documents?.backUploaded),
+            selfieUploaded: Boolean(identityPayload.documents?.selfieUploaded),
+          },
+          nextActions: Array.isArray(identityPayload.nextActions) ? identityPayload.nextActions : [],
+          reviewSlaHours: identityPayload.reviewSlaHours ?? null,
+          supportContact: identityPayload.supportContact ?? null,
+        }
+      : null;
+
+    const insightsPayload = payload?.insights ?? null;
+    const insights = insightsPayload
+      ? {
+          score: Number.isFinite(Number(insightsPayload.score))
+            ? Number(insightsPayload.score)
+            : 0,
+          label: insightsPayload.label ?? 'Fair',
+          identityStatus: insightsPayload.identityStatus ?? identity?.status ?? 'pending',
+          recommendations: Array.isArray(insightsPayload.recommendations)
+            ? insightsPayload.recommendations
+            : [],
+        }
+      : {
+          score: 50,
+          label: 'Fair',
+          identityStatus: identity?.status ?? 'pending',
+          recommendations: [],
+        };
+
+    return {
+      sessionTimeoutMinutes: Number.isFinite(payload?.sessionTimeoutMinutes)
+        ? payload.sessionTimeoutMinutes
+        : 30,
+      biometricApprovalsEnabled: Boolean(payload?.biometricApprovalsEnabled),
+      deviceApprovalsEnabled: payload?.deviceApprovalsEnabled !== false,
+      identity,
+      insights,
+    };
+  };
 
   const normaliseAiState = (payload) => {
     const experience = payload?.experiencePreferences && typeof payload.experiencePreferences === 'object'
@@ -595,6 +681,59 @@ export default function SettingsPage() {
     [],
   );
 
+  const identitySummary = securityPrefs.identity;
+  const securityInsights = securityPrefs.insights ?? {
+    score: 50,
+    label: 'Fair',
+    identityStatus: identitySummary?.status ?? 'pending',
+    recommendations: [],
+  };
+
+  const identityDocuments = identitySummary
+    ? [
+        { label: 'Front ID', available: identitySummary.documents?.frontUploaded },
+        { label: 'Back ID', available: identitySummary.documents?.backUploaded },
+        { label: 'Selfie', available: identitySummary.documents?.selfieUploaded },
+      ]
+    : [];
+
+  const identityTimeline = identitySummary
+    ? [
+        identitySummary.submittedAt
+          ? { label: 'Submitted', value: formatDateTime(identitySummary.submittedAt) }
+          : null,
+        identitySummary.reviewedAt
+          ? { label: 'Reviewed', value: formatDateTime(identitySummary.reviewedAt) }
+          : null,
+        identitySummary.expiresAt
+          ? { label: 'Expires', value: formatDateTime(identitySummary.expiresAt) }
+          : null,
+        identitySummary.lastUpdated && !identitySummary.reviewedAt
+          ? { label: 'Last updated', value: formatDateTime(identitySummary.lastUpdated) }
+          : null,
+      ].filter(Boolean)
+    : [];
+
+  const identityDescription = (() => {
+    if (!identitySummary) {
+      return 'Identity verification has not been initiated. Upload documents to unlock premium trust signals and compliance-ready workspaces.';
+    }
+    if (identitySummary.status === 'verified') {
+      return "Identity checks are verified and synced with Gigvora's trust centre across all workspaces.";
+    }
+    if (identitySummary.status === 'rejected') {
+      return identitySummary.declinedReason
+        ? `Action required: ${identitySummary.declinedReason}`
+        : 'Compliance flagged issues. Update your documents and resubmit to proceed.';
+    }
+    if (identitySummary.submitted) {
+      return 'Submission received. Compliance specialists typically review within the agreed SLA window.';
+    }
+    return 'Provide personal details and upload your ID, address proof, and selfie to start verification.';
+  })();
+
+  const identityStatusLabel = formatIdentityStatus(identitySummary?.status);
+
   const renderTabContent = () => {
     switch (selectedTab) {
       case 'notifications':
@@ -652,6 +791,99 @@ export default function SettingsPage() {
             <p className="text-sm text-slate-600 dark:text-slate-300">
               Strengthen how Gigvora protects your account. Security controls sync with the trust centre and apply to all dashboards you can access.
             </p>
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+              <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Security health</p>
+                    <div className="mt-3 flex items-baseline gap-3">
+                      <span className="text-5xl font-semibold text-slate-900 dark:text-slate-100">
+                        {Math.round(securityInsights.score)}
+                      </span>
+                      <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600 dark:border-slate-600 dark:bg-slate-700/60 dark:text-slate-200">
+                        {securityInsights.label}
+                      </span>
+                    </div>
+                    <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
+                      {securityInsights.identityStatus === 'verified'
+                        ? 'Enterprise-ready controls are active. Continue monitoring login activity and document renewals.'
+                        : 'Review these recommendations to unlock full trust signals and reduce account takeover risk.'}
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-end gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
+                    <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-600 dark:border-slate-600 dark:bg-slate-700/60 dark:text-slate-200">
+                      {formatIdentityStatus(securityInsights.identityStatus)}
+                    </span>
+                    <span>
+                      Session timeout: {securityPrefs.sessionTimeoutMinutes}m
+                    </span>
+                  </div>
+                </div>
+                {securityInsights.recommendations.length ? (
+                  <ul className="mt-4 space-y-2 text-sm text-slate-600 dark:text-slate-300">
+                    {securityInsights.recommendations.map((item) => (
+                      <li
+                        key={item}
+                        className="flex items-start gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/60"
+                      >
+                        <span className="mt-1 h-1.5 w-1.5 flex-none rounded-full bg-accent" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-500/60 dark:bg-emerald-500/10 dark:text-emerald-200">
+                    All critical safeguards are active and monitored.
+                  </p>
+                )}
+              </section>
+
+              <section className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Identity verification</p>
+                <h4 className="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">{identityStatusLabel}</h4>
+                <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{identityDescription}</p>
+                {identityTimeline.length ? (
+                  <dl className="mt-4 space-y-2 text-xs text-slate-500 dark:text-slate-300">
+                    {identityTimeline.map((entry) => (
+                      <div key={`${entry.label}-${entry.value}`} className="flex items-center justify-between">
+                        <dt className="font-semibold uppercase tracking-wide">{entry.label}</dt>
+                        <dd>{entry.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : null}
+                {identityDocuments.length ? (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {identityDocuments.map((doc) => buildDocumentBadge(doc.label, doc.available))}
+                  </div>
+                ) : null}
+                {identitySummary?.nextActions?.length ? (
+                  <div className="mt-4 space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Next steps</p>
+                    <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
+                      {identitySummary.nextActions.map((action) => (
+                        <li
+                          key={action.id}
+                          className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/60"
+                        >
+                          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{action.label}</p>
+                          <p className="mt-1 text-xs">{action.description}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {identitySummary?.supportContact?.email ? (
+                  <p className="mt-4 text-xs text-slate-500 dark:text-slate-300">
+                    Need help? Email{' '}
+                    <a className="text-accent underline" href={`mailto:${identitySummary.supportContact.email}`}>
+                      {identitySummary.supportContact.email}
+                    </a>{' '}
+                    or visit the trust centre.
+                  </p>
+                ) : null}
+              </section>
+            </div>
             <div className="grid gap-4 md:grid-cols-2">
               <PreferenceCard
                 title="Session timeout"
