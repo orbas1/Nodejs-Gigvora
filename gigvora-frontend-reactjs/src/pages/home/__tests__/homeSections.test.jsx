@@ -76,12 +76,33 @@ describe('HomeHeroSection', () => {
     );
 
     expect(screen.getByText('A vibrant headline')).toBeInTheDocument();
+    expect(
+      screen.getByText('Value pillars built for enterprise collaboration'),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /claim your workspace/i }));
     fireEvent.click(screen.getByRole('button', { name: /browse live opportunities/i }));
 
     expect(claimSpy).toHaveBeenCalledTimes(1);
     expect(browseSpy).toHaveBeenCalledTimes(1);
     expect(analyticsMock.track).toHaveBeenCalledTimes(2);
+  });
+
+  it('tracks value pillar engagement events', () => {
+    renderWithRouter(<HomeHeroSection />);
+
+    const pillarCta = screen.getByRole('button', { name: /explore launch workflows/i });
+    fireEvent.click(pillarCta);
+
+    expect(analyticsMock.track).toHaveBeenCalledWith(
+      'marketing_value_pillar_interacted',
+      expect.objectContaining({ pillarId: 'launch-velocity', action: 'view_workflows' }),
+      expect.objectContaining({ source: 'web_marketing_site' }),
+    );
+    expect(analyticsMock.track).toHaveBeenCalledWith(
+      'web_home_value_pillar_clicked',
+      expect.objectContaining({ pillarId: 'launch-velocity' }),
+      expect.objectContaining({ source: 'web_marketing_site' }),
+    );
   });
 
   it('falls back gracefully when errored', () => {

@@ -1,7 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowUpRightIcon, RocketLaunchIcon, SparklesIcon, UsersIcon } from '@heroicons/react/24/outline';
 import analytics from '../../services/analytics.js';
 import { HOME_GRADIENTS } from './homeThemeTokens.js';
+import PublicHero from '../../components/marketing/PublicHero.jsx';
+import ValuePillars from '../../components/marketing/ValuePillars.jsx';
+import { valuePillars as defaultValuePillars } from '../../content/home/valuePillars.js';
 
 const DEFAULT_HEADLINE =
   'Freelancers, employers, agencies, mentors, volunteers, new grads & career changers, clients, and job seekers move forward together.';
@@ -28,6 +31,8 @@ const FALLBACK_MEDIA = {
     'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=800&q=80',
 };
 
+const FALLBACK_VALUE_PILLARS = defaultValuePillars;
+
 function normaliseKeywords(keywords) {
   if (!Array.isArray(keywords)) {
     return [];
@@ -45,6 +50,67 @@ function normaliseKeywords(keywords) {
     .filter(Boolean);
 }
 
+function normaliseValuePillars(pillars) {
+  if (!Array.isArray(pillars) || pillars.length === 0) {
+    return { items: FALLBACK_VALUE_PILLARS, usedFallback: true };
+  }
+
+  const fallbackById = new Map(FALLBACK_VALUE_PILLARS.map((pillar) => [pillar.id, pillar]));
+  const merged = pillars
+    .map((pillar, index) => {
+      if (!pillar) return null;
+
+      if (typeof pillar === 'string') {
+        const fallback = FALLBACK_VALUE_PILLARS[index % FALLBACK_VALUE_PILLARS.length];
+        return {
+          ...fallback,
+          title: pillar,
+          id: fallback?.id ?? `pillar-${index}`,
+        };
+      }
+
+      if (typeof pillar === 'object') {
+        const fallback = fallbackById.get(pillar.id) ?? FALLBACK_VALUE_PILLARS[index % FALLBACK_VALUE_PILLARS.length];
+        const metricValue = pillar.metric?.value ?? pillar.metric?.amount ?? pillar.metric ?? fallback.metric?.value;
+        const metricLabel =
+          pillar.metric?.label ?? pillar.metric?.subtitle ?? fallback.metric?.label ?? fallback.metric?.subtitle ?? null;
+
+        return {
+          ...fallback,
+          ...pillar,
+          id: pillar.id ?? fallback?.id ?? `pillar-${index}`,
+          eyebrow: pillar.eyebrow ?? pillar.tagline ?? fallback?.eyebrow ?? null,
+          title: pillar.title ?? pillar.heading ?? pillar.label ?? fallback?.title ?? null,
+          description: pillar.description ?? pillar.copy ?? pillar.summary ?? fallback?.description ?? null,
+          metric:
+            metricValue || metricLabel
+              ? {
+                  value: typeof metricValue === 'string' ? metricValue : String(metricValue ?? ''),
+                  label: metricLabel ?? fallback?.metric?.label ?? fallback?.metric?.subtitle ?? null,
+                }
+              : fallback?.metric ?? null,
+          icon: pillar.icon ?? pillar.Icon ?? fallback?.icon ?? null,
+          cta: pillar.cta
+            ? {
+                ...fallback?.cta,
+                ...pillar.cta,
+                label: pillar.cta.label ?? fallback?.cta?.label ?? null,
+              }
+            : fallback?.cta ?? null,
+        };
+      }
+
+      return null;
+    })
+    .filter((pillar) => pillar && pillar.title);
+
+  if (!merged.length) {
+    return { items: FALLBACK_VALUE_PILLARS, usedFallback: true };
+  }
+
+  return { items: merged, usedFallback: false };
+}
+
 export function HomeHeroSection({
   headline,
   subheading,
@@ -54,6 +120,7 @@ export function HomeHeroSection({
   onClaimWorkspace,
   onBrowseOpportunities,
   productMedia,
+  valuePillars,
 }) {
   const [reduceMotion, setReduceMotion] = useState(false);
 
@@ -68,7 +135,6 @@ export function HomeHeroSection({
       setReduceMotion(event.matches);
     };
 
-    // Initialise with the current preference
     setReduceMotion(mediaQuery.matches);
 
     if (typeof mediaQuery.addEventListener === 'function') {
@@ -82,44 +148,49 @@ export function HomeHeroSection({
 
   const displayHeadline = error ? 'Stay tuned for what is next.' : headline ?? DEFAULT_HEADLINE;
   const displaySubheading =
-    loading && !subheading
-      ? 'Gathering the latest programmes…'
-      : subheading ?? DEFAULT_SUBHEADING;
+    loading && !subheading ? 'Gathering the latest programmes…' : subheading ?? DEFAULT_SUBHEADING;
 
   const resolvedKeywords = normaliseKeywords(keywords);
   const hasCustomKeywords = resolvedKeywords.length > 0;
   const showTickerSkeleton = loading && !hasCustomKeywords;
-  const tickerItems = showTickerSkeleton ? [] : hasCustomKeywords ? resolvedKeywords : FALLBACK_KEYWORDS;
-  const doubledTickerItems = [...tickerItems, ...tickerItems];
-  const tickerRenderList = reduceMotion ? tickerItems : doubledTickerItems;
+  const tickerItems = hasCustomKeywords ? resolvedKeywords : FALLBACK_KEYWORDS;
 
-  const showCopySkeleton = loading && !headline && !error;
-  const heroMedia = { ...FALLBACK_MEDIA, ...(productMedia ?? {}) };
+  const heroMedia = useMemo(() => ({ ...FALLBACK_MEDIA, ...(productMedia ?? {}) }), [productMedia]);
   const hasProvidedVideo = Boolean(
     (productMedia?.videoSources && Array.isArray(productMedia.videoSources) && productMedia.videoSources.length) ||
       productMedia?.videoUrl,
   );
   const showMediaSkeleton = loading && !productMedia?.imageUrl && !hasProvidedVideo;
-  const hasVideo = Boolean(
-    (heroMedia.videoSources && Array.isArray(heroMedia.videoSources) && heroMedia.videoSources.length) || heroMedia.videoUrl,
-  );
-  const heroVideoSources = hasVideo
-    ? Array.isArray(heroMedia.videoSources) && heroMedia.videoSources.length
-      ? heroMedia.videoSources
-          .map((source) =>
-            source && (source.src || source.url)
-              ? { src: source.src ?? source.url, type: source.type ?? 'video/mp4' }
-              : null,
-          )
-          .filter(Boolean)
-      : [
-          {
-            src: heroMedia.videoUrl,
-            type: heroMedia.videoType ?? 'video/mp4',
-          },
-        ]
-    : [];
-  const canRenderVideo = hasVideo && heroVideoSources.length;
+  const heroVideoSources = useMemo(() => {
+    const hasVideo = Boolean(
+      (heroMedia.videoSources && Array.isArray(heroMedia.videoSources) && heroMedia.videoSources.length) || heroMedia.videoUrl,
+    );
+
+    if (!hasVideo) {
+      return [];
+    }
+
+    if (Array.isArray(heroMedia.videoSources) && heroMedia.videoSources.length) {
+      return heroMedia.videoSources
+        .map((source) =>
+          source && (source.src || source.url)
+            ? { src: source.src ?? source.url, type: source.type ?? 'video/mp4' }
+            : null,
+        )
+        .filter(Boolean);
+    }
+
+    return [
+      {
+        src: heroMedia.videoUrl,
+        type: heroMedia.videoType ?? 'video/mp4',
+      },
+    ];
+  }, [heroMedia]);
+  const canRenderVideo = heroVideoSources.length > 0;
+
+  const { items: resolvedValuePillars, usedFallback: usingFallbackPillars } = normaliseValuePillars(valuePillars);
+  const showPillarSkeleton = loading && usingFallbackPillars && (!Array.isArray(valuePillars) || valuePillars.length === 0);
 
   const handleClaimWorkspace = () => {
     analytics.track(
@@ -143,207 +214,181 @@ export function HomeHeroSection({
     }
   };
 
-  return (
-    <section className={HOME_GRADIENTS.hero.background}>
-      <div className="pointer-events-none absolute inset-0">
-        {HOME_GRADIENTS.hero.overlays.map((className) => (
-          <div key={className} className={className} aria-hidden="true" />
-        ))}
-      </div>
+  const handleValuePillarSelect = (pillar) => {
+    if (!pillar) return;
+    analytics.track(
+      'web_home_value_pillar_clicked',
+      { pillarId: pillar.id, pillarTitle: pillar.title },
+      { source: 'web_marketing_site' },
+    );
+  };
 
-      <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-24 lg:flex lg:items-center lg:gap-16">
-        <div className="mx-auto max-w-2xl space-y-10 text-center lg:mx-0 lg:text-left">
-          <div className="space-y-6">
-            <span className="mx-auto inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1 text-xs font-semibold uppercase tracking-[0.35em] text-accent lg:mx-0">
-              Community OS
+  const headlineNode = loading && !headline && !error ? (
+    <span className="block h-12 w-3/4 animate-pulse rounded-full bg-white/10 sm:h-16" />
+  ) : (
+    displayHeadline
+  );
+
+  const subheadingNode = loading && !headline && !error ? (
+    <span className="mt-2 block h-6 w-full max-w-md animate-pulse rounded-full bg-white/10" />
+  ) : (
+    displaySubheading
+  );
+
+  const rightColumn = (
+    <div className="relative mx-auto max-w-md space-y-6 lg:ml-auto lg:mr-0">
+      <div className="absolute -top-12 left-1/2 h-24 w-24 -translate-x-1/2 rounded-full bg-accent/40 blur-2xl" aria-hidden="true" />
+
+      <div className="rounded-[2rem] bg-white/95 p-8 text-slate-900 shadow-2xl ring-1 ring-white/60 backdrop-blur">
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10 text-accent">
+            <SparklesIcon className="h-6 w-6" aria-hidden="true" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-slate-900">Creation Studio draft</p>
+            <p className="text-xs text-slate-500">Campaign kickoff • 78% ready</p>
+          </div>
+        </div>
+        <div className="mt-6 space-y-3 text-sm text-slate-600">
+          <div className="flex items-center justify-between">
+            <span className="font-medium text-slate-900">Storyboard deck</span>
+            <span className="text-xs text-slate-400">Last edit 3m ago</span>
+          </div>
+          <div className="flex items-center justify-between rounded-2xl bg-slate-100/80 px-4 py-3">
+            <span className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Launchpad sync</span>
+            <span className="text-xs font-medium text-slate-600">Mentor feedback pending</span>
+          </div>
+          <p>
+            Notes stream: <span className="font-medium text-slate-900">Prototype v3 ready for review</span>
+          </p>
+        </div>
+        <div className="mt-6 flex items-center gap-3">
+          {['AG', 'JT', 'LK'].map((initials) => (
+            <span
+              key={initials}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-accent via-accentDark to-slate-900 text-sm font-semibold text-white shadow-soft"
+            >
+              {initials}
             </span>
-            <h1 className="text-balance text-3xl font-semibold leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl">
-              {showCopySkeleton ? (
-                <span className="block h-12 w-3/4 animate-pulse rounded-full bg-white/10 sm:h-16" />
-              ) : (
-                displayHeadline
-              )}
-            </h1>
-            <p className="text-pretty text-base text-slate-200 sm:text-xl">
-              {showCopySkeleton ? (
-                <span className="mt-2 block h-6 w-full max-w-md animate-pulse rounded-full bg-white/10" />
-              ) : (
-                displaySubheading
-              )}
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center lg:justify-start">
-            <button
-              type="button"
-              onClick={handleClaimWorkspace}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-accent px-8 py-3 text-base font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-accentDark sm:w-auto"
-            >
-              Claim your workspace
-              <ArrowUpRightIcon className="h-5 w-5" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={handleBrowseOpportunities}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/30 bg-white/5 px-8 py-3 text-base font-semibold text-white transition hover:border-white/60 hover:bg-white/10 sm:w-auto"
-            >
-              Browse live opportunities
-              <ArrowUpRightIcon className="h-5 w-5" aria-hidden="true" />
-            </button>
-          </div>
-
-          <div className="relative mt-8 h-auto min-h-[3.25rem] overflow-hidden rounded-full border border-white/10 bg-white/5 sm:mt-10 sm:h-14">
-            <div className={HOME_GRADIENTS.hero.tickerFades.start} aria-hidden="true" />
-            <div className={HOME_GRADIENTS.hero.tickerFades.end} aria-hidden="true" />
-            <div
-              className={
-                reduceMotion
-                  ? 'flex h-full flex-wrap items-center justify-center gap-3 px-6 py-3'
-                  : 'flex h-full min-w-max items-center gap-6 animate-marquee'
-              }
-              aria-hidden={reduceMotion ? undefined : true}
-            >
-              {showTickerSkeleton
-                ? Array.from({ length: 4 }).map((_, index) => (
-                    <span
-                      key={`ticker-skeleton-${index}`}
-                      className="inline-flex min-w-[7rem] items-center gap-2 rounded-full border border-white/10 bg-white/10 px-5 py-1.5 text-sm text-white/80"
-                    >
-                      <span className="h-4 w-4 animate-pulse rounded-full bg-white/20" aria-hidden="true" />
-                      <span className="h-3 w-24 animate-pulse rounded-full bg-white/20" aria-hidden="true" />
-                    </span>
-                  ))
-                : tickerRenderList.map((item, index) => (
-                    <span
-                      key={`ticker-primary-${index}`}
-                      className="inline-flex min-w-max items-center gap-2 rounded-full border border-white/10 bg-white/10 px-5 py-1.5 text-sm font-medium text-white/90"
-                    >
-                      <UsersIcon className="h-4 w-4" aria-hidden="true" />
-                      {item}
-                    </span>
-                  ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-16 w-full max-w-lg px-2 sm:px-0 lg:mt-0 lg:max-w-none">
-          <div className="relative mx-auto max-w-md space-y-6 lg:ml-auto lg:mr-0">
-            <div className="absolute -top-12 left-1/2 h-24 w-24 -translate-x-1/2 rounded-full bg-accent/40 blur-2xl" aria-hidden="true" />
-
-            <div className="rounded-[2rem] bg-white/95 p-8 text-slate-900 shadow-2xl ring-1 ring-white/60 backdrop-blur">
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10 text-accent">
-                  <SparklesIcon className="h-6 w-6" aria-hidden="true" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">Creation Studio draft</p>
-                  <p className="text-xs text-slate-500">Campaign kickoff • 78% ready</p>
-                </div>
-              </div>
-              <div className="mt-6 space-y-3 text-sm text-slate-600">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-slate-900">Storyboard deck</span>
-                  <span className="text-xs text-slate-400">Last edit 3m ago</span>
-                </div>
-                <div className="flex items-center justify-between rounded-2xl bg-slate-100/80 px-4 py-3">
-                  <span className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Launchpad sync</span>
-                  <span className="text-xs font-medium text-slate-600">Mentor feedback pending</span>
-                </div>
-                <p>
-                  Notes stream: <span className="font-medium text-slate-900">Prototype v3 ready for review</span>
-                </p>
-              </div>
-              <div className="mt-6 flex items-center gap-3">
-                {['AG', 'JT', 'LK'].map((initials) => (
-                  <span
-                    key={initials}
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-accent via-accentDark to-slate-900 text-sm font-semibold text-white shadow-soft"
-                  >
-                    {initials}
-                  </span>
-                ))}
-                <span className="rounded-full border border-slate-200/60 px-3 py-1 text-xs font-medium text-slate-500">
-                  +5 mentors watching
-                </span>
-              </div>
-            </div>
-
-            <div className="rounded-[2rem] border border-white/10 bg-white/10 p-7 text-white shadow-2xl backdrop-blur">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-white">Explorer opportunity card</p>
-                  <p className="text-xs text-slate-300">UX research mission • Volunteering</p>
-                </div>
-                <RocketLaunchIcon className="h-6 w-6 text-accent" aria-hidden="true" />
-              </div>
-
-              <div className="mt-6 space-y-4 text-sm text-slate-100">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-base font-semibold text-white">
-                    CJ
-                  </span>
-                  <div>
-                    <p className="font-medium text-white">Casey · product mentor</p>
-                    <p className="text-xs text-slate-300">Hosting live portfolio review, 12 seats remaining</p>
-                  </div>
-                </div>
-                <div className="rounded-2xl bg-white/10 p-4 text-xs text-slate-200">
-                  Next session: Today · 18:30 UTC · collaborative whiteboard with volunteers & clients.
-                </div>
-              </div>
-
-              <div className="mt-6 overflow-hidden rounded-2xl border border-white/10 bg-white/5">
-                {showMediaSkeleton ? (
-                  <div className="h-40 w-full animate-pulse bg-slate-800/50" aria-hidden="true" />
-                ) : canRenderVideo ? (
-                  <figure>
-                    <video
-                      className="h-40 w-full object-cover"
-                      poster={heroMedia.posterUrl ?? heroMedia.imageUrl}
-                      autoPlay={heroMedia.autoPlay ?? true}
-                      muted={heroMedia.muted ?? true}
-                      loop={heroMedia.loop ?? true}
-                      playsInline
-                      controls={heroMedia.controls ?? false}
-                      preload="metadata"
-                      aria-label={heroMedia.alt ?? 'Gigvora product preview'}
-                      data-testid="home-hero-media-video"
-                    >
-                      {heroVideoSources.map((source) => (
-                        <source key={`${source.src ?? source.url}-${source.type ?? 'video/mp4'}`} src={source.src ?? source.url} type={source.type ?? 'video/mp4'} />
-                      ))}
-                    </video>
-                    {heroMedia.caption ? (
-                      <figcaption className="px-4 py-3 text-xs text-slate-200/80">{heroMedia.caption}</figcaption>
-                    ) : null}
-                  </figure>
-                ) : (
-                  <figure>
-                    <img
-                      src={heroMedia.imageUrl}
-                      alt={heroMedia.alt ?? 'Gigvora product preview'}
-                      className="h-40 w-full object-cover"
-                      loading="lazy"
-                      data-testid="home-hero-media-image"
-                    />
-                    {heroMedia.caption ? (
-                      <figcaption className="px-4 py-3 text-xs text-slate-200/80">{heroMedia.caption}</figcaption>
-                    ) : null}
-                  </figure>
-                )}
-              </div>
-
-              <div className="mt-6 flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-300">Community ticker</span>
-                <span className="inline-flex items-center gap-1 text-sm font-semibold text-accent">
-                  Join mission
-                  <ArrowUpRightIcon className="h-4 w-4" aria-hidden="true" />
-                </span>
-              </div>
-            </div>
-          </div>
+          ))}
+          <span className="rounded-full border border-slate-200/60 px-3 py-1 text-xs font-medium text-slate-500">+5 mentors watching</span>
         </div>
       </div>
-    </section>
+
+      <div className="rounded-[2rem] border border-white/10 bg-white/10 p-7 text-white shadow-2xl backdrop-blur">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-white">Explorer opportunity card</p>
+            <p className="text-xs text-slate-300">UX research mission • Volunteering</p>
+          </div>
+          <RocketLaunchIcon className="h-6 w-6 text-accent" aria-hidden="true" />
+        </div>
+
+        <div className="mt-6 space-y-4 text-sm text-slate-100">
+          <div className="flex items-center gap-3">
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-base font-semibold text-white">
+              CJ
+            </span>
+            <div>
+              <p className="font-medium text-white">Casey · product mentor</p>
+              <p className="text-xs text-slate-300">Hosting live portfolio review, 12 seats remaining</p>
+            </div>
+          </div>
+          <div className="rounded-2xl bg-white/10 p-4 text-xs text-slate-200">
+            Next session: Today · 18:30 UTC · collaborative whiteboard with volunteers & clients.
+          </div>
+        </div>
+
+        <div className="mt-6 overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+          {showMediaSkeleton ? (
+            <div className="h-40 w-full animate-pulse bg-slate-800/50" aria-hidden="true" />
+          ) : canRenderVideo ? (
+            <figure>
+              <video
+                className="h-40 w-full object-cover"
+                poster={heroMedia.posterUrl ?? heroMedia.imageUrl}
+                autoPlay={heroMedia.autoPlay ?? true}
+                muted={heroMedia.muted ?? true}
+                loop={heroMedia.loop ?? true}
+                playsInline
+                controls={heroMedia.controls ?? false}
+                preload="metadata"
+                aria-label={heroMedia.alt ?? 'Gigvora product preview'}
+                data-testid="home-hero-media-video"
+              >
+                {heroVideoSources.map((source) => (
+                  <source key={`${source.src ?? source.url}-${source.type ?? 'video/mp4'}`} src={source.src ?? source.url} type={source.type ?? 'video/mp4'} />
+                ))}
+              </video>
+              {heroMedia.caption ? (
+                <figcaption className="px-4 py-3 text-xs text-slate-200/80">{heroMedia.caption}</figcaption>
+              ) : null}
+            </figure>
+          ) : (
+            <figure>
+              <img
+                src={heroMedia.imageUrl}
+                alt={heroMedia.alt ?? 'Gigvora product preview'}
+                className="h-40 w-full object-cover"
+                loading="lazy"
+                data-testid="home-hero-media-image"
+              />
+              {heroMedia.caption ? (
+                <figcaption className="px-4 py-3 text-xs text-slate-200/80">{heroMedia.caption}</figcaption>
+              ) : null}
+            </figure>
+          )}
+        </div>
+
+        <div className="mt-6 flex items-center justify-between">
+          <span className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-300">Community ticker</span>
+          <span className="inline-flex items-center gap-1 text-sm font-semibold text-accent">
+            Join mission
+            <ArrowUpRightIcon className="h-4 w-4" aria-hidden="true" />
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <PublicHero
+      eyebrow="Community OS"
+      headline={headlineNode}
+      subheading={subheadingNode}
+      surface={{
+        background: HOME_GRADIENTS.hero.background,
+        overlays: HOME_GRADIENTS.hero.overlays,
+        tickerFades: HOME_GRADIENTS.hero.tickerFades,
+      }}
+      primaryAction={{
+        id: 'home-hero-primary',
+        label: 'Claim your workspace',
+        onClick: handleClaimWorkspace,
+      }}
+      secondaryAction={{
+        id: 'home-hero-secondary',
+        label: 'Browse live opportunities',
+        onClick: handleBrowseOpportunities,
+      }}
+      ticker={{
+        items: showTickerSkeleton ? [] : tickerItems,
+        showSkeleton: showTickerSkeleton,
+        skeletonCount: 4,
+        icon: UsersIcon,
+        reduceMotion,
+        loop: true,
+        ariaLabel: 'Community activity ticker',
+      }}
+      rightColumn={rightColumn}
+      bottomSlot={
+        <ValuePillars
+          pillars={showPillarSkeleton ? [] : resolvedValuePillars}
+          loading={showPillarSkeleton}
+          analyticsMetadata={{ source: 'web_marketing_site' }}
+          onSelect={handleValuePillarSelect}
+        />
+      }
+    />
   );
 }

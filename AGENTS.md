@@ -1,5 +1,11 @@
 - [x] Main Category: 1. Landing & Hero Surfaces
   - [x] 1.B. Landing & Hero Surfaces
+    - [x] 1.B.1. PublicHero.jsx
+      - Centralises the landing hero shell with reusable gradient surfaces, ticker logic, and CTA orchestration so marketing experiences align with the premium spec.【F:gigvora-frontend-reactjs/src/components/marketing/PublicHero.jsx†L6-L214】【F:user_experience.md†L1-L8】
+      - HomeHeroSection now composes PublicHero to drive analytics-aware copy, media, and right-rail storytelling for the marketing homepage.【F:gigvora-frontend-reactjs/src/pages/home/HomeHeroSection.jsx†L153-L392】【F:user_experience.md†L2-L8】
+    - [x] 1.B.2. ValuePillars.jsx
+      - Delivers reusable value pillar cards with analytics instrumentation and skeleton support, giving every hero tangible proof points out of the box.【F:gigvora-frontend-reactjs/src/components/marketing/ValuePillars.jsx†L6-L249】【F:user_experience.md†L2-L27】
+      - Default marketing data seeds four enterprise-grade pillars so campaigns launch with production copy and metrics immediately.【F:gigvora-frontend-reactjs/src/content/home/valuePillars.js†L8-L48】【F:user_experience.md†L2-L27】
     - [x] 1.B.3. TestimonialsCarousel.jsx
       - Immersive carousel introduces memoised autoplay, accessible controls, and metric-rich framing so the landing hero mirrors the LinkedIn-class polish mandated for first-impression trust checks.【F:gigvora-frontend-reactjs/src/components/marketing/TestimonialsCarousel.jsx†L1-L338】【F:user_experience.md†L109-L148】
       - Home section wrapper layers gradient halos, partner badges, and resilient fallbacks while piping enriched testimonial content to the carousel, ensuring operators see real voices instead of placeholders.【F:gigvora-frontend-reactjs/src/pages/home/TestimonialsSection.jsx†L1-L52】【F:gigvora-frontend-reactjs/src/content/home/testimonials.js†L1-L52】【F:user_experience.md†L125-L148】

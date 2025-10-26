@@ -75,6 +75,11 @@ function resolveMarketingContent(homeData) {
       pageContent.marketingAnnouncement ?? pageMarketing.announcement,
       marketingBaseline.announcement ?? null,
     ),
+    valuePillars: pickList(
+      marketingSource.valuePillars,
+      pageMarketing.valuePillars ?? pageContent.valuePillars,
+      marketingBaseline.valuePillars ?? [],
+    ),
     trustBadges: pickList(
       marketingSource.trustBadges,
       pageMarketing.trustBadges ?? pageContent.trustBadges,
@@ -306,6 +311,11 @@ export default function HomePage() {
     return badges.length ? badges : undefined;
   }, [marketingContent.trustBadges]);
 
+  const marketingValuePillars = useMemo(() => {
+    const pillars = ensureArray(marketingContent.valuePillars);
+    return pillars.length ? pillars : undefined;
+  }, [marketingContent.valuePillars]);
+
   const marketingPersonas = useMemo(() => {
     const personas = ensureArray(marketingContent.personas);
     return personas.map((persona, index) => {
@@ -471,6 +481,7 @@ export default function HomePage() {
             onClaimWorkspace={() => navigate('/register')}
             onBrowseOpportunities={() => navigate('/gigs')}
             productMedia={heroMedia}
+            valuePillars={marketingValuePillars}
           />
         ),
       }}
