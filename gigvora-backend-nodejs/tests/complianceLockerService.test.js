@@ -8,6 +8,7 @@ import {
   UserConsent,
   LegalDocument,
   LegalDocumentVersion,
+  LegalDocumentAuditEvent,
 } from '../src/models/index.js';
 import {
   createComplianceDocument,
@@ -99,6 +100,14 @@ describe('complianceLockerService', () => {
       changeSummary: 'Original publication.',
     });
     await legalDocument.update({ activeVersionId: legalVersion.id, publishedAt: daysFromNow(-200) });
+    await LegalDocumentAuditEvent.create({
+      documentId: legalDocument.id,
+      versionId: legalVersion.id,
+      action: 'published',
+      actorId: 'mentor@gigvora.com',
+      actorType: 'admin',
+      metadata: { summary: 'Initial platform terms publication' },
+    });
   });
 
   it('creates a compliance record with obligations and reminders and returns aggregated overview', async () => {
@@ -162,6 +171,11 @@ describe('complianceLockerService', () => {
 
     expect(document.ownerId).toBe(owner.id);
     expect(document.status).toBe('active');
+    expect(document.versions).toHaveLength(1);
+    expect(document.obligations).toHaveLength(2);
+    expect(document.reminders).toHaveLength(1);
+    const indemnity = document.obligations.find((item) => item.clauseReference === '4.2');
+    expect(indemnity?.reminders).toHaveLength(1);
 
     const overview = await getComplianceLockerOverview(owner.id, { limit: 10, region: 'EU' });
 
@@ -175,6 +189,7 @@ describe('complianceLockerService', () => {
     expect(overview.documents.list[0].reminders).toHaveLength(1);
     expect(overview.frameworks.map((item) => item.framework)).toEqual(expect.arrayContaining(['GDPR', 'SOC2']));
     expect(overview.auditLog.length).toBeGreaterThanOrEqual(1);
+    expect(overview.auditLog.some((event) => event.type === 'legal_audit')).toBe(true);
     expect(overview.legalPolicies.summary.total).toBeGreaterThanOrEqual(1);
     expect(overview.legalPolicies.summary.acknowledged).toBeGreaterThanOrEqual(1);
     expect(overview.legalPolicies.list[0].acknowledgement.status).toBe('granted');

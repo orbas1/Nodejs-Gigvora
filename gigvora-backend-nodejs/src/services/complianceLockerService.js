@@ -12,6 +12,7 @@ import {
   UserConsent,
   LegalDocument,
   LegalDocumentVersion,
+  LegalDocumentAuditEvent,
 } from '../models/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
 import { assertComplianceInfrastructureOperational } from './runtimeDependencyGuard.js';
@@ -210,6 +211,18 @@ function buildCollectionByDocument(records, key = 'documentId') {
     map.get(bucketKey).push(record);
   });
   return map;
+}
+
+function formatAuditActionLabel(action) {
+  if (!action) {
+    return 'Legal Event';
+  }
+  return action
+    .toString()
+    .split(/[_\s-]+/)
+    .filter((segment) => segment.length > 0)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ');
 }
 
 function sanitizeReminder(reminder) {
@@ -632,6 +645,7 @@ async function persistDocument(payload, { actorId, logger, requestId, forceRefre
     }
 
     const remindersInput = Array.isArray(payload.reminders) ? payload.reminders : [];
+    const createdReminders = [];
     for (const reminderInput of remindersInput) {
       const normalizedReminder = normalizeReminderPayload(document.id, reminderInput);
       if (!normalizedReminder.obligationId && reminderInput.clauseReference) {
@@ -640,7 +654,8 @@ async function persistDocument(payload, { actorId, logger, requestId, forceRefre
           normalizedReminder.obligationId = referenced.id;
         }
       }
-      await ComplianceReminder.create(normalizedReminder, { transaction });
+      const reminder = await ComplianceReminder.create(normalizedReminder, { transaction });
+      createdReminders.push(reminder);
     }
 
     await document.reload({ transaction });
@@ -651,7 +666,12 @@ async function persistDocument(payload, { actorId, logger, requestId, forceRefre
       await createdVersion.reload({ transaction });
     }
 
-    return document;
+    return {
+      document,
+      versions: createdVersion ? [createdVersion] : [],
+      obligations: createdObligations,
+      reminders: createdReminders,
+    };
   });
 }
 
@@ -778,12 +798,21 @@ async function fetchLockerOverview(ownerId, options = {}) {
     ],
   });
 
+  const legalDocumentIds = legalDocuments.map((document) => document.id);
   const legalActiveVersionIds = legalDocuments
     .map((document) => document.activeVersionId)
     .filter((value) => Number.isInteger(value));
 
   const legalVersions = legalActiveVersionIds.length
     ? await LegalDocumentVersion.findAll({ where: { id: { [Op.in]: legalActiveVersionIds } } })
+    : [];
+
+  const legalAuditEvents = legalDocumentIds.length
+    ? await LegalDocumentAuditEvent.findAll({
+        where: { documentId: { [Op.in]: legalDocumentIds } },
+        order: [['createdAt', 'DESC']],
+        limit: 100,
+      })
     : [];
 
   const legalVersionMap = new Map();
@@ -816,35 +845,49 @@ async function fetchLockerOverview(ownerId, options = {}) {
     .map((reminder) => ({ ...reminder }));
   const remindersSummary = computeReminderSummary(allReminders);
 
-  const auditLog = versions
-    .map((version) => {
-      const plain = toPlain(version);
-      return {
-        id: `version-${plain.id}`,
-        documentId: plain.documentId,
-        type: 'version',
-        label: `Version ${plain.versionNumber}`,
-        occurredAt: plain.createdAt,
-        actorId: plain.uploadedById,
-        summary: plain.changeSummary ?? 'Document version uploaded',
-        metadata: plain.metadata ?? null,
-      };
-    })
-    .concat(
-      reminders.map((reminder) => {
-        const plain = toPlain(reminder);
-        return {
-          id: `reminder-${plain.id}`,
-          documentId: plain.documentId,
-          type: 'reminder',
-          label: `${plain.reminderType} reminder`,
-          occurredAt: plain.updatedAt ?? plain.createdAt,
-          actorId: plain.createdById,
-          summary: `Reminder ${plain.status}`,
-          metadata: plain.metadata ?? null,
-        };
-      }),
-    )
+  const versionEvents = versions.map((version) => {
+    const plain = toPlain(version);
+    return {
+      id: `version-${plain.id}`,
+      documentId: plain.documentId,
+      type: 'version',
+      label: `Version ${plain.versionNumber}`,
+      occurredAt: plain.createdAt,
+      actorId: plain.uploadedById,
+      summary: plain.changeSummary ?? 'Document version uploaded',
+      metadata: plain.metadata ?? null,
+    };
+  });
+  const reminderEvents = reminders.map((reminder) => {
+    const plain = toPlain(reminder);
+    return {
+      id: `reminder-${plain.id}`,
+      documentId: plain.documentId,
+      type: 'reminder',
+      label: `${plain.reminderType} reminder`,
+      occurredAt: plain.updatedAt ?? plain.createdAt,
+      actorId: plain.createdById,
+      summary: `Reminder ${plain.status}`,
+      metadata: plain.metadata ?? null,
+    };
+  });
+  const legalEvents = legalAuditEvents.map((event) => {
+    const plain = toPlain(event);
+    return {
+      id: `legal-audit-${plain.id}`,
+      documentId: plain.documentId,
+      type: 'legal_audit',
+      label: `Legal ${formatAuditActionLabel(plain.action)}`,
+      occurredAt: plain.createdAt,
+      actorId: plain.actorId,
+      summary: plain.metadata?.summary ?? `Legal document ${plain.action}`,
+      metadata: plain.metadata ?? null,
+    };
+  });
+
+  const auditLog = versionEvents
+    .concat(reminderEvents)
+    .concat(legalEvents)
     .sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime())
     .slice(0, 50);
 
@@ -946,8 +989,11 @@ async function fetchLockerOverview(ownerId, options = {}) {
 }
 
 export async function createComplianceDocument(payload, options = {}) {
-  const document = await persistDocument(payload, options);
-  return document.toPublicObject();
+  const { document, versions, obligations, reminders } = await persistDocument(payload, options);
+  const versionMap = buildVersionsByDocument(versions.map((item) => toPlain(item)));
+  const obligationMap = buildCollectionByDocument(obligations.map((item) => toPlain(item)));
+  const reminderMap = buildCollectionByDocument(reminders.map((item) => toPlain(item)));
+  return sanitizeDocument(document, { versionMap, obligationMap, reminderMap });
 }
 
 export async function addComplianceDocumentVersion(
@@ -1087,8 +1133,11 @@ export async function getComplianceLockerOverview(ownerId, options = {}) {
 }
 
 export async function recordComplianceDocument(payload, options = {}) {
-  const created = await persistDocument(payload, options);
-  return sanitizeDocument(created, { versionMap: new Map(), obligationMap: new Map(), reminderMap: new Map() });
+  const { document, versions, obligations, reminders } = await persistDocument(payload, options);
+  const versionMap = buildVersionsByDocument(versions.map((item) => toPlain(item)));
+  const obligationMap = buildCollectionByDocument(obligations.map((item) => toPlain(item)));
+  const reminderMap = buildCollectionByDocument(reminders.map((item) => toPlain(item)));
+  return sanitizeDocument(document, { versionMap, obligationMap, reminderMap });
 }
 
 export default {
