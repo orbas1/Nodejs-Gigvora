@@ -3,6 +3,7 @@ import DashboardLayout from '../../../layouts/DashboardLayout.jsx';
 import MaintenanceStatusCard from '../../../components/admin/maintenance/MaintenanceStatusCard.jsx';
 import MaintenanceScheduleTable from '../../../components/admin/maintenance/MaintenanceScheduleTable.jsx';
 import MaintenanceNotificationForm from '../../../components/admin/maintenance/MaintenanceNotificationForm.jsx';
+import SystemStatusToast from '../../../components/system/SystemStatusToast.jsx';
 import {
   fetchMaintenanceStatus,
   updateMaintenanceStatus,
@@ -28,13 +29,71 @@ const MENU_SECTIONS = [
 ];
 
 const FALLBACK_STATUS = {
+  id: 'status-operational',
   enabled: false,
+  title: 'All systems operational',
   message: 'All systems operational',
+  summary: 'Gigvora is live with no customer-impacting incidents reported.',
+  severity: 'operational',
   impactSurface: 'Platform & APIs',
   estimatedResumeAt: null,
   updatedAt: new Date().toISOString(),
   warnings: [],
   broadcastCopy: 'Gigvora is live. No known incidents.',
+  metrics: {
+    uptime: 99.982,
+    latencyP95: 184,
+    errorRate: 0.002,
+    activeIncidents: 0,
+  },
+  incidents: [
+    {
+      id: 'incident-maintenance-readiness',
+      title: 'Maintenance rehearsal complete',
+      status: 'Resolved',
+      startedAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
+      summary: 'Last scheduled rehearsal validated the rollback plan and incident playbook.',
+      link: 'https://status.gigvora.com/incidents/maintenance-readiness',
+    },
+  ],
+  channels: [
+    { id: 'status-page', label: 'Status page' },
+    { id: 'trust-centre', label: 'Trust centre' },
+    { id: 'slack', label: '#gigvora-ops' },
+  ],
+  incidentRoomUrl: 'https://gigvora.slack.com/archives/gigvora-ops',
+  runbookUrl: 'https://gigvora.notion.site/maintenance-runbook',
+  acknowledgedAt: null,
+  acknowledgedBy: null,
+  feedback: {
+    experienceScore: 4.6,
+    trendDelta: 0.2,
+    queueDepth: 9,
+    medianResponseMinutes: 3,
+    lastUpdated: new Date().toISOString(),
+    reviewUrl: 'https://gigvora.com/ops/feedback',
+    segments: [
+      { id: 'enterprise', label: 'Enterprise', score: 4.8, delta: 0.3, sampleSize: 126 },
+      { id: 'smb', label: 'SMB', score: 4.4, delta: 0.1, sampleSize: 212 },
+      { id: 'partners', label: 'Partners', score: 4.5, delta: -0.1, sampleSize: 63 },
+    ],
+    highlights: [
+      {
+        id: 'highlight-enterprise',
+        persona: 'Enterprise PM',
+        sentiment: 'Positive',
+        quote: 'The maintenance comms are clear and timed perfectly for our teams.',
+        recordedAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
+      },
+      {
+        id: 'highlight-support',
+        persona: 'Customer Support Lead',
+        sentiment: 'Watchlist',
+        quote: 'We need more notice for APAC teams—queue volume spikes post-maintenance.',
+        recordedAt: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
+      },
+    ],
+  },
 };
 
 const FALLBACK_WINDOWS = [
@@ -70,6 +129,7 @@ export default function AdminMaintenanceModePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
+  const [statusToastDismissed, setStatusToastDismissed] = useState(false);
   const [busyWindowId, setBusyWindowId] = useState('');
   const [creatingWindow, setCreatingWindow] = useState(false);
   const [sendingBroadcast, setSendingBroadcast] = useState(false);
@@ -155,14 +215,17 @@ export default function AdminMaintenanceModePage() {
     setError('');
     try {
       const response = await fetchMaintenanceStatus();
-      setStatus(response?.status ?? response ?? FALLBACK_STATUS);
+      const nextStatus = response?.status ?? response ?? FALLBACK_STATUS;
+      setStatus({ ...FALLBACK_STATUS, ...nextStatus });
       setWindows(response?.windows ?? FALLBACK_WINDOWS);
       setToast('Loaded live maintenance configuration.');
+      setStatusToastDismissed(false);
     } catch (err) {
       console.warn('Failed to fetch maintenance status. Using fallback data.', err);
       setError('Using offline maintenance defaults. Connect the API for real-time orchestration.');
       setStatus(FALLBACK_STATUS);
       setWindows(FALLBACK_WINDOWS);
+      setStatusToastDismissed(false);
     } finally {
       setLoading(false);
     }
@@ -268,6 +331,83 @@ export default function AdminMaintenanceModePage() {
     [],
   );
 
+  const statusToast = useMemo(() => {
+    const metrics = {
+      uptime: status?.metrics?.uptime ?? FALLBACK_STATUS.metrics.uptime,
+      latencyP95: status?.metrics?.latencyP95 ?? FALLBACK_STATUS.metrics.latencyP95,
+      errorRate: status?.metrics?.errorRate ?? FALLBACK_STATUS.metrics.errorRate,
+      activeIncidents:
+        status?.metrics?.activeIncidents ?? status?.incidents?.length ?? FALLBACK_STATUS.metrics.activeIncidents,
+    };
+
+    return {
+      id: status?.id ?? FALLBACK_STATUS.id,
+      title:
+        status?.title ??
+        (status?.enabled ? 'Maintenance mode active' : FALLBACK_STATUS.title),
+      summary: status?.summary ?? status?.broadcastCopy ?? status?.message ?? FALLBACK_STATUS.summary,
+      severity: status?.enabled ? 'major' : status?.severity ?? FALLBACK_STATUS.severity,
+      impactSurface: status?.impactSurface ?? FALLBACK_STATUS.impactSurface,
+      updatedAt: status?.updatedAt ?? FALLBACK_STATUS.updatedAt,
+      acknowledgedAt: status?.acknowledgedAt ?? null,
+      acknowledgedBy: status?.acknowledgedBy ?? null,
+      metrics,
+      incidents: Array.isArray(status?.incidents) ? status.incidents : FALLBACK_STATUS.incidents,
+      channels: Array.isArray(status?.channels) ? status.channels : FALLBACK_STATUS.channels,
+    };
+  }, [status]);
+
+  const handleViewIncidents = useCallback(() => {
+    const url = status?.incidentRoomUrl ?? FALLBACK_STATUS.incidentRoomUrl;
+    if (url && typeof window !== 'undefined') {
+      window.open(url, '_blank', 'noopener');
+    } else {
+      console.info('Open incident room:', url);
+    }
+    setToast('Incident command room opened.');
+  }, [status]);
+
+  const handleViewRunbook = useCallback(() => {
+    const url = status?.runbookUrl ?? FALLBACK_STATUS.runbookUrl;
+    if (url && typeof window !== 'undefined') {
+      window.open(url, '_blank', 'noopener');
+    } else {
+      console.info('Open runbook:', url);
+    }
+    setToast('Runbook shared with responders.');
+  }, [status]);
+
+  const handleAcknowledgeToast = useCallback(async () => {
+    const timestamp = new Date().toISOString();
+    const payload = {
+      acknowledgedAt: timestamp,
+      acknowledgedBy: 'Admin console',
+    };
+
+    try {
+      await updateMaintenanceStatus(payload);
+      setStatus((current) => ({ ...current, ...payload }));
+      setToast('Broadcast acknowledged and logged.');
+    } catch (err) {
+      console.error('Failed to acknowledge maintenance broadcast', err);
+      setError(err?.message || 'Failed to acknowledge maintenance broadcast.');
+    }
+  }, []);
+
+  const handleDismissToast = useCallback(() => {
+    setStatusToastDismissed(true);
+  }, []);
+
+  const handleReviewFeedback = useCallback(() => {
+    const url = status?.feedback?.reviewUrl ?? FALLBACK_STATUS.feedback.reviewUrl;
+    if (url && typeof window !== 'undefined') {
+      window.open(url, '_blank', 'noopener');
+    } else {
+      console.info('Open feedback dashboard:', url);
+    }
+    setToast('Feedback insights opened for review.');
+  }, [status]);
+
   return (
     <DashboardLayout
       currentDashboard="admin"
@@ -285,12 +425,26 @@ export default function AdminMaintenanceModePage() {
               {error}
             </p>
           )}
+          {!statusToastDismissed && statusToast.summary ? (
+            <SystemStatusToast
+              status={statusToast}
+              onAcknowledge={handleAcknowledgeToast}
+              onViewIncidents={handleViewIncidents}
+              onViewRunbook={handleViewRunbook}
+              onDismiss={handleDismissToast}
+            />
+          ) : null}
           {toast && !error && (
             <p className="rounded-3xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-medium text-emerald-700">
               {toast}
             </p>
           )}
-          <MaintenanceStatusCard status={status} updating={loading} onToggle={handleToggle} />
+          <MaintenanceStatusCard
+            status={status}
+            updating={loading}
+            onToggle={handleToggle}
+            onReviewFeedback={handleReviewFeedback}
+          />
         </section>
 
         <MaintenanceScheduleTable
