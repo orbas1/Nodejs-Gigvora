@@ -1,7 +1,6 @@
 import { Suspense } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import ProtectedRoute from './components/routing/ProtectedRoute.jsx';
-import RoleProtectedRoute from './components/auth/RoleProtectedRoute.jsx';
 import MembershipGate from './components/auth/MembershipGate.jsx';
 import RequireRole from './components/routing/RequireRole.jsx';
 import RouteAnalyticsListener from './routes/RouteAnalyticsListener.jsx';
@@ -94,11 +93,9 @@ export default function App() {
             key={route.path}
             path={route.path}
             element={
-              <RoleProtectedRoute allowedRoles={USER_ROLES}>
-                <MembershipGate allowedMemberships={USER_ROLES}>
-                  <LoadableRoute modulePath={route.module} />
-                </MembershipGate>
-              </RoleProtectedRoute>
+              <MembershipGate allowedMemberships={USER_ROLES} allowedRoles={USER_ROLES}>
+                <LoadableRoute modulePath={route.module} />
+              </MembershipGate>
             }
           />
         ))}
