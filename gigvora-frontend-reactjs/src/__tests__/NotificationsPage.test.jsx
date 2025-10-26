@@ -5,6 +5,7 @@ import NotificationsPage from '../pages/NotificationsPage.jsx';
 import useSession from '../hooks/useSession.js';
 import useNotificationCenter from '../hooks/useNotificationCenter.js';
 import useAuthorization from '../hooks/useAuthorization.js';
+import { fetchNotificationPreferences, updateNotificationPreferences } from '../services/notificationCenter.js';
 import { MemoryRouter } from 'react-router-dom';
 
 const mockNavigate = vi.fn();
@@ -19,6 +20,11 @@ vi.mock('../hooks/useNotificationCenter.js', () => ({
 
 vi.mock('../hooks/useAuthorization.js', () => ({
   default: vi.fn(),
+}));
+
+vi.mock('../services/notificationCenter.js', () => ({
+  fetchNotificationPreferences: vi.fn(),
+  updateNotificationPreferences: vi.fn(),
 }));
 
 vi.mock('react-router-dom', async () => {
@@ -57,6 +63,10 @@ beforeEach(() => {
   useSession.mockReset();
   useNotificationCenter.mockReset();
   useAuthorization.mockReset();
+  fetchNotificationPreferences.mockReset();
+  updateNotificationPreferences.mockReset();
+  fetchNotificationPreferences.mockResolvedValue({ preferences: {} });
+  updateNotificationPreferences.mockResolvedValue({ preferences: {} });
 });
 
 describe('NotificationsPage', () => {
@@ -126,7 +136,12 @@ describe('NotificationsPage', () => {
 
     renderPage();
 
-    expect(screen.getByRole('button', { name: 'Mark all read' })).toBeEnabled();
+    await waitFor(() => {
+      expect(fetchNotificationPreferences).toHaveBeenCalled();
+    });
+
+    const markAllButtons = screen.getAllByRole('button', { name: 'Mark all read' });
+    expect(markAllButtons.some((button) => !button.disabled)).toBe(true);
 
     const notificationHeadings = screen.getAllByRole('heading', { level: 3 });
     expect(notificationHeadings[0]).toHaveTextContent('Fresh invite');
@@ -139,11 +154,12 @@ describe('NotificationsPage', () => {
     expect(markNotificationAsRead).toHaveBeenCalledWith('2');
     expect(window.location.assign).toHaveBeenCalledWith(`${window.location.origin}/projects/42`);
 
-    await user.click(screen.getByRole('button', { name: 'Mark all read' }));
+    const heroMarkAllButton = screen.getAllByRole('button', { name: 'Mark all read' })[0];
+    await user.click(heroMarkAllButton);
     expect(markAllNotificationsAsRead).toHaveBeenCalledTimes(1);
   });
 
-  it('prevents unsafe notification actions from rendering', () => {
+  it('prevents unsafe notification actions from rendering', async () => {
     useSession.mockReturnValue({ session: { id: 'user-1' }, isAuthenticated: true });
     useAuthorization.mockReturnValue({
       canAccess: vi.fn((permission) => permission === 'notifications:center'),
@@ -165,6 +181,10 @@ describe('NotificationsPage', () => {
     });
 
     renderPage();
+
+    await waitFor(() => {
+      expect(fetchNotificationPreferences).toHaveBeenCalled();
+    });
 
     expect(screen.queryByRole('button', { name: 'Open' })).not.toBeInTheDocument();
   });
@@ -189,9 +209,13 @@ describe('NotificationsPage', () => {
 
     renderPage();
 
+    await waitFor(() => {
+      expect(fetchNotificationPreferences).toHaveBeenCalled();
+    });
+
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole('button', { name: 'Enable browser alerts' }));
+    await user.click(screen.getByRole('button', { name: 'Request browser alerts' }));
 
     await waitFor(() => {
       expect(requestPermission).toHaveBeenCalledTimes(1);
@@ -212,6 +236,10 @@ describe('NotificationsPage', () => {
     });
 
     renderPage();
+
+    await waitFor(() => {
+      expect(fetchNotificationPreferences).toHaveBeenCalled();
+    });
 
     await waitFor(() => {
       expect(

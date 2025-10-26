@@ -150,6 +150,25 @@ const feedPosts = [
   },
 ];
 
+const feedShareSeeds = [
+  {
+    email: 'mentor@gigvora.com',
+    postTitle: 'Release candidate 1.50 rolling out',
+    audience: 'internal',
+    channel: 'copy',
+    message:
+      'Circulating release candidate 1.50 across mentor pods so they can prep their teams for the new analytics export.',
+  },
+  {
+    email: 'recruiter@gigvora.com',
+    postTitle: 'Automation onboarding template available',
+    audience: 'external',
+    channel: 'email',
+    message:
+      'Flagging the automation onboarding template for talent partners — including in the weekly digest to spark referrals.',
+  },
+];
+
 const jobSeeds = [
   {
     title: '[demo] Founding Product Operations Lead',
@@ -547,6 +566,46 @@ module.exports = {
         );
       }
 
+      for (const share of feedShareSeeds) {
+        const userId = userIds.get(share.email);
+        if (!userId) continue;
+        const [post] = await queryInterface.sequelize.query(
+          'SELECT id FROM feed_posts WHERE title = :title LIMIT 1',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { title: share.postTitle },
+          },
+        );
+        if (!post?.id) continue;
+        const [existingShare] = await queryInterface.sequelize.query(
+          'SELECT id FROM feed_shares WHERE postId = :postId AND userId = :userId AND channel = :channel LIMIT 1',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { postId: post.id, userId, channel: share.channel },
+          },
+        );
+        if (existingShare?.id) continue;
+        await queryInterface.bulkInsert(
+          'feed_shares',
+          [
+            {
+              postId: post.id,
+              userId,
+              audience: share.audience,
+              channel: share.channel,
+              message: share.message,
+              link: share.link ?? null,
+              metadata: { ...(share.metadata ?? {}), seed: 'demo-feed-share' },
+              createdAt: now,
+              updatedAt: now,
+            },
+          ],
+          { transaction },
+        );
+      }
+
       for (const job of jobSeeds) {
         const [existing] = await queryInterface.sequelize.query(
           'SELECT id FROM jobs WHERE title = :title LIMIT 1',
@@ -801,6 +860,11 @@ module.exports = {
         await queryInterface.bulkDelete('profiles', { userId: { [Op.in]: userIds } }, { transaction });
       }
 
+      await queryInterface.bulkDelete(
+        'feed_shares',
+        { message: feedShareSeeds.map((share) => share.message) },
+        { transaction },
+      );
       await queryInterface.bulkDelete(
         'feed_posts',
         { content: feedPosts.map((post) => post.content) },

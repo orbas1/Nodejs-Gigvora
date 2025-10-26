@@ -30,6 +30,12 @@ const FeedReactionMock = {
   destroy: jest.fn(),
 };
 
+const FeedShareMock = {
+  findAll: jest.fn(),
+  count: jest.fn(),
+  create: jest.fn(),
+};
+
 const UserMock = {
   findByPk: jest.fn(),
 };
@@ -69,6 +75,7 @@ jest.unstable_mockModule(suggestionModuleUrl.pathname, () => ({
 let listFeed;
 let createComment;
 let toggleReaction;
+let sharePost;
 
 async function importController() {
   const { __setModelStubs } = await import(modelsModuleSpecifier);
@@ -76,6 +83,7 @@ async function importController() {
     FeedPost: FeedPostMock,
     FeedComment: FeedCommentMock,
     FeedReaction: FeedReactionMock,
+    FeedShare: FeedShareMock,
     User: UserMock,
     Profile: ProfileMock,
     Connection: ConnectionMock,
@@ -101,6 +109,14 @@ function resetMocks() {
       mock.mockReset();
     }
   }
+  for (const mock of Object.values(FeedShareMock)) {
+    if (typeof mock === 'function') {
+      mock.mockReset();
+    }
+  }
+  FeedShareMock.findAll.mockResolvedValue([]);
+  FeedShareMock.count.mockResolvedValue(0);
+  FeedShareMock.create.mockResolvedValue({});
   UserMock.findByPk.mockReset();
   ProfileMock.findAll.mockReset();
   ConnectionMock.findAll.mockReset();
@@ -126,6 +142,7 @@ beforeEach(async () => {
   listFeed = controller.listFeed;
   createComment = controller.createComment;
   toggleReaction = controller.toggleReaction;
+  sharePost = controller.sharePost;
 });
 
 afterEach(() => {
@@ -169,6 +186,7 @@ describe('feedController', () => {
     FeedPostMock.count.mockResolvedValue(1);
     FeedReactionMock.findAll.mockResolvedValue([{ postId: 10, reactionType: 'like', count: '3' }]);
     FeedCommentMock.findAll.mockResolvedValue([{ postId: 10, count: '2' }]);
+    FeedShareMock.findAll.mockResolvedValue([{ postId: 10, count: '1' }]);
 
     const req = { query: {} };
     const res = createResponse();
@@ -180,7 +198,7 @@ describe('feedController', () => {
         expect.objectContaining({
           id: 10,
           reactions: expect.objectContaining({ likes: 3 }),
-          metrics: expect.objectContaining({ comments: 2 }),
+          metrics: expect.objectContaining({ comments: 2, shares: 1 }),
         }),
       ],
       nextCursor: null,
@@ -247,6 +265,64 @@ describe('feedController', () => {
         id: 99,
         message: 'Closing the loop',
         author: 'Jane Ops',
+      }),
+    );
+  });
+
+  it('records a share event with compliance metadata', async () => {
+    const now = new Date();
+    FeedPostMock.findByPk.mockResolvedValue({ id: 77 });
+    UserMock.findByPk.mockResolvedValue({
+      id: 15,
+      firstName: 'Noah',
+      lastName: 'Agency',
+      email: 'noah@gigvora.com',
+      Profile: { headline: 'Agency Partner', avatarSeed: 'noah' },
+    });
+    FeedShareMock.create.mockResolvedValue({
+      id: 5,
+      postId: 77,
+      userId: 15,
+      audience: 'internal',
+      channel: 'email',
+      message: 'Rallying the agency partners around this launch.',
+      link: 'https://gigvora.test/feed/77',
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    });
+    FeedShareMock.count.mockResolvedValue(3);
+
+    const req = {
+      params: { postId: '77' },
+      body: {
+        audience: 'internal',
+        channel: 'email',
+        message: '  Rallying the agency partners around this launch.  ',
+        link: 'https://gigvora.test/feed/77',
+      },
+      user: { id: 15 },
+      headers: { 'x-user-role': 'agency' },
+    };
+    const res = createResponse();
+
+    await sharePost(req, res);
+
+    expect(FeedShareMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        postId: 77,
+        userId: 15,
+        audience: 'internal',
+        channel: 'email',
+        message: 'Rallying the agency partners around this launch.',
+        link: 'https://gigvora.test/feed/77',
+      }),
+    );
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        postId: 77,
+        metrics: { shares: 3 },
+        share: expect.objectContaining({ channel: 'email', audience: 'internal' }),
       }),
     );
   });

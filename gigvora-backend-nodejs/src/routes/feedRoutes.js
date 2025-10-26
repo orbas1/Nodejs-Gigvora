@@ -34,6 +34,11 @@ router.post(
   asyncHandler(feedController.createReply),
 );
 router.post(
+  '/:postId/shares',
+  authenticateRequest(),
+  asyncHandler(feedController.sharePost),
+);
+router.post(
   '/:postId/reactions',
   authenticateRequest(),
   asyncHandler(feedController.toggleReaction),

@@ -184,6 +184,7 @@ export const BlogPostTag = createModelBinding('BlogPostTag');
 export const BlogTag = createModelBinding('BlogTag');
 export const CalendarAvailabilitySnapshot = createModelBinding('CalendarAvailabilitySnapshot');
 export const CalendarIntegration = createModelBinding('CalendarIntegration');
+export const CalendarSyncJob = createModelBinding('CalendarSyncJob');
 export const CandidateCalendarEvent = createModelBinding('CandidateCalendarEvent');
 export const CareerAnalyticsSnapshot = createModelBinding('CareerAnalyticsSnapshot');
 export const CareerAutoApplyAnalytics = createModelBinding('CareerAutoApplyAnalytics');
@@ -225,6 +226,9 @@ export const ClientSuccessStep = createModelBinding('ClientSuccessStep');
 export const CollaborationAiSession = createModelBinding('CollaborationAiSession');
 export const CollaborationAnnotation = createModelBinding('CollaborationAnnotation');
 export const CollaborationAsset = createModelBinding('CollaborationAsset');
+export const CollaborationHuddle = createModelBinding('CollaborationHuddle');
+export const CollaborationHuddleParticipant = createModelBinding('CollaborationHuddleParticipant');
+export const CollaborationHuddleTemplate = createModelBinding('CollaborationHuddleTemplate');
 export const CollaborationParticipant = createModelBinding('CollaborationParticipant');
 export const CollaborationRepository = createModelBinding('CollaborationRepository');
 export const CollaborationRoom = createModelBinding('CollaborationRoom');
@@ -274,6 +278,7 @@ export const ExplorerRecord = createModelBinding('ExplorerRecord');
 export const FeedComment = createModelBinding('FeedComment');
 export const FeedPost = createModelBinding('FeedPost');
 export const FeedReaction = createModelBinding('FeedReaction');
+export const FeedShare = createModelBinding('FeedShare');
 export const FinanceExpenseEntry = createModelBinding('FinanceExpenseEntry');
 export const FinanceForecastScenario = createModelBinding('FinanceForecastScenario');
 export const FinancePayoutBatch = createModelBinding('FinancePayoutBatch');
@@ -551,6 +556,9 @@ export const UserNote = createModelBinding('UserNote');
 export const UserRole = createModelBinding('UserRole');
 export const UserSecurityPreference = createModelBinding('UserSecurityPreference');
 export const UserWebsitePreference = createModelBinding('UserWebsitePreference');
+export const UserPresenceStatus = createModelBinding('UserPresenceStatus');
+export const UserPresenceEvent = createModelBinding('UserPresenceEvent');
+export const UserPresenceWindow = createModelBinding('UserPresenceWindow');
 export const VolunteerApplication = createModelBinding('VolunteerApplication');
 export const VolunteerAssignment = createModelBinding('VolunteerAssignment');
 export const VolunteerContract = createModelBinding('VolunteerContract');
@@ -583,6 +591,22 @@ export const WorkspaceTemplate = createModelBinding('WorkspaceTemplate');
 export const WorkspaceTemplateCategory = createModelBinding('WorkspaceTemplateCategory');
 export const WorkspaceTemplateResource = createModelBinding('WorkspaceTemplateResource');
 export const WorkspaceTemplateStage = createModelBinding('WorkspaceTemplateStage');
+
+export const PRESENCE_AVAILABILITY_STATES = Object.freeze([
+  'available',
+  'away',
+  'focus',
+  'in_meeting',
+  'do_not_disturb',
+  'offline',
+]);
+export const PRESENCE_EVENT_TYPES = Object.freeze([
+  'status_change',
+  'focus_session',
+  'calendar_sync',
+  'availability_window',
+  'huddle',
+]);
 
 export const AD_STATUSES = createEnumBinding('AD_STATUSES');
 export const ADMIN_TIMELINE_EVENT_STATUSES = createEnumBinding('ADMIN_TIMELINE_EVENT_STATUSES');

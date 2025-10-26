@@ -70,11 +70,59 @@ function buildMatrixSnapshot() {
   );
 }
 
+function normaliseList(value) {
+  if (!value) {
+    return [];
+  }
+  if (Array.isArray(value)) {
+    return value
+      .flatMap((entry) => {
+        if (entry == null) {
+          return [];
+        }
+        if (Array.isArray(entry)) {
+          return entry;
+        }
+        if (typeof entry === 'object') {
+          return Object.values(entry ?? {});
+        }
+        return [entry];
+      })
+      .map((entry) => `${entry}`.trim())
+      .filter(Boolean);
+  }
+  if (typeof value === 'object') {
+    return normaliseList(Object.values(value));
+  }
+  const stringValue = `${value}`.trim();
+  return stringValue ? [stringValue] : [];
+}
+
 function buildUserSummary(user) {
   const firstName = user.firstName || '';
   const lastName = user.lastName || '';
   const name = [firstName, lastName].filter(Boolean).join(' ').trim() || user.email;
   const profile = user.Profile ?? {};
+  const focusAreas = normaliseList(profile.areasOfFocus);
+  const preferredEngagements = normaliseList(
+    Array.isArray(profile.preferredEngagements)
+      ? profile.preferredEngagements
+      : profile.preferredEngagements?.types ?? profile.preferredEngagements?.labels ?? profile.preferredEngagements,
+  );
+  const availability = [];
+  if (profile.availabilityStatus) {
+    availability.push(`${profile.availabilityStatus}`.replace(/_/g, ' '));
+  }
+  if (profile.availableHoursPerWeek) {
+    availability.push(`${profile.availableHoursPerWeek} hrs/week`);
+  }
+  if (profile.openToRemote === true) {
+    availability.push('Open to remote');
+  }
+  if (profile.availabilityNotes) {
+    availability.push(profile.availabilityNotes);
+  }
+  const trustScore = profile.trustScore ? Number(profile.trustScore) : null;
   return {
     id: user.id,
     name,
@@ -82,6 +130,11 @@ function buildUserSummary(user) {
     headline: profile.headline ?? null,
     location: profile.location ?? null,
     avatarSeed: (profile.avatarSeed ?? name) || `user-${user.id}`,
+    bio: profile.bio ?? null,
+    summary: profile.missionStatement ?? profile.bio ?? null,
+    focusAreas,
+    availability: availability.length ? availability : preferredEngagements,
+    trustScore,
   };
 }
 
@@ -145,6 +198,10 @@ function buildNodeResponse({
     mutualConnections,
     connectors,
     path,
+    connectedAt: metadata.connectedAt ?? null,
+    lastInteractionAt: metadata.lastInteractionAt ?? null,
+    relationshipTag: metadata.relationshipTag ?? null,
+    notes: metadata.notes ?? null,
     actions: {
       canMessage: degree === 1,
       canRequestConnection: canConnect,
@@ -156,6 +213,76 @@ function buildNodeResponse({
   };
 }
 
+function buildPendingInvitation({ record, ownerId, userMap, connectorsMap, ownerDirectIds }) {
+  const counterpartyId = record.requesterId === ownerId ? record.addresseeId : record.requesterId;
+  const direction = record.addresseeId === ownerId ? 'incoming' : 'outgoing';
+  if (!counterpartyId) {
+    return null;
+  }
+
+  const summary = userMap.get(counterpartyId);
+  if (!summary) {
+    return null;
+  }
+
+  const connectors = connectorsMap.get(counterpartyId) ?? new Set();
+  const mutualConnectorIds = [...connectors].filter((connectorId) => ownerDirectIds.has(connectorId));
+  const mutualConnectors = mutualConnectorIds.map((identifier) => userMap.get(identifier)).filter(Boolean);
+
+  const sentAt = record.createdAt instanceof Date ? record.createdAt.toISOString() : record.createdAt ?? null;
+
+  return {
+    direction,
+    payload: {
+      id: record.id,
+      userId: counterpartyId,
+      name: summary.name,
+      headline: summary.headline,
+      location: summary.location,
+      persona: summary.userType,
+      focusAreas: summary.focusAreas,
+      availability: summary.availability,
+      trustScore: summary.trustScore,
+      mutualConnections: mutualConnectorIds.length,
+      connectors: mutualConnectors,
+      invitedBy:
+        direction === 'incoming'
+          ? userMap.get(record.requesterId)?.name ?? null
+          : userMap.get(ownerId)?.name ?? null,
+      note: record.notes ?? null,
+      relationshipTag: record.relationshipTag ?? null,
+      sentAt,
+      status: record.status ?? 'pending',
+    },
+  };
+}
+
+function median(values) {
+  if (!values.length) {
+    return null;
+  }
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 0) {
+    return (sorted[mid - 1] + sorted[mid]) / 2;
+  }
+  return sorted[mid];
+}
+
+function formatDurationLabel(hours) {
+  if (hours == null) {
+    return null;
+  }
+  if (hours < 1) {
+    return '<1h';
+  }
+  if (hours < 24) {
+    return `${Math.round(hours)}h`;
+  }
+  const days = Math.round(hours / 24);
+  return `${days}d`;
+}
+
 async function fetchUsersByIds(ids) {
   if (!ids.length) {
     return new Map();
@@ -163,7 +290,25 @@ async function fetchUsersByIds(ids) {
 
   const users = await User.findAll({
     where: { id: { [Op.in]: ids } },
-    include: [{ model: Profile, attributes: ['headline', 'location', 'avatarSeed'] }],
+    include: [
+      {
+        model: Profile,
+        attributes: [
+          'headline',
+          'location',
+          'avatarSeed',
+          'bio',
+          'missionStatement',
+          'areasOfFocus',
+          'preferredEngagements',
+          'availabilityStatus',
+          'availableHoursPerWeek',
+          'openToRemote',
+          'availabilityNotes',
+          'trustScore',
+        ],
+      },
+    ],
     order: [['firstName', 'ASC']],
   });
 
@@ -207,12 +352,52 @@ function registerEdge({
     const existing = bucket.get(target) ?? {
       connectors: new Set(),
       path: null,
+      connectedAt: null,
+      lastInteractionAt: null,
+      relationshipTag: null,
+      notes: null,
     };
 
     existing.connectors.add(source);
     if (!existing.path) {
       const basePath = sourceMeta?.path ?? [source];
       existing.path = [...basePath, target];
+    }
+
+    if (edge.connectedAt) {
+      const nextConnectedAt = new Date(edge.connectedAt);
+      if (!Number.isNaN(nextConnectedAt.getTime())) {
+        if (!existing.connectedAt) {
+          existing.connectedAt = nextConnectedAt.toISOString();
+        } else {
+          const existingDate = new Date(existing.connectedAt);
+          if (Number.isNaN(existingDate.getTime()) || nextConnectedAt < existingDate) {
+            existing.connectedAt = nextConnectedAt.toISOString();
+          }
+        }
+      }
+    }
+
+    if (edge.lastInteractedAt) {
+      const nextInteraction = new Date(edge.lastInteractedAt);
+      if (!Number.isNaN(nextInteraction.getTime())) {
+        if (!existing.lastInteractionAt) {
+          existing.lastInteractionAt = nextInteraction.toISOString();
+        } else {
+          const current = new Date(existing.lastInteractionAt);
+          if (Number.isNaN(current.getTime()) || nextInteraction > current) {
+            existing.lastInteractionAt = nextInteraction.toISOString();
+          }
+        }
+      }
+    }
+
+    if (edge.relationshipTag && !existing.relationshipTag) {
+      existing.relationshipTag = edge.relationshipTag;
+    }
+
+    if (edge.notes && !existing.notes) {
+      existing.notes = edge.notes;
     }
 
     bucket.set(target, existing);
@@ -233,7 +418,7 @@ async function traverseNetwork(ownerId) {
         status: 'accepted',
         [Op.or]: [{ requesterId: { [Op.in]: frontierIds } }, { addresseeId: { [Op.in]: frontierIds } }],
       },
-      attributes: ['requesterId', 'addresseeId'],
+      attributes: ['requesterId', 'addresseeId', 'connectedAt', 'lastInteractedAt', 'relationshipTag', 'notes'],
       raw: true,
     });
 
@@ -262,6 +447,10 @@ async function traverseNetwork(ownerId) {
       nextFrontier.set(targetId, {
         path: metadata.path,
         connectors: new Set([targetId, ...metadata.connectors]),
+        connectedAt: metadata.connectedAt,
+        lastInteractionAt: metadata.lastInteractionAt,
+        relationshipTag: metadata.relationshipTag,
+        notes: metadata.notes,
       });
     }
 
@@ -276,13 +465,28 @@ export async function buildConnectionNetwork({ userId, viewerId, includePending 
     throw new ValidationError('A userId is required to inspect the connection network.');
   }
 
+  const profileAttributes = [
+    'headline',
+    'location',
+    'avatarSeed',
+    'bio',
+    'missionStatement',
+    'areasOfFocus',
+    'preferredEngagements',
+    'availabilityStatus',
+    'availableHoursPerWeek',
+    'openToRemote',
+    'availabilityNotes',
+    'trustScore',
+  ];
+
   const [owner, viewer] = await Promise.all([
     User.findByPk(userId, {
-      include: [{ model: Profile, attributes: ['headline', 'location', 'avatarSeed'] }],
+      include: [{ model: Profile, attributes: profileAttributes }],
     }),
     viewerId && viewerId !== userId
       ? User.findByPk(viewerId, {
-          include: [{ model: Profile, attributes: ['headline', 'location', 'avatarSeed'] }],
+          include: [{ model: Profile, attributes: profileAttributes }],
         })
       : Promise.resolve(null),
   ]);
@@ -293,9 +497,65 @@ export async function buildConnectionNetwork({ userId, viewerId, includePending 
 
   ensureCanViewNetwork({ viewer, owner });
 
+  const pendingRecords = includePending
+    ? await Connection.findAll({
+        where: {
+          status: 'pending',
+          [Op.or]: [{ requesterId: owner.id }, { addresseeId: owner.id }],
+        },
+        attributes: ['id', 'requesterId', 'addresseeId', 'status', 'notes', 'relationshipTag', 'createdAt'],
+        order: [['createdAt', 'DESC']],
+        raw: true,
+      })
+    : [];
+
+  const pendingCounterpartyIds = new Set();
+  for (const record of pendingRecords) {
+    const counterpartyId = record.requesterId === owner.id ? record.addresseeId : record.requesterId;
+    if (counterpartyId) {
+      pendingCounterpartyIds.add(counterpartyId);
+    }
+  }
+
+  let pendingConnectorsMap = new Map();
+  if (pendingCounterpartyIds.size) {
+    const connectorRows = await Connection.findAll({
+      where: {
+        status: 'accepted',
+        [Op.or]: [
+          { requesterId: { [Op.in]: [...pendingCounterpartyIds] } },
+          { addresseeId: { [Op.in]: [...pendingCounterpartyIds] } },
+        ],
+      },
+      attributes: ['requesterId', 'addresseeId'],
+      raw: true,
+    });
+
+    pendingConnectorsMap = new Map();
+    for (const row of connectorRows) {
+      const { requesterId, addresseeId } = row;
+      if (pendingCounterpartyIds.has(requesterId)) {
+        if (!pendingConnectorsMap.has(requesterId)) {
+          pendingConnectorsMap.set(requesterId, new Set());
+        }
+        pendingConnectorsMap.get(requesterId).add(addresseeId);
+      }
+      if (pendingCounterpartyIds.has(addresseeId)) {
+        if (!pendingConnectorsMap.has(addresseeId)) {
+          pendingConnectorsMap.set(addresseeId, new Set());
+        }
+        pendingConnectorsMap.get(addresseeId).add(requesterId);
+      }
+    }
+  }
+
   const traversalBuckets = await traverseNetwork(owner.id);
 
   const idsToHydrate = new Set([owner.id]);
+  pendingCounterpartyIds.forEach((identifier) => idsToHydrate.add(identifier));
+  for (const connectors of pendingConnectorsMap.values()) {
+    connectors.forEach((identifier) => idsToHydrate.add(identifier));
+  }
   for (const bucket of traversalBuckets.values()) {
     for (const [nodeId, metadata] of bucket.entries()) {
       idsToHydrate.add(nodeId);
@@ -348,6 +608,67 @@ export async function buildConnectionNetwork({ userId, viewerId, includePending 
       'Connection tiers require mutual trust. Roles must be reciprocal partners to form direct connections.',
   };
 
+  const ownerDirectIds = new Set(firstDegree.map((connection) => connection.id));
+
+  const pendingInvitations = includePending
+    ? pendingRecords
+        .map((record) =>
+          buildPendingInvitation({
+            record,
+            ownerId: owner.id,
+            userMap,
+            connectorsMap: pendingConnectorsMap,
+            ownerDirectIds,
+          }),
+        )
+        .filter(Boolean)
+    : [];
+
+  const incomingInvitations = pendingInvitations
+    .filter((invitation) => invitation.direction === 'incoming')
+    .map((invitation) => invitation.payload);
+  const outgoingInvitations = pendingInvitations
+    .filter((invitation) => invitation.direction === 'outgoing')
+    .map((invitation) => invitation.payload);
+
+  const suggestedConnections = secondDegree
+    .slice()
+    .sort((a, b) => (b.mutualConnections ?? 0) - (a.mutualConnections ?? 0))
+    .slice(0, 8);
+
+  const respondedInvites = await Connection.findAll({
+    where: {
+      addresseeId: owner.id,
+      status: { [Op.in]: ['accepted', 'rejected'] },
+    },
+    attributes: ['status', 'createdAt', 'updatedAt'],
+    raw: true,
+  });
+
+  const acceptedResponses = respondedInvites.filter((record) => record.status === 'accepted').length;
+  const totalResponses = respondedInvites.length;
+  const acceptanceRate = totalResponses ? Math.round((acceptedResponses / totalResponses) * 100) : null;
+  const responseDurations = respondedInvites
+    .map((record) => {
+      const created = record.createdAt instanceof Date ? record.createdAt : new Date(record.createdAt);
+      const updated = record.updatedAt instanceof Date ? record.updatedAt : new Date(record.updatedAt);
+      if (Number.isNaN(created.getTime()) || Number.isNaN(updated.getTime())) {
+        return null;
+      }
+      const diffHours = (updated.getTime() - created.getTime()) / (1000 * 60 * 60);
+      return diffHours >= 0 ? diffHours : null;
+    })
+    .filter((value) => typeof value === 'number');
+  const medianResponseHours = median(responseDurations);
+  const medianResponse = formatDurationLabel(medianResponseHours);
+
+  const closedIntroductions = await Connection.count({
+    where: {
+      requesterId: owner.id,
+      status: 'accepted',
+    },
+  });
+
   return {
     user: ownerSummary,
     viewer: viewerSummary,
@@ -361,6 +682,18 @@ export async function buildConnectionNetwork({ userId, viewerId, includePending 
     firstDegree: firstDegree.sort((a, b) => a.name.localeCompare(b.name)),
     secondDegree: secondDegree.sort((a, b) => a.name.localeCompare(b.name)),
     thirdDegree: thirdDegree.sort((a, b) => a.name.localeCompare(b.name)),
+    pending: includePending
+      ? {
+          incoming: incomingInvitations,
+          outgoing: outgoingInvitations,
+        }
+      : undefined,
+    suggestedConnections,
+    invitationAnalytics: {
+      acceptanceRate: acceptanceRate ?? null,
+      medianResponse: medianResponse ?? null,
+      closed: closedIntroductions,
+    },
     includePending,
     generatedAt: new Date().toISOString(),
   };
@@ -424,8 +757,20 @@ export async function respondToConnection({ connectionId, actorId, decision }) {
     throw new ValidationError('A connectionId and actorId are required.');
   }
   const normalizedDecision = (decision || '').toString().trim().toLowerCase();
-  if (!['accept', 'reject'].includes(normalizedDecision)) {
-    throw new ValidationError('Decision must be either "accept" or "reject".');
+  const resolvedDecision = normalizedDecision.startsWith('accept')
+    ? 'accept'
+    : normalizedDecision.startsWith('declin') || normalizedDecision.startsWith('reject')
+    ? 'reject'
+    : normalizedDecision === 'withdraw'
+    ? 'withdraw'
+    : null;
+
+  if (!resolvedDecision) {
+    throw new ValidationError('Decision must be "accept", "decline", or "withdraw".');
+  }
+
+  if (resolvedDecision === 'withdraw') {
+    return withdrawConnection({ connectionId, actorId });
   }
 
   const record = await Connection.findByPk(connectionId);
@@ -437,11 +782,11 @@ export async function respondToConnection({ connectionId, actorId, decision }) {
     throw new AuthorizationError('Only the addressee can respond to this connection request.');
   }
 
-  if (record.status === 'accepted' && normalizedDecision === 'accept') {
+  if (record.status === 'accepted' && resolvedDecision === 'accept') {
     return record;
   }
 
-  record.status = normalizedDecision === 'accept' ? 'accepted' : 'rejected';
+  record.status = resolvedDecision === 'accept' ? 'accepted' : 'rejected';
   await record.save();
 
   invalidateFeedSuggestions(record.requesterId, record.addresseeId);
@@ -449,9 +794,40 @@ export async function respondToConnection({ connectionId, actorId, decision }) {
   return record;
 }
 
+export async function withdrawConnection({ connectionId, actorId }) {
+  if (!connectionId || !actorId) {
+    throw new ValidationError('A connectionId and actorId are required.');
+  }
+
+  const record = await Connection.findByPk(connectionId);
+  if (!record) {
+    throw new NotFoundError('Connection request not found.');
+  }
+
+  if (record.requesterId !== actorId) {
+    throw new AuthorizationError('Only the requester can withdraw this connection request.');
+  }
+
+  if (record.status !== 'pending') {
+    throw new ConflictError('Only pending connection requests can be withdrawn.');
+  }
+
+  await record.destroy();
+  invalidateFeedSuggestions(record.requesterId, record.addresseeId);
+
+  return {
+    id: connectionId,
+    status: 'withdrawn',
+    requesterId: record.requesterId,
+    addresseeId: record.addresseeId,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
 export default {
   buildConnectionNetwork,
   listDirectConnections,
   requestConnection,
   respondToConnection,
+  withdrawConnection,
 };

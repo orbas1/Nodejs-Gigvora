@@ -20,5 +20,6 @@ router.use(requireRoles(...CONNECTION_ROLES));
 router.get('/network', asyncHandler(connectionController.getNetwork));
 router.post('/', asyncHandler(connectionController.createConnection));
 router.post('/:connectionId/respond', asyncHandler(connectionController.respondToConnection));
+router.delete('/:connectionId', asyncHandler(connectionController.withdrawConnection));
 
 export default router;

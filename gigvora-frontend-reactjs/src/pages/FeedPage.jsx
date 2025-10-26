@@ -1,22 +1,12 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import {
-  ArrowPathIcon,
-  ChevronDownIcon,
-  ChatBubbleOvalLeftIcon,
-  FaceSmileIcon,
-  HandRaisedIcon,
-  HandThumbUpIcon,
-  LightBulbIcon,
-  PaperAirplaneIcon,
-  PhotoIcon,
-  HeartIcon,
-  ShareIcon,
-  SparklesIcon,
-} from '@heroicons/react/24/outline';
+import { ArrowPathIcon, FaceSmileIcon, PaperAirplaneIcon, PhotoIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import UserAvatar from '../components/UserAvatar.jsx';
 import EmojiQuickPickerPopover from '../components/popovers/EmojiQuickPickerPopover.jsx';
 import GifSuggestionPopover from '../components/popovers/GifSuggestionPopover.jsx';
+import ReactionsBar from '../components/feed/ReactionsBar.jsx';
+import CommentsThread from '../components/feed/CommentsThread.jsx';
+import ShareModal from '../components/feed/ShareModal.jsx';
 import useCachedResource from '../hooks/useCachedResource.js';
 import { apiClient } from '../services/apiClient.js';
 import {
@@ -39,6 +29,11 @@ import {
   sanitiseExternalLink,
 } from '../utils/contentModeration.js';
 import { ALLOWED_FEED_MEMBERSHIPS, COMPOSER_OPTIONS } from '../constants/feedMeta.js';
+import {
+  REACTION_ALIASES,
+  REACTION_LOOKUP,
+  REACTION_OPTIONS,
+} from '../components/feed/reactionsConfig.js';
 
 const DEFAULT_EDIT_DRAFT = {
   title: '',
@@ -101,80 +96,6 @@ const COMPACT_NUMBER_FORMATTER = new Intl.NumberFormat('en', {
   notation: 'compact',
   maximumFractionDigits: 1,
 });
-
-const REACTION_OPTIONS = [
-  {
-    id: 'like',
-    label: 'Appreciate',
-    activeLabel: 'Appreciated',
-    Icon: HandThumbUpIcon,
-    activeClasses: 'border-sky-200 bg-sky-50 text-sky-700',
-    dotClassName: 'bg-sky-500',
-    description: 'Show gratitude or agreement.',
-  },
-  {
-    id: 'celebrate',
-    label: 'Celebrate',
-    activeLabel: 'Celebrating',
-    Icon: SparklesIcon,
-    activeClasses: 'border-amber-200 bg-amber-50 text-amber-700',
-    dotClassName: 'bg-amber-500',
-    description: 'Mark major wins and launches.',
-  },
-  {
-    id: 'support',
-    label: 'Support',
-    activeLabel: 'Supporting',
-    Icon: HandRaisedIcon,
-    activeClasses: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-    dotClassName: 'bg-emerald-500',
-    description: 'Signal you have their back.',
-  },
-  {
-    id: 'love',
-    label: 'Champion',
-    activeLabel: 'Championing',
-    Icon: HeartIcon,
-    activeClasses: 'border-rose-200 bg-rose-50 text-rose-700',
-    dotClassName: 'bg-rose-500',
-    description: 'Spotlight heartfelt wins and gratitude.',
-  },
-  {
-    id: 'insightful',
-    label: 'Insightful',
-    activeLabel: 'Finding insightful',
-    Icon: LightBulbIcon,
-    activeClasses: 'border-violet-200 bg-violet-50 text-violet-700',
-    dotClassName: 'bg-violet-500',
-    description: 'Highlight thought leadership.',
-  },
-];
-
-const REACTION_LOOKUP = REACTION_OPTIONS.reduce((map, option) => {
-  map[option.id] = option;
-  return map;
-}, {});
-
-const REACTION_ALIASES = {
-  like: 'like',
-  likes: 'like',
-  heart: 'love',
-  hearts: 'love',
-  love: 'love',
-  loved: 'love',
-  celebrate: 'celebrate',
-  celebration: 'celebrate',
-  celebrations: 'celebrate',
-  support: 'support',
-  supportive: 'support',
-  care: 'support',
-  caring: 'support',
-  insightful: 'insightful',
-  insight: 'insightful',
-  insights: 'insightful',
-  curious: 'insightful',
-  curiosity: 'insightful',
-};
 
 export function resolveAuthor(post) {
   const directAuthor = post?.author ?? {};
@@ -331,6 +252,31 @@ export function normaliseFeedPost(post, fallbackSession) {
   }
   if (post.source) {
     normalised.source = post.source;
+  }
+
+  const shareCount = (() => {
+    const candidates = [
+      post.metrics?.shares,
+      post.metrics?.shareCount,
+      post.metrics?.share_count,
+      post.shareCount,
+      post.shares,
+    ];
+    for (const candidate of candidates) {
+      const numeric = Number.parseInt(candidate, 10);
+      if (Number.isFinite(numeric) && numeric >= 0) {
+        return numeric;
+      }
+    }
+    return 0;
+  })();
+
+  normalised.shareCount = shareCount;
+  if (post.metrics || shareCount) {
+    normalised.metrics = {
+      ...(post.metrics ?? {}),
+      shares: shareCount,
+    };
   }
 
   return normalised;
@@ -741,125 +687,6 @@ function FeedComposer({ onCreate, session }) {
   );
 }
 
-function FeedCommentThread({ comment, onReply }) {
-  const [replying, setReplying] = useState(false);
-  const [replyDraft, setReplyDraft] = useState('');
-  const [showEmojiTray, setShowEmojiTray] = useState(false);
-  const replyTextareaId = useId();
-
-  const totalReplies = Array.isArray(comment.replies) ? comment.replies.length : 0;
-
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    if (!replyDraft.trim()) {
-      return;
-    }
-    onReply?.(comment.id, replyDraft.trim());
-    setReplyDraft('');
-    setShowEmojiTray(false);
-    setReplying(false);
-  };
-
-  return (
-    <div className="rounded-2xl border border-slate-200/70 bg-slate-50/70 p-4 text-sm text-slate-700">
-      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
-        <span className="font-semibold text-slate-700">{comment.author}</span>
-        <span>{formatRelativeTime(comment.createdAt)}</span>
-      </div>
-      <p className="mt-1 text-xs font-medium uppercase tracking-wide text-slate-500">{comment.headline}</p>
-      <p className="mt-3 whitespace-pre-line text-sm text-slate-700">{comment.message}</p>
-      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-        <button
-          type="button"
-          onClick={() => {
-            setReplying(true);
-          }}
-          className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 transition hover:border-accent/60 hover:text-accent"
-        >
-          <ChatBubbleOvalLeftIcon className="h-4 w-4" /> Reply
-        </button>
-        {totalReplies ? (
-          <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-400">
-            {totalReplies} {totalReplies === 1 ? 'reply' : 'replies'}
-          </span>
-        ) : null}
-      </div>
-      {Array.isArray(comment.replies) && comment.replies.length ? (
-        <div className="mt-3 space-y-2 border-l-2 border-accent/30 pl-4">
-          {comment.replies.map((reply) => (
-            <div key={reply.id} className="rounded-2xl bg-white/90 p-3 text-sm text-slate-700">
-              <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
-                <span className="font-semibold text-slate-700">{reply.author}</span>
-                <span>{formatRelativeTime(reply.createdAt)}</span>
-              </div>
-              <p className="mt-1 text-xs font-medium uppercase tracking-wide text-slate-500">{reply.headline}</p>
-              <p className="mt-2 whitespace-pre-line text-sm text-slate-700">{reply.message}</p>
-            </div>
-          ))}
-        </div>
-      ) : null}
-      {replying ? (
-        <form onSubmit={handleSubmit} className="relative mt-4 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-soft">
-          <label htmlFor={replyTextareaId} className="sr-only">
-            Reply to comment
-          </label>
-          <textarea
-            id={replyTextareaId}
-            value={replyDraft}
-            onChange={(event) => setReplyDraft(event.target.value)}
-            rows={3}
-            className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-inner focus:border-accent focus:ring-2 focus:ring-accent/20"
-            placeholder="Compose a thoughtful reply…"
-          />
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowEmojiTray((previous) => !previous)}
-                className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-accent/60 hover:text-accent"
-              >
-                <FaceSmileIcon className="h-4 w-4" />
-                Emoji
-              </button>
-              <EmojiQuickPickerPopover
-                open={showEmojiTray}
-                onClose={() => setShowEmojiTray(false)}
-                onSelect={(emoji) => setReplyDraft((previous) => `${previous}${emoji}`)}
-                labelledBy="comment-emoji-trigger"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              {QUICK_REPLY_SUGGESTIONS.map((suggestion) => (
-                <button
-                  key={suggestion}
-                  type="button"
-                  onClick={() => {
-                    setReplying(true);
-                    setReplyDraft((previous) => (previous ? `${previous}\n${suggestion}` : suggestion));
-                  }}
-                  className="hidden rounded-full border border-slate-200 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-500 transition hover:border-accent/60 hover:text-accent lg:inline-flex"
-                >
-                  {suggestion.slice(0, 14)}…
-                </button>
-              ))}
-              <button
-                type="submit"
-                disabled={!replyDraft.trim()}
-                className={`inline-flex items-center gap-2 rounded-full px-4 py-1 text-xs font-semibold text-white transition ${
-                  replyDraft.trim() ? 'bg-accent hover:bg-accentDark' : 'cursor-not-allowed bg-accent/40'
-                }`}
-              >
-                <PaperAirplaneIcon className="h-4 w-4" />
-                Reply
-              </button>
-            </div>
-          </div>
-        </form>
-      ) : null}
-    </div>
-  );
-}
-
 function MediaAttachmentGrid({ attachments }) {
   if (!attachments?.length) {
     return null;
@@ -1059,105 +886,53 @@ function FeedPostCard({
     setActiveReaction(post.viewerReaction ?? (post.viewerHasLiked ? 'like' : null));
   }, [post.viewerHasLiked, post.viewerReaction]);
 
-  const [reactionPickerOpen, setReactionPickerOpen] = useState(false);
-  const reactionPickerRef = useRef(null);
   const [comments, setComments] = useState(() => normaliseCommentList(post?.comments ?? [], post));
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentsError, setCommentsError] = useState(null);
   const [commentDraft, setCommentDraft] = useState('');
 
   useEffect(() => {
-    if (!reactionPickerOpen) {
-      return undefined;
-    }
-    const handlePointerDown = (event) => {
-      if (!reactionPickerRef.current) {
-        return;
-      }
-      if (!reactionPickerRef.current.contains(event.target)) {
-        setReactionPickerOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('touchstart', handlePointerDown);
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('touchstart', handlePointerDown);
-    };
-  }, [reactionPickerOpen]);
-
-  const totalReactions = useMemo(() => {
-    if (!reactionSummary) {
-      return 0;
-    }
-    return Object.values(reactionSummary).reduce((total, value) => {
-      const numeric = Number(value);
-      return total + (Number.isFinite(numeric) ? numeric : 0);
-    }, 0);
-  }, [reactionSummary]);
-
-  const topReactions = useMemo(() => {
-    if (!reactionSummary) {
-      return [];
-    }
-    return Object.entries(reactionSummary)
-      .filter(([, count]) => Number(count) > 0)
-      .map(([id, count]) => ({ id, count: Number(count), option: REACTION_LOOKUP[id] }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 3);
-  }, [reactionSummary]);
-
-  const activeReactionOption = activeReaction ? REACTION_LOOKUP[activeReaction] : null;
-  const reactionButtonLabel = activeReactionOption?.activeLabel ?? 'React';
-  const reactionButtonClasses = activeReactionOption
-    ? activeReactionOption.activeClasses
-    : 'border-slate-200 hover:border-accent/60 hover:text-accent';
-  const ReactionIcon = activeReactionOption?.Icon ?? HandThumbUpIcon;
-  const reactionMenuId = useMemo(() => `reaction-menu-${post.id}`, [post.id]);
-
-  useEffect(() => {
     setComments(normaliseCommentList(post?.comments ?? [], post));
   }, [post?.comments, post?.id]);
+
+  const loadComments = useCallback(
+    async ({ signal } = {}) => {
+      if (!post?.id) {
+        setComments([]);
+        return;
+      }
+      setCommentsLoading(true);
+      try {
+        const response = await listFeedComments(post.id, { signal });
+        if (signal?.aborted) {
+          return;
+        }
+        const fetched = normaliseCommentsFromResponse(response, post);
+        setComments(fetched.length ? fetched : []);
+        setCommentsError(null);
+      } catch (error) {
+        if (signal?.aborted) {
+          return;
+        }
+        setCommentsError(error);
+      } finally {
+        if (!signal?.aborted) {
+          setCommentsLoading(false);
+        }
+      }
+    },
+    [post],
+  );
 
   useEffect(() => {
     if (!post?.id) {
       setComments([]);
       return undefined;
     }
-    let ignore = false;
     const controller = new AbortController();
-
-    const loadComments = async () => {
-      setCommentsLoading(true);
-      try {
-        const response = await listFeedComments(post.id, { signal: controller.signal });
-        if (ignore) {
-          return;
-        }
-        const fetched = normaliseCommentsFromResponse(response, post);
-        if (fetched.length) {
-          setComments(fetched);
-        }
-        setCommentsError(null);
-      } catch (error) {
-        if (ignore || controller.signal.aborted) {
-          return;
-        }
-        setCommentsError(error);
-      } finally {
-        if (!ignore) {
-          setCommentsLoading(false);
-        }
-      }
-    };
-
-    loadComments();
-
-    return () => {
-      ignore = true;
-      controller.abort();
-    };
-  }, [post?.id]);
+    loadComments({ signal: controller.signal });
+    return () => controller.abort();
+  }, [loadComments, post?.id]);
 
   const totalConversationCount = useMemo(
     () =>
@@ -1192,21 +967,9 @@ function FeedPostCard({
         }
         return willActivate ? reactionId : null;
       });
-      setReactionPickerOpen(false);
     },
     [onReactionChange, post],
   );
-
-  const handleReactionButtonClick = useCallback(() => {
-    handleReactionSelect(activeReaction ?? 'like');
-  }, [activeReaction, handleReactionSelect]);
-
-  const reactionSummaryLabel = useMemo(() => {
-    if (!totalReactions) {
-      return null;
-    }
-    return `${totalReactions} ${totalReactions === 1 ? 'appreciation' : 'appreciations'}`;
-  }, [totalReactions]);
 
   const handleCommentSubmit = async (event) => {
     event.preventDefault();
@@ -1477,186 +1240,30 @@ function FeedPostCard({
               {linkLabel}
             </a>
           ) : null}
-          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
-            <div ref={reactionPickerRef} className="relative inline-flex items-center">
-              <button
-                type="button"
-                onClick={handleReactionButtonClick}
-                className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 transition ${reactionButtonClasses}`}
-                aria-pressed={Boolean(activeReactionOption)}
-              >
-                <ReactionIcon className="h-4 w-4" />
-                {reactionButtonLabel}
-                {totalReactions ? (
-                  <span className="ml-1 text-[0.65rem] font-semibold text-slate-400">· {totalReactions}</span>
-                ) : null}
-              </button>
-              <button
-                type="button"
-                onClick={() => setReactionPickerOpen((previous) => !previous)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    setReactionPickerOpen((previous) => !previous);
-                  }
-                  if (event.key === 'Escape') {
-                    setReactionPickerOpen(false);
-                  }
-                }}
-                className={`ml-1 inline-flex items-center justify-center rounded-full border px-2 py-2 transition ${
-                  reactionPickerOpen
-                    ? 'border-accent text-accent'
-                    : 'border-slate-200 text-slate-500 hover:border-accent/60 hover:text-accent'
-                }`}
-                aria-label="Open reaction palette"
-                aria-haspopup="true"
-                aria-controls={reactionMenuId}
-                aria-expanded={reactionPickerOpen}
-              >
-                <ChevronDownIcon className="h-4 w-4" />
-              </button>
-              {reactionPickerOpen ? (
-                <div
-                  id={reactionMenuId}
-                  className="absolute left-0 top-full z-30 mt-2 w-64 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl"
-                  role="menu"
-                >
-                  {REACTION_OPTIONS.map((option) => {
-                    const isActive = option.id === activeReaction;
-                    const optionCount = reactionSummary?.[option.id] ?? 0;
-                    const OptionIcon = option.Icon;
-                    return (
-                      <button
-                        key={option.id}
-                        type="button"
-                        onClick={() => handleReactionSelect(option.id)}
-                        className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm font-semibold transition ${
-                          isActive ? 'bg-slate-100 text-accent' : 'text-slate-600 hover:bg-slate-50'
-                        }`}
-                        role="menuitem"
-                      >
-                        <span className="flex items-center gap-3">
-                          <span
-                            className={`flex h-7 w-7 items-center justify-center rounded-full text-white ${option.dotClassName}`}
-                          >
-                            <OptionIcon className="h-4 w-4" />
-                          </span>
-                          <span className="flex flex-col items-start">
-                            <span>{option.label}</span>
-                            <span className="text-[0.65rem] font-medium text-slate-400">{option.description}</span>
-                          </span>
-                        </span>
-                        <span className="text-xs font-semibold text-slate-400">{optionCount}</span>
-                      </button>
-                    );
-                  })}
-                  <p className="px-3 pt-2 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-400">
-                    Tailor your response for the community.
-                  </p>
-                </div>
-              ) : null}
-            </div>
-            <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-slate-500">
-              <ChatBubbleOvalLeftIcon className="h-4 w-4" /> {totalConversationCount}{' '}
-              {totalConversationCount === 1 ? 'comment' : 'conversations'}
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                analytics.track('web_feed_share_click', { postId: post.id, location: 'feed_item' }, { source: 'web_app' });
-                if (typeof onShare === 'function') {
-                  onShare(post);
-                }
-              }}
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 transition hover:border-accent hover:text-accent"
-            >
-              <ShareIcon className="h-4 w-4" /> Share externally
-            </button>
-          </div>
-          {reactionSummaryLabel ? (
-            <div
-              className="mt-2 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[0.7rem] font-semibold text-slate-600"
-              aria-live="polite"
-            >
-              <div className="flex -space-x-1">
-                {topReactions.map(({ id, option }) => {
-                  const OptionIcon = option?.Icon ?? ReactionIcon;
-                  const toneClass = option?.dotClassName ?? 'bg-slate-400';
-                  return (
-                    <span
-                      key={id}
-                      className={`flex h-5 w-5 items-center justify-center rounded-full border border-white text-white ${toneClass}`}
-                      aria-hidden="true"
-                    >
-                      <OptionIcon className="h-3 w-3" />
-                    </span>
-                  );
-                })}
-              </div>
-              <span>{reactionSummaryLabel}</span>
-            </div>
-          ) : null}
-          <form onSubmit={handleCommentSubmit} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-            <label htmlFor={`comment-${post.id}`} className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Join the conversation
-            </label>
-            <div className="mt-2 flex gap-3">
-              <UserAvatar name={viewerName} seed={viewerAvatarSeed} size="sm" showGlow={false} />
-              <textarea
-                id={`comment-${post.id}`}
-                value={commentDraft}
-                onChange={(event) => setCommentDraft(event.target.value)}
-                rows={3}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-inner focus:border-accent focus:ring-2 focus:ring-accent/20"
-                placeholder="Offer context, signal interest, or tag a collaborator…"
-              />
-            </div>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap gap-2 text-[0.65rem] uppercase tracking-wide text-slate-400">
-                {QUICK_REPLY_SUGGESTIONS.slice(0, 2).map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    type="button"
-                    onClick={() => setCommentDraft((previous) => (previous ? `${previous}\n${suggestion}` : suggestion))}
-                    className="rounded-full border border-slate-200 px-3 py-1 font-semibold transition hover:border-accent/60 hover:text-accent"
-                  >
-                    {suggestion.slice(0, 22)}…
-                  </button>
-                ))}
-              </div>
-              <button
-                type="submit"
-                disabled={!commentDraft.trim()}
-                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold text-white transition ${
-                  commentDraft.trim() ? 'bg-accent hover:bg-accentDark' : 'cursor-not-allowed bg-accent/40'
-                }`}
-              >
-                <PaperAirplaneIcon className="h-4 w-4" />
-                Comment
-              </button>
-            </div>
-          </form>
-          {commentsError ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
-              {commentsError?.message || 'We could not load the latest conversation. Please try again soon.'}
-            </div>
-          ) : null}
-          {commentsLoading ? (
-            <div className="space-y-2 rounded-2xl border border-slate-200 bg-white/80 p-4 text-xs text-slate-500">
-              <div className="h-3 w-3/4 animate-pulse rounded bg-slate-200" />
-              <div className="h-3 w-1/2 animate-pulse rounded bg-slate-200" />
-            </div>
-          ) : null}
-          <div className="space-y-3">
-            {comments.map((comment) => (
-              <FeedCommentThread key={comment.id} comment={comment} onReply={handleAddReply} />
-            ))}
-            {!commentsLoading && !comments.length ? (
-              <p className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-xs text-slate-500">
-                Spark the conversation with the first reply.
-              </p>
-            ) : null}
-          </div>
+          <ReactionsBar
+            postId={post.id}
+            reactionSummary={reactionSummary}
+            activeReaction={activeReaction}
+            onSelect={handleReactionSelect}
+            totalConversationCount={totalConversationCount}
+            shareCount={post.shareCount ?? post.metrics?.shares ?? 0}
+            onShare={() => onShare?.(post)}
+            insights={post.reactionInsights}
+          />
+          <CommentsThread
+            comments={comments}
+            loading={commentsLoading}
+            error={commentsError}
+            onRetry={() => loadComments()}
+            onReply={handleAddReply}
+            onSubmit={handleCommentSubmit}
+            commentDraft={commentDraft}
+            onCommentDraftChange={setCommentDraft}
+            quickReplies={QUICK_REPLY_SUGGESTIONS}
+            viewer={{ name: viewerName, avatarSeed: viewerAvatarSeed }}
+            postId={post.id}
+            postAuthorName={author.name}
+          />
         </>
       )}
     </article>
@@ -1959,6 +1566,7 @@ export default function FeedPage() {
   const [pagination, setPagination] = useState({ nextCursor: null, nextPage: null, hasMore: false });
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadMoreError, setLoadMoreError] = useState(null);
+  const [shareContext, setShareContext] = useState(null);
   const loadMoreRef = useRef(null);
   const { data, error, loading, fromCache, refresh } = useCachedResource(
     'feed:posts:v2',
@@ -2293,9 +1901,46 @@ export default function FeedPage() {
     }
   }, [loading, posts, fromCache]);
 
-  const handleShareClick = useCallback(() => {
-    analytics.track('web_feed_share_click', { location: 'feed_page' }, { source: 'web_app' });
-  }, []);
+  const handleShareClick = useCallback(
+    (post) => {
+      if (post?.id) {
+        analytics.track('web_feed_share_entry', { postId: post.id }, { source: 'web_app' });
+      }
+      setShareContext(post ?? null);
+    },
+    [],
+  );
+
+  const handleShareComplete = useCallback(
+    (result) => {
+      if (!result?.postId) {
+        setShareContext(null);
+        return;
+      }
+
+      const resolvedCount = Number.isFinite(result.shareCount)
+        ? Number(result.shareCount)
+        : undefined;
+
+      const applyShareCount = (post) => {
+        if (!post || `${post.id}` !== `${result.postId}`) {
+          return post;
+        }
+        const current = Number.isFinite(post.shareCount) ? Number(post.shareCount) : 0;
+        const nextCount = resolvedCount ?? current + 1;
+        return {
+          ...post,
+          shareCount: nextCount,
+          metrics: { ...(post.metrics ?? {}), shares: nextCount },
+        };
+      };
+
+      setLocalPosts((previous) => previous.map(applyShareCount));
+      setRemotePosts((previous) => previous.map(applyShareCount));
+      setShareContext(null);
+    },
+    [setLocalPosts, setRemotePosts],
+  );
 
   const trackOpportunityTelemetry = useCallback(
     (phase, payload) => {
@@ -2787,36 +2432,45 @@ export default function FeedPage() {
   }
 
   return (
-    <main className="bg-[#f3f2ef] pb-12 pt-6 sm:pt-10">
-      <div className="mx-auto w-full max-w-screen-2xl px-3 sm:px-6 2xl:px-12">
-        <div className="grid gap-6 lg:grid-cols-12 lg:items-start">
-          <div className="order-2 space-y-6 lg:order-1 lg:col-span-3">
-            <FeedIdentityRail session={session} interests={interests} />
-          </div>
-          <div className="order-1 space-y-6 lg:order-2 lg:col-span-6">
-            <FeedComposer onCreate={handleComposerCreate} session={session} />
-            {error && !loading ? (
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                We’re showing the latest cached updates while we reconnect. {error.message || 'Please try again shortly.'}
-              </div>
-            ) : null}
-            {feedActionError ? (
-              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                {feedActionError}
-              </div>
-            ) : null}
-            {loading && !posts.length ? renderSkeleton() : renderPosts()}
-          </div>
-          <div className="order-3 space-y-6 lg:col-span-3">
-            <FeedInsightsRail
-              connectionSuggestions={connectionSuggestions}
-              groupSuggestions={groupSuggestions}
-              liveMoments={liveMoments}
-              generatedAt={suggestionsGeneratedAt}
-            />
+    <>
+      <main className="bg-[#f3f2ef] pb-12 pt-6 sm:pt-10">
+        <div className="mx-auto w-full max-w-screen-2xl px-3 sm:px-6 2xl:px-12">
+          <div className="grid gap-6 lg:grid-cols-12 lg:items-start">
+            <div className="order-2 space-y-6 lg:order-1 lg:col-span-3">
+              <FeedIdentityRail session={session} interests={interests} />
+            </div>
+            <div className="order-1 space-y-6 lg:order-2 lg:col-span-6">
+              <FeedComposer onCreate={handleComposerCreate} session={session} />
+              {error && !loading ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                  We’re showing the latest cached updates while we reconnect. {error.message || 'Please try again shortly.'}
+                </div>
+              ) : null}
+              {feedActionError ? (
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                  {feedActionError}
+                </div>
+              ) : null}
+              {loading && !posts.length ? renderSkeleton() : renderPosts()}
+            </div>
+            <div className="order-3 space-y-6 lg:col-span-3">
+              <FeedInsightsRail
+                connectionSuggestions={connectionSuggestions}
+                groupSuggestions={groupSuggestions}
+                liveMoments={liveMoments}
+                generatedAt={suggestionsGeneratedAt}
+              />
+            </div>
           </div>
         </div>
-      </div>
-    </main>
+      </main>
+      <ShareModal
+        open={Boolean(shareContext)}
+        onClose={() => setShareContext(null)}
+        onComplete={handleShareComplete}
+        post={shareContext}
+        viewer={session}
+      />
+    </>
   );
 }

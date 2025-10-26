@@ -9,6 +9,7 @@ import {
   ListBulletIcon,
   MapIcon,
   PlusIcon,
+  SparklesIcon,
 } from '@heroicons/react/24/outline';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
@@ -18,7 +19,9 @@ import ExplorerFilterDrawer from '../components/explorer/ExplorerFilterDrawer.js
 import ExplorerResultCard from '../components/explorer/ExplorerResultCard.jsx';
 import SavedSearchList from '../components/explorer/SavedSearchList.jsx';
 import ExplorerManagementPanel from '../components/explorer/ExplorerManagementPanel.jsx';
-import UserAvatar from '../components/UserAvatar.jsx';
+import SuggestionRail from '../components/discovery/SuggestionRail.jsx';
+import TrendingTopicsPanel from '../components/discovery/TrendingTopicsPanel.jsx';
+import ConnectionCard from '../components/discovery/ConnectionCard.jsx';
 import useCachedResource from '../hooks/useCachedResource.js';
 import useDebounce from '../hooks/useDebounce.js';
 import useSavedSearches from '../hooks/useSavedSearches.js';
@@ -26,8 +29,8 @@ import { apiClient } from '../services/apiClient.js';
 import analytics from '../services/analytics.js';
 import { formatAbsolute, formatRelativeTime } from '../utils/date.js';
 import useSession from '../hooks/useSession.js';
-import useEngagementSignals from '../hooks/useEngagementSignals.js';
 import { getExplorerAllowedMemberships, hasExplorerAccess } from '../utils/accessControl.js';
+import { createConnectionRequest } from '../services/connections.js';
 
 const DEFAULT_CATEGORY = 'job';
 
@@ -113,6 +116,75 @@ const CATEGORIES = [
     placeholder: 'Search agency names, services, or regions',
   },
 ];
+
+function normalisePersonaKey(value) {
+  if (!value) {
+    return null;
+  }
+  return `${value}`.trim().toLowerCase().replace(/\s+/g, '_');
+}
+
+function formatPersonaLabel(value) {
+  if (!value || value === 'all') {
+    return 'All audiences';
+  }
+  return value
+    .split('_')
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ');
+}
+
+function normaliseTimeframeKey(value) {
+  if (!value) {
+    return null;
+  }
+  return `${value}`.trim().toLowerCase();
+}
+
+function formatTimeframeLabel(value) {
+  if (!value) {
+    return 'Any time';
+  }
+  if (value === '24h') {
+    return 'Past day';
+  }
+  if (value.endsWith('d')) {
+    const days = Number.parseInt(value.replace('d', ''), 10);
+    if (Number.isFinite(days)) {
+      return days === 1 ? 'Past day' : `Past ${days} days`;
+    }
+  }
+  if (value.endsWith('h')) {
+    const hours = Number.parseInt(value.replace('h', ''), 10);
+    if (Number.isFinite(hours)) {
+      return hours === 1 ? 'Past hour' : `Past ${hours} hours`;
+    }
+  }
+  return value.toUpperCase();
+}
+
+function resolveAbsoluteUrl(candidate) {
+  if (!candidate || typeof candidate !== 'string') {
+    return null;
+  }
+  const trimmed = candidate.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (typeof window === 'undefined') {
+    return trimmed;
+  }
+  try {
+    const url = new URL(trimmed, trimmed.startsWith('http') ? undefined : window.location.origin);
+    if (['http:', 'https:'].includes(url.protocol)) {
+      return url.toString();
+    }
+  } catch (error) {
+    console.warn('Unable to resolve absolute URL for discovery destination', error);
+  }
+  return null;
+}
 
 const QUICK_FILTER_PRESETS = {
   job: [
@@ -325,33 +397,6 @@ const FRESHNESS_LABELS = {
   '90d': 'Last 90 days',
 };
 
-const FALLBACK_PAGE_SPOTLIGHTS = [
-  {
-    id: 'gigvora-labs',
-    title: 'Gigvora Labs',
-    summary: 'Product innovation studio powering launchpad ventures.',
-    followers: 12840,
-    engagementScore: 86,
-    updatedAt: '2024-08-28T09:00:00Z',
-    location: 'Global',
-    category: 'pages',
-    categoryLabel: 'Pages',
-    tags: ['Future of work', 'Product innovation', 'Launchpads'],
-  },
-  {
-    id: 'northshore-creative',
-    title: 'Northshore Creative',
-    summary: 'Story-driven agency partnering with venture-backed teams.',
-    followers: 6210,
-    engagementScore: 74,
-    updatedAt: '2024-08-26T15:30:00Z',
-    location: 'Remote-first',
-    category: 'pages',
-    categoryLabel: 'Pages',
-    tags: ['Brand', 'Storytelling', 'Campaigns'],
-  },
-];
-
 function normaliseFilters(state = {}) {
   return { ...DEFAULT_FILTERS, ...state };
 }
@@ -548,11 +593,139 @@ export default function SearchPage() {
 
   const { items: savedSearches, loading: savedSearchesLoading, createSavedSearch, updateSavedSearch, deleteSavedSearch, canUseServer } =
     useSavedSearches({ enabled: explorerAccessEnabled });
-  const engagementSignals = useEngagementSignals({ session, limit: 6 });
+  const discoveryPersona = useMemo(() => {
+    if (!session) {
+      return undefined;
+    }
+    if (session.primaryDashboard) {
+      return session.primaryDashboard;
+    }
+    if (Array.isArray(session.memberships) && session.memberships.length) {
+      return session.memberships[0];
+    }
+    if (session.userType) {
+      return session.userType;
+    }
+    return undefined;
+  }, [session]);
+  const discoveryCacheKey = useMemo(
+    () => `discovery:experience:v1:${discoveryPersona ? discoveryPersona.toLowerCase() : 'anon'}`,
+    [discoveryPersona],
+  );
+  const discoveryExperienceState = useCachedResource(
+    discoveryCacheKey,
+    ({ signal }) =>
+      apiClient.get('/discovery/experience', {
+        signal,
+        params: discoveryPersona ? { persona: discoveryPersona } : undefined,
+      }),
+    {
+      ttl: 120_000,
+      dependencies: [discoveryPersona],
+      enabled: true,
+    },
+  );
+  const [suggestionCards, setSuggestionCards] = useState([]);
+  const [suggestionMeta, setSuggestionMeta] = useState({ filters: [], personalizationSummary: null });
+  const [activeDiscoveryFilter, setActiveDiscoveryFilter] = useState('all');
+  const [trendingTopics, setTrendingTopics] = useState([]);
+  const [connectionSpotlights, setConnectionSpotlights] = useState([]);
+  const [activeTrendingPersona, setActiveTrendingPersona] = useState('all');
+  const [activeTrendingTimeframe, setActiveTrendingTimeframe] = useState(null);
+  const [topicFollows, setTopicFollows] = useState(() => new Map());
   const activeSavedSearch = useMemo(
     () => savedSearches.find((search) => search.id === activeSavedSearchId) ?? null,
     [savedSearches, activeSavedSearchId],
   );
+
+  useEffect(() => {
+    if (!discoveryExperienceState.data) {
+      return;
+    }
+
+    const {
+      suggestions = [],
+      suggestionMeta: incomingSuggestionMeta,
+      trendingTopics: incomingTrendingTopics,
+      connectionSpotlights: incomingConnections,
+      trendingMeta: incomingTrendingMeta,
+      persona: payloadPersona,
+    } = discoveryExperienceState.data;
+
+    setSuggestionCards(Array.isArray(suggestions) ? suggestions : []);
+    setSuggestionMeta({
+      filters: Array.isArray(incomingSuggestionMeta?.filters) ? incomingSuggestionMeta.filters : [],
+      personalizationSummary: incomingSuggestionMeta?.personalizationSummary ?? null,
+    });
+    setTrendingTopics(Array.isArray(incomingTrendingTopics) ? incomingTrendingTopics : []);
+    setConnectionSpotlights(Array.isArray(incomingConnections) ? incomingConnections : []);
+
+    setActiveDiscoveryFilter((current) => {
+      const availableFilters = Array.isArray(incomingSuggestionMeta?.filters)
+        ? incomingSuggestionMeta.filters
+        : [];
+      if (availableFilters.some((filter) => filter.id === current)) {
+        return current;
+      }
+      if (availableFilters.length) {
+        return availableFilters[0].id;
+      }
+      return 'all';
+    });
+
+    const personaCandidates = new Set(
+      (Array.isArray(incomingTrendingTopics) ? incomingTrendingTopics : [])
+        .map((topic) => normalisePersonaKey(topic.persona))
+        .filter(Boolean),
+    );
+    const resolvedPersona =
+      normalisePersonaKey(incomingTrendingMeta?.persona) ?? normalisePersonaKey(payloadPersona);
+    setActiveTrendingPersona((current) => {
+      if (current && (current === 'all' || personaCandidates.has(current))) {
+        return current;
+      }
+      if (resolvedPersona && personaCandidates.has(resolvedPersona)) {
+        return resolvedPersona;
+      }
+      if (personaCandidates.size) {
+        return personaCandidates.values().next().value;
+      }
+      return 'all';
+    });
+
+    const timeframeCandidates = new Set(
+      (Array.isArray(incomingTrendingTopics) ? incomingTrendingTopics : [])
+        .map((topic) => normaliseTimeframeKey(topic.timeframe))
+        .filter(Boolean),
+    );
+    const resolvedTimeframe = normaliseTimeframeKey(incomingTrendingMeta?.timeframe) ?? null;
+    setActiveTrendingTimeframe((current) => {
+      if (current && timeframeCandidates.has(current)) {
+        return current;
+      }
+      if (resolvedTimeframe && timeframeCandidates.has(resolvedTimeframe)) {
+        return resolvedTimeframe;
+      }
+      if (timeframeCandidates.size) {
+        return timeframeCandidates.values().next().value;
+      }
+      return resolvedTimeframe ?? null;
+    });
+
+    setTopicFollows((prev) => {
+      if (!Array.isArray(incomingTrendingTopics)) {
+        return prev;
+      }
+      const next = new Map(prev);
+      incomingTrendingTopics.forEach((topic) => {
+        const key = `${topic.id}`;
+        if (!next.has(key) && topic.following != null) {
+          next.set(key, Boolean(topic.following));
+        }
+      });
+      return next;
+    });
+  }, [discoveryExperienceState.data]);
 
   const cleanedFilters = useMemo(() => cleanFilters(filters), [filters]);
   const filtersParam = useMemo(
@@ -564,6 +737,138 @@ export default function SearchPage() {
     [viewportBounds],
   );
   const pageSize = useMemo(() => (viewMode === 'map' ? MAP_PAGE_SIZE : DEFAULT_PAGE_SIZE), [viewMode]);
+  const suggestionFilters = useMemo(() => {
+    const base = Array.isArray(suggestionMeta.filters) ? suggestionMeta.filters : [];
+    const entries = new Map();
+    base.forEach((filter) => {
+      if (!filter?.id) {
+        return;
+      }
+      entries.set(filter.id, filter);
+    });
+    if (!entries.has('all')) {
+      entries.set('all', { id: 'all', label: 'All suggestions', type: null });
+    }
+    const ordered = ['all', ...Array.from(entries.keys()).filter((key) => key !== 'all')];
+    return ordered
+      .map((key) => entries.get(key))
+      .filter(Boolean)
+      .map((filter) => {
+        const predicate =
+          typeof filter.predicate === 'function'
+            ? filter.predicate
+            : filter?.type
+              ? (suggestion) => suggestion?.type === filter.type
+              : () => true;
+        return { ...filter, predicate };
+      });
+  }, [suggestionMeta.filters]);
+  const activeSuggestionFilter = useMemo(
+    () => suggestionFilters.find((filter) => filter.id === activeDiscoveryFilter) ?? suggestionFilters[0] ?? null,
+    [suggestionFilters, activeDiscoveryFilter],
+  );
+  const filteredSuggestions = useMemo(() => {
+    const predicate = activeSuggestionFilter?.predicate ?? (() => true);
+    return suggestionCards.filter((suggestion) => predicate(suggestion));
+  }, [suggestionCards, activeSuggestionFilter]);
+  const suggestionPersonalizationSummary = suggestionMeta.personalizationSummary;
+  const discoveryLoading = Boolean(discoveryExperienceState.loading);
+  const discoveryError = Boolean(discoveryExperienceState.error);
+  const refreshDiscoveryExperience = discoveryExperienceState.refresh;
+  const handleDiscoveryRefresh = useCallback(() => {
+    refreshDiscoveryExperience?.({ force: true });
+  }, [refreshDiscoveryExperience]);
+  const handleDiscoveryFilterChange = useCallback(
+    (filterId) => {
+      const allowed = suggestionFilters.map((filter) => filter.id);
+      const next = allowed.includes(filterId) ? filterId : suggestionFilters[0]?.id ?? 'all';
+      setActiveDiscoveryFilter(next);
+    },
+    [suggestionFilters],
+  );
+  const categoryLabelMap = useMemo(() => {
+    const map = new Map();
+    CATEGORIES.forEach((category) => {
+      map.set(category.label.toLowerCase(), category.id);
+    });
+    return map;
+  }, []);
+  const trendingPersonaOptions = useMemo(() => {
+    const options = [{ id: 'all', label: formatPersonaLabel('all') }];
+    const seen = new Set();
+    trendingTopics.forEach((topic) => {
+      const key = normalisePersonaKey(topic.persona);
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        options.push({ id: key, label: formatPersonaLabel(key) });
+      }
+    });
+    return options;
+  }, [trendingTopics]);
+  const trendingTimeframeOptions = useMemo(() => {
+    const seen = new Set();
+    trendingTopics.forEach((topic) => {
+      const key = normaliseTimeframeKey(topic.timeframe) ?? '7d';
+      seen.add(key);
+    });
+    if (activeTrendingTimeframe) {
+      seen.add(activeTrendingTimeframe);
+    }
+    if (!seen.size) {
+      seen.add('7d');
+    }
+    return Array.from(seen).map((key) => ({ id: key, label: formatTimeframeLabel(key) }));
+  }, [trendingTopics, activeTrendingTimeframe]);
+  const filteredTrendingTopics = useMemo(() => {
+    return trendingTopics.filter((topic) => {
+      const personaKey = normalisePersonaKey(topic.persona) ?? 'all';
+      const timeframeKey = normaliseTimeframeKey(topic.timeframe) ?? '7d';
+      const matchesPersona = activeTrendingPersona === 'all' || personaKey === activeTrendingPersona;
+      const matchesTimeframe = !activeTrendingTimeframe || timeframeKey === activeTrendingTimeframe;
+      return matchesPersona && matchesTimeframe;
+    });
+  }, [trendingTopics, activeTrendingPersona, activeTrendingTimeframe]);
+  const trendingTopicRows = useMemo(() => {
+    return filteredTrendingTopics.map((topic) => {
+      const key = `${topic.id}`;
+      const metrics = topic.metrics && typeof topic.metrics === 'object' ? topic.metrics : {};
+      const growthRate = topic.growthRate != null ? Number(topic.growthRate) : metrics.growthRate != null ? Number(metrics.growthRate) : null;
+      const growthLabel = metrics.growthLabel ?? (growthRate != null ? `${growthRate > 0 ? '+' : ''}${growthRate}% momentum` : null);
+      const mentions = topic.mentionCount ?? metrics.mentions ?? metrics.conversations ?? null;
+      const sentiment = metrics.sentimentLabel ?? (topic.sentimentScore != null ? `${Number(topic.sentimentScore).toFixed(1)}/5 sentiment` : null);
+      const geo = metrics.geoFocus ?? metrics.geo ?? null;
+      const following = topicFollows.has(key) ? topicFollows.get(key) : Boolean(topic.following);
+      return {
+        id: topic.id,
+        title: topic.topic,
+        summary: topic.summary,
+        category: topic.category,
+        growth: growthRate,
+        growthLabel,
+        mentions,
+        sentiment,
+        geo,
+        following,
+        highlighted: (topic.rank ?? 0) <= 3,
+        href: topic.metadata?.href ?? topic.href ?? null,
+        shareUrl: topic.metadata?.shareUrl ?? topic.shareUrl ?? topic.href ?? null,
+      };
+    });
+  }, [filteredTrendingTopics, topicFollows]);
+  const trendingDescription = useMemo(() => {
+    const personaLabel = formatPersonaLabel(activeTrendingPersona);
+    const timeframeKey = activeTrendingTimeframe ?? trendingTimeframeOptions[0]?.id ?? '7d';
+    const timeframeLabel = formatTimeframeLabel(timeframeKey);
+    return `${personaLabel} • ${timeframeLabel}`;
+  }, [activeTrendingPersona, activeTrendingTimeframe, trendingTimeframeOptions]);
+  const sessionUserId = session?.id ?? session?.userId ?? null;
+  const ensureAuthenticated = useCallback(() => {
+    if (isAuthenticated) {
+      return true;
+    }
+    navigate('/login', { state: { from: `${location.pathname}${location.search}` } });
+    return false;
+  }, [isAuthenticated, navigate, location.pathname, location.search]);
   const focusResultCard = useCallback((preferredId = null) => {
     const container = resultsContainerRef.current;
     if (!container) {
@@ -688,12 +993,6 @@ export default function SearchPage() {
       ttl: 60_000,
       enabled: explorerAccessEnabled,
     },
-  );
-
-  const snapshotState = useCachedResource(
-    'discovery:snapshot:v2',
-    ({ signal }) => apiClient.get('/discovery/snapshot', { signal, params: { limit: 6 } }),
-    { ttl: 120_000, enabled: explorerAccessEnabled },
   );
 
   useEffect(() => {
@@ -838,103 +1137,6 @@ export default function SearchPage() {
       setResultDialogState({ open: false, item: null, externalUrl: null });
     }
   }, [explorerAccessEnabled, results, activeResultId]);
-  const resolveSnapshotItems = useCallback(
-    (categoryId) => {
-      const dataset = snapshotState.data?.[`${categoryId}s`] ?? snapshotState.data?.[categoryId];
-      if (dataset?.items?.length) {
-        return dataset;
-      }
-      if (categoryId === 'pages') {
-        return { items: FALLBACK_PAGE_SPOTLIGHTS };
-      }
-      return dataset ?? null;
-    },
-    [snapshotState.data],
-  );
-
-  const trendingAcrossCategories = useMemo(() => {
-    return CATEGORIES.flatMap((category) => {
-      const items = resolveSnapshotItems(category.id);
-      if (!items?.items?.length) {
-        return [];
-      }
-      return items.items.slice(0, 2).map((item) => ({
-        ...item,
-        category: category.id,
-        categoryLabel: category.label,
-      }));
-    });
-  }, [resolveSnapshotItems]);
-
-  useEffect(() => {
-    if (!explorerAccessEnabled || !snapshotState.data) {
-      return;
-    }
-
-    CATEGORIES.forEach((category) => {
-      const snapshot = resolveSnapshotItems(category.id);
-      if (!snapshot?.items?.length) {
-        return;
-      }
-
-      const defaultKey = buildCacheKey({
-        category: category.id,
-        query: '',
-        page: 1,
-        sort: SORT_OPTIONS[category.id]?.[0]?.id ?? 'default',
-        filters: {},
-        viewport: null,
-        pageSize: DEFAULT_PAGE_SIZE,
-      });
-
-      const mapKey = buildCacheKey({
-        category: category.id,
-        query: '',
-        page: 1,
-        sort: SORT_OPTIONS[category.id]?.[0]?.id ?? 'default',
-        filters: {},
-        viewport: null,
-        pageSize: MAP_PAGE_SIZE,
-      });
-
-      const total = snapshot.total ?? snapshot.items.length;
-      const defaultItems = snapshot.items.slice(0, DEFAULT_PAGE_SIZE);
-      const mapItems = snapshot.items.slice(0, MAP_PAGE_SIZE);
-
-      if (!apiClient.readCache(defaultKey)) {
-        apiClient.writeCache(
-          defaultKey,
-          {
-            items: defaultItems,
-            total,
-            totalPages: Math.max(1, Math.ceil(total / DEFAULT_PAGE_SIZE)),
-            page: 1,
-            pageSize: DEFAULT_PAGE_SIZE,
-            facets: snapshot.facets ?? {},
-            metrics: { source: 'snapshot', processingTimeMs: 0 },
-          },
-          60_000,
-        );
-      }
-
-      if (!apiClient.readCache(mapKey)) {
-        apiClient.writeCache(
-          mapKey,
-          {
-            items: mapItems,
-            total,
-            totalPages: Math.max(1, Math.ceil(total / MAP_PAGE_SIZE)),
-            page: 1,
-            pageSize: MAP_PAGE_SIZE,
-            facets: snapshot.facets ?? {},
-            metrics: { source: 'snapshot', processingTimeMs: 0 },
-          },
-          60_000,
-        );
-      }
-    });
-  }, [explorerAccessEnabled, resolveSnapshotItems, snapshotState.data]);
-
   const handleCategoryChange = useCallback((categoryId) => {
     analytics.track('web_explorer_category_selected', { category: categoryId }, { source: 'web_app' });
     setSelectedCategory(categoryId);
@@ -959,6 +1161,309 @@ export default function SearchPage() {
     scheduleFocus(null);
     analytics.track('web_explorer_filters_reset', { category: selectedCategory });
   }, [selectedCategory, scheduleFocus]);
+
+  const updateSuggestionCard = useCallback((nextSuggestion) => {
+    if (!nextSuggestion?.id) {
+      return;
+    }
+    setSuggestionCards((prev) => {
+      const index = prev.findIndex((item) => item.id === nextSuggestion.id);
+      if (index === -1) {
+        return prev;
+      }
+      const clone = [...prev];
+      clone[index] = { ...prev[index], ...nextSuggestion };
+      return clone;
+    });
+  }, []);
+
+  const removeSuggestionCard = useCallback((suggestionId) => {
+    setSuggestionCards((prev) => prev.filter((item) => item.id !== suggestionId));
+  }, []);
+
+  const handleSuggestionFollowToggle = useCallback(
+    async (suggestion) => {
+      if (!suggestion?.id) {
+        return;
+      }
+      if (!ensureAuthenticated()) {
+        return;
+      }
+      try {
+        const response = await apiClient.post(`/discovery/suggestions/${suggestion.id}/follow`);
+        const updated = response?.suggestion ?? null;
+        if (updated) {
+          updateSuggestionCard(updated);
+        } else {
+          updateSuggestionCard({ ...suggestion, followed: !suggestion.followed });
+        }
+      } catch (error) {
+        console.warn('Failed to toggle discovery suggestion follow status', error);
+      }
+    },
+    [ensureAuthenticated, updateSuggestionCard],
+  );
+
+  const handleSuggestionSave = useCallback(
+    async (suggestion) => {
+      if (!suggestion?.id) {
+        return;
+      }
+      if (!ensureAuthenticated()) {
+        return;
+      }
+      try {
+        const response = await apiClient.post(`/discovery/suggestions/${suggestion.id}/save`);
+        const updated = response?.suggestion ?? null;
+        if (updated) {
+          updateSuggestionCard(updated);
+        }
+      } catch (error) {
+        console.warn('Failed to save discovery suggestion', error);
+      }
+    },
+    [ensureAuthenticated, updateSuggestionCard],
+  );
+
+  const handleSuggestionDismiss = useCallback(
+    async (suggestion) => {
+      if (!suggestion?.id) {
+        return;
+      }
+      if (!ensureAuthenticated()) {
+        return;
+      }
+      try {
+        const response = await apiClient.post(`/discovery/suggestions/${suggestion.id}/dismiss`);
+        const updated = response?.suggestion ?? null;
+        removeSuggestionCard(updated?.id ?? suggestion.id);
+        handleDiscoveryRefresh();
+      } catch (error) {
+        console.warn('Failed to dismiss discovery suggestion', error);
+      }
+    },
+    [ensureAuthenticated, removeSuggestionCard, handleDiscoveryRefresh],
+  );
+
+  const handleSuggestionView = useCallback(
+    async (suggestion) => {
+      if (!suggestion?.id) {
+        return;
+      }
+      try {
+        await apiClient.post(`/discovery/suggestions/${suggestion.id}/view`, {
+          metadata: { source: 'search_page' },
+        });
+      } catch (error) {
+        console.warn('Failed to record discovery suggestion view', error);
+      }
+      const destination = resolveAbsoluteUrl(suggestion.href ?? suggestion.shareUrl ?? '');
+      if (!destination || typeof window === 'undefined') {
+        return;
+      }
+      if (destination.startsWith(window.location.origin)) {
+        navigate(destination.replace(window.location.origin, ''));
+      } else {
+        openExternalLink(destination);
+      }
+    },
+    [navigate],
+  );
+
+  const handleSuggestionShare = useCallback(async (suggestion) => {
+    if (!suggestion?.id) {
+      return;
+    }
+    try {
+      await apiClient.post(`/discovery/suggestions/${suggestion.id}/share`, {
+        metadata: { source: 'search_page' },
+      });
+    } catch (error) {
+      console.warn('Failed to record discovery suggestion share', error);
+    }
+    const shareUrl = resolveAbsoluteUrl(suggestion.shareUrl ?? suggestion.href ?? '');
+    if (!shareUrl || typeof window === 'undefined') {
+      return;
+    }
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({ title: suggestion.title, url: shareUrl });
+        return;
+      } catch (error) {
+        console.warn('Navigator share failed', error);
+      }
+    }
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        return;
+      } catch (error) {
+        console.warn('Clipboard write failed', error);
+      }
+    }
+    openExternalLink(shareUrl);
+  }, []);
+
+  const handleTrendingPersonaChange = useCallback((personaId) => {
+    setActiveTrendingPersona(personaId || 'all');
+  }, []);
+
+  const handleTrendingTimeframeChange = useCallback((timeframeId) => {
+    setActiveTrendingTimeframe(timeframeId || null);
+  }, []);
+
+  const handleTrendingFollow = useCallback(
+    async (topic) => {
+      if (!topic?.id) {
+        return;
+      }
+      if (!ensureAuthenticated()) {
+        return;
+      }
+      const topicId = `${topic.id}`;
+      const alreadyFollowing = topicFollows.get(topicId) ?? Boolean(topic.following);
+      if (alreadyFollowing) {
+        setTopicFollows((prev) => {
+          const next = new Map(prev);
+          next.set(topicId, false);
+          return next;
+        });
+        return;
+      }
+      const categoryKey = typeof topic.category === 'string' ? topic.category.trim().toLowerCase() : '';
+      const targetCategory = categoryLabelMap.get(categoryKey) ?? selectedCategory;
+      try {
+        const payload = {
+          name: `Trending · ${topic.topic}`.slice(0, 80),
+          category: targetCategory,
+          query: topic.topic,
+          filters: {},
+          sort: 'default',
+          notifyByEmail: false,
+          notifyInApp: true,
+        };
+        const existing = savedSearches.find(
+          (search) =>
+            search.query?.toLowerCase() === payload.query.toLowerCase() &&
+            (search.category ?? DEFAULT_CATEGORY) === targetCategory,
+        );
+        if (existing) {
+          setActiveSavedSearchId(existing.id);
+        } else {
+          const record = await createSavedSearch(payload);
+          if (record?.id) {
+            setActiveSavedSearchId(record.id);
+          }
+        }
+        setTopicFollows((prev) => {
+          const next = new Map(prev);
+          next.set(topicId, true);
+          return next;
+        });
+      } catch (error) {
+        console.warn('Failed to follow trending topic', error);
+      }
+    },
+    [ensureAuthenticated, topicFollows, categoryLabelMap, selectedCategory, savedSearches, createSavedSearch],
+  );
+
+  const handleTrendingView = useCallback(
+    (topic) => {
+      if (!topic) {
+        return;
+      }
+      const categoryKey = typeof topic.category === 'string' ? topic.category.trim().toLowerCase() : '';
+      const categoryId = categoryLabelMap.get(categoryKey) ?? selectedCategory;
+      if (categoryId !== selectedCategory) {
+        setSelectedCategory(categoryId);
+      }
+      setQuery(topic.topic ?? '');
+      setFilters(normaliseFilters());
+      setActiveSavedSearchId(null);
+      setPage(1);
+      scheduleFocus(null);
+    },
+    [categoryLabelMap, selectedCategory, scheduleFocus],
+  );
+
+  const handleTrendingShare = useCallback((topic) => {
+    if (!topic) {
+      return;
+    }
+    const shareUrl = resolveAbsoluteUrl(topic.shareUrl ?? topic.href ?? '');
+    if (!shareUrl || typeof window === 'undefined') {
+      return;
+    }
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      navigator.share({ title: topic.topic, url: shareUrl }).catch((error) => {
+        console.warn('Navigator share failed', error);
+      });
+      return;
+    }
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(shareUrl).catch((error) => {
+        console.warn('Clipboard write failed', error);
+      });
+      return;
+    }
+    openExternalLink(shareUrl);
+  }, []);
+
+  const handleConnectionConnect = useCallback(
+    async (connection) => {
+      if (!connection) {
+        return;
+      }
+      if (!ensureAuthenticated() || !sessionUserId) {
+        return;
+      }
+      const targetId = connection.userId ?? connection.id;
+      if (!targetId) {
+        return;
+      }
+      try {
+        await createConnectionRequest({ actorId: sessionUserId, targetId });
+        setConnectionSpotlights((prev) =>
+          prev.map((item) => (item.id === connection.id ? { ...item, status: 'pending' } : item)),
+        );
+      } catch (error) {
+        console.warn('Failed to initiate connection request', error);
+      }
+    },
+    [ensureAuthenticated, sessionUserId],
+  );
+
+  const handleConnectionMessage = useCallback(
+    (connection) => {
+      if (!connection) {
+        return;
+      }
+      if (!ensureAuthenticated()) {
+        return;
+      }
+      const targetId = connection.userId ?? connection.id;
+      if (!targetId) {
+        return;
+      }
+      navigate(`/connections?suggested=${encodeURIComponent(targetId)}`);
+    },
+    [ensureAuthenticated, navigate],
+  );
+
+  const handleConnectionSave = useCallback(
+    (connection) => {
+      if (!connection) {
+        return;
+      }
+      if (!ensureAuthenticated()) {
+        return;
+      }
+      setConnectionSpotlights((prev) =>
+        prev.map((item) => (item.id === connection.id ? { ...item, saved: true } : item)),
+      );
+    },
+    [ensureAuthenticated],
+  );
 
   const handleRemoveFilterValue = useCallback(
     (key, value) => {
@@ -1391,84 +1896,101 @@ export default function SearchPage() {
               </div>
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
-              <p className="text-sm font-semibold text-slate-900">Suggested connections</p>
-              <p className="mt-1 text-xs text-slate-500">
-                Based on your interest signals: {engagementSignals.interests.slice(0, 4).join(' • ') || 'community builders'}
-              </p>
-              <ul className="mt-4 space-y-3 text-sm">
-                {engagementSignals.connectionSuggestions.slice(0, 3).map((connection) => (
-                  <li key={connection.id} className="rounded-2xl border border-slate-200 px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <UserAvatar name={connection.name} seed={connection.name} size="xs" showGlow={false} />
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900">{connection.name}</p>
-                        <p className="text-xs text-slate-500">{connection.headline}</p>
-                      </div>
-                    </div>
-                    <p className="mt-2 text-xs text-slate-500">{connection.reason}</p>
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-4 flex items-center justify-between text-xs text-slate-500">
-                <Link to="/connections" className="font-semibold text-accent hover:text-accentDark">
+            <SuggestionRail
+              title="Curated for you"
+              suggestions={filteredSuggestions}
+              loading={discoveryLoading && !suggestionCards.length}
+              error={discoveryError && !suggestionCards.length}
+              personalizationSummary={suggestionPersonalizationSummary}
+              filters={suggestionFilters}
+              activeFilter={activeDiscoveryFilter}
+              onFilterChange={handleDiscoveryFilterChange}
+              onRefresh={handleDiscoveryRefresh}
+              onFollowToggle={handleSuggestionFollowToggle}
+              onDismiss={handleSuggestionDismiss}
+              onSave={handleSuggestionSave}
+              onView={handleSuggestionView}
+              onShare={handleSuggestionShare}
+              analyticsSource="search_page"
+            />
+
+            <TrendingTopicsPanel
+              title="Trending across the network"
+              description={trendingDescription}
+              topics={trendingTopicRows}
+              loading={discoveryLoading && !trendingTopics.length}
+              error={discoveryError && !trendingTopics.length}
+              timeframes={trendingTimeframeOptions}
+              activeTimeframe={activeTrendingTimeframe ?? trendingTimeframeOptions[0]?.id ?? '7d'}
+              onTimeframeChange={handleTrendingTimeframeChange}
+              personas={trendingPersonaOptions}
+              activePersona={activeTrendingPersona}
+              onPersonaChange={handleTrendingPersonaChange}
+              onFollow={handleTrendingFollow}
+              onView={handleTrendingView}
+              onShare={handleTrendingShare}
+              analyticsSource="search_page"
+            />
+
+            <section className="space-y-6 rounded-[26px] border border-slate-100/80 bg-gradient-to-br from-indigo-50 via-white to-slate-50 p-6 shadow-2xl">
+              <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-indigo-500">
+                    <SparklesIcon className="h-4 w-4" aria-hidden="true" />
+                    Warm introductions
+                  </div>
+                  <h2 className="mt-2 text-xl font-semibold text-slate-900">People to meet next</h2>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Curated intros informed by your discovery persona and recent activity.
+                  </p>
+                </div>
+                <Link
+                  to="/connections"
+                  className="hidden rounded-full border border-indigo-200 bg-white/80 px-4 py-2 text-xs font-semibold text-indigo-600 transition hover:border-indigo-300 hover:text-indigo-700 lg:inline-flex"
+                >
                   Open network centre
                 </Link>
-                <span>{engagementSignals.connectionSuggestions.length} tailored matches</span>
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
-              <p className="text-sm font-semibold text-slate-900">Groups to explore</p>
-              <p className="mt-1 text-xs text-slate-500">
-                Curated from your causes and teams you collaborate with.
-              </p>
-              <ul className="mt-4 space-y-3 text-sm">
-                {engagementSignals.groupSuggestions.slice(0, 3).map((group) => (
-                  <li key={group.id} className="rounded-2xl border border-slate-200 px-4 py-3">
-                    <p className="text-sm font-semibold text-slate-900">{group.name}</p>
-                    <p className="mt-1 text-xs text-slate-500">{group.description}</p>
-                    <p className="mt-2 text-xs text-slate-400">{group.members} members · {group.focus.slice(0, 2).join(' • ')}</p>
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-4 text-right text-xs text-accent">
-                <Link to="/groups" className="font-semibold hover:text-accentDark">
-                  View all groups
-                </Link>
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
-              <p className="text-sm font-semibold text-slate-900">Trending now</p>
-              <p className="mt-1 text-xs text-slate-500">Fresh opportunities pulling in the most interest this week.</p>
-              {snapshotState.loading ? (
-                <div className="mt-4 space-y-3">
-                  {Array.from({ length: 3 }).map((_, index) => (
-                    <div key={index} className="h-14 animate-pulse rounded-2xl bg-slate-100" />
+              </header>
+              {discoveryError && !connectionSpotlights.length ? (
+                <div className="rounded-3xl border border-rose-200 bg-rose-50/80 p-4 text-sm text-rose-600">
+                  We couldn’t refresh your introductions. Try again shortly.
+                </div>
+              ) : null}
+              {discoveryLoading && !connectionSpotlights.length ? (
+                <div className="space-y-4">
+                  {Array.from({ length: 2 }).map((_, index) => (
+                    <div key={index} className="h-48 animate-pulse rounded-3xl bg-white/80 shadow-inner" />
                   ))}
                 </div>
-              ) : (
-                <ul className="mt-4 space-y-4">
-                  {trendingAcrossCategories.slice(0, 5).map((item) => (
-                    <li key={`${item.category}-${item.id}`} className="group flex items-start gap-3">
-                      <span className="mt-1 inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent/10 text-xs font-semibold text-accent">
-                        {item.categoryLabel?.charAt(0)}
-                      </span>
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900 group-hover:text-accent">{item.title}</p>
-                        <p className="text-xs text-slate-500">{item.description?.slice(0, 110) || 'Opportunity posted recently'}</p>
-                      </div>
-                    </li>
+              ) : null}
+              {!discoveryLoading && connectionSpotlights.length ? (
+                <div className="space-y-4">
+                  {connectionSpotlights.map((connection) => (
+                    <ConnectionCard
+                      key={connection.id}
+                      connection={connection}
+                      onConnect={handleConnectionConnect}
+                      onMessage={handleConnectionMessage}
+                      onSave={handleConnectionSave}
+                      analyticsSource="search_page"
+                    />
                   ))}
-                  {!trendingAcrossCategories.length ? (
-                    <li className="rounded-2xl border border-dashed border-slate-200 p-4 text-xs text-slate-500">
-                      Opportunities will appear here as soon as ingestion syncs complete.
-                    </li>
-                  ) : null}
-                </ul>
-              )}
-            </div>
+                </div>
+              ) : null}
+              {!discoveryLoading && !connectionSpotlights.length && !discoveryError ? (
+                <div className="rounded-3xl border border-dashed border-slate-200 bg-white/80 p-6 text-center text-sm text-slate-500">
+                  We’ll surface personalised introductions as soon as new signals are available. Update your profile interests to accelerate matches.
+                </div>
+              ) : null}
+              <div className="text-right lg:hidden">
+                <Link
+                  to="/connections"
+                  className="inline-flex items-center justify-center rounded-full border border-indigo-200 bg-white/80 px-4 py-2 text-xs font-semibold text-indigo-600 transition hover:border-indigo-300 hover:text-indigo-700"
+                >
+                  Open network centre
+                </Link>
+              </div>
+            </section>
           </aside>
 
           <div>
