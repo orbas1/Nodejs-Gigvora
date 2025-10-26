@@ -3,6 +3,7 @@ import profileService from '../services/profileService.js';
 import userDashboardService from '../services/userDashboardService.js';
 import freelancerAllianceService from '../services/freelancerAllianceService.js';
 import supportDeskService from '../services/supportDeskService.js';
+import userQuickActionService from '../services/userQuickActionService.js';
 import catalogInsightsService from '../services/catalogInsightsService.js';
 import gigBuilderService from '../services/gigBuilderService.js';
 import gigManagerService from '../services/gigManagerService.js';
@@ -204,6 +205,13 @@ export async function getSupportDesk(req, res) {
     bypassCache: req.query.fresh === 'true',
   });
   res.json(snapshot);
+}
+
+export async function getUserQuickActions(req, res) {
+  const payload = await userQuickActionService.getUserQuickActions(req.params.id, {
+    bypassCache: req.query.fresh === 'true',
+  });
+  res.json(payload);
 }
 
 export async function getFreelancerCatalogInsights(req, res) {

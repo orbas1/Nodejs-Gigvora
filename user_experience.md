@@ -1,3 +1,13 @@
+#### 1.C.1 SupportBubble.jsx
+- Concierge support snapshots now normalise live metrics, case assignments, curated specialists, knowledge highlights, and dispute deadlines into a single payload so operations teams see actionable data instead of placeholder copy.【F:gigvora-frontend-reactjs/src/components/support/SupportBubble.jsx†L138-L278】
+- The bubble renders premium metrics, skeleton loaders, concierge team fallbacks, knowledge navigation, and dispute escalation cards with error and refresh affordances that mirror the luxury support brief for LinkedIn-class surfaces.【F:gigvora-frontend-reactjs/src/components/support/SupportBubble.jsx†L618-L915】
+- Action chips delegate to live desk, concierge scheduling, and knowledge base entrypoints while preserving analytics hooks, ensuring the component drives real workflows rather than stubs.【F:gigvora-frontend-reactjs/src/components/support/SupportBubble.jsx†L893-L915】
+
+#### 1.C.2 QuickCreateFab.jsx
+- QuickCreateFab resolves icon tokens, tones, and recommended states for both hard-coded defaults and API-provided quick actions, guaranteeing consistent styling and accessibility across premium launchers.【F:gigvora-frontend-reactjs/src/components/navigation/QuickCreateFab.jsx†L1-L319】
+- FreelancerDashboardPage hydrates the FAB with cached `/users/:id/quick-actions` data, tracks analytics on open/select events, and surfaces the launcher across the dashboard shell to keep creation one tap away.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L221-L507】
+- The Node service composes persona-aware quick actions, integrates support snapshots, and is covered by unit tests so the frontend receives production-ready payloads with caching, failure, and role safeguards.【F:gigvora-backend-nodejs/src/services/userQuickActionService.js†L13-L214】【F:gigvora-backend-nodejs/src/services/__tests__/userQuickActionService.test.js†L1-L134】【F:gigvora-frontend-reactjs/src/services/userQuickActions.js†L1-L21】
+
    - First-impression audits still benchmark against LinkedIn-class networking suites to validate trust and desirability.
    - Capture refreshed moodboards that highlight stat tiles, persona copy, and premium shaping now present in the manager.
    - Compare Received vs. Sent tabs during heuristic reviews so stakeholders feel confident within three seconds.

@@ -46,116 +46,8 @@ const PRIORITY_THEMES = {
   low: 'border-emerald-200 bg-emerald-50 text-emerald-600',
 };
 
-const FALLBACK_SNAPSHOT = {
-  refreshedAt: new Date().toISOString(),
-  metrics: {
-    openSupportCases: 2,
-    awaitingReplyCases: 1,
-    averageFirstResponseMinutes: 28,
-    averageResolutionMinutes: 215,
-    csatTrailing30DayScore: 4.82,
-    csatResponseRate: 92,
-  },
-  supportCases: [
-    {
-      id: 'case-9481',
-      reference: '#GV-9481',
-      status: 'escalated',
-      priority: 'urgent',
-      subject: 'Payout blocked after milestone delivery',
-      summary:
-        'Finance is reviewing escrow release. Provide proof of milestone acceptance to accelerate the hand-off.',
-      updatedAt: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-      assignedAgent: {
-        id: 'agent-helena',
-        name: 'Helena Morris',
-        role: 'Community success lead',
-        presence: 'online',
-      },
-      nextStep: 'Finance audit scheduled for 2:30 PM Pacific.',
-    },
-    {
-      id: 'case-9482',
-      reference: '#GV-9478',
-      status: 'in_progress',
-      priority: 'medium',
-      subject: 'Client needs onboarding resources for volunteers',
-      summary:
-        'Client requested multilingual onboarding packs. Draft is awaiting approval before distribution.',
-      updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-      assignedAgent: {
-        id: 'agent-jordan',
-        name: 'Jordan Singh',
-        role: 'Operations concierge',
-        presence: 'away',
-      },
-      nextStep: 'Review localisation checklist and share ready-to-send templates.',
-    },
-    {
-      id: 'case-9470',
-      reference: '#GV-9470',
-      status: 'waiting_on_customer',
-      priority: 'low',
-      subject: 'Clarify analytics coverage for executive dashboard',
-      summary:
-        'Analyst is waiting on sample OKR metrics to finish calibrating the dashboard surface.',
-      updatedAt: new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString(),
-      assignedAgent: {
-        id: 'agent-aziza',
-        name: 'Aziza Mensah',
-        role: 'Insights partner',
-        presence: 'offline',
-      },
-      nextStep: 'Upload example OKR exports or request analytics concierge support.',
-    },
-  ],
-  knowledgeBase: [
-    {
-      id: 'kb-playbooks',
-      title: 'Playbook: Escalated payouts and trust saves',
-      summary: 'Step-by-step checklist to reassure clients and move funds once proof is attached.',
-      tags: ['payouts', 'finance', 'trust'],
-      resourceLinks: [{
-        label: 'Escrow release checklist',
-        url: 'https://docs.gigvora.example/escrow-release',
-      }],
-      lastReviewedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-    {
-      id: 'kb-onboarding',
-      title: 'Concierge pack: Volunteer onboarding in 48 hours',
-      summary: 'Template messages, localisation guardrails, and analytics to track adoption.',
-      tags: ['onboarding', 'volunteer', 'templates'],
-      resourceLinks: [{
-        label: 'Download starter pack',
-        url: 'https://docs.gigvora.example/volunteer-pack',
-      }],
-      lastReviewedAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-  ],
-  playbooks: [
-    {
-      id: 'pb-sentiment',
-      title: 'Reboot stakeholder confidence after escalations',
-      summary: 'Blend proactive outreach and analytics dashboards to confirm stability.',
-      csatImpact: '+9 CSAT (trailing 30 days)',
-    },
-  ],
-  specialists: [
-    {
-      id: 'helena-morris',
-      name: 'Helena Morris',
-      role: 'Community success lead',
-      presence: 'online',
-    },
-    {
-      id: 'jordan-singh',
-      name: 'Jordan Singh',
-      role: 'Operations concierge',
-      presence: 'away',
-    },
-  ],
-};
+const PRIORITY_ORDER = ['urgent', 'high', 'medium', 'low'];
+
 
 function classNames(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -206,10 +98,14 @@ function friendlyMinutes(value) {
   if (minutes < 60) {
     return `${Math.round(minutes)} mins`;
   }
+  const formatter = new Intl.NumberFormat('en', { maximumFractionDigits: 1, minimumFractionDigits: 0 });
   if (minutes < 60 * 24) {
-    return `${(minutes / 60).toFixed(1)} hrs`;
+    return `${formatter.format(minutes / 60)} hrs`;
   }
-  return `${(minutes / (60 * 24)).toFixed(1)} days`;
+  if (minutes < 60 * 24 * 7) {
+    return `${formatter.format(minutes / (60 * 24))} days`;
+  }
+  return `${formatter.format(minutes / (60 * 24 * 7))} wks`;
 }
 
 function formatPercent(value) {
@@ -219,23 +115,42 @@ function formatPercent(value) {
   return Math.round(Number(value));
 }
 
+function titleize(value) {
+  if (!value) {
+    return null;
+  }
+  return `${value}`
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function resolvePriorityIndex(priorityKey) {
+  if (!priorityKey) {
+    return PRIORITY_ORDER.length;
+  }
+  const normalised = `${priorityKey}`.toLowerCase();
+  const index = PRIORITY_ORDER.indexOf(normalised);
+  return index === -1 ? PRIORITY_ORDER.length : index;
+}
+
 function normaliseSnapshot(raw) {
-  const source = raw ?? {};
-  const metrics = source.metrics ?? {};
-  const cases = Array.isArray(source.supportCases) ? source.supportCases : [];
-  const knowledgeBase = Array.isArray(source.knowledgeBase) ? source.knowledgeBase : [];
-  const playbooks = Array.isArray(source.playbooks) ? source.playbooks : [];
-  const specialists = Array.isArray(source.specialists)
-    ? source.specialists
+  const source = raw && typeof raw === 'object' ? raw : {};
+  const metrics = source.metrics && typeof source.metrics === 'object' ? source.metrics : {};
+  const cases = Array.isArray(source.supportCases) ? source.supportCases.filter(Boolean) : [];
+  const knowledgeBase = Array.isArray(source.knowledgeBase) ? source.knowledgeBase.filter(Boolean) : [];
+  const playbooks = Array.isArray(source.playbooks) ? source.playbooks.filter(Boolean) : [];
+  const specialistSource = Array.isArray(source.specialists)
+    ? source.specialists.filter(Boolean)
     : cases
         .map((item) => item?.assignedAgent)
-        .filter((agent) => agent && (agent.name || agent.email))
-        .map((agent) => ({
-          id: agent.id ?? agent.email ?? agent.name,
-          name: agent.name ?? agent.email ?? 'Support specialist',
-          role: agent.role ?? agent.title ?? 'Support specialist',
-          presence: agent.presence ?? agent.status ?? agent.availability ?? null,
-        }));
+        .filter((agent) => agent && (agent.name || agent.email));
+
+  const toFiniteNumber = (value, fallback = null) => {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : fallback;
+  };
 
   const activeCases = cases.filter((item) => {
     const status = `${item?.status ?? ''}`.toLowerCase();
@@ -249,46 +164,76 @@ function normaliseSnapshot(raw) {
 
   const csatScore =
     metrics.csatTrailing30DayScore ?? metrics.csatScore ?? metrics.customerSatisfactionScore ?? null;
+  const csatScoreNumber = toFiniteNumber(csatScore, null);
+  const csatPercent = csatScoreNumber != null ? Math.round((csatScoreNumber / 5) * 100) : null;
 
-  const csatPercent = csatScore != null ? Math.round((Number(csatScore) / 5) * 100) : null;
+  const disputeCandidates = Array.isArray(source.disputes) ? source.disputes.filter(Boolean) : [];
+
+  const activeDispute = disputeCandidates
+    .map((entry) => {
+      const statusKey = `${entry?.status ?? ''}`.toLowerCase();
+      const priorityKey = `${entry?.priority ?? ''}`.toLowerCase();
+      const customerDeadlineAt = entry?.customerDeadlineAt ?? entry?.providerDeadlineAt ?? null;
+      const priorityIndex = resolvePriorityIndex(priorityKey);
+      return {
+        id: entry?.id ?? hashString(entry?.reference ?? entry?.transaction?.reference ?? Math.random()),
+        reference: entry?.transaction?.reference ?? entry?.reference ?? null,
+        summary: entry?.summary ?? null,
+        statusKey,
+        statusLabel: titleize(statusKey) ?? 'Open',
+        priorityKey,
+        priorityLabel: priorityKey ? titleize(priorityKey) : null,
+        priorityIndex,
+        priorityTone: PRIORITY_THEMES[priorityKey] ?? PRIORITY_THEMES.high,
+        customerDeadlineAt,
+        deadlineRelative: customerDeadlineAt ? formatRelativeTime(customerDeadlineAt) : null,
+      };
+    })
+    .filter((entry) => !['settled', 'closed', 'resolved'].includes(entry.statusKey))
+    .sort((a, b) => {
+      const priorityDelta = a.priorityIndex - b.priorityIndex;
+      if (priorityDelta !== 0) {
+        return priorityDelta;
+      }
+      const timeA = a.customerDeadlineAt ? new Date(a.customerDeadlineAt).getTime() : Number.POSITIVE_INFINITY;
+      const timeB = b.customerDeadlineAt ? new Date(b.customerDeadlineAt).getTime() : Number.POSITIVE_INFINITY;
+      return timeA - timeB;
+    })[0] ?? null;
 
   return {
     lastRefreshedAt: source.refreshedAt ?? source.cachedAt ?? null,
     metrics: {
-      activeCases: metrics.openSupportCases ?? activeCases.length ?? 0,
-      awaitingReply: metrics.awaitingReplyCases ?? awaitingCases.length ?? 0,
-      averageFirstResponseMinutes: metrics.averageFirstResponseMinutes ?? null,
-      averageResolutionMinutes: metrics.averageResolutionMinutes ?? null,
+      activeCases: toFiniteNumber(metrics.openSupportCases, activeCases.length),
+      awaitingReply: toFiniteNumber(metrics.awaitingReplyCases, awaitingCases.length),
+      averageFirstResponseMinutes: toFiniteNumber(metrics.averageFirstResponseMinutes, null),
+      averageResolutionMinutes: toFiniteNumber(metrics.averageResolutionMinutes, null),
       csatPercent,
-      csatScore,
-      csatResponseRate: metrics.csatResponseRate ?? metrics.csatResponses ?? null,
+      csatScore: csatScoreNumber,
+      csatResponseRate: toFiniteNumber(metrics.csatResponseRate, null),
     },
-    cases: activeCases.slice(0, 3).map((item) => {
+    cases: activeCases.slice(0, 3).map((item, index) => {
       const statusKey = `${item?.status ?? ''}`.toLowerCase();
       const statusTheme = STATUS_THEMES[statusKey] ?? STATUS_THEMES.open;
       const priorityKey = `${item?.priority ?? ''}`.toLowerCase();
       const priorityTone = PRIORITY_THEMES[priorityKey] ?? PRIORITY_THEMES.medium;
       const updatedAt = item?.updatedAt ?? item?.lastMessageAt ?? item?.escalatedAt ?? null;
+      const subject = item?.subject ?? item?.title ?? item?.reference ?? `Support case ${index + 1}`;
       return {
-        id: item?.id ?? item?.reference ?? hashString(item?.subject ?? Math.random()),
+        id: item?.id ?? item?.reference ?? hashString(subject ?? Math.random()),
         reference: item?.reference ?? null,
-        subject: item?.subject ?? item?.title ?? 'Support request',
-        summary:
-          item?.summary ??
-          item?.reason ??
-          item?.description ??
-          'We are tracking this request so you can stay focussed on delivery.',
+        subject,
+        summary: item?.summary ?? item?.reason ?? item?.description ?? null,
         statusKey,
         statusLabel: statusTheme.label,
         statusTone: statusTheme.tone,
-        priorityLabel: priorityKey ? priorityKey.replace(/_/g, ' ') : 'Medium',
+        priorityLabel: priorityKey ? titleize(priorityKey) : null,
         priorityTone,
         updatedAt,
         relativeUpdatedAt: updatedAt ? formatRelativeTime(updatedAt) : null,
         assignedAgent: item?.assignedAgent
           ? {
-              id: item.assignedAgent.id ?? item.assignedAgent.email ?? item.assignedAgent.name,
-              name: item.assignedAgent.name ?? 'Support specialist',
+              id: item.assignedAgent.id ?? item.assignedAgent.email ?? item.assignedAgent.name ?? index,
+              name: item.assignedAgent.name ?? item.assignedAgent.email ?? null,
               role: item.assignedAgent.role ?? item.assignedAgent.title ?? null,
               presence:
                 item.assignedAgent.presence ??
@@ -300,42 +245,38 @@ function normaliseSnapshot(raw) {
         nextStep: item?.nextStep ?? item?.playbooks?.[0]?.playbook?.steps?.[0]?.instructions ?? null,
       };
     }),
-    articles: knowledgeBase.slice(0, 3).map((article) => ({
-      id: article?.id ?? article?.slug ?? hashString(article?.title ?? Math.random()),
-      title: article?.title ?? 'Knowledge base article',
-      summary: article?.summary ?? article?.description ?? 'Explore guidance curated for your workspace.',
+    articles: knowledgeBase.slice(0, 3).map((article, index) => ({
+      id: article?.id ?? article?.slug ?? hashString(article?.title ?? index ?? Math.random()),
+      title: article?.title ?? null,
+      summary: article?.summary ?? article?.description ?? null,
       url: article?.resourceLinks?.[0]?.url ?? null,
       label: article?.resourceLinks?.[0]?.label ?? null,
-      tags: Array.isArray(article?.tags)
-        ? article.tags.filter(Boolean).slice(0, 3)
-        : [],
+      tags: Array.isArray(article?.tags) ? article.tags.filter(Boolean).slice(0, 3) : [],
       lastReviewedAt: article?.lastReviewedAt ?? null,
     })),
     playbook: playbooks[0]
       ? {
-          id: playbooks[0].id ?? 'playbook-focus',
-          title: playbooks[0].title ?? 'Recommended playbook',
-          summary:
-            playbooks[0].summary ??
-            'Follow this playbook to restore confidence and keep momentum with your stakeholders.',
+          id: playbooks[0].id ?? hashString(playbooks[0].title ?? Math.random()),
+          title: playbooks[0].title ?? null,
+          summary: playbooks[0].summary ?? null,
           csatImpact: playbooks[0].csatImpact ?? null,
         }
       : null,
-    specialists: (specialists ?? []).slice(0, 3).map((specialist, index) => {
+    specialists: specialistSource.slice(0, 3).map((specialist, index) => {
       const gradientIndex = Math.abs(hashString(specialist.id ?? specialist.name ?? index)) % GRADIENTS.length;
+      const name = specialist.name ?? specialist.email ?? null;
       return {
-        id: specialist.id ?? index,
-        name: specialist.name ?? 'Support specialist',
-        role: specialist.role ?? 'Support concierge',
-        presence: specialist.presence ?? 'offline',
-        initials: buildInitials(specialist.name),
+        id: specialist.id ?? specialist.email ?? index,
+        name,
+        role: specialist.role ?? specialist.title ?? null,
+        presence: specialist.presence ?? specialist.status ?? specialist.availability ?? null,
+        initials: buildInitials(name),
         gradient: GRADIENTS[gradientIndex],
       };
     }),
+    dispute: activeDispute,
   };
 }
-
-const FALLBACK_NORMALISED = normaliseSnapshot(FALLBACK_SNAPSHOT);
 
 function SpecialistAvatar({ specialist }) {
   return (
@@ -582,17 +523,24 @@ export default function SupportBubble({
     }
   }, [loadSnapshot, resolvedUserId, seededSnapshot]);
 
-  const resolvedData = useMemo(() => {
+  const dataset = useMemo(() => {
     if (snapshotState.data) {
       return normaliseSnapshot(snapshotState.data);
     }
     if (seededSnapshot?.data) {
       return normaliseSnapshot(seededSnapshot.data);
     }
-    return null;
+    return normaliseSnapshot(null);
   }, [seededSnapshot, snapshotState.data]);
 
-  const dataset = resolvedData ?? FALLBACK_NORMALISED;
+  const isInitialLoading = snapshotState.loading && !snapshotState.data && !seededSnapshot?.data;
+  const casesList = dataset.cases ?? [];
+  const specialistsList = dataset.specialists ?? [];
+  const articlesList = dataset.articles ?? [];
+  const disputeHighlight = dataset.dispute ?? null;
+  const metrics = dataset.metrics ?? {};
+  const csatResponsePercent =
+    metrics.csatResponseRate != null ? formatPercent(metrics.csatResponseRate) : null;
 
   const resolvedActions = useMemo(() => {
     if (Array.isArray(actions) && actions.length) {
@@ -622,15 +570,15 @@ export default function SupportBubble({
         icon: BookOpenIcon,
         tone: 'text-emerald-600',
         onSelect: () => {
-          if (dataset.articles[0]?.url) {
-            onNavigateKnowledge?.(dataset.articles[0].url, dataset.articles[0]);
+          if (articlesList[0]?.url) {
+            onNavigateKnowledge?.(articlesList[0].url, articlesList[0]);
           } else if (onNavigateKnowledge) {
             onNavigateKnowledge(null, null);
           }
         },
       },
     ];
-  }, [actions, dataset.articles, onNavigateKnowledge, onOpenDesk, onScheduleCall]);
+  }, [actions, articlesList, onNavigateKnowledge, onOpenDesk, onScheduleCall]);
 
   const handleAction = useCallback(
     async (action) => {
@@ -720,38 +668,58 @@ export default function SupportBubble({
       <section className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-3xl border border-slate-200/70 bg-white/90 p-4 shadow-sm shadow-slate-900/5">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Active cases</p>
-          <p className="mt-2 text-3xl font-semibold text-slate-900">{dataset.metrics.activeCases}</p>
+          <p className="mt-2 text-3xl font-semibold text-slate-900">
+            {isInitialLoading ? (
+              <span className="inline-flex h-8 w-16 animate-pulse rounded-lg bg-slate-200" />
+            ) : (
+              metrics.activeCases ?? '—'
+            )}
+          </p>
           <p className="mt-1 text-xs text-slate-500">
-            {dataset.metrics.awaitingReply > 0
-              ? `${dataset.metrics.awaitingReply} waiting on your cue`
-              : 'All cases have live ownership'}
+            {isInitialLoading
+              ? 'Loading concierge metrics…'
+              : metrics.awaitingReply > 0
+                ? `${metrics.awaitingReply} waiting on your cue`
+                : 'All cases have live ownership'}
           </p>
         </div>
         <div className="rounded-3xl border border-slate-200/70 bg-white/90 p-4 shadow-sm shadow-slate-900/5">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Avg. first response</p>
           <p className="mt-2 text-3xl font-semibold text-slate-900">
-            {dataset.metrics.averageFirstResponseMinutes
-              ? friendlyMinutes(dataset.metrics.averageFirstResponseMinutes)
+            {isInitialLoading ? (
+              <span className="inline-flex h-8 w-20 animate-pulse rounded-lg bg-slate-200" />
+            ) : metrics.averageFirstResponseMinutes != null
+              ? friendlyMinutes(metrics.averageFirstResponseMinutes)
               : '—'}
           </p>
-          <p className="mt-1 text-xs text-slate-500">Concierge replies within the premium SLA window.</p>
+          <p className="mt-1 text-xs text-slate-500">
+            {isInitialLoading
+              ? 'Checking latest SLA performance…'
+              : 'Concierge replies within the premium SLA window.'}
+          </p>
         </div>
         <div className="rounded-3xl border border-slate-200/70 bg-white/90 p-4 shadow-sm shadow-slate-900/5">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">CSAT (30d)</p>
           <div className="mt-2 flex items-baseline gap-2">
             <p className="text-3xl font-semibold text-slate-900">
-              {dataset.metrics.csatPercent != null ? `${dataset.metrics.csatPercent}%` : '—'}
+              {isInitialLoading
+                ? <span className="inline-flex h-8 w-16 animate-pulse rounded-lg bg-slate-200" />
+                : metrics.csatPercent != null
+                  ? `${metrics.csatPercent}%`
+                  : '—'}
             </p>
-            {dataset.metrics.csatScore != null ? (
+            {!isInitialLoading && metrics.csatScore != null ? (
               <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-600">
-                {dataset.metrics.csatScore.toFixed(2)} / 5
+                {metrics.csatScore.toFixed(2)} / 5
               </span>
             ) : null}
           </div>
           <p className="mt-1 text-xs text-slate-500">
-            {dataset.metrics.csatResponseRate
-              ? `${formatPercent(dataset.metrics.csatResponseRate)}% response rate`
-              : 'Collecting sentiment across recent resolutions.'}
+            {isInitialLoading
+              ? 'Gathering sentiment across resolutions…'
+              : csatResponsePercent != null
+                ? `${csatResponsePercent}% response rate`
+                : 'Collecting sentiment across recent resolutions.'}
           </p>
         </div>
       </section>
@@ -782,64 +750,143 @@ export default function SupportBubble({
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-slate-900">Live support threads</h3>
-            <span className="text-xs text-slate-500">{dataset.metrics.activeCases} in progress</span>
+            <span className="text-xs text-slate-500">{metrics.activeCases ?? '—'} in progress</span>
           </div>
-          <ul className="space-y-3">
-            {dataset.cases.map((supportCase) => (
-              <CaseItem key={supportCase.id} supportCase={supportCase} />
-            ))}
-          </ul>
+          {isInitialLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 2 }).map((_, index) => (
+                <div
+                  key={`case-skeleton-${index}`}
+                  className="h-28 animate-pulse rounded-3xl border border-slate-200/70 bg-slate-100"
+                />
+              ))}
+            </div>
+          ) : casesList.length ? (
+            <ul className="space-y-3">
+              {casesList.map((supportCase) => (
+                <CaseItem key={supportCase.id} supportCase={supportCase} />
+              ))}
+            </ul>
+          ) : (
+            <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+              No active support cases right now. Your concierge team will notify you instantly when new requests arrive.
+            </div>
+          )}
         </div>
         <aside className="space-y-4">
           <div className="rounded-3xl border border-slate-200/70 bg-white/90 p-4 shadow-sm shadow-slate-900/5">
             <h3 className="text-sm font-semibold text-slate-900">Concierge team</h3>
             <p className="mt-1 text-xs text-slate-500">Premium specialists ready to step in.</p>
             <div className="mt-3 space-y-3">
-              {dataset.specialists.map((specialist) => (
-                <SpecialistAvatar key={specialist.id} specialist={specialist} />
-              ))}
+              {isInitialLoading ? (
+                Array.from({ length: 3 }).map((_, index) => (
+                  <div
+                    key={`specialist-skeleton-${index}`}
+                    className="h-12 animate-pulse rounded-3xl bg-slate-100"
+                  />
+                ))
+              ) : specialistsList.length ? (
+                specialistsList.map((specialist) => (
+                  <SpecialistAvatar key={specialist.id} specialist={specialist} />
+                ))
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-xs text-slate-500">
+                  Your concierge squad will introduce themselves here once assigned to an active case.
+                </div>
+              )}
             </div>
           </div>
           <div className="rounded-3xl border border-slate-200/70 bg-white/90 p-4 shadow-sm shadow-slate-900/5">
             <h3 className="text-sm font-semibold text-slate-900">Knowledge highlights</h3>
-            <ul className="mt-2 space-y-3">
-              {dataset.articles.map((article) => (
-                <li key={article.id}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (onNavigateKnowledge) {
-                        onNavigateKnowledge(article.url ?? null, article);
-                      }
-                    }}
-                    className="group flex w-full items-start justify-between gap-3 rounded-2xl border border-transparent px-0 py-1 text-left transition hover:border-slate-200 hover:bg-slate-50"
-                  >
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900 group-hover:text-slate-950">
-                        {article.title}
-                      </p>
-                      {article.summary ? (
-                        <p className="mt-1 text-xs text-slate-500">{article.summary}</p>
-                      ) : null}
-                      {article.tags?.length ? (
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {article.tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                    <ArrowUpRightIcon className="mt-1 h-4 w-4 text-slate-400 transition group-hover:text-slate-600" aria-hidden="true" />
-                  </button>
-                </li>
-              ))}
-            </ul>
+            {isInitialLoading ? (
+              <div className="mt-2 space-y-3">
+                {Array.from({ length: 2 }).map((_, index) => (
+                  <div
+                    key={`knowledge-skeleton-${index}`}
+                    className="h-16 animate-pulse rounded-3xl bg-slate-100"
+                  />
+                ))}
+              </div>
+            ) : articlesList.length ? (
+              <ul className="mt-2 space-y-3">
+                {articlesList.map((article) => (
+                  <li key={article.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onNavigateKnowledge) {
+                          onNavigateKnowledge(article.url ?? null, article);
+                        }
+                      }}
+                      className="group flex w-full items-start justify-between gap-3 rounded-2xl border border-transparent px-0 py-1 text-left transition hover:border-slate-200 hover:bg-slate-50"
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900 group-hover:text-slate-950">
+                          {article.title}
+                        </p>
+                        {article.summary ? (
+                          <p className="mt-1 text-xs text-slate-500">{article.summary}</p>
+                        ) : null}
+                        {article.tags?.length ? (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {article.tags.map((tag) => (
+                              <span
+                                key={tag}
+                                className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                      <ArrowUpRightIcon className="mt-1 h-4 w-4 text-slate-400 transition group-hover:text-slate-600" aria-hidden="true" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="mt-2 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-xs text-slate-500">
+                No curated guides just yet. As new cases close, we’ll drop tailored playbooks and knowledge base picks here.
+              </div>
+            )}
           </div>
+          {disputeHighlight ? (
+            <div className="rounded-3xl border border-amber-200 bg-amber-50/80 p-4 shadow-sm shadow-amber-200/40">
+              <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-amber-600">
+                <ExclamationTriangleIcon className="h-4 w-4" aria-hidden="true" />
+                Active dispute
+              </p>
+              <div className="mt-2 space-y-2">
+                <p className="text-sm font-semibold text-slate-900">
+                  {disputeHighlight.summary ?? 'Review dispute details to keep funds protected.'}
+                </p>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                  {disputeHighlight.reference ? (
+                    <span className="rounded-full bg-white px-2 py-0.5 font-semibold text-slate-600">
+                      {disputeHighlight.reference}
+                    </span>
+                  ) : null}
+                  {disputeHighlight.priorityLabel ? (
+                    <span
+                      className={classNames(
+                        'inline-flex items-center rounded-full border px-2 py-0.5 font-semibold uppercase tracking-wide text-[10px]',
+                        disputeHighlight.priorityTone,
+                      )}
+                    >
+                      {disputeHighlight.priorityLabel}
+                    </span>
+                  ) : null}
+                  {disputeHighlight.deadlineRelative ? (
+                    <span className="inline-flex items-center gap-1 text-amber-600">
+                      <ArrowPathIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                      Response due {disputeHighlight.deadlineRelative}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          ) : null}
         </aside>
       </section>
 

@@ -4,6 +4,7 @@ import {
   ArrowUpRightIcon,
   BriefcaseIcon,
   CalendarDaysIcon,
+  LifebuoyIcon,
   MegaphoneIcon,
   PlusIcon,
   SparklesIcon,
@@ -22,6 +23,22 @@ const ACTION_TONES = {
   amber: 'bg-amber-50 text-amber-600 ring-amber-200',
   rose: 'bg-rose-50 text-rose-600 ring-rose-200',
   slate: 'bg-slate-900 text-white ring-slate-200/60',
+};
+
+const ICON_LIBRARY = {
+  briefcase: BriefcaseIcon,
+  gig: BriefcaseIcon,
+  megaphone: MegaphoneIcon,
+  post: MegaphoneIcon,
+  'user-plus': UserPlusIcon,
+  invite: UserPlusIcon,
+  calendar: CalendarDaysIcon,
+  schedule: CalendarDaysIcon,
+  lifebuoy: LifebuoyIcon,
+  support: LifebuoyIcon,
+  sparkles: SparklesIcon,
+  lightning: SparklesIcon,
+  plus: PlusIcon,
 };
 
 const PLACEMENT_CLASSES = {
@@ -71,6 +88,16 @@ function resolveToneClasses(tone) {
     return ACTION_TONES.violet;
   }
   return ACTION_TONES[tone] ?? tone;
+}
+
+function resolveIconComponent(icon) {
+  if (typeof icon === 'string') {
+    return ICON_LIBRARY[icon] ?? SparklesIcon;
+  }
+  if (icon) {
+    return icon;
+  }
+  return SparklesIcon;
 }
 
 export default function QuickCreateFab({
@@ -207,9 +234,9 @@ export default function QuickCreateFab({
             </div>
             <ul className="mt-4 space-y-3">
               {resolvedActions.map((action, index) => {
-                const Icon = action.icon ?? SparklesIcon;
+                const Icon = resolveIconComponent(action.icon);
                 const toneClasses = resolveToneClasses(action.tone);
-                const recommended = action.id === recommendedId;
+                const recommended = action.recommended === true || action.id === recommendedId;
                 return (
                   <li key={action.id}>
                     <button
@@ -282,7 +309,7 @@ QuickCreateFab.propTypes = {
       id: PropTypes.string.isRequired,
       label: PropTypes.string.isRequired,
       description: PropTypes.string,
-      icon: PropTypes.elementType,
+      icon: PropTypes.oneOfType([PropTypes.string, PropTypes.elementType]),
       tone: PropTypes.string,
       href: PropTypes.string,
       onSelect: PropTypes.func,
