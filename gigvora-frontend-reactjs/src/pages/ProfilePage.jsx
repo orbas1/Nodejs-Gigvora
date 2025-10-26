@@ -7,6 +7,9 @@ import TrustScoreBreakdown from '../components/TrustScoreBreakdown.jsx';
 import UserAvatar from '../components/UserAvatar.jsx';
 import ReputationEngineShowcase from '../components/reputation/ReputationEngineShowcase.jsx';
 import { GigvoraAdBanner, GigvoraAdGrid } from '../components/marketing/GigvoraAds.jsx';
+import ProfileOverview from '../components/profile/ProfileOverview.jsx';
+import ExperienceTimeline from '../components/profile/ExperienceTimeline.jsx';
+import PortfolioGallery from '../components/profile/PortfolioGallery.jsx';
 import {
   GIGVORA_PROFILE_ADS,
   GIGVORA_PROFILE_BANNER,
@@ -16,6 +19,7 @@ import { listFollowers, saveFollower, deleteFollower } from '../services/profile
 import useSession from '../hooks/useSession.js';
 import { fetchFreelancerReputation } from '../services/reputation.js';
 import { formatAbsolute, formatRelativeTime } from '../utils/date.js';
+import { formatStatusLabel } from '../components/userNetworking/utils.js';
 
 const AVAILABILITY_OPTIONS = [
   {
@@ -39,14 +43,6 @@ const AVAILABILITY_OPTIONS = [
     description: 'Temporarily away from project work',
   },
 ];
-
-function formatStatusLabel(status) {
-  if (!status) return '';
-  return status
-    .split('_')
-    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-    .join(' ');
-}
 
 function buildAvailabilityDraft(availability = {}) {
   return {
@@ -654,75 +650,18 @@ export default function ProfilePage() {
               {error}
             </div>
           ) : null}
-        <div className="grid items-start gap-10 rounded-4xl border border-slate-200/70 bg-white/80 p-10 shadow-xl backdrop-blur lg:grid-cols-[auto,1fr]">
-          <div className="space-y-4 text-center lg:text-left">
-            <UserAvatar
-              name={profile.name}
-              imageUrl={profile.avatarUrl}
-              seed={profile.avatarSeed}
-              size="lg"
-              className="mx-auto lg:mx-0"
-            />
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent/80">Profile #{id}</p>
-              <h1 className="mt-2 text-3xl font-bold text-slate-900">{profile.name}</h1>
-              <p className="mt-2 text-base text-slate-600">{profile.headline}</p>
-              <p className="mt-2 text-sm text-slate-500">{profile.location}</p>
-            </div>
-            <div className="flex flex-wrap justify-center gap-3 text-xs text-slate-500 lg:justify-start">
-              {statusFlags.map((flag) => (
-                <span key={flag} className="rounded-full border border-slate-200 px-3 py-1 text-slate-600">
-                  {formatStatusLabel(flag)}
-                </span>
-              ))}
-              {volunteerBadges.map((badge) => (
-                <span key={badge} className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-emerald-700">
-                  {formatStatusLabel(badge)}
-                </span>
-              ))}
-            </div>
-            {areasOfFocus.length > 0 ? (
-              <div className="flex flex-wrap justify-center gap-2 text-xs text-slate-500 lg:justify-start">
-                {areasOfFocus.map((area) => (
-                  <span key={area} className="rounded-full border border-accent/30 bg-accent/5 px-3 py-1 text-accent">
-                    {area}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-            {canManageProfile ? (
-              <div className="flex justify-center lg:justify-start">
-                <button
-                  type="button"
-                  onClick={() => setEditorOpen(true)}
-                  disabled={savingAvailability || savingProfile}
-                  className="mt-2 inline-flex items-center justify-center rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:cursor-not-allowed disabled:bg-slate-300"
-                >
-                  Edit profile
-                </button>
-              </div>
-            ) : null}
-          </div>
-          <div className="grid gap-6 lg:grid-cols-2">
-            <article className="rounded-3xl border border-slate-200/80 bg-surfaceMuted/70 p-6">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Mission</h2>
-              <p className="mt-3 text-sm text-slate-700">{profile.missionStatement ?? profile.bio}</p>
-            </article>
-            <div className="grid gap-4">
-              {impactHighlights.map((highlight) => (
-                <article
-                  key={`${highlight.title}-${highlight.value}`}
-                  className="rounded-3xl border border-slate-200/70 bg-white/90 p-5 shadow-soft transition hover:-translate-y-0.5 hover:border-accent/60"
-                >
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{highlight.title}</p>
-                  <p className="mt-2 text-2xl font-bold text-slate-900">{highlight.value}</p>
-                  <p className="mt-1 text-sm text-slate-600">{highlight.description}</p>
-                </article>
-              ))}
-            </div>
-          </div>
+          <ProfileOverview
+            profile={profile}
+            profileNumber={id}
+            impactHighlights={impactHighlights}
+            statusFlags={statusFlags}
+            volunteerBadges={volunteerBadges}
+            areasOfFocus={areasOfFocus}
+            canEdit={canManageProfile}
+            editDisabled={savingAvailability || savingProfile}
+            onEdit={() => setEditorOpen(true)}
+          />
           <GigvoraAdGrid ads={GIGVORA_PROFILE_ADS} />
-        </div>
 
         <div className="grid gap-8 lg:grid-cols-3">
           <div className="space-y-8 lg:col-span-2">
@@ -741,44 +680,7 @@ export default function ProfilePage() {
               ) : null}
             </section>
 
-            <section className="rounded-3xl border border-slate-200 bg-white/90 p-8 shadow-sm">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold text-slate-900">Experience timeline</h2>
-                  <p className="text-sm text-slate-500">Highlighting the pods, programmes, and leadership rotations that shaped this profile.</p>
-                </div>
-                <div className="flex flex-wrap gap-3 text-xs text-slate-500">
-                  {statCards.map((stat) => (
-                    <div key={stat.label} className="rounded-2xl border border-slate-200 bg-surfaceMuted/60 px-3 py-2 text-left">
-                      <p className="font-semibold text-slate-700">{stat.value}</p>
-                      <p className="text-[11px] uppercase tracking-wide text-slate-400">{stat.label}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="mt-6 space-y-5">
-                {experience.map((item, index) => (
-                  <article key={`${item.organization}-${index}`} className="rounded-2xl border border-slate-200 bg-surfaceMuted/70 p-5">
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-                      <span>{item.organization}</span>
-                      <span>
-                        {item.startDate ?? '—'}
-                        {item.endDate ? ` – ${item.endDate}` : ' – Present'}
-                      </span>
-                    </div>
-                    <h3 className="mt-2 text-base font-semibold text-slate-900">{item.role}</h3>
-                    <p className="mt-2 text-sm text-slate-600">{item.description}</p>
-                    {Array.isArray(item.highlights) && item.highlights.length > 0 ? (
-                      <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-slate-500">
-                        {item.highlights.map((highlight) => (
-                          <li key={highlight}>{highlight}</li>
-                        ))}
-                      </ul>
-                    ) : null}
-                  </article>
-                ))}
-              </div>
-            </section>
+            <ExperienceTimeline items={experience} statCards={statCards} />
 
             <section
               id="reputation"
@@ -1196,37 +1098,7 @@ export default function ProfilePage() {
               ) : null}
             </section>
 
-            {portfolioLinks.length > 0 ? (
-              <section className="rounded-3xl border border-slate-200 bg-white/90 p-8 shadow-sm">
-                <h2 className="text-lg font-semibold text-slate-900">Portfolio &amp; case studies</h2>
-                <ul className="mt-4 space-y-3 text-sm text-slate-600">
-                  {portfolioLinks.map((link, index) => {
-                    const label = link.label || link.url || `Link ${index + 1}`;
-                    const hasUrl = Boolean(link.url);
-                    return (
-                      <li key={`${label}-${index}`} className="rounded-2xl border border-slate-200 bg-surfaceMuted/70 px-4 py-3">
-                        {hasUrl ? (
-                          <a
-                            href={link.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center text-sm font-semibold text-accent hover:text-accent/80"
-                          >
-                            {label}
-                            <span aria-hidden="true" className="ml-1">
-                              ↗
-                            </span>
-                          </a>
-                        ) : (
-                          <span className="text-sm font-semibold text-slate-500">{label}</span>
-                        )}
-                        {link.description ? <p className="mt-1 text-xs text-slate-500">{link.description}</p> : null}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            ) : null}
+            {portfolioLinks.length > 0 ? <PortfolioGallery links={portfolioLinks} /> : null}
 
             <section className="rounded-3xl border border-slate-200 bg-white/90 p-8 shadow-sm">
               <h2 className="text-lg font-semibold text-slate-900">Communities & groups</h2>
