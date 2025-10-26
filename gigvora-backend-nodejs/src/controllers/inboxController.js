@@ -7,6 +7,9 @@ import {
   createRoutingRule,
   updateRoutingRule,
   deleteRoutingRule,
+  pinInboxThread,
+  unpinInboxThread,
+  reorderPinnedThreads,
 } from '../services/inboxWorkspaceService.js';
 import { AuthorizationError, ValidationError } from '../utils/errors.js';
 
@@ -58,6 +61,9 @@ function sanitizeReplyPayload(body = {}) {
   }
   if (payload.body != null) {
     payload.body = String(payload.body).trim();
+  }
+  if (payload.shortcut != null) {
+    payload.shortcut = String(payload.shortcut).trim();
   }
   if (payload.shortcuts != null) {
     payload.shortcuts = Array.isArray(payload.shortcuts)
@@ -139,6 +145,28 @@ export async function removeRule(req, res) {
   res.status(204).send();
 }
 
+export async function pinThread(req, res) {
+  const userId = resolveActorId(req);
+  const { threadId } = req.params;
+  const preferences = await pinInboxThread(userId, parsePositiveIdentifier(threadId, 'threadId'));
+  res.json({ pinnedThreadIds: preferences.pinnedThreadIds });
+}
+
+export async function unpinThread(req, res) {
+  const userId = resolveActorId(req);
+  const { threadId } = req.params;
+  const preferences = await unpinInboxThread(userId, parsePositiveIdentifier(threadId, 'threadId'));
+  res.json({ pinnedThreadIds: preferences.pinnedThreadIds });
+}
+
+export async function reorderPins(req, res) {
+  const userId = resolveActorId(req);
+  const payload = ensureObjectPayload(req.body, 'pinned thread order');
+  const order = Array.isArray(payload.threadIds) ? payload.threadIds : payload.order ?? [];
+  const preferences = await reorderPinnedThreads(userId, order);
+  res.json({ pinnedThreadIds: preferences.pinnedThreadIds });
+}
+
 export default {
   workspace,
   savePreferences,
@@ -148,4 +176,7 @@ export default {
   createRule,
   updateRule,
   removeRule,
+  pinThread,
+  unpinThread,
+  reorderPins,
 };

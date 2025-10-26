@@ -12,6 +12,7 @@ import {
   MessageTranscript,
   SupportCase,
   User,
+  InboxPreference,
   MESSAGE_CHANNEL_TYPES,
   MESSAGE_THREAD_STATES,
   MESSAGE_RETENTION_POLICIES,
@@ -89,6 +90,23 @@ const RETENTION_POLICY_DAY_MAP = new Map([
   ['custom', null],
   ['indefinite', Infinity],
 ]);
+
+function normalizePinnedThreadIds(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const unique = [];
+  const seen = new Set();
+  value.forEach((entry) => {
+    const parsed = Number.parseInt(entry, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0 || seen.has(parsed)) {
+      return;
+    }
+    seen.add(parsed);
+    unique.push(parsed);
+  });
+  return unique;
+}
 
 function toNormalizedList(value, fallback = []) {
   if (Array.isArray(value)) {
@@ -1405,6 +1423,9 @@ export async function listThreadsForUser(
   });
 
   return appCache.remember(cacheKey, INBOX_CACHE_TTL, async () => {
+    const preference = await InboxPreference.findOne({ where: { userId } });
+    const pinnedSet = new Set(normalizePinnedThreadIds(preference?.pinnedThreadIds));
+
     const include = [
       {
         model: MessageParticipant,
@@ -1532,12 +1553,26 @@ export async function listThreadsForUser(
               }
             : null,
           unreadCount,
+          unread: unreadCount > 0,
+          pinned: pinnedSet.has(thread.id),
         };
       }),
     );
 
+    const ordered = [...data].sort((a, b) => {
+      if (a.pinned && !b.pinned) {
+        return -1;
+      }
+      if (!a.pinned && b.pinned) {
+        return 1;
+      }
+      const aTime = a?.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+      const bTime = b?.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+      return bTime - aTime;
+    });
+
     return {
-      data,
+      data: ordered,
       pagination: {
         page: safePage,
         pageSize: safeSize,

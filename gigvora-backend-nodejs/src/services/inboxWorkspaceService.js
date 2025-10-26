@@ -10,13 +10,15 @@ import {
   InboxPreference,
   InboxRoutingRule,
 } from '../models/messagingModels.js';
-import { ValidationError, NotFoundError } from '../utils/errors.js';
+import { ValidationError, NotFoundError, AuthorizationError } from '../utils/errors.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
 
 const WORKSPACE_CACHE_TTL = 45;
 const THREAD_LIMIT = 6;
 const SUPPORT_CASE_LIMIT = 8;
 const DAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+const PINNED_THREAD_LIMIT = 24;
+const SHORTCUT_LIMIT = 12;
 
 const DEFAULT_WORKING_HOURS = Object.freeze({
   timezone: 'UTC',
@@ -41,10 +43,12 @@ const DEFAULT_PREFERENCES = Object.freeze({
   autoResponderMessage: null,
   escalationKeywords: [],
   defaultSavedReplyId: null,
+  pinnedThreadIds: [],
 });
 
 function invalidateWorkspaceCache(userId) {
   appCache.flushByPrefix(`messaging:inbox-workspace:${userId}`);
+  appCache.flushByPrefix(`messaging:inbox:${userId}`);
 }
 
 function buildWorkspaceCacheKey(userId, extras = {}) {
@@ -133,6 +137,46 @@ function normalizeWorkingHours(input) {
   return { timezone, availability };
 }
 
+function normalizePinnedThreadIds(input, { limit = PINNED_THREAD_LIMIT } = {}) {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+  const unique = [];
+  const seen = new Set();
+  input.forEach((value) => {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0 || seen.has(parsed)) {
+      return;
+    }
+    seen.add(parsed);
+    unique.push(parsed);
+  });
+  if (limit && unique.length > limit) {
+    return unique.slice(0, limit);
+  }
+  return unique;
+}
+
+function normalizeShortcuts(values) {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+  const result = [];
+  const seen = new Set();
+  values.forEach((value) => {
+    if (typeof value !== 'string') {
+      return;
+    }
+    const trimmed = value.trim().toLowerCase();
+    if (!trimmed || seen.has(trimmed)) {
+      return;
+    }
+    seen.add(trimmed);
+    result.push(trimmed);
+  });
+  return result.slice(0, SHORTCUT_LIMIT);
+}
+
 function sanitizePreferences(record) {
   if (!record) {
     return {
@@ -142,6 +186,7 @@ function sanitizePreferences(record) {
   }
   const plain = record.toPublicObject ? record.toPublicObject() : record;
   const workingHours = normalizeWorkingHours(plain.workingHours);
+  const pinnedThreadIds = normalizePinnedThreadIds(plain.pinnedThreadIds ?? []);
   return {
     id: plain.id ?? null,
     userId: plain.userId,
@@ -154,6 +199,7 @@ function sanitizePreferences(record) {
     autoResponderMessage: plain.autoResponderMessage ?? null,
     escalationKeywords: Array.isArray(plain.escalationKeywords) ? plain.escalationKeywords : [],
     defaultSavedReplyId: plain.defaultSavedReplyId ?? null,
+    pinnedThreadIds,
     createdAt: plain.createdAt ?? null,
     updatedAt: plain.updatedAt ?? null,
   };
@@ -361,9 +407,23 @@ export async function getInboxWorkspace(userId, { forceRefresh = false } = {}) {
   ]);
 
   const preferences = sanitizePreferences(preferenceRecord);
+  const pinnedSet = new Set(preferences.pinnedThreadIds);
   const savedReplies = savedReplyRecords.map(sanitizeSavedReply).filter(Boolean);
   const routingRules = routingRuleRecords.map(sanitizeRoutingRule).filter(Boolean);
-  const activeThreads = threadRecords.map((record) => sanitizeThreadRecord(record, numericUserId));
+  const activeThreads = threadRecords
+    .map((record) => sanitizeThreadRecord(record, numericUserId))
+    .map((thread) => ({ ...thread, pinned: pinnedSet.has(thread.id) }));
+  const orderedThreads = [...activeThreads].sort((a, b) => {
+    if (a.pinned && !b.pinned) {
+      return -1;
+    }
+    if (!a.pinned && b.pinned) {
+      return 1;
+    }
+    const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+    const bTime = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+    return bTime - aTime;
+  });
   const supportCases = supportCaseRecords.map(sanitizeSupportCaseRecord).filter(Boolean);
   const participantDirectory = buildParticipantDirectory(threadRecords);
   const summary = computeSummary(numericUserId, preferences, activeThreads, supportCases);
@@ -374,7 +434,7 @@ export async function getInboxWorkspace(userId, { forceRefresh = false } = {}) {
     preferences,
     savedReplies,
     routingRules,
-    activeThreads,
+    activeThreads: orderedThreads,
     supportCases,
     participantDirectory,
     lastSyncedAt: new Date().toISOString(),
@@ -382,6 +442,64 @@ export async function getInboxWorkspace(userId, { forceRefresh = false } = {}) {
 
   await appCache.set(cacheKey, workspace, WORKSPACE_CACHE_TTL);
   return workspace;
+}
+
+async function ensureThreadMembership(userId, threadId, transaction) {
+  const participant = await MessageParticipant.findOne({
+    where: { userId, threadId },
+    transaction,
+  });
+  if (!participant) {
+    throw new AuthorizationError('You can only manage threads you participate in.');
+  }
+  return participant;
+}
+
+async function persistPinnedThreadIds(userId, mutator) {
+  const numericUserId = coercePositiveId(userId, 'userId');
+  return sequelize.transaction(async (transaction) => {
+    const preference = await ensurePreference(numericUserId, transaction);
+    const current = normalizePinnedThreadIds(preference.pinnedThreadIds ?? []);
+    const next = normalizePinnedThreadIds(await mutator(current, { transaction }));
+    preference.pinnedThreadIds = next;
+    await preference.save({ transaction });
+    invalidateWorkspaceCache(numericUserId);
+    return sanitizePreferences(preference);
+  });
+}
+
+export async function pinInboxThread(userId, threadId) {
+  const numericThreadId = coercePositiveId(threadId, 'threadId');
+  return persistPinnedThreadIds(userId, async (current, { transaction }) => {
+    const numericUserId = coercePositiveId(userId, 'userId');
+    await ensureThreadMembership(numericUserId, numericThreadId, transaction);
+    const next = [numericThreadId, ...current.filter((id) => id !== numericThreadId)];
+    return next.slice(0, PINNED_THREAD_LIMIT);
+  });
+}
+
+export async function unpinInboxThread(userId, threadId) {
+  const numericThreadId = coercePositiveId(threadId, 'threadId');
+  return persistPinnedThreadIds(userId, async (current) => current.filter((id) => id !== numericThreadId));
+}
+
+export async function reorderPinnedThreads(userId, threadIds = []) {
+  const requestedOrder = normalizePinnedThreadIds(threadIds);
+  const numericUserId = coercePositiveId(userId, 'userId');
+  return persistPinnedThreadIds(numericUserId, async (current, { transaction }) => {
+    if (!requestedOrder.length) {
+      return [];
+    }
+    const participants = await MessageParticipant.findAll({
+      where: { userId: numericUserId, threadId: { [Op.in]: requestedOrder } },
+      attributes: ['threadId'],
+      transaction,
+    });
+    const accessible = new Set(participants.map((participant) => participant.threadId));
+    const ordered = requestedOrder.filter((id) => accessible.has(id));
+    const remainder = current.filter((id) => accessible.has(id) && !ordered.includes(id));
+    return [...ordered, ...remainder].slice(0, PINNED_THREAD_LIMIT);
+  });
 }
 
 export async function updateInboxPreferences(userId, patch = {}) {
@@ -455,13 +573,20 @@ export async function createSavedReply(userId, payload = {}) {
       ? Number.parseInt(payload.orderIndex, 10)
       : await SavedReply.count({ where: { userId: numericUserId }, transaction });
 
+    const normalizedShortcuts = normalizeShortcuts(payload.shortcuts ?? []);
+    const primaryShortcut = payload.shortcut ? String(payload.shortcut).trim().toLowerCase() : normalizedShortcuts[0] ?? null;
+    if (primaryShortcut && !normalizedShortcuts.includes(primaryShortcut)) {
+      normalizedShortcuts.unshift(primaryShortcut);
+    }
+
     const reply = await SavedReply.create(
       {
         userId: numericUserId,
         title,
         body,
         category: payload.category ?? null,
-        shortcut: payload.shortcut ?? null,
+        shortcut: primaryShortcut,
+        shortcuts: normalizedShortcuts.length ? normalizedShortcuts : null,
         isDefault: Boolean(payload.isDefault),
         metadata: payload.metadata ?? null,
         orderIndex,
@@ -508,8 +633,21 @@ export async function updateSavedReply(userId, replyId, patch = {}) {
     if (patch.category !== undefined) {
       reply.category = patch.category ?? null;
     }
+    if (patch.shortcuts !== undefined) {
+      const normalizedShortcuts = normalizeShortcuts(patch.shortcuts ?? []);
+      reply.shortcuts = normalizedShortcuts.length ? normalizedShortcuts : null;
+      if (reply.shortcut && normalizedShortcuts.length && !normalizedShortcuts.includes(reply.shortcut)) {
+        reply.shortcut = normalizedShortcuts[0];
+      }
+      if (!normalizedShortcuts.length && patch.shortcut === undefined) {
+        reply.shortcut = null;
+      }
+    }
     if (patch.shortcut !== undefined) {
       reply.shortcut = patch.shortcut ? patch.shortcut.toLowerCase() : null;
+      if (reply.shortcut && Array.isArray(reply.shortcuts)) {
+        reply.shortcuts = normalizeShortcuts([reply.shortcut, ...reply.shortcuts]);
+      }
     }
     if (patch.metadata !== undefined) {
       reply.metadata = patch.metadata ?? null;
@@ -643,6 +781,8 @@ export const __testing = {
   sanitizeSupportCaseRecord,
   normalizeWorkingHours,
   sanitizePreferences,
+  normalizePinnedThreadIds,
+  normalizeShortcuts,
 };
 
 export default {
@@ -654,4 +794,7 @@ export default {
   createRoutingRule,
   updateRoutingRule,
   deleteRoutingRule,
+  pinInboxThread,
+  unpinInboxThread,
+  reorderPinnedThreads,
 };
