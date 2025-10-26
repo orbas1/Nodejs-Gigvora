@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import useProjectGigManagement from '../../hooks/useProjectGigManagement.js';
 import DataStatus from '../DataStatus.jsx';
@@ -12,6 +12,7 @@ import GigOrderDetailDrawer from './GigOrderDetailDrawer.jsx';
 import GigOperationsWorkspace from './GigOperationsWorkspace.jsx';
 import { useProjectManagementAccess } from '../../hooks/useAuthorization.js';
 import useSession from '../../hooks/useSession.js';
+import { updateChecklistItem } from '../../services/agencyClientKanban.js';
 
 const PROJECT_ACCESS_ROLES = [
   'Agency lead',
@@ -260,11 +261,40 @@ export default function ProjectGigManagementContainer({ userId, resource }) {
   );
 
   const defaultAuthorName = useMemo(() => resolveDefaultAuthorName(session), [session]);
+  const defaultVendorName = useMemo(() => {
+    if (session?.company?.name) {
+      return session.company.name;
+    }
+    if (session?.team?.name) {
+      return session.team.name;
+    }
+    if (session?.user?.company?.name) {
+      return session.user.company.name;
+    }
+    return defaultAuthorName ?? undefined;
+  }, [defaultAuthorName, session]);
 
   const openComposer = (form, context = null) => setComposer({ form, context });
   const closeComposer = () => setComposer(EMPTY_COMPOSER);
   const handleOrderDetail = (orderId) => setSelectedOrderId(orderId ?? null);
   const handleProjectPreview = (projectId) => setPreviewProjectId(projectId ?? null);
+  const handleToggleContractObligation = useCallback(
+    async (contract, obligation, completed) => {
+      const cardId = obligation.cardId ?? contract.metadata?.cardId;
+      const checklistItemId = obligation.checklistItemId ?? obligation.id;
+      if (!cardId || !checklistItemId) {
+        throw new Error('This contract obligation is missing linkage data.');
+      }
+
+      try {
+        await updateChecklistItem(cardId, checklistItemId, { completed }, { workspaceId: contract.metadata?.workspaceId });
+        await reload();
+      } catch (error) {
+        throw new Error(error?.message ?? 'Unable to update contract obligation.');
+      }
+    },
+    [reload],
+  );
 
   return (
     <section className="flex h-full flex-col gap-6">
@@ -291,6 +321,8 @@ export default function ProjectGigManagementContainer({ userId, resource }) {
             onProjectPreview={handleProjectPreview}
             activeTab={activeTab}
             onTabChange={setActiveTab}
+            onToggleContractObligation={handleToggleContractObligation}
+            defaultVendorName={defaultVendorName}
           />
 
           <GigOperationsWorkspace
