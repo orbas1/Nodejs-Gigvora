@@ -74,6 +74,12 @@
    - Support future media (e.g., intros) via extensible card sections.
    - Track media governance in runbooks.
    - Message previews and note editors gracefully handle multiline content with resilient fallbacks.
+   - Messaging inboxes must surface priority, response SLAs, upcoming touchpoints, and deal value so leaders instantly know where to focus.
+   - Conversation rooms should expose decision logs, stakeholder maps, and engagement telemetry beside the timeline to rival executive messaging suites.
+   - Composer bars must ship formatting controls, availability templates, saved replies, and preview states to accelerate polished outreach.
+   - Focus filters, priority sorting, and engagement summaries keep networking teams aligned with enterprise expectations.
+   - Inbox dashboards should spotlight upcoming SLA deadlines and dormant relationships so leaders can intervene before trust slips.
+   - Composer experiences should bundle tone presets, CTA snippets, and autosave cues that mirror premium outreach workflows.
    - Catalogue button variants with visual references for design ops.
    - Keep tokens in sync with shared button primitives.
    - Record keyboard focus expectations for QA.
