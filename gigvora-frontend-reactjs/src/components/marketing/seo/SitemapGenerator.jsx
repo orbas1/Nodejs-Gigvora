@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import clsx from 'clsx';
 import {
@@ -14,6 +14,12 @@ import {
   SunIcon,
 } from '@heroicons/react/24/outline';
 import analytics from '../../../services/analytics.js';
+import {
+  fetchSeoConsoleSnapshot,
+  fetchSeoSitemapJobs,
+  generateSeoConsoleSitemap,
+  submitSeoConsoleSitemapJob,
+} from '../../../services/seoConsole.js';
 
 const DEFAULT_ROUTES = [
   { path: '/', priority: 1, changefreq: 'daily', lastModified: '2024-05-12', type: 'Marketing', indexed: true },
@@ -29,56 +35,22 @@ const DEFAULT_ROUTES = [
 const SCHEDULES = ['Hourly', 'Daily', 'Weekly', 'Monthly'];
 
 function normaliseRoutes(routes) {
-  if (!Array.isArray(routes) || !routes.length) {
-    return DEFAULT_ROUTES;
-  }
-  return routes
+  const source = Array.isArray(routes) && routes.length ? routes : DEFAULT_ROUTES;
+  return source
     .map((route) => {
       if (!route?.path) return null;
+      const path = route.path.startsWith('/') ? route.path : `/${route.path}`;
       return {
-        path: route.path.startsWith('/') ? route.path : `/${route.path}`,
+        path,
         priority: typeof route.priority === 'number' ? route.priority : 0.5,
         changefreq: route.changefreq ?? 'monthly',
-        lastModified: route.lastModified ?? new Date().toISOString().slice(0, 10),
-        type: route.type ?? 'Other',
-        indexed: route.indexed ?? true,
+        lastModified: route.lastModified ?? null,
+        type: route.collection ?? route.type ?? 'Other',
+        indexed: route.indexed !== false,
         images: Array.isArray(route.images) ? route.images : [],
       };
     })
     .filter(Boolean);
-}
-
-function formatDate(value) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return date.toISOString().split('T')[0];
-}
-
-function generateXml(baseUrl, routes, includeImages) {
-  const origin = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-  const urls = routes
-    .map((route) => {
-      const parts = [];
-      parts.push(`<url>`);
-      parts.push(`<loc>${origin}${route.path}</loc>`);
-      parts.push(`<priority>${route.priority.toFixed(1)}</priority>`);
-      parts.push(`<changefreq>${route.changefreq}</changefreq>`);
-      if (route.lastModified) {
-        parts.push(`<lastmod>${formatDate(route.lastModified)}</lastmod>`);
-      }
-      if (includeImages && route.images?.length) {
-        route.images.forEach((image) => {
-          parts.push(`<image:image><image:loc>${image}</image:loc></image:image>`);
-        });
-      }
-      parts.push(`</url>`);
-      return parts.join('');
-    })
-    .join('');
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">${urls}</urlset>`;
 }
 
 export default function SitemapGenerator({
@@ -87,22 +59,107 @@ export default function SitemapGenerator({
   analyticsMetadata = {},
   onGenerate,
 }) {
-  const [baseUrl, setBaseUrl] = useState(initialBaseUrl);
-  const normalisedRoutes = useMemo(() => normaliseRoutes(routes), [routes]);
-  const [selectedTypes, setSelectedTypes] = useState(() => {
-    const uniqueTypes = Array.from(new Set(normalisedRoutes.map((route) => route.type)));
-    return new Set(uniqueTypes);
-  });
+  const [settings, setSettings] = useState(null);
+  const [routesState, setRoutesState] = useState(() => normaliseRoutes(routes));
+  const fallbackRoutes = useMemo(() => normaliseRoutes(routes), [routes]);
+  const [baseUrl, setBaseUrl] = useState(initialBaseUrl || 'https://gigvora.com');
+  const [selectedTypes, setSelectedTypes] = useState(new Set());
   const [includeImages, setIncludeImages] = useState(true);
   const [includeLastModified, setIncludeLastModified] = useState(true);
   const [schedule, setSchedule] = useState('Daily');
   const [xmlOutput, setXmlOutput] = useState('');
+  const [activeJob, setActiveJob] = useState(null);
   const [lastGeneratedAt, setLastGeneratedAt] = useState(null);
-  const [logs, setLogs] = useState([]);
+  const [jobs, setJobs] = useState([]);
+  const [excludedRoutes, setExcludedRoutes] = useState([]);
+  const [generationStatus, setGenerationStatus] = useState('idle');
+  const [generationError, setGenerationError] = useState(null);
   const [submitStatus, setSubmitStatus] = useState('idle');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
+  const loadJobs = useCallback(async () => {
+    try {
+      const response = await fetchSeoSitemapJobs({ limit: 10 });
+      setJobs(Array.isArray(response?.jobs) ? response.jobs : []);
+    } catch (err) {
+      setJobs([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadJobs();
+  }, [loadJobs]);
+
+  useEffect(() => {
+    let active = true;
+    async function loadSnapshot() {
+      setLoading(true);
+      setError(null);
+      try {
+        const snapshot = await fetchSeoConsoleSnapshot();
+        if (!active) return;
+        const snapshotRoutes = normaliseRoutes(snapshot.routes?.entries);
+        setRoutesState(snapshotRoutes.length ? snapshotRoutes : fallbackRoutes);
+        setSettings(snapshot.settings ?? null);
+        const resolvedBaseUrl =
+          snapshot.settings?.canonicalBaseUrl ||
+          snapshot.settings?.sitemapUrl ||
+          initialBaseUrl ||
+          'https://gigvora.com';
+        setBaseUrl((current) => (current && current.length ? current : resolvedBaseUrl));
+        if (snapshot.sitemap?.lastJob) {
+          const lastJob = snapshot.sitemap.lastJob;
+          setActiveJob(lastJob);
+          setXmlOutput(lastJob.xml ?? '');
+          setLastGeneratedAt(lastJob.generatedAt ? new Date(lastJob.generatedAt) : null);
+          setSubmitStatus(lastJob.submittedAt ? 'submitted' : 'idle');
+        }
+      } catch (err) {
+        if (!active) return;
+        setError(err);
+        setRoutesState((current) => (current.length ? current : fallbackRoutes));
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+    loadSnapshot();
+    return () => {
+      active = false;
+    };
+  }, [fallbackRoutes, initialBaseUrl]);
+
+  useEffect(() => {
+    if (!routesState.length) {
+      setSelectedTypes(new Set());
+      return;
+    }
+    const availableTypes = new Set(routesState.map((route) => route.type ?? 'Other'));
+    setSelectedTypes((previous) => {
+      if (previous.size === 0) {
+        return availableTypes;
+      }
+      const next = new Set();
+      previous.forEach((type) => {
+        if (availableTypes.has(type)) {
+          next.add(type);
+        }
+      });
+      if (next.size === 0) {
+        return availableTypes;
+      }
+      availableTypes.forEach((type) => {
+        if (!previous.has(type)) {
+          next.add(type);
+        }
+      });
+      return next;
+    });
+  }, [routesState]);
   const groupedRoutes = useMemo(() => {
-    return normalisedRoutes.reduce((accumulator, route) => {
+    return routesState.reduce((accumulator, route) => {
       const key = route.type ?? 'Other';
       if (!accumulator[key]) {
         accumulator[key] = [];
@@ -110,14 +167,17 @@ export default function SitemapGenerator({
       accumulator[key].push(route);
       return accumulator;
     }, {});
-  }, [normalisedRoutes]);
+  }, [routesState]);
 
   const selectedRoutes = useMemo(() => {
-    return normalisedRoutes.filter((route) => selectedTypes.has(route.type ?? 'Other'));
-  }, [normalisedRoutes, selectedTypes]);
+    if (selectedTypes.size === 0) {
+      return routesState;
+    }
+    return routesState.filter((route) => selectedTypes.has(route.type ?? 'Other'));
+  }, [routesState, selectedTypes]);
 
   const coverage = useMemo(() => {
-    const total = normalisedRoutes.length;
+    const total = routesState.length;
     const selected = selectedRoutes.length;
     const indexed = selectedRoutes.filter((route) => route.indexed).length;
     const warnings = selectedRoutes.filter((route) => !route.indexed).length;
@@ -128,17 +188,51 @@ export default function SitemapGenerator({
       warnings,
       coverage: total === 0 ? 0 : Math.round((selected / total) * 100),
     };
-  }, [normalisedRoutes.length, selectedRoutes]);
+  }, [routesState, selectedRoutes]);
 
   const healthStatus = useMemo(() => {
     if (!selectedRoutes.length) {
       return { label: 'Action required', tone: 'warning', helper: 'Select sections to generate a sitemap.' };
     }
-    if (coverage.warnings > 0) {
-      return { label: 'Needs attention', tone: 'warning', helper: 'Some URLs are marked noindex—review directives.' };
+    if (coverage.warnings > 0 || excludedRoutes.length > 0) {
+      return {
+        label: 'Needs attention',
+        tone: 'warning',
+        helper: excludedRoutes.length
+          ? 'Excluded non-indexable URLs during generation. Review directives.'
+          : 'Some selected URLs are marked noindex—review directives.',
+      };
     }
     return { label: 'Healthy', tone: 'success', helper: 'All selected URLs are indexable.' };
-  }, [coverage.warnings, selectedRoutes.length]);
+  }, [coverage.warnings, excludedRoutes.length, selectedRoutes.length]);
+
+  const displayedLastGeneratedAt = useMemo(() => {
+    if (lastGeneratedAt) {
+      return lastGeneratedAt;
+    }
+    if (activeJob?.generatedAt) {
+      return new Date(activeJob.generatedAt);
+    }
+    if (jobs.length && jobs[0]?.generatedAt) {
+      return new Date(jobs[0].generatedAt);
+    }
+    return null;
+  }, [activeJob, jobs, lastGeneratedAt]);
+
+  const submissionLabel = useMemo(() => {
+    if (submitStatus === 'submitted') return 'Submitted to search console';
+    if (submitStatus === 'submitting') return 'Submitting…';
+    if (submitStatus === 'error') return 'Submission failed';
+    if (activeJob) return 'Awaiting submission';
+    return 'Generate sitemap first';
+  }, [activeJob, submitStatus]);
+
+  const submitButtonLabel = useMemo(() => {
+    if (submitStatus === 'submitted') return 'Submitted';
+    if (submitStatus === 'submitting') return 'Submitting…';
+    if (submitStatus === 'error') return 'Retry submission';
+    return 'Submit to console';
+  }, [submitStatus]);
 
   const handleToggleType = (type) => {
     setSelectedTypes((previous) => {
@@ -152,36 +246,56 @@ export default function SitemapGenerator({
     });
   };
 
-  const handleGenerate = () => {
-    const routesForXml = includeLastModified
-      ? selectedRoutes
-      : selectedRoutes.map((route) => ({ ...route, lastModified: null }));
-    const xml = generateXml(baseUrl, routesForXml, includeImages);
-    setXmlOutput(xml);
-    const timestamp = new Date();
-    setLastGeneratedAt(timestamp);
-    const logEntry = {
-      id: timestamp.getTime(),
-      status: coverage.warnings ? 'warning' : 'success',
-      entries: routesForXml.length,
-      message: coverage.warnings
-        ? 'Generated sitemap with warnings (non-indexable URLs included).'
-        : 'Sitemap generated successfully.',
-      createdAt: timestamp,
-    };
-    setLogs((previous) => [logEntry, ...previous.slice(0, 6)]);
-    analytics.track(
-      'seo_sitemap_generated',
-      {
-        baseUrl,
-        entryCount: routesForXml.length,
+  const handleGenerate = async () => {
+    setGenerationStatus('working');
+    setGenerationError(null);
+    try {
+      const payload = {
+        baseUrl: baseUrl?.trim(),
+        includeImages,
+        includeLastModified,
+      };
+      const response = await generateSeoConsoleSitemap(payload);
+      const jobPayload = response?.job ?? null;
+      setXmlOutput(response?.xml ?? '');
+      setExcludedRoutes(response?.excluded ?? []);
+      if (jobPayload) {
+        setActiveJob(jobPayload);
+        setLastGeneratedAt(jobPayload.generatedAt ? new Date(jobPayload.generatedAt) : new Date());
+        setSubmitStatus(jobPayload.submittedAt ? 'submitted' : 'idle');
+      } else {
+        setLastGeneratedAt(new Date());
+      }
+      analytics.track(
+        'seo_sitemap_generated',
+        {
+          baseUrl: payload.baseUrl,
+          entryCount: jobPayload?.indexedUrls ?? selectedRoutes.length,
+          schedule,
+          includeImages,
+          includeLastModified,
+        },
+        { source: analyticsMetadata.source ?? 'seo_console' },
+      );
+      onGenerate?.({
+        xml: response?.xml ?? '',
+        coverage,
         schedule,
         includeImages,
         includeLastModified,
-      },
-      { source: analyticsMetadata.source ?? 'seo_console' },
-    );
-    onGenerate?.({ xml, coverage, schedule, includeImages, includeLastModified });
+        job: jobPayload,
+      });
+      await loadJobs();
+    } catch (err) {
+      setGenerationError(err);
+      analytics.track(
+        'seo_sitemap_generation_failed',
+        { baseUrl, message: err?.message ?? 'unknown_error' },
+        { source: analyticsMetadata.source ?? 'seo_console' },
+      );
+    } finally {
+      setGenerationStatus('idle');
+    }
   };
 
   const handleDownload = () => {
@@ -195,26 +309,49 @@ export default function SitemapGenerator({
     URL.revokeObjectURL(url);
     analytics.track(
       'seo_sitemap_downloaded',
-      { entries: selectedRoutes.length },
+      { entries: activeJob?.indexedUrls ?? selectedRoutes.length },
       { source: analyticsMetadata.source ?? 'seo_console' },
     );
   };
 
-  const handleSubmit = () => {
-    if (!xmlOutput) return;
+  const handleSubmit = async () => {
+    if (!activeJob?.id) {
+      return;
+    }
     setSubmitStatus('submitting');
-    setTimeout(() => {
-      setSubmitStatus('success');
+    try {
+      const response = await submitSeoConsoleSitemapJob(activeJob.id, {
+        notes: `Submitted via SEO console on ${new Date().toISOString()}`,
+      });
+      const jobPayload = response?.job ?? response;
+      setActiveJob(jobPayload);
+      setSubmitStatus('submitted');
+      await loadJobs();
       analytics.track(
         'seo_sitemap_submitted',
-        {
-          schedule,
-          baseUrl,
-        },
+        { jobId: jobPayload.id, baseUrl },
         { source: analyticsMetadata.source ?? 'seo_console' },
       );
-    }, 600);
+    } catch (err) {
+      setSubmitStatus('error');
+      analytics.track(
+        'seo_sitemap_submission_failed',
+        { jobId: activeJob.id, message: err?.message ?? 'unknown_error' },
+        { source: analyticsMetadata.source ?? 'seo_console' },
+      );
+    }
   };
+
+  if (loading) {
+    return (
+      <section className="relative overflow-hidden rounded-4xl border border-white/10 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-10 text-white shadow-[0_60px_180px_rgba(8,47,73,0.55)]">
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(20,184,166,0.18),_transparent_65%)]" aria-hidden="true" />
+        <div className="flex min-h-[240px] items-center justify-center text-sm text-white/60">Loading sitemap console data…</div>
+      </section>
+    );
+  }
+
+  const excludedRoutePreview = excludedRoutes.slice(0, 5);
 
   return (
     <section className="relative overflow-hidden rounded-4xl border border-white/10 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-10 text-white shadow-[0_60px_180px_rgba(8,47,73,0.55)]">
@@ -229,10 +366,15 @@ export default function SitemapGenerator({
             <div className="space-y-3">
               <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Generate pristine XML sitemaps with analytics baked in.</h2>
               <p className="text-sm text-white/70">
-                Pick the surfaces to crawl, tune scheduling, and download or submit your sitemap without leaving the marketing
-                control centre.
+                Pick the surfaces to crawl, tune scheduling, and download or submit your sitemap without leaving the marketing control centre.
               </p>
             </div>
+            {error ? (
+              <div className="rounded-3xl border border-amber-300/60 bg-amber-300/10 p-4 text-xs text-amber-100 shadow-[0_12px_36px_rgba(245,158,11,0.25)]">
+                <p className="font-semibold uppercase tracking-[0.32em]">Snapshot unavailable</p>
+                <p>{error?.message ?? 'We could not refresh the latest sitemap data. Using cached values.'}</p>
+              </div>
+            ) : null}
           </header>
 
           <div className="grid gap-6 rounded-4xl border border-white/10 bg-white/5 p-6 shadow-[0_30px_90px_rgba(15,23,42,0.4)]">
@@ -324,21 +466,26 @@ export default function SitemapGenerator({
                 <p className="text-sm font-semibold text-white">
                   {coverage.selected} of {coverage.total} URLs selected · Coverage {coverage.coverage}%
                 </p>
-                <p className="text-xs text-white/60">{coverage.warnings ? `${coverage.warnings} URL(s) flagged noindex` : 'All URLs indexable'}</p>
+                <p className="text-xs text-white/60">
+                  {coverage.warnings + excludedRoutes.length
+                    ? `${coverage.warnings + excludedRoutes.length} URL(s) flagged`
+                    : 'All URLs indexable'}
+                </p>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 onClick={handleGenerate}
-                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-500 px-6 py-3 text-xs font-semibold uppercase tracking-[0.32em] text-slate-950 shadow-[0_20px_55px_rgba(20,184,166,0.5)] transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-500 px-6 py-3 text-xs font-semibold uppercase tracking-[0.32em] text-slate-950 shadow-[0_20px_55px_rgba(20,184,166,0.5)] transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200 disabled:opacity-60"
+                disabled={generationStatus === 'working'}
               >
-                Generate sitemap
+                {generationStatus === 'working' ? 'Generating…' : 'Generate sitemap'}
               </button>
               <button
                 type="button"
                 onClick={handleDownload}
-                className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-transparent px-5 py-3 text-xs font-semibold uppercase tracking-[0.32em] text-white/80 transition hover:border-emerald-200/40 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
+                className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-transparent px-5 py-3 text-xs font-semibold uppercase tracking-[0.32em] text-white/80 transition hover:border-emerald-200/40 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200 disabled:opacity-60"
                 disabled={!xmlOutput}
               >
                 <ArrowDownTrayIcon className="h-4 w-4" aria-hidden="true" />
@@ -347,14 +494,17 @@ export default function SitemapGenerator({
               <button
                 type="button"
                 onClick={handleSubmit}
-                className="inline-flex items-center gap-2 rounded-full border border-emerald-200/60 bg-transparent px-5 py-3 text-xs font-semibold uppercase tracking-[0.32em] text-emerald-100 transition hover:bg-emerald-200/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
-                disabled={!xmlOutput || submitStatus === 'submitting'}
+                className="inline-flex items-center gap-2 rounded-full border border-emerald-200/60 bg-transparent px-5 py-3 text-xs font-semibold uppercase tracking-[0.32em] text-emerald-100 transition hover:bg-emerald-200/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200 disabled:opacity-60"
+                disabled={!activeJob || submitStatus === 'submitting'}
               >
                 <CloudArrowUpIcon className="h-4 w-4" aria-hidden="true" />
-                Submit to console
+                {submitButtonLabel}
               </button>
             </div>
           </footer>
+          {generationError ? (
+            <p className="text-xs text-rose-300">Failed to generate sitemap: {generationError.message}</p>
+          ) : null}
         </div>
 
         <aside className="flex w-full flex-col gap-6 lg:w-1/3">
@@ -381,17 +531,11 @@ export default function SitemapGenerator({
             <dl className="grid grid-cols-2 gap-3 text-left text-sm text-white/70">
               <div className="rounded-3xl border border-white/10 bg-slate-950/60 p-4 shadow-inner">
                 <dt className="text-xs uppercase tracking-[0.32em] text-white/50">Last generated</dt>
-                <dd>{lastGeneratedAt ? lastGeneratedAt.toLocaleString() : 'Not run yet'}</dd>
+                <dd>{displayedLastGeneratedAt ? displayedLastGeneratedAt.toLocaleString() : 'Not run yet'}</dd>
               </div>
               <div className="rounded-3xl border border-white/10 bg-slate-950/60 p-4 shadow-inner">
                 <dt className="text-xs uppercase tracking-[0.32em] text-white/50">Submission status</dt>
-                <dd>
-                  {submitStatus === 'success'
-                    ? 'Submitted to search console'
-                    : submitStatus === 'submitting'
-                      ? 'Submitting…'
-                      : 'Awaiting submission'}
-                </dd>
+                <dd>{submissionLabel}</dd>
               </div>
               <div className="rounded-3xl border border-white/10 bg-slate-950/60 p-4 shadow-inner">
                 <dt className="text-xs uppercase tracking-[0.32em] text-white/50">Indexed URLs</dt>
@@ -399,30 +543,51 @@ export default function SitemapGenerator({
               </div>
               <div className="rounded-3xl border border-white/10 bg-slate-950/60 p-4 shadow-inner">
                 <dt className="text-xs uppercase tracking-[0.32em] text-white/50">Warnings</dt>
-                <dd>{coverage.warnings}</dd>
+                <dd>{coverage.warnings + excludedRoutes.length}</dd>
               </div>
             </dl>
+            {excludedRoutes.length > 0 ? (
+              <div className="rounded-3xl border border-amber-200/40 bg-amber-200/10 p-4 text-xs text-amber-100 shadow-inner">
+                <p className="mb-1 font-semibold uppercase tracking-[0.32em] text-amber-200/80">Excluded URLs</p>
+                <ul className="space-y-1">
+                  {excludedRoutePreview.map((item) => (
+                    <li key={item.path} className="flex items-center justify-between gap-3">
+                      <span>{item.path}</span>
+                      <span className="uppercase tracking-[0.28em] text-amber-200/70">{item.status.replace(/_/g, ' ')}</span>
+                    </li>
+                  ))}
+                </ul>
+                {excludedRoutes.length > excludedRoutePreview.length ? (
+                  <p className="mt-2 text-amber-200/70">+{excludedRoutes.length - excludedRoutePreview.length} more suppressed routes</p>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           <div className="space-y-4 rounded-4xl border border-white/10 bg-white/5 p-6 shadow-[0_30px_90px_rgba(5,150,105,0.35)]">
             <h3 className="text-sm font-semibold uppercase tracking-[0.32em] text-white/70">Activity log</h3>
             <ul className="space-y-3 text-sm text-white/70">
-              {logs.length === 0 ? <li className="text-white/50">No generation events recorded yet.</li> : null}
-              {logs.map((log) => (
-                <li
-                  key={log.id}
-                  className={clsx(
-                    'rounded-3xl border px-4 py-3 shadow-inner',
-                    log.status === 'success'
-                      ? 'border-emerald-200/40 bg-emerald-200/10 text-emerald-100'
-                      : 'border-amber-200/40 bg-amber-200/10 text-amber-100',
-                  )}
-                >
-                  <p className="text-xs uppercase tracking-[0.32em]">{log.createdAt.toLocaleString()}</p>
-                  <p className="text-sm font-semibold text-white">{log.message}</p>
-                  <p className="text-xs text-white/80">{log.entries} URL(s) processed</p>
-                </li>
-              ))}
+              {jobs.length === 0 ? <li className="text-white/50">No generation events recorded yet.</li> : null}
+              {jobs.map((job) => {
+                const tone = job.status === 'submitted' || job.status === 'generated' ? 'success' : job.status?.includes('warning') ? 'warning' : 'success';
+                return (
+                  <li
+                    key={job.id}
+                    className={clsx(
+                      'rounded-3xl border px-4 py-3 shadow-inner',
+                      tone === 'success'
+                        ? 'border-emerald-200/40 bg-emerald-200/10 text-emerald-100'
+                        : 'border-amber-200/40 bg-amber-200/10 text-amber-100',
+                    )}
+                  >
+                    <p className="text-xs uppercase tracking-[0.32em]">{job.generatedAt ? new Date(job.generatedAt).toLocaleString() : 'Pending'}</p>
+                    <p className="text-sm font-semibold text-white">
+                      {job.status === 'submitted' ? 'Submitted to Search Console' : job.message || 'Sitemap generated'}
+                    </p>
+                    <p className="text-xs text-white/80">{job.indexedUrls ?? job.totalUrls ?? 0} URL(s) indexed</p>
+                  </li>
+                );
+              })}
             </ul>
           </div>
 
@@ -442,6 +607,12 @@ export default function SitemapGenerator({
                   <InformationCircleIcon className="mt-0.5 h-4 w-4 text-emerald-200" aria-hidden="true" />
                   Pair generation cadence with automation so search engines receive consistent updates.
                 </li>
+                {settings?.sitemapUrl ? (
+                  <li className="flex items-start gap-2">
+                    <InformationCircleIcon className="mt-0.5 h-4 w-4 text-emerald-200" aria-hidden="true" />
+                    Current sitemap published at {settings.sitemapUrl}.
+                  </li>
+                ) : null}
               </ul>
             </div>
           </div>

@@ -15,113 +15,164 @@ import {
   SparklesIcon,
 } from '@heroicons/react/24/outline';
 import analytics from '../../../services/analytics.js';
+import { fetchSeoSchemaTemplates } from '../../../services/seoConsole.js';
 
-const SCHEMA_TEMPLATES = {
-  Article: {
-    '@context': 'https://schema.org',
-    '@type': 'Article',
-    headline: 'How Gigvora elevates mentorship marketplaces',
-    description:
-      'Discover the frameworks Gigvora uses to match founders, mentors, and investors with precision.',
-    author: {
-      '@type': 'Person',
-      name: 'Nia Chen',
-    },
-    publisher: {
-      '@type': 'Organization',
-      name: 'Gigvora',
-      logo: {
-        '@type': 'ImageObject',
-        url: 'https://cdn.gigvora.com/logos/wordmark.png',
+const FALLBACK_TEMPLATES = [
+  {
+    slug: 'article',
+    label: 'Article',
+    schemaType: 'Article',
+    description: 'Long-form editorial with author and publisher metadata.',
+    jsonTemplate: {
+      '@context': 'https://schema.org',
+      '@type': 'Article',
+      headline: 'How Gigvora elevates mentorship marketplaces',
+      description: 'Discover the frameworks Gigvora uses to match founders, mentors, and investors with precision.',
+      author: {
+        '@type': 'Person',
+        name: 'Nia Chen',
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Gigvora',
+        logo: {
+          '@type': 'ImageObject',
+          url: 'https://cdn.gigvora.com/logos/wordmark.png',
+        },
+      },
+      datePublished: '2024-05-10',
+      image: 'https://cdn.gigvora.com/og/story-mentorship.png',
+      mainEntityOfPage: {
+        '@type': 'WebPage',
+        '@id': 'https://gigvora.com/stories/mentorship-operating-system',
       },
     },
-    datePublished: '2024-05-10',
-    image: 'https://cdn.gigvora.com/og/story-mentorship.png',
-    mainEntityOfPage: {
-      '@type': 'WebPage',
-      '@id': 'https://gigvora.com/stories/mentorship-operating-system',
+    recommendedFields: ['headline', 'description', 'author', 'datePublished'],
+    richResultPreview: {
+      title: 'Gigvora · Editorial insight',
+      description: 'Mentorship operating system for elite founders.',
+      url: 'https://gigvora.com/stories/mentorship-operating-system',
     },
   },
-  Product: {
-    '@context': 'https://schema.org',
-    '@type': 'Product',
-    name: 'Launchpad by Gigvora',
-    description: 'AI scouting platform built for recruiters and venture teams.',
-    image: 'https://cdn.gigvora.com/og/launchpad.png',
-    brand: {
-      '@type': 'Brand',
-      name: 'Gigvora',
+  {
+    slug: 'product',
+    label: 'Product',
+    schemaType: 'Product',
+    description: 'Merchandised product with offer metadata and aggregate ratings.',
+    jsonTemplate: {
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      name: 'Launchpad by Gigvora',
+      description: 'AI scouting platform built for recruiters and venture teams.',
+      image: 'https://cdn.gigvora.com/og/launchpad.png',
+      brand: {
+        '@type': 'Brand',
+        name: 'Gigvora',
+      },
+      offers: {
+        '@type': 'Offer',
+        price: '499',
+        priceCurrency: 'USD',
+        availability: 'https://schema.org/InStock',
+        url: 'https://gigvora.com/launchpad',
+      },
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: '4.9',
+        reviewCount: 124,
+      },
     },
-    offers: {
-      '@type': 'Offer',
-      price: '499',
-      priceCurrency: 'USD',
-      availability: 'https://schema.org/InStock',
+    recommendedFields: ['name', 'description', 'offers'],
+    richResultPreview: {
+      title: 'Launchpad by Gigvora',
+      description: 'AI scouting platform · Rated 4.9★',
       url: 'https://gigvora.com/launchpad',
-    },
-    aggregateRating: {
-      '@type': 'AggregateRating',
-      ratingValue: '4.9',
-      reviewCount: 124,
+      badges: ['In stock', '$499 USD'],
     },
   },
-  Event: {
-    '@context': 'https://schema.org',
-    '@type': 'Event',
-    name: 'Gigvora Mentor Summit',
-    description: 'An invite-only gathering for operators, founders, and career mentors.',
-    startDate: '2024-08-21T09:00',
-    endDate: '2024-08-21T17:00',
-    eventAttendanceMode: 'https://schema.org/MixedEventAttendanceMode',
-    eventStatus: 'https://schema.org/EventScheduled',
-    location: {
-      '@type': 'Place',
-      name: 'Gigvora HQ',
-      address: {
-        '@type': 'PostalAddress',
-        streetAddress: '470 Mission Street',
-        addressLocality: 'San Francisco',
-        addressRegion: 'CA',
-        postalCode: '94105',
-        addressCountry: 'US',
+  {
+    slug: 'event',
+    label: 'Event',
+    schemaType: 'Event',
+    description: 'Hybrid events with schedule, location, and organiser metadata.',
+    jsonTemplate: {
+      '@context': 'https://schema.org',
+      '@type': 'Event',
+      name: 'Gigvora Mentor Summit',
+      description: 'An invite-only gathering for operators, founders, and career mentors.',
+      startDate: '2024-08-21T09:00',
+      endDate: '2024-08-21T17:00',
+      eventAttendanceMode: 'https://schema.org/MixedEventAttendanceMode',
+      eventStatus: 'https://schema.org/EventScheduled',
+      location: {
+        '@type': 'Place',
+        name: 'Gigvora HQ',
+        address: {
+          '@type': 'PostalAddress',
+          streetAddress: '470 Mission Street',
+          addressLocality: 'San Francisco',
+          addressRegion: 'CA',
+          postalCode: '94105',
+          addressCountry: 'US',
+        },
+      },
+      image: ['https://cdn.gigvora.com/events/mentor-summit.png'],
+      performer: {
+        '@type': 'Organization',
+        name: 'Gigvora',
       },
     },
-    image: ['https://cdn.gigvora.com/events/mentor-summit.png'],
-    performer: {
-      '@type': 'Organization',
-      name: 'Gigvora',
+    recommendedFields: ['name', 'startDate', 'location'],
+    richResultPreview: {
+      title: 'Gigvora Mentor Summit',
+      description: 'Hybrid summit · August 21, 2024',
+      url: 'https://gigvora.com/events/mentor-summit',
+      badges: ['Starts 8/21/2024'],
     },
   },
-  JobPosting: {
-    '@context': 'https://schema.org',
-    '@type': 'JobPosting',
-    title: 'Founding Product Designer',
-    description: 'Shape the premium professional network for ambitious operators at Gigvora.',
-    datePosted: '2024-05-09',
-    employmentType: 'FULL_TIME',
-    hiringOrganization: {
-      '@type': 'Organization',
-      name: 'Gigvora',
-      sameAs: 'https://gigvora.com',
-      logo: 'https://cdn.gigvora.com/logos/wordmark.png',
-    },
-    jobLocationType: 'TELECOMMUTE',
-    validThrough: '2024-07-01',
-    applicantLocationRequirements: {
-      '@type': 'Country',
-      name: 'US',
-    },
-    baseSalary: {
-      '@type': 'MonetaryAmount',
-      currency: 'USD',
-      value: {
-        '@type': 'QuantitativeValue',
-        value: 180000,
-        unitText: 'YEAR',
+  {
+    slug: 'job-posting',
+    label: 'Job Posting',
+    schemaType: 'JobPosting',
+    description: 'Job listings with salary, employer, and location metadata.',
+    jsonTemplate: {
+      '@context': 'https://schema.org',
+      '@type': 'JobPosting',
+      title: 'Founding Product Designer',
+      description: 'Shape the premium professional network for ambitious operators at Gigvora.',
+      datePosted: '2024-05-09',
+      employmentType: 'FULL_TIME',
+      hiringOrganization: {
+        '@type': 'Organization',
+        name: 'Gigvora',
+        sameAs: 'https://gigvora.com',
+        logo: 'https://cdn.gigvora.com/logos/wordmark.png',
+      },
+      jobLocationType: 'TELECOMMUTE',
+      validThrough: '2024-07-01',
+      applicantLocationRequirements: {
+        '@type': 'Country',
+        name: 'US',
+      },
+      baseSalary: {
+        '@type': 'MonetaryAmount',
+        currency: 'USD',
+        value: {
+          '@type': 'QuantitativeValue',
+          value: 180000,
+          unitText: 'YEAR',
+        },
       },
     },
+    recommendedFields: ['title', 'description', 'hiringOrganization'],
+    richResultPreview: {
+      title: 'Founding Product Designer',
+      description: 'Gigvora · Remote · $180,000/year',
+      url: 'https://gigvora.com/jobs/founding-product-designer',
+      badges: ['Remote', 'Full time'],
+    },
   },
-};
+];
 
 const REQUIRED_FIELDS = {
   Article: ['headline', 'description', 'author', 'datePublished'],
@@ -129,9 +180,39 @@ const REQUIRED_FIELDS = {
   Event: ['name', 'startDate', 'location'],
   JobPosting: ['title', 'description', 'hiringOrganization'],
 };
+function normaliseTemplate(template) {
+  if (!template) {
+    return null;
+  }
+  return {
+    slug: template.slug || template.schemaType || template.label,
+    label: template.label || template.schemaType || template.slug,
+    schemaType: template.schemaType || template.slug || 'Custom',
+    description: template.description || '',
+    jsonTemplate: template.jsonTemplate || template.template || {},
+    recommendedFields: Array.isArray(template.recommendedFields) ? template.recommendedFields : [],
+    richResultPreview: template.richResultPreview || null,
+    sampleData: template.sampleData || null,
+    isActive: template.isActive !== false,
+  };
+}
 
-function resolveTemplate(type) {
-  return SCHEMA_TEMPLATES[type] ?? SCHEMA_TEMPLATES.Article;
+function determineInitialTemplate(templates, initialType) {
+  if (!templates.length) {
+    return null;
+  }
+  if (initialType) {
+    const bySlug = templates.find((template) => template.slug === initialType);
+    if (bySlug) {
+      return bySlug.slug;
+    }
+    const bySchemaType = templates.find((template) => template.schemaType === initialType);
+    if (bySchemaType) {
+      return bySchemaType.slug;
+    }
+  }
+  const articleTemplate = templates.find((template) => template.schemaType === 'Article');
+  return (articleTemplate || templates[0]).slug;
 }
 
 function safeStringify(value) {
@@ -153,16 +234,18 @@ function parseSchema(input) {
   }
 }
 
-function collectIssues(schema, type) {
+function collectIssues(schema, template) {
   const issues = [];
   if (!schema) {
     issues.push({ severity: 'error', message: 'No schema supplied.' });
     return issues;
   }
-  const required = REQUIRED_FIELDS[type] ?? [];
+  const required = Array.isArray(template?.recommendedFields) && template.recommendedFields.length
+    ? template.recommendedFields
+    : REQUIRED_FIELDS[template?.schemaType] ?? [];
   required.forEach((field) => {
     if (!(field in schema)) {
-      issues.push({ severity: 'error', message: `${field} is required for ${type} schema.` });
+      issues.push({ severity: 'error', message: `${field} is required for ${template?.schemaType ?? 'this'} schema.` });
     }
   });
   if (schema.image && !Array.isArray(schema.image) && typeof schema.image !== 'string') {
@@ -174,24 +257,33 @@ function collectIssues(schema, type) {
   if (!schema['@context']) {
     issues.push({ severity: 'warning', message: 'Missing @context property; search engines expect schema.org context.' });
   }
-  if (schema['@type'] && schema['@type'] !== type) {
-    issues.push({ severity: 'warning', message: `@type is ${schema['@type']} but template selected is ${type}.` });
+  if (schema['@type'] && template?.schemaType && schema['@type'] !== template.schemaType) {
+    issues.push({ severity: 'warning', message: `@type is ${schema['@type']} but template selected is ${template.schemaType}.` });
   }
   return issues;
 }
 
-function buildPreview(schema, type) {
+function buildPreview(schema, template) {
+  if (!schema && template?.richResultPreview) {
+    return {
+      title: template.richResultPreview.title,
+      description: template.richResultPreview.description,
+      url: template.richResultPreview.url,
+      badges: template.richResultPreview.badges ?? [],
+    };
+  }
   if (!schema) {
     return {
-      title: `${type} preview`,
+      title: `${template?.schemaType ?? 'Schema'} preview`,
       description: 'Paste structured data to preview search snippets.',
       url: 'https://gigvora.com',
       badges: [],
     };
   }
-  const title = schema.headline || schema.name || schema.title || `${type} preview`;
-  const description = schema.description || 'Add a description to improve engagement.';
-  const url = schema.mainEntityOfPage?.['@id'] || schema.url || 'https://gigvora.com';
+  const title = schema.headline || schema.name || schema.title || template?.richResultPreview?.title || `${template?.schemaType ?? 'Schema'} preview`;
+  const description =
+    schema.description || template?.richResultPreview?.description || 'Add a description to improve engagement.';
+  const url = schema.mainEntityOfPage?.['@id'] || schema.url || template?.richResultPreview?.url || 'https://gigvora.com';
   const badges = [];
   if (schema.aggregateRating?.ratingValue) {
     badges.push(`${schema.aggregateRating.ratingValue}★ rating`);
@@ -204,6 +296,9 @@ function buildPreview(schema, type) {
   }
   if (schema.baseSalary?.value?.value) {
     badges.push(`$${schema.baseSalary.value.value.toLocaleString()} ${schema.baseSalary.value.unitText ?? ''}`.trim());
+  }
+  if (Array.isArray(template?.richResultPreview?.badges)) {
+    badges.push(...template.richResultPreview.badges);
   }
   return { title, description, url, badges };
 }
@@ -218,16 +313,17 @@ function computeScore(issues, schema) {
   return Math.max(0, Math.min(100, score));
 }
 
-function buildRecommendations(issues, schema, type) {
+function buildRecommendations(issues, schema, template) {
   const tips = [];
   if (!schema) {
     tips.push('Insert a template and tailor it to your page to unlock previews.');
     return tips;
   }
-  if (!schema.author && type === 'Article') {
+  const schemaType = template?.schemaType;
+  if (!schema.author && schemaType === 'Article') {
     tips.push('Add an author object to strengthen trust and E-E-A-T signals.');
   }
-  if (!schema.offers && type === 'Product') {
+  if (!schema.offers && schemaType === 'Product') {
     tips.push('Provide an Offer block so pricing renders directly in search results.');
   }
   if (schema.description && schema.description.length > 160) {
@@ -241,52 +337,111 @@ function buildRecommendations(issues, schema, type) {
   }
   return tips;
 }
-
 export default function SchemaPreviewer({
   initialType = 'Article',
   initialSchema,
   analyticsMetadata = {},
   onSchemaChange,
 }) {
-  const [schemaType, setSchemaType] = useState(initialType);
-  const initialValue = useMemo(() => safeStringify(initialSchema ?? resolveTemplate(initialType)), [initialSchema, initialType]);
-  const [schemaInput, setSchemaInput] = useState(initialValue);
+  const [templates, setTemplates] = useState(FALLBACK_TEMPLATES);
+  const [selectedTemplateSlug, setSelectedTemplateSlug] = useState(null);
+  const [schemaInput, setSchemaInput] = useState('');
   const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    analytics.track(
-      'seo_schema_previewer_viewed',
-      { schemaType },
-      { source: analyticsMetadata.source ?? 'seo_console' },
-    );
-  }, [analyticsMetadata.source, schemaType]);
+    let active = true;
+    async function loadTemplates() {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetchSeoSchemaTemplates();
+        if (!active) return;
+        const resolved = Array.isArray(response?.templates)
+          ? response.templates
+              .map(normaliseTemplate)
+              .filter((template) => template && template.isActive !== false)
+          : [];
+        const merged = resolved.length ? resolved : FALLBACK_TEMPLATES;
+        setTemplates(merged);
+        const initialSlug = determineInitialTemplate(merged, initialType);
+        setSelectedTemplateSlug(initialSlug);
+        const template = merged.find((item) => item.slug === initialSlug) ?? merged[0];
+        const startingValue = initialSchema ? safeStringify(initialSchema) : safeStringify(template?.jsonTemplate ?? {});
+        setSchemaInput(startingValue);
+      } catch (err) {
+        if (!active) return;
+        setError(err);
+        setTemplates(FALLBACK_TEMPLATES);
+        const initialSlug = determineInitialTemplate(FALLBACK_TEMPLATES, initialType);
+        setSelectedTemplateSlug(initialSlug);
+        const template = FALLBACK_TEMPLATES.find((item) => item.slug === initialSlug) ?? FALLBACK_TEMPLATES[0];
+        const startingValue = initialSchema ? safeStringify(initialSchema) : safeStringify(template?.jsonTemplate ?? {});
+        setSchemaInput(startingValue);
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+    loadTemplates();
+    return () => {
+      active = false;
+    };
+  }, [initialSchema, initialType]);
 
+  const selectedTemplate = useMemo(
+    () => templates.find((template) => template.slug === selectedTemplateSlug) ?? null,
+    [templates, selectedTemplateSlug],
+  );
+
+  const schemaType = selectedTemplate?.schemaType ?? initialType;
   const parsed = useMemo(() => parseSchema(schemaInput), [schemaInput]);
   const schema = parsed.value ?? null;
-  const issues = useMemo(() => collectIssues(schema, schemaType), [schema, schemaType]);
-  const preview = useMemo(() => buildPreview(schema, schemaType), [schema, schemaType]);
+  const issues = useMemo(() => collectIssues(schema, selectedTemplate), [schema, selectedTemplate]);
+  const preview = useMemo(() => buildPreview(schema, selectedTemplate), [schema, selectedTemplate]);
   const score = useMemo(() => computeScore(issues, schema), [issues, schema]);
-  const recommendations = useMemo(() => buildRecommendations(issues, schema, schemaType), [issues, schema, schemaType]);
+  const recommendations = useMemo(
+    () => buildRecommendations(issues, schema, selectedTemplate),
+    [issues, schema, selectedTemplate],
+  );
 
   useEffect(() => {
-    onSchemaChange?.(schema, { schemaType, issues, score });
-  }, [schema, schemaType, issues, score, onSchemaChange]);
+    if (!selectedTemplate) {
+      return;
+    }
+    analytics.track(
+      'seo_schema_previewer_viewed',
+      { schemaType: selectedTemplate.schemaType },
+      { source: analyticsMetadata.source ?? 'seo_console' },
+    );
+  }, [analyticsMetadata.source, selectedTemplate]);
 
-  const handleTypeChange = (type) => {
-    setSchemaType(type);
-    const template = resolveTemplate(type);
-    const value = safeStringify(template);
-    setSchemaInput(value);
+  useEffect(() => {
+    if (!selectedTemplate) {
+      return;
+    }
+    onSchemaChange?.(schema, { schemaType: selectedTemplate.schemaType, issues, score, template: selectedTemplate });
+  }, [schema, selectedTemplate, issues, score, onSchemaChange]);
+
+  const handleTemplateChange = (slug) => {
+    const template = templates.find((item) => item.slug === slug);
+    setSelectedTemplateSlug(slug);
+    if (!template) {
+      return;
+    }
+    setSchemaInput(safeStringify(template.jsonTemplate));
     setCopied(false);
     analytics.track(
       'seo_schema_template_applied',
-      { schemaType: type },
+      { schemaType: template.schemaType, template: slug },
       { source: analyticsMetadata.source ?? 'seo_console' },
     );
   };
 
   const handleBeautify = () => {
-    if (!schema) return;
+    if (!schema || parsed.error) return;
     setSchemaInput(JSON.stringify(schema, null, 2));
   };
 
@@ -296,20 +451,31 @@ export default function SchemaPreviewer({
       setCopied(true);
       analytics.track(
         'seo_schema_copied',
-        { schemaType, hasErrors: issues.some((issue) => issue.severity === 'error') },
+        { schemaType: selectedTemplate?.schemaType, hasErrors: issues.some((issue) => issue.severity === 'error') },
         { source: analyticsMetadata.source ?? 'seo_console' },
       );
       setTimeout(() => setCopied(false), 1500);
-    } catch (error) {
+    } catch (copyError) {
       setCopied(false);
     }
   };
 
   const handleReset = () => {
-    const template = resolveTemplate(schemaType);
-    setSchemaInput(JSON.stringify(template, null, 2));
+    if (!selectedTemplate) return;
+    setSchemaInput(JSON.stringify(selectedTemplate.jsonTemplate, null, 2));
     setCopied(false);
   };
+
+  if (loading) {
+    return (
+      <section className="relative overflow-hidden rounded-4xl border border-white/10 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-10 text-white shadow-[0_60px_200px_rgba(30,64,175,0.45)]">
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(129,140,248,0.18),_transparent_65%)]" aria-hidden="true" />
+        <div className="flex min-h-[240px] items-center justify-center text-sm text-white/60">Loading structured data lab…</div>
+      </section>
+    );
+  }
+  const templateOptions = templates.filter((template) => template); // guard against null entries
+  const activeTemplate = selectedTemplate || templateOptions[0] || FALLBACK_TEMPLATES[0];
 
   return (
     <section className="relative overflow-hidden rounded-4xl border border-white/10 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-10 text-white shadow-[0_60px_200px_rgba(30,64,175,0.45)]">
@@ -324,26 +490,31 @@ export default function SchemaPreviewer({
             <div className="space-y-3">
               <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Preview rich results before they reach Google.</h2>
               <p className="text-sm text-white/70">
-                Switch between schema types, validate requirements instantly, and showcase how Gigvora pages appear in search,
-                messaging apps, and social cards.
+                Switch between schema types, validate requirements instantly, and showcase how Gigvora pages appear in search, messaging apps, and social cards.
               </p>
             </div>
+            {error ? (
+              <div className="rounded-3xl border border-amber-300/60 bg-amber-300/10 p-4 text-xs text-amber-100 shadow-[0_12px_32px_rgba(251,191,36,0.25)]">
+                <p className="font-semibold uppercase tracking-[0.32em]">Template service unavailable</p>
+                <p>{error?.message ?? 'Using fallback templates while the template service recovers.'}</p>
+              </div>
+            ) : null}
           </header>
 
           <div className="flex flex-wrap gap-3">
-            {Object.keys(SCHEMA_TEMPLATES).map((type) => (
+            {templateOptions.map((template) => (
               <button
-                key={type}
+                key={template.slug}
                 type="button"
-                onClick={() => handleTypeChange(type)}
+                onClick={() => handleTemplateChange(template.slug)}
                 className={clsx(
                   'rounded-full border px-5 py-2 text-xs font-semibold uppercase tracking-[0.32em] transition',
-                  schemaType === type
+                  selectedTemplateSlug === template.slug
                     ? 'border-indigo-200/60 bg-indigo-200/20 text-white shadow-[0_14px_40px_rgba(99,102,241,0.4)]'
                     : 'border-white/15 bg-transparent text-white/60 hover:border-indigo-200/40 hover:text-white',
                 )}
               >
-                {type}
+                {template.label}
               </button>
             ))}
           </div>
@@ -404,7 +575,7 @@ export default function SchemaPreviewer({
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.32em] text-white/60">
-              <span className="rounded-full border border-white/15 px-4 py-2">Type {schemaType}</span>
+              <span className="rounded-full border border-white/15 px-4 py-2">Type {activeTemplate?.schemaType}</span>
               <span className="rounded-full border border-white/15 px-4 py-2">Size {schemaInput.length} chars</span>
             </div>
           </footer>
@@ -474,10 +645,17 @@ export default function SchemaPreviewer({
 }
 
 SchemaPreviewer.propTypes = {
-  initialType: PropTypes.oneOf(Object.keys(SCHEMA_TEMPLATES)),
-  initialSchema: PropTypes.object,
+  initialType: PropTypes.string,
+  initialSchema: PropTypes.oneOfType([PropTypes.object, PropTypes.array]),
   analyticsMetadata: PropTypes.shape({
     source: PropTypes.string,
   }),
   onSchemaChange: PropTypes.func,
+};
+
+SchemaPreviewer.defaultProps = {
+  initialType: 'Article',
+  initialSchema: undefined,
+  analyticsMetadata: {},
+  onSchemaChange: undefined,
 };

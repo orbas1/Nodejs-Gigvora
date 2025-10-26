@@ -12,73 +12,25 @@ import {
   EyeIcon,
 } from '@heroicons/react/24/outline';
 import analytics from '../../../services/analytics.js';
+import { fetchSeoConsoleSnapshot } from '../../../services/seoConsole.js';
+import { updateSeoSettings } from '../../../services/seoSettings.js';
 
-const SEO_TEMPLATES = [
-  {
-    id: 'standard',
-    label: 'Standard landing',
-    helper: 'Balanced metadata for marketing and conversion pages.',
-    fields: {
-      title: 'Accelerate growth with Gigvora',
-      description:
-        'Discover curated opportunities, automate workflows, and activate mentorship loops built for modern operators.',
-      canonicalUrl: 'https://gigvora.com/',
-      robots: 'index,follow',
-      ogTitle: 'Gigvora · Growth, mentorship & opportunity network',
-      ogDescription:
-        'A trusted platform for founders, freelancers, and hiring teams to connect, collaborate, and scale responsibly.',
-      ogImage: 'https://cdn.gigvora.com/og/marketing-default.png',
-      twitterCard: 'summary_large_image',
-      focusKeyword: 'growth platform',
-      keywords: 'professional network, mentorship, opportunity marketplace',
-    },
-  },
-  {
-    id: 'product-launch',
-    label: 'Product launch',
-    helper: 'Optimised for feature releases and press drops.',
-    fields: {
-      title: 'Launchpad by Gigvora — AI scouting for elite teams',
-      description:
-        'Unveil Launchpad: AI-powered scouting that surfaces vetted founders, creators, and operators with enterprise-grade insights.',
-      canonicalUrl: 'https://gigvora.com/launchpad',
-      robots: 'index,follow',
-      ogTitle: 'Launchpad · AI scouting by Gigvora',
-      ogDescription:
-        'Precision-matched opportunities and insights for executives and recruiters seeking their next strategic hire.',
-      ogImage: 'https://cdn.gigvora.com/og/launchpad.png',
-      twitterCard: 'summary_large_image',
-      focusKeyword: 'AI scouting platform',
-      keywords: 'AI scouting, recruitment intelligence, launchpad',
-    },
-  },
-  {
-    id: 'thought-leadership',
-    label: 'Thought leadership',
-    helper: 'Built for editorial and long-form brand stories.',
-    fields: {
-      title: 'The mentorship operating system redefining modern work',
-      description:
-        'Explore how Gigvora pairs mentorship intelligence with deal flow to help ambitious talent unlock compounding outcomes.',
-      canonicalUrl: 'https://gigvora.com/stories/mentorship-operating-system',
-      robots: 'index,follow',
-      ogTitle: 'Gigvora Stories · Mentorship operating system',
-      ogDescription:
-        'A premium look into the mentorship models powering today’s top operators and global teams.',
-      ogImage: 'https://cdn.gigvora.com/og/story-mentorship.png',
-      twitterCard: 'summary_large_image',
-      focusKeyword: 'mentorship operating system',
-      keywords: 'mentorship, professional growth, gigvora stories',
-    },
-  },
-];
+function keywordsToString(keywords) {
+  if (!Array.isArray(keywords)) {
+    return '';
+  }
+  return keywords.join(', ');
+}
 
-const FIELD_LIMITS = {
-  title: { min: 35, max: 60 },
-  description: { min: 110, max: 160 },
-  ogTitle: { min: 35, max: 65 },
-  ogDescription: { min: 110, max: 200 },
-};
+function stringToKeywords(value) {
+  if (!value) {
+    return [];
+  }
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
 
 function normaliseInitialMeta(initialMeta) {
   if (!initialMeta || typeof initialMeta !== 'object') {
@@ -95,6 +47,71 @@ function normaliseInitialMeta(initialMeta) {
     };
   }, {});
 }
+
+function canonicalPathFromUrl(url) {
+  if (!url) {
+    return null;
+  }
+  try {
+    const parsed = new URL(url, 'https://example.com');
+    return parsed.pathname || '/';
+  } catch (error) {
+    return url.startsWith('/') ? url : null;
+  }
+}
+
+function matchTemplateForPath(templates, path) {
+  const normalised = path || '/';
+  return templates.find((template) => {
+    const canonical = canonicalPathFromUrl(template.fields?.canonicalUrl);
+    return canonical ? canonical === normalised : false;
+  });
+}
+
+function buildMetaFromSources(settings, override, template, path) {
+  if (!settings) {
+    return {};
+  }
+  const templateFields = template?.fields ?? {};
+  const baseKeywords = override?.keywords?.length
+    ? override.keywords
+    : Array.isArray(templateFields.keywords)
+      ? templateFields.keywords
+      : stringToKeywords(templateFields.keywords ?? '') || settings.defaultKeywords;
+  const baseUrl = (settings.canonicalBaseUrl || '').replace(/\/$/, '');
+  const canonicalFromSettings = baseUrl ? `${baseUrl}${path === '/' ? '' : path}` : '';
+
+  return {
+    title: override?.title || templateFields.title || settings.defaultTitle || '',
+    description:
+      override?.description || templateFields.description || settings.defaultDescription || '',
+    canonicalUrl:
+      override?.canonicalUrl || templateFields.canonicalUrl || canonicalFromSettings || '',
+    robots: override?.robots || templateFields.robots || 'index,follow',
+    focusKeyword: override?.focusKeyword || templateFields.focusKeyword || '',
+    keywords: keywordsToString(baseKeywords),
+    ogTitle:
+      override?.social?.ogTitle || templateFields.ogTitle || settings.socialDefaults?.ogTitle || '',
+    ogDescription:
+      override?.social?.ogDescription ||
+      templateFields.ogDescription ||
+      settings.socialDefaults?.ogDescription ||
+      '',
+    ogImage:
+      override?.social?.ogImageUrl ||
+      templateFields.ogImageUrl ||
+      settings.socialDefaults?.ogImageUrl ||
+      '',
+    twitterCard: override?.twitter?.cardType || templateFields.twitterCard || 'summary_large_image',
+  };
+}
+
+const FIELD_LIMITS = {
+  title: { min: 35, max: 60 },
+  description: { min: 110, max: 160 },
+  ogTitle: { min: 35, max: 65 },
+  ogDescription: { min: 110, max: 200 },
+};
 
 function countWords(value) {
   if (!value) return 0;
@@ -213,9 +230,21 @@ const FIELD_CONFIG = [
   { key: 'twitterCard', label: 'Twitter card type', helper: 'summary or summary_large_image recommended.' },
 ];
 
-export default function SeoMetaManager({ initialMeta = {}, analyticsMetadata = {}, onChange, onSave }) {
-  const [selectedTemplate, setSelectedTemplate] = useState('standard');
-  const [meta, setMeta] = useState(() => ({ ...SEO_TEMPLATES[0].fields, ...normaliseInitialMeta(initialMeta) }));
+export default function SeoMetaManager({
+  pagePath = '/',
+  initialMeta = {},
+  analyticsMetadata = {},
+  onChange,
+  onSave,
+}) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [settings, setSettings] = useState(null);
+  const [routes, setRoutes] = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [selectedPath, setSelectedPath] = useState(pagePath || '/');
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [meta, setMeta] = useState(normaliseInitialMeta(initialMeta));
   const [status, setStatus] = useState('editing');
   const [lastSavedAt, setLastSavedAt] = useState(null);
 
@@ -224,15 +253,78 @@ export default function SeoMetaManager({ initialMeta = {}, analyticsMetadata = {
   }, [meta, onChange]);
 
   useEffect(() => {
+    let active = true;
+    async function loadSnapshot() {
+      setLoading(true);
+      setError(null);
+      try {
+        const snapshot = await fetchSeoConsoleSnapshot();
+        if (!active) return;
+        const snapshotSettings = snapshot.settings ?? null;
+        const snapshotTemplates = snapshot.metaTemplates ?? [];
+        const snapshotRoutes = snapshot.routes?.entries ?? [];
+        setSettings(snapshotSettings);
+        setTemplates(snapshotTemplates);
+        setRoutes(snapshotRoutes);
+        const resolvedPath =
+          snapshotRoutes.find((entry) => entry.path === (pagePath || '/'))?.path ||
+          snapshotRoutes[0]?.path ||
+          pagePath ||
+          '/';
+        setSelectedPath(resolvedPath);
+        const matchedTemplate =
+          matchTemplateForPath(snapshotTemplates, resolvedPath) ||
+          snapshotTemplates.find((template) => template.isDefault) ||
+          null;
+        setSelectedTemplate(matchedTemplate?.slug ?? null);
+        const override = snapshotSettings?.pageOverrides?.find((item) => item.path === resolvedPath);
+        setMeta(
+          buildMetaFromSources(snapshotSettings, override, matchedTemplate, resolvedPath),
+        );
+        setStatus('editing');
+      } catch (err) {
+        if (!active) return;
+        setError(err);
+        setMeta((previous) =>
+          Object.keys(previous).length ? previous : normaliseInitialMeta(initialMeta),
+        );
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+    loadSnapshot();
+    return () => {
+      active = false;
+    };
+  }, [pagePath, initialMeta]);
+
+  useEffect(() => {
+    if (!settings) {
+      return;
+    }
+    const override = settings.pageOverrides?.find((item) => item.path === selectedPath);
+    const matchedTemplate =
+      templates.find((template) => template.slug === selectedTemplate) ||
+      matchTemplateForPath(templates, selectedPath) ||
+      templates.find((template) => template.isDefault) ||
+      null;
+    setSelectedTemplate((previous) => previous ?? matchedTemplate?.slug ?? null);
+    setMeta(buildMetaFromSources(settings, override, matchedTemplate, selectedPath));
+    setStatus('editing');
+  }, [selectedPath, settings, templates]);
+
+  useEffect(() => {
+    if (!settings || loading || error) {
+      return;
+    }
     analytics.track(
       'seo_meta_manager_viewed',
-      {
-        template: selectedTemplate,
-        keyword: meta.focusKeyword,
-      },
+      { path: selectedPath, template: selectedTemplate },
       { source: analyticsMetadata.source ?? 'seo_console' },
     );
-  }, [analyticsMetadata.source, meta.focusKeyword, selectedTemplate]);
+  }, [settings, loading, error, selectedPath, selectedTemplate, analyticsMetadata.source]);
 
   const validation = useMemo(() => {
     return FIELD_CONFIG.reduce((accumulator, field) => {
@@ -262,13 +354,47 @@ export default function SeoMetaManager({ initialMeta = {}, analyticsMetadata = {
     return Math.min(12, Math.round((phraseCount / countWords(meta.description)) * 1000) / 10);
   }, [meta.description, meta.focusKeyword]);
 
-  const handleTemplateChange = (templateId) => {
-    setSelectedTemplate(templateId);
-    const template = SEO_TEMPLATES.find((item) => item.id === templateId);
-    if (!template) return;
-    const merged = { ...meta, ...template.fields };
-    setMeta(merged);
+  const selectedRoute = useMemo(
+    () => routes.find((route) => route.path === selectedPath) ?? null,
+    [routes, selectedPath],
+  );
+
+  const applyTemplate = (template) => {
+    if (!template) {
+      return;
+    }
+    const templateMeta = buildMetaFromSources(settings, null, template, selectedPath);
+    setMeta((previous) => ({
+      ...previous,
+      ...templateMeta,
+    }));
     setStatus('editing');
+  };
+
+  const handleTemplateChange = (slug) => {
+    const template = templates.find((item) => item.slug === slug);
+    setSelectedTemplate(slug);
+    applyTemplate(template);
+    if (template) {
+      analytics.track(
+        'seo_meta_template_selected',
+        { template: slug, path: selectedPath },
+        { source: analyticsMetadata.source ?? 'seo_console' },
+      );
+    }
+  };
+
+  const handleApplyTemplate = () => {
+    const template = templates.find((item) => item.slug === selectedTemplate);
+    if (!template) {
+      return;
+    }
+    applyTemplate(template);
+    analytics.track(
+      'seo_meta_template_applied',
+      { template: selectedTemplate, path: selectedPath },
+      { source: analyticsMetadata.source ?? 'seo_console' },
+    );
   };
 
   const handleFieldChange = (key, value) => {
@@ -280,32 +406,104 @@ export default function SeoMetaManager({ initialMeta = {}, analyticsMetadata = {
   };
 
   const handleSave = async () => {
+    if (!settings) {
+      return;
+    }
     setStatus('saving');
-    const payload = { ...meta, updatedAt: new Date().toISOString() };
+    const keywordsArray = stringToKeywords(meta.keywords);
+    const existingOverride = settings.pageOverrides?.find((item) => item.path === selectedPath);
+    const overridePayload = {
+      ...(existingOverride?.id ? { id: existingOverride.id } : {}),
+      path: selectedPath,
+      title: meta.title.trim(),
+      description: meta.description.trim(),
+      keywords: keywordsArray,
+      focusKeyword: meta.focusKeyword.trim(),
+      canonicalUrl: meta.canonicalUrl.trim(),
+      robots: meta.robots.trim(),
+      ogTitle: meta.ogTitle.trim(),
+      ogDescription: meta.ogDescription.trim(),
+      ogImageUrl: meta.ogImage.trim(),
+      twitterTitle: meta.ogTitle.trim(),
+      twitterDescription: meta.ogDescription.trim(),
+      twitterImageUrl: meta.ogImage.trim(),
+      twitterCardType: meta.twitterCard,
+      twitterHandle: existingOverride?.twitter?.twitterHandle ?? '',
+      metaTags: existingOverride?.metaTags ?? [],
+      noindex: existingOverride?.noindex ?? false,
+      structuredData: existingOverride?.structuredData ?? {},
+    };
+
+    const payload = {
+      siteName: settings.siteName,
+      defaultTitle: settings.defaultTitle,
+      defaultDescription: settings.defaultDescription,
+      defaultKeywords: settings.defaultKeywords,
+      canonicalBaseUrl: settings.canonicalBaseUrl,
+      sitemapUrl: settings.sitemapUrl,
+      allowIndexing: settings.allowIndexing,
+      robotsPolicy: settings.robotsPolicy,
+      noindexPaths: settings.noindexPaths,
+      verificationCodes: settings.verificationCodes,
+      socialDefaults: settings.socialDefaults,
+      structuredData: settings.structuredData,
+      pageOverrides: [
+        ...(settings.pageOverrides?.filter((item) => item.path !== selectedPath) ?? []),
+        overridePayload,
+      ],
+    };
+
     try {
-      await onSave?.(payload);
+      const response = await updateSeoSettings(payload);
+      setSettings(response);
+      const updatedOverride = response.pageOverrides?.find((item) => item.path === selectedPath);
+      const template = templates.find((item) => item.slug === selectedTemplate) || null;
+      setMeta(buildMetaFromSources(response, updatedOverride, template, selectedPath));
       analytics.track(
         'seo_meta_manager_saved',
-        {
-          score,
-          completion,
-          keyword: meta.focusKeyword,
-        },
+        { score, completion, keyword: meta.focusKeyword, path: selectedPath },
         { source: analyticsMetadata.source ?? 'seo_console' },
       );
       setStatus('saved');
       setLastSavedAt(new Date());
+      onSave?.(overridePayload);
     } catch (error) {
       setStatus('error');
       analytics.track(
         'seo_meta_manager_save_failed',
-        {
-          message: error?.message ?? 'unknown_error',
-        },
+        { message: error?.message ?? 'unknown_error', path: selectedPath },
         { source: analyticsMetadata.source ?? 'seo_console' },
       );
     }
   };
+
+  if (loading) {
+    return (
+      <section className="relative overflow-hidden rounded-4xl border border-white/10 bg-slate-950/70 p-10 text-white shadow-[0_50px_160px_rgba(8,47,73,0.55)]">
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.18),_transparent_65%)]" aria-hidden="true" />
+        <div className="flex min-h-[240px] items-center justify-center text-sm text-white/60">
+          Loading SEO console data…
+        </div>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className="relative overflow-hidden rounded-4xl border border-rose-500/40 bg-rose-950/60 p-10 text-white shadow-[0_50px_160px_rgba(76,5,25,0.45)]">
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(251,191,36,0.12),_transparent_65%)]" aria-hidden="true" />
+        <div className="flex min-h-[240px] flex-col items-center justify-center gap-3 text-sm">
+          <ExclamationTriangleIcon className="h-6 w-6 text-amber-300" aria-hidden="true" />
+          <p className="text-center text-white/80">We couldn’t load the SEO console snapshot. Please retry later.</p>
+          <p className="text-xs text-white/50">{error?.message ?? 'Unknown error'}</p>
+        </div>
+      </section>
+    );
+  }
+
+  if (!settings) {
+    return null;
+  }
 
   return (
     <section className="relative overflow-hidden rounded-4xl border border-white/10 bg-slate-950/70 p-10 text-white shadow-[0_50px_160px_rgba(8,47,73,0.55)]">
@@ -326,29 +524,80 @@ export default function SeoMetaManager({ initialMeta = {}, analyticsMetadata = {
             </div>
           </header>
 
-          <div className="grid gap-4 sm:grid-cols-3">
-            {SEO_TEMPLATES.map((template) => {
-              const active = template.id === selectedTemplate;
-              return (
-                <button
-                  key={template.id}
-                  type="button"
-                  onClick={() => handleTemplateChange(template.id)}
+          <div className="flex flex-col gap-3 rounded-3xl border border-white/10 bg-white/5 p-5 shadow-[0_20px_50px_rgba(15,23,42,0.35)]">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-semibold uppercase tracking-[0.28em] text-white/70">Active page</span>
+                <p className="text-xs text-white/50">
+                  {selectedRoute?.title ? `${selectedRoute.title} · ${selectedPath}` : selectedPath}
+                </p>
+              </div>
+              <select
+                value={selectedPath}
+                onChange={(event) => setSelectedPath(event.target.value)}
+                className="rounded-full border border-white/10 bg-slate-950/60 px-4 py-2 text-sm text-white shadow-inner focus:border-cyan-200 focus:outline-none"
+              >
+                {routes.length === 0 && <option value={selectedPath}>{selectedPath}</option>}
+                {routes.map((route) => (
+                  <option key={route.path} value={route.path}>
+                    {route.title ? `${route.title} · ${route.path}` : route.path}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {selectedRoute && (
+              <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.3em] text-white/50">
+                <span
                   className={clsx(
-                    'group flex flex-col gap-2 rounded-3xl border px-4 py-5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300',
-                    active
-                      ? 'border-cyan-200/60 bg-cyan-200/10 shadow-[0_20px_60px_rgba(8,47,73,0.45)]'
-                      : 'border-white/10 bg-white/5 hover:border-cyan-200/40 hover:bg-cyan-200/5',
+                    'inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium',
+                    selectedRoute.indexed ? 'bg-emerald-500/20 text-emerald-200' : 'bg-amber-500/20 text-amber-100',
                   )}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-100/80">{template.label}</span>
-                    {active ? <CheckCircleIcon className="h-5 w-5 text-cyan-200" aria-hidden="true" /> : <InformationCircleIcon className="h-5 w-5 text-white/40" aria-hidden="true" />}
-                  </div>
-                  <p className="text-xs text-white/60">{template.helper}</p>
-                </button>
-              );
-            })}
+                  {selectedRoute.indexed ? 'Indexable' : 'Noindex'}
+                </span>
+                {selectedRoute.collection && <span>{selectedRoute.collection}</span>}
+                {selectedRoute.indexingStatus === 'settings_noindex' && (
+                  <span>Controlled by settings</span>
+                )}
+                {selectedRoute.indexingStatus === 'metadata_blocked' && <span>Metadata blocked</span>}
+                {selectedRoute.indexingStatus === 'global_disabled' && <span>Global indexing disabled</span>}
+              </div>
+            )}
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            {templates.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-white/20 bg-white/5 px-4 py-6 text-center text-xs text-white/50">
+                No SEO templates configured. Administrators can add templates in the SEO console settings.
+              </div>
+            ) : (
+              templates.map((template) => {
+                const active = template.slug === selectedTemplate;
+                return (
+                  <button
+                    key={template.slug}
+                    type="button"
+                    onClick={() => handleTemplateChange(template.slug)}
+                    className={clsx(
+                      'group flex flex-col gap-2 rounded-3xl border px-4 py-5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300',
+                      active
+                        ? 'border-cyan-200/60 bg-cyan-200/10 shadow-[0_20px_60px_rgba(8,47,73,0.45)]'
+                        : 'border-white/10 bg-white/5 hover:border-cyan-200/40 hover:bg-cyan-200/5',
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-100/80">{template.label}</span>
+                      {active ? (
+                        <CheckCircleIcon className="h-5 w-5 text-cyan-200" aria-hidden="true" />
+                      ) : (
+                        <InformationCircleIcon className="h-5 w-5 text-white/40" aria-hidden="true" />
+                      )}
+                    </div>
+                    <p className="text-xs text-white/60">{template.description || 'Curated metadata baseline for this page type.'}</p>
+                  </button>
+                );
+              })
+            )}
           </div>
 
           <div className="grid gap-6 rounded-4xl border border-white/10 bg-white/5 p-6 shadow-[0_30px_80px_rgba(15,23,42,0.35)] lg:grid-cols-2">
@@ -419,7 +668,7 @@ export default function SeoMetaManager({ initialMeta = {}, analyticsMetadata = {
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
-                onClick={() => setMeta((previous) => ({ ...previous, ...SEO_TEMPLATES.find((item) => item.id === selectedTemplate)?.fields }))}
+                onClick={handleApplyTemplate}
                 className="inline-flex items-center gap-2 rounded-full border border-cyan-200/60 bg-transparent px-5 py-3 text-xs font-semibold uppercase tracking-[0.32em] text-cyan-100 transition hover:bg-cyan-200/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200"
               >
                 <SparklesIcon className="h-4 w-4" aria-hidden="true" />
@@ -531,10 +780,19 @@ export default function SeoMetaManager({ initialMeta = {}, analyticsMetadata = {
 }
 
 SeoMetaManager.propTypes = {
+  pagePath: PropTypes.string,
   initialMeta: PropTypes.object,
   analyticsMetadata: PropTypes.shape({
     source: PropTypes.string,
   }),
   onChange: PropTypes.func,
   onSave: PropTypes.func,
+};
+
+SeoMetaManager.defaultProps = {
+  pagePath: '/',
+  initialMeta: {},
+  analyticsMetadata: {},
+  onChange: undefined,
+  onSave: undefined,
 };

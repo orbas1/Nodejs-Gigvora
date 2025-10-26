@@ -1309,7 +1309,9 @@ const seoOverrideSchema = z
     title: optionalTrimmedString({ max: 180 }),
     description: optionalTrimmedString({ max: 5000 }),
     keywords: optionalStringArray({ maxItemLength: 120, maxLength: 64 }),
+    focusKeyword: optionalTrimmedString({ max: 120 }),
     canonicalUrl: optionalTrimmedString({ max: 2048 }),
+    robots: optionalTrimmedString({ max: 160 }),
     ogTitle: optionalTrimmedString({ max: 180 }),
     ogDescription: optionalTrimmedString({ max: 5000 }),
     ogImageUrl: optionalTrimmedString({ max: 2048 }),
@@ -1340,6 +1342,47 @@ export const seoSettingsBodySchema = z
     socialDefaults: seoSocialDefaultsSchema.optional(),
     structuredData: seoStructuredDataSchema.optional(),
     pageOverrides: z.array(seoOverrideSchema).optional(),
+  })
+  .strip();
+
+export const seoConsoleGenerateSitemapBodySchema = z
+  .object({
+    baseUrl: optionalTrimmedString({ max: 2048 }).optional(),
+    includeImages: optionalBoolean(),
+    includeLastModified: optionalBoolean(),
+  })
+  .strip();
+
+export const seoConsoleListJobsQuerySchema = z
+  .object({
+    limit: optionalNumber({ min: 1, max: 100, integer: true }),
+  })
+  .strip();
+
+export const seoConsoleSubmitJobParamsSchema = z
+  .object({
+    jobId: z.preprocess((value) => {
+      if (typeof value === 'number') {
+        return value;
+      }
+      if (typeof value === 'string' && value.trim().length) {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : value;
+      }
+      return value;
+    }, z.number().int().positive()),
+  })
+  .strip();
+
+export const seoConsoleSubmitJobBodySchema = z
+  .object({
+    notes: optionalTrimmedString({ max: 500 }),
+  })
+  .strip();
+
+export const seoConsoleSchemaTemplatesQuerySchema = z
+  .object({
+    includeInactive: optionalBoolean(),
   })
   .strip();
 
