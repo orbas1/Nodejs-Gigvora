@@ -66,14 +66,16 @@ describe('RoleSwitcher', () => {
     const user = userEvent.setup();
     renderWithRouter(<RoleSwitcher options={options} currentKey="founder" />);
 
-    expect(screen.getByRole('button', { name: /founder/i })).toBeInTheDocument();
+    const trigger = screen.getByRole('button', { name: /active workspace/i });
+    expect(trigger).toHaveTextContent(/Founder/);
 
     await act(async () => {
-      await user.click(screen.getByRole('button', { name: /founder/i }));
+      await user.click(trigger);
     });
     const agencyOption = await screen.findByRole('menuitem', { name: /agency/i });
     expect(agencyOption).toHaveAttribute('href', '/agency');
+    expect(within(agencyOption).getByText(/Timeline setup needed/i)).toBeInTheDocument();
     const founderOption = await screen.findByRole('menuitem', { name: /founder/i });
-    expect(within(founderOption).getByText(/timeline/i)).toBeInTheDocument();
+    expect(within(founderOption).getByText(/Timeline live/i)).toBeInTheDocument();
   });
 });

@@ -196,6 +196,73 @@ export const roleDashboardMapping = deepFreeze({
   admin: '/dashboard/admin',
 });
 
+export const roleExperienceMeta = deepFreeze({
+  user: {
+    status: 'Operational',
+    description: 'Personal HQ with live feed, saved opportunities, and inbox orchestration.',
+    highlight: 'Signals sync across feed, jobs, and messages in real time.',
+    metricLabel: 'Opportunities tracked',
+    metricValue: '12 this week',
+    accent: 'accent',
+  },
+  freelancer: {
+    status: 'Operational',
+    description: 'Pipeline, proposals, and contract delivery with talent-first analytics.',
+    highlight: 'AI match scoring and showcase storytelling lift conversions.',
+    metricLabel: 'Active pitches',
+    metricValue: '5 live',
+    accent: 'sky',
+  },
+  agency: {
+    status: 'Operational',
+    description: 'CRM, workforce, and finance surfaces for boutique and global agencies.',
+    highlight: 'Revenue pacing, collaborator governance, and automations in one shell.',
+    metricLabel: 'Accounts synced',
+    metricValue: '18 managed',
+    accent: 'violet',
+  },
+  company: {
+    status: 'Operational',
+    description: 'Hiring, vendor, and program analytics with trust centre integrations.',
+    highlight: 'Executive dashboards, approvals, and rollout orchestration stay aligned.',
+    metricLabel: 'Workspaces live',
+    metricValue: '9 teams',
+    accent: 'amber',
+  },
+  mentor: {
+    status: 'Operational',
+    description: 'Session scheduling, playbooks, and mentee diagnostics with instant sync.',
+    highlight: 'Feedback analytics and content drops reach every cohort securely.',
+    metricLabel: 'Sessions queued',
+    metricValue: '7 upcoming',
+    accent: 'emerald',
+  },
+  headhunter: {
+    status: 'Operational',
+    description: 'Search, outreach, and analytics for retained search and recruiting squads.',
+    highlight: 'Saved searches and pipeline intelligence ready for exec talent teams.',
+    metricLabel: 'Candidates tracked',
+    metricValue: '62 active',
+    accent: 'rose',
+  },
+  launchpad: {
+    status: 'Operational',
+    description: 'Experience launch sequencing, templates, and governance rails.',
+    highlight: 'Staged rollouts align onboarding, enablement, and telemetry.',
+    metricLabel: 'Journeys launched',
+    metricValue: '4 cohorts',
+    accent: 'indigo',
+  },
+  admin: {
+    status: 'Operational',
+    description: 'Governance, billing, and observability across every workspace persona.',
+    highlight: 'Incident response, permissions, and telemetry unify platform operations.',
+    metricLabel: 'Controls monitored',
+    metricValue: '42 signals',
+    accent: 'slate',
+  },
+});
+
 export const timelineAccessRoles = Object.freeze([
   'user',
   'freelancer',
@@ -358,7 +425,21 @@ export function resolvePrimaryNavigation(session) {
 export function buildRoleOptions(session) {
   const memberships = Array.isArray(session?.memberships) ? session.memberships : [];
   if (!memberships.length) {
-    return [{ key: 'user', label: 'User workspace', to: roleDashboardMapping.user }];
+    const meta = roleExperienceMeta.user;
+    return [
+      {
+        key: 'user',
+        label: 'User workspace',
+        to: roleDashboardMapping.user,
+        timelineEnabled: timelineAccessRoles.includes('user'),
+        description: meta.description,
+        highlight: meta.highlight,
+        metricLabel: meta.metricLabel,
+        metricValue: meta.metricValue,
+        status: meta.status,
+        accent: meta.accent,
+      },
+    ];
   }
 
   const options = memberships
@@ -370,11 +451,18 @@ export function buildRoleOptions(session) {
       }
       const label = key.charAt(0).toUpperCase() + key.slice(1);
       const timelineEnabled = timelineAccessRoles.includes(key);
+      const meta = roleExperienceMeta[key] ?? roleExperienceMeta.user;
       return {
         key,
         label,
         to,
         timelineEnabled,
+        description: meta.description,
+        highlight: meta.highlight,
+        metricLabel: meta.metricLabel,
+        metricValue: meta.metricValue,
+        status: meta.status,
+        accent: meta.accent,
       };
     })
     .filter(Boolean);
