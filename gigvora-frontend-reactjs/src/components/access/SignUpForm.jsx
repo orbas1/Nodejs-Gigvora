@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
-import { GoogleLogin } from '@react-oauth/google';
-import SocialAuthButton, { SOCIAL_PROVIDERS } from '../SocialAuthButton.jsx';
+import SocialAuthButtons from './SocialAuthButtons.jsx';
 import FormStatusMessage from '../forms/FormStatusMessage.jsx';
 import useFormState from '../../hooks/useFormState.js';
 import { registerUser, loginWithGoogle } from '../../services/auth.js';
@@ -11,10 +10,6 @@ import useSession from '../../hooks/useSession.js';
 import { isValidEmail, validatePasswordStrength } from '../../utils/validation.js';
 import { normaliseEmail, saveRememberedLogin, redirectToSocialAuth } from '../../utils/authHelpers.js';
 import { resolveLanding } from '../../utils/authNavigation.js';
-
-const PROVIDER_LABELS = {
-  linkedin: 'LinkedIn',
-};
 
 const ROLE_OPTIONS = [
   {
@@ -121,7 +116,6 @@ export default function SignUpForm({ className, showHighlightsPanel = true }) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const googleEnabled = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
   const maxBirthDate = new Date().toISOString().split('T')[0];
 
   const passwordInsights = useMemo(() => validatePasswordStrength(form.password), [form.password]);
@@ -181,6 +175,42 @@ export default function SignUpForm({ className, showHighlightsPanel = true }) {
       })
       .filter(Boolean);
   }, [membershipPayload]);
+
+  const completionSummary = useMemo(() => {
+    const items = [
+      {
+        id: 'profile-name',
+        label: 'Add your name',
+        met: Boolean(form.firstName.trim()) && Boolean(form.lastName.trim()),
+      },
+      {
+        id: 'email',
+        label: 'Verify email',
+        met: isValidEmail(form.email),
+      },
+      {
+        id: 'age',
+        label: 'Confirm age',
+        met: Boolean(form.dateOfBirth) && Number.isFinite(calculateAge(form.dateOfBirth)) && calculateAge(form.dateOfBirth) >= MINIMUM_SIGNUP_AGE,
+      },
+      {
+        id: 'password',
+        label: 'Strengthen password',
+        met: Boolean(passwordInsights?.valid),
+      },
+      {
+        id: 'consent',
+        label: 'Accept terms',
+        met: acceptTerms,
+      },
+    ];
+    const completed = items.filter((item) => item.met).length;
+    const percent = items.length ? Math.round((completed / items.length) * 100) : 0;
+    return { items, completed, percent };
+  }, [form.firstName, form.lastName, form.email, form.dateOfBirth, passwordInsights?.valid, acceptTerms]);
+
+  const completionPercent = completionSummary.percent;
+  const completionWidth = Math.min(100, Math.max(18, completionPercent || 0));
 
   const disableSubmit = status !== 'idle' || !acceptTerms;
 
@@ -321,7 +351,7 @@ export default function SignUpForm({ className, showHighlightsPanel = true }) {
     }
 
     clearMessage();
-    const providerLabel = PROVIDER_LABELS[provider] ?? provider.charAt(0).toUpperCase() + provider.slice(1);
+    const providerLabel = provider.charAt(0).toUpperCase() + provider.slice(1);
     setInfo(`Redirecting to ${providerLabel} to continue.`);
     setStatus('redirecting');
     const url = redirectToSocialAuth(provider, 'register');
@@ -545,38 +575,22 @@ export default function SignUpForm({ className, showHighlightsPanel = true }) {
         {!acceptTerms ? (
           <p className="text-center text-[11px] font-semibold text-rose-500">Agree to the terms to enable profile creation.</p>
         ) : null}
-        <div className="space-y-3">
+        <div className="space-y-5">
           <div className="relative py-2 text-center text-xs uppercase tracking-[0.35em] text-slate-400">
             <span className="relative z-10 bg-white px-3">or</span>
             <span className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-slate-200" aria-hidden="true" />
           </div>
-          <div className="grid gap-3">
-            {SOCIAL_PROVIDERS.map((provider) => (
-              <SocialAuthButton
-                key={provider}
-                provider={provider}
-                label={`Sign up with ${PROVIDER_LABELS[provider] ?? provider.charAt(0).toUpperCase() + provider.slice(1)}`}
-                onClick={() => handleSocialRedirect(provider)}
-                disabled={status !== 'idle'}
-              />
-            ))}
-            <div className="w-full">
-              {googleEnabled ? (
-                <GoogleLogin
-                  onSuccess={handleGoogleSuccess}
-                  onError={handleGoogleError}
-                  useOneTap={false}
-                  width="100%"
-                  text="signup_with"
-                  shape="pill"
-                />
-              ) : (
-                <button type="button" disabled className="w-full rounded-full border border-slate-200 px-6 py-3 text-sm font-semibold text-slate-400">
-                  Google sign up unavailable
-                </button>
-              )}
-            </div>
-          </div>
+          <SocialAuthButtons
+            status={status}
+            onProviderSelect={handleSocialRedirect}
+            onGoogleSuccess={handleGoogleSuccess}
+            onGoogleError={handleGoogleError}
+            showDivider={false}
+            showSso={false}
+            className="bg-surfaceMuted/60"
+            heading="Create faster with connected profiles"
+            subheading="Carry over your verified identity, profile photo, and marketing consent in seconds."
+          />
           <p className="text-center text-xs text-slate-500">
             Already have an account?{' '}
             <button
@@ -592,6 +606,24 @@ export default function SignUpForm({ className, showHighlightsPanel = true }) {
       </form>
       {showHighlightsPanel ? (
         <aside className="space-y-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+          <div className="space-y-3 rounded-2xl border border-slate-200 bg-surfaceMuted/60 p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Launch readiness</p>
+            <div className="flex items-center justify-between text-sm font-semibold text-slate-900">
+              <span>Profile completion</span>
+              <span>{completionPercent}%</span>
+            </div>
+            <div className="h-2 rounded-full bg-slate-200" aria-hidden="true">
+              <div className="h-2 rounded-full bg-accent transition-all duration-500" style={{ width: `${completionWidth}%` }} />
+            </div>
+            <ul className="grid gap-2 text-xs text-slate-500">
+              {completionSummary.items.map((item) => (
+                <li key={item.id} className={`flex items-center gap-2 ${item.met ? 'text-emerald-600' : ''}`}>
+                  <span className={`inline-flex h-2.5 w-2.5 rounded-full ${item.met ? 'bg-emerald-500' : 'bg-slate-300'}`} aria-hidden="true" />
+                  <span>{item.label}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
           <div className="space-y-3">
             <h2 className="text-xl font-semibold text-slate-900">What you unlock</h2>
             <div className="flex flex-wrap gap-2">

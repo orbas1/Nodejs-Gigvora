@@ -10,7 +10,7 @@ import {
   loginWithGoogle,
 } from '../../services/auth.js';
 import apiClient from '../../services/apiClient.js';
-import SocialAuthButton, { SOCIAL_PROVIDERS } from '../SocialAuthButton.jsx';
+import SocialAuthButtons from './SocialAuthButtons.jsx';
 import useFormState from '../../hooks/useFormState.js';
 import FormStatusMessage from '../forms/FormStatusMessage.jsx';
 import {
@@ -21,10 +21,6 @@ import {
   saveRememberedLogin,
 } from '../../utils/authHelpers.js';
 import { resolveLanding } from '../../utils/authNavigation.js';
-
-const PROVIDER_LABELS = {
-  linkedin: 'LinkedIn',
-};
 
 function formatExpiry(timestamp) {
   if (!timestamp) return null;
@@ -65,8 +61,9 @@ export default function SignInForm({ className }) {
   const { login } = useSession();
 
   const awaitingTwoFactor = Boolean(challenge?.tokenId);
+  const verificationDestination = challenge?.maskedDestination;
   const codeExpiresAt = useMemo(() => formatExpiry(challenge?.expiresAt), [challenge?.expiresAt]);
-  const googleEnabled = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
+  const enterpriseSsoUrl = import.meta.env.VITE_ENTERPRISE_SSO_URL;
   const rememberedSavedAt = Number.isFinite(rememberedMeta?.savedAt) ? rememberedMeta.savedAt : null;
   const rememberedSavedAtLabel = useMemo(() => {
     if (!rememberedSavedAt) {
@@ -79,6 +76,48 @@ export default function SignInForm({ className }) {
       return null;
     }
   }, [rememberedSavedAt]);
+
+  const supportEmail = import.meta.env.VITE_SUPPORT_EMAIL || 'support@gigvora.com';
+  const trustSignals = useMemo(() => {
+    const items = [
+      {
+        id: 'encryption',
+        title: 'Enterprise-grade encryption',
+        detail: 'TLS 1.3 and rotating secrets lock every credential exchange in transit and at rest.',
+      },
+      {
+        id: 'monitoring',
+        title: 'Live trust monitoring',
+        detail: 'Our trust desk watches device fingerprints and suspicious activity 24/7 so you stay protected.',
+      },
+    ];
+
+    if (rememberedSavedAtLabel) {
+      items.push({
+        id: 'remembered-device',
+        title: 'Remembered device',
+        detail: `We last verified this browser on ${rememberedSavedAtLabel}. Clear it anytime from settings.`,
+      });
+    }
+
+    if (verificationDestination) {
+      items.push({
+        id: 'two-factor-destination',
+        title: 'Two-factor ready',
+        detail: `Verification codes route to ${verificationDestination} with expiry timers to block reuse.`,
+      });
+    }
+
+    if (codeExpiresAt) {
+      items.push({
+        id: 'code-expiry',
+        title: 'Code expiry window',
+        detail: `Current code expires at ${codeExpiresAt}. Request a new one any time after the cooldown.`,
+      });
+    }
+
+    return items;
+  }, [rememberedSavedAtLabel, verificationDestination, codeExpiresAt]);
 
   const handleCapsLockState = (event) => {
     if (typeof event.getModifierState !== 'function') {
@@ -210,7 +249,7 @@ export default function SignInForm({ className }) {
     }
 
     clearMessage();
-    const providerLabel = PROVIDER_LABELS[provider] ?? provider.charAt(0).toUpperCase() + provider.slice(1);
+    const providerLabel = provider.charAt(0).toUpperCase() + provider.slice(1);
     setInfo(`Redirecting to ${providerLabel} to continue.`);
     setStatus('redirecting');
     const url = redirectToSocialAuth(provider, 'login');
@@ -219,6 +258,16 @@ export default function SignInForm({ className }) {
       clearMessage();
       setError('Social sign-in is not available right now. Please try another option.');
     }
+  };
+
+  const handleSsoRedirect = () => {
+    if (!enterpriseSsoUrl || status !== 'idle') {
+      return;
+    }
+    clearMessage();
+    setInfo('Opening your enterprise portal in a new window.');
+    setStatus('redirecting');
+    window.location.href = enterpriseSsoUrl;
   };
 
   const handleRememberChange = (event) => {
@@ -322,7 +371,7 @@ export default function SignInForm({ className }) {
             <span className="relative z-10 bg-white px-3">or</span>
             <span className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-slate-200" aria-hidden="true" />
           </div>
-          <div className="space-y-3">
+          <div className="space-y-5">
             <button
               type="button"
               onClick={() => navigate('/register')}
@@ -330,43 +379,38 @@ export default function SignInForm({ className }) {
             >
               Create a new account
             </button>
-            <div className="grid gap-3">
-              {SOCIAL_PROVIDERS.map((provider) => (
-                <SocialAuthButton key={provider} provider={provider} onClick={() => handleSocialRedirect(provider)} disabled={status !== 'idle'} />
-              ))}
-              <div className="w-full">
-                {googleEnabled ? (
-                  <GoogleLogin
-                    onSuccess={handleGoogleSuccess}
-                    onError={handleGoogleError}
-                    useOneTap={false}
-                    width="100%"
-                    text="continue_with"
-                    shape="pill"
-                  />
-                ) : (
-                  <button
-                    type="button"
-                    disabled
-                    className="w-full rounded-full border border-slate-200 px-6 py-3 text-sm font-semibold text-slate-400"
-                  >
-                    Google sign-in unavailable
-                  </button>
-                )}
-              </div>
-            </div>
+            <SocialAuthButtons
+              status={status}
+              onProviderSelect={handleSocialRedirect}
+              onGoogleSuccess={handleGoogleSuccess}
+              onGoogleError={handleGoogleError}
+              showDivider={false}
+              className="bg-surfaceMuted/60"
+              heading="Sign in with a connected network"
+              subheading="Bring your verified identity from LinkedIn, Google, or enterprise SSO without repeating setup."
+              onSso={handleSsoRedirect}
+              showSso={Boolean(enterpriseSsoUrl)}
+            />
             <p className="text-center text-xs text-slate-500">
               Prefer to use a social account? Choose your network above and we&apos;ll guide you through a secure sign-in.
             </p>
             {rememberMe && rememberedSavedAtLabel ? (
               <p className="text-center text-[11px] text-slate-400">Last remembered on {rememberedSavedAtLabel}.</p>
             ) : null}
+            <dl className="grid gap-3 rounded-2xl border border-slate-200 bg-white/70 p-4 text-left sm:grid-cols-2">
+              {trustSignals.map((signal) => (
+                <div key={signal.id} className="space-y-1">
+                  <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{signal.title}</dt>
+                  <dd className="text-[11px] text-slate-500">{signal.detail}</dd>
+                </div>
+              ))}
+            </dl>
           </div>
           <div className="rounded-2xl bg-surfaceMuted/60 p-4 text-xs text-slate-500">
             <p className="font-semibold text-slate-900">Privacy commitment</p>
             <p>
-              Your credentials are encrypted in transit, protected with two-factor by default, and never shared with third
-              parties. Our trust team monitors every new device fingerprint.
+              Your credentials stay encrypted end-to-end, two-factor is enabled by default, and every new device fingerprint is
+              triaged by our trust desk. Need help? Email <a href={`mailto:${supportEmail}`} className="font-semibold text-accent hover:text-accentDark">{supportEmail}</a>.
             </p>
           </div>
         </form>
