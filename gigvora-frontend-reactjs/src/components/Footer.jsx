@@ -1,37 +1,85 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { BoltIcon, ShieldCheckIcon, SignalIcon } from '@heroicons/react/24/outline';
 import { LOGO_URL } from '../constants/branding.js';
 
-const navigation = [
+const navigationSections = [
   {
     title: 'Platform',
     links: [
       { label: 'Launchpad', to: '/launchpad' },
-      { label: 'Jobs', to: '/jobs' },
-      { label: 'Projects', to: '/projects' },
-      { label: 'Volunteering', to: '/volunteering' },
+      { label: 'Jobs marketplace', to: '/jobs' },
+      { label: 'Projects workspace', to: '/projects' },
+      { label: 'Mentor lounge', to: '/mentors' },
+      { label: 'Creator studio', to: '/creation-studio' },
     ],
   },
   {
-    title: 'Company',
+    title: 'Solutions',
     links: [
-      { label: 'About', to: '/about' },
-      { label: 'Blog', to: '/blog' },
-      { label: 'Trust centre', to: '/trust-center' },
-      { label: 'Contact', to: '/support/contact' },
+      { label: 'Enterprise suite', to: '/solutions/enterprise' },
+      { label: 'Agencies', to: '/solutions/agencies' },
+      { label: 'Startups', to: '/solutions/startups' },
+      { label: 'Universities', to: '/solutions/universities' },
+      { label: 'Social impact', to: '/solutions/impact' },
     ],
   },
   {
     title: 'Resources',
     links: [
       { label: 'Support centre', to: '/support' },
-      { label: 'FAQ', to: '/faq' },
+      { label: 'Help library', to: '/resources' },
       { label: 'Community guidelines', to: '/community-guidelines' },
       { label: 'Privacy policy', to: '/privacy' },
       { label: 'Terms & conditions', to: '/terms' },
       { label: 'Refund policy', to: '/refunds' },
     ],
   },
+  {
+    title: 'Company',
+    links: [
+      { label: 'About', to: '/about' },
+      { label: 'Careers', to: '/careers' },
+      { label: 'Press', to: '/press' },
+      { label: 'Trust centre', to: '/trust-center' },
+      { label: 'Contact', to: '/support/contact' },
+    ],
+  },
 ];
+
+const statusHighlights = [
+  {
+    id: 'uptime',
+    label: 'Platform',
+    status: 'Operational',
+    detail: '99.99% uptime (30d)',
+    icon: SignalIcon,
+  },
+  {
+    id: 'support',
+    label: 'Support',
+    status: 'Live 24/5',
+    detail: 'Avg response 6 minutes',
+    icon: BoltIcon,
+  },
+  {
+    id: 'security',
+    label: 'Security',
+    status: 'Shielded',
+    detail: 'SOC 2 • ISO 27001 • GDPR',
+    icon: ShieldCheckIcon,
+  },
+];
+
+const communityLinks = [
+  { label: 'Creator circles', description: 'Curated peer groups launching monthly', to: '/community/creator-circles' },
+  { label: 'Operator forums', description: 'Join live roundtables with mentors', to: '/community/forums' },
+  { label: 'Product roadmap', description: 'See what ships next and vote on ideas', to: '/roadmap' },
+];
+
+const officeLocations = ['London', 'Toronto', 'Lisbon', 'Singapore'];
+
+const certifications = ['SOC 2 Type II', 'ISO 27001', 'GDPR ready', 'UK GDPR'];
 
 const socialLinks = [
   {
@@ -85,56 +133,149 @@ const socialLinks = [
 ];
 
 export default function Footer() {
+  const [newsletterSubmitted, setNewsletterSubmitted] = useState(false);
+
+  const handleNewsletterSubmit = (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const email = formData.get('newsletter-email');
+    if (email) {
+      setNewsletterSubmitted(true);
+      form.reset();
+    }
+  };
+
   return (
     <footer className="border-t border-slate-200 bg-white/95">
-      <div className="mx-auto grid max-w-7xl gap-12 px-6 py-14 text-sm text-slate-500 lg:grid-cols-[1.2fr_repeat(3,1fr)]">
-        <div className="space-y-6">
-          <Link to="/" className="inline-flex">
-            <img src={LOGO_URL} alt="Gigvora" className="h-11 w-auto" />
-          </Link>
-          <p className="text-sm text-slate-500">
-            The professional community bringing clients, teams, and independent talent together with calm, reliable workflows.
-          </p>
-          <Link
-            to="/support"
-            className="inline-flex items-center justify-center rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
-          >
-            Support centre
-          </Link>
-          <div className="flex flex-wrap items-center gap-3">
-            {socialLinks.map((item) => (
-              <a
-                key={item.label}
-                href={item.href}
-                target="_blank"
-                rel="noreferrer"
-                aria-label={item.label}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-accent hover:bg-accent hover:text-white"
-              >
-                {item.icon}
-              </a>
-            ))}
+      <div className="mx-auto max-w-7xl space-y-16 px-6 py-16 text-sm text-slate-500">
+        <div className="grid gap-12 lg:grid-cols-[1.4fr_1fr]">
+          <div className="space-y-8">
+            <Link to="/" className="inline-flex">
+              <img src={LOGO_URL} alt="Gigvora" className="h-11 w-auto" />
+            </Link>
+            <p className="text-base text-slate-600">
+              The professional community bringing clients, teams, and independent talent together with calm, reliable workflows.
+            </p>
+            <div className="rounded-3xl border border-slate-200/80 bg-white/80 p-6 shadow-sm">
+              <h3 className="text-sm font-semibold text-slate-900">Platform signals</h3>
+              <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                {statusHighlights.map((card) => {
+                  const Icon = card.icon;
+                  return (
+                    <div key={card.id} className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-white">
+                          <Icon className="h-4 w-4" aria-hidden="true" />
+                        </span>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">{card.label}</p>
+                          <p className="text-sm font-semibold text-slate-900">{card.status}</p>
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-500">{card.detail}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="rounded-3xl border border-slate-200/80 bg-white/80 p-6 shadow-sm">
+              <h3 className="text-sm font-semibold text-slate-900">Stay ahead with the weekly signal</h3>
+              <p className="mt-2 text-xs text-slate-500">
+                Premium operators share playbooks, metrics, and upcoming launches. Join the digest to receive curated highlights every
+                Thursday.
+              </p>
+              <form onSubmit={handleNewsletterSubmit} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <label htmlFor="newsletter-email" className="sr-only">
+                  Email address
+                </label>
+                <input
+                  type="email"
+                  name="newsletter-email"
+                  id="newsletter-email"
+                  required
+                  placeholder="you@company.com"
+                  className="w-full rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-700 shadow-inner focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                />
+                <button
+                  type="submit"
+                  className="inline-flex items-center justify-center rounded-full bg-accent px-6 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-accentDark"
+                >
+                  Subscribe
+                </button>
+              </form>
+              {newsletterSubmitted ? (
+                <p className="mt-3 text-xs font-semibold text-emerald-600">Thanks! We&apos;ll deliver the next edition to your inbox.</p>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              {socialLinks.map((item) => (
+                <a
+                  key={item.label}
+                  href={item.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={item.label}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-accent hover:bg-accent hover:text-white"
+                >
+                  {item.icon}
+                </a>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-8">
+            <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-6 shadow-sm">
+              <h3 className="text-sm font-semibold text-slate-900">Community programmes</h3>
+              <ul className="mt-4 space-y-4 text-xs text-slate-500">
+                {communityLinks.map((item) => (
+                  <li key={item.label} className="flex flex-col gap-1">
+                    <Link to={item.to} className="text-sm font-semibold text-slate-900 transition hover:text-accent">
+                      {item.label}
+                    </Link>
+                    <p>{item.description}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="grid gap-10 sm:grid-cols-2">
+              {navigationSections.map((section) => (
+                <div key={section.title} className="space-y-4">
+                  <h3 className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">{section.title}</h3>
+                  <ul className="space-y-3">
+                    {section.links.map((item) => (
+                      <li key={item.label}>
+                        <Link to={item.to} className="transition hover:text-accent">
+                          {item.label}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-        {navigation.map((section) => (
-          <div key={section.title} className="space-y-4">
-            <h3 className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">{section.title}</h3>
-            <ul className="space-y-3">
-              {section.links.map((item) => (
-                <li key={item.label}>
-                  <Link to={item.to} className="transition hover:text-accent">
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
       </div>
       <div className="border-t border-slate-200 bg-white/70">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-6 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
-          <p>&copy; {new Date().getFullYear()} Gigvora. All rights reserved.</p>
-          <p>Secure by design • SOC 2 aligned • GDPR ready</p>
+        <div className="mx-auto max-w-7xl space-y-6 px-6 py-8 text-xs text-slate-400">
+          <div className="flex flex-wrap items-center gap-4 text-[0.7rem] uppercase tracking-[0.3em]">
+            {officeLocations.map((office) => (
+              <span key={office} className="rounded-full border border-slate-200 px-3 py-1 text-slate-500">
+                {office}
+              </span>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-slate-500">
+            {certifications.map((item) => (
+              <span key={item} className="rounded-full bg-slate-100 px-3 py-1 text-[0.7rem] font-semibold uppercase tracking-[0.3em]">
+                {item}
+              </span>
+            ))}
+          </div>
+          <div className="flex flex-col gap-3 text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+            <p>&copy; {new Date().getFullYear()} Gigvora. All rights reserved.</p>
+            <p>Built for trust • Data residency in EU, UK, CA • Support trained across 12 locales</p>
+          </div>
         </div>
       </div>
     </footer>

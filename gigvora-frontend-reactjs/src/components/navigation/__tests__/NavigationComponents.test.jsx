@@ -73,7 +73,10 @@ describe('RoleSwitcher', () => {
     });
     const agencyOption = await screen.findByRole('menuitem', { name: /agency/i });
     expect(agencyOption).toHaveAttribute('href', '/agency');
+    expect(within(agencyOption).getByText(/timeline pending/i)).toBeInTheDocument();
     const founderOption = await screen.findByRole('menuitem', { name: /founder/i });
     expect(within(founderOption).getByText(/timeline/i)).toBeInTheDocument();
+    const capitalBadges = within(founderOption).getAllByText(/capital/i);
+    expect(capitalBadges.length).toBeGreaterThan(0);
   });
 });
