@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import PropTypes from 'prop-types';
 import {
   BoltIcon,
@@ -158,13 +158,44 @@ function normalisePillars(pillars) {
 }
 
 export function ValuePillars({ pillars, loading = false, analyticsMetadata = {} }) {
-  const displayPillars = useMemo(() => {
+  const { displayPillars, usingFallback } = useMemo(() => {
     const resolved = normalisePillars(pillars);
     if (resolved.length) {
-      return resolved;
+      return { displayPillars: resolved, usingFallback: false };
     }
-    return DEFAULT_PILLARS;
+
+    return { displayPillars: DEFAULT_PILLARS, usingFallback: true };
   }, [pillars]);
+
+  const hasTrackedView = useRef(false);
+
+  useEffect(() => {
+    if (hasTrackedView.current) {
+      return;
+    }
+
+    if (!displayPillars.length) {
+      return;
+    }
+
+    analytics.track(
+      analyticsMetadata.viewEventName ?? 'marketing_value_pillars_viewed',
+      {
+        heroId: analyticsMetadata.heroId,
+        pillarIds: displayPillars.map((pillar) => pillar.id),
+        usingFallback,
+      },
+      { source: analyticsMetadata.source ?? 'web_marketing_site' },
+    );
+
+    hasTrackedView.current = true;
+  }, [
+    analyticsMetadata.heroId,
+    analyticsMetadata.source,
+    analyticsMetadata.viewEventName,
+    displayPillars,
+    usingFallback,
+  ]);
 
   const handleAction = (pillar, event) => {
     if (!pillar?.action) {
@@ -193,6 +224,7 @@ export function ValuePillars({ pillars, loading = false, analyticsMetadata = {} 
         return (
           <article
             key={pillar.id}
+            data-hero-pillar={pillar.id}
             className="flex h-full flex-col gap-6 rounded-3xl border border-white/10 bg-slate-900/70 p-6 text-left shadow-[0_30px_90px_rgba(15,23,42,0.45)] backdrop-blur"
           >
             <div className="flex items-center gap-4">
@@ -202,9 +234,10 @@ export function ValuePillars({ pillars, loading = false, analyticsMetadata = {} 
               <div>
                 <h3 className="text-lg font-semibold text-white">{pillar.title}</h3>
                 {pillar.metric ? (
-                  <p className="text-sm font-medium text-accent/90">
-                    {pillar.metric.label}: {pillar.metric.value}
-                  </p>
+                  <dl className="mt-1 text-sm">
+                    <dt className="text-white/60">{pillar.metric.label}</dt>
+                    <dd className="font-medium text-accent/90">{pillar.metric.value}</dd>
+                  </dl>
                 ) : null}
               </div>
             </div>
@@ -300,6 +333,7 @@ ValuePillars.propTypes = {
     source: PropTypes.string,
     heroId: PropTypes.string,
     pillarEventName: PropTypes.string,
+    viewEventName: PropTypes.string,
   }),
 };
 

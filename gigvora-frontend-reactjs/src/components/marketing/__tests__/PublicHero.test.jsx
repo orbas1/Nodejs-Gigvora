@@ -75,6 +75,15 @@ describe('PublicHero', () => {
       expect.objectContaining({ heroId: 'marketing-hero' }),
       expect.objectContaining({ source: 'unit-test' }),
     );
+    expect(analyticsMock.track).toHaveBeenCalledWith(
+      'marketing_hero_personas_resolved',
+      expect.objectContaining({
+        heroId: 'marketing-hero',
+        personaSource: 'custom',
+        personas: expect.arrayContaining(['Founders', 'Agencies']),
+      }),
+      expect.objectContaining({ source: 'unit-test' }),
+    );
   });
 
   it('tracks CTA clicks and triggers callbacks', () => {
@@ -125,6 +134,16 @@ describe('ValuePillars', () => {
           },
         ]}
       />,
+    );
+
+    expect(analyticsMock.track).toHaveBeenCalledWith(
+      'marketing_value_pillars_viewed',
+      expect.objectContaining({
+        heroId: 'marketing-hero',
+        pillarIds: expect.arrayContaining(['growth', 'trust']),
+        usingFallback: false,
+      }),
+      expect.objectContaining({ source: 'unit-test' }),
     );
 
     expect(screen.getByText(/growth programs/i)).toBeInTheDocument();
