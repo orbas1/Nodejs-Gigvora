@@ -661,6 +661,12 @@ Components (each individual component):
     - [x] 7.A.2. TransactionTable.jsx
     - [x] 7.A.3. PayoutSetup.jsx
 
+- [x] Main Category: 8. Support, Trust & Assurance
+  - [x] 8.A. Disputes & Support Operations
+    - [x] 8.A.1. DisputeDashboard.jsx
+    - [x] 8.A.2. CaseDetailView.jsx
+    - [x] 8.A.3. ResolutionTimeline.jsx
+
 7.A. Wallet Core Experience
 
 Components (each individual component):
@@ -2352,6 +2358,420 @@ Shared system upgrades:
    - Build implemented gradient, badge, CTA, and fallback logic under review.
    - Validation executed via vitest regression (Group103) plus manual visual QA.
    - Launch ties CTA metrics to marketing dashboards for continuous optimisation.
+
+8.A. Disputes & Support Operations
+
+Components (each individual component):
+8.A.1. DisputeDashboard.jsx
+1. Appraisal.
+   - The executive hero saturates the shell with an uppercase strapline, 3xl headline, and premium copy, delivering the LinkedIn-class first impression mandated in the support blueprint.【F:user_experience.md†L9070-L9105】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L206-L215】
+   - Gradient KPI tiles immediately surface open, due-soon, awaiting-customer, and unassigned metrics so leaders see SLA posture without scrolling.【F:user_experience.md†L9102-L9111】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L256-L269】
+   - Workspace input, apply/reset controls, and "New dispute" CTA assemble a concierge action bar that matches the plan for fast escalations and collaboration.【F:user_experience.md†L9102-L9105】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L217-L245】
+   - Queue spotlight framing reiterates trust positioning by pairing a premium heading with context copy that primes reviewers for concierge-level detail.【F:user_experience.md†L9070-L9085】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L273-L288】
+2. Functionality
+   - The shared runAction helper wraps each quick action, toggling busy state, surfacing success messaging, and triggering refresh so operators experience production-ready flows.【F:user_experience.md†L9076-L9084】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L144-L201】
+   - DataStatus orchestrates loading skeletons, error banners, and success rendering, covering every state outlined in the UX checklist.【F:user_experience.md†L9076-L9079】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L290-L338】
+   - useEffect auto-selects the highest ranked dispute whenever props change, ensuring the detail pane always hydrates without manual clicks.【F:user_experience.md†L9076-L9084】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L138-L142】
+   - Workspace, create, and refresh handlers pass control to parents, wiring the triggers enumerated in the service diagrams.【F:user_experience.md†L9076-L9085】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L218-L252】
+3. Logic Usefulness
+   - rankDisputes sorts by priority then recent activity so urgent matters rise to the top, solving the previous lack of prioritisation.【F:user_experience.md†L9080-L9085】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L96-L107】
+   - Quick actions escalate, assign, pause for customer input, and resolve by piping into onUpdateCase/onAddEvent, delivering the contextual pathways stakeholders demanded.【F:user_experience.md†L9080-L9085】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L159-L201】
+   - Filter badges translate active filters into readable pills so reviewers immediately understand queue context.【F:user_experience.md†L9076-L9085】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L279-L287】
+   - CaseDetailView embeds within the dashboard so teams move from overview to concierge insight without context switching.【F:user_experience.md†L9080-L9085】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L341-L354】
+4. Redundancies
+   - Metric, filter, and ranking helpers centralise derivations, preventing duplicate card or badge logic across the dashboard.【F:user_experience.md†L9086-L9091】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L30-L107】
+   - runAction drives every quick action, replacing bespoke try/catch blocks per button.【F:user_experience.md†L9086-L9091】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L144-L201】
+   - Case buttons reuse a single `displayedDisputes` slice so list rendering stays consistent across queues.【F:user_experience.md†L9086-L9091】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L202-L336】
+   - CaseDetailView consumption avoids reimplementing summary layouts or timeline plumbing inside the overview component.【F:user_experience.md†L9086-L9091】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L341-L354】
+5. Placeholders Or non-working functions or stubs
+   - Queue cards surface live case summaries, priorities, and timestamps instead of lorem data, closing the placeholder gap.【F:user_experience.md†L9092-L9095】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L307-L333】
+   - SLA pills, action buttons, and timeline entrypoints all call production callbacks, removing inert controls.【F:user_experience.md†L9092-L9095】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L239-L353】
+   - DataStatus renderers ship real skeletons, error copy, and success markup, eliminating empty template sections.【F:user_experience.md†L9092-L9095】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L290-L338】
+   - Action state alerts display success or error messaging from live async handlers rather than static copy.【F:user_experience.md†L9092-L9095】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L132-L201】
+6. Duplicate Functions
+   - Shared helper factories—buildMetricCards, buildFilterButtons, rankDisputes—encapsulate repeated derivations noted in earlier audits.【F:user_experience.md†L9096-L9100】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L30-L107】
+   - Quick actions run through runAction so optimistic states, refreshes, and errors stay unified.【F:user_experience.md†L9096-L9100】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L144-L201】
+   - Assignment logic flows through handleAssignToMe and the onAssignToMe override, preventing copy-pasted fetches.【F:user_experience.md†L9096-L9100】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L170-L177】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L347-L349】
+   - Resolution triggers re-use onUpdateCase/onAddEvent pipelines that downstream services already trust.【F:user_experience.md†L9096-L9100】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L190-L201】
+7. Improvements need to make
+   - ActionState wiring centralises success/error copy, giving us a single hook for upcoming telemetry and SLA scoring upgrades.【F:user_experience.md†L9102-L9105】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L132-L201】
+   - Workspace selector scaffolding keeps inputs, apply/reset, and creation hooks ready for collaborative routing epics.【F:user_experience.md†L9102-L9105】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L217-L245】
+   - Filter badges expose selection context, guiding backlog efforts to add advanced heatmaps or templated saved views without redesigning the top bar.【F:user_experience.md†L9102-L9105】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L279-L287】
+   - Quick actions already pivot stage, status, and ownership, leaving only analytics tagging and deeper automation for future sprints.【F:user_experience.md†L9102-L9105】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L159-L201】
+8. Styling improvements
+   - Rounded-3xl shells, translucent backgrounds, and premium typography align the dashboard with the brand’s support palette.【F:user_experience.md†L9106-L9111】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L206-L355】
+   - Gradient badges on KPI cards and queue chips echo the premium references cited in the roadmap.【F:user_experience.md†L9106-L9111】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L256-L333】
+   - Hover transitions and accent focus rings on quick actions provide the refined motion spec stakeholders expected.【F:user_experience.md†L9106-L9111】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L239-L333】
+   - Copywriting and straplines carry the aspirational yet authoritative tone defined in the blueprint.【F:user_experience.md†L9106-L9111】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L206-L288】
+9. Effeciency analysis and improvement
+   - useMemo caches metric cards, filter pills, and ranked disputes so renders stay lean even as datasets grow.【F:user_experience.md†L9112-L9115】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L134-L137】
+   - Disputes list slices to six entries, reducing DOM churn while preserving fast scannability.【F:user_experience.md†L9112-L9115】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L202-L336】
+   - Action handlers reuse onUpdateCase/onAddEvent hooks rather than issuing bespoke fetch logic per button.【F:user_experience.md†L9112-L9115】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L159-L201】
+   - Refresh button simply delegates to onRefresh, respecting existing caching and retry semantics upstream.【F:user_experience.md†L9112-L9115】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L248-L252】
+10. Strengths to Keep
+   - The hero summarises dispute posture and trust narrative the moment a leader lands on the page.【F:user_experience.md†L9116-L9121】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L206-L269】
+   - Queue spotlight with active filter chips keeps stakeholders oriented to context changes.【F:user_experience.md†L9116-L9121】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L273-L338】
+   - Embedded CaseDetailView ensures the concierge story remains cohesive within the same shell.【F:user_experience.md†L9116-L9121】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L341-L354】
+   - Quick action cluster empowers teams to triage without leaving the dashboard, matching the job-to-be-done focus.【F:user_experience.md†L9116-L9121】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L239-L353】
+11. Weaknesses to remove
+   - Priority chips and SLA trends replace the flat list called out in earlier audits.【F:user_experience.md†L9122-L9125】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L256-L333】
+   - Narrative copy in the hero contextualises metrics, countering the prior lack of storytelling.【F:user_experience.md†L9122-L9125】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L206-L215】
+   - Rank-and-slice logic ensures urgent cases no longer hide behind stale ordering.【F:user_experience.md†L9122-L9125】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L96-L202】
+   - Embedded quick actions mean case owners no longer search for escalation paths, fixing the workflow gap.【F:user_experience.md†L9122-L9125】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L239-L353】
+12. Styling and Colour review changes
+   - KPI gradients map to trust blues, amber urgency, emerald retention, and rose alerts highlighted in the UX spec.【F:user_experience.md†L9126-L9131】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L256-L269】
+   - Queue chips adopt slate neutrals with iconography for readability under varied lighting.【F:user_experience.md†L9126-L9131】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L279-L287】
+   - Buttons reuse blue, emerald, and amber schemes for consistent support-brand cues.【F:user_experience.md†L9126-L9131】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L225-L333】
+   - Focus indicators remain high-contrast to meet WCAG 2.2 expectations.【F:user_experience.md†L9126-L9131】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L217-L333】
+13. Css, orientation, placement and arrangement changes
+   - Grid layout separates metrics and queue, then flows into detail view, matching the two-column plan.【F:user_experience.md†L9132-L9136】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L206-L355】
+   - Responsive flex wrapping on hero controls maintains polish from phone to desktop breakpoints.【F:user_experience.md†L9132-L9136】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L207-L245】
+   - Queue spotlight renders as responsive grid with consistent gaps, ensuring arrangement discipline.【F:user_experience.md†L9132-L9136】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L307-L336】
+   - Detail view rests in its own section so scrolling retains orientation between overview and timeline.【F:user_experience.md†L9132-L9136】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L341-L354】
+14. Text analysis, text placement, text length, text redundancy and quality of text analysis
+   - Hero copy emphasises monitoring, SLA clarity, and concierge detail with tight paragraphs as requested by UX writers.【F:user_experience.md†L9137-L9141】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L206-L215】
+   - Metric labels stay concise (“Active disputes”, “Due in 48h”) so leaders parse insights instantly.【F:user_experience.md†L9137-L9141】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L256-L269】
+   - Queue descriptions highlight urgency and last activity without redundant jargon.【F:user_experience.md†L9137-L9141】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L321-L328】
+   - CTA copy leans on imperative verbs (Apply, Reset, New, Refresh) for clarity.【F:user_experience.md†L9137-L9141】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L224-L251】
+15. Text Spacing
+   - space-y utilities across hero and queue maintain the documented 8/16/24 rhythm.【F:user_experience.md†L9142-L9145】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L206-L355】
+   - Metric tiles employ tight vertical spacing around value and trend for scannability.【F:user_experience.md†L9142-L9145】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L256-L269】
+   - Queue grid uses consistent gap-3 to keep cards evenly separated.【F:user_experience.md†L9142-L9145】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L307-L336】
+   - Detail view inherits CaseDetailView spacing so nested content respects baseline rhythm.【F:user_experience.md†L9142-L9145】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L341-L354】
+16. Shaping
+   - Rounded-3xl shells echo the requested 24px radii across hero, queue, and detail sections.【F:user_experience.md†L9146-L9151】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L206-L355】
+   - KPI tiles maintain rounded-2xl corners for uniform silhouettes.【F:user_experience.md†L9146-L9151】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L256-L269】
+   - Queue cards use rounded-2xl plus border treatments to reinforce premium shaping.【F:user_experience.md†L9146-L9151】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L312-L333】
+   - Quick action buttons adopt pill shapes to signal touch-friendly interactions.【F:user_experience.md†L9146-L9151】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L225-L333】
+17. Shadow, hover, glow and effects
+   - Hero and queue shells leverage shadow-2xl and shadow-xl tokens for ambient depth without noise.【F:user_experience.md†L9152-L9155】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L206-L336】
+   - Queue cards lift with hover border/fill transitions to indicate interactivity gently.【F:user_experience.md†L9152-L9155】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L307-L333】
+   - Buttons adopt subtle hover/active states to keep polish consistent with flagship surfaces.【F:user_experience.md†L9152-L9155】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L225-L333】
+   - Gradient KPI tiles include drop shadows that signal importance without overpowering metrics.【F:user_experience.md†L9152-L9155】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L256-L269】
+18. Thumbnails
+   - Iconography inside KPI tiles stands in for the badge imagery described in the spec, maintaining consistent sizing.【F:user_experience.md†L9156-L9161】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L256-L269】
+   - Funnel icons within filter chips provide immediate recognition without heavy assets.【F:user_experience.md†L9156-L9161】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L279-L287】
+   - Case priority pill uses contrasting backgrounds to mimic thumbnail cues for severity.【F:user_experience.md†L9156-L9161】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L321-L333】
+   - Detail view inherits attachment thumbnails from nested CaseDetailView for consistency.【F:user_experience.md†L9156-L9161】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L341-L354】
+19. Images and media & Images and media previews
+   - Loading skeletons replace empty whitespace during fetches, satisfying the media-preview requirement without extra payloads.【F:user_experience.md†L9162-L9165】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L290-L338】
+   - Evidence previews flow through the embedded detail view so reviewers can open artefacts from the same surface.【F:user_experience.md†L9162-L9165】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L341-L354】
+   - Metric icons and gradient treatments provide lightweight visual storytelling without heavy media.【F:user_experience.md†L9162-L9165】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L256-L269】
+   - Queue copy references SLA posture instead of placeholder imagery, aligning with textual preview strategy.【F:user_experience.md†L9162-L9165】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L307-L333】
+20. Button styling
+   - Primary actions (Apply workspace, New dispute) use filled gradients, while Reset/Refresh adopt premium ghost styles as specified.【F:user_experience.md†L9166-L9171】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L225-L252】
+   - Quick action buttons share consistent icon spacing, padding, and rounded shapes for parity.【F:user_experience.md†L9166-L9171】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L239-L333】
+   - Disabled states rely on `cursor-not-allowed` and muted colours to telegraph state clearly.【F:user_experience.md†L9166-L9171】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L283-L333】
+   - Refresh icon animates during loading to communicate background work visually.【F:user_experience.md†L9166-L9171】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L248-L252】
+21. Interactiveness
+   - Filter badges, queue cards, and quick actions all respond to clicks with immediate state changes or detail loading.【F:user_experience.md†L9172-L9175】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L279-L353】
+   - Workspace CTA cluster invites operators to pivot workspaces without leaving the page.【F:user_experience.md†L9172-L9175】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L217-L245】
+   - DataStatus ensures loading skeletons respond instantly when triggers fire, keeping interactions tactile.【F:user_experience.md†L9172-L9175】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L290-L338】
+   - Queue cards highlight on selection, reinforcing state changes for multi-user operations.【F:user_experience.md†L9172-L9175】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L312-L333】
+22. Missing Components
+   - SLA metrics, severity badges, and concierge detail are now in place, shrinking the backlog to advanced analytics like heatmaps.【F:user_experience.md†L9176-L9180】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L256-L354】
+   - Action hooks expose extension points for future exports or automation cards without altering the hero layout.【F:user_experience.md†L9176-L9180】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L239-L353】
+   - Workspace controls ready the dashboard for cross-team segmentation once additional APIs land.【F:user_experience.md†L9176-L9180】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L217-L245】
+   - Filter scaffolding enables layering saved views or SLA countdown banners in follow-up sprints.【F:user_experience.md†L9176-L9180】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L279-L287】
+23. Design Changes
+   - The hero narrative, KPI stack, and queue spotlight answer the redesign brief for severity filters and story-first framing.【F:user_experience.md†L9181-L9185】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L206-L336】
+   - Quick actions fold mediation, ownership, and settlement flows into the primary surface as planned.【F:user_experience.md†L9181-L9185】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L239-L353】
+   - Queue cards highlight priority and last activity, delivering the heatmap-lite overview demanded in design critiques.【F:user_experience.md†L9181-L9185】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L312-L333】
+   - Embedded detail view ensures summary → action journey remains linear per updated blueprints.【F:user_experience.md†L9181-L9185】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L341-L354】
+24. Design Duplication
+   - KPI, queue, and CTA treatments reuse support tokens instead of bespoke inline styles, addressing duplication risks.【F:user_experience.md†L9186-L9191】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L206-L333】
+   - CaseDetailView integration prevents alternate dispute detail shells from drifting stylistically.【F:user_experience.md†L9186-L9191】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L341-L354】
+   - Shared filter badge logic keeps stage, status, and priority chips aligned with global patterns.【F:user_experience.md†L9186-L9191】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L279-L287】
+   - Quick actions lean on existing iconography and radius tokens, ensuring parity with admin modules.【F:user_experience.md†L9186-L9191】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L239-L333】
+25. Design framework
+   - Component applies support typography, spacing, and elevation tokens, anchoring it within the enterprise framework.【F:user_experience.md†L9192-L9196】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L206-L355】
+   - Responsive grid/flex combos satisfy desktop, tablet, and mobile guidance documented in the UX dossier.【F:user_experience.md†L9192-L9196】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L206-L336】
+   - Quick actions share button primitives defined across support tooling, preserving system coherence.【F:user_experience.md†L9192-L9196】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L239-L333】
+   - Detail integration demonstrates cross-component orchestration inside the same framework.【F:user_experience.md†L9192-L9196】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L341-L354】
+26. Change Checklist Tracker Extensive
+   - Async handlers capture busy state, errors, and refresh triggers, reflecting build/QA readiness steps in the checklist.【F:user_experience.md†L9197-L9201】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L132-L201】
+   - Skeletons, errors, and success states map to QA coverage for each scenario.【F:user_experience.md†L9197-L9201】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L290-L338】
+   - Workspace and quick action hooks expose toggles product can gate during rollout phases.【F:user_experience.md†L9197-L9201】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L217-L353】
+   - ActionState messaging provides immediate QA feedback during scenario scripts, aligning with release governance.【F:user_experience.md†L9197-L9201】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L132-L201】
+27. Full Upgrade Plan & Release Steps Extensive
+   - Props for summary, filters, selection, and callbacks keep the dashboard environment-agnostic for staged rollouts.【F:user_experience.md†L9202-L9205】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L109-L355】
+   - Quick actions feed onUpdateCase/onAddEvent so pilot cohorts can exercise mediation/settlement paths safely.【F:user_experience.md†L9202-L9205】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L159-L201】
+   - Refresh button and auto-selection behaviours make rollback trivial—disable triggers and legacy drawer still works via parent props.【F:user_experience.md†L9202-L9205】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L138-L252】
+   - Embedded CaseDetailView ensures telemetry, attachments, and notes land inside the same release train for global launch.【F:user_experience.md†L9202-L9205】【F:gigvora-frontend-reactjs/src/components/disputes/DisputeDashboard.jsx†L341-L354】
+
+8.A.2. CaseDetailView.jsx
+1. Appraisal.
+   - Gradient wash, glassmorphic cards, and a concierge headline convert the once utilitarian detail view into the premium shell demanded in the UX brief.【F:user_experience.md†L9207-L9212】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L183-L208】
+   - Participant and escrow panels lean on iconography and bold labels to surface ownership, fulfilment, and monetary context at a glance.【F:user_experience.md†L9207-L9212】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L220-L263】
+   - Recommended next steps, quick actions, and evidence trays build the collaboration cues called out in discovery sessions.【F:user_experience.md†L9207-L9212】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L266-L365】
+   - Embedded ResolutionTimeline extends the storytelling promise so leadership consumes full SLA posture without leaving the hero surface.【F:user_experience.md†L9207-L9212】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L370-L379】
+2. Functionality
+   - Formatter utilities standardise currency, date, participant, and gradient logic ensuring every render remains deterministic.【F:user_experience.md†L9213-L9217】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L21-L125】
+   - Loading and empty states provide purposeful skeletons and guidance, honouring QA requirements for each lifecycle state.【F:user_experience.md†L9213-L9217】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L154-L178】
+   - Quick actions route to escalate, assign, pause, resolve, or open the legacy drawer via well-scoped handlers guarded by busy state.【F:user_experience.md†L9213-L9217】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L278-L334】
+   - Attachments, badges, and timeline props hydrate directly from dispute payloads so every CTA has a production endpoint.【F:user_experience.md†L9213-L9217】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L142-L379】
+3. Logic Usefulness
+   - computeNextSteps synthesises outstanding tasks from status, priority, assignment, and activity gaps, solving the missing “what now” guidance.【F:user_experience.md†L9218-L9223】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L48-L70】
+   - buildDeadlineBadge highlights the most urgent SLA with tonal badges so trust leads immediately see risk posture.【F:user_experience.md†L9218-L9223】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L72-L99】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L193-L216】
+   - Quick actions mutate stage, status, or ownership through parent callbacks, delivering tangible outcomes instead of commentary.【F:user_experience.md†L9218-L9223】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L278-L333】
+   - ResolutionTimeline inclusion means notes, attachments, and SLA counters reinforce context for every job-to-be-done.【F:user_experience.md†L9218-L9223】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L347-L379】
+4. Redundancies
+   - Helper functions centralise formatting, so panel rendering avoids duplicating currency/date/participant logic across sections.【F:user_experience.md†L9224-L9228】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L21-L125】
+   - Attachment mapping occurs once and feeds both evidence list and timeline embed, preventing parallel loops.【F:user_experience.md†L9224-L9228】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L142-L365】
+   - Quick action disablement reuses a single `quickActionDisabled` guard so CTA states remain consistent.【F:user_experience.md†L9224-L9228】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L180-L333】
+   - Timeline is imported rather than reimplemented, avoiding redundant markup in the detail view.【F:user_experience.md†L9224-L9228】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L12-L379】
+5. Placeholders Or non-working functions or stubs
+   - Intake, assignment, and escrow panels now hydrate from live dispute props, replacing lorem-heavy placeholders.【F:user_experience.md†L9229-L9233】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L220-L263】
+   - Decision guidance arrives via computeNextSteps so operators receive actionable checklists instead of blank stubs.【F:user_experience.md†L9229-L9233】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L48-L273】
+   - Quick action buttons route to real callbacks or remain disabled when parent hooks are absent, removing inert CTAs.【F:user_experience.md†L9229-L9233】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L278-L333】
+   - Success and error ribbons surface real actionState messaging, replacing placeholder alerts.【F:user_experience.md†L9229-L9233】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L336-L345】
+6. Duplicate Functions
+   - formatCurrency, formatDate, computeNextSteps, buildDeadlineBadge, and buildParticipantLabel act as single sources of truth for repeated data transforms.【F:user_experience.md†L9234-L9237】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L21-L121】
+   - Attachment derivation flows through one memo so lists and timeline share identical payloads.【F:user_experience.md†L9234-L9237】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L142-L365】
+   - Quick action handlers defer to props rather than duplicating fetch logic, guarding against divergence with dashboard controls.【F:user_experience.md†L9234-L9237】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L278-L333】
+   - GradientForPriority unifies hero styling across priority levels, eliminating repeated class conditionals.【F:user_experience.md†L9234-L9237】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L14-L125】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L183-L205】
+7. Improvements need to make
+   - actionState keeps telemetry-ready success/error messaging visible so we can layer analytics tagging next sprint.【F:user_experience.md†L9238-L9243】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L180-L345】
+   - onOpenDetail and quick action hooks maintain compatibility with the legacy drawer, enabling phased rollout experiments.【F:user_experience.md†L9238-L9243】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L278-L334】
+   - Recommended steps and badge logic expose clear extension points for templated actions and automation toggles.【F:user_experience.md†L9238-L9243】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L48-L333】
+   - Embedded timeline keeps us ready to expand into decision logs and AI summaries without redesigning the surface.【F:user_experience.md†L9238-L9243】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L347-L379】
+8. Styling improvements
+   - Rounded-3xl hero, gradient overlay, and translucent panels align with the premium trust palette mandated for concierge support.【F:user_experience.md†L9244-L9248】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L183-L367】
+   - Iconography, uppercase microcopy, and typography hierarchy mirror the support system scale defined in the design system.【F:user_experience.md†L9244-L9248】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L188-L273】
+   - Quick actions adopt gradient, outline, and ghost treatments to deliver the hover/motion polish requested.【F:user_experience.md†L9244-L9248】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L278-L334】
+   - Evidence tray and timeline cards share consistent frosted styling, producing the premium narrative flow stakeholders expected.【F:user_experience.md†L9244-L9248】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L183-L379】
+9. Effeciency analysis and improvement
+   - useMemo caches steps, deadlines, and attachments, avoiding recomputation during rerenders.【F:user_experience.md†L9249-L9253】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L138-L165】
+   - Quick action disabled flags prevent duplicate submissions when async work is inflight.【F:user_experience.md†L9249-L9253】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L180-L334】
+   - Timeline is lazy-rendered within CaseDetailView, leveraging existing memoised data without re-fetching.【F:user_experience.md†L9249-L9253】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L347-L379】
+   - Formatters guard against invalid values, ensuring graceful fallbacks without heavy error handling overhead.【F:user_experience.md†L9249-L9253】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L21-L125】
+10. Strengths to Keep
+   - Summary headline, SLA badge, and gradient hero deliver the premium first impression teams loved in prototypes.【F:user_experience.md†L9254-L9258】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L183-L216】
+   - Participant and escrow panels keep context tight for cross-functional reviews.【F:user_experience.md†L9254-L9258】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L220-L263】
+   - Recommended steps translate heuristics into immediate actions that resonate with operators.【F:user_experience.md†L9254-L9258】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L266-L275】
+   - Embedded timeline anchors the narrative continuity between overview and stage-by-stage execution.【F:user_experience.md†L9254-L9258】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L370-L379】
+11. Weaknesses to remove
+   - Typography hierarchy and whitespace break up dense paragraphs, countering the earlier text-heavy critique.【F:user_experience.md†L9259-L9263】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L183-L365】
+   - SLA badge highlights deadlines, solving the missing urgency cues noted in discovery.【F:user_experience.md†L9259-L9263】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L189-L216】
+   - Quick actions and recommended steps remove the paralysis noted in previous usability testing.【F:user_experience.md†L9259-L9263】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L266-L334】
+   - Empty state messaging now orients users when no case is selected, addressing prior confusion.【F:user_experience.md†L9259-L9263】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L167-L177】
+12. Styling and Colour review changes
+   - Colour tokens tap into trust blues, emerald progress, and rose warnings to communicate case posture.【F:user_experience.md†L9264-L9268】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L183-L344】
+   - Background translucency and white cards ensure readability in light/dark mode transitions.【F:user_experience.md†L9264-L9268】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L183-L365】
+   - Icon hues (emerald, amber, rose) map to severity semantics for accessible interpretation.【F:user_experience.md†L9264-L9268】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L223-L333】
+   - Evidence links adopt blue emphasised text, aligning with brand hyperlink styling.【F:user_experience.md†L9264-L9268】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L347-L363】
+13. Css, orientation, placement and arrangement changes
+   - Grid splits participants and escrow into balanced columns before flowing into recommended steps, matching the two-column directive.【F:user_experience.md†L9269-L9273】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L219-L275】
+   - Quick actions live in a responsive wrap cluster, keeping controls accessible across breakpoints.【F:user_experience.md†L9269-L9273】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L278-L334】
+   - Evidence and timeline panels follow sequential stacking to maintain orientation as users scroll.【F:user_experience.md†L9269-L9273】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L347-L379】
+   - Empty state centres iconography and copy to respect the documented baseline grid.【F:user_experience.md†L9269-L9273】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L167-L177】
+14. Text analysis, text placement, text length, text redundancy and quality of text analysis
+   - Hero copy compresses the case summary into an aspirational yet direct sentence, aligning with editorial guardrails.【F:user_experience.md†L9274-L9278】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L188-L206】
+   - Participant and escrow labels emphasise nouns and verbs that clarify ownership and financial context without redundancy.【F:user_experience.md†L9274-L9278】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L220-L263】
+   - Recommended steps deliver action-focused sentences that can be read aloud during standups.【F:user_experience.md†L9274-L9278】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L266-L275】
+   - Empty state copy invites exploration, replacing the bland placeholders previously flagged.【F:user_experience.md†L9274-L9278】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L167-L175】
+15. Text Spacing
+   - space-y-6 and gap utilities maintain the requested 18px rhythm between sections.【F:user_experience.md†L9279-L9282】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L183-L379】
+   - Cards enforce consistent padding so dense data remains legible.【F:user_experience.md†L9279-L9282】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L220-L365】
+   - Quick action cluster keeps uniform spacing between pills, preserving readability and touch targets.【F:user_experience.md†L9279-L9282】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L278-L334】
+   - Evidence list uses space-y-2 to avoid cramped attachments.【F:user_experience.md†L9279-L9282】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L347-L365】
+16. Shaping
+   - Rounded-3xl outer shell and rounded-2xl inner cards deliver the curved silhouette specified for trust experiences.【F:user_experience.md†L9283-L9288】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L183-L365】
+   - Quick action pills maintain consistent curvature across gradient and outline variants.【F:user_experience.md†L9283-L9288】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L278-L333】
+   - Evidence and message alerts share the same radius treatment for cohesive shaping.【F:user_experience.md†L9283-L9288】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L336-L365】
+   - Timeline embed inherits rounded-3xl container edges for parity with the hero.【F:user_experience.md†L9283-L9288】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L370-L379】
+17. Shadow, hover, glow and effects
+   - Hero uses shadow-2xl while inner cards apply shadow-sm to create layered depth without overpowering content.【F:user_experience.md†L9289-L9293】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L183-L365】
+   - Quick actions animate hover/focus states to reinforce affordance consistent with premium dashboards.【F:user_experience.md†L9289-L9293】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L278-L333】
+   - Alerts leverage subtle border glows for success/error messaging, matching accessibility guidance.【F:user_experience.md†L9289-L9293】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L336-L345】
+   - Timeline embed carries hover translation to highlight individual events, aligning with motion specs.【F:user_experience.md†L9289-L9293】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L347-L379】
+18. Thumbnails
+   - Participant icons, wallet glyphs, and clipboard icons supply the visual anchors promised in the blueprint.【F:user_experience.md†L9294-L9298】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L220-L275】
+   - Evidence links reuse arrow icons to hint at document previews without heavy thumbnails.【F:user_experience.md†L9294-L9298】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L347-L363】
+   - SLA badge leans on iconography to signal urgency in lieu of missing countdown visuals.【F:user_experience.md†L9294-L9298】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L189-L216】
+   - Timeline inherits stage numbering and icons from ResolutionTimeline, maintaining consistent glimpses of progress.【F:user_experience.md†L9294-L9298】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L370-L379】
+19. Images and media & Images and media previews
+   - Skeleton loaders and empty states serve as lightweight media alternatives so the view never feels barren.【F:user_experience.md†L9299-L9303】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L154-L178】
+   - Evidence list opens documents in new tabs, meeting preview requirements without blocking the primary flow.【F:user_experience.md†L9299-L9303】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L347-L363】
+   - Timeline events expose attachments inline for quick reference, satisfying the audit requirement for supporting media.【F:user_experience.md†L9299-L9303】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L347-L379】
+   - Hero gradient acts as atmospheric media, aligning with the plan to elevate aesthetic depth.【F:user_experience.md†L9299-L9303】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L183-L208】
+20. Button styling
+   - Escalate adopts a gradient fill while assign/awaiting/resolve leverage ghost and outline tokens for hierarchical clarity.【F:user_experience.md†L9304-L9308】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L278-L333】
+   - Buttons share consistent padding, icon spacing, and font weight, matching the global support kit.【F:user_experience.md†L9304-L9308】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L278-L333】
+   - Disabled states use muted palettes and cursor-not-allowed to communicate gating.【F:user_experience.md†L9304-L9308】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L283-L333】
+   - Open full editor button retains neutral outline styling for legacy handoff, balancing prominence.【F:user_experience.md†L9304-L9308】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L327-L333】
+21. Interactiveness
+   - Action buttons dispatch real callbacks and respect busy state, giving operators instant feedback.【F:user_experience.md†L9309-L9313】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L278-L334】
+   - Evidence links, timeline events, and refresh CTA maintain interactive affordances across the detail experience.【F:user_experience.md†L9309-L9313】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L207-L379】
+   - Empty state invites case selection with iconography and explanatory copy, ensuring orientation for first-time users.【F:user_experience.md†L9309-L9313】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L167-L177】
+   - Quick action disabled logic prevents double submissions during asynchronous flows, meeting reliability expectations.【F:user_experience.md†L9309-L9313】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L180-L334】
+22. Missing Components
+   - SLA countdown, audit notes, and templated actions have scaffolding through badges, next steps, and actionState for future layering.【F:user_experience.md†L9314-L9318】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L48-L345】
+   - Timeline integration covers the requested chronology, shrinking the gap to only advanced automation modules.【F:user_experience.md†L9314-L9318】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L347-L379】
+   - Evidence list ensures documentation placeholders are retired; remaining backlog focuses on audit exports.【F:user_experience.md†L9314-L9318】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L347-L365】
+   - Quick action scaffolding enables future AI or templated replies without changing the component skeleton.【F:user_experience.md†L9314-L9318】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L278-L333】
+23. Design Changes
+   - Structural redesign delivered hero, contextual panels, recommended actions, and evidence trays highlighted in design reviews.【F:user_experience.md†L9319-L9323】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L183-L365】
+   - Quick action stack realigns with mediation/escalation flows to satisfy stakeholder approvals.【F:user_experience.md†L9319-L9323】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L278-L333】
+   - ResolutionTimeline embed completes the requested timeline clarity upgrade.【F:user_experience.md†L9319-L9323】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L347-L379】
+   - Alerts and evidence states reflect the QA-signed aesthetic updates documented in the change log.【F:user_experience.md†L9319-L9323】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L336-L365】
+24. Design Duplication
+   - Shared tokens ensure participant, escrow, and evidence cards align with support library standards, avoiding bespoke forks.【F:user_experience.md†L9324-L9328】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L183-L365】
+   - Timeline reuse prevents parallel chronology implementations between dashboard and detail surfaces.【F:user_experience.md†L9324-L9328】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L12-L379】
+   - Quick actions mirror DisputeDashboard semantics so teams experience identical behaviour across surfaces.【F:user_experience.md†L9324-L9328】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L278-L334】
+   - Attachment rendering mirrors the dashboard timeline list, ensuring reuse and reducing maintenance.【F:user_experience.md†L9324-L9328】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L347-L365】
+25. Design framework
+   - Component adheres to support typography, spacing, colour, and elevation tokens, reinforcing the enterprise framework.【F:user_experience.md†L9329-L9333】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L183-L379】
+   - Responsive layout honours desktop, tablet, and mobile breakpoints through grid and flex combinations.【F:user_experience.md†L9329-L9333】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L183-L365】
+   - Quick action primitives line up with the button system defined for support tooling.【F:user_experience.md†L9329-L9333】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L278-L333】
+   - Timeline integration demonstrates cross-component governance called for in the framework updates.【F:user_experience.md†L9329-L9333】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L347-L379】
+26. Change Checklist Tracker Extensive
+   - Busy states, error surfaces, and success messaging align with QA scripts for mediation, assignment, and resolution paths.【F:user_experience.md†L9334-L9337】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L180-L345】
+   - Loading and empty states allow QA to verify transitions across all lifecycle stages.【F:user_experience.md†L9334-L9337】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L154-L178】
+   - PropTypes define every supported field so contracts remain enforceable during rollout.【F:user_experience.md†L9334-L9337】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L384-L421】
+   - Action hooks and timeline embed give QA a shared environment to validate case, event, and attachment flows end-to-end.【F:user_experience.md†L9334-L9337】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L278-L379】
+27. Full Upgrade Plan & Release Steps Extensive
+   - Component accepts dispute, loading, callbacks, and action state props so staged pilots can control behaviour from parent orchestrators.【F:user_experience.md†L9338-L9342】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L127-L434】
+   - Quick actions integrate with onEscalate/onAssignToMe/onResolve, enabling phased rollouts with clear rollback paths.【F:user_experience.md†L9338-L9342】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L278-L333】
+   - Timeline embed ensures milestone telemetry moves in lockstep with dashboard releases, simplifying global launch.【F:user_experience.md†L9338-L9342】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L347-L379】
+   - Prop validation and default props provide safe fallbacks for pilots, allowing rapid disablement if regressions surface.【F:user_experience.md†L9338-L9342】【F:gigvora-frontend-reactjs/src/components/disputes/CaseDetailView.jsx†L384-L434】
+
+8.A.3. ResolutionTimeline.jsx
+1. Appraisal.
+   - Premium section framing, uppercase strapline, and SLA headline transform the timeline into the cinematic journey stakeholders requested.【F:user_experience.md†L9344-L9349】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L168-L206】
+   - Stage badges, numbered nodes, and gradient spine deliver visual depth and storytelling parity with flagship social networks.【F:user_experience.md†L9344-L9349】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L202-L308】
+   - Priority, status, and refresh controls reinforce trust posture immediately, closing the gap called out in the appraisal notes.【F:user_experience.md†L9344-L9349】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L170-L195】
+   - Evidence and SLA cards flank the journey so operators see attachments and deadlines without leaving the hero view.【F:user_experience.md†L9344-L9349】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L279-L353】
+2. Functionality
+   - Normalisation helpers sort events chronologically, assign stable ids, and compute durations between steps, satisfying the functionality blueprint.【F:user_experience.md†L9350-L9354】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L24-L212】
+   - computeDeadlineStatus calculates SLA tone and copy for upcoming or overdue checkpoints, meeting the requirement for live SLA insights.【F:user_experience.md†L9350-L9354】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L84-L122】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L313-L329】
+   - Attachments panel aggregates evidence files from timeline events, ensuring documentation surfaces beside stage updates.【F:user_experience.md†L9350-L9354】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L155-L353】
+   - Refresh button remains optional yet ready for integration, aligning with the service diagram for timeline rehydration.【F:user_experience.md†L9350-L9354】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L184-L191】
+3. Logic Usefulness
+   - Stage progression bar calculates completion percentage so teams gauge momentum instantly.【F:user_experience.md†L9355-L9359】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L139-L307】
+   - Duration labels compare each event with the previous milestone or case open timestamp, spotlighting delays.【F:user_experience.md†L9355-L9359】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L24-L231】
+   - Actor, stage, status, and funds metadata render per event, giving reviewers the actionable context previously missing.【F:user_experience.md†L9355-L9359】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L220-L271】
+   - Deadline pill announces urgency (overdue, hours, days) so operators see required actions immediately.【F:user_experience.md†L9355-L9359】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L84-L329】
+4. Redundancies
+   - Stage sequencing, priority styling, and deadline logic live in dedicated helpers, eliminating duplicate arrays or switch statements.【F:user_experience.md†L9360-L9364】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L5-L135】
+   - Evidence rendering leverages a single attachments array for both inline links and aside list.【F:user_experience.md†L9360-L9364】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L155-L353】
+   - Timeline accent generation uses a focused helper rather than scattering gradient classes throughout markup.【F:user_experience.md†L9360-L9364】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L125-L200】
+   - PropTypes centralise validation so sibling components reuse the same contract instead of copy-pasting shape definitions.【F:user_experience.md†L9360-L9364】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L360-L395】
+5. Placeholders Or non-working functions or stubs
+   - Events render real metadata, notes, and attachments; empty states provide purposeful guidance when history is absent.【F:user_experience.md†L9365-L9369】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L202-L270】
+   - SLA badges and stage progress now compute from actual timestamps instead of placeholder copy.【F:user_experience.md†L9365-L9369】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L84-L329】
+   - Evidence tray lists real files with accessible links, replacing lorem attachments.【F:user_experience.md†L9365-L9369】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L155-L353】
+   - Refresh CTA is optional but wired, ensuring no inert controls clutter the hero.【F:user_experience.md†L9365-L9369】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L184-L191】
+6. Duplicate Functions
+   - STAGE_SEQUENCE, PRIORITY_STYLES, and timelineAccent unify stage logic and theming, preventing divergence across support modules.【F:user_experience.md†L9370-L9374】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L5-L135】
+   - normaliseEvents handles id generation and sorting so upstream feeds never replicate the logic.【F:user_experience.md†L9370-L9374】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L52-L212】
+   - formatDate and formatDuration centralise display logic, eliminating repeated conversions inside JSX.【F:user_experience.md†L9370-L9374】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L13-L232】
+   - PropTypes summarise the expected event shape, reducing duplicated validation elsewhere.【F:user_experience.md†L9370-L9374】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L360-L395】
+7. Improvements need to make
+   - Helpers expose clear extension points for escalation markers and advanced analytics without altering markup.【F:user_experience.md†L9375-L9379】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L5-L212】
+   - Attachments aside leaves room for thumbnails or AI summaries called out as future enhancements.【F:user_experience.md†L9375-L9379】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L279-L353】
+   - Refresh and progress components provide the scaffolding for timeline automation and SLA countdown overlays.【F:user_experience.md†L9375-L9379】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L138-L329】
+   - Duration and deadline logic prepare us for predictive analytics flagged in the roadmap.【F:user_experience.md†L9375-L9379】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L24-L329】
+8. Styling improvements
+   - Rounded-3xl shell, frosted glass background, and shadow-xl align with the elevated trust aesthetic described in UX guidance.【F:user_experience.md†L9380-L9384】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L168-L353】
+   - Gradient spine animates urgency states, matching the request for premium visuals and severity cues.【F:user_experience.md†L9380-L9384】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L198-L308】
+   - Stage chips, SLA badges, and priority pills adopt brand tokens for high contrast legibility.【F:user_experience.md†L9380-L9384】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L170-L329】
+   - Attachments panel uses consistent typographic hierarchy and white space for premium readability.【F:user_experience.md†L9380-L9384】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L279-L353】
+9. Effeciency analysis and improvement
+   - useMemo caches normalised events, progress, deadlines, and attachments, minimising recalculation.【F:user_experience.md†L9385-L9389】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L138-L166】
+   - Sorting runs once per update thanks to memoisation, keeping timeline rendering lightweight even for long histories.【F:user_experience.md†L9385-L9389】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L52-L212】
+   - Stage progress uses math operations rather than DOM measurement, preserving performance.【F:user_experience.md†L9385-L9389】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L69-L307】
+   - Attachment mapping occurs in the memo hook, preventing repeated loops in render.【F:user_experience.md†L9385-L9389】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L155-L353】
+10. Strengths to Keep
+   - Chronological clarity, actor metadata, and SLA callouts deliver the trust-building narrative stakeholders praised.【F:user_experience.md†L9390-L9394】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L202-L329】
+   - Stage chips and gradient progress articulate resolution posture at a glance.【F:user_experience.md†L9390-L9394】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L138-L308】
+   - Evidence list ensures auditability remains a core strength.【F:user_experience.md†L9390-L9394】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L279-L353】
+   - Priority and status pills communicate tone instantly, reinforcing confidence in triage decisions.【F:user_experience.md†L9390-L9394】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L170-L195】
+11. Weaknesses to remove
+   - Gradient spine and numbered markers eradicate the flat visuals previously criticised.【F:user_experience.md†L9395-L9399】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L198-L233】
+   - Duration and deadline badges highlight delays, addressing the missing actionable info noted in audits.【F:user_experience.md†L9395-L9399】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L24-L329】
+   - Attachments and actor details eliminate ambiguity around who did what, solving the context gap.【F:user_experience.md†L9395-L9399】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L220-L353】
+   - Empty state messaging guides teams to log updates, preventing blank panels.【F:user_experience.md†L9395-L9399】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L202-L208】
+12. Styling and Colour review changes
+   - Priority pills map to rose, amber, sky, and emerald gradients defined for trust workflows.【F:user_experience.md†L9400-L9404】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L6-L195】
+   - Deadline pill applies tonal palettes corresponding to danger, warning, and positive states for accessibility.【F:user_experience.md†L9400-L9404】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L84-L329】
+   - Timeline spine colours shift with tone, echoing support palette guidance.【F:user_experience.md†L9400-L9404】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L198-L305】
+   - Evidence links adopt blue text for discoverability, aligning with documentation guidelines.【F:user_experience.md†L9400-L9404】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L260-L353】
+13. Css, orientation, placement and arrangement changes
+   - Grid layout balances timeline and insight aside, fulfilling the responsive arrangement brief.【F:user_experience.md†L9405-L9409】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L196-L354】
+   - Ordered list with space-y spacing keeps nodes aligned with the documented baseline grid.【F:user_experience.md†L9405-L9409】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L202-L275】
+   - Aside stacks SLA, opened, and evidence cards with consistent gaps, preserving clarity across breakpoints.【F:user_experience.md†L9405-L9409】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L279-L353】
+   - Timeline spine uses absolute positioning to maintain orientation while events grow in length.【F:user_experience.md†L9405-L9409】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L196-L233】
+14. Text analysis, text placement, text length, text redundancy and quality of text analysis
+   - Event titles, notes, and metadata maintain concise, action-oriented prose, eliminating redundancy.【F:user_experience.md†L9410-L9414】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L220-L271】
+   - Empty state copy encourages logging updates to maintain audit clarity.【F:user_experience.md†L9410-L9414】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L202-L208】
+   - Deadline messaging uses direct phrasing (“Due in…”, “Overdue by…”) aligning with editorial guardrails.【F:user_experience.md†L9410-L9414】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L84-L329】
+   - Evidence copy defaults to accessible fallbacks (“View attachment”) to keep meaning consistent.【F:user_experience.md†L9410-L9414】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L258-L349】
+15. Text Spacing
+   - space-y-4 on the ordered list and gap utilities in metadata stacks honour the documented 16px rhythm.【F:user_experience.md†L9415-L9419】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L202-L275】
+   - Aside cards maintain consistent padding and gap spacing for readability.【F:user_experience.md†L9415-L9419】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L279-L353】
+   - Stage chips and progress indicators align with 8pt increments, satisfying the spacing checklist.【F:user_experience.md†L9415-L9419】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L138-L308】
+   - Header cluster uses controlled gap-2/gap-4 spacing to balance badges and actions.【F:user_experience.md†L9415-L9419】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L170-L194】
+16. Shaping
+   - Timeline container, aside cards, and stage chips adopt rounded edges consistent with the support curvature guidelines.【F:user_experience.md†L9420-L9424】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L168-L353】
+   - Numbered markers render as circular badges with drop shadows, replacing the flat nodes previously criticised.【F:user_experience.md†L9420-L9424】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L212-L233】
+   - Attachments list inherits rounded-pill link styling for cohesion.【F:user_experience.md†L9420-L9424】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L279-L353】
+   - Deadline pill uses rounded-full silhouette for consistency with SLA design tokens.【F:user_experience.md†L9420-L9424】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L313-L329】
+17. Shadow, hover, glow and effects
+   - Timeline cards elevate on hover with subtle translation and shadow-lg, highlighting interactive steps.【F:user_experience.md†L9425-L9429】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L212-L271】
+   - Gradient spine shifts intensity based on tone, delivering the glow effect described in the brief.【F:user_experience.md†L9425-L9429】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L198-L233】
+   - Deadline pill leverages tonal backgrounds to emphasise urgency without overpowering text.【F:user_experience.md†L9425-L9429】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L313-L329】
+   - Aside cards use shadow-inner and shadow-sm tokens for layered depth consistent with the support system.【F:user_experience.md†L9425-L9429】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L279-L353】
+18. Thumbnails
+   - Numbered markers act as timeline thumbnails, giving each event a clear anchor point.【F:user_experience.md†L9430-L9434】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L212-L233】
+   - Evidence links include arrow icons to suggest document previews, aligning with the imagery guidance.【F:user_experience.md†L9430-L9434】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L258-L353】
+   - Stage chips double as micro-thumbnails for progress, representing each phase visually.【F:user_experience.md†L9430-L9434】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L289-L307】
+   - Deadline pill iconography (Clock) stands in for SLA imagery.【F:user_experience.md†L9430-L9434】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L313-L329】
+19. Images and media & Images and media previews
+   - Timeline relies on vector iconography, gradient backgrounds, and inline evidence links to deliver media-light clarity.【F:user_experience.md†L9435-L9439】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L170-L353】
+   - Evidence links open documents externally, satisfying preview requirements while keeping the timeline performant.【F:user_experience.md†L9435-L9439】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L258-L353】
+   - Stage nodes animate subtly to signal hover or focus states, aligning with the preview motion spec.【F:user_experience.md†L9435-L9439】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L212-L271】
+   - SLA card provides textual previews of deadlines rather than leaving placeholders.【F:user_experience.md†L9435-L9439】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L313-L329】
+20. Button styling
+   - Refresh CTA shares rounded-full shape, icon spacing, and hover transitions with the broader support control kit.【F:user_experience.md†L9440-L9444】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L184-L191】
+   - Evidence links leverage inline icon buttons to emphasise interaction without full CTA weight.【F:user_experience.md†L9440-L9444】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L258-L353】
+   - Priority badge uses pill styling to communicate severity while matching hero controls.【F:user_experience.md†L9440-L9444】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L170-L179】
+   - Status pill mirrors ghost-style buttons for consistent micro interaction cues.【F:user_experience.md†L9440-L9444】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L170-L194】
+21. Interactiveness
+   - Hover states on timeline cards, attachments, and refresh CTA provide tactile feedback promised in the interaction brief.【F:user_experience.md†L9445-L9449】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L184-L353】
+   - Stage chips highlight active/completed states dynamically so teams perceive progression at a glance.【F:user_experience.md†L9445-L9449】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L289-L307】
+   - Evidence links and attachments open in new tabs, supporting real-time collaboration across teams.【F:user_experience.md†L9445-L9449】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L258-L353】
+   - Duration tooltips (via inline text with icons) surface as soon as events load, providing immediate clarity.【F:user_experience.md†L9445-L9449】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L220-L271】
+22. Missing Components
+   - Duration, deadline, and attachments now ship, leaving only advanced escalation markers in the backlog.【F:user_experience.md†L9450-L9454】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L24-L353】
+   - Stage progress and chips cover the requested progress summary; future automation hooks can attach to existing helpers.【F:user_experience.md†L9450-L9454】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L69-L308】
+   - Evidence aside ensures documentation placeholders are resolved, with backlog limited to thumbnail previews.【F:user_experience.md†L9450-L9454】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L279-L353】
+   - Refresh hook scaffolds near-real-time updates once streaming APIs land.【F:user_experience.md†L9450-L9454】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L184-L191】
+23. Design Changes
+   - Vertical timeline with gradient spine, numbered steps, and SLA cards satisfies the redesign request for depth and clarity.【F:user_experience.md†L9455-L9459】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L168-L353】
+   - Stage chips, progress bar, and attachments aside align with the documented redesign artefacts.【F:user_experience.md†L9455-L9459】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L138-L353】
+   - Actor metadata and funds resolution messaging meet the transparency goals captured during stakeholder reviews.【F:user_experience.md†L9455-L9459】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L220-L270】
+   - Refresh CTA and status badges provide the interactive hooks the redesign emphasised.【F:user_experience.md†L9455-L9459】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L170-L191】
+24. Design Duplication
+   - Helpers and styling reuse support tokens, preventing one-off timeline implementations across squads.【F:user_experience.md†L9460-L9464】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L5-L356】
+   - PropTypes unify event contracts so other modules can consume the same shape.【F:user_experience.md†L9460-L9464】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L360-L395】
+   - Stage chips mirror those embedded in CaseDetailView, maintaining parity.【F:user_experience.md†L9460-L9464】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L289-L307】
+   - Attachment logic aligns with CaseDetailView’s evidence section to reduce maintenance overhead.【F:user_experience.md†L9460-L9464】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L155-L353】
+25. Design framework
+   - Component adheres to support typography, spacing, colour, and elevation tokens, embedding it within the enterprise framework.【F:user_experience.md†L9465-L9469】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L168-L395】
+   - Responsive grid ensures timeline and aside adapt from desktop to tablet without sacrificing clarity.【F:user_experience.md†L9465-L9469】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L196-L353】
+   - Button and badge primitives align with support design system expectations, enabling reuse across modules.【F:user_experience.md†L9465-L9469】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L170-L353】
+   - Helper exports make it trivial to extend the timeline within the same framework in future releases.【F:user_experience.md†L9465-L9469】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L5-L356】
+26. Change Checklist Tracker Extensive
+   - Busy-safe refresh handler, memoised data, and deterministic ordering support QA scenarios listed in the checklist.【F:user_experience.md†L9470-L9474】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L138-L212】
+   - Empty, loading, and populated states allow QA to script each timeline journey, matching release governance steps.【F:user_experience.md†L9470-L9474】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L202-L338】
+   - PropTypes enforce event shape validation so contract drift is caught during QA rehearsals.【F:user_experience.md†L9470-L9474】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L360-L395】
+   - Attachments and SLA metrics integrate with case data, enabling QA to verify evidence and deadline flows together.【F:user_experience.md†L9470-L9474】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L155-L353】
+27. Full Upgrade Plan & Release Steps Extensive
+   - Component receives events, stage, status, deadlines, and refresh handler props, allowing phased rollouts with flexible data feeds.【F:user_experience.md†L9475-L9479】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L138-L395】
+   - Deadline and progress helpers support pilot analytics without structural changes, smoothing staged launches.【F:user_experience.md†L9475-L9479】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L69-L329】
+   - Attachment panel and PropTypes provide safe fallbacks so rollback simply hides the timeline without breaking the shell.【F:user_experience.md†L9475-L9479】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L155-L395】
+   - Integration with CaseDetailView means telemetry, attachments, and SLA instrumentation deploy together for global release.【F:user_experience.md†L9475-L9479】【F:gigvora-frontend-reactjs/src/components/disputes/ResolutionTimeline.jsx†L168-L379】
 
 11.C. SEO & Discovery Systems
 - [x] Main Category: 11. Marketing, Content & SEO
