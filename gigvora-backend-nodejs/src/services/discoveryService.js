@@ -7,6 +7,12 @@ import {
   ExperienceLaunchpad,
   Volunteering,
   MentorProfile,
+  MentorAvailabilitySlot,
+  MentorPackage,
+  MentorReview,
+  MentorshipOrder,
+  User,
+  Profile,
   OpportunityTaxonomyAssignment,
   OpportunityTaxonomy,
   MENTOR_AVAILABILITY_STATUSES,
@@ -167,6 +173,143 @@ function resolveCurrencySymbol(currency) {
   return upper.length === 3 ? upper : trimmed;
 }
 
+function normaliseStringList(value) {
+  return coerceArray(value);
+}
+
+function formatCurrencyLabel(amount, currency) {
+  if (amount == null || Number.isNaN(Number(amount))) {
+    return null;
+  }
+
+  const numericAmount = Number(amount);
+  const currencyCode = typeof currency === 'string' && currency.trim().length ? currency.trim().toUpperCase() : 'GBP';
+  const symbol = resolveCurrencySymbol(currencyCode);
+
+  try {
+    return new Intl.NumberFormat('en-GB', {
+      style: 'currency',
+      currency: currencyCode,
+      currencyDisplay: symbol && symbol.length === 1 ? 'symbol' : 'code',
+      minimumFractionDigits: numericAmount % 1 === 0 ? 0 : 2,
+      maximumFractionDigits: numericAmount % 1 === 0 ? 0 : 2,
+    }).format(numericAmount);
+  } catch (error) {
+    const formatted = numericAmount % 1 === 0 ? numericAmount.toFixed(0) : numericAmount.toFixed(2);
+    return `${symbol ?? currencyCode} ${formatted}`.trim();
+  }
+}
+
+function normaliseAvailabilitySlots(rows = []) {
+  return rows
+    .map((row) => {
+      if (!row) return null;
+      const start = new Date(row.startTime ?? row.start);
+      if (Number.isNaN(start.getTime())) {
+        return null;
+      }
+      const endCandidate = row.endTime ?? row.end ?? new Date(start.getTime() + 60 * 60 * 1000).toISOString();
+      const end = new Date(endCandidate);
+      const safeEnd = Number.isNaN(end.getTime()) ? new Date(start.getTime() + 60 * 60 * 1000) : end;
+
+      const timeFormatter = new Intl.DateTimeFormat('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+
+      return {
+        id: row.id ?? `${row.mentorId ?? 'mentor'}-${start.toISOString()}`,
+        mentorId: row.mentorId ?? null,
+        start: start.toISOString(),
+        end: safeEnd.toISOString(),
+        format: row.format ?? 'Session',
+        capacity: row.capacity != null ? Number(row.capacity) : 1,
+        dayOfWeek: row.dayOfWeek ?? null,
+        label: `${timeFormatter.format(start)} - ${timeFormatter.format(safeEnd)}`,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => new Date(a.start) - new Date(b.start));
+}
+
+function summariseAvailability(slots = []) {
+  if (!slots.length) {
+    return null;
+  }
+
+  const now = Date.now();
+  const ordered = [...slots].sort((a, b) => new Date(a.start) - new Date(b.start));
+  const nextSlot = ordered.find((slot) => new Date(slot.start).getTime() >= now) ?? ordered[0];
+  if (!nextSlot) {
+    return null;
+  }
+
+  const start = new Date(nextSlot.start);
+  if (Number.isNaN(start.getTime())) {
+    return null;
+  }
+
+  const dateFormatter = new Intl.DateTimeFormat('en-GB', { weekday: 'short', month: 'short', day: 'numeric' });
+  const timeFormatter = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+  const parts = [dateFormatter.format(start), `• ${timeFormatter.format(start)}`];
+  if (nextSlot.format) {
+    parts.push(`• ${nextSlot.format}`);
+  }
+
+  return parts.join(' ').replace(/\s+/g, ' ').trim();
+}
+
+function normalisePackageEntries(profilePackages = [], dbPackages = []) {
+  const entries = [];
+  const seen = new Set();
+
+  const register = (pack) => {
+    if (!pack || typeof pack !== 'object') {
+      return;
+    }
+
+    const name = pack.name ? `${pack.name}`.trim() : null;
+    if (!name || seen.has(name.toLowerCase())) {
+      return;
+    }
+
+    seen.add(name.toLowerCase());
+    entries.push({
+      id: pack.id ?? `package-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      name,
+      description: pack.description ?? pack.outcome ?? null,
+      outcome: pack.outcome ?? pack.description ?? null,
+      currency: pack.currency ?? null,
+      price: pack.price != null ? Number(pack.price) : null,
+      sessions: pack.sessions != null ? Number(pack.sessions) : null,
+      format: pack.format ?? null,
+    });
+  };
+
+  profilePackages.forEach(register);
+  dbPackages.forEach(register);
+
+  return entries;
+}
+
+function computeCompatibilityScore({ rankingScore = 0, rating = null, reviewCount = 0, successRate = null, menteesServed = null }) {
+  const safeRanking = Number.isFinite(Number(rankingScore)) ? Number(rankingScore) : 0;
+  const safeRating = Number.isFinite(Number(rating)) ? Number(rating) : 0;
+  const safeReviews = Number.isFinite(Number(reviewCount)) ? Number(reviewCount) : 0;
+  const safeSuccess = Number.isFinite(Number(successRate)) ? Number(successRate) : 0;
+  const safeMentees = Number.isFinite(Number(menteesServed)) ? Number(menteesServed) : 0;
+
+  const weightedScore =
+    safeRanking * 0.5 +
+    safeRating * 10 * 0.3 +
+    Math.min(safeReviews, 50) * 0.5 +
+    safeSuccess * 0.4 +
+    Math.min(safeMentees, 50) * 0.2;
+
+  return Math.round(Math.max(0, Math.min(100, weightedScore)));
+}
+
 function normaliseMentorFilters(raw = {}) {
   const filters = {
     discipline: [],
@@ -207,81 +350,333 @@ function normaliseMentorFilters(raw = {}) {
   return filters;
 }
 
-function toMentorDto(record) {
+async function enrichMentorProfiles(records = []) {
+  if (!records.length) {
+    return new Map();
+  }
+
+  const plainProfiles = records.map((record) => (typeof record.get === 'function' ? record.get({ plain: true }) : record));
+  const userIds = Array.from(
+    new Set(
+      plainProfiles
+        .map((profile) => Number(profile.userId))
+        .filter((value) => Number.isInteger(value) && value > 0),
+    ),
+  );
+
+  const now = new Date();
+  const horizon = new Date(now.getTime() + 45 * 24 * 60 * 60 * 1000);
+
+  const [userRows, availabilityRows, packageRows, reviewRows, orderRows] = await Promise.all([
+    userIds.length
+      ? User.findAll({
+          where: { id: { [Op.in]: userIds } },
+          attributes: ['id', 'firstName', 'lastName', 'email', 'title'],
+          include: [{ model: Profile, as: 'Profile', attributes: ['headline', 'timezone', 'availabilityStatus', 'location', 'avatarUrl'] }],
+        })
+      : [],
+    userIds.length
+      ? MentorAvailabilitySlot.findAll({
+          where: {
+            mentorId: { [Op.in]: userIds },
+            startTime: { [Op.gte]: now, [Op.lte]: horizon },
+          },
+          order: [['startTime', 'ASC']],
+          raw: true,
+        })
+      : [],
+    userIds.length
+      ? MentorPackage.findAll({
+          where: { mentorId: { [Op.in]: userIds } },
+          order: [['price', 'ASC']],
+          raw: true,
+        })
+      : [],
+    userIds.length
+      ? MentorReview.findAll({
+          attributes: [
+            'mentorId',
+            [sequelize.fn('COUNT', sequelize.col('id')), 'total'],
+            [sequelize.fn('AVG', sequelize.col('rating')), 'average'],
+            [sequelize.fn('SUM', sequelize.literal("CASE WHEN rating >= 4 THEN 1 ELSE 0 END")), 'positive'],
+          ],
+          where: { mentorId: { [Op.in]: userIds } },
+          group: ['mentorId'],
+          raw: true,
+        })
+      : [],
+    userIds.length
+      ? MentorshipOrder.findAll({
+          where: { mentorId: { [Op.in]: userIds } },
+          attributes: ['mentorId', 'userId', 'sessionsPurchased', 'sessionsRedeemed'],
+          raw: true,
+        })
+      : [],
+  ]);
+
+  const userMap = new Map(userRows.map((user) => [user.id, user.get({ plain: true })]));
+
+  const availabilityByMentor = new Map();
+  availabilityRows.forEach((slot) => {
+    const mentorId = Number(slot.mentorId);
+    if (!Number.isInteger(mentorId)) {
+      return;
+    }
+    if (!availabilityByMentor.has(mentorId)) {
+      availabilityByMentor.set(mentorId, []);
+    }
+    availabilityByMentor.get(mentorId).push(slot);
+  });
+
+  const packageByMentor = new Map();
+  packageRows.forEach((pack) => {
+    const mentorId = Number(pack.mentorId);
+    if (!Number.isInteger(mentorId)) {
+      return;
+    }
+    if (!packageByMentor.has(mentorId)) {
+      packageByMentor.set(mentorId, []);
+    }
+    packageByMentor.get(mentorId).push({
+      id: pack.id,
+      name: pack.name,
+      description: pack.description,
+      outcome: pack.outcome,
+      currency: pack.currency,
+      price: pack.price != null ? Number(pack.price) : null,
+      sessions: pack.sessions != null ? Number(pack.sessions) : null,
+      format: pack.format ?? null,
+    });
+  });
+
+  const reviewMap = new Map();
+  reviewRows.forEach((row) => {
+    const mentorId = Number(row.mentorId);
+    if (!Number.isInteger(mentorId)) {
+      return;
+    }
+    reviewMap.set(mentorId, {
+      total: Number(row.total ?? 0),
+      average: row.average != null ? Number(row.average) : null,
+      positive: Number(row.positive ?? 0),
+    });
+  });
+
+  const orderMap = new Map();
+  orderRows.forEach((row) => {
+    const mentorId = Number(row.mentorId);
+    if (!Number.isInteger(mentorId)) {
+      return;
+    }
+    if (!orderMap.has(mentorId)) {
+      orderMap.set(mentorId, { menteeIds: new Set(), sessionsPurchased: 0, sessionsRedeemed: 0 });
+    }
+    const bucket = orderMap.get(mentorId);
+    if (row.userId != null) {
+      bucket.menteeIds.add(Number(row.userId));
+    }
+    bucket.sessionsPurchased += Number(row.sessionsPurchased ?? 0);
+    bucket.sessionsRedeemed += Number(row.sessionsRedeemed ?? 0);
+  });
+
+  const extrasMap = new Map();
+  plainProfiles.forEach((profile) => {
+    const mentorId = Number(profile.userId);
+    const availabilitySlots = Number.isInteger(mentorId)
+      ? normaliseAvailabilitySlots(availabilityByMentor.get(mentorId) ?? [])
+      : [];
+    const dbPackages = Number.isInteger(mentorId) ? packageByMentor.get(mentorId) ?? [] : [];
+    const reviewStats = Number.isInteger(mentorId) ? reviewMap.get(mentorId) ?? null : null;
+    const orderStats = Number.isInteger(mentorId) ? orderMap.get(mentorId) ?? null : null;
+
+    const metrics = {
+      rating:
+        reviewStats?.average != null
+          ? Number(reviewStats.average)
+          : profile.rating != null
+          ? Number(profile.rating)
+          : null,
+      reviewCount: reviewStats?.total != null ? Number(reviewStats.total) : Number(profile.reviewCount ?? 0),
+      successRate:
+        reviewStats?.total
+          ? Math.round((Number(reviewStats.positive ?? 0) / Number(reviewStats.total)) * 100)
+          : null,
+      menteesServed: orderStats ? orderStats.menteeIds.size : null,
+      sessionsPurchased: orderStats ? Number(orderStats.sessionsPurchased ?? 0) : null,
+      sessionsRedeemed: orderStats ? Number(orderStats.sessionsRedeemed ?? 0) : null,
+      responseTimeHours: profile.responseTimeHours != null ? Number(profile.responseTimeHours) : null,
+    };
+
+    const availabilitySummary = summariseAvailability(availabilitySlots) ?? profile.availabilityNotes ?? null;
+
+    extrasMap.set(profile.id, {
+      user: Number.isInteger(mentorId) ? userMap.get(mentorId) ?? null : null,
+      availabilitySlots,
+      availabilitySummary,
+      packages: dbPackages,
+      metrics,
+    });
+  });
+
+  return extrasMap;
+}
+
+function toMentorDto(record, extras = {}) {
   const plain = typeof record.get === 'function' ? record.get({ plain: true }) : record;
 
-  const expertise = Array.isArray(plain.expertise)
-    ? plain.expertise.filter((entry) => entry != null && `${entry}`.trim().length)
-    : [];
-  const testimonials = Array.isArray(plain.testimonials)
-    ? plain.testimonials.filter(Boolean)
-    : [];
-  const rawPackages = Array.isArray(plain.packages) ? plain.packages.filter(Boolean) : [];
+  const expertise = normaliseStringList(plain.expertise);
+  const testimonials = Array.isArray(plain.testimonials) ? plain.testimonials.filter(Boolean) : [];
+  const profilePackages = Array.isArray(plain.packages) ? plain.packages.filter(Boolean) : [];
 
   const sessionAmount = Number(plain.sessionFeeAmount);
   const hasSessionFee = Number.isFinite(sessionAmount);
-  const sessionCurrencySymbol = resolveCurrencySymbol(plain.sessionFeeCurrency);
+  const sessionCurrency = plain.sessionFeeCurrency ?? extras.sessionFeeCurrency ?? null;
+  const sessionCurrencySymbol = resolveCurrencySymbol(sessionCurrency);
   const sessionFee = hasSessionFee
     ? {
         amount: sessionAmount,
-        currency: sessionCurrencySymbol ?? '£',
+        currency: sessionCurrencySymbol ?? sessionCurrency ?? '£',
         unit: plain.sessionFeeUnit ?? 'session',
       }
     : null;
 
-  const packages = rawPackages
-    .map((pack) => {
-      if (!pack || typeof pack !== 'object') {
-        return null;
-      }
-      const name = pack.name ?? null;
-      if (!name) {
-        return null;
-      }
-      const price = pack.price != null ? Number(pack.price) : null;
-      const currency = resolveCurrencySymbol(pack.currency) ?? sessionCurrencySymbol ?? null;
-      return {
-        name,
-        description: pack.description ?? null,
-        currency: currency ?? pack.currency ?? null,
-        price,
-      };
-    })
-    .filter(Boolean);
+  const packages = normalisePackageEntries(profilePackages, extras.packages ?? []);
 
-  const responseTimeHours = plain.responseTimeHours != null ? Number(plain.responseTimeHours) : null;
+  const responseTimeHours = extras.metrics?.responseTimeHours ?? (plain.responseTimeHours != null ? Number(plain.responseTimeHours) : null);
   const resolvedResponseTime =
     Number.isFinite(responseTimeHours) && responseTimeHours >= 0
       ? new Date(Date.now() + responseTimeHours * 60 * 60 * 1000).toISOString()
       : null;
 
+  const metrics = {
+    rating:
+      extras.metrics?.rating != null
+        ? extras.metrics.rating
+        : plain.rating != null
+        ? Number(plain.rating)
+        : null,
+    reviewCount:
+      extras.metrics?.reviewCount != null
+        ? extras.metrics.reviewCount
+        : Number.isFinite(Number(plain.reviewCount))
+        ? Number(plain.reviewCount)
+        : 0,
+    successRate: extras.metrics?.successRate ?? null,
+    menteesServed: extras.metrics?.menteesServed ?? null,
+    sessionsPurchased: extras.metrics?.sessionsPurchased ?? null,
+    sessionsRedeemed: extras.metrics?.sessionsRedeemed ?? null,
+    responseTimeHours,
+  };
+
+  const languages = normaliseStringList(plain.languages ?? extras.languages);
+  const industries = normaliseStringList(plain.industries ?? extras.industries ?? (plain.discipline ? [plain.discipline] : []));
+  const goals = normaliseStringList(plain.goalTags ?? extras.goalTags);
+
+  const availabilitySlots = Array.isArray(extras.availabilitySlots) ? extras.availabilitySlots : [];
+  const availabilitySummary = extras.availabilitySummary ?? summariseAvailability(availabilitySlots) ?? plain.availabilityNotes ?? null;
+
+  const sessionTypes = (() => {
+    const entries = [];
+    if (sessionFee) {
+      entries.push({
+        id: `session-${plain.id}`,
+        label: 'Book a 1:1 session',
+        description: plain.headline ?? 'Dedicated mentorship session tailored to your goals.',
+        duration: '60 min',
+        durationMinutes: 60,
+        price: formatCurrencyLabel(sessionFee.amount, sessionCurrency ?? 'GBP'),
+        priceAmount: sessionFee.amount,
+        currency: sessionCurrency ?? 'GBP',
+        kind: 'single',
+      });
+    }
+
+    packages.forEach((pack, index) => {
+      entries.push({
+        id: pack.id ?? `package-${plain.id}-${index}`,
+        label: pack.name,
+        description: pack.outcome ?? pack.description ?? null,
+        duration: pack.sessions ? `${pack.sessions} session${pack.sessions > 1 ? 's' : ''}` : null,
+        durationMinutes: pack.sessions ? Number(pack.sessions) * 60 : null,
+        price: formatCurrencyLabel(pack.price, pack.currency ?? sessionCurrency ?? 'GBP'),
+        priceAmount: pack.price,
+        currency: pack.currency ?? sessionCurrency ?? 'GBP',
+        kind: 'package',
+      });
+    });
+
+    return entries;
+  })();
+
+  const stories = testimonials.map((testimonial) => {
+    if (typeof testimonial === 'string') {
+      return { quote: testimonial, name: null, company: null };
+    }
+    return {
+      quote: testimonial.quote ?? testimonial.text ?? null,
+      name: testimonial.author ?? testimonial.name ?? null,
+      company: testimonial.company ?? null,
+      attribution: testimonial.attribution ?? testimonial.author ?? testimonial.name ?? null,
+    };
+  });
+
+  const compatibilityScore = computeCompatibilityScore({
+    rankingScore: plain.rankingScore,
+    rating: metrics.rating,
+    reviewCount: metrics.reviewCount,
+    successRate: metrics.successRate,
+    menteesServed: metrics.menteesServed,
+  });
+
+  const user = extras.user ?? null;
+  const firstName = user?.firstName ?? null;
+  const lastName = user?.lastName ?? null;
+  const fallbackName = [firstName, lastName].filter(Boolean).join(' ').trim();
+  const displayName = plain.name ?? (fallbackName ? fallbackName : null);
+
   return {
     id: plain.id,
+    userId: plain.userId ?? null,
     slug: plain.slug ?? null,
-    name: plain.name ?? null,
+    name: displayName,
+    firstName,
+    lastName,
     title: plain.name ?? null,
     headline: plain.headline ?? null,
     description: plain.bio ?? null,
+    summary: plain.bio ?? null,
     bio: plain.bio ?? null,
-    region: plain.region ?? null,
+    region: plain.region ?? user?.Profile?.location ?? null,
+    timezone: user?.Profile?.timezone ?? null,
     discipline: plain.discipline ?? null,
+    industries,
     expertise,
+    focusAreas: expertise,
+    languages,
+    goals,
     sessionFee: sessionFee ?? undefined,
     priceTier: plain.priceTier ?? null,
     availabilityStatus: plain.availabilityStatus ?? 'open',
     availabilityNotes: plain.availabilityNotes ?? null,
-    responseTimeHours: Number.isFinite(responseTimeHours) ? responseTimeHours : null,
+    availabilitySummary,
+    availabilitySlots,
+    responseTimeHours: responseTimeHours != null ? responseTimeHours : null,
     responseTime: resolvedResponseTime,
-    reviews: Number.isFinite(Number(plain.reviewCount)) ? Number(plain.reviewCount) : 0,
-    rating: plain.rating != null ? Number(plain.rating) : null,
+    reviews: metrics.reviewCount,
+    rating: metrics.rating,
+    metrics,
+    compatibilityScore,
     isVerified: Boolean(plain.verificationBadge),
     verificationLabel: plain.verificationBadge ?? null,
     testimonialHighlight: plain.testimonialHighlight ?? null,
     testimonialHighlightAuthor: plain.testimonialHighlightAuthor ?? null,
-    testimonials,
+    testimonials: stories,
+    stories,
     packages,
-    avatarUrl: plain.avatarUrl ?? null,
+    sessionTypes,
+    avatarUrl: plain.avatarUrl ?? user?.Profile?.avatarUrl ?? null,
     promoted: Boolean(plain.promoted),
+    isFeatured: Boolean(plain.promoted),
     rankingScore: Number.isFinite(Number(plain.rankingScore)) ? Number(plain.rankingScore) : 0,
     lastActiveAt: plain.lastActiveAt ?? null,
     updatedAt: plain.updatedAt ?? null,
@@ -799,8 +1194,10 @@ export async function listMentors(options = {}) {
     });
   }
 
+  const plainRows = rows.map((row) => (typeof row.get === 'function' ? row.get({ plain: true }) : row));
+  const extrasMap = await enrichMentorProfiles(plainRows);
   const annotated = annotateWithScores(
-    rows.map((row) => toMentorDto(row)),
+    plainRows.map((plain) => toMentorDto(plain, extrasMap.get(plain.id) ?? {})),
     { query, filters: rawFilters, category: 'mentor' },
   );
 

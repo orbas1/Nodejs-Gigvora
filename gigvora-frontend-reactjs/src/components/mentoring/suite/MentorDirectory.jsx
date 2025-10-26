@@ -131,7 +131,7 @@ export default function MentorDirectory({
     minRating: defaultFilters?.minRating ?? 4,
     availableOnly: defaultFilters?.availableOnly ?? false,
   });
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(searchTerm ?? '');
   const deferredSearch = useDeferredValue(search);
   const [activeMentor, setActiveMentor] = useState(null);
   const [isRequestingRecommendations, setIsRequestingRecommendations] = useState(false);
@@ -158,6 +158,12 @@ export default function MentorDirectory({
       filters,
     });
   }, [mentors?.length, filters, onTrack]);
+
+  useEffect(() => {
+    if (typeof searchTerm === 'string') {
+      setSearch(searchTerm);
+    }
+  }, [searchTerm]);
 
   useEffect(() => () => clearTimeout(recommendationTimeoutRef.current), []);
 
@@ -398,6 +404,7 @@ export default function MentorDirectory({
                 }}
                 onBookmark={(value) => onBookmark?.(value)}
                 onMessage={(value) => onMessage?.(value)}
+                isBookmarked={mentor.isBookmarked}
                 highlight={mentor.isFeatured}
                 showAvailability
                 onTrack={(payload) =>
@@ -465,6 +472,7 @@ MentorDirectory.propTypes = {
     goal: PropTypes.string,
     impactStatement: PropTypes.string,
   }),
+  searchTerm: PropTypes.string,
   goalFilters: PropTypes.arrayOf(
     PropTypes.shape({
       id: PropTypes.string.isRequired,

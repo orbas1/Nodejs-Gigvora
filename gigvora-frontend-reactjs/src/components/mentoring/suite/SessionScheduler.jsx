@@ -160,8 +160,11 @@ export default function SessionScheduler({
 
   const handleSchedule = () => {
     if (!selectedSlot || !selectedSessionType) return;
+    const resolvedMentorId = mentor?.userId ?? mentor?.id ?? null;
     onSchedule?.({
-      mentorId: mentor?.id,
+      mentorId: resolvedMentorId,
+      mentorProfileId: mentor?.id ?? null,
+      mentor,
       slot: selectedSlot,
       sessionType: selectedSessionType,
       timezone: selectedTimezone,
@@ -424,6 +427,7 @@ SessionScheduler.propTypes = {
   onTrack: PropTypes.func,
   mentor: PropTypes.shape({
     id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    userId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     firstName: PropTypes.string,
     displayName: PropTypes.string,
   }),

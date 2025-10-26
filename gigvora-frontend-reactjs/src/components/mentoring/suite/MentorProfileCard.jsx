@@ -110,6 +110,11 @@ export default function MentorProfileCard({
   const stories = mentor?.stories ?? [];
   const testimonials = mentor?.testimonials ?? mentor?.reviews ?? [];
   const availability = mentor?.availabilitySummary;
+  const ratingValue = typeof mentor?.metrics?.rating === 'number' ? mentor.metrics.rating : null;
+  const reviewTotal =
+    typeof mentor?.metrics?.reviewCount === 'number'
+      ? mentor.metrics.reviewCount
+      : mentor?.metrics?.reviews ?? null;
 
   const topFocus = useMemo(() => {
     const focusAreas = mentor?.focusAreas || mentor?.specialties || [];
@@ -222,14 +227,14 @@ export default function MentorProfileCard({
           </div>
         ) : null}
 
-        {mentor?.metrics?.rating ? (
+        {ratingValue != null ? (
           <div className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-gradient-to-br from-white via-white to-slate-50 p-4 shadow-inner">
             <div className="flex items-center gap-1 text-amber-500">
               <StarIcon className="h-5 w-5" aria-hidden="true" />
-              <span className="text-base font-semibold text-slate-900">{mentor.metrics.rating.toFixed(1)}</span>
+              <span className="text-base font-semibold text-slate-900">{ratingValue.toFixed(1)}</span>
             </div>
             <p className="text-sm text-slate-500">
-              Based on {mentor.metrics.reviewCount ?? mentor.metrics.reviews ?? 'new'} verified reviews
+              {reviewTotal != null ? `Based on ${reviewTotal} verified reviews` : 'Be the first to review this mentor'}
             </p>
           </div>
         ) : null}
