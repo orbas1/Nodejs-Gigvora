@@ -1,5 +1,6 @@
 import {
   ArrowPathIcon,
+  ArrowTopRightOnSquareIcon,
   BellAlertIcon,
   CheckCircleIcon,
   ClipboardDocumentListIcon,
@@ -7,6 +8,8 @@ import {
   DocumentTextIcon,
   GlobeAltIcon,
   LockClosedIcon,
+  ScaleIcon,
+  ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
 
 function formatDate(value) {
@@ -52,6 +55,8 @@ function SummaryCard({ icon: Icon, title, value, description, tone = 'blue' }) {
     emerald: 'border-emerald-200 bg-emerald-50 text-emerald-700',
     amber: 'border-amber-200 bg-amber-50 text-amber-700',
     rose: 'border-rose-200 bg-rose-50 text-rose-700',
+    indigo: 'border-indigo-200 bg-indigo-50 text-indigo-700',
+    sky: 'border-sky-200 bg-sky-50 text-sky-700',
   };
   return (
     <div className={`flex flex-col rounded-2xl border p-5 shadow-sm ${toneClasses[tone] ?? toneClasses.blue}`}>
@@ -245,6 +250,154 @@ function FrameworkGrid({ frameworks = [] }) {
   );
 }
 
+function PolicyAcknowledgementList({ policies = [] }) {
+  if (!policies.length) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
+        All compliance policies are acknowledged. New legal updates will surface here automatically.
+      </div>
+    );
+  }
+
+  return (
+    <ul className="space-y-3">
+      {policies.map((policy) => {
+        const acknowledgement = policy.acknowledgement ?? null;
+        const isGranted = Boolean(acknowledgement?.status === 'granted' && acknowledgement.isCurrentVersion);
+        const isWithdrawn = acknowledgement?.status === 'withdrawn';
+        const statusTone = isGranted
+          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+          : isWithdrawn
+          ? 'border-rose-200 bg-rose-50 text-rose-700'
+          : 'border-amber-200 bg-amber-50 text-amber-700';
+
+        return (
+          <li
+            key={policy.id}
+            className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+          >
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">{policy.title}</p>
+                <p className="text-xs uppercase tracking-wide text-slate-400">
+                  {formatStatus(policy.region)} • {policy.legalBasis}
+                </p>
+              </div>
+              <span
+                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${statusTone}`}
+              >
+                <ShieldCheckIcon className="h-4 w-4" />
+                {isGranted ? 'Acknowledged' : isWithdrawn ? 'Withdrawn' : 'Pending'}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">
+                {policy.required ? 'Required policy' : 'Optional policy'}
+              </span>
+              {policy.isOutstanding ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-amber-700">
+                  Action required
+                </span>
+              ) : null}
+              {acknowledgement && !acknowledgement.isCurrentVersion ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-amber-700">
+                  Re-acknowledgement needed
+                </span>
+              ) : null}
+            </div>
+            <div className="space-y-1 text-xs text-slate-500">
+              {acknowledgement?.grantedAt ? (
+                <p>
+                  Granted {formatDate(acknowledgement.grantedAt)} ({formatRelative(acknowledgement.grantedAt)})
+                </p>
+              ) : (
+                <p>No acknowledgement recorded yet.</p>
+              )}
+              {acknowledgement?.withdrawnAt ? (
+                <p>Withdrawn {formatDate(acknowledgement.withdrawnAt)}</p>
+              ) : null}
+              {policy.activeVersion?.summary ? (
+                <p className="pt-1 text-slate-600">{policy.activeVersion.summary}</p>
+              ) : null}
+            </div>
+            {policy.activeVersion?.documentUrl ? (
+              <a
+                href={policy.activeVersion.documentUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex w-fit items-center gap-2 text-xs font-medium text-blue-600 hover:text-blue-700"
+              >
+                Review policy document
+                <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
+              </a>
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function LegalDocumentCollection({ documents = [] }) {
+  if (!documents.length) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
+        No published legal documents yet. Approved policies and agreements will appear here for quick reference.
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      {documents.map((document) => (
+        <div key={document.id} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">{document.title}</p>
+              <p className="text-xs uppercase tracking-wide text-slate-400">
+                {formatStatus(document.category)} • {formatStatus(document.region)}
+              </p>
+            </div>
+            <ScaleIcon className="h-5 w-5 text-blue-500" />
+          </div>
+          {document.summary ? <p className="text-sm text-slate-600">{document.summary}</p> : null}
+          {document.audienceRoles?.length ? (
+            <div className="flex flex-wrap gap-2 text-xs">
+              {document.audienceRoles.map((role) => (
+                <span key={role} className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">
+                  {formatStatus(role)}
+                </span>
+              ))}
+            </div>
+          ) : null}
+          {document.activeVersion ? (
+            <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2 text-xs text-blue-700">
+              v{document.activeVersion.version} effective {formatDate(document.activeVersion.effectiveAt)}
+              {document.activeVersion.publishedAt
+                ? ` • published ${formatRelative(document.activeVersion.publishedAt)}`
+                : ''}
+              {document.activeVersion.changeSummary ? (
+                <span className="block pt-1 text-blue-600/80">{document.activeVersion.changeSummary}</span>
+              ) : null}
+            </div>
+          ) : null}
+          {document.activeVersion?.externalUrl ? (
+            <a
+              href={document.activeVersion.externalUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex w-fit items-center gap-2 text-xs font-medium text-blue-600 hover:text-blue-700"
+            >
+              View publication
+              <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
+            </a>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function AuditTimeline({ auditLog = [] }) {
   if (!auditLog.length) {
     return (
@@ -278,6 +431,10 @@ export default function ContractComplianceLocker({ data, loading, error, onRefre
   const overdueRenewals = data?.summary?.overdueRenewals ?? [];
   const frameworks = data?.frameworks ?? [];
   const auditLog = data?.auditLog ?? [];
+  const policySummary = data?.legalPolicies?.summary ?? {};
+  const policies = data?.legalPolicies?.list ?? [];
+  const legalSummary = data?.legalDocuments?.summary ?? {};
+  const legalDocuments = data?.legalDocuments?.list ?? [];
 
   return (
     <section
@@ -314,7 +471,7 @@ export default function ContractComplianceLocker({ data, loading, error, onRefre
         <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</div>
       ) : (
         <div className="mt-8 space-y-8">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
             <SummaryCard
               icon={LockClosedIcon}
               title="Active agreements"
@@ -345,6 +502,24 @@ export default function ContractComplianceLocker({ data, loading, error, onRefre
               title="Framework coverage"
               value={frameworks.length}
               description={`${totals.jurisdictionsCovered ?? 0} jurisdictions tracked`}
+            />
+            <SummaryCard
+              icon={ShieldCheckIcon}
+              tone="indigo"
+              title="Policy acknowledgements"
+              value={policySummary.acknowledged ?? 0}
+              description={`${policySummary.total ?? 0} policies tracked`}
+            />
+            <SummaryCard
+              icon={ScaleIcon}
+              tone="sky"
+              title="Legal publications"
+              value={legalSummary.active ?? 0}
+              description={
+                legalSummary.lastPublishedAt
+                  ? `Updated ${formatRelative(legalSummary.lastPublishedAt)}`
+                  : `${legalSummary.total ?? 0} total records`
+              }
             />
           </div>
 
@@ -421,6 +596,22 @@ export default function ContractComplianceLocker({ data, loading, error, onRefre
               <h3 className="text-lg font-semibold text-slate-900">Localization playbooks</h3>
             </div>
             <FrameworkGrid frameworks={frameworks} />
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <ShieldCheckIcon className="h-6 w-6 text-blue-500" />
+              <h3 className="text-lg font-semibold text-slate-900">Policy acknowledgements</h3>
+            </div>
+            <PolicyAcknowledgementList policies={policies} />
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <ScaleIcon className="h-6 w-6 text-blue-500" />
+              <h3 className="text-lg font-semibold text-slate-900">Legal policy library</h3>
+            </div>
+            <LegalDocumentCollection documents={legalDocuments} />
           </div>
 
           <div className="space-y-4">

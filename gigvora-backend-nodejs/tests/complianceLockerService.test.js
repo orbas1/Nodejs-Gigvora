@@ -1,6 +1,14 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import './setupTestEnv.js';
-import { ComplianceReminder, ComplianceLocalization } from '../src/models/index.js';
+import {
+  ComplianceReminder,
+  ComplianceLocalization,
+  ConsentPolicy,
+  ConsentPolicyVersion,
+  UserConsent,
+  LegalDocument,
+  LegalDocumentVersion,
+} from '../src/models/index.js';
 import {
   createComplianceDocument,
   getComplianceLockerOverview,
@@ -40,6 +48,57 @@ describe('complianceLockerService', () => {
         recommendedDocumentTypes: ['msa', 'nda'],
       },
     ]);
+
+    const policy = await ConsentPolicy.create({
+      code: 'privacy_notice',
+      title: 'Privacy Notice',
+      audience: 'freelancer',
+      region: 'global',
+      legalBasis: 'contract',
+      required: true,
+      revocable: false,
+      retentionPeriodDays: 365,
+    });
+    const policyVersion = await ConsentPolicyVersion.create({
+      policyId: policy.id,
+      version: 1,
+      documentUrl: 'https://policies.example/privacy',
+      summary: 'Initial policy baseline',
+      effectiveAt: daysFromNow(-180),
+    });
+    await policy.update({ activeVersionId: policyVersion.id });
+    await UserConsent.create({
+      userId: owner.id,
+      policyId: policy.id,
+      policyVersionId: policyVersion.id,
+      status: 'granted',
+      grantedAt: daysFromNow(-14),
+      source: 'self_service',
+    });
+
+    const legalDocument = await LegalDocument.create({
+      slug: 'terms-of-service',
+      title: 'Terms of Service',
+      category: 'terms',
+      status: 'active',
+      region: 'global',
+      defaultLocale: 'en',
+      audienceRoles: ['freelancer'],
+      editorRoles: ['legal'],
+      tags: ['compliance'],
+      summary: 'Gigvora platform terms for all freelancers.',
+    });
+    const legalVersion = await LegalDocumentVersion.create({
+      documentId: legalDocument.id,
+      version: 1,
+      locale: 'en',
+      status: 'published',
+      effectiveAt: daysFromNow(-200),
+      publishedAt: daysFromNow(-200),
+      summary: 'Initial release of platform terms.',
+      changeSummary: 'Original publication.',
+    });
+    await legalDocument.update({ activeVersionId: legalVersion.id, publishedAt: daysFromNow(-200) });
   });
 
   it('creates a compliance record with obligations and reminders and returns aggregated overview', async () => {
@@ -116,6 +175,11 @@ describe('complianceLockerService', () => {
     expect(overview.documents.list[0].reminders).toHaveLength(1);
     expect(overview.frameworks.map((item) => item.framework)).toEqual(expect.arrayContaining(['GDPR', 'SOC2']));
     expect(overview.auditLog.length).toBeGreaterThanOrEqual(1);
+    expect(overview.legalPolicies.summary.total).toBeGreaterThanOrEqual(1);
+    expect(overview.legalPolicies.summary.acknowledged).toBeGreaterThanOrEqual(1);
+    expect(overview.legalPolicies.list[0].acknowledgement.status).toBe('granted');
+    expect(overview.legalDocuments.summary.total).toBeGreaterThanOrEqual(1);
+    expect(overview.legalDocuments.list[0].activeVersion).not.toBeNull();
   });
 
   it('adds a new document version and acknowledges reminders', async () => {
