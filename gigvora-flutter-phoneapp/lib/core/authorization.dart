@@ -1,4 +1,5 @@
 import '../features/auth/domain/session.dart';
+import 'permission_matrix.dart';
 
 const Set<String> _projectManagementRoles = <String>{
   'project_manager',
@@ -18,25 +19,18 @@ const Set<String> _workManagementRoles = <String>{
   ..._projectManagementRoles,
 };
 
-String _normaliseRole(String? value) {
-  if (value == null || value.trim().isEmpty) {
-    return '';
-  }
-  return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_');
-}
-
 Set<String> resolveRoles(UserSession? session) {
   final roles = <String>{};
   if (session == null) {
     return roles;
   }
 
-  roles.add(_normaliseRole(session.activeMembership));
+  roles.add(normaliseMembershipKey(session.activeMembership));
   for (final membership in session.memberships) {
-    roles.add(_normaliseRole(membership));
+    roles.add(normaliseMembershipKey(membership));
   }
   for (final dashboard in session.dashboards.keys) {
-    roles.add(_normaliseRole(dashboard));
+    roles.add(normaliseMembershipKey(dashboard));
   }
   return roles..removeWhere((element) => element.isEmpty);
 }
@@ -59,20 +53,29 @@ class ProjectAccess {
 
 ProjectAccess evaluateProjectAccess(UserSession? session) {
   final roles = resolveRoles(session);
-  final allowed = roles.any(_projectManagementRoles.contains);
-  final reason = allowed
+  final AuthorizationState authorization = resolveAuthorizationState(memberships: roles);
+  final bool allowedByPermission = authorization.permissionKeys.contains('projects:manage');
+  final bool allowedByRole = roles.any(_projectManagementRoles.contains);
+  final bool allowed = allowedByPermission || allowedByRole;
+  final PermissionRequirement requirement = describePermissionRequirement('projects:manage');
+  final String? reason = allowed
       ? null
-      : 'Project workspaces are restricted to agency, company, operations, and admin leads. Request access from your workspace administrator.';
-  return ProjectAccess(allowed: allowed, roles: roles, reason: reason, allowedToManage: allowed);
+      : requirement.message;
+  return ProjectAccess(allowed: allowed, roles: roles, reason: reason, allowedToManage: allowedByPermission || allowedByRole);
 }
 
 ProjectAccess evaluateWorkManagementAccess(UserSession? session) {
   final roles = resolveRoles(session);
-  final allowed = roles.any(_workManagementRoles.contains);
-  final reason = allowed
+  final AuthorizationState authorization = resolveAuthorizationState(memberships: roles);
+  final bool allowedByPermission = authorization.permissionKeys.contains('projects:view');
+  final bool allowedByRole = roles.any(_workManagementRoles.contains);
+  final bool allowed = allowedByPermission || allowedByRole;
+  final bool canManage = authorization.permissionKeys.contains('projects:manage') ||
+      roles.any(_projectManagementRoles.contains);
+  final PermissionRequirement requirement = describePermissionRequirement('projects:view');
+  final String? reason = allowed
       ? null
-      : 'Task delegation requires a freelancer, operations, agency, or company workspace with delivery permissions.';
-  final canManage = roles.any(_projectManagementRoles.contains);
+      : requirement.message;
   return ProjectAccess(
     allowed: allowed,
     roles: roles,

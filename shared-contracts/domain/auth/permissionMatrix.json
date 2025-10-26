@@ -1,0 +1,170 @@
+{
+  "version": "2024.11.01",
+  "publishedAt": "2024-11-01T08:00:00.000Z",
+  "reviewCadenceDays": 30,
+  "permissions": [
+    {
+      "key": "rbac:matrix:view",
+      "label": "View RBAC matrix",
+      "description": "Inspect persona guardrails, escalation paths, and permission bundles used across Gigvora surfaces.",
+      "category": "governance",
+      "surfaces": ["admin"],
+      "implies": [],
+      "escalationPath": ["platform_admin", "security_officer"]
+    },
+    {
+      "key": "rbac:matrix:audit",
+      "label": "Audit RBAC decisions",
+      "description": "Review granular permission grants, denial reasons, and change history for compliance reporting.",
+      "category": "governance",
+      "surfaces": ["admin"],
+      "implies": ["rbac:matrix:view"],
+      "escalationPath": ["platform_admin", "security_officer"]
+    },
+    {
+      "key": "rbac:matrix:simulate",
+      "label": "Simulate RBAC policies",
+      "description": "Execute what-if analysis for proposed persona changes before deployment to production.",
+      "category": "governance",
+      "surfaces": ["admin"],
+      "implies": ["rbac:matrix:view", "rbac:matrix:audit"],
+      "escalationPath": ["platform_admin"]
+    },
+    {
+      "key": "calendar:view",
+      "label": "View company calendar",
+      "description": "Access shared workspace events, mentoring slots, and cross-team availability windows.",
+      "category": "operations",
+      "surfaces": ["web", "mobile"],
+      "implies": [],
+      "escalationPath": ["workspace_admin", "operations_lead"]
+    },
+    {
+      "key": "calendar:manage",
+      "label": "Manage company calendar",
+      "description": "Create, edit, and cancel organisation-level events with downstream notification fan-out.",
+      "category": "operations",
+      "surfaces": ["web", "mobile"],
+      "implies": ["calendar:view"],
+      "escalationPath": ["workspace_admin", "operations_lead"]
+    },
+    {
+      "key": "projects:view",
+      "label": "View project workspaces",
+      "description": "Browse project pipelines, staffing plans, and delivery scorecards for assigned workstreams.",
+      "category": "delivery",
+      "surfaces": ["web", "mobile"],
+      "implies": [],
+      "escalationPath": ["project_manager", "workspace_admin"]
+    },
+    {
+      "key": "projects:manage",
+      "label": "Manage project workspaces",
+      "description": "Create and update project stages, assign leads, and trigger milestone communications.",
+      "category": "delivery",
+      "surfaces": ["web", "mobile"],
+      "implies": ["projects:view"],
+      "escalationPath": ["project_manager", "operations_lead", "workspace_admin"]
+    },
+    {
+      "key": "notifications:read",
+      "label": "Read inbox notifications",
+      "description": "Receive in-app notifications for assignments, approvals, and collaboration updates.",
+      "category": "engagement",
+      "surfaces": ["web", "mobile"],
+      "implies": [],
+      "escalationPath": ["workspace_admin"]
+    },
+    {
+      "key": "notifications:manage",
+      "label": "Manage notification broadcasts",
+      "description": "Send workspace-wide announcements and configure escalation copy.",
+      "category": "engagement",
+      "surfaces": ["web"],
+      "implies": ["notifications:read"],
+      "escalationPath": ["workspace_admin"]
+    }
+  ],
+  "memberships": [
+    {
+      "key": "platform_admin",
+      "label": "Platform Administrator",
+      "description": "Owns production configuration, observability, and emergency controls for Gigvora.",
+      "aliases": ["admin", "platform:admin"],
+      "tier": "privileged",
+      "grantAll": true,
+      "escalationPath": [],
+      "permissions": [
+        "rbac:matrix:view",
+        "rbac:matrix:audit",
+        "rbac:matrix:simulate",
+        "calendar:manage",
+        "projects:manage",
+        "notifications:manage"
+      ]
+    },
+    {
+      "key": "security_officer",
+      "label": "Security Officer",
+      "description": "Handles RBAC governance, abuse mitigation, and compliance reviews.",
+      "aliases": ["security", "security_officer"],
+      "tier": "privileged",
+      "escalationPath": ["platform_admin"],
+      "permissions": ["rbac:matrix:view", "rbac:matrix:audit", "calendar:view", "projects:view"]
+    },
+    {
+      "key": "workspace_admin",
+      "label": "Workspace Administrator",
+      "description": "Coordinates company or agency configuration, staffing, and operations.",
+      "aliases": ["workspace_admin", "company_admin", "agency_admin"],
+      "tier": "elevated",
+      "escalationPath": ["platform_admin"],
+      "permissions": ["calendar:manage", "projects:manage", "notifications:manage", "rbac:matrix:view"]
+    },
+    {
+      "key": "operations_lead",
+      "label": "Operations Lead",
+      "description": "Drives fulfilment, staffing, and escalation rituals for delivery teams.",
+      "aliases": ["operations_lead", "operations"],
+      "tier": "elevated",
+      "escalationPath": ["workspace_admin"],
+      "permissions": ["calendar:manage", "projects:manage", "notifications:read"]
+    },
+    {
+      "key": "project_manager",
+      "label": "Project Manager",
+      "description": "Owns project execution, milestone tracking, and cross-team alignment.",
+      "aliases": ["project_manager", "project_management"],
+      "tier": "standard",
+      "escalationPath": ["operations_lead"],
+      "permissions": ["projects:manage", "calendar:view", "notifications:read"]
+    },
+    {
+      "key": "company_member",
+      "label": "Company Member",
+      "description": "Collaborates on hiring, mentoring, and delivery inside a company workspace.",
+      "aliases": ["company", "company_member", "company_manager"],
+      "tier": "standard",
+      "escalationPath": ["workspace_admin"],
+      "permissions": ["calendar:view", "projects:view", "notifications:read"]
+    },
+    {
+      "key": "agency_member",
+      "label": "Agency Member",
+      "description": "Delivers client engagements and manages agency-owned initiatives.",
+      "aliases": ["agency"],
+      "tier": "standard",
+      "escalationPath": ["workspace_admin"],
+      "permissions": ["calendar:view", "projects:view", "notifications:read"]
+    },
+    {
+      "key": "mentor",
+      "label": "Mentor",
+      "description": "Guides founders, freelancers, and operators through structured programmes.",
+      "aliases": ["mentor"],
+      "tier": "limited",
+      "escalationPath": ["workspace_admin"],
+      "permissions": ["calendar:view", "notifications:read"]
+    }
+  ]
+}

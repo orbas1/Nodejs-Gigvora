@@ -7,6 +7,7 @@ import {
   AgencyApplicationResponse,
   AGENCY_JOB_STATUSES,
   AGENCY_EMPLOYMENT_TYPES,
+  AGENCY_JOB_COMPENSATION_CURRENCIES,
   AGENCY_JOB_SENIORITIES,
   AGENCY_JOB_APPLICATION_STATUSES,
   AGENCY_JOB_INTERVIEW_STATUSES,
@@ -15,7 +16,7 @@ import {
   AGENCY_APPLICATION_RESPONSE_VISIBILITIES,
   buildJobSearchPredicate,
 } from '../models/agencyJobModels.js';
-import { sequelize } from '../models/index.js';
+import sequelizeClient from '../models/sequelizeClient.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
 
 function normalizeWorkspaceId(workspaceId) {
@@ -66,6 +67,7 @@ export async function listJobs({ workspaceId, status, search, page, pageSize } =
     limit: pagination.limit,
     offset: pagination.offset,
     order: [['updatedAt', 'DESC']],
+    distinct: true,
     include: [
       { model: AgencyJobFavorite, as: 'favorites', attributes: ['memberId'] },
       { model: AgencyJobApplication, as: 'applications', attributes: ['id', 'status'] },
@@ -155,6 +157,9 @@ function normalizeJobPayload(payload = {}) {
   }
   if (data.employmentType && !AGENCY_EMPLOYMENT_TYPES.includes(data.employmentType)) {
     throw new ValidationError('Invalid employment type provided');
+  }
+  if (data.compensationCurrency && !AGENCY_JOB_COMPENSATION_CURRENCIES.includes(data.compensationCurrency)) {
+    throw new ValidationError('Invalid compensation currency provided');
   }
   if (data.seniority && !AGENCY_JOB_SENIORITIES.includes(data.seniority)) {
     throw new ValidationError('Invalid seniority level provided');
@@ -341,13 +346,17 @@ export async function updateApplication(applicationId, payload = {}, { workspace
     throw new ValidationError('applicationId is required');
   }
   const normalizedWorkspaceId = ensureWorkspaceId(workspaceId ?? payload.workspaceId);
-  const data = normalizeApplicationPayload({ ...payload });
   const application = await AgencyJobApplication.findOne({
     where: { id: applicationId, workspaceId: normalizedWorkspaceId },
   });
   if (!application) {
     throw new NotFoundError('Application not found');
   }
+
+  const data = normalizeApplicationPayload({
+    candidateName: application.candidateName,
+    ...payload,
+  });
 
   Object.entries(data).forEach(([key, value]) => {
     if (value !== undefined && key !== 'workspaceId') {
@@ -415,13 +424,17 @@ export async function updateInterview(interviewId, payload = {}, { workspaceId, 
     throw new ValidationError('interviewId is required');
   }
   const normalizedWorkspaceId = ensureWorkspaceId(workspaceId ?? payload.workspaceId);
-  const data = normalizeInterviewPayload({ ...payload });
   const interview = await AgencyInterview.findOne({
     where: { id: interviewId, workspaceId: normalizedWorkspaceId },
   });
   if (!interview) {
     throw new NotFoundError('Interview not found');
   }
+
+  const data = normalizeInterviewPayload({
+    scheduledAt: interview.scheduledAt,
+    ...payload,
+  });
 
   Object.entries(data).forEach(([key, value]) => {
     if (value !== undefined && key !== 'workspaceId') {
@@ -492,7 +505,7 @@ export async function getJobManagementSnapshot({ workspaceId } = {}) {
       where: { workspaceId: normalizedWorkspaceId },
       attributes: [
         'status',
-        [sequelize.fn('COUNT', sequelize.col('AgencyJob.id')), 'count'],
+        [sequelizeClient.fn('COUNT', sequelizeClient.col('AgencyJob.id')), 'count'],
       ],
       group: ['status'],
       raw: true,
@@ -501,7 +514,7 @@ export async function getJobManagementSnapshot({ workspaceId } = {}) {
       where: { workspaceId: normalizedWorkspaceId },
       attributes: [
         'status',
-        [sequelize.fn('COUNT', sequelize.col('AgencyInterview.id')), 'count'],
+        [sequelizeClient.fn('COUNT', sequelizeClient.col('AgencyInterview.id')), 'count'],
       ],
       group: ['status'],
       raw: true,
@@ -525,6 +538,7 @@ export function getJobManagementMetadata() {
   return {
     jobStatuses: AGENCY_JOB_STATUSES,
     employmentTypes: AGENCY_EMPLOYMENT_TYPES,
+    compensationCurrencies: AGENCY_JOB_COMPENSATION_CURRENCIES,
     seniorities: AGENCY_JOB_SENIORITIES,
     applicationStatuses: AGENCY_JOB_APPLICATION_STATUSES,
     interviewStatuses: AGENCY_JOB_INTERVIEW_STATUSES,

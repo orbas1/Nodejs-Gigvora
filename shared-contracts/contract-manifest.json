@@ -8,6 +8,11 @@
       "typesHash": "453fc193b745f8bdbcfdd6287781a97ffbaafa4487c48ace5bb39320c597ec19",
       "generatedAt": "2025-10-25T00:36:52.906Z"
     },
+    "auth/permission-matrix": {
+      "schemaHash": null,
+      "typesHash": null,
+      "generatedAt": "2024-11-01T08:00:00.000Z"
+    },
     "platform/appearance-management": {
       "schemaHash": null,
       "typesHash": "96e77221da66c617b446f6a1aa3e1a846898cd0a230f2c7d37d509e2ed8e4ee9",
