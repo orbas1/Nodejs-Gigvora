@@ -1,41 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  ArrowTrendingUpIcon,
+  BanknotesIcon,
+  ChartBarIcon,
+  ClockIcon,
+  HandThumbUpIcon,
+  ShieldCheckIcon,
+  UsersIcon,
+} from '@heroicons/react/24/outline';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import useSession from '../../hooks/useSession.js';
 import { useAgencyOverview } from '../../hooks/useAgencyOverview.js';
 import useAgencyDashboard from '../../hooks/useAgencyDashboard.js';
 import useProjectGigManagement from '../../hooks/useProjectGigManagement.js';
 import useGigOrderDetail from '../../hooks/useGigOrderDetail.js';
-import DataStatus from '../../components/DataStatus.jsx';
-import FinanceControlTowerFeature from '../../components/dashboard/FinanceControlTowerFeature.jsx';
-import DashboardInsightsBand from '../../components/dashboard/shared/DashboardInsightsBand.jsx';
-import DashboardAlertBanner from '../../components/dashboard/shared/DashboardAlertBanner.jsx';
-import DashboardWorkspaceModules from '../../components/dashboard/shared/DashboardWorkspaceModules.jsx';
-import DashboardCollapsibleSection from '../../components/dashboard/shared/DashboardCollapsibleSection.jsx';
-import {
-  AgencyManagementSection,
-  AgencyHrManagementSection,
-  AgencyCrmLeadPipelineSection,
-  AgencyPaymentsManagementSection,
-  AgencyJobApplicationsSection,
-  GigManagementSection,
-  GigTimelineSection,
-  GigCreationSection,
-  OpenGigsSection,
-  ClosedGigsSection,
-  GigSubmissionsSection,
-  GigChatSection,
-  AgencyGigWorkspaceSection,
-  AgencyHubSection,
-  AgencyCreationStudioWizardSection,
-  AgencyFairnessSection,
-  AgencySupportSection,
-  AgencyInboxSection,
-  AgencyWalletSection,
-} from './agency/sections/index.js';
-import OverviewSection from './agency/sections/OverviewSection.jsx';
-import { EscrowProvider } from './agency/escrow/EscrowContext.jsx';
-import EscrowShell from './agency/escrow/EscrowShell.jsx';
+import useAgencyWorkforceDashboard from '../../hooks/useAgencyWorkforceDashboard.js';
+import { buildAgencyDashboardSections } from './agency/sections/dashboardSectionsRegistry.js';
+import { AgencySupportSection, AgencyInboxSection, AgencyWalletSection } from './agency/sections/index.js';
 
 const AVAILABLE_DASHBOARDS = ['agency', 'company', 'freelancer', 'user', 'headhunter'];
 
@@ -121,6 +103,27 @@ function formatNumber(value) {
     return '0';
   }
   return new Intl.NumberFormat('en-US').format(Number(value));
+}
+
+function parseMetricNumber(value) {
+  if (value == null) {
+    return null;
+  }
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value === 'string') {
+    const numeric = Number.parseFloat(value.replace(/[^0-9.-]/g, ''));
+    return Number.isFinite(numeric) ? numeric : null;
+  }
+  return null;
+}
+
+function clampPercent(value) {
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+  return Math.min(100, Math.max(0, value));
 }
 
 export default function AgencyDashboardPage() {
@@ -210,6 +213,13 @@ export default function AgencyDashboardPage() {
   } = useAgencyDashboard({
     workspaceId,
     workspaceSlug: workspaceSlugParam,
+    enabled: isAuthenticated && isAgencyMember,
+  });
+
+  const effectiveWorkspaceId = workspace?.id ?? workspaceId ?? overviewPayload?.meta?.selectedWorkspaceId ?? undefined;
+
+  const workforceDashboard = useAgencyWorkforceDashboard({
+    workspaceId: effectiveWorkspaceId,
     enabled: isAuthenticated && isAgencyMember,
   });
 
@@ -352,6 +362,32 @@ export default function AgencyDashboardPage() {
   const gigSummary = studioInsights.summary ?? null;
   const gigDeliverables = studioInsights.deliverables ?? null;
   const financeSnapshot = agencyDashboard?.finance ?? {};
+  const workforceMetrics = useMemo(() => {
+    const entries = Array.isArray(workforceDashboard.summaryCards) ? workforceDashboard.summaryCards : [];
+    return entries.reduce((accumulator, card) => {
+      if (!card) {
+        return accumulator;
+      }
+      const key = card.id ?? card.label;
+      if (key) {
+        accumulator[key] = card;
+      }
+      return accumulator;
+    }, {});
+  }, [workforceDashboard.summaryCards]);
+
+  const headcountValue = parseMetricNumber(workforceMetrics.headcount?.value);
+  const activeMemberCount = parseMetricNumber(workforceMetrics.active?.value);
+  const benchHoursValue = parseMetricNumber(workforceMetrics.benchHours?.value);
+  const utilisationPercent = clampPercent(parseMetricNumber(workforceMetrics.utilisation?.value));
+  const benchCapacity = useMemo(() => {
+    if (headcountValue == null || activeMemberCount == null) {
+      return null;
+    }
+    return Math.max(0, headcountValue - activeMemberCount);
+  }, [headcountValue, activeMemberCount]);
+  const trustScore = clampPercent(parseMetricNumber(overview?.trustScore));
+  const ratingScore = parseMetricNumber(overview?.rating);
   const gigStats = useMemo(() => {
     const stats = projectGigData?.purchasedGigs?.stats ?? {};
     const submissionStats = projectGigData?.purchasedGigs?.submissions?.stats ?? {};
@@ -504,6 +540,173 @@ export default function AgencyDashboardPage() {
     return 0;
   }, [financeSnapshot.awaitingPayment, financeSnapshot.overdueInvoices, financeSnapshot.unpaidInvoices]);
 
+  const marginDisplay = numericMargin != null ? `${numericMargin.toFixed(1)}%` : null;
+  const utilisationDisplay = utilisationPercent != null ? `${utilisationPercent.toFixed(1)}%` : null;
+  const benchHoursDisplay = benchHoursValue != null ? `${benchHoursValue.toFixed(1)}` : null;
+
+  const executiveSignals = useMemo(() => {
+    const signals = [];
+    if (trustScore != null) {
+      signals.push({
+        id: 'trust-score',
+        label: 'Trust score',
+        value: `${Math.round(trustScore)}/100`,
+        description: 'Confidence level across client and talent feedback loops.',
+        icon: ShieldCheckIcon,
+        iconBackgroundClassName: 'bg-indigo-600/90',
+        href: '#agency-management',
+        badge: 'Trust',
+      });
+    }
+    if (ratingScore != null) {
+      signals.push({
+        id: 'csat-rating',
+        label: 'CSAT rating',
+        value: `${ratingScore.toFixed(1)}/5`,
+        description: 'Average post-engagement reviews across programmes.',
+        icon: HandThumbUpIcon,
+        iconBackgroundClassName: 'bg-amber-500/90',
+        href: '#agency-inbox',
+        badge: 'Experience',
+      });
+    }
+    if (activeMemberCount != null) {
+      signals.push({
+        id: 'active-team',
+        label: 'Active team',
+        value: formatNumber(activeMemberCount),
+        description: 'Members deployed on live gigs and retainers.',
+        icon: UsersIcon,
+        iconBackgroundClassName: 'bg-blue-600/90',
+        href: '#agency-hr',
+        badge: 'People',
+      });
+    }
+    if (utilisationDisplay) {
+      signals.push({
+        id: 'team-utilisation',
+        label: 'Utilisation',
+        value: utilisationDisplay,
+        description: 'Capacity allocation across squads this week.',
+        icon: ChartBarIcon,
+        iconBackgroundClassName: 'bg-sky-600/90',
+        href: '#agency-hr',
+        badge: 'Delivery',
+      });
+    }
+    if (marginDisplay) {
+      signals.push({
+        id: 'gross-margin',
+        label: 'Gross margin',
+        value: marginDisplay,
+        description: 'Blended margin across recent invoices.',
+        icon: BanknotesIcon,
+        iconBackgroundClassName: 'bg-emerald-600/90',
+        href: '#agency-finance',
+        badge: 'Finance',
+      });
+    }
+    if (financeSnapshot.runRate != null) {
+      signals.push({
+        id: 'run-rate-signal',
+        label: 'Revenue run-rate',
+        value: runRateDisplay,
+        description: 'Annualised revenue projection for this workspace.',
+        icon: ArrowTrendingUpIcon,
+        iconBackgroundClassName: 'bg-violet-600/90',
+        href: '#agency-finance',
+        badge: 'Growth',
+      });
+    }
+    if (benchHoursDisplay) {
+      signals.push({
+        id: 'bench-hours',
+        label: 'Bench hours',
+        value: benchHoursDisplay,
+        description: 'Unassigned capacity recorded across teams.',
+        icon: ClockIcon,
+        iconBackgroundClassName: 'bg-rose-500/90',
+        href: '#agency-hr',
+        badge: 'Capacity',
+      });
+    }
+    return signals;
+  }, [
+    trustScore,
+    ratingScore,
+    activeMemberCount,
+    utilisationDisplay,
+    marginDisplay,
+    financeSnapshot.runRate,
+    runRateDisplay,
+    benchHoursDisplay,
+  ]);
+
+  const executiveAlerts = useMemo(() => {
+    const alerts = [];
+    if (trustScore != null && trustScore < 70) {
+      alerts.push({
+        tone: 'warning',
+        title: 'Trust score requires attention',
+        message: `Trust score is ${Math.round(trustScore)} / 100. Review feedback and client touchpoints to reinforce confidence.`,
+        actions: [
+          <a
+            key="agency-management"
+            href="#agency-management"
+            className="inline-flex items-center rounded-full border border-amber-200 bg-white/80 px-3 py-1 text-xs font-semibold text-amber-700 transition hover:border-amber-300 hover:text-amber-800"
+          >
+            Open agency management
+          </a>,
+        ],
+      });
+    }
+
+    const lowUtilisation = utilisationPercent != null && utilisationPercent < 70;
+    const heavyBench = benchHoursValue != null && benchHoursValue > 40;
+    if (lowUtilisation || heavyBench || (benchCapacity != null && benchCapacity >= 3)) {
+      const benchHeadline = benchCapacity != null && benchCapacity >= 3 ? `${formatNumber(benchCapacity)} team members` : 'Bench capacity';
+      alerts.push({
+        tone: 'info',
+        title: `${benchHeadline} ready for redeployment`,
+        message:
+          heavyBench || benchHoursDisplay
+            ? `Utilisation is ${utilisationDisplay ?? '—'} with ${benchHoursDisplay ?? '0'} bench hours logged. Reassign talent to upcoming gigs or proposals.`
+            : `Utilisation is ${utilisationDisplay ?? '—'}. Reassign available members to keep teams fully engaged.`,
+        actions: [
+          <a
+            key="agency-hr"
+            href="#agency-hr"
+            className="inline-flex items-center rounded-full border border-sky-200 bg-white/80 px-3 py-1 text-xs font-semibold text-sky-600 transition hover:border-sky-300 hover:text-sky-800"
+          >
+            Review HR management
+          </a>,
+        ],
+      });
+    }
+
+    return alerts;
+  }, [
+    benchCapacity,
+    benchHoursDisplay,
+    benchHoursValue,
+    trustScore,
+    utilisationDisplay,
+    utilisationPercent,
+  ]);
+
+  const executiveInsightsLoading = overviewLoading || dashboardLoading || workforceDashboard.loading;
+
+  const handleRefreshExecutiveSignals = useCallback(async () => {
+    const tasks = [refreshAgencyDashboard({ force: true })];
+    if (typeof refreshOverview === 'function') {
+      tasks.push(refreshOverview({ force: true }));
+    }
+    if (typeof workforceDashboard.refresh === 'function') {
+      tasks.push(workforceDashboard.refresh({ force: true }));
+    }
+    await Promise.all(tasks);
+  }, [refreshAgencyDashboard, refreshOverview, workforceDashboard.refresh]);
+
   const pipelineAlerts = useMemo(() => {
     const alerts = [];
     if (dueSoonCount > 0 && averageProgress < 60) {
@@ -610,6 +813,252 @@ export default function AgencyDashboardPage() {
     [workspaceIdentifier, inboxSummary, supportSnapshot, ownerId],
   );
 
+  const overviewSectionProps = useMemo(() => {
+    const allowWorkspaceSelection = workspaceOptions.length > 1;
+    return {
+      overview,
+      workspace,
+      loading: overviewLoading,
+      error: overviewError,
+      onRefresh: () => refreshOverview({ force: true }),
+      fromCache: overviewFromCache,
+      lastUpdated: overviewLastUpdated,
+      onSave: saveOverview,
+      saving: overviewSaving,
+      canManage: canManageOverview,
+      workspaceOptions,
+      selectedWorkspaceId,
+      onWorkspaceChange: allowWorkspaceSelection ? handleWorkspaceChange : undefined,
+      currentDate: overviewPayload?.currentDate,
+    };
+  }, [
+    overview,
+    workspace,
+    overviewLoading,
+    overviewError,
+    refreshOverview,
+    overviewFromCache,
+    overviewLastUpdated,
+    saveOverview,
+    overviewSaving,
+    canManageOverview,
+    workspaceOptions,
+    selectedWorkspaceId,
+    handleWorkspaceChange,
+    overviewPayload?.currentDate,
+  ]);
+
+  const executiveSectionProps = useMemo(
+    () => ({
+      signals: executiveSignals,
+      alerts: executiveAlerts,
+      loading: executiveInsightsLoading,
+      onRefresh: handleRefreshExecutiveSignals,
+    }),
+    [executiveSignals, executiveAlerts, executiveInsightsLoading, handleRefreshExecutiveSignals],
+  );
+
+  const pipelineSectionProps = useMemo(
+    () => ({ insights: pipelineInsights, alerts: pipelineAlerts }),
+    [pipelineInsights, pipelineAlerts],
+  );
+
+  const managementSectionProps = useMemo(
+    () => ({
+      overview,
+      workspace,
+      loading: overviewLoading,
+      error: overviewError,
+      onRefresh: () => refreshOverview?.(),
+    }),
+    [overview, workspace, overviewLoading, overviewError, refreshOverview],
+  );
+
+  const hrSectionProps = useMemo(
+    () => ({
+      workspaceId: workspace?.id ?? workspaceId,
+      canEdit: canManageOverview,
+      workforceResource: workforceDashboard,
+    }),
+    [workspace?.id, workspaceId, canManageOverview, workforceDashboard],
+  );
+
+  const crmSectionProps = useMemo(
+    () => ({ workspaceId: workspace?.id ?? workspaceId }),
+    [workspace?.id, workspaceId],
+  );
+
+  const paymentsSectionProps = useMemo(
+    () => ({
+      workspaceId: workspace?.id ?? workspaceId,
+      workspaceLabel: workspace?.name ?? overviewPayload?.workspace?.name ?? '',
+    }),
+    [workspace?.id, workspaceId, workspace?.name, overviewPayload?.workspace?.name],
+  );
+
+  const jobsSectionProps = useMemo(() => ({ ownerId }), [ownerId]);
+
+  const gigOperationsProps = useMemo(
+    () => ({
+      summary: gigSummary,
+      deliverables: gigDeliverables,
+      orders,
+      selectedOrderId,
+      onSelectOrder: setSelectedOrderId,
+      onRefresh: handleRefreshGigData,
+      loading: projectLoading || orderLoading || dashboardLoading,
+      error: gigError || dashboardError,
+      fromCache: dashboardFromCache,
+      lastUpdated: dashboardLastUpdated,
+      detail: orderDetail,
+      onUpdateOrder: handleUpdateOrder,
+      updatingOrderId,
+      onReopenOrder: handleReopenOrder,
+      onCreateSubmission: handleCreateSubmission,
+      onUpdateSubmission: handleUpdateSubmission,
+      pendingAction,
+      onAddEvent: handleAddTimelineEvent,
+      onSendMessage: handleSendMessage,
+      onAcknowledgeMessage: handleAcknowledgeMessage,
+      onCreateGig: handleCreateGig,
+      creatingGig,
+      defaultCurrency: agencyDashboard?.workspace?.currency,
+      onGigCreated: handleRefreshGigData,
+      autoMatchSnapshot,
+      boardMetrics,
+      gigStats,
+      onReviewPipeline: handleReviewPipeline,
+      projectGigResource,
+      workspaceStatusLabel: 'Gig marketplace sync',
+      statusLabel: 'Gig data',
+    }),
+    [
+      gigSummary,
+      gigDeliverables,
+      orders,
+      selectedOrderId,
+      handleRefreshGigData,
+      projectLoading,
+      orderLoading,
+      dashboardLoading,
+      gigError,
+      dashboardError,
+      dashboardFromCache,
+      dashboardLastUpdated,
+      orderDetail,
+      handleUpdateOrder,
+      updatingOrderId,
+      handleReopenOrder,
+      handleCreateSubmission,
+      handleUpdateSubmission,
+      pendingAction,
+      handleAddTimelineEvent,
+      handleSendMessage,
+      handleAcknowledgeMessage,
+      handleCreateGig,
+      creatingGig,
+      agencyDashboard?.workspace?.currency,
+      autoMatchSnapshot,
+      boardMetrics,
+      gigStats,
+      handleReviewPipeline,
+      projectGigResource,
+    ],
+  );
+
+  const escrowSectionProps = useMemo(
+    () => ({ workspaceId, workspaceSlug: workspaceSlugParam }),
+    [workspaceId, workspaceSlugParam],
+  );
+
+  const financeSectionProps = useMemo(
+    () => ({
+      highlights: financeHighlights,
+      loading: dashboardLoading,
+      error: dashboardError,
+      fromCache: dashboardFromCache,
+      lastUpdated: dashboardLastUpdated,
+      onRefresh: () => refreshAgencyDashboard({ force: true }),
+      currency: agencyDashboard?.workspace?.currency,
+      ownerId,
+    }),
+    [
+      financeHighlights,
+      dashboardLoading,
+      dashboardError,
+      dashboardFromCache,
+      dashboardLastUpdated,
+      refreshAgencyDashboard,
+      agencyDashboard?.workspace?.currency,
+      ownerId,
+    ],
+  );
+
+  const workspaceModulesProps = useMemo(
+    () => ({ modules: workspaceModules }),
+    [workspaceModules],
+  );
+
+  const hubSectionProps = useMemo(
+    () => ({
+      dashboard: agencyDashboard,
+      loading: dashboardLoading,
+      error: dashboardError,
+      lastUpdated: dashboardLastUpdated,
+      fromCache: dashboardFromCache,
+      onRefresh: () => refreshAgencyDashboard({ force: true }),
+    }),
+    [
+      agencyDashboard,
+      dashboardLoading,
+      dashboardError,
+      dashboardLastUpdated,
+      dashboardFromCache,
+      refreshAgencyDashboard,
+    ],
+  );
+
+  const creationStudioProps = useMemo(
+    () => ({ agencyProfileId: agencyDashboard?.agencyProfile?.id }),
+    [agencyDashboard?.agencyProfile?.id],
+  );
+
+  const sectionDefinitions = useMemo(
+    () =>
+      buildAgencyDashboardSections({
+        overview: overviewSectionProps,
+        executive: executiveSectionProps,
+        pipeline: pipelineSectionProps,
+        management: managementSectionProps,
+        hr: hrSectionProps,
+        crm: crmSectionProps,
+        payments: paymentsSectionProps,
+        jobs: jobsSectionProps,
+        gigOperations: gigOperationsProps,
+        escrow: escrowSectionProps,
+        finance: financeSectionProps,
+        workspaceModules: workspaceModulesProps,
+        hub: hubSectionProps,
+        creationStudio: creationStudioProps,
+      }),
+    [
+      overviewSectionProps,
+      executiveSectionProps,
+      pipelineSectionProps,
+      managementSectionProps,
+      hrSectionProps,
+      crmSectionProps,
+      paymentsSectionProps,
+      jobsSectionProps,
+      gigOperationsProps,
+      escrowSectionProps,
+      financeSectionProps,
+      workspaceModulesProps,
+      hubSectionProps,
+      creationStudioProps,
+    ],
+  );
+
   return (
     <DashboardLayout
       currentDashboard="agency"
@@ -624,211 +1073,9 @@ export default function AgencyDashboardPage() {
       adSurface="agency_dashboard"
     >
       <div className="space-y-12">
-        <OverviewSection
-          overview={overview}
-          workspace={workspace}
-          loading={overviewLoading}
-          error={overviewError}
-          onRefresh={() => refreshOverview({ force: true })}
-          fromCache={overviewFromCache}
-          lastUpdated={overviewLastUpdated}
-          onSave={saveOverview}
-          saving={overviewSaving}
-          canManage={canManageOverview}
-          workspaceOptions={workspaceOptions}
-          selectedWorkspaceId={selectedWorkspaceId}
-          onWorkspaceChange={workspaceOptions.length > 1 ? handleWorkspaceChange : undefined}
-          currentDate={overviewPayload?.currentDate}
-        />
-
-        <DashboardCollapsibleSection
-          id="agency-analytics"
-          anchorId="agency-analytics"
-          title="Pipeline & finance health"
-          badge="Signals"
-          description="Monitor cross-functional delivery metrics and finance telemetry without leaving the control tower."
-        >
-          <DashboardInsightsBand
-            title="Delivery and revenue pulse"
-            subtitle="Live view across active gig programmes and billing."
-            insights={pipelineInsights}
-          />
-
-          {pipelineAlerts.length ? (
-            <div className="grid gap-4 lg:grid-cols-3">
-              {pipelineAlerts.map((alert) => (
-                <DashboardAlertBanner
-                  key={`${alert.tone}-${alert.title}`}
-                  tone={alert.tone}
-                  title={alert.title}
-                  message={alert.message}
-                  actions={alert.actions}
-                />
-              ))}
-            </div>
-          ) : null}
-        </DashboardCollapsibleSection>
-
-        <AgencyManagementSection
-          overview={overview}
-          workspace={workspace}
-          loading={overviewLoading}
-          error={overviewError}
-          onRefresh={() => refreshOverview?.()}
-        />
-
-        <AgencyHrManagementSection workspaceId={workspace?.id ?? workspaceId} canEdit={canManageOverview} />
-
-        <AgencyCrmLeadPipelineSection workspaceId={workspace?.id ?? workspaceId} />
-
-        <AgencyPaymentsManagementSection
-          workspaceId={workspace?.id ?? workspaceId}
-          workspaceLabel={workspace?.name ?? overviewPayload?.workspace?.name ?? ''}
-        />
-
-        <AgencyJobApplicationsSection ownerId={ownerId} />
-
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Dashboard / Gigs</p>
-            <h2 className="text-3xl font-semibold text-slate-900">Gig operations</h2>
-          </div>
-          <DataStatus
-            loading={projectLoading || orderLoading || dashboardLoading}
-            error={gigError || dashboardError}
-            fromCache={dashboardFromCache}
-            lastUpdated={dashboardLastUpdated}
-            onRefresh={handleRefreshGigData}
-            statusLabel="Gig data"
-          />
-        </div>
-
-        <GigManagementSection
-          summary={gigSummary}
-          deliverables={gigDeliverables}
-          orders={orders}
-          selectedOrderId={selectedOrderId}
-          onSelectOrder={setSelectedOrderId}
-          onRefresh={handleRefreshGigData}
-          loading={projectLoading || orderLoading || dashboardLoading}
-          detail={orderDetail}
-        />
-
-        <OpenGigsSection
-          orders={orders}
-          onUpdateOrder={handleUpdateOrder}
-          updatingOrderId={updatingOrderId}
-        />
-
-        <ClosedGigsSection
-          orders={orders}
-          onReopen={handleReopenOrder}
-          updatingOrderId={updatingOrderId}
-        />
-
-        <GigSubmissionsSection
-          orderDetail={orderDetail}
-          onCreateSubmission={handleCreateSubmission}
-          onUpdateSubmission={handleUpdateSubmission}
-          pending={pendingAction}
-        />
-
-        <GigTimelineSection
-          orderDetail={orderDetail}
-          onAddEvent={handleAddTimelineEvent}
-          loading={orderLoading}
-          pending={pendingAction}
-        />
-
-        <GigChatSection
-          orderDetail={orderDetail}
-          onSendMessage={handleSendMessage}
-          onAcknowledgeMessage={handleAcknowledgeMessage}
-          pending={pendingAction}
-        />
-
-        <GigCreationSection
-          onCreate={handleCreateGig}
-          creating={creatingGig}
-          defaultCurrency={agencyDashboard?.workspace?.currency}
-          onCreated={handleRefreshGigData}
-        />
-
-        <AgencyFairnessSection
-          orders={orders}
-          autoMatch={autoMatchSnapshot}
-          boardMetrics={boardMetrics}
-          gigStats={gigStats}
-          onReviewPipeline={handleReviewPipeline}
-        />
-
-        <AgencyGigWorkspaceSection
-          resource={projectGigResource}
-          statusLabel="Gig marketplace sync"
-          onRefresh={handleRefreshGigData}
-        />
-
-        <section id="agency-escrow" className="space-y-6 rounded-4xl border border-slate-200 bg-white p-8 shadow-soft">
-          <header className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Dashboard / Escrow</p>
-              <h2 className="text-3xl font-semibold text-slate-900">Escrow management</h2>
-            </div>
-            <span className="rounded-full bg-slate-100 px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
-              Secure
-            </span>
-          </header>
-          <EscrowProvider workspaceId={workspaceId} workspaceSlug={workspaceSlugParam}>
-            <EscrowShell />
-          </EscrowProvider>
-        </section>
-
-        <section id="agency-finance" className="space-y-6 rounded-4xl border border-slate-200 bg-white p-8 shadow-soft">
-          <header className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Dashboard / Finance</p>
-              <h2 className="text-3xl font-semibold text-slate-900">Finance management</h2>
-            </div>
-            <DataStatus
-              loading={dashboardLoading}
-              error={dashboardError}
-              fromCache={dashboardFromCache}
-              lastUpdated={dashboardLastUpdated}
-              onRefresh={() => refreshAgencyDashboard({ force: true })}
-              statusLabel="Finance data"
-            />
-          </header>
-
-          {financeHighlights.length ? (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {financeHighlights.map((item) => (
-                <div key={item.id} className="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-4 shadow-sm">
-                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">{item.label}</p>
-                  <p className="mt-3 text-2xl font-semibold text-slate-900">{item.formatted}</p>
-                  {item.helper ? <p className="mt-2 text-xs text-slate-500">{item.helper}</p> : null}
-                </div>
-              ))}
-            </div>
-          ) : null}
-
-          <FinanceControlTowerFeature
-            userId={ownerId}
-            currency={agencyDashboard?.workspace?.currency}
-          />
-        </section>
-
-        <DashboardWorkspaceModules modules={workspaceModules} />
-
-        <AgencyHubSection
-          dashboard={agencyDashboard}
-          loading={dashboardLoading}
-          error={dashboardError}
-          lastUpdated={dashboardLastUpdated}
-          fromCache={dashboardFromCache}
-          onRefresh={() => refreshAgencyDashboard({ force: true })}
-        />
-
-        <AgencyCreationStudioWizardSection agencyProfileId={agencyDashboard?.agencyProfile?.id} />
+        {sectionDefinitions.map(({ key, Component, props }) => (
+          <Component key={key} {...props} />
+        ))}
       </div>
     </DashboardLayout>
   );

@@ -300,7 +300,7 @@ export default function AgencyInboxSection({ workspaceId, statusLabel, initialSu
         summary.sentimentScore != null && Number.isFinite(Number(summary.sentimentScore))
           ? `${Number(summary.sentimentScore).toFixed(1)}/5`
           : '—',
-      hint: 'Latest AI triaged sentiment across replies.',
+      hint: 'Latest sentiment label across replies.',
     },
   ];
 
@@ -988,7 +988,7 @@ export default function AgencyInboxSection({ workspaceId, statusLabel, initialSu
 
           <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm">
             <h3 className="text-lg font-semibold text-slate-900">Automations</h3>
-            <p className="mt-1 text-sm text-slate-500">Keep your inbox in sync with AI triage and proactive broadcasts.</p>
+            <p className="mt-1 text-sm text-slate-500">Keep your inbox in sync with sentiment tracking and proactive broadcasts.</p>
             <div className="mt-4 space-y-3 text-sm text-slate-600">
               <label className="flex items-center justify-between gap-3">
                 <span>Escalate urgent sentiment automatically</span>

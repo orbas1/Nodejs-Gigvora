@@ -1,6 +1,6 @@
 import os from 'node:os';
 
-import { getReadinessReport, getLivenessReport } from './healthService.js';
+import { getLivenessReport } from './healthService.js';
 import { getPlatformSettings } from './platformSettingsService.js';
 import { getRecentRuntimeSecurityEvents } from './securityAuditService.js';
 import { getVisibleAnnouncements } from './runtimeMaintenanceService.js';
@@ -9,6 +9,7 @@ import { getRateLimitSnapshot } from '../observability/rateLimitMetrics.js';
 import { getPerimeterSnapshot } from '../observability/perimeterMetrics.js';
 import { getWebApplicationFirewallSnapshot } from '../security/webApplicationFirewall.js';
 import { getMetricsStatus } from '../observability/metricsRegistry.js';
+import { buildReadinessSnapshot } from './runtimeReadinessService.js';
 
 const SEVERITY_RANKING = {
   security: 4,
@@ -165,8 +166,8 @@ function buildAnnouncementSummary(raw = {}) {
 }
 
 export async function getRuntimeOperationalSnapshot() {
-  const [readiness, liveness, maintenanceAnnouncements, settings, securityEvents] = await Promise.all([
-    getReadinessReport(),
+  const [{ readiness }, liveness, maintenanceAnnouncements, settings, securityEvents] = await Promise.all([
+    buildReadinessSnapshot({ forceRefresh: true }),
     Promise.resolve(getLivenessReport()),
     getVisibleAnnouncements({
       audience: 'operations',

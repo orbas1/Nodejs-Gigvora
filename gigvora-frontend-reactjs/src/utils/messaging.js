@@ -43,6 +43,12 @@ export function buildThreadTitle(thread, actorId) {
 
 export function sortThreads(threads = []) {
   return [...threads].sort((a, b) => {
+    if (a?.pinned && !b?.pinned) {
+      return -1;
+    }
+    if (!a?.pinned && b?.pinned) {
+      return 1;
+    }
     const aTime = a?.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
     const bTime = b?.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
     return bTime - aTime;
@@ -52,6 +58,9 @@ export function sortThreads(threads = []) {
 export function isThreadUnread(thread) {
   if (!thread) {
     return false;
+  }
+  if (typeof thread.unread === 'boolean') {
+    return thread.unread;
   }
   if (typeof thread.unreadCount === 'number') {
     return thread.unreadCount > 0;

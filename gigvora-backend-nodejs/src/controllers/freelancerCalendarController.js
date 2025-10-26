@@ -3,6 +3,7 @@ import {
   createFreelancerCalendarEvent,
   updateFreelancerCalendarEvent,
   deleteFreelancerCalendarEvent,
+  exportFreelancerCalendarEventInvite,
 } from '../services/freelancerCalendarService.js';
 import { AuthorizationError, ValidationError } from '../utils/errors.js';
 
@@ -18,7 +19,9 @@ function parsePositiveInteger(value) {
 }
 
 function requireActorId(req) {
-  const actorId = parsePositiveInteger(req.user?.id ?? req.user?.userId ?? req.body?.actorId);
+  const actorId = parsePositiveInteger(
+    req.user?.id ?? req.user?.userId ?? req.body?.actorId ?? req.query?.actorId,
+  );
   if (!actorId) {
     throw new AuthorizationError('An authenticated actor is required for calendar changes.');
   }
@@ -89,9 +92,26 @@ export async function deleteCalendarEvent(req, res) {
   res.status(204).send();
 }
 
+export async function downloadCalendarEventInvite(req, res) {
+  const freelancerId = parsePositiveInteger(req.params?.freelancerId);
+  const eventId = parsePositiveInteger(req.params?.eventId);
+  if (!freelancerId || !eventId) {
+    throw new ValidationError('Valid freelancerId and eventId are required.');
+  }
+  const actorId = requireActorId(req);
+  const { ics, filename } = await exportFreelancerCalendarEventInvite(eventId, {
+    freelancerId,
+    actorId,
+  });
+  res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.send(ics);
+}
+
 export default {
   listCalendarEvents,
   createCalendarEvent,
   updateCalendarEvent,
   deleteCalendarEvent,
+  downloadCalendarEventInvite,
 };

@@ -365,6 +365,7 @@ export const SavedReply = sequelize.define(
     body: { type: DataTypes.TEXT, allowNull: false },
     category: { type: DataTypes.STRING(80), allowNull: true },
     shortcut: { type: DataTypes.STRING(40), allowNull: true },
+    shortcuts: { type: jsonType, allowNull: true },
     isDefault: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     metadata: { type: jsonType, allowNull: true },
     orderIndex: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
@@ -388,6 +389,13 @@ SavedReply.prototype.toPublicObject = function toPublicObject() {
     body: plain.body,
     category: plain.category,
     shortcut: plain.shortcut,
+    shortcuts: Array.isArray(plain.shortcuts)
+      ? Array.from(new Set(
+          plain.shortcuts
+            .map((entry) => (typeof entry === 'string' ? entry.trim().toLowerCase() : null))
+            .filter(Boolean),
+        ))
+      : [],
     isDefault: Boolean(plain.isDefault),
     orderIndex: Number(plain.orderIndex ?? 0),
     metadata: plain.metadata ?? null,
@@ -482,6 +490,7 @@ export const InboxPreference = sequelize.define(
     autoResponderMessage: { type: DataTypes.TEXT, allowNull: true },
     escalationKeywords: { type: jsonType, allowNull: true },
     defaultSavedReplyId: { type: DataTypes.INTEGER, allowNull: true },
+    pinnedThreadIds: { type: jsonType, allowNull: true },
   },
   {
     tableName: 'inbox_preferences',
@@ -506,6 +515,18 @@ InboxPreference.prototype.toPublicObject = function toPublicObject() {
     autoResponderMessage: plain.autoResponderMessage ?? null,
     escalationKeywords: plain.escalationKeywords ?? null,
     defaultSavedReplyId: plain.defaultSavedReplyId ?? null,
+    pinnedThreadIds: Array.isArray(plain.pinnedThreadIds)
+      ? Array.from(
+          new Set(
+            plain.pinnedThreadIds
+              .map((value) => {
+                const parsed = Number.parseInt(value, 10);
+                return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+              })
+              .filter(Boolean),
+          ),
+        )
+      : [],
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };

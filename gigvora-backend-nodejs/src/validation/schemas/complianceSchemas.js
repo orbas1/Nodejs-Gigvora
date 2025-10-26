@@ -273,6 +273,8 @@ export const complianceReminderParamsSchema = z.object({
   reminderId: positiveInteger,
 });
 
+export const taxReminderParamsSchema = complianceReminderParamsSchema;
+
 export const createComplianceDocumentBodySchema = z
   .object({
     actorId: positiveInteger,
@@ -352,11 +354,130 @@ export const acknowledgeReminderBodySchema = z
   })
   .passthrough();
 
+export const taxDocumentsQuerySchema = z
+  .object({
+    freelancerId: z
+      .preprocess((value) => {
+        if (value == null || value === '') {
+          return undefined;
+        }
+        return Number(value);
+      }, positiveInteger.optional())
+      .optional(),
+    lookbackYears: z
+      .preprocess((value) => {
+        if (value == null || value === '') {
+          return undefined;
+        }
+        const numeric = Number(value);
+        return Number.isFinite(numeric) ? numeric : undefined;
+      }, z.number().int().min(1).max(5).optional())
+      .optional(),
+  })
+  .transform((value) => ({
+    freelancerId: value.freelancerId,
+    lookbackYears: value.lookbackYears,
+  }));
+
+export const taxDocumentParamsSchema = z.object({
+  filingId: positiveInteger,
+});
+
+export const taxDocumentAcknowledgeBodySchema = z
+  .object({
+    actorId: positiveInteger.optional(),
+  })
+  .passthrough();
+
+export const taxDocumentUploadBodySchema = z
+  .object({
+    data: z.string().min(1),
+    fileName: optionalTrimmedString(255),
+    contentType: optionalTrimmedString(120),
+    actorId: positiveInteger.optional(),
+    workspaceId: positiveInteger.optional(),
+    storageProvider: nullableTrimmedString(120),
+    storageRegion: nullableTrimmedString(120),
+    sha256: nullableTrimmedString(128),
+  })
+  .refine((value) => value.fileName && value.contentType, {
+    message: 'fileName and contentType are required.',
+  })
+  .passthrough();
+
+export const taxReminderSnoozeBodySchema = z
+  .object({
+    days: z
+      .preprocess((value) => {
+        if (value == null || value === '') {
+          return undefined;
+        }
+        const numeric = Number(value);
+        return Number.isFinite(numeric) ? numeric : undefined;
+      }, z.number().int().min(1).max(60).optional())
+      .optional(),
+  })
+  .passthrough();
+
+export const complianceAuditLogQuerySchema = z
+  .object({
+    workspaceId: z
+      .preprocess((value) => {
+        if (value == null || value === '') {
+          return undefined;
+        }
+        return Number(value);
+      }, positiveInteger.optional())
+      .optional(),
+    status: z
+      .preprocess((value) => {
+        if (value == null) {
+          return [];
+        }
+        return Array.isArray(value) ? value : [value];
+      }, z.array(optionalTrimmedString(80)).optional())
+      .optional(),
+    severity: z
+      .preprocess((value) => {
+        if (value == null) {
+          return [];
+        }
+        return Array.isArray(value) ? value : [value];
+      }, z.array(optionalTrimmedString(40)).optional())
+      .optional(),
+    search: optionalTrimmedString(200),
+    limit: z
+      .preprocess((value) => {
+        if (value == null || value === '') {
+          return undefined;
+        }
+        const numeric = Number(value);
+        return Number.isFinite(numeric) ? numeric : undefined;
+      }, z.number().int().min(1).max(500).optional())
+      .optional(),
+    since: optionalDateString,
+  })
+  .transform((value) => ({
+    workspaceId: value.workspaceId,
+    status: (value.status ?? []).filter(Boolean).map((entry) => entry.toLowerCase()),
+    severity: (value.severity ?? []).filter(Boolean).map((entry) => entry.toLowerCase()),
+    search: value.search ?? undefined,
+    limit: value.limit ?? undefined,
+    since: value.since ?? undefined,
+  }));
+
 export default {
   complianceLockerQuerySchema,
   complianceDocumentParamsSchema,
   complianceReminderParamsSchema,
   createComplianceDocumentBodySchema,
   addComplianceDocumentVersionBodySchema,
+  taxDocumentsQuerySchema,
+  taxDocumentParamsSchema,
+  taxDocumentAcknowledgeBodySchema,
+  taxDocumentUploadBodySchema,
+  taxReminderParamsSchema,
+  taxReminderSnoozeBodySchema,
+  complianceAuditLogQuerySchema,
   acknowledgeReminderBodySchema,
 };

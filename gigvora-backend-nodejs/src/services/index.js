@@ -33,6 +33,9 @@ export { default as communitySpotlightService } from './communitySpotlightServic
 export { default as freelancerAllianceService } from './freelancerAllianceService.js';
 export { default as reputationService } from './reputationService.js';
 export { default as complianceLockerService } from './complianceLockerService.js';
+export { default as complianceAuditLogService } from './complianceAuditLogService.js';
+export { default as taxDocumentService } from './taxDocumentService.js';
+export { default as taxDocumentStorageService } from './taxDocumentStorageService.js';
 export { default as consentService } from './consentService.js';
 export { default as securityPreferenceService } from './securityPreferenceService.js';
 export { default as dataExportService } from './dataExportService.js';

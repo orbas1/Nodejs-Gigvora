@@ -15,6 +15,7 @@ import {
   AgencyApplicationResponse,
   AGENCY_JOB_STATUSES,
   AGENCY_EMPLOYMENT_TYPES,
+  AGENCY_JOB_COMPENSATION_CURRENCIES,
   AGENCY_JOB_APPLICATION_STATUSES,
   AGENCY_JOB_INTERVIEW_STATUSES,
   AGENCY_INTERVIEW_MODES,
@@ -118,6 +119,8 @@ describe('agency job marketplace models', () => {
       metadata: { distribution: 'global' },
     });
 
+    expect(AGENCY_JOB_COMPENSATION_CURRENCIES).toContain(job.compensationCurrency);
+
     const application = await AgencyJobApplication.create({
       workspaceId: 'workspace-1',
       jobId: job.id,
@@ -192,6 +195,81 @@ describe('agency job marketplace models', () => {
     expect(normaliseJobSearchTerm('  Strategic Lead  ')).toBe('Strategic Lead');
     expect(normaliseJobSearchTerm('')).toBeNull();
     expect(buildJobSearchPredicate('   ')).toBeNull();
+  });
+
+  it('normalises premium analytics metadata, slugs, and engagement counters', async () => {
+    const job = await AgencyJob.create({
+      workspaceId: 'workspace-analytics',
+      title: 'VP of Engineering Growth',
+      status: 'draft',
+      tags: [' Design ', 'design', 'LEADERSHIP', ''],
+      hiringManagerEmail: '  Talent@ACME.io ',
+      metadata: { existing: true },
+    });
+
+    await job.reload();
+
+    expect(job.slug).toMatch(/^vp-of-engineering-growth-[a-z0-9]+$/);
+    expect(job.publishedAt).toBeNull();
+    expect(job.hiringManagerEmail).toBe('talent@acme.io');
+    expect(job.tags).toEqual(['design', 'leadership']);
+    expect(job.metadata.existing).toBe(true);
+    expect(job.metadata.metrics).toEqual({
+      applicationCount: 0,
+      favoriteCount: 0,
+      lastInteractionAt: null,
+    });
+
+    await job.update({ status: AGENCY_JOB_STATUSES.includes('open') ? 'open' : 'paused' });
+    await job.reload();
+    expect(job.publishedAt).toBeInstanceOf(Date);
+    expect(job.metadata.metrics.applicationCount).toBe(0);
+    expect(job.metadata.metrics.favoriteCount).toBe(0);
+
+    const application = await AgencyJobApplication.create({
+      workspaceId: 'workspace-analytics',
+      jobId: job.id,
+      candidateName: 'Casey Voss',
+      candidateEmail: 'CASEY@Gigvora.test',
+      status: 'new',
+    });
+
+    expect(application.candidateEmail).toBe('casey@gigvora.test');
+
+    await job.reload();
+    expect(job.metadata.metrics.applicationCount).toBe(1);
+    expect(job.metadata.metrics.lastInteractionAt).not.toBeNull();
+
+    const favorite = await AgencyJobFavorite.create({
+      workspaceId: 'workspace-analytics',
+      jobId: job.id,
+      memberId: 200,
+    });
+
+    await job.reload();
+    expect(job.metadata.metrics.favoriteCount).toBe(1);
+
+    await AgencyApplicationResponse.create({
+      workspaceId: 'workspace-analytics',
+      applicationId: application.id,
+      authorId: 88,
+      responseType: 'note',
+      visibility: 'internal',
+      body: 'Strong leadership alignment.',
+    });
+
+    await job.reload();
+    expect(job.metadata.metrics.lastInteractionAt).not.toBeNull();
+    const lastInteractionAt = new Date(job.metadata.metrics.lastInteractionAt);
+    expect(Number.isNaN(lastInteractionAt.getTime())).toBe(false);
+
+    await favorite.destroy();
+    await job.reload();
+    expect(job.metadata.metrics.favoriteCount).toBe(0);
+
+    await application.destroy();
+    await job.reload();
+    expect(job.metadata.metrics.applicationCount).toBe(0);
   });
 });
 

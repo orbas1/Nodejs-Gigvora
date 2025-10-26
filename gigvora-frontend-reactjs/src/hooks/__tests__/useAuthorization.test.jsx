@@ -33,6 +33,7 @@ describe('useAuthorization', () => {
     expect(result.current.roles).toContain('operations');
     expect(result.current.canManageProjects).toBe(true);
     expect(result.current.denialReason).toBeNull();
+    expect(result.current.authorization.permissionDetails.length).toBeGreaterThan(0);
   });
 
   it('requires authentication for protected resources', () => {
@@ -61,6 +62,24 @@ describe('useAuthorization', () => {
     expect(result.current.roles).toContain('user');
     expect(result.current.canAccess('notifications:center')).toBe(true);
     expect(result.current.canAccess('notifications:push')).toBe(false);
+  });
+
+  it('surfaces project access requirements when missing', () => {
+    useSession.mockReturnValue({
+      session: {
+        memberships: ['mentor'],
+        permissions: [],
+      },
+      isAuthenticated: true,
+    });
+
+    const { result } = renderHook(() => useAuthorization());
+
+    expect(result.current.canManageProjects).toBe(false);
+    expect(result.current.denialReason).toMatch(/Access to Manage project workspaces/i);
+    expect(result.current.projectRequirement.allowedMemberships.map((item) => item.key)).toContain(
+      'workspace_admin',
+    );
   });
 });
 

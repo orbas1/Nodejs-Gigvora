@@ -31,6 +31,8 @@ const userControllerMock = {
   getGigManagerSnapshot: createJsonResponder(),
   getUserAiSettings: createJsonResponder(),
   updateUserAiSettings: createJsonResponder(),
+  listUserSessions: createJsonResponder(),
+  revokeUserSession: createJsonResponder(),
   getWebsitePreferences: createJsonResponder(),
   updateWebsitePreferences: createJsonResponder(),
   getUserProfile: createJsonResponder(),

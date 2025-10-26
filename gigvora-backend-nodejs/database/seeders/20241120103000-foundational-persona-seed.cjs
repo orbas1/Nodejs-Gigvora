@@ -42,6 +42,7 @@ const feedPostTitle = 'Ops weekly snapshot';
 const feedPostSummary = 'Runtime health is green and our hiring backlog is cleared.';
 const feedPostContent = '[demo] Ops weekly: runtime health is green and hiring backlog cleared.';
 const feedPostLink = 'https://ops.gigvora.test/weekly-briefing';
+const PLANNER_NOTES_PREFIX = '[seed-foundational-persona] Planner —';
 
 const hashedPassword = '$2b$10$URrfHgz0s1xu1vByrRl/h.STE7Z0O.STDnpCiMTGy66idi2EDmzJm';
 
@@ -299,6 +300,96 @@ module.exports = {
             link: 'https://meet.gigvora.com/lab-demo',
           },
         ];
+
+        const hoursFromNow = (value) => new Date(now.getTime() + value * 60 * 60 * 1000);
+        const plannerEvents = [
+          {
+            freelancerId,
+            title: 'Atlas Robotics launch roadmap',
+            eventType: 'client_meeting',
+            status: 'confirmed',
+            startsAt: hoursFromNow(6),
+            endsAt: hoursFromNow(7.5),
+            isAllDay: false,
+            location: 'Zoom — Strategy Suite',
+            meetingUrl: 'https://meet.gigvora.com/atlas-roadmap',
+            notes: `${PLANNER_NOTES_PREFIX} align on robotics launch go-to-market.`,
+            relatedEntityType: 'project',
+            relatedEntityId: 'atlas-robotics',
+            relatedEntityName: 'Atlas Robotics Revamp',
+            reminderMinutesBefore: 30,
+            source: 'gigvora',
+            color: '#f97316',
+            createdById: freelancerId,
+            updatedById: freelancerId,
+            metadata: {
+              seedKey: 'foundational-persona:planner:atlas',
+              agenda: ['Launch milestones', 'Dependency risks'],
+            },
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            freelancerId,
+            title: 'FlowPilot venture diligence',
+            eventType: 'job_interview',
+            status: 'tentative',
+            startsAt: hoursFromNow(26),
+            endsAt: hoursFromNow(27),
+            isAllDay: false,
+            location: 'Founders Guild HQ',
+            meetingUrl: 'https://meet.gigvora.com/flowpilot-diligence',
+            notes: `${PLANNER_NOTES_PREFIX} portfolio walkthrough with venture partners.`,
+            relatedEntityType: 'job',
+            relatedEntityId: 'flowpilot-product-lead',
+            relatedEntityName: 'FlowPilot Product Lead',
+            reminderMinutesBefore: 45,
+            source: 'gigvora',
+            color: '#0ea5e9',
+            createdById: freelancerId,
+            updatedById: freelancerId,
+            metadata: {
+              seedKey: 'foundational-persona:planner:flowpilot',
+              interviewPanel: ['COO', 'Head of Product'],
+            },
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            freelancerId,
+            title: 'Community design lab mentoring',
+            eventType: 'volunteering',
+            status: 'confirmed',
+            startsAt: hoursFromNow(-18),
+            endsAt: hoursFromNow(-16.5),
+            isAllDay: false,
+            location: 'Impact Hub San Diego',
+            meetingUrl: null,
+            notes: `${PLANNER_NOTES_PREFIX} coached nonprofit founders on service design.`,
+            relatedEntityType: 'community',
+            relatedEntityId: 'impact-hub-lab',
+            relatedEntityName: 'Impact Hub Lab',
+            reminderMinutesBefore: 20,
+            source: 'gigvora',
+            color: '#16a34a',
+            createdById: freelancerId,
+            updatedById: freelancerId,
+            metadata: {
+              seedKey: 'foundational-persona:planner:impact-hub',
+              attendance: 18,
+            },
+            createdAt: now,
+            updatedAt: now,
+          },
+        ];
+
+        await queryInterface.bulkDelete(
+          'freelancer_calendar_events',
+          { freelancerId, notes: { [Op.like]: `${PLANNER_NOTES_PREFIX}%` } },
+          { transaction },
+        );
+
+        await queryInterface.bulkInsert('freelancer_calendar_events', plannerEvents, { transaction });
 
         const highlights = [
           {
@@ -1727,6 +1818,12 @@ module.exports = {
             );
           }
         }
+
+        await queryInterface.bulkDelete(
+          'freelancer_calendar_events',
+          { notes: { [Op.like]: `${PLANNER_NOTES_PREFIX}%` } },
+          { transaction },
+        );
 
         await queryInterface.bulkDelete(
           'jobs',

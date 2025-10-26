@@ -22,8 +22,10 @@ import {
   getUserWebsitePreferences as fetchUserWebsitePreferences,
   updateUserWebsitePreferences as saveUserWebsitePreferences,
 } from '../services/userWebsitePreferenceService.js';
-import { normalizeLocationPayload } from '../utils/location.js';
+import userSessionService from '../services/userSessionService.js';
+import { normalizeLocationPayload, normalizeLocationString } from '../utils/location.js';
 import { resolveRequestUserId } from '../utils/requestContext.js';
+import { ValidationError } from '../utils/errors.js';
 
 export async function listUsers(req, res) {
   const limitParam = Number.parseInt(req.query.limit ?? '20', 10);
@@ -66,6 +68,10 @@ export async function updateUser(req, res) {
     return res.status(404).json({ message: 'User not found' });
   }
   const updates = { ...req.body };
+  if (Object.prototype.hasOwnProperty.call(req.body, 'timezone')) {
+    const timezone = normalizeLocationString(req.body.timezone, { maxLength: 120 });
+    updates.timezone = timezone ?? null;
+  }
   const hasLocation = Object.prototype.hasOwnProperty.call(req.body, 'location');
   const hasGeoLocation = Object.prototype.hasOwnProperty.call(req.body, 'geoLocation');
   if (hasLocation || hasGeoLocation) {
@@ -83,6 +89,9 @@ export async function updateUser(req, res) {
     }
     if (hasGeoLocation) {
       updates.geoLocation = normalized.geoLocation;
+    }
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'timezone') && normalized.geoLocation?.timezone) {
+      updates.timezone = normalized.geoLocation.timezone;
     }
   }
   await user.update(updates);
@@ -238,6 +247,47 @@ export async function updateUserSecurityPreferences(req, res) {
   const actorId = resolveRequestUserId(req);
   const preferences = await upsertUserSecurityPreferences(req.params.id, req.body ?? {}, { actorId });
   res.json(preferences);
+}
+
+export async function listUserSessions(req, res) {
+  const userId = req.params.id;
+  const payload = await userSessionService.listActiveSessions(userId);
+  const requestIp = req.ip ?? null;
+  const requestAgent = req.get('user-agent') ?? null;
+  const normalisedAgent = requestAgent ? requestAgent.toLowerCase() : null;
+
+  const items = (payload?.items ?? []).map((session) => {
+    const matchesIp = session.ipAddress && requestIp ? session.ipAddress === requestIp : false;
+    const matchesAgent = normalisedAgent && session.userAgent
+      ? session.userAgent.toLowerCase() === normalisedAgent
+      : false;
+    const current = !session.revokedAt && (session.current || matchesIp || matchesAgent);
+    return { ...session, current };
+  });
+
+  if (items.length && !items.some((entry) => entry.current)) {
+    items[0] = { ...items[0], current: true };
+  }
+
+  res.json({ items, stats: payload?.stats ?? null });
+}
+
+export async function revokeUserSession(req, res) {
+  const sessionId = Number.parseInt(req.params.sessionId, 10);
+  if (!Number.isFinite(sessionId) || sessionId <= 0) {
+    throw new ValidationError('sessionId must be a positive integer.');
+  }
+  const reason = typeof req.body?.reason === 'string' && req.body.reason.trim()
+    ? req.body.reason.trim().slice(0, 120)
+    : 'user_revoked';
+  const actorId = resolveRequestUserId(req);
+  const context = { ipAddress: req.ip ?? null, userAgent: req.get('user-agent') ?? null };
+  const session = await userSessionService.revokeUserSession(req.params.id, sessionId, {
+    actorId,
+    reason,
+    context,
+  });
+  res.json(session);
 }
 
 export async function listUserDataExports(req, res) {

@@ -17,7 +17,31 @@ import { fetchSecurityPreferences, updateSecurityPreferences } from '../services
 import { fetchUserAiSettings, updateUserAiSettings } from '../services/userAiSettings.js';
 import { listDataExportRequests, createDataExportRequest } from '../services/privacy.js';
 import formatDateTime from '../utils/formatDateTime.js';
-import ConsentHistoryTimeline from '../components/compliance/ConsentHistoryTimeline.jsx';
+import PrivacyControls from '../components/profileSettings/preferences/PrivacyControls.jsx';
+
+const PRIVACY_PRESETS = {
+  recommended: {
+    marketing: false,
+    product: true,
+    compliance: true,
+    community: false,
+    essential: true,
+  },
+  private: {
+    marketing: false,
+    product: false,
+    compliance: true,
+    community: false,
+    essential: true,
+  },
+  open: {
+    marketing: true,
+    product: true,
+    compliance: true,
+    community: true,
+    essential: true,
+  },
+};
 
 function Toggle({ enabled, disabled, onClick, label }) {
   return (
@@ -40,85 +64,6 @@ function Toggle({ enabled, disabled, onClick, label }) {
         {enabled ? 'ON' : 'OFF'}
       </span>
     </button>
-  );
-}
-
-function ConsentPreferenceRow({ policy, consent, auditTrail, updating, expanded, onChange, onToggleHistory }) {
-  const isRequired = policy.required && !policy.revocable;
-  const enabled = consent?.status === 'granted';
-  const lastUpdated = consent?.grantedAt ?? consent?.withdrawnAt ?? policy.updatedAt;
-  const fallbackGlossary = policy.code ? `/support/glossary/${policy.code.toLowerCase()}` : null;
-  const glossaryHref = policy.glossaryUrl || policy.helpUrl || fallbackGlossary;
-  const audience = policy.audience ? policy.audience.toUpperCase() : 'GLOBAL';
-  const region = policy.region ? policy.region.toUpperCase() : 'ALL';
-  const showWarning = policy.required && !enabled;
-
-  return (
-    <div
-      className={`grid gap-4 rounded-2xl border bg-white/80 p-4 shadow-sm transition dark:border-slate-700 dark:bg-slate-800/80 sm:grid-cols-6 sm:items-start
-        ${showWarning ? 'border-amber-300 ring-2 ring-amber-100 dark:border-amber-400 dark:ring-amber-500/20' : 'border-slate-200'}
-      `}
-    >
-      <div className="sm:col-span-2">
-        <div className="flex items-center gap-2">
-          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{policy.title}</p>
-          {glossaryHref ? (
-            <a
-              href={glossaryHref}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600 transition hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
-            >
-              <InformationCircleIcon className="h-3.5 w-3.5" /> Glossary
-            </a>
-          ) : null}
-        </div>
-        <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">Audience: {audience} • Region: {region}</p>
-        <p className="mt-1 text-xs text-slate-400 dark:text-slate-400">Legal basis: {policy.legalBasis}</p>
-      </div>
-      <div className="sm:col-span-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Summary</p>
-        <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">{policy.description ?? 'No summary provided.'}</p>
-      </div>
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Status</p>
-        <div
-          className={`mt-1 inline-flex items-center gap-2 text-sm font-medium ${
-            enabled ? 'text-slate-900 dark:text-emerald-200' : 'text-amber-700 dark:text-amber-300'
-          }`}
-        >
-          {enabled ? (
-            <CheckCircleIcon className="h-4 w-4 text-emerald-500" />
-          ) : (
-            <ExclamationTriangleIcon className="h-4 w-4 text-amber-500" />
-          )}
-          {enabled ? 'Granted' : 'Withdrawn'}
-        </div>
-        {lastUpdated && (
-          <p className="text-xs text-slate-500 dark:text-slate-400">Updated {formatDateTime(lastUpdated)}</p>
-        )}
-      </div>
-      <div className="flex items-center justify-end gap-3">
-        <button
-          type="button"
-          onClick={onToggleHistory}
-          className="text-xs font-semibold uppercase tracking-wide text-accent transition hover:text-accent-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-        >
-          {expanded ? 'Hide history' : 'View history'}
-        </button>
-        <Toggle
-          enabled={enabled}
-          disabled={isRequired || updating}
-          onClick={() => onChange(!enabled)}
-          label={`Toggle consent for ${policy.title}`}
-        />
-      </div>
-      {expanded && (
-        <div className="sm:col-span-6">
-          <ConsentHistoryTimeline events={auditTrail} />
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -181,6 +126,8 @@ export default function SettingsPage() {
   const [toast, setToast] = useState(null);
   const toastTimeoutRef = useRef(null);
   const [selectedTab, setSelectedTab] = useState('privacy');
+  const [privacyPreset, setPrivacyPreset] = useState('custom');
+  const [privacyPresetApplying, setPrivacyPresetApplying] = useState(false);
   const [notificationPrefs, setNotificationPrefs] = useState({
     emailDigest: false,
     smsSecurity: false,
@@ -204,6 +151,26 @@ export default function SettingsPage() {
   const [dataExports, setDataExports] = useState([]);
   const [exportPending, setExportPending] = useState(false);
   const [exportError, setExportError] = useState(null);
+
+  const resolvePolicyCategory = useCallback((policy) => {
+    const raw = `${policy?.category ?? policy?.area ?? policy?.group ?? ''}`.toLowerCase();
+    if (policy?.required && !policy?.revocable) {
+      return 'essential';
+    }
+    if (raw.includes('compliance') || raw.includes('legal') || raw.includes('security') || raw.includes('privacy')) {
+      return 'compliance';
+    }
+    if (raw.includes('marketing') || raw.includes('growth') || raw.includes('newsletter')) {
+      return 'marketing';
+    }
+    if (raw.includes('community') || raw.includes('social')) {
+      return 'community';
+    }
+    if (raw.includes('product') || raw.includes('experience') || raw.includes('research')) {
+      return 'product';
+    }
+    return policy?.required ? 'essential' : 'product';
+  }, []);
 
   const loadSnapshot = useCallback(async () => {
     if (!userId) {
@@ -403,6 +370,101 @@ export default function SettingsPage() {
     return { granted, total: consentRows.length, outstandingRequired };
   }, [consentRows, outstandingRequired]);
 
+  const privacyPreview = useMemo(() => {
+    if (!consentRows.length) {
+      return {
+        summary: 'No privacy policies available yet. We will notify you when consents go live.',
+        highlights: ['Required consents will appear here once published for your persona.'],
+      };
+    }
+    let marketingGranted = false;
+    let communityGranted = false;
+    let complianceDisabled = false;
+    let productGranted = false;
+    consentRows.forEach((entry) => {
+      const category = resolvePolicyCategory(entry.policy);
+      const granted = entry.consent?.status === 'granted';
+      if (category === 'marketing') marketingGranted = marketingGranted || granted;
+      if (category === 'community') communityGranted = communityGranted || granted;
+      if (category === 'product') productGranted = productGranted || granted;
+      if ((category === 'compliance' || category === 'essential') && !granted) complianceDisabled = true;
+    });
+    const summaryText = marketingGranted
+      ? 'Your profile participates in curated marketing journeys and discovery programmes.'
+      : 'Marketing broadcasts stay muted; only operational and compliance updates remain active.';
+    const highlights = [
+      marketingGranted
+        ? 'Marketing announcements enabled for spotlight campaigns and newsletters.'
+        : 'Marketing communications disabled for a focused inbox.',
+      complianceDisabled
+        ? 'Review compliance consents to avoid losing access to secure workspaces.'
+        : 'Compliance and security notices continue with full audit logging.',
+      communityGranted
+        ? 'Community and social signals may trigger engagement notifications.'
+        : 'Community updates limited to direct collaborations and invites.',
+    ];
+    if (productGranted) {
+      highlights.push('Product insights and roadmap updates included in your digest cadence.');
+    }
+    return { summary: summaryText, highlights };
+  }, [consentRows, resolvePolicyCategory]);
+
+  const trustSignals = useMemo(() => {
+    const signals = ['GDPR aligned'];
+    if (summary.total > 0 && summary.outstandingRequired === 0) {
+      signals.push('All required policies granted');
+    }
+    signals.push(
+      privacyPreset === 'open'
+        ? 'Growth discovery active'
+        : privacyPreset === 'private'
+          ? 'Private mode engaged'
+          : 'Balanced signal mix',
+    );
+    return signals;
+  }, [privacyPreset, summary.outstandingRequired, summary.total]);
+
+  const derivePrivacyPreset = useCallback(
+    (rows) => {
+      if (!Array.isArray(rows) || rows.length === 0) {
+        return 'custom';
+      }
+
+      const matchesPreset = (presetKey) => {
+        const preset = PRIVACY_PRESETS[presetKey];
+        if (!preset) {
+          return false;
+        }
+
+        return rows.every((entry) => {
+          const category = resolvePolicyCategory(entry.policy);
+          if (!category) {
+            return true;
+          }
+          if (!(category in preset)) {
+            return true;
+          }
+          const granted = entry.consent?.status === 'granted';
+          return granted === preset[category];
+        });
+      };
+
+      const presetKey = Object.keys(PRIVACY_PRESETS).find((key) => matchesPreset(key));
+      return presetKey ?? 'custom';
+    },
+    [resolvePolicyCategory],
+  );
+
+  useEffect(() => {
+    if (privacyPresetApplying) {
+      return;
+    }
+    const derived = derivePrivacyPreset(consentRows);
+    setPrivacyPreset((current) => (current === derived ? current : derived));
+  }, [consentRows, derivePrivacyPreset, privacyPresetApplying]);
+
+  const latestExport = useMemo(() => (dataExports.length ? dataExports[0] : null), [dataExports]);
+
   const announcePreferenceUpdate = useCallback((message, tone = 'success') => {
     setToast({ tone, message });
   }, []);
@@ -516,6 +578,12 @@ export default function SettingsPage() {
   const handleConsentChange = async (policyCode, shouldGrant) => {
     if (!userId) return;
     setError(null);
+
+    const targetEntry = consentRows.find((entry) => entry.policy.code === policyCode);
+    if (targetEntry && (targetEntry.consent?.status === 'granted') === shouldGrant) {
+      return;
+    }
+
     setPending((state) => ({ ...state, [policyCode]: true }));
 
     const previousRows = consentRows;
@@ -567,6 +635,34 @@ export default function SettingsPage() {
     }
   };
 
+  const handlePrivacyPresetSelect = useCallback(
+    async (presetKey) => {
+      const preset = PRIVACY_PRESETS[presetKey];
+      if (!preset) {
+        return;
+      }
+      setPrivacyPresetApplying(true);
+      setPrivacyPreset(presetKey);
+      try {
+        for (const entry of consentRows) {
+          const category = resolvePolicyCategory(entry.policy);
+          const desired = preset[category];
+          if (desired == null) {
+            continue;
+          }
+          const current = entry.consent?.status === 'granted';
+          if (current !== desired) {
+            // eslint-disable-next-line no-await-in-loop
+            await handleConsentChange(entry.policy.code, desired);
+          }
+        }
+      } finally {
+        setPrivacyPresetApplying(false);
+      }
+    },
+    [consentRows, handleConsentChange, resolvePolicyCategory],
+  );
+
   const toggleHistory = (policyCode) => {
     setExpandedRows((state) => ({ ...state, [policyCode]: !state[policyCode] }));
   };
@@ -597,6 +693,41 @@ export default function SettingsPage() {
 
   const renderTabContent = () => {
     switch (selectedTab) {
+      case 'privacy':
+        return (
+          <div className="space-y-6">
+            {error && (
+              <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-500/70 dark:bg-red-500/10 dark:text-red-200">
+                {error}
+              </div>
+            )}
+            {loading ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {[...Array(4)].map((_, index) => (
+                  <div key={index} className="h-24 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-700/60" />
+                ))}
+              </div>
+            ) : (
+              <PrivacyControls
+                summary={summary}
+                consentRows={consentRows}
+                pending={pending}
+                expanded={expandedRows}
+                onPreferenceChange={handleConsentChange}
+                onToggleHistory={toggleHistory}
+                preset={privacyPreset}
+                onApplyPreset={handlePrivacyPresetSelect}
+                presetApplying={privacyPresetApplying}
+                preview={privacyPreview}
+                trustSignals={trustSignals}
+                latestExport={latestExport}
+                onRequestExport={handleCreateExport}
+                exportPending={exportPending}
+                exportError={exportError ?? ''}
+              />
+            )}
+          </div>
+        );
       case 'notifications':
         return (
           <div className="space-y-4">
@@ -869,42 +1000,7 @@ export default function SettingsPage() {
           </div>
         );
       default:
-        return (
-          <div className="space-y-6">
-            {error && (
-              <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-500/70 dark:bg-red-500/10 dark:text-red-200">
-                {error}
-              </div>
-            )}
-
-            {loading ? (
-              <div className="grid gap-3 sm:grid-cols-2">
-                {[...Array(4)].map((_, index) => (
-                  <div key={index} className="h-24 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-700/60" />
-                ))}
-              </div>
-            ) : consentRows.length ? (
-              <div className="space-y-4">
-                {consentRows.map(({ policy, consent, auditTrail }) => (
-                  <ConsentPreferenceRow
-                    key={policy.id}
-                    policy={policy}
-                    consent={consent}
-                    auditTrail={auditTrail}
-                    expanded={Boolean(expandedRows[policy.code])}
-                    updating={Boolean(pending[policy.code])}
-                    onChange={(shouldGrant) => handleConsentChange(policy.code, shouldGrant)}
-                    onToggleHistory={() => toggleHistory(policy.code)}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300">
-                Consent preferences will appear once policies are published for your persona and region. Contact support if you believe a policy is missing.
-              </div>
-            )}
-          </div>
-        );
+        return null;
     }
   };
 
