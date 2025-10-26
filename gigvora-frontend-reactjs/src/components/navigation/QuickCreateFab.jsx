@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import {
   ArrowUpRightIcon,
@@ -114,6 +114,9 @@ export default function QuickCreateFab({
   const [isOpen, setIsOpen] = useState(Boolean(initialOpen));
   const actionsRef = useRef(null);
   const firstActionRef = useRef(null);
+  const actionRefs = useRef([]);
+  const menuId = useId();
+  const headingId = useId();
 
   const resolvedActions = useMemo(() => {
     if (Array.isArray(actions) && actions.length) {
@@ -153,6 +156,10 @@ export default function QuickCreateFab({
       firstActionRef.current.focus();
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    actionRefs.current = [];
+  }, [resolvedActions]);
 
   const navigate = useCallback(
     (targetHref, action) => {
@@ -202,6 +209,34 @@ export default function QuickCreateFab({
     setIsOpen(false);
   }, []);
 
+  const focusActionAt = useCallback((index) => {
+    const target = actionRefs.current[index];
+    if (target) {
+      target.focus();
+    }
+  }, []);
+
+  const handleActionKeyDown = useCallback(
+    (event, index) => {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+        event.preventDefault();
+        const nextIndex = (index + 1) % resolvedActions.length;
+        focusActionAt(nextIndex);
+      } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+        event.preventDefault();
+        const nextIndex = (index - 1 + resolvedActions.length) % resolvedActions.length;
+        focusActionAt(nextIndex);
+      } else if (event.key === 'Home') {
+        event.preventDefault();
+        focusActionAt(0);
+      } else if (event.key === 'End') {
+        event.preventDefault();
+        focusActionAt(resolvedActions.length - 1);
+      }
+    },
+    [focusActionAt, resolvedActions.length],
+  );
+
   return (
     <div className={classNames('pointer-events-none fixed z-40 flex flex-col', resolvedPlacement, className)}>
       {isOpen ? (
@@ -218,7 +253,7 @@ export default function QuickCreateFab({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Quick create</p>
-                <h2 className="mt-1 flex items-center gap-2 text-base font-semibold text-slate-900">
+                <h2 id={headingId} className="mt-1 flex items-center gap-2 text-base font-semibold text-slate-900">
                   <SparklesIcon className="h-4 w-4 text-violet-500" aria-hidden="true" />
                   Launch something remarkable
                 </h2>
@@ -232,7 +267,7 @@ export default function QuickCreateFab({
                 <XMarkIcon className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
-            <ul className="mt-4 space-y-3">
+            <ul className="mt-4 space-y-3" role="menu" aria-labelledby={headingId} id={menuId}>
               {resolvedActions.map((action, index) => {
                 const Icon = resolveIconComponent(action.icon);
                 const toneClasses = resolveToneClasses(action.tone);
@@ -243,7 +278,14 @@ export default function QuickCreateFab({
                       type="button"
                       onClick={() => handleActionSelect(action)}
                       disabled={action.disabled}
-                      ref={index === 0 ? firstActionRef : undefined}
+                      ref={(node) => {
+                        actionRefs.current[index] = node;
+                        if (index === 0) {
+                          firstActionRef.current = node;
+                        }
+                      }}
+                      role="menuitem"
+                      onKeyDown={(event) => handleActionKeyDown(event, index)}
                       className={classNames(
                         'group relative flex w-full items-start gap-3 rounded-3xl border border-slate-200/80 bg-white px-3 py-3 text-left shadow-sm shadow-slate-900/10 transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 disabled:cursor-not-allowed disabled:opacity-60',
                       )}
@@ -292,6 +334,7 @@ export default function QuickCreateFab({
             onClick={toggleOpen}
             aria-haspopup="menu"
             aria-expanded={isOpen}
+            aria-controls={menuId}
             aria-label={label ?? 'Quick create'}
             className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white shadow-2xl shadow-slate-900/30 transition hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
           >
