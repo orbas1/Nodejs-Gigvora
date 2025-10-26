@@ -1,16 +1,23 @@
 import {
+  BanknotesIcon,
+  BellIcon,
   BriefcaseIcon,
   BuildingOffice2Icon,
   ChartBarIcon,
+  ChatBubbleLeftRightIcon,
+  FolderIcon,
   GlobeAltIcon,
+  HomeIcon,
   LightBulbIcon,
   MegaphoneIcon,
+  PresentationChartBarIcon,
   RocketLaunchIcon,
   ShieldCheckIcon,
   SparklesIcon,
   Squares2X2Icon,
   UsersIcon,
 } from '@heroicons/react/24/outline';
+import { RssIcon } from '@heroicons/react/24/outline';
 
 import { deepFreeze } from './menuSchema.js';
 
@@ -208,40 +215,144 @@ export function resolvePrimaryRoleKey(session) {
 
 export function resolvePrimaryNavigation(session) {
   const baseNavigation = [
-    { id: 'timeline', label: 'Timeline', to: '/feed' },
-    { id: 'explorer', label: 'Explorer', to: '/search' },
-    { id: 'studio', label: 'Creation Studio', to: '/dashboard/user/creation-studio' },
-    { id: 'inbox', label: 'Inbox', to: '/inbox' },
-    { id: 'notifications', label: 'Notifications', to: '/notifications' },
+    {
+      id: 'dashboard',
+      label: 'Dashboard',
+      to: roleDashboardMapping.user,
+      icon: HomeIcon,
+      ariaLabel: 'Open your Gigvora dashboard',
+      context: 'core',
+    },
+    {
+      id: 'timeline',
+      label: 'Timeline',
+      to: '/feed',
+      icon: RssIcon,
+      ariaLabel: 'View network timeline',
+      context: 'core',
+    },
+    {
+      id: 'explorer',
+      label: 'Explorer',
+      to: '/search',
+      icon: Squares2X2Icon,
+      ariaLabel: 'Discover opportunities and people',
+      context: 'core',
+    },
+    {
+      id: 'studio',
+      label: 'Creation Studio',
+      to: '/dashboard/user/creation-studio',
+      icon: SparklesIcon,
+      ariaLabel: 'Launch the creation studio',
+      context: 'core',
+    },
+    {
+      id: 'inbox',
+      label: 'Inbox',
+      to: '/inbox',
+      icon: ChatBubbleLeftRightIcon,
+      ariaLabel: 'Check messages',
+      context: 'core',
+    },
+    {
+      id: 'notifications',
+      label: 'Alerts',
+      to: '/notifications',
+      icon: BellIcon,
+      ariaLabel: 'Review alerts and updates',
+      context: 'core',
+    },
   ];
 
   const primaryKey = resolvePrimaryRoleKey(session);
   const dashboardPath = roleDashboardMapping[primaryKey] ?? roleDashboardMapping.user;
 
-  const specialisedNav = [
-    { id: 'dashboard', label: 'Dashboard', to: dashboardPath },
-  ];
+  const specialisedNav = [];
 
   if (primaryKey === 'admin') {
-    specialisedNav.push({ id: 'policies', label: 'Policies', to: '/dashboard/admin/policies' });
+    specialisedNav.push({
+      id: 'policies',
+      label: 'Policies',
+      to: '/dashboard/admin/policies',
+      icon: ShieldCheckIcon,
+      ariaLabel: 'Review policy centre',
+      context: 'persona',
+    });
   }
 
   if (primaryKey === 'company') {
-    specialisedNav.push({ id: 'ats', label: 'ATS', to: '/dashboard/company/ats' });
-    specialisedNav.push({ id: 'analytics', label: 'Analytics', to: '/dashboard/company/analytics' });
+    specialisedNav.push({
+      id: 'ats',
+      label: 'Talent ATS',
+      to: '/dashboard/company/ats',
+      icon: BriefcaseIcon,
+      ariaLabel: 'Open applicant tracking tools',
+      context: 'persona',
+    });
+    specialisedNav.push({
+      id: 'analytics',
+      label: 'Analytics',
+      to: '/dashboard/company/analytics',
+      icon: ChartBarIcon,
+      ariaLabel: 'Explore hiring analytics',
+      context: 'persona',
+    });
   }
 
   if (primaryKey === 'freelancer') {
-    specialisedNav.push({ id: 'pipeline', label: 'Pipeline', to: '/dashboard/freelancer/pipeline' });
-    specialisedNav.push({ id: 'portfolio', label: 'Portfolio', to: '/dashboard/freelancer/portfolio' });
+    specialisedNav.push({
+      id: 'pipeline',
+      label: 'Pipeline',
+      to: '/dashboard/freelancer/pipeline',
+      icon: PresentationChartBarIcon,
+      ariaLabel: 'Track project pipeline',
+      context: 'persona',
+    });
+    specialisedNav.push({
+      id: 'portfolio',
+      label: 'Portfolio',
+      to: '/dashboard/freelancer/portfolio',
+      icon: FolderIcon,
+      ariaLabel: 'Showcase your portfolio',
+      context: 'persona',
+    });
   }
 
   if (primaryKey === 'agency') {
-    specialisedNav.push({ id: 'crm', label: 'CRM', to: '/dashboard/agency/crm-pipeline' });
-    specialisedNav.push({ id: 'finance', label: 'Finance', to: '/dashboard/agency/wallet-management' });
+    specialisedNav.push({
+      id: 'crm',
+      label: 'Agency CRM',
+      to: '/dashboard/agency/crm-pipeline',
+      icon: BuildingOffice2Icon,
+      ariaLabel: 'Navigate to agency CRM',
+      context: 'persona',
+    });
+    specialisedNav.push({
+      id: 'finance',
+      label: 'Finance',
+      to: '/dashboard/agency/wallet-management',
+      icon: BanknotesIcon,
+      ariaLabel: 'Review agency finances',
+      context: 'persona',
+    });
   }
 
-  return [...specialisedNav, ...baseNavigation];
+  if (primaryKey !== 'user' && primaryKey in roleDashboardMapping) {
+    baseNavigation[0] = {
+      id: 'dashboard',
+      label: 'Dashboard',
+      to: dashboardPath,
+      icon: HomeIcon,
+      ariaLabel: 'Open your Gigvora dashboard',
+    };
+  }
+
+  if (specialisedNav.length) {
+    return [baseNavigation[0], ...specialisedNav, ...baseNavigation.slice(1)];
+  }
+
+  return baseNavigation;
 }
 
 export function buildRoleOptions(session) {

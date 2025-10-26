@@ -1,13 +1,11 @@
-import edulureLogo from '../assets/branding/edulure-logo.svg';
-import edulureLogo2x from '../assets/branding/edulure-logo@2x.svg';
 import { deepFreeze } from './menuSchema.js';
 
 export const BRAND_ASSETS = deepFreeze({
   logo: {
-    src: edulureLogo,
-    srcSet: `${edulureLogo} 1x, ${edulureLogo2x} 2x`,
+    src: 'https://i.ibb.co/84NzvbwJ/Gigvora-Logo.png',
+    srcSet: 'https://i.ibb.co/84NzvbwJ/Gigvora-Logo.png 1x, https://i.ibb.co/84NzvbwJ/Gigvora-Logo.png 2x',
     alt: 'Gigvora logo',
-    type: 'image/svg+xml',
+    type: 'image/png',
     width: 180,
     height: 48,
   },
