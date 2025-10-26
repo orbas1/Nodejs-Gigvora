@@ -42,6 +42,7 @@ const feedPostTitle = 'Ops weekly snapshot';
 const feedPostSummary = 'Runtime health is green and our hiring backlog is cleared.';
 const feedPostContent = '[demo] Ops weekly: runtime health is green and hiring backlog cleared.';
 const feedPostLink = 'https://ops.gigvora.test/weekly-briefing';
+const PLANNER_NOTES_PREFIX = '[seed-foundational-persona] Planner —';
 
 const hashedPassword = '$2b$10$URrfHgz0s1xu1vByrRl/h.STE7Z0O.STDnpCiMTGy66idi2EDmzJm';
 
@@ -299,6 +300,96 @@ module.exports = {
             link: 'https://meet.gigvora.com/lab-demo',
           },
         ];
+
+        const hoursFromNow = (value) => new Date(now.getTime() + value * 60 * 60 * 1000);
+        const plannerEvents = [
+          {
+            freelancerId,
+            title: 'Atlas Robotics launch roadmap',
+            eventType: 'client_meeting',
+            status: 'confirmed',
+            startsAt: hoursFromNow(6),
+            endsAt: hoursFromNow(7.5),
+            isAllDay: false,
+            location: 'Zoom — Strategy Suite',
+            meetingUrl: 'https://meet.gigvora.com/atlas-roadmap',
+            notes: `${PLANNER_NOTES_PREFIX} align on robotics launch go-to-market.`,
+            relatedEntityType: 'project',
+            relatedEntityId: 'atlas-robotics',
+            relatedEntityName: 'Atlas Robotics Revamp',
+            reminderMinutesBefore: 30,
+            source: 'gigvora',
+            color: '#f97316',
+            createdById: freelancerId,
+            updatedById: freelancerId,
+            metadata: {
+              seedKey: 'foundational-persona:planner:atlas',
+              agenda: ['Launch milestones', 'Dependency risks'],
+            },
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            freelancerId,
+            title: 'FlowPilot venture diligence',
+            eventType: 'job_interview',
+            status: 'tentative',
+            startsAt: hoursFromNow(26),
+            endsAt: hoursFromNow(27),
+            isAllDay: false,
+            location: 'Founders Guild HQ',
+            meetingUrl: 'https://meet.gigvora.com/flowpilot-diligence',
+            notes: `${PLANNER_NOTES_PREFIX} portfolio walkthrough with venture partners.`,
+            relatedEntityType: 'job',
+            relatedEntityId: 'flowpilot-product-lead',
+            relatedEntityName: 'FlowPilot Product Lead',
+            reminderMinutesBefore: 45,
+            source: 'gigvora',
+            color: '#0ea5e9',
+            createdById: freelancerId,
+            updatedById: freelancerId,
+            metadata: {
+              seedKey: 'foundational-persona:planner:flowpilot',
+              interviewPanel: ['COO', 'Head of Product'],
+            },
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            freelancerId,
+            title: 'Community design lab mentoring',
+            eventType: 'volunteering',
+            status: 'confirmed',
+            startsAt: hoursFromNow(-18),
+            endsAt: hoursFromNow(-16.5),
+            isAllDay: false,
+            location: 'Impact Hub San Diego',
+            meetingUrl: null,
+            notes: `${PLANNER_NOTES_PREFIX} coached nonprofit founders on service design.`,
+            relatedEntityType: 'community',
+            relatedEntityId: 'impact-hub-lab',
+            relatedEntityName: 'Impact Hub Lab',
+            reminderMinutesBefore: 20,
+            source: 'gigvora',
+            color: '#16a34a',
+            createdById: freelancerId,
+            updatedById: freelancerId,
+            metadata: {
+              seedKey: 'foundational-persona:planner:impact-hub',
+              attendance: 18,
+            },
+            createdAt: now,
+            updatedAt: now,
+          },
+        ];
+
+        await queryInterface.bulkDelete(
+          'freelancer_calendar_events',
+          { freelancerId, notes: { [Op.like]: `${PLANNER_NOTES_PREFIX}%` } },
+          { transaction },
+        );
+
+        await queryInterface.bulkInsert('freelancer_calendar_events', plannerEvents, { transaction });
 
         const highlights = [
           {
@@ -1079,6 +1170,49 @@ module.exports = {
         );
 
         if (profileRow?.id) {
+          const workspaceSlug = 'atlas-collective-ops';
+          const [workspaceRow] = await queryInterface.sequelize.query(
+            'SELECT id FROM provider_workspaces WHERE slug = :slug LIMIT 1',
+            {
+              type: QueryTypes.SELECT,
+              transaction,
+              replacements: { slug: workspaceSlug },
+            },
+          );
+
+          let workspaceId = workspaceRow?.id ?? null;
+          if (!workspaceId) {
+            await queryInterface.bulkInsert(
+              'provider_workspaces',
+              [
+                {
+                  ownerId: adminUserId,
+                  name: 'Atlas Collective Ops',
+                  slug: workspaceSlug,
+                  type: 'agency',
+                  timezone: 'UTC',
+                  defaultCurrency: 'USD',
+                  intakeEmail: 'treasury@atlas-collective.demo',
+                  isActive: true,
+                  settings: JSON.stringify({ focus: 'agency-operations' }),
+                  createdAt: now,
+                  updatedAt: now,
+                },
+              ],
+              { transaction },
+            );
+
+            const [createdWorkspace] = await queryInterface.sequelize.query(
+              'SELECT id FROM provider_workspaces WHERE slug = :slug LIMIT 1',
+              {
+                type: QueryTypes.SELECT,
+                transaction,
+                replacements: { slug: workspaceSlug },
+              },
+            );
+            workspaceId = createdWorkspace?.id ?? workspaceId;
+          }
+
           const treasuryBalance = 48250.75;
           const availableBalance = 46300.5;
           const pendingBalance = Number((treasuryBalance - availableBalance).toFixed(2));
@@ -1102,6 +1236,7 @@ module.exports = {
                 {
                   userId: adminUserId,
                   profileId: profileRow.id,
+                  workspaceId,
                   accountType: 'user',
                   displayName: 'Operations treasury',
                   custodyProvider: 'stripe',
@@ -1139,6 +1274,7 @@ module.exports = {
                 availableBalance,
                 pendingHoldBalance: pendingBalance,
                 lastReconciledAt: reconciliationAt,
+                workspaceId,
                 updatedAt: now,
               },
               { id: walletAccountId },
@@ -1149,11 +1285,11 @@ module.exports = {
           let fundingSourceId = null;
           if (walletAccountId) {
             const [existingFunding] = await queryInterface.sequelize.query(
-              'SELECT id, isPrimary FROM wallet_funding_sources WHERE walletAccountId = :walletAccountId LIMIT 1',
+              'SELECT id, isPrimary FROM wallet_funding_sources WHERE workspaceId = :workspaceId AND label = :label LIMIT 1',
               {
                 type: QueryTypes.SELECT,
                 transaction,
-                replacements: { walletAccountId },
+                replacements: { workspaceId, label: 'Ops Treasury Checking' },
               },
             );
 
@@ -1162,18 +1298,21 @@ module.exports = {
                 'wallet_funding_sources',
                 [
                   {
-                    userId: adminUserId,
-                    walletAccountId,
+                    workspaceId,
+                    label: 'Ops Treasury Checking',
                     type: 'bank_account',
                     label: 'Ops Treasury Checking',
-                    status: 'active',
                     provider: 'stripe',
-                    externalReference: `seed-funding-${randomUUID()}`,
-                    lastFour: '1234',
+                    accountNumberLast4: '1234',
                     currencyCode: 'USD',
+                    status: 'active',
                     isPrimary: true,
-                    connectedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 30),
-                    metadata: JSON.stringify({ source: 'foundational-persona-seed' }),
+                    metadata: JSON.stringify({
+                      source: 'foundational-persona-seed',
+                      connectedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 30).toISOString(),
+                    }),
+                    createdById: adminUserId,
+                    updatedById: adminUserId,
                     createdAt: now,
                     updatedAt: now,
                   },
@@ -1182,11 +1321,11 @@ module.exports = {
               );
 
               const [createdFunding] = await queryInterface.sequelize.query(
-                'SELECT id FROM wallet_funding_sources WHERE walletAccountId = :walletAccountId AND label = :label ORDER BY id DESC LIMIT 1',
+                'SELECT id FROM wallet_funding_sources WHERE workspaceId = :workspaceId AND label = :label ORDER BY id DESC LIMIT 1',
                 {
                   type: QueryTypes.SELECT,
                   transaction,
-                  replacements: { walletAccountId, label: 'Ops Treasury Checking' },
+                  replacements: { workspaceId, label: 'Ops Treasury Checking' },
                 },
               );
               fundingSourceId = createdFunding?.id ?? null;
@@ -1195,8 +1334,57 @@ module.exports = {
               if (!existingFunding.isPrimary) {
                 await queryInterface.bulkUpdate(
                   'wallet_funding_sources',
-                  { isPrimary: true, status: 'active', updatedAt: now },
+                  { isPrimary: true, status: 'active', updatedAt: now, updatedById: adminUserId },
                   { id: existingFunding.id },
+                  { transaction },
+                );
+              }
+            }
+
+            if (workspaceId) {
+              const [existingSettings] = await queryInterface.sequelize.query(
+                'SELECT id FROM wallet_operational_settings WHERE workspaceId = :workspaceId LIMIT 1',
+                {
+                  type: QueryTypes.SELECT,
+                  transaction,
+                  replacements: { workspaceId },
+                },
+              );
+
+              if (!existingSettings?.id) {
+                await queryInterface.bulkInsert(
+                  'wallet_operational_settings',
+                  [
+                    {
+                      workspaceId,
+                      lowBalanceAlertThreshold: 25000,
+                      autoSweepEnabled: true,
+                      autoSweepThreshold: 15000,
+                      reconciliationCadence: 'weekly',
+                      dualControlEnabled: true,
+                      complianceContactEmail: 'treasury@atlas-collective.demo',
+                      payoutWindow: 'business_days',
+                      riskTier: 'standard',
+                      complianceNotes: 'Seeded automation guardrails',
+                      metadata: JSON.stringify({ source: 'foundational-persona-seed' }),
+                      createdById: adminUserId,
+                      updatedById: adminUserId,
+                      createdAt: now,
+                      updatedAt: now,
+                    },
+                  ],
+                  { transaction },
+                );
+              } else {
+                await queryInterface.bulkUpdate(
+                  'wallet_operational_settings',
+                  {
+                    autoSweepEnabled: true,
+                    dualControlEnabled: true,
+                    updatedAt: now,
+                    updatedById: adminUserId,
+                  },
+                  { id: existingSettings.id },
                   { transaction },
                 );
               }
@@ -1287,13 +1475,87 @@ module.exports = {
                       approvedById: adminUserId,
                       scheduledAt: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 3),
                       notes: 'Scheduled mentor and vendor payouts',
-                      metadata: JSON.stringify({ source: 'foundational-persona-seed' }),
+                      metadata: JSON.stringify({
+                        source: 'foundational-persona-seed',
+                        scheduledFor: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 3).toISOString(),
+                        destination: 'Ops Treasury Checking',
+                        channel: 'bank_transfer',
+                      }),
                       createdAt: now,
                       updatedAt: now,
                     },
                   ],
                   { transaction },
                 );
+              }
+
+              if (workspaceId) {
+                const [existingPayout] = await queryInterface.sequelize.query(
+                  'SELECT id FROM wallet_payout_requests WHERE walletAccountId = :walletAccountId AND notes = :notes LIMIT 1',
+                  {
+                    type: QueryTypes.SELECT,
+                    transaction,
+                    replacements: {
+                      walletAccountId,
+                      notes: 'Weekly automation payout',
+                    },
+                  },
+                );
+
+                if (!existingPayout?.id) {
+                  await queryInterface.bulkInsert(
+                    'wallet_payout_requests',
+                    [
+                      {
+                        workspaceId,
+                        walletAccountId,
+                        fundingSourceId,
+                        amount: 4200.75,
+                        currencyCode: 'USD',
+                        status: 'approved',
+                        requestedById: adminUserId,
+                        reviewedById: adminUserId,
+                        processedById: null,
+                        requestedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 2),
+                        approvedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24),
+                        processedAt: null,
+                        notes: 'Weekly automation payout',
+                        metadata: JSON.stringify({
+                          source: 'foundational-persona-seed',
+                          scheduledFor: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 2).toISOString(),
+                          destination: 'Ops Treasury Checking',
+                          channel: 'bank_transfer',
+                        }),
+                        createdAt: now,
+                        updatedAt: now,
+                      },
+                      {
+                        workspaceId,
+                        walletAccountId,
+                        fundingSourceId,
+                        amount: 1850.5,
+                        currencyCode: 'USD',
+                        status: 'pending_review',
+                        requestedById: adminUserId,
+                        reviewedById: null,
+                        processedById: null,
+                        requestedAt: new Date(now.getTime() - 1000 * 60 * 60 * 12),
+                        approvedAt: null,
+                        processedAt: null,
+                        notes: 'Mentor bonus disbursement',
+                        metadata: JSON.stringify({
+                          source: 'foundational-persona-seed',
+                          scheduledFor: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 4).toISOString(),
+                          destination: 'Ops Treasury Checking',
+                          channel: 'bank_transfer',
+                        }),
+                        createdAt: now,
+                        updatedAt: now,
+                      },
+                    ],
+                    { transaction },
+                  );
+                }
               }
             }
           }
@@ -1556,6 +1818,12 @@ module.exports = {
             );
           }
         }
+
+        await queryInterface.bulkDelete(
+          'freelancer_calendar_events',
+          { notes: { [Op.like]: `${PLANNER_NOTES_PREFIX}%` } },
+          { transaction },
+        );
 
         await queryInterface.bulkDelete(
           'jobs',

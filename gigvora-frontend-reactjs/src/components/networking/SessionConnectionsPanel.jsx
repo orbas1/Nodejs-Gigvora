@@ -15,6 +15,40 @@ function getHeadline(connection) {
   return connection?.participant?.title || connection?.member?.title || connection?.title || null;
 }
 
+function getCompany(connection) {
+  return (
+    connection?.participant?.company ||
+    connection?.member?.company ||
+    connection?.company?.name ||
+    connection?.companyName ||
+    null
+  );
+}
+
+function derivePrompt(connection) {
+  const sessionTitle = connection?.sessionTitle;
+  const followUps = Number(connection?.followUpsScheduled ?? 0);
+  const headline = getHeadline(connection);
+  const company = getCompany(connection);
+  const name = getDisplayName(connection);
+  const sessionReference = sessionTitle ? `the “${sessionTitle}” session` : 'your recent speed networking session';
+
+  if (followUps > 0) {
+    const firstName = name?.split(' ')?.[0] ?? 'them';
+    return `Confirm next steps from ${sessionReference} and recap what you already logged with ${firstName}.`;
+  }
+
+  if (headline) {
+    return `Mention their ${headline.toLowerCase()} focus from ${sessionReference} and propose a 15-minute follow-up.`;
+  }
+
+  if (company) {
+    return `Reference the collaboration ideas you explored with ${company} during ${sessionReference} and share one actionable next step.`;
+  }
+
+  return `Open by thanking them for ${sessionReference} and suggest a concrete follow-up with a time and agenda.`;
+}
+
 export default function SessionConnectionsPanel({
   connections = [],
   onScheduleFollowUp,
@@ -31,14 +65,46 @@ export default function SessionConnectionsPanel({
         followUps: connection.followUpsScheduled ?? 0,
         name: getDisplayName(connection),
         headline: getHeadline(connection),
+        prompt: derivePrompt(connection),
       })),
     [connections],
   );
+
+  const qualityPrompts = useMemo(() => {
+    const unique = new Set();
+    const prompts = [];
+    rows.forEach((row) => {
+      if (!row.prompt || unique.has(row.prompt)) {
+        return;
+      }
+      unique.add(row.prompt);
+      prompts.push(row.prompt);
+    });
+    return prompts.slice(0, 3);
+  }, [rows]);
 
   return (
     <section id="follow" className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold text-slate-900">Follow</h2>
+      </div>
+
+      <div className="rounded-3xl border border-blue-100 bg-blue-50 px-4 py-4 shadow-sm">
+        <h3 className="text-sm font-semibold text-blue-900">Quality intro prompts</h3>
+        {qualityPrompts.length ? (
+          <ul className="mt-3 space-y-2 text-sm text-blue-800">
+            {qualityPrompts.map((prompt) => (
+              <li key={prompt} className="flex items-start gap-2">
+                <span className="mt-1 h-1.5 w-1.5 flex-none rounded-full bg-blue-400" />
+                <span>{prompt}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-2 text-xs text-blue-700">
+            Once attendees start logging follow-ups, we surface targeted openers to keep momentum high.
+          </p>
+        )}
       </div>
 
       {error ? (
@@ -52,6 +118,7 @@ export default function SessionConnectionsPanel({
               <th className="px-4 py-3">Person</th>
               <th className="px-4 py-3">Session</th>
               <th className="px-4 py-3">Last active</th>
+              <th className="px-4 py-3">Suggested prompt</th>
               <th className="px-4 py-3">Follow-ups</th>
               <th className="px-4 py-3" />
             </tr>
@@ -67,6 +134,9 @@ export default function SessionConnectionsPanel({
                 </td>
                 <td className="px-4 py-3 text-sm text-slate-700">{row.sessionTitle}</td>
                 <td className="px-4 py-3 text-sm text-slate-700">{row.completedAgo || '—'}</td>
+                <td className="px-4 py-3 text-sm text-slate-600">
+                  <p className="max-w-xs leading-snug">{row.prompt}</p>
+                </td>
                 <td className="px-4 py-3 text-sm text-slate-700">{row.followUps}</td>
                 <td className="px-4 py-3 text-right">
                   <button
@@ -86,7 +156,7 @@ export default function SessionConnectionsPanel({
             ))}
             {!rows.length ? (
               <tr>
-                <td className="px-4 py-6 text-center text-sm text-slate-500" colSpan={5}>
+                <td className="px-4 py-6 text-center text-sm text-slate-500" colSpan={6}>
                   No recent connections yet.
                 </td>
               </tr>

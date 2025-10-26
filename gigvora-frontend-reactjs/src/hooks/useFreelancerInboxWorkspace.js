@@ -9,6 +9,9 @@ import {
   createInboxRoutingRule,
   updateInboxRoutingRule,
   deleteInboxRoutingRule,
+  pinInboxThread,
+  unpinInboxThread,
+  reorderInboxPinnedThreads,
 } from '../services/inbox.js';
 
 const FALLBACK_WORKSPACE = Object.freeze({
@@ -171,6 +174,42 @@ export default function useFreelancerInboxWorkspace({ userId, enabled = true } =
     [refresh, userId],
   );
 
+  const pinThread = useCallback(
+    async (threadId) => {
+      if (!userId || !threadId) {
+        return workspace.preferences.pinnedThreadIds ?? [];
+      }
+      const response = await pinInboxThread({ userId, threadId });
+      await refresh({ force: true });
+      return Array.isArray(response?.pinnedThreadIds) ? response.pinnedThreadIds : [];
+    },
+    [refresh, userId, workspace.preferences.pinnedThreadIds],
+  );
+
+  const unpinThread = useCallback(
+    async (threadId) => {
+      if (!userId || !threadId) {
+        return workspace.preferences.pinnedThreadIds ?? [];
+      }
+      const response = await unpinInboxThread({ userId, threadId });
+      await refresh({ force: true });
+      return Array.isArray(response?.pinnedThreadIds) ? response.pinnedThreadIds : [];
+    },
+    [refresh, userId, workspace.preferences.pinnedThreadIds],
+  );
+
+  const reorderPinnedThreads = useCallback(
+    async (threadIds) => {
+      if (!userId) {
+        return workspace.preferences.pinnedThreadIds ?? [];
+      }
+      const response = await reorderInboxPinnedThreads({ userId, threadIds });
+      await refresh({ force: true });
+      return Array.isArray(response?.pinnedThreadIds) ? response.pinnedThreadIds : [];
+    },
+    [refresh, userId, workspace.preferences.pinnedThreadIds],
+  );
+
   return {
     workspace,
     loading: resource.loading,
@@ -185,5 +224,8 @@ export default function useFreelancerInboxWorkspace({ userId, enabled = true } =
     addRoutingRule,
     editRoutingRule,
     removeRoutingRule,
+    pinThread,
+    unpinThread,
+    reorderPinnedThreads,
   };
 }

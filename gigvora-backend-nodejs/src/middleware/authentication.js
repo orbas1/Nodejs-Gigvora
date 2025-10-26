@@ -6,6 +6,11 @@ import {
 } from '../models/index.js';
 import { AuthenticationError, AuthorizationError } from '../utils/errors.js';
 import { resolveAccessTokenSecret } from '../utils/jwtSecrets.js';
+import {
+  getMembershipMetadata,
+  normaliseMembershipKey,
+  resolveAuthorizationState,
+} from '../config/permissionRegistry.js';
 
 const HEADER_OVERRIDE_ENABLED = (process.env.AUTH_HEADER_OVERRIDE ?? '').toLowerCase() === 'true';
 const NODE_ENV = (process.env.NODE_ENV ?? '').toLowerCase();
@@ -78,22 +83,36 @@ async function hydrateUser(user, payload) {
     ],
   });
 
-  const membershipPayload = memberships.map((membership) => ({
-    id: membership.id,
-    workspaceId: membership.workspaceId,
-    role: membership.role,
-    status: membership.status,
-    workspace: membership.workspace
-      ? {
-          id: membership.workspace.id,
-          name: membership.workspace.name,
-          slug: membership.workspace.slug,
-          type: membership.workspace.type,
-        }
-      : null,
-  }));
+  const membershipPayload = memberships.map((membership) => {
+    const normalizedRole = normaliseMembershipKey(membership.role);
+    const membershipMetadata = normalizedRole ? getMembershipMetadata(normalizedRole) : null;
+    return {
+      id: membership.id,
+      workspaceId: membership.workspaceId,
+      role: membership.role,
+      normalizedRole,
+      status: membership.status,
+      tier: membershipMetadata?.tier ?? null,
+      permissions: membershipMetadata ? [...membershipMetadata.permissions] : [],
+      workspace: membership.workspace
+        ? {
+            id: membership.workspace.id,
+            name: membership.workspace.name,
+            slug: membership.workspace.slug,
+            type: membership.workspace.type,
+          }
+        : null,
+    };
+  });
 
-  const permissions = Array.isArray(payload?.permissions) ? payload.permissions : [];
+  const explicitPermissions = Array.isArray(payload?.permissions) ? payload.permissions : [];
+  const membershipRoles = membershipPayload
+    .map((membership) => membership.normalizedRole)
+    .filter(Boolean);
+  const authorizationState = resolveAuthorizationState({
+    memberships: membershipRoles,
+    permissions: explicitPermissions,
+  });
 
   return {
     id: user.id,
@@ -102,7 +121,13 @@ async function hydrateUser(user, payload) {
     lastName: user.lastName,
     userType: user.userType,
     memberships: membershipPayload,
-    permissions,
+    permissions: authorizationState.permissionKeys,
+    authorization: {
+      version: authorizationState.version,
+      memberships: authorizationState.membershipDetails,
+      permissions: authorizationState.permissionDetails,
+      breakdown: authorizationState.breakdown,
+    },
   };
 }
 

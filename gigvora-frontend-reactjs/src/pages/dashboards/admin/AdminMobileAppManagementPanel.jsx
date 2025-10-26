@@ -18,6 +18,8 @@ import {
   updateAdminMobileAppFeature,
   deleteAdminMobileAppFeature,
 } from '../../../services/mobileApps.js';
+import { listFeatureFlags } from '../../../services/featureFlags.js';
+import FeatureFlagToggle from '../../../components/system/FeatureFlagToggle.jsx';
 
 const PLATFORM_OPTIONS = [
   { value: 'ios', label: 'iOS (App Store)' },
@@ -278,7 +280,16 @@ export default function AdminMobileAppManagementPanel({ standalone = false }) {
   const loadApps = useCallback(async () => {
     setState((previous) => ({ ...previous, loading: true }));
     try {
-      const response = await fetchAdminMobileApps({ includeInactive: true });
+      const [appsResult, flagsResult] = await Promise.allSettled([
+        fetchAdminMobileApps({ includeInactive: true }),
+        listFeatureFlags({ status: 'active' }),
+      ]);
+
+      if (appsResult.status !== 'fulfilled') {
+        throw appsResult.reason;
+      }
+
+      const response = appsResult.value ?? {};
       const apps = response?.apps ?? [];
       const nextAppForms = {};
       const nextAppDrafts = {};
@@ -311,7 +322,33 @@ export default function AdminMobileAppManagementPanel({ standalone = false }) {
         });
       });
 
-      setState({ loading: false, error: null, apps, summary: response?.summary ?? {} });
+      const flags =
+        flagsResult.status === 'fulfilled' && Array.isArray(flagsResult.value?.flags)
+          ? flagsResult.value.flags
+          : [];
+      const activeFlagCount = flags.filter((flag) => {
+        if (!flag || typeof flag !== 'object') {
+          return false;
+        }
+        if (flag.enabled != null) {
+          return Boolean(flag.enabled);
+        }
+        if (flag.status) {
+          return `${flag.status}`.toLowerCase() === 'active';
+        }
+        return false;
+      }).length;
+
+      if (flagsResult.status === 'rejected') {
+        console.warn('Unable to load feature flag summary for mobile apps.', flagsResult.reason);
+      }
+
+      const summaryPayload = {
+        ...(response?.summary ?? {}),
+        activeFeatures: activeFlagCount,
+      };
+
+      setState({ loading: false, error: null, apps, summary: summaryPayload });
       setAppForms(nextAppForms);
       setAppDrafts(nextAppDrafts);
       setVersionForms(nextVersionForms);
@@ -739,6 +776,23 @@ export default function AdminMobileAppManagementPanel({ standalone = false }) {
         <SummaryTile title="In review" value={summary.pendingReviews ?? 0} subtitle="Store submissions" />
         <SummaryTile title="Scheduled releases" value={summary.upcomingReleases ?? 0} subtitle="Upcoming deploys" />
         <SummaryTile title="Active feature flags" value={summary.activeFeatures ?? 0} subtitle="Enabled cohorts" />
+      </div>
+
+      <div className="mt-8 grid gap-4 lg:grid-cols-2">
+        <FeatureFlagToggle
+          flagKey="mobile-app-beta"
+          label="Mobile companion beta"
+          description="Control beta companion distribution before a general app store rollout, aligning rollout pace with support readiness."
+          audience="Founders & mentors"
+          rollout="25% staged"
+        />
+        <FeatureFlagToggle
+          flagKey="mobile-profiles-ai-insights"
+          label="AI-driven profile insights"
+          description="Enable personalised AI annotations in the mobile profile hub while compliance validates messaging and audit trails."
+          audience="Executive admins"
+          rollout="Ops review"
+        />
       </div>
 
       <form

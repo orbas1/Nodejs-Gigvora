@@ -66,11 +66,12 @@ function resolveMessage(action) {
   }
 }
 
-export default function AgencyHrManagementSection({ workspaceId, canEdit }) {
+export default function AgencyHrManagementSection({ workspaceId, canEdit, workforceResource }) {
   const [statusMessage, setStatusMessage] = useState('');
   const [actionError, setActionError] = useState(null);
 
-  const workforce = useAgencyWorkforceDashboard({ workspaceId });
+  const fallbackWorkforce = useAgencyWorkforceDashboard({ workspaceId, enabled: !workforceResource });
+  const workforce = workforceResource ?? fallbackWorkforce;
 
   const withWorkspace = useCallback(
     (payload = {}) => {
@@ -185,9 +186,17 @@ export default function AgencyHrManagementSection({ workspaceId, canEdit }) {
 AgencyHrManagementSection.propTypes = {
   workspaceId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   canEdit: PropTypes.bool,
+  workforceResource: PropTypes.shape({
+    data: PropTypes.any,
+    loading: PropTypes.bool,
+    error: PropTypes.oneOfType([PropTypes.bool, PropTypes.object, PropTypes.string]),
+    summaryCards: PropTypes.array,
+    refresh: PropTypes.func,
+  }),
 };
 
 AgencyHrManagementSection.defaultProps = {
   workspaceId: null,
   canEdit: false,
+  workforceResource: null,
 };
