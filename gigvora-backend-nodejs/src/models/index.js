@@ -22,6 +22,14 @@ import {
 export { AdminTreasuryPolicy, AdminFeeRule, AdminPayoutSchedule, AdminEscrowAdjustment } from './adminFinanceModels.js';
 export { RouteRegistryEntry } from './routeRegistryModels.js';
 export { SchemaMigrationAudit, SeedExecutionAudit } from './schemaGovernanceModels.js';
+export {
+  OnboardingPersona,
+  OnboardingJourney,
+  OnboardingJourneyInvite,
+  ONBOARDING_PERSONA_STATUSES,
+  ONBOARDING_JOURNEY_STATUSES,
+  ONBOARDING_INVITE_STATUSES,
+} from './onboardingModels.js';
 import './agencyWorkforceModels.js';
 import { RbacPolicyAuditEvent } from './rbacPolicyAuditEvent.js';
 import { RuntimeAnnouncement } from './runtimeAnnouncement.js';

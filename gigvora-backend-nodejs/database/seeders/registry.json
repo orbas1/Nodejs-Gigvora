@@ -40,5 +40,12 @@
     "personas": ["freelancer", "trust", "marketing"],
     "domains": ["reputation", "testimonials", "reviews"],
     "tags": ["reputation", "social-proof", "demo-data"]
+  },
+  "20250401101500-onboarding-personas-seed": {
+    "title": "Onboarding persona catalogue",
+    "summary": "Registers flagship founder, freelancer, and talent leader personas with storytelling data for the guided onboarding wizard.",
+    "personas": ["founder", "freelancer", "talent"],
+    "domains": ["onboarding", "workspace", "network"],
+    "tags": ["onboarding", "personas", "journeys"]
   }
 }
