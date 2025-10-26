@@ -12,6 +12,7 @@ const KNOWN_USER_STATUSES = Array.from(new Set([...(USER_STATUSES ?? []), ...FAL
   .map((status) => `${status}`.trim().toLowerCase())
   .filter(Boolean);
 const KNOWN_USER_ROLES = Object.freeze([
+  'user',
   'admin',
   'company',
   'freelancer',
@@ -60,6 +61,9 @@ function sanitizeUser(userInstance) {
   }
   if (Array.isArray(plain.memberships)) {
     roleSources.push(...plain.memberships);
+  }
+  if (Array.isArray(plain.preferredRoles)) {
+    roleSources.push(...plain.preferredRoles);
   }
   roleSources
     .map(normalizeRoleName)
@@ -119,9 +123,18 @@ function sanitizeUser(userInstance) {
     linkedinId: plain.linkedinId || null,
     memberships: Array.from(memberships),
     roles: Array.from(roleSet),
+    preferredRoles: normalizeRoleList(plain.preferredRoles ?? []),
     primaryDashboard: plain.primaryDashboard || plain.userType || 'user',
     timezone: profile?.timezone ?? plain.timezone ?? null,
     profile: profileSnapshot,
+    marketingOptIn: plain.marketingOptIn !== false,
+    marketingOptInAt:
+      plain.marketingOptInAt instanceof Date
+        ? plain.marketingOptInAt.toISOString()
+        : plain.marketingOptInAt
+          ? new Date(plain.marketingOptInAt).toISOString()
+          : null,
+    signupChannel: plain.signupChannel ?? null,
   };
 }
 
@@ -274,6 +287,30 @@ export class AuthDomainService {
     const email = this.validateEmail(payload.email);
     const hashedPassword = await this.hashPassword(payload.password);
     const { twoFactorEnabled, twoFactorMethod } = this.normalizeTwoFactorPreference(payload);
+    const preferredRoles = this.normalizeRoles(payload.preferredRoles ?? []);
+    const normalizedMemberships = this.normalizeRoles(payload.memberships ?? []);
+    const membershipSet = new Set([...normalizedMemberships, ...preferredRoles]);
+    const primaryRole = payload.userType ? this.normalizeRole(payload.userType) : 'user';
+    membershipSet.add(primaryRole);
+    membershipSet.add('user');
+    const memberships = Array.from(membershipSet);
+    const marketingOptIn = payload.marketingOptIn !== false;
+    let marketingOptInAt = null;
+    if (marketingOptIn) {
+      if (payload.marketingOptInAt) {
+        const candidate = new Date(payload.marketingOptInAt);
+        if (!Number.isNaN(candidate.getTime())) {
+          marketingOptInAt = candidate;
+        }
+      }
+      if (!marketingOptInAt) {
+        marketingOptInAt = new Date();
+      }
+    }
+    const signupChannel =
+      typeof payload.signupChannel === 'string' && payload.signupChannel.trim()
+        ? payload.signupChannel.trim().slice(0, 120)
+        : 'web_app';
 
     const locationPayload = normalizeLocationPayload({
       location: payload.location ?? payload.address,
@@ -303,6 +340,11 @@ export class AuthDomainService {
           googleId: payload.googleId || null,
           appleId: payload.appleId || null,
           linkedinId: payload.linkedinId || null,
+          memberships,
+          preferredRoles,
+          marketingOptIn,
+          marketingOptInAt,
+          signupChannel,
         },
         { transaction },
       );

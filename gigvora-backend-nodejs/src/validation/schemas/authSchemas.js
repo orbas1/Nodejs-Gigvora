@@ -23,6 +23,69 @@ const optionalTwoFactorMethod = optionalTrimmedString({ max: 32 }).transform((va
   return ['email', 'app', 'sms'].includes(normalized) ? normalized : undefined;
 });
 const resetTokenSchema = requiredTrimmedString({ min: 32, max: 256 });
+const ASSIGNABLE_ROLES = [
+  'user',
+  'admin',
+  'company',
+  'freelancer',
+  'agency',
+  'mentor',
+  'headhunter',
+  'support',
+  'analyst',
+  'moderator',
+  'partner',
+  'volunteer',
+];
+
+function normalizeRoleValue(value) {
+  if (!value) {
+    return null;
+  }
+  const normalized = `${value}`.trim().toLowerCase().replace(/\s+/g, '_');
+  return normalized || null;
+}
+
+const rolesArraySchema = z
+  .array(requiredTrimmedString({ max: 60 }))
+  .max(12)
+  .transform((values, ctx) => {
+    const unique = new Set();
+    let hasIssue = false;
+    values.forEach((role, index) => {
+      const normalized = normalizeRoleValue(role);
+      if (!normalized || !ASSIGNABLE_ROLES.includes(normalized)) {
+        hasIssue = true;
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `role "${role}" is not assignable.`,
+          path: [index],
+        });
+        return;
+      }
+      unique.add(normalized);
+    });
+    if (hasIssue) {
+      return z.NEVER;
+    }
+    return Array.from(unique);
+  });
+
+const optionalRolesArray = rolesArraySchema.optional().transform((roles) => roles ?? []);
+
+const optionalIsoDateString = z
+  .preprocess((value) => {
+    if (value == null || value === '') {
+      return undefined;
+    }
+    const candidate = new Date(value);
+    if (Number.isNaN(candidate.getTime())) {
+      return Number.NaN;
+    }
+    return candidate.toISOString();
+  }, z.string().datetime({ offset: true }))
+  .optional()
+  .transform((value) => value ?? undefined);
 
 const baseRegistrationSchema = z
   .object({
@@ -37,6 +100,10 @@ const baseRegistrationSchema = z
     signupChannel: optionalSignupChannel,
     twoFactorEnabled: optionalBoolean(),
     twoFactorMethod: optionalTwoFactorMethod,
+    preferredRoles: optionalRolesArray,
+    memberships: optionalRolesArray,
+    marketingOptIn: optionalBoolean().transform((value) => (value === undefined ? true : value)),
+    marketingOptInAt: optionalIsoDateString,
   })
   .strip();
 

@@ -707,6 +707,10 @@ export const User = sequelize.define(
     appleId: { type: DataTypes.STRING(255), allowNull: true },
     linkedinId: { type: DataTypes.STRING(255), allowNull: true },
     memberships: { type: jsonType, allowNull: false, defaultValue: [] },
+    preferredRoles: { type: jsonType, allowNull: false, defaultValue: [] },
+    marketingOptIn: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    marketingOptInAt: { type: DataTypes.DATE, allowNull: true },
+    signupChannel: { type: DataTypes.STRING(120), allowNull: true },
     primaryDashboard: { type: DataTypes.STRING(60), allowNull: true },
   },
   {
