@@ -6,6 +6,9 @@ import ProjectInvitationsPanel from './ProjectInvitationsPanel.jsx';
 import AutoMatchPanel from './AutoMatchPanel.jsx';
 import ProjectReviewsPanel from './ProjectReviewsPanel.jsx';
 import EscrowManagementPanel from './EscrowManagementPanel.jsx';
+import GigBoard from './GigBoard.jsx';
+import ProposalBuilder from './ProposalBuilder.jsx';
+import ContractTracker from './ContractTracker.jsx';
 
 const SECTION_TABS = [
   { id: 'projects', label: 'Projects' },
@@ -186,7 +189,9 @@ export default function ProjectGigManagementSection({
   const autoMatch = data?.autoMatch ?? {};
   const reviews = data?.reviews ?? {};
   const escrow = data?.escrow ?? {};
-  const board = data?.managementBoard ?? null;
+  const board = data?.managementBoard ?? data?.gigBoard ?? null;
+  const proposalWorkspace = data?.proposalWorkspace ?? data?.proposalBuilder ?? data?.proposals ?? null;
+  const contractTracker = data?.contractTracker ?? data?.contractHealth ?? data?.contract ?? null;
   const orders = useMemo(
     () => (Array.isArray(data?.purchasedGigs?.orders) ? data.purchasedGigs.orders : []),
     [data?.purchasedGigs?.orders],
@@ -224,18 +229,45 @@ export default function ProjectGigManagementSection({
               onPreviewProject={onProjectPreview}
             />
             <BoardSnapshot board={board} />
+            <GigBoard
+              board={board}
+              canManage={canManage}
+              onLaneChange={actions.updateGigBoardLane}
+              onSaveView={actions.saveGigBoardView}
+              onDeleteView={actions.deleteGigBoardView}
+              onViewChange={actions.changeGigBoardView}
+              onInspectGig={actions.inspectGigBoardCard}
+              onRefresh={actions.refreshGigBoard}
+            />
+            <ContractTracker
+              tracker={contractTracker}
+              canManage={canManage}
+              onCompleteMilestone={actions.completeContractMilestone}
+              onAcknowledgeRisk={actions.acknowledgeContractRisk}
+              onEscalate={actions.escalateContractRisk}
+            />
           </div>
         );
       case 'bids':
         return (
-          <ProjectBidsPanel
-            bids={bids.bids ?? []}
-            stats={bids.stats ?? {}}
-            projects={Array.isArray(data?.projectLifecycle?.open) ? data.projectLifecycle.open : []}
-            onCreateBid={actions.createProjectBid}
-            onUpdateBid={actions.updateProjectBid}
-            canManage={canManage}
-          />
+          <div className="space-y-6">
+            <ProjectBidsPanel
+              bids={bids.bids ?? []}
+              stats={bids.stats ?? {}}
+              projects={Array.isArray(data?.projectLifecycle?.open) ? data.projectLifecycle.open : []}
+              onCreateBid={actions.createProjectBid}
+              onUpdateBid={actions.updateProjectBid}
+              canManage={canManage}
+            />
+            <ProposalBuilder
+              workspace={proposalWorkspace}
+              canManage={canManage}
+              onDraftChange={actions.updateProposalDraft}
+              onSaveDraft={actions.saveProposalDraft}
+              onSend={actions.sendProposal}
+              onInviteCollaborator={actions.inviteProposalCollaborator}
+            />
+          </div>
         );
       case 'invites':
         return (
@@ -379,6 +411,12 @@ ProjectGigManagementSection.propTypes = {
     updateWorkspace: PropTypes.func,
     createProjectBid: PropTypes.func,
     updateProjectBid: PropTypes.func,
+    updateGigBoardLane: PropTypes.func,
+    saveGigBoardView: PropTypes.func,
+    deleteGigBoardView: PropTypes.func,
+    changeGigBoardView: PropTypes.func,
+    inspectGigBoardCard: PropTypes.func,
+    refreshGigBoard: PropTypes.func,
     sendProjectInvitation: PropTypes.func,
     updateProjectInvitation: PropTypes.func,
     updateAutoMatchSettings: PropTypes.func,
@@ -387,6 +425,13 @@ ProjectGigManagementSection.propTypes = {
     createProjectReview: PropTypes.func,
     createEscrowTransaction: PropTypes.func,
     updateEscrowSettings: PropTypes.func,
+    updateProposalDraft: PropTypes.func,
+    saveProposalDraft: PropTypes.func,
+    sendProposal: PropTypes.func,
+    inviteProposalCollaborator: PropTypes.func,
+    completeContractMilestone: PropTypes.func,
+    acknowledgeContractRisk: PropTypes.func,
+    escalateContractRisk: PropTypes.func,
   }),
   loading: PropTypes.bool,
   canManage: PropTypes.bool,

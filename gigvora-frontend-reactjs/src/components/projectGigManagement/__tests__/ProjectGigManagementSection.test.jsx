@@ -6,6 +6,12 @@ const createActions = () => ({
   updateWorkspace: vi.fn(),
   createProjectBid: vi.fn(),
   updateProjectBid: vi.fn(),
+  updateGigBoardLane: vi.fn(),
+  saveGigBoardView: vi.fn(),
+  deleteGigBoardView: vi.fn(),
+  changeGigBoardView: vi.fn(),
+  inspectGigBoardCard: vi.fn(),
+  refreshGigBoard: vi.fn(),
   sendProjectInvitation: vi.fn(),
   updateProjectInvitation: vi.fn(),
   updateAutoMatchSettings: vi.fn(),
@@ -14,6 +20,13 @@ const createActions = () => ({
   createProjectReview: vi.fn(),
   createEscrowTransaction: vi.fn(),
   updateEscrowSettings: vi.fn(),
+  updateProposalDraft: vi.fn(),
+  saveProposalDraft: vi.fn(),
+  sendProposal: vi.fn(),
+  inviteProposalCollaborator: vi.fn(),
+  completeContractMilestone: vi.fn(),
+  acknowledgeContractRisk: vi.fn(),
+  escalateContractRisk: vi.fn(),
 });
 
 const baseData = {
@@ -107,6 +120,104 @@ const baseData = {
       },
     ],
   },
+  managementBoard: {
+    currency: 'USD',
+    lanes: [
+      {
+        id: 'sourcing',
+        label: 'Sourcing',
+        cards: [
+          {
+            id: 1001,
+            title: 'Brand identity refresh',
+            client: { name: 'Future Corp' },
+            value: 15000,
+            currency: 'USD',
+            dueAt: '2024-06-12T00:00:00Z',
+            tags: ['Brand'],
+            metrics: { conversations: 3 },
+          },
+        ],
+      },
+      {
+        id: 'negotiation',
+        label: 'Negotiation',
+        cards: [
+          {
+            id: 1002,
+            title: 'Product design sprint',
+            client: { name: 'Moon Labs' },
+            value: 28000,
+            currency: 'USD',
+            dueAt: '2024-06-04T00:00:00Z',
+            risk: 'medium',
+            tags: ['Design', 'Priority'],
+          },
+        ],
+      },
+    ],
+    views: [{ id: 'priority', name: 'Priority focus', tags: ['Priority'] }],
+  },
+  proposalWorkspace: {
+    activeDraft: {
+      title: 'Brand relaunch partnership',
+      clientName: 'Future Corp',
+      summary: 'Reposition the organisation with a premium identity system.',
+      outcomes: 'Launch refreshed brand system across touchpoints.',
+      deliverables: 'Brand playbook, digital kit, internal training.',
+      timeline: '6 weeks sprint',
+      pricing: [
+        { description: 'Discovery', amount: 8000, quantity: 1 },
+        { description: 'Design system', amount: 12000, quantity: 1 },
+      ],
+      nextSteps: 'Schedule kickoff and assign squads.',
+    },
+    templates: [{ id: 'brand', name: 'Brand campaign', summary: 'Narrative-driven brand proposal template.' }],
+    collaborators: [{ id: 'col-1', name: 'Alex Morgan' }],
+  },
+  contractTracker: {
+    currency: 'USD',
+    summary: { contractValue: 45000, healthScore: 'A' },
+    contract: { owner: { name: 'Amelia' } },
+    milestones: [
+      {
+        id: 'm1',
+        order: 1,
+        title: 'Discovery sprint',
+        dueAt: '2024-05-28T00:00:00Z',
+        status: 'completed',
+        summary: 'Stakeholder interviews and audit.',
+        checklist: [
+          { id: 'm1-1', label: 'Interview stakeholders', complete: true },
+          { id: 'm1-2', label: 'Synthesize insights', complete: true },
+        ],
+      },
+      {
+        id: 'm2',
+        order: 2,
+        title: 'Design system delivery',
+        dueAt: '2024-06-10T00:00:00Z',
+        status: 'in_progress',
+        summary: 'Deliver core system and documentation.',
+        checklist: [{ id: 'm2-1', label: 'Visual language' }],
+        documents: [{ id: 'doc-1', name: 'Statement of work', url: '#' }],
+      },
+    ],
+    payments: [
+      { id: 'p1', amount: 20000, status: 'released' },
+      { id: 'p2', amount: 15000, status: 'pending' },
+    ],
+    risks: [
+      {
+        id: 'r1',
+        title: 'Awaiting brand assets',
+        description: 'Client has not uploaded existing assets which may delay design start.',
+        level: 'medium',
+        owner: { name: 'Alex Morgan' },
+      },
+    ],
+    approvals: [{ id: 'a1', name: 'Client legal', status: 'pending' }],
+  },
 };
 
 describe('ProjectGigManagementSection', () => {
@@ -153,5 +264,29 @@ describe('ProjectGigManagementSection', () => {
     expect(screen.getByText('Balance')).toBeInTheDocument();
     expect(screen.getByText(/USD 4,200.00/)).toBeInTheDocument();
     expect(screen.getByText('Initial funding')).toBeInTheDocument();
+  });
+
+  it('renders gig board analytics and tags when viewing projects', () => {
+    renderSection({ activeTab: 'projects' });
+
+    expect(screen.getByText('Board overview')).toBeInTheDocument();
+    expect(screen.getByText('Priority focus')).toBeInTheDocument();
+    expect(screen.getByText('Brand identity refresh')).toBeInTheDocument();
+  });
+
+  it('shows proposal builder preview within bids tab', () => {
+    renderSection({ activeTab: 'bids' });
+
+    expect(screen.getByText('Craft premium proposals')).toBeInTheDocument();
+    expect(screen.getByText('Brand relaunch partnership')).toBeInTheDocument();
+    expect(screen.getByText('Send proposal')).toBeInTheDocument();
+  });
+
+  it('includes contract tracker summary metrics', () => {
+    renderSection({ activeTab: 'projects' });
+
+    expect(screen.getByText('Track delivery confidence')).toBeInTheDocument();
+    expect(screen.getAllByText('Discovery sprint')[0]).toBeInTheDocument();
+    expect(screen.getAllByText('Risks')[0]).toBeInTheDocument();
   });
 });
