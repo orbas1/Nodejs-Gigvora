@@ -86,3 +86,13 @@
    - Position CardScaffold as the canonical token reference for cards across product, marketing, and admin surfaces.
    - Manage rollout via card audits, design alignment, engineering integration, QA snapshots, and analytics review gates.
    - Sequence releases through library publication, feature migrations, telemetry observation, and knowledge base updates.
+Shared system upgrades:
+- Shared contracts now version component appearance tokens in `shared-contracts/domain/platform/component-tokens.js`, exposing frozen defaults and a deep merge utility for downstream overrides.
+- Backend migration `20250313113000-appearance-component-profiles.cjs`, Sequelize model extensions, validation schemas, and admin routes persist component profiles so tokens stay synchronized with database state.
+- Seeder `20250313120000-appearance-component-profiles.cjs` hydrates default button, input, and card definitions using the shared token contract, ensuring production-ready data in every environment.
+- `appearanceManagementService` normalizes, sanitizes, and serializes profile payloads, while controller and route handlers expose CRUD APIs for admin tooling.
+- Frontend `ComponentTokenContext` provider and hydrator fetch profile overrides via `appearanceManagement` service helpers, merging them with defaults so ButtonSuite, InputFieldSet, and CardScaffold render live theming instantly.
+
+   - Sources styling tokens from the ComponentTokenProvider, automatically merging backend `appearance_component_profiles` overrides so variant palettes and motion rules stay governed centrally.
+   - Consumes the shared token registry so shell, typography, and density styles reflect backend component profile overrides seeded and managed through the appearance management APIs.
+   - Pulls layout, highlight, and analytics tokens from the centralized provider backed by persisted component profiles, keeping card variants in sync with admin-managed definitions.

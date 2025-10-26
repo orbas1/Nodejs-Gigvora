@@ -1,13 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { act } from 'react';
 import userEvent from '@testing-library/user-event';
 import InputFieldSet from '../InputFieldSet.jsx';
+import { ComponentTokenProvider } from '../../../context/ComponentTokenContext.jsx';
 
 describe('InputFieldSet', () => {
+  function renderWithTokens(ui, { tokens } = {}) {
+    return render(<ComponentTokenProvider tokens={tokens}>{ui}</ComponentTokenProvider>);
+  }
+
   it('renders label, optional indicator, helper text, and prefix/suffix affordances', async () => {
     const user = userEvent.setup();
 
-    render(
+    renderWithTokens(
       <InputFieldSet
         label="Website"
         name="website"
@@ -33,7 +39,7 @@ describe('InputFieldSet', () => {
   });
 
   it('surfaces error state with accessible messaging and aria-invalid', () => {
-    render(
+    renderWithTokens(
       <InputFieldSet
         label="Email"
         name="email"
@@ -53,7 +59,7 @@ describe('InputFieldSet', () => {
   it('supports multiline entries with character counter feedback', async () => {
     const user = userEvent.setup();
 
-    render(
+    renderWithTokens(
       <InputFieldSet
         label="Overview"
         name="overview"
@@ -65,7 +71,24 @@ describe('InputFieldSet', () => {
     );
 
     const textarea = screen.getByRole('textbox', { name: /overview/i });
-    await user.type(textarea, 'Future ready');
+    await act(async () => {
+      await user.type(textarea, 'Future ready');
+    });
     expect(screen.getByText('12/100')).toBeInTheDocument();
+  });
+
+  it('applies provider overrides to shell styling', () => {
+    renderWithTokens(
+      <InputFieldSet label="Name" name="name" />, {
+        tokens: {
+          inputFieldSet: {
+            shell: 'rounded-lg border-2 border-emerald-300',
+          },
+        },
+      },
+    );
+
+    const wrapper = screen.getByRole('textbox', { name: /name/i }).closest('div');
+    expect(wrapper).toHaveClass('border-emerald-300');
   });
 });

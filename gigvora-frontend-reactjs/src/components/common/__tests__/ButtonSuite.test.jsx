@@ -2,9 +2,14 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ButtonSuite from '../ButtonSuite.jsx';
+import { ComponentTokenProvider } from '../../../context/ComponentTokenContext.jsx';
 
 function IconMock({ label }) {
   return <svg aria-hidden focusable="false" data-testid={label} />;
+}
+
+function renderWithTokens(ui, { tokens } = {}) {
+  return render(<ComponentTokenProvider tokens={tokens}>{ui}</ComponentTokenProvider>);
 }
 
 describe('ButtonSuite', () => {
@@ -12,7 +17,7 @@ describe('ButtonSuite', () => {
     const onClick = vi.fn();
     const user = userEvent.setup();
 
-    render(
+    renderWithTokens(
       <ButtonSuite
         variant="primary"
         leadingIcon={<IconMock label="leading" />}
@@ -33,7 +38,7 @@ describe('ButtonSuite', () => {
   });
 
   it('shows loading spinner, disables button, and surfaces accessible label', () => {
-    render(
+    renderWithTokens(
       <ButtonSuite loading loadingLabel="Submitting">
         Submit
       </ButtonSuite>,
@@ -47,7 +52,7 @@ describe('ButtonSuite', () => {
   });
 
   it('supports group layout utilities for horizontal and vertical stacks', () => {
-    const { rerender } = render(
+    const { rerender } = renderWithTokens(
       <ButtonSuite.Group>
         <ButtonSuite size="sm">Primary</ButtonSuite>
         <ButtonSuite variant="ghost">Ghost</ButtonSuite>
@@ -68,5 +73,17 @@ describe('ButtonSuite', () => {
     expect(updatedGroup).toHaveAttribute('class', expect.stringContaining('flex-col'));
     expect(updatedGroup).toHaveAttribute('class', expect.stringContaining('items-end'));
     expect(updatedGroup).not.toHaveAttribute('class', expect.stringContaining('flex-wrap'));
+  });
+
+  it('adopts override tokens from the provider', () => {
+    renderWithTokens(<ButtonSuite>Schedule</ButtonSuite>, {
+      tokens: {
+        buttonSuite: {
+          variants: { primary: { class: 'bg-magenta-600 text-white' } },
+        },
+      },
+    });
+
+    expect(screen.getByRole('button', { name: /schedule/i })).toHaveClass('bg-magenta-600');
   });
 });

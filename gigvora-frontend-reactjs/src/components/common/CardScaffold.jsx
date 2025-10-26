@@ -1,40 +1,13 @@
 import { forwardRef } from 'react';
 import PropTypes from 'prop-types';
 import { classNames } from '../../utils/classNames.js';
+import { useComponentTokens } from '../../context/ComponentTokenContext.jsx';
+import { DEFAULT_COMPONENT_TOKENS } from '@shared-contracts/domain/platform/component-tokens.js';
 
-const variantStyles = {
-  default:
-    'border border-slate-200/70 bg-white/90 text-slate-900 shadow-subtle backdrop-blur-lg hover:shadow-soft',
-  minimal: 'border border-slate-200/40 bg-white/60 text-slate-900 shadow-none hover:shadow-subtle',
-  elevated:
-    'border border-transparent bg-gradient-to-br from-white/95 via-blue-50/70 to-sky-100/60 text-slate-900 shadow-soft hover:-translate-y-[2px] hover:shadow-[0_32px_75px_-42px_rgba(15,23,42,0.55)]',
-  dark:
-    'border border-slate-800/70 bg-slate-950/80 text-slate-100 shadow-[0_32px_60px_-35px_rgba(15,23,42,0.8)] hover:shadow-[0_40px_80px_-45px_rgba(15,23,42,0.9)]',
-};
-
-const paddingStyles = {
-  none: 'p-0',
-  sm: 'p-4',
-  md: 'p-6',
-  lg: 'p-8',
-};
-
-const orientationStyles = {
-  vertical: 'flex-col',
-  horizontal: 'flex-col gap-6 md:flex-row md:items-stretch',
-};
-
-const highlightStyles = {
-  primary: 'from-blue-500 via-indigo-500 to-sky-400',
-  success: 'from-emerald-400 via-teal-400 to-cyan-400',
-  warning: 'from-amber-400 via-orange-400 to-yellow-300',
-  danger: 'from-rose-500 via-fuchsia-500 to-pink-400',
-};
-
-const metaTone = {
-  default: 'text-slate-500',
-  dark: 'text-slate-300',
-};
+const CARD_VARIANTS = Object.keys(DEFAULT_COMPONENT_TOKENS.cardScaffold.variants);
+const CARD_PADDING = Object.keys(DEFAULT_COMPONENT_TOKENS.cardScaffold.padding);
+const CARD_ORIENTATIONS = Object.keys(DEFAULT_COMPONENT_TOKENS.cardScaffold.orientation);
+const CARD_HIGHLIGHTS = Object.keys(DEFAULT_COMPONENT_TOKENS.cardScaffold.highlight);
 
 const CardScaffold = forwardRef(function CardScaffold(
   {
@@ -59,35 +32,66 @@ const CardScaffold = forwardRef(function CardScaffold(
   },
   ref,
 ) {
+  const { tokens: cardTokens } = useComponentTokens('cardScaffold');
+  const variantStyles = cardTokens?.variants ?? {};
+  const paddingStyles = cardTokens?.padding ?? {};
+  const orientationStyles = cardTokens?.orientation ?? {};
+  const highlightStyles = cardTokens?.highlight ?? {};
+  const metaTone = cardTokens?.metaTone ?? {};
+  const baseClass = cardTokens?.base ?? '';
+  const mediaTokens = cardTokens?.media ?? {};
+  const headerTokens = cardTokens?.header ?? {};
+  const bodyClass = cardTokens?.body ?? '';
+  const footerClass = cardTokens?.footer ?? '';
+  const interactiveClass = cardTokens?.interactive ?? '';
+  const analytics = cardTokens?.analytics ?? {};
+
   const resolvedVariant = variantStyles[variant] ? variant : 'default';
   const resolvedPadding = paddingStyles[padding] ? padding : 'md';
   const resolvedOrientation = orientationStyles[orientation] ? orientation : 'vertical';
   const resolvedHighlight = highlightStyles[highlight] ? highlight : undefined;
 
   const isLinkLike = Component === 'a' || Component === 'button';
-  const interactiveStyles = interactive
-    ? 'transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-300 hover:-translate-y-[2px]'
-    : '';
+  const interactiveStyles = interactive ? interactiveClass : '';
 
-  const mediaWrapperClass = orientation === 'horizontal' ? 'md:w-56' : 'w-full';
+  const mediaWrapperClass = classNames(
+    mediaTokens.base,
+    orientation === 'horizontal' ? mediaTokens.horizontal : mediaTokens.vertical,
+  );
   const currentMetaTone = resolvedVariant === 'dark' ? metaTone.dark : metaTone.default;
+
+  const componentClassName = classNames(
+    baseClass,
+    variantStyles[resolvedVariant],
+    paddingStyles[resolvedPadding],
+    orientationStyles[resolvedOrientation],
+    interactiveStyles,
+    fullHeight ? 'h-full' : 'h-auto',
+    className,
+  );
+
+  const dataAttributes = {};
+  if (analytics?.datasetVariant) {
+    dataAttributes[analytics.datasetVariant] = resolvedVariant;
+  } else {
+    dataAttributes['data-variant'] = resolvedVariant;
+  }
+  if (analytics?.datasetOrientation) {
+    dataAttributes[analytics.datasetOrientation] = resolvedOrientation;
+  } else {
+    dataAttributes['data-orientation'] = resolvedOrientation;
+  }
+  if (interactive) {
+    const interactiveKey = analytics?.datasetInteractive ?? 'data-interactive';
+    dataAttributes[interactiveKey] = 'true';
+  }
 
   return (
     <Component
       ref={ref}
-      className={classNames(
-        'group relative flex overflow-hidden rounded-[2.75rem] backdrop-blur transition-transform duration-200',
-        variantStyles[resolvedVariant],
-        paddingStyles[resolvedPadding],
-        orientationStyles[resolvedOrientation],
-        interactiveStyles,
-        fullHeight ? 'h-full' : 'h-auto',
-        className,
-      )}
-      data-variant={resolvedVariant}
-      data-orientation={resolvedOrientation}
-      data-interactive={interactive || undefined}
+      className={componentClassName}
       tabIndex={!isLinkLike && interactive ? 0 : undefined}
+      {...dataAttributes}
       {...rest}
     >
       {resolvedHighlight ? (
@@ -99,30 +103,24 @@ const CardScaffold = forwardRef(function CardScaffold(
           )}
         />
       ) : null}
-      {media ? (
-        <div className={classNames('overflow-hidden rounded-3xl border border-slate-200/40 bg-slate-50', mediaWrapperClass)}>
-          {media}
-        </div>
-      ) : null}
+      {media ? <div className={mediaWrapperClass}>{media}</div> : null}
       <div className="flex min-w-0 flex-1 flex-col gap-5">
-        <header className="space-y-3">
-          {eyebrow ? (
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{eyebrow}</p>
-          ) : null}
+        <header className={headerTokens.wrapper}>
+          {eyebrow ? <p className={headerTokens.eyebrow}>{eyebrow}</p> : null}
           {(title || subtitle || meta) ? (
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="space-y-2">
-                {title ? <h3 className="text-xl font-semibold tracking-tight">{title}</h3> : null}
-                {subtitle ? <p className="text-sm font-medium text-slate-500">{subtitle}</p> : null}
-                {description ? <p className="text-sm text-slate-600">{description}</p> : null}
+                {title ? <h3 className={headerTokens.title}>{title}</h3> : null}
+                {subtitle ? <p className={headerTokens.subtitle}>{subtitle}</p> : null}
+                {description ? <p className={headerTokens.description}>{description}</p> : null}
               </div>
-              {meta ? <div className={classNames('text-sm text-right', currentMetaTone)}>{meta}</div> : null}
+              {meta ? <div className={classNames(headerTokens.meta, currentMetaTone)}>{meta}</div> : null}
             </div>
           ) : null}
         </header>
-        {children ? <div className="space-y-3 text-sm text-slate-600">{children}</div> : null}
+        {children ? <div className={bodyClass}>{children}</div> : null}
         {(footer || actions) ? (
-          <footer className="mt-auto flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
+          <footer className={footerClass}>
             {footer}
             {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
           </footer>
@@ -134,10 +132,10 @@ const CardScaffold = forwardRef(function CardScaffold(
 
 CardScaffold.propTypes = {
   as: PropTypes.elementType,
-  variant: PropTypes.oneOf(Object.keys(variantStyles)),
-  orientation: PropTypes.oneOf(['vertical', 'horizontal']),
-  padding: PropTypes.oneOf(Object.keys(paddingStyles)),
-  highlight: PropTypes.oneOf(['primary', 'success', 'warning', 'danger']),
+  variant: PropTypes.oneOf(CARD_VARIANTS),
+  orientation: PropTypes.oneOf(CARD_ORIENTATIONS),
+  padding: PropTypes.oneOf(CARD_PADDING),
+  highlight: PropTypes.oneOf(CARD_HIGHLIGHTS),
   eyebrow: PropTypes.node,
   title: PropTypes.node,
   subtitle: PropTypes.node,

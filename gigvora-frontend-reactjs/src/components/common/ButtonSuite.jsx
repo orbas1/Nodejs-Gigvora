@@ -2,60 +2,19 @@ import { forwardRef, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import { classNames } from '../../utils/classNames.js';
+import { useComponentTokens } from '../../context/ComponentTokenContext.jsx';
+import { DEFAULT_COMPONENT_TOKENS } from '@shared-contracts/domain/platform/component-tokens.js';
 
-const variantStyles = {
-  primary:
-    'bg-gradient-to-tr from-blue-600 via-indigo-500 to-sky-500 text-white shadow-soft hover:shadow-[0_28px_65px_-35px_rgba(37,99,235,0.7)] hover:brightness-[1.02]',
-  secondary:
-    'bg-white/95 text-slate-900 shadow-subtle border border-slate-200 hover:border-slate-300 hover:shadow-soft',
-  outline:
-    'bg-white/70 text-slate-900 border border-slate-300 hover:border-blue-300 hover:text-blue-700 hover:bg-white/90 shadow-subtle',
-  ghost:
-    'bg-transparent text-slate-600 hover:text-blue-700 hover:bg-blue-50/70 border border-transparent',
-  elevated:
-    'bg-gradient-to-br from-white via-blue-50/80 to-blue-100/70 text-blue-900 shadow-soft hover:-translate-y-[1px] hover:shadow-[0_32px_70px_-40px_rgba(15,23,42,0.6)]',
-  danger:
-    'bg-gradient-to-tr from-rose-600 via-rose-500 to-fuchsia-500 text-white shadow-soft hover:shadow-[0_28px_65px_-35px_rgba(244,63,94,0.6)]',
-};
+const BUTTON_VARIANTS = Object.keys(DEFAULT_COMPONENT_TOKENS.buttonSuite.variants);
+const BUTTON_SIZES = Object.keys(DEFAULT_COMPONENT_TOKENS.buttonSuite.sizes);
 
-const sizeStyles = {
-  xs: 'text-xs px-3 py-1.5',
-  sm: 'text-sm px-4 py-2',
-  md: 'text-sm px-5 py-2.5',
-  lg: 'text-base px-6 py-3',
-};
-
-const iconOnlyStyles = {
-  xs: 'p-1.5',
-  sm: 'p-2',
-  md: 'p-2.5',
-  lg: 'p-3',
-};
-
-const iconSizes = {
-  xs: 'h-4 w-4',
-  sm: 'h-4 w-4',
-  md: 'h-5 w-5',
-  lg: 'h-6 w-6',
-};
-
-const spinnerSizes = {
-  xs: 'h-4 w-4',
-  sm: 'h-4 w-4',
-  md: 'h-5 w-5',
-  lg: 'h-5 w-5',
-};
-
-const baseStyles =
-  'relative isolate inline-flex items-center justify-center gap-2 overflow-hidden whitespace-nowrap rounded-full font-semibold tracking-tight transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-sky-300 disabled:cursor-not-allowed disabled:opacity-70';
-
-function renderVisual(visual, size) {
+function renderVisual(visual, sizeClass) {
   if (!visual) {
     return null;
   }
 
   return (
-    <span className={classNames('flex items-center justify-center', iconSizes[size])} aria-hidden>
+    <span className={classNames('flex items-center justify-center', sizeClass)} aria-hidden>
       {visual}
     </span>
   );
@@ -80,20 +39,33 @@ const ButtonSuite = forwardRef(function ButtonSuite(
   },
   ref,
 ) {
+  const { tokens: buttonTokens } = useComponentTokens('buttonSuite');
+  const variantStyles = buttonTokens?.variants ?? {};
+  const sizeStyles = buttonTokens?.sizes ?? {};
+  const iconOnlyStyles = buttonTokens?.iconOnlyPadding ?? {};
+  const iconSizes = buttonTokens?.iconSizes ?? {};
+  const spinnerSizes = buttonTokens?.spinnerSizes ?? {};
+  const baseStyles = buttonTokens?.base ?? '';
+  const states = buttonTokens?.states ?? {};
+  const analytics = buttonTokens?.analytics ?? {};
+
   const resolvedVariant = useMemo(() => {
     if (variantStyles[variant]) {
       return variant;
     }
     return 'primary';
-  }, [variant]);
+  }, [variant, variantStyles]);
 
+  const sizeToken = sizeStyles[size] ?? {};
   const componentClassName = classNames(
     baseStyles,
-    variantStyles[resolvedVariant],
-    iconOnly ? iconOnlyStyles[size] : sizeStyles[size],
-    fullWidth ? 'w-full' : 'w-auto',
-    subtle ? 'opacity-90 hover:opacity-100' : '',
-    pressed ? 'ring-2 ring-offset-2 ring-blue-200' : '',
+    variantStyles[resolvedVariant]?.class ?? variantStyles[resolvedVariant],
+    iconOnly ? iconOnlyStyles[size] : sizeToken?.padding,
+    sizeToken?.text,
+    sizeToken?.gap,
+    fullWidth ? states.fullWidth : '',
+    subtle ? states.subtle : '',
+    pressed ? states.pressed : '',
     className,
   );
 
@@ -105,16 +77,26 @@ const ButtonSuite = forwardRef(function ButtonSuite(
     console.warn('ButtonSuite iconOnly buttons should include an aria-label for accessibility.');
   }
 
+  const dataAttributes = { 'data-size': size };
+  if (analytics?.datasetKey) {
+    dataAttributes[analytics.datasetKey] = resolvedVariant;
+  } else {
+    dataAttributes['data-variant'] = resolvedVariant;
+  }
+  if (analytics?.pressedKey) {
+    dataAttributes[analytics.pressedKey] = pressed || undefined;
+  } else {
+    dataAttributes['data-pressed'] = pressed || undefined;
+  }
+
   return (
     <Component
       ref={ref}
       className={componentClassName}
-      data-variant={resolvedVariant}
-      data-size={size}
-      data-pressed={pressed || undefined}
       aria-pressed={Component === 'button' && typeof pressed === 'boolean' ? pressed : undefined}
       aria-busy={loading || undefined}
       disabled={Component === 'button' ? isDisabled : undefined}
+      {...dataAttributes}
       {...rest}
     >
       {loading ? (
@@ -130,9 +112,9 @@ const ButtonSuite = forwardRef(function ButtonSuite(
         </span>
       ) : null}
       <span className={classNames('flex items-center gap-2', loading ? 'opacity-0' : 'opacity-100')}>
-        {renderVisual(leadingIcon, size)}
+        {renderVisual(leadingIcon, iconSizes[size])}
         {children ? <span>{children}</span> : null}
-        {renderVisual(trailingIcon, size)}
+        {renderVisual(trailingIcon, iconSizes[size])}
       </span>
     </Component>
   );
@@ -140,8 +122,8 @@ const ButtonSuite = forwardRef(function ButtonSuite(
 
 ButtonSuite.propTypes = {
   as: PropTypes.elementType,
-  variant: PropTypes.oneOf(Object.keys(variantStyles)),
-  size: PropTypes.oneOf(Object.keys(sizeStyles)),
+  variant: PropTypes.oneOf(BUTTON_VARIANTS),
+  size: PropTypes.oneOf(BUTTON_SIZES),
   fullWidth: PropTypes.bool,
   leadingIcon: PropTypes.node,
   trailingIcon: PropTypes.node,
@@ -170,7 +152,13 @@ ButtonSuite.defaultProps = {
   subtle: false,
 };
 
-function ButtonSuiteGroup({ children, orientation = 'horizontal', align = 'start', wrap = true, className }) {
+function ButtonSuiteGroup({
+  children = null,
+  orientation = 'horizontal',
+  align = 'start',
+  wrap = true,
+  className = '',
+}) {
   const layout = orientation === 'vertical' ? 'flex-col' : 'flex-row';
   const alignment =
     align === 'center' ? 'items-center' : align === 'end' ? 'items-end justify-end' : 'items-start';
@@ -195,14 +183,6 @@ ButtonSuiteGroup.propTypes = {
   align: PropTypes.oneOf(['start', 'center', 'end']),
   wrap: PropTypes.bool,
   className: PropTypes.string,
-};
-
-ButtonSuiteGroup.defaultProps = {
-  children: null,
-  orientation: 'horizontal',
-  align: 'start',
-  wrap: true,
-  className: '',
 };
 
 ButtonSuite.Group = ButtonSuiteGroup;
