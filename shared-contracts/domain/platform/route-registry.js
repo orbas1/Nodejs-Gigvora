@@ -45,6 +45,7 @@ const ROUTE_COLLECTION_DEFINITIONS = {
       { path: 'community-guidelines', module: 'pages/CommunityGuidelinesPage.jsx' },
       { path: 'faq', module: 'pages/FaqPage.jsx' },
       { path: 'about', module: 'pages/AboutPage.jsx' },
+      { path: 'marketing', module: 'pages/MarketingExperiencePage.jsx' },
       { path: 'preview/freelancer-reviews', module: 'pages/previews/FreelancerReviewsPreviewPage.jsx' },
       { path: 'blog', module: 'pages/BlogPage.jsx' },
       { path: 'blog/:slug', module: 'pages/BlogArticlePage.jsx' },
