@@ -122,6 +122,139 @@
               "type": "null"
             }
           ]
+        },
+        "searchFilters": {
+          "type": "object",
+          "properties": {
+            "ranking": {
+              "type": "object",
+              "properties": {
+                "score": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "tier": {
+                  "type": "string",
+                  "enum": [
+                    "signature",
+                    "premium",
+                    "core",
+                    "emerging"
+                  ]
+                },
+                "lastEvaluatedAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "algorithmVersion": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "signals": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "score",
+                "tier"
+              ],
+              "additionalProperties": false
+            },
+            "freshness": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "vibrant",
+                    "active",
+                    "cooling",
+                    "dormant"
+                  ]
+                },
+                "updatedAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "daysSinceInteraction": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "decayRate": {
+                  "anyOf": [
+                    {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "signals": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "status"
+              ],
+              "additionalProperties": false
+            },
+            "audienceTags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "highlightedMentors": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "featuredGroups": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "ranking",
+            "freshness"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -137,7 +270,8 @@
         "billingStatus",
         "nextMilestone",
         "nextMilestoneDueAt",
-        "lastActivityAt"
+        "lastActivityAt",
+        "searchFilters"
       ],
       "additionalProperties": false
     }

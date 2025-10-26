@@ -6,11 +6,13 @@ import useFormState from '../hooks/useFormState.js';
 import { requestPasswordReset } from '../services/auth.js';
 import apiClient from '../services/apiClient.js';
 import { isValidEmail } from '../utils/validation.js';
-import { RESEND_DEFAULT_SECONDS, normaliseEmail } from '../utils/authHelpers.js';
+import { RESEND_DEFAULT_SECONDS, normaliseEmail, loadRememberedLogin } from '../utils/authHelpers.js';
 
 export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState('');
+  const [rememberedMeta] = useState(() => loadRememberedLogin());
+  const [email, setEmail] = useState(() => rememberedMeta?.email ?? '');
   const [cooldown, setCooldown] = useState(0);
+  const [initialCooldown, setInitialCooldown] = useState(0);
   const {
     status,
     setStatus,
@@ -53,6 +55,33 @@ export default function ForgotPasswordPage() {
     return `${minutes}:${seconds.toString().padStart(2, '0')} min`;
   }, [cooldown]);
 
+  const rememberedEmailPrefilled = Boolean(rememberedMeta?.email);
+  const rememberedSavedAt = Number.isFinite(rememberedMeta?.savedAt) ? rememberedMeta.savedAt : null;
+  const rememberedLabel = useMemo(() => {
+    if (!rememberedSavedAt) {
+      return null;
+    }
+    try {
+      return new Intl.DateTimeFormat('en-US', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }).format(new Date(rememberedSavedAt));
+    } catch (error) {
+      return null;
+    }
+  }, [rememberedSavedAt]);
+
+  const cooldownProgress = useMemo(() => {
+    if (!initialCooldown) {
+      return 0;
+    }
+    const consumed = initialCooldown - cooldown;
+    if (consumed <= 0) {
+      return 0;
+    }
+    return Math.min(100, Math.round((consumed / initialCooldown) * 100));
+  }, [cooldown, initialCooldown]);
+
   const resolveCooldownSeconds = (error) => {
     if (!error?.body || typeof error.body !== 'object') {
       return null;
@@ -90,12 +119,14 @@ export default function ForgotPasswordPage() {
       await requestPasswordReset(normaliseEmail(email));
       const nextCooldown = RESEND_DEFAULT_SECONDS;
       setCooldown(nextCooldown);
+      setInitialCooldown(nextCooldown);
       setSuccess('Check your inbox for the secure link to reset your password.');
     } catch (error) {
       if (error instanceof apiClient.ApiError) {
         if (error.status === 429) {
           const retrySeconds = resolveCooldownSeconds(error) ?? RESEND_DEFAULT_SECONDS;
           setCooldown(retrySeconds);
+          setInitialCooldown(retrySeconds);
           setError(`You requested too many resets. Try again in ${retrySeconds} seconds.`);
         } else {
           setError(error.body?.message || error.message);
@@ -138,6 +169,11 @@ export default function ForgotPasswordPage() {
                 autoComplete="email"
                 required
               />
+              {rememberedEmailPrefilled && rememberedLabel ? (
+                <p className="text-xs text-slate-500" role="status" aria-live="polite">
+                  Prefilled from your last secure sign-in on {rememberedLabel}.
+                </p>
+              ) : null}
             </div>
             <button
               type="submit"
@@ -151,9 +187,17 @@ export default function ForgotPasswordPage() {
                   : 'Send reset link'}
             </button>
             {isCoolingDown ? (
-              <p className="text-center text-xs font-medium text-slate-500" role="status" aria-live="polite">
-                You can request another link once the {formattedCooldown ?? `${cooldown}s`} cooldown finishes.
-              </p>
+              <div className="space-y-2" role="status" aria-live="polite">
+                <p className="text-center text-xs font-medium text-slate-500">
+                  You can request another link once the {formattedCooldown ?? `${cooldown}s`} cooldown finishes.
+                </p>
+                <div className="mx-auto h-1.5 w-full max-w-sm rounded-full bg-slate-200">
+                  <div
+                    className="h-1.5 rounded-full bg-accent transition-all duration-500"
+                    style={{ width: `${cooldownProgress}%` }}
+                  />
+                </div>
+              </div>
             ) : null}
             <button
               type="button"

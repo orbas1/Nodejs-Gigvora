@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { LockClosedIcon } from '@heroicons/react/24/outline';
-import useSession from '../../hooks/useSession.js';
+import ProtectedRoute from '../routing/ProtectedRoute.jsx';
 
 function AccessDenied({ requiredRoles = [] }) {
   const message = requiredRoles.length
@@ -41,23 +41,24 @@ function AccessDenied({ requiredRoles = [] }) {
 
 export default function RequireDashboardAccess({ requiredRoles = [], children }) {
   const location = useLocation();
-  const { isAuthenticated, session } = useSession();
-
-  const hasMembership = useMemo(() => {
-    if (!Array.isArray(requiredRoles) || requiredRoles.length === 0) {
-      return true;
+  const normalizedRoles = useMemo(() => {
+    if (!Array.isArray(requiredRoles)) {
+      return requiredRoles ? [requiredRoles] : [];
     }
-    const memberships = session?.memberships ?? [];
-    return requiredRoles.some((role) => memberships.includes(role));
-  }, [requiredRoles, session?.memberships]);
+    return requiredRoles;
+  }, [requiredRoles]);
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace state={{ redirectTo: location.pathname }} />;
-  }
-
-  if (!hasMembership) {
-    return <AccessDenied requiredRoles={requiredRoles} />;
-  }
-
-  return children;
+  return (
+    <ProtectedRoute
+      allowedRoles={normalizedRoles}
+      allowedMemberships={normalizedRoles}
+      preferDashboardRedirect={false}
+      fallback={() => <AccessDenied requiredRoles={normalizedRoles} />}
+      unauthenticatedFallback={() => (
+        <Navigate to="/login" replace state={{ redirectTo: location.pathname }} />
+      )}
+    >
+      {children}
+    </ProtectedRoute>
+  );
 }

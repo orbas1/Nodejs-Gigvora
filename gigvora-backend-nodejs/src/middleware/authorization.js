@@ -1,30 +1,59 @@
 import { ValidationError } from '../utils/errors.js';
+import {
+  describePermissionRequirement,
+  hasPermission as registryHasPermission,
+  normaliseMembershipKey,
+  normalisePermissionKey,
+  resolveAuthorizationState,
+} from '../config/permissionRegistry.js';
+
+function coerceMembershipValue(input) {
+  if (input == null) {
+    return [];
+  }
+
+  if (Array.isArray(input)) {
+    return input.flatMap((value) => coerceMembershipValue(value));
+  }
+
+  if (typeof input === 'object') {
+    if (typeof input.role !== 'undefined') {
+      return coerceMembershipValue(input.role);
+    }
+    if (typeof input.key !== 'undefined') {
+      return coerceMembershipValue(input.key);
+    }
+    if (typeof input.membership !== 'undefined') {
+      return coerceMembershipValue(input.membership);
+    }
+    return [];
+  }
+
+  const normalised = normaliseMembershipKey(input);
+  return normalised ? [normalised] : [];
+}
 
 function normaliseMemberships(input) {
   if (input == null) {
     return [];
   }
   if (Array.isArray(input)) {
-    const aggregated = [];
-    input.forEach((value) => {
-      normaliseMemberships(value).forEach((entry) => {
-        if (entry && !aggregated.includes(entry)) {
-          aggregated.push(entry);
-        }
-      });
-    });
-    return aggregated;
+    return Array.from(
+      new Set(
+        input.flatMap((value) => normaliseMemberships(value)).filter(Boolean),
+      ),
+    );
   }
   if (typeof input === 'string') {
     return input
       .split(/[,\s]+/)
-      .map((value) => value.trim().toLowerCase())
-      .filter((value, index, array) => value.length > 0 && array.indexOf(value) === index);
+      .map((value) => normaliseMembershipKey(value))
+      .filter((value, index, array) => value && array.indexOf(value) === index);
   }
   if (typeof input === 'object') {
-    return normaliseMemberships(Object.values(input));
+    return coerceMembershipValue(input);
   }
-  const normalised = `${input}`.trim().toLowerCase();
+  const normalised = normaliseMembershipKey(input);
   return normalised ? [normalised] : [];
 }
 
@@ -40,13 +69,14 @@ function normalizeToArray(input) {
   if (typeof input === 'string') {
     return input
       .split(',')
-      .map((value) => value.trim().toLowerCase())
+      .map((value) => normaliseMembershipKey(value))
       .filter((value) => value.length > 0);
   }
   if (typeof input === 'object') {
-    return normaliseMemberships(Object.values(input));
+    return coerceMembershipValue(input);
   }
-  return [`${input}`.trim().toLowerCase()].filter((value) => value.length > 0);
+  const normalised = normaliseMembershipKey(input);
+  return normalised ? [normalised] : [];
 }
 
 export function extractMemberships(req) {
@@ -65,6 +95,26 @@ export function extractMemberships(req) {
   }
 
   return [];
+}
+
+export function resolveRequestAuthorization(req) {
+  if (req.authorization && req.authorization.permissionSet) {
+    return req.authorization;
+  }
+  const memberships = extractMemberships(req);
+  const explicitPermissions = Array.isArray(req.user?.permissions)
+    ? req.user.permissions
+    : [];
+  const state = resolveAuthorizationState({ memberships, permissions: explicitPermissions });
+  if (req.authorization && typeof req.authorization === 'object') {
+    Object.entries(req.authorization).forEach(([key, value]) => {
+      if (typeof state[key] === 'undefined') {
+        state[key] = value;
+      }
+    });
+  }
+  req.authorization = state;
+  return state;
 }
 
 export function requireMembership(allowed = [], { allowAdmin = true } = {}) {
@@ -186,6 +236,10 @@ function collectRequestRoles(req) {
 }
 
 export function hasProjectManagementAccess(req) {
+  const state = resolveRequestAuthorization(req);
+  if (registryHasPermission(state, 'projects:manage')) {
+    return true;
+  }
   const roles = collectRequestRoles(req);
   if (!roles.size) {
     return false;
@@ -258,6 +312,41 @@ export function requireRoles(roles, options) {
   return requireMembership(roles, options);
 }
 
+export function requirePermission(permissionKey, { allowAdmin = true } = {}) {
+  const normalised = normalisePermissionKey(permissionKey);
+  if (!normalised) {
+    throw new ValidationError('requirePermission middleware requires a valid permission key.');
+  }
+
+  return (req, res, next) => {
+    const state = resolveRequestAuthorization(req);
+    if (registryHasPermission(state, normalised, { allowAdminOverride: allowAdmin })) {
+      return next();
+    }
+
+    const requirement = describePermissionRequirement(normalised);
+    const allowedMemberships = requirement?.allowedMemberships ?? [];
+    const response = {
+      message: requirement?.message ?? 'You do not have permission to access this resource.',
+      code: 'permission_denied',
+      permission: normalised,
+      permissionLabel: requirement?.permission?.label ?? normalised,
+      allowedMemberships: allowedMemberships.map((membership) => membership.key),
+      escalationPath: requirement?.permission?.escalationPath ?? [],
+    };
+
+    if (allowedMemberships.length) {
+      response.allowedMembershipDetails = allowedMemberships.map((membership) => ({
+        key: membership.key,
+        label: membership.label,
+        tier: membership.tier,
+      }));
+    }
+
+    return res.status(403).json(response);
+  };
+}
+
 export default {
   extractMemberships,
   requireMembership,
@@ -265,4 +354,6 @@ export default {
   hasProjectManagementAccess,
   requireProjectManagementRole,
   requireUserType,
+  requirePermission,
+  resolveRequestAuthorization,
 };
