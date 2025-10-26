@@ -12,6 +12,8 @@ import {
 import { useLayout } from '../context/LayoutContext.jsx';
 import { fetchInbox } from '../services/messaging.js';
 import analytics from '../services/analytics.js';
+import { fetchNavigationPulse } from '../services/navigation.js';
+import { deriveNavigationPulse, deriveNavigationTrending } from '../utils/navigationPulse.js';
 
 function normaliseThreadPreview(thread) {
   if (!thread) {
@@ -55,6 +57,14 @@ export default function Header() {
       return 'idle';
     }
     return navigator.onLine ? 'idle' : 'offline';
+  });
+  const navigationRequestController = useRef(null);
+  const [navigationInsights, setNavigationInsights] = useState({
+    status: 'idle',
+    pulse: null,
+    trending: null,
+    error: null,
+    generatedAt: null,
   });
 
   const isNavigatorOnline = useCallback(() => {
@@ -104,6 +114,89 @@ export default function Header() {
 
   const preferredShellTheme =
     session?.preferences?.shellTheme ?? session?.branding?.shellTheme ?? session?.shellTheme ?? null;
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setNavigationInsights({ status: 'idle', pulse: null, trending: null, error: null, generatedAt: null });
+      if (navigationRequestController.current) {
+        navigationRequestController.current.abort();
+        navigationRequestController.current = null;
+      }
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const fetchPulse = async () => {
+      if (navigationRequestController.current) {
+        navigationRequestController.current.abort();
+      }
+      const controller = new AbortController();
+      navigationRequestController.current = controller;
+      setNavigationInsights((previous) => ({
+        ...previous,
+        status: previous.status === 'success' ? 'refreshing' : 'loading',
+        error: null,
+      }));
+
+      try {
+        const response = await fetchNavigationPulse({
+          limit: 6,
+          persona: roleKey,
+          signal: controller.signal,
+        });
+        if (cancelled) {
+          return;
+        }
+        const payload = response?.data ?? response;
+        setNavigationInsights({
+          status: 'success',
+          pulse: Array.isArray(payload?.pulse) ? payload.pulse : null,
+          trending: Array.isArray(payload?.trending) ? payload.trending : null,
+          generatedAt: payload?.generatedAt ?? null,
+          error: null,
+        });
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+        setNavigationInsights((previous) => ({
+          ...previous,
+          status: 'error',
+          error: error?.body?.message ?? error?.message ?? 'Unable to load navigation insights.',
+        }));
+      } finally {
+        if (navigationRequestController.current === controller) {
+          navigationRequestController.current = null;
+        }
+      }
+    };
+
+    fetchPulse();
+
+    const intervalId = typeof window !== 'undefined' ? window.setInterval(fetchPulse, 120_000) : null;
+
+    return () => {
+      cancelled = true;
+      if (intervalId) {
+        window.clearInterval(intervalId);
+      }
+      if (navigationRequestController.current) {
+        navigationRequestController.current.abort();
+        navigationRequestController.current = null;
+      }
+    };
+  }, [isAuthenticated, roleKey]);
+
+  const navigationPulse = useMemo(
+    () => deriveNavigationPulse(session, marketingMenus, primaryNavigation, navigationInsights.pulse),
+    [marketingMenus, navigationInsights.pulse, primaryNavigation, session],
+  );
+
+  const navigationTrending = useMemo(
+    () => deriveNavigationTrending(marketingMenus, 6, navigationInsights.trending),
+    [marketingMenus, navigationInsights.trending],
+  );
 
   const refreshInboxPreview = useCallback(async () => {
     if (!isAuthenticated) {
@@ -247,6 +340,8 @@ export default function Header() {
       t={t}
       session={session}
       onMarketingSearch={handleMarketingSearch}
+      navigationPulse={navigationPulse}
+      navigationTrending={navigationTrending}
     />
   );
 }

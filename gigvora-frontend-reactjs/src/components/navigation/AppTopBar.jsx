@@ -20,7 +20,7 @@ import { LOGO_SRCSET, LOGO_URL } from '../../constants/branding.js';
 import { classNames } from '../../utils/classNames.js';
 import { resolveInitials } from '../../utils/user.js';
 import { formatRelativeTime } from '../../utils/date.js';
-import { deriveNavigationPulse } from '../../utils/navigationPulse.js';
+import { deriveNavigationPulse, deriveNavigationTrending } from '../../utils/navigationPulse.js';
 
 function UserMenu({ session, onLogout }) {
   const initials = resolveInitials(session?.name ?? session?.email ?? 'GV');
@@ -368,13 +368,24 @@ export default function AppTopBar({
   t,
   session,
   onMarketingSearch,
+  navigationPulse,
+  navigationTrending,
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const resolvedMarketingMenus = marketingNavigation ?? [];
-  const pulseInsights = useMemo(
-    () => deriveNavigationPulse(session, resolvedMarketingMenus, primaryNavigation),
-    [primaryNavigation, resolvedMarketingMenus, session],
-  );
+  const pulseInsights = useMemo(() => {
+    if (Array.isArray(navigationPulse) && navigationPulse.length > 0) {
+      return navigationPulse;
+    }
+    return deriveNavigationPulse(session, resolvedMarketingMenus, primaryNavigation);
+  }, [navigationPulse, primaryNavigation, resolvedMarketingMenus, session]);
+
+  const trendingEntries = useMemo(() => {
+    if (Array.isArray(navigationTrending) && navigationTrending.length > 0) {
+      return navigationTrending;
+    }
+    return deriveNavigationTrending(resolvedMarketingMenus, 6);
+  }, [navigationTrending, resolvedMarketingMenus]);
 
   const handleSearchSubmit = (event) => {
     event.preventDefault();
@@ -404,6 +415,8 @@ export default function AppTopBar({
         currentRoleKey={currentRoleKey}
         onMarketingSearch={onMarketingSearch}
         session={session}
+        navigationPulse={pulseInsights}
+        trendingEntries={trendingEntries}
       />
       <div className="relative mx-auto flex h-16 w-full items-center gap-3 px-4 sm:h-[4.75rem] sm:gap-4 sm:px-6 2xl:px-10">
         <div className="flex flex-1 items-center gap-3 lg:gap-5">
@@ -569,6 +582,23 @@ AppTopBar.propTypes = {
   t: PropTypes.func.isRequired,
   session: PropTypes.object,
   onMarketingSearch: PropTypes.func,
+  navigationPulse: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+      value: PropTypes.string.isRequired,
+      delta: PropTypes.string,
+      hint: PropTypes.string,
+    }),
+  ),
+  navigationTrending: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+      description: PropTypes.string,
+      to: PropTypes.string,
+    }),
+  ),
 };
 
 AppTopBar.defaultProps = {
@@ -578,4 +608,6 @@ AppTopBar.defaultProps = {
   currentRoleKey: 'user',
   session: null,
   onMarketingSearch: undefined,
+  navigationPulse: null,
+  navigationTrending: null,
 };

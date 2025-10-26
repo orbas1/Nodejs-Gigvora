@@ -7,15 +7,18 @@ import { ArrowUpRightIcon, ChevronDownIcon, MagnifyingGlassIcon } from '@heroico
 import { classNames } from '../../utils/classNames.js';
 import { deriveNavigationTrending, normaliseTrendingEntries } from '../../utils/navigationPulse.js';
 
-export default function MobileMegaMenu({ menus, search, onNavigate, onSearch }) {
+export default function MobileMegaMenu({ menus, search, onNavigate, onSearch, trendingEntries }) {
   const [query, setQuery] = useState('');
   const searchTrending = search?.trending;
   const trendingItems = useMemo(() => {
+    if (Array.isArray(trendingEntries) && trendingEntries.length > 0) {
+      return trendingEntries;
+    }
     if (Array.isArray(searchTrending) && searchTrending.length > 0) {
       return normaliseTrendingEntries(searchTrending, search);
     }
     return deriveNavigationTrending(menus, 6);
-  }, [menus, search, searchTrending]);
+  }, [menus, search, searchTrending, trendingEntries]);
   const primaryTrending = trendingItems.slice(0, 2);
   const secondaryTrending = trendingItems.slice(2);
   const trendingHelperText =
@@ -203,6 +206,14 @@ MobileMegaMenu.propTypes = {
   }),
   onNavigate: PropTypes.func,
   onSearch: PropTypes.func,
+  trendingEntries: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+      description: PropTypes.string,
+      to: PropTypes.string,
+    }),
+  ),
 };
 
 MobileMegaMenu.defaultProps = {
@@ -210,4 +221,5 @@ MobileMegaMenu.defaultProps = {
   search: null,
   onNavigate: undefined,
   onSearch: undefined,
+  trendingEntries: null,
 };

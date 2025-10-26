@@ -67,12 +67,16 @@ export default function MobileNavigation({
   currentRoleKey,
   onMarketingSearch,
   session,
+  navigationPulse,
+  trendingEntries,
 }) {
   const resolvedPrimaryNavigation = useMemo(() => primaryNavigation ?? [], [primaryNavigation]);
-  const personaPulse = useMemo(
-    () => deriveNavigationPulse(session, marketingNavigation, resolvedPrimaryNavigation),
-    [marketingNavigation, resolvedPrimaryNavigation, session],
-  );
+  const personaPulse = useMemo(() => {
+    if (Array.isArray(navigationPulse) && navigationPulse.length > 0) {
+      return navigationPulse;
+    }
+    return deriveNavigationPulse(session, marketingNavigation, resolvedPrimaryNavigation);
+  }, [marketingNavigation, navigationPulse, resolvedPrimaryNavigation, session]);
 
   return (
     <Transition show={open} as={Fragment}>
@@ -149,6 +153,7 @@ export default function MobileNavigation({
                   <MobileMegaMenu
                     menus={marketingNavigation}
                     search={marketingSearch}
+                    trendingEntries={trendingEntries}
                     onNavigate={onClose}
                     onSearch={(value) => {
                       onClose();
@@ -238,6 +243,23 @@ MobileNavigation.propTypes = {
   currentRoleKey: PropTypes.string,
   onMarketingSearch: PropTypes.func,
   session: PropTypes.object,
+  navigationPulse: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+      value: PropTypes.string.isRequired,
+      delta: PropTypes.string,
+      hint: PropTypes.string,
+    }),
+  ),
+  trendingEntries: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+      description: PropTypes.string,
+      to: PropTypes.string,
+    }),
+  ),
 };
 
 MobileNavigation.defaultProps = {
@@ -249,4 +271,6 @@ MobileNavigation.defaultProps = {
   currentRoleKey: 'user',
   onMarketingSearch: undefined,
   session: null,
+  navigationPulse: null,
+  trendingEntries: null,
 };

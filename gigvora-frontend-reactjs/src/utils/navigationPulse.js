@@ -59,7 +59,50 @@ function safeArray(input) {
   return input;
 }
 
-export function deriveNavigationPulse(session, marketingNavigation, primaryNavigation) {
+function normaliseMetricValue(metricValue, fallbackFormatter) {
+  if (metricValue == null) {
+    return fallbackFormatter();
+  }
+
+  if (typeof metricValue === 'object') {
+    if (metricValue.formatted) {
+      return metricValue.formatted;
+    }
+    if (typeof metricValue.raw === 'number') {
+      return fallbackFormatter(metricValue.raw);
+    }
+  }
+
+  if (typeof metricValue === 'number') {
+    return fallbackFormatter(metricValue);
+  }
+
+  if (typeof metricValue === 'string') {
+    return metricValue;
+  }
+
+  return fallbackFormatter();
+}
+
+function normaliseMetricDelta(metricDelta, fallback) {
+  if (!metricDelta && metricDelta !== 0) {
+    return fallback;
+  }
+  if (typeof metricDelta === 'object') {
+    if (metricDelta.formatted) {
+      return metricDelta.formatted;
+    }
+    if (typeof metricDelta.raw === 'number' && !Number.isNaN(metricDelta.raw)) {
+      return fallback;
+    }
+  }
+  if (typeof metricDelta === 'string') {
+    return metricDelta;
+  }
+  return fallback;
+}
+
+export function deriveNavigationPulse(session, marketingNavigation, primaryNavigation, remotePulse) {
   const marketingMenus = safeArray(marketingNavigation);
   const primaryNavItems = safeArray(primaryNavigation);
 
@@ -92,7 +135,7 @@ export function deriveNavigationPulse(session, marketingNavigation, primaryNavig
 
   const fallbackProjects = primaryNavItems.length * 6 || 24;
 
-  return [
+  const fallbackPulse = [
     {
       id: 'connections',
       label: 'Connections',
@@ -149,9 +192,36 @@ export function deriveNavigationPulse(session, marketingNavigation, primaryNavig
       hint: 'Engagement health today',
     },
   ];
+
+  if (Array.isArray(remotePulse) && remotePulse.length > 0) {
+    return remotePulse.map((metric, index) => {
+      const fallback = fallbackPulse.find((entry) => entry.id === metric.id) ?? fallbackPulse[index];
+      const valueFormatter = (rawValue) => formatCompactNumber(rawValue, fallback?.value ?? '0');
+      const value = normaliseMetricValue(metric.value, valueFormatter);
+      const delta = normaliseMetricDelta(metric.delta, fallback?.delta ?? '');
+      return {
+        id: metric.id ?? fallback?.id ?? `pulse-${index}`,
+        label: metric.label ?? fallback?.label ?? 'Insight',
+        value,
+        delta,
+        hint: metric.hint ?? fallback?.hint ?? '',
+      };
+    });
+  }
+
+  return fallbackPulse;
 }
 
-export function deriveNavigationTrending(menus, limit = 4) {
+export function deriveNavigationTrending(menus, limit = 4, remoteEntries) {
+  if (Array.isArray(remoteEntries) && remoteEntries.length > 0) {
+    return remoteEntries.slice(0, Math.max(limit, 0)).map((entry, index) => ({
+      id: entry.id ?? `trending-${index}`,
+      label: entry.label ?? entry.topic ?? entry.name ?? 'Trending',
+      description: entry.description ?? entry.summary ?? entry.helperText ?? '',
+      to: entry.to ?? entry.href ?? '/search',
+    }));
+  }
+
   const aggregated = [];
   safeArray(menus).forEach((menu) => {
     safeArray(menu.sections).forEach((section) => {
