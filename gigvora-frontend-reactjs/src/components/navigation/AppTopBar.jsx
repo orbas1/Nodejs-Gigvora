@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import { Menu, Transition } from '@headlessui/react';
@@ -305,6 +305,38 @@ export default function AppTopBar({
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const resolvedMarketingMenus = marketingNavigation ?? [];
+  const searchInputRef = useRef(null);
+
+  useEffect(() => {
+    if (!marketingSearch) {
+      return undefined;
+    }
+
+    const handleKeyDown = (event) => {
+      const isModifierShortcut = event.key.toLowerCase() === 'k' && (event.metaKey || event.ctrlKey);
+      const isSlashShortcut = event.key === '/' && !event.metaKey && !event.ctrlKey && !event.altKey;
+
+      if (!isModifierShortcut && !isSlashShortcut) {
+        return;
+      }
+
+      const target = event.target;
+      const tagName = target?.tagName?.toLowerCase();
+      const isEditable = target?.isContentEditable;
+
+      if (tagName === 'input' || tagName === 'textarea' || isEditable) {
+        return;
+      }
+
+      event.preventDefault();
+      searchInputRef.current?.focus({ preventScroll: true });
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [marketingSearch]);
 
   const handleSearchSubmit = (event) => {
     event.preventDefault();
@@ -329,6 +361,7 @@ export default function AppTopBar({
         roleOptions={roleOptions}
         currentRoleKey={currentRoleKey}
         onMarketingSearch={onMarketingSearch}
+        session={session}
       />
       <div className="mx-auto flex h-16 w-full items-center gap-3 px-4 sm:h-[4.75rem] sm:gap-4 sm:px-6 2xl:px-10">
         <div className="flex flex-1 items-center gap-3 lg:gap-5">
@@ -379,8 +412,12 @@ export default function AppTopBar({
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder={marketingSearch.placeholder}
+                ref={searchInputRef}
                 className="flex-1 border-0 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:ring-0"
               />
+              <span className="hidden items-center gap-1 rounded-full border border-slate-200 px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.25em] text-slate-400 md:inline-flex">
+                ⌘K
+              </span>
             </form>
           ) : null}
           {isAuthenticated ? (
