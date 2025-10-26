@@ -8,7 +8,7 @@ import ConnectionProfileCard from '../components/connections/ConnectionProfileCa
 import useSession from '../hooks/useSession.js';
 import useEngagementSignals from '../hooks/useEngagementSignals.js';
 import useConnectionNetwork from '../hooks/useConnectionNetwork.js';
-import { createConnectionRequest, respondToConnection } from '../services/connections.js';
+import { createConnectionRequest, respondToConnection, withdrawConnection } from '../services/connections.js';
 
 export { default as ConnectionCard } from '../components/connections/ConnectionProfileCard.jsx';
 
@@ -285,11 +285,25 @@ export default function ConnectionsPage() {
     return dedupeInvitations([...networkSuggestions, ...recommendationPayload]);
   }, [network?.suggestedConnections, network?.suggested, recommendedConnections]);
 
-  const invitationAnalytics = network?.invitationAnalytics ?? {
-    acceptanceRate: summary?.acceptanceRate ?? '—',
-    medianResponse: network?.medianResponse ?? '12h',
-    closed: network?.closedIntroductions ?? incomingInvitations.length,
-  };
+  const invitationAnalytics = useMemo(() => {
+    const analytics = network?.invitationAnalytics ?? {};
+    const acceptanceValue = analytics.acceptanceRate;
+    const acceptanceRate =
+      typeof acceptanceValue === 'number'
+        ? Math.round(acceptanceValue)
+        : Number.isFinite(Number.parseFloat(acceptanceValue))
+        ? Math.round(Number.parseFloat(acceptanceValue))
+        : '—';
+    const closedValue =
+      typeof analytics.closed === 'number'
+        ? analytics.closed
+        : incomingInvitations.filter((invitation) => invitation.status === 'accepted').length;
+    return {
+      acceptanceRate,
+      medianResponse: analytics.medianResponse ?? '—',
+      closed: closedValue,
+    };
+  }, [network?.invitationAnalytics, incomingInvitations]);
 
   const handleConnect = useCallback(
     async (connection) => {
@@ -337,9 +351,18 @@ export default function ConnectionsPage() {
       if (!userId || !invitation?.id) {
         return;
       }
-      await respondToConnection({ connectionId: invitation.id, actorId: userId, decision: 'accept', note });
-      setFeedback({ type: 'success', message: `Accepted invitation from ${invitation.name}.` });
-      await networkState.refresh?.({ force: true });
+      try {
+        setFeedback(null);
+        await respondToConnection({ connectionId: invitation.id, actorId: userId, decision: 'accept', note });
+        setFeedback({ type: 'success', message: `Accepted invitation from ${invitation.name}.` });
+        await networkState.refresh?.({ force: true });
+      } catch (requestError) {
+        const message =
+          requestError?.body?.message ??
+          requestError?.message ??
+          `Unable to accept the invitation from ${invitation.name}.`;
+        setFeedback({ type: 'error', message });
+      }
     },
     [userId, networkState],
   );
@@ -349,9 +372,18 @@ export default function ConnectionsPage() {
       if (!userId || !invitation?.id) {
         return;
       }
-      await respondToConnection({ connectionId: invitation.id, actorId: userId, decision: 'decline', note });
-      setFeedback({ type: 'info', message: `Declined invitation from ${invitation.name}.` });
-      await networkState.refresh?.({ force: true });
+      try {
+        setFeedback(null);
+        await respondToConnection({ connectionId: invitation.id, actorId: userId, decision: 'reject', note });
+        setFeedback({ type: 'info', message: `Declined invitation from ${invitation.name}.` });
+        await networkState.refresh?.({ force: true });
+      } catch (requestError) {
+        const message =
+          requestError?.body?.message ??
+          requestError?.message ??
+          `Unable to decline the invitation from ${invitation.name}.`;
+        setFeedback({ type: 'error', message });
+      }
     },
     [userId, networkState],
   );
@@ -361,10 +393,22 @@ export default function ConnectionsPage() {
       if (!userId || !invitation?.id) {
         return;
       }
-      const decision = withdraw ? 'withdraw' : 'remind';
-      await respondToConnection({ connectionId: invitation.id, actorId: userId, decision, note });
-      setFeedback({ type: 'success', message: `${withdraw ? 'Withdrew' : 'Resent'} invitation for ${invitation.name}.` });
-      await networkState.refresh?.({ force: true });
+      if (!withdraw) {
+        setFeedback({ type: 'info', message: `Reminder set for ${invitation.name}.` });
+        return;
+      }
+      try {
+        setFeedback(null);
+        await withdrawConnection({ connectionId: invitation.id, actorId: userId });
+        setFeedback({ type: 'success', message: `Withdrew invitation for ${invitation.name}.` });
+        await networkState.refresh?.({ force: true });
+      } catch (requestError) {
+        const message =
+          requestError?.body?.message ??
+          requestError?.message ??
+          `Unable to withdraw the invitation for ${invitation.name}.`;
+        setFeedback({ type: 'error', message });
+      }
     },
     [userId, networkState],
   );
@@ -378,9 +422,18 @@ export default function ConnectionsPage() {
         setFeedback({ type: 'info', message: `Skipped invitation to ${invitation.name}.` });
         return;
       }
-      await createConnectionRequest({ actorId: userId, targetId: invitation.id, message: note });
-      setFeedback({ type: 'success', message: `Invitation sent to ${invitation.name}.` });
-      await networkState.refresh?.({ force: true });
+      try {
+        setFeedback(null);
+        await createConnectionRequest({ actorId: userId, targetId: invitation.id, message: note });
+        setFeedback({ type: 'success', message: `Invitation sent to ${invitation.name}.` });
+        await networkState.refresh?.({ force: true });
+      } catch (requestError) {
+        const message =
+          requestError?.body?.message ??
+          requestError?.message ??
+          `Unable to send the invitation to ${invitation.name}.`;
+        setFeedback({ type: 'error', message });
+      }
     },
     [userId, networkState],
   );

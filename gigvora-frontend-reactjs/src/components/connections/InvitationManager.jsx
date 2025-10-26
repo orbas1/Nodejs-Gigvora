@@ -70,6 +70,21 @@ function InvitationCard({
 }) {
   const personaLabel = invitation.persona ?? 'Member';
   const industries = invitation.industries ?? invitation.focusAreas ?? [];
+  const primaryLabel =
+    tab === 'incoming' ? 'Accept' : tab === 'suggestions' ? 'Send invite' : 'Withdraw';
+  const secondaryLabel =
+    tab === 'incoming' ? 'Decline' : tab === 'suggestions' ? 'Skip' : 'Remind me later';
+
+  const handlePrimary = () => {
+    const payload = tab === 'outgoing' ? { note, withdraw: true } : { note };
+    onPrimary?.(invitation, payload);
+  };
+
+  const handleSecondary = () => {
+    const payload = tab === 'outgoing' ? { note, withdraw: false } : { note };
+    onSecondary?.(invitation, payload);
+  };
+
   return (
     <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-soft transition hover:-translate-y-0.5 hover:shadow-xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -147,7 +162,7 @@ function InvitationCard({
         <button
           type="button"
           disabled={loading}
-          onClick={() => onPrimary?.(invitation, { note })}
+          onClick={handlePrimary}
           className={clsx(
             'inline-flex items-center gap-2 rounded-full px-5 py-2 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2',
             loading
@@ -157,13 +172,13 @@ function InvitationCard({
               : 'border border-accent text-accent hover:bg-accentSoft focus:ring-accent/40',
           )}
         >
-          {tab === 'incoming' ? 'Accept' : tab === 'suggestions' ? 'Send invite' : 'Resend'}
+          {primaryLabel}
           {loading ? '…' : null}
         </button>
         <button
           type="button"
           disabled={loading}
-          onClick={() => onSecondary?.(invitation, { note })}
+          onClick={handleSecondary}
           className={clsx(
             'inline-flex items-center gap-2 rounded-full border px-5 py-2 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2',
             loading
@@ -171,7 +186,7 @@ function InvitationCard({
               : 'border-slate-200 text-slate-500 hover:border-rose-200 hover:text-rose-500 focus:ring-rose-200',
           )}
         >
-          {tab === 'incoming' ? 'Decline' : tab === 'suggestions' ? 'Skip' : 'Withdraw'}
+          {secondaryLabel}
         </button>
       </div>
     </article>
@@ -215,6 +230,19 @@ export default function InvitationManager({
   const [selected, setSelected] = useState({ incoming: new Set(), outgoing: new Set(), suggestions: new Set() });
   const [noteDrafts, setNoteDrafts] = useState({});
   const [loadingKeys, setLoadingKeys] = useState(new Set());
+
+  const acceptanceDisplay = useMemo(() => {
+    if (!analytics) {
+      return '—';
+    }
+    if (typeof analytics.acceptanceRate === 'number') {
+      return `${analytics.acceptanceRate}%`;
+    }
+    if (analytics.acceptanceRate) {
+      return analytics.acceptanceRate;
+    }
+    return '—';
+  }, [analytics]);
 
   const tabConfig = useMemo(
     () => [
@@ -301,7 +329,8 @@ export default function InvitationManager({
       });
     }
     return withLoading(`${tabId}:${invitation.id}`, async () => {
-      await onRescind?.(invitation, { note });
+      const shouldWithdraw = payload?.withdraw ?? true;
+      await onRescind?.(invitation, { note, withdraw: shouldWithdraw });
     });
   };
 
@@ -318,7 +347,8 @@ export default function InvitationManager({
       });
     }
     return withLoading(`${tabId}:${invitation.id}`, async () => {
-      await onRescind?.(invitation, { note, withdraw: true });
+      const shouldWithdraw = payload?.withdraw ?? true;
+      await onRescind?.(invitation, { note, withdraw: shouldWithdraw });
     });
   };
 
@@ -360,7 +390,7 @@ export default function InvitationManager({
           <dl className="grid gap-4 text-xs text-slate-500 sm:auto-cols-max sm:grid-flow-col sm:items-center">
             <div>
               <dt className="uppercase tracking-wide">Acceptance rate</dt>
-              <dd className="mt-1 text-sm font-semibold text-emerald-600">{analytics.acceptanceRate ?? '—'}%</dd>
+              <dd className="mt-1 text-sm font-semibold text-emerald-600">{acceptanceDisplay}</dd>
             </div>
             <div>
               <dt className="uppercase tracking-wide">Median response</dt>

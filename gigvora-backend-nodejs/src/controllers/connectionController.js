@@ -56,11 +56,17 @@ export async function respondToConnection(req, res) {
     { required: true },
   );
   const actorId = parsePositiveInteger(req.body?.actorId ?? req.user?.id, 'actorId', { required: true });
-  const decision = `${req.body?.decision ?? req.body?.status ?? ''}`.toLowerCase();
+  const rawDecision = `${req.body?.decision ?? req.body?.status ?? ''}`.trim().toLowerCase();
+  const decision = rawDecision.startsWith('accept')
+    ? 'accept'
+    : rawDecision.startsWith('declin') || rawDecision.startsWith('reject')
+    ? 'reject'
+    : rawDecision === 'withdraw'
+    ? 'withdraw'
+    : null;
 
-  const allowed = new Set(['accepted', 'declined', 'pending', 'blocked']);
-  if (!allowed.has(decision)) {
-    throw new ValidationError('decision must be accepted, declined, pending, or blocked.');
+  if (!decision) {
+    throw new ValidationError('decision must be accept, decline, or withdraw.');
   }
 
   const result = await connectionService.respondToConnection({
@@ -76,8 +82,23 @@ export async function respondToConnection(req, res) {
   });
 }
 
+export async function withdrawConnection(req, res) {
+  const connectionId = parsePositiveInteger(req.params?.connectionId ?? req.params?.id, 'connectionId', {
+    required: true,
+  });
+  const actorId = parsePositiveInteger(
+    req.query?.actorId ?? req.body?.actorId ?? req.user?.id,
+    'actorId',
+    { required: true },
+  );
+
+  const result = await connectionService.withdrawConnection({ connectionId, actorId });
+  res.json(result);
+}
+
 export default {
   getNetwork,
   createConnection,
   respondToConnection,
+  withdrawConnection,
 };
