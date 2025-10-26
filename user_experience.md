@@ -214,3 +214,35 @@
    - Stage launches through mentor beta → agency rollout → global enablement.
    - Capture learnings via retrospectives for subsequent iterations.
    - Analytics gates, staged cohorts, and enablement materials structure the phased launch.
+
+### 7.B Escrow & Billing Mechanisms
+
+#### EscrowMilestoneTracker
+- Premium milestone timeline surfaces progressive disclosure with stat summaries, release windows, and compliance badges in a single instrumented surface so finance and legal teams grasp exposure instantly.
+- Inline compliance checklist mirrors the governance workflow, rendering requirement status, reviewer notes, and policy categorisation without duplicate markup.
+- Release and hold controls fire analytics hooks while respecting permission gating, giving operations deterministic pathways for fund movement.
+- Activity stream highlights the latest automation, finance, and client events with timestamps, actors, and contextual notes that remain legible in audits.
+- Documentation rail collects deliverables, risk memos, and approvals to keep milestone artefacts attached to the escrow narrative.
+- Memoised progress, risk, and balance analytics keep the tracker primed for anomaly overlays and executive dashboards.
+- Responsive timeline scaffolding, rounded shells, and premium tokens echo our finance aesthetic while leaving room for dispute visualisations.
+- Instrumented actions, requirement feeds, and attachment lanes enable compliance and legal audits to expand without rework.
+
+#### InvoiceGenerator
+- Guided billing workspace centralises invoice metadata, client selection, payment terms, and editorial guardrails to produce ready-to-send packets.
+- Real-time line item composer recalculates subtotals, taxes, discounts, and shipping with every keystroke, preventing reconciliation surprises.
+- Tax intelligence logs per-rate totals while letting operators mix jurisdictions or exempt lines without losing clarity.
+- Due-date logic respects payment terms and manual overrides, ensuring operators never lose track of collection windows.
+- Action rail exposes preview, send, and template-saving flows with analytics hooks so finance can orchestrate reviews and measure throughput.
+- Memoised summaries, inline adjustments, and reusable reducers keep billing performant while preparing for saved templates and automation.
+- Gradient-ready shells, frosted panels, and responsive grids maintain premium polish across desktop and mobile invoice workflows.
+- Instrumented preview, generation, and template flows plug into analytics funnels so finance ops can expand governance and QA rituals.
+
+#### SubscriptionManager
+- Executive summary tiles report recurring revenue, seat utilisation, churn signals, and automation coverage, matching leadership telemetry requirements.
+- Plan cards deliver deep subscription context—pricing cadence, seats, renewals, invoices, lifecycle, and highlights—without navigating away.
+- Seat governance blends utilisation indicators with commit controls that trigger instrumentation and auto-update hooks.
+- Automation, risk, and compliance insights surface alongside toggles for auto-renew and cancellation so ops teams stay in command.
+- Usage and feature chips keep teams focused on value delivery while signalling expansion opportunities and saturation risks.
+- Memoised rollups, utilisation gauges, and churn tracking pave the way for forecasting overlays and alerting automations.
+- Card layout, badge styling, and control spacing align with finance tokens so additional plan types and compliance banners can slot in cleanly.
+- Seat commits, auto-renew toggles, and cancellation hooks emit analytics for lifecycle governance and future billing automation.
