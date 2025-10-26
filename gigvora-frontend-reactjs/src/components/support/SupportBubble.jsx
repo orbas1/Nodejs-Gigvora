@@ -817,6 +817,9 @@ export default function SupportBubble({
                         if (onNavigateKnowledge) {
                           onNavigateKnowledge(article.url ?? null, article);
                         }
+                        if (onAction) {
+                          onAction({ type: 'knowledge-navigate', article });
+                        }
                       }}
                       className="group flex w-full items-start justify-between gap-3 rounded-2xl border border-transparent px-0 py-1 text-left transition hover:border-slate-200 hover:bg-slate-50"
                     >
