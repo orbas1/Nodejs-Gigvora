@@ -12,6 +12,8 @@ import {
 import { useLayout } from '../context/LayoutContext.jsx';
 import { fetchInbox } from '../services/messaging.js';
 import analytics from '../services/analytics.js';
+import { fetchSiteNavigation } from '../services/publicSite.js';
+import { transformMarketingNavigation } from '../utils/navigationTransformers.js';
 
 function normaliseThreadPreview(thread) {
   if (!thread) {
@@ -70,6 +72,39 @@ export default function Header() {
   }, []);
 
   useEffect(() => {
+    let ignore = false;
+
+    const loadNavigation = async () => {
+      try {
+        const params = { menuKey: 'marketing', format: 'tree' };
+        if (membershipSignature) {
+          params.roles = membershipSignature;
+        }
+        const navigation = await fetchSiteNavigation(params);
+        const transformed = transformMarketingNavigation(navigation, {
+          fallbackMenus: PRIMARY_NAVIGATION.menus,
+          fallbackSearch: PRIMARY_NAVIGATION.search,
+        });
+        if (!ignore) {
+          setMarketingMenus(transformed.menus.length ? transformed.menus : PRIMARY_NAVIGATION.menus);
+          setMarketingSearch(transformed.search ?? PRIMARY_NAVIGATION.search);
+        }
+      } catch (error) {
+        if (!ignore) {
+          setMarketingMenus(PRIMARY_NAVIGATION.menus);
+          setMarketingSearch(PRIMARY_NAVIGATION.search);
+        }
+      }
+    };
+
+    loadNavigation();
+
+    return () => {
+      ignore = true;
+    };
+  }, [membershipSignature]);
+
+  useEffect(() => {
     if (typeof window === 'undefined') {
       return undefined;
     }
@@ -98,8 +133,18 @@ export default function Header() {
   const roleKey = resolvePrimaryRoleKey(session);
   const primaryNavigation = useMemo(() => resolvePrimaryNavigation(session), [session]);
   const roleOptions = useMemo(() => buildRoleOptions(session), [session]);
-  const marketingMenus = useMemo(() => PRIMARY_NAVIGATION.menus, []);
-  const marketingSearch = PRIMARY_NAVIGATION.search;
+  const [marketingMenus, setMarketingMenus] = useState(PRIMARY_NAVIGATION.menus);
+  const [marketingSearch, setMarketingSearch] = useState(PRIMARY_NAVIGATION.search);
+  const membershipSignature = useMemo(() => {
+    if (!Array.isArray(session?.memberships) || session.memberships.length === 0) {
+      return '';
+    }
+    return session.memberships
+      .map((membership) => `${membership}`.trim().toLowerCase())
+      .filter(Boolean)
+      .sort()
+      .join(',');
+  }, [session?.memberships]);
 
   const refreshInboxPreview = useCallback(async () => {
     if (!isAuthenticated) {

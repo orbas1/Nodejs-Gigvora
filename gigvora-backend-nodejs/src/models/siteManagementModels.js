@@ -302,13 +302,15 @@ SitePage.filterVisibleToRoles = async function filterVisibleToRoles(roles = [], 
   return pages.filter((page) => page.canActorView(sanitizedRoles));
 };
 
+const NAVIGATION_DISPLAY_TYPES = new Set(['link', 'menu', 'section', 'search']);
+
 export const SiteNavigationLink = sequelize.define(
   'SiteNavigationLink',
   {
     id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
     menuKey: { type: DataTypes.STRING(80), allowNull: false, defaultValue: 'primary' },
     label: { type: DataTypes.STRING(160), allowNull: false },
-    url: { type: DataTypes.STRING(2048), allowNull: false },
+    url: { type: DataTypes.STRING(2048), allowNull: true },
     description: { type: DataTypes.STRING(255), allowNull: true },
     icon: { type: DataTypes.STRING(120), allowNull: true },
     orderIndex: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
@@ -316,6 +318,16 @@ export const SiteNavigationLink = sequelize.define(
     openInNewTab: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     allowedRoles: { type: jsonType, allowNull: true, defaultValue: DEFAULT_ALLOWED_ROLES },
     parentId: { type: DataTypes.INTEGER, allowNull: true },
+    displayType: {
+      type: DataTypes.ENUM('link', 'menu', 'section', 'search'),
+      allowNull: false,
+      defaultValue: 'link',
+    },
+    metadata: {
+      type: jsonType,
+      allowNull: false,
+      defaultValue: {},
+    },
   },
   {
     tableName: 'site_navigation_links',
@@ -330,6 +342,18 @@ SiteNavigationLink.addHook('beforeValidate', (link) => {
   link.allowedRoles = sanitizeArrayOfStrings(link.allowedRoles, DEFAULT_ALLOWED_ROLES);
   if (!Number.isFinite(link.orderIndex)) {
     link.orderIndex = 0;
+  }
+  const resolvedDisplayType = `${link.displayType || 'link'}`.trim().toLowerCase();
+  link.displayType = NAVIGATION_DISPLAY_TYPES.has(resolvedDisplayType) ? resolvedDisplayType : 'link';
+  if (link.displayType !== 'link' && link.url && typeof link.url === 'string') {
+    const trimmedUrl = link.url.trim();
+    link.url = trimmedUrl.length ? trimmedUrl : null;
+  }
+  if (link.displayType === 'link' && typeof link.url === 'string') {
+    link.url = link.url.trim();
+  }
+  if (!link.metadata || typeof link.metadata !== 'object' || Array.isArray(link.metadata)) {
+    link.metadata = {};
   }
 });
 
@@ -349,6 +373,11 @@ SiteNavigationLink.prototype.toPublicObject = function toPublicObject() {
     openInNewTab: Boolean(plain.openInNewTab),
     allowedRoles: Array.isArray(plain.allowedRoles) ? plain.allowedRoles : [],
     parentId: plain.parentId ?? null,
+    displayType: NAVIGATION_DISPLAY_TYPES.has(plain.displayType) ? plain.displayType : 'link',
+    metadata:
+      plain.metadata && typeof plain.metadata === 'object' && !Array.isArray(plain.metadata)
+        ? plain.metadata
+        : {},
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };

@@ -6,6 +6,7 @@ import {
 } from '../services/siteManagementService.js';
 import { AuthorizationError, ValidationError } from '../utils/errors.js';
 import { resolveRequestPermissions, resolveRequestUserId } from '../utils/requestContext.js';
+import { resolveRequestRoles } from '../middleware/authorization.js';
 
 const SITE_MANAGE_PERMISSIONS = new Set(['site:manage', 'cms:manage', 'marketing:site:manage']);
 const SITE_MANAGE_ROLES = new Set(['admin', 'platform_admin', 'marketing', 'content', 'editor']);
@@ -65,10 +66,41 @@ export async function settings(req, res) {
   res.json({ settings });
 }
 
+function collectNavigationRoles(req) {
+  const aggregated = new Set(resolveRequestRoles(req));
+  if (Array.isArray(req.user?.memberships)) {
+    req.user.memberships.forEach((role) => {
+      if (typeof role === 'string' && role.trim()) {
+        aggregated.add(role.trim().toLowerCase());
+      }
+    });
+  }
+
+  const queryRoles = req.query?.roles;
+  if (Array.isArray(queryRoles)) {
+    queryRoles.forEach((role) => {
+      if (typeof role === 'string' && role.trim()) {
+        aggregated.add(role.trim().toLowerCase());
+      }
+    });
+  } else if (typeof queryRoles === 'string') {
+    queryRoles
+      .split(',')
+      .map((role) => role.trim())
+      .filter(Boolean)
+      .forEach((role) => aggregated.add(role.toLowerCase()));
+  }
+
+  aggregated.add('guest');
+  return Array.from(aggregated);
+}
+
 export async function navigation(req, res) {
   const menuKey = req.query?.menuKey ? `${req.query.menuKey}`.trim() : undefined;
-  const links = await getSiteNavigation({ menuKey });
-  res.json({ links });
+  const format = req.query?.format ? `${req.query.format}`.trim().toLowerCase() : 'flat';
+  const actorRoles = collectNavigationRoles(req);
+  const navigation = await getSiteNavigation({ menuKey, format, actorRoles });
+  res.json({ navigation });
 }
 
 export async function index(req, res) {

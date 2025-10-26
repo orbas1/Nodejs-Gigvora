@@ -62,7 +62,13 @@ export async function fetchSiteNavigation(params = {}, options = {}) {
   const safeParams = ensureParams(params);
   const safeOptions = ensureOptions(options);
   const response = await apiClient.get('/site/navigation', { ...safeOptions, params: safeParams });
-  return normaliseResponse('links', response);
+  if (response?.navigation) {
+    return response.navigation;
+  }
+  if (Array.isArray(response?.links)) {
+    return { format: 'flat', menuKey: safeParams.menuKey ?? null, links: response.links };
+  }
+  return response;
 }
 
 export async function fetchSitePages(params = {}, options = {}) {

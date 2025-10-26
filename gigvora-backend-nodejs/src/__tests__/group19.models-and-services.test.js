@@ -453,7 +453,7 @@ describe('SEO and site management models', () => {
 
   test('site navigation serialises safe arrays', async () => {
     const link = await SiteNavigationLink.create({ menuKey: 'primary', label: 'Docs', url: '/docs' });
-    expect(link.toPublicObject()).toMatchObject({ label: 'Docs', allowedRoles: ['guest'] });
+    expect(link.toPublicObject()).toMatchObject({ label: 'Docs', allowedRoles: ['guest'], displayType: 'link' });
   });
 
   test('getSiteSettings hydrates homepage defaults with hero media and persona journeys', async () => {

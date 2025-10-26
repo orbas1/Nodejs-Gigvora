@@ -108,12 +108,66 @@ describe('siteManagementService', () => {
     await createNavigation({ label: 'Primary', url: 'https://gigvora.com/primary', menuKey: 'primary' });
     await createNavigation({ label: 'Footer', url: 'https://gigvora.com/footer', menuKey: 'footer' });
 
-    const allLinks = await getSiteNavigation();
-    expect(allLinks).toHaveLength(2);
+    const allNavigation = await getSiteNavigation();
+    expect(allNavigation.format).toBe('flat');
+    expect(allNavigation.links).toHaveLength(2);
 
-    const footerLinks = await getSiteNavigation({ menuKey: 'footer' });
-    expect(footerLinks).toHaveLength(1);
-    expect(footerLinks[0].label).toBe('Footer');
+    const footerNavigation = await getSiteNavigation({ menuKey: 'footer' });
+    expect(footerNavigation.links).toHaveLength(1);
+    expect(footerNavigation.links[0].label).toBe('Footer');
+  });
+
+  test('builds hierarchical navigation trees with metadata and search entries', async () => {
+    const menu = await createNavigation({
+      menuKey: 'marketing',
+      label: 'Discover',
+      description: 'Find relationships and opportunities.',
+      displayType: 'menu',
+      metadata: { identifier: 'discover', theme: { button: 'bg-slate-900/5' } },
+    });
+
+    const section = await createNavigation({
+      menuKey: 'marketing',
+      label: 'Communities',
+      description: 'Community destinations.',
+      displayType: 'section',
+      parentId: menu.id,
+    });
+
+    await createNavigation({
+      menuKey: 'marketing',
+      label: 'Connections',
+      url: '/connections',
+      description: 'Build trusted introductions.',
+      displayType: 'link',
+      parentId: section.id,
+      icon: 'UsersIcon',
+    });
+
+    await createNavigation({
+      menuKey: 'marketing',
+      label: 'Search Gigvora',
+      url: '/search',
+      displayType: 'search',
+      metadata: { placeholder: 'Search the Gigvora network', ariaLabel: 'Search Gigvora', id: 'marketing-search' },
+    });
+
+    const navigation = await getSiteNavigation({ menuKey: 'marketing', format: 'tree', actorRoles: ['guest'] });
+    expect(navigation.format).toBe('tree');
+    expect(Array.isArray(navigation.tree)).toBe(true);
+
+    const discover = navigation.tree.find((node) => node.label === 'Discover');
+    expect(discover?.displayType).toBe('menu');
+    expect(discover?.metadata?.identifier).toBe('discover');
+    expect(Array.isArray(discover?.children)).toBe(true);
+
+    const communities = discover?.children.find((child) => child.label === 'Communities');
+    expect(communities?.displayType).toBe('section');
+    expect(communities?.children?.[0]?.label).toBe('Connections');
+    expect(communities?.children?.[0]?.icon).toBe('UsersIcon');
+
+    const searchEntry = navigation.tree.find((node) => node.displayType === 'search');
+    expect(searchEntry?.metadata?.placeholder).toContain('Search');
   });
 
   test('lists only published pages by default and fetches individual page', async () => {

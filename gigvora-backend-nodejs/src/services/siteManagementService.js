@@ -539,6 +539,66 @@ const DEFAULT_MARKETING_FRAGMENT = {
   testimonials: [...DEFAULT_MARKETING_TESTIMONIALS],
 };
 
+const NAVIGATION_DISPLAY_TYPES = new Set(['link', 'menu', 'section', 'search']);
+
+function sanitizeMetadataValue(value) {
+  if (value == null) {
+    return undefined;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length ? trimmed : undefined;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    const sanitized = value
+      .map((entry) => sanitizeMetadataValue(entry))
+      .filter((entry) => entry !== undefined);
+    return sanitized.length ? sanitized : undefined;
+  }
+  if (typeof value === 'object') {
+    const entries = Object.entries(value)
+      .map(([key, nested]) => {
+        if (typeof key !== 'string' || !key.trim()) {
+          return null;
+        }
+        const sanitized = sanitizeMetadataValue(nested);
+        return sanitized !== undefined ? [key.trim(), sanitized] : null;
+      })
+      .filter(Boolean);
+    if (!entries.length) {
+      return undefined;
+    }
+    return Object.fromEntries(entries);
+  }
+  return undefined;
+}
+
+function sanitizeNavigationMetadata(metadata) {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return {};
+  }
+  const entries = Object.entries(metadata)
+    .map(([key, value]) => {
+      if (typeof key !== 'string' || !key.trim()) {
+        return null;
+      }
+      const sanitized = sanitizeMetadataValue(value);
+      return sanitized !== undefined ? [key.trim(), sanitized] : null;
+    })
+    .filter(Boolean);
+  return entries.length ? Object.fromEntries(entries) : {};
+}
+
+function normalizeMenuKey(menuKey) {
+  return coerceOptionalString(menuKey, 'primary')
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 function coerceString(value, fallback = '') {
   if (value == null) {
     return fallback;
@@ -1333,28 +1393,61 @@ async function ensureSiteSetting({ transaction } = {}) {
 
 function normalizeNavigationPayload(payload = {}, { forUpdate = false } = {}) {
   const label = coerceString(payload.label);
-  const url = coerceString(payload.url);
   if (!label) {
     throw new ValidationError('Navigation label is required.');
   }
-  if (!url) {
-    throw new ValidationError('Navigation URL is required.');
-  }
+
   const menuKey = coerceString(payload.menuKey, 'primary').toLowerCase();
+  const displayTypeCandidate = coerceOptionalString(payload.displayType ?? payload.type, 'link');
+  const displayType = NAVIGATION_DISPLAY_TYPES.has(displayTypeCandidate) ? displayTypeCandidate : 'link';
   const orderIndex = coerceInteger(payload.orderIndex, 0);
   const allowedRoles = normalizeRoles(payload.allowedRoles);
+
+  let url = coerceOptionalString(payload.url, null);
+  if (displayType === 'link') {
+    if (!url) {
+      throw new ValidationError('Navigation URL is required for link entries.');
+    }
+  } else if (url && typeof url === 'string') {
+    url = url.trim();
+  }
+
+  const metadataSource = payload.metadata ?? payload.meta ?? {};
+  const metadata = sanitizeNavigationMetadata(metadataSource);
+
+  if (displayType === 'search') {
+    if (!url) {
+      url = coerceOptionalString(metadata.to ?? metadata.url, '/search');
+    }
+    if (!metadata.placeholder) {
+      metadata.placeholder = coerceOptionalString(payload.placeholder, 'Search Gigvora');
+    }
+    if (!metadata.ariaLabel) {
+      metadata.ariaLabel = coerceOptionalString(payload.ariaLabel ?? label, label);
+    }
+    if (!metadata.id && payload.id) {
+      metadata.id = coerceOptionalString(payload.id);
+    }
+  }
+
+  if (!metadata.identifier && payload.identifier) {
+    metadata.identifier = coerceOptionalString(payload.identifier);
+  }
+
   return {
     ...(forUpdate ? {} : { menuKey }),
     menuKey,
     label,
     url,
     description: coerceString(payload.description),
-    icon: coerceString(payload.icon),
+    icon: coerceOptionalString(payload.icon),
     orderIndex,
     isExternal: coerceBoolean(payload.isExternal, false),
     openInNewTab: coerceBoolean(payload.openInNewTab, false),
     allowedRoles,
     parentId: payload.parentId ?? null,
+    displayType,
+    metadata,
   };
 }
 
@@ -1443,10 +1536,40 @@ export async function getSiteSettings() {
   return sanitizeSettingsCandidate(model.value ?? {});
 }
 
-export async function getSiteNavigation({ menuKey } = {}) {
+export async function getSiteNavigation({ menuKey, format = 'flat', actorRoles = [] } = {}) {
+  const resolvedMenuKey = menuKey ? normalizeMenuKey(menuKey) : null;
+  const roleSet = new Set(normalizeRoles(actorRoles));
+  if (!roleSet.size || !roleSet.has('guest')) {
+    roleSet.add('guest');
+  }
+  const roles = Array.from(roleSet);
+
+  if (format === 'tree') {
+    if (resolvedMenuKey) {
+      const tree = await SiteNavigationLink.loadMenuTree(resolvedMenuKey, { actorRoles: roles });
+      return { format: 'tree', menuKey: resolvedMenuKey, tree };
+    }
+
+    const menuKeys = await SiteNavigationLink.findAll({
+      attributes: ['menuKey'],
+      group: ['menuKey'],
+      order: [['menuKey', 'ASC']],
+    });
+
+    const tree = {};
+    await Promise.all(
+      menuKeys.map(async (entry) => {
+        const keyValue = typeof entry.get === 'function' ? entry.get('menuKey') : entry.menuKey;
+        const key = normalizeMenuKey(keyValue);
+        tree[key] = await SiteNavigationLink.loadMenuTree(key, { actorRoles: roles });
+      }),
+    );
+    return { format: 'tree', menuKey: null, tree };
+  }
+
   const where = {};
-  if (menuKey) {
-    where.menuKey = `${menuKey}`.trim();
+  if (resolvedMenuKey) {
+    where.menuKey = resolvedMenuKey;
   }
 
   const links = await SiteNavigationLink.findAll({
@@ -1458,7 +1581,8 @@ export async function getSiteNavigation({ menuKey } = {}) {
     ],
   });
 
-  return links.map((link) => link.toPublicObject());
+  const filtered = links.filter((link) => link.canActorView(roles));
+  return { format: 'flat', menuKey: resolvedMenuKey, links: filtered.map((link) => link.toPublicObject()) };
 }
 
 export async function saveSiteSettings(patch = {}) {

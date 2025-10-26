@@ -7,7 +7,7 @@ process.env.SKIP_SEQUELIZE_BOOTSTRAP = 'true';
 process.env.LOG_LEVEL = 'silent';
 
 const settings = jest.fn((req, res) => res.json({ theme: 'light', locale: 'en' }));
-const navigation = jest.fn((req, res) => res.json({ items: [] }));
+const navigation = jest.fn((req, res) => res.json({ navigation: { format: 'flat', menuKey: null, links: [] } }));
 const index = jest.fn((req, res) =>
   res.json({ data: [{ slug: 'about', title: 'About' }], limit: Number(req.query.limit ?? 0) || null }),
 );

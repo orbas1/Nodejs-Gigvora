@@ -7,6 +7,20 @@ import { optionalNumber, optionalTrimmedString } from '../validation/primitives.
 
 const router = Router();
 
+const trimmedRoleSchema = z.string().trim().min(1).max(255);
+
+const siteNavigationQuerySchema = z
+  .object({
+    menuKey: optionalTrimmedString({ max: 120 }).transform((value) => value ?? undefined),
+    format: optionalTrimmedString({ max: 12 })
+      .transform((value) => (value ? value.toLowerCase() : undefined))
+      .refine((value) => value === undefined || value === 'flat' || value === 'tree', {
+        message: 'format must be either "flat" or "tree".',
+      }),
+    roles: z.union([trimmedRoleSchema, z.array(trimmedRoleSchema)]).optional(),
+  })
+  .strip();
+
 const sitePagesQuerySchema = z
   .object({
     limit: optionalNumber({ min: 1, max: 50, integer: true }).transform((value) => value ?? undefined),
@@ -23,7 +37,11 @@ const sitePageParamsSchema = z
   .strip();
 
 router.get('/settings', asyncHandler(siteController.settings));
-router.get('/navigation', asyncHandler(siteController.navigation));
+router.get(
+  '/navigation',
+  validateRequest({ query: siteNavigationQuerySchema }),
+  asyncHandler(siteController.navigation),
+);
 router.get('/pages', validateRequest({ query: sitePagesQuerySchema }), asyncHandler(siteController.index));
 router.get(
   '/pages/:slug',
