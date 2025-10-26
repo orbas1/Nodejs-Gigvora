@@ -4389,18 +4389,180 @@ Creation endpoints now return fully-sanitised documents, preserving fresh versio
    - *Volunteering Matches.* Extend opportunity matching to evaluate volunteering briefs with organisation context so pro-bono missions surface fellows whose skills or learning goals align.【F:gigvora-backend-nodejs/src/services/launchpadService.js†L753-L889】
    - *Volunteering Scenarios.* Seed live volunteering placements and links so the dashboards render genuine mix data instead of static placeholders.【F:gigvora-backend-nodejs/database/seeders/20250105093000-launchpad-operations-demo.cjs†L436-L783】
 - [x] Subcategory 3.A. Timeline Feed Rendering
-- [x] Subcategory 3.B. Reactions & Comments
+- [x] Subcategory 3.B. Discovery & Suggestions Layer
+3.B.1. SuggestionRail.jsx
+1. Appraisal.
+   - SuggestionRail now frames each recommendation inside gradient hero banners, context chips, and premium typography so the rail immediately communicates value with LinkedIn-calibre polish while surfacing why an item matters.【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L163-L241】【F:user_experience.md†L3213-L3217】
+2. Functionality
+   - Horizontal sorting controls, skeleton loaders, connection hand-off, and empty states span loading, success, and fallback journeys while preserving accessibility across viewport widths demanded by the flow diagrams.【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L75-L98】【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L503-L675】【F:user_experience.md†L3218-L3222】
+3. Logic Usefulness
+   - Persona-aware scoring, focus-area boosts, and prefetch instrumentation translate upstream profile data into measurable engagement funnels rather than static lists.【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L23-L72】【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L393-L471】【F:user_experience.md†L3223-L3227】
+4. Redundancies
+   - Connection suggestions share the canonical ConnectionCard rendering while ranked within the same personalization engine, eliminating duplicated rails across networking and dashboards.【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L320-L336】【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L606-L643】【F:user_experience.md†L3228-L3232】
+5. Placeholders Or non-working functions or stubs
+   - Live copy, stat blocks, and CTA wiring replace placeholder imagery and stubbed buttons so every tile carries production content today.【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L163-L260】【F:user_experience.md†L3233-L3237】
+6. Duplicate Functions
+   - Shared helpers centralise dismiss, follow, save, and open handlers so downstream consumers avoid reimplementing equivalent logic across modules.【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L404-L458】【F:user_experience.md†L3238-L3242】
+7. Improvements need to make
+   - Sort modes, inline follow toggles, reason chips, and pinned-slot weighting deliver the tactical upgrades queued in the improvements backlog.【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L17-L66】【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L503-L576】【F:user_experience.md†L3243-L3247】
+8. Styling improvements
+   - Glassmorphic cards, gradient edge fades, and motion-aware hover lifts align the rail with the enterprise design system while reinforcing hierarchy.【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L75-L98】【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L546-L581】【F:user_experience.md†L3248-L3252】
+9. Effeciency analysis and improvement
+   - Virtualised windowing, scroll-driven range tracking, and analytics-prefetching keep render cost, network chatter, and bundle impact within the performance budgets.【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L350-L384】【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L393-L471】【F:user_experience.md†L3253-L3257】
+10. Strengths to Keep
+   - The rail preserves its cross-domain breadth—jobs, mentors, groups—while adding structure so discovery variety remains a signature strength.【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L606-L664】【F:user_experience.md†L3258-L3262】
+11. Weaknesses to remove
+   - Gradient overlays, consistent avatar sizing, and context banners eliminate the bland, explanation-free tiles called out in the UX audit.【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L163-L240】【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L546-L581】【F:user_experience.md†L3263-L3267】
+12. Styling and Colour review changes
+   - Accent chips, highlight gradients, and premium button palettes align with discovery tokens to satisfy the refreshed colour brief.【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L100-L136】【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L210-L260】【F:user_experience.md†L3269-L3272】
+13. Css, orientation, placement and arrangement changes
+   - Responsive flex layouts, focus chips, and scroll controls implement the documented horizontal rail blueprint with annotated spacing decisions.【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L503-L543】【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L546-L593】【F:user_experience.md†L3273-L3277】
+14. Text analysis, text placement, text length, text redundancy and quality of text analysis
+   - Each card now pairs a concise title, one-line descriptor, and key stat so editorial copy stays aspirational yet scannable per the guardrails.【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L181-L236】【F:user_experience.md†L3279-L3282】
+15. Text Spacing
+   - `space-y` groupings and 12–16px padding rhythms enforce the baseline grid for readability across breakpoints.【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L186-L260】【F:user_experience.md†L3284-L3287】
+16. Shaping
+   - Rounded-3xl shells, pill chips, and circular avatars adhere to the specified 20px and 12px radii so silhouettes stay cohesive.【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L163-L240】【F:user_experience.md†L3289-L3292】
+17. Shadow, hover, glow and effects
+   - Hover lift, scroll gradients, and sparkles iconography deliver the subtle glow and motion pacing requested for premium interactions.【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L546-L581】【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L165-L209】【F:user_experience.md†L3294-L3297】
+18. Thumbnails
+   - Banner imagery, avatar fallbacks, and consistent cropping guardrails satisfy the thumbnail safe-zone requirements.【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L165-L209】【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L606-L643】【F:user_experience.md†L3299-L3302】
+19. Images and media & Images and media previews
+   - Lazy-loaded hero imagery and gradient fallbacks ensure media surfaces gracefully degrade while remaining ready for richer previews.【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L165-L209】【F:user_experience.md†L3304-L3307】
+20. Button styling
+   - Primary, follow, save, share, and dismiss buttons reuse rounded-full treatments, icon spacing, and hover states aligned to the button spec.【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L215-L260】【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L546-L581】【F:user_experience.md†L3309-L3312】
+21. Interactiveness
+   - Keyboard-accessible scroll arrows, inline follow toggles, save/share controls, and dismissal affordances cover the gesture catalogue.【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L546-L664】【F:user_experience.md†L3314-L3317】
+22. Missing Components
+   - Persona filters, focus chips, and explanation badges deliver the personalization controls and reason labels that were previously absent.【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L503-L543】【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L100-L136】【F:user_experience.md†L3319-L3322】
+23. Design Changes
+   - Pinned weighting, curated campaign slots, and context summaries implement the structural redesign approved in discovery reviews.【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L23-L66】【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L163-L240】【F:user_experience.md†L3323-L3327】
+24. Design Duplication
+   - The rail now routes all people suggestions through ConnectionCard while exposing generic cards via shared helpers, preventing divergent modules.【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L606-L664】【F:user_experience.md†L3329-L3332】
+25. Design framework
+   - Preferences-aware props, PropTypes, and tokenised styling seat the rail firmly within the discovery design framework for reuse across surfaces.【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L681-L726】【F:user_experience.md†L3334-L3337】
+26. Change Checklist Tracker Extensive
+   - Prefetch hooks, analytics tags, and prioritised states provide the artefacts needed for discovery→design→QA→launch tracking.【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L393-L471】【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L303-L384】【F:user_experience.md†L3339-L3342】
+27. Full Upgrade Plan & Release Steps Extensive
+   - Sort options, focus presets, and telemetry hooks support phased pilots, metric reviews, and global rollout plans defined in the release brief.【F:gigvora-frontend-reactjs/src/components/discovery/SuggestionRail.jsx†L303-L471】【F:user_experience.md†L3343-L3347】
+  - [x] 3.B.1. SuggestionRail.jsx
+3.B.2. TrendingTopicsPanel.jsx
+1. Appraisal.
+   - Ranking badges, spark-highlight chips, and concise summaries give the panel the premium first impression and clarity demanded by the discovery brief.【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L47-L112】【F:user_experience.md†L3351-L3354】
+2. Functionality
+   - Timeframe/location filters, expandable insight drawers, and resilient loading/empty states document every interaction path outlined for the panel.【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L276-L395】【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L25-L167】【F:user_experience.md†L3355-L3359】
+3. Logic Usefulness
+   - Persona-aware filtering, growth metrics, and actionable insight cards translate trending data into decisions that serve each persona’s job-to-be-done.【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L35-L167】【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L216-L272】【F:user_experience.md†L3361-L3364】
+4. Redundancies
+   - Unified TopicRow rendering keeps analytics, CTAs, and insights consistent so marketing and discovery surfaces reuse a single implementation.【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L25-L196】【F:user_experience.md†L3366-L3369】
+5. Placeholders Or non-working functions or stubs
+   - Real growth, mention, and insight content replaces lorem placeholders while share/follow CTAs are wired to callbacks immediately.【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L85-L143】【F:user_experience.md†L3371-L3374】
+6. Duplicate Functions
+   - Shared action handlers and structured prop usage consolidate follow/share logic so future trending modules hook into the same abstractions.【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L25-L167】【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L312-L384】【F:user_experience.md†L3376-L3379】
+7. Improvements need to make
+   - Interactive chips, inline follow actions, and timeline deep links land the planned enhancements that lift engagement beyond a static list.【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L88-L118】【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L96-L113】【F:user_experience.md†L3381-L3384】
+8. Styling improvements
+   - Gradient badges, pill buttons, and premium typography harmonise the panel with the broader design language while raising perceived quality.【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L47-L115】【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L323-L362】【F:user_experience.md†L3386-L3389】
+9. Effeciency analysis and improvement
+   - Memoised filtering, lightweight loading states, and optional expansions keep rendering efficient even as topics scale.【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L225-L272】【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L372-L386】【F:user_experience.md†L3391-L3394】
+10. Strengths to Keep
+   - The list celebrates trending momentum while adding structured insights, preserving the engagement spark that already resonated with members.【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L47-L112】【F:user_experience.md†L3396-L3399】
+11. Weaknesses to remove
+   - Ranking cues, persona notes, and structured spacing address the prior static, text-heavy presentation flagged in research.【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L47-L115】【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L85-L107】【F:user_experience.md†L3400-L3404】
+12. Styling and Colour review changes
+   - Accent gradients, soft backgrounds, and readable typography hit the accessibility and warmth targets from the colour audit.【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L56-L112】【F:user_experience.md†L3405-L3409】
+13. Css, orientation, placement and arrangement changes
+   - Responsive grids, numbered badges, and aligned metrics map directly to the blueprint for vertical orientation and spacing.【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L47-L115】【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L276-L362】【F:user_experience.md†L3411-L3414】
+14. Text analysis, text placement, text length, text redundancy and quality of text analysis
+   - Titles, persona summaries, and action prompts are trimmed to purposeful, scannable lines so copy remains aspirational yet direct.【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L60-L113】【F:user_experience.md†L3416-L3419】
+15. Text Spacing
+   - Card padding, chip spacing, and typography rhythm adhere to the documented 8–20px cadence for comfortable reading.【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L47-L118】【F:user_experience.md†L3421-L3424】
+16. Shaping
+   - Rounded-3xl cards, 12px chips, and soft corners reinforce the silhouette guidance for discovery experiences.【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L47-L115】【F:user_experience.md†L3426-L3429】
+17. Shadow, hover, glow and effects
+   - Hover lifts on cards and animated trend badges deliver the motion cues and tactile glow demanded for premium polish.【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L47-L115】【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L99-L113】【F:user_experience.md†L3431-L3434】
+18. Thumbnails
+   - Iconic badges and optional category tokens supply the thumbnail safe zones and fallback visuals outlined in the brief.【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L47-L113】【F:user_experience.md†L3436-L3439】
+19. Images and media & Images and media previews
+   - Highlight overlays and optional campaign previews ensure media-ready slots exist without sacrificing graceful degradation.【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L47-L113】【F:user_experience.md†L3441-L3444】
+20. Button styling
+   - Primary, follow, and share buttons reuse rounded-full treatments, icon spacing, and hover states aligned with button tokens.【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L95-L118】【F:user_experience.md†L3446-L3449】
+21. Interactiveness
+   - Expand toggles, follow actions, share controls, and CTA buttons deliver the interactive gestures catalogued for the panel.【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L88-L143】【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L276-L386】【F:user_experience.md†L3451-L3454】
+22. Missing Components
+   - Persona, timeframe, and location controls arrive alongside insight drawers, closing the backlog gaps for filters and deep context.【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L276-L335】【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L96-L118】【F:user_experience.md†L3455-L3459】
+23. Design Changes
+   - Trend insights, growth drivers, and persona cues embody the structural redesign approvals captured in the discovery reviews.【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L85-L143】【F:user_experience.md†L3461-L3464】
+24. Design Duplication
+   - Centralised TopicRow and shared styling tokens prevent divergent trending lists across marketing or discovery touchpoints.【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L25-L196】【F:user_experience.md†L3466-L3469】
+25. Design framework
+   - PropTypes, default props, and responsive tokens align the panel with the discovery design framework for consistent reuse.【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L399-L430】【F:user_experience.md†L3471-L3474】
+26. Change Checklist Tracker Extensive
+   - Filter presets, analytics tags, and engagement-focused CTAs provide the artefacts needed for discovery→QA→launch governance tracking.【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L276-L395】【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L25-L167】【F:user_experience.md†L3476-L3479】
+27. Full Upgrade Plan & Release Steps Extensive
+   - Configurable defaults, persona filters, and experiment-ready share/follow hooks support staged pilots and metric reviews prior to wide release.【F:gigvora-frontend-reactjs/src/components/discovery/TrendingTopicsPanel.jsx†L210-L395】【F:user_experience.md†L3481-L3484】
+  - [x] 3.B.2. TrendingTopicsPanel.jsx
+3.B.3. ConnectionCard.jsx
+1. Appraisal.
+   - Glassy gradients, persona badges, and premium typography give each connection tile the executive polish and warmth the audit demanded.【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L234-L292】【F:user_experience.md†L3488-L3491】
+2. Functionality
+   - CTA routing adapts to connection state, exposes quick intro templates, and wires dismiss/save/follow handlers so every trigger in the flow diagram operates end to end.【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L49-L132】【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L234-L392】【F:user_experience.md†L3493-L3496】
+3. Logic Usefulness
+   - Persona cues, affinity scores, and recent activity summaries ensure the card recommends actionable next steps instead of static bios.【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L301-L359】【F:user_experience.md†L3498-L3501】
+4. Redundancies
+   - Consolidated action builders and shared badges keep networking and discovery cards aligned while preventing duplicate component forks.【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L49-L132】【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L363-L382】【F:user_experience.md†L3503-L3506】
+5. Placeholders Or non-working functions or stubs
+   - Real stats, trust badges, and activity notes displace placeholder counts so cards never fall back to lorem data.【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L234-L359】【F:user_experience.md†L3508-L3511】
+6. Duplicate Functions
+   - Primary/secondary action builders, quick intro generation, and shared button components eliminate the duplicated CTA code called out in the audit.【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L49-L123】【F:user_experience.md†L3513-L3516】
+7. Improvements need to make
+   - Mutual connections, focus tags, and quick-message templates arrive together to unlock the tactical upgrades prioritised for this release.【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L301-L352】【F:user_experience.md†L3518-L3521】
+8. Styling improvements
+   - Layered cards, gradient borders, and consistent typography align the component with the elevated design language for professional networking.【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L1-L36】【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L234-L392】【F:user_experience.md†L3523-L3526】
+9. Effeciency analysis and improvement
+   - useMemo-backed action generation and deterministic props keep renders light while leaving room for future telemetry budgets.【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L1-L132】【F:user_experience.md†L3528-L3531】
+10. Strengths to Keep
+   - Clear CTAs, succinct bios, and hero imagery preserve the clarity that originally made the card successful while wrapping it in richer context.【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L234-L392】【F:user_experience.md†L3533-L3536】
+11. Weaknesses to remove
+   - Accent overlays, structured metadata, and contextual badges replace the bland, information-light presentation noted in the research.【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L234-L340】【F:user_experience.md†L3538-L3541】
+12. Styling and Colour review changes
+   - Persona-specific accent tokens and balanced neutrals satisfy the refreshed colour and accessibility guidance for networking cards.【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L16-L47】【F:user_experience.md†L3543-L3546】
+13. Css, orientation, placement and arrangement changes
+   - Flex layouts, responsive gaps, and CTA grouping mirror the prescribed left-avatar, centre-info, right-action blueprint.【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L234-L392】【F:user_experience.md†L3548-L3551】
+14. Text analysis, text placement, text length, text redundancy and quality of text analysis
+   - Headlines, persona badges, and quick intros stay within one-line guidelines so copy remains purposeful and persuasive.【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L234-L359】【F:user_experience.md†L3553-L3556】
+15. Text Spacing
+   - 8–16px padding rhythms and tight line spacing keep bios legible without overwhelming the condensed card layout.【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L234-L359】【F:user_experience.md†L3558-L3561】
+16. Shaping
+   - Rounded shells, pill badges, and circular avatars adhere to the specified radii, reinforcing the shared discovery silhouette.【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L234-L292】【F:user_experience.md†L3563-L3566】
+17. Shadow, hover, glow and effects
+   - Hover elevation, dismiss focus rings, and accent overlays supply the motion cues and glow effects required for accessible interactivity.【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L234-L292】【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L310-L392】【F:user_experience.md†L3568-L3571】
+18. Thumbnails
+   - Avatar frames, optional background imagery, and safe padding respect the thumbnail governance introduced in the UX plan.【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L234-L292】【F:user_experience.md†L3573-L3576】
+19. Images and media & Images and media previews
+   - Gradient overlays, error-resistant avatar handling, and optional background images keep media polished while preventing failures.【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L234-L270】【F:user_experience.md†L3578-L3581】
+20. Button styling
+   - Connect, message, follow, and save buttons reuse rounded-full silhouettes, iconography, and stateful styling consistent with design tokens.【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L363-L392】【F:user_experience.md†L3583-L3586】
+21. Interactiveness
+   - Quick actions, dismiss controls, and profile deep links satisfy the interaction catalogue across keyboard, mouse, and touch contexts.【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L234-L392】【F:user_experience.md†L3588-L3591】
+22. Missing Components
+   - Mutual connections, trust badges, and activity snippets deliver the backlog items that previously left cards feeling sparse.【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L301-L359】【F:user_experience.md†L3593-L3596】
+23. Design Changes
+   - Persona-aware variants, intro templates, and action states embody the structural redesign agreed upon in the discovery workshops.【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L49-L392】【F:user_experience.md†L3598-L3601】
+24. Design Duplication
+   - Prop-driven composition allows other networking experiences to reuse the same card instead of cloning bespoke layouts.【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L363-L446】【F:user_experience.md†L3603-L3606】
+25. Design framework
+   - PropTypes, defaults, and accent token mapping keep the component governed by the enterprise contact-card framework.【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L397-L446】【F:user_experience.md†L3608-L3611】
+26. Change Checklist Tracker Extensive
+   - CTA state coverage, badge mapping, and analytics-ready handlers provide the artefacts required for discovery→design→QA sign-off.【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L49-L392】【F:user_experience.md†L3613-L3616】
+27. Full Upgrade Plan & Release Steps Extensive
+   - State-driven CTAs, persona variants, and telemetry hooks prepare the card for pilot cohorts, success metrics, and global enablement outlined in the release plan.【F:gigvora-frontend-reactjs/src/components/discovery/ConnectionCard.jsx†L49-L392】【F:user_experience.md†L3618-L3621】
+  - [x] 3.B.3. ConnectionCard.jsx
   - [x] 3.A. Timeline Feed Framework
     - [x] 3.A.1. FeedComposer.jsx
     - [x] 3.A.2. FeedCard.jsx
     - [x] 3.A.3. ActivityFilters.jsx
-    - [x] 3.A.1. FeedComposer.jsx
-    - [x] 3.A.2. FeedCard.jsx
-    - [x] 3.A.3. ActivityFilters.jsx
   - [x] 3.C. Activity & Engagement Mechanics
-    - [x] 3.C.1. ReactionsBar.jsx
-    - [x] 3.C.2. CommentsThread.jsx
-    - [x] 3.C.3. ShareModal.jsx
     - [x] 3.C.1. ReactionsBar.jsx
     - [x] 3.C.2. CommentsThread.jsx
     - [x] 3.C.3. ShareModal.jsx
