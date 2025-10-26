@@ -4,9 +4,9 @@ import { Link } from 'react-router-dom';
 import { Menu, Transition } from '@headlessui/react';
 import { CheckIcon, ChevronUpDownIcon, GlobeAltIcon } from '@heroicons/react/24/outline';
 import classNames from '../utils/classNames.js';
-import { getLanguageMeta } from '../i18n/translations.js';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { formatRelativeTime } from '../utils/date.js';
+import { DEFAULT_LANGUAGE } from '../i18n/translations.js';
 
 const BUTTON_STYLES = {
   header:
@@ -42,9 +42,22 @@ function describeUpdate(value, locale) {
   return `Updated ${relative}`;
 }
 
+const FALLBACK_LANGUAGE = {
+  code: DEFAULT_LANGUAGE,
+  nativeLabel: 'English',
+  label: 'English',
+  flag: '🌐',
+  region: 'Global',
+  coverage: 100,
+  status: 'ga',
+  supportLead: 'Localization team',
+  summary: '',
+};
+
 export default function LanguageSelector({ variant = 'header', className }) {
   const { availableLanguages, language, setLanguage, t } = useLanguage();
-  const activeLanguage = getLanguageMeta(language);
+  const languages = Array.isArray(availableLanguages) && availableLanguages.length ? availableLanguages : [FALLBACK_LANGUAGE];
+  const activeLanguage = languages.find((entry) => entry.code === language) ?? languages[0] ?? FALLBACK_LANGUAGE;
   const buttonStyles = BUTTON_STYLES[variant] ?? BUTTON_STYLES.header;
   const menuPosition = MENU_POSITION[variant] ?? MENU_POSITION.header;
   const activeBadge = STATUS_BADGES[activeLanguage.status] ?? { label: 'In localisation', tone: 'bg-slate-200 text-slate-600' };

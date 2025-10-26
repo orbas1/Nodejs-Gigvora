@@ -2,138 +2,75 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BoltIcon, ShieldCheckIcon, SignalIcon } from '@heroicons/react/24/outline';
 import { LOGO_URL } from '../constants/branding.js';
+import { useNavigationChrome } from '../context/NavigationChromeContext.jsx';
 
-const navigationSections = [
-  {
-    title: 'Platform',
-    links: [
-      { label: 'Launchpad', to: '/launchpad' },
-      { label: 'Jobs marketplace', to: '/jobs' },
-      { label: 'Projects workspace', to: '/projects' },
-      { label: 'Mentor lounge', to: '/mentors' },
-      { label: 'Creator studio', to: '/creation-studio' },
-    ],
-  },
-  {
-    title: 'Solutions',
-    links: [
-      { label: 'Enterprise suite', to: '/solutions/enterprise' },
-      { label: 'Agencies', to: '/solutions/agencies' },
-      { label: 'Startups', to: '/solutions/startups' },
-      { label: 'Universities', to: '/solutions/universities' },
-      { label: 'Social impact', to: '/solutions/impact' },
-    ],
-  },
-  {
-    title: 'Resources',
-    links: [
-      { label: 'Support centre', to: '/support' },
-      { label: 'Help library', to: '/resources' },
-      { label: 'Community guidelines', to: '/community-guidelines' },
-      { label: 'Privacy policy', to: '/privacy' },
-      { label: 'Terms & conditions', to: '/terms' },
-      { label: 'Refund policy', to: '/refunds' },
-    ],
-  },
-  {
-    title: 'Company',
-    links: [
-      { label: 'About', to: '/about' },
-      { label: 'Careers', to: '/careers' },
-      { label: 'Press', to: '/press' },
-      { label: 'Trust centre', to: '/trust-center' },
-      { label: 'Contact', to: '/support/contact' },
-    ],
-  },
-];
+const STATUS_ICON_MAP = {
+  signal: SignalIcon,
+  bolt: BoltIcon,
+  'shield-check': ShieldCheckIcon,
+};
 
-const statusHighlights = [
-  {
-    id: 'uptime',
-    label: 'Platform',
-    status: 'Operational',
-    detail: '99.99% uptime (30d)',
-    icon: SignalIcon,
-  },
-  {
-    id: 'support',
-    label: 'Support',
-    status: 'Live 24/5',
-    detail: 'Avg response 6 minutes',
-    icon: BoltIcon,
-  },
-  {
-    id: 'security',
-    label: 'Security',
-    status: 'Shielded',
-    detail: 'SOC 2 • ISO 27001 • GDPR',
-    icon: ShieldCheckIcon,
-  },
-];
+function resolveStatusIcon(key) {
+  return STATUS_ICON_MAP[key] ?? SignalIcon;
+}
 
-const communityLinks = [
-  { label: 'Creator circles', description: 'Curated peer groups launching monthly', to: '/community/creator-circles' },
-  { label: 'Operator forums', description: 'Join live roundtables with mentors', to: '/community/forums' },
-  { label: 'Product roadmap', description: 'See what ships next and vote on ideas', to: '/roadmap' },
-];
-
-const officeLocations = ['London', 'Toronto', 'Lisbon', 'Singapore'];
-
-const certifications = ['SOC 2 Type II', 'ISO 27001', 'GDPR ready', 'UK GDPR'];
-
-const socialLinks = [
-  {
-    label: 'Follow on X',
-    href: 'https://x.com/gigvora',
-    icon: (
-      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4">
-        <path
-          d="M3.5 4h5.2l4.2 6.1L16.8 4H20l-6.3 7.7L20.5 20h-5.2l-4.5-6.6L7 20H3.5l6.7-8.3L3.5 4z"
-          fill="currentColor"
-        />
-      </svg>
-    ),
-  },
-  {
-    label: 'Follow on Instagram',
-    href: 'https://instagram.com/gigvora',
-    icon: (
-      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4">
-        <path
-          d="M7.5 3h9a4.5 4.5 0 0 1 4.5 4.5v9A4.5 4.5 0 0 1 16.5 21h-9A4.5 4.5 0 0 1 3 16.5v-9A4.5 4.5 0 0 1 7.5 3zm0 2A2.5 2.5 0 0 0 5 7.5v9A2.5 2.5 0 0 0 7.5 19h9a2.5 2.5 0 0 0 2.5-2.5v-9A2.5 2.5 0 0 0 16.5 5zm4.5 2.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9zm0 2A2.5 2.5 0 1 0 14.5 12 2.5 2.5 0 0 0 12 9.5zm6.1-4.35a1.15 1.15 0 1 1-1.15-1.15 1.15 1.15 0 0 1 1.15 1.15z"
-          fill="currentColor"
-        />
-      </svg>
-    ),
-  },
-  {
-    label: 'Connect on LinkedIn',
-    href: 'https://linkedin.com/company/gigvora',
-    icon: (
-      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4">
-        <path
-          d="M4.75 3.5A1.75 1.75 0 1 1 3 5.25 1.75 1.75 0 0 1 4.75 3.5zM3.5 8h2.5v12H3.5zm6 0h2.4v1.7h.04c.34-.64 1.18-1.31 2.43-1.31 2.6 0 3.08 1.71 3.08 3.93V20H15v-6c0-1.44-.03-3.29-2-3.29-2 0-2.3 1.56-2.3 3.18V20H9.5z"
-          fill="currentColor"
-        />
-      </svg>
-    ),
-  },
-  {
-    label: 'Like on Facebook',
-    href: 'https://facebook.com/gigvora',
-    icon: (
-      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4">
-        <path
-          d="M13.5 9.5V7.75c0-.83.17-1.25 1.4-1.25H16V3h-2.27C10.86 3 10 4.79 10 7.38V9.5H8v3h2v8h3.5v-8h2.4l.35-3z"
-          fill="currentColor"
-        />
-      </svg>
-    ),
-  },
-];
+function renderSocialIcon(iconKey) {
+  switch (iconKey) {
+    case 'instagram':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4">
+          <path
+            d="M7.5 3h9a4.5 4.5 0 0 1 4.5 4.5v9A4.5 4.5 0 0 1 16.5 21h-9A4.5 4.5 0 0 1 3 16.5v-9A4.5 4.5 0 0 1 7.5 3zm0 2A2.5 2.5 0 0 0 5 7.5v9A2.5 2.5 0 0 0 7.5 19h9a2.5 2.5 0 0 0 2.5-2.5v-9A2.5 2.5 0 0 0 16.5 5zm4.5 2.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9zm0 2A2.5 2.5 0 1 0 14.5 12 2.5 2.5 0 0 0 12 9.5zm6.1-4.35a1.15 1.15 0 1 1-1.15-1.15 1.15 1.15 0 0 1 1.15 1.15z"
+            fill="currentColor"
+          />
+        </svg>
+      );
+    case 'linkedin':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4">
+          <path
+            d="M4.75 3.5A1.75 1.75 0 1 1 3 5.25 1.75 1.75 0 0 1 4.75 3.5zM3.5 8h2.5v12H3.5zm6 0h2.4v1.7h.04c.34-.64 1.18-1.31 2.43-1.31 2.6 0 3.08 1.71 3.08 3.93V20H15v-6c0-1.44-.03-3.29-2-3.29-2 0-2.3 1.56-2.3 3.18V20H9.5z"
+            fill="currentColor"
+          />
+        </svg>
+      );
+    case 'facebook':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4">
+          <path
+            d="M13.5 9.5V7.75c0-.83.17-1.25 1.4-1.25H16V3h-2.27C10.86 3 10 4.79 10 7.38V9.5H8v3h2v8h3.5v-8h2.4l.35-3z"
+            fill="currentColor"
+          />
+        </svg>
+      );
+    case 'x':
+    default:
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4">
+          <path
+            d="M3.5 4h5.2l4.2 6.1L16.8 4H20l-6.3 7.7L20.5 20h-5.2l-4.5-6.6L7 20H3.5l6.7-8.3L3.5 4z"
+            fill="currentColor"
+          />
+        </svg>
+      );
+  }
+}
 
 export default function Footer() {
   const [newsletterSubmitted, setNewsletterSubmitted] = useState(false);
+  const { footer } = useNavigationChrome();
+
+  const navigationSections = Array.isArray(footer?.navigationSections) ? footer.navigationSections : [];
+  const statusHighlights = Array.isArray(footer?.statusHighlights)
+    ? footer.statusHighlights.map((highlight) => ({
+        ...highlight,
+        icon: resolveStatusIcon(highlight.icon),
+      }))
+    : [];
+  const communityLinks = Array.isArray(footer?.communityPrograms) ? footer.communityPrograms : [];
+  const officeLocations = Array.isArray(footer?.officeLocations) ? footer.officeLocations : [];
+  const certifications = Array.isArray(footer?.certifications) ? footer.certifications : [];
+  const socialLinks = Array.isArray(footer?.socialLinks) ? footer.socialLinks : [];
 
   const handleNewsletterSubmit = (event) => {
     event.preventDefault();
@@ -218,7 +155,7 @@ export default function Footer() {
                   aria-label={item.label}
                   className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-accent hover:bg-accent hover:text-white"
                 >
-                  {item.icon}
+                  {renderSocialIcon(item.icon)}
                 </a>
               ))}
             </div>

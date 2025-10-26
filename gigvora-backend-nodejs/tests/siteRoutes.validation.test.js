@@ -8,6 +8,7 @@ process.env.LOG_LEVEL = 'silent';
 
 const settings = jest.fn((req, res) => res.json({ theme: 'light', locale: 'en' }));
 const navigation = jest.fn((req, res) => res.json({ items: [] }));
+const navigationChrome = jest.fn((req, res) => res.json({ chrome: { locales: [] } }));
 const index = jest.fn((req, res) =>
   res.json({ data: [{ slug: 'about', title: 'About' }], limit: Number(req.query.limit ?? 0) || null }),
 );
@@ -19,6 +20,7 @@ jest.unstable_mockModule(controllerModule.pathname, () => ({
   __esModule: true,
   settings,
   navigation,
+  navigationChrome,
   index,
   show,
 }));
@@ -95,5 +97,14 @@ describe('siteRoutes validation', () => {
     expect(index).toHaveBeenCalledTimes(1);
     expect(Number(index.mock.calls[0][0].query.limit)).toBe(25);
     expect(response.body).toEqual({ data: [{ slug: 'about', title: 'About' }], limit: 25 });
+  });
+
+  it('invokes navigationChrome with sanitised flags', async () => {
+    const response = await request(app).get('/api/site/navigation/chrome').query({ includeFooter: 'false' });
+
+    expect(response.status).toBe(200);
+    expect(navigationChrome).toHaveBeenCalledTimes(1);
+    expect(navigationChrome.mock.calls[0][0].query.includeFooter).toBe('false');
+    expect(response.body).toEqual({ chrome: { locales: [] } });
   });
 });

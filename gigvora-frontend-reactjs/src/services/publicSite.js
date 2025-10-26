@@ -65,6 +65,13 @@ export async function fetchSiteNavigation(params = {}, options = {}) {
   return normaliseResponse('links', response);
 }
 
+export async function fetchNavigationChrome(params = {}, options = {}) {
+  const safeParams = ensureParams(params);
+  const safeOptions = ensureOptions(options);
+  const response = await apiClient.get('/site/navigation/chrome', { ...safeOptions, params: safeParams });
+  return response?.chrome ?? response;
+}
+
 export async function fetchSitePages(params = {}, options = {}) {
   const safeParams = ensureParams(params);
   const safeOptions = ensureOptions(options);
@@ -83,6 +90,7 @@ export async function fetchSitePage(slug, params = {}, options = {}) {
 export default {
   fetchSiteSettings,
   fetchSiteNavigation,
+  fetchNavigationChrome,
   fetchSitePages,
   fetchSitePage,
 };

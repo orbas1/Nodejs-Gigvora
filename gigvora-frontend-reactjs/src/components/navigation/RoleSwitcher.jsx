@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import { Menu, Transition } from '@headlessui/react';
@@ -13,6 +13,7 @@ import {
   MagnifyingGlassCircleIcon,
 } from '@heroicons/react/24/outline';
 import { classNames } from '../../utils/classNames.js';
+import { useNavigationChrome } from '../../context/NavigationChromeContext.jsx';
 
 const personaIcons = Object.freeze({
   user: UserCircleIcon,
@@ -22,91 +23,53 @@ const personaIcons = Object.freeze({
   headhunter: MagnifyingGlassCircleIcon,
   mentor: AcademicCapIcon,
   admin: ShieldCheckIcon,
+  founder: SparklesIcon,
 });
 
-const personaBlueprints = Object.freeze({
-  default: {
-    tagline: 'Tailored workspaces with analytics, approvals, and concierge support.',
-    focusAreas: ['Workspace', 'Insights'],
-    metrics: [
-      { label: 'Licences', value: 'Included' },
-      { label: 'Support', value: 'Priority chat' },
-    ],
-    primaryCTA: 'Switch persona',
-  },
-  founder: {
-    tagline: 'Raise capital, hire leaders, and review investor-ready dashboards.',
-    focusAreas: ['Capital', 'Community'],
-    metrics: [
-      { label: 'Pipeline', value: 'Active' },
-      { label: 'Advisors', value: 'Synced' },
-    ],
-    primaryCTA: 'Review founder workspace',
-  },
-  agency: {
-    tagline: 'Coordinate crews, retainers, and milestone billing for every client.',
-    focusAreas: ['Delivery', 'Finance'],
-    metrics: [
-      { label: 'Clients', value: 'Portfolio' },
-      { label: 'Utilisation', value: 'Live' },
-    ],
-    primaryCTA: 'Open agency control centre',
-  },
-  company: {
-    tagline: 'Govern multi-team programs with hiring, finance, and compliance telemetry.',
-    focusAreas: ['Hiring', 'Governance'],
-    metrics: [
-      { label: 'Seats', value: 'Unlimited' },
-      { label: 'Insights', value: 'Executive' },
-    ],
-    primaryCTA: 'Navigate company HQ',
-  },
-  freelancer: {
-    tagline: 'Showcase portfolio, respond to briefs, and manage client billing.',
-    focusAreas: ['Portfolio', 'Billing'],
-    metrics: [
-      { label: 'Opportunities', value: 'Curated' },
-      { label: 'Payments', value: 'Instant' },
-    ],
-    primaryCTA: 'Open freelancer studio',
-  },
-  headhunter: {
-    tagline: 'Manage candidate pipelines, share slates, and automate status updates.',
-    focusAreas: ['Pipeline', 'Analytics'],
-    metrics: [
-      { label: 'Talent cloud', value: 'Synced' },
-      { label: 'Reporting', value: 'Live' },
-    ],
-    primaryCTA: 'Enter search operations',
-  },
-  mentor: {
-    tagline: 'Host sessions, track mentee wins, and recommend strategic templates.',
-    focusAreas: ['Sessions', 'Playbooks'],
-    metrics: [
-      { label: 'Programs', value: 'Active' },
-      { label: 'Outcomes', value: 'Tracked' },
-    ],
-    primaryCTA: 'Visit mentor lounge',
-  },
-  admin: {
-    tagline: 'Enforce policy, monitor telemetry, and orchestrate platform governance.',
-    focusAreas: ['Security', 'Audits'],
-    metrics: [
-      { label: 'Controls', value: 'Delegated' },
-      { label: 'Status', value: 'Realtime' },
-    ],
-    primaryCTA: 'Manage platform admin',
-  },
+const FALLBACK_BLUEPRINT = Object.freeze({
+  tagline: 'Tailored workspaces with analytics, approvals, and concierge support.',
+  focusAreas: ['Workspace', 'Insights'],
+  metrics: [
+    { label: 'Licences', value: 'Included' },
+    { label: 'Support', value: 'Priority chat' },
+  ],
+  primaryCta: 'Switch persona',
+  defaultRoute: '/',
+  timelineEnabled: true,
 });
+
+function resolveIcon(key) {
+  return personaIcons[key] ?? UserCircleIcon;
+}
 
 export default function RoleSwitcher({ options, currentKey, onSelect }) {
+  const { personas } = useNavigationChrome();
+  const personaMap = useMemo(() => {
+    const map = new Map();
+    if (Array.isArray(personas)) {
+      personas.forEach((persona) => {
+        if (persona?.key) {
+          map.set(persona.key, persona);
+        }
+      });
+    }
+    return map;
+  }, [personas]);
+
   if (!options.length) {
     return null;
   }
 
   const activeOption = options.find((option) => option.key === currentKey) ?? options[0];
-  const ActiveIcon = personaIcons[activeOption.key] ?? UserCircleIcon;
-  const activeBlueprint = personaBlueprints[activeOption.key] ?? personaBlueprints.default;
+  const ActiveIcon = resolveIcon(activeOption.key);
+  const activeBlueprint = personaMap.get(activeOption.key) ?? FALLBACK_BLUEPRINT;
+  const activeFocusAreas = Array.isArray(activeBlueprint.focusAreas)
+    ? activeBlueprint.focusAreas
+    : FALLBACK_BLUEPRINT.focusAreas;
+  const activeMetrics = Array.isArray(activeBlueprint.metrics)
+    ? activeBlueprint.metrics
+    : FALLBACK_BLUEPRINT.metrics;
+  const activePrimaryCta = activeBlueprint.primaryCta ?? FALLBACK_BLUEPRINT.primaryCta;
 
   return (
     <Menu as="div" className="relative inline-flex">
@@ -137,9 +100,9 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
                 </span>
                 <div className="space-y-1">
                   <p className="text-sm font-semibold text-slate-900">{activeOption.label}</p>
-                  <p className="text-xs text-slate-500">{activeBlueprint.tagline}</p>
+                  <p className="text-xs text-slate-500">{activeBlueprint.tagline ?? FALLBACK_BLUEPRINT.tagline}</p>
                   <div className="flex flex-wrap gap-2">
-                    {activeBlueprint.focusAreas.map((area) => (
+                    {activeFocusAreas.map((area) => (
                       <span
                         key={area}
                         className="rounded-full bg-white/70 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-slate-400"
@@ -151,11 +114,11 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
                 </div>
               </div>
               <span className="rounded-full bg-slate-900 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-white">
-                {activeBlueprint.primaryCTA}
+                {activePrimaryCta}
               </span>
             </div>
             <dl className="mt-3 grid grid-cols-2 gap-3 text-[0.65rem] uppercase tracking-[0.3em] text-slate-400">
-              {activeBlueprint.metrics.map((metric) => (
+              {activeMetrics.map((metric) => (
                 <div key={`${activeOption.key}-${metric.label}`} className="space-y-1">
                   <dt>{metric.label}</dt>
                   <dd className="text-xs font-semibold text-slate-700">{metric.value}</dd>
@@ -164,13 +127,20 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
             </dl>
           </div>
           {options.map((option) => {
-            const OptionIcon = personaIcons[option.key] ?? UserCircleIcon;
-            const blueprint = personaBlueprints[option.key] ?? personaBlueprints.default;
+            const OptionIcon = resolveIcon(option.key);
+            const blueprint = personaMap.get(option.key) ?? FALLBACK_BLUEPRINT;
+            const focusAreas = Array.isArray(blueprint.focusAreas)
+              ? blueprint.focusAreas
+              : FALLBACK_BLUEPRINT.focusAreas;
+            const metrics = Array.isArray(blueprint.metrics) ? blueprint.metrics : FALLBACK_BLUEPRINT.metrics;
+            const primaryCta = blueprint.primaryCta ?? FALLBACK_BLUEPRINT.primaryCta;
+            const timelineActive = option.timelineEnabled ?? blueprint.timelineEnabled ?? false;
+            const destination = option.to ?? blueprint.defaultRoute ?? '#';
             return (
               <Menu.Item key={option.key}>
                 {({ active }) => (
                   <Link
-                    to={option.to}
+                    to={destination}
                     onClick={onSelect}
                     className={classNames(
                       'flex flex-col gap-3 rounded-2xl border border-transparent px-3 py-3 transition',
@@ -190,17 +160,15 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
                           {option.label}
                         </p>
                         <p className={classNames('text-xs', option.key === activeOption.key ? 'text-slate-100/80' : 'text-slate-500')}>
-                          {blueprint.tagline}
+                          {blueprint.tagline ?? FALLBACK_BLUEPRINT.tagline}
                         </p>
                         <div className="flex flex-wrap gap-2">
-                          {blueprint.focusAreas.map((area) => (
+                          {focusAreas.map((area) => (
                             <span
                               key={`${option.key}-${area}`}
                               className={classNames(
                                 'rounded-full px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-[0.3em]',
-                                option.key === activeOption.key
-                                  ? 'bg-white/10 text-white'
-                                  : 'bg-white/80 text-slate-500',
+                                option.key === activeOption.key ? 'bg-white/10 text-white' : 'bg-white/80 text-slate-500',
                               )}
                             >
                               {area}
@@ -211,7 +179,7 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
                       <span
                         className={classNames(
                           'inline-flex items-center rounded-full px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.35em]',
-                          option.timelineEnabled
+                          timelineActive
                             ? option.key === activeOption.key
                               ? 'bg-emerald-400/20 text-white'
                               : 'bg-emerald-100 text-emerald-700'
@@ -220,7 +188,7 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
                               : 'bg-amber-100 text-amber-700',
                         )}
                       >
-                        {option.timelineEnabled ? 'Timeline live' : 'Timeline pending'}
+                        {timelineActive ? 'Timeline live' : 'Timeline pending'}
                       </span>
                     </div>
                     <dl
@@ -229,7 +197,7 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
                         option.key === activeOption.key ? 'text-slate-100/80' : 'text-slate-400',
                       )}
                     >
-                      {blueprint.metrics.map((metric) => (
+                      {metrics.map((metric) => (
                         <div key={`${option.key}-${metric.label}`} className="space-y-1">
                           <dt>{metric.label}</dt>
                           <dd className={classNames('text-xs font-semibold', option.key === activeOption.key ? 'text-white' : 'text-slate-600')}>
@@ -238,6 +206,9 @@ export default function RoleSwitcher({ options, currentKey, onSelect }) {
                         </div>
                       ))}
                     </dl>
+                    <span className="text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-slate-400">
+                      {primaryCta}
+                    </span>
                   </Link>
                 )}
               </Menu.Item>
@@ -254,7 +225,7 @@ RoleSwitcher.propTypes = {
     PropTypes.shape({
       key: PropTypes.string.isRequired,
       label: PropTypes.string.isRequired,
-      to: PropTypes.string.isRequired,
+      to: PropTypes.string,
       timelineEnabled: PropTypes.bool,
     }),
   ),

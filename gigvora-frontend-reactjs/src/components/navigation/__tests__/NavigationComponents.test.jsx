@@ -4,6 +4,8 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import MegaMenu from '../MegaMenu.jsx';
 import RoleSwitcher from '../RoleSwitcher.jsx';
+import NavigationChromeContext from '../../../context/NavigationChromeContext.jsx';
+import { DEFAULT_LANGUAGE } from '../../../i18n/translations.js';
 
 function renderWithRouter(ui) {
   return render(ui, { wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter> });
@@ -64,7 +66,66 @@ describe('RoleSwitcher', () => {
 
   it('renders active role and allows switching', async () => {
     const user = userEvent.setup();
-    renderWithRouter(<RoleSwitcher options={options} currentKey="founder" />);
+    const personas = [
+      {
+        key: 'founder',
+        label: 'Founder HQ',
+        icon: 'sparkles',
+        tagline: 'Raise capital, hire leaders, and review investor dashboards.',
+        focusAreas: ['Capital', 'Community'],
+        metrics: [
+          { label: 'Pipeline', value: 'Active', trend: '5 warm investors', positive: true },
+          { label: 'Advisors', value: 'Synced' },
+        ],
+        primaryCta: 'Review founder workspace',
+        defaultRoute: '/founder',
+        timelineEnabled: true,
+      },
+      {
+        key: 'agency',
+        label: 'Agency control centre',
+        icon: 'building-office',
+        tagline: 'Coordinate crews, retainers, and milestone billing for every client.',
+        focusAreas: ['Delivery', 'Finance'],
+        metrics: [
+          { label: 'Clients', value: 'Portfolio' },
+          { label: 'Utilisation', value: 'Live' },
+        ],
+        primaryCta: 'Open agency control centre',
+        defaultRoute: '/agency',
+        timelineEnabled: false,
+      },
+    ];
+    const chromeValue = {
+      locales: [
+        {
+          code: DEFAULT_LANGUAGE,
+          label: 'English',
+          nativeLabel: 'English',
+          flag: '🇬🇧',
+          region: 'Global',
+          coverage: 100,
+          status: 'ga',
+          supportLead: 'London localisation studio',
+          lastUpdated: '2024-05-12T09:00:00Z',
+          summary: 'Editorial canon reviewed quarterly.',
+          direction: 'ltr',
+          isDefault: true,
+        },
+      ],
+      personas,
+      footer: { navigationSections: [], statusHighlights: [], communityPrograms: [], officeLocations: [], certifications: [], socialLinks: [] },
+      loading: false,
+      error: null,
+      lastFetchedAt: null,
+      refresh: () => {},
+    };
+
+    renderWithRouter(
+      <NavigationChromeContext.Provider value={chromeValue}>
+        <RoleSwitcher options={options} currentKey="founder" />
+      </NavigationChromeContext.Provider>,
+    );
 
     expect(screen.getByRole('button', { name: /founder/i })).toBeInTheDocument();
 

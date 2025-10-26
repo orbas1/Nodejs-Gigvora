@@ -616,6 +616,13 @@ export {
   registerAdminTimelineAssociations,
 } from './adminTimelineModels.js';
 export { SiteSetting, SitePage, SiteNavigationLink, SITE_PAGE_STATUSES } from './siteManagementModels.js';
+export {
+  NavigationLocale,
+  NavigationPersona,
+  NavigationChromeConfig,
+  NAVIGATION_LOCALE_STATUSES,
+  NAVIGATION_DIRECTIONS,
+} from './navigationChromeModels.js';
 export { EmailSmtpConfig, EmailTemplate } from './emailModels.js';
 export {
   CreationStudioItem,
