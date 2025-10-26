@@ -114,6 +114,59 @@ export const websitePreferencesShape = PropTypes.shape({
   social: PropTypes.shape({
     links: PropTypes.arrayOf(socialLinkShape),
   }),
+  personalization: PropTypes.shape({
+    theme: PropTypes.shape({
+      preset: PropTypes.string,
+      mode: PropTypes.oneOf(['system', 'light', 'dark', 'high-contrast']),
+      accent: PropTypes.string,
+      density: PropTypes.oneOf(['compact', 'cozy', 'comfortable', 'spacious']),
+      customAccent: PropTypes.string,
+      customNeutral: PropTypes.string,
+      livePreview: PropTypes.bool,
+      analyticsOptIn: PropTypes.bool,
+      updatedAt: PropTypes.string,
+    }),
+    layout: PropTypes.shape({
+      template: PropTypes.string,
+      heroStyle: PropTypes.string,
+      featuredCallout: PropTypes.string,
+      analyticsEnabled: PropTypes.bool,
+      updatedAt: PropTypes.string,
+      modules: PropTypes.arrayOf(
+        PropTypes.shape({
+          id: PropTypes.string.isRequired,
+          label: PropTypes.string,
+          description: PropTypes.string,
+          enabled: PropTypes.bool,
+          pinned: PropTypes.bool,
+          span: PropTypes.oneOf(['full', 'half', 'third']),
+        }),
+      ),
+    }),
+    subscriptions: PropTypes.shape({
+      digestFrequency: PropTypes.oneOf(['daily', 'weekly', 'monthly']),
+      timezone: PropTypes.string,
+      aiSummaries: PropTypes.bool,
+      previewEnabled: PropTypes.bool,
+      updatedAt: PropTypes.string,
+      channels: PropTypes.shape({
+        email: PropTypes.bool,
+        push: PropTypes.bool,
+        inApp: PropTypes.bool,
+        sms: PropTypes.bool,
+      }),
+      categories: PropTypes.arrayOf(
+        PropTypes.shape({
+          id: PropTypes.string.isRequired,
+          label: PropTypes.string,
+          description: PropTypes.string,
+          enabled: PropTypes.bool,
+          frequency: PropTypes.oneOf(['real-time', 'daily', 'weekly', 'monthly']),
+          channel: PropTypes.string,
+        }),
+      ),
+    }),
+  }),
   updatedAt: PropTypes.string,
 });
 
