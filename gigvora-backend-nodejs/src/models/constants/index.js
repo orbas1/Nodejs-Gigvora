@@ -701,6 +701,9 @@ export const COLLABORATION_PERMISSION_LEVELS = Object.freeze(['view', 'comment',
 export const COLLABORATION_PARTICIPANT_ROLES = Object.freeze(['owner', 'contributor', 'reviewer', 'client', 'guest']);
 export const COLLABORATION_PARTICIPANT_STATUSES = Object.freeze(['invited', 'active', 'inactive', 'removed']);
 export const COLLABORATION_ROOM_TYPES = Object.freeze(['video', 'whiteboard', 'huddle']);
+export const HUDDLE_STATUSES = Object.freeze(['draft', 'scheduled', 'active', 'completed', 'cancelled']);
+export const HUDDLE_PARTICIPANT_ROLES = Object.freeze(['host', 'participant', 'observer', 'guest']);
+export const HUDDLE_PARTICIPANT_RESPONSES = Object.freeze(['invited', 'accepted', 'declined', 'tentative']);
 export const COLLABORATION_ASSET_TYPES = Object.freeze(['file', 'prototype', 'demo', 'document']);
 export const COLLABORATION_ASSET_STATUSES = Object.freeze(['in_review', 'approved', 'needs_changes']);
 export const COLLABORATION_ANNOTATION_TYPES = Object.freeze(['comment', 'issue', 'decision']);
@@ -776,6 +779,7 @@ export const FREELANCER_CALENDAR_RELATED_TYPES = Object.freeze([
 ]);
 export const CALENDAR_EVENT_SOURCES = ['manual', 'google', 'outlook', 'gigvora'];
 export const CALENDAR_EVENT_SYNC_STATUSES = Object.freeze(['pending', 'synced', 'failed']);
+export const CALENDAR_SYNC_JOB_STATUSES = Object.freeze(['queued', 'running', 'success', 'failed']);
 export const ADMIN_CALENDAR_SYNC_STATUSES = ['connected', 'syncing', 'needs_attention', 'disconnected'];
 export const ADMIN_CALENDAR_EVENT_STATUSES = ['draft', 'scheduled', 'published', 'cancelled'];
 export const ADMIN_CALENDAR_VISIBILITIES = ['internal', 'external', 'private'];
@@ -791,6 +795,21 @@ export const FOCUS_SESSION_TYPES = [
 ];
 export const CALENDAR_EVENT_VISIBILITIES = Object.freeze(['private', 'shared', 'public']);
 export const CALENDAR_DEFAULT_VIEWS = Object.freeze(['agenda', 'week', 'month']);
+export const PRESENCE_AVAILABILITY_STATES = Object.freeze([
+  'available',
+  'away',
+  'focus',
+  'in_meeting',
+  'do_not_disturb',
+  'offline',
+]);
+export const PRESENCE_EVENT_TYPES = Object.freeze([
+  'status_change',
+  'focus_session',
+  'calendar_sync',
+  'availability_window',
+  'huddle',
+]);
 export const ADVISOR_COLLABORATION_STATUSES = Object.freeze(['draft', 'active', 'paused', 'archived']);
 export const ADVISOR_COLLABORATION_MEMBER_ROLES = Object.freeze(['mentor', 'agency', 'coach', 'observer', 'teammate']);
 export const ADVISOR_COLLABORATION_MEMBER_STATUSES = Object.freeze(['invited', 'active', 'revoked']);
