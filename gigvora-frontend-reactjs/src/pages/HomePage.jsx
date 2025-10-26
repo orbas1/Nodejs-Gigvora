@@ -220,6 +220,12 @@ export default function HomePage() {
     ? homeData.settings.heroSubheading
     : undefined;
   const heroMedia = homeData?.settings?.heroMedia;
+  const heroPersonaChips = Array.isArray(homeData?.settings?.heroPersonaChips)
+    ? homeData.settings.heroPersonaChips
+    : undefined;
+  const heroValuePillars = Array.isArray(homeData?.settings?.heroValuePillars)
+    ? homeData.settings.heroValuePillars
+    : undefined;
 
   const heroKeywords = useMemo(() => {
     if (!Array.isArray(homeData?.settings?.heroKeywords)) {
@@ -471,6 +477,8 @@ export default function HomePage() {
             onClaimWorkspace={() => navigate('/register')}
             onBrowseOpportunities={() => navigate('/gigs')}
             productMedia={heroMedia}
+            personaChips={heroPersonaChips}
+            valuePillars={heroValuePillars}
           />
         ),
       }}

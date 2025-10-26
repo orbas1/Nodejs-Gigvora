@@ -81,7 +81,13 @@ describe('HomeHeroSection', () => {
 
     expect(claimSpy).toHaveBeenCalledTimes(1);
     expect(browseSpy).toHaveBeenCalledTimes(1);
-    expect(analyticsMock.track).toHaveBeenCalledTimes(2);
+    expect(analyticsMock.track).toHaveBeenCalledTimes(3);
+    expect(analyticsMock.track).toHaveBeenNthCalledWith(
+      1,
+      'web_home_hero_viewed',
+      expect.objectContaining({ heroId: 'home-hero' }),
+      expect.any(Object),
+    );
   });
 
   it('falls back gracefully when errored', () => {
@@ -314,8 +320,7 @@ describe('JoinCommunitySection', () => {
 describe('TestimonialsSection', () => {
   it('renders testimonials with fallback data', () => {
     renderWithRouter(<TestimonialsSection loading error />);
-    expect(screen.getByText(/Trusted by leaders and makers/i)).toBeInTheDocument();
-    // ensures fallback testimonial present
-    expect(screen.getAllByRole('article').length).toBeGreaterThan(0);
+    expect(screen.getByText(/We could not load testimonials right now/i)).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: /customer testimonials/i })).toBeInTheDocument();
   });
 });

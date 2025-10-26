@@ -13,6 +13,53 @@ function buildFallback() {
         { label: 'Average NPS', value: '68' },
         { label: 'Completion rate', value: '97%' },
       ],
+      heroPersonaChips: [
+        'Founders orchestrating cross-functional squads',
+        'Agencies scaling delivery pods with trust guardrails',
+        'Mentors, operators, and advisors guiding cohorts',
+        'Recruiters and talent leads hiring with real-time telemetry',
+      ],
+      heroValuePillars: [
+        {
+          id: 'command-centre',
+          title: 'One command centre for every mission',
+          description:
+            'Run launches, mentoring, and operations from a single glassmorphic HQ with telemetry every stakeholder trusts.',
+          highlights: [
+            'Real-time launchpad, finance, and compliance visibility for every persona',
+            'Async rituals, pulse digests, and AI nudges keep crews accountable across timezones',
+          ],
+          metric: { label: 'Operational clarity', value: '8.6/10 team confidence score' },
+          icon: 'SparklesIcon',
+          action: { id: 'command-centre', label: 'Explore HQ playbook', href: '/platform/command-centre' },
+        },
+        {
+          id: 'compliance-trust',
+          title: 'Enterprise trust without slowdowns',
+          description:
+            'Treasury, legal, and risk automation wire into every engagement so finance and compliance teams ship with confidence.',
+          highlights: [
+            'Role-aware access, SOC 2 audits, and escrow guardrails in one shared ledger',
+            'Regulated payouts, renewals, and invoicing run through a verified treasury spine',
+          ],
+          metric: { label: 'Trust signals', value: '99.95% uptime · SOC 2 monitored' },
+          icon: 'ShieldCheckIcon',
+          action: { id: 'trust-centre', label: 'Review trust centre', href: '/trust-center' },
+        },
+        {
+          id: 'talent-network',
+          title: 'Curated network activated in days',
+          description:
+            'Mentor guilds, specialists, and community pods assemble instantly with readiness scores and engagement insights.',
+          highlights: [
+            'AI matching, guild programming, and readiness scoring surface the right crew instantly',
+            'Live NPS, utilisation, and sentiment analytics keep teams tuned to outcomes',
+          ],
+          metric: { label: 'Network activation', value: '7,800+ mentors & specialists' },
+          icon: 'ChartBarIcon',
+          action: { id: 'talent-network', label: 'Meet the network', href: '/network' },
+        },
+      ],
     },
     pageContent: null,
     creations: [],
