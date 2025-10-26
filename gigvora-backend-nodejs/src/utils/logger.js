@@ -40,6 +40,18 @@ const baseLogger = pino({
     env: initialConfig.env ?? fallbackConfig.env,
     service: initialConfig.serviceName ?? fallbackConfig.serviceName,
   },
+  messageKey: 'message',
+  formatters: {
+    level(label) {
+      return { level: label };
+    },
+    log(object) {
+      if (object.req?.id && !object.requestId) {
+        return { ...object, requestId: object.req.id };
+      }
+      return object;
+    },
+  },
 });
 
 function applyConfig(config) {
