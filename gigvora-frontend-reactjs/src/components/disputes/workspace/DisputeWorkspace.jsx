@@ -1,13 +1,9 @@
-import { useMemo, useState } from 'react';
-import { ArrowPathIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { useEffect, useMemo, useState } from 'react';
 import useCachedResource from '../../../hooks/useCachedResource.js';
-import { formatAbsolute } from '../../../utils/date.js';
 import { fetchUserDisputes, createUserDispute, postUserDisputeEvent } from '../../../services/disputes.js';
-import DisputeMetrics from './DisputeMetrics.jsx';
-import DisputeFilters from './DisputeFilters.jsx';
-import DisputeCaseList from './DisputeCaseList.jsx';
+import DisputeDashboard from '../DisputeDashboard.jsx';
+import CaseDetailView from '../CaseDetailView.jsx';
 import DisputeComposerWizard from './DisputeComposerWizard.jsx';
-import DisputeDetailDrawer from '../DisputeDetailDrawer.jsx';
 
 const DEFAULT_SUMMARY = {
   total: 0,
@@ -98,38 +94,31 @@ export default function DisputeWorkspace({ userId, overview }) {
     }
   };
 
+  useEffect(() => {
+    if (!selectedDispute) return;
+    setSelectedDispute((previous) => {
+      if (!previous) {
+        return previous;
+      }
+      const updated = disputes.find((item) => item.id === previous.id);
+      if (!updated) {
+        return previous;
+      }
+      if (updated === previous) {
+        return previous;
+      }
+      return {
+        ...updated,
+        events: previous.events ?? updated.events,
+        attachments: updated.attachments ?? previous.attachments,
+        participants: updated.participants ?? previous.participants,
+        decisionLog: previous.decisionLog ?? updated.decisionLog,
+      };
+    });
+  }, [disputes]);
+
   return (
     <div className="flex min-h-[calc(100vh-9rem)] flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="space-y-1">
-          <h2 className="text-2xl font-semibold text-slate-900">Case board</h2>
-          <p className="text-sm text-slate-500">Updated {summary.lastUpdatedAt ? formatAbsolute(summary.lastUpdatedAt) : '—'}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => refresh({ force: true })}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
-          >
-            <ArrowPathIcon className="h-4 w-4" aria-hidden="true" /> Refresh
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowComposer(true)}
-            className={`inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold shadow-sm transition ${
-              permissions.canCreate
-                ? 'bg-accent text-white hover:bg-accent/90'
-                : 'bg-slate-300 text-slate-600 cursor-not-allowed'
-            }`}
-            disabled={!permissions.canCreate}
-          >
-            <PlusIcon className="h-4 w-4" aria-hidden="true" /> New case
-          </button>
-        </div>
-      </div>
-
-      <DisputeMetrics summary={summary} />
-
       {alert ? (
         <p
           className={`rounded-3xl px-4 py-3 text-sm ${
@@ -142,39 +131,40 @@ export default function DisputeWorkspace({ userId, overview }) {
         </p>
       ) : null}
 
-      <DisputeFilters filters={filters} metadata={metadata} onChange={setFilters} onReset={handleResetFilters} />
-
       {error ? (
         <p className="rounded-3xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{error.message || 'Failed to load disputes.'}</p>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-        <div className="space-y-3">
-          {loading ? <div className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-500">Loading…</div> : null}
-          <DisputeCaseList
-            disputes={disputes}
-            onSelect={(dispute) => setSelectedDispute(dispute)}
-            selectedId={selectedDispute?.id ?? null}
+      <DisputeDashboard
+        summary={summary}
+        cases={disputes}
+        metadata={metadata}
+        filters={filters}
+        loading={loading}
+        lastUpdated={summary.lastUpdatedAt}
+        permissions={permissions}
+        onFiltersChange={(nextFilters) => setFilters(nextFilters)}
+        onResetFilters={handleResetFilters}
+        onRefresh={refresh}
+        onCreateCase={() => setShowComposer(true)}
+        onSelectCase={(dispute) => setSelectedDispute(dispute)}
+        selectedCaseId={selectedDispute?.id ?? null}
+      />
+
+      <div className="rounded-4xl border border-white/40 bg-white/70 p-6 shadow-xl backdrop-blur">
+        {selectedDispute ? (
+          <CaseDetailView
+            dispute={selectedDispute}
+            metadata={metadata}
+            busy={busy}
+            onAppendEvent={(payload) => handleAppendEvent(payload)}
+            onRefresh={refresh}
           />
-        </div>
-        <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-          {selectedDispute ? (
-            <DisputeDetailDrawer
-              open
-              variant="inline"
-              dispute={selectedDispute}
-              metadata={metadata}
-              busy={busy}
-              loading={busy && !selectedDispute?.events}
-              onClose={() => setSelectedDispute(null)}
-              onAddEvent={(id, eventPayload) => handleAppendEvent(eventPayload)}
-            />
-          ) : (
-            <div className="flex h-full min-h-[24rem] flex-col items-center justify-center gap-3 p-6 text-center text-sm text-slate-500">
-              Select a case to review activity.
-            </div>
-          )}
-        </div>
+        ) : (
+          <div className="flex min-h-[24rem] flex-col items-center justify-center gap-3 text-center text-sm text-slate-500">
+            Select a case from the dashboard to review its lifecycle and take action.
+          </div>
+        )}
       </div>
 
       <DisputeComposerWizard
