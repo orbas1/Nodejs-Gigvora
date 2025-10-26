@@ -93,6 +93,80 @@ export async function linkedinLogin(req, res) {
   res.json(response);
 }
 
+function collectWorkspaceIdentifiers(query = {}) {
+  const candidates = [];
+  const keys = ['workspaceIds', 'workspaceId', 'workspace', 'workspace_id'];
+  keys.forEach((key) => {
+    const value = query[key];
+    if (value == null) {
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.forEach((entry) => {
+        if (entry != null) {
+          candidates.push(entry);
+        }
+      });
+      return;
+    }
+    candidates.push(value);
+  });
+  return candidates;
+}
+
+function collectSessionTraits(req) {
+  const traits = {};
+  const query = req.query ?? {};
+
+  const candidateTraits = {
+    persona: query.persona ?? query.role ?? null,
+    surface: query.surface ?? query.section ?? null,
+    client: query.client ?? null,
+    platform: query.platform ?? query.device ?? null,
+    channel: query.channel ?? null,
+    journey: query.journey ?? null,
+  };
+
+  Object.entries(candidateTraits).forEach(([key, value]) => {
+    if (value == null) {
+      return;
+    }
+    const normalised = `${value}`.trim();
+    if (normalised) {
+      traits[key] = normalised.toLowerCase();
+    }
+  });
+
+  const headerTraits = {
+    clientVersion: req.get('x-client-version') ?? req.get('x-app-version') ?? null,
+    appPlatform: req.get('x-app-platform') ?? req.get('x-platform') ?? null,
+    device: req.get('x-device') ?? null,
+  };
+
+  Object.entries(headerTraits).forEach(([key, value]) => {
+    if (value == null) {
+      return;
+    }
+    const normalised = `${value}`.trim();
+    if (normalised) {
+      traits[key] = normalised.toLowerCase();
+    }
+  });
+
+  return traits;
+}
+
+export async function currentSession(req, res) {
+  const workspaceIds = collectWorkspaceIdentifiers(req.query);
+  const traits = collectSessionTraits(req);
+  const response = await authService.describeSession(req.user?.id, {
+    workspaceIds,
+    traits,
+    accessToken: req.auth?.token ?? null,
+  });
+  res.json(response);
+}
+
 export async function refreshSession(req, res) {
   const { refreshToken } = req.body;
   const response = await authService.refreshSession(refreshToken, {

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as authController from '../controllers/authController.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import validateRequest from '../middleware/validateRequest.js';
+import authenticate from '../middleware/authenticate.js';
 import {
   adminLoginSchema,
   googleLoginSchema,
@@ -52,6 +53,7 @@ router.post(
   validateRequest({ body: linkedinLoginSchema }),
   asyncHandler(authController.linkedinLogin),
 );
+router.get('/session', authenticate(), asyncHandler(authController.currentSession));
 router.post('/refresh', validateRequest({ body: refreshSessionSchema }), asyncHandler(authController.refreshSession));
 router.post(
   '/logout',
