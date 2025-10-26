@@ -1,587 +1,581 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import classNames from '../../utils/classNames.js';
 import { formatRelativeTime } from '../../utils/date.js';
-import PeopleSearchBar from './PeopleSearchBar.jsx';
-import { resolveConnectionName } from './utils.js';
+import { formatMoney } from './utils.js';
 
-const TABS = [
-  { id: 'received', label: 'Received' },
-  { id: 'sent', label: 'Sent' },
-  { id: 'suggested', label: 'Suggestions' },
-];
+const STATUS_LABELS = {
+  pending: 'Pending',
+  accepted: 'Accepted',
+  declined: 'Declined',
+  expired: 'Expired',
+  withdrawn: 'Withdrawn',
+  cancelled: 'Cancelled',
+};
 
-function determineTab(invitation) {
-  const raw = invitation?.direction ?? invitation?.type ?? invitation?.category ?? 'received';
-  const lower = String(raw).toLowerCase();
-  if (lower.includes('sent') || lower.includes('outgoing')) {
-    return 'sent';
-  }
-  if (lower.includes('suggestion') || lower.includes('recommended') || lower.includes('opportunity')) {
-    return 'suggested';
-  }
-  return 'received';
-}
+function StatCard({ label, value, hint, tone }) {
+  const toneClasses =
+    tone === 'positive'
+      ? 'border-emerald-200 bg-emerald-50'
+      : tone === 'warning'
+        ? 'border-amber-200 bg-amber-50'
+        : tone === 'critical'
+          ? 'border-rose-200 bg-rose-50'
+          : 'border-slate-200 bg-white';
 
-function StatsStrip({ metrics }) {
   return (
-    <div className="grid gap-4 md:grid-cols-3">
-      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Response rate</p>
-        <p className="text-2xl font-semibold text-slate-900">{metrics.responseRate}%</p>
-        <p className="text-xs text-slate-500">{metrics.responseNarrative}</p>
-      </div>
-      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Median reply time</p>
-        <p className="text-2xl font-semibold text-slate-900">{metrics.medianResponse}</p>
-        <p className="text-xs text-slate-500">{metrics.medianNarrative}</p>
-      </div>
-      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Awaiting action</p>
-        <p className="text-2xl font-semibold text-slate-900">{metrics.pending}</p>
-        <p className="text-xs text-slate-500">{metrics.pendingNarrative}</p>
-      </div>
+    <div className={classNames('flex flex-col gap-1 rounded-3xl border p-4 shadow-sm', toneClasses)}>
+      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</span>
+      <span className="text-2xl font-semibold text-slate-900">{value}</span>
+      {hint ? <span className="text-xs text-slate-500">{hint}</span> : null}
     </div>
   );
 }
 
-StatsStrip.propTypes = {
-  metrics: PropTypes.shape({
-    responseRate: PropTypes.number,
-    responseNarrative: PropTypes.string,
-    medianResponse: PropTypes.string,
-    medianNarrative: PropTypes.string,
-    pending: PropTypes.number,
-    pendingNarrative: PropTypes.string,
-  }).isRequired,
+StatCard.propTypes = {
+  label: PropTypes.string.isRequired,
+  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  hint: PropTypes.node,
+  tone: PropTypes.oneOf(['neutral', 'positive', 'warning', 'critical']),
 };
 
-function TabPills({ activeTab, onTabChange }) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {TABS.map((tab) => (
-        <button
-          key={tab.id}
-          type="button"
-          className={classNames(
-            'rounded-full px-4 py-2 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2',
-            activeTab === tab.id
-              ? 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white shadow-lg focus:ring-indigo-200'
-              : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 focus:ring-slate-300',
-          )}
-          onClick={() => onTabChange(tab.id)}
-        >
-          {tab.label}
-        </button>
-      ))}
-    </div>
-  );
+StatCard.defaultProps = {
+  hint: null,
+  tone: 'neutral',
+};
+
+function resolveDirection(invitation) {
+  if (invitation.direction === 'incoming' || invitation.direction === 'outgoing') {
+    return invitation.direction;
+  }
+  if (invitation.sentBy && invitation.sentBy.id) {
+    return 'outgoing';
+  }
+  if (invitation.metadata?.direction) {
+    return invitation.metadata.direction === 'outgoing' ? 'outgoing' : 'incoming';
+  }
+  return invitation.sentById ? 'outgoing' : 'incoming';
 }
 
-TabPills.propTypes = {
-  activeTab: PropTypes.string.isRequired,
-  onTabChange: PropTypes.func.isRequired,
-};
+function normalizeInvitation(invitation) {
+  const direction = resolveDirection(invitation);
+  const workspaceId = invitation.workspace?.id
+    ?? invitation.agencyWorkspace?.id
+    ?? invitation.agencyWorkspaceId
+    ?? invitation.workspaceId
+    ?? invitation.workspace?.slug
+    ?? invitation.workspaceSlug
+    ?? invitation.workspaceName;
+  const workspaceName = invitation.workspace?.name
+    ?? invitation.agencyWorkspace?.name
+    ?? invitation.workspaceName
+    ?? 'Workspace';
+  const contactName = invitation.freelancerName
+    ?? invitation.contactName
+    ?? invitation.recipientName
+    ?? invitation.recipient?.name
+    ?? invitation.contact?.name
+    ?? invitation.email
+    ?? 'Contact';
+  const contactEmail = invitation.freelancerEmail
+    ?? invitation.contactEmail
+    ?? invitation.recipient?.email
+    ?? invitation.email
+    ?? null;
+  const sentAt = invitation.sentAt ?? invitation.createdAt ?? null;
+  const responseDueAt = invitation.responseDueAt ?? invitation.response_due_at ?? null;
+  const respondedAt = invitation.respondedAt ?? invitation.responded_at ?? null;
+  const status = invitation.status ?? 'pending';
+  const isPending = status === 'pending';
+  const dueDate = responseDueAt ? new Date(responseDueAt) : null;
+  const isOverdue = Boolean(isPending && dueDate && dueDate.getTime() < Date.now());
+
+  return {
+    raw: invitation,
+    id: invitation.id,
+    status,
+    direction,
+    workspaceName,
+    workspaceKey: workspaceId ? String(workspaceId) : null,
+    roleTitle: invitation.roleTitle ?? invitation.role ?? null,
+    engagementType: invitation.engagementType ?? invitation.type ?? null,
+    proposedRetainer: invitation.proposedRetainer ?? invitation.retainerAmount ?? null,
+    currency: invitation.currency ?? 'USD',
+    message: invitation.message ?? '',
+    notes: invitation.notes ?? '',
+    sentAt,
+    responseDueAt,
+    respondedAt,
+    contactName,
+    contactEmail,
+    isOverdue,
+    tab: direction === 'incoming' ? 'received' : 'sent',
+  };
+}
 
 function InvitationCard({
   invitation,
-  isSelected,
-  onToggleSelect,
+  noteDraft,
+  onNoteChange,
   onAccept,
   onDecline,
-  onMessage,
   onResend,
-  note,
-  onNoteChange,
+  onCancel,
+  onSaveNote,
+  busyAction,
 }) {
-  const persona = invitation?.persona ?? invitation?.relationship ?? invitation?.role ?? 'Member';
-  const lastActivity = invitation?.updatedAt ?? invitation?.createdAt;
-  const createdAt = invitation?.createdAt ? formatRelativeTime(invitation.createdAt) : '—';
-  const mutualConnections = Number(invitation?.mutualConnections ?? invitation?.mutuals ?? 0);
-  const summary = invitation?.summary ?? invitation?.note ?? invitation?.intro ?? '';
-  const name = resolveConnectionName(invitation);
-  const avatar = invitation?.avatarUrl ?? invitation?.photoUrl;
+  const statusLabel = STATUS_LABELS[invitation.status] ?? invitation.status;
+  const statusTone =
+    invitation.status === 'accepted'
+      ? 'text-emerald-600 bg-emerald-50 border-emerald-200'
+      : invitation.status === 'pending'
+        ? 'text-amber-600 bg-amber-50 border-amber-200'
+        : 'text-rose-600 bg-rose-50 border-rose-200';
+  const canRespond = invitation.status === 'pending' && invitation.direction === 'incoming';
+  const canManageOutgoing = invitation.direction === 'sent' || invitation.direction === 'outgoing';
+  const canCancel = invitation.status === 'pending' && canManageOutgoing;
+  const canResend = canManageOutgoing && invitation.status !== 'accepted';
+  const busy = busyAction?.id === invitation.id;
 
   return (
-    <article className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex gap-3">
-          <div className="relative">
-            <input
-              type="checkbox"
-              aria-label={`Select ${name}`}
-              checked={isSelected}
-              onChange={() => onToggleSelect(invitation)}
-              className="absolute -left-4 top-1 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-200"
-            />
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-lg text-slate-500">
-              {avatar ? <img src={avatar} alt="" className="h-14 w-14 rounded-2xl object-cover" /> : name.charAt(0)}
-            </div>
+    <article className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-base font-semibold text-slate-900">{invitation.contactName}</h3>
+            <span className={classNames('rounded-full border px-3 py-0.5 text-[11px] font-semibold', statusTone)}>
+              {statusLabel}
+            </span>
+            {invitation.isOverdue ? (
+              <span className="rounded-full border border-rose-200 bg-rose-50 px-3 py-0.5 text-[11px] font-semibold text-rose-600">
+                Response overdue
+              </span>
+            ) : null}
           </div>
-          <div>
-            <h3 className="text-base font-semibold text-slate-900">{name}</h3>
-            <p className="text-sm text-slate-500">{persona}</p>
-            <p className="text-xs text-slate-400">{mutualConnections} mutual connection{mutualConnections === 1 ? '' : 's'}</p>
-          </div>
+          <p className="text-xs text-slate-500">{invitation.contactEmail || 'Email not shared'}</p>
         </div>
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-          {invitation?.status ?? 'Pending'}
-        </span>
+        <div className="text-right text-xs text-slate-500">
+          {invitation.sentAt ? <p>Sent {formatRelativeTime(invitation.sentAt)}</p> : null}
+          {invitation.responseDueAt ? <p>Due {formatRelativeTime(invitation.responseDueAt)}</p> : null}
+          {invitation.respondedAt ? <p>Responded {formatRelativeTime(invitation.respondedAt)}</p> : null}
+        </div>
       </div>
 
-      {summary ? <p className="text-sm leading-relaxed text-slate-600">{summary}</p> : null}
-
-      <dl className="grid grid-cols-2 gap-4 text-xs text-slate-500">
+      <div className="grid gap-3 text-xs text-slate-600 md:grid-cols-2">
         <div>
-          <dt className="font-semibold uppercase tracking-wide text-slate-400">Invited</dt>
-          <dd>{createdAt}</dd>
+          <span className="block font-semibold text-slate-500">Workspace</span>
+          <span className="text-slate-700">{invitation.workspaceName}</span>
         </div>
         <div>
-          <dt className="font-semibold uppercase tracking-wide text-slate-400">Updated</dt>
-          <dd>{lastActivity ? formatRelativeTime(lastActivity) : '—'}</dd>
+          <span className="block font-semibold text-slate-500">Engagement</span>
+          <span className="text-slate-700">
+            {invitation.roleTitle ? `${invitation.roleTitle} • ` : ''}
+            {invitation.engagementType ? invitation.engagementType.replace(/_/g, ' ') : '—'}
+          </span>
         </div>
-      </dl>
+        <div>
+          <span className="block font-semibold text-slate-500">Retainer</span>
+          <span className="text-slate-700">
+            {invitation.proposedRetainer != null
+              ? formatMoney(invitation.proposedRetainer, invitation.currency)
+              : '—'}
+          </span>
+        </div>
+        <div>
+          <span className="block font-semibold text-slate-500">Direction</span>
+          <span className="text-slate-700">{invitation.direction === 'incoming' ? 'Received' : 'Sent'}</span>
+        </div>
+      </div>
 
-      <div className="grid gap-3 rounded-2xl bg-slate-50 p-3">
-        <label htmlFor={`note-${invitation.id}`} className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Add context
+      {invitation.message ? (
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-slate-600">
+          {invitation.message}
+        </div>
+      ) : null}
+
+      <div className="flex flex-col gap-2">
+        <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor={`invitation-notes-${invitation.id}`}>
+          Private notes
         </label>
         <textarea
-          id={`note-${invitation.id}`}
-          value={note}
-          onChange={(event) => onNoteChange(event.target.value)}
-          placeholder="Share context before sending a message"
-          rows={3}
-          className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+          id={`invitation-notes-${invitation.id}`}
+          value={noteDraft}
+          onChange={(event) => onNoteChange(invitation.id, event.target.value)}
+          placeholder="Add context or follow-up reminders"
+          className="min-h-[96px] rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/20"
         />
-        <p className="text-[11px] text-slate-500">Notes stay with this invitation so the team communicates consistently.</p>
+        <div className="flex flex-wrap justify-end gap-2">
+          <button
+            type="button"
+            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={() => onNoteChange(invitation.id, invitation.notes ?? '')}
+            disabled={busy}
+          >
+            Reset
+          </button>
+          <button
+            type="button"
+            className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:cursor-not-allowed disabled:bg-slate-500"
+            onClick={() => onSaveNote(invitation.id, noteDraft)}
+            disabled={busy || noteDraft === (invitation.notes ?? '')}
+          >
+            Save note
+          </button>
+        </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-200 focus:ring-offset-2"
-          onClick={() => onAccept(invitation)}
-        >
-          Accept
-        </button>
-        <button
-          type="button"
-          className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2"
-          onClick={() => onDecline(invitation)}
-        >
-          Decline
-        </button>
-        <button
-          type="button"
-          className="rounded-full border border-transparent bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:from-indigo-600 hover:via-purple-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:ring-offset-2"
-          onClick={() => onMessage(invitation)}
-        >
-          Message
-        </button>
-        <button
-          type="button"
-          className="rounded-full border border-dashed border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-200 focus:ring-offset-2"
-          onClick={() => onResend(invitation)}
-        >
-          Remind
-        </button>
+      <div className="flex flex-wrap justify-end gap-2">
+        {canRespond ? (
+          <>
+            <button
+              type="button"
+              className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={() => onAccept(invitation.id)}
+              disabled={busy}
+            >
+              Accept
+            </button>
+            <button
+              type="button"
+              className="rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-semibold text-rose-600 shadow-sm transition hover:bg-rose-100 focus:outline-none focus:ring-2 focus:ring-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={() => onDecline(invitation.id)}
+              disabled={busy}
+            >
+              Decline
+            </button>
+          </>
+        ) : null}
+        {canResend ? (
+          <button
+            type="button"
+            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={() => onResend(invitation.id)}
+            disabled={busy}
+          >
+            Resend
+          </button>
+        ) : null}
+        {canCancel ? (
+          <button
+            type="button"
+            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={() => onCancel(invitation.id)}
+            disabled={busy}
+          >
+            Cancel invite
+          </button>
+        ) : null}
       </div>
     </article>
   );
 }
 
 InvitationCard.propTypes = {
-  invitation: PropTypes.object.isRequired,
-  isSelected: PropTypes.bool.isRequired,
-  onToggleSelect: PropTypes.func.isRequired,
+  invitation: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+    status: PropTypes.string.isRequired,
+    direction: PropTypes.string.isRequired,
+    workspaceName: PropTypes.string.isRequired,
+    workspaceKey: PropTypes.string,
+    roleTitle: PropTypes.string,
+    engagementType: PropTypes.string,
+    proposedRetainer: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    currency: PropTypes.string,
+    message: PropTypes.string,
+    notes: PropTypes.string,
+    sentAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    responseDueAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    respondedAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    contactName: PropTypes.string.isRequired,
+    contactEmail: PropTypes.string,
+    isOverdue: PropTypes.bool,
+  }).isRequired,
+  noteDraft: PropTypes.string.isRequired,
+  onNoteChange: PropTypes.func.isRequired,
   onAccept: PropTypes.func.isRequired,
   onDecline: PropTypes.func.isRequired,
-  onMessage: PropTypes.func.isRequired,
   onResend: PropTypes.func.isRequired,
-  note: PropTypes.string,
-  onNoteChange: PropTypes.func.isRequired,
+  onCancel: PropTypes.func.isRequired,
+  onSaveNote: PropTypes.func.isRequired,
+  busyAction: PropTypes.shape({ id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]), type: PropTypes.string }),
 };
 
 InvitationCard.defaultProps = {
-  note: '',
+  busyAction: null,
 };
 
-function BulkActionBar({
-  selectedCount,
-  onClear,
+export default function InvitationManager({
+  invitations,
+  loading,
   onAccept,
   onDecline,
-  onMessage,
-  onRemind,
+  onResend,
+  onCancel,
+  onUpdateNotes,
 }) {
-  if (!selectedCount) {
-    return null;
-  }
+  const preparedInvitations = useMemo(() => (invitations ?? []).map((invitation) => normalizeInvitation(invitation)), [invitations]);
+  const [activeTab, setActiveTab] = useState('received');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [workspaceFilter, setWorkspaceFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [noteDrafts, setNoteDrafts] = useState(() => {
+    const initial = {};
+    preparedInvitations.forEach((invitation) => {
+      initial[invitation.id] = invitation.notes ?? '';
+    });
+    return initial;
+  });
+  const [busyAction, setBusyAction] = useState(null);
+
+  useEffect(() => {
+    setNoteDrafts((current) => {
+      const next = {};
+      preparedInvitations.forEach((invitation) => {
+        const existing = current[invitation.id];
+        next[invitation.id] = existing != null ? existing : invitation.notes ?? '';
+      });
+      return next;
+    });
+  }, [preparedInvitations]);
+
+  const statusCounts = useMemo(() => {
+    return preparedInvitations.reduce(
+      (acc, invitation) => {
+        const status = invitation.status ?? 'pending';
+        acc[status] = (acc[status] ?? 0) + 1;
+        if (invitation.isOverdue) {
+          acc.overdue = (acc.overdue ?? 0) + 1;
+        }
+        if (invitation.tab === 'received' && invitation.status === 'pending') {
+          acc.inbox = (acc.inbox ?? 0) + 1;
+        }
+        return acc;
+      },
+      { overdue: 0, inbox: 0 },
+    );
+  }, [preparedInvitations]);
+
+  const workspaceOptions = useMemo(() => {
+    const map = new Map();
+    preparedInvitations.forEach((invitation) => {
+      if (!invitation.workspaceKey) return;
+      map.set(invitation.workspaceKey, invitation.workspaceName);
+    });
+    return Array.from(map.entries()).map(([value, label]) => ({ value, label }));
+  }, [preparedInvitations]);
+
+  const filteredInvitations = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    return preparedInvitations
+      .filter((invitation) => {
+        if (activeTab !== 'all' && invitation.tab !== activeTab) {
+          return false;
+        }
+        if (statusFilter !== 'all' && invitation.status !== statusFilter) {
+          return false;
+        }
+        if (workspaceFilter !== 'all' && invitation.workspaceKey !== workspaceFilter) {
+          return false;
+        }
+        if (!query) {
+          return true;
+        }
+        const haystack = [
+          invitation.contactName,
+          invitation.contactEmail,
+          invitation.workspaceName,
+          invitation.roleTitle,
+          invitation.engagementType,
+          invitation.message,
+          invitation.notes,
+        ]
+          .map((entry) => String(entry ?? '').toLowerCase())
+          .join(' ');
+        return haystack.includes(query);
+      })
+      .sort((a, b) => {
+        const sentA = a.sentAt ? new Date(a.sentAt).getTime() : 0;
+        const sentB = b.sentAt ? new Date(b.sentAt).getTime() : 0;
+        return sentB - sentA;
+      });
+  }, [preparedInvitations, activeTab, statusFilter, workspaceFilter, searchTerm]);
+
+  const handleNoteChange = useCallback((id, value) => {
+    setNoteDrafts((current) => ({ ...current, [id]: value }));
+  }, []);
+
+  const runAction = useCallback(
+    async (type, handler, invitationId, payload) => {
+      if (!handler) return;
+      setBusyAction({ type, id: invitationId });
+      try {
+        await handler(invitationId, payload);
+      } finally {
+        setBusyAction(null);
+      }
+    },
+    [],
+  );
+
+  const handleSaveNote = useCallback(
+    async (invitationId, noteValue) => {
+      if (!onUpdateNotes) {
+        return;
+      }
+      await runAction('note', onUpdateNotes, invitationId, { notes: noteValue });
+    },
+    [onUpdateNotes, runAction],
+  );
+
+  const tabs = [
+    { id: 'received', label: 'Received' },
+    { id: 'sent', label: 'Sent' },
+    { id: 'all', label: 'All' },
+  ];
+
+  const statusOptions = useMemo(() => {
+    const unique = new Set(preparedInvitations.map((invitation) => invitation.status));
+    return ['all', ...Array.from(unique)];
+  }, [preparedInvitations]);
 
   return (
-    <div className="sticky top-3 z-20 flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-900 bg-slate-900 px-5 py-3 text-sm text-white shadow-xl">
-      <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide">{selectedCount} selected</span>
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Total" value={preparedInvitations.length} hint={`${filteredInvitations.length} shown`} />
+        <StatCard
+          label="Awaiting response"
+          value={statusCounts.inbox ?? 0}
+          hint="Pending invites you need to review"
+          tone={statusCounts.inbox ? 'warning' : 'neutral'}
+        />
+        <StatCard
+          label="Overdue"
+          value={statusCounts.overdue ?? 0}
+          hint="Past due date"
+          tone={statusCounts.overdue ? 'critical' : 'neutral'}
+        />
+        <StatCard
+          label="Accepted"
+          value={statusCounts.accepted ?? 0}
+          hint="Recent wins"
+          tone="positive"
+        />
+      </div>
+
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-slate-900 shadow-sm" onClick={onAccept}>
-          Accept
-        </button>
-        <button type="button" className="rounded-full border border-white/40 px-4 py-2 text-xs font-semibold text-white" onClick={onDecline}>
-          Decline
-        </button>
-        <button type="button" className="rounded-full border border-white/40 px-4 py-2 text-xs font-semibold text-white" onClick={onMessage}>
-          Message
-        </button>
-        <button type="button" className="rounded-full border border-white/40 px-4 py-2 text-xs font-semibold text-white" onClick={onRemind}>
-          Remind
-        </button>
-        <button type="button" className="rounded-full border border-transparent bg-white/20 px-3 py-2 text-[11px] font-semibold text-white" onClick={onClear}>
-          Clear
-        </button>
+        {tabs.map((tab) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              className={classNames(
+                'rounded-full px-4 py-2 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2',
+                isActive
+                  ? 'bg-slate-900 text-white shadow-sm focus:ring-slate-300'
+                  : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 focus:ring-slate-200',
+              )}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-xs text-slate-600">
+            <span className="font-semibold text-slate-500">Status</span>
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-accent/20"
+            >
+              {statusOptions.map((status) => (
+                <option key={status} value={status}>
+                  {status === 'all' ? 'All statuses' : STATUS_LABELS[status] ?? status}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="flex items-center gap-2 text-xs text-slate-600">
+            <span className="font-semibold text-slate-500">Workspace</span>
+            <select
+              value={workspaceFilter}
+              onChange={(event) => setWorkspaceFilter(event.target.value)}
+              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-accent/20"
+            >
+              <option value="all">All workspaces</option>
+              {workspaceOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <label className="flex w-full items-center gap-3 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600 focus-within:border-slate-300 focus-within:bg-white focus-within:ring-2 focus-within:ring-accent/20 lg:w-auto">
+          <span className="font-semibold text-slate-500">Search</span>
+          <input
+            type="search"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Search names, workspaces, notes"
+            className="w-full border-none bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
+          />
+        </label>
+      </div>
+
+      <div className="grid gap-4">
+        {loading
+          ? Array.from({ length: 3 }).map((_, index) => (
+              // eslint-disable-next-line react/no-array-index-key
+              <div key={index} className="h-52 animate-pulse rounded-3xl border border-slate-200 bg-slate-100" />
+            ))
+          : filteredInvitations.length
+            ? filteredInvitations.map((invitation) => (
+                <InvitationCard
+                  key={invitation.id}
+                  invitation={invitation}
+                  noteDraft={noteDrafts[invitation.id] ?? invitation.notes ?? ''}
+                  onNoteChange={handleNoteChange}
+                  onAccept={(id) => runAction('accept', onAccept, id)}
+                  onDecline={(id) => runAction('decline', onDecline, id)}
+                  onResend={(id) => runAction('resend', onResend, id)}
+                  onCancel={(id) => runAction('cancel', onCancel, id)}
+                  onSaveNote={handleSaveNote}
+                  busyAction={busyAction}
+                />
+              ))
+            : (
+              <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50/70 p-12 text-center text-sm text-slate-500">
+                No invitations match the filters yet.
+              </div>
+            )}
       </div>
     </div>
   );
 }
 
-BulkActionBar.propTypes = {
-  selectedCount: PropTypes.number.isRequired,
-  onClear: PropTypes.func.isRequired,
-  onAccept: PropTypes.func.isRequired,
-  onDecline: PropTypes.func.isRequired,
-  onMessage: PropTypes.func.isRequired,
-  onRemind: PropTypes.func.isRequired,
-};
-
-export default function InvitationManager({
-  invitations,
-  onAccept,
-  onDecline,
-  onMessage,
-  onRemind,
-  onTrackEvent,
-}) {
-  const [activeTab, setActiveTab] = useState('received');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filters, setFilters] = useState({
-    statuses: [],
-    relationships: [],
-    organisations: [],
-    industries: [],
-    locations: [],
-    tags: [],
-    seniority: [],
-  });
-  const [selectedIds, setSelectedIds] = useState(new Set());
-  const [notes, setNotes] = useState({});
-
-  const derivedInvitations = useMemo(() => {
-    return invitations.map((invitation) => ({
-      ...invitation,
-      tab: determineTab(invitation),
-    }));
-  }, [invitations]);
-
-  const filterOptions = useMemo(() => {
-    const organisations = new Map();
-    const tags = new Map();
-    const locations = new Map();
-    derivedInvitations.forEach((invitation) => {
-      if (invitation?.organisation) {
-        organisations.set(invitation.organisation, { id: invitation.organisation, label: invitation.organisation });
-      }
-      if (Array.isArray(invitation?.tags)) {
-        invitation.tags.forEach((tag) => {
-          if (tag) {
-            tags.set(tag, { id: tag, label: tag });
-          }
-        });
-      }
-      if (invitation?.location) {
-        locations.set(invitation.location, { id: invitation.location, label: invitation.location });
-      }
-    });
-    return {
-      organisations: Array.from(organisations.values()),
-      industries: [],
-      locations: Array.from(locations.values()),
-      tags: Array.from(tags.values()),
-      seniority: [],
-    };
-  }, [derivedInvitations]);
-
-  const filteredInvitations = useMemo(() => {
-    const query = searchTerm?.toLowerCase() ?? '';
-    return derivedInvitations.filter((invitation) => {
-      if (activeTab !== invitation.tab) {
-        return false;
-      }
-      if (query) {
-        const haystack = [
-          resolveConnectionName(invitation),
-          invitation?.persona,
-          invitation?.organisation,
-          invitation?.summary,
-          ...(invitation?.tags ?? []),
-        ]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase();
-        if (!haystack.includes(query)) {
-          return false;
-        }
-      }
-
-      if (filters.statuses?.length) {
-        const status = String(invitation?.status ?? '').toLowerCase();
-        if (!filters.statuses.some((value) => status.includes(value))) {
-          return false;
-        }
-      }
-      if (filters.relationships?.length) {
-        const persona = String(invitation?.persona ?? invitation?.relationship ?? '').toLowerCase();
-        if (!filters.relationships.some((value) => persona.includes(value))) {
-          return false;
-        }
-      }
-      if (filters.organisations?.length && invitation?.organisation) {
-        if (!filters.organisations.includes(invitation.organisation)) {
-          return false;
-        }
-      }
-      if (filters.locations?.length && invitation?.location) {
-        if (!filters.locations.includes(invitation.location)) {
-          return false;
-        }
-      }
-      if (filters.tags?.length && Array.isArray(invitation?.tags)) {
-        if (!invitation.tags.some((tag) => filters.tags.includes(tag))) {
-          return false;
-        }
-      }
-      return true;
-    });
-  }, [derivedInvitations, activeTab, searchTerm, filters]);
-
-  const metrics = useMemo(() => {
-    const relevant = derivedInvitations.filter((invitation) => invitation.tab === 'received');
-    const responded = relevant.filter((invitation) => ['accepted', 'declined'].includes(String(invitation?.status).toLowerCase()));
-    const responseRate = relevant.length ? Math.round((responded.length / relevant.length) * 100) : 0;
-    const pending = relevant.filter((invitation) => String(invitation?.status ?? '').toLowerCase() === 'pending').length;
-    const responseNarrative = responseRate >= 60 ? 'Response pace matches high-performing teams' : 'Accelerate responses to meet SLAs';
-
-    const responseTimes = relevant
-      .map((invitation) => {
-        if (!invitation?.respondedAt || !invitation?.createdAt) {
-          return null;
-        }
-        const respondedAt = new Date(invitation.respondedAt);
-        const createdAt = new Date(invitation.createdAt);
-        if (Number.isNaN(respondedAt.getTime()) || Number.isNaN(createdAt.getTime())) {
-          return null;
-        }
-        return respondedAt.getTime() - createdAt.getTime();
-      })
-      .filter((value) => Number.isFinite(value));
-
-    const median = () => {
-      if (!responseTimes.length) {
-        return '—';
-      }
-      const sorted = [...responseTimes].sort((a, b) => a - b);
-      const mid = Math.floor(sorted.length / 2);
-      const ms = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-      const hours = Math.round(ms / (1000 * 60 * 60));
-      if (hours < 24) {
-        return `${hours}h`;
-      }
-      const days = Math.round(hours / 24);
-      return `${days}d`;
-    };
-
-    return {
-      responseRate,
-      responseNarrative,
-      medianResponse: median(),
-      medianNarrative: responseTimes.length ? 'Median time to reply' : 'Respond promptly to keep conversion high',
-      pending,
-      pendingNarrative: pending ? 'Prioritise follow-up on pending invitations' : 'All caught up — great pace',
-    };
-  }, [derivedInvitations]);
-
-  const activeFiltersCount = useMemo(() => {
-    return Object.values(filters).reduce((sum, entries) => sum + (entries?.length ?? 0), 0);
-  }, [filters]);
-
-  const handleToggleSelect = useCallback((invitation) => {
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      if (next.has(invitation.id)) {
-        next.delete(invitation.id);
-      } else {
-        next.add(invitation.id);
-      }
-      return next;
-    });
-  }, []);
-
-  const selectedInvitations = useMemo(() => {
-    return derivedInvitations.filter((invitation) => selectedIds.has(invitation.id));
-  }, [derivedInvitations, selectedIds]);
-
-  const handleBulk = useCallback(
-    (action) => {
-      if (!selectedInvitations.length) {
-        return;
-      }
-      selectedInvitations.forEach((invitation) => {
-        action({ ...invitation, note: notes[invitation.id] });
-      });
-      if (typeof onTrackEvent === 'function') {
-        onTrackEvent('invitations.bulk_action', {
-          count: selectedInvitations.length,
-        });
-      }
-      setSelectedIds(new Set());
-    },
-    [notes, onTrackEvent, selectedInvitations],
-  );
-
-  const segments = useMemo(
-    () => [
-      {
-        id: 'all-invitations',
-        label: 'All invitations',
-        filter: () => true,
-      },
-      {
-        id: 'high-priority',
-        label: 'Executive prospects',
-        filter: (invitation) => (invitation?.priority ?? '').toLowerCase() === 'high' || (invitation?.persona ?? '').toLowerCase().includes('executive'),
-      },
-      {
-        id: 'warm-introductions',
-        label: 'Warm introductions',
-        filter: (invitation) => (invitation?.introType ?? '').toLowerCase().includes('warm') || invitation?.mutualConnections >= 3,
-      },
-    ],
-    [],
-  );
-
-  const filteredForSearchBar = useMemo(() => {
-    return derivedInvitations.filter((invitation) => segments[0].filter(invitation));
-  }, [derivedInvitations, segments]);
-
-  return (
-    <section className="space-y-6">
-      <StatsStrip metrics={metrics} />
-
-      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <TabPills activeTab={activeTab} onTabChange={setActiveTab} />
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-            {filteredInvitations.length} results
-          </span>
-        </div>
-
-        <div className="mt-4">
-          <PeopleSearchBar
-            value={searchTerm}
-            onChange={setSearchTerm}
-            placeholder="Search invitations by name, intent, or organisation"
-            segments={segments.map((segment) => ({
-              ...segment,
-              count: filteredForSearchBar.filter((invitation) => segment.filter(invitation)).length,
-            }))}
-            activeSegmentId="all-invitations"
-            onSegmentChange={() => {}}
-            filters={filters}
-            onFiltersChange={setFilters}
-            filterOptions={filterOptions}
-            suggestions={derivedInvitations.map((invitation) => resolveConnectionName(invitation))}
-            onSaveSegment={() => {}}
-            onRemoveSegment={() => {}}
-            metrics={{ totalMatches: filteredInvitations.length, activeFilters: activeFiltersCount }}
-            isBusy={false}
-            onVoiceSearch={null}
-          />
-        </div>
-      </div>
-
-      <BulkActionBar
-        selectedCount={selectedIds.size}
-        onClear={() => setSelectedIds(new Set())}
-        onAccept={() => handleBulk(onAccept)}
-        onDecline={() => handleBulk(onDecline)}
-        onMessage={() => handleBulk(onMessage)}
-        onRemind={() => handleBulk(onRemind)}
-      />
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        {filteredInvitations.length ? (
-          filteredInvitations.map((invitation) => (
-            <InvitationCard
-              key={invitation.id}
-              invitation={invitation}
-              isSelected={selectedIds.has(invitation.id)}
-              note={notes[invitation.id] ?? ''}
-              onToggleSelect={handleToggleSelect}
-              onAccept={(record) => {
-                onAccept(record);
-                if (typeof onTrackEvent === 'function') {
-                  onTrackEvent('invitations.accepted', { id: record.id });
-                }
-              }}
-              onDecline={(record) => {
-                onDecline(record);
-                if (typeof onTrackEvent === 'function') {
-                  onTrackEvent('invitations.declined', { id: record.id });
-                }
-              }}
-              onMessage={(record) => {
-                const note = notes[record.id];
-                onMessage({ ...record, note });
-                if (typeof onTrackEvent === 'function') {
-                  onTrackEvent('invitations.messaged', { id: record.id, hasNote: Boolean(note) });
-                }
-              }}
-              onResend={(record) => {
-                onRemind(record);
-                if (typeof onTrackEvent === 'function') {
-                  onTrackEvent('invitations.reminded', { id: record.id });
-                }
-              }}
-              onNoteChange={(value) => {
-                setNotes((current) => ({
-                  ...current,
-                  [invitation.id]: value,
-                }));
-              }}
-            />
-          ))
-        ) : (
-          <div className="col-span-full rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
-            Everything’s quiet here. Explore suggestions or send a few new invitations.
-          </div>
-        )}
-      </div>
-    </section>
-  );
-}
-
 InvitationManager.propTypes = {
   invitations: PropTypes.arrayOf(PropTypes.object),
+  loading: PropTypes.bool,
   onAccept: PropTypes.func,
   onDecline: PropTypes.func,
-  onMessage: PropTypes.func,
-  onRemind: PropTypes.func,
-  onTrackEvent: PropTypes.func,
+  onResend: PropTypes.func,
+  onCancel: PropTypes.func,
+  onUpdateNotes: PropTypes.func,
 };
 
 InvitationManager.defaultProps = {
   invitations: [],
-  onAccept: () => {},
-  onDecline: () => {},
-  onMessage: () => {},
-  onRemind: () => {},
-  onTrackEvent: null,
+  loading: false,
+  onAccept: undefined,
+  onDecline: undefined,
+  onResend: undefined,
+  onCancel: undefined,
+  onUpdateNotes: undefined,
 };
