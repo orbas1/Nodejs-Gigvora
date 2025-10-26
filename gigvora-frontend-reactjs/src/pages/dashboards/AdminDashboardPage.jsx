@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout.jsx';
 import AdminOverviewPanel from '../../components/admin/AdminOverviewPanel.jsx';
+import AdminDashboard from '../../components/admin/admin-console/AdminDashboard.jsx';
 import AdminAgencyManagementSection from '../../components/admin/agency-management/AdminAgencyManagementSection.jsx';
 import AdminCompanyManagementSection from '../../components/admin/company-management/AdminCompanyManagementSection.jsx';
 import AdminMentorManagementSection from '../../components/admin/mentor-management/AdminMentorManagementSection.jsx';
@@ -19,6 +20,7 @@ const MENU_SECTIONS = [
     label: 'Start',
     items: [
       { id: 'overview-home', name: 'Home', sectionId: 'overview-home' },
+      { id: 'command-center', name: 'Command center', sectionId: 'admin-command-center' },
       { id: 'overview-profile', name: 'Profile', sectionId: 'overview-profile' },
     ],
   },
@@ -48,6 +50,7 @@ export const ADMIN_MENU_SECTIONS = MENU_SECTIONS.map((section) => ({
 
 const SECTIONS = [
   { id: 'overview-home', title: 'Start' },
+  { id: 'admin-command-center', title: 'Command center' },
   { id: 'admin-agency-management', title: 'Agency management' },
   { id: 'admin-company-management', title: 'Company management' },
   { id: 'admin-mentors', title: 'Mentors' },
@@ -135,6 +138,16 @@ export default function AdminDashboardPage() {
     [navigate],
   );
 
+  const handleDashboardNavigate = useCallback(
+    (href) => {
+      if (!href) {
+        return;
+      }
+      navigate(href);
+    },
+    [navigate],
+  );
+
   if (!hasAdminAccess) {
     return (
       <DashboardLayout
@@ -183,6 +196,7 @@ export default function AdminDashboardPage() {
     >
       <div className="space-y-16">
         {overviewContent}
+        <AdminDashboard initialLookbackDays={30} onNavigate={handleDashboardNavigate} />
         <AdminAgencyManagementSection />
         <AdminCompanyManagementSection />
         <AdminMentorManagementSection />

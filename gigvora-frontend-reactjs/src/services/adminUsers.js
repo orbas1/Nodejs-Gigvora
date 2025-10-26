@@ -18,12 +18,24 @@ const CACHE_TAGS = {
 };
 
 function buildDirectoryParams(params = {}) {
+  const pageSize = params.pageSize ?? params.page_size ?? params.limit;
+  const pageNumber = params.page ?? params.pageNumber ?? params.page_index;
+  let offset = params.offset ?? params.start ?? params.skip;
+
+  const parsedPageSize = pageSize != null ? Number(pageSize) : null;
+  const parsedPageNumber = pageNumber != null ? Number(pageNumber) : null;
+  if (offset == null && Number.isFinite(parsedPageNumber) && Number.isFinite(parsedPageSize)) {
+    offset = Math.max(0, (parsedPageNumber - 1) * parsedPageSize);
+  }
+
   return sanitiseQueryParams({
     status: params.status,
     role: params.role,
+    risk: params.risk,
+    twoFactor: params.twoFactor,
     search: params.search,
-    page: params.page,
-    pageSize: params.pageSize ?? params.page_size,
+    limit: params.limit ?? parsedPageSize ?? undefined,
+    offset,
     sort: params.sort,
   });
 }
