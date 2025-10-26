@@ -1,18 +1,27 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
+  AdjustmentsHorizontalIcon,
   ArrowPathIcon,
+  BookmarkIcon,
+  CalendarDaysIcon,
+  CheckIcon,
   ChevronDownIcon,
   ChatBubbleOvalLeftIcon,
+  ClockIcon,
   FaceSmileIcon,
+  FireIcon,
+  GlobeAltIcon,
   HandRaisedIcon,
   HandThumbUpIcon,
+  HashtagIcon,
   LightBulbIcon,
   PaperAirplaneIcon,
   PhotoIcon,
   HeartIcon,
   ShareIcon,
   SparklesIcon,
+  UserGroupIcon,
 } from '@heroicons/react/24/outline';
 import UserAvatar from '../components/UserAvatar.jsx';
 import EmojiQuickPickerPopover from '../components/popovers/EmojiQuickPickerPopover.jsx';
@@ -101,6 +110,170 @@ const COMPACT_NUMBER_FORMATTER = new Intl.NumberFormat('en', {
   notation: 'compact',
   maximumFractionDigits: 1,
 });
+
+const COMPOSER_PERSONA_PROMPTS = {
+  founder: [
+    {
+      id: 'founder-launch',
+      headline: 'Celebrate a product or hiring milestone',
+      body: 'Share the latest traction numbers, shout out collaborators, and include a CTA for the next customer cohort.',
+    },
+    {
+      id: 'founder-ask',
+      headline: 'Ask the community for targeted support',
+      body: 'Explain the challenge, outline what type of partner or hire you need, and link to the best next step.',
+    },
+    {
+      id: 'founder-reflection',
+      headline: 'Reflect on a key learning',
+      body: 'Summarise what changed, list the insights that will guide the next sprint, and invite mentors to respond.',
+    },
+  ],
+  mentor: [
+    {
+      id: 'mentor-celebration',
+      headline: 'Spotlight a mentee win',
+      body: 'Describe the breakthrough moment, share the tactics that worked, and tag resources mentors can reuse.',
+    },
+    {
+      id: 'mentor-guide',
+      headline: 'Publish a practical guide',
+      body: 'Outline the problem, provide three actionable steps, and link to a template or workshop recording.',
+    },
+    {
+      id: 'mentor-open-hours',
+      headline: 'Offer office hours',
+      body: 'Share your availability, topics you can help with, and how founders can request a slot.',
+    },
+  ],
+  recruiter: [
+    {
+      id: 'recruiter-opportunity',
+      headline: 'Promote a priority role',
+      body: 'Lead with the mission, detail the impact in the first 90 days, and mention perks or hybrid policies.',
+    },
+    {
+      id: 'recruiter-pipeline',
+      headline: 'Share pipeline insights',
+      body: 'Highlight the talent trends you are seeing, key roles in demand, and where founders should focus outreach.',
+    },
+    {
+      id: 'recruiter-success',
+      headline: 'Celebrate a placement',
+      body: 'Spotlight the candidate, the client win, and the metrics that prove the match was a success.',
+    },
+  ],
+  investor: [
+    {
+      id: 'investor-thesis',
+      headline: 'Publish a thesis update',
+      body: 'Explain the market signal, how your portfolio is adapting, and invite founders who align to reach out.',
+    },
+    {
+      id: 'investor-support',
+      headline: 'Offer strategic support',
+      body: 'Share the areas you can help portfolio founders with this quarter and provide a calendly or office hours link.',
+    },
+    {
+      id: 'investor-spotlight',
+      headline: 'Spotlight a portfolio win',
+      body: 'Tell the story of the win, the team behind it, and the measurable outcomes that investors love to see.',
+    },
+  ],
+  default: [
+    {
+      id: 'default-update',
+      headline: 'Share a momentum update',
+      body: 'Summarise the outcome, quantify the impact, and invite your network to engage or support.',
+    },
+    {
+      id: 'default-question',
+      headline: 'Pose a thoughtful question',
+      body: 'Frame the challenge, outline what you have tried, and tag the disciplines you want feedback from.',
+    },
+    {
+      id: 'default-resource',
+      headline: 'Drop a resource worth bookmarking',
+      body: 'Explain why it matters, who it is for, and the actionable insight readers will walk away with.',
+    },
+  ],
+};
+
+const COMPOSER_SUGGESTED_HASHTAGS = [
+  '#hiring',
+  '#fundraising',
+  '#productupdate',
+  '#communitywin',
+  '#seekingadvice',
+  '#launchpad',
+  '#gigvora',
+  '#talentmatch',
+];
+
+const COMPOSER_AUDIENCE_OPTIONS = [
+  {
+    id: 'network',
+    label: 'Connections',
+    description: 'Followers, partners, and teams you collaborate with.',
+    icon: UserGroupIcon,
+  },
+  {
+    id: 'mentors',
+    label: 'Mentor council',
+    description: 'Keep this update inside your mentor and advisor circle.',
+    icon: SparklesIcon,
+  },
+  {
+    id: 'public',
+    label: 'Public',
+    description: 'Share a polished version beyond Gigvora channels.',
+    icon: GlobeAltIcon,
+  },
+];
+
+const DEFAULT_ACTIVITY_FILTERS = {
+  view: 'all',
+  persona: 'all',
+  search: '',
+  tags: [],
+  withMedia: false,
+  withPolls: false,
+  followingOnly: false,
+  savedViewId: null,
+  timeRange: '30d',
+  sort: 'top',
+  digestEligibleOnly: false,
+  trendingOnly: false,
+};
+
+const ACTIVITY_QUICK_VIEWS = [
+  { id: 'all', label: 'For you', description: 'Balanced mix of updates and opportunities.' },
+  { id: 'opportunities', label: 'Opportunities', description: 'Roles, gigs, and collaborations ready now.' },
+  { id: 'wins', label: 'Wins', description: 'Launches, milestones, and community celebrations.' },
+  { id: 'knowledge', label: 'Insights', description: 'Deep dives, resources, and thought leadership.' },
+];
+
+const ACTIVITY_SORT_OPTIONS = [
+  { id: 'top', label: 'Top', description: 'Highlights the highest engagement first.' },
+  { id: 'recent', label: 'Recent', description: 'Newest stories at the top of your feed.' },
+  { id: 'discussions', label: 'Discussions', description: 'Prioritises conversations with active threads.' },
+];
+
+const ACTIVITY_TIME_RANGES = [
+  { id: '24h', label: '24h' },
+  { id: '7d', label: '7 days' },
+  { id: '30d', label: '30 days' },
+  { id: '90d', label: '90 days' },
+  { id: 'any', label: 'Any time' },
+];
+
+const ACTIVITY_PERSONA_OPTIONS = [
+  { id: 'all', label: 'All members' },
+  { id: 'founder', label: 'Founders & operators' },
+  { id: 'mentor', label: 'Mentors & advisors' },
+  { id: 'investor', label: 'Investors & scouts' },
+  { id: 'recruiter', label: 'Talent partners' },
+];
 
 const REACTION_OPTIONS = [
   {
@@ -196,6 +369,426 @@ export function resolveAuthor(post) {
     headline,
     avatarSeed,
   };
+}
+
+function resolvePersonaKey(session) {
+  if (!session) {
+    return 'default';
+  }
+  const candidates = [
+    session.primaryDashboard,
+    session.primaryMembership,
+    session.userType,
+    Array.isArray(session.memberships) ? session.memberships[0] : null,
+  ]
+    .filter(Boolean)
+    .map((value) => value.toString().toLowerCase());
+
+  const persona = candidates.find((value) => value.includes('founder') || value.includes('entrepreneur'));
+  if (persona) {
+    return 'founder';
+  }
+  const mentor = candidates.find((value) => value.includes('mentor') || value.includes('advisor') || value.includes('coach'));
+  if (mentor) {
+    return 'mentor';
+  }
+  const recruiter = candidates.find(
+    (value) => value.includes('talent') || value.includes('recruiter') || value.includes('hiring'),
+  );
+  if (recruiter) {
+    return 'recruiter';
+  }
+  const investor = candidates.find((value) => value.includes('investor') || value.includes('venture'));
+  if (investor) {
+    return 'investor';
+  }
+  return candidates[0] ?? 'default';
+}
+
+function normaliseTopic(value) {
+  if (value == null) {
+    return null;
+  }
+  const stringified = typeof value === 'string' ? value : String(value);
+  const trimmed = stringified.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const withoutHash = trimmed.startsWith('#') ? trimmed.slice(1) : trimmed;
+  const cleaned = withoutHash.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+  return cleaned.replace(/^_+|_+$/g, '') || null;
+}
+
+function extractHashtagsFromText(text) {
+  if (typeof text !== 'string') {
+    return [];
+  }
+  const matches = text.match(/#([a-z0-9_]{2,50})/gi);
+  if (!matches) {
+    return [];
+  }
+  return matches
+    .map((match) => normaliseTopic(match))
+    .filter(Boolean);
+}
+
+function derivePostTopics(post) {
+  const topics = new Set();
+  const candidateCollections = [
+    post?.tags,
+    post?.topics,
+    post?.labels,
+    post?.categories,
+    post?.focus,
+    post?.hashtags,
+    post?.sectors,
+    post?.audiences,
+  ];
+
+  candidateCollections.forEach((collection) => {
+    if (!collection) {
+      return;
+    }
+    if (Array.isArray(collection)) {
+      collection.forEach((item) => {
+        const normalised = normaliseTopic(item);
+        if (normalised) {
+          topics.add(normalised);
+        }
+      });
+      return;
+    }
+    if (typeof collection === 'string') {
+      collection
+        .split(/[,#]/)
+        .map((item) => normaliseTopic(item))
+        .filter(Boolean)
+        .forEach((item) => topics.add(item));
+    }
+  });
+
+  const textualSources = [post?.content, post?.summary, post?.title, post?.headline];
+  textualSources.forEach((entry) => {
+    extractHashtagsFromText(entry).forEach((tag) => topics.add(tag));
+  });
+
+  const type = normaliseTopic(post?.type || post?.category || post?.opportunityType);
+  if (type) {
+    topics.add(type);
+  }
+
+  const persona = normaliseTopic(post?.targetPersona || post?.persona || post?.audience || post?.primaryAudience);
+  if (persona) {
+    topics.add(persona);
+  }
+
+  return Array.from(topics);
+}
+
+function computeCommentCount(post) {
+  if (typeof post?.commentCount === 'number') {
+    return post.commentCount;
+  }
+  if (!Array.isArray(post?.comments)) {
+    return 0;
+  }
+  return post.comments.reduce((total, comment) => {
+    const replies = Array.isArray(comment?.replies) ? comment.replies.length : 0;
+    return total + 1 + replies;
+  }, 0);
+}
+
+function computeTotalReactions(post) {
+  const reactions = post?.reactionSummary ?? post?.reactions ?? {};
+  if (!reactions || typeof reactions !== 'object') {
+    return 0;
+  }
+  return Object.values(reactions).reduce((total, value) => {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? total + numeric : total;
+  }, 0);
+}
+
+function postMatchesQuickView(post, view) {
+  if (!view || view === 'all') {
+    return true;
+  }
+  const type = normaliseTopic(post?.type || post?.category || post?.opportunityType);
+  const topics = derivePostTopics(post);
+  if (view === 'opportunities') {
+    return (
+      (type && OPPORTUNITY_POST_TYPES.has(type)) ||
+      topics.some((topic) =>
+        ['opportunity', 'hiring', 'gig', 'project', 'mission', 'launchpad', 'mentorship', 'recruiting'].includes(topic),
+      )
+    );
+  }
+  if (view === 'wins') {
+    const text = `${post?.title ?? ''} ${post?.summary ?? ''} ${post?.content ?? ''}`.toLowerCase();
+    return (
+      text.includes('win') ||
+      text.includes('milestone') ||
+      text.includes('celebrat') ||
+      topics.some((topic) => ['win', 'milestone', 'celebration', 'launch', 'success'].includes(topic))
+    );
+  }
+  if (view === 'knowledge') {
+    return (
+      type === 'news' ||
+      topics.some((topic) => ['insight', 'guide', 'playbook', 'resource', 'webinar', 'case_study', 'knowledge'].includes(topic))
+    );
+  }
+  return true;
+}
+
+function postMatchesPersona(post, persona) {
+  if (!persona || persona === 'all') {
+    return true;
+  }
+  const personaKey = persona.toLowerCase();
+  const topics = derivePostTopics(post);
+  const targetPersona = normaliseTopic(
+    post?.targetPersona || post?.persona || post?.audience || post?.primaryAudience || post?.intendedAudience,
+  );
+  const candidateSet = new Set(topics);
+  if (targetPersona) {
+    candidateSet.add(targetPersona);
+  }
+  if (personaKey === 'founder') {
+    return (
+      candidateSet.has('founder') ||
+      candidateSet.has('entrepreneur') ||
+      candidateSet.has('startup') ||
+      candidateSet.has('builder')
+    );
+  }
+  if (personaKey === 'mentor') {
+    return candidateSet.has('mentor') || candidateSet.has('advisor') || candidateSet.has('coach');
+  }
+  if (personaKey === 'investor') {
+    return candidateSet.has('investor') || candidateSet.has('vc') || candidateSet.has('angel');
+  }
+  if (personaKey === 'recruiter' || personaKey === 'talent') {
+    return candidateSet.has('recruiter') || candidateSet.has('talent') || candidateSet.has('hiring');
+  }
+  return candidateSet.has(personaKey);
+}
+
+function matchesTimeRange(post, timeRange) {
+  if (!timeRange || timeRange === 'any') {
+    return true;
+  }
+  const timestamp = post?.createdAt || post?.publishedAt || post?.updatedAt;
+  if (!timestamp) {
+    return true;
+  }
+  const created = new Date(timestamp);
+  if (Number.isNaN(created.getTime())) {
+    return true;
+  }
+  const now = Date.now();
+  const diffMs = now - created.getTime();
+  const thresholds = {
+    '24h': 24 * 60 * 60 * 1000,
+    '7d': 7 * 24 * 60 * 60 * 1000,
+    '30d': 30 * 24 * 60 * 60 * 1000,
+    '90d': 90 * 24 * 60 * 60 * 1000,
+  };
+  const limit = thresholds[timeRange];
+  if (!limit) {
+    return true;
+  }
+  return diffMs <= limit;
+}
+
+function postMatchesFilters(post, filters) {
+  if (!post) {
+    return false;
+  }
+  if (!postMatchesQuickView(post, filters.view)) {
+    return false;
+  }
+  if (!postMatchesPersona(post, filters.persona)) {
+    return false;
+  }
+  if (filters.withMedia) {
+    if (!Array.isArray(post?.mediaAttachments) || post.mediaAttachments.length === 0) {
+      return false;
+    }
+  }
+  if (filters.withPolls) {
+    const poll = post?.poll || (Array.isArray(post?.pollOptions) ? { options: post.pollOptions } : null);
+    if (!poll || !Array.isArray(poll.options) || poll.options.length === 0) {
+      return false;
+    }
+  }
+  if (filters.followingOnly) {
+    const relationship = (post?.relationship || post?.viewerRelationship || '').toString().toLowerCase();
+    const fromConnection =
+      post?.viewerFollowsAuthor ||
+      post?.viewerIsConnection ||
+      post?.viewerIsMember ||
+      post?.isFromConnection ||
+      relationship.includes('connection') ||
+      relationship.includes('follow');
+    if (!fromConnection) {
+      return false;
+    }
+  }
+  if (filters.digestEligibleOnly) {
+    if (!post?.isDigestEligible && !post?.eligibleForDigest) {
+      return false;
+    }
+  }
+  if (filters.trendingOnly) {
+    const metrics = post?.metrics ?? post?.analytics ?? {};
+    const engagementScore = Number(metrics.engagementScore ?? metrics.score ?? metrics.engagement ?? 0);
+    const trending = post?.isTrending || post?.trending === true || engagementScore >= 60;
+    if (!trending) {
+      return false;
+    }
+  }
+  if (!matchesTimeRange(post, filters.timeRange)) {
+    return false;
+  }
+  const query = filters.search?.trim();
+  if (query) {
+    const haystack = [
+      post?.title,
+      post?.summary,
+      post?.content,
+      post?.authorName,
+      post?.authorHeadline,
+      Array.isArray(post?.tags) ? post.tags.join(' ') : null,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    if (!haystack.includes(query.toLowerCase())) {
+      return false;
+    }
+  }
+  if (Array.isArray(filters.tags) && filters.tags.length) {
+    const topicSet = new Set(derivePostTopics(post));
+    const matchesTags = filters.tags.every((tag) => topicSet.has(normaliseTopic(tag)));
+    if (!matchesTags) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function sortPostsByPreference(posts, filters) {
+  const list = posts.slice();
+  if (filters.sort === 'recent') {
+    return list.sort((a, b) => {
+      const dateA = new Date(a?.createdAt || a?.publishedAt || 0).getTime();
+      const dateB = new Date(b?.createdAt || b?.publishedAt || 0).getTime();
+      return dateB - dateA;
+    });
+  }
+  if (filters.sort === 'discussions') {
+    return list.sort((a, b) => computeCommentCount(b) - computeCommentCount(a));
+  }
+  return list.sort((a, b) => {
+    const metricsA = a?.metrics ?? a?.analytics ?? {};
+    const metricsB = b?.metrics ?? b?.analytics ?? {};
+    const engagementA = Number(metricsA.engagementScore ?? metricsA.score ?? 0);
+    const engagementB = Number(metricsB.engagementScore ?? metricsB.score ?? 0);
+    const reactionsA = computeTotalReactions(a);
+    const reactionsB = computeTotalReactions(b);
+    const commentA = computeCommentCount(a);
+    const commentB = computeCommentCount(b);
+    const recencyA = new Date(a?.createdAt || a?.publishedAt || 0).getTime();
+    const recencyB = new Date(b?.createdAt || b?.publishedAt || 0).getTime();
+    const now = Date.now();
+    const ageA = Number.isFinite(recencyA) ? now - recencyA : Number.POSITIVE_INFINITY;
+    const ageB = Number.isFinite(recencyB) ? now - recencyB : Number.POSITIVE_INFINITY;
+    const recencyBoostA = Number.isFinite(ageA) ? Math.max(0, 720 - ageA / (60 * 60 * 1000)) : 0;
+    const recencyBoostB = Number.isFinite(ageB) ? Math.max(0, 720 - ageB / (60 * 60 * 1000)) : 0;
+    const scoreA = engagementA * 2 + reactionsA * 1.5 + commentA * 1.25 + recencyBoostA;
+    const scoreB = engagementB * 2 + reactionsB * 1.5 + commentB * 1.25 + recencyBoostB;
+    return scoreB - scoreA;
+  });
+}
+
+function createFilterStorageKey(sessionId) {
+  return `timeline:activity-filters:v2:${sessionId ?? 'guest'}`;
+}
+
+function serializeFeedQuery(params = {}) {
+  const entries = Object.entries(params).filter(([, value]) => {
+    if (value == null) {
+      return false;
+    }
+    if (Array.isArray(value)) {
+      return value.length > 0;
+    }
+    if (typeof value === 'string') {
+      return value.trim().length > 0;
+    }
+    return true;
+  });
+  return entries
+    .sort(([aKey], [bKey]) => (aKey > bKey ? 1 : aKey < bKey ? -1 : 0))
+    .map(([key, value]) => {
+      if (Array.isArray(value)) {
+        return `${key}=${value.join('|')}`;
+      }
+      if (typeof value === 'object') {
+        return `${key}=${JSON.stringify(value)}`;
+      }
+      return `${key}=${value}`;
+    })
+    .join('&');
+}
+
+function buildFeedQuery(filters) {
+  const query = { limit: FEED_PAGE_SIZE };
+  if (!filters) {
+    return query;
+  }
+  if (filters.view === 'opportunities') {
+    query.category = 'opportunity';
+  } else if (filters.view === 'wins') {
+    query.category = 'milestone';
+  } else if (filters.view === 'knowledge') {
+    query.category = 'insight';
+  }
+  if (filters.persona && filters.persona !== 'all') {
+    query.persona = filters.persona;
+  }
+  if (filters.search) {
+    query.search = filters.search.trim();
+  }
+  if (Array.isArray(filters.tags) && filters.tags.length) {
+    query.tags = filters.tags.map((tag) => normaliseTopic(tag)).filter(Boolean).join(',');
+  }
+  if (filters.withMedia) {
+    query.hasMedia = true;
+  }
+  if (filters.withPolls) {
+    query.hasPoll = true;
+  }
+  if (filters.followingOnly) {
+    query.relationship = 'connections';
+  }
+  if (filters.timeRange && filters.timeRange !== 'any') {
+    query.since = filters.timeRange;
+  }
+  if (filters.sort && filters.sort !== 'top') {
+    query.sort = filters.sort;
+  }
+  if (filters.digestEligibleOnly) {
+    query.digestEligible = true;
+  }
+  if (filters.trendingOnly) {
+    query.trending = true;
+  }
+  if (filters.savedViewId) {
+    query.view = filters.savedViewId;
+  }
+  return query;
 }
 
 export function resolvePostType(post) {
@@ -471,27 +1064,230 @@ function MediaAttachmentPreview({ attachment, onRemove }) {
 }
 
 function FeedComposer({ onCreate, session }) {
+  const personaKey = useMemo(() => resolvePersonaKey(session), [session]);
+  const personaPrompts = useMemo(
+    () => COMPOSER_PERSONA_PROMPTS[personaKey] ?? COMPOSER_PERSONA_PROMPTS.default,
+    [personaKey],
+  );
+  const defaultPromptId = personaPrompts[0]?.id ?? null;
   const [mode, setMode] = useState('update');
   const [content, setContent] = useState('');
   const [link, setLink] = useState('');
   const [attachment, setAttachment] = useState(null);
   const [attachmentAlt, setAttachmentAlt] = useState('');
+  const [audience, setAudience] = useState('network');
+  const [shareToDigest, setShareToDigest] = useState(false);
+  const [scheduleMode, setScheduleMode] = useState('now');
+  const [scheduledFor, setScheduledFor] = useState('');
+  const [selectedHashtags, setSelectedHashtags] = useState([]);
+  const [selectedPromptId, setSelectedPromptId] = useState(defaultPromptId);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const [draftStatus, setDraftStatus] = useState('loading');
+  const [lastSavedAt, setLastSavedAt] = useState(null);
   const [showEmojiTray, setShowEmojiTray] = useState(false);
   const [showGifTray, setShowGifTray] = useState(false);
   const textareaId = useId();
   const linkInputId = useId();
   const mediaAltId = useId();
+  const scheduleInputId = useId();
+  const composerStorageKey = useMemo(() => `timeline:composer:${session?.id ?? 'guest'}`, [session?.id]);
+  const storageReadyRef = useRef(false);
+  const saveTimeoutRef = useRef(null);
 
-  const selectedOption = COMPOSER_OPTIONS.find((option) => option.id === mode) ?? COMPOSER_OPTIONS[0];
-  const remainingCharacters = MAX_CONTENT_LENGTH - content.length;
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      storageReadyRef.current = true;
+      setDraftStatus('clean');
+      return;
+    }
+    try {
+      const raw = window.localStorage.getItem(composerStorageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        setMode(parsed.mode ?? 'update');
+        setContent(parsed.content ?? '');
+        setLink(parsed.link ?? '');
+        setAttachment(parsed.attachment ?? null);
+        setAttachmentAlt(parsed.attachmentAlt ?? '');
+        setAudience(parsed.audience ?? 'network');
+        setShareToDigest(Boolean(parsed.shareToDigest));
+        setScheduleMode(parsed.scheduleMode ?? 'now');
+        setScheduledFor(parsed.scheduledFor ?? '');
+        setSelectedHashtags(Array.isArray(parsed.hashtags) ? parsed.hashtags : []);
+        setSelectedPromptId(parsed.promptId ?? defaultPromptId ?? null);
+        if (parsed.updatedAt) {
+          const updatedAt = new Date(parsed.updatedAt);
+          if (!Number.isNaN(updatedAt.getTime())) {
+            setLastSavedAt(updatedAt);
+          }
+        }
+        setDraftStatus('saved');
+      } else {
+        setDraftStatus('clean');
+      }
+    } catch (storageError) {
+      setDraftStatus('error');
+    } finally {
+      storageReadyRef.current = true;
+    }
+  }, [composerStorageKey, defaultPromptId]);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        window.clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!storageReadyRef.current || typeof window === 'undefined') {
+      return undefined;
+    }
+    setDraftStatus((previous) => (previous === 'loading' ? 'loading' : 'saving'));
+    if (saveTimeoutRef.current) {
+      window.clearTimeout(saveTimeoutRef.current);
+    }
+    saveTimeoutRef.current = window.setTimeout(() => {
+      try {
+        const payload = {
+          mode,
+          content,
+          link,
+          attachment: attachment
+            ? {
+                id: attachment.id ?? null,
+                type: attachment.type ?? null,
+                url: attachment.url ?? null,
+                alt: attachment.alt ?? attachmentAlt ?? null,
+              }
+            : null,
+          attachmentAlt,
+          audience,
+          shareToDigest,
+          scheduleMode,
+          scheduledFor,
+          hashtags: selectedHashtags,
+          promptId: selectedPromptId,
+          updatedAt: new Date().toISOString(),
+        };
+        window.localStorage.setItem(composerStorageKey, JSON.stringify(payload));
+        const savedAt = new Date(payload.updatedAt);
+        if (!Number.isNaN(savedAt.getTime())) {
+          setLastSavedAt(savedAt);
+        }
+        setDraftStatus('saved');
+      } catch (storageError) {
+        setDraftStatus('error');
+      }
+    }, 600);
+    return () => {
+      if (saveTimeoutRef.current) {
+        window.clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [
+    attachment,
+    attachmentAlt,
+    audience,
+    composerStorageKey,
+    content,
+    link,
+    mode,
+    scheduleMode,
+    scheduledFor,
+    selectedHashtags,
+    selectedPromptId,
+    shareToDigest,
+  ]);
+
+  const selectedOption = useMemo(
+    () => COMPOSER_OPTIONS.find((option) => option.id === mode) ?? COMPOSER_OPTIONS[0],
+    [mode],
+  );
+  const remainingCharacters = Math.max(0, MAX_CONTENT_LENGTH - content.length);
+
+  const toggleHashtag = useCallback((tag) => {
+    setSelectedHashtags((previous) => {
+      if (previous.includes(tag)) {
+        return previous.filter((existing) => existing !== tag);
+      }
+      setContent((current) => {
+        if (!current.toLowerCase().includes(tag.toLowerCase())) {
+          return current ? `${current} ${tag}` : tag;
+        }
+        return current;
+      });
+      return [...previous, tag];
+    });
+    setError(null);
+  }, []);
+
+  const handlePromptInsert = useCallback((prompt) => {
+    if (!prompt) {
+      return;
+    }
+    setSelectedPromptId(prompt.id);
+    setContent((current) => {
+      if (!current.trim()) {
+        return `${prompt.headline}\n\n${prompt.body}`;
+      }
+      if (current.includes(prompt.body)) {
+        return current;
+      }
+      return `${current.trim()}\n\n${prompt.body}`;
+    });
+    setError(null);
+  }, []);
+
+  const handleClearDraft = useCallback(() => {
+    setMode('update');
+    setContent('');
+    setLink('');
+    setAttachment(null);
+    setAttachmentAlt('');
+    setAudience('network');
+    setShareToDigest(false);
+    setScheduleMode('now');
+    setScheduledFor('');
+    setSelectedHashtags([]);
+    setSelectedPromptId(defaultPromptId ?? null);
+    setDraftStatus('clean');
+    setLastSavedAt(null);
+    setShowEmojiTray(false);
+    setShowGifTray(false);
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(composerStorageKey);
+    }
+  }, [composerStorageKey, defaultPromptId]);
+
+  const scheduledTimestamp =
+    scheduleMode === 'schedule' && scheduledFor ? new Date(scheduledFor).toISOString() : null;
+
+  const publishDisabled =
+    submitting || !content.trim() || (scheduleMode === 'schedule' && !scheduledTimestamp);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (submitting) {
+    if (submitting || publishDisabled) {
+      if (!content.trim()) {
+        setError({ message: 'Compose an update before publishing.' });
+      }
+      if (scheduleMode === 'schedule' && !scheduledTimestamp) {
+        setError({ message: 'Choose a future time to schedule your post.' });
+      }
       return;
     }
+
+    if (scheduleMode === 'schedule' && scheduledTimestamp) {
+      const scheduledDate = new Date(scheduledTimestamp);
+      if (Number.isNaN(scheduledDate.getTime()) || scheduledDate.getTime() <= Date.now()) {
+        setError({ message: 'Scheduled time must be in the future.' });
+        return;
+      }
+    }
+
     const draftPayload = {
       type: mode,
       content,
@@ -531,17 +1327,24 @@ function FeedComposer({ onCreate, session }) {
       content: moderated.content,
       link: moderated.link,
       mediaAttachments: moderated.attachments,
+      hashtags: selectedHashtags,
+      visibility: audience === 'public' ? 'public' : audience === 'mentors' ? 'mentors' : 'connections',
+      shareToDigest,
+      scheduleMode,
+      scheduledFor: scheduledTimestamp,
+      promptId: selectedPromptId,
+      composerPersona: personaKey,
     };
+
+    if (!payload.scheduledFor) {
+      delete payload.scheduledFor;
+    }
 
     setSubmitting(true);
     setError(null);
     try {
       await Promise.resolve(onCreate(payload));
-      setContent('');
-      setLink('');
-      setAttachment(null);
-      setAttachmentAlt('');
-      setMode('update');
+      handleClearDraft();
     } catch (composerError) {
       if (composerError instanceof ContentModerationError) {
         setError({ message: composerError.message, reasons: composerError.reasons });
@@ -557,13 +1360,31 @@ function FeedComposer({ onCreate, session }) {
     }
   };
 
+  const activeAudience =
+    COMPOSER_AUDIENCE_OPTIONS.find((option) => option.id === audience) ?? COMPOSER_AUDIENCE_OPTIONS[0];
+  const publishLabel = scheduleMode === 'schedule' ? 'Schedule update' : 'Publish to timeline';
+  const personaInsight =
+    personaPrompts.find((prompt) => prompt.id === selectedPromptId) ?? personaPrompts[0] ?? null;
+
   return (
     <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
       <form onSubmit={handleSubmit} className="space-y-6 px-6 py-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
           <UserAvatar name={session?.name} seed={session?.avatarSeed ?? session?.name} size="md" />
           <div className="flex-1 space-y-4">
-            <p className="text-sm font-semibold text-slate-800">Share with your network</p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-slate-800">
+                {personaInsight ? personaInsight.headline : 'Share with your network'}
+              </p>
+              <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-500">
+                {activeAudience.label}
+              </span>
+            </div>
+            <div className="text-xs text-slate-500">
+              {personaInsight
+                ? personaInsight.body
+                : 'Celebrate a win, spotlight an opportunity, or invite the community to collaborate.'}
+            </div>
             <div className="relative">
               <label htmlFor={textareaId} className="sr-only">
                 Compose timeline update
@@ -615,6 +1436,177 @@ function FeedComposer({ onCreate, session }) {
           })}
         </div>
         <div className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr),minmax(0,1fr)]">
+            <div className="space-y-2">
+              <label htmlFor={linkInputId} className="text-xs font-medium text-slate-600">
+                Attach a resource (deck, doc, or listing URL)
+              </label>
+              <input
+                id={linkInputId}
+                value={link}
+                onChange={(event) => {
+                  setLink(event.target.value);
+                  setError(null);
+                }}
+                placeholder="https://"
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                disabled={submitting}
+              />
+            </div>
+            <div className="space-y-2 text-xs text-slate-500">
+              <p className="font-medium text-slate-600">Need inspiration?</p>
+              <p>
+                Opportunity posts automatically appear inside Explorer with the right filters so talent can discover them alongside
+                jobs, gigs, projects, volunteering missions, and Launchpad cohorts.
+              </p>
+            </div>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr),minmax(0,1fr)]">
+            <div className="space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Tailored prompts</p>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {personaPrompts.map((prompt) => (
+                  <button
+                    key={prompt.id}
+                    type="button"
+                    onClick={() => handlePromptInsert(prompt)}
+                    className={`flex h-full flex-col justify-between rounded-2xl border px-4 py-3 text-left transition ${
+                      selectedPromptId === prompt.id
+                        ? 'border-accent bg-accent/5 shadow-sm'
+                        : 'border-slate-200 bg-white hover:border-accent/40 hover:shadow-sm'
+                    }`}
+                  >
+                    <div>
+                      <p className="text-xs font-semibold text-slate-800">{prompt.headline}</p>
+                      <p className="mt-2 text-xs text-slate-500 line-clamp-3">{prompt.body}</p>
+                    </div>
+                    <span className="mt-3 inline-flex items-center gap-1 text-[0.65rem] font-semibold uppercase tracking-wide text-accent">
+                      <SparklesIcon className="h-3.5 w-3.5" />
+                      Insert prompt
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Suggested hashtags</p>
+              <div className="flex flex-wrap gap-2">
+                {COMPOSER_SUGGESTED_HASHTAGS.map((tag) => {
+                  const isActive = selectedHashtags.includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => toggleHashtag(tag)}
+                      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[0.7rem] font-semibold transition ${
+                        isActive
+                          ? 'border-accent bg-accent text-white shadow-sm'
+                          : 'border-slate-200 bg-slate-100 text-slate-600 hover:border-accent/40 hover:text-accent'
+                      }`}
+                    >
+                      <HashtagIcon className="h-3.5 w-3.5" />
+                      {tag.replace('#', '')}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr),minmax(0,1fr)]">
+            <div className="space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Audience</p>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {COMPOSER_AUDIENCE_OPTIONS.map((option) => {
+                  const Icon = option.icon;
+                  const isActive = option.id === audience;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => {
+                        setAudience(option.id);
+                        setError(null);
+                      }}
+                      className={`flex h-full flex-col items-start gap-2 rounded-2xl border px-4 py-3 text-left transition ${
+                        isActive
+                          ? 'border-accent bg-accent/5 text-accent shadow-sm'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-accent/40 hover:shadow-sm'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span className="text-xs font-semibold text-slate-800">{option.label}</span>
+                      <span className="text-[0.7rem] text-slate-500">{option.description}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Delivery</p>
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-inner">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setScheduleMode('now');
+                      setError(null);
+                    }}
+                    className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-wide transition ${
+                      scheduleMode === 'now'
+                        ? 'bg-accent text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                    }`}
+                  >
+                    <ClockIcon className="h-3.5 w-3.5" />
+                    Share now
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setScheduleMode('schedule');
+                      setError(null);
+                    }}
+                    className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-wide transition ${
+                      scheduleMode === 'schedule'
+                        ? 'bg-accent text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                    }`}
+                  >
+                    <CalendarDaysIcon className="h-3.5 w-3.5" />
+                    Schedule
+                  </button>
+                </div>
+                {scheduleMode === 'schedule' ? (
+                  <div className="mt-3 space-y-2">
+                    <label htmlFor={scheduleInputId} className="text-xs font-medium text-slate-600">
+                      Pick a time (local timezone)
+                    </label>
+                    <input
+                      id={scheduleInputId}
+                      type="datetime-local"
+                      min={new Date().toISOString().slice(0, 16)}
+                      value={scheduledFor}
+                      onChange={(event) => {
+                        setScheduledFor(event.target.value);
+                        setError(null);
+                      }}
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-accent focus:ring-2 focus:ring-accent/20"
+                    />
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => setShareToDigest((previous) => !previous)}
+                  className={`mt-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-wide transition ${
+                    shareToDigest ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                  }`}
+                >
+                  <CheckIcon className="h-3.5 w-3.5" />
+                  Include in weekly digest
+                </button>
+              </div>
+            </div>
+          </div>
           <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
             <div className="relative">
               <button
@@ -653,34 +1645,10 @@ function FeedComposer({ onCreate, session }) {
                 onSelect={(gif) => {
                   setAttachment({ id: gif.id, type: 'gif', url: gif.url, alt: gif.tone });
                   setAttachmentAlt(gif.tone);
+                  setError(null);
                 }}
                 labelledBy="composer-gif-trigger"
               />
-            </div>
-          </div>
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr),minmax(0,1fr)]">
-            <div className="space-y-2">
-              <label htmlFor={linkInputId} className="text-xs font-medium text-slate-600">
-                Attach a resource (deck, doc, or listing URL)
-              </label>
-              <input
-                id={linkInputId}
-                value={link}
-                onChange={(event) => {
-                  setLink(event.target.value);
-                  setError(null);
-                }}
-                placeholder="https://"
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                disabled={submitting}
-              />
-            </div>
-            <div className="space-y-2 text-xs text-slate-500">
-              <p className="font-medium text-slate-600">Need inspiration?</p>
-              <p>
-                Opportunity posts automatically appear inside Explorer with the right filters so talent can discover them alongside
-                jobs, gigs, projects, volunteering missions, and Launchpad cohorts.
-              </p>
             </div>
           </div>
           {attachment ? (
@@ -722,24 +1690,351 @@ function FeedComposer({ onCreate, session }) {
           ) : null}
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
-          <p>Your update is routed to followers, connections, and workspace partners.</p>
+          <div className="flex flex-wrap items-center gap-3 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-400">
+            <span>
+              {draftStatus === 'saving'
+                ? 'Saving draft…'
+                : draftStatus === 'error'
+                ? 'Draft not saved'
+                : lastSavedAt
+                ? `Saved ${formatRelativeTime(lastSavedAt)}`
+                : 'Autosave ready'}
+            </span>
+            <button
+              type="button"
+              onClick={handleClearDraft}
+              className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-500 transition hover:border-rose-200 hover:text-rose-500"
+            >
+              Clear draft
+            </button>
+          </div>
           <button
             type="submit"
-            disabled={submitting || !content.trim()}
+            disabled={publishDisabled}
             className={`inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold text-white shadow-soft transition ${
-              submitting || !content.trim()
-                ? 'cursor-not-allowed bg-accent/50'
-                : 'bg-accent hover:bg-accentDark'
+              publishDisabled ? 'cursor-not-allowed bg-accent/50' : 'bg-accent hover:bg-accentDark'
             }`}
           >
             {submitting ? <ArrowPathIcon className="h-4 w-4 animate-spin" /> : <ShareIcon className="h-4 w-4" />}
-            {submitting ? 'Publishing…' : 'Publish to timeline'}
+            {submitting ? (scheduleMode === 'schedule' ? 'Scheduling…' : 'Publishing…') : publishLabel}
           </button>
         </div>
       </form>
     </div>
   );
 }
+function ActivityFilters({
+  filters,
+  onChange,
+  onReset,
+  savedViews,
+  onSaveView,
+  onSelectSavedView,
+  onDeleteSavedView,
+  suggestedTopics = [],
+  trendingHashtags = [],
+}) {
+  const [savingView, setSavingView] = useState(false);
+  const [viewName, setViewName] = useState('');
+  const quickViewIconMap = {
+    all: SparklesIcon,
+    opportunities: BookmarkIcon,
+    wins: FireIcon,
+    knowledge: LightBulbIcon,
+  };
+  const selectedTags = Array.isArray(filters.tags) ? filters.tags : [];
+  const selectedView = savedViews.find((view) => view.id === filters.savedViewId) ?? null;
+
+  const handleTagToggle = (tag) => {
+    const cleaned = tag.startsWith('#') ? tag : `#${tag}`;
+    const exists = selectedTags.some((entry) => entry.toLowerCase() === cleaned.toLowerCase());
+    const nextTags = exists
+      ? selectedTags.filter((entry) => entry.toLowerCase() !== cleaned.toLowerCase())
+      : [...selectedTags, cleaned];
+    onChange({ tags: nextTags, savedViewId: null });
+  };
+
+  const handleSaveView = (event) => {
+    event.preventDefault();
+    onSaveView(viewName.trim());
+    setViewName('');
+    setSavingView(false);
+  };
+
+  const activeToggleClasses = (active) =>
+    `inline-flex items-center gap-2 rounded-full px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-wide transition ${
+      active ? 'bg-accent text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+    }`;
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">Curate your timeline</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Fine-tune the feed with quick presets, persona filters, and saved views tailored to your goals.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onReset}
+          className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 transition hover:border-rose-200 hover:text-rose-500"
+        >
+          <AdjustmentsHorizontalIcon className="h-4 w-4" />
+          Reset filters
+        </button>
+      </div>
+
+      <div className="mt-6 space-y-6">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Quick views</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {ACTIVITY_QUICK_VIEWS.map((view) => {
+              const Icon = quickViewIconMap[view.id] ?? AdjustmentsHorizontalIcon;
+              const isActive = filters.view === view.id;
+              return (
+                <button
+                  key={view.id}
+                  type="button"
+                  onClick={() => onChange({ view: view.id, savedViewId: null })}
+                  className={`flex h-full items-start gap-3 rounded-2xl border px-4 py-3 text-left transition ${
+                    isActive
+                      ? 'border-accent bg-accent/5 text-accent shadow-sm'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-accent/40 hover:shadow-sm'
+                  }`}
+                >
+                  <Icon className="mt-1 h-4 w-4" />
+                  <div>
+                    <p className="text-xs font-semibold text-slate-800">{view.label}</p>
+                    <p className="mt-1 text-[0.7rem] text-slate-500">{view.description}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr),minmax(0,1fr)]">
+          <div className="space-y-3">
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400" htmlFor="timeline-search">
+              Search timeline
+            </label>
+            <div className="relative">
+              <input
+                id="timeline-search"
+                value={filters.search ?? ''}
+                onChange={(event) => onChange({ search: event.target.value, savedViewId: null })}
+                placeholder="Search updates, people, or tags"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-inner focus:border-accent focus:bg-white focus:ring-2 focus:ring-accent/20"
+              />
+            </div>
+            {trendingHashtags.length ? (
+              <div className="flex flex-wrap gap-2">
+                {trendingHashtags.map((tag) => {
+                  const isActive = selectedTags.some((entry) => entry.toLowerCase() === tag.toLowerCase());
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => handleTagToggle(tag)}
+                      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-wide transition ${
+                        isActive
+                          ? 'border-accent bg-accent text-white shadow-sm'
+                          : 'border-slate-200 bg-slate-100 text-slate-600 hover:border-accent/40 hover:text-accent'
+                      }`}
+                    >
+                      <HashtagIcon className="h-3.5 w-3.5" />
+                      {tag.replace('#', '')}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+            {suggestedTopics.length ? (
+              <div className="flex flex-wrap gap-2 text-[0.65rem] text-slate-500">
+                {suggestedTopics.map((topic) => {
+                  const label = topic.replace(/_/g, ' ');
+                  const tag = topic.startsWith('#') ? topic : `#${topic}`;
+                  const isActive = selectedTags.some((entry) => entry.toLowerCase() === tag.toLowerCase());
+                  return (
+                    <button
+                      key={topic}
+                      type="button"
+                      onClick={() => handleTagToggle(tag)}
+                      className={`rounded-full border px-3 py-1 font-semibold uppercase tracking-wide transition ${
+                        isActive
+                          ? 'border-accent bg-accent/10 text-accent'
+                          : 'border-slate-200 bg-white hover:border-accent/40 hover:text-accent'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Saved views</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <select
+                value={filters.savedViewId ?? ''}
+                onChange={(event) => onSelectSavedView(event.target.value || null)}
+                className="w-full max-w-[220px] rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-accent focus:ring-2 focus:ring-accent/20"
+              >
+                <option value="">Active filters</option>
+                {savedViews.map((view) => (
+                  <option key={view.id} value={view.id}>
+                    {view.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => {
+                  if (savingView) {
+                    setSavingView(false);
+                    setViewName('');
+                    return;
+                  }
+                  setSavingView(true);
+                }}
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 transition hover:border-accent/40 hover:text-accent"
+              >
+                {savingView ? 'Cancel' : 'Save current'}
+              </button>
+              {filters.savedViewId ? (
+                <button
+                  type="button"
+                  onClick={() => onDeleteSavedView(filters.savedViewId)}
+                  className="inline-flex items-center gap-2 rounded-full border border-rose-200 px-3 py-2 text-[0.7rem] font-semibold uppercase tracking-wide text-rose-600 transition hover:bg-rose-50"
+                >
+                  Remove view
+                </button>
+              ) : null}
+            </div>
+            {savingView ? (
+              <form onSubmit={handleSaveView} className="flex flex-wrap items-center gap-2 text-sm">
+                <input
+                  value={viewName}
+                  onChange={(event) => setViewName(event.target.value)}
+                  placeholder="Name this view"
+                  className="flex-1 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-accent focus:ring-2 focus:ring-accent/20"
+                />
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-soft transition hover:bg-accentDark"
+                >
+                  Save view
+                </button>
+              </form>
+            ) : null}
+            {selectedView ? (
+              <p className="text-xs text-slate-500">
+                Viewing saved filter: <span className="font-semibold text-slate-700">{selectedView.name}</span>
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Persona focus</p>
+            <div className="flex flex-wrap gap-2">
+              {ACTIVITY_PERSONA_OPTIONS.map((option) => {
+                const isActive = filters.persona === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => onChange({ persona: option.id, savedViewId: null })}
+                    className={activeToggleClasses(isActive)}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Highlights</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => onChange({ withMedia: !filters.withMedia, savedViewId: null })}
+                className={activeToggleClasses(filters.withMedia)}
+              >
+                Media
+              </button>
+              <button
+                type="button"
+                onClick={() => onChange({ withPolls: !filters.withPolls, savedViewId: null })}
+                className={activeToggleClasses(filters.withPolls)}
+              >
+                Polls
+              </button>
+              <button
+                type="button"
+                onClick={() => onChange({ followingOnly: !filters.followingOnly, savedViewId: null })}
+                className={activeToggleClasses(filters.followingOnly)}
+              >
+                Connections
+              </button>
+              <button
+                type="button"
+                onClick={() => onChange({ trendingOnly: !filters.trendingOnly, savedViewId: null })}
+                className={activeToggleClasses(filters.trendingOnly)}
+              >
+                Trending
+              </button>
+              <button
+                type="button"
+                onClick={() => onChange({ digestEligibleOnly: !filters.digestEligibleOnly, savedViewId: null })}
+                className={activeToggleClasses(filters.digestEligibleOnly)}
+              >
+                Digest ready
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Sort order</p>
+            <div className="flex flex-wrap gap-2">
+              {ACTIVITY_SORT_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => onChange({ sort: option.id, savedViewId: null })}
+                  className={activeToggleClasses(filters.sort === option.id)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Time range</p>
+            <div className="flex flex-wrap gap-2">
+              {ACTIVITY_TIME_RANGES.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => onChange({ timeRange: option.id, savedViewId: null })}
+                  className={activeToggleClasses(filters.timeRange === option.id)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 
 function FeedCommentThread({ comment, onReply }) {
   const [replying, setReplying] = useState(false);
@@ -1947,6 +3242,13 @@ export default function FeedPage() {
   const analyticsTrackedRef = useRef(false);
   const navigate = useNavigate();
   const { session, isAuthenticated } = useSession();
+  const filtersStorageKey = useMemo(
+    () => createFilterStorageKey(session?.id ?? session?.userId ?? null),
+    [session?.id, session?.userId],
+  );
+  const [filtersReady, setFiltersReady] = useState(false);
+  const [activeFilters, setActiveFilters] = useState(DEFAULT_ACTIVITY_FILTERS);
+  const [savedFilterViews, setSavedFilterViews] = useState([]);
   const [localPosts, setLocalPosts] = useState([]);
   const [remotePosts, setRemotePosts] = useState([]);
   const [remoteSuggestions, setRemoteSuggestions] = useState(null);
@@ -1960,10 +3262,59 @@ export default function FeedPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadMoreError, setLoadMoreError] = useState(null);
   const loadMoreRef = useRef(null);
+
+  useEffect(() => {
+    setFiltersReady(false);
+    if (typeof window === 'undefined') {
+      setFiltersReady(true);
+      setActiveFilters(DEFAULT_ACTIVITY_FILTERS);
+      setSavedFilterViews([]);
+      return;
+    }
+    try {
+      const raw = window.localStorage.getItem(filtersStorageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const nextActive = {
+          ...DEFAULT_ACTIVITY_FILTERS,
+          ...(parsed?.active ?? parsed?.filters ?? {}),
+        };
+        setActiveFilters(nextActive);
+        setSavedFilterViews(Array.isArray(parsed?.saved) ? parsed.saved : []);
+      } else {
+        setActiveFilters(DEFAULT_ACTIVITY_FILTERS);
+        setSavedFilterViews([]);
+      }
+    } catch (error) {
+      setActiveFilters(DEFAULT_ACTIVITY_FILTERS);
+      setSavedFilterViews([]);
+    } finally {
+      setFiltersReady(true);
+    }
+  }, [filtersStorageKey]);
+
+  useEffect(() => {
+    if (!filtersReady || typeof window === 'undefined') {
+      return;
+    }
+    try {
+      const payload = {
+        active: activeFilters,
+        saved: savedFilterViews,
+      };
+      window.localStorage.setItem(filtersStorageKey, JSON.stringify(payload));
+    } catch (error) {
+      // ignore persistence failures
+    }
+  }, [activeFilters, filtersReady, filtersStorageKey, savedFilterViews]);
+
+  const feedQuery = useMemo(() => buildFeedQuery(activeFilters), [activeFilters]);
+  const serializedFeedQuery = useMemo(() => serializeFeedQuery(feedQuery), [feedQuery]);
+
   const { data, error, loading, fromCache, refresh } = useCachedResource(
-    'feed:posts:v2',
-    ({ signal }) => listFeedPosts({ signal, params: { limit: FEED_PAGE_SIZE } }),
-    { ttl: 1000 * 60 * 2 },
+    `feed:posts:v3:${serializedFeedQuery}`,
+    ({ signal }) => listFeedPosts({ signal, params: feedQuery }),
+    { ttl: 1000 * 60 * 2, enabled: filtersReady, dependencies: [serializedFeedQuery] },
   );
 
   useEffect(() => {
@@ -2005,7 +3356,7 @@ export default function FeedPage() {
     setLoadMoreError(null);
   }, [data, loading, session]);
 
-  const posts = useMemo(() => {
+  const allPosts = useMemo(() => {
     const merged = [...localPosts, ...remotePosts];
     const deduped = [];
     const seen = new Set();
@@ -2023,28 +3374,116 @@ export default function FeedPage() {
     return deduped;
   }, [localPosts, remotePosts]);
 
-  const virtualizationEnabled = posts.length > FEED_VIRTUAL_THRESHOLD;
+  const filteredPosts = useMemo(() => {
+    const base = allPosts.filter((post) => postMatchesFilters(post, activeFilters));
+    return sortPostsByPreference(base, activeFilters);
+  }, [activeFilters, allPosts]);
+
+  const virtualizationEnabled = filteredPosts.length > FEED_VIRTUAL_THRESHOLD;
   const [virtualChunkSize, setVirtualChunkSize] = useState(DEFAULT_FEED_VIRTUAL_CHUNK_SIZE);
 
+  const trendingTopics = useMemo(() => {
+    const counts = new Map();
+    allPosts.forEach((post) => {
+      derivePostTopics(post).forEach((topic) => {
+        if (!topic) {
+          return;
+        }
+        counts.set(topic, (counts.get(topic) ?? 0) + 1);
+      });
+    });
+    const blocked = new Set(['update', 'updates', 'post', 'posts', 'feed', 'timeline', 'news']);
+    return Array.from(counts.entries())
+      .filter(([, count]) => count > 0)
+      .filter(([topic]) => !blocked.has(topic))
+      .sort((a, b) => b[1] - a[1])
+      .map(([topic]) => topic)
+      .slice(0, 8);
+  }, [allPosts]);
+
+  const trendingHashtags = useMemo(
+    () =>
+      trendingTopics.map((topic) => {
+        const cleaned = topic.startsWith('#') ? topic.slice(1) : topic;
+        return `#${cleaned.replace(/_/g, '')}`;
+      }),
+    [trendingTopics],
+  );
+
+  const handleFiltersChange = useCallback(
+    (next) => {
+      setActiveFilters((previous) => ({ ...previous, ...next }));
+    },
+    [],
+  );
+
+  const handleResetFilters = useCallback(() => {
+    setActiveFilters(DEFAULT_ACTIVITY_FILTERS);
+  }, []);
+
+  const handleSaveView = useCallback(
+    (name) => {
+      const trimmed = (name || '').trim();
+      const viewId = `view-${Date.now()}`;
+      const view = {
+        id: viewId,
+        name: trimmed || `Saved view ${savedFilterViews.length + 1}`,
+        filters: { ...activeFilters, savedViewId: null },
+      };
+      setSavedFilterViews((previous) => [view, ...previous]);
+      setActiveFilters((previous) => ({ ...previous, savedViewId: viewId }));
+    },
+    [activeFilters, savedFilterViews.length],
+  );
+
+  const handleSelectSavedView = useCallback(
+    (viewId) => {
+      if (!viewId) {
+        setActiveFilters((previous) => ({ ...previous, savedViewId: null }));
+        return;
+      }
+      const target = savedFilterViews.find((view) => view.id === viewId);
+      if (target) {
+        setActiveFilters({ ...target.filters, savedViewId: target.id });
+      } else {
+        setActiveFilters((previous) => ({ ...previous, savedViewId: null }));
+      }
+    },
+    [savedFilterViews],
+  );
+
+  const handleDeleteSavedView = useCallback((viewId) => {
+    if (!viewId) {
+      return;
+    }
+    setSavedFilterViews((previous) => previous.filter((view) => view.id !== viewId));
+    setActiveFilters((previous) => {
+      if (previous.savedViewId === viewId) {
+        return { ...previous, savedViewId: null };
+      }
+      return previous;
+    });
+  }, []);
+
   const feedChunks = useMemo(() => {
-    if (!posts.length) {
+    if (!filteredPosts.length) {
       return [];
     }
     const chunkSize = virtualizationEnabled
       ? Math.min(
-          posts.length,
+          filteredPosts.length,
           Math.max(FEED_VIRTUAL_MIN_CHUNK_SIZE, Math.min(FEED_VIRTUAL_MAX_CHUNK_SIZE, virtualChunkSize)),
         )
-      : posts.length;
+      : filteredPosts.length;
     const chunks = [];
-    for (let index = 0; index < posts.length; index += chunkSize) {
+    for (let index = 0; index < filteredPosts.length; index += chunkSize) {
       chunks.push({
         startIndex: index,
-        posts: posts.slice(index, index + chunkSize),
+        posts: filteredPosts.slice(index, index + chunkSize),
       });
     }
     return chunks;
-  }, [posts, virtualChunkSize, virtualizationEnabled]);
+  }, [filteredPosts, virtualChunkSize, virtualizationEnabled]);
 
   const [chunkHeights, setChunkHeights] = useState({});
 
@@ -2149,7 +3588,8 @@ export default function FeedPage() {
     setLoadingMore(true);
     setLoadMoreError(null);
     try {
-      const params = { limit: FEED_PAGE_SIZE };
+      const params = { ...feedQuery };
+      params.limit = params.limit ?? FEED_PAGE_SIZE;
       if (pagination.nextCursor) {
         params.cursor = pagination.nextCursor;
       }
@@ -2198,7 +3638,7 @@ export default function FeedPage() {
     } finally {
       setLoadingMore(false);
     }
-  }, [loadingMore, pagination.hasMore, pagination.nextCursor, pagination.nextPage, session]);
+  }, [feedQuery, loadingMore, pagination.hasMore, pagination.nextCursor, pagination.nextPage, session]);
 
   useEffect(() => {
     const target = loadMoreRef.current;
@@ -2219,7 +3659,7 @@ export default function FeedPage() {
     return () => observer.disconnect();
   }, [fetchNextPage, pagination.hasMore]);
 
-  const engagementSignals = useEngagementSignals({ session, feedPosts: posts, suggestions: remoteSuggestions });
+  const engagementSignals = useEngagementSignals({ session, feedPosts: filteredPosts, suggestions: remoteSuggestions });
   const {
     interests = [],
     connectionSuggestions = [],
@@ -2287,11 +3727,11 @@ export default function FeedPage() {
   );
 
   useEffect(() => {
-    if (!analyticsTrackedRef.current && !loading && posts.length) {
-      analytics.track('web_feed_viewed', { postCount: posts.length, cacheHit: fromCache }, { source: 'web_app' });
+    if (!analyticsTrackedRef.current && !loading && filteredPosts.length) {
+      analytics.track('web_feed_viewed', { postCount: filteredPosts.length, cacheHit: fromCache }, { source: 'web_app' });
       analyticsTrackedRef.current = true;
     }
-  }, [loading, posts, fromCache]);
+  }, [filteredPosts.length, filteredPosts, loading, fromCache]);
 
   const handleShareClick = useCallback(() => {
     analytics.track('web_feed_share_click', { location: 'feed_page' }, { source: 'web_app' });
@@ -2349,6 +3789,9 @@ export default function FeedPage() {
         reactions: { likes: 0 },
         comments: [],
         mediaAttachments: payload.mediaAttachments ?? [],
+        hashtags: Array.isArray(payload.hashtags) ? payload.hashtags : [],
+        visibility: payload.visibility ?? 'connections',
+        scheduledFor: payload.scheduledFor ?? null,
         User: {
           firstName: session?.name,
           Profile: {
@@ -2363,17 +3806,35 @@ export default function FeedPage() {
       trackOpportunityTelemetry('submitted', payload);
 
       try {
-        const response = await createFeedPost(
-          {
-            userId: session.id,
-            content: payload.content,
-            visibility: 'public',
-            type: payload.type,
-            link: payload.link,
-            mediaAttachments: payload.mediaAttachments,
-          },
-          { headers: { 'X-Feature-Surface': 'web-feed-composer' } },
-        );
+        const requestPayload = {
+          userId: session.id,
+          content: payload.content,
+          visibility: payload.visibility ?? 'public',
+          type: payload.type,
+          link: payload.link,
+          mediaAttachments: payload.mediaAttachments,
+        };
+        if (Array.isArray(payload.hashtags) && payload.hashtags.length) {
+          requestPayload.hashtags = payload.hashtags;
+        }
+        if (payload.shareToDigest) {
+          requestPayload.shareToDigest = true;
+        }
+        if (payload.scheduledFor) {
+          requestPayload.scheduledFor = payload.scheduledFor;
+          requestPayload.scheduleMode = payload.scheduleMode ?? 'schedule';
+        }
+        const metadata = {
+          promptId: payload.promptId ?? null,
+          composerPersona: payload.composerPersona ?? null,
+        };
+        if (metadata.promptId || metadata.composerPersona) {
+          requestPayload.metadata = metadata;
+        }
+
+        const response = await createFeedPost(requestPayload, {
+          headers: { 'X-Feature-Surface': 'web-feed-composer' },
+        });
 
         const normalised = normaliseFeedPost(response, session);
 
@@ -2397,7 +3858,11 @@ export default function FeedPage() {
           );
         }
 
-        analytics.track('web_feed_post_synced', { type: payload.type }, { source: 'web_app' });
+        analytics.track(
+          'web_feed_post_synced',
+          { type: payload.type, visibility: payload.visibility ?? 'public', scheduled: Boolean(payload.scheduledFor) },
+          { source: 'web_app' },
+        );
         await refresh({ force: true });
         trackOpportunityTelemetry('synced', payload);
       } catch (composerError) {
@@ -2653,10 +4118,12 @@ export default function FeedPage() {
   );
 
   const renderPosts = () => {
-    if (!posts.length) {
+    if (!filteredPosts.length) {
       return (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
-          {loading ? 'Syncing timeline…' : 'No timeline updates yet. Share something to start the conversation!'}
+          {loading
+            ? 'Syncing timeline…'
+            : 'No updates match your filters yet. Share something or adjust your filters to see more activity.'}
         </div>
       );
     }
@@ -2664,7 +4131,7 @@ export default function FeedPage() {
     if (!virtualizationEnabled) {
       return (
         <div className="space-y-6">
-          {posts.map((post) => renderFeedPost(post))}
+          {filteredPosts.map((post) => renderFeedPost(post))}
           <div ref={loadMoreRef} aria-hidden="true" />
           {loadingMore ? <FeedLoadingSkeletons /> : null}
           {loadMoreError ? (
@@ -2679,7 +4146,7 @@ export default function FeedPage() {
               </button>
             </div>
           ) : null}
-          {!pagination.hasMore && posts.length ? (
+          {!pagination.hasMore && filteredPosts.length ? (
             <p className="text-center text-[0.7rem] font-semibold uppercase tracking-wide text-slate-400">
               You’re all caught up.
             </p>
@@ -2717,7 +4184,7 @@ export default function FeedPage() {
             </button>
           </div>
         ) : null}
-        {!pagination.hasMore && posts.length ? (
+        {!pagination.hasMore && filteredPosts.length ? (
           <p className="text-center text-[0.7rem] font-semibold uppercase tracking-wide text-slate-400">
             You’re all caught up.
           </p>
@@ -2795,6 +4262,17 @@ export default function FeedPage() {
           </div>
           <div className="order-1 space-y-6 lg:order-2 lg:col-span-6">
             <FeedComposer onCreate={handleComposerCreate} session={session} />
+            <ActivityFilters
+              filters={activeFilters}
+              onChange={handleFiltersChange}
+              onReset={handleResetFilters}
+              savedViews={savedFilterViews}
+              onSaveView={handleSaveView}
+              onSelectSavedView={handleSelectSavedView}
+              onDeleteSavedView={handleDeleteSavedView}
+              suggestedTopics={trendingTopics}
+              trendingHashtags={trendingHashtags}
+            />
             {error && !loading ? (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
                 We’re showing the latest cached updates while we reconnect. {error.message || 'Please try again shortly.'}
@@ -2805,7 +4283,7 @@ export default function FeedPage() {
                 {feedActionError}
               </div>
             ) : null}
-            {loading && !posts.length ? renderSkeleton() : renderPosts()}
+            {loading && !filteredPosts.length ? renderSkeleton() : renderPosts()}
           </div>
           <div className="order-3 space-y-6 lg:col-span-3">
             <FeedInsightsRail
