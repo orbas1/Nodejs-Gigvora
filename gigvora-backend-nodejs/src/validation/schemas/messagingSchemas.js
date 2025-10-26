@@ -186,11 +186,18 @@ const pinnedOrderArray = z.preprocess((value) => {
 
 export const reorderPinnedThreadsBodySchema = z
   .object({
+    userId: positiveId('userId').optional(),
     threadIds: pinnedOrderArray.optional(),
     order: pinnedOrderArray.optional(),
   })
   .strip()
-  .transform((value) => ({ threadIds: value.threadIds ?? value.order ?? [] }));
+  .transform((value) => {
+    const result = { threadIds: value.threadIds ?? value.order ?? [] };
+    if (value.userId != null) {
+      result.userId = value.userId;
+    }
+    return result;
+  });
 
 export const listThreadsQuerySchema = z
   .object({
