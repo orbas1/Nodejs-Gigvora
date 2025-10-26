@@ -44,4 +44,41 @@ describe('TestimonialsCarousel', () => {
 
     expect(screen.getByText(/first testimonial/i)).toBeInTheDocument();
   });
+
+  it('renders custom hero copy and stats when provided', () => {
+    render(
+      <TestimonialsCarousel
+        testimonials={TESTIMONIALS}
+        autoPlay={false}
+        heroEyebrow="Proof"
+        heroHeading="Celebrated by global leads"
+        heroDescription="Teams rely on Gigvora to orchestrate elite outcomes."
+        heroStats={[{ value: '120%', label: 'Activation rate', helper: 'YoY improvement' }]}
+      />,
+    );
+
+    expect(screen.getByText(/celebrated by global leads/i)).toBeInTheDocument();
+    expect(screen.getByText(/activation rate/i)).toBeInTheDocument();
+    expect(screen.getByText('120%')).toBeInTheDocument();
+  });
+
+  it('supports keyboard navigation and pause toggling', async () => {
+    const user = userEvent.setup();
+
+    render(<TestimonialsCarousel testimonials={TESTIMONIALS} autoPlay={false} />);
+
+    const carousel = screen.getByRole('group', { name: /gigvora customer testimonials/i });
+    carousel.focus();
+
+    await user.keyboard('{ArrowRight}');
+    expect(screen.getByText(/second testimonial/i)).toBeInTheDocument();
+
+    await user.keyboard('{ArrowLeft}');
+    expect(screen.getByText(/first testimonial/i)).toBeInTheDocument();
+
+    await user.keyboard('{Space}');
+    expect(
+      await screen.findByRole('button', { name: /resume testimonial autoplay/i }),
+    ).toBeInTheDocument();
+  });
 });

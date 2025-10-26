@@ -113,6 +113,138 @@ SupportingPoint.defaultProps = {
   point: undefined,
 };
 
+function GuaranteeBadge({ guarantee }) {
+  if (!guarantee) return null;
+
+  if (typeof guarantee === 'string') {
+    const trimmed = guarantee.trim();
+    if (!trimmed) return null;
+    return (
+      <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.25em] text-white/70">
+        <span>{trimmed}</span>
+      </span>
+    );
+  }
+
+  const label = typeof guarantee.label === 'string' ? guarantee.label.trim() : guarantee.title?.trim();
+  if (!label) return null;
+
+  const Icon = guarantee.icon;
+
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.25em] text-white/70">
+      {Icon ? <Icon className="h-3.5 w-3.5" aria-hidden="true" /> : null}
+      <span>{label}</span>
+    </span>
+  );
+}
+
+GuaranteeBadge.propTypes = {
+  guarantee: PropTypes.oneOfType([
+    PropTypes.string,
+    PropTypes.shape({
+      label: PropTypes.string,
+      title: PropTypes.string,
+      icon: PropTypes.elementType,
+    }),
+  ]),
+};
+
+GuaranteeBadge.defaultProps = {
+  guarantee: undefined,
+};
+
+function normaliseTestimonial(testimonial) {
+  if (!testimonial || typeof testimonial !== 'object') return null;
+
+  const quote = typeof testimonial.quote === 'string' ? testimonial.quote.trim() : '';
+  if (!quote) return null;
+
+  const nameCandidate =
+    typeof testimonial.name === 'string'
+      ? testimonial.name
+      : typeof testimonial.author === 'string'
+      ? testimonial.author
+      : '';
+  const name = nameCandidate.trim() || 'Gigvora member';
+
+  const roleParts = [];
+  if (typeof testimonial.role === 'string' && testimonial.role.trim()) {
+    roleParts.push(testimonial.role.trim());
+  }
+  if (typeof testimonial.company === 'string' && testimonial.company.trim()) {
+    roleParts.push(testimonial.company.trim());
+  }
+
+  const avatarSource =
+    (typeof testimonial.avatar === 'string' && testimonial.avatar.trim()) ||
+    (testimonial.avatar && typeof testimonial.avatar === 'object' && typeof testimonial.avatar.src === 'string'
+      ? testimonial.avatar.src.trim()
+      : '') ||
+    (typeof testimonial.avatarUrl === 'string' ? testimonial.avatarUrl.trim() : '');
+
+  const avatarAltCandidate =
+    (testimonial.avatar && typeof testimonial.avatar === 'object' && typeof testimonial.avatar.alt === 'string'
+      ? testimonial.avatar.alt.trim()
+      : '') ||
+    (typeof testimonial.avatarAlt === 'string' ? testimonial.avatarAlt.trim() : '') ||
+    `${name} portrait`;
+
+  const avatar = avatarSource
+    ? {
+        src: avatarSource,
+        alt: avatarAltCandidate,
+      }
+    : null;
+
+  return {
+    quote,
+    name,
+    roleLine: roleParts.join(' · '),
+    avatar,
+  };
+}
+
+function TestimonialSpotlight({ testimonial }) {
+  if (!testimonial) return null;
+
+  return (
+    <figure className="rounded-3xl border border-white/20 bg-white/10 p-6 text-left text-white shadow-[0_24px_60px_rgba(15,23,42,0.45)]">
+      <blockquote className="text-sm text-white/80 sm:text-base">“{testimonial.quote}”</blockquote>
+      <figcaption className="mt-4 flex items-center gap-3 text-sm text-white/70">
+        {testimonial.avatar ? (
+          <img
+            src={testimonial.avatar.src}
+            alt={testimonial.avatar.alt}
+            className="h-10 w-10 rounded-full border border-white/30 object-cover"
+            loading="lazy"
+          />
+        ) : null}
+        <div className="space-y-1">
+          <p className="text-base font-semibold text-white">{testimonial.name}</p>
+          {testimonial.roleLine ? <p>{testimonial.roleLine}</p> : null}
+        </div>
+      </figcaption>
+    </figure>
+  );
+}
+
+TestimonialSpotlight.propTypes = {
+  testimonial: PropTypes.shape({
+    quote: PropTypes.string.isRequired,
+    name: PropTypes.string.isRequired,
+    roleLine: PropTypes.string,
+    avatar: PropTypes.shape({
+      src: PropTypes.string.isRequired,
+      alt: PropTypes.string,
+    }),
+  }),
+};
+
+TestimonialSpotlight.defaultProps = {
+  testimonial: undefined,
+};
+
 export function CallToActionBand({
   eyebrow,
   title,
@@ -122,12 +254,17 @@ export function CallToActionBand({
   supportingPoints,
   stats,
   logos,
+  guarantees,
+  testimonial,
   footnote,
   className,
 }) {
   const hasStats = Array.isArray(stats) && stats.length > 0;
   const hasLogos = Array.isArray(logos) && logos.length > 0;
   const hasSupportingPoints = Array.isArray(supportingPoints) && supportingPoints.length > 0;
+  const hasGuarantees = Array.isArray(guarantees) && guarantees.length > 0;
+  const testimonialSpotlight = normaliseTestimonial(testimonial);
+  const hasSupplementaryContent = hasStats || hasLogos || Boolean(testimonialSpotlight);
 
   return (
     <section
@@ -161,10 +298,25 @@ export function CallToActionBand({
             <ActionElement action={secondaryAction} variant="secondary" />
           </div>
 
+          {hasGuarantees ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {guarantees.map((guarantee, index) => (
+                <GuaranteeBadge
+                  key={
+                    typeof guarantee === 'string'
+                      ? guarantee
+                      : guarantee?.label ?? guarantee?.title ?? index
+                  }
+                  guarantee={guarantee}
+                />
+              ))}
+            </div>
+          ) : null}
+
           {footnote ? <p className="text-xs text-white/60">{footnote}</p> : null}
         </div>
 
-        {(hasStats || hasLogos) && (
+        {hasSupplementaryContent ? (
           <div className="space-y-6 rounded-4xl border border-white/15 bg-white/5 p-8 backdrop-blur-lg">
             {hasStats ? (
               <dl className="grid gap-5">
@@ -199,8 +351,10 @@ export function CallToActionBand({
                 </div>
               </div>
             ) : null}
+
+            {testimonialSpotlight ? <TestimonialSpotlight testimonial={testimonialSpotlight} /> : null}
           </div>
-        )}
+        ) : null}
       </div>
     </section>
   );
@@ -253,6 +407,32 @@ CallToActionBand.propTypes = {
       }),
     ]),
   ),
+  guarantees: PropTypes.arrayOf(
+    PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.shape({
+        label: PropTypes.string,
+        title: PropTypes.string,
+        icon: PropTypes.elementType,
+      }),
+    ]),
+  ),
+  testimonial: PropTypes.shape({
+    quote: PropTypes.string.isRequired,
+    name: PropTypes.string,
+    author: PropTypes.string,
+    role: PropTypes.string,
+    company: PropTypes.string,
+    avatar: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.shape({
+        src: PropTypes.string,
+        alt: PropTypes.string,
+      }),
+    ]),
+    avatarUrl: PropTypes.string,
+    avatarAlt: PropTypes.string,
+  }),
   footnote: PropTypes.string,
   className: PropTypes.string,
 };
@@ -264,6 +444,8 @@ CallToActionBand.defaultProps = {
   supportingPoints: undefined,
   stats: undefined,
   logos: undefined,
+  guarantees: undefined,
+  testimonial: undefined,
   footnote: undefined,
   className: undefined,
 };

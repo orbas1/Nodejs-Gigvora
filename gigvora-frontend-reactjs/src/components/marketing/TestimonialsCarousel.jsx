@@ -5,6 +5,12 @@ import { classNames } from '../../utils/classNames.js';
 
 const AUTOPLAY_INTERVAL_MS = 9000;
 
+const DEFAULT_HERO_STATS = [
+  { value: '68', label: 'NPS', helper: 'Rolling 90-day sentiment' },
+  { value: '4,200+', label: 'Crews', helper: 'Active programmes delivered' },
+  { value: '92%', label: 'Renew', helper: 'Teams expanding scope after 60 days' },
+];
+
 function usePrefersReducedMotion() {
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
 
@@ -163,6 +169,11 @@ export function TestimonialsCarousel({
   autoPlay = true,
   autoPlayInterval = AUTOPLAY_INTERVAL_MS,
   onSlideChange,
+  heroEyebrow = 'Testimonials',
+  heroHeading = 'Trusted by the operators shipping the future',
+  heroDescription =
+    'Founder collectives, in-house squads, and venture studios rely on Gigvora to orchestrate launches with the polish of world-class networks.',
+  heroStats,
   className,
 }) {
   const prefersReducedMotion = usePrefersReducedMotion();
@@ -171,7 +182,36 @@ export function TestimonialsCarousel({
   const [isManualPause, setIsManualPause] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const intervalRef = useRef(null);
+  const progressIntervalRef = useRef(null);
   const carouselId = useId();
+  const heroStatBlocks = useMemo(() => {
+    if (Array.isArray(heroStats) && heroStats.length) {
+      return heroStats
+        .map((stat) => {
+          if (!stat) return null;
+          const value = typeof stat.value === 'string' ? stat.value : String(stat.value ?? '');
+          const label = typeof stat.label === 'string' ? stat.label : '';
+          if (!value.trim() || !label.trim()) {
+            return null;
+          }
+
+          return {
+            value: value.trim(),
+            label: label.trim(),
+            helper:
+              typeof stat.helper === 'string'
+                ? stat.helper.trim()
+                : typeof stat.subtitle === 'string'
+                ? stat.subtitle.trim()
+                : undefined,
+          };
+        })
+        .filter(Boolean);
+    }
+
+    return DEFAULT_HERO_STATS;
+  }, [heroStats]);
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     if (items.length <= 1) {
@@ -228,6 +268,19 @@ export function TestimonialsCarousel({
     setIsManualPause((previous) => !previous);
   };
 
+  const handleKeyDown = (event) => {
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      handlePrevious();
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      handleNext();
+    } else if (event.key === ' ' || event.key === 'Spacebar') {
+      event.preventDefault();
+      togglePause();
+    }
+  };
+
   const handleMouseEnter = () => {
     setIsHovering(true);
   };
@@ -235,6 +288,35 @@ export function TestimonialsCarousel({
   const handleMouseLeave = () => {
     setIsHovering(false);
   };
+
+  useEffect(() => {
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
+    }
+
+    if (!autoPlay || prefersReducedMotion || isManualPause || isHovering || items.length <= 1) {
+      setProgress(0);
+      return undefined;
+    }
+
+    const start = Date.now();
+    const tick = () => {
+      const elapsed = Date.now() - start;
+      const ratio = Math.min(1, elapsed / autoPlayInterval);
+      setProgress(Math.round(ratio * 100));
+    };
+
+    tick();
+    const intervalDuration = Math.max(32, Math.min(180, autoPlayInterval / 24));
+    const intervalId = setInterval(tick, intervalDuration);
+    progressIntervalRef.current = intervalId;
+
+    return () => {
+      clearInterval(intervalId);
+      progressIntervalRef.current = null;
+    };
+  }, [autoPlay, autoPlayInterval, prefersReducedMotion, isManualPause, isHovering, items.length, activeIndex]);
 
   const isSkeleton = loading && !error;
 
@@ -249,28 +331,22 @@ export function TestimonialsCarousel({
     >
       <div className="relative grid gap-10 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:items-center">
         <div className="space-y-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-accent/90">Testimonials</p>
-          <h3 className="text-3xl font-semibold text-white sm:text-4xl">Trusted by the operators shipping the future</h3>
-          <p className="text-sm text-white/70 sm:text-base">
-            Founder collectives, in-house squads, and venture studios rely on Gigvora to orchestrate launches with the polish of
-            world-class networks.
-          </p>
+          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-accent/90">{heroEyebrow}</p>
+          <h3 className="text-3xl font-semibold text-white sm:text-4xl">{heroHeading}</h3>
+          {heroDescription ? (
+            <p className="text-sm text-white/70 sm:text-base">{heroDescription}</p>
+          ) : null}
           <div className="flex flex-wrap gap-4 text-left text-xs text-white/70 sm:text-sm">
-            <div className="flex flex-col rounded-3xl border border-white/15 bg-white/5 p-4">
-              <span className="text-2xl font-semibold text-white">68</span>
-              <span className="uppercase tracking-[0.3em] text-white/60">NPS</span>
-              <span className="text-xs text-white/60">Rolling 90-day sentiment</span>
-            </div>
-            <div className="flex flex-col rounded-3xl border border-white/15 bg-white/5 p-4">
-              <span className="text-2xl font-semibold text-white">4,200+</span>
-              <span className="uppercase tracking-[0.3em] text-white/60">Crews</span>
-              <span className="text-xs text-white/60">Active programmes delivered</span>
-            </div>
-            <div className="flex flex-col rounded-3xl border border-white/15 bg-white/5 p-4">
-              <span className="text-2xl font-semibold text-white">92%</span>
-              <span className="uppercase tracking-[0.3em] text-white/60">Renew</span>
-              <span className="text-xs text-white/60">Teams expanding scope after 60 days</span>
-            </div>
+            {heroStatBlocks.map((stat) => (
+              <div
+                key={`${stat.label}-${stat.value}`}
+                className="flex flex-col rounded-3xl border border-white/15 bg-white/5 p-4"
+              >
+                <span className="text-2xl font-semibold text-white">{stat.value}</span>
+                <span className="uppercase tracking-[0.3em] text-white/60">{stat.label}</span>
+                {stat.helper ? <span className="text-xs text-white/60">{stat.helper}</span> : null}
+              </div>
+            ))}
           </div>
         </div>
 
@@ -285,6 +361,8 @@ export function TestimonialsCarousel({
           onMouseLeave={handleMouseLeave}
           onFocus={handleMouseEnter}
           onBlur={handleMouseLeave}
+          onKeyDown={handleKeyDown}
+          tabIndex={0}
         >
           <div className="relative h-full min-h-[320px]">
             {isSkeleton ? (
@@ -336,59 +414,69 @@ export function TestimonialsCarousel({
           </div>
 
           {!isSkeleton && !error && items.length > 1 ? (
-            <div className="mt-6 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handlePrevious}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:border-white/40 hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-                  aria-label="Show previous testimonial"
-                  aria-controls={carouselId}
-                >
-                  <ArrowLeftIcon className="h-5 w-5" aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:border-white/40 hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-                  aria-label="Show next testimonial"
-                  aria-controls={carouselId}
-                >
-                  <ArrowRightIcon className="h-5 w-5" aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  onClick={togglePause}
-                  className={classNames(
-                    'inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white',
-                    isManualPause
-                      ? 'bg-white/10 text-white hover:border-white/40 hover:bg-white/20'
-                      : 'bg-accent text-white hover:bg-accentDark border-transparent',
-                  )}
-                  aria-pressed={isManualPause}
-                  aria-label={isManualPause ? 'Resume testimonial autoplay' : 'Pause testimonial autoplay'}
-                >
-                  {isManualPause ? <PlayIcon className="h-5 w-5" aria-hidden="true" /> : <PauseIcon className="h-5 w-5" aria-hidden="true" />}
-                </button>
-              </div>
-              <div className="flex items-center gap-1">
-                {items.map((item, index) => (
-                  <button
-                    key={item.id ?? index}
-                    type="button"
-                    onClick={() => {
-                      goTo(index);
-                      setIsManualPause(true);
-                    }}
-                    className={classNames(
-                      'h-2.5 rounded-full transition',
-                      index === activeIndex ? 'w-6 bg-white' : 'w-2.5 bg-white/30 hover:bg-white/60',
-                    )}
-                    aria-label={`Show testimonial ${index + 1} of ${items.length}`}
-                    aria-controls={carouselId}
-                    aria-current={index === activeIndex ? 'true' : 'false'}
+            <div className="mt-6 space-y-4">
+              {autoPlay && !prefersReducedMotion ? (
+                <div className="h-1 w-full overflow-hidden rounded-full bg-white/10" aria-hidden="true">
+                  <div
+                    className="h-full rounded-full bg-white transition-[width] duration-150 ease-out"
+                    style={{ width: `${progress}%` }}
                   />
-                ))}
+                </div>
+              ) : null}
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handlePrevious}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:border-white/40 hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                    aria-label="Show previous testimonial"
+                    aria-controls={carouselId}
+                  >
+                    <ArrowLeftIcon className="h-5 w-5" aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleNext}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:border-white/40 hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                    aria-label="Show next testimonial"
+                    aria-controls={carouselId}
+                  >
+                    <ArrowRightIcon className="h-5 w-5" aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={togglePause}
+                    className={classNames(
+                      'inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white',
+                      isManualPause
+                        ? 'bg-white/10 text-white hover:border-white/40 hover:bg-white/20'
+                        : 'bg-accent text-white hover:bg-accentDark border-transparent',
+                    )}
+                    aria-pressed={isManualPause}
+                    aria-label={isManualPause ? 'Resume testimonial autoplay' : 'Pause testimonial autoplay'}
+                  >
+                    {isManualPause ? <PlayIcon className="h-5 w-5" aria-hidden="true" /> : <PauseIcon className="h-5 w-5" aria-hidden="true" />}
+                  </button>
+                </div>
+                <div className="flex items-center gap-1">
+                  {items.map((item, index) => (
+                    <button
+                      key={item.id ?? index}
+                      type="button"
+                      onClick={() => {
+                        goTo(index);
+                        setIsManualPause(true);
+                      }}
+                      className={classNames(
+                        'h-2.5 rounded-full transition',
+                        index === activeIndex ? 'w-6 bg-white' : 'w-2.5 bg-white/30 hover:bg-white/60',
+                      )}
+                      aria-label={`Show testimonial ${index + 1} of ${items.length}`}
+                      aria-controls={carouselId}
+                      aria-current={index === activeIndex ? 'true' : 'false'}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
           ) : null}
@@ -419,6 +507,17 @@ TestimonialsCarousel.propTypes = {
   autoPlay: PropTypes.bool,
   autoPlayInterval: PropTypes.number,
   onSlideChange: PropTypes.func,
+  heroEyebrow: PropTypes.string,
+  heroHeading: PropTypes.string,
+  heroDescription: PropTypes.string,
+  heroStats: PropTypes.arrayOf(
+    PropTypes.shape({
+      value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+      label: PropTypes.string.isRequired,
+      helper: PropTypes.string,
+      subtitle: PropTypes.string,
+    }),
+  ),
   className: PropTypes.string,
 };
 
@@ -429,6 +528,11 @@ TestimonialsCarousel.defaultProps = {
   autoPlay: true,
   autoPlayInterval: AUTOPLAY_INTERVAL_MS,
   onSlideChange: undefined,
+  heroEyebrow: 'Testimonials',
+  heroHeading: 'Trusted by the operators shipping the future',
+  heroDescription:
+    'Founder collectives, in-house squads, and venture studios rely on Gigvora to orchestrate launches with the polish of world-class networks.',
+  heroStats: undefined,
   className: undefined,
 };
 

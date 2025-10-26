@@ -30,6 +30,17 @@ export function JoinCommunitySection() {
             { label: 'Mentor network', value: '420+', helper: 'Operators coaching every cohort' },
           ]}
           logos={['Northwind Digital', 'Forma Studio', 'Atlas Labs', 'Redbird Ventures']}
+          guarantees={['SOC2 Type II', { label: 'Global compliance' }, { label: 'Escrow protected' }]}
+          testimonial={{
+            quote: 'Gigvora aligned our mentors and operators within days—we shipped our launch playbook 3x faster.',
+            name: 'Leah Patel',
+            role: 'Programme Director',
+            company: 'Northwind Digital',
+            avatar: {
+              src: 'https://cdn.gigvora.com/assets/avatars/leah-patel.png',
+              alt: 'Portrait of Leah Patel smiling',
+            },
+          }}
           footnote="Backed by production telemetry across venture, enterprise, and social impact programmes."
         />
       </div>
