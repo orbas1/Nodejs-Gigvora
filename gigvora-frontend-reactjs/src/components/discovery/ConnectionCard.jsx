@@ -31,6 +31,7 @@ export default function ConnectionCard({ connection, onConnect, onMessage, onSav
   const callToAction = useMemo(() => computeCallToAction(connection), [connection]);
 
   const ActionIcon = callToAction.icon ?? UserPlusIcon;
+  const isSaved = Boolean(connection.saved);
 
   const handlePrimary = () => {
     analytics.track('discovery.connection.primary_action', {
@@ -47,6 +48,9 @@ export default function ConnectionCard({ connection, onConnect, onMessage, onSav
   };
 
   const handleSave = () => {
+    if (isSaved) {
+      return;
+    }
     analytics.track('discovery.connection.saved', {
       connectionId: connection.id,
       source: analyticsSource ?? 'web_app',
@@ -85,12 +89,20 @@ export default function ConnectionCard({ connection, onConnect, onMessage, onSav
             {connection.location ? <p className="text-xs text-slate-400">{connection.location}</p> : null}
           </div>
         </div>
-        {connection.trustSignal ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-600">
-            <ShieldCheckIcon className="h-4 w-4" aria-hidden="true" />
-            {connection.trustSignal}
-          </span>
-        ) : null}
+        <div className="flex flex-col items-end gap-2">
+          {connection.trustSignal ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-600">
+              <ShieldCheckIcon className="h-4 w-4" aria-hidden="true" />
+              {connection.trustSignal}
+            </span>
+          ) : null}
+          {isSaved ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-sky-600">
+              <CheckBadgeIcon className="h-4 w-4" aria-hidden="true" />
+              Saved
+            </span>
+          ) : null}
+        </div>
       </div>
 
       {connection.bio ? <p className="relative mt-4 line-clamp-3 text-sm text-slate-600">{connection.bio}</p> : null}
@@ -145,10 +157,16 @@ export default function ConnectionCard({ connection, onConnect, onMessage, onSav
         <button
           type="button"
           onClick={handleSave}
-          className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-200 focus:ring-offset-2"
+          disabled={isSaved}
+          className={classNames(
+            'inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2',
+            isSaved
+              ? 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed'
+              : 'border-slate-200 bg-white/80 text-slate-600 hover:border-slate-300 hover:text-slate-900 focus:ring-slate-200',
+          )}
         >
           <EnvelopeIcon className="h-5 w-5" aria-hidden="true" />
-          Save for later
+          {isSaved ? 'Saved' : 'Save for later'}
         </button>
       </div>
 

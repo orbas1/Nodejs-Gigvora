@@ -13,6 +13,11 @@ import {
   MentorshipOrder,
   User,
   Profile,
+  DiscoverySuggestion,
+  DiscoveryTrendingTopic,
+  DiscoveryConnectionProfile,
+  DiscoverySuggestionEngagement,
+  DiscoverySuggestionSubscription,
   OpportunityTaxonomyAssignment,
   OpportunityTaxonomy,
   MENTOR_AVAILABILITY_STATUSES,
@@ -20,6 +25,7 @@ import {
 } from '../models/index.js';
 import { appCache, buildCacheKey } from '../utils/cache.js';
 import { ApplicationError, ValidationError } from '../utils/errors.js';
+import logger from '../utils/logger.js';
 
 import {
   searchOpportunityIndex,
@@ -29,6 +35,7 @@ import {
   extractCurrencyCode,
   determineDurationCategory,
 } from './searchIndexService.js';
+import { getFeedSuggestions } from './feedSuggestionService.js';
 import {
   CATEGORY_FACETS,
   TAXONOMY_ENABLED_CATEGORIES,
@@ -74,6 +81,11 @@ const CURRENCY_SYMBOLS = {
   AUD: '$',
   SGD: '$',
 };
+
+const DEFAULT_SUGGESTION_LIMIT = 8;
+const DEFAULT_TOPIC_LIMIT = 6;
+const DEFAULT_CONNECTION_LIMIT = 3;
+const DEFAULT_TRENDING_TIMEFRAME = '7d';
 
 function coerceArray(value) {
   if (Array.isArray(value)) {
@@ -1298,6 +1310,435 @@ export async function getDiscoverySnapshot({ limit } = {}) {
   });
 }
 
+function normalisePersona(value) {
+  if (!value && value !== 0) {
+    return null;
+  }
+  const text = `${value}`.trim().toLowerCase();
+  if (!text) {
+    return null;
+  }
+  return text.replace(/\s+/g, '_');
+}
+
+function derivePersonaFromActor(actor) {
+  if (!actor) {
+    return null;
+  }
+  const candidates = [];
+  if (actor.primaryDashboard) {
+    candidates.push(actor.primaryDashboard);
+  }
+  if (Array.isArray(actor.memberships)) {
+    candidates.push(...actor.memberships);
+  }
+  if (Array.isArray(actor.accountTypes)) {
+    candidates.push(...actor.accountTypes);
+  }
+  if (actor.userType) {
+    candidates.push(actor.userType);
+  }
+  return candidates.map(normalisePersona).find(Boolean) ?? null;
+}
+
+function extractSegments(candidate) {
+  if (!candidate) {
+    return [];
+  }
+  if (Array.isArray(candidate)) {
+    return candidate;
+  }
+  if (typeof candidate === 'object') {
+    return Object.values(candidate);
+  }
+  return [`${candidate}`];
+}
+
+function filterRecordsByPersona(records, persona) {
+  if (!persona) {
+    return records;
+  }
+  const target = normalisePersona(persona);
+  if (!target) {
+    return records;
+  }
+  return records.filter((record) => {
+    const plain = record.get({ plain: true });
+    const direct = normalisePersona(plain.targetPersona);
+    if (direct && direct === target) {
+      return true;
+    }
+    const segments = extractSegments(plain.targetSegments)
+      .map(normalisePersona)
+      .filter(Boolean);
+    if (segments.includes(target)) {
+      return true;
+    }
+    return !direct && !segments.length;
+  });
+}
+
+function buildSuggestionFilters(records) {
+  const availableTypes = new Set(records.map((record) => record.type));
+  const definitions = [
+    { id: 'all', label: 'All suggestions', type: null },
+    { id: 'program', label: 'Programmes', type: 'program' },
+    { id: 'opportunity', label: 'Opportunities', type: 'opportunity' },
+    { id: 'group', label: 'Communities', type: 'group' },
+    { id: 'person', label: 'People', type: 'person' },
+    { id: 'resource', label: 'Resources', type: 'resource' },
+  ];
+  return definitions.filter((definition) => !definition.type || availableTypes.has(definition.type));
+}
+
+async function getFollowedSuggestionIds(userId, { transaction } = {}) {
+  if (!userId) {
+    return new Set();
+  }
+  const rows = await DiscoverySuggestionSubscription.findAll({
+    where: { userId, followed: true },
+    attributes: ['suggestionId'],
+    transaction,
+  });
+  return new Set(rows.map((row) => Number(row.suggestionId)));
+}
+
+async function listCuratedSuggestions({ persona, limit, userId }) {
+  const fetchLimit = Math.max(limit * 3, limit);
+  const records = await DiscoverySuggestion.findAll({
+    where: { active: true },
+    order: [
+      ['pinned', 'DESC'],
+      ['sortOrder', 'ASC'],
+      ['personalizationScore', 'DESC'],
+      ['updatedAt', 'DESC'],
+    ],
+    limit: fetchLimit,
+  });
+
+  const filtered = filterRecordsByPersona(records, persona).slice(0, limit);
+  const followedIds = await getFollowedSuggestionIds(userId);
+  const cards = filtered.map((record) => record.toCardObject({ followed: followedIds.has(record.id) }));
+
+  const personalizationSummaries = filtered
+    .map((record) => record.get('metadata')?.personalizationSummary)
+    .filter(Boolean);
+  const personalizationSummary = personalizationSummaries[0]
+    ?? (persona ? `Personalised for your ${persona.replace(/_/g, ' ')} focus.` : null);
+
+  return {
+    cards,
+    personalizationSummary,
+    filters: buildSuggestionFilters(cards),
+  };
+}
+
+async function listTrendingTopicsForPersona({ persona, timeframe, limit }) {
+  const fetchLimit = Math.max(limit * 2, limit);
+  const candidates = await DiscoveryTrendingTopic.findAll({
+    order: [
+      ['rank', 'ASC'],
+      ['engagementScore', 'DESC'],
+      ['updatedAt', 'DESC'],
+    ],
+    limit: fetchLimit,
+  });
+
+  const desiredPersona = normalisePersona(persona);
+  const desiredTimeframe = timeframe ? `${timeframe}`.trim().toLowerCase() : null;
+
+  return candidates
+    .filter((topic) => {
+      const plain = topic.get({ plain: true });
+      const topicPersona = normalisePersona(plain.persona);
+      if (desiredPersona && topicPersona && topicPersona !== desiredPersona) {
+        return false;
+      }
+      const topicTimeframe = plain.timeframe ? `${plain.timeframe}`.trim().toLowerCase() : DEFAULT_TRENDING_TIMEFRAME;
+      if (desiredTimeframe && topicTimeframe !== desiredTimeframe) {
+        return false;
+      }
+      return true;
+    })
+    .slice(0, limit)
+    .map((topic) => topic.toPanelRow());
+}
+
+function toConnectionCardFromDynamic(connection) {
+  if (!connection || !connection.name) {
+    return null;
+  }
+  return {
+    id: connection.id ?? (connection.userId ? `user-${connection.userId}` : connection.name),
+    userId: connection.userId ?? null,
+    name: connection.name,
+    headline: connection.headline ?? null,
+    location: connection.location ?? null,
+    bio: connection.reason ?? null,
+    avatarUrl: connection.avatarUrl ?? null,
+    verified: Boolean(connection.trustSignal || connection.verified),
+    trustSignal: connection.trustSignal ?? null,
+    mutualConnections: connection.mutualConnections ?? null,
+    sharedCommunities: Array.isArray(connection.focus) ? connection.focus : [],
+    tags: Array.isArray(connection.tags) ? connection.tags : [],
+    successStory: connection.successStory ?? null,
+    status: connection.status ?? 'new',
+  };
+}
+
+async function listConnectionSpotlights({ persona, limit, actor }) {
+  const fetchLimit = Math.max(limit * 2, limit);
+  const profiles = await DiscoveryConnectionProfile.findAll({
+    where: { active: true },
+    order: [
+      ['priorityScore', 'DESC'],
+      ['updatedAt', 'DESC'],
+    ],
+    limit: fetchLimit,
+  });
+
+  const filtered = filterRecordsByPersona(profiles, persona).slice(0, limit);
+  const cards = filtered.map((profile) =>
+    profile.toCardObject({
+      mutualConnections: profile.get('metadata')?.mutualConnections ?? null,
+      sharedCommunities: extractSegments(profile.get('metadata')?.sharedCommunities),
+      tags: extractSegments(profile.get('tags')), 
+    }),
+  );
+
+  if (cards.length >= limit || !actor?.id) {
+    return cards.slice(0, limit);
+  }
+
+  let dynamicConnections = [];
+  try {
+    const suggestions = await getFeedSuggestions(actor, { connectionLimit: limit });
+    dynamicConnections = Array.isArray(suggestions?.connections) ? suggestions.connections : [];
+  } catch (error) {
+    logger.warn({ err: error }, 'Failed to hydrate dynamic connection suggestions for discovery experience.');
+  }
+
+  dynamicConnections.forEach((connection) => {
+    if (cards.length >= limit) {
+      return;
+    }
+    const card = toConnectionCardFromDynamic(connection);
+    if (!card) {
+      return;
+    }
+    const duplicate = cards.some((existing) => {
+      if (existing.userId && card.userId) {
+        return Number(existing.userId) === Number(card.userId);
+      }
+      return existing.id === card.id;
+    });
+    if (!duplicate) {
+      cards.push(card);
+    }
+  });
+
+  return cards.slice(0, limit);
+}
+
+async function refreshSuggestionCard(suggestionId, { userId, followedOverride, transaction } = {}) {
+  const suggestion = await DiscoverySuggestion.findByPk(suggestionId, { transaction });
+  if (!suggestion) {
+    throw new ValidationError('Suggestion not available.');
+  }
+  let followed = followedOverride;
+  if (followed == null && userId) {
+    const followedIds = await getFollowedSuggestionIds(userId, { transaction });
+    followed = followedIds.has(suggestionId);
+  }
+  return suggestion.toCardObject({ followed: Boolean(followed) });
+}
+
+async function recordSuggestionEngagement({ suggestionId, userId, action, metadata = null, transaction }) {
+  await DiscoverySuggestionEngagement.create(
+    {
+      suggestionId,
+      userId: userId ?? null,
+      action,
+      metadata: metadata ?? null,
+    },
+    { transaction },
+  );
+
+  const counterFieldMap = {
+    follow: 'followCount',
+    unfollow: 'followCount',
+    save: 'saveCount',
+    view: 'viewCount',
+    share: 'shareCount',
+    dismiss: 'dismissCount',
+  };
+
+  const field = counterFieldMap[action];
+  if (!field) {
+    return;
+  }
+
+  const delta = action === 'unfollow' ? -1 : 1;
+  await DiscoverySuggestion.increment({ [field]: delta }, { where: { id: suggestionId }, transaction });
+
+  if (delta < 0) {
+    const latest = await DiscoverySuggestion.findByPk(suggestionId, {
+      attributes: [field],
+      transaction,
+      lock: transaction ? transaction.LOCK.UPDATE : undefined,
+    });
+    if (latest && Number(latest[field]) < 0) {
+      await DiscoverySuggestion.update({ [field]: 0 }, { where: { id: suggestionId }, transaction });
+    }
+  }
+}
+
+export async function getDiscoveryExperience(actor, options = {}) {
+  const suggestionLimit = Number.isFinite(options.suggestionLimit)
+    ? Math.max(1, Number(options.suggestionLimit))
+    : DEFAULT_SUGGESTION_LIMIT;
+  const topicLimit = Number.isFinite(options.trendingLimit)
+    ? Math.max(1, Number(options.trendingLimit))
+    : DEFAULT_TOPIC_LIMIT;
+  const connectionLimit = Number.isFinite(options.connectionLimit)
+    ? Math.max(1, Number(options.connectionLimit))
+    : DEFAULT_CONNECTION_LIMIT;
+
+  const persona = normalisePersona(options.persona) ?? derivePersonaFromActor(actor);
+  const timeframe = options.trendingTimeframe ? `${options.trendingTimeframe}`.trim().toLowerCase() : DEFAULT_TRENDING_TIMEFRAME;
+
+  const [suggestionsPayload, trendingTopics, connectionSpotlights] = await Promise.all([
+    listCuratedSuggestions({ persona, limit: suggestionLimit, userId: actor?.id ?? null }),
+    listTrendingTopicsForPersona({ persona, timeframe, limit: topicLimit }),
+    listConnectionSpotlights({ persona, limit: connectionLimit, actor }),
+  ]);
+
+  return {
+    generatedAt: new Date().toISOString(),
+    persona,
+    suggestions: suggestionsPayload.cards,
+    suggestionMeta: {
+      limit: suggestionLimit,
+      filters: suggestionsPayload.filters,
+      personalizationSummary: suggestionsPayload.personalizationSummary,
+    },
+    trendingTopics,
+    trendingMeta: {
+      limit: topicLimit,
+      timeframe,
+      persona,
+    },
+    connectionSpotlights,
+  };
+}
+
+export async function toggleSuggestionFollow({ suggestionId, userId }) {
+  if (!userId) {
+    throw new ValidationError('Authentication is required to follow suggestions.');
+  }
+  if (!suggestionId) {
+    throw new ValidationError('A suggestionId must be provided.');
+  }
+
+  const suggestion = await DiscoverySuggestion.findByPk(suggestionId);
+  if (!suggestion || !suggestion.active) {
+    throw new ValidationError('The requested suggestion is no longer available.');
+  }
+
+  return sequelize.transaction(async (transaction) => {
+    const [subscription, created] = await DiscoverySuggestionSubscription.findOrCreate({
+      where: { suggestionId, userId },
+      defaults: { followed: true },
+      transaction,
+    });
+
+    let followed = true;
+    if (!created && subscription.followed) {
+      await subscription.update({ followed: false, updatedAt: new Date() }, { transaction });
+      followed = false;
+      await recordSuggestionEngagement({ suggestionId, userId, action: 'unfollow', transaction });
+    } else {
+      if (!created) {
+        await subscription.update({ followed: true, updatedAt: new Date() }, { transaction });
+      }
+      followed = true;
+      await recordSuggestionEngagement({ suggestionId, userId, action: 'follow', transaction });
+    }
+
+    const card = await refreshSuggestionCard(suggestionId, {
+      userId,
+      followedOverride: followed,
+      transaction,
+    });
+
+    return { followed, suggestion: card };
+  });
+}
+
+export async function saveDiscoverySuggestion({ suggestionId, userId }) {
+  if (!userId) {
+    throw new ValidationError('Authentication is required to save suggestions.');
+  }
+  if (!suggestionId) {
+    throw new ValidationError('A suggestionId must be provided.');
+  }
+
+  const suggestion = await DiscoverySuggestion.findByPk(suggestionId);
+  if (!suggestion || !suggestion.active) {
+    throw new ValidationError('The requested suggestion is no longer available.');
+  }
+
+  await sequelize.transaction(async (transaction) => {
+    await recordSuggestionEngagement({ suggestionId, userId, action: 'save', transaction });
+  });
+
+  return refreshSuggestionCard(suggestionId, { userId });
+}
+
+export async function dismissDiscoverySuggestion({ suggestionId, userId }) {
+  if (!userId) {
+    throw new ValidationError('Authentication is required to dismiss suggestions.');
+  }
+  if (!suggestionId) {
+    throw new ValidationError('A suggestionId must be provided.');
+  }
+
+  const suggestion = await DiscoverySuggestion.findByPk(suggestionId);
+  if (!suggestion || !suggestion.active) {
+    throw new ValidationError('The requested suggestion is no longer available.');
+  }
+
+  await sequelize.transaction(async (transaction) => {
+    await recordSuggestionEngagement({ suggestionId, userId, action: 'dismiss', transaction });
+  });
+
+  return refreshSuggestionCard(suggestionId, { userId, followedOverride: false });
+}
+
+export async function trackDiscoverySuggestionView({ suggestionId, userId = null, metadata = {} }) {
+  if (!suggestionId) {
+    throw new ValidationError('A suggestionId must be provided.');
+  }
+
+  await sequelize.transaction(async (transaction) => {
+    await recordSuggestionEngagement({ suggestionId, userId, action: 'view', metadata, transaction });
+  });
+
+  return refreshSuggestionCard(suggestionId, { userId });
+}
+
+export async function trackDiscoverySuggestionShare({ suggestionId, userId = null, metadata = {} }) {
+  if (!suggestionId) {
+    throw new ValidationError('A suggestionId must be provided.');
+  }
+
+  await sequelize.transaction(async (transaction) => {
+    await recordSuggestionEngagement({ suggestionId, userId, action: 'share', metadata, transaction });
+  });
+
+  return refreshSuggestionCard(suggestionId, { userId });
+}
+
 export async function searchOpportunitiesAcrossCategories(query, { limit } = {}) {
   const safeLimit = normaliseLimit(limit);
   const trimmed = query?.trim();
@@ -1368,6 +1809,12 @@ export default {
   listVolunteering,
   listMentors,
   getDiscoverySnapshot,
+  getDiscoveryExperience,
+  toggleSuggestionFollow,
+  saveDiscoverySuggestion,
+  dismissDiscoverySuggestion,
+  trackDiscoverySuggestionView,
+  trackDiscoverySuggestionShare,
   searchOpportunitiesAcrossCategories,
   toOpportunityDto,
 };

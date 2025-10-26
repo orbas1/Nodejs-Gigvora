@@ -202,6 +202,66 @@ export const domainMetadata = {
       },
     },
   },
+  discovery: {
+    ownerTeam: 'Discovery Platform',
+    dataSteward: 'Growth Operations',
+    dataClassification: 'Confidential',
+    businessCriticality: 'Tier 1',
+    dataResidency: {
+      primaryRegion: 'eu-west-1',
+      failoverRegion: 'us-east-1',
+    },
+    defaultRetention: 'Engagement lifecycle + 2 years.',
+    regulatoryFrameworks: ['GDPR', 'SOC 2'],
+    qualityChecks: [
+      {
+        name: 'Weekly recommendation quality audit',
+        cadence: 'weekly',
+        owner: 'Marketplace Insights',
+      },
+      {
+        name: 'Suggestion engagement anomaly detection',
+        cadence: 'daily',
+        owner: 'Data Science',
+      },
+      {
+        name: 'Trending topics sentiment review',
+        cadence: 'bi-weekly',
+        owner: 'Community Experience',
+      },
+    ],
+    piiModels: {
+      DiscoverySuggestionSubscription: {
+        fields: ['metadata'],
+        retention: 'User lifecycle',
+        justification: 'Tracks opt-in preferences for curated discovery follow-ups.',
+      },
+      DiscoverySuggestionEngagement: {
+        fields: ['metadata'],
+        retention: '18 months',
+        justification: 'Supports ranking audits, abuse investigations, and consent tracking for discovery actions.',
+      },
+      DiscoveryConnectionProfile: {
+        fields: ['fullName', 'headline', 'location', 'metadata'],
+        retention: 'Profile lifecycle + 2 years',
+        justification: 'Required to surface curated introductions and honour right-to-be-forgotten obligations.',
+      },
+    },
+    fieldDescriptions: {
+      DiscoverySuggestion: {
+        metadata:
+          'Structured payload with scoring inputs, rollout cohort flags, and contextual reason copy used by the ranking engine.',
+        targetSegments: 'Persona and industry segments that the suggestion is prioritised for within the explorer.',
+      },
+      DiscoveryTrendingTopic: {
+        metrics: 'Aggregated counts for follows, shares, mentions, and engagement deltas powering the trending rank.',
+      },
+      DiscoveryConnectionProfile: {
+        sharedContexts:
+          'Common groups, programmes, or mutual partners that establish trust between the profiled member and the viewer.',
+      },
+    },
+  },
   volunteering: {
     ownerTeam: 'Community Operations',
     dataSteward: 'Social Impact Programmes',
