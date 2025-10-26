@@ -1,89 +1,59 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { BellAlertIcon } from '@heroicons/react/24/outline';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
+import NotificationCenter from '../components/notifications/NotificationCenter.jsx';
+import AlertPreferences from '../components/notifications/AlertPreferences.jsx';
 import useSession from '../hooks/useSession.js';
 import useNotificationCenter from '../hooks/useNotificationCenter.js';
 import useAuthorization from '../hooks/useAuthorization.js';
-import { formatRelativeTime } from '../utils/date.js';
+import {
+  fetchNotificationPreferences,
+  updateNotificationPreferences,
+} from '../services/notificationCenter.js';
 
-const noop = () => {};
+const DEFAULT_ALERT_PREFERENCES = {
+  email: true,
+  inApp: true,
+  push: false,
+  sms: false,
+  digestFrequency: 'daily',
+  quietHoursStart: '21:00',
+  quietHoursEnd: '07:00',
+};
 
-function NotificationCard({ notification, onOpen }) {
-  const {
-    type = 'Alert',
-    title = 'Notification update',
-    body = 'No additional details provided yet.',
-    read = false,
-  } = notification ?? {};
+function normaliseAlertPreferences(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return { ...DEFAULT_ALERT_PREFERENCES };
+  }
 
-  const timestampLabel = formatRelativeTime(notification?.timestamp) || 'Just now';
+  const channels = payload.channels ?? payload.preferences ?? payload;
+  const quietHours = payload.quietHours ?? payload.quietTime ?? {};
 
-  const action = useMemo(() => {
-    const rawHref = notification?.action?.href;
-    const label = notification?.action?.label ?? 'Open';
-
-    if (!rawHref || typeof rawHref !== 'string') {
-      return null;
-    }
-
-    if (typeof window === 'undefined') {
-      return { label, href: rawHref };
-    }
-
-    try {
-      const url = new URL(rawHref, window.location.origin);
-      const isSameOrigin = url.origin === window.location.origin;
-      const isSecure = url.protocol === 'https:';
-
-      if (!isSameOrigin && !isSecure) {
-        return null;
-      }
-
-      return { label, href: url.toString() };
-    } catch (error) {
-      console.warn('Blocked invalid notification action href', error);
-      return null;
-    }
-  }, [notification?.action?.href, notification?.action?.label]);
-
-  const handleClick = () => {
-    if (typeof onOpen === 'function') {
-      onOpen(notification);
-    }
-
-    if (action?.href && typeof window !== 'undefined') {
-      window.location.assign(action.href);
-    }
+  return {
+    email: Boolean(channels.email ?? channels.receiveEmail ?? payload.email ?? DEFAULT_ALERT_PREFERENCES.email),
+    inApp: Boolean(channels.inApp ?? channels.web ?? payload.inApp ?? DEFAULT_ALERT_PREFERENCES.inApp),
+    push: Boolean(channels.push ?? payload.push ?? DEFAULT_ALERT_PREFERENCES.push),
+    sms: Boolean(channels.sms ?? payload.sms ?? DEFAULT_ALERT_PREFERENCES.sms),
+    digestFrequency: `${payload.digestFrequency ?? payload.frequency ?? DEFAULT_ALERT_PREFERENCES.digestFrequency}`,
+    quietHoursStart: quietHours.start ?? quietHours.begin ?? DEFAULT_ALERT_PREFERENCES.quietHoursStart,
+    quietHoursEnd: quietHours.end ?? quietHours.finish ?? DEFAULT_ALERT_PREFERENCES.quietHoursEnd,
   };
+}
 
-  return (
-    <article
-      className={`group relative overflow-hidden rounded-3xl border px-5 py-4 transition focus-within:ring-2 focus-within:ring-accent/40 ${
-        read
-          ? 'border-slate-200 bg-white'
-          : 'border-accent/40 bg-accentSoft shadow-sm shadow-accent/10'
-      }`}
-    >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-        <div className="min-w-0 space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{type}</p>
-          <h3 className="text-base font-semibold text-slate-900 [text-wrap:balance]">{title}</h3>
-          <p className="text-sm text-slate-600 [overflow-wrap:anywhere]">{body}</p>
-          <p className="pt-1 text-xs font-medium text-slate-400">{timestampLabel}</p>
-        </div>
-        {action ? (
-          <button
-            type="button"
-            onClick={handleClick}
-            className="inline-flex shrink-0 items-center justify-center rounded-full border border-accent/30 bg-white px-4 py-2 text-xs font-semibold text-accent transition hover:border-accent hover:bg-accent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-          >
-            {action.label}
-          </button>
-        ) : null}
-      </div>
-    </article>
-  );
+function buildAlertPreferencePayload(preferences) {
+  return {
+    channels: {
+      email: Boolean(preferences.email),
+      inApp: Boolean(preferences.inApp),
+      push: Boolean(preferences.push),
+      sms: Boolean(preferences.sms),
+    },
+    digestFrequency: preferences.digestFrequency ?? DEFAULT_ALERT_PREFERENCES.digestFrequency,
+    quietHours: {
+      start: preferences.quietHoursStart ?? DEFAULT_ALERT_PREFERENCES.quietHoursStart,
+      end: preferences.quietHoursEnd ?? DEFAULT_ALERT_PREFERENCES.quietHoursEnd,
+    },
+  };
 }
 
 export default function NotificationsPage() {
@@ -100,6 +70,13 @@ export default function NotificationsPage() {
   const redirectGuardRef = useRef(false);
   const isAuthorizedForCenter = canAccess('notifications:center');
   const canManagePush = canAccess('notifications:push');
+  const [alertPreferences, setAlertPreferences] = useState(DEFAULT_ALERT_PREFERENCES);
+  const [preferencesLoading, setPreferencesLoading] = useState(false);
+  const [preferencesSaving, setPreferencesSaving] = useState(false);
+  const [preferencesFeedback, setPreferencesFeedback] = useState('');
+  const [preferencesError, setPreferencesError] = useState('');
+  const [preferencesLoadedAt, setPreferencesLoadedAt] = useState(null);
+  const [markAllBusy, setMarkAllBusy] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -121,27 +98,47 @@ export default function NotificationsPage() {
     }
   }, [isAuthenticated, isAuthorizedForCenter, navigate]);
 
-  const notificationList = useMemo(
-    () => (Array.isArray(notifications) ? notifications : []),
-    [notifications],
-  );
+  useEffect(() => {
+    if (!isAuthorizedForCenter || !session?.id) {
+      return;
+    }
+    const controller = new AbortController();
+    (async () => {
+      setPreferencesLoading(true);
+      try {
+        const response = await fetchNotificationPreferences(session.id, { signal: controller.signal });
+        const resolved = response?.preferences ?? response;
+        setAlertPreferences(normaliseAlertPreferences(resolved));
+        setPreferencesError('');
+        setPreferencesLoadedAt(new Date().toISOString());
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+        if (error?.status === 403) {
+          setPreferencesError('You do not have permission to view alert preferences.');
+        } else if (error instanceof Error) {
+          setPreferencesError(error.message);
+        } else {
+          setPreferencesError('Unable to load alert preferences.');
+        }
+      } finally {
+        setPreferencesLoading(false);
+      }
+    })();
+    return () => controller.abort();
+  }, [isAuthorizedForCenter, session?.id]);
 
-  const safeMarkNotificationAsRead =
-    typeof markNotificationAsRead === 'function' ? markNotificationAsRead : noop;
-  const safeMarkAllNotificationsAsRead =
-    typeof markAllNotificationsAsRead === 'function' ? markAllNotificationsAsRead : noop;
-
-  const sortedNotifications = useMemo(
-    () =>
-      isAuthorizedForCenter
-        ? notificationList.slice().sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-        : [],
-    [notificationList, isAuthorizedForCenter],
-  );
-
-  const numericUnreadCount = Number.isFinite(unreadNotificationCount) ? unreadNotificationCount : 0;
-  const displayUnreadCount = isAuthorizedForCenter ? numericUnreadCount : 0;
-  const hasNotifications = sortedNotifications.length > 0;
+  useEffect(() => {
+    if (!preferencesFeedback && !preferencesError) {
+      return undefined;
+    }
+    const timer = (typeof window !== 'undefined' ? window : globalThis).setTimeout(() => {
+      setPreferencesFeedback('');
+      setPreferencesError('');
+    }, 5000);
+    return () => (typeof window !== 'undefined' ? window : globalThis).clearTimeout(timer);
+  }, [preferencesFeedback, preferencesError]);
 
   useEffect(() => {
     if (!isAuthorizedForCenter) {
@@ -154,7 +151,24 @@ export default function NotificationsPage() {
     }
   }, [canManagePush, isAuthorizedForCenter, pushStatus]);
 
-  const handleEnablePush = async () => {
+  useEffect(() => {
+    if (pushStatus === 'granted') {
+      setAlertPreferences((current) => (current.push ? current : { ...current, push: true }));
+    }
+    if (['denied', 'unsupported', 'dismissed', 'error', 'forbidden'].includes(pushStatus)) {
+      setAlertPreferences((current) => (current.push ? { ...current, push: false } : current));
+    }
+  }, [pushStatus]);
+
+  useEffect(() => {
+    if (!canManagePush) {
+      setAlertPreferences((current) => (current.push ? { ...current, push: false } : current));
+    }
+  }, [canManagePush]);
+
+  const displayUnreadCount = isAuthorizedForCenter ? unreadNotificationCount : 0;
+
+  const handleEnablePush = useCallback(async () => {
     if (!canManagePush) {
       setPushStatus('forbidden');
       return;
@@ -180,36 +194,80 @@ export default function NotificationsPage() {
       setPushStatus('error');
       console.error('Unable to request notification permission', error);
     }
-  };
+  }, [canManagePush]);
 
-  const renderPushStatus = () => {
-    switch (pushStatus) {
-      case 'granted':
-        return <p className="text-xs font-semibold text-emerald-600">Push alerts enabled for this browser.</p>;
-      case 'denied':
-        return (
-          <p className="text-xs font-semibold text-rose-600">
-            Browser blocked notifications. Enable them in settings to receive real-time alerts.
-          </p>
-        );
-      case 'unsupported':
-        return <p className="text-xs font-semibold text-amber-600">Push notifications are not supported in this browser.</p>;
-      case 'dismissed':
-        return <p className="text-xs font-semibold text-slate-500">Permission request dismissed. Try again when ready.</p>;
-      case 'error':
-        return <p className="text-xs font-semibold text-rose-600">Something went wrong while enabling push alerts.</p>;
-      case 'forbidden':
-        return (
-          <p className="text-xs font-semibold text-rose-600">
-            Your current workspace role cannot register for push notifications. Switch to an eligible membership to continue.
-          </p>
-        );
-      case 'requesting':
-        return <p className="text-xs font-semibold text-slate-500">Requesting permission…</p>;
-      default:
-        return null;
+  const handleNotificationAction = useCallback(
+    (notification, safeAction) => {
+      if (!notification) {
+        return;
+      }
+      markNotificationAsRead(notification.id);
+      if (safeAction?.href && typeof window !== 'undefined') {
+        window.location.assign(safeAction.href);
+      }
+    },
+    [markNotificationAsRead],
+  );
+
+  const handlePreferenceChange = useCallback((field, value) => {
+    setAlertPreferences((current) => ({ ...current, [field]: value }));
+  }, []);
+
+  const handlePreferenceSubmit = useCallback(async () => {
+    if (!session?.id) {
+      return;
     }
-  };
+    setPreferencesSaving(true);
+    try {
+      const payload = buildAlertPreferencePayload(alertPreferences);
+      const response = await updateNotificationPreferences(session.id, payload);
+      const resolved = response?.preferences ?? response;
+      setAlertPreferences(normaliseAlertPreferences(resolved));
+      setPreferencesFeedback('Alert preferences updated.');
+      setPreferencesLoadedAt(new Date().toISOString());
+      setPreferencesError('');
+    } catch (error) {
+      if (error?.status === 403) {
+        setPreferencesError('You do not have permission to update alert preferences.');
+      } else if (error instanceof Error) {
+        setPreferencesError(error.message);
+      } else {
+        setPreferencesError('Unable to update alert preferences.');
+      }
+    } finally {
+      setPreferencesSaving(false);
+    }
+  }, [alertPreferences, session?.id]);
+
+  const handleMarkAllRead = useCallback(() => {
+    setMarkAllBusy(true);
+    try {
+      markAllNotificationsAsRead();
+    } finally {
+      setTimeout(() => setMarkAllBusy(false), 200);
+    }
+  }, [markAllNotificationsAsRead]);
+
+  const latestActivityAt = useMemo(() => {
+    const latest = notifications.reduce((accumulator, notification) => {
+      const candidate =
+        notification?.timestamp ??
+        notification?.createdAt ??
+        notification?.occurredAt ??
+        notification?.sentAt ??
+        notification?.updatedAt ??
+        null;
+      if (!candidate) {
+        return accumulator;
+      }
+      const time = new Date(candidate).getTime();
+      if (!Number.isFinite(time)) {
+        return accumulator;
+      }
+      return Math.max(accumulator, time);
+    }, 0);
+    return latest ? new Date(latest).toISOString() : null;
+  }, [notifications]);
 
   if (!isAuthenticated) {
     return null;
@@ -239,8 +297,7 @@ export default function NotificationsPage() {
             <h2 className="text-base font-semibold text-slate-900">Why am I seeing this?</h2>
             <p className="mt-3 text-sm text-slate-600">
               Notifications are scoped to active Gigvora workspaces. If you recently joined a new organisation or switched roles,
-              ask an administrator to grant you access or enable push alerts from the mobile app after selecting the correct
-              membership.
+              ask an administrator to grant you access or enable push alerts from the mobile app after selecting the correct membership.
             </p>
           </div>
         </div>
@@ -251,66 +308,52 @@ export default function NotificationsPage() {
   return (
     <section className="relative overflow-hidden py-16">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.35),_transparent_65%)]" aria-hidden="true" />
-      <div className="relative mx-auto max-w-4xl px-6">
+      <div className="relative mx-auto max-w-5xl px-6">
         <PageHeader
           eyebrow="Notifications"
-          title="Stay in sync with your network"
-          description="Track invites, follows, comments, and live activity from across Gigvora."
+          title="Command centre for alerts & mentions"
+          description="Audit new invites, approvals, and community signals from across Gigvora with instant context and premium presentation."
           actions={
             <button
               type="button"
-              onClick={safeMarkAllNotificationsAsRead}
-              disabled={!hasNotifications || displayUnreadCount === 0}
-              className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
+              onClick={handleMarkAllRead}
+              disabled={!displayUnreadCount || markAllBusy}
+              className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-60"
             >
               Mark all read
             </button>
           }
           meta={
-            <span className="inline-flex items-center gap-2 rounded-full bg-accentSoft px-3 py-1 text-xs font-semibold text-accent">
-              <BellAlertIcon className="h-4 w-4" /> {displayUnreadCount} unread
-            </span>
+            latestActivityAt ? (
+              <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-slate-500">
+                Latest activity {new Date(latestActivityAt).toLocaleString()}
+              </span>
+            ) : null
           }
         />
-
-        <div className="mt-10 grid gap-6">
-          <div className="rounded-3xl border border-accent/40 bg-white p-6 shadow-soft">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="max-w-xl">
-                <p className="text-sm font-semibold text-slate-900">Enable push alerts</p>
-                <p className="mt-1 text-xs text-slate-500">
-                  Receive instant invites, follows, comments, and activity notifications even when the app is closed.
-                </p>
-                <div className="mt-2" aria-live="polite">{renderPushStatus()}</div>
-              </div>
-              <button
-                type="button"
-                onClick={handleEnablePush}
-                disabled={!canManagePush || pushStatus === 'requesting'}
-                className="rounded-full bg-accent px-4 py-2 text-xs font-semibold text-white shadow-soft transition hover:bg-accentDark disabled:cursor-not-allowed disabled:bg-slate-300"
-              >
-                {canManagePush ? 'Enable browser alerts' : 'Unavailable for this role'}
-              </button>
-            </div>
-          </div>
-
-          {hasNotifications ? (
-            sortedNotifications.map((notification) => (
-              <NotificationCard
-                key={notification.id}
-                notification={notification}
-                onOpen={() => {
-                  if (notification?.id != null) {
-                    safeMarkNotificationAsRead(notification.id);
-                  }
-                }}
-              />
-            ))
-          ) : (
-            <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500">
-              You’re all caught up. New activity will land here first.
-            </div>
-          )}
+        <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <NotificationCenter
+            notifications={notifications}
+            unreadCount={displayUnreadCount}
+            onNotificationAction={handleNotificationAction}
+            onNotificationMarkRead={markNotificationAsRead}
+            onMarkAllRead={handleMarkAllRead}
+            markAllBusy={markAllBusy}
+            lastUpdatedAt={latestActivityAt}
+          />
+          <AlertPreferences
+            preferences={alertPreferences}
+            onChange={handlePreferenceChange}
+            onSubmit={handlePreferenceSubmit}
+            saving={preferencesSaving}
+            feedback={preferencesFeedback}
+            error={preferencesError}
+            pushStatus={pushStatus}
+            onRequestPushPermission={handleEnablePush}
+            canManagePush={canManagePush}
+            loading={preferencesLoading}
+            lastUpdatedAt={preferencesLoadedAt}
+          />
         </div>
       </div>
     </section>
