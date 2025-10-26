@@ -48,6 +48,18 @@ router.delete(
 );
 
 router.get(
+  '/events/:eventId/ics',
+  validateRequest({ params: calendarEventParamsSchema }),
+  asyncHandler(calendarController.downloadEventInvite),
+);
+
+router.get(
+  '/events/export.ics',
+  validateRequest({ query: calendarEventsQuerySchema }),
+  asyncHandler(calendarController.downloadEventsFeed),
+);
+
+router.get(
   '/focus-sessions',
   validateRequest({ query: focusSessionsQuerySchema }),
   asyncHandler(calendarController.listFocusSessions),

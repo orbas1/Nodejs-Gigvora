@@ -4,6 +4,7 @@ import {
   createFreelancerCalendarEvent,
   updateFreelancerCalendarEvent,
   deleteFreelancerCalendarEvent,
+  downloadFreelancerCalendarEventInvite,
 } from '../services/freelancerCalendar.js';
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
@@ -280,6 +281,16 @@ export default function useFreelancerCalendar({
     [freelancerId, range],
   );
 
+  const downloadEventInvite = useCallback(
+    async (eventId, options = {}) => {
+      if (!freelancerId) {
+        throw new Error('freelancerId is required to export calendar events.');
+      }
+      return downloadFreelancerCalendarEventInvite(freelancerId, eventId, options);
+    },
+    [freelancerId],
+  );
+
   const state = useMemo(
     () => ({
       events,
@@ -299,6 +310,7 @@ export default function useFreelancerCalendar({
     createEvent,
     updateEvent,
     deleteEvent,
+    downloadEventInvite,
     setFilters,
     setRange,
   };

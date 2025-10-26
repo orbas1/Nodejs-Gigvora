@@ -88,9 +88,21 @@ export function deleteFreelancerCalendarEvent(freelancerId, eventId, { actorId }
   });
 }
 
+export function downloadFreelancerCalendarEventInvite(freelancerId, eventId, { actorId } = {}) {
+  assertFreelancerId(freelancerId);
+  if (!eventId) {
+    throw new Error('eventId is required to export a calendar event.');
+  }
+  return apiClient.get(`/freelancer/${freelancerId}/calendar/events/${eventId}/ics`, {
+    params: actorId ? { actorId } : undefined,
+    headers: { Accept: 'text/calendar' },
+  });
+}
+
 export default {
   fetchFreelancerCalendarEvents,
   createFreelancerCalendarEvent,
   updateFreelancerCalendarEvent,
   deleteFreelancerCalendarEvent,
+  downloadFreelancerCalendarEventInvite,
 };
