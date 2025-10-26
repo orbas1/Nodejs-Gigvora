@@ -58,6 +58,7 @@ import docsRoutes from './docsRoutes.js';
 import eventManagementRoutes from './eventManagementRoutes.js';
 import supportRoutes from './supportRoutes.js';
 import siteRoutes from './siteRoutes.js';
+import communityEventsRoutes from './communityEventsRoutes.js';
 import routeRegistryRoutes from './routeRegistryRoutes.js';
 
 const router = Router();
@@ -87,6 +88,7 @@ const routeDefinitions = [
   ['/company/orders', companyOrdersRoutes],
   ['/company/volunteering', companyVolunteeringRoutes],
   ['/company', companyRoutes],
+  ['/community', communityEventsRoutes],
   ['/compliance', complianceRoutes],
   ['/connections', connectionRoutes],
   ['/creation-studio', creationStudioRoutes],

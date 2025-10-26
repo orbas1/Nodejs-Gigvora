@@ -144,8 +144,13 @@ function normalizeEvent(event, timezone) {
     : event.causes
     ? [].concat(event.causes)
     : [];
+  const baseTitle = event.title ? event.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') : 'event';
+  const derivedId = event.id
+    ?? event.slug
+    ?? (start ? `${baseTitle}-${start.getTime()}` : `${baseTitle}-unscheduled`);
+
   return {
-    id: event.id ?? event.slug ?? `${event.title ?? 'event'}-${event.startsAt ?? Math.random()}`,
+    id: derivedId,
     title: event.title ?? 'Community event',
     subtitle: event.subtitle ?? event.tagline ?? null,
     summary: event.summary ?? event.description ?? '',

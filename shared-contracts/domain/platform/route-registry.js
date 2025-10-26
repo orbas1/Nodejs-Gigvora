@@ -69,6 +69,7 @@ const ROUTE_COLLECTION_DEFINITIONS = {
       { path: 'projects/:projectId/auto-match', module: 'pages/ProjectAutoMatchPage.jsx' },
       { path: 'groups', module: 'pages/GroupsPage.jsx' },
       { path: 'groups/:groupId', module: 'pages/GroupProfilePage.jsx' },
+      { path: 'community-events', module: 'pages/CommunityEventsPage.jsx', title: 'Community events', icon: 'calendar-days' },
       { path: 'pages', module: 'pages/PagesPage.jsx' },
       { path: 'connections', module: 'pages/ConnectionsPage.jsx' },
       { path: 'notifications', module: 'pages/NotificationsPage.jsx' },

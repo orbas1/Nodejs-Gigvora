@@ -86,3 +86,19 @@
    - Component aligns with volunteering tokens, typography, and elevation specs.
    - Build/QA checklist complete; CRM telemetry integration queued next.
    - Rolling release with volunteer programmes capturing feedback before global rollout.
+   - CommunityEventsPage.jsx now consumes `communityEventsService.listCommunityCalendar` over `/community/events`, caching results and surfacing month/week/agenda toggles, conflict detection, inline filters, and calendar/device sync actions.
+   - Highlights seeded recommendations, live volunteer readiness aggregated from `volunteer_assignments`, and conflict alerts aligned to persona and membership telemetry.
+   - Consolidated scheduling logic through the shared `communityEventsService` pipelines eliminating duplicate query stacks across surfaces.
+   - Smart suggestions, volunteer insights, and upcoming highlights wired with contextual fallbacks, backed by the production seeder `20241106103000-community-events-experience.cjs` and real agenda/assets payloads.
+   - Event normalization, scoring, and feature mapping centralised in `communityEventsService` and `fetchCommunityCalendar`, removing duplicated helpers across modules.
+   - Memoised derivations, backend cache keys, and lightweight view layers keep interactions fast even while hydrating live event and volunteer telemetry.
+   - Modal hydration now flows through `communityEventsService.getCommunityEvent` served by `/community/events/:eventId`, exposing schedule, speaker bios, resources, recommended peers, RSVP, calendar sync, and share flows.
+   - Resource, agenda, and peer sections hydrate from real `user_event_assets` and seeded metadata with resilient fallbacks and smart defaults.
+   - RSVP/add-to-calendar callbacks reuse shared handlers and backend-normalised payloads without duplicated logic.
+   - Derived data memoised, backend caching enabled, and heavy sections gated to keep modal responsive while loading live details.
+   - Powered by `communityEventsService.getVolunteerRoster` (`GET /community/volunteers`) providing role/status/focus filters, availability insights, search, messaging, assignment, and spotlight panels.
+   - Highlights open slots, skill matches, mission assignments, and availability sourced from live `volunteer_assignments` and seeded metrics to power rapid staffing decisions.
+   - Consolidated volunteer views into this flagship roster with a shared backend pipeline eliminating duplicate admin lists.
+   - Impact stories, metrics, and mission panels populated with resilient fallbacks sourced from the production seeder `20241106103000-community-events-experience.cjs` and volunteer metadata.
+   - Shared normalization and status badge utilities, plus the centralised `fetchVolunteerRoster` client, remove duplicated rendering logic.
+   - Memoised derivations, backend cache keys, and trimmed render surfaces keep the roster performant while hydrating live insights.

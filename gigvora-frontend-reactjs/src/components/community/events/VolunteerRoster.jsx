@@ -26,8 +26,22 @@ function toDate(value) {
 }
 
 function normalizeVolunteer(volunteer) {
+  const fallbackIdFromName = volunteer.fullName
+    ? volunteer.fullName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+    : null;
+  const fallbackIdFromRole = volunteer.role
+    ? `volunteer-${volunteer.role.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}`
+    : null;
+  const volunteerId =
+    volunteer.id ??
+    volunteer.userId ??
+    volunteer.email ??
+    fallbackIdFromName ??
+    fallbackIdFromRole ??
+    'volunteer-unknown';
+
   return {
-    id: volunteer.id ?? volunteer.userId ?? volunteer.email ?? Math.random().toString(36).slice(2),
+    id: volunteerId,
     name: volunteer.name ?? volunteer.fullName ?? 'Volunteer',
     headline: volunteer.headline ?? volunteer.title ?? 'Community member',
     avatarUrl: volunteer.avatarUrl ?? volunteer.photoUrl ?? null,
