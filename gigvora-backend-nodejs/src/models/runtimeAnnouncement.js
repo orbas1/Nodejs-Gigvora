@@ -118,11 +118,14 @@ RuntimeAnnouncement.addHook('beforeValidate', (announcement) => {
     announcement.severity = 'info';
   }
 
-  if (announcement.status === 'active' && !announcement.publishedAt) {
+  if (['active', 'scheduled'].includes(announcement.status) && !announcement.publishedAt) {
     announcement.publishedAt = new Date();
   }
   if (announcement.status === 'resolved' && !announcement.resolvedAt) {
     announcement.resolvedAt = new Date();
+  }
+  if (!announcement.metadata || typeof announcement.metadata !== 'object') {
+    announcement.metadata = {};
   }
 });
 

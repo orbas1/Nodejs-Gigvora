@@ -10,7 +10,7 @@ import {
 } from '@heroicons/react/24/outline';
 import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
-import gigvoraWordmark from '../../images/Gigvora Logo.png';
+import { LOGO_SRCSET, LOGO_URL } from '../constants/branding.js';
 import MessagingDock from '../components/messaging/MessagingDock.jsx';
 import AdPlacementRail from '../components/ads/AdPlacementRail.jsx';
 import DashboardAccessGuard from '../components/security/DashboardAccessGuard.jsx';
@@ -691,7 +691,7 @@ export default function DashboardLayout({
             className="flex items-center gap-3"
             onClick={() => navigate('/')}
           >
-            <img src={gigvoraWordmark} alt="Gigvora" className="h-8" />
+            <img src={LOGO_URL} srcSet={LOGO_SRCSET} alt="Gigvora" className="h-8" />
             <span className="hidden text-sm font-semibold uppercase tracking-wide text-accent lg:block">
               {title || 'Dashboard'}
             </span>

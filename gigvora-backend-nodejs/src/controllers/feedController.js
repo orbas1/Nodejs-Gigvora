@@ -1,5 +1,5 @@
 import { Op, fn, col } from 'sequelize';
-import { FeedPost, FeedComment, FeedReaction, User, Profile, Connection } from '../models/index.js';
+import { FeedPost, FeedComment, FeedReaction, User, Profile } from '../models/index.js';
 import { enforceFeedCommentPolicies, enforceFeedPostPolicies } from '../services/contentModerationService.js';
 import { ValidationError, AuthorizationError, AuthenticationError } from '../utils/errors.js';
 import {
@@ -10,7 +10,7 @@ import {
   serialiseFeedPost,
   serialiseComment,
 } from '../services/feedSerializationService.js';
-import { appCache } from '../utils/cache.js';
+import { getFeedSuggestions } from '../services/feedSuggestionService.js';
 
 const ALLOWED_VISIBILITY = new Set(['public', 'connections']);
 const ALLOWED_TYPES = new Set(['update', 'media', 'job', 'gig', 'project', 'volunteering', 'launchpad', 'news']);
@@ -36,8 +36,6 @@ const MAX_PAGE_SIZE = 50;
 const DEFAULT_COMMENT_LIMIT = 20;
 const MAX_COMMENT_LIMIT = 100;
 const SUGGESTION_LIMIT = 6;
-const SUGGESTION_CACHE_PREFIX = 'feed:suggestions:';
-const SUGGESTION_CACHE_TTL_SECONDS = 60 * 5;
 
 function resolveRole(req) {
   const candidate =
@@ -101,127 +99,6 @@ async function resolveUserSnapshot(userId) {
     },
   };
 }
-
-async function resolveSuggestedConnections(actor, limit = SUGGESTION_LIMIT) {
-  if (!actor?.id) {
-    return [];
-  }
-  const actorId = Number(actor.id);
-  if (!Number.isFinite(actorId) || actorId <= 0) {
-    return [];
-  }
-
-  const cacheKey = `${SUGGESTION_CACHE_PREFIX}${actorId}:${limit}`;
-  const cached = appCache.get(cacheKey);
-  if (cached) {
-    return cached;
-  }
-
-  const accepted = await Connection.findAll({
-    where: {
-      status: 'accepted',
-      [Op.or]: [{ requesterId: actorId }, { addresseeId: actorId }],
-    },
-    attributes: ['requesterId', 'addresseeId'],
-  });
-
-  const connectedIds = new Set();
-  accepted.forEach((record) => {
-    if (Number.isInteger(record.requesterId)) {
-      connectedIds.add(record.requesterId);
-    }
-    if (Number.isInteger(record.addresseeId)) {
-      connectedIds.add(record.addresseeId);
-    }
-  });
-  connectedIds.delete(actorId);
-
-  const exclusion = Array.from(connectedIds);
-  exclusion.push(actorId);
-
-  const profiles = await Profile.findAll({
-    where: {
-      userId: { [Op.notIn]: exclusion },
-    },
-    include: [
-      {
-        model: User,
-        attributes: ['id', 'firstName', 'lastName', 'email', 'userType', 'primaryDashboard'],
-      },
-    ],
-    order: [
-      ['followersCount', 'DESC'],
-      ['trustScore', 'DESC'],
-      ['updatedAt', 'DESC'],
-    ],
-    limit: Math.max(limit * 3, limit),
-  });
-
-  const suggestionIds = profiles
-    .map((profile) => profile.userId)
-    .filter((id) => Number.isInteger(id) && !connectedIds.has(id));
-
-  const mutualCounts = new Map();
-  if (suggestionIds.length && connectedIds.size) {
-    const mutual = await Connection.findAll({
-      where: {
-        status: 'accepted',
-        [Op.or]: [
-          { requesterId: { [Op.in]: suggestionIds }, addresseeId: { [Op.in]: Array.from(connectedIds) } },
-          { addresseeId: { [Op.in]: suggestionIds }, requesterId: { [Op.in]: Array.from(connectedIds) } },
-        ],
-      },
-      attributes: ['requesterId', 'addresseeId'],
-    });
-
-    mutual.forEach((record) => {
-      const suggestionId = connectedIds.has(record.requesterId) ? record.addresseeId : record.requesterId;
-      if (!Number.isInteger(suggestionId)) {
-        return;
-      }
-      mutualCounts.set(suggestionId, (mutualCounts.get(suggestionId) ?? 0) + 1);
-    });
-  }
-
-  const suggestions = profiles
-    .map((profile) => {
-      const owner = profile.User;
-      if (!owner) {
-        return null;
-      }
-      const name = [owner.firstName, owner.lastName].filter(Boolean).join(' ').trim() || owner.email;
-      const followersCount = Number.isFinite(Number(profile.followersCount))
-        ? Number(profile.followersCount)
-        : 0;
-      const trustScore = profile.trustScore != null ? Number(profile.trustScore) : null;
-      const mutual = mutualCounts.get(owner.id) ?? 0;
-      let reason = followersCount > 0 ? `${followersCount} followers` : 'Active community member';
-      if (mutual > 0) {
-        reason = mutual === 1 ? '1 mutual connection' : `${mutual} mutual connections`;
-      }
-      return {
-        userId: owner.id,
-        name,
-        headline: profile.headline ?? null,
-        location: profile.location ?? null,
-        avatarUrl: profile.avatarUrl ?? null,
-        avatarSeed: profile.avatarSeed ?? name,
-        followersCount,
-        trustScore,
-        userType: owner.userType ?? null,
-        primaryDashboard: owner.primaryDashboard ?? null,
-        reason,
-        mutualConnections: mutual,
-      };
-    })
-    .filter(Boolean)
-    .slice(0, limit);
-  const generatedAt = new Date().toISOString();
-  const enriched = suggestions.map((suggestion) => ({ ...suggestion, generatedAt }));
-  appCache.set(cacheKey, enriched, SUGGESTION_CACHE_TTL_SECONDS);
-  return enriched;
-}
-
 
 function resolveActor(req) {
   return req.user ?? null;
@@ -410,7 +287,12 @@ export async function listFeed(req, res) {
 
   const nextCursor = hasMore ? trimmed[trimmed.length - 1].id : null;
   const nextPage = hasMore && !cursor && page && Number.isFinite(page) ? page + 1 : null;
-  const suggestions = await resolveSuggestedConnections(actor, SUGGESTION_LIMIT);
+  const suggestions = await getFeedSuggestions(actor, {
+    connectionLimit: SUGGESTION_LIMIT,
+    groupLimit: 4,
+    signalLimit: 5,
+    recentFeedPosts: trimmed,
+  });
 
   res.json({
     items,

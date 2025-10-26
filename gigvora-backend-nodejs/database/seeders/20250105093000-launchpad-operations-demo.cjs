@@ -8,6 +8,7 @@ const launchpadTitle = 'Experience Launchpad Mobility 2025';
 const jobTitle = '[Launchpad Demo] Autonomous Robotics Analyst';
 const gigSlug = 'launchpad-ops-demo-gig';
 const projectTitle = '[Launchpad Demo] Robotics Pilot Squad';
+const volunteeringTitle = '[Launchpad Demo] Robotics Nonprofit Mentor';
 
 async function requireUser(queryInterface, transaction, { email, firstName, lastName, userType }) {
   const [existing] = await queryInterface.sequelize.query(
@@ -314,6 +315,66 @@ async function ensureProject(queryInterface, transaction) {
   return Number(inserted.id);
 }
 
+async function ensureVolunteeringRole(queryInterface, transaction) {
+  const [row] = await queryInterface.sequelize.query(
+    'SELECT id FROM volunteering_roles WHERE title = :title LIMIT 1',
+    {
+      type: QueryTypes.SELECT,
+      transaction,
+      replacements: { title: volunteeringTitle },
+    },
+  );
+  if (row?.id) {
+    return Number(row.id);
+  }
+
+  const now = new Date();
+  await queryInterface.bulkInsert(
+    'volunteering_roles',
+    [
+      {
+        title: volunteeringTitle,
+        organization: 'Robotics For Good Alliance',
+        summary: 'Mentor nonprofit teams deploying robotics in community labs.',
+        description:
+          'Support nonprofit robotics labs with cohort-based mentoring, curriculum planning, and safeguards for volunteers.',
+        location: 'Hybrid - North America',
+        geoLocation: { lat: 41.8781, lng: -87.6298 },
+        status: 'open',
+        remoteType: 'hybrid',
+        commitmentHours: 6,
+        applicationUrl: 'https://gigvora.example/volunteering/robotics-mentor',
+        applicationDeadline: new Date(now.getTime() + 21 * 24 * 60 * 60 * 1000),
+        spots: 5,
+        skills: ['Mentorship', 'Robotics', 'Program design'],
+        requirements: ['Background check clearance', 'Robotics coaching experience'],
+        tags: ['volunteering', 'robotics'],
+        imageUrl: null,
+        programId: null,
+        publishedAt: now,
+        accessRoles: ['mentor', 'volunteer'],
+        metadata: { seed: seedTag, focus: 'community robotics' },
+        createdAt: now,
+        updatedAt: now,
+      },
+    ],
+    { transaction },
+  );
+
+  const [inserted] = await queryInterface.sequelize.query(
+    'SELECT id FROM volunteering_roles WHERE title = :title LIMIT 1',
+    {
+      type: QueryTypes.SELECT,
+      transaction,
+      replacements: { title: volunteeringTitle },
+    },
+  );
+  if (!inserted?.id) {
+    throw new Error('Unable to seed volunteering role for launchpad demo.');
+  }
+  return Number(inserted.id);
+}
+
 module.exports = {
   async up(queryInterface) {
     await queryInterface.sequelize.transaction(async (transaction) => {
@@ -372,6 +433,7 @@ module.exports = {
       const jobId = await ensureJob(queryInterface, transaction);
       const gigId = await ensureGig(queryInterface, transaction, mentorLeadId);
       const projectId = await ensureProject(queryInterface, transaction);
+      const volunteeringRoleId = await ensureVolunteeringRole(queryInterface, transaction);
 
       const applicationRows = [
         {
@@ -645,6 +707,23 @@ module.exports = {
         });
       }
 
+      if (applicationsByStatus.interview?.length) {
+        placementRows.push({
+          launchpadId,
+          candidateId: applicationsByStatus.interview[0],
+          employerRequestId: null,
+          targetType: 'volunteering',
+          targetId: volunteeringRoleId,
+          status: 'scheduled',
+          placementDate: new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000),
+          endDate: null,
+          compensation: { stipendType: 'pro_bono', amount: 0, seedTag },
+          feedbackScore: null,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+
       if (placementRows.length) {
         await queryInterface.bulkInsert('experience_launchpad_placements', placementRows, { transaction });
       }
@@ -688,6 +767,16 @@ module.exports = {
             source: 'placement',
             createdById: mentorLeadId,
             notes: `Seed: ${seedTag} · placement-backed project`,
+            createdAt: now,
+            updatedAt: now,
+          },
+          {
+            launchpadId,
+            targetType: 'volunteering',
+            targetId: volunteeringRoleId,
+            source: 'manual',
+            createdById: mentorLeadId,
+            notes: `Seed: ${seedTag} · volunteering rotation`,
             createdAt: now,
             updatedAt: now,
           },
@@ -784,6 +873,7 @@ module.exports = {
       await queryInterface.bulkDelete('jobs', { title: jobTitle }, { transaction });
       await queryInterface.bulkDelete('gigs', { slug: gigSlug }, { transaction });
       await queryInterface.bulkDelete('projects', { title: projectTitle }, { transaction });
+      await queryInterface.bulkDelete('volunteering_roles', { title: volunteeringTitle }, { transaction });
     });
   },
 };
