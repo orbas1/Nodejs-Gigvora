@@ -17,7 +17,16 @@ import {
   identityVerificationReviewBodySchema,
   identityDocumentUploadSchema,
   identityDocumentQuerySchema,
+  taxDocumentsQuerySchema,
+  taxDocumentParamsSchema,
+  taxDocumentAcknowledgeBodySchema,
+  taxDocumentUploadBodySchema,
+  taxReminderParamsSchema,
+  taxReminderSnoozeBodySchema,
+  complianceAuditLogQuerySchema,
 } from '../validation/schemas/complianceSchemas.js';
+import taxDocumentController from '../controllers/taxDocumentController.js';
+import complianceAuditLogController from '../controllers/complianceAuditLogController.js';
 
 const router = Router();
 const COMPLIANCE_ROLES = [
@@ -80,6 +89,42 @@ router.get(
   '/identity/documents',
   validateRequest({ query: identityDocumentQuerySchema }),
   asyncHandler(identityVerificationController.downloadDocument),
+);
+
+router.get(
+  '/tax-documents',
+  validateRequest({ query: taxDocumentsQuerySchema }),
+  asyncHandler(taxDocumentController.index),
+);
+
+router.post(
+  '/tax-documents/:filingId/acknowledge',
+  validateRequest({ params: taxDocumentParamsSchema, body: taxDocumentAcknowledgeBodySchema }),
+  asyncHandler(taxDocumentController.acknowledge),
+);
+
+router.post(
+  '/tax-documents/:filingId/upload',
+  validateRequest({ params: taxDocumentParamsSchema, body: taxDocumentUploadBodySchema }),
+  asyncHandler(taxDocumentController.upload),
+);
+
+router.get(
+  '/tax-documents/:filingId/download',
+  validateRequest({ params: taxDocumentParamsSchema }),
+  asyncHandler(taxDocumentController.download),
+);
+
+router.post(
+  '/tax-reminders/:reminderId/snooze',
+  validateRequest({ params: taxReminderParamsSchema, body: taxReminderSnoozeBodySchema }),
+  asyncHandler(taxDocumentController.snooze),
+);
+
+router.get(
+  '/audit-logs',
+  validateRequest({ query: complianceAuditLogQuerySchema }),
+  asyncHandler(complianceAuditLogController.index),
 );
 
 export default router;
