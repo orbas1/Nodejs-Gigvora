@@ -1,3 +1,18 @@
+- [x] Subcategory 4.D. Launchpads & Volunteering
+   - *Impact Highlights.* Capture the interview, placement velocity, and volunteering mix metrics emitted by the dashboard API so client surfaces remain synchronised with backend telemetry.
+   - *Impact Narratives.* Validate that surfaced highlight metrics reinforce strategic goals—mentorship velocity, placement readiness, and volunteering commitment—without biasing decision paths.
+14. **Text analysis, placement, length, redundancy, quality.** Text reviews for Launchpads & Volunteering ensure every surface communicates impact with executive clarity. Updated hero copy now positions the programme as a mentor-led path to measurable outcomes, while access restrictions emphasise safeguarding of volunteering rosters and telemetry. Supporting cards outline who may apply or partner with the Launchpad using persuasive, concise microcopy tuned to aspirational professionals. We continuously audit CTAs, badges, and alert messages so tonal shifts stay aligned with Gigvora’s premium voice and eliminate redundant phrasing across gated and public states.
+   - *Hero Narrative.* Reframe the landing hero to spotlight mentorship, live briefs, and volunteering missions delivering portfolio-ready outcomes, matching the new highlight metrics surfaced beside the header.
+   - *Access Messaging.* Update restricted-state messaging so members understand why telemetry and rosters are protected and how to request entry via curated channels.
+   - *Operations Gate.* Revise mission control notices to encourage collaboration on placements and volunteering missions rather than generic cohort orchestration language.
+   - *Talent CTA.* Clarify freelancer prompts to focus on desired mentorship outcomes instead of generic portfolio sharing, driving higher-intent applications.
+   - *Employer CTA.* Expand employer/agency copy to include volunteering missions alongside briefs, aligning expectations with programme scope.
+   - *Consistency Pass.* Audit buttons, badges, and informational pills to maintain uppercase treatments, sentence length limits, and impact-focused vocabulary across Launchpads & Volunteering.
+   - *Localization Notes.* Provide guardrails for translating the refreshed strings so mentorship, volunteering, and access nuances remain intact in other locales.
+   - *Telemetry Alignment.* Ensure analytics event descriptions use the same terminology as refreshed UI copy to avoid ambiguity in downstream dashboards.
+   - *Volunteering Linkages.* Accept volunteering roles as first-class launchpad targets and propagate the enum, validation, and seed data so programme dashboards surface pro-bono missions alongside jobs, gigs, and projects.【F:gigvora-backend-nodejs/src/services/launchpadService.js†L1235-L1289】【F:gigvora-backend-nodejs/database/migrations/20250210101500-launchpad-volunteering-support.cjs†L3-L52】【F:gigvora-backend-nodejs/database/seeders/20250105093000-launchpad-operations-demo.cjs†L436-L783】
+   - *Volunteering Matches.* Extend opportunity matching to evaluate volunteering briefs with organisation context so pro-bono missions surface fellows whose skills or learning goals align.【F:gigvora-backend-nodejs/src/services/launchpadService.js†L753-L889】
+   - *Volunteering Scenarios.* Seed live volunteering placements and links so the dashboards render genuine mix data instead of static placeholders.【F:gigvora-backend-nodejs/database/seeders/20250105093000-launchpad-operations-demo.cjs†L436-L783】
 - [x] Subcategory 3.A. Timeline Feed Rendering
 - [x] Subcategory 3.B. Reactions & Comments
   - [x] 3.A. Timeline Feed Framework
