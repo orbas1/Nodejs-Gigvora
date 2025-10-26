@@ -38,6 +38,8 @@ const ROUTE_COLLECTION_DEFINITIONS = {
       { path: 'login', module: 'pages/LoginPage.jsx' },
       { path: 'register', module: 'pages/RegisterPage.jsx' },
       { path: 'register/company', module: 'pages/CompanyRegisterPage.jsx' },
+      { path: 'forgot-password', module: 'pages/ForgotPasswordPage.jsx' },
+      { path: 'reset-password', module: 'pages/PasswordResetPage.jsx' },
       { path: 'auth/callback', module: 'pages/SocialAuthCallbackPage.jsx' },
       { path: 'profile/:id', module: 'pages/ProfilePage.jsx' },
       { path: 'terms', module: 'pages/TermsPage.jsx' },

@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GoogleLogin } from '@react-oauth/google';
 import PageHeader from '../components/PageHeader.jsx';
 import { registerUser, loginWithGoogle } from '../services/auth.js';
 import apiClient from '../services/apiClient.js';
 import useSession from '../hooks/useSession.js';
-import SocialAuthButton, { SOCIAL_PROVIDERS } from '../components/SocialAuthButton.jsx';
+import SocialAuthButtons from '../components/auth/SocialAuthButtons.jsx';
+import { SOCIAL_PROVIDERS, SOCIAL_PROVIDER_LABELS } from '../components/SocialAuthButton.jsx';
 import useFormState from '../hooks/useFormState.js';
 import FormStatusMessage from '../components/forms/FormStatusMessage.jsx';
 import { isValidEmail, validatePasswordStrength } from '../utils/validation.js';
@@ -29,9 +29,7 @@ function resolveLanding(session) {
   return DASHBOARD_ROUTES[key] ?? '/feed';
 }
 
-const PROVIDER_LABELS = {
-  linkedin: 'LinkedIn',
-};
+const PROVIDER_LABELS = SOCIAL_PROVIDER_LABELS;
 
 const ROLE_OPTIONS = [
   {
@@ -532,37 +530,23 @@ export default function RegisterPage() {
                 <span className="relative z-10 bg-white px-3">or</span>
                 <span className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-slate-200" aria-hidden="true" />
               </div>
-              <div className="grid gap-3">
-                {SOCIAL_PROVIDERS.map((provider) => (
-                  <SocialAuthButton
-                    key={provider}
-                    provider={provider}
-                    label={`Sign up with ${PROVIDER_LABELS[provider] ?? provider}`}
-                    onClick={() => handleSocialRedirect(provider)}
-                    disabled={status !== 'idle'}
-                  />
-                ))}
-                <div className="w-full">
-                  {googleEnabled ? (
-                    <GoogleLogin
-                      onSuccess={handleGoogleSuccess}
-                      onError={handleGoogleError}
-                      useOneTap={false}
-                      width="100%"
-                      text="signup_with"
-                      shape="pill"
-                    />
-                  ) : (
-                    <button
-                      type="button"
-                      disabled
-                      className="w-full rounded-full border border-slate-200 px-6 py-3 text-sm font-semibold text-slate-400"
-                    >
-                      Google sign up unavailable
-                    </button>
-                  )}
-                </div>
-              </div>
+              <SocialAuthButtons
+                providers={SOCIAL_PROVIDERS}
+                onProviderSelect={handleSocialRedirect}
+                busy={status !== 'idle'}
+                googleLogin={{
+                  enabled: googleEnabled,
+                  onSuccess: handleGoogleSuccess,
+                  onError: handleGoogleError,
+                  useOneTap: false,
+                  width: '100%',
+                  text: 'signup_with',
+                  shape: 'pill',
+                  unavailableLabel: 'Google sign up unavailable',
+                }}
+                footnote="Link your trusted network to fast-track onboarding while we configure your workspace."
+                analyticsId="register-social-auth"
+              />
               <p className="text-center text-xs text-slate-500">
                 Already have an account?{' '}
                 <button

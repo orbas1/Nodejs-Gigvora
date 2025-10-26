@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GoogleLogin } from '@react-oauth/google';
 import PageHeader from '../components/PageHeader.jsx';
 import useSession from '../hooks/useSession.js';
 import { loginWithPassword, verifyTwoFactor, resendTwoFactor, loginWithGoogle } from '../services/auth.js';
 import apiClient from '../services/apiClient.js';
-import SocialAuthButton, { SOCIAL_PROVIDERS } from '../components/SocialAuthButton.jsx';
+import SocialAuthButtons from '../components/auth/SocialAuthButtons.jsx';
+import { SOCIAL_PROVIDERS, SOCIAL_PROVIDER_LABELS } from '../components/SocialAuthButton.jsx';
 import useFormState from '../hooks/useFormState.js';
 import FormStatusMessage from '../components/forms/FormStatusMessage.jsx';
 import {
@@ -34,9 +34,7 @@ export function resolveLanding(session) {
   return DASHBOARD_ROUTES[key] ?? '/feed';
 }
 
-const SOCIAL_LABELS = {
-  linkedin: 'LinkedIn',
-};
+const SOCIAL_LABELS = SOCIAL_PROVIDER_LABELS;
 
 export function formatExpiry(timestamp) {
   if (!timestamp) return null;
@@ -323,39 +321,24 @@ export default function LoginPage() {
                     >
                       Create a new account
                     </button>
-                    <div className="grid gap-3">
-                      {SOCIAL_PROVIDERS.map((provider) => (
-                        <SocialAuthButton
-                          key={provider}
-                          provider={provider}
-                          onClick={() => handleSocialRedirect(provider)}
-                          disabled={status !== 'idle'}
-                        />
-                      ))}
-                      <div className="w-full">
-                        {googleEnabled ? (
-                          <GoogleLogin
-                            onSuccess={handleGoogleSuccess}
-                            onError={handleGoogleError}
-                            useOneTap={false}
-                            width="100%"
-                            text="continue_with"
-                            shape="pill"
-                          />
-                        ) : (
-                          <button
-                            type="button"
-                            disabled
-                            className="w-full rounded-full border border-slate-200 px-6 py-3 text-sm font-semibold text-slate-400"
-                          >
-                            Google sign-in unavailable
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    <p className="text-center text-xs text-slate-500">
-                      Prefer to use a social account? Choose your network above and we&apos;ll guide you through a secure sign-in.
-                    </p>
+                    <SocialAuthButtons
+                      className="mt-1"
+                      providers={SOCIAL_PROVIDERS}
+                      onProviderSelect={handleSocialRedirect}
+                      busy={status !== 'idle'}
+                      googleLogin={{
+                        enabled: googleEnabled,
+                        onSuccess: handleGoogleSuccess,
+                        onError: handleGoogleError,
+                        useOneTap: false,
+                        width: '100%',
+                        text: 'continue_with',
+                        shape: 'pill',
+                        unavailableLabel: 'Google sign-in unavailable',
+                      }}
+                      footnote="Prefer to use a social account? We’ll guide you through the secure hand-off and return you right back here."
+                      analyticsId="login-social-auth"
+                    />
                     {rememberMe && rememberedSavedAtLabel ? (
                       <p className="text-center text-[11px] text-slate-400">
                         Last remembered on {rememberedSavedAtLabel}.
