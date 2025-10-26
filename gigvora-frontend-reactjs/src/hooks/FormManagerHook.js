@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { cloneDeep, getNestedValue, setNestedValue } from '../utils/object.js';
-import { flattenErrors } from '../utils/ValidationSchemaLibrary.js';
+import { createSchemaFromBlueprint, flattenErrors } from '../utils/ValidationSchemaLibrary.js';
 
 const defaultConfig = {
   initialValues: {},
@@ -13,6 +13,11 @@ const defaultConfig = {
   trackTouchedOnChange: false,
   rethrowSubmitError: false,
   debugName: 'FormManager',
+  schemaBlueprint: null,
+  schemaBlueprintOptions: undefined,
+  schemaOptions: undefined,
+  schemaAsyncValidators: {},
+  schemaMessageCatalog: null,
 };
 
 function toPath(name) {
@@ -85,6 +90,11 @@ export default function useFormManager(userConfig = {}) {
     initialValues,
     validationSchema,
     schema: schemaProp,
+    schemaBlueprint,
+    schemaBlueprintOptions,
+    schemaAsyncValidators,
+    schemaMessageCatalog,
+    schemaOptions: legacySchemaOptions,
     onSubmit,
     onChange,
     onValidate,
@@ -101,7 +111,35 @@ export default function useFormManager(userConfig = {}) {
     debugName,
   } = { ...defaultConfig, ...userConfig };
 
-  const schema = schemaProp ?? validationSchema ?? null;
+  const blueprintSchema = useMemo(() => {
+    if (!schemaBlueprint) {
+      return null;
+    }
+    const blueprintOptions =
+      schemaBlueprintOptions ?? legacySchemaOptions ?? undefined;
+    try {
+      return createSchemaFromBlueprint(schemaBlueprint, {
+        asyncValidators: schemaAsyncValidators,
+        schemaOptions: blueprintOptions,
+        messageCatalog:
+          schemaMessageCatalog ?? blueprintOptions?.messageCatalog ?? null,
+      });
+    } catch (error) {
+      console.error('Failed to create schema from blueprint', error);
+      return null;
+    }
+  }, [
+    schemaBlueprint,
+    schemaAsyncValidators,
+    schemaBlueprintOptions,
+    schemaMessageCatalog,
+    legacySchemaOptions,
+  ]);
+
+  const schema = useMemo(
+    () => schemaProp ?? validationSchema ?? blueprintSchema ?? null,
+    [schemaProp, validationSchema, blueprintSchema],
+  );
 
   const schemaDefaults = useMemo(
     () => (schema?.getInitialValues ? schema.getInitialValues() : {}),

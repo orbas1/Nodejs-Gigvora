@@ -4,6 +4,7 @@ import { isNonEmpty, isValidEmail } from './validation.js';
 const defaultSchemaOptions = {
   abortEarly: true,
   includeFieldNamesInErrorMessage: true,
+  messageCatalog: null,
 };
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
@@ -91,7 +92,26 @@ function createValidator(name, validate, meta = {}) {
   };
 }
 
-function normaliseValidationResult(result, fallbackLabel) {
+function resolveCatalogMessage(message, messageKey, fallback, messageCatalog) {
+  if (typeof message === 'string' && messageCatalog?.[message]) {
+    return messageCatalog[message];
+  }
+  if (typeof message === 'string') {
+    return message;
+  }
+  if (messageKey && messageCatalog?.[messageKey]) {
+    return messageCatalog[messageKey];
+  }
+  if (typeof fallback === 'string' && messageCatalog?.[fallback]) {
+    return messageCatalog[fallback];
+  }
+  if (message != null) {
+    return message;
+  }
+  return fallback;
+}
+
+function normaliseValidationResult(result, fallbackLabel, messageCatalog) {
   if (result == null || result === true) {
     return null;
   }
@@ -99,11 +119,19 @@ function normaliseValidationResult(result, fallbackLabel) {
     return { type: 'error', message: `${fallbackLabel} is invalid.` };
   }
   if (typeof result === 'string') {
-    return { type: 'error', message: result };
+    return {
+      type: 'error',
+      message: resolveCatalogMessage(result, null, `${fallbackLabel} is invalid.`, messageCatalog),
+    };
   }
   if (typeof result === 'object') {
     const type = result.type ?? 'error';
-    const message = result.message ?? `${fallbackLabel} is invalid.`;
+    const message = resolveCatalogMessage(
+      result.message,
+      result.messageKey,
+      `${fallbackLabel} is invalid.`,
+      messageCatalog,
+    );
     return { type, message };
   }
   return { type: 'error', message: `${fallbackLabel} is invalid.` };
@@ -225,7 +253,7 @@ export function createValidationSchema(descriptor = {}, schemaOptions = {}) {
 
     for (const validator of field.validators) {
       const result = await validator.run(preparedValue, validatorContext);
-      const normalizedResult = normaliseValidationResult(result, field.label);
+      const normalizedResult = normaliseValidationResult(result, field.label, options.messageCatalog);
       if (!normalizedResult) {
         continue;
       }
@@ -242,7 +270,11 @@ export function createValidationSchema(descriptor = {}, schemaOptions = {}) {
     if (!errors.length && field.warningValidators.length) {
       for (const validator of field.warningValidators) {
         const result = await validator.run(preparedValue, validatorContext);
-        const normalizedResult = normaliseValidationResult(result, field.label);
+        const normalizedResult = normaliseValidationResult(
+          result,
+          field.label,
+          options.messageCatalog,
+        );
         if (!normalizedResult) {
           continue;
         }
@@ -381,6 +413,23 @@ export const validators = {
       return message;
     }, { pattern: regexp });
   },
+  url(message = 'Enter a valid URL.', { allowProtocolRelative = false } = {}) {
+    return createValidator('url', (value) => {
+      if (!isNonEmpty(value)) {
+        return null;
+      }
+      try {
+        const candidate = String(value).trim();
+        const parsed = new URL(candidate);
+        if (!allowProtocolRelative && !parsed.protocol) {
+          throw new Error('missing protocol');
+        }
+        return null;
+      } catch (error) {
+        return message;
+      }
+    }, { allowProtocolRelative });
+  },
   numberRange({ min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY, inclusive = true, message } = {}) {
     return createValidator('numberRange', (value) => {
       if (value == null || value === '') {
@@ -420,6 +469,41 @@ export const validators = {
   custom(validator) {
     return createValidator('custom', (value, context) => validator(value, context));
   },
+  passwordStrength({ minLength = 8, requireNumber = true, requireLetter = true, requireSymbol = false } = {}, message) {
+    return createValidator('passwordStrength', (value) => {
+      if (!isNonEmpty(value)) {
+        return null;
+      }
+      const candidate = String(value);
+      if (candidate.length < minLength) {
+        return message ?? `Use at least ${minLength} characters.`;
+      }
+      if (requireNumber && !/\d/.test(candidate)) {
+        return message ?? 'Include at least one number.';
+      }
+      if (requireLetter && !/[a-zA-Z]/.test(candidate)) {
+        return message ?? 'Include at least one letter.';
+      }
+      if (requireSymbol && !/[^\da-zA-Z]/.test(candidate)) {
+        return message ?? 'Include at least one symbol.';
+      }
+      return null;
+    }, { minLength, requireNumber, requireLetter, requireSymbol });
+  },
+  booleanTrue(message = 'Please accept to continue.') {
+    return createValidator('booleanTrue', (value) => {
+      if (value === true) {
+        return null;
+      }
+      if (typeof value === 'string') {
+        const normalised = value.trim().toLowerCase();
+        if (['true', '1', 'yes', 'on'].includes(normalised)) {
+          return null;
+        }
+      }
+      return message;
+    });
+  },
 };
 
 export const normalizers = {
@@ -441,6 +525,26 @@ export const normalizers = {
       return Number.isNaN(candidate) ? fallback : candidate;
     };
   },
+  toBoolean(defaultValue = false) {
+    return (value) => {
+      if (value == null || value === '') {
+        return defaultValue;
+      }
+      if (typeof value === 'boolean') {
+        return value;
+      }
+      if (typeof value === 'string') {
+        const normalised = value.trim().toLowerCase();
+        if (['true', '1', 'yes', 'on'].includes(normalised)) {
+          return true;
+        }
+        if (['false', '0', 'no', 'off'].includes(normalised)) {
+          return false;
+        }
+      }
+      return Boolean(value);
+    };
+  },
   uniqueArray() {
     return (value) => {
       if (!Array.isArray(value)) {
@@ -458,6 +562,237 @@ export function composeValidators(...fns) {
       return validator;
     }
     return createValidator(`composed-${index}`, validator);
+  });
+}
+
+function collectBlueprintFields(blueprint) {
+  if (!blueprint) {
+    return [];
+  }
+  const fieldMap = new Map();
+  if (Array.isArray(blueprint.fields)) {
+    blueprint.fields.forEach((field) => {
+      if (field?.name) {
+        fieldMap.set(field.name, { ...field });
+      }
+    });
+  }
+  if (Array.isArray(blueprint.steps)) {
+    blueprint.steps.forEach((step) => {
+      const fields = Array.isArray(step?.fields) ? step.fields : [];
+      const stepKey = step?.key ?? step?.stepKey ?? step?.step_key ?? null;
+      fields.forEach((field) => {
+        if (!field?.name) {
+          return;
+        }
+        const nextField = { ...field };
+        if (nextField.stepKey == null && nextField.step_key == null) {
+          nextField.stepKey = stepKey;
+        }
+        fieldMap.set(nextField.name, nextField);
+      });
+    });
+  }
+  return Array.from(fieldMap.values());
+}
+
+function mapBlueprintNormalizer(identifier, field) {
+  if (!identifier) {
+    return null;
+  }
+  if (typeof identifier === 'function') {
+    return identifier;
+  }
+  if (typeof identifier === 'string') {
+    switch (identifier) {
+      case 'trim':
+        return normalizers.trim();
+      case 'toLowerCase':
+        return normalizers.toLowerCase();
+      case 'toUpperCase':
+        return normalizers.toUpperCase();
+      case 'toNumber':
+        return normalizers.toNumber();
+      case 'toBoolean':
+        return normalizers.toBoolean(field?.defaultValue ?? false);
+      default:
+        return null;
+    }
+  }
+  if (typeof identifier === 'object' && identifier.type) {
+    const { type, fallback, defaultValue } = identifier;
+    switch (type) {
+      case 'trim':
+        return normalizers.trim();
+      case 'toLowerCase':
+        return normalizers.toLowerCase();
+      case 'toUpperCase':
+        return normalizers.toUpperCase();
+      case 'toNumber':
+        return normalizers.toNumber(fallback);
+      case 'toBoolean':
+        return normalizers.toBoolean(defaultValue ?? field?.defaultValue ?? false);
+      default:
+        return null;
+    }
+  }
+  return null;
+}
+
+function resolveBlueprintMessage(rule, messageCatalog) {
+  if (rule.message) {
+    return rule.message;
+  }
+  if (rule.messageKey && messageCatalog?.[rule.messageKey]) {
+    return messageCatalog[rule.messageKey];
+  }
+  if (messageCatalog?.[rule.type]) {
+    return messageCatalog[rule.type];
+  }
+  return undefined;
+}
+
+const blueprintValidatorFactories = {
+  required: (rule) => validators.required(rule.message),
+  min_length: (rule) => validators.minLength(rule.config?.min ?? 0, rule.message),
+  max_length: (rule) => validators.maxLength(rule.config?.max ?? Number.POSITIVE_INFINITY, rule.message),
+  pattern: (rule) => {
+    if (!rule.config?.pattern) {
+      return null;
+    }
+    try {
+      const regexp = new RegExp(rule.config.pattern, rule.config.flags ?? '');
+      return validators.pattern(regexp, rule.message);
+    } catch (error) {
+      return null;
+    }
+  },
+  email: (rule) => validators.email(rule.message),
+  enum: (rule) => validators.oneOf(rule.config?.options ?? [], rule.message),
+  number_range: (rule) =>
+    validators.numberRange({
+      min: rule.config?.min,
+      max: rule.config?.max,
+      inclusive: rule.config?.inclusive !== false,
+      message: rule.message,
+    }),
+  matches_field: (rule) => validators.matchesField(rule.config?.otherField, rule.message),
+  url: (rule) => validators.url(rule.message, rule.config ?? {}),
+  password_strength: (rule) => validators.passwordStrength(rule.config ?? {}, rule.message),
+  accepted: (rule) => validators.booleanTrue(rule.message),
+  recommended_toggle: (rule, field) => {
+    const toBool = normalizers.toBoolean(field?.defaultValue ?? true);
+    return validators.custom((value) => {
+      if (toBool(value)) {
+        return null;
+      }
+      return { type: 'warning', message: rule.message ?? 'We recommend keeping this enabled.' };
+    });
+  },
+};
+
+export function createSchemaFromBlueprint(
+  blueprint,
+  { asyncValidators = {}, schemaOptions = {}, messageCatalog } = {},
+) {
+  if (!blueprint) {
+    return null;
+  }
+
+  const fields = collectBlueprintFields(blueprint);
+  if (!fields.length) {
+    return null;
+  }
+
+  const descriptor = {};
+
+  fields.forEach((field) => {
+    const validatorsList = [];
+    const warningValidators = [];
+    const configuredNormalizers = Array.isArray(field.normalizers) ? field.normalizers : [];
+    const mappedNormalizers = configuredNormalizers
+      .map((identifier) => mapBlueprintNormalizer(identifier, field))
+      .filter(Boolean);
+
+    const hasBooleanNormalizer = configuredNormalizers.some((identifier) => {
+      if (typeof identifier === 'string') {
+        return identifier === 'toBoolean';
+      }
+      if (typeof identifier === 'object' && identifier?.type) {
+        return identifier.type === 'toBoolean';
+      }
+      return false;
+    });
+
+    if (field.dataType === 'boolean' && !hasBooleanNormalizer) {
+      mappedNormalizers.push(normalizers.toBoolean(field.defaultValue ?? false));
+    }
+
+    const rules = Array.isArray(field.validations) ? field.validations : [];
+    rules.forEach((rule) => {
+      const enrichedRule = (() => {
+        const message = resolveBlueprintMessage(rule, messageCatalog);
+        if (message === undefined) {
+          return rule;
+        }
+        if (rule.message === message) {
+          return rule;
+        }
+        return { ...rule, message };
+      })();
+      const severity = (rule.severity ?? 'error').toLowerCase();
+      const factory = blueprintValidatorFactories[enrichedRule.type];
+      let validator = factory ? factory(enrichedRule, field) : null;
+
+      if (!validator && asyncValidators[enrichedRule.type]) {
+        const asyncHandler = asyncValidators[enrichedRule.type];
+        validator = validators.custom((value, context) =>
+          asyncHandler({ rule: enrichedRule, field, value, context, blueprint }),
+        );
+      }
+
+      if (!validator) {
+        return;
+      }
+
+      if (enrichedRule.messageKey || enrichedRule.meta) {
+        validator.meta = {
+          ...validator.meta,
+          ...(enrichedRule.meta ?? {}),
+          ...(enrichedRule.messageKey ? { messageKey: enrichedRule.messageKey } : {}),
+        };
+      }
+
+      if (severity === 'warning') {
+        warningValidators.push(validator);
+      } else {
+        validatorsList.push(validator);
+      }
+    });
+
+    descriptor[field.name] = {
+      label: field.label,
+      defaultValue: field.defaultValue,
+      meta: {
+        ...(field.meta ?? {}),
+        component: field.component,
+        helpText: field.helpText,
+        options: field.options,
+        analytics: field.analytics,
+        placeholder: field.placeholder,
+        stepKey: field.stepKey ?? field.step_key ?? null,
+        visibility: field.visibility,
+        metadata: field.metadata,
+      },
+      validators: validatorsList,
+      warnings: warningValidators,
+      normalizers: mappedNormalizers,
+    };
+  });
+
+  return createValidationSchema(descriptor, {
+    ...schemaOptions,
+    messageCatalog,
   });
 }
 

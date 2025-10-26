@@ -30,6 +30,8 @@ import {
   CompanyPageCollaborator,
   CompanyPageMedia,
 } from './companyPageModels.js';
+import { FormBlueprint, FormBlueprintStep, FormBlueprintField, FormBlueprintValidation } from './formBlueprintModels.js';
+export { FORM_BLUEPRINT_STATUSES, FORM_BLUEPRINT_VALIDATION_SEVERITIES } from './formBlueprintModels.js';
 import {
   UserEvent,
   UserEventAgendaItem,
@@ -24418,6 +24420,10 @@ export default {
   FreelancerExpertiseArea,
   FreelancerSuccessMetric,
   FreelancerTestimonial,
+  FormBlueprint,
+  FormBlueprintStep,
+  FormBlueprintField,
+  FormBlueprintValidation,
   FreelancerHeroBanner,
   FreelancerPortfolioItem,
   FreelancerPortfolioAsset,
@@ -24898,6 +24904,14 @@ domainRegistry.registerContext({
       /^Deliverable/.test(modelName),
   ],
   metadata: domainMetadata.marketplace,
+});
+
+domainRegistry.registerContext({
+  name: 'form_infrastructure',
+  displayName: 'Forms & Experience Infrastructure',
+  description: 'Blueprint catalogues, multi-step orchestration, and validation rules powering shared forms.',
+  models: ['FormBlueprint', 'FormBlueprintStep', 'FormBlueprintField', 'FormBlueprintValidation'],
+  metadata: domainMetadata.platform,
 });
 
 domainRegistry.registerContext({

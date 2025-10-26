@@ -59,6 +59,7 @@ import eventManagementRoutes from './eventManagementRoutes.js';
 import supportRoutes from './supportRoutes.js';
 import siteRoutes from './siteRoutes.js';
 import routeRegistryRoutes from './routeRegistryRoutes.js';
+import formBlueprintRoutes from './formBlueprintRoutes.js';
 
 const router = Router();
 
@@ -98,6 +99,7 @@ const routeDefinitions = [
   ['/finance', financeRoutes],
   ['/freelancer', freelancerRoutes],
   ['/freelancers', freelancerRoutes],
+  ['/forms/blueprints', formBlueprintRoutes],
   ['/groups', groupRoutes],
   ['/headhunter', headhunterRoutes],
   ['/interviews', interviewRoutes],
