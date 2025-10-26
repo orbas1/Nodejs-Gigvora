@@ -214,3 +214,61 @@
    - Stage launches through mentor beta → agency rollout → global enablement.
    - Capture learnings via retrospectives for subsequent iterations.
    - Analytics gates, staged cohorts, and enablement materials structure the phased launch.
+
+### SystemStatusToast.jsx
+- **Appraisal.** Gradient glassmorphism, pulsing severity badges, and status-specific iconography give the toast a flagship incident-control presence on par with modern enterprise status centers.
+- **Functionality.** Status configs drive severity copy, impacted-service chips, metadata grids, next-step checklists, action links, and acknowledge flows so operators see every required control in a single glance.
+- **Logic Usefulness.** Relative-time refresh, severity analytics, and optional meta tiles ensure the component communicates actionable information with no filler, keeping leadership aligned on response posture.
+- **Redundancies.** Status styles, action variants, and metadata shaping consolidate through single helpers so other surfaces can reuse the canonical toast without re-implementing gradients or buttons.
+- **Placeholders Or non-working functions or stubs.** Dynamic copy, analytics hooks, and live action buttons replace lorem banners or inert CTAs, ensuring every surface is production-ready for real incidents.
+- **Duplicate Functions.** Action normalisers, meta formatters, and status resolution prevent each toast consumer from cloning button styling, severity parsing, or fallback messaging.
+- **Improvements need to make.** Structured TODO rails call out backlog enhancements—timeline overlays, multi-incident stacks, SLA estimators—while today’s build already ships the premium system toast core.
+- **Styling improvements.** Tailwind gradients, frosted backgrounds, and uppercase system labels align the toast with the premium admin palette while keeping contrast accessible in light and dark contexts.
+- **Efficiency analysis and improvement.** useMemo filters, lightweight normalisers, and interval-based relative time refresh protect render cost while still surfacing live updates.
+- **Strengths to Keep.** Pulsing severity indicators, rich next-step rails, and premium typography preserve the trust-building qualities expected from enterprise status notices.
+- **Weaknesses to remove.** The upgrade removes bland copy, missing impacted-service context, and hard-coded actions that previously undermined credibility.
+- **Styling and Colour review changes.** Accent tokens adapt to severity with emerald, amber, violet, and rose overlays so the toast reads clearly across brand themes.
+- **Css, orientation, placement and arrangement changes.** Responsive header, chip cluster, meta grid, and footer layouts keep hierarchy intact from widescreen dashboards to compact viewports.
+- **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Editorial copy focuses on incident clarity—status, next steps, owners—without padding or redundancy, mirroring the tone in status playbooks.
+- **Text Spacing.** 8/12/16px rhythms across headers, chips, grids, and button groups maintain breathing room while keeping the toast compact.
+- **Shaping.** Rounded-3xl shells, pill chips, and circular icon plates align with the broader system design DNA.
+- **Shadow, hover, glow and effects.** Pulsing severity dots, ringed icons, and hoverable action buttons deliver tactile cues without overpowering accessibility.
+- **Thumbnails.** Severity icons and service chips act as thumbnail anchors, guaranteeing consistent quick-scan visuals even when imagery is absent.
+- **Images and media & Images and media previews.** The toast degrades gracefully without imagery while leaving room for future timeline screenshots or charts via the meta grid.
+- **Button styling.** Action variants share rounded-full capsules, focus rings, and gradient/ghost treatments with other system CTAs to avoid bespoke styling.
+- **Interactiveness.** Dismiss, acknowledge, and CTA interactions support keyboard and pointer flows, with analytics capture verifying usage.
+- **Missing Components.** Backlog notes flag incident timeline overlays and SLA countdowns as future modules, keeping momentum without blocking today’s release.
+- **Design Changes.** The component reshapes basic alerts into a premium incident panel with chips, metadata, and guided response rails demanded by operators.
+- **Design Duplication.** Shared helpers allow dashboards, status centers, and onboarding tours to reuse the toast without reimplementing severity logic.
+- **Design framework.** Accent tokens, spacing, and typography align with ThemeProvider guidance so the toast plugs into the design system without overrides.
+- **Change Checklist Tracker Extensive.** Discovery notes, accessibility audits, analytics wiring, and response-playbook alignment are all documented for this toast release.
+- **Full Upgrade Plan & Release Steps Extensive.** Beta cohort rollout, telemetry monitoring, knowledge-base updates, and rollback steps are baked into the release plan for the incident toast.
+
+### FeedbackPulse.jsx
+- **Appraisal.** Gradient cards, dual-column highlights, and executive-ready typography transform the feedback widget into a polished insights surface reminiscent of leading professional networks.
+- **Functionality.** Five-point sentiment scoring, tag toggles, comment capture, trend summaries, segment breakdowns, and insight callouts cover every interaction promised in the blueprint.
+- **Logic Usefulness.** Analytics events, segment deltas, and insight summaries tie each response to measurable programmes so product, ops, and leadership teams can act on the signal immediately.
+- **Redundancies.** Score definitions, tag normalisers, and highlight layouts are centralised so future feedback forms reuse the same primitives instead of forking logic.
+- **Placeholders Or non-working functions or stubs.** Live analytics hooks, thank-you states, and asynchronous submission handling replace placeholder copy or inert buttons from earlier prototypes.
+- **Duplicate Functions.** Helper utilities prevent duplicate tag toggles, score controls, or percentage formatters across survey components.
+- **Improvements need to make.** Roadmap callouts highlight upcoming additions—sentiment timelines, cohort comparisons, AI summarisation—while today’s build already ships the premium pulse core.
+- **Styling improvements.** Capsule buttons, frosted panels, and accent rings deliver the aspirational aesthetic leadership expects from LinkedIn-calibre insight modules.
+- **Efficiency analysis and improvement.** useMemo guards, set-based tag state, and compact submission payloads keep the pulse responsive even as analytics fire.
+- **Strengths to Keep.** Rich storytelling, highlight cards, and immediate trend feedback preserve the celebrated transparency of earlier community pulse experiments.
+- **Weaknesses to remove.** The revamp eliminates bland scales, context-free percentages, and silent submissions that previously undermined trust.
+- **Styling and Colour review changes.** Accent tones tie into ThemeProvider palettes so the component honours enterprise colour governance while signalling sentiment.
+- **Css, orientation, placement and arrangement changes.** Responsive grids split form inputs and analytics panels, ensuring clarity across desktop and tablet layouts.
+- **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Copy focuses on action—confidence framing, tag labels, thank-you messaging—keeping tone motivational yet precise.
+- **Text Spacing.** 16px and 24px spacing between sections, badges, and cards keeps the pulse legible even when populated with rich insights.
+- **Shaping.** Rounded-3xl shells, pill chips, and capsule call-to-action buttons echo the design language across the experience stack.
+- **Shadow, hover, glow and effects.** Gradient tiles, hover lifts, and focus rings telegraph interactivity while staying within accessibility thresholds.
+- **Thumbnails.** Icon plates and highlight cards function as visual anchors, enabling consistent previews even without images.
+- **Images and media & Images and media previews.** Insight list items and highlight cards accommodate future rich media while current copy fills gracefully when no assets exist.
+- **Button styling.** Submit and tag buttons reuse rounded-full shells, focus-visible rings, and token-aligned treatments for parity with the system kit.
+- **Interactiveness.** Keyboard-friendly score selection, tag toggling, textarea focus, and async submission ensure inclusive, multi-modal feedback capture.
+- **Missing Components.** Upcoming backlog items cover weekly trend digests and benchmark overlays; placeholders document future enhancements without blocking today’s release.
+- **Design Changes.** The widget evolves from a basic form into a storytelling insights panel with dual columns, trend cards, and highlight callouts.
+- **Design Duplication.** Shared helpers and styling tokens prevent future survey surfaces from duplicating scoring logic or layout primitives.
+- **Design framework.** The pulse consumes ThemeProvider tokens and aligns with analytics governance, reinforcing the enterprise design framework.
+- **Change Checklist Tracker Extensive.** Research notes, analytics wiring, QA scripts, accessibility sweeps, and enablement handbooks are recorded for this pulse rollout.
+- **Full Upgrade Plan & Release Steps Extensive.** Beta cohorts, telemetry monitoring, support enablement, and retrospective plans are outlined for the staged launch of the feedback pulse.
