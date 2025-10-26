@@ -217,6 +217,289 @@ const DEFAULT_RECENT_POSTS = [
   },
 ];
 
+const DEFAULT_MARKETING_ANNOUNCEMENT = {
+  title: 'Launch orchestration update',
+  description: 'Automation blueprints, mentor analytics, and compliance vaults now ship across the Scale tier.',
+  cta: { label: 'Read the release notes', action: 'release_notes', href: '/trust-center' },
+};
+
+const DEFAULT_MARKETING_TRUST_BADGES = [
+  {
+    id: 'badge-soc2',
+    label: 'SOC 2 Type II',
+    description: 'Independent auditors verify Gigvora trust and compliance every quarter.',
+  },
+  {
+    id: 'badge-global-mentors',
+    label: 'Mentor guild',
+    description: '7,800+ vetted mentors spanning growth, product, and revenue disciplines.',
+  },
+  {
+    id: 'badge-sla',
+    label: 'Enterprise SLA',
+    description: '99.95% uptime with 24/7 launch response pods across three regions.',
+  },
+];
+
+const DEFAULT_MARKETING_PERSONAS = [
+  {
+    id: 'founder',
+    label: 'Founder / Executive',
+    description: 'Track investor updates, customer pilots, and hiring rituals without losing momentum.',
+  },
+  {
+    id: 'operations',
+    label: 'Operations leader',
+    description: 'Automate reviews, compliance, and launch cadences while staying ahead of blockers.',
+  },
+  {
+    id: 'mentor',
+    label: 'Mentor & advisor',
+    description: 'Coach multiple cohorts with shared agendas, analytics, and follow-up workflows.',
+  },
+];
+
+const DEFAULT_PRODUCT_TOUR_STEPS = [
+  {
+    id: 'command-centre',
+    label: 'Command',
+    title: 'Command centre keeps every initiative accountable',
+    summary:
+      'Live dashboards blend hiring, mentoring, and marketing rituals into one decision theatre so leaders focus on outcomes instead of alignment.',
+    personaHighlights: {
+      founder: [
+        'Executive-ready pulse combining pipeline, retention, and runway signals.',
+        'Boardroom export with narrative context assembled automatically.',
+        'Investor updates sync with the same truth operators use daily.',
+      ],
+      operations: [
+        'Program kanbans, OKRs, and risk logs refresh in real time.',
+        'Compliance watchlists trigger checklists and guardrail alerts.',
+        'Deep links into workstreams, retros, and playbooks without context switching.',
+      ],
+      mentor: [
+        'Mentor scorecards roll up wins, risks, and outstanding actions.',
+        'AI summaries capture cohort sentiment for quick triage.',
+        'Spotlight nominations surface top mentees for marketing and advocacy.',
+      ],
+    },
+    metrics: {
+      timeToValue: 'Under 8 minutes to configure',
+      automation: '82% of narrative updates auto-generated',
+      collaboration: 'Execs, ops leads, mentor guild',
+    },
+    media: {
+      type: 'video',
+      posterUrl: 'https://cdn.gigvora.com/marketing/product-tour/command-centre-poster.jpg',
+      sources: [{ src: 'https://cdn.gigvora.com/marketing/product-tour/command-centre.mp4', type: 'video/mp4' }],
+    },
+    cta: { label: 'Book a strategy review', action: 'book_strategy' },
+    secondaryCta: { label: 'Download executive brief', action: 'download_brief' },
+  },
+  {
+    id: 'launch-blueprints',
+    label: 'Launch',
+    title: 'Launch blueprints orchestrate go-to-market in hours',
+    summary:
+      'Drag-and-drop launch kits bundle marketing pages, ads, nurture flows, and success metrics so campaigns deploy on-brand every time.',
+    personaHighlights: {
+      founder: [
+        'Spin up campaign crews with vetted playbooks and ROI guardrails.',
+        'Real-time approvals keep legal, security, and finance in the same thread.',
+        'Launch retros feed data into investor updates automatically.',
+      ],
+      operations: [
+        'Automations assign intake forms, QA checklists, and distribution tasks.',
+        'Cross-team dependencies surface before blockers land in standups.',
+        'Scenario planner forecasts staffing and budget needs instantly.',
+      ],
+      mentor: [
+        'Cohort-ready templates share best practices with each mentee.',
+        'Mentors tag teachable moments and spin into micro-learnings.',
+        'Spotlight stories export straight to community marketing hubs.',
+      ],
+    },
+    metrics: {
+      timeToValue: 'Launch in 48 hours',
+      automation: '120+ workflow recipes',
+      collaboration: 'Marketing, sales, product squads',
+    },
+    media: {
+      type: 'image',
+      src: 'https://cdn.gigvora.com/marketing/product-tour/launch-blueprints.jpg',
+      alt: 'Launch blueprint builder showing tasks and automation timeline.',
+    },
+    cta: { label: 'Start a pilot launch', action: 'start_pilot' },
+  },
+  {
+    id: 'mentorship',
+    label: 'Mentorship',
+    title: 'Mentor workflows deliver measurable uplift',
+    summary:
+      'Mentor lounges combine agendas, recordings, feedback, and growth plans so talent keeps compounding gains while executives see ROI.',
+    personaHighlights: {
+      founder: [
+        'Invite mentors to mission-critical launches with context preloaded.',
+        'Track mentee outcomes alongside revenue, hiring, and retention goals.',
+      ],
+      operations: [
+        'Match mentors to mentees using live skills graph and availability.',
+        'Automated nudges keep sessions on schedule and logged for compliance.',
+      ],
+      mentor: [
+        'One-click recap pushes highlights to mentees and sponsors.',
+        'Resource library suggests next best actions per persona.',
+      ],
+    },
+    metrics: {
+      timeToValue: 'First mentorship cohort in 5 days',
+      automation: '65% of follow-ups auto-scheduled',
+      collaboration: 'Mentors, mentees, sponsors',
+    },
+    media: {
+      type: 'image',
+      src: 'https://cdn.gigvora.com/marketing/product-tour/mentorship-workflows.jpg',
+      alt: 'Mentor workspace with shared agendas and analytics.',
+    },
+    cta: { label: 'Meet the mentor guild', action: 'mentor_directory' },
+    secondaryCta: { label: 'View mentorship outcomes', action: 'view_outcomes' },
+  },
+  {
+    id: 'insights',
+    label: 'Insights',
+    title: 'Insights studio broadcasts wins across every channel',
+    summary:
+      'Automated storytelling packages, social tiles, and stakeholder recaps transform raw telemetry into moments that attract talent and revenue.',
+    personaHighlights: {
+      founder: ['Investor-ready highlights without writing a single deck.'],
+      operations: ['Insights auto-publish to marketing sites, CRM, and Slack hubs.'],
+      mentor: ['Celebrate mentee achievements with branded share kits.'],
+    },
+    metrics: {
+      timeToValue: '2 minutes to publish',
+      automation: '100% data-synchronised storytelling',
+      collaboration: 'Marketing, ops, community',
+    },
+    media: {
+      type: 'video',
+      posterUrl: 'https://cdn.gigvora.com/marketing/product-tour/insights-studio-poster.jpg',
+      sources: [{ src: 'https://cdn.gigvora.com/marketing/product-tour/insights-reel.mp4', type: 'video/mp4' }],
+    },
+    cta: { label: 'Explore storytelling studio', action: 'open_storytelling' },
+  },
+];
+
+const DEFAULT_PRICING_PLANS = [
+  {
+    id: 'launch',
+    name: 'Launch',
+    headline: 'Perfect for early teams activating community, marketing, and mentorship.',
+    pricing: { monthly: 129, annual: 119 },
+    savings: { annual: 'Save 15% with annual billing' },
+    features: [
+      'Up to 15 concurrent workstreams',
+      'Marketing landing page builder and analytics snapshots',
+      'Mentor marketplace access with curated intros',
+      'Slack and email orchestration with 20 playbooks',
+    ],
+    metrics: {
+      'Seats included': '25',
+      'Automation recipes': '40+',
+      Support: 'Guided onboarding & launch concierge',
+    },
+  },
+  {
+    id: 'scale',
+    name: 'Scale',
+    headline: 'Everything high-growth companies need to orchestrate global launches.',
+    pricing: { monthly: 349, annual: 319 },
+    savings: { annual: 'Save 20% · concierge data migration' },
+    features: [
+      'Unlimited projects with milestone governance',
+      'Advanced analytics studio & ROI forecasting',
+      'Integrated consent, security, and audit logging',
+      'Dedicated mentor guild with spotlight campaigns',
+    ],
+    recommended: true,
+    metrics: {
+      'Seats included': '75',
+      'Automation recipes': '120+',
+      Support: 'Dedicated success architect & quarterly roadmap reviews',
+    },
+  },
+  {
+    id: 'enterprise',
+    name: 'Enterprise',
+    headline: 'Tailored for global operators with deep compliance and data residency needs.',
+    pricing: { monthly: 'Custom', annual: 'Custom' },
+    cadenceLabel: 'Enterprise agreement',
+    savings: { annual: 'Volume pricing & white-glove launch' },
+    features: [
+      'Unlimited everything with premium SLAs',
+      'Private data lake exports & lakehouse connectors',
+      'Air-gapped mentor and contractor pools',
+      'Dedicated launch squad with 24/7 war room',
+    ],
+    metrics: {
+      'Seats included': 'Unlimited',
+      'Automation recipes': 'Custom',
+      Support: '24/7 global pod & executive briefings',
+    },
+    ctaLabel: 'Design your enterprise plan',
+  },
+];
+
+const DEFAULT_PRICING_FEATURE_MATRIX = [
+  {
+    key: 'command-centre',
+    label: 'Command centre & analytics studio',
+    description: 'Live dashboards, goal tracking, and multi-org analytics.',
+    tiers: { launch: true, scale: true, enterprise: true },
+  },
+  {
+    key: 'mentorship',
+    label: 'Mentor guild & cohort rituals',
+    description: 'Curated mentors, agenda templates, and impact reporting.',
+    tiers: { launch: 'Curated pool', scale: 'Dedicated guild', enterprise: 'Private guild + NDA workflows' },
+  },
+  {
+    key: 'marketing-suite',
+    label: 'Marketing experience suite',
+    description: 'Landing pages, product tours, marketing automation, and asset CDN.',
+    tiers: { launch: true, scale: true, enterprise: 'White-label + custom CDN' },
+  },
+  {
+    key: 'security',
+    label: 'Security & compliance controls',
+    description: 'Role-based access, audit trails, data residency, and single sign-on.',
+    tiers: { launch: true, scale: true, enterprise: 'Advanced controls & private region' },
+  },
+  {
+    key: 'support',
+    label: 'Success pod & concierge services',
+    description: 'Onboarding, war rooms, and launch partners.',
+    tiers: { launch: 'Guided onboarding', scale: 'Success architect', enterprise: 'Dedicated pod 24/7' },
+  },
+];
+
+const DEFAULT_PRICING_METRICS = [
+  { label: 'Customer acquisition lift', value: '38%', helper: 'Marketing funnel lift measured across 120-day pilots.' },
+  { label: 'Time-to-launch reduction', value: '2.3x faster', helper: 'Median improvement observed across scale customers.' },
+  { label: 'Mentor satisfaction', value: '96%', helper: 'Mentor guild NPS from the past four quarters.' },
+];
+
+const DEFAULT_MARKETING_FRAGMENT = {
+  announcement: { ...DEFAULT_MARKETING_ANNOUNCEMENT },
+  trustBadges: [...DEFAULT_MARKETING_TRUST_BADGES],
+  personas: [...DEFAULT_MARKETING_PERSONAS],
+  productTour: { steps: [...DEFAULT_PRODUCT_TOUR_STEPS] },
+  pricing: {
+    plans: [...DEFAULT_PRICING_PLANS],
+    featureMatrix: [...DEFAULT_PRICING_FEATURE_MATRIX],
+    metrics: [...DEFAULT_PRICING_METRICS],
+  },
+};
+
 function coerceString(value, fallback = '') {
   if (value == null) {
     return fallback;
@@ -500,6 +783,307 @@ function sanitizeRecentPosts(posts, fallback = []) {
   return cleaned.length ? cleaned : base;
 }
 
+function sanitizeCta(cta, fallback = {}) {
+  const base = fallback ?? {};
+  const label = coerceString(cta?.label ?? cta?.title, base.label ?? '');
+  if (!label) {
+    return base.label ? { label: base.label, action: base.action, href: base.href, route: base.route } : null;
+  }
+  const payload = { label };
+  const action = coerceOptionalString(cta?.action ?? base.action);
+  if (action) {
+    payload.action = action;
+  }
+  const href = coerceOptionalString(cta?.href ?? cta?.url ?? base.href ?? base.url);
+  if (href) {
+    payload.href = href;
+  }
+  const route = !href ? coerceOptionalString(cta?.route ?? cta?.path ?? base.route) : '';
+  if (route) {
+    payload.route = route;
+  }
+  return payload;
+}
+
+function sanitizeMarketingAnnouncement(announcement, fallback = {}) {
+  const base = fallback ?? {};
+  const title = coerceOptionalString(announcement?.title ?? announcement?.headline, base.title ?? '');
+  const description = coerceOptionalString(announcement?.description ?? announcement?.copy, base.description ?? '');
+  const cta = sanitizeCta(announcement?.cta, base.cta);
+  return {
+    title: title || base.title || DEFAULT_MARKETING_ANNOUNCEMENT.title,
+    description: description || base.description || DEFAULT_MARKETING_ANNOUNCEMENT.description,
+    ...(cta ? { cta } : base.cta ? { cta: base.cta } : {}),
+  };
+}
+
+function sanitizePersonaHighlightsList(highlights, fallback = []) {
+  const list = Array.isArray(highlights) ? highlights : fallback;
+  const cleaned = list
+    .map((item) => coerceString(item))
+    .filter((item) => item.length > 0)
+    .slice(0, 6);
+  return cleaned.length ? cleaned : [...fallback];
+}
+
+function sanitizePersonaHighlightsMap(highlights, fallback = {}) {
+  const source = highlights && typeof highlights === 'object' ? highlights : {};
+  const result = {};
+  Object.entries(source).forEach(([key, value]) => {
+    const personaKey = normalizeSlug(key, key);
+    if (!personaKey) {
+      return;
+    }
+    result[personaKey] = sanitizePersonaHighlightsList(value, fallback[personaKey] ?? []);
+  });
+  if (fallback.default && !result.default) {
+    result.default = sanitizePersonaHighlightsList(fallback.default, fallback.default);
+  }
+  return Object.keys(result).length ? result : { ...fallback };
+}
+
+function sanitizeTrustBadges(badges, fallback = []) {
+  const source = Array.isArray(badges) ? badges : [];
+  const baseList = Array.isArray(fallback) && fallback.length ? fallback : DEFAULT_MARKETING_TRUST_BADGES;
+  const cleaned = source
+    .map((badge, index) => {
+      const base = baseList[index] ?? baseList[0];
+      const label = coerceString(badge?.label ?? badge?.name ?? badge?.title, base?.label ?? '');
+      if (!label) {
+        return null;
+      }
+      return {
+        id: coerceOptionalString(
+          badge?.id ?? badge?.key ?? badge?.slug,
+          base?.id ?? normalizeSlug(label) || `badge-${index + 1}`,
+        ),
+        label,
+        description: coerceOptionalString(badge?.description ?? badge?.copy, base?.description ?? ''),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 6);
+  return cleaned.length ? cleaned : baseList.map((item) => ({ ...item }));
+}
+
+function sanitizeTourMedia(media, fallback = {}) {
+  const source = media && typeof media === 'object' ? media : {};
+  const base = fallback ?? {};
+  const type = ['video', 'image'].includes(source.type) ? source.type : base.type ?? 'image';
+  const sanitized = { type };
+  if (type === 'video') {
+    const sources = Array.isArray(source.sources) ? source.sources : base.sources ?? [];
+    sanitized.sources = sources
+      .map((item) => {
+        const src = coerceString(item?.src ?? item?.url);
+        if (!src) return null;
+        return {
+          src,
+          type: coerceString(item?.type ?? base?.sources?.[0]?.type ?? 'video/mp4', 'video/mp4'),
+        };
+      })
+      .filter(Boolean)
+      .slice(0, 4);
+    if (!sanitized.sources.length && Array.isArray(base.sources)) {
+      sanitized.sources = base.sources.map((item) => ({ ...item }));
+    }
+    const poster = coerceOptionalString(source.posterUrl ?? source.poster ?? base.posterUrl ?? base.poster);
+    if (poster) {
+      sanitized.posterUrl = poster;
+    }
+  } else {
+    sanitized.src = coerceOptionalString(source.src ?? base.src ?? '');
+    const alt = coerceOptionalString(source.alt ?? source.altText ?? base.alt ?? base.altText);
+    if (alt) {
+      sanitized.alt = alt;
+    }
+  }
+  return sanitized;
+}
+
+function sanitizeProductTourSteps(steps, fallback = []) {
+  const list = Array.isArray(steps) ? steps : [];
+  const baseList = Array.isArray(fallback) && fallback.length ? fallback : DEFAULT_PRODUCT_TOUR_STEPS;
+  const cleaned = list
+    .map((step, index) => {
+      const base = baseList[index] ?? baseList[0];
+      const title = coerceString(step?.title ?? step?.headline, base?.title ?? '');
+      if (!title) {
+        return null;
+      }
+      const id = coerceOptionalString(step?.id ?? step?.key ?? step?.slug, base?.id ?? normalizeSlug(title) || `step-${index + 1}`);
+      const cta = sanitizeCta(step?.cta, base?.cta);
+      const secondaryCta = sanitizeCta(step?.secondaryCta, base?.secondaryCta);
+      return {
+        id,
+        label: coerceString(step?.label ?? step?.shortTitle, base?.label ?? `Step ${index + 1}`),
+        title,
+        summary: coerceOptionalString(step?.summary ?? step?.description, base?.summary ?? ''),
+        personaHighlights: sanitizePersonaHighlightsMap(
+          step?.personaHighlights ?? step?.highlightsByPersona,
+          base?.personaHighlights ?? {},
+        ),
+        highlights: sanitizePersonaHighlightsList(step?.highlights, base?.highlights ?? []),
+        metrics: step?.metrics && typeof step.metrics === 'object' ? { ...base?.metrics, ...step.metrics } : base?.metrics ?? {},
+        media: sanitizeTourMedia(step?.media, base?.media),
+        ...(cta ? { cta } : {}),
+        ...(secondaryCta ? { secondaryCta } : {}),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 6);
+  return cleaned.length ? cleaned : baseList.map((item) => ({ ...item }));
+}
+
+function sanitizeMarketingPersonas(personas, fallback = []) {
+  const list = Array.isArray(personas) ? personas : [];
+  const baseList = Array.isArray(fallback) && fallback.length ? fallback : DEFAULT_MARKETING_PERSONAS;
+  const cleaned = list
+    .map((persona, index) => {
+      const base = baseList[index] ?? baseList[0];
+      const label = coerceString(persona?.label ?? persona?.name ?? persona?.title, base?.label ?? '');
+      if (!label) {
+        return null;
+      }
+      return {
+        id: coerceOptionalString(
+          persona?.id ?? persona?.key ?? persona?.slug,
+          base?.id ?? normalizeSlug(label) || `persona-${index + 1}`,
+        ),
+        label,
+        description: coerceOptionalString(persona?.description ?? persona?.summary ?? persona?.copy, base?.description ?? ''),
+        route: coerceOptionalString(persona?.route ?? persona?.href ?? persona?.url ?? base?.route, base?.route ?? ''),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 6);
+  return cleaned.length ? cleaned : baseList.map((item) => ({ ...item }));
+}
+
+function sanitizePricingPlans(plans, fallback = []) {
+  const list = Array.isArray(plans) ? plans : [];
+  const baseList = Array.isArray(fallback) && fallback.length ? fallback : DEFAULT_PRICING_PLANS;
+  const cleaned = list
+    .map((plan, index) => {
+      const base = baseList[index] ?? baseList[0];
+      const name = coerceString(plan?.name ?? plan?.title, base?.name ?? '');
+      if (!name) {
+        return null;
+      }
+      const metricsSource = plan?.metrics && typeof plan.metrics === 'object' ? plan.metrics : {};
+      const metrics = Object.entries({ ...base?.metrics, ...metricsSource }).reduce((acc, [metricLabel, metricValue]) => {
+        const label = coerceString(metricLabel);
+        const value = coerceOptionalString(metricValue, base?.metrics?.[metricLabel]);
+        if (label && value) {
+          acc[label] = value;
+        }
+        return acc;
+      }, {});
+      const features = Array.isArray(plan?.features)
+        ? plan.features.map((item) => coerceString(item)).filter(Boolean)
+        : Array.isArray(base?.features)
+        ? base.features
+        : [];
+      return {
+        id: coerceOptionalString(plan?.id ?? plan?.key ?? plan?.slug, base?.id ?? normalizeSlug(name) || `plan-${index + 1}`),
+        name,
+        headline: coerceOptionalString(plan?.headline ?? plan?.description, base?.headline ?? ''),
+        pricing: plan?.pricing && typeof plan.pricing === 'object' ? { ...base?.pricing, ...plan.pricing } : base?.pricing ?? {},
+        cadenceLabel: coerceOptionalString(plan?.cadenceLabel, base?.cadenceLabel ?? ''),
+        savings: plan?.savings && typeof plan.savings === 'object' ? { ...base?.savings, ...plan.savings } : base?.savings ?? {},
+        features,
+        metrics,
+        recommended: plan?.recommended ?? base?.recommended ?? false,
+        ctaLabel: coerceOptionalString(plan?.ctaLabel ?? plan?.ctaText, base?.ctaLabel ?? ''),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 6);
+  return cleaned.length ? cleaned : baseList.map((item) => ({ ...item }));
+}
+
+function sanitizePricingFeatureMatrix(matrix, fallback = []) {
+  const list = Array.isArray(matrix) ? matrix : [];
+  const baseList = Array.isArray(fallback) && fallback.length ? fallback : DEFAULT_PRICING_FEATURE_MATRIX;
+  const cleaned = list
+    .map((entry, index) => {
+      const base = baseList[index] ?? baseList[0];
+      const label = coerceString(entry?.label ?? entry?.title, base?.label ?? '');
+      if (!label) {
+        return null;
+      }
+      const tiers = entry?.tiers && typeof entry.tiers === 'object' ? entry.tiers : {};
+      const sanitizedTiers = Object.entries({ ...base?.tiers, ...tiers }).reduce((acc, [tierKey, tierValue]) => {
+        const key = normalizeSlug(tierKey, tierKey);
+        if (!key) {
+          return acc;
+        }
+        if (typeof tierValue === 'boolean') {
+          acc[key] = tierValue;
+        } else {
+          const value = coerceOptionalString(tierValue, base?.tiers?.[key]);
+          if (value) {
+            acc[key] = value;
+          }
+        }
+        return acc;
+      }, {});
+      return {
+        key: coerceOptionalString(entry?.key ?? entry?.id ?? entry?.slug, base?.key ?? normalizeSlug(label) || `feature-${index + 1}`),
+        label,
+        description: coerceOptionalString(entry?.description ?? entry?.summary, base?.description ?? ''),
+        tiers: sanitizedTiers,
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 10);
+  return cleaned.length ? cleaned : baseList.map((item) => ({ ...item }));
+}
+
+function sanitizePricingMetrics(metrics, fallback = []) {
+  const list = Array.isArray(metrics) ? metrics : [];
+  const baseList = Array.isArray(fallback) && fallback.length ? fallback : DEFAULT_PRICING_METRICS;
+  const cleaned = list
+    .map((entry, index) => {
+      const base = baseList[index] ?? baseList[0];
+      const label = coerceString(entry?.label ?? entry?.title, base?.label ?? '');
+      const value = coerceOptionalString(entry?.value ?? entry?.metric, base?.value ?? '');
+      if (!label || !value) {
+        return null;
+      }
+      return {
+        label,
+        value,
+        helper: coerceOptionalString(entry?.helper ?? entry?.description ?? entry?.copy, base?.helper ?? ''),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 8);
+  return cleaned.length ? cleaned : baseList.map((item) => ({ ...item }));
+}
+
+function sanitizePricing(pricing, fallback = {}) {
+  const base = fallback ?? {};
+  const source = pricing && typeof pricing === 'object' ? pricing : {};
+  return {
+    plans: sanitizePricingPlans(source.plans, base.plans ?? DEFAULT_PRICING_PLANS),
+    featureMatrix: sanitizePricingFeatureMatrix(source.featureMatrix, base.featureMatrix ?? DEFAULT_PRICING_FEATURE_MATRIX),
+    metrics: sanitizePricingMetrics(source.metrics, base.metrics ?? DEFAULT_PRICING_METRICS),
+  };
+}
+
+function sanitizeMarketing(marketing, fallback = DEFAULT_MARKETING_FRAGMENT) {
+  const base = fallback ?? DEFAULT_MARKETING_FRAGMENT;
+  const source = marketing && typeof marketing === 'object' ? marketing : {};
+  return {
+    announcement: sanitizeMarketingAnnouncement(source.announcement, base.announcement),
+    trustBadges: sanitizeTrustBadges(source.trustBadges, base.trustBadges),
+    personas: sanitizeMarketingPersonas(source.personas, base.personas),
+    productTour: { steps: sanitizeProductTourSteps(source?.productTour?.steps ?? source.productTourSteps, base.productTour?.steps) },
+    pricing: sanitizePricing(source.pricing, base.pricing),
+  };
+}
+
 function normalizeRoles(value) {
   if (!value) {
     return [];
@@ -603,6 +1187,7 @@ function buildDefaultSiteSettings() {
     personaMetrics: [...DEFAULT_PERSONA_METRICS],
     operationsSummary: { ...DEFAULT_OPERATIONS_SUMMARY },
     recentPosts: [...DEFAULT_RECENT_POSTS],
+    marketing: { ...DEFAULT_MARKETING_FRAGMENT },
   };
 }
 
@@ -648,6 +1233,7 @@ function sanitizeSettingsCandidate(candidate = {}) {
   settings.personaMetrics = sanitizePersonaMetrics(candidate.personaMetrics, baseline.personaMetrics);
   settings.operationsSummary = sanitizeOperationsSummary(candidate.operationsSummary, baseline.operationsSummary);
   settings.recentPosts = sanitizeRecentPosts(candidate.recentPosts, baseline.recentPosts);
+  settings.marketing = sanitizeMarketing(candidate.marketing ?? candidate.marketingExperience, baseline.marketing);
   return settings;
 }
 

@@ -33,6 +33,7 @@ function buildFallback() {
         trend: [45, 48, 56, 62, 70, 78, 84],
       },
     },
+    marketing: {},
   };
 }
 
@@ -106,7 +107,13 @@ export default function useHomeExperience({ enabled = true, limit = 6 } = {}) {
         setState({
           loading: false,
           error: null,
-          data: { settings, pageContent, creations, operationsSummary },
+          data: {
+            settings,
+            pageContent,
+            creations,
+            operationsSummary,
+            marketing: settingsResult.status === 'fulfilled' ? settingsResult.value?.marketing ?? {} : {},
+          },
           fromCache: false,
           lastUpdated: new Date(),
         });
@@ -164,6 +171,7 @@ export default function useHomeExperience({ enabled = true, limit = 6 } = {}) {
           pageContent: page,
           creations: creations?.items ?? creations ?? [],
           operationsSummary: settings?.operationsSummary ?? data.operationsSummary ?? buildFallback().operationsSummary,
+          marketing: settings?.marketing ?? data.marketing ?? {},
         },
         fromCache: false,
         lastUpdated: new Date(),
