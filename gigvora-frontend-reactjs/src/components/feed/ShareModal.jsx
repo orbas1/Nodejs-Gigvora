@@ -11,6 +11,7 @@ import OverlayModal from '../common/OverlayModal.jsx';
 import analytics from '../../services/analytics.js';
 import UserAvatar from '../UserAvatar.jsx';
 import { formatRelativeTime } from '../../utils/date.js';
+import { shareFeedPost } from '../../services/liveFeed.js';
 
 function buildShareUrl(post) {
   if (!post?.id) {
@@ -180,6 +181,16 @@ export default function ShareModal({ open, onClose, post, viewer }) {
       { source: 'web_app' },
     );
     target.onSelect();
+    if (post?.id) {
+      shareFeedPost(post.id, {
+        target: target.id,
+        message,
+        shareUrl,
+        metadata: { surface: 'share-modal' },
+      }).catch((error) => {
+        console.warn('Failed to record share', error);
+      });
+    }
   };
 
   return (

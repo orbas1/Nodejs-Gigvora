@@ -143,6 +143,20 @@ export async function reactToFeedPost(postId, reaction, { active = true, signal 
   return apiClient.post(`/feed/${postId}/reactions`, payload, { signal });
 }
 
+export async function shareFeedPost(postId, payload = {}, { signal } = {}) {
+  if (!postId) {
+    throw new Error('A post identifier is required to log a share.');
+  }
+  const target = payload?.target ?? 'other';
+  const body = {
+    target,
+    message: payload?.message ?? null,
+    shareUrl: payload?.shareUrl ?? null,
+    metadata: payload?.metadata ?? null,
+  };
+  return apiClient.post(`/feed/${postId}/shares`, body, { signal });
+}
+
 export default {
   listFeedPosts,
   createFeedPost,
@@ -152,4 +166,5 @@ export default {
   listFeedComments,
   createFeedComment,
   createFeedReply,
+  shareFeedPost,
 };

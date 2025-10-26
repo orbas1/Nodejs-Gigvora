@@ -38,5 +38,10 @@ router.post(
   authenticateRequest(),
   asyncHandler(feedController.toggleReaction),
 );
+router.post(
+  '/:postId/shares',
+  authenticateRequest(),
+  asyncHandler(feedController.recordShare),
+);
 
 export default router;

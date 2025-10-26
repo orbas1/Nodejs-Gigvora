@@ -1,5 +1,5 @@
 import { Op, fn, col } from 'sequelize';
-import { FeedPost, FeedComment, FeedReaction, User, Profile } from '../models/index.js';
+import { FeedPost, FeedComment, FeedReaction, FeedShare, User, Profile } from '../models/index.js';
 import { enforceFeedCommentPolicies, enforceFeedPostPolicies } from '../services/contentModerationService.js';
 import { ValidationError, AuthorizationError, AuthenticationError } from '../utils/errors.js';
 import {
@@ -15,6 +15,7 @@ import { getFeedSuggestions } from '../services/feedSuggestionService.js';
 const ALLOWED_VISIBILITY = new Set(['public', 'connections']);
 const ALLOWED_TYPES = new Set(['update', 'media', 'job', 'gig', 'project', 'volunteering', 'launchpad', 'news']);
 const ALLOWED_REACTIONS = new Set(['like', 'celebrate', 'support', 'love', 'insightful']);
+const ALLOWED_SHARE_TARGETS = new Set(['linkedin', 'email', 'copy-link', 'copy-message', 'copy-embed', 'other']);
 const AUTHORIZED_ROLES = new Set([
   'member',
   'user',
@@ -218,6 +219,37 @@ async function computeReactionSummary(postIds) {
   return map;
 }
 
+async function computeShareCounts(postIds) {
+  if (!Array.isArray(postIds) || !postIds.length) {
+    return new Map();
+  }
+  const rows = await FeedShare.findAll({
+    attributes: ['postId', [fn('COUNT', col('id')), 'count']],
+    where: { postId: { [Op.in]: postIds } },
+    group: ['postId'],
+    raw: true,
+  });
+  return rows.reduce((map, row) => {
+    map.set(row.postId, Number(row.count));
+    return map;
+  }, new Map());
+}
+
+async function computeViewerReactions(postIds, viewerId) {
+  if (!viewerId || !Array.isArray(postIds) || !postIds.length) {
+    return new Map();
+  }
+  const rows = await FeedReaction.findAll({
+    attributes: ['postId', 'reactionType'],
+    where: { postId: { [Op.in]: postIds }, userId: viewerId, active: true },
+    raw: true,
+  });
+  return rows.reduce((map, row) => {
+    map.set(row.postId, row.reactionType);
+    return map;
+  }, new Map());
+}
+
 async function computeCommentCounts(postIds) {
   if (!postIds.length) {
     return new Map();
@@ -272,18 +304,26 @@ export async function listFeed(req, res) {
   const hasMore = records.length > limit;
   const trimmed = hasMore ? records.slice(0, limit) : records;
   const postIds = trimmed.map((post) => post.id).filter(Boolean);
-  const [reactionMap, commentMap, total] = await Promise.all([
+  const [reactionMap, commentMap, shareMap, viewerReactionMap, total] = await Promise.all([
     computeReactionSummary(postIds),
     computeCommentCounts(postIds),
+    computeShareCounts(postIds),
+    computeViewerReactions(postIds, actor?.id ?? null),
     FeedPost.count(),
   ]);
 
-  const items = trimmed.map((post) =>
-    serialiseFeedPost(post, {
-      reactionSummary: reactionMap.get(post.id) ?? { likes: 0 },
-      commentCount: commentMap.get(post.id) ?? 0,
-    }),
-  );
+  const items = trimmed.map((post) => {
+    const reactionSummary = reactionMap.get(post.id) ?? { likes: 0 };
+    const commentCount = commentMap.get(post.id) ?? 0;
+    const shareCount = shareMap.get(post.id) ?? 0;
+    const viewerReaction = viewerReactionMap.get(post.id) ?? null;
+    return serialiseFeedPost(post, {
+      reactionSummary,
+      commentCount,
+      shareCount,
+      viewerReaction,
+    });
+  });
 
   const nextCursor = hasMore ? trimmed[trimmed.length - 1].id : null;
   const nextPage = hasMore && !cursor && page && Number.isFinite(page) ? page + 1 : null;
@@ -351,7 +391,12 @@ export async function createPost(req, res) {
 
   const created = await FeedPost.create(payload);
   const hydrated = await FeedPost.findByPk(created.id, { include: [{ model: User, include: [Profile] }] });
-  const responsePayload = serialiseFeedPost(hydrated, { reactionSummary: { likes: 0 }, commentCount: 0 });
+  const responsePayload = serialiseFeedPost(hydrated, {
+    reactionSummary: { likes: 0 },
+    commentCount: 0,
+    shareCount: 0,
+    viewerReaction: null,
+  });
   if (moderated.signals.length) {
     responsePayload.moderation = { signals: moderated.signals };
   }
@@ -622,6 +667,53 @@ export async function createReply(req, res) {
   res.status(201).json(payload);
 }
 
+export async function recordShare(req, res) {
+  const { postId } = req.params;
+  const actor = resolveActor(req);
+  const role = resolveRole(req);
+
+  const numericId = Number.parseInt(postId, 10);
+  if (!Number.isFinite(numericId) || numericId <= 0) {
+    throw new ValidationError('A valid post identifier is required.');
+  }
+
+  assertInteractionPermissions(actor, role);
+
+  const post = await FeedPost.findByPk(numericId, { attributes: ['id'] });
+  if (!post) {
+    throw new ValidationError('Feed post not found.');
+  }
+
+  const { target, message, shareUrl, metadata } = req.body || {};
+  const rawTarget = (target ?? 'other').toString().toLowerCase().trim();
+  const normalisedTarget = ALLOWED_SHARE_TARGETS.has(rawTarget) ? rawTarget : 'other';
+  const metadataPayload =
+    metadata && typeof metadata === 'object' && !Array.isArray(metadata) ? { ...metadata } : {};
+  if (!metadataPayload.source) {
+    metadataPayload.source = 'web-feed';
+  }
+
+  const created = await FeedShare.create({
+    postId: numericId,
+    userId: actor.id,
+    target: normalisedTarget,
+    message: sanitizeString(message, { maxLength: 560, fallback: null }),
+    shareUrl: sanitizeUrl(shareUrl),
+    metadata: metadataPayload,
+  });
+
+  const shareCountMap = await computeShareCounts([numericId]);
+
+  res.status(201).json({
+    id: created.id,
+    postId: numericId,
+    target: created.target,
+    message: created.message,
+    shareUrl: created.shareUrl,
+    shareCount: shareCountMap.get(numericId) ?? 1,
+  });
+}
+
 async function summariseReactionsForPost(postId) {
   const rows = await FeedReaction.findAll({
     attributes: ['reactionType', [fn('COUNT', col('id')), 'count']],
@@ -684,7 +776,14 @@ export async function toggleReaction(req, res) {
   }
 
   const summary = await summariseReactionsForPost(numericId);
-  res.json({ postId: numericId, reaction: reactionType, active: active !== false, summary });
+  const viewerReactionMap = await computeViewerReactions([numericId], actor.id);
+  res.json({
+    postId: numericId,
+    reaction: reactionType,
+    active: active !== false,
+    summary,
+    viewerReaction: viewerReactionMap.get(numericId) ?? (active !== false ? reactionType : null),
+  });
 }
 
 export { serialiseFeedPost };

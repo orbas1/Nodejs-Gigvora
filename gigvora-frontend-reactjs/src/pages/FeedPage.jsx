@@ -200,6 +200,15 @@ export function normaliseFeedPost(post, fallbackSession) {
   if (typeof reactionsMap.like === 'number') {
     reactionsMap.likes = reactionsMap.like;
   }
+  const metricsSource =
+    post?.metrics && typeof post.metrics === 'object' && !Array.isArray(post.metrics)
+      ? { ...post.metrics }
+      : {};
+  const metricsComments = Number.isFinite(Number(metricsSource.comments))
+    ? Number(metricsSource.comments)
+    : null;
+  const metricsSharesRaw = metricsSource.shares ?? post?.shareCount;
+  const metricsShares = Number.isFinite(Number(metricsSharesRaw)) ? Number(metricsSharesRaw) : 0;
   const viewerReaction = (() => {
     const rawReaction =
       post.viewerReaction ||
@@ -233,6 +242,17 @@ export function normaliseFeedPost(post, fallbackSession) {
     viewerHasLiked: viewerReaction ? viewerReaction === 'like' : Boolean(post.viewerHasLiked),
     comments: Array.isArray(post.comments) ? post.comments : [],
     mediaAttachments: extractMediaAttachments(post),
+    metrics: {
+      ...metricsSource,
+      comments:
+        metricsComments != null
+          ? metricsComments
+          : Array.isArray(post.comments)
+          ? countThreadComments(normaliseCommentList(post.comments, post))
+          : 0,
+      shares: metricsShares,
+    },
+    shareCount: metricsShares,
     User:
       post.User ??
       (fallbackSession
@@ -760,6 +780,11 @@ function FeedPostCard({
   }, []);
 
   const commentCount = commentStats.total ?? 0;
+  const shareCount = useMemo(() => {
+    const rawShare = post?.metrics?.shares ?? post?.shareCount;
+    const numeric = Number(rawShare);
+    return Number.isFinite(numeric) && numeric >= 0 ? numeric : 0;
+  }, [post?.metrics?.shares, post?.shareCount]);
 
   const shareCallback = useCallback(() => {
     if (typeof onShare === 'function') {
@@ -906,6 +931,7 @@ function FeedPostCard({
             initialViewerReaction={initialViewerReaction}
             viewerHasLiked={post.viewerHasLiked}
             commentCount={commentCount}
+            shareCount={shareCount}
             onReactionChange={handleReactionBridge}
             onOpenShare={shareCallback}
           />

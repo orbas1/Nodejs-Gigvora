@@ -30,6 +30,11 @@ const FeedReactionMock = {
   destroy: jest.fn(),
 };
 
+const FeedShareMock = {
+  findAll: jest.fn(),
+  create: jest.fn(),
+};
+
 const UserMock = {
   findByPk: jest.fn(),
 };
@@ -69,6 +74,7 @@ jest.unstable_mockModule(suggestionModuleUrl.pathname, () => ({
 let listFeed;
 let createComment;
 let toggleReaction;
+let recordShare;
 
 async function importController() {
   const { __setModelStubs } = await import(modelsModuleSpecifier);
@@ -76,6 +82,7 @@ async function importController() {
     FeedPost: FeedPostMock,
     FeedComment: FeedCommentMock,
     FeedReaction: FeedReactionMock,
+    FeedShare: FeedShareMock,
     User: UserMock,
     Profile: ProfileMock,
     Connection: ConnectionMock,
@@ -101,6 +108,11 @@ function resetMocks() {
       mock.mockReset();
     }
   }
+  for (const mock of Object.values(FeedShareMock)) {
+    if (typeof mock === 'function') {
+      mock.mockReset();
+    }
+  }
   UserMock.findByPk.mockReset();
   ProfileMock.findAll.mockReset();
   ConnectionMock.findAll.mockReset();
@@ -117,6 +129,7 @@ function resetMocks() {
     liveMoments: [],
   });
   invalidateFeedSuggestionsMock.mockReset();
+  FeedShareMock.findAll.mockResolvedValue([]);
 }
 
 beforeEach(async () => {
@@ -126,6 +139,7 @@ beforeEach(async () => {
   listFeed = controller.listFeed;
   createComment = controller.createComment;
   toggleReaction = controller.toggleReaction;
+  recordShare = controller.recordShare;
 });
 
 afterEach(() => {
@@ -167,8 +181,11 @@ describe('feedController', () => {
       },
     ]);
     FeedPostMock.count.mockResolvedValue(1);
-    FeedReactionMock.findAll.mockResolvedValue([{ postId: 10, reactionType: 'like', count: '3' }]);
+    FeedReactionMock.findAll
+      .mockResolvedValueOnce([{ postId: 10, reactionType: 'like', count: '3' }])
+      .mockResolvedValueOnce([{ postId: 10, reactionType: 'support' }]);
     FeedCommentMock.findAll.mockResolvedValue([{ postId: 10, count: '2' }]);
+    FeedShareMock.findAll.mockResolvedValueOnce([{ postId: 10, count: '2' }]);
 
     const req = { query: {} };
     const res = createResponse();
@@ -180,7 +197,9 @@ describe('feedController', () => {
         expect.objectContaining({
           id: 10,
           reactions: expect.objectContaining({ likes: 3 }),
-          metrics: expect.objectContaining({ comments: 2 }),
+          metrics: expect.objectContaining({ comments: 2, shares: 2 }),
+          viewerReaction: 'support',
+          viewerHasReacted: true,
         }),
       ],
       nextCursor: null,
@@ -255,7 +274,9 @@ describe('feedController', () => {
     FeedPostMock.findByPk.mockResolvedValue({ id: 55 });
     FeedReactionMock.findOne.mockResolvedValue(null);
     FeedReactionMock.create.mockResolvedValue({ id: 1 });
-    FeedReactionMock.findAll.mockResolvedValue([{ reactionType: 'like', count: '1' }]);
+    FeedReactionMock.findAll
+      .mockResolvedValueOnce([{ reactionType: 'like', count: '1' }])
+      .mockResolvedValueOnce([{ postId: 55, reactionType: 'like' }]);
 
     const req = {
       params: { postId: '55' },
@@ -278,7 +299,37 @@ describe('feedController', () => {
       reaction: 'like',
       active: true,
       summary: { likes: 1 },
+      viewerReaction: 'like',
     });
+  });
+
+  it('records a share event and returns the updated share count', async () => {
+    FeedPostMock.findByPk.mockResolvedValue({ id: 42 });
+    FeedShareMock.create.mockResolvedValue({
+      id: 7,
+      target: 'email',
+      message: 'Sharing release notes',
+      shareUrl: 'https://example.com/release',
+    });
+    FeedShareMock.findAll.mockResolvedValueOnce([{ postId: 42, count: '3' }]);
+
+    const req = {
+      params: { postId: '42' },
+      body: { target: 'email', message: 'Sharing release notes', shareUrl: 'https://example.com/release' },
+      user: { id: 11 },
+      headers: { 'x-user-role': 'user' },
+    };
+    const res = createResponse();
+
+    await recordShare(req, res);
+
+    expect(FeedShareMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({ postId: 42, userId: 11, target: 'email' }),
+    );
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ postId: 42, target: 'email', shareCount: 3 }),
+    );
   });
 
   it('enriches the feed response with suggested connections and signal payload', async () => {

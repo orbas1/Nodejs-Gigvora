@@ -110,6 +110,7 @@ const freelancerProfileSeeds = [
 
 const feedPosts = [
   {
+    seedKey: 'release-candidate-1-50',
     email: 'ava@gigvora.com',
     title: 'Release candidate 1.50 rolling out',
     summary: 'Runtime security enhancements and analytics exports now live for enterprise workspaces.',
@@ -130,6 +131,7 @@ const feedPosts = [
     authorHeadline: 'Co-founder & CEO · Gigvora',
   },
   {
+    seedKey: 'automation-template',
     email: 'leo@gigvora.com',
     title: 'Automation onboarding template available',
     summary: 'Async playbooks ready for teams onboarding to workflow automation templates.',
@@ -147,6 +149,72 @@ const feedPosts = [
       },
     ],
     authorHeadline: 'Fractional Staff Engineer · Gigvora Network',
+  },
+];
+
+const feedCommentSeeds = [
+  {
+    postKey: 'release-candidate-1-50',
+    authorEmail: 'leo@gigvora.com',
+    body:
+      'Huge milestone—enablement is queued to brief enterprise cohorts and update the launch checklist. Shipping notes look fantastic.',
+    replies: [
+      {
+        authorEmail: 'ava@gigvora.com',
+        body: 'Appreciate the prep, Leo. Ops dashboards will start reflecting the new safeguards by Friday.',
+      },
+    ],
+  },
+  {
+    postKey: 'release-candidate-1-50',
+    authorEmail: 'mentor@gigvora.com',
+    body: 'Can we publish a condensed changelog for mentors? Helps us coach founders through the security upgrade.',
+    replies: [
+      {
+        authorEmail: 'mia@gigvora.com',
+        body: 'On it—drafting a mentor-specific runbook so you can walk founders through the rollout.',
+      },
+    ],
+  },
+  {
+    postKey: 'automation-template',
+    authorEmail: 'mia@gigvora.com',
+    body: 'Success team already slotted this template into next week’s onboarding. Mind sharing the Loom walkthrough?',
+    replies: [
+      {
+        authorEmail: 'leo@gigvora.com',
+        body: 'Absolutely—added the Loom and annotated playbook to the shared folder just now.',
+      },
+      {
+        authorEmail: 'mentor@gigvora.com',
+        body: 'Loop me into the first async onboarding so I can capture sentiment from the new cohort.',
+      },
+    ],
+  },
+];
+
+const feedReactionSeeds = [
+  { postKey: 'release-candidate-1-50', userEmail: 'leo@gigvora.com', reactionType: 'celebrate' },
+  { postKey: 'release-candidate-1-50', userEmail: 'mia@gigvora.com', reactionType: 'support' },
+  { postKey: 'release-candidate-1-50', userEmail: 'mentor@gigvora.com', reactionType: 'insightful' },
+  { postKey: 'automation-template', userEmail: 'ava@gigvora.com', reactionType: 'love' },
+  { postKey: 'automation-template', userEmail: 'mia@gigvora.com', reactionType: 'celebrate' },
+];
+
+const feedShareSeeds = [
+  {
+    postKey: 'release-candidate-1-50',
+    userEmail: 'mia@gigvora.com',
+    target: 'email',
+    message: 'Sharing release candidate 1.50 notes with enterprise accounts and security leads.',
+    shareUrl: 'https://updates.gigvora.test/releases/1-50',
+  },
+  {
+    postKey: 'automation-template',
+    userEmail: 'mentor@gigvora.com',
+    target: 'linkedin',
+    message: 'Highlighting the automation onboarding template so mentors can amplify it to their cohorts.',
+    shareUrl: 'https://workspace.gigvora.test/automation-template',
   },
 ];
 
@@ -493,6 +561,26 @@ module.exports = {
     await queryInterface.sequelize.transaction(async (transaction) => {
       const now = new Date();
       const userIds = await ensureUsers(queryInterface, transaction);
+      const feedPostIds = new Map();
+      const resolveAuthorSnapshot = (email) => {
+        const userSeed = baseUsers.find((seed) => seed.email === email) ?? {};
+        const profileSeed =
+          profileSeeds.find((seed) => seed.email === email) ||
+          freelancerProfileSeeds.find((seed) => seed.email === email) ||
+          companyProfileSeeds.find((seed) => seed.email === email) ||
+          agencyProfileSeeds.find((seed) => seed.email === email) ||
+          {};
+        const name = [userSeed.firstName, userSeed.lastName].filter(Boolean).join(' ').trim() || email;
+        const headline =
+          profileSeed.headline ||
+          profileSeed.title ||
+          profileSeed.bio ||
+          profileSeed.companyName ||
+          profileSeed.agencyName ||
+          'Marketplace community update';
+        const avatarSeed = profileSeed.avatarSeed || userSeed.firstName || name;
+        return { name, headline, avatarSeed };
+      };
 
       await insertProfiles(queryInterface, transaction, 'profiles', profileSeeds, userIds, now);
       await insertProfiles(queryInterface, transaction, 'company_profiles', companyProfileSeeds, userIds, now);
@@ -502,6 +590,7 @@ module.exports = {
       for (const post of feedPosts) {
         const userId = userIds.get(post.email);
         if (!userId) continue;
+        const postKey = post.seedKey ?? `${userId}:${post.content}`;
         const userSeed = baseUsers.find((seed) => seed.email === post.email) ?? {};
         const profileSeed = profileSeeds.find((seed) => seed.email === post.email);
         const [existing] = await queryInterface.sequelize.query(
@@ -512,7 +601,10 @@ module.exports = {
             replacements: { userId, content: post.content },
           },
         );
-        if (existing?.id) continue;
+        if (existing?.id) {
+          feedPostIds.set(postKey, existing.id);
+          continue;
+        }
         const authorName =
           post.authorName ||
           [userSeed.firstName, userSeed.lastName].filter(Boolean).join(' ').trim() ||
@@ -539,6 +631,203 @@ module.exports = {
               authorHeadline,
               authorAvatarSeed,
               publishedAt: now,
+              createdAt: now,
+              updatedAt: now,
+            },
+          ],
+          { transaction },
+        );
+
+        const [inserted] = await queryInterface.sequelize.query(
+          'SELECT id FROM feed_posts WHERE userId = :userId AND content = :content ORDER BY id DESC LIMIT 1',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { userId, content: post.content },
+          },
+        );
+        if (inserted?.id) {
+          feedPostIds.set(postKey, inserted.id);
+        }
+      }
+
+      for (const commentSeed of feedCommentSeeds) {
+        const postId = feedPostIds.get(commentSeed.postKey);
+        if (!postId) {
+          throw new Error(`Missing feed post for comment seed ${commentSeed.postKey}`);
+        }
+        const userId = userIds.get(commentSeed.authorEmail);
+        if (!userId) {
+          throw new Error(`Missing user for comment seed author ${commentSeed.authorEmail}`);
+        }
+        const snapshot = resolveAuthorSnapshot(commentSeed.authorEmail);
+        const [existing] = await queryInterface.sequelize.query(
+          'SELECT id FROM feed_comments WHERE postId = :postId AND parentId IS NULL AND userId = :userId AND body = :body LIMIT 1',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { postId, userId, body: commentSeed.body },
+          },
+        );
+
+        let parentId = existing?.id ?? null;
+        if (!parentId) {
+          await queryInterface.bulkInsert(
+            'feed_comments',
+            [
+              {
+                postId,
+                userId,
+                parentId: null,
+                body: commentSeed.body,
+                authorName: snapshot.name,
+                authorHeadline: snapshot.headline,
+                authorAvatarSeed: snapshot.avatarSeed,
+                metadata: { seed: 'demo-feed' },
+                createdAt: now,
+                updatedAt: now,
+              },
+            ],
+            { transaction },
+          );
+          const [inserted] = await queryInterface.sequelize.query(
+            'SELECT id FROM feed_comments WHERE postId = :postId AND parentId IS NULL AND userId = :userId AND body = :body ORDER BY id DESC LIMIT 1',
+            {
+              type: QueryTypes.SELECT,
+              transaction,
+              replacements: { postId, userId, body: commentSeed.body },
+            },
+          );
+          parentId = inserted?.id ?? null;
+        }
+
+        if (!parentId) {
+          continue;
+        }
+
+        for (const replySeed of commentSeed.replies ?? []) {
+          const replyUserId = userIds.get(replySeed.authorEmail);
+          if (!replyUserId) {
+            throw new Error(`Missing user for reply seed author ${replySeed.authorEmail}`);
+          }
+          const replySnapshot = resolveAuthorSnapshot(replySeed.authorEmail);
+          const [existingReply] = await queryInterface.sequelize.query(
+            'SELECT id FROM feed_comments WHERE postId = :postId AND parentId = :parentId AND userId = :userId AND body = :body LIMIT 1',
+            {
+              type: QueryTypes.SELECT,
+              transaction,
+              replacements: { postId, parentId, userId: replyUserId, body: replySeed.body },
+            },
+          );
+          if (existingReply?.id) {
+            continue;
+          }
+          await queryInterface.bulkInsert(
+            'feed_comments',
+            [
+              {
+                postId,
+                userId: replyUserId,
+                parentId,
+                body: replySeed.body,
+                authorName: replySnapshot.name,
+                authorHeadline: replySnapshot.headline,
+                authorAvatarSeed: replySnapshot.avatarSeed,
+                metadata: { seed: 'demo-feed' },
+                createdAt: now,
+                updatedAt: now,
+              },
+            ],
+            { transaction },
+          );
+        }
+      }
+
+      for (const reactionSeed of feedReactionSeeds) {
+        const postId = feedPostIds.get(reactionSeed.postKey);
+        if (!postId) {
+          throw new Error(`Missing feed post for reaction seed ${reactionSeed.postKey}`);
+        }
+        const userId = userIds.get(reactionSeed.userEmail);
+        if (!userId) {
+          throw new Error(`Missing user for reaction seed ${reactionSeed.userEmail}`);
+        }
+        const [existing] = await queryInterface.sequelize.query(
+          'SELECT id, active FROM feed_reactions WHERE postId = :postId AND userId = :userId AND reactionType = :reactionType LIMIT 1',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: {
+              postId,
+              userId,
+              reactionType: reactionSeed.reactionType,
+            },
+          },
+        );
+        if (existing?.id) {
+          if (!existing.active) {
+            await queryInterface.bulkUpdate(
+              'feed_reactions',
+              { active: true, updatedAt: now },
+              { id: existing.id },
+              { transaction },
+            );
+          }
+          continue;
+        }
+        await queryInterface.bulkInsert(
+          'feed_reactions',
+          [
+            {
+              postId,
+              userId,
+              reactionType: reactionSeed.reactionType,
+              active: true,
+              metadata: { seed: 'demo-feed' },
+              createdAt: now,
+              updatedAt: now,
+            },
+          ],
+          { transaction },
+        );
+      }
+
+      for (const shareSeed of feedShareSeeds) {
+        const postId = feedPostIds.get(shareSeed.postKey);
+        if (!postId) {
+          throw new Error(`Missing feed post for share seed ${shareSeed.postKey}`);
+        }
+        const userId = userIds.get(shareSeed.userEmail);
+        if (!userId) {
+          throw new Error(`Missing user for share seed ${shareSeed.userEmail}`);
+        }
+        const [existing] = await queryInterface.sequelize.query(
+          'SELECT id FROM feed_shares WHERE postId = :postId AND userId = :userId AND target = :target LIMIT 1',
+          {
+            type: QueryTypes.SELECT,
+            transaction,
+            replacements: { postId, userId, target: shareSeed.target },
+          },
+        );
+        if (existing?.id) {
+          await queryInterface.bulkUpdate(
+            'feed_shares',
+            { message: shareSeed.message, shareUrl: shareSeed.shareUrl, updatedAt: now },
+            { id: existing.id },
+            { transaction },
+          );
+          continue;
+        }
+        await queryInterface.bulkInsert(
+          'feed_shares',
+          [
+            {
+              postId,
+              userId,
+              target: shareSeed.target,
+              message: shareSeed.message,
+              shareUrl: shareSeed.shareUrl,
+              metadata: { seed: 'demo-feed' },
               createdAt: now,
               updatedAt: now,
             },

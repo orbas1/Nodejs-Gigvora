@@ -38,6 +38,7 @@ export default function ReactionsBar({
   initialViewerReaction,
   viewerHasLiked = false,
   commentCount = 0,
+  shareCount = 0,
   onReactionChange,
   onOpenShare,
   insightAvatars = [],
@@ -110,6 +111,11 @@ export default function ReactionsBar({
 
   const reactionMenuId = useMemo(() => `reaction-menu-${resolvedPostId}`, [resolvedPostId]);
   const insightsId = useMemo(() => `reaction-insights-${resolvedPostId}`, [resolvedPostId]);
+  const formattedShareCount = useMemo(() => {
+    const numeric = Number(shareCount);
+    return Number.isFinite(numeric) && numeric > 0 ? numeric : 0;
+  }, [shareCount]);
+  const shareLabel = formattedShareCount === 1 ? 'share' : 'shares';
 
   const handleReactionSelect = (reactionId) => {
     setActiveReaction((previous) => {
@@ -220,6 +226,11 @@ export default function ReactionsBar({
         <ShareIcon className="h-4 w-4" />
         Share externally
       </button>
+      <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <ShareIcon className="h-4 w-4" />
+        {formattedShareCount}
+        <span className="text-[0.65rem] lowercase">{shareLabel}</span>
+      </span>
 
       {reactionSummaryLabel ? (
         <div
