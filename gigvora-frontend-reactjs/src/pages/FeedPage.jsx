@@ -2,12 +2,17 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowPathIcon,
+  ChevronDownIcon,
   ChatBubbleOvalLeftIcon,
   FaceSmileIcon,
-  HeartIcon,
+  HandRaisedIcon,
+  HandThumbUpIcon,
+  LightBulbIcon,
   PaperAirplaneIcon,
   PhotoIcon,
+  QuestionMarkCircleIcon,
   ShareIcon,
+  SparklesIcon,
 } from '@heroicons/react/24/outline';
 import UserAvatar from '../components/UserAvatar.jsx';
 import EmojiQuickPickerPopover from '../components/popovers/EmojiQuickPickerPopover.jsx';
@@ -93,6 +98,75 @@ const FEED_VIRTUAL_THRESHOLD = 14;
 const DEFAULT_CHUNK_ESTIMATE = 420;
 const OPPORTUNITY_POST_TYPES = new Set(['job', 'gig', 'project', 'launchpad', 'volunteering', 'mentorship']);
 
+const REACTION_OPTIONS = [
+  {
+    id: 'like',
+    label: 'Appreciate',
+    activeLabel: 'Appreciated',
+    Icon: HandThumbUpIcon,
+    activeClasses: 'border-sky-200 bg-sky-50 text-sky-700',
+    dotClassName: 'bg-sky-500',
+    description: 'Show gratitude or agreement.',
+  },
+  {
+    id: 'celebrate',
+    label: 'Celebrate',
+    activeLabel: 'Celebrating',
+    Icon: SparklesIcon,
+    activeClasses: 'border-amber-200 bg-amber-50 text-amber-700',
+    dotClassName: 'bg-amber-500',
+    description: 'Mark major wins and launches.',
+  },
+  {
+    id: 'support',
+    label: 'Support',
+    activeLabel: 'Supporting',
+    Icon: HandRaisedIcon,
+    activeClasses: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    dotClassName: 'bg-emerald-500',
+    description: 'Signal you have their back.',
+  },
+  {
+    id: 'insightful',
+    label: 'Insightful',
+    activeLabel: 'Finding insightful',
+    Icon: LightBulbIcon,
+    activeClasses: 'border-violet-200 bg-violet-50 text-violet-700',
+    dotClassName: 'bg-violet-500',
+    description: 'Highlight thought leadership.',
+  },
+  {
+    id: 'curious',
+    label: 'Curious',
+    activeLabel: 'Curious',
+    Icon: QuestionMarkCircleIcon,
+    activeClasses: 'border-rose-200 bg-rose-50 text-rose-700',
+    dotClassName: 'bg-rose-500',
+    description: 'Invite deeper conversation.',
+  },
+];
+
+const REACTION_LOOKUP = REACTION_OPTIONS.reduce((map, option) => {
+  map[option.id] = option;
+  return map;
+}, {});
+
+const REACTION_ALIASES = {
+  like: 'like',
+  likes: 'like',
+  heart: 'support',
+  love: 'support',
+  celebrate: 'celebrate',
+  celebration: 'celebrate',
+  celebrations: 'celebrate',
+  support: 'support',
+  supportive: 'support',
+  insightful: 'insightful',
+  insight: 'insightful',
+  curious: 'curious',
+  curiosity: 'curious',
+};
+
 export function resolveAuthor(post) {
   const directAuthor = post?.author ?? {};
   const user = post?.User ?? post?.user ?? {};
@@ -152,6 +226,32 @@ export function extractMediaAttachments(post) {
   return attachments;
 }
 
+function normaliseReactionSummary(reactions) {
+  const summary = {};
+  if (reactions && typeof reactions === 'object') {
+    Object.entries(reactions).forEach(([key, value]) => {
+      if (!Number.isFinite(Number(value))) {
+        return;
+      }
+      const normalisedKey = key.toString().toLowerCase().replace(/[^a-z]/g, '');
+      const canonical = REACTION_ALIASES[normalisedKey] || (REACTION_LOOKUP[normalisedKey] ? normalisedKey : null);
+      if (!canonical) {
+        summary[normalisedKey] = (summary[normalisedKey] ?? 0) + Number(value);
+        return;
+      }
+      summary[canonical] = (summary[canonical] ?? 0) + Number(value);
+    });
+  }
+
+  REACTION_OPTIONS.forEach((option) => {
+    if (typeof summary[option.id] !== 'number') {
+      summary[option.id] = 0;
+    }
+  });
+
+  return summary;
+}
+
 export function normaliseFeedPost(post, fallbackSession) {
   if (!post || typeof post !== 'object') {
     return null;
@@ -165,6 +265,23 @@ export function normaliseFeedPost(post, fallbackSession) {
     [post.User?.firstName, post.User?.lastName, post.User?.name].filter(Boolean).join(' ') ||
     fallbackSession?.name ||
     'Gigvora member';
+
+  const reactionSummary = normaliseReactionSummary(post.reactions);
+  const reactionsMap = { ...reactionSummary };
+  if (typeof reactionsMap.like === 'number') {
+    reactionsMap.likes = reactionsMap.like;
+  }
+  const viewerReaction = (() => {
+    const rawReaction =
+      post.viewerReaction ||
+      post.viewerReactionType ||
+      (post.viewerHasLiked ? 'like' : null);
+    if (!rawReaction) {
+      return null;
+    }
+    const key = rawReaction.toString().toLowerCase().replace(/[^a-z]/g, '');
+    return REACTION_ALIASES[key] || (REACTION_LOOKUP[key] ? key : null);
+  })();
 
   const normalised = {
     id: post.id ?? `local-${Date.now()}`,
@@ -181,7 +298,10 @@ export function normaliseFeedPost(post, fallbackSession) {
       post.User?.Profile?.bio ||
       fallbackSession?.title ||
       'Marketplace community update',
-    reactions: post.reactions ?? { likes: typeof post.likes === 'number' ? post.likes : 0 },
+    reactions: reactionsMap,
+    reactionSummary,
+    viewerReaction,
+    viewerHasLiked: viewerReaction ? viewerReaction === 'like' : Boolean(post.viewerHasLiked),
     comments: Array.isArray(post.comments) ? post.comments : [],
     mediaAttachments: extractMediaAttachments(post),
     User:
@@ -902,7 +1022,7 @@ function FeedPostCard({
   editSaving = false,
   editError = null,
   deleteLoading = false,
-  onToggleReaction,
+  onReactionChange,
 }) {
   const author = resolveAuthor(post);
   const postType = resolvePostType(post);
@@ -914,36 +1034,77 @@ function FeedPostCard({
   const viewerName = viewer?.name ?? 'You';
   const viewerHeadline = viewer?.title ?? viewer?.headline ?? 'Shared via Gigvora';
   const viewerAvatarSeed = viewer?.avatarSeed ?? viewer?.name ?? viewerName;
-  const [liked, setLiked] = useState(Boolean(post.viewerHasLiked));
-  const [likeCount, setLikeCount] = useState(() => {
-    if (typeof post.reactions?.likes === 'number') {
-      return post.reactions.likes;
-    }
-    if (typeof post.likes === 'number') {
-      return post.likes;
-    }
-    return Math.max(7, Math.round(Math.random() * 32));
-  });
+  const computedReactionSummary = useMemo(
+    () => normaliseReactionSummary(post.reactionSummary ?? post.reactions ?? {}),
+    [post.reactionSummary, post.reactions],
+  );
+  const [reactionSummary, setReactionSummary] = useState(computedReactionSummary);
+  useEffect(() => {
+    setReactionSummary(computedReactionSummary);
+  }, [computedReactionSummary]);
+
+  const [activeReaction, setActiveReaction] = useState(
+    () => post.viewerReaction ?? (post.viewerHasLiked ? 'like' : null),
+  );
+  useEffect(() => {
+    setActiveReaction(post.viewerReaction ?? (post.viewerHasLiked ? 'like' : null));
+  }, [post.viewerHasLiked, post.viewerReaction]);
+
+  const [reactionPickerOpen, setReactionPickerOpen] = useState(false);
+  const reactionPickerRef = useRef(null);
   const [comments, setComments] = useState(() => normaliseCommentList(post?.comments ?? [], post));
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentsError, setCommentsError] = useState(null);
   const [commentDraft, setCommentDraft] = useState('');
 
   useEffect(() => {
-    setLiked(Boolean(post.viewerHasLiked));
-  }, [post.viewerHasLiked, post.id]);
+    if (!reactionPickerOpen) {
+      return undefined;
+    }
+    const handlePointerDown = (event) => {
+      if (!reactionPickerRef.current) {
+        return;
+      }
+      if (!reactionPickerRef.current.contains(event.target)) {
+        setReactionPickerOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+    };
+  }, [reactionPickerOpen]);
 
-  useEffect(() => {
-    setLikeCount(() => {
-      if (typeof post.reactions?.likes === 'number') {
-        return post.reactions.likes;
-      }
-      if (typeof post.likes === 'number') {
-        return post.likes;
-      }
-      return Math.max(7, Math.round(Math.random() * 32));
-    });
-  }, [post.reactions?.likes, post.likes, post.id]);
+  const totalReactions = useMemo(() => {
+    if (!reactionSummary) {
+      return 0;
+    }
+    return Object.values(reactionSummary).reduce((total, value) => {
+      const numeric = Number(value);
+      return total + (Number.isFinite(numeric) ? numeric : 0);
+    }, 0);
+  }, [reactionSummary]);
+
+  const topReactions = useMemo(() => {
+    if (!reactionSummary) {
+      return [];
+    }
+    return Object.entries(reactionSummary)
+      .filter(([, count]) => Number(count) > 0)
+      .map(([id, count]) => ({ id, count: Number(count), option: REACTION_LOOKUP[id] }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 3);
+  }, [reactionSummary]);
+
+  const activeReactionOption = activeReaction ? REACTION_LOOKUP[activeReaction] : null;
+  const reactionButtonLabel = activeReactionOption?.activeLabel ?? 'React';
+  const reactionButtonClasses = activeReactionOption
+    ? activeReactionOption.activeClasses
+    : 'border-slate-200 hover:border-accent/60 hover:text-accent';
+  const ReactionIcon = activeReactionOption?.Icon ?? HandThumbUpIcon;
+  const reactionMenuId = useMemo(() => `reaction-menu-${post.id}`, [post.id]);
 
   useEffect(() => {
     setComments(normaliseCommentList(post?.comments ?? [], post));
@@ -998,24 +1159,45 @@ function FeedPostCard({
     [comments],
   );
 
-  const handleLike = () => {
-    setLiked((previous) => {
-      const nextLiked = !previous;
-      setLikeCount((current) => {
-        const nextCount = nextLiked ? current + 1 : Math.max(0, current - 1);
-        return nextCount;
+  const handleReactionSelect = useCallback(
+    (reactionId) => {
+      setActiveReaction((previous) => {
+        const willActivate = previous !== reactionId;
+        setReactionSummary((current) => {
+          const updated = { ...(current ?? {}) };
+          if (previous && typeof updated[previous] === 'number') {
+            updated[previous] = Math.max(0, updated[previous] - 1);
+          }
+          if (willActivate) {
+            updated[reactionId] = (updated[reactionId] ?? 0) + 1;
+          }
+          return updated;
+        });
+        analytics.track(
+          'web_feed_reaction_click',
+          { postId: post.id, reaction: reactionId, active: willActivate },
+          { source: 'web_app' },
+        );
+        if (typeof onReactionChange === 'function') {
+          onReactionChange(post, { next: willActivate ? reactionId : null, previous });
+        }
+        return willActivate ? reactionId : null;
       });
-      analytics.track(
-        'web_feed_reaction_click',
-        { postId: post.id, action: 'like', like: nextLiked },
-        { source: 'web_app' },
-      );
-      if (typeof onToggleReaction === 'function') {
-        onToggleReaction(post, nextLiked);
-      }
-      return nextLiked;
-    });
-  };
+      setReactionPickerOpen(false);
+    },
+    [onReactionChange, post],
+  );
+
+  const handleReactionButtonClick = useCallback(() => {
+    handleReactionSelect(activeReaction ?? 'like');
+  }, [activeReaction, handleReactionSelect]);
+
+  const reactionSummaryLabel = useMemo(() => {
+    if (!totalReactions) {
+      return null;
+    }
+    return `${totalReactions} ${totalReactions === 1 ? 'appreciation' : 'appreciations'}`;
+  }, [totalReactions]);
 
   const handleCommentSubmit = async (event) => {
     event.preventDefault();
@@ -1263,6 +1445,11 @@ function FeedPostCard({
               </span>
             ) : null}
           </div>
+          {OPPORTUNITY_POST_TYPES.has(postType.key) ? (
+            <div className="mt-2 inline-flex items-center gap-2 rounded-2xl bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-700">
+              <SparklesIcon className="h-4 w-4" /> Opportunity spotlight — invite warm intros or referrals.
+            </div>
+          ) : null}
           {bodyText ? (
             <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">{bodyText}</p>
           ) : null}
@@ -1282,16 +1469,84 @@ function FeedPostCard({
             </a>
           ) : null}
           <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
-            <button
-              type="button"
-              onClick={handleLike}
-              className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 transition ${
-                liked ? 'border-rose-200 bg-rose-50 text-rose-600' : 'border-slate-200 hover:border-rose-200 hover:text-rose-600'
-              }`}
-            >
-              <HeartIcon className="h-4 w-4" />
-              {liked ? 'Liked' : 'Like'} · {likeCount}
-            </button>
+            <div ref={reactionPickerRef} className="relative inline-flex items-center">
+              <button
+                type="button"
+                onClick={handleReactionButtonClick}
+                className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 transition ${reactionButtonClasses}`}
+                aria-pressed={Boolean(activeReactionOption)}
+              >
+                <ReactionIcon className="h-4 w-4" />
+                {reactionButtonLabel}
+                {totalReactions ? (
+                  <span className="ml-1 text-[0.65rem] font-semibold text-slate-400">· {totalReactions}</span>
+                ) : null}
+              </button>
+              <button
+                type="button"
+                onClick={() => setReactionPickerOpen((previous) => !previous)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    setReactionPickerOpen((previous) => !previous);
+                  }
+                  if (event.key === 'Escape') {
+                    setReactionPickerOpen(false);
+                  }
+                }}
+                className={`ml-1 inline-flex items-center justify-center rounded-full border px-2 py-2 transition ${
+                  reactionPickerOpen
+                    ? 'border-accent text-accent'
+                    : 'border-slate-200 text-slate-500 hover:border-accent/60 hover:text-accent'
+                }`}
+                aria-label="Open reaction palette"
+                aria-haspopup="true"
+                aria-controls={reactionMenuId}
+                aria-expanded={reactionPickerOpen}
+              >
+                <ChevronDownIcon className="h-4 w-4" />
+              </button>
+              {reactionPickerOpen ? (
+                <div
+                  id={reactionMenuId}
+                  className="absolute left-0 top-full z-30 mt-2 w-64 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl"
+                  role="menu"
+                >
+                  {REACTION_OPTIONS.map((option) => {
+                    const isActive = option.id === activeReaction;
+                    const optionCount = reactionSummary?.[option.id] ?? 0;
+                    const OptionIcon = option.Icon;
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => handleReactionSelect(option.id)}
+                        className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm font-semibold transition ${
+                          isActive ? 'bg-slate-100 text-accent' : 'text-slate-600 hover:bg-slate-50'
+                        }`}
+                        role="menuitem"
+                      >
+                        <span className="flex items-center gap-3">
+                          <span
+                            className={`flex h-7 w-7 items-center justify-center rounded-full text-white ${option.dotClassName}`}
+                          >
+                            <OptionIcon className="h-4 w-4" />
+                          </span>
+                          <span className="flex flex-col items-start">
+                            <span>{option.label}</span>
+                            <span className="text-[0.65rem] font-medium text-slate-400">{option.description}</span>
+                          </span>
+                        </span>
+                        <span className="text-xs font-semibold text-slate-400">{optionCount}</span>
+                      </button>
+                    );
+                  })}
+                  <p className="px-3 pt-2 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-400">
+                    Tailor your response for the community.
+                  </p>
+                </div>
+              ) : null}
+            </div>
             <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-slate-500">
               <ChatBubbleOvalLeftIcon className="h-4 w-4" /> {totalConversationCount}{' '}
               {totalConversationCount === 1 ? 'comment' : 'conversations'}
@@ -1309,6 +1564,29 @@ function FeedPostCard({
               <ShareIcon className="h-4 w-4" /> Share externally
             </button>
           </div>
+          {reactionSummaryLabel ? (
+            <div
+              className="mt-2 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[0.7rem] font-semibold text-slate-600"
+              aria-live="polite"
+            >
+              <div className="flex -space-x-1">
+                {topReactions.map(({ id, option }) => {
+                  const OptionIcon = option?.Icon ?? ReactionIcon;
+                  const toneClass = option?.dotClassName ?? 'bg-slate-400';
+                  return (
+                    <span
+                      key={id}
+                      className={`flex h-5 w-5 items-center justify-center rounded-full border border-white text-white ${toneClass}`}
+                      aria-hidden="true"
+                    >
+                      <OptionIcon className="h-3 w-3" />
+                    </span>
+                  );
+                })}
+              </div>
+              <span>{reactionSummaryLabel}</span>
+            </div>
+          ) : null}
           <form onSubmit={handleCommentSubmit} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
             <label htmlFor={`comment-${post.id}`} className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Join the conversation
@@ -2177,12 +2455,22 @@ export default function FeedPage() {
     [canManagePost, editingPostId, refresh, removingPostId],
   );
 
-  const handleToggleReaction = useCallback(async (post, liked) => {
+  const handleReactionChange = useCallback(async (post, { next, previous }) => {
     if (!post?.id) {
       return;
     }
+    const operations = [];
+    if (previous && (!next || next !== previous)) {
+      operations.push(reactToFeedPost(post.id, previous, { active: false }));
+    }
+    if (next && next !== previous) {
+      operations.push(reactToFeedPost(post.id, next, { active: true }));
+    }
+    if (!operations.length) {
+      return;
+    }
     try {
-      await reactToFeedPost(post.id, 'like', { active: liked });
+      await Promise.all(operations);
     } catch (reactionError) {
       console.warn('Failed to sync reaction', reactionError);
     }
@@ -2225,7 +2513,7 @@ export default function FeedPage() {
         editSaving={editSaving}
         editError={editingPostId === post.id ? editingError : null}
         deleteLoading={removingPostId === post.id}
-        onToggleReaction={handleToggleReaction}
+        onReactionChange={handleReactionChange}
       />
     ),
     [
@@ -2240,7 +2528,7 @@ export default function FeedPage() {
       handleEditStart,
       handleEditSubmit,
       handleShareClick,
-      handleToggleReaction,
+      handleReactionChange,
       removingPostId,
       session,
     ],
