@@ -38,15 +38,29 @@ const DEFAULT_TESTIMONIALS = [
     quote:
       'Gigvora gave us a professional community that feels bespoke—every contributor arrived ready and our stakeholders finally have clarity.',
     name: 'Morgan Wells',
-    role: 'VP People · Northwind Digital',
+    authorName: 'Morgan Wells',
+    role: 'VP People',
+    authorRole: 'VP People',
+    company: 'Northwind Digital',
+    authorCompany: 'Northwind Digital',
     highlight: 'Scaled seven markets without adding ops headcount.',
+    badge: 'Enterprise rollout',
+    avatarUrl: 'https://cdn.gigvora.com/assets/avatars/leah-patel.png',
+    avatarAlt: 'Portrait of Morgan Wells smiling',
   },
   {
     quote:
       'We replaced scattered contractors with a dedicated Gigvora crew. Quality is exceptional and the admin load disappeared overnight.',
     name: 'Ivy Chen',
-    role: 'Founder · Forma Studio',
+    authorName: 'Ivy Chen',
+    role: 'Founder',
+    authorRole: 'Founder',
+    company: 'Forma Studio',
+    authorCompany: 'Forma Studio',
     highlight: 'Closed enterprise deals with on-demand specialists.',
+    badge: 'Venture studio',
+    avatarUrl: 'https://cdn.gigvora.com/assets/avatars/ivy-chen.png',
+    avatarAlt: 'Portrait of Ivy Chen wearing a blazer',
   },
 ];
 
@@ -60,21 +74,67 @@ function normaliseTestimonials(testimonials) {
       if (!item) return null;
 
       const quote = typeof item.quote === 'string' ? item.quote.trim() : '';
-      const name = typeof item.name === 'string' ? item.name.trim() : '';
-      const role = typeof item.role === 'string' ? item.role.trim() : '';
-      const highlight = typeof item.highlight === 'string' ? item.highlight.trim() : '';
-      let avatar = null;
-      if (typeof item.avatar === 'string' && item.avatar.trim().length) {
-        const altText =
-          typeof item.avatarAlt === 'string' && item.avatarAlt.trim().length
-            ? item.avatarAlt.trim()
-            : name
-              ? `${name} portrait`
-              : 'Customer portrait';
-        avatar = { src: item.avatar.trim(), alt: altText };
+      const nameCandidate =
+        typeof item.name === 'string'
+          ? item.name
+          : typeof item.authorName === 'string'
+          ? item.authorName
+          : typeof item.attribution === 'string'
+          ? item.attribution
+          : '';
+      const name = nameCandidate.trim();
+
+      const roleParts = [];
+      if (typeof item.role === 'string' && item.role.trim().length) {
+        roleParts.push(item.role.trim());
+      } else if (typeof item.authorRole === 'string' && item.authorRole.trim().length) {
+        roleParts.push(item.authorRole.trim());
       }
-      const company = typeof item.company === 'string' ? item.company.trim() : '';
-      const badge = typeof item.badge === 'string' ? item.badge.trim() : '';
+
+      const companyCandidate =
+        typeof item.company === 'string' && item.company.trim().length
+          ? item.company.trim()
+          : typeof item.authorCompany === 'string' && item.authorCompany.trim().length
+          ? item.authorCompany.trim()
+          : '';
+      if (companyCandidate) {
+        roleParts.push(companyCandidate);
+      }
+      const role = roleParts.join(' · ');
+
+      const highlightCandidate =
+        typeof item.highlight === 'string' && item.highlight.trim().length
+          ? item.highlight.trim()
+          : typeof item.highlightSummary === 'string' && item.highlightSummary.trim().length
+          ? item.highlightSummary.trim()
+          : typeof item.result === 'string' && item.result.trim().length
+          ? item.result.trim()
+          : '';
+
+      const badgeCandidate =
+        typeof item.badge === 'string' && item.badge.trim().length
+          ? item.badge.trim()
+          : typeof item.tag === 'string' && item.tag.trim().length
+          ? item.tag.trim()
+          : typeof item.segment === 'string' && item.segment.trim().length
+          ? item.segment.trim()
+          : '';
+
+      let avatar = null;
+      const avatarObject = item.avatar && typeof item.avatar === 'object' ? item.avatar : null;
+      const avatarUrl =
+        (typeof item.avatar === 'string' && item.avatar.trim().length && item.avatar.trim()) ||
+        (typeof item.avatarUrl === 'string' && item.avatarUrl.trim().length && item.avatarUrl.trim()) ||
+        (avatarObject && typeof avatarObject.src === 'string' && avatarObject.src.trim().length && avatarObject.src.trim());
+
+      if (avatarUrl) {
+        const altCandidate =
+          (typeof item.avatarAlt === 'string' && item.avatarAlt.trim().length && item.avatarAlt.trim()) ||
+          (avatarObject && typeof avatarObject.alt === 'string' && avatarObject.alt.trim().length && avatarObject.alt.trim()) ||
+          (typeof item.avatarAltText === 'string' && item.avatarAltText.trim().length && item.avatarAltText.trim()) ||
+          (name ? `${name} portrait` : 'Customer portrait');
+        avatar = { src: avatarUrl, alt: altCandidate };
+      }
 
       if (!quote) {
         return null;
@@ -85,10 +145,10 @@ function normaliseTestimonials(testimonials) {
         quote,
         name,
         role,
-        highlight,
+        highlight: highlightCandidate,
         avatar,
-        company,
-        badge,
+        company: companyCandidate,
+        badge: badgeCandidate,
       };
     })
     .filter(Boolean);
@@ -346,8 +406,10 @@ TestimonialsCarousel.propTypes = {
       name: PropTypes.string,
       role: PropTypes.string,
       highlight: PropTypes.string,
-      avatar: PropTypes.string,
-      avatarAlt: PropTypes.string,
+      avatar: PropTypes.shape({
+        src: PropTypes.string.isRequired,
+        alt: PropTypes.string,
+      }),
       company: PropTypes.string,
       badge: PropTypes.string,
     }),

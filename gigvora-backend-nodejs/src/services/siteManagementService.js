@@ -488,6 +488,44 @@ const DEFAULT_PRICING_METRICS = [
   { label: 'Mentor satisfaction', value: '96%', helper: 'Mentor guild NPS from the past four quarters.' },
 ];
 
+const DEFAULT_MARKETING_TESTIMONIALS = [
+  {
+    id: 'northwind',
+    quote:
+      'Gigvora unlocked a vetted product pod in 48 hours—finance, compliance, and delivery were already aligned.',
+    authorName: 'Leah Patel',
+    authorRole: 'VP Operations',
+    authorCompany: 'Northwind Labs',
+    avatarUrl: 'https://cdn.gigvora.com/assets/avatars/leah-patel.png',
+    avatarAlt: 'Portrait of Leah Patel smiling',
+    highlight: 'Scaled seven markets without adding ops headcount.',
+    badge: 'Enterprise rollout',
+  },
+  {
+    id: 'forma-studio',
+    quote: 'We replaced scattered contractors with a dedicated Gigvora crew—quality soared while admin vanished.',
+    authorName: 'Ivy Chen',
+    authorRole: 'Founder',
+    authorCompany: 'Forma Studio',
+    avatarUrl: 'https://cdn.gigvora.com/assets/avatars/ivy-chen.png',
+    avatarAlt: 'Portrait of Ivy Chen wearing a blazer',
+    highlight: 'Closed enterprise launches with on-demand specialists.',
+    badge: 'Venture studio',
+  },
+  {
+    id: 'aurora',
+    quote:
+      'Our accelerator pairs mentors and founders instantly. The shared telemetry keeps every stakeholder aligned.',
+    authorName: 'Diego Martínez',
+    authorRole: 'Programme Director',
+    authorCompany: 'Aurora Collective',
+    avatarUrl: 'https://cdn.gigvora.com/assets/avatars/diego-martinez.png',
+    avatarAlt: 'Portrait of Diego Martínez laughing',
+    highlight: 'Raised cohort satisfaction to 96% in two seasons.',
+    badge: 'Global accelerator',
+  },
+];
+
 const DEFAULT_MARKETING_FRAGMENT = {
   announcement: { ...DEFAULT_MARKETING_ANNOUNCEMENT },
   trustBadges: [...DEFAULT_MARKETING_TRUST_BADGES],
@@ -498,6 +536,7 @@ const DEFAULT_MARKETING_FRAGMENT = {
     featureMatrix: [...DEFAULT_PRICING_FEATURE_MATRIX],
     metrics: [...DEFAULT_PRICING_METRICS],
   },
+  testimonials: [...DEFAULT_MARKETING_TESTIMONIALS],
 };
 
 function coerceString(value, fallback = '') {
@@ -960,6 +999,45 @@ function sanitizeMarketingPersonas(personas, fallback = []) {
   return cleaned.length ? cleaned : baseList.map((item) => ({ ...item }));
 }
 
+function sanitizeMarketingTestimonials(testimonials, fallback = []) {
+  const list = Array.isArray(testimonials) ? testimonials : [];
+  const baseList = Array.isArray(fallback) && fallback.length ? fallback : DEFAULT_MARKETING_TESTIMONIALS;
+  const cleaned = list
+    .map((testimonial, index) => {
+      const base = baseList[index] ?? baseList[0];
+      const quote = coerceString(testimonial?.quote, base?.quote ?? '');
+      const authorName = coerceString(testimonial?.authorName ?? testimonial?.name, base?.authorName ?? '');
+      if (!quote || !authorName) {
+        return null;
+      }
+      const highlightSource =
+        testimonial?.highlight ?? testimonial?.highlightSummary ?? testimonial?.result ?? base?.highlight ?? '';
+      return {
+        id: coerceOptionalString(
+          testimonial?.id ?? testimonial?.key ?? testimonial?.slug,
+          base?.id ?? normalizeSlug(authorName) || `testimonial-${index + 1}`,
+        ),
+        quote,
+        authorName,
+        authorRole: coerceOptionalString(testimonial?.authorRole ?? testimonial?.role, base?.authorRole ?? ''),
+        authorCompany: coerceOptionalString(
+          testimonial?.authorCompany ?? testimonial?.company ?? testimonial?.organisation ?? testimonial?.organization,
+          base?.authorCompany ?? '',
+        ),
+        avatarUrl: coerceOptionalString(testimonial?.avatarUrl ?? testimonial?.avatar, base?.avatarUrl ?? ''),
+        avatarAlt: coerceOptionalString(
+          testimonial?.avatarAlt ?? testimonial?.avatarAltText,
+          base?.avatarAlt ?? (authorName ? `${authorName} portrait` : ''),
+        ),
+        highlight: coerceOptionalString(highlightSource, base?.highlight ?? ''),
+        badge: coerceOptionalString(testimonial?.badge ?? testimonial?.tag ?? testimonial?.segment, base?.badge ?? ''),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 6);
+  return cleaned.length ? cleaned : baseList.map((item) => ({ ...item }));
+}
+
 function sanitizePricingPlans(plans, fallback = []) {
   const list = Array.isArray(plans) ? plans : [];
   const baseList = Array.isArray(fallback) && fallback.length ? fallback : DEFAULT_PRICING_PLANS;
@@ -1081,6 +1159,7 @@ function sanitizeMarketing(marketing, fallback = DEFAULT_MARKETING_FRAGMENT) {
     personas: sanitizeMarketingPersonas(source.personas, base.personas),
     productTour: { steps: sanitizeProductTourSteps(source?.productTour?.steps ?? source.productTourSteps, base.productTour?.steps) },
     pricing: sanitizePricing(source.pricing, base.pricing),
+    testimonials: sanitizeMarketingTestimonials(source.testimonials, base.testimonials),
   };
 }
 

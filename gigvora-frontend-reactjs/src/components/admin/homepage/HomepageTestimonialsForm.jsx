@@ -4,8 +4,11 @@ function createTestimonial() {
     quote: '',
     authorName: '',
     authorRole: '',
+    authorCompany: '',
     avatarUrl: '',
-    highlight: false,
+    avatarAlt: '',
+    highlight: '',
+    badge: '',
   };
 }
 
@@ -20,7 +23,7 @@ export default function HomepageTestimonialsForm({ value, onChange, disabled }) 
   const handleFieldChange = (index, field) => (event) => {
     const nextTestimonials = testimonials.map((testimonial, testimonialIndex) => {
       if (testimonialIndex !== index) return testimonial;
-      const nextValue = field === 'highlight' ? event.target.checked : event.target.value;
+      const nextValue = event.target.value;
       return {
         ...testimonial,
         [field]: nextValue,
@@ -106,6 +109,29 @@ export default function HomepageTestimonialsForm({ value, onChange, disabled }) 
                   />
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Author company</label>
+                  <input
+                    type="text"
+                    value={testimonial.authorCompany ?? ''}
+                    onChange={handleFieldChange(index, 'authorCompany')}
+                    disabled={disabled}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:bg-slate-100"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Badge</label>
+                  <input
+                    type="text"
+                    value={testimonial.badge ?? ''}
+                    onChange={handleFieldChange(index, 'badge')}
+                    disabled={disabled}
+                    placeholder="Enterprise rollout"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:bg-slate-100"
+                  />
+                </div>
+              </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Avatar URL</label>
                 <input
@@ -117,16 +143,28 @@ export default function HomepageTestimonialsForm({ value, onChange, disabled }) 
                   className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:bg-slate-100"
                 />
               </div>
-              <label className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Avatar alt text</label>
                 <input
-                  type="checkbox"
-                  checked={Boolean(testimonial.highlight)}
+                  type="text"
+                  value={testimonial.avatarAlt ?? ''}
+                  onChange={handleFieldChange(index, 'avatarAlt')}
+                  disabled={disabled}
+                  placeholder="Portrait of Jamie Rivera smiling"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:bg-slate-100"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Highlight</label>
+                <textarea
+                  rows={2}
+                  value={testimonial.highlight ?? ''}
                   onChange={handleFieldChange(index, 'highlight')}
                   disabled={disabled}
-                  className="h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent"
+                  placeholder="Summarise the outcome or metric this quote unlocks"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:bg-slate-100"
                 />
-                Featured quote
-              </label>
+              </div>
             </div>
           </div>
         ))}
