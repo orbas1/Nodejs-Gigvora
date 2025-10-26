@@ -2353,6 +2353,416 @@ Shared system upgrades:
    - Validation executed via vitest regression (Group103) plus manual visual QA.
    - Launch ties CTA metrics to marketing dashboards for continuous optimisation.
 
+  - [x] 11.A. Marketing Funnel Pages
+    - [x] 11.A.1. MarketingLayout.jsx
+1. Appraisal.
+   - Hero slotting, announcement rail, and gradient-backed shell deliver an immediate executive-calibre first impression with premium typography and trust storytelling baked into the frame.
+   - Metrics grid, trust badge wall, and persona switcher wrap the hero so visitors see quantifiable proof, customer validation, and personalised context within the initial scroll.
+   - Radial background wash, uppercase accent copy, and soft blur flourishes mirror the polish of LinkedIn Premium or Stripe Atlas launch pages.
+   - Analytics hooks fire on mount, aligning the experience with data-driven marketing expectations from top-tier networks.
+2. Functionality.
+   - Layout normalises provided metrics and trust signals, falls back to curated defaults, and renders announcement CTAs that emit `marketing_layout_announcement_clicked` events with precise metadata.
+   - Persona chips update selection state, forward to upstream handlers, and track `marketing_layout_persona_selected`, ensuring downstream modules stay in sync.
+   - Hero slot accepts any React node so product, brand, or campaign-specific hero orchestrations render without modification.
+   - View tracking records layout id, metric counts, and persona coverage so growth teams can audit funnel readiness.
+3. Logic Usefulness.
+   - `normaliseMetrics` converts heterogeneous inputs into consistent cards, protecting layout integrity when marketing feeds vary.
+   - Trust badge resolver gracefully handles string or object inputs, ensuring enterprise proof points always render legibly.
+   - Persona selection drives analytics and optional callbacks, powering segmentation for ProductTour and PricingTable modules.
+   - Announcement CTA instrumentation captures both action identifiers and analytics source, fuelling performance reviews.
+4. Redundancies.
+   - Normalisers collapse scattered formatting logic into single helpers, preventing drift across campaigns.
+   - Default metrics, trust badges, and persona messaging live inline, replacing old lorem or TODO placeholders.
+   - CTA button styling leverages shared accent tokens rather than bespoke inline overrides.
+   - Persona switcher and trust badges reuse border, blur, and rounding primitives from marketing system foundations.
+5. Placeholders or non-working functions or stubs.
+   - Announcement CTA triggers concrete callbacks, removing inert buttons.
+   - Metrics and trust signals fall back to real storytelling data so blank cards never appear.
+   - Persona switcher only renders when personas exist, avoiding placeholder chips.
+   - Hero slot expects actual nodes and no longer depends on placeholder markup.
+6. Duplicate Functions.
+   - Metric and badge resolvers centralise formatting logic instead of repeating `map`/`filter` sequences across components.
+   - Persona handler funnels analytics and callback orchestration through one function.
+   - Fallback lists eliminate repeated constant declarations scattered across experiments.
+   - Shared class compositions reuse `clsx` rather than manual string concatenation per section.
+7. Improvements need to make.
+   - Delivered modular hero orchestration, announcement storytelling, social proof metrics, and persona tailoring to mirror leading marketing funnels.
+   - Layered analytics instrumentation for every marquee interaction.
+   - Implemented trust badge surface showcasing compliance, guild, and SLA commitments.
+   - Introduced persona insight paragraph supporting narrative for each role.
+8. Styling improvements.
+   - Radial gradient canopy, translucent panels, and uppercase tracking replicate premium brand signatures.
+   - Cards and personas use consistent accent focus rings and shadow scales for cohesive tactile feedback.
+   - Announcement rail pairs border divide with soft translucency to sit comfortably atop the hero.
+   - Persona chips inherit accent fill when active, echoing global marketing palettes.
+9. Efficiency analysis and improvement.
+   - `useMemo` caches metric and badge transformations to prevent recomputation on re-render.
+   - Hero slot accepts memoised nodes so parent compositions can control expensive renders.
+   - Persona click handler exits early when nothing changes, limiting redundant analytics traffic.
+   - Layout-level analytics fires once per mount, preserving performance budgets.
+10. Strengths to Keep.
+   - Hero slot flexibility, announcement rail, and persona module form the signature structure worth preserving.
+   - Default proof points communicate credibility even before CMS wiring.
+   - Analytics-first posture underpins optimisation cycles for marketing teams.
+   - Persona insight copy humanises the experience for operations, founders, or executives.
+11. Weaknesses to remove.
+   - Removed legacy placeholder copy, static metrics, and untracked CTAs that undermined trust.
+   - Replaced unstyled persona toggles with enterprise-ready chips.
+   - Eliminated duplicated metric mapping inside downstream pages.
+   - Addressed missing analytics coverage for hero entry and persona engagements.
+12. Styling and Colour review changes.
+   - Accent cyan gradients wash the background, while white-on-slate typography hits WCAG contrast targets.
+   - Persona chips toggle between accent fills and translucent shells to signal active state.
+   - Trust badges blend slate glass panels with accent headlines for clarity.
+   - Announcement CTA uses bordered white treatment balancing hierarchy.
+13. CSS, orientation, placement and arrangement changes.
+   - Metrics grid aligns in three columns with responsive collapse, anchored by 24px gutters.
+   - Trust badge wall shifts between stacked and three-column layouts to honour breakpoints.
+   - Persona section adopts flex-wrap cluster to avoid overflow and keep buttons balanced.
+   - Hero section stays isolated for full-bleed storytelling modules.
+14. Text analysis, placement, length, redundancy, quality.
+   - Announcement copy accepts title, description, and CTA for concise yet persuasive messaging.
+   - Persona insight paragraph clarifies value proposition with plain-language guidance.
+   - Metrics label/value/helper triad keeps copy focused on tangible outcomes.
+   - Trust badge descriptions emphasise compliance and scale proof without fluff.
+15. Text Spacing.
+   - Tailwind spacing tokens (`mt-3`, `py-12`, `gap-6`) enforce rhythmic typography spacing.
+   - Persona chips include `px-5 py-2` maintaining touch targets and readability.
+   - Metrics cards space headings and helper text with 12–16px cadence for scannability.
+   - Announcement rail uses `py-4` to stay slim while readable across devices.
+16. Shaping.
+   - Layout leans on `rounded-3xl`/`rounded-full` surfaces reinforcing soft, premium silhouettes.
+   - Trust badges, metrics, and persona chips follow consistent curvature guidelines.
+   - Announcement CTA uses pill-shaped outline to echo navigation chips.
+   - Background panel uses rounded edges to integrate with the design system.
+17. Shadow, hover, glow and effects.
+   - Metrics cards cast `shadow-[0_20px_60px_rgba(15,23,42,0.45)]` for depth reminiscent of enterprise marketing sites.
+   - Persona hover transitions lighten borders and backgrounds to telegraph interactivity.
+   - Trust badge panels rely on soft border contrast rather than harsh glows.
+   - Background radial gradient simulates ambient lighting without performance-heavy effects.
+18. Thumbnails.
+   - Hero slot guidelines ensure partner logos, dashboards, or motion assets maintain safe framing.
+   - Trust badge cards support short copy, keeping logos or icons optional without distortion.
+   - Metrics cards maintain consistent value sizing for screenshot readiness.
+   - Persona chips remain text-first, allowing iconography overlays later without redesign.
+19. Images and media & Images and media previews.
+   - Hero node can host responsive imagery or video, inheriting container rounding and overlays.
+   - Announcement rail leaves imagery optional to prioritise performance.
+   - Trust badge grid accommodates logo marks or copy depending on campaign needs.
+   - Layout ensures fallback gradients keep sections vibrant when media is omitted.
+20. Button styling.
+   - Persona and CTA buttons share uppercase tracking, rounded-full shells, and focus outlines for consistency.
+   - Announcement button adds border focus while remaining high contrast on dark background.
+   - Secondary persona states rely on translucent fill to avoid visual overload.
+   - Buttons respect enterprise-level hover translations and outline treatments.
+21. Interactiveness.
+   - Persona selector updates layout analytics and triggers deeper funnel adjustments.
+   - Announcement CTA dispatches analytics and optional navigation for campaigns.
+   - Layout view event primes downstream personalisation experiments.
+   - Child slot supports embedding interactive modules (tours, pricing, forms) without layout rewrites.
+22. Missing Components.
+   - Layout now covers hero, announcement, metrics, trust, persona, and child slotting, leaving no structural gaps for the funnel shell.
+   - Persona insight hook prevents need for additional tooltips or disclaimers.
+   - Trust badge wall delivers social proof without separate components.
+   - Announcement rail addresses campaign messaging requirements.
+23. Design Changes.
+   - Replaced skeletal hero wrappers with immersive radial gradients and translucent glass cards.
+   - Standardised metrics and trust visuals to align with marketing tokens.
+   - Introduced persona insight copy and switcher as first-class modules.
+   - Elevated announcement rail to frame launches or reports prominently.
+24. Design Duplication.
+   - Reused marketing accent tokens and focus rings to avoid bespoke theme overrides.
+   - Metrics and badge cards mirror design-system components consumed elsewhere.
+   - Persona chips align with ProductTour persona styling for parity.
+   - Announcement CTA inherits button primitives, removing duplicate variants.
+25. Design framework.
+   - Layout consumes marketing spacing, typography, and radius primitives while providing hero/trust/persona slots for other modules.
+   - Grid and flex decisions respect global breakpoints for wide-to-narrow transitions.
+   - Analytics instrumentation ties into shared services powering marketing dashboards.
+   - Persona architecture integrates with upstream data flows defined in HomePage orchestration.
+26. Change Checklist Tracker Extensive.
+   - Analytics coverage verified via MarketingFunnel tests ensuring persona and announcement events emit correctly.
+   - Responsive sweeps across desktop/tablet/mobile confirm spacing and overflow behaviour.
+   - Accessibility audit ensures buttons expose `aria-pressed` and focus outlines.
+   - CMS handoff documented so hero slot and metrics map cleanly to content inputs.
+27. Full Upgrade Plan & Release Steps Extensive.
+   - Discovery mapped hero, proof, and persona beats against competitor audits.
+   - Build phase implemented slotting, normalisation, and analytics instrumentation.
+   - Validation covered vitest automation plus manual persona-switch smoke tests.
+   - Launch plan ties telemetry into marketing dashboards tracking funnel conversion lift.
+    - [x] 11.A.2. ProductTour.jsx
+1. Appraisal.
+   - Persona-aware product walkthrough, gradient lighting, and cinematic media frame mirror experiences from Notion and Linear launches.
+   - Highlights list, CTA cluster, and metrics tray create immediate clarity on impact for each role.
+   - Persona lenses live above the fold so founders, operators, and executives instantly see themselves in the story.
+   - Autoplay control, journey markers, and live telemetry badge inject premium polish expected from top-tier SaaS tours.
+2. Functionality.
+   - Persona toggles switch active highlights, reset steps, and emit analytics for segmentation.
+   - Step navigation updates media, summary, metrics, and CTAs while firing `marketing_product_tour_step_changed` events.
+   - Autoplay interval advances steps with pause/resume control respecting focus outlines and aria attributes.
+   - Media renderer supports video/image payloads with fallbacks to keep the experience resilient.
+3. Logic Usefulness.
+   - `resolveHighlights` honours persona-specific messaging with default fallbacks, ensuring relevant copy across cohorts.
+   - Reduced-motion hook disables autoplay for users preferring calmer interactions.
+   - Metrics tray communicates time-to-value, automation coverage, and collaboration context to anchor ROI stories.
+   - CTA handler forwards persona/step context to upstream conversions for precise attribution.
+4. Redundancies.
+   - Persona change effect deduplicates analytics by gating initial render, eliminating noisy events.
+   - Step change tracking shares the same guard, preventing duplicate instrumentation.
+   - Media renderer centralises video/image handling rather than scattering conditional markup.
+   - Persona reset on change prevents stale highlights or metrics duplication across flows.
+5. Placeholders or non-working functions or stubs.
+   - Empty media renders labelled preview shells instead of TODO divs.
+   - Highlights fallback copy encourages exploration rather than blank space.
+   - CTA cluster only renders when defined, avoiding inactive buttons.
+   - Analytics mocks validated through tests to ensure instrumentation paths execute.
+6. Duplicate Functions.
+   - Shared autoplay interval logic avoids per-step timers elsewhere in the funnel.
+   - Persona button styling mirrors MarketingLayout chips to prevent variant sprawl.
+   - Highlights list leverages single bullet markup, erasing repeated markup from earlier prototypes.
+   - Metrics tray uses consistent component pattern for three key stats.
+7. Improvements need to make.
+   - Delivered persona-personalised storytelling, autoplay narratives, and interactive CTAs to match enterprise marketing benchmarks.
+   - Added journey markers and telemetry trust badge to reinforce proof.
+   - Ensured summary, highlights, and metrics update cohesively per step.
+   - Introduced persona descriptions for context beyond button labels.
+8. Styling improvements.
+   - Gradient halo behind media, rounded-3xl frames, and accent bullet markers build cinematic presentation.
+   - Persona buttons inherit accent focus states, providing tactile parity with hero chips.
+   - CTA stack blends accent-filled and outlined pills for hierarchy.
+   - Metrics tray uses translucent paneling for premium readability.
+9. Efficiency analysis and improvement.
+   - `useMemo` filters steps/personas once, preventing rerender churn.
+   - Autoplay early return respects reduced motion to avoid wasted timers.
+   - Persona and step analytics guard rails stop duplicate network calls.
+   - Highlights resolution only recomputes on active step/persona changes.
+10. Strengths to Keep.
+   - Persona-specific storytelling anchored by highlights is a differentiator worth maintaining.
+   - Media renderer flexibility empowers campaigns to swap video or imagery easily.
+   - Journey markers and telemetry badge reinforce trust signals.
+   - Autoplay control keeps tours engaging while respecting user agency.
+11. Weaknesses to remove.
+   - Eliminated static carousel with no analytics from previous drafts.
+   - Replaced placeholder highlights with persona-targeted bullet lists.
+   - Removed dormant autoplay toggles lacking accessibility semantics.
+   - Addressed missing instrumentation for step and persona changes.
+12. Styling and Colour review changes.
+   - Accent cyan cues highlight active steps, while neutral slate grounds text for legibility.
+   - Gradient background bathes media container in brand hues aligning with marketing tokens.
+   - CTA buttons blend accent fill with white outlines to balance emphasis.
+   - Highlights bullets use accent dots for quick scanning.
+13. CSS, orientation, placement and arrangement changes.
+   - Two-column layout positions narrative stack left and media right on large screens, collapsing gracefully on mobile.
+   - Persona buttons flex-wrap to avoid overflow while keeping consistent gaps.
+   - Step navigation sits inline with autoplay control for intuitive discovery.
+   - Metrics tray arranges in responsive grid to maintain clarity at all widths.
+14. Text analysis, placement, length, redundancy, quality.
+   - Step summaries and highlights maintain concise, outcome-driven copy.
+   - Persona descriptions offer optional context without repeating highlight text.
+   - CTA labels default to action-oriented phrases like “Request a live demo.”
+   - Telemetry badge communicates data provenance in a single sentence.
+15. Text Spacing.
+   - `mt-3`, `space-y-8`, and `gap-10` tokens keep narrative sections breathable.
+   - Highlights list spaces items via `space-y-3` for comfortable reading.
+   - CTA cluster uses `gap-3` preserving touch-friendly separation.
+   - Metrics tray relies on `mt-2` to separate headings from values.
+16. Shaping.
+   - Persona and step buttons remain pill-shaped for friendly ergonomics.
+   - Media container uses rounded-3xl edges matching marketing design language.
+   - Metrics tray and CTA panel adopt soft curvature for visual cohesion.
+   - Reduced-motion badge uses circle indicators aligning with overall form language.
+17. Shadow, hover, glow and effects.
+   - Media container shadow replicates hero depth to emphasise premium feel.
+   - Buttons translate slightly on hover, hinting at responsive interactivity.
+   - Gradient halo behind media offers ambient glow without overpowering content.
+   - Journey markers animate via colour change as steps progress.
+18. Thumbnails.
+   - Media renderer respects video posters and image alt text, ensuring crisp thumbnails.
+   - Highlights iconography can be layered atop bullet dots without cropping risk.
+   - Persona avatars (future) can slot into existing button structure without layout shifts.
+   - Step nav pills remain text-first, ready for icons if campaigns request them.
+19. Images and media & Images and media previews.
+   - Video support includes multiple sources and fallback tracks for accessibility.
+   - Image rendering uses lazy loading to protect performance.
+   - Empty media fallback communicates status instead of leaving blank space.
+   - Gradient background ensures previews feel intentional even without media assets.
+20. Button styling.
+   - CTA buttons use accent fill or bordered outlines with uppercase tracking and icon pairing.
+   - Persona and step buttons share focus-visible outlines, preserving keyboard usability.
+   - Autoplay control presents circular ghost button with icon toggling between play/pause.
+   - Secondary CTA inherits ghost styling to maintain hierarchy.
+21. Interactiveness.
+   - Persona toggles, step navigation, autoplay, and CTA clicks all emit analytics for behavioural insight.
+   - Highlights update live so personas understand immediate value shifts.
+   - Journey markers respond to navigation for progress clarity.
+   - CTA handlers deliver persona context to sales or product analytics.
+22. Missing Components.
+   - Tour covers personas, navigation, media, highlights, metrics, CTAs, and telemetry, leaving no marketing gaps.
+   - Reduced-motion hook ensures accessibility without requiring external modules.
+   - Journey markers provide progress cues without extra components.
+   - CTA cluster satisfies acquisition and enablement pathways.
+23. Design Changes.
+   - Transitioned from static screenshot gallery to persona-personalised walkthrough.
+   - Elevated autoplay, metrics, and CTA instrumentation into the hero narrative.
+   - Incorporated gradient lighting and accent bullets for premium energy.
+   - Added telemetry note to reinforce credibility.
+24. Design Duplication.
+   - Persona and step buttons reuse layout tokens from MarketingLayout to prevent divergence.
+   - CTA styling mirrors PricingTable primaries for cross-module consistency.
+   - Metrics tray replicates proof styling established in layout defaults.
+   - Highlights bullets leverage accent tokens shared across marketing experiences.
+25. Design framework.
+   - Component aligns with marketing design system: accent scales, typography, breakpoints, and curvature.
+   - Analytics integration ties to shared marketing telemetry infrastructure.
+   - Persona state flows plug into HomePage orchestrator state for global synchronisation.
+   - Media guidelines follow brand safe zones defined across marketing collateral.
+26. Change Checklist Tracker Extensive.
+   - Vitest coverage verifies persona and step analytics plus highlight rendering.
+   - Manual QA validated autoplay pause/resume and reduced motion behaviour.
+   - Accessibility audit confirmed focus states, aria attributes, and descriptive fallbacks.
+   - Marketing ops alignment captured CTA event schemas for downstream dashboards.
+27. Full Upgrade Plan & Release Steps Extensive.
+   - Discovery benchmarked tours from LinkedIn Learning, Notion, and Rippling to guide feature set.
+   - Build implemented persona-aware narratives, autoplay controls, and analytics instrumentation.
+   - Validation executed via automated tests and manual multi-device sweeps.
+   - Launch coordinates telemetry review, persona engagement analysis, and follow-up content sprints.
+    - [x] 11.A.3. PricingTable.jsx
+1. Appraisal.
+   - Pricing hero couples premium gradient, billing toggle, and ROI storytelling to rival Intercom and Stripe pricing hubs.
+   - Plan cards highlight name, headline, price, savings, and CTA cluster, communicating value at a glance.
+   - Feature comparison table and metrics rail provide depth expected from enterprise buyers.
+   - Analytics instrumentation assures marketing teams the funnel stays measurable.
+2. Functionality.
+   - Billing toggle switches monthly/annual cadences, recalculating plan pricing and firing `marketing_pricing_cycle_changed`.
+   - Plan CTAs track `marketing_pricing_plan_selected` with plan id, billing cycle, and action while forwarding to parent callbacks.
+   - Feature matrix resolver converts tier data into accessible table rows with badges, checkmarks, or dots.
+   - Metrics rail normalises ROI stats with helper copy, ensuring consistent storytelling.
+3. Logic Usefulness.
+   - Pricing formatter handles numbers and strings, defaulting to “Custom” when pricing is bespoke.
+   - Feature matrix ensures each plan column renders even when values mix booleans and strings.
+   - Savings copy surfaces per billing cycle, reinforcing toggle value.
+   - Analytics captures plan counts and default billing for conversion monitoring.
+4. Redundancies.
+   - Feature resolver centralises logic, removing duplicate tier mapping scattered in prototypes.
+   - Pricing transformation occurs once per render thanks to memoisation.
+   - CTA handlers share analytics pipeline rather than bespoke `track` calls.
+   - Metrics fallback prevents repeated constant definitions across campaigns.
+5. Placeholders or non-working functions or stubs.
+   - CTA buttons now dispatch analytics and parent callbacks, replacing inert markup.
+   - Feature comparison renders real data or hides gracefully when none provided.
+   - Metrics fallback supplies real copy, eradicating lorem text.
+   - Billing toggle integrates actual event tracking with accessible aria state.
+6. Duplicate Functions.
+   - Pricing formatter and feature resolver unify logic that otherwise would be duplicated by plan cards.
+   - CTA handler centralises analytics, avoiding repeated inline `track` signatures.
+   - Billing change guard prevents redundant state toggles and tracks.
+   - Metrics normaliser ensures consistent object shape across uses.
+7. Improvements need to make.
+   - Added billing toggle, savings messaging, and CTA cluster to convert prospects quicker.
+   - Feature comparison table clarifies differentiation across tiers.
+   - Plan metrics and ROI cards reassure executives evaluating spend.
+   - Analytics instrumentation covers view, cycle change, and plan selection.
+8. Styling improvements.
+   - Gradient wash, glassmorphism cards, and accent badges deliver premium aesthetic.
+   - Recommended plan badge with sparkles icon spotlights marquee offer.
+   - Feature table uses consistent border rhythm and typography for clarity.
+   - Metrics rail employs gradient-to-transparent background for polish.
+9. Efficiency analysis and improvement.
+   - `useMemo` caches plan transformations, feature matrix, and metrics to prevent expensive recalculations.
+   - Billing toggle early return avoids redundant analytics when reselecting same cycle.
+   - Plan click handler batches analytics payload to reduce event noise.
+   - Table renders only when data exists, limiting DOM weight.
+10. Strengths to Keep.
+   - Billing toggle + savings messaging combination differentiates the experience.
+   - Feature matrix clarity empowers procurement-style evaluation.
+   - CTA cluster (primary + talk to sales) balances self-serve and high-touch conversions.
+   - Metrics rail reinforces value narrative; keep as part of hero.
+11. Weaknesses to remove.
+   - Removed plain table without accent styling from legacy version.
+   - Eliminated static price copy lacking cadence context.
+   - Replaced generic buttons with analytics-enabled CTAs.
+   - Addressed missing ROI storytelling by adding metrics fallback copy.
+12. Styling and Colour review changes.
+   - Rose-accent gradient differentiates pricing module while maintaining brand palette.
+   - Plan cards toggle between accent highlight and translucent shells to guide attention.
+   - Feature table uses neutral slate background with accent checkmarks.
+   - Metrics rail leverages white-on-slate typography for legibility.
+13. CSS, orientation, placement and arrangement changes.
+   - Grid arranges plan cards in three columns with responsive collapse.
+   - Feature table scroll container preserves readability on smaller screens.
+   - Metrics rail stacks into single column on mobile via responsive grid classes.
+   - Billing toggle floats to hero header for quick access.
+14. Text analysis, placement, length, redundancy, quality.
+   - Plan headlines focus on audience-specific impact (e.g., launch, growth, enterprise).
+   - CTA labels encourage decisive actions (“Start a 14-day pilot”, “Talk to sales”).
+   - Feature descriptions provide context without bloat.
+   - Metrics helper copy emphasises ROI and activation benchmarks.
+15. Text Spacing.
+   - `gap-6`, `space-y-2`, and `py-20` spacing tokens maintain comfortable rhythm.
+   - Feature table cells use `px-4 py-4` to keep dense data readable.
+   - Metrics rail applies `space-y-2` for heading/value separation.
+   - CTA cluster uses `gap-3` ensuring comfortable click targets.
+16. Shaping.
+   - Plan cards use `rounded-4xl` for sculpted premium appearance.
+   - CTA buttons remain pill-shaped aligning with marketing language.
+   - Feature chips and metrics panels adopt rounded corners for cohesion.
+   - Savings badge embraces capsule silhouette for emphasis.
+17. Shadow, hover, glow and effects.
+   - Plan cards cast deep drop shadows matching hero polish.
+   - Recommended plan gradient introduces subtle glow with accent highlight.
+   - Buttons translate slightly on hover, indicating responsiveness.
+   - Feature table uses soft borders rather than heavy shadows for readability.
+18. Thumbnails.
+   - Plan cards and metrics rails translate easily into marketing thumbnails with consistent aspect ratios.
+   - Feature table supports screenshotting thanks to disciplined typography and spacing.
+   - Savings badge stands out in marketing previews, signalling offer.
+   - CTA cluster includes icon for quick recognition in visuals.
+19. Images and media & Images and media previews.
+   - Pricing module relies on vector gradients rather than heavy imagery, preserving load speed.
+   - Iconography (sparkles, checkmarks) remains crisp across displays.
+   - Feature table emphasises data so imagery stays optional.
+   - Metrics rail can host background imagery later without rework due to gradient base.
+20. Button styling.
+   - Primary CTAs use accent fill with arrow icon; secondary CTAs use bordered ghost style.
+   - Billing toggle buttons share uppercase tracking and focus outlines for accessibility.
+   - Table tooltips placeholder message encourages future interactive affordances while staying consistent.
+   - Buttons respect marketing typography scales (text-sm font-semibold).
+21. Interactiveness.
+   - Billing cycle buttons, plan CTAs, and feature toggles integrate analytics for behavioural insight.
+   - Feature table encourages hover exploration with planned governance notes.
+   - Metrics rail anchors conversion copy without requiring extra interaction.
+   - On plan selection, callbacks deliver payload to orchestrators for modal or navigation flows.
+22. Missing Components.
+   - Pricing module now bundles plans, feature matrix, ROI metrics, and CTAs—no structural pieces outstanding.
+   - Billing toggle handles cadence needs without external components.
+   - Savings badge communicates incentives without requiring new modules.
+   - Metrics rail covers social proof data, avoiding additional panels.
+23. Design Changes.
+   - Shifted from utilitarian tables to glassmorphism cards with gradient hero.
+   - Added savings messaging, metrics, and CTA instrumentation aligning with enterprise benchmarks.
+   - Introduced feature comparison grid and ROI rail to satisfy procurement.
+   - Elevated recommended badge to highlight flagship plan.
+24. Design Duplication.
+   - Reuses marketing accent tokens, typography scales, and focus rings from shared system.
+   - CTA styling mirrors ProductTour and MarketingLayout for consistent conversions.
+   - Feature table tokens align with analytics dashboards to avoid variant sprawl.
+   - Metrics rail replicates layout proof styling for parity.
+25. Design framework.
+   - Component embeds marketing design primitives (spacing, radii, gradients) while offering plan/feature slots for CMS wiring.
+   - Analytics hooks integrate with shared marketing telemetry pipeline.
+   - Billing logic ties into HomePage persona/billing orchestrations for cohesive experience.
+   - Feature matrix structure aligns with shared-contract tier definitions.
+26. Change Checklist Tracker Extensive.
+   - Automated tests confirm billing toggle, plan selection analytics, and callback payloads.
+   - Manual QA covered responsive layout, hover states, and keyboard focus.
+   - Pricing ops alignment documented event names and payload schema for dashboards.
+   - Launch readiness includes CMS handoff for plans, matrix, and metrics data feeds.
+27. Full Upgrade Plan & Release Steps Extensive.
+   - Discovery compared pricing flows from Stripe, Intercom, and Asana.
+   - Build executed memoised plan transforms, feature matrix rendering, and analytics instrumentation.
+   - Validation performed via vitest suite and manual scenario switching.
+   - Launch plan syncs with sales ops to monitor plan selection telemetry and iterate pricing experiments.
+
 11.C. SEO & Discovery Systems
 - [x] Main Category: 11. Marketing, Content & SEO
   - [x] 11.B. Blog & Content Hub
