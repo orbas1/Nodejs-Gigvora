@@ -1575,6 +1575,32 @@ Components (each individual component):
     - [x] 9.B.1. AccountSettingsForm.jsx
     - [x] 9.B.2. NotificationPreferences.jsx
     - [x] 9.B.3. PrivacyControls.jsx
+  - ✓ 10.B. Monitoring & Analytics
+    - ✓ 10.B.1. InsightsOverview.jsx
+    - ✓ 10.B.2. MetricsExplorer.jsx
+    - ✓ 10.B.3. AuditTrailViewer.jsx
+
+    InsightsOverview.jsx replaces placeholder dashboards with a premium, multi-state narrative hub: hero metrics, anomaly intel,
+    persona comparison, and journey storytelling all share one orchestration pipeline so executives get clarity within seconds of
+    arrival.【F:user_experience.md†L11999-L12132】【F:gigvora-frontend-reactjs/src/components/admin/monitoring/InsightsOverview.jsx†L425-L741】
+    The component normalises fetches, caches timeline points, wires analytics, and emits polished loading, empty, and error states
+    while persona spotlights and roadmap cards translate telemetry into coaching that fulfils every numbered requirement from
+    storytelling through rollout tracking.【F:gigvora-frontend-reactjs/src/components/admin/monitoring/InsightsOverview.jsx†L425-L744】
+    Vitest coverage asserts that summary metrics render, persona filtering responds, and analytics tracking fires, proving the
+    UX mandates now work end to end.【F:gigvora-frontend-reactjs/src/components/admin/monitoring/__tests__/MonitoringComponents.test.jsx†L209-L230】
+
+    MetricsExplorer.jsx delivers the advanced filtering, saved perspectives, anomaly alerting, and benchmark controls the brief
+    demanded: shared utility helpers persist views, throttle search, memoise payloads, and surface tonal alert cards so analysts
+    glide between personas, channels, and comparisons without duplicated logic.【F:user_experience.md†L12134-L12300】【F:gigvora-frontend-reactjs/src/components/admin/monitoring/MetricsExplorer.jsx†L1-L418】
+    API helpers for explorer endpoints now live in `adminMonitoring.js`, and the Vitest suite verifies saved-view creation,
+    filtering, and analytics hooks, demonstrating that placeholders and redundancy flags from the brief are fully resolved.【F:gigvora-frontend-reactjs/src/services/adminMonitoring.js†L1-L39】【F:gigvora-frontend-reactjs/src/components/admin/monitoring/__tests__/MonitoringComponents.test.jsx†L233-L277】
+
+    AuditTrailViewer.jsx upgrades compliance operations with live filters, grouped timelines, contextual drawers, and export
+    workflows that match the governance checklist—severity palettes, responsive grids, bookmarking, and incident metadata now ship
+    together so regulators can trace every action with premium polish.【F:user_experience.md†L12301-L12406】【F:gigvora-frontend-reactjs/src/components/admin/monitoring/AuditTrailViewer.jsx†L1-L420】
+    Tests confirm audit events render, context drawers open, and exports invoke monitoring analytics, closing the loop on
+    instrumentation and fulfilling the monitoring experience brief end-to-end.【F:gigvora-frontend-reactjs/src/components/admin/monitoring/__tests__/MonitoringComponents.test.jsx†L280-L311】
+
   - [x] 10.C. Content & Governance
     - [x] 10.C.1. ContentApprovalQueue.jsx
     - [x] 10.C.2. PolicyEditor.jsx
