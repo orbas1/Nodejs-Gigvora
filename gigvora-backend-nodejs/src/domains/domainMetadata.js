@@ -532,7 +532,7 @@ export const domainMetadata = {
         justification: 'Authoritative configuration for platform behaviour.',
       },
       RuntimeAnnouncement: {
-        fields: ['title', 'body'],
+        fields: ['title', 'message'],
         retention: 'Maintenance window + 12 months',
         justification: 'Used for incident retrospectives and policy reviews.',
       },

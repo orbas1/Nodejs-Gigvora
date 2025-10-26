@@ -2,7 +2,7 @@ import EventEmitter from 'node:events';
 
 import { getRuntimeConfig, onRuntimeConfigChange } from '../config/runtimeConfig.js';
 import logger from '../utils/logger.js';
-import { getVisibleAnnouncements } from './runtimeMaintenanceService.js';
+import { getVisibleAnnouncements, markAnnouncementsBroadcast } from './runtimeMaintenanceService.js';
 import { recordRuntimeSecurityEvent } from './securityAuditService.js';
 import { getInternalRealtimeHub } from '../realtime/internalHub.js';
 
@@ -67,11 +67,36 @@ async function runMaintenanceSweep() {
       windowMinutes: 6 * 60,
       limit: 100,
     });
-    lastSnapshot = snapshot;
+    const broadcastedAt = new Date();
+    let enrichedSnapshot = snapshot;
+    try {
+      const { updated, slugs } = await markAnnouncementsBroadcast(snapshot.announcements, { broadcastedAt });
+      enrichedSnapshot = {
+        ...snapshot,
+        broadcastedAt: broadcastedAt.toISOString(),
+        broadcastedCount: updated,
+        broadcastedSlugs: slugs,
+      };
+    } catch (markError) {
+      maintenanceLogger.warn({ err: markError }, 'Failed to stamp maintenance announcements as broadcasted');
+      enrichedSnapshot = {
+        ...snapshot,
+        broadcastedAt: broadcastedAt.toISOString(),
+        broadcastedCount: 0,
+        broadcastedSlugs: [],
+      };
+    }
+    lastSnapshot = enrichedSnapshot;
     lastRunAt = new Date().toISOString();
     lastError = null;
-    maintenanceLogger.debug({ active: snapshot.announcements?.length ?? 0 }, 'Runtime maintenance snapshot refreshed');
-    await broadcastSnapshot(snapshot);
+    maintenanceLogger.debug(
+      {
+        active: snapshot.announcements?.length ?? 0,
+        broadcasted: lastSnapshot.broadcastedCount,
+      },
+      'Runtime maintenance snapshot refreshed',
+    );
+    await broadcastSnapshot(enrichedSnapshot);
   } catch (error) {
     lastError = {
       message: error.message,
