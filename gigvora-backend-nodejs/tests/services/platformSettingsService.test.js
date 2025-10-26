@@ -282,6 +282,12 @@ describe('platformSettingsService', () => {
           {
             quote: 'Publishing updates is now a two-minute workflow.',
             authorName: 'Jamie Rivera',
+            authorRole: 'Product Operations Lead',
+            authorCompany: 'Signal Works',
+            avatarUrl: 'https://cdn.gigvora.com/assets/avatars/jamie-rivera.png',
+            avatarAlt: 'Portrait of Jamie Rivera smiling',
+            highlight: '  98% adoption in rollout  ',
+            badge: 'Launchpad pioneer',
           },
         ],
         faqs: [
@@ -304,11 +310,15 @@ describe('platformSettingsService', () => {
       expect(updated.valueProps[0].title).toBe('Operations ready');
       expect(updated.featureSections[0].bullets).toHaveLength(2);
       expect(updated.quickLinks[0].target).toBe('_blank');
+      expect(updated.testimonials[0].badge).toBe('Launchpad pioneer');
+      expect(updated.testimonials[0].highlight).toBe('98% adoption in rollout');
+      expect(updated.testimonials[0].authorCompany).toBe('Signal Works');
 
       const fetched = await getHomepageSettings();
       expect(fetched.hero.title).toBe('Operate with confidence');
       expect(fetched.announcementBar.enabled).toBe(false);
       expect(fetched.seo.title).toBe('Gigvora Homepage');
+      expect(fetched.testimonials[0].avatarAlt).toBe('Portrait of Jamie Rivera smiling');
     });
   });
 });

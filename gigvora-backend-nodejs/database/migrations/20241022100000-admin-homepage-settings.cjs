@@ -83,17 +83,23 @@ const HOMEPAGE_DEFAULT = {
       quote:
         'Gigvora unlocked a vetted product pod in 48 hours—finance, compliance, and delivery were already aligned.',
       authorName: 'Leah Patel',
-      authorRole: 'VP Operations, Northwind Labs',
+      authorRole: 'VP Operations',
+      authorCompany: 'Northwind Labs',
       avatarUrl: 'https://cdn.gigvora.com/assets/avatars/leah-patel.png',
-      highlight: true,
+      avatarAlt: 'Portrait of Leah Patel smiling',
+      highlight: 'Scaled seven markets without adding ops headcount.',
+      badge: 'Enterprise rollout',
     },
     {
       id: 'acme',
       quote: 'Compliance workflows and milestone escrow meant we focused on shipping, not paperwork.',
       authorName: 'Marcus Chen',
-      authorRole: 'Head of Product, Acme Robotics',
+      authorRole: 'Head of Product',
+      authorCompany: 'Acme Robotics',
       avatarUrl: 'https://cdn.gigvora.com/assets/avatars/marcus-chen.png',
-      highlight: false,
+      avatarAlt: 'Portrait of Marcus Chen in a studio',
+      highlight: 'Closed enterprise launches with zero compliance escalations.',
+      badge: 'Automation leaders',
     },
   ],
   faqs: [
@@ -385,16 +391,50 @@ const sanitizeTestimonials = (testimonials, defaults) => {
   const incoming = Array.isArray(testimonials) ? testimonials : [];
   const seen = new Set();
 
+  const sanitiseHighlight = (value, fallback) => {
+    if (typeof value === 'boolean') {
+      return value ? fallback : '';
+    }
+    if (typeof value === 'string') {
+      return sanitizeText(value, fallback, 220, { allowEmpty: true });
+    }
+    return fallback;
+  };
+
+  const sanitiseBadge = (value, fallback) => {
+    if (typeof value === 'string') {
+      return sanitizeText(value, fallback, 120, { allowEmpty: true });
+    }
+    return fallback;
+  };
+
+  const sanitiseCompany = (value, fallback) => {
+    if (typeof value === 'string') {
+      return sanitizeText(value, fallback, 160, { allowEmpty: true });
+    }
+    return fallback;
+  };
+
   const sanitisedDefaults = baseTestimonials.map((defaultEntry) => {
     const override = incoming.find((item) => normalizeId(item?.id) === defaultEntry.id) || {};
     seen.add(defaultEntry.id);
+    const highlightSource =
+      override.highlight ?? override.highlightSummary ?? override.result ?? override.metric ?? defaultEntry.highlight;
+    const badgeSource = override.badge ?? override.tag ?? override.segment ?? defaultEntry.badge;
+    const companySource =
+      override.authorCompany ?? override.company ?? override.organisation ?? override.organization ?? defaultEntry.authorCompany;
+    const avatarAltSource = override.avatarAlt ?? override.avatarAltText ?? defaultEntry.avatarAlt;
+
     return {
       id: defaultEntry.id,
       quote: sanitizeText(override.quote, defaultEntry.quote, 360),
       authorName: sanitizeText(override.authorName, defaultEntry.authorName, 120),
-      authorRole: sanitizeText(override.authorRole, defaultEntry.authorRole, 160),
+      authorRole: sanitizeText(override.authorRole, defaultEntry.authorRole, 160, { allowEmpty: true }),
+      authorCompany: sanitiseCompany(companySource, defaultEntry.authorCompany ?? ''),
       avatarUrl: sanitizeImageUrl(override.avatarUrl, defaultEntry.avatarUrl),
-      highlight: sanitizeBoolean(override.highlight, defaultEntry.highlight),
+      avatarAlt: sanitizeText(avatarAltSource, defaultEntry.avatarAlt ?? '', 160, { allowEmpty: true }),
+      highlight: sanitiseHighlight(highlightSource, defaultEntry.highlight ?? ''),
+      badge: sanitiseBadge(badgeSource, defaultEntry.badge ?? ''),
     };
   });
 
@@ -410,13 +450,21 @@ const sanitizeTestimonials = (testimonials, defaults) => {
       continue;
     }
 
+    const highlightSource = entry?.highlight ?? entry?.highlightSummary ?? entry?.result ?? '';
+    const badgeSource = entry?.badge ?? entry?.tag ?? entry?.segment ?? '';
+    const companySource = entry?.authorCompany ?? entry?.company ?? entry?.organisation ?? entry?.organization ?? '';
+    const avatarAltSource = entry?.avatarAlt ?? entry?.avatarAltText ?? (authorName ? `${authorName} portrait` : 'Customer portrait');
+
     sanitisedDefaults.push({
       id: entryId,
       quote,
       authorName,
       authorRole: sanitizeText(entry?.authorRole, '', 160, { allowEmpty: true }),
+      authorCompany: sanitiseCompany(companySource, ''),
       avatarUrl: sanitizeImageUrl(entry?.avatarUrl, '/assets/avatars/placeholder.png'),
-      highlight: sanitizeBoolean(entry?.highlight, false),
+      avatarAlt: sanitizeText(avatarAltSource, `${authorName} portrait`, 160, { allowEmpty: true }),
+      highlight: sanitiseHighlight(highlightSource, ''),
+      badge: sanitiseBadge(badgeSource, ''),
     });
     seen.add(entryId);
   }
