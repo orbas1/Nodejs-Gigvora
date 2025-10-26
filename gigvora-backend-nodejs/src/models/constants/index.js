@@ -845,6 +845,16 @@ export const REPUTATION_CONTENT_MODERATION_STATUSES = Object.freeze(['pending', 
 export const REPUTATION_SUCCESS_STORY_STATUSES = Object.freeze(['draft', 'in_review', 'published', 'archived']);
 export const REPUTATION_METRIC_TREND_DIRECTIONS = Object.freeze(['up', 'down', 'flat']);
 export const REPUTATION_REVIEW_WIDGET_STATUSES = Object.freeze(['draft', 'active', 'paused']);
+export const FREELANCER_REVIEW_VISIBILITIES = Object.freeze(['public', 'members', 'private']);
+export const FREELANCER_REVIEW_PERSONAS = Object.freeze([
+  'mentors',
+  'founders',
+  'investors',
+  'talent',
+  'partners',
+  'press',
+  'community',
+]);
 
 export const PIPELINE_BOARD_GROUPINGS = Object.freeze(['industry', 'retainer_size', 'probability']);
 export const PIPELINE_STAGE_CATEGORIES = Object.freeze(['open', 'won', 'lost']);

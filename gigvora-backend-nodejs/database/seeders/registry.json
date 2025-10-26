@@ -33,5 +33,12 @@
     "personas": ["freelancer", "recruiter", "mentor"],
     "domains": ["profiles", "timeline", "portfolio"],
     "tags": ["profile-hub", "storytelling", "showcase"]
+  },
+  "20250326113000-reputation-experience-demo": {
+    "title": "Reputation scorecard, composer & endorsement wall demo",
+    "summary": "Seeds testimonials, success stories, metrics, badges, review widgets, and persona-specific reviews for the Leo showcase.",
+    "personas": ["freelancer", "trust", "marketing"],
+    "domains": ["reputation", "testimonials", "reviews"],
+    "tags": ["reputation", "social-proof", "demo-data"]
   }
 }

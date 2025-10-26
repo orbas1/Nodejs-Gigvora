@@ -8,11 +8,15 @@ import {
   ReputationMetric,
   ReputationBadge,
   ReputationReviewWidget,
+  FreelancerReview,
   REPUTATION_TESTIMONIAL_SOURCES,
   REPUTATION_TESTIMONIAL_STATUSES,
   REPUTATION_SUCCESS_STORY_STATUSES,
   REPUTATION_METRIC_TREND_DIRECTIONS,
   REPUTATION_REVIEW_WIDGET_STATUSES,
+  FREELANCER_REVIEW_VISIBILITIES,
+  FREELANCER_REVIEW_PERSONAS,
+  sequelize,
 } from '../models/index.js';
 import { ValidationError, NotFoundError } from '../utils/errors.js';
 import {
@@ -238,6 +242,557 @@ function mapFreelancerProfile(record) {
   };
 }
 
+const PERSONA_LABELS = {
+  mentors: 'Mentors & advisors',
+  founders: 'Founders & operators',
+  investors: 'Investors & venture partners',
+  talent: 'Talent partners & recruiters',
+  partners: 'Agency & channel partners',
+  press: 'Press & analysts',
+  community: 'Community leaders',
+};
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function toNumber(value, fallback = 0) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function toPercent(value, { max = 100, fallback = null } = {}) {
+  if (value == null) {
+    return fallback;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+  return clamp((numeric / max) * 100, 0, 100);
+}
+
+function ratingToPercent(rating) {
+  if (rating == null) {
+    return null;
+  }
+  const numeric = Number(rating);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+  return clamp((numeric / 5) * 100, 0, 100);
+}
+
+function computeReviewStats(reviews) {
+  const now = Date.now();
+  let ratingSum = 0;
+  let ratingCount = 0;
+  let last30Days = 0;
+  let last90Days = 0;
+  const personaCounts = new Map();
+  const visibilityCounts = new Map();
+  const historyBuckets = new Map();
+
+  const sorted = [...reviews].sort((a, b) => {
+    const dateA = new Date(a.publishedAt ?? a.capturedAt ?? a.createdAt ?? 0).getTime();
+    const dateB = new Date(b.publishedAt ?? b.capturedAt ?? b.createdAt ?? 0).getTime();
+    return dateB - dateA;
+  });
+
+  for (const review of sorted) {
+    const rating = review.rating == null ? null : Number(review.rating);
+    if (Number.isFinite(rating)) {
+      ratingSum += rating;
+      ratingCount += 1;
+    }
+
+    const personaKey = review.persona ?? 'community';
+    personaCounts.set(personaKey, (personaCounts.get(personaKey) ?? 0) + 1);
+
+    const visibilityKey = review.visibility ?? 'public';
+    visibilityCounts.set(visibilityKey, (visibilityCounts.get(visibilityKey) ?? 0) + 1);
+
+    const timestamp = new Date(review.publishedAt ?? review.capturedAt ?? review.createdAt ?? 0).getTime();
+    if (!Number.isNaN(timestamp) && timestamp > 0) {
+      const daysSince = Math.floor((now - timestamp) / (1000 * 60 * 60 * 24));
+      if (daysSince <= 30) {
+        last30Days += 1;
+      }
+      if (daysSince <= 90) {
+        last90Days += 1;
+      }
+      const bucketDate = new Date(Date.UTC(new Date(timestamp).getUTCFullYear(), new Date(timestamp).getUTCMonth(), 1));
+      const bucketKey = bucketDate.toISOString();
+      const entry = historyBuckets.get(bucketKey) ?? {
+        total: 0,
+        count: 0,
+        date: bucketDate,
+      };
+      if (Number.isFinite(rating)) {
+        entry.total += rating;
+        entry.count += 1;
+      }
+      historyBuckets.set(bucketKey, entry);
+    }
+  }
+
+  const history = Array.from(historyBuckets.values())
+    .sort((a, b) => a.date.getTime() - b.date.getTime())
+    .map((entry) => ({
+      label: entry.date.toLocaleString('en-US', { month: 'short', year: 'numeric' }),
+      value: entry.count ? Number(entry.total / entry.count) : 0,
+    }));
+
+  return {
+    averageRating: ratingCount ? ratingSum / ratingCount : null,
+    ratingCount,
+    personaCounts,
+    visibilityCounts,
+    last30Days,
+    last90Days,
+    history,
+    sorted,
+  };
+}
+
+function determinePrimaryPersona(personaCounts) {
+  let topPersona = null;
+  let topCount = 0;
+  for (const [persona, count] of personaCounts.entries()) {
+    if (count > topCount) {
+      topPersona = persona;
+      topCount = count;
+    }
+  }
+  return topPersona;
+}
+
+function describeScoreTier(score) {
+  if (score >= 90) return 'Premier credibility';
+  if (score >= 80) return 'Trusted authority';
+  if (score >= 70) return 'Rising signal';
+  if (score >= 55) return 'Stabilising presence';
+  return 'Emerging trust';
+}
+
+function computeScoreDelta(history) {
+  if (!history?.length || history.length < 2) {
+    return { label: '+0.0 pts vs prior period', direction: 'up', delta: 0 };
+  }
+  const last = history[history.length - 1]?.value ?? null;
+  const previous = history[history.length - 2]?.value ?? null;
+  if (last == null || previous == null) {
+    return { label: '+0.0 pts vs prior period', direction: 'up', delta: 0 };
+  }
+  const delta = (Number(last) - Number(previous)) * 20; // ratings are 0-5, convert to 100 scale
+  const formatted = `${delta >= 0 ? '+' : ''}${delta.toFixed(1)} pts vs prior period`;
+  return { label: formatted, direction: delta >= 0 ? 'up' : 'down', delta };
+}
+
+function buildSegments({ metricsByType, reviewStats, summary, shareableLinks }) {
+  const onTime = toNumber(metricsByType.on_time_delivery_rate?.value, 0);
+  const onTimeTrend = toNumber(metricsByType.on_time_delivery_rate?.trendValue, 0);
+  const csatRaw = metricsByType.average_csat?.unit === 'percentage'
+    ? toPercent(metricsByType.average_csat?.value, { max: 100, fallback: 80 })
+    : ratingToPercent(metricsByType.average_csat?.value);
+  const csatPercent = csatRaw == null ? 80 : csatRaw;
+  const deliveryScore = Math.round((clamp(onTime, 0, 100) * 0.6) + csatPercent * 0.4);
+  const deliveryDelta = onTimeTrend;
+
+  const testimonialVolume = summary?.totals?.testimonials ?? 0;
+  const advocacyScore = Math.round(
+    (ratingToPercent(reviewStats.averageRating) ?? 78) * 0.6 +
+      clamp((testimonialVolume / 12) * 100, 0, 100) * 0.4,
+  );
+  const reviewDelta = computeScoreDelta(reviewStats.history).delta;
+
+  const publishedStories = summary?.totals?.publishedStories ?? 0;
+  const activeWidgets = summary?.totals?.activeWidgets ?? 0;
+  const brandScore = clamp(publishedStories * 12 + activeWidgets * 15 + shareableLinks.length * 8, 0, 100);
+  const recentShareables = shareableLinks.filter((link) => {
+    if (!link.publishedAt) return false;
+    const timestamp = new Date(link.publishedAt).getTime();
+    if (Number.isNaN(timestamp)) return false;
+    const diff = Date.now() - timestamp;
+    return diff <= 1000 * 60 * 60 * 24 * 90;
+  }).length;
+  const priorShareables = shareableLinks.length - recentShareables;
+  const brandDelta = priorShareables <= 0 ? recentShareables * 5 : (recentShareables - priorShareables) * 3;
+
+  return [
+    {
+      label: 'Delivery excellence',
+      score: deliveryScore,
+      deltaLabel: `${deliveryDelta >= 0 ? '+' : ''}${(deliveryDelta ?? 0).toFixed(1)} pts`,
+      deltaDirection: deliveryDelta >= 0 ? 'up' : 'down',
+      description: `On-time delivery at ${onTime.toFixed(1)}% with CSAT ${(metricsByType.average_csat?.value ?? '—')}.`,
+      guardrail: 'Maintain verified handoffs within 24h of milestone sign-off.',
+    },
+    {
+      label: 'Client advocacy',
+      score: advocacyScore,
+      deltaLabel: `${reviewDelta >= 0 ? '+' : ''}${reviewDelta.toFixed(1)} pts`,
+      deltaDirection: reviewDelta >= 0 ? 'up' : 'down',
+      description: `${testimonialVolume} testimonials and ${reviewStats.ratingCount} long-form reviews reinforce executive trust.`,
+      guardrail: 'Keep response SLAs under 48h to protect promoter momentum.',
+    },
+    {
+      label: 'Brand amplification',
+      score: Math.round(brandScore),
+      deltaLabel: `${brandDelta >= 0 ? '+' : ''}${brandDelta.toFixed(1)} pts`,
+      deltaDirection: brandDelta >= 0 ? 'up' : 'down',
+      description: `${publishedStories} case studies, ${activeWidgets} active widgets, and ${shareableLinks.length} shareable assets.`,
+      guardrail: 'Refresh spotlight assets quarterly to stay aligned with enterprise launches.',
+    },
+  ];
+}
+
+function buildBenchmarks({ metricsByType, globalMetrics, reviewStats }) {
+  const benchmarks = [];
+  const onTime = toNumber(metricsByType.on_time_delivery_rate?.value, null);
+  if (onTime != null) {
+    const global = globalMetrics.on_time_delivery_rate ?? null;
+    const delta = global == null ? null : onTime - global;
+    benchmarks.push({
+      label: 'On-time delivery',
+      value: `${onTime.toFixed(1)}%`,
+      delta: delta == null ? null : `${Math.abs(delta).toFixed(1)}%`,
+      deltaDirection: delta == null ? 'up' : delta >= 0 ? 'up' : 'down',
+    });
+  }
+
+  if (reviewStats.averageRating != null) {
+    const rating = reviewStats.averageRating;
+    const globalRating = globalMetrics.review_average ?? null;
+    const delta = globalRating == null ? null : (rating - globalRating).toFixed(2);
+    benchmarks.push({
+      label: 'Average review rating',
+      value: `${rating.toFixed(2)} / 5`,
+      delta: delta == null ? null : `${Math.abs(Number(delta)).toFixed(2)}`,
+      deltaDirection: delta == null ? 'up' : Number(delta) >= 0 ? 'up' : 'down',
+    });
+  }
+
+  const referrals = toNumber(metricsByType.referral_ready_clients?.value, null);
+  if (referrals != null) {
+    const globalReferrals = globalMetrics.referral_ready_clients ?? null;
+    const delta = globalReferrals == null ? null : referrals - globalReferrals;
+    benchmarks.push({
+      label: 'Referral-ready clients',
+      value: `${Math.round(referrals)}`,
+      delta: delta == null ? null : `${Math.abs(Math.round(delta))}`,
+      deltaDirection: delta == null ? 'up' : delta >= 0 ? 'up' : 'down',
+    });
+  }
+
+  return benchmarks;
+}
+
+function buildRecommendations({ metricsByType, reviewStats, summary, personaKey }) {
+  const items = [];
+  const rating = reviewStats.averageRating ?? 0;
+  if (rating < 4.8) {
+    items.push({
+      title: 'Launch advocate coaching sessions',
+      impact: `Lift average rating from ${rating.toFixed(2)} to 4.9+`,
+      checklist: [
+        'Schedule 2x monthly client retros with success and delivery',
+        'Capture verbatims to enrich future testimonial prompts',
+        'Route detractor feedback to operations within 24h',
+      ],
+      owner: 'Client success',
+      dueLabel: 'Next sprint',
+    });
+  }
+
+  const testimonials = summary?.totals?.testimonials ?? 0;
+  if (testimonials < 12) {
+    items.push({
+      title: 'Automate quarterly testimonial drives',
+      impact: 'Reach 12+ live testimonials per persona',
+      checklist: [
+        'Trigger outreach after milestone sign-off',
+        'Offer persona-specific prompts inside Review Composer',
+        'Track completion in CRM with nurture follow-up',
+      ],
+      owner: PERSONA_LABELS[personaKey] ?? 'Marketing ops',
+      dueLabel: '30 days',
+    });
+  }
+
+  const activeWidgets = summary?.totals?.activeWidgets ?? 0;
+  if (activeWidgets < 3) {
+    items.push({
+      title: 'Expand live review widgets',
+      impact: 'Embed social proof across proposals and deal rooms',
+      checklist: [
+        'Activate widgets for proposals, pitches, and profile hero',
+        'Sync embed audit with design system reviewers',
+        'Instrument CTA tracking for each surface',
+      ],
+      owner: 'Growth marketing',
+      dueLabel: 'This quarter',
+    });
+  }
+
+  return items.slice(0, 3);
+}
+
+function buildMilestones(successStories, testimonials) {
+  const milestoneStories = successStories
+    .filter((story) => story.publishedAt)
+    .slice(0, 3)
+    .map((story) => ({
+      id: `story-${story.id}`,
+      title: story.title,
+      summary: story.summary,
+      date: story.publishedAt,
+    }));
+
+  const milestoneTestimonials = testimonials
+    .filter((testimonial) => testimonial.capturedAt)
+    .slice(0, 2)
+    .map((testimonial) => ({
+      id: `testimonial-${testimonial.id}`,
+      title: testimonial.clientName ?? 'Client endorsement',
+      summary: testimonial.comment.slice(0, 140),
+      date: testimonial.capturedAt,
+    }));
+
+  return [...milestoneStories, ...milestoneTestimonials].slice(0, 4);
+}
+
+function buildAchievements(badges) {
+  return badges.slice(0, 4).map((badge) => ({
+    title: badge.name,
+    description: badge.description ?? badge.badgeType ?? '',
+    issuedAt: badge.issuedAt,
+  }));
+}
+
+function buildPersonaInsight({ personaKey, personaCounts, reviewStats, metricsByType }) {
+  if (!personaKey) {
+    return null;
+  }
+  const highlights = [];
+  const personaLabel = PERSONA_LABELS[personaKey] ?? personaKey;
+  const personaTotal = personaCounts.get(personaKey) ?? 0;
+  highlights.push(`${personaLabel} supplied ${personaTotal} endorsements this year.`);
+  if (reviewStats.averageRating != null) {
+    highlights.push(`Average sentiment sits at ${reviewStats.averageRating.toFixed(2)} / 5 across ${reviewStats.ratingCount} reviews.`);
+  }
+  if (metricsByType.referral_ready_clients?.value != null) {
+    highlights.push(`Identified ${Math.round(Number(metricsByType.referral_ready_clients.value))} referral-ready advocates ready for spotlight outreach.`);
+  }
+  return { highlights };
+}
+
+function selectScorecardHighlight({ reviews, testimonials }) {
+  const candidate = reviews.find((review) => review.highlighted) ?? reviews[0] ?? null;
+  if (candidate) {
+    return {
+      quote: candidate.body,
+      author: candidate.reviewerName ?? 'Verified client',
+      role: [candidate.reviewerRole, candidate.reviewerCompany].filter(Boolean).join(' • ') || 'Client partner',
+      avatar: candidate.reviewerAvatarUrl ?? null,
+      date: candidate.publishedAt ?? candidate.capturedAt ?? candidate.createdAt ?? new Date().toISOString(),
+    };
+  }
+  const testimonial = testimonials.find((item) => item.isFeatured) ?? testimonials[0] ?? null;
+  if (testimonial) {
+    return {
+      quote: testimonial.comment,
+      author: testimonial.clientName ?? 'Client partner',
+      role: [testimonial.clientRole, testimonial.company].filter(Boolean).join(' • ') || 'Trusted collaborator',
+      avatar: testimonial.media?.avatarUrl ?? null,
+      date: testimonial.capturedAt ?? testimonial.createdAt ?? new Date().toISOString(),
+    };
+  }
+  return null;
+}
+
+function extractTagLibrary(reviews, testimonials) {
+  const tags = new Map();
+  for (const review of reviews) {
+    if (Array.isArray(review.tags)) {
+      review.tags.forEach((tag) => {
+        if (!tag) return;
+        const label = typeof tag === 'string' ? tag : tag.label ?? tag.name;
+        if (!label) return;
+        const normalized = label.trim();
+        if (!normalized) return;
+        tags.set(normalized.toLowerCase(), normalized);
+      });
+    }
+  }
+  for (const testimonial of testimonials) {
+    const label = testimonial.projectName ?? testimonial.company;
+    if (label) {
+      const normalized = label.trim();
+      tags.set(normalized.toLowerCase(), normalized);
+    }
+  }
+  return Array.from(tags.values()).slice(0, 20).map((label) => ({ id: label.toLowerCase().replace(/[^a-z0-9]+/g, '-'), label }));
+}
+
+function buildReviewComposerConfig({ freelancer, personaKey, reviewStats, metricsByType, summary, testimonials, reviews }) {
+  const personaPrompts = {};
+  for (const persona of FREELANCER_REVIEW_PERSONAS) {
+    const label = PERSONA_LABELS[persona] ?? persona;
+    const prompts = [];
+    if (metricsByType.average_csat?.value != null) {
+      prompts.push({
+        id: `${persona}-impact`,
+        title: 'Impact delivered',
+        text: `Reference the measurable outcome (e.g. CSAT ${metricsByType.average_csat.value}) that this engagement unlocked.`,
+      });
+    }
+    const testimonial = testimonials.find((item) => item.metadata?.personas?.includes?.(persona));
+    if (testimonial) {
+      prompts.push({
+        id: `${persona}-moment`,
+        title: 'Moment that mattered',
+        text: `Describe the pivotal collaboration moment similar to “${testimonial.comment.slice(0, 90)}…”`,
+      });
+    }
+    prompts.push({
+      id: `${persona}-next-step`,
+      title: 'Call to action',
+      text: 'Suggest the next step for peers considering a partnership (e.g. book a strategy session, join a pilot).',
+    });
+    personaPrompts[persona] = {
+      label,
+      summary: `${label} have contributed ${reviewStats.personaCounts.get(persona) ?? 0} endorsements to date.`,
+      prompts,
+    };
+  }
+
+  const trustScoreDisplay = freelancer.stats?.trustScore == null
+    ? '—'
+    : Number(freelancer.stats.trustScore).toFixed(1);
+  const averageRatingDisplay = reviewStats.averageRating == null
+    ? '—'
+    : Number(reviewStats.averageRating).toFixed(2);
+
+  const guidelines = [
+    `Cite quantifiable outcomes where possible — current trust score stands at ${trustScoreDisplay}.`,
+    `Keep reviews above 80 words to preserve executive-level depth (current average rating ${averageRatingDisplay}).`,
+    `Respect confidentiality: omit client-sensitive data unless approvals recorded in Gigvora.`,
+  ];
+
+  const defaultPersona = personaKey ?? FREELANCER_REVIEW_PERSONAS[0];
+  const shareableCount = reviews.filter((review) => review.shareToProfile !== false).length;
+  const visibilityPreference = shareableCount >= reviews.length / 2 ? 'public' : 'members';
+
+  return {
+    profile: {
+      name: freelancer.name,
+      headline: freelancer.title,
+      avatar: freelancer.avatarUrl ?? null,
+    },
+    personaPrompts,
+    defaultPersona,
+    tagLibrary: extractTagLibrary(reviews, testimonials),
+    guidelines,
+    attachmentsEnabled: true,
+    maxAttachmentSize: 15 * 1024 * 1024,
+    characterLimit: 1200,
+    defaultVisibility: visibilityPreference,
+  };
+}
+
+function mapReviewToEndorsement(review) {
+  const timestamp = new Date(review.publishedAt ?? review.capturedAt ?? review.createdAt ?? Date.now()).getTime();
+  const daysWindow = Number.isNaN(timestamp) ? null : Math.max(0, Math.round((Date.now() - timestamp) / (1000 * 60 * 60 * 24)));
+  return {
+    id: String(review.id),
+    endorser: {
+      name: review.reviewerName ?? 'Verified client',
+      avatar: review.reviewerAvatarUrl ?? null,
+      role: [review.reviewerRole, review.reviewerCompany].filter(Boolean).join(' • ') || 'Client partner',
+    },
+    quote: review.body,
+    highlights: Array.isArray(review.endorsementHighlights) ? review.endorsementHighlights : [],
+    tags: Array.isArray(review.tags)
+      ? review.tags.map((tag) => (typeof tag === 'string' ? tag : tag.label ?? tag.name)).filter(Boolean)
+      : [],
+    rating: review.rating == null ? null : Number(review.rating),
+    submittedAt: review.publishedAt ?? review.capturedAt ?? review.createdAt ?? new Date().toISOString(),
+    visibility: review.visibility ?? 'public',
+    persona: review.persona ?? 'community',
+    window: daysWindow,
+    channel: review.endorsementChannel ?? review.reviewSource ?? 'direct',
+    headline: review.endorsementHeadline ?? review.title,
+  };
+}
+
+function buildEndorsementWallPayload({ reviews, reviewStats, summary }) {
+  const endorsements = reviews.map(mapReviewToEndorsement);
+  const spotlightSource = reviews.find((review) => review.highlighted) ?? reviews[0] ?? null;
+  const spotlight = spotlightSource
+    ? {
+        title: spotlightSource.title ?? 'Flagship endorsement',
+        quote: spotlightSource.body,
+        endorser: {
+          name: spotlightSource.reviewerName ?? 'Verified client',
+          avatar: spotlightSource.reviewerAvatarUrl ?? null,
+          role: [spotlightSource.reviewerRole, spotlightSource.reviewerCompany].filter(Boolean).join(' • ') || 'Client partner',
+        },
+        submittedAt: spotlightSource.publishedAt ?? spotlightSource.capturedAt ?? spotlightSource.createdAt ?? new Date().toISOString(),
+        highlights: Array.isArray(spotlightSource.endorsementHighlights)
+          ? spotlightSource.endorsementHighlights
+          : [],
+        verifiedBy: spotlightSource.metadata?.verifiedBy ?? 'Gigvora client success',
+        metrics: [
+          spotlightSource.rating != null
+            ? { label: 'Rating', value: `${Number(spotlightSource.rating).toFixed(1)} / 5` }
+            : null,
+          spotlightSource.endorsementChannel
+            ? { label: 'Channel', value: spotlightSource.endorsementChannel }
+            : null,
+          spotlightSource.visibility
+            ? { label: 'Visibility', value: spotlightSource.visibility }
+            : null,
+        ].filter(Boolean),
+      }
+    : null;
+
+  const priorWindow = Math.max(reviewStats.last90Days - reviewStats.last30Days, 0);
+  const priorAverage = priorWindow / 2 || 0;
+  const endorsementDelta = reviewStats.last30Days - priorAverage;
+
+  const shareableAdvocates = reviews.filter((review) => review.shareToProfile !== false && review.visibility !== 'private').length;
+
+  const stats = [
+    {
+      label: 'Endorsements (30d)',
+      value: `${reviewStats.last30Days}`,
+      delta: `${endorsementDelta >= 0 ? '+' : ''}${endorsementDelta.toFixed(1)} vs prior 60d`,
+      deltaDirection: endorsementDelta >= 0 ? 'up' : 'down',
+      caption: 'Volume of new testimonials captured in the last 30 days.',
+    },
+    {
+      label: 'Avg rating',
+      value: reviewStats.averageRating != null ? `${reviewStats.averageRating.toFixed(2)} / 5` : '—',
+      delta: null,
+      caption: 'Live average across all published reviews.',
+    },
+    {
+      label: 'Share-ready champions',
+      value: `${shareableAdvocates}`,
+      delta: `${shareableAdvocates}/${summary?.totals?.testimonials ?? reviews.length}`,
+      deltaDirection: 'up',
+      caption: 'Advocates who opted into public sharing.',
+    },
+  ];
+
+  return {
+    endorsements,
+    spotlight,
+    stats,
+  };
+}
+
 function indexByMetricType(metrics) {
   return metrics.reduce((accumulator, metric) => {
     accumulator[metric.metricType] = metric;
@@ -290,6 +845,37 @@ function deriveIntegrationTouchpoints({ successStories, widgets }) {
   return Array.from(integrations);
 }
 
+async function fetchGlobalMetricAverages(metricTypes = []) {
+  if (!metricTypes?.length) {
+    return {};
+  }
+  const records = await ReputationMetric.findAll({
+    attributes: [
+      'metricType',
+      [sequelize.fn('AVG', sequelize.col('value')), 'avgValue'],
+    ],
+    where: { metricType: { [Op.in]: metricTypes } },
+    group: ['metricType'],
+    raw: true,
+  });
+  return records.reduce((accumulator, record) => {
+    accumulator[record.metricType] = Number(record.avgValue ?? 0);
+    return accumulator;
+  }, {});
+}
+
+async function fetchNetworkReviewAverage() {
+  const record = await FreelancerReview.findOne({
+    attributes: [[sequelize.fn('AVG', sequelize.col('rating')), 'avgRating']],
+    where: {
+      status: 'published',
+      rating: { [Op.ne]: null },
+    },
+    raw: true,
+  });
+  return record?.avgRating == null ? null : Number(record.avgRating);
+}
+
 export async function getFreelancerReputationOverview({
   freelancerId,
   includeDrafts = false,
@@ -330,7 +916,24 @@ export async function getFreelancerReputationOverview({
     widgetWhere.status = { [Op.ne]: 'draft' };
   }
 
-  const [testimonialRecords, successStoryRecords, metricRecords, badgeRecords, widgetRecords] = await Promise.all([
+  const reviewWhere = { freelancerId: id };
+  if (!includeDrafts) {
+    reviewWhere.status = 'published';
+    reviewWhere.visibility = { [Op.ne]: 'private' };
+  }
+
+  const benchmarkMetricTypes = ['on_time_delivery_rate', 'average_csat', 'referral_ready_clients'];
+
+  const [
+    testimonialRecords,
+    successStoryRecords,
+    metricRecords,
+    badgeRecords,
+    widgetRecords,
+    reviewRecords,
+    globalMetricAverages,
+    networkReviewAverage,
+  ] = await Promise.all([
     ReputationTestimonial.findAll({
       where: testimonialWhere,
       order: [
@@ -367,6 +970,17 @@ export async function getFreelancerReputationOverview({
         ['updatedAt', 'DESC'],
       ],
     }),
+    FreelancerReview.findAll({
+      where: reviewWhere,
+      order: [
+        ['highlighted', 'DESC'],
+        ['publishedAt', 'DESC NULLS LAST'],
+        ['capturedAt', 'DESC NULLS LAST'],
+        ['createdAt', 'DESC'],
+      ],
+    }),
+    fetchGlobalMetricAverages(benchmarkMetricTypes),
+    fetchNetworkReviewAverage(),
   ]);
 
   const testimonials = testimonialRecords.map((record) => record.toPublicObject());
@@ -382,6 +996,7 @@ export async function getFreelancerReputationOverview({
   });
   const badges = badgeRecords.map((record) => record.toPublicObject());
   const widgets = widgetRecords.map((record) => record.toPublicObject());
+  const reviews = reviewRecords.map((record) => record.toPublicObject());
 
   const metricsByType = indexByMetricType(metrics);
   const promotedBadges = badges.filter((badge) => badge.isPromoted);
@@ -418,29 +1033,117 @@ export async function getFreelancerReputationOverview({
   const automationPlaybooks = deriveAutomationPlaybooks({ metricsByType, promotedBadges, widgets });
   const integrationTouchpoints = deriveIntegrationTouchpoints({ successStories: publishedStories, widgets });
 
-  const shareableLinks = [
-    ...(featuredTestimonial?.shareUrl
-      ? [
-          {
-            label: 'Featured testimonial',
-            url: featuredTestimonial.shareUrl,
-          },
-        ]
-      : []),
-    ...publishedStories
-      .map((story) =>
-        story.ctaUrl
-          ? {
-              label: `${story.title} CTA`,
-              url: story.ctaUrl,
-            }
-          : null,
-      )
-      .filter(Boolean),
+  const shareableLinks = [];
+  if (featuredTestimonial?.shareUrl) {
+    shareableLinks.push({
+      label: 'Featured testimonial',
+      url: featuredTestimonial.shareUrl,
+      publishedAt: featuredTestimonial.capturedAt ?? featuredTestimonial.createdAt ?? null,
+    });
+  }
+  for (const story of publishedStories) {
+    if (story.ctaUrl) {
+      shareableLinks.push({
+        label: `${story.title} CTA`,
+        url: story.ctaUrl,
+        publishedAt: story.publishedAt ?? story.createdAt ?? null,
+      });
+    }
+  }
+
+  const freelancerProfile = mapFreelancerProfile(freelancer);
+  const reviewStats = computeReviewStats(reviews);
+  const personaKey = determinePrimaryPersona(reviewStats.personaCounts);
+  const globalMetrics = {
+    ...globalMetricAverages,
+    review_average: networkReviewAverage ?? null,
+  };
+
+  summary.totals.publishedReviews = reviewStats.ratingCount;
+  summary.performance.averageReviewRating = reviewStats.averageRating;
+
+  const segments = buildSegments({ metricsByType, reviewStats, summary, shareableLinks });
+  const benchmarks = buildBenchmarks({ metricsByType, globalMetrics, reviewStats });
+  const recommendations = buildRecommendations({ metricsByType, reviewStats, summary, personaKey });
+  const timelineMilestones = buildMilestones(successStories, testimonials);
+  const achievements = buildAchievements(promotedBadges.length ? promotedBadges : badges);
+  const personaInsight = buildPersonaInsight({
+    personaKey,
+    personaCounts: reviewStats.personaCounts,
+    reviewStats,
+    metricsByType,
+  });
+  const highlight = selectScorecardHighlight({ reviews, testimonials });
+  const trendHistory = reviewStats.history;
+  const scoreDelta = computeScoreDelta(trendHistory);
+
+  const trustScore = freelancerProfile.stats?.trustScore == null
+    ? null
+    : clamp(Number(freelancerProfile.stats.trustScore), 0, 100);
+  const ratingPercent = ratingToPercent(reviewStats.averageRating);
+  const onTimePercent = toPercent(metricsByType.on_time_delivery_rate?.value, { max: 100, fallback: 78 });
+  const csatPercent = metricsByType.average_csat?.unit === 'percentage'
+    ? toPercent(metricsByType.average_csat?.value, { max: 100, fallback: 82 })
+    : ratingToPercent(metricsByType.average_csat?.value);
+  const referralsPercent = toPercent(metricsByType.referral_ready_clients?.value, { max: 40, fallback: 55 });
+  const brandPercent = segments[2]?.score ?? 65;
+
+  const weightedComponents = [
+    { value: trustScore, weight: 0.3 },
+    { value: ratingPercent, weight: 0.2 },
+    { value: onTimePercent, weight: 0.15 },
+    { value: csatPercent, weight: 0.15 },
+    { value: referralsPercent, weight: 0.1 },
+    { value: brandPercent, weight: 0.1 },
   ];
 
+  let weightedTotal = 0;
+  let weightSum = 0;
+  for (const { value, weight } of weightedComponents) {
+    if (value != null) {
+      weightedTotal += clamp(Number(value), 0, 100) * weight;
+      weightSum += weight;
+    }
+  }
+  const overallScore = Math.round(weightSum ? weightedTotal / weightSum : 72);
+
+  const scorecardProfile = {
+    headline: freelancerProfile.title,
+    summary: `Operating ${summary.totals.testimonials} testimonials, ${summary.totals.publishedStories} case studies, and ${summary.totals.badges} badges across trust surfaces.`,
+  };
+
+  const scorecard = {
+    profile: scorecardProfile,
+    overallScore,
+    scoreLabel: describeScoreTier(overallScore),
+    scoreDeltaLabel: scoreDelta.label,
+    scoreDeltaDirection: scoreDelta.direction,
+    milestone: featuredStory?.title ?? null,
+    personaFocus: personaKey ? PERSONA_LABELS[personaKey] ?? personaKey : null,
+    trend: { history: trendHistory },
+    segments,
+    benchmarks,
+    achievements,
+    recommendations,
+    milestones: timelineMilestones,
+    personaInsight,
+    highlight,
+  };
+
+  const reviewComposer = buildReviewComposerConfig({
+    freelancer: freelancerProfile,
+    personaKey,
+    reviewStats,
+    metricsByType,
+    summary,
+    testimonials,
+    reviews,
+  });
+
+  const endorsementWall = buildEndorsementWallPayload({ reviews, reviewStats, summary });
+
   return {
-    freelancer: mapFreelancerProfile(freelancer),
+    freelancer: freelancerProfile,
     summary,
     metrics,
     testimonials: {
@@ -459,6 +1162,9 @@ export async function getFreelancerReputationOverview({
     automationPlaybooks,
     integrationTouchpoints,
     shareableLinks,
+    scorecard,
+    reviewComposer,
+    endorsementWall,
   };
 }
 
