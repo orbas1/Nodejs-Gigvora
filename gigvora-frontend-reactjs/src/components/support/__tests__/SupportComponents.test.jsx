@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ChatwootWidget from '../ChatwootWidget.jsx';
+import SupportBubble from '../SupportBubble.jsx';
 import SupportDeskPanel from '../SupportDeskPanel.jsx';
 import SupportLauncher from '../SupportLauncher.jsx';
 
@@ -200,6 +201,66 @@ beforeEach(() => {
       await screen.findByText(/we couldn’t load your resolution workspace/i),
     ).toBeInTheDocument();
     expect(screen.getByText(/snapshot failed/i)).toBeInTheDocument();
+  });
+
+  it('renders concierge metrics inside the support bubble', async () => {
+    const onOpen = vi.fn();
+    const snapshot = {
+      data: {
+        metrics: {
+          openSupportCases: 2,
+          csatScore: 4.8,
+          averageFirstResponseMinutes: 22,
+          livePlaybooks: 6,
+        },
+        contacts: [
+          {
+            id: 'concierge-1',
+            name: 'Noah Patel',
+            role: 'Customer success lead',
+            status: 'online',
+            lastActiveAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+          },
+        ],
+        refreshedAt: new Date().toISOString(),
+      },
+    };
+
+    render(<SupportBubble userId={42} initialSnapshot={snapshot} onOpen={onOpen} />);
+
+    expect(screen.getByText(/need a fast assist/i)).toBeInTheDocument();
+    expect(screen.getByText(/2 active cases/i)).toBeInTheDocument();
+    expect(screen.getByText(/4\.8\/5/i)).toBeInTheDocument();
+    expect(screen.getByText('Noah Patel')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /talk to support/i }));
+    expect(onOpen).toHaveBeenCalledWith({
+      source: 'support-bubble',
+      snapshot: snapshot.data,
+    });
+  });
+
+  it('loads live data when no snapshot is provided', async () => {
+    getSupportDeskSnapshot.mockResolvedValueOnce({
+      data: {
+        metrics: { openSupportCases: 1, csatScore: 4.5, averageFirstResponseMinutes: 30 },
+        contacts: [],
+      },
+    });
+
+    render(<SupportBubble userId={91} />);
+
+    expect(await screen.findByText(/1 active case/i)).toBeInTheDocument();
+    expect(getSupportDeskSnapshot).toHaveBeenCalledWith(91, expect.any(Object));
+  });
+
+  it('gracefully handles missing user context in the bubble', async () => {
+    render(<SupportBubble />);
+
+    expect(
+      await screen.findByText(/complete your profile to unlock live concierge support/i),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /talk to support/i })).toBeDisabled();
   });
 
   it('supports sending messages through the launcher with an automated reply', async () => {

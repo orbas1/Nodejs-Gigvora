@@ -12,6 +12,7 @@ import StudioLayout from './layout/StudioLayout.jsx';
 import TypeGallery from './panels/TypeGallery.jsx';
 import ItemShelf from './panels/ItemShelf.jsx';
 import PreviewDrawer from './panels/PreviewDrawer.jsx';
+import QuickCreateFab from './QuickCreateFab.jsx';
 import CreationWizard from './wizard/CreationWizard.jsx';
 
 const ALLOWED_CREATOR_ROLES = ['user', 'freelancer', 'agency', 'company', 'mentor', 'headhunter', 'admin'];
@@ -153,6 +154,79 @@ export default function CreationStudioManager() {
 
   const typeSummary = useMemo(() => CREATION_TYPES, []);
   const selectedTypeConfig = useMemo(() => getTypeConfig(wizardType), [wizardType]);
+  const typeInsights = useMemo(() => {
+    const aggregates = {};
+    for (const item of items) {
+      if (!item?.type) {
+        continue;
+      }
+      const key = item.type;
+      if (!aggregates[key]) {
+        aggregates[key] = {
+          total: 0,
+          drafts: 0,
+          scheduled: 0,
+          published: 0,
+          lastUpdated: null,
+          impact: null,
+        };
+      }
+      const entry = aggregates[key];
+      entry.total += 1;
+      const status = `${item.status ?? ''}`.toLowerCase();
+      if (status === 'draft') {
+        entry.drafts += 1;
+      } else if (status === 'scheduled' || status === 'review') {
+        entry.scheduled += 1;
+      } else if (status === 'published' || status === 'live') {
+        entry.published += 1;
+      }
+      const updatedAt = item.updatedAt ?? item.updated_at ?? item.lastUpdatedAt ?? null;
+      if (updatedAt) {
+        const candidate = new Date(updatedAt);
+        if (!Number.isNaN(candidate.getTime())) {
+          if (!entry.lastUpdated || candidate > entry.lastUpdated) {
+            entry.lastUpdated = candidate;
+          }
+        }
+      }
+      const impactCandidate = item.analytics?.impact ?? item.performance ?? null;
+      if (impactCandidate?.label && typeof impactCandidate.score === 'number') {
+        entry.impact = impactCandidate;
+      }
+    }
+    return Object.entries(aggregates).reduce((accumulator, [typeId, value]) => {
+      if (!value.impact) {
+        if (value.published > 0) {
+          value.impact = {
+            label: `${value.published} live ${value.published === 1 ? 'asset' : 'assets'}`,
+            score: value.published * 2,
+          };
+        } else if (value.scheduled > 0) {
+          value.impact = {
+            label: `${value.scheduled} launches queued`,
+            score: value.scheduled,
+          };
+        } else if (value.drafts > 0) {
+          value.impact = {
+            label: `${value.drafts} draft${value.drafts === 1 ? '' : 's'} in progress`,
+            score: value.drafts / 2,
+          };
+        } else {
+          value.impact = { label: 'Fresh start', score: 0 };
+        }
+      }
+      if (value.lastUpdated instanceof Date) {
+        value.lastUpdated = value.lastUpdated.toISOString();
+      }
+      accumulator[typeId] = value;
+      return accumulator;
+    }, {});
+  }, [items]);
+
+  const handleTrackEvent = useCallback((payload) => {
+    window.dispatchEvent(new CustomEvent('creation-studio:analytics', { detail: payload }));
+  }, []);
 
   const handleSaveDraft = useCallback(
     async (payload) => {
@@ -267,6 +341,15 @@ export default function CreationStudioManager() {
         }}
         onSaveDraft={handleSaveDraft}
         onPublish={handlePublish}
+      />
+
+      <QuickCreateFab
+        types={typeSummary}
+        insights={typeInsights}
+        activeTypeId={wizardType}
+        onCreate={(typeId) => handleOpenCreate(typeId)}
+        onTrack={handleTrackEvent}
+        disabled={saving || loading}
       />
     </>
   );
