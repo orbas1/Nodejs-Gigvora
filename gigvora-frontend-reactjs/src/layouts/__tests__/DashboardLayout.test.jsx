@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, beforeEach, vi } from 'vitest';
+import { describe, expect, it, beforeEach, beforeAll, afterEach, afterAll, vi } from 'vitest';
 import DashboardLayout from '../DashboardLayout.jsx';
 
 const guardMock = vi.hoisted(() =>
@@ -35,26 +35,47 @@ vi.mock('../../images/Gigvora Logo.png', () => ({
   default: 'gigvora-logo.png',
 }));
 
+const baseProps = {
+  title: 'Dashboard',
+  menuSections: [],
+  sections: [],
+  availableDashboards: [],
+  children: <div>Content</div>,
+};
+
+function renderLayout(props = {}) {
+  return render(
+    <MemoryRouter>
+      <DashboardLayout {...baseProps} {...props} />
+    </MemoryRouter>,
+  );
+}
+
+beforeAll(() => {
+  class MockIntersectionObserver {
+    observe() {}
+    disconnect() {}
+    unobserve() {}
+    takeRecords() {
+      return [];
+    }
+  }
+
+  vi.stubGlobal('IntersectionObserver', MockIntersectionObserver);
+});
+
+afterAll(() => {
+  vi.unstubAllGlobals();
+});
+
+afterEach(() => {
+  window.localStorage.clear();
+});
+
 describe('DashboardLayout access control', () => {
   beforeEach(() => {
     guardMock.mockClear();
   });
-
-  const baseProps = {
-    title: 'Dashboard',
-    menuSections: [],
-    sections: [],
-    availableDashboards: [],
-    children: <div>Content</div>,
-  };
-
-  function renderLayout(props = {}) {
-    return render(
-      <MemoryRouter>
-        <DashboardLayout {...baseProps} {...props} />
-      </MemoryRouter>,
-    );
-  }
 
   it('enforces admin access for admin dashboards by default', () => {
     renderLayout({ currentDashboard: 'admin' });
@@ -101,5 +122,64 @@ describe('DashboardLayout access control', () => {
     const guardProps = guardMock.mock.calls.at(-1)?.[0];
     expect(guardProps.requiredPermissions).toEqual(['manage_admin_console']);
     expect(screen.getByTestId('dashboard-access-guard').dataset.requiredPermissions).toBe('manage_admin_console');
+  });
+});
+
+describe('DashboardLayout layout behaviour', () => {
+  const navigationSections = [
+    {
+      id: 'core',
+      label: 'Core',
+      items: [
+        { id: 'overview', name: 'Overview' },
+        { id: 'activity', name: 'Activity' },
+      ],
+    },
+  ];
+
+  it('toggles collapsed state and persists preference', async () => {
+    renderLayout({ currentDashboard: 'company', sections: navigationSections });
+
+    expect(screen.getByTestId('dashboard-sidebar').dataset.collapsed).toBe('false');
+
+    const collapseButton = screen.getByRole('button', { name: /collapse sidebar/i });
+    fireEvent.click(collapseButton);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('dashboard-sidebar').dataset.collapsed).toBe('true');
+    });
+
+    await waitFor(() => {
+      expect(window.localStorage.getItem('gigvora.dashboard.company.sidebar')).toBe(
+        JSON.stringify({ collapsed: true }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /expand sidebar/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('dashboard-sidebar').dataset.collapsed).toBe('false');
+    });
+
+    await waitFor(() => {
+      expect(window.localStorage.getItem('gigvora.dashboard.company.sidebar')).toBe(
+        JSON.stringify({ collapsed: false }),
+      );
+    });
+  });
+
+  it('restores persisted collapsed preference on mount', async () => {
+    window.localStorage.setItem(
+      'gigvora.dashboard.company.sidebar',
+      JSON.stringify({ collapsed: true }),
+    );
+
+    renderLayout({ currentDashboard: 'company', sections: navigationSections });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('dashboard-sidebar').dataset.collapsed).toBe('true');
+    });
+
+    expect(screen.getByRole('button', { name: /expand sidebar/i })).toBeInTheDocument();
   });
 });

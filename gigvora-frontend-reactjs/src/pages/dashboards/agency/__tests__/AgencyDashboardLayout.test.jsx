@@ -4,7 +4,7 @@ import AgencyDashboardLayout from '../AgencyDashboardLayout.jsx';
 
 const renderSpy = vi.fn();
 
-vi.mock('../../../layouts/DashboardLayout.jsx', () => ({
+vi.mock('../../../../layouts/DashboardLayout.jsx', () => ({
   default: (props) => {
     renderSpy(props);
     return <div data-testid="layout">{props.children}</div>;

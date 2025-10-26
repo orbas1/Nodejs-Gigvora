@@ -136,6 +136,58 @@ function saveStoredCustomization(key, value) {
   }
 }
 
+function loadStoredSidebarPreferences(key) {
+  if (typeof window === 'undefined') {
+    return { collapsed: false };
+  }
+
+  try {
+    const stored = window.localStorage.getItem(key);
+    if (!stored) {
+      return { collapsed: false };
+    }
+
+    const parsed = JSON.parse(stored);
+    return {
+      collapsed: Boolean(parsed?.collapsed),
+    };
+  } catch (error) {
+    return { collapsed: false };
+  }
+}
+
+function saveStoredSidebarPreferences(key, value) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    // Persisting layout preferences is best-effort.
+  }
+}
+
+function getMenuItemInitials(name) {
+  if (!name) {
+    return '?';
+  }
+
+  const trimmed = String(name).trim();
+  if (!trimmed) {
+    return '?';
+  }
+
+  const segments = trimmed.split(/\s+/).filter(Boolean);
+  if (segments.length === 1) {
+    return segments[0].slice(0, 2).toUpperCase();
+  }
+
+  const first = segments[0]?.[0] ?? '';
+  const second = segments[1]?.[0] ?? '';
+  return `${first}${second}`.toUpperCase();
+}
+
 const DEFAULT_AD_SURFACE_BY_DASHBOARD = {
   admin: 'admin_dashboard',
   user: 'user_dashboard',
@@ -194,16 +246,82 @@ DashboardSwitcher.defaultProps = {
   onNavigate: undefined,
 };
 
-function MenuSection({ section, isOpen, onToggle, onItemClick, activeItemId }) {
+function MenuSection({ section, isOpen, onToggle, onItemClick, activeItemId, collapsed }) {
   if (!section.items.length) {
     return null;
+  }
+
+  if (collapsed) {
+    return (
+      <div className="space-y-2" data-section-collapsed="true">
+        <nav className="flex flex-col gap-1 px-1" aria-label={section.label}>
+          {section.items.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeItemId && item.id === activeItemId;
+            const badge = formatBadgeValue(item.badge);
+            const label = item.name ?? 'Menu item';
+            const initials = getMenuItemInitials(label);
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onItemClick?.(item)}
+                className={`group relative flex flex-col items-center gap-1 rounded-2xl border border-transparent px-2 py-3 text-center text-[10px] font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
+                  isActive
+                    ? 'bg-accent text-white shadow-sm focus-visible:outline-accent'
+                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-slate-400'
+                }`}
+                aria-current={isActive ? 'page' : undefined}
+                aria-label={label}
+                title={label}
+              >
+                {Icon ? (
+                  <Icon
+                    className={`h-6 w-6 flex-shrink-0 ${
+                      isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'
+                    }`}
+                  />
+                ) : (
+                  <span
+                    className={`flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold uppercase ${
+                      isActive
+                        ? 'border-white/30 bg-white/20 text-white'
+                        : 'border-slate-200 bg-white text-slate-500'
+                    }`}
+                    aria-hidden
+                  >
+                    {initials}
+                  </span>
+                )}
+                <span
+                  className={`max-w-[4.5rem] break-words text-center leading-tight ${
+                    isActive ? 'text-white/90' : 'text-slate-600'
+                  }`}
+                >
+                  {label}
+                </span>
+                {badge ? (
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                      isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                    }`}
+                  >
+                    {badge}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+    );
   }
 
   const panelId = `${section.id}-panel`;
   const buttonId = `${section.id}-toggle`;
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" data-section-collapsed="false">
       <button
         type="button"
         onClick={() => onToggle(section.id)}
@@ -275,12 +393,14 @@ MenuSection.propTypes = {
   onToggle: PropTypes.func.isRequired,
   onItemClick: PropTypes.func,
   activeItemId: PropTypes.string,
+  collapsed: PropTypes.bool,
 };
 
 MenuSection.defaultProps = {
   isOpen: true,
   onItemClick: undefined,
   activeItemId: undefined,
+  collapsed: false,
 };
 
 function CustomizationPanel({
@@ -440,10 +560,15 @@ export default function DashboardLayout({
     });
   }, [activeMenuItem, allMenuItems]);
 
-  const customizationKey = useMemo(() => {
-    const dashboardId = slugify(currentDashboard) || 'dashboard';
-    return `gigvora.dashboard.${dashboardId}.navigation`;
-  }, [currentDashboard]);
+  const dashboardId = useMemo(() => slugify(currentDashboard) || 'dashboard', [currentDashboard]);
+  const customizationKey = useMemo(
+    () => `gigvora.dashboard.${dashboardId}.navigation`,
+    [dashboardId],
+  );
+  const sidebarPreferencesKey = useMemo(
+    () => `gigvora.dashboard.${dashboardId}.sidebar`,
+    [dashboardId],
+  );
 
   const [customOrder, setCustomOrder] = useState([]);
   const [hiddenItemIds, setHiddenItemIds] = useState(() => new Set());
@@ -458,6 +583,15 @@ export default function DashboardLayout({
     const orderIds = customOrder.length ? customOrder : allMenuItems.map((item) => item.id);
     saveStoredCustomization(customizationKey, { order: orderIds, hidden: [...hiddenItemIds] });
   }, [customOrder, hiddenItemIds, customizationKey, allMenuItems]);
+
+  useEffect(() => {
+    const { collapsed } = loadStoredSidebarPreferences(sidebarPreferencesKey);
+    setSidebarCollapsed(Boolean(collapsed));
+  }, [sidebarPreferencesKey]);
+
+  useEffect(() => {
+    saveStoredSidebarPreferences(sidebarPreferencesKey, { collapsed: sidebarCollapsed });
+  }, [sidebarPreferencesKey, sidebarCollapsed]);
 
   const orderedMenuItems = useMemo(() => {
     const knownIds = new Set(allMenuItems.map((item) => item.id));
@@ -681,18 +815,24 @@ export default function DashboardLayout({
   const layoutMarkup = (
     <div className="relative flex min-h-screen bg-slate-50">
       <div
-        className={`fixed inset-y-0 left-0 z-30 flex w-80 flex-col border-r border-slate-200 bg-white/95 backdrop-blur lg:relative lg:translate-x-0 ${
+        data-testid="dashboard-sidebar"
+        data-collapsed={sidebarCollapsed ? 'true' : 'false'}
+        className={`fixed inset-y-0 left-0 z-30 flex w-80 flex-col border-r border-slate-200 bg-white/95 backdrop-blur transition-transform duration-300 lg:relative lg:flex lg:translate-x-0 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
-        } transition-transform duration-300 lg:flex`}
+        } ${sidebarCollapsed ? 'lg:w-28' : 'lg:w-80'}`}
       >
-        <div className="flex items-center justify-between px-5 py-4">
+        <div className={`flex items-center justify-between ${sidebarCollapsed ? 'px-3 py-3' : 'px-5 py-4'}`}>
           <button
             type="button"
             className="flex items-center gap-3"
             onClick={() => navigate('/')}
           >
             <img src={gigvoraWordmark} alt="Gigvora" className="h-8" />
-            <span className="hidden text-sm font-semibold uppercase tracking-wide text-accent lg:block">
+            <span
+              className={`block text-sm font-semibold uppercase tracking-wide text-accent ${
+                sidebarCollapsed ? 'lg:hidden' : 'lg:block'
+              }`}
+            >
               {title || 'Dashboard'}
             </span>
           </button>
@@ -702,6 +842,7 @@ export default function DashboardLayout({
                 type="button"
                 onClick={() => setCustomizerOpen(true)}
                 className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-slate-300 hover:text-slate-800"
+                aria-label="Customize navigation"
               >
                 <AdjustmentsHorizontalIcon className="h-5 w-5" />
               </button>
@@ -710,15 +851,18 @@ export default function DashboardLayout({
               type="button"
               onClick={() => setMobileOpen(false)}
               className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-slate-300 hover:text-slate-800 lg:hidden"
+              aria-label="Close navigation"
             >
               <XMarkIcon className="h-5 w-5" />
             </button>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 pb-6">
-          <DashboardSwitcher dashboards={dashboards} currentId={activeDashboardId} onNavigate={navigate} />
-          <div className="mt-4 space-y-6">
+        <div className={`flex-1 overflow-y-auto pb-6 ${sidebarCollapsed ? 'px-2' : 'px-4'}`}>
+          {!sidebarCollapsed ? (
+            <DashboardSwitcher dashboards={dashboards} currentId={activeDashboardId} onNavigate={navigate} />
+          ) : null}
+          <div className={`${sidebarCollapsed ? 'mt-2 space-y-4' : 'mt-4 space-y-6'}`}>
             {customizedSections.map((section) => (
               <MenuSection
                 key={section.id}
@@ -727,31 +871,43 @@ export default function DashboardLayout({
                 onToggle={handleToggleSection}
                 onItemClick={handleMenuItemClick}
                 activeItemId={highlightedMenuItemId}
+                collapsed={sidebarCollapsed}
               />
             ))}
           </div>
         </div>
 
-        <div className="border-t border-slate-200 px-5 py-4">
+        <div className={`border-t border-slate-200 ${sidebarCollapsed ? 'px-3 py-3' : 'px-5 py-4'}`}>
           <button
             type="button"
             onClick={() => setSidebarCollapsed((previous) => !previous)}
-            className="flex w-full items-center justify-between rounded-2xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+            className={`flex w-full items-center rounded-2xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900 ${
+              sidebarCollapsed ? 'justify-center' : 'justify-between'
+            }`}
           >
-            <span>{sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}</span>
-            <ChevronRightIcon className={`h-4 w-4 transition ${sidebarCollapsed ? '' : 'rotate-90 text-accent'}`} />
+            <span className={sidebarCollapsed ? 'sr-only' : ''}>
+              {sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            </span>
+            <ChevronRightIcon
+              className={`h-4 w-4 transition ${sidebarCollapsed ? 'text-accent' : 'rotate-90 text-accent'}`}
+              aria-hidden
+            />
           </button>
           <a
             href="/logout"
             className="mt-3 flex items-center justify-center gap-2 rounded-2xl border border-transparent bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
           >
             <ArrowLeftOnRectangleIcon className="h-5 w-5" />
-            Log out
+            <span className={sidebarCollapsed ? 'sr-only' : ''}>Log out</span>
           </a>
         </div>
       </div>
 
-      <div className="flex w-full flex-col lg:ml-80">
+      <div
+        className={`flex w-full flex-col ${sidebarCollapsed ? 'lg:ml-28' : 'lg:ml-80'}`}
+        data-testid="dashboard-main"
+        data-sidebar-collapsed={sidebarCollapsed ? 'true' : 'false'}
+      >
         <header className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white/80 px-6 py-4 backdrop-blur">
           <div>
             <h1 className="text-xl font-semibold text-slate-900">{title}</h1>
