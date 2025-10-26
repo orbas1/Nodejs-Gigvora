@@ -1,12 +1,14 @@
 import { useMemo } from 'react';
 import PropTypes from 'prop-types';
 import {
+  ArrowTrendingUpIcon,
   BoltIcon,
   ChatBubbleLeftIcon,
   CheckBadgeIcon,
   ClockIcon,
   EnvelopeIcon,
   ShieldCheckIcon,
+  SparklesIcon,
   StarIcon,
   UserPlusIcon,
 } from '@heroicons/react/24/outline';
@@ -16,15 +18,15 @@ import classNames from '../../utils/classNames.js';
 
 function computeCallToAction(connection) {
   if (connection.status === 'connected') {
-    return { label: 'Message', icon: ChatBubbleLeftIcon, intent: 'message' };
+    return { label: 'Message', icon: ChatBubbleLeftIcon, intent: 'message', disabled: false };
   }
   if (connection.status === 'pending') {
-    return { label: 'Pending', icon: ClockIcon, intent: 'pending' };
+    return { label: 'Pending', icon: ClockIcon, intent: 'pending', disabled: true };
   }
   if (connection.status === 'invited') {
-    return { label: 'Accept invite', icon: ShieldCheckIcon, intent: 'accept' };
+    return { label: 'Accept invite', icon: ShieldCheckIcon, intent: 'accept', disabled: false };
   }
-  return { label: 'Connect', icon: UserPlusIcon, intent: 'connect' };
+  return { label: 'Connect', icon: UserPlusIcon, intent: 'connect', disabled: false };
 }
 
 export default function ConnectionCard({ connection, onConnect, onMessage, onSave, analyticsSource }) {
@@ -32,8 +34,56 @@ export default function ConnectionCard({ connection, onConnect, onMessage, onSav
 
   const ActionIcon = callToAction.icon ?? UserPlusIcon;
   const isSaved = Boolean(connection.saved);
+  const focusAreas = Array.isArray(connection.focusAreas)
+    ? connection.focusAreas.slice(0, 3)
+    : [];
+  const highlightMetrics = useMemo(() => {
+    const metrics = [];
+    if (typeof connection.matchScore === 'number') {
+      metrics.push({
+        id: 'match',
+        label: 'Match score',
+        value: `${Math.round(connection.matchScore)}%`,
+        icon: ArrowTrendingUpIcon,
+        description: 'Compatibility signal',
+        progress: Math.max(12, Math.min(100, Math.round(connection.matchScore))),
+      });
+    }
+    if (connection.responseTime) {
+      metrics.push({
+        id: 'response',
+        label: 'Response time',
+        value: connection.responseTime,
+        icon: ClockIcon,
+        description: 'Typical reply window',
+      });
+    }
+    if (connection.availability) {
+      metrics.push({
+        id: 'availability',
+        label: 'Availability',
+        value: connection.availability,
+        icon: BoltIcon,
+        description: 'Collaboration window',
+      });
+    }
+    return metrics;
+  }, [connection.availability, connection.matchScore, connection.responseTime]);
+
+  const statusLabel = useMemo(() => {
+    const map = {
+      connected: 'Connected',
+      pending: 'Pending approval',
+      invited: 'Invitation received',
+      new: 'Suggested intro',
+    };
+    return map[connection.status] ?? null;
+  }, [connection.status]);
 
   const handlePrimary = () => {
+    if (callToAction.disabled) {
+      return;
+    }
     analytics.track('discovery.connection.primary_action', {
       connectionId: connection.id,
       intent: callToAction.intent,
@@ -86,10 +136,16 @@ export default function ConnectionCard({ connection, onConnect, onMessage, onSav
               ) : null}
             </div>
             <p className="text-sm text-slate-500">{headline}</p>
+            {connection.pronouns ? <p className="text-xs text-slate-400">{connection.pronouns}</p> : null}
             {connection.location ? <p className="text-xs text-slate-400">{connection.location}</p> : null}
           </div>
         </div>
         <div className="flex flex-col items-end gap-2">
+          {statusLabel ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-slate-900/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              {statusLabel}
+            </span>
+          ) : null}
           {connection.trustSignal ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-600">
               <ShieldCheckIcon className="h-4 w-4" aria-hidden="true" />
@@ -140,15 +196,70 @@ export default function ConnectionCard({ connection, onConnect, onMessage, onSav
         </div>
       ) : null}
 
+      {focusAreas.length ? (
+        <div className="relative mt-3 flex flex-wrap gap-2">
+          {focusAreas.map((focus) => (
+            <span
+              key={focus}
+              className="inline-flex items-center gap-1 rounded-full bg-purple-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-purple-600"
+            >
+              <SparklesIcon className="h-3 w-3" aria-hidden="true" />
+              {focus}
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      {highlightMetrics.length ? (
+        <dl className="relative mt-4 grid gap-3 sm:grid-cols-3">
+          {highlightMetrics.map((metric) => {
+            const MetricIcon = metric.icon;
+            return (
+              <div
+                key={metric.id}
+                className="rounded-2xl border border-slate-100/80 bg-white/70 p-3 text-sm text-slate-600 shadow-sm"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-900/5 text-slate-500">
+                    <MetricIcon className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      {metric.label}
+                    </dt>
+                    <dd className="text-base font-semibold text-slate-900">{metric.value}</dd>
+                  </div>
+                </div>
+                <p className="mt-2 text-[11px] uppercase tracking-wide text-slate-400">
+                  {metric.description}
+                </p>
+                {metric.progress ? (
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200/70">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500"
+                      style={{ width: `${metric.progress}%` }}
+                      aria-hidden="true"
+                    />
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </dl>
+      ) : null}
+
       <div className="relative mt-6 flex flex-wrap items-center gap-3">
         <button
           type="button"
           onClick={handlePrimary}
+          disabled={callToAction.disabled}
           className={classNames(
             'inline-flex flex-1 items-center justify-center gap-2 rounded-full px-5 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2',
-            callToAction.intent === 'message'
-              ? 'bg-slate-900 text-white shadow-sm hover:bg-slate-800 focus:ring-slate-300'
-              : 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg hover:from-blue-600 hover:to-indigo-600 focus:ring-indigo-300',
+            callToAction.disabled
+              ? 'cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400'
+              : callToAction.intent === 'message'
+                ? 'bg-slate-900 text-white shadow-sm hover:bg-slate-800 focus:ring-slate-300'
+                : 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg hover:from-blue-600 hover:to-indigo-600 focus:ring-indigo-300',
           )}
         >
           <ActionIcon className="h-5 w-5" aria-hidden="true" />
@@ -196,6 +307,11 @@ ConnectionCard.propTypes = {
     trustSignal: PropTypes.string,
     status: PropTypes.oneOf(['connected', 'pending', 'invited', 'new']),
     successStory: PropTypes.string,
+    matchScore: PropTypes.number,
+    responseTime: PropTypes.string,
+    availability: PropTypes.string,
+    focusAreas: PropTypes.arrayOf(PropTypes.string),
+    pronouns: PropTypes.string,
   }).isRequired,
   onConnect: PropTypes.func,
   onMessage: PropTypes.func,

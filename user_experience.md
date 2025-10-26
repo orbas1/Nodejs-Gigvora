@@ -19,6 +19,15 @@
 7. **Css, orientation, placement and arrangement changes.** Full-width stacking and even spacing inside the sign-in and sign-up forms keep social rails balanced on every breakpoint.【F:gigvora-frontend-reactjs/src/components/access/SignInForm.jsx†L321-L365】【F:gigvora-frontend-reactjs/src/components/access/SignUpForm.jsx†L556-L599】
 8. **Text analysis, text placement, text length, text redundancy and quality of text analysis.** Concise, brand-correct copy pairs intent labels with value-driven taglines so the promise of each provider is clear without repetition.【F:gigvora-frontend-reactjs/src/components/SocialAuthButton.jsx†L12-L81】【F:gigvora-frontend-reactjs/src/components/access/SignUpForm.jsx†L562-L599】
 
+#### 1.C.1 SupportBubble.jsx
+- Concierge support snapshots now normalise live metrics, case assignments, curated specialists, knowledge highlights, and dispute deadlines into a single payload so operations teams see actionable data instead of placeholder copy.【F:gigvora-frontend-reactjs/src/components/support/SupportBubble.jsx†L138-L278】
+- The bubble renders premium metrics, skeleton loaders, concierge team fallbacks, knowledge navigation, and dispute escalation cards with error and refresh affordances that mirror the luxury support brief for LinkedIn-class surfaces.【F:gigvora-frontend-reactjs/src/components/support/SupportBubble.jsx†L618-L915】
+- Action chips delegate to live desk, concierge scheduling, and knowledge base entrypoints while preserving analytics hooks, ensuring the component drives real workflows rather than stubs.【F:gigvora-frontend-reactjs/src/components/support/SupportBubble.jsx†L893-L915】
+
+#### 1.C.2 QuickCreateFab.jsx
+- QuickCreateFab resolves icon tokens, tones, and recommended states for both hard-coded defaults and API-provided quick actions, guaranteeing consistent styling and accessibility across premium launchers.【F:gigvora-frontend-reactjs/src/components/navigation/QuickCreateFab.jsx†L1-L319】
+- FreelancerDashboardPage hydrates the FAB with cached `/users/:id/quick-actions` data, tracks analytics on open/select events, and surfaces the launcher across the dashboard shell to keep creation one tap away.【F:gigvora-frontend-reactjs/src/pages/dashboards/FreelancerDashboardPage.jsx†L221-L507】
+- The Node service composes persona-aware quick actions, integrates support snapshots, and is covered by unit tests so the frontend receives production-ready payloads with caching, failure, and role safeguards.【F:gigvora-backend-nodejs/src/services/userQuickActionService.js†L13-L214】【F:gigvora-backend-nodejs/src/services/__tests__/userQuickActionService.test.js†L1-L134】【F:gigvora-frontend-reactjs/src/services/userQuickActions.js†L1-L21】
 2.B. Onboarding Journeys
 1. **Appraisal.** OnboardingWizard welcomes members with a premium hero shell, progress telemetry, and persona storytelling that mirrors leading social platforms.
    - *Hero narrative.* Gradient headline, trust copy, and progress bar showcase readiness to operate like LinkedIn or Instagram from the first screen.
@@ -181,6 +190,12 @@
    - Support future media (e.g., intros) via extensible card sections.
    - Track media governance in runbooks.
    - Message previews and note editors gracefully handle multiline content with resilient fallbacks.
+   - Messaging inboxes must surface priority, response SLAs, upcoming touchpoints, and deal value so leaders instantly know where to focus.
+   - Conversation rooms should expose decision logs, stakeholder maps, and engagement telemetry beside the timeline to rival executive messaging suites.
+   - Composer bars must ship formatting controls, availability templates, saved replies, and preview states to accelerate polished outreach.
+   - Focus filters, priority sorting, and engagement summaries keep networking teams aligned with enterprise expectations.
+   - Inbox dashboards should spotlight upcoming SLA deadlines and dormant relationships so leaders can intervene before trust slips.
+   - Composer experiences should bundle tone presets, CTA snippets, and autosave cues that mirror premium outreach workflows.
    - Catalogue button variants with visual references for design ops.
    - Keep tokens in sync with shared button primitives.
    - Record keyboard focus expectations for QA.

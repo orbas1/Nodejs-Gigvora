@@ -6,6 +6,7 @@ import {
   MessageParticipant,
   Message,
   MessageAttachment,
+  MessageThreadMetric,
   MessageReadReceipt,
   MessageLabel,
   MessageThreadLabel,
@@ -79,6 +80,10 @@ const DEFAULT_RETENTION_DAYS = Math.max(
   Number.parseInt(process.env.MESSAGING_DEFAULT_RETENTION_DAYS ?? '548', 10) || 548,
   1,
 );
+const DORMANCY_THRESHOLD_DAYS = Number.parseInt(process.env.MESSAGING_DORMANCY_THRESHOLD_DAYS ?? '10', 10) || 10;
+const RECENT_ACTIVITY_WINDOW_DAYS = 30;
+const MOMENTUM_STRONG_THRESHOLD = 5;
+const MOMENTUM_MILD_THRESHOLD = 2;
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 const RETENTION_POLICY_DAY_MAP = new Map([
@@ -373,6 +378,165 @@ function normalizeMetadata(metadata, context) {
   return metadata;
 }
 
+function coerceDate(value) {
+  if (!value) return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value;
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function clampPercentage(value) {
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+  const numeric = Number(value);
+  if (Number.isNaN(numeric)) {
+    return null;
+  }
+  return Math.max(0, Math.min(100, Math.round(numeric)));
+}
+
+function computeEngagementScore({
+  messageCount = 0,
+  messagesLast7Days = 0,
+  messagesLast30Days = 0,
+  participantCount = 0,
+  collaboratorCount = 0,
+}) {
+  const baseline = Math.max(Number(messageCount) || 0, 0) * 0.25;
+  const recentSeven = Math.max(Number(messagesLast7Days) || 0, 0);
+  const recentThirty = Math.max(Number(messagesLast30Days) || 0, 0);
+  const recency = recentSeven * 3 + Math.max(recentThirty - recentSeven, 0) * 1.5;
+  const participantWeight = Math.min(Math.max(Number(participantCount) || 0, 0), 20) * 0.5;
+  const collaborationWeight = Math.min(Math.max(Number(collaboratorCount) || 0, 0), 12) * 2;
+  const score = baseline + recency + participantWeight + collaborationWeight;
+  return Number.isFinite(score) && score > 0 ? score : 0;
+}
+
+function resolveMomentumDirection(delta) {
+  if (!Number.isFinite(delta) || delta === 0) {
+    return 'steady';
+  }
+  if (delta >= MOMENTUM_STRONG_THRESHOLD) {
+    return 'surging';
+  }
+  if (delta >= MOMENTUM_MILD_THRESHOLD) {
+    return 'up';
+  }
+  if (delta <= -MOMENTUM_STRONG_THRESHOLD) {
+    return 'cooling';
+  }
+  if (delta <= -MOMENTUM_MILD_THRESHOLD) {
+    return 'down';
+  }
+  return 'steady';
+}
+
+function resolveProgressPercent(thread) {
+  const candidates = [
+    thread?.metadata?.progressPercent,
+    thread?.metadata?.dealProgress,
+    thread?.metadata?.completionPercent,
+    thread?.metadata?.progress,
+    thread?.supportCase?.metadata?.progressPercent,
+    thread?.supportCase?.metadata?.completionPercent,
+    thread?.supportCase?.progressPercent,
+  ];
+  for (const candidate of candidates) {
+    const clamped = clampPercentage(candidate);
+    if (clamped != null) {
+      return clamped;
+    }
+  }
+  return null;
+}
+
+function resolveNextResponseDue(thread) {
+  const candidates = [
+    thread?.metadata?.nextResponseDueAt,
+    thread?.metadata?.followUpDueAt,
+    thread?.metadata?.nextTouchpointAt,
+    thread?.supportCase?.nextResponseDueAt,
+    thread?.supportCase?.metadata?.nextResponseDueAt,
+    thread?.supportCase?.metadata?.slaDueAt,
+  ];
+  for (const candidate of candidates) {
+    const parsed = coerceDate(candidate);
+    if (parsed) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function extractRecentContributors(messages) {
+  if (!Array.isArray(messages) || !messages.length) {
+    return [];
+  }
+  const recent = [];
+  const seen = new Set();
+  for (let index = messages.length - 1; index >= 0 && recent.length < 5; index -= 1) {
+    const message = messages[index];
+    const senderId = Number.isInteger(message?.senderId) ? Number(message.senderId) : null;
+    if (!senderId || seen.has(senderId)) {
+      continue;
+    }
+    const createdAt = coerceDate(message?.createdAt);
+    recent.push({
+      userId: senderId,
+      lastMessageAt: createdAt ? createdAt.toISOString() : null,
+    });
+    seen.add(senderId);
+  }
+  return recent;
+}
+
+function parseUserIdentifier(value) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function sanitizeThreadMetrics(metrics) {
+  if (!metrics) {
+    return null;
+  }
+  const plain = metrics.get ? metrics.get({ plain: true }) : metrics;
+  const normalizedMetadata =
+    plain.metadata && typeof plain.metadata === 'object' && !Array.isArray(plain.metadata)
+      ? plain.metadata
+      : null;
+  const toNumber = (value) => (value == null ? null : Number(value));
+  const toDateIso = (value) => {
+    const parsed = coerceDate(value);
+    return parsed ? parsed.toISOString() : null;
+  };
+  return {
+    messageCount: Number.isFinite(Number(plain.messageCount)) ? Number(plain.messageCount) : 0,
+    participantCount: Number.isFinite(Number(plain.participantCount)) ? Number(plain.participantCount) : 0,
+    collaboratorCount: Number.isFinite(Number(plain.collaboratorCount)) ? Number(plain.collaboratorCount) : 0,
+    avgResponseMinutes: toNumber(plain.avgResponseMinutes),
+    medianResponseMinutes: toNumber(plain.medianResponseMinutes),
+    awaitingResponse: Boolean(plain.awaitingResponse),
+    awaitingResponseUserId: plain.awaitingResponseUserId ?? null,
+    awaitingResponseSince: toDateIso(plain.awaitingResponseSince),
+    lastInboundAt: toDateIso(plain.lastInboundAt),
+    lastOutboundAt: toDateIso(plain.lastOutboundAt),
+    lastTouchedBy: plain.lastTouchedBy ?? null,
+    engagementScore: toNumber(plain.engagementScore),
+    previousEngagementScore: toNumber(plain.previousEngagementScore),
+    engagementTrend: toNumber(plain.engagementTrend),
+    momentumDirection: plain.momentumDirection ?? null,
+    momentumDelta: toNumber(plain.momentumDelta),
+    dormantSince: toDateIso(plain.dormantSince),
+    nextResponseDueAt: toDateIso(plain.nextResponseDueAt),
+    progressPercent: toNumber(plain.progressPercent),
+    metadata: normalizedMetadata,
+    updatedAt: toDateIso(plain.updatedAt),
+  };
+}
+
 function assertChannelType(channelType) {
   if (!MESSAGE_CHANNEL_TYPES.includes(channelType)) {
     throw new ValidationError(`Unsupported channel type "${channelType}".`);
@@ -482,6 +646,7 @@ export function sanitizeThread(thread) {
   const participantsSource = thread.participants ?? plain.participants;
   const labelsSource = thread.labels ?? plain.labels;
   const supportCaseSource = thread.supportCase ?? plain.supportCase;
+  const metricsSource = thread.metrics ?? plain.metrics;
   return {
     id: plain.id,
     subject: plain.subject,
@@ -509,6 +674,7 @@ export function sanitizeThread(thread) {
       ? labelsSource.map((label) => sanitizeLabel(label))
       : undefined,
     supportCase: supportCaseSource ? sanitizeSupportCase(supportCaseSource) : undefined,
+    metrics: metricsSource ? sanitizeThreadMetrics(metricsSource) : undefined,
   };
 }
 
@@ -649,6 +815,201 @@ export function sanitizeSupportCase(supportCase) {
         }
       : null,
   };
+}
+
+export async function refreshThreadMetrics(threadId, { transaction } = {}) {
+  const parsedThreadId = Number(threadId);
+  if (!Number.isFinite(parsedThreadId) || parsedThreadId <= 0) {
+    throw new ValidationError('threadId must be a positive integer.');
+  }
+
+  const thread = await MessageThread.findByPk(parsedThreadId, {
+    include: [
+      { model: MessageParticipant, as: 'participants' },
+      { model: SupportCase, as: 'supportCase' },
+      { model: MessageThreadMetric, as: 'metrics' },
+    ],
+    transaction,
+  });
+  if (!thread) {
+    throw new NotFoundError('Thread not found.');
+  }
+
+  const participants = thread.participants ?? [];
+  const participantIds = participants
+    .map((participant) => parseUserIdentifier(participant?.userId))
+    .filter((id) => id != null);
+  const ownerIds = new Set(
+    participants
+      .filter((participant) => participant && ['owner', 'support'].includes(participant.role))
+      .map((participant) => parseUserIdentifier(participant?.userId))
+      .filter((id) => id != null),
+  );
+  const createdById = parseUserIdentifier(thread.createdBy);
+  if (createdById != null) {
+    ownerIds.add(createdById);
+  }
+  const collaboratorIds = participantIds.filter((id) => !ownerIds.has(id));
+  const collaboratorCount = new Set(collaboratorIds).size;
+
+  const messages = await Message.findAll({
+    where: { threadId: parsedThreadId },
+    attributes: ['id', 'senderId', 'createdAt', 'metadata', 'messageType'],
+    order: [['createdAt', 'ASC']],
+    transaction,
+  });
+
+  const now = new Date();
+  const nowMs = now.getTime();
+  const sevenDayWindow = 7 * DAY_IN_MS;
+  const recentWindow = RECENT_ACTIVITY_WINDOW_DAYS * DAY_IN_MS;
+
+  let lastInboundAt = null;
+  let lastOutboundAt = null;
+  let lastTouchedBy = null;
+  let awaitingResponseUserId = null;
+  let awaitingResponseSince = null;
+  let previousMessage = null;
+  const responseDurations = [];
+  let messagesLast7Days = 0;
+  let messagesLast30Days = 0;
+
+  for (const message of messages) {
+    if (!message) continue;
+    const createdAt = coerceDate(message.createdAt);
+    if (!createdAt) {
+      previousMessage = message;
+      continue;
+    }
+    const createdMs = createdAt.getTime();
+    if (nowMs - createdMs <= sevenDayWindow) {
+      messagesLast7Days += 1;
+    }
+    if (nowMs - createdMs <= recentWindow) {
+      messagesLast30Days += 1;
+    }
+
+    const senderId = parseUserIdentifier(message.senderId);
+    const isSystemMessage = message.messageType === 'system';
+    if (!isSystemMessage && senderId != null) {
+      if (ownerIds.has(senderId)) {
+        lastOutboundAt = createdAt;
+      } else {
+        lastInboundAt = createdAt;
+      }
+      lastTouchedBy = senderId;
+    }
+
+    if (
+      previousMessage &&
+      parseUserIdentifier(previousMessage.senderId) != null &&
+      parseUserIdentifier(previousMessage.senderId) !== senderId &&
+      senderId != null
+    ) {
+      const previousCreatedAt = coerceDate(previousMessage.createdAt);
+      if (previousCreatedAt) {
+        const diffMinutes = (createdAt.getTime() - previousCreatedAt.getTime()) / 60000;
+        if (Number.isFinite(diffMinutes) && diffMinutes >= 0 && diffMinutes <= 43200) {
+          responseDurations.push(diffMinutes);
+        }
+      }
+    }
+
+    if (!isSystemMessage) {
+      previousMessage = message;
+    } else if (!previousMessage) {
+      previousMessage = message;
+    }
+  }
+
+  const lastMessage = messages.length ? messages[messages.length - 1] : null;
+  if (lastMessage) {
+    const lastSenderId = parseUserIdentifier(lastMessage.senderId);
+    if (lastSenderId == null || !ownerIds.has(lastSenderId)) {
+      awaitingResponseUserId = ownerIds.values().next().value ?? null;
+      awaitingResponseSince = lastInboundAt ?? coerceDate(lastMessage.createdAt) ?? null;
+    }
+  }
+
+  const avgResponseMinutes =
+    responseDurations.length > 0
+      ? responseDurations.reduce((sum, value) => sum + value, 0) / responseDurations.length
+      : null;
+  const medianResponseMinutes =
+    responseDurations.length > 0
+      ? (() => {
+          const sorted = [...responseDurations].sort((a, b) => a - b);
+          const mid = Math.floor(sorted.length / 2);
+          if (sorted.length % 2 === 0) {
+            return (sorted[mid - 1] + sorted[mid]) / 2;
+          }
+          return sorted[mid];
+        })()
+      : null;
+
+  const existingMetrics = thread.metrics ?? null;
+  const previousScore =
+    existingMetrics?.engagementScore != null && Number.isFinite(Number(existingMetrics.engagementScore))
+      ? Number(existingMetrics.engagementScore)
+      : null;
+  const engagementScore = computeEngagementScore({
+    messageCount: messages.length,
+    messagesLast7Days,
+    messagesLast30Days,
+    participantCount: participantIds.length,
+    collaboratorCount,
+  });
+  const momentumDelta =
+    previousScore != null ? Number((engagementScore - previousScore).toFixed(2)) : null;
+  const momentumDirection = momentumDelta == null ? null : resolveMomentumDirection(momentumDelta);
+
+  const lastMessageAt = coerceDate(thread.lastMessageAt);
+  const dormantSince =
+    lastMessageAt && nowMs - lastMessageAt.getTime() >= DORMANCY_THRESHOLD_DAYS * DAY_IN_MS ? lastMessageAt : null;
+
+  const nextResponseDueAt = resolveNextResponseDue(thread);
+  const progressPercent = resolveProgressPercent(thread);
+
+  const metadata = {
+    messageCountLast7Days: messagesLast7Days,
+    messageCountLast30Days: messagesLast30Days,
+    responseSamples: responseDurations.length,
+    recentContributors: extractRecentContributors(messages),
+    ownerIds: Array.from(ownerIds),
+    collaboratorIds: Array.from(new Set(collaboratorIds)),
+  };
+
+  const payload = {
+    threadId: parsedThreadId,
+    messageCount: messages.length,
+    participantCount: participantIds.length,
+    collaboratorCount,
+    avgResponseMinutes: avgResponseMinutes != null ? Number(avgResponseMinutes.toFixed(2)) : null,
+    medianResponseMinutes: medianResponseMinutes != null ? Number(medianResponseMinutes.toFixed(2)) : null,
+    awaitingResponse: awaitingResponseUserId != null,
+    awaitingResponseUserId,
+    awaitingResponseSince,
+    lastInboundAt,
+    lastOutboundAt,
+    lastTouchedBy,
+    engagementScore: Number(engagementScore.toFixed(2)),
+    previousEngagementScore: previousScore,
+    engagementTrend: momentumDelta,
+    momentumDirection,
+    momentumDelta,
+    dormantSince,
+    nextResponseDueAt,
+    progressPercent: progressPercent != null ? progressPercent : null,
+    metadata,
+  };
+
+  if (existingMetrics) {
+    await existingMetrics.update(payload, { transaction });
+  } else {
+    await MessageThreadMetric.create(payload, { transaction });
+  }
+
+  return payload;
 }
 
 const CALL_TYPE_NORMALIZED = new Map([
@@ -926,6 +1287,8 @@ export async function createThread({ subject, channelType = 'direct', createdBy,
     return createdThread;
   });
 
+  await refreshThreadMetrics(thread.id);
+
   const hydrated = await MessageThread.findByPk(thread.id, {
     include: [
       {
@@ -933,6 +1296,7 @@ export async function createThread({ subject, channelType = 'direct', createdBy,
         as: 'participants',
         include: [{ model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email'] }],
       },
+      { model: MessageThreadMetric, as: 'metrics' },
       { model: SupportCase, as: 'supportCase', include: [{ model: User, as: 'assignedAgent' }, { model: User, as: 'escalatedByUser' }, { model: User, as: 'resolvedByUser' }] },
     ],
   });
@@ -1025,6 +1389,8 @@ export async function appendMessage(threadId, senderId, { messageType = 'text', 
 
     return createdMessage;
   });
+
+  await refreshThreadMetrics(threadId);
 
   const hydrated = await Message.findByPk(message.id, {
     include: [
@@ -1344,6 +1710,7 @@ export async function getThread(
               },
             ]
           : []),
+        { model: MessageThreadMetric, as: 'metrics' },
         ...(includeSupportCase
           ? [
               {
@@ -1434,6 +1801,7 @@ export async function listThreadsForUser(
         where: { userId },
         attributes: ['id', 'userId', 'threadId', 'lastReadAt', 'mutedUntil', 'notificationsEnabled'],
       },
+      { model: MessageThreadMetric, as: 'metrics' },
     ];
 
     if (includeParticipants) {
@@ -1730,6 +2098,8 @@ export async function updateThreadSettings(
     participantIds = await getParticipantUserIds(threadId, trx);
   });
 
+  await refreshThreadMetrics(threadId);
+
   flushThreadCache(threadId, participantIds);
   return getThread(threadId, { withParticipants: true, includeSupportCase: true });
 }
@@ -1954,6 +2324,7 @@ export async function searchThreads(
         as: 'participants',
         include: [{ model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email'] }],
       },
+      { model: MessageThreadMetric, as: 'metrics' },
       { model: MessageLabel, as: 'labels' },
       {
         model: SupportCase,
@@ -2162,6 +2533,8 @@ export async function escalateThreadToSupport(
     };
   });
 
+  await refreshThreadMetrics(threadId);
+
   flushThreadCache(threadId, participantIds);
 
   const hydrated = await SupportCase.findByPk(supportCaseId, {
@@ -2257,6 +2630,8 @@ export async function assignSupportAgent(threadId, agentId, { assignedBy, notify
     };
   });
 
+  await refreshThreadMetrics(threadId);
+
   flushThreadCache(threadId, participantIds);
 
   const hydrated = await SupportCase.findByPk(supportCaseId, {
@@ -2350,6 +2725,8 @@ export async function updateSupportCaseStatus(
       priority: supportCase.priority,
     };
   });
+
+  await refreshThreadMetrics(threadId);
 
   flushThreadCache(threadId, participantIds);
 
@@ -2600,6 +2977,7 @@ export default {
   listMessages,
   getThread,
   listThreadsForUser,
+  refreshThreadMetrics,
   markThreadRead,
   updateThreadState,
   muteThread,

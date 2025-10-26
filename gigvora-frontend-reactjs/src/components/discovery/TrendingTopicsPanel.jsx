@@ -6,6 +6,9 @@ import {
   ChatBubbleLeftRightIcon,
   MegaphoneIcon,
   ShareIcon,
+  SparklesIcon,
+  UserGroupIcon,
+  GlobeAmericasIcon,
 } from '@heroicons/react/24/outline';
 
 import analytics from '../../services/analytics.js';
@@ -13,6 +16,8 @@ import classNames from '../../utils/classNames.js';
 
 function TrendingTopicRow({ topic, index, onFollow, onView, onShare, analyticsSource }) {
   const rank = index + 1;
+  const industries = Array.isArray(topic.industries) ? topic.industries.slice(0, 3) : [];
+  const momentumScore = Math.max(0, Math.min(100, topic.momentum ?? topic.growth ?? 0));
 
   const handleFollow = () => {
     onFollow?.(topic);
@@ -54,6 +59,12 @@ function TrendingTopicRow({ topic, index, onFollow, onView, onShare, analyticsSo
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <h3 className="truncate text-sm font-semibold text-slate-900">{topic.title}</h3>
+          {topic.isNew ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-600">
+              <SparklesIcon className="h-3 w-3" aria-hidden="true" />
+              New
+            </span>
+          ) : null}
           {topic.category ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-600">
               {topic.category}
@@ -61,6 +72,19 @@ function TrendingTopicRow({ topic, index, onFollow, onView, onShare, analyticsSo
           ) : null}
         </div>
         {topic.summary ? <p className="mt-1 line-clamp-2 text-xs text-slate-500">{topic.summary}</p> : null}
+        {industries.length ? (
+          <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-500">
+            {industries.map((industry) => (
+              <span
+                key={industry}
+                className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-indigo-600"
+              >
+                <GlobeAmericasIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                {industry}
+              </span>
+            ))}
+          </div>
+        ) : null}
         <div className="mt-3 flex flex-wrap items-center gap-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
           <span className="inline-flex items-center gap-1 text-blue-600">
             <ArrowTrendingUpIcon className="h-4 w-4" aria-hidden="true" />
@@ -69,7 +93,25 @@ function TrendingTopicRow({ topic, index, onFollow, onView, onShare, analyticsSo
           {topic.mentions != null ? <span>{topic.mentions} mentions</span> : null}
           {topic.sentiment ? <span>{topic.sentiment}</span> : null}
           {topic.geo ? <span>{topic.geo}</span> : null}
+          {topic.audience ? <span>{topic.audience}</span> : null}
         </div>
+        {topic.confidence ? (
+          <p className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            Confidence {topic.confidence}
+          </p>
+        ) : null}
+        {momentumScore ? (
+          <div className="mt-2">
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200/70">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-blue-500"
+                style={{ width: `${Math.max(momentumScore, 8)}%` }}
+                aria-hidden="true"
+              />
+            </div>
+            <p className="mt-1 text-[11px] text-slate-400">Momentum score {momentumScore}</p>
+          </div>
+        ) : null}
       </div>
       <div className="flex flex-col items-end gap-2">
         <button
@@ -118,6 +160,12 @@ TrendingTopicRow.propTypes = {
     mentions: PropTypes.number,
     sentiment: PropTypes.string,
     geo: PropTypes.string,
+    industries: PropTypes.arrayOf(PropTypes.string),
+    isNew: PropTypes.bool,
+    momentum: PropTypes.number,
+    audience: PropTypes.string,
+    confidence: PropTypes.string,
+    rank: PropTypes.number,
     following: PropTypes.bool,
     highlighted: PropTypes.bool,
     href: PropTypes.string,
@@ -156,8 +204,55 @@ export default function TrendingTopicsPanel({
 }) {
   const sortedTopics = useMemo(() => {
     const base = Array.isArray(topics) ? [...topics] : [];
-    return base.sort((a, b) => (b.rank ?? b.growth ?? 0) - (a.rank ?? a.growth ?? 0));
+    return base.sort((a, b) => {
+      const rankA = Number.isFinite(a?.rank) ? Number(a.rank) : Number.POSITIVE_INFINITY;
+      const rankB = Number.isFinite(b?.rank) ? Number(b.rank) : Number.POSITIVE_INFINITY;
+      if (rankA !== rankB) {
+        return rankA - rankB;
+      }
+      const growthA = Number.isFinite(a?.growth) ? Number(a.growth) : -Infinity;
+      const growthB = Number.isFinite(b?.growth) ? Number(b.growth) : -Infinity;
+      if (growthA !== growthB) {
+        return growthB - growthA;
+      }
+      return (b?.mentions ?? 0) - (a?.mentions ?? 0);
+    });
   }, [topics]);
+
+  const insightMetrics = useMemo(() => {
+    if (!sortedTopics.length) {
+      return [];
+    }
+
+    const total = sortedTopics.length;
+    const newTopics = sortedTopics.filter((topic) => topic.isNew).length;
+    const averageGrowth = sortedTopics.reduce((acc, topic) => acc + (topic.growth ?? 0), 0);
+    const averageMentions = sortedTopics.reduce((acc, topic) => acc + (topic.mentions ?? 0), 0);
+
+    return [
+      {
+        id: 'topics',
+        label: 'Active topics',
+        value: total,
+        description: newTopics ? `${newTopics} newly surging` : 'Live conversations',
+        icon: MegaphoneIcon,
+      },
+      {
+        id: 'growth',
+        label: 'Avg growth',
+        value: total ? `${Math.round(averageGrowth / total)}%` : '—',
+        description: 'Momentum pulse',
+        icon: ArrowTrendingUpIcon,
+      },
+      {
+        id: 'audience',
+        label: 'Avg mentions',
+        value: total && averageMentions ? Math.round(averageMentions / total) : '—',
+        description: 'Audience reach',
+        icon: UserGroupIcon,
+      },
+    ];
+  }, [sortedTopics]);
 
   return (
     <section className="space-y-6 rounded-[26px] border border-slate-100/80 bg-gradient-to-br from-indigo-50 via-white to-slate-50 p-6 shadow-2xl">
@@ -206,6 +301,35 @@ export default function TrendingTopicsPanel({
           ) : null}
         </div>
       </header>
+
+      {insightMetrics.length ? (
+        <dl className="grid gap-4 sm:grid-cols-3">
+          {insightMetrics.map((metric) => {
+            const Icon = metric.icon;
+            return (
+              <div
+                key={metric.id}
+                className="flex items-center justify-between rounded-2xl border border-white/60 bg-white/70 p-4 shadow-sm"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+                    <Icon className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      {metric.label}
+                    </dt>
+                    <dd className="text-lg font-semibold text-slate-900">{metric.value}</dd>
+                  </div>
+                </div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                  {metric.description}
+                </p>
+              </div>
+            );
+          })}
+        </dl>
+      ) : null}
 
       {loading ? (
         <div className="space-y-3">

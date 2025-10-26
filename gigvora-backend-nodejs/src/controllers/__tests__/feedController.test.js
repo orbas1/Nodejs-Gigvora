@@ -289,6 +289,9 @@ describe('feedController', () => {
       link: 'https://gigvora.test/feed/77',
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
+      scheduledFor: null,
+      notifyList: null,
+      complianceAcknowledged: true,
     });
     FeedShareMock.count.mockResolvedValue(3);
 
@@ -315,6 +318,9 @@ describe('feedController', () => {
         channel: 'email',
         message: 'Rallying the agency partners around this launch.',
         link: 'https://gigvora.test/feed/77',
+        complianceAcknowledged: true,
+        scheduledFor: null,
+        notifyList: null,
       }),
     );
     expect(res.status).toHaveBeenCalledWith(201);
@@ -322,7 +328,103 @@ describe('feedController', () => {
       expect.objectContaining({
         postId: 77,
         metrics: { shares: 3 },
-        share: expect.objectContaining({ channel: 'email', audience: 'internal' }),
+        share: expect.objectContaining({
+          channel: 'email',
+          audience: 'internal',
+          scheduledFor: null,
+          notifyList: null,
+          complianceAcknowledged: true,
+        }),
+      }),
+    );
+  });
+
+  it('requires compliance acknowledgement for external shares', async () => {
+    FeedPostMock.findByPk.mockResolvedValue({ id: 33 });
+    UserMock.findByPk.mockResolvedValue({
+      id: 8,
+      firstName: 'Taylor',
+      lastName: 'Ops',
+      email: 'taylor@gigvora.com',
+      Profile: { headline: 'Ops', avatarSeed: 'taylor' },
+    });
+
+    const req = {
+      params: { postId: '33' },
+      body: {
+        audience: 'external',
+        channel: 'copy',
+        message: 'Sharing this externally without ack.',
+        link: 'https://gigvora.test/feed/33',
+      },
+      user: { id: 8 },
+      headers: { 'x-user-role': 'member' },
+    };
+    const res = createResponse();
+
+    await expect(sharePost(req, res)).rejects.toThrow('Compliance acknowledgement is required for external shares.');
+  });
+
+  it('persists scheduling metadata and notify list', async () => {
+    const future = new Date(Date.now() + 3600_000);
+    FeedPostMock.findByPk.mockResolvedValue({ id: 88 });
+    UserMock.findByPk.mockResolvedValue({
+      id: 21,
+      firstName: 'Morgan',
+      lastName: 'Strategy',
+      email: 'morgan@gigvora.com',
+      Profile: { headline: 'Strategy Lead', avatarSeed: 'morgan' },
+    });
+    FeedShareMock.create.mockResolvedValue({
+      id: 9,
+      postId: 88,
+      userId: 21,
+      audience: 'external',
+      channel: 'secure',
+      message: 'Briefing exec stakeholders.',
+      link: 'https://gigvora.test/feed/88',
+      scheduledFor: future,
+      notifyList: ['ops@gigvora.com'],
+      complianceAcknowledged: true,
+      createdAt: future.toISOString(),
+      updatedAt: future.toISOString(),
+    });
+    FeedShareMock.count.mockResolvedValue(5);
+
+    const req = {
+      params: { postId: '88' },
+      body: {
+        audience: 'external',
+        channel: 'secure',
+        message: 'Briefing exec stakeholders.',
+        link: 'https://gigvora.test/feed/88',
+        scheduledFor: future.toISOString(),
+        notifyList: 'ops@gigvora.com, leadership@gigvora.com',
+        complianceAcknowledged: true,
+      },
+      user: { id: 21 },
+      headers: { 'x-user-role': 'mentor' },
+    };
+    const res = createResponse();
+
+    await sharePost(req, res);
+
+    expect(FeedShareMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        postId: 88,
+        channel: 'secure',
+        scheduledFor: expect.any(Date),
+        notifyList: ['ops@gigvora.com', 'leadership@gigvora.com'],
+        complianceAcknowledged: true,
+      }),
+    );
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        share: expect.objectContaining({
+          audience: 'external',
+          notifyList: ['ops@gigvora.com'],
+          scheduledFor: future.toISOString(),
+        }),
       }),
     );
   });
