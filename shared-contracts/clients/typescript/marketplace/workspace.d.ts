@@ -12,4 +12,29 @@ export interface Workspace {
   nextMilestone: string | null;
   nextMilestoneDueAt: string | null;
   lastActivityAt: string | null;
+  searchFilters: WorkspaceSearchFilters;
+}
+
+export interface WorkspaceSearchFilters {
+  ranking: WorkspaceRankingSignal;
+  freshness: WorkspaceFreshnessSignal;
+  audienceTags?: string[];
+  highlightedMentors?: number[];
+  featuredGroups?: string[];
+}
+
+export interface WorkspaceRankingSignal {
+  score: number;
+  tier: "signature" | "premium" | "core" | "emerging";
+  lastEvaluatedAt: string | null;
+  algorithmVersion?: string | null;
+  signals?: string[];
+}
+
+export interface WorkspaceFreshnessSignal {
+  status: "vibrant" | "active" | "cooling" | "dormant";
+  updatedAt: string | null;
+  daysSinceInteraction?: number | null;
+  decayRate?: number | null;
+  signals?: string[];
 }
