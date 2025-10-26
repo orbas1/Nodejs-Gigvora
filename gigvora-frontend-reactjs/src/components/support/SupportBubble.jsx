@@ -17,6 +17,8 @@ const PRESENCE_TOKENS = {
   offline: 'bg-slate-300',
 };
 
+const STALE_THRESHOLD_MS = 1000 * 60 * 5; // five minutes
+
 function classNames(...values) {
   return values.filter(Boolean).join(' ');
 }
@@ -75,30 +77,40 @@ function buildContactSummary(contact) {
   };
 }
 
-function formatMetricSummary(metrics) {
-  if (!metrics) {
-    return {
-      openCases: '0',
-      csat: null,
-      responseMinutes: null,
-      publishedPlaybooks: null,
-    };
-  }
+function formatMetricSummary(snapshot) {
+  const metrics = snapshot?.metrics ?? null;
   const openCases = toNumber(
-    metrics.openSupportCases ?? metrics.activeCases ?? metrics.pendingCases,
+    metrics?.openSupportCases ?? metrics?.activeCases ?? metrics?.pendingCases,
   );
-  const csat = toNumber(metrics.csatScore ?? metrics.satisfactionScore);
+  const openDisputes = toNumber(
+    metrics?.openDisputes ?? metrics?.activeDisputes ?? metrics?.pendingDisputes,
+  );
+  const csat = toNumber(metrics?.csatScore ?? metrics?.satisfactionScore);
   const responseMinutes = toNumber(
-    metrics.averageFirstResponseMinutes ?? metrics.firstReplyMinutes,
+    metrics?.averageFirstResponseMinutes ?? metrics?.firstReplyMinutes,
   );
-  const playbooks = toNumber(
-    metrics.livePlaybooks ?? metrics.activePlaybooks ?? metrics.playbookCount,
+  const resolutionMinutes = toNumber(
+    metrics?.averageResolutionMinutes ?? metrics?.resolutionMinutes,
   );
+  const playbookCount = toNumber(
+    metrics?.publishedPlaybooks ?? metrics?.livePlaybooks ?? metrics?.playbookCount,
+  );
+  const derivedPlaybooks = Array.isArray(snapshot?.playbooks)
+    ? snapshot.playbooks.length
+    : null;
+  let disputesCount = openDisputes;
+  if (disputesCount == null && Array.isArray(snapshot?.disputes)) {
+    disputesCount = snapshot.disputes.filter(
+      (dispute) => !['settled', 'closed'].includes(`${dispute?.status ?? ''}`.toLowerCase()),
+    ).length;
+  }
   return {
     openCases: openCases ?? 0,
+    openDisputes: disputesCount ?? null,
     csat: csat ?? null,
     responseMinutes: responseMinutes ?? null,
-    publishedPlaybooks: playbooks ?? null,
+    resolutionMinutes: resolutionMinutes ?? null,
+    publishedPlaybooks: playbookCount ?? derivedPlaybooks ?? null,
   };
 }
 
@@ -116,13 +128,26 @@ function formatCasesCopy(openCases) {
   return `${value} active cases are in motion`;
 }
 
+function formatDisputesCopy(openDisputes) {
+  if (openDisputes == null) {
+    return null;
+  }
+  if (openDisputes === 0) {
+    return 'No disputes in review';
+  }
+  if (openDisputes === 1) {
+    return '1 dispute is currently under review';
+  }
+  return `${openDisputes} disputes are currently under review`;
+}
+
 export default function SupportBubble({
-  userId: userIdProp,
-  freelancerId,
-  initialSnapshot,
+  userId: userIdProp = null,
+  freelancerId = null,
+  initialSnapshot = null,
   onOpen,
   onDismiss,
-  className,
+  className = '',
 }) {
   const resolvedUserId = useMemo(() => {
     const candidates = [userIdProp, freelancerId];
@@ -161,7 +186,7 @@ export default function SupportBubble({
 
   const controllerRef = useRef(null);
 
-  const loadSnapshot = useCallback(async () => {
+  const loadSnapshot = useCallback(async ({ forceRefresh = false } = {}) => {
     if (!resolvedUserId) {
       setState({
         loading: false,
@@ -170,13 +195,22 @@ export default function SupportBubble({
       });
       return;
     }
-    setState((previous) => ({ ...previous, loading: previous.data == null, error: null }));
+    setState((previous) => ({
+      ...previous,
+      loading: previous.data == null,
+      error: null,
+    }));
     controllerRef.current?.abort();
     const controller = new AbortController();
     controllerRef.current = controller;
     try {
-      setRefreshing(true);
-      const result = await getSupportDeskSnapshot(resolvedUserId, { signal: controller.signal });
+      if (forceRefresh) {
+        setRefreshing(true);
+      }
+      const result = await getSupportDeskSnapshot(resolvedUserId, {
+        signal: controller.signal,
+        forceRefresh,
+      });
       setState({ loading: false, error: null, data: result?.data ?? null });
     } catch (error) {
       if (error?.name === 'AbortError') {
@@ -185,7 +219,9 @@ export default function SupportBubble({
       const message = error?.message ?? 'We could not reach the support desk right now.';
       setState({ loading: false, error: message, data: null });
     } finally {
-      setRefreshing(false);
+      if (forceRefresh) {
+        setRefreshing(false);
+      }
       controllerRef.current = null;
     }
   }, [resolvedUserId]);
@@ -203,16 +239,29 @@ export default function SupportBubble({
     () => buildContactSummary(state.data?.contacts?.[0] ?? state.data?.contact ?? null),
     [state.data],
   );
-  const metrics = useMemo(() => formatMetricSummary(state.data?.metrics ?? null), [state.data]);
+  const metrics = useMemo(() => formatMetricSummary(state.data ?? null), [state.data]);
   const latestUpdate = contact?.lastActiveAt ?? state.data?.refreshedAt ?? null;
+  const isStale = useMemo(() => {
+    if (!latestUpdate) {
+      return true;
+    }
+    const date = new Date(latestUpdate);
+    if (Number.isNaN(date.getTime())) {
+      return true;
+    }
+    return Date.now() - date.getTime() > STALE_THRESHOLD_MS;
+  }, [latestUpdate]);
 
   const handleOpen = useCallback(() => {
+    if (isStale && !state.loading && !refreshing) {
+      loadSnapshot({ forceRefresh: true });
+    }
     if (typeof onOpen === 'function') {
       onOpen({ source: 'support-bubble', snapshot: state.data ?? null });
     } else {
       window.dispatchEvent(new CustomEvent('support-launcher:open'));
     }
-  }, [onOpen, state.data]);
+  }, [isStale, onOpen, state.data, state.loading, refreshing, loadSnapshot]);
 
   const handleDismiss = useCallback(() => {
     if (typeof onDismiss === 'function') {
@@ -230,20 +279,21 @@ export default function SupportBubble({
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-inner">
-            <LifebuoyIcon className="h-6 w-6" aria-hidden="true" />
-          </span>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Resolution concierge</p>
-            <h3 className="text-base font-semibold text-slate-900">Need a fast assist?</h3>
-            {latestUpdate ? (
-              <p className="text-xs text-slate-500">
-                Updated {formatRelativeTime(latestUpdate) || 'moments ago'}
-              </p>
-            ) : null}
-          </div>
-        </div>
+            <div className="flex items-center gap-3">
+              <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-inner">
+                <LifebuoyIcon className="h-6 w-6" aria-hidden="true" />
+              </span>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Resolution concierge</p>
+                <h3 className="text-base font-semibold text-slate-900">Need a fast assist?</h3>
+                {latestUpdate ? (
+                  <p className="text-xs text-slate-500">
+                    Updated {formatRelativeTime(latestUpdate) || 'moments ago'}
+                    {isStale ? ' • Refresh recommended' : ''}
+                  </p>
+                ) : null}
+              </div>
+            </div>
         {onDismiss ? (
           <button
             type="button"
@@ -264,24 +314,39 @@ export default function SupportBubble({
               <span className="text-xs text-blue-500">Refreshing…</span>
             ) : null}
           </div>
-          <dl className="mt-3 grid grid-cols-3 gap-2 text-xs text-blue-800">
+          <dl className="mt-3 grid grid-cols-2 gap-3 text-xs text-blue-800">
             <div>
               <dt className="font-semibold uppercase tracking-wide text-blue-500">CSAT</dt>
-              <dd>{metrics.csat ? `${metrics.csat.toFixed(1)}/5` : '—'}</dd>
+              <dd>{metrics.csat != null ? `${metrics.csat.toFixed(1)}/5` : '—'}</dd>
             </div>
             <div>
               <dt className="font-semibold uppercase tracking-wide text-blue-500">First reply</dt>
               <dd>
-                {metrics.responseMinutes
+                {metrics.responseMinutes != null
                   ? `${Math.round(metrics.responseMinutes)} mins`
                   : 'Monitoring'}
               </dd>
             </div>
             <div>
+              <dt className="font-semibold uppercase tracking-wide text-blue-500">Resolution</dt>
+              <dd>
+                {metrics.resolutionMinutes != null
+                  ? `${Math.round(metrics.resolutionMinutes)} mins`
+                  : 'Monitoring'}
+              </dd>
+            </div>
+            <div>
               <dt className="font-semibold uppercase tracking-wide text-blue-500">Playbooks</dt>
-              <dd>{metrics.publishedPlaybooks ?? '—'}</dd>
+              <dd>
+                {metrics.publishedPlaybooks != null ? metrics.publishedPlaybooks : '—'}
+              </dd>
             </div>
           </dl>
+          {formatDisputesCopy(metrics.openDisputes) ? (
+            <p className="mt-2 text-xs font-medium text-blue-600">
+              {formatDisputesCopy(metrics.openDisputes)}
+            </p>
+          ) : null}
         </div>
 
         {state.error ? (
@@ -337,8 +402,8 @@ export default function SupportBubble({
         </button>
         <button
           type="button"
-          onClick={loadSnapshot}
-          disabled={state.loading}
+          onClick={() => loadSnapshot({ forceRefresh: true })}
+          disabled={state.loading || refreshing}
           className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-blue-200 hover:text-blue-600"
         >
           <SparklesIcon className="h-4 w-4" />
@@ -365,11 +430,3 @@ SupportBubble.propTypes = {
   className: PropTypes.string,
 };
 
-SupportBubble.defaultProps = {
-  userId: null,
-  freelancerId: null,
-  initialSnapshot: null,
-  onOpen: undefined,
-  onDismiss: undefined,
-  className: '',
-};

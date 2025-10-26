@@ -133,7 +133,12 @@ function TranscriptItem({ message }) {
   );
 }
 
-export default function SupportDeskPanel({ userId: userIdProp, freelancerId, initialSnapshot, onClose }) {
+export default function SupportDeskPanel({
+  userId: userIdProp = null,
+  freelancerId = null,
+  initialSnapshot = null,
+  onClose = null,
+}) {
   const resolvedUserId = useMemo(() => {
     const candidates = [userIdProp, freelancerId];
     for (const candidate of candidates) {
@@ -710,9 +715,3 @@ SupportDeskPanel.propTypes = {
   onClose: PropTypes.func,
 };
 
-SupportDeskPanel.defaultProps = {
-  userId: null,
-  freelancerId: null,
-  initialSnapshot: null,
-  onClose: null,
-};

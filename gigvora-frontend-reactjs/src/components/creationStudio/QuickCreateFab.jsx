@@ -70,16 +70,17 @@ function describeMomentum(metric) {
 }
 
 export default function QuickCreateFab({
-  types,
+  types = CREATION_TYPES,
   insights,
   activeTypeId,
   onCreate,
   onTrack,
-  disabled,
-  className,
+  disabled = false,
+  className = '',
 }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef(null);
+  const previousOpenRef = useRef(false);
 
   const decorated = useMemo(() => buildInsights(types, insights), [types, insights]);
   const sorted = useMemo(() => {
@@ -125,16 +126,53 @@ export default function QuickCreateFab({
     return ordered;
   }, [decorated, sorted, activeTypeId]);
 
+  const recommendationContext = useMemo(
+    () =>
+      visibleTypes.map((metric) => ({
+        typeId: metric.type.id,
+        priorityScore: metric.priorityScore,
+        total: metric.total,
+        drafts: metric.drafts,
+        scheduled: metric.scheduled,
+        published: metric.published,
+        lastUpdated: metric.lastUpdated ?? null,
+        impact: metric.impact ?? null,
+      })),
+    [visibleTypes],
+  );
+
   const handleToggle = useCallback(() => {
     if (disabled) {
       return;
     }
-    setOpen((prev) => !prev);
-  }, [disabled]);
+    setOpen((previous) => {
+      const next = !previous;
+      if (previous && !next && typeof onTrack === 'function') {
+        onTrack({
+          event: 'quick_create_closed',
+          reason: 'toggle',
+          activeTypeId: activeTypeId ?? null,
+          recommendations: recommendationContext,
+        });
+      }
+      return next;
+    });
+  }, [disabled, onTrack, activeTypeId, recommendationContext]);
 
   const handleClose = useCallback(() => {
+    if (!open) {
+      return;
+    }
     setOpen(false);
-  }, []);
+    if (typeof onTrack === 'function') {
+      onTrack({
+        event: 'quick_create_closed',
+        reason: 'manual',
+        activeTypeId: activeTypeId ?? null,
+        recommendations: recommendationContext,
+      });
+    }
+  }, [open, onTrack, activeTypeId, recommendationContext]);
 
   const handleCreate = useCallback(
     (type) => {
@@ -146,11 +184,20 @@ export default function QuickCreateFab({
           event: 'quick_create_selected',
           typeId: type.id,
           metrics: insights?.[type.id] ?? null,
+          recommendations: recommendationContext,
         });
       }
       setOpen(false);
+      if (typeof onTrack === 'function') {
+        onTrack({
+          event: 'quick_create_closed',
+          reason: 'selection',
+          activeTypeId: activeTypeId ?? null,
+          recommendations: recommendationContext,
+        });
+      }
     },
-    [onCreate, onTrack, insights],
+    [onCreate, onTrack, insights, recommendationContext, activeTypeId],
   );
 
   useEffect(() => {
@@ -165,10 +212,26 @@ export default function QuickCreateFab({
         return;
       }
       setOpen(false);
+      if (typeof onTrack === 'function') {
+        onTrack({
+          event: 'quick_create_closed',
+          reason: 'outside',
+          activeTypeId: activeTypeId ?? null,
+          recommendations: recommendationContext,
+        });
+      }
     };
     const handleKey = (event) => {
       if (event.key === 'Escape') {
         setOpen(false);
+        if (typeof onTrack === 'function') {
+          onTrack({
+            event: 'quick_create_closed',
+            reason: 'escape',
+            activeTypeId: activeTypeId ?? null,
+            recommendations: recommendationContext,
+          });
+        }
       }
     };
     window.addEventListener('pointerdown', handlePointer);
@@ -177,7 +240,19 @@ export default function QuickCreateFab({
       window.removeEventListener('pointerdown', handlePointer);
       window.removeEventListener('keydown', handleKey);
     };
-  }, [open]);
+  }, [open, onTrack, activeTypeId, recommendationContext]);
+
+  useEffect(() => {
+    const wasOpen = previousOpenRef.current;
+    if (open && !wasOpen && typeof onTrack === 'function') {
+      onTrack({
+        event: 'quick_create_opened',
+        activeTypeId: activeTypeId ?? null,
+        recommendations: recommendationContext,
+      });
+    }
+    previousOpenRef.current = open;
+  }, [open, onTrack, activeTypeId, recommendationContext]);
 
   return (
     <div
@@ -258,7 +333,11 @@ export default function QuickCreateFab({
               type="button"
               onClick={() => {
                 if (typeof onTrack === 'function') {
-                  onTrack({ event: 'quick_create_recommendations_viewed' });
+                  onTrack({
+                    event: 'quick_create_recommendations_viewed',
+                    activeTypeId: activeTypeId ?? null,
+                    recommendations: recommendationContext,
+                  });
                 }
                 setOpen(false);
               }}
@@ -308,12 +387,3 @@ QuickCreateFab.propTypes = {
   className: PropTypes.string,
 };
 
-QuickCreateFab.defaultProps = {
-  types: CREATION_TYPES,
-  insights: undefined,
-  activeTypeId: undefined,
-  onCreate: undefined,
-  onTrack: undefined,
-  disabled: false,
-  className: '',
-};
