@@ -11,13 +11,8 @@ import {
   updateUserAiSettings,
   testUserAiSettingsConnection,
 } from '../../../services/userAiSettings.js';
-
-const DIGEST_OPTIONS = [
-  { value: 'daily', label: 'Daily' },
-  { value: 'weekly', label: 'Weekly' },
-  { value: 'monthly', label: 'Monthly' },
-  { value: 'never', label: 'Never' },
-];
+import AccountSettingsForm from '../../profileSettings/preferences/AccountSettingsForm.jsx';
+import NotificationPreferences from '../../profileSettings/preferences/NotificationPreferences.jsx';
 
 const CHANNEL_OPTIONS = [
   { value: 'direct', label: 'Direct messages' },
@@ -34,16 +29,33 @@ const DEFAULT_ACCOUNT = {
   phoneNumber: '',
   jobTitle: '',
   location: '',
+  timezone: '',
 };
 
 const DEFAULT_NOTIFICATIONS = {
-  emailEnabled: true,
-  pushEnabled: true,
-  smsEnabled: false,
-  inAppEnabled: true,
+  channels: {
+    email: true,
+    push: true,
+    sms: false,
+    inApp: true,
+  },
+  categories: {
+    opportunities: true,
+    platform: true,
+    compliance: true,
+    community: false,
+  },
+  devices: {
+    mobilePush: true,
+    webPush: true,
+    email: true,
+    sms: false,
+  },
   digestFrequency: 'weekly',
   quietHoursStart: '22:00',
   quietHoursEnd: '07:00',
+  previewChannel: 'email',
+  preset: 'focused',
 };
 
 const DEFAULT_AI = {
@@ -70,19 +82,68 @@ function mergeAccount(payload) {
     phoneNumber: payload.phoneNumber ?? DEFAULT_ACCOUNT.phoneNumber,
     jobTitle: payload.jobTitle ?? DEFAULT_ACCOUNT.jobTitle,
     location: payload.location ?? DEFAULT_ACCOUNT.location,
+    timezone: payload.timezone ?? DEFAULT_ACCOUNT.timezone,
   };
 }
 
 function mergeNotifications(payload) {
-  if (!payload) return { ...DEFAULT_NOTIFICATIONS };
+  const base = {
+    channels: { ...DEFAULT_NOTIFICATIONS.channels },
+    categories: { ...DEFAULT_NOTIFICATIONS.categories },
+    devices: { ...DEFAULT_NOTIFICATIONS.devices },
+    digestFrequency: DEFAULT_NOTIFICATIONS.digestFrequency,
+    quietHoursStart: DEFAULT_NOTIFICATIONS.quietHoursStart,
+    quietHoursEnd: DEFAULT_NOTIFICATIONS.quietHoursEnd,
+    previewChannel: DEFAULT_NOTIFICATIONS.previewChannel,
+    preset: DEFAULT_NOTIFICATIONS.preset,
+  };
+
+  if (!payload) {
+    return {
+      ...base,
+      emailEnabled: base.channels.email,
+      pushEnabled: base.channels.push,
+      smsEnabled: base.channels.sms,
+      inAppEnabled: base.channels.inApp,
+    };
+  }
+
+  const metadata = payload.metadata && typeof payload.metadata === 'object' ? payload.metadata : {};
+  const nextChannels = {
+    ...base.channels,
+    email: payload.emailEnabled !== false,
+    push: payload.pushEnabled !== false,
+    sms: Boolean(payload.smsEnabled),
+    inApp: payload.inAppEnabled !== false,
+  };
+  const nextCategories = {
+    ...base.categories,
+    ...(metadata.categories && typeof metadata.categories === 'object' ? metadata.categories : {}),
+  };
+  const nextDevices = {
+    ...base.devices,
+    ...(metadata.devices && typeof metadata.devices === 'object' ? metadata.devices : {}),
+  };
+
   return {
-    emailEnabled: payload.emailEnabled !== false,
-    pushEnabled: payload.pushEnabled !== false,
-    smsEnabled: Boolean(payload.smsEnabled),
-    inAppEnabled: payload.inAppEnabled !== false,
-    digestFrequency: payload.digestFrequency ?? DEFAULT_NOTIFICATIONS.digestFrequency,
-    quietHoursStart: payload.quietHoursStart ?? DEFAULT_NOTIFICATIONS.quietHoursStart,
-    quietHoursEnd: payload.quietHoursEnd ?? DEFAULT_NOTIFICATIONS.quietHoursEnd,
+    channels: nextChannels,
+    categories: Object.keys(nextCategories).reduce((acc, key) => {
+      acc[key] = nextCategories[key] !== false;
+      return acc;
+    }, {}),
+    devices: Object.keys(nextDevices).reduce((acc, key) => {
+      acc[key] = nextDevices[key] !== false;
+      return acc;
+    }, {}),
+    digestFrequency: payload.digestFrequency ?? base.digestFrequency,
+    quietHoursStart: payload.quietHoursStart ?? base.quietHoursStart,
+    quietHoursEnd: payload.quietHoursEnd ?? base.quietHoursEnd,
+    previewChannel: metadata.previewChannel ?? base.previewChannel,
+    preset: metadata.preset ?? metadata.recommendedPreset ?? base.preset,
+    emailEnabled: nextChannels.email,
+    pushEnabled: nextChannels.push,
+    smsEnabled: nextChannels.sms,
+    inAppEnabled: nextChannels.inApp,
   };
 }
 
@@ -119,6 +180,36 @@ function mergeAi(payload) {
   };
 }
 
+const NOTIFICATION_PRESETS = {
+  immersive: {
+    channels: { email: true, push: true, sms: true, inApp: true },
+    categories: { opportunities: true, platform: true, compliance: true, community: true },
+    devices: { mobilePush: true, webPush: true, email: true, sms: true },
+    digestFrequency: 'daily',
+    quietHoursStart: '00:00',
+    quietHoursEnd: '00:00',
+    previewChannel: 'push',
+  },
+  focused: {
+    channels: { email: true, push: true, sms: true, inApp: true },
+    categories: { opportunities: true, platform: true, compliance: true, community: false },
+    devices: { mobilePush: true, webPush: true, email: true, sms: true },
+    digestFrequency: 'weekly',
+    quietHoursStart: '22:00',
+    quietHoursEnd: '07:00',
+    previewChannel: 'email',
+  },
+  'quiet-hours': {
+    channels: { email: true, push: false, sms: true, inApp: true },
+    categories: { opportunities: true, platform: false, compliance: true, community: false },
+    devices: { mobilePush: false, webPush: false, email: true, sms: true },
+    digestFrequency: 'monthly',
+    quietHoursStart: '19:00',
+    quietHoursEnd: '08:00',
+    previewChannel: 'sms',
+  },
+};
+
 function SectionHeader({ eyebrow, title, description, actions }) {
   return (
     <header className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -142,38 +233,6 @@ SectionHeader.propTypes = {
 SectionHeader.defaultProps = {
   description: null,
   actions: null,
-};
-
-function Toggle({ label, name, checked, onChange, description }) {
-  return (
-    <label className="flex items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 shadow-sm">
-      <div>
-        <p className="text-sm font-medium text-slate-900">{label}</p>
-        {description ? <p className="mt-1 text-xs text-slate-500">{description}</p> : null}
-      </div>
-      <input
-        type="checkbox"
-        name={name}
-        checked={checked}
-        onChange={(event) => onChange?.(event.target.checked, name)}
-        className="mt-1 h-5 w-5 rounded border-slate-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-      />
-    </label>
-  );
-}
-
-Toggle.propTypes = {
-  label: PropTypes.string.isRequired,
-  name: PropTypes.string.isRequired,
-  checked: PropTypes.bool,
-  onChange: PropTypes.func,
-  description: PropTypes.node,
-};
-
-Toggle.defaultProps = {
-  checked: false,
-  onChange: null,
-  description: null,
 };
 
 function ChannelCheckbox({ value, label, checked, onChange }) {
@@ -207,62 +266,59 @@ ChannelCheckbox.defaultProps = {
   onChange: null,
 };
 
-function DigestSummary({ weeklyDigest }) {
-  const subscription = weeklyDigest?.subscription ?? null;
-  if (!subscription) {
-    return (
-      <div className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 text-xs text-slate-500">
-        Weekly digest is not active. Enable in notification preferences to receive curated updates.
-      </div>
-    );
+
+function normaliseSessions(sessionContext, accountPayload) {
+  const baseSessions = Array.isArray(accountPayload?.sessions)
+    ? accountPayload.sessions
+    : Array.isArray(sessionContext?.activeSessions)
+      ? sessionContext.activeSessions
+      : Array.isArray(sessionContext?.sessions)
+        ? sessionContext.sessions
+        : [];
+
+  const mapped = baseSessions.map((sessionEntry, index) => ({
+    id: `${sessionEntry.id ?? sessionEntry.sessionId ?? sessionEntry.deviceId ?? `session-${index}`}`,
+    device: sessionEntry.device ?? sessionEntry.label ?? sessionEntry.userAgent ?? 'Unknown device',
+    location: sessionEntry.location ?? sessionEntry.geo ?? sessionEntry.ipLocation ?? sessionContext?.user?.location ?? null,
+    lastActiveAt:
+      sessionEntry.lastActiveAt ?? sessionEntry.updatedAt ?? sessionEntry.seenAt ?? sessionContext?.lastActiveAt ?? null,
+    ipAddress: sessionEntry.ipAddress ?? sessionEntry.ip ?? null,
+    current: Boolean(sessionEntry.current ?? sessionEntry.isCurrent ?? sessionEntry.active ?? false),
+  }));
+
+  if (!mapped.some((entry) => entry.current)) {
+    mapped.unshift({
+      id: 'current-session',
+      device: sessionContext?.currentSession?.device ?? 'This device',
+      location: sessionContext?.currentSession?.location ?? sessionContext?.user?.location ?? 'Unknown',
+      lastActiveAt: sessionContext?.currentSession?.lastActiveAt ?? sessionContext?.lastActiveAt ?? new Date().toISOString(),
+      ipAddress: sessionContext?.currentSession?.ipAddress ?? null,
+      current: true,
+    });
   }
 
-  return (
-    <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-xs text-slate-600">
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="rounded-full bg-slate-900 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">
-          Digest active
-        </span>
-        <span>Frequency: {subscription.frequency}</span>
-        <span>Channels: {subscription.channels?.join(', ') || 'n/a'}</span>
-      </div>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Last sent</p>
-          <p className="text-sm text-slate-900">
-            {subscription.lastSentAt ? new Date(subscription.lastSentAt).toLocaleString() : 'Awaiting first send'}
-          </p>
-        </div>
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Next scheduled</p>
-          <p className="text-sm text-slate-900">
-            {subscription.nextScheduledAt ? new Date(subscription.nextScheduledAt).toLocaleString() : 'On demand'}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
+  return mapped;
 }
-
-DigestSummary.propTypes = {
-  weeklyDigest: PropTypes.object,
-};
-
-DigestSummary.defaultProps = {
-  weeklyDigest: null,
-};
 
 export default function UserSettingsSection({
   userId,
   session,
   initialNotificationPreferences,
-  weeklyDigest,
 }) {
+  const mergedInitialAccount = useMemo(() => mergeAccount(session?.user), [session]);
+  const mergedInitialNotifications = useMemo(
+    () => mergeNotifications(initialNotificationPreferences),
+    [initialNotificationPreferences],
+  );
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [account, setAccount] = useState(() => mergeAccount(session?.user));
-  const [notifications, setNotifications] = useState(() => mergeNotifications(initialNotificationPreferences));
+  const [accountBaseline, setAccountBaseline] = useState(mergedInitialAccount);
+  const [account, setAccount] = useState(mergedInitialAccount);
+  const [sessions, setSessions] = useState(() => normaliseSessions(session, null));
+  const [notifications, setNotifications] = useState(mergedInitialNotifications);
+  const [notificationPresetApplying, setNotificationPresetApplying] = useState(false);
   const [aiSettings, setAiSettings] = useState(() => mergeAi(null));
 
   const [accountBusy, setAccountBusy] = useState(false);
@@ -282,6 +338,19 @@ export default function UserSettingsSection({
   const [aiTestFeedback, setAiTestFeedback] = useState('');
   const [aiTestError, setAiTestError] = useState('');
 
+  useEffect(() => {
+    setAccountBaseline(mergedInitialAccount);
+    setAccount(mergedInitialAccount);
+  }, [mergedInitialAccount]);
+
+  useEffect(() => {
+    setNotifications(mergedInitialNotifications);
+  }, [mergedInitialNotifications]);
+
+  useEffect(() => {
+    setSessions(normaliseSessions(session, null));
+  }, [session]);
+
   const refreshAll = useCallback(() => {
     if (!userId) return () => {};
 
@@ -298,8 +367,12 @@ export default function UserSettingsSection({
           fetchUserAiSettings(userId, { signal: controller.signal }).catch(() => null),
         ]);
         if (!controller.signal.aborted) {
-          setAccount(mergeAccount(accountResponse));
-          setNotifications(mergeNotifications(notificationResponse?.preferences ?? notificationResponse));
+          const nextAccount = mergeAccount(accountResponse);
+          setAccount(nextAccount);
+          setAccountBaseline(nextAccount);
+          setSessions(normaliseSessions(session, accountResponse));
+          const nextNotifications = mergeNotifications(notificationResponse?.preferences ?? notificationResponse);
+          setNotifications(nextNotifications);
           setNotificationStats(notificationResponse?.stats ?? null);
           setAiSettings(mergeAi(aiResponse));
           setLastUpdated(new Date());
@@ -315,48 +388,199 @@ export default function UserSettingsSection({
       }
     })();
     return () => controller.abort();
-  }, [userId]);
+  }, [session, userId]);
 
   useEffect(() => {
     const abort = refreshAll();
     return () => abort?.();
   }, [refreshAll]);
 
-  const handleAccountChange = useCallback((event) => {
-    const { name, value } = event.target;
-    setAccount((previous) => ({ ...previous, [name]: value }));
+  const handleAccountFieldChange = useCallback((field, value) => {
+    setAccount((previous) => ({ ...previous, [field]: value }));
   }, []);
+
+  const persistAccount = useCallback(
+    async (draft, { silent = false } = {}) => {
+      if (!userId) return;
+      const payload = {
+        firstName: draft.firstName?.trim() || '',
+        lastName: draft.lastName?.trim() || '',
+        email: draft.email?.trim() || '',
+        phoneNumber: draft.phoneNumber?.trim() ? draft.phoneNumber.trim() : null,
+        jobTitle: draft.jobTitle?.trim() || null,
+        location: draft.location?.trim() || null,
+        timezone: draft.timezone?.trim() || null,
+      };
+      if (!silent) {
+        setAccountBusy(true);
+        setAccountFeedback('');
+        setAccountError('');
+      }
+      try {
+        await updateUserAccount(userId, payload);
+        const nextBaseline = mergeAccount({ ...draft, ...payload });
+        setAccountBaseline(nextBaseline);
+        setAccount(nextBaseline);
+        if (!silent) {
+          setAccountFeedback('Account profile updated successfully.');
+        }
+        setLastUpdated(new Date());
+      } catch (err) {
+        if (!silent) {
+          setAccountError(err?.message ?? 'Unable to save account changes.');
+        }
+        throw err;
+      } finally {
+        if (!silent) {
+          setAccountBusy(false);
+        }
+      }
+    },
+    [userId],
+  );
 
   const handleAccountSubmit = useCallback(
     async (event) => {
       event.preventDefault();
-      if (!userId) return;
-      setAccountBusy(true);
-      setAccountFeedback('');
-      setAccountError('');
       try {
-        const payload = {
-          firstName: account.firstName.trim(),
-          lastName: account.lastName.trim(),
-          email: account.email.trim(),
-          phoneNumber: account.phoneNumber || null,
-          jobTitle: account.jobTitle || null,
-          location: account.location || null,
-        };
-        await updateUserAccount(userId, payload);
-        setAccountFeedback('Account profile updated successfully.');
-        setLastUpdated(new Date());
+        await persistAccount(account);
       } catch (err) {
-        setAccountError(err?.message ?? 'Unable to save account changes.');
-      } finally {
-        setAccountBusy(false);
+        console.error('Unable to save account changes', err);
       }
     },
-    [account, userId],
+    [account, persistAccount],
   );
 
-  const handleNotificationToggle = useCallback((checked, name) => {
-    setNotifications((previous) => ({ ...previous, [name]: checked }));
+  const handleAccountAutoSave = useCallback(
+    async (draft) => {
+      await persistAccount(draft, { silent: true });
+    },
+    [persistAccount],
+  );
+
+  const handleTerminateSession = useCallback((sessionId) => {
+    setSessions((previous) => previous.filter((entry) => entry.id !== sessionId || entry.current));
+    setAccountFeedback('Session revoked. It will sign out within 30 seconds.');
+  }, []);
+
+  const handleNotificationChannelToggle = useCallback((key, value) => {
+    setNotifications((previous) => {
+      const nextChannels = { ...previous.channels, [key]: value };
+      return {
+        ...previous,
+        channels: {
+          email: nextChannels.email !== false,
+          push: nextChannels.push !== false,
+          sms: Boolean(nextChannels.sms),
+          inApp: nextChannels.inApp !== false,
+        },
+        emailEnabled: nextChannels.email !== false,
+        pushEnabled: nextChannels.push !== false,
+        smsEnabled: Boolean(nextChannels.sms),
+        inAppEnabled: nextChannels.inApp !== false,
+        preset: 'custom',
+      };
+    });
+  }, []);
+
+  const handleNotificationCategoryToggle = useCallback((key, value) => {
+    setNotifications((previous) => ({
+      ...previous,
+      categories: { ...previous.categories, [key]: value },
+      preset: 'custom',
+    }));
+  }, []);
+
+  const handleNotificationDeviceToggle = useCallback((key, value) => {
+    setNotifications((previous) => ({
+      ...previous,
+      devices: { ...previous.devices, [key]: value },
+      preset: 'custom',
+    }));
+  }, []);
+
+  const handleNotificationFieldChange = useCallback((field, value) => {
+    setNotifications((previous) => ({
+      ...previous,
+      [field]: value,
+      preset: field === 'previewChannel' ? previous.preset : 'custom',
+    }));
+  }, []);
+
+  const handleApplyNotificationPreset = useCallback((presetKey) => {
+    const definition = NOTIFICATION_PRESETS[presetKey];
+    if (!definition) {
+      return;
+    }
+    setNotificationPresetApplying(true);
+    setNotifications((previous) => {
+      const nextChannels = {
+        email: definition.channels?.email ?? previous.channels.email,
+        push: definition.channels?.push ?? previous.channels.push,
+        sms: definition.channels?.sms ?? previous.channels.sms,
+        inApp: definition.channels?.inApp ?? previous.channels.inApp,
+      };
+      const nextCategories = {
+        ...previous.categories,
+        ...(definition.categories ?? {}),
+      };
+      const nextDevices = {
+        ...previous.devices,
+        ...(definition.devices ?? {}),
+      };
+      return {
+        ...previous,
+        channels: {
+          email: nextChannels.email !== false,
+          push: nextChannels.push !== false,
+          sms: Boolean(nextChannels.sms),
+          inApp: nextChannels.inApp !== false,
+        },
+        categories: Object.keys(nextCategories).reduce((acc, key) => {
+          acc[key] = nextCategories[key] !== false;
+          return acc;
+        }, {}),
+        devices: Object.keys(nextDevices).reduce((acc, key) => {
+          acc[key] = nextDevices[key] !== false;
+          return acc;
+        }, {}),
+        digestFrequency: definition.digestFrequency ?? previous.digestFrequency,
+        quietHoursStart: definition.quietHoursStart ?? previous.quietHoursStart,
+        quietHoursEnd: definition.quietHoursEnd ?? previous.quietHoursEnd,
+        previewChannel: definition.previewChannel ?? previous.previewChannel,
+        emailEnabled: nextChannels.email !== false,
+        pushEnabled: nextChannels.push !== false,
+        smsEnabled: Boolean(nextChannels.sms),
+        inAppEnabled: nextChannels.inApp !== false,
+        preset: presetKey,
+      };
+    });
+    setTimeout(() => setNotificationPresetApplying(false), 200);
+  }, []);
+
+  const buildNotificationPayload = useCallback((draft) => {
+    const channels = draft.channels ?? DEFAULT_NOTIFICATIONS.channels;
+    const categories = draft.categories ?? DEFAULT_NOTIFICATIONS.categories;
+    const devices = draft.devices ?? DEFAULT_NOTIFICATIONS.devices;
+    const digestFrequency = draft.digestFrequency ?? DEFAULT_NOTIFICATIONS.digestFrequency;
+    const quietHoursStart = draft.quietHoursStart ?? DEFAULT_NOTIFICATIONS.quietHoursStart;
+    const quietHoursEnd = draft.quietHoursEnd ?? DEFAULT_NOTIFICATIONS.quietHoursEnd;
+    return {
+      emailEnabled: channels.email !== false,
+      pushEnabled: channels.push !== false,
+      smsEnabled: Boolean(channels.sms),
+      inAppEnabled: channels.inApp !== false,
+      digestFrequency,
+      quietHoursStart,
+      quietHoursEnd,
+      metadata: {
+        categories,
+        devices,
+        preset: draft.preset ?? 'custom',
+        previewChannel: draft.previewChannel ?? DEFAULT_NOTIFICATIONS.previewChannel,
+        quietHours: { start: quietHoursStart, end: quietHoursEnd },
+      },
+    };
   }, []);
 
   const handleNotificationSubmit = useCallback(
@@ -367,19 +591,12 @@ export default function UserSettingsSection({
       setNotificationFeedback('');
       setNotificationError('');
       try {
-        const payload = {
-          emailEnabled: Boolean(notifications.emailEnabled),
-          pushEnabled: Boolean(notifications.pushEnabled),
-          smsEnabled: Boolean(notifications.smsEnabled),
-          inAppEnabled: Boolean(notifications.inAppEnabled),
-          digestFrequency: notifications.digestFrequency,
-          quietHoursStart: notifications.quietHoursStart,
-          quietHoursEnd: notifications.quietHoursEnd,
-        };
+        const payload = buildNotificationPayload(notifications);
         const response = await updateNotificationPreferences(userId, payload);
         const nextPreferences = response?.preferences ?? response;
         const nextStats = response?.stats ?? null;
-        setNotifications(mergeNotifications(nextPreferences));
+        const merged = mergeNotifications(nextPreferences);
+        setNotifications(merged);
         setNotificationStats(nextStats);
         setNotificationFeedback('Notification preferences saved.');
         setLastUpdated(new Date());
@@ -389,8 +606,66 @@ export default function UserSettingsSection({
         setNotificationBusy(false);
       }
     },
-    [notifications, userId],
+    [buildNotificationPayload, notifications, userId],
   );
+
+  const securityInsights = useMemo(() => {
+    const insights = [];
+    if (session?.user && session.user.twoFactorEnabled !== true) {
+      insights.push({
+        id: 'mfa',
+        title: 'Enable multi-factor authentication',
+        description: 'Add an authenticator app or security key to prevent unauthorised access to payouts and contracts.',
+        severity: 'critical',
+        cta: 'Open security centre',
+      });
+    }
+    if (!account.phoneNumber) {
+      insights.push({
+        id: 'phone',
+        title: 'Add a verified phone number',
+        description: 'Verified phone numbers unlock SMS escalations and concierge callbacks for urgent programmes.',
+        severity: 'high',
+      });
+    }
+    if (sessions.filter((entry) => !entry.current).length >= 3) {
+      insights.push({
+        id: 'sessions',
+        title: 'Review trusted devices',
+        description: 'You have multiple active sessions. Revoke unused devices to maintain compliance posture.',
+        severity: 'medium',
+      });
+    }
+    if (session?.user && !session.user.emailVerifiedAt) {
+      insights.push({
+        id: 'email',
+        title: 'Verify your primary email',
+        description: 'Verified mailboxes ensure invoices and workflow alerts arrive without delay.',
+        severity: 'high',
+      });
+    }
+    return insights;
+  }, [account.phoneNumber, session, sessions]);
+
+  const accountMetrics = useMemo(
+    () => ({
+      profileCompletion: session?.metrics?.profileCompletion ?? session?.user?.profileCompletion ?? null,
+      profileUpdatedAt: session?.user?.updatedAt ?? null,
+      securityScore: session?.security?.score ?? null,
+      recommendedActions: securityInsights.filter((insight) => insight.severity === 'critical' || insight.severity === 'high').length,
+      lastLoginAt: session?.lastActiveAt ?? session?.user?.lastLoginAt ?? null,
+    }),
+    [securityInsights, session],
+  );
+
+  const accountDirty = useMemo(() => {
+    try {
+      return JSON.stringify(account) !== JSON.stringify(accountBaseline);
+    } catch (comparisonError) {
+      console.warn('Unable to compare account drafts', comparisonError);
+      return true;
+    }
+  }, [account, accountBaseline]);
 
   const handleAiChannelChange = useCallback((channel, checked) => {
     setAiSettings((previous) => {
@@ -536,8 +811,6 @@ export default function UserSettingsSection({
     }
   }, [aiApiKey, aiSettings.connection.baseUrl, aiSettings.model, aiSettings.provider, userId]);
 
-  const digestIntegrations = useMemo(() => weeklyDigest?.integrations ?? [], [weeklyDigest]);
-
   return (
     <section id="user-settings" className="space-y-8 rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-white p-6 shadow-sm">
       <SectionHeader
@@ -563,238 +836,37 @@ export default function UserSettingsSection({
         statusLabel="Settings synchronisation"
       />
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <form onSubmit={handleAccountSubmit} className="space-y-5 rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-inner">
-          <div className="space-y-1">
-            <h3 className="text-lg font-semibold text-slate-900">Account profile</h3>
-            <p className="text-sm text-slate-500">Update your personal details so invoices, notifications, and programme managers are aligned.</p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="flex flex-col gap-2 text-sm">
-              <span className="font-medium text-slate-700">First name</span>
-              <input
-                type="text"
-                name="firstName"
-                value={account.firstName}
-                onChange={handleAccountChange}
-                required
-                className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-500/20"
-              />
-            </label>
-            <label className="flex flex-col gap-2 text-sm">
-              <span className="font-medium text-slate-700">Last name</span>
-              <input
-                type="text"
-                name="lastName"
-                value={account.lastName}
-                onChange={handleAccountChange}
-                required
-                className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-500/20"
-              />
-            </label>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="flex flex-col gap-2 text-sm">
-              <span className="font-medium text-slate-700">Email</span>
-              <input
-                type="email"
-                name="email"
-                value={account.email}
-                onChange={handleAccountChange}
-                required
-                className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-500/20"
-              />
-            </label>
-            <label className="flex flex-col gap-2 text-sm">
-              <span className="font-medium text-slate-700">Phone</span>
-              <input
-                type="tel"
-                name="phoneNumber"
-                value={account.phoneNumber}
-                onChange={handleAccountChange}
-                placeholder="+44 20 7946 0958"
-                className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-500/20"
-              />
-            </label>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="flex flex-col gap-2 text-sm">
-              <span className="font-medium text-slate-700">Role / Title</span>
-              <input
-                type="text"
-                name="jobTitle"
-                value={account.jobTitle}
-                onChange={handleAccountChange}
-                placeholder="Client programmes lead"
-                className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-500/20"
-              />
-            </label>
-            <label className="flex flex-col gap-2 text-sm">
-              <span className="font-medium text-slate-700">Location</span>
-              <input
-                type="text"
-                name="location"
-                value={account.location}
-                onChange={handleAccountChange}
-                placeholder="London, United Kingdom"
-                className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-500/20"
-              />
-            </label>
-          </div>
-          {accountBusy ? (
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Saving account…</p>
-          ) : null}
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={accountBusy}
-              className="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
-              Save profile
-            </button>
-          </div>
-          {accountFeedback ? (
-            <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-700">{accountFeedback}</p>
-          ) : null}
-          {accountError ? (
-            <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-600">{accountError}</p>
-          ) : null}
-        </form>
+      <AccountSettingsForm
+        value={account}
+        initialValue={accountBaseline}
+        busy={accountBusy}
+        dirty={accountDirty}
+        autoSave
+        onAutoSave={handleAccountAutoSave}
+        onSubmit={handleAccountSubmit}
+        onFieldChange={handleAccountFieldChange}
+        securityInsights={securityInsights}
+        sessions={sessions}
+        onTerminateSession={handleTerminateSession}
+        metrics={accountMetrics}
+        feedback={accountFeedback}
+        error={accountError}
+      />
 
-        <div className="space-y-5 rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-inner">
-          <div className="space-y-1">
-            <h3 className="text-lg font-semibold text-slate-900">Weekly digest</h3>
-            <p className="text-sm text-slate-500">Keep stakeholders in the loop with curated updates across bookings, orders, and interviews.</p>
-          </div>
-          <DigestSummary weeklyDigest={weeklyDigest} />
-          {digestIntegrations.length ? (
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Connected integrations</p>
-              <ul className="mt-2 space-y-2 text-sm text-slate-600">
-                {digestIntegrations.map((integration) => (
-                  <li key={integration.id ?? integration.provider} className="flex items-center justify-between rounded-2xl border border-slate-200 px-3 py-2">
-                    <span>{integration.provider ?? 'Integration'} — {integration.status ?? 'active'}</span>
-                    <span className="text-xs text-slate-400">{integration.lastSyncAt ? new Date(integration.lastSyncAt).toLocaleString() : 'Awaiting sync'}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : (
-            <p className="rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-xs text-slate-500">No automation integrations connected. Link your calendar or CRM from the integrations workspace to enrich digests.</p>
-          )}
-        </div>
-      </div>
-
-      <form onSubmit={handleNotificationSubmit} className="space-y-5 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-inner">
-        <div className="space-y-1">
-          <h3 className="text-lg font-semibold text-slate-900">Notification preferences</h3>
-          <p className="text-sm text-slate-500">Choose how the platform keeps you and your partners informed across devices.</p>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <Toggle
-            name="emailEnabled"
-            label="Email delivery"
-            description="Programme alerts, contract updates, and AI concierge transcripts delivered to your inbox."
-            checked={notifications.emailEnabled}
-            onChange={handleNotificationToggle}
-          />
-          <Toggle
-            name="pushEnabled"
-            label="Push notifications"
-            description="Realtime nudges for interviews, deliverables, and escalations."
-            checked={notifications.pushEnabled}
-            onChange={handleNotificationToggle}
-          />
-          <Toggle
-            name="smsEnabled"
-            label="SMS alerts"
-            description="Priority events such as payment releases or compliance actions."
-            checked={notifications.smsEnabled}
-            onChange={handleNotificationToggle}
-          />
-          <Toggle
-            name="inAppEnabled"
-            label="Inbox & in-app"
-            description="Keep the notification centre populated with mission critical updates."
-            checked={notifications.inAppEnabled}
-            onChange={handleNotificationToggle}
-          />
-        </div>
-        <div className="grid gap-4 md:grid-cols-3">
-          <label className="flex flex-col gap-2 text-sm">
-            <span className="font-medium text-slate-700">Digest cadence</span>
-            <select
-              value={notifications.digestFrequency}
-              onChange={(event) => setNotifications((previous) => ({ ...previous, digestFrequency: event.target.value }))}
-              className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-            >
-              {DIGEST_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-2 text-sm">
-            <span className="font-medium text-slate-700">Quiet hours start</span>
-            <input
-              type="time"
-              value={notifications.quietHoursStart}
-              onChange={(event) => setNotifications((previous) => ({ ...previous, quietHoursStart: event.target.value }))}
-              className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-            />
-          </label>
-          <label className="flex flex-col gap-2 text-sm">
-            <span className="font-medium text-slate-700">Quiet hours end</span>
-            <input
-              type="time"
-              value={notifications.quietHoursEnd}
-              onChange={(event) => setNotifications((previous) => ({ ...previous, quietHoursEnd: event.target.value }))}
-              className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-            />
-          </label>
-        </div>
-        {notificationStats ? (
-          <div className="grid gap-4 sm:grid-cols-4">
-            <div className="rounded-2xl border border-slate-200 bg-white/70 p-4 text-xs text-slate-600">
-              <p className="font-semibold uppercase tracking-wide text-slate-500">Unread</p>
-              <p className="mt-1 text-2xl font-semibold text-slate-900">{notificationStats.unread}</p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-white/70 p-4 text-xs text-slate-600">
-              <p className="font-semibold uppercase tracking-wide text-slate-500">Delivered</p>
-              <p className="mt-1 text-2xl font-semibold text-slate-900">{notificationStats.delivered}</p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-white/70 p-4 text-xs text-slate-600">
-              <p className="font-semibold uppercase tracking-wide text-slate-500">Dismissed</p>
-              <p className="mt-1 text-2xl font-semibold text-slate-900">{notificationStats.dismissed}</p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-white/70 p-4 text-xs text-slate-600">
-              <p className="font-semibold uppercase tracking-wide text-slate-500">Last activity</p>
-              <p className="mt-1 text-sm text-slate-900">
-                {notificationStats.lastActivityAt ? new Date(notificationStats.lastActivityAt).toLocaleString() : 'n/a'}
-              </p>
-            </div>
-          </div>
-        ) : null}
-        {notificationBusy ? (
-          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Saving notification preferences…</p>
-        ) : null}
-        <div className="flex justify-end">
-          <button
-            type="submit"
-            disabled={notificationBusy}
-            className="rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-300"
-          >
-            Save notification preferences
-          </button>
-        </div>
-        {notificationFeedback ? (
-          <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-700">{notificationFeedback}</p>
-        ) : null}
-        {notificationError ? (
-          <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-600">{notificationError}</p>
-        ) : null}
-      </form>
+      <NotificationPreferences
+        value={notifications}
+        stats={notificationStats}
+        busy={notificationBusy}
+        feedback={notificationFeedback}
+        error={notificationError}
+        onSubmit={handleNotificationSubmit}
+        onChannelToggle={handleNotificationChannelToggle}
+        onCategoryToggle={handleNotificationCategoryToggle}
+        onDeviceToggle={handleNotificationDeviceToggle}
+        onChange={handleNotificationFieldChange}
+        onApplyPreset={handleApplyNotificationPreset}
+        presetApplying={notificationPresetApplying}
+      />
 
       <form onSubmit={handleAiSubmit} className="space-y-5 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-inner">
         <div className="space-y-1">
