@@ -281,6 +281,8 @@ describe('20241205130000-site-homepage-experience.cjs', () => {
     expect(parsed.operationsSummary.escrowHealth.value).toBeDefined();
     expect(parsed.recentPosts).toHaveLength(3);
     expect(parsed.marketing.personas).toHaveLength(3);
+    expect(parsed.marketing.valuePillars).toHaveLength(4);
+    expect(parsed.marketing.valuePillars[0].cta.href).toBe('/launchpad/experience-launchpad');
     expect(parsed.marketing.productTour.steps).toHaveLength(4);
     expect(parsed.marketing.pricing.plans).toHaveLength(3);
   });
@@ -308,6 +310,12 @@ describe('20241205130000-site-homepage-experience.cjs', () => {
               { label: 'Members', value: '15000' },
               { label: 'Invalid', value: '' },
             ],
+            marketing: {
+              valuePillars: [
+                { id: 'pillar-one', title: '  ', metric: { value: '', label: '  ' }, cta: { label: '', href: '   ' } },
+                { id: 'pillar-two', title: 'Momentum', metric: ' ', cta: { label: '  Learn ', href: 'javascript:alert(1)' } },
+              ],
+            },
             personaJourneys: [
               {
                 key: 'Freelancer ',
@@ -339,6 +347,9 @@ describe('20241205130000-site-homepage-experience.cjs', () => {
     expect(parsed.heroMedia.videoSources).toEqual(
       expect.arrayContaining([expect.objectContaining({ src: 'https://cdn.gigvora.com/video/preview.mp4' })]),
     );
+    expect(parsed.marketing.valuePillars).toHaveLength(4);
+    expect(parsed.marketing.valuePillars[0].metric.value).toBe('9 days');
+    expect(parsed.marketing.valuePillars[1].cta.href).toBe('/gigs');
     expect(parsed.communityStats.find((stat) => stat.label.includes('Members'))?.value).toBe('15000');
     const freelancer = parsed.personaJourneys.find((persona) => persona.key === 'freelancer');
     expect(freelancer.metrics.some((metric) => metric.label.includes('Conversion'))).toBe(true);

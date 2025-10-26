@@ -43,12 +43,17 @@ describe('siteManagementService', () => {
         trustBadges: [{ label: '  ', description: '' }],
         productTour: { steps: [{ id: 'custom', title: '  ', summary: 'Summary' }] },
         pricing: { plans: [{ name: '  ', pricing: { monthly: 0 } }] },
+        valuePillars: [
+          { id: 'pillar-x', title: '  ', description: '  ', metric: { value: '', label: '  ' }, cta: { label: '', href: '' } },
+        ],
       },
     });
     const overview = await getSiteManagementOverview();
     expect(overview.settings.siteName).toBe('Gigvora Test');
     expect(overview.settings.hero.title).toBe('Operators unite');
     expect(overview.settings.marketing.trustBadges.length).toBeGreaterThan(0);
+    expect(overview.settings.marketing.valuePillars.length).toBeGreaterThan(0);
+    expect(overview.settings.marketing.valuePillars[0].cta.href).toBe('/launchpad/experience-launchpad');
     expect(overview.settings.marketing.productTour.steps.length).toBeGreaterThan(0);
     expect(overview.settings.marketing.pricing.plans[0].name).toBeTruthy();
   });

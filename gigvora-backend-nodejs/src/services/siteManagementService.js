@@ -259,6 +259,61 @@ const DEFAULT_MARKETING_PERSONAS = [
   },
 ];
 
+const DEFAULT_MARKETING_VALUE_PILLARS = [
+  {
+    id: 'launch-velocity',
+    eyebrow: 'Launch velocity',
+    title: 'Coordinate launches across product, marketing, and talent in one place.',
+    description:
+      'Brief experts, capture approvals, and sync mentor feedback without juggling fragmented tools or email chains.',
+    metric: { value: '9 days', label: 'average time-to-launch after onboarding' },
+    cta: {
+      label: 'Explore launch workflows',
+      action: 'view_launch_workflows',
+      href: '/launchpad/experience-launchpad',
+    },
+  },
+  {
+    id: 'talent-orchestration',
+    eyebrow: 'Talent orchestration',
+    title: 'Match vetted talent and mentors in hours with contextual insights.',
+    description:
+      'Signal-driven recommendations surface specialists, mentors, and volunteers with availability, reviews, and risk flags.',
+    metric: { value: '12,400+', label: 'curated specialists ready to engage' },
+    cta: {
+      label: 'See talent playbooks',
+      action: 'view_talent_playbooks',
+      href: '/gigs',
+    },
+  },
+  {
+    id: 'trust-controls',
+    eyebrow: 'Trust & compliance',
+    title: 'Operate with enterprise-grade compliance, payouts, and governance.',
+    description:
+      'Automated contracts, payout controls, and audit trails keep every portfolio compliant across regions.',
+    metric: { value: '99.95%', label: 'platform uptime backed by enterprise SLAs' },
+    cta: {
+      label: 'Review trust architecture',
+      action: 'view_trust',
+      href: '/trust-center',
+    },
+  },
+  {
+    id: 'intelligence',
+    eyebrow: 'Live intelligence',
+    title: 'Decisions stay aligned with live metrics and AI-assisted summaries.',
+    description:
+      'Status pills, forecast chips, and AI briefings surface risks and wins for executives, operators, and clients.',
+    metric: { value: '4x', label: 'faster insight loops reported by pilot teams' },
+    cta: {
+      label: 'Tour the intelligence hub',
+      action: 'view_intelligence_hub',
+      href: '/dashboard/company/analytics',
+    },
+  },
+];
+
 const DEFAULT_PRODUCT_TOUR_STEPS = [
   {
     id: 'command-centre',
@@ -530,6 +585,7 @@ const DEFAULT_MARKETING_FRAGMENT = {
   announcement: { ...DEFAULT_MARKETING_ANNOUNCEMENT },
   trustBadges: [...DEFAULT_MARKETING_TRUST_BADGES],
   personas: [...DEFAULT_MARKETING_PERSONAS],
+  valuePillars: [...DEFAULT_MARKETING_VALUE_PILLARS],
   productTour: { steps: [...DEFAULT_PRODUCT_TOUR_STEPS] },
   pricing: {
     plans: [...DEFAULT_PRICING_PLANS],
@@ -822,25 +878,80 @@ function sanitizeRecentPosts(posts, fallback = []) {
   return cleaned.length ? cleaned : base;
 }
 
+const SAFE_HREF_PROTOCOL_PREFIXES = ['http://', 'https://', 'mailto:', 'tel:'];
+
+function sanitizeHref(value, fallback = '') {
+  const candidate = coerceOptionalString(value);
+  if (!candidate) {
+    return fallback;
+  }
+  const lowered = candidate.toLowerCase();
+  if (candidate.startsWith('/')) {
+    return candidate;
+  }
+  if (candidate.startsWith('#')) {
+    return candidate;
+  }
+  if (candidate.startsWith('//')) {
+    return `https:${candidate}`;
+  }
+  if (SAFE_HREF_PROTOCOL_PREFIXES.some((prefix) => lowered.startsWith(prefix))) {
+    return candidate;
+  }
+  if (/^[a-z][a-z0-9+.-]*:/i.test(candidate)) {
+    return fallback;
+  }
+  return candidate;
+}
+
+function sanitizeRoute(value, fallback = '') {
+  const candidate = coerceOptionalString(value);
+  if (!candidate) {
+    return fallback;
+  }
+  if (candidate.startsWith('#')) {
+    return candidate;
+  }
+  if (candidate.startsWith('//')) {
+    return fallback;
+  }
+  if (/^[a-z][a-z0-9+.-]*:/i.test(candidate)) {
+    return fallback;
+  }
+  if (!candidate.startsWith('/')) {
+    return fallback;
+  }
+  return candidate;
+}
+
 function sanitizeCta(cta, fallback = {}) {
   const base = fallback ?? {};
-  const label = coerceString(cta?.label ?? cta?.title, base.label ?? '');
+  const normalizedFallback = base.label ? sanitizeCta(base, {}) : null;
+  const label = coerceString(cta?.label ?? cta?.title, normalizedFallback?.label ?? base.label ?? '');
   if (!label) {
-    return base.label ? { label: base.label, action: base.action, href: base.href, route: base.route } : null;
+    return normalizedFallback;
   }
+
   const payload = { label };
-  const action = coerceOptionalString(cta?.action ?? base.action);
+  const action = coerceOptionalString(cta?.action ?? normalizedFallback?.action ?? base.action);
   if (action) {
     payload.action = action;
   }
-  const href = coerceOptionalString(cta?.href ?? cta?.url ?? base.href ?? base.url);
+
+  const fallbackHref = normalizedFallback?.href ?? sanitizeHref(base.href ?? base.url ?? '');
+  const href = sanitizeHref(cta?.href ?? cta?.url, fallbackHref);
   if (href) {
     payload.href = href;
   }
-  const route = !href ? coerceOptionalString(cta?.route ?? cta?.path ?? base.route) : '';
-  if (route) {
-    payload.route = route;
+
+  const fallbackRoute = normalizedFallback?.route ?? sanitizeRoute(base.route ?? base.path ?? '');
+  if (!payload.href) {
+    const route = sanitizeRoute(cta?.route ?? cta?.path, fallbackRoute);
+    if (route) {
+      payload.route = route;
+    }
   }
+
   return payload;
 }
 
@@ -902,6 +1013,101 @@ function sanitizeTrustBadges(badges, fallback = []) {
     })
     .filter(Boolean)
     .slice(0, 6);
+  if (!cleaned.length) {
+    return baseList.map((item) => ({ ...item }));
+  }
+
+  const merged = new Map();
+  baseList.forEach((item, index) => {
+    const key = item.id ?? `pillar-${index + 1}`;
+    merged.set(key, { ...item });
+  });
+
+  cleaned.forEach((item, index) => {
+    const key = item.id ?? baseList[index]?.id ?? `pillar-${index + 1}`;
+    const base = merged.get(key) ?? baseList[index] ?? {};
+    merged.set(key, { ...base, ...item });
+  });
+
+  return Array.from(merged.values()).slice(0, baseList.length);
+}
+
+function sanitizeValuePillarMetric(metric, fallback = null) {
+  if (metric == null) {
+    return fallback ? { ...fallback } : null;
+  }
+
+  if (typeof metric === 'string') {
+    const value = coerceOptionalString(metric);
+    if (!value && !fallback) {
+      return null;
+    }
+    if (!value && fallback) {
+      return { ...fallback };
+    }
+    const payload = { value };
+    if (fallback?.label) {
+      payload.label = fallback.label;
+    }
+    return payload;
+  }
+
+  const base = fallback ?? {};
+  const value = coerceOptionalString(metric.value ?? metric.amount ?? metric.metric ?? base.value ?? '');
+  const label = coerceOptionalString(metric.label ?? metric.subtitle ?? base.label ?? '');
+
+  if (!value) {
+    return base.value ? { ...base } : null;
+  }
+
+  const payload = { value };
+  if (label) {
+    payload.label = label;
+  }
+  return payload;
+}
+
+function sanitizeValuePillars(pillars, fallback = []) {
+  const list = Array.isArray(pillars) ? pillars : [];
+  const baseList = Array.isArray(fallback) && fallback.length ? fallback : DEFAULT_MARKETING_VALUE_PILLARS;
+
+  const cleaned = list
+    .map((pillar, index) => {
+      const base = baseList[index] ?? baseList[0];
+      const title = coerceString(pillar?.title ?? pillar?.heading ?? pillar?.label, base?.title ?? '');
+      if (!title) {
+        return null;
+      }
+
+      const fallbackId = base?.id ?? normalizeSlug(title) || null;
+      const id = coerceOptionalString(
+        pillar?.id ?? pillar?.key ?? pillar?.slug,
+        fallbackId || `pillar-${index + 1}`,
+      );
+      const eyebrow = coerceOptionalString(pillar?.eyebrow ?? pillar?.tagline, base?.eyebrow ?? '');
+      const description = coerceOptionalString(pillar?.description ?? pillar?.copy ?? pillar?.summary, base?.description ?? '');
+      const metric = sanitizeValuePillarMetric(pillar?.metric ?? pillar?.highlight, base?.metric);
+      const cta = sanitizeCta(pillar?.cta, base?.cta);
+
+      const payload = { id, title };
+      if (eyebrow) {
+        payload.eyebrow = eyebrow;
+      }
+      if (description) {
+        payload.description = description;
+      }
+      if (metric) {
+        payload.metric = metric;
+      }
+      if (cta) {
+        payload.cta = cta;
+      }
+
+      return payload;
+    })
+    .filter(Boolean)
+    .slice(0, baseList.length);
+
   return cleaned.length ? cleaned : baseList.map((item) => ({ ...item }));
 }
 
@@ -1157,6 +1363,7 @@ function sanitizeMarketing(marketing, fallback = DEFAULT_MARKETING_FRAGMENT) {
     announcement: sanitizeMarketingAnnouncement(source.announcement, base.announcement),
     trustBadges: sanitizeTrustBadges(source.trustBadges, base.trustBadges),
     personas: sanitizeMarketingPersonas(source.personas, base.personas),
+    valuePillars: sanitizeValuePillars(source.valuePillars, base.valuePillars),
     productTour: { steps: sanitizeProductTourSteps(source?.productTour?.steps ?? source.productTourSteps, base.productTour?.steps) },
     pricing: sanitizePricing(source.pricing, base.pricing),
     testimonials: sanitizeMarketingTestimonials(source.testimonials, base.testimonials),

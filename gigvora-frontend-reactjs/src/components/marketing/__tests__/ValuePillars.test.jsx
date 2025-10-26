@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 import ValuePillars from '../ValuePillars.jsx';
 
 const analyticsMock = vi.hoisted(() => ({
@@ -17,9 +18,13 @@ afterEach(() => {
   analyticsMock.track.mockClear();
 });
 
+function renderWithRouter(ui) {
+  return render(<MemoryRouter>{ui}</MemoryRouter>);
+}
+
 describe('ValuePillars', () => {
   it('renders provided pillars with descriptions and metrics', () => {
-    render(
+    renderWithRouter(
       <ValuePillars
         eyebrow="Why operators switch"
         headline="Value that compounds"
@@ -45,7 +50,7 @@ describe('ValuePillars', () => {
 
   it('tracks analytics and forwards selection when CTA clicked', async () => {
     const onSelect = vi.fn();
-    render(
+    renderWithRouter(
       <ValuePillars
         pillars={[
           {
@@ -67,5 +72,30 @@ describe('ValuePillars', () => {
       expect.objectContaining({ source: 'hero_test' }),
     );
     expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 'trust' }));
+  });
+
+  it('renders CTA links for internal href values', async () => {
+    renderWithRouter(
+      <ValuePillars
+        pillars={[
+          {
+            id: 'launch',
+            title: 'Coordinate launches',
+            cta: { label: 'Explore launch workflows', href: '/launchpad/experience-launchpad' },
+          },
+        ]}
+      />,
+    );
+
+    const link = screen.getByRole('link', { name: /explore launch workflows/i });
+    expect(link).toHaveAttribute('href', '/launchpad/experience-launchpad');
+
+    await userEvent.click(link);
+
+    expect(analyticsMock.track).toHaveBeenCalledWith(
+      'marketing_value_pillar_interacted',
+      expect.objectContaining({ pillarId: 'launch' }),
+      expect.any(Object),
+    );
   });
 });

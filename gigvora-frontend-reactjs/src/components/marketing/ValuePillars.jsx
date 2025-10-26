@@ -1,7 +1,10 @@
 import PropTypes from 'prop-types';
 import clsx from 'clsx';
+import { Link } from 'react-router-dom';
 import { ArrowUpRightIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import analytics from '../../services/analytics.js';
+
+const DEFAULT_ANALYTICS_METADATA = { source: 'web_marketing_site' };
 
 function resolvePillars(pillars) {
   if (!Array.isArray(pillars)) {
@@ -34,7 +37,7 @@ function resolvePillars(pillars) {
     .filter((pillar) => pillar && pillar.title);
 }
 
-function PillarAction({ pillar, analyticsMetadata, onSelect }) {
+function PillarAction({ pillar = null, analyticsMetadata = DEFAULT_ANALYTICS_METADATA, onSelect }) {
   if (!pillar?.cta?.label) {
     return null;
   }
@@ -61,13 +64,32 @@ function PillarAction({ pillar, analyticsMetadata, onSelect }) {
 
   if (pillar.cta.href) {
     const isExternal = /^https?:/i.test(pillar.cta.href);
+    const isInternal = !isExternal && pillar.cta.href.startsWith('/');
+    const linkClasses =
+      'group inline-flex items-center gap-2 text-sm font-semibold text-accent transition hover:text-accentLight';
+
+    if (isInternal) {
+      return (
+        <Link
+          to={pillar.cta.href}
+          target={pillar.cta.target}
+          rel={pillar.cta.rel}
+          onClick={handleClick}
+          className={linkClasses}
+        >
+          {pillar.cta.label}
+          <Icon className="h-4 w-4 transition group-hover:translate-x-0.5" aria-hidden="true" />
+        </Link>
+      );
+    }
+
     return (
       <a
         href={pillar.cta.href}
         target={pillar.cta.target ?? (isExternal ? '_blank' : undefined)}
         rel={pillar.cta.rel ?? (isExternal ? 'noreferrer noopener' : undefined)}
         onClick={handleClick}
-        className="group inline-flex items-center gap-2 text-sm font-semibold text-accent transition hover:text-accentLight"
+        className={linkClasses}
       >
         {pillar.cta.label}
         <Icon className="h-4 w-4 transition group-hover:translate-x-0.5" aria-hidden="true" />
@@ -103,22 +125,17 @@ PillarAction.propTypes = {
   }),
   analyticsMetadata: PropTypes.shape({
     source: PropTypes.string,
-  }).isRequired,
+  }),
   onSelect: PropTypes.func,
 };
 
-PillarAction.defaultProps = {
-  pillar: null,
-  onSelect: undefined,
-};
-
 export default function ValuePillars({
-  eyebrow,
-  headline,
-  description,
-  pillars,
-  loading,
-  analyticsMetadata,
+  eyebrow = null,
+  headline = null,
+  description = null,
+  pillars = [],
+  loading = false,
+  analyticsMetadata = DEFAULT_ANALYTICS_METADATA,
   onSelect,
   className,
 }) {
@@ -157,8 +174,14 @@ export default function ValuePillars({
             ))
           : resolvedPillars.map((pillar) => {
               const Icon = pillar.icon ?? SparklesIcon;
-              const metricValue = typeof pillar.metric === 'string' ? pillar.metric : pillar.metric?.value;
-              const metricLabel = typeof pillar.metric === 'object' ? pillar.metric.label ?? pillar.metric.subtitle : null;
+              const hasMetricObject = pillar.metric && typeof pillar.metric === 'object';
+              const metricValue =
+                typeof pillar.metric === 'string'
+                  ? pillar.metric
+                  : hasMetricObject
+                    ? pillar.metric.value ?? pillar.metric.amount ?? pillar.metric.metric ?? null
+                    : null;
+              const metricLabel = hasMetricObject ? pillar.metric.label ?? pillar.metric.subtitle ?? null : null;
 
               return (
                 <article
@@ -234,16 +257,4 @@ ValuePillars.propTypes = {
   }),
   onSelect: PropTypes.func,
   className: PropTypes.string,
-};
-
-ValuePillars.defaultProps = {
-  eyebrow: 'Why teams switch to Gigvora',
-  headline: 'Value pillars built for enterprise collaboration',
-  description:
-    'Every pillar is validated through live customer launches so founders, operators, and talent all trust the same source of truth.',
-  pillars: [],
-  loading: false,
-  analyticsMetadata: {},
-  onSelect: undefined,
-  className: undefined,
 };

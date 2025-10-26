@@ -226,6 +226,59 @@ const DEFAULT_FRAGMENT = {
         description: 'Coach multiple cohorts with shared agendas, analytics, and follow-up workflows.',
       },
     ],
+    valuePillars: [
+      {
+        id: 'launch-velocity',
+        eyebrow: 'Launch velocity',
+        title: 'Coordinate launches across product, marketing, and talent in one place.',
+        description:
+          'Brief experts, capture approvals, and sync mentor feedback without juggling fragmented tools or email chains.',
+        metric: { value: '9 days', label: 'average time-to-launch after onboarding' },
+        cta: {
+          label: 'Explore launch workflows',
+          action: 'view_launch_workflows',
+          href: '/launchpad/experience-launchpad',
+        },
+      },
+      {
+        id: 'talent-orchestration',
+        eyebrow: 'Talent orchestration',
+        title: 'Match vetted talent and mentors in hours with contextual insights.',
+        description:
+          'Signal-driven recommendations surface specialists, mentors, and volunteers with availability, reviews, and risk flags.',
+        metric: { value: '12,400+', label: 'curated specialists ready to engage' },
+        cta: {
+          label: 'See talent playbooks',
+          action: 'view_talent_playbooks',
+          href: '/gigs',
+        },
+      },
+      {
+        id: 'trust-controls',
+        eyebrow: 'Trust & compliance',
+        title: 'Operate with enterprise-grade compliance, payouts, and governance.',
+        description: 'Automated contracts, payout controls, and audit trails keep every portfolio compliant across regions.',
+        metric: { value: '99.95%', label: 'platform uptime backed by enterprise SLAs' },
+        cta: {
+          label: 'Review trust architecture',
+          action: 'view_trust',
+          href: '/trust-center',
+        },
+      },
+      {
+        id: 'intelligence',
+        eyebrow: 'Live intelligence',
+        title: 'Decisions stay aligned with live metrics and AI-assisted summaries.',
+        description:
+          'Status pills, forecast chips, and AI briefings surface risks and wins for executives, operators, and clients.',
+        metric: { value: '4x', label: 'faster insight loops reported by pilot teams' },
+        cta: {
+          label: 'Tour the intelligence hub',
+          action: 'view_intelligence_hub',
+          href: '/dashboard/company/analytics',
+        },
+      },
+    ],
     testimonials: [
       {
         id: 'northwind',
@@ -821,6 +874,98 @@ const sanitizeTrustBadges = (badges, fallback = []) => {
   return cleaned.length ? cleaned : baseList.map((item) => ({ ...item }));
 };
 
+const sanitizeValuePillarMetric = (metric, fallback = null) => {
+  if (metric == null) {
+    return fallback ? { ...fallback } : null;
+  }
+
+  if (typeof metric === 'string') {
+    const value = safeString(metric);
+    if (!value) {
+      return fallback ? { ...fallback } : null;
+    }
+    const payload = { value };
+    if (fallback?.label) {
+      payload.label = fallback.label;
+    }
+    return payload;
+  }
+
+  const base = fallback ?? {};
+  const value = safeString(metric.value ?? metric.amount ?? metric.metric, base.value ?? '');
+  const label = safeString(metric.label ?? metric.subtitle, base.label ?? '');
+
+  if (!value) {
+    return base.value ? { ...base } : null;
+  }
+
+  const payload = { value };
+  if (label) {
+    payload.label = label;
+  }
+  return payload;
+};
+
+const sanitizeValuePillars = (pillars, fallback = []) => {
+  const baseList = Array.isArray(fallback) && fallback.length ? fallback : DEFAULT_FRAGMENT.marketing.valuePillars;
+  const list = Array.isArray(pillars) ? pillars : [];
+
+  const cleaned = list
+    .map((pillar, index) => {
+      const base = baseList[index] ?? baseList[0];
+      const title = safeString(pillar?.title ?? pillar?.heading ?? pillar?.label, base?.title ?? '');
+      if (!title) {
+        return null;
+      }
+
+      const fallbackId = base?.id ?? normalizeKey(title, title);
+      const id = safeString(
+        pillar?.id ?? pillar?.key ?? pillar?.slug,
+        fallbackId || `pillar-${index + 1}`,
+      );
+      const eyebrow = safeString(pillar?.eyebrow ?? pillar?.tagline, base?.eyebrow ?? '');
+      const description = safeString(pillar?.description ?? pillar?.copy ?? pillar?.summary, base?.description ?? '');
+      const metric = sanitizeValuePillarMetric(pillar?.metric ?? pillar?.highlight, base?.metric);
+      const cta = sanitizeCta(pillar?.cta, base?.cta);
+
+      const payload = { id, title };
+      if (eyebrow) {
+        payload.eyebrow = eyebrow;
+      }
+      if (description) {
+        payload.description = description;
+      }
+      if (metric) {
+        payload.metric = metric;
+      }
+      if (cta) {
+        payload.cta = cta;
+      }
+
+      return payload;
+    })
+    .filter(Boolean)
+    .slice(0, baseList.length);
+
+  if (!cleaned.length) {
+    return baseList.map((item) => ({ ...item }));
+  }
+
+  const merged = new Map();
+  baseList.forEach((item, index) => {
+    const key = item.id ?? `pillar-${index + 1}`;
+    merged.set(key, { ...item });
+  });
+
+  cleaned.forEach((item, index) => {
+    const key = item.id ?? baseList[index]?.id ?? `pillar-${index + 1}`;
+    const base = merged.get(key) ?? baseList[index] ?? {};
+    merged.set(key, { ...base, ...item });
+  });
+
+  return Array.from(merged.values()).slice(0, baseList.length);
+};
+
 const sanitizeMarketingAnnouncement = (announcement, fallback = {}) => {
   const base = fallback ?? {};
   const title = safeString(announcement?.title ?? announcement?.headline, base.title ?? '');
@@ -1106,9 +1251,10 @@ const sanitizeMarketing = (marketing) => {
     announcement: sanitizeMarketingAnnouncement(source.announcement, fallback.announcement),
     trustBadges: sanitizeTrustBadges(source.trustBadges, fallback.trustBadges),
     personas: sanitizeMarketingPersonas(source.personas, fallback.personas),
+    valuePillars: sanitizeValuePillars(source.valuePillars, fallback.valuePillars),
     productTour: { steps: sanitizeProductTourSteps(source?.productTour?.steps ?? source.productTourSteps, fallback.productTour.steps) },
     testimonials: sanitizeMarketingTestimonials(source.testimonials, fallback.testimonials),
-    pricing: sanitizePricing(source.pricing),
+    pricing: sanitizePricing(source.pricing, fallback.pricing),
   };
 };
 

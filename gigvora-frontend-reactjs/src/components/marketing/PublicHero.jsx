@@ -52,9 +52,9 @@ function normaliseTickerItems(items) {
 }
 
 function ActionButton({
-  action,
+  action = null,
   variant,
-  defaultIcon: DefaultIcon,
+  defaultIcon: DefaultIcon = ArrowUpRightIcon,
 }) {
   if (!action || !action.label) {
     return null;
@@ -153,21 +153,16 @@ ActionButton.propTypes = {
   defaultIcon: PropTypes.elementType,
 };
 
-ActionButton.defaultProps = {
-  action: null,
-  defaultIcon: ArrowUpRightIcon,
-};
-
 export default function PublicHero({
-  eyebrow,
-  headline,
-  subheading,
-  surface,
-  primaryAction,
-  secondaryAction,
-  ticker,
-  rightColumn,
-  bottomSlot,
+  eyebrow = null,
+  headline = null,
+  subheading = null,
+  surface = null,
+  primaryAction = null,
+  secondaryAction = null,
+  ticker = null,
+  rightColumn = null,
+  bottomSlot = null,
   className,
 }) {
   const {
@@ -338,15 +333,3 @@ PublicHero.propTypes = {
   className: PropTypes.string,
 };
 
-PublicHero.defaultProps = {
-  eyebrow: null,
-  headline: null,
-  subheading: null,
-  surface: null,
-  primaryAction: null,
-  secondaryAction: null,
-  ticker: null,
-  rightColumn: null,
-  bottomSlot: null,
-  className: undefined,
-};
