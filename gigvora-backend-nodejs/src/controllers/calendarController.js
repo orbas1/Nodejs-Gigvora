@@ -1,4 +1,5 @@
 import calendarService from '../services/calendarService.js';
+import { getCalendarSyncStatus, triggerCalendarSync } from '../services/calendarSyncService.js';
 
 export async function getOverview(req, res) {
   const overview = await calendarService.getOverview(Number(req.params.id), req.query ?? {});
@@ -80,6 +81,16 @@ export async function updateSettings(req, res) {
   res.json(settings);
 }
 
+export async function getSyncStatus(req, res) {
+  const status = await getCalendarSyncStatus(req.params.id);
+  res.json(status);
+}
+
+export async function triggerSync(req, res) {
+  const job = await triggerCalendarSync(req.params.id, { actorId: req.user?.id ?? null });
+  res.status(202).json(job);
+}
+
 export default {
   getOverview,
   listEvents,
@@ -94,4 +105,6 @@ export default {
   deleteFocusSession,
   getSettings,
   updateSettings,
+  getSyncStatus,
+  triggerSync,
 };

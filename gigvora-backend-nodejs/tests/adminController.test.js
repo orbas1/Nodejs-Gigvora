@@ -11,6 +11,7 @@ const pageSettingsModuleUrl = new URL('../src/services/pageSettingsService.js', 
 const gdprSettingsModuleUrl = new URL('../src/services/gdprSettingsService.js', import.meta.url);
 const seoSettingsModuleUrl = new URL('../src/services/seoSettingsService.js', import.meta.url);
 const runtimeObservabilityModuleUrl = new URL('../src/services/runtimeObservabilityService.js', import.meta.url);
+const seoConsoleModuleUrl = new URL('../src/services/seoConsoleService.js', import.meta.url);
 const adminSanitizersModuleUrl = new URL('../src/utils/adminSanitizers.js', import.meta.url);
 
 const getAdminDashboardSnapshot = jest.fn().mockResolvedValue({ metrics: [] });
@@ -42,6 +43,13 @@ const updateGdprSettings = jest.fn().mockResolvedValue({ updated: true });
 
 const getSeoSettings = jest.fn().mockResolvedValue({});
 const updateSeoSettings = jest.fn().mockResolvedValue({ seo: true });
+
+const getSeoConsoleSnapshot = jest.fn().mockResolvedValue({ settings: { siteName: 'Gigvora' } });
+const generateSeoSitemap = jest.fn().mockResolvedValue({ xml: '<urlset />', job: { id: 1 } });
+const listSeoSitemapJobs = jest.fn().mockResolvedValue([{ id: 1 }]);
+const submitSeoSitemapJob = jest.fn().mockResolvedValue({ id: 1, status: 'submitted' });
+const listSeoSchemaTemplates = jest.fn().mockResolvedValue([{ slug: 'article' }]);
+const listSeoMetaTemplates = jest.fn().mockResolvedValue([{ slug: 'launch' }]);
 
 const getRuntimeOperationalSnapshot = jest.fn().mockResolvedValue({ status: 'healthy' });
 
@@ -98,6 +106,15 @@ jest.unstable_mockModule(seoSettingsModuleUrl.pathname, () => ({
   updateSeoSettings,
 }));
 
+jest.unstable_mockModule(seoConsoleModuleUrl.pathname, () => ({
+  getSeoConsoleSnapshot,
+  generateSeoSitemap,
+  listSeoSitemapJobs,
+  submitSeoSitemapJob,
+  listSeoSchemaTemplates,
+  listSeoMetaTemplates,
+}));
+
 jest.unstable_mockModule(runtimeObservabilityModuleUrl.pathname, () => ({
   getRuntimeOperationalSnapshot,
 }));
@@ -125,6 +142,12 @@ let listPlatformSettingsWatchersController;
 let createPlatformSettingsWatcherController;
 let updatePlatformSettingsWatcherController;
 let removePlatformSettingsWatcher;
+let fetchSeoConsoleSnapshotController;
+let generateSeoConsoleSitemap;
+let listSeoConsoleSitemapJobs;
+let submitSeoConsoleSitemapJob;
+let listSeoConsoleSchemaTemplates;
+let listSeoConsoleMetaTemplates;
 
 beforeAll(async () => {
   controller = await import('../src/controllers/adminController.js');
@@ -143,6 +166,12 @@ beforeAll(async () => {
     createPlatformSettingsWatcherController,
     updatePlatformSettingsWatcherController,
     removePlatformSettingsWatcher,
+    fetchSeoConsoleSnapshotController,
+    generateSeoConsoleSitemap,
+    listSeoConsoleSitemapJobs,
+    submitSeoConsoleSitemapJob,
+    listSeoConsoleSchemaTemplates,
+    listSeoConsoleMetaTemplates,
   } = controller);
 });
 
@@ -335,6 +364,82 @@ describe('adminController.persistSeoSettings', () => {
 
     expect(updateSeoSettings).toHaveBeenCalledWith({ title: 'Gigvora' });
     expect(res.json).toHaveBeenCalledWith({ seo: true });
+  });
+});
+
+describe('adminController.fetchSeoConsoleSnapshotController', () => {
+  it('returns the seo console snapshot payload', async () => {
+    const res = createResponse();
+    await fetchSeoConsoleSnapshotController({ user: {} }, res);
+    expect(getSeoConsoleSnapshot).toHaveBeenCalledTimes(1);
+    expect(res.json).toHaveBeenCalledWith({ settings: { siteName: 'Gigvora' } });
+  });
+});
+
+describe('adminController.generateSeoConsoleSitemap', () => {
+  it('passes actor metadata to the sitemap generator', async () => {
+    const req = { body: { baseUrl: 'https://gigvora.com' }, user: { id: '42', email: 'ops@gigvora.com' } };
+    const res = createResponse();
+
+    await generateSeoConsoleSitemap(req, res);
+
+    expect(generateSeoSitemap).toHaveBeenCalledWith({ baseUrl: 'https://gigvora.com' }, {
+      actor: { actorId: 42, actorEmail: 'ops@gigvora.com', actorName: null },
+    });
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(res.json).toHaveBeenCalledWith({ xml: '<urlset />', job: { id: 1 } });
+  });
+});
+
+describe('adminController.listSeoConsoleSitemapJobs', () => {
+  it('returns sitemap job history', async () => {
+    const req = { query: { limit: '10' } };
+    const res = createResponse();
+
+    await listSeoConsoleSitemapJobs(req, res);
+
+    expect(listSeoSitemapJobs).toHaveBeenCalledWith({ limit: '10' });
+    expect(res.json).toHaveBeenCalledWith({ jobs: [{ id: 1 }] });
+  });
+});
+
+describe('adminController.submitSeoConsoleSitemapJob', () => {
+  it('submits a sitemap job with actor metadata', async () => {
+    const req = {
+      params: { jobId: '12' },
+      body: { notes: 'Submitted to Google Search Console' },
+      user: { id: 7, email: 'seo@gigvora.com' },
+    };
+    const res = createResponse();
+
+    await submitSeoConsoleSitemapJob(req, res);
+
+    expect(submitSeoSitemapJob).toHaveBeenCalledWith('12', {
+      actor: { actorId: 7, actorEmail: 'seo@gigvora.com', actorName: null },
+      notes: 'Submitted to Google Search Console',
+    });
+    expect(res.json).toHaveBeenCalledWith({ job: { id: 1, status: 'submitted' } });
+  });
+});
+
+describe('adminController.listSeoConsoleSchemaTemplates', () => {
+  it('forwards includeInactive filter to service', async () => {
+    const req = { query: { includeInactive: 'true' } };
+    const res = createResponse();
+
+    await listSeoConsoleSchemaTemplates(req, res);
+
+    expect(listSeoSchemaTemplates).toHaveBeenCalledWith({ includeInactive: true });
+    expect(res.json).toHaveBeenCalledWith({ templates: [{ slug: 'article' }] });
+  });
+});
+
+describe('adminController.listSeoConsoleMetaTemplates', () => {
+  it('returns available meta templates', async () => {
+    const res = createResponse();
+    await listSeoConsoleMetaTemplates({}, res);
+    expect(listSeoMetaTemplates).toHaveBeenCalledTimes(1);
+    expect(res.json).toHaveBeenCalledWith({ templates: [{ slug: 'launch' }] });
   });
 });
 

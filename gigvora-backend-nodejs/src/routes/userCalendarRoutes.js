@@ -90,4 +90,7 @@ router.put(
   asyncHandler(calendarController.updateSettings),
 );
 
+router.get('/sync', asyncHandler(calendarController.getSyncStatus));
+router.post('/sync/refresh', asyncHandler(calendarController.triggerSync));
+
 export default router;

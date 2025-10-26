@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 import useCachedResource from './useCachedResource.js';
 import { fetchConnectionNetwork } from '../services/connections.js';
 
-export default function useConnectionNetwork({ userId, viewerId, enabled = true } = {}) {
+export default function useConnectionNetwork({ userId, viewerId, includePending = false, enabled = true } = {}) {
   const cacheKey = useMemo(() => (userId ? `connections:network:${userId}` : null), [userId]);
 
   const fetcher = useCallback(
@@ -10,9 +10,9 @@ export default function useConnectionNetwork({ userId, viewerId, enabled = true 
       if (!userId) {
         return null;
       }
-      return fetchConnectionNetwork({ userId, viewerId, signal });
+      return fetchConnectionNetwork({ userId, viewerId, includePending }, { signal });
     },
-    [userId, viewerId],
+    [userId, viewerId, includePending],
   );
 
   const state = useCachedResource(cacheKey ?? 'connections:network:none', fetcher, {

@@ -32,6 +32,13 @@ import {
   CompanyPageCollaborator,
   CompanyPageMedia,
 } from './companyPageModels.js';
+import {
+  DiscoverySuggestion,
+  DiscoveryTrendingTopic,
+  DiscoveryConnectionProfile,
+  DiscoverySuggestionEngagement,
+  DiscoverySuggestionSubscription,
+} from './discoveryModels.js';
 import { FormBlueprint, FormBlueprintStep, FormBlueprintField, FormBlueprintValidation } from './formBlueprintModels.js';
 export { FORM_BLUEPRINT_STATUSES, FORM_BLUEPRINT_VALIDATION_SEVERITIES } from './formBlueprintModels.js';
 import {
@@ -167,6 +174,7 @@ import {
   CALENDAR_EVENT_SOURCES,
   CALENDAR_EVENT_TYPES,
   CALENDAR_EVENT_SYNC_STATUSES,
+  CALENDAR_SYNC_JOB_STATUSES,
   CALENDAR_EVENT_VISIBILITIES,
   CALENDAR_INTEGRATION_STATUSES,
   CAREER_ANALYTICS_TREND_DIRECTIONS,
@@ -228,6 +236,9 @@ import {
   COLLABORATION_PERMISSION_LEVELS,
   COLLABORATION_REPOSITORY_STATUSES,
   COLLABORATION_ROOM_TYPES,
+  HUDDLE_PARTICIPANT_RESPONSES,
+  HUDDLE_PARTICIPANT_ROLES,
+  HUDDLE_STATUSES,
   COLLABORATION_SPACE_STATUSES,
   COMMUNITY_INVITE_STATUSES,
   COMPLIANCE_AUDIT_STATUSES,
@@ -286,6 +297,8 @@ import {
   FINANCE_TRENDS,
   FINANCE_VALUE_UNITS,
   FOCUS_SESSION_TYPES,
+  PRESENCE_AVAILABILITY_STATES,
+  PRESENCE_EVENT_TYPES,
   FREELANCER_CALENDAR_EVENT_STATUSES,
   FREELANCER_CALENDAR_EVENT_TYPES,
   FREELANCER_CALENDAR_RELATED_TYPES,
@@ -709,6 +722,24 @@ JobApplicationDocument.belongsTo(User, { foreignKey: 'uploadedById', as: 'upload
 User.hasMany(JobApplicationDocument, { foreignKey: 'uploadedById', as: 'jobApplicationDocuments' });
 JobApplicationInterview.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
 User.hasMany(JobApplicationInterview, { foreignKey: 'createdById', as: 'jobApplicationInterviews' });
+
+DiscoveryConnectionProfile.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(DiscoveryConnectionProfile, {
+  foreignKey: 'userId',
+  as: 'discoveryConnectionProfiles',
+});
+
+DiscoverySuggestionEngagement.belongsTo(User, { foreignKey: 'userId', as: 'actor' });
+User.hasMany(DiscoverySuggestionEngagement, {
+  foreignKey: 'userId',
+  as: 'discoverySuggestionEngagements',
+});
+
+DiscoverySuggestionSubscription.belongsTo(User, { foreignKey: 'userId', as: 'subscriber' });
+User.hasMany(DiscoverySuggestionSubscription, {
+  foreignKey: 'userId',
+  as: 'discoverySuggestionSubscriptions',
+});
 
 export const UserDashboardOverview = sequelize.define(
   'UserDashboardOverview',
@@ -14781,6 +14812,54 @@ CalendarAvailabilitySnapshot.prototype.toPublicObject = function toPublicObject(
   };
 };
 
+export const CalendarSyncJob = sequelize.define(
+  'CalendarSyncJob',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    triggeredById: { type: DataTypes.INTEGER, allowNull: true },
+    status: {
+      type: DataTypes.ENUM(...CALENDAR_SYNC_JOB_STATUSES),
+      allowNull: false,
+      defaultValue: 'queued',
+      validate: { isIn: [CALENDAR_SYNC_JOB_STATUSES] },
+    },
+    startedAt: { type: DataTypes.DATE, allowNull: true },
+    finishedAt: { type: DataTypes.DATE, allowNull: true },
+    nextSyncAt: { type: DataTypes.DATE, allowNull: true },
+    lastSyncedAt: { type: DataTypes.DATE, allowNull: true },
+    errorCode: { type: DataTypes.STRING(120), allowNull: true },
+    errorMessage: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'calendar_sync_jobs',
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['status'] },
+      { fields: ['nextSyncAt'] },
+    ],
+  },
+);
+
+CalendarSyncJob.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    triggeredById: plain.triggeredById ?? null,
+    status: plain.status,
+    startedAt: plain.startedAt ?? null,
+    finishedAt: plain.finishedAt ?? null,
+    nextSyncAt: plain.nextSyncAt ?? null,
+    lastSyncedAt: plain.lastSyncedAt ?? null,
+    errorCode: plain.errorCode ?? null,
+    errorMessage: plain.errorMessage ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 export const CandidateCalendarEvent = sequelize.define(
   'CandidateCalendarEvent',
   {
@@ -15070,6 +15149,131 @@ FocusSession.prototype.toPublicObject = function toPublicObject() {
         ? null
         : Number.parseInt(typeof plain.durationMinutes === 'number' ? plain.durationMinutes : String(plain.durationMinutes), 10),
     metadata: plain.metadata ?? null,
+  };
+};
+
+export const UserPresenceStatus = sequelize.define(
+  'UserPresenceStatus',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    availability: {
+      type: DataTypes.ENUM(...PRESENCE_AVAILABILITY_STATES),
+      allowNull: false,
+      defaultValue: 'available',
+      validate: { isIn: [PRESENCE_AVAILABILITY_STATES] },
+    },
+    message: { type: DataTypes.TEXT, allowNull: true },
+    online: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    focusUntil: { type: DataTypes.DATE, allowNull: true },
+    lastSeenAt: { type: DataTypes.DATE, allowNull: true },
+    calendarLastSyncedAt: { type: DataTypes.DATE, allowNull: true },
+    supportedStates: { type: jsonType, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+    activeFocusSessionId: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  {
+    tableName: 'user_presence_statuses',
+    indexes: [
+      { unique: true, fields: ['userId'] },
+      { fields: ['availability'] },
+    ],
+  },
+);
+
+UserPresenceStatus.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    availability: plain.availability,
+    message: plain.message ?? null,
+    online: Boolean(plain.online),
+    focusUntil: plain.focusUntil ?? null,
+    lastSeenAt: plain.lastSeenAt ?? null,
+    calendarLastSyncedAt: plain.calendarLastSyncedAt ?? null,
+    supportedStates: Array.isArray(plain.supportedStates) ? [...plain.supportedStates] : null,
+    metadata: plain.metadata ?? null,
+    activeFocusSessionId: plain.activeFocusSessionId ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const UserPresenceEvent = sequelize.define(
+  'UserPresenceEvent',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    eventType: {
+      type: DataTypes.ENUM(...PRESENCE_EVENT_TYPES),
+      allowNull: false,
+      defaultValue: 'status_change',
+      validate: { isIn: [PRESENCE_EVENT_TYPES] },
+    },
+    title: { type: DataTypes.STRING(200), allowNull: true },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    startedAt: { type: DataTypes.DATE, allowNull: true },
+    endedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'user_presence_events',
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['eventType'] },
+      { fields: ['startedAt'] },
+    ],
+  },
+);
+
+UserPresenceEvent.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    eventType: plain.eventType,
+    title: plain.title ?? null,
+    description: plain.description ?? null,
+    startedAt: plain.startedAt ?? null,
+    endedAt: plain.endedAt ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const UserPresenceWindow = sequelize.define(
+  'UserPresenceWindow',
+  {
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    startAt: { type: DataTypes.DATE, allowNull: true },
+    endAt: { type: DataTypes.DATE, allowNull: true },
+    timezone: { type: DataTypes.STRING(120), allowNull: true },
+    recurringRule: { type: DataTypes.STRING(512), allowNull: true },
+    note: { type: DataTypes.TEXT, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'user_presence_windows',
+    indexes: [
+      { fields: ['userId'] },
+      { fields: ['startAt'] },
+    ],
+  },
+);
+
+UserPresenceWindow.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    userId: plain.userId,
+    startAt: plain.startAt ?? null,
+    endAt: plain.endAt ?? null,
+    timezone: plain.timezone ?? null,
+    recurringRule: plain.recurringRule ?? null,
+    note: plain.note ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
   };
 };
 
@@ -19413,6 +19617,175 @@ CollaborationRoom.prototype.toPublicObject = function toPublicObject() {
   };
 };
 
+export const CollaborationHuddle = sequelize.define(
+  'CollaborationHuddle',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    projectId: { type: DataTypes.INTEGER, allowNull: true },
+    spaceId: { type: DataTypes.INTEGER, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    title: { type: DataTypes.STRING(200), allowNull: false },
+    status: {
+      type: DataTypes.ENUM(...HUDDLE_STATUSES),
+      allowNull: false,
+      defaultValue: 'draft',
+      validate: { isIn: [HUDDLE_STATUSES] },
+    },
+    agenda: { type: DataTypes.TEXT, allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    recordMeeting: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    followUpRoomId: { type: DataTypes.INTEGER, allowNull: true },
+    launchUrl: { type: DataTypes.TEXT, allowNull: true },
+    recordingUrl: { type: DataTypes.TEXT, allowNull: true },
+    scheduledStart: { type: DataTypes.DATE, allowNull: true },
+    scheduledDurationMinutes: { type: DataTypes.INTEGER, allowNull: true },
+    startedAt: { type: DataTypes.DATE, allowNull: true },
+    endedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'collaboration_huddles',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['projectId'] },
+      { fields: ['status'] },
+      { fields: ['scheduledStart'] },
+    ],
+  },
+);
+
+CollaborationHuddle.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId ?? null,
+    projectId: plain.projectId ?? null,
+    spaceId: plain.spaceId ?? null,
+    createdById: plain.createdById ?? null,
+    title: plain.title,
+    status: plain.status,
+    agenda: plain.agenda ?? null,
+    notes: plain.notes ?? null,
+    recordMeeting: Boolean(plain.recordMeeting),
+    followUpRoomId: plain.followUpRoomId ?? null,
+    launchUrl: plain.launchUrl ?? null,
+    recordingUrl: plain.recordingUrl ?? null,
+    scheduledStart: plain.scheduledStart ?? null,
+    scheduledDurationMinutes:
+      plain.scheduledDurationMinutes == null
+        ? null
+        : Number.parseInt(
+            typeof plain.scheduledDurationMinutes === 'number'
+              ? plain.scheduledDurationMinutes
+              : String(plain.scheduledDurationMinutes),
+            10,
+          ),
+    startedAt: plain.startedAt ?? null,
+    endedAt: plain.endedAt ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const CollaborationHuddleParticipant = sequelize.define(
+  'CollaborationHuddleParticipant',
+  {
+    huddleId: { type: DataTypes.INTEGER, allowNull: false },
+    userId: { type: DataTypes.INTEGER, allowNull: true },
+    email: { type: DataTypes.STRING(255), allowNull: true },
+    role: {
+      type: DataTypes.ENUM(...HUDDLE_PARTICIPANT_ROLES),
+      allowNull: false,
+      defaultValue: 'participant',
+      validate: { isIn: [HUDDLE_PARTICIPANT_ROLES] },
+    },
+    responseStatus: {
+      type: DataTypes.ENUM(...HUDDLE_PARTICIPANT_RESPONSES),
+      allowNull: false,
+      defaultValue: 'invited',
+      validate: { isIn: [HUDDLE_PARTICIPANT_RESPONSES] },
+    },
+    invitedAt: { type: DataTypes.DATE, allowNull: true },
+    respondedAt: { type: DataTypes.DATE, allowNull: true },
+    joinedAt: { type: DataTypes.DATE, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'collaboration_huddle_participants',
+    indexes: [
+      { fields: ['huddleId'] },
+      { fields: ['userId'] },
+      { fields: ['role'] },
+      { fields: ['responseStatus'] },
+    ],
+  },
+);
+
+CollaborationHuddleParticipant.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    huddleId: plain.huddleId,
+    userId: plain.userId ?? null,
+    email: plain.email ?? null,
+    role: plain.role,
+    responseStatus: plain.responseStatus,
+    invitedAt: plain.invitedAt ?? null,
+    respondedAt: plain.respondedAt ?? null,
+    joinedAt: plain.joinedAt ?? null,
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
+export const CollaborationHuddleTemplate = sequelize.define(
+  'CollaborationHuddleTemplate',
+  {
+    workspaceId: { type: DataTypes.INTEGER, allowNull: true },
+    createdById: { type: DataTypes.INTEGER, allowNull: true },
+    category: { type: DataTypes.STRING(120), allowNull: true },
+    title: { type: DataTypes.STRING(200), allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    agenda: { type: DataTypes.TEXT, allowNull: false },
+    recommendedDurationMinutes: { type: DataTypes.INTEGER, allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'collaboration_huddle_templates',
+    indexes: [
+      { fields: ['workspaceId'] },
+      { fields: ['category'] },
+    ],
+  },
+);
+
+CollaborationHuddleTemplate.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    workspaceId: plain.workspaceId ?? null,
+    createdById: plain.createdById ?? null,
+    category: plain.category ?? null,
+    title: plain.title,
+    description: plain.description ?? null,
+    agenda: plain.agenda,
+    recommendedDurationMinutes:
+      plain.recommendedDurationMinutes == null
+        ? null
+        : Number.parseInt(
+            typeof plain.recommendedDurationMinutes === 'number'
+              ? plain.recommendedDurationMinutes
+              : String(plain.recommendedDurationMinutes),
+            10,
+          ),
+    metadata: plain.metadata ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 export const CollaborationAsset = sequelize.define(
   'CollaborationAsset',
   {
@@ -19959,11 +20332,13 @@ CollaborationSpace.hasMany(CollaborationAiSession, {
   as: 'aiSessions',
   onDelete: 'CASCADE',
 });
+CollaborationSpace.hasMany(CollaborationHuddle, { foreignKey: 'spaceId', as: 'huddles' });
 
 CollaborationParticipant.belongsTo(CollaborationSpace, { foreignKey: 'spaceId', as: 'space' });
 CollaborationParticipant.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 CollaborationRoom.belongsTo(CollaborationSpace, { foreignKey: 'spaceId', as: 'space' });
+CollaborationRoom.hasMany(CollaborationHuddle, { foreignKey: 'followUpRoomId', as: 'followUpHuddles' });
 
 CollaborationAsset.belongsTo(CollaborationSpace, { foreignKey: 'spaceId', as: 'space' });
 CollaborationAsset.belongsTo(User, { foreignKey: 'uploadedById', as: 'uploader' });
@@ -19980,6 +20355,23 @@ CollaborationRepository.belongsTo(CollaborationSpace, { foreignKey: 'spaceId', a
 
 CollaborationAiSession.belongsTo(CollaborationSpace, { foreignKey: 'spaceId', as: 'space' });
 CollaborationAiSession.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+
+CollaborationHuddle.belongsTo(CollaborationSpace, { foreignKey: 'spaceId', as: 'space' });
+CollaborationHuddle.belongsTo(CollaborationRoom, { foreignKey: 'followUpRoomId', as: 'followUpRoom' });
+CollaborationHuddle.belongsTo(User, { foreignKey: 'createdById', as: 'creator' });
+User.hasMany(CollaborationHuddle, { foreignKey: 'createdById', as: 'hostedHuddles' });
+
+CollaborationHuddle.hasMany(CollaborationHuddleParticipant, {
+  foreignKey: 'huddleId',
+  as: 'participants',
+  onDelete: 'CASCADE',
+});
+CollaborationHuddleParticipant.belongsTo(CollaborationHuddle, { foreignKey: 'huddleId', as: 'huddle' });
+CollaborationHuddleParticipant.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(CollaborationHuddleParticipant, { foreignKey: 'userId', as: 'huddleParticipations' });
+
+CollaborationHuddleTemplate.belongsTo(User, { foreignKey: 'createdById', as: 'author' });
+User.hasMany(CollaborationHuddleTemplate, { foreignKey: 'createdById', as: 'authoredHuddleTemplates' });
 OpportunityTaxonomy.hasMany(OpportunityTaxonomy, { foreignKey: 'parentId', as: 'children' });
 OpportunityTaxonomy.belongsTo(OpportunityTaxonomy, { foreignKey: 'parentId', as: 'parent' });
 OpportunityTaxonomy.hasMany(OpportunityTaxonomyAssignment, { foreignKey: 'taxonomyId', as: 'assignments' });
@@ -21932,6 +22324,10 @@ CalendarIntegration.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasMany(CalendarAvailabilitySnapshot, { foreignKey: 'userId', as: 'calendarAvailabilitySnapshots' });
 CalendarAvailabilitySnapshot.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
+User.hasMany(CalendarSyncJob, { foreignKey: 'userId', as: 'calendarSyncJobs' });
+CalendarSyncJob.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+CalendarSyncJob.belongsTo(User, { foreignKey: 'triggeredById', as: 'triggeredBy' });
+
 User.hasMany(CandidateCalendarEvent, { foreignKey: 'userId', as: 'calendarEvents' });
 CandidateCalendarEvent.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 CandidateCalendarEvent.belongsTo(CandidateCalendarEvent, {
@@ -21960,6 +22356,20 @@ UserCalendarSetting.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 User.hasMany(FocusSession, { foreignKey: 'userId', as: 'focusSessions' });
 FocusSession.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+User.hasOne(UserPresenceStatus, { foreignKey: 'userId', as: 'presenceStatus' });
+UserPresenceStatus.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+UserPresenceStatus.belongsTo(FocusSession, {
+  foreignKey: 'activeFocusSessionId',
+  as: 'activeFocusSession',
+});
+FocusSession.hasMany(UserPresenceStatus, { foreignKey: 'activeFocusSessionId', as: 'linkedPresenceStatuses' });
+
+User.hasMany(UserPresenceEvent, { foreignKey: 'userId', as: 'presenceEvents' });
+UserPresenceEvent.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+User.hasMany(UserPresenceWindow, { foreignKey: 'userId', as: 'presenceWindows' });
+UserPresenceWindow.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 User.hasMany(AdvisorCollaboration, { foreignKey: 'ownerId', as: 'advisorCollaborations' });
 AdvisorCollaboration.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
@@ -24958,9 +25368,13 @@ export default {
   WeeklyDigestSubscription,
   CalendarIntegration,
   CalendarAvailabilitySnapshot,
+  CalendarSyncJob,
   CandidateCalendarEvent,
   UserCalendarSetting,
   FocusSession,
+  UserPresenceStatus,
+  UserPresenceEvent,
+  UserPresenceWindow,
   AdvisorCollaboration,
   AdvisorCollaborationMember,
   AdvisorCollaborationAuditLog,
@@ -25172,6 +25586,9 @@ export default {
   CollaborationAnnotation,
   CollaborationRepository,
   CollaborationAiSession,
+  CollaborationHuddle,
+  CollaborationHuddleParticipant,
+  CollaborationHuddleTemplate,
   TalentCandidate,
   TalentInterview,
   TalentOffer,
@@ -25272,6 +25689,20 @@ domainRegistry.registerContext({
       /^Deliverable/.test(modelName),
   ],
   metadata: domainMetadata.marketplace,
+});
+
+domainRegistry.registerContext({
+  name: 'discovery',
+  displayName: 'Discovery & Suggestions',
+  description: 'Personalised suggestion rails, trending topics, and networking spotlights powering the explorer.',
+  models: [
+    'DiscoverySuggestion',
+    'DiscoverySuggestionEngagement',
+    'DiscoverySuggestionSubscription',
+    'DiscoveryTrendingTopic',
+    'DiscoveryConnectionProfile',
+  ],
+  metadata: domainMetadata.discovery,
 });
 
 domainRegistry.registerContext({

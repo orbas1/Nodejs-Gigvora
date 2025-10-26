@@ -62,6 +62,7 @@ import siteRoutes from './siteRoutes.js';
 import communityEventsRoutes from './communityEventsRoutes.js';
 import routeRegistryRoutes from './routeRegistryRoutes.js';
 import formBlueprintRoutes from './formBlueprintRoutes.js';
+import presenceRoutes from './presenceRoutes.js';
 
 const router = Router();
 
@@ -82,6 +83,7 @@ const routeDefinitions = [
   ['/blog', blogRoutes],
   ['/client-portals', clientPortalRoutes],
   ['/collaboration', collaborationRoutes],
+  ['/presence', presenceRoutes],
   ['/company/creation-studio', creationStudioRoutes],
   ['/company/id-verifications', companyIdentityVerificationRoutes],
   ['/company/integrations', companyIntegrationRoutes],
