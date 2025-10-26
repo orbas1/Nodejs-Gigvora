@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import PersonaSelection, { personaShape, DEFAULT_PERSONAS_FOR_SELECTION } from './PersonaSelection.jsx';
+import { listOnboardingPersonas, createOnboardingJourney } from '../../../services/onboarding.js';
 
 const STEP_SEQUENCE = [
   { id: 'persona', title: 'Persona', caption: 'Pick the journey that reflects your current goals.' },
@@ -42,21 +43,94 @@ export default function OnboardingWizard({
   defaultInvites = DEFAULT_INVITES,
   onExit,
 }) {
-  const [currentStepIndex, setCurrentStepIndex] = useState(() => {
-    if (initialPersonaId && personas.some((persona) => persona.id === initialPersonaId)) {
-      return 1;
+  const hasExternalPersonas = Array.isArray(personas) && personas.length && personas !== DEFAULT_PERSONAS_FOR_SELECTION;
+  const [personaOptions, setPersonaOptions] = useState(() => {
+    if (hasExternalPersonas) {
+      return personas;
     }
-    return 0;
+    return DEFAULT_PERSONAS_FOR_SELECTION;
   });
-  const [selectedPersonaId, setSelectedPersonaId] = useState(initialPersonaId);
+  const [personasLoading, setPersonasLoading] = useState(false);
+  const [personaLoadError, setPersonaLoadError] = useState(null);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [selectedPersonaId, setSelectedPersonaId] = useState(() => {
+    if (initialPersonaId) {
+      const source = hasExternalPersonas ? personas : DEFAULT_PERSONAS_FOR_SELECTION;
+      if (source.some((persona) => persona.id === initialPersonaId)) {
+        return initialPersonaId;
+      }
+    }
+    return null;
+  });
   const [profile, setProfile] = useState(defaultProfile);
   const [invites, setInvites] = useState(defaultInvites);
   const [preferences, setPreferences] = useState(defaultPreferences);
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState(null);
 
+  useEffect(() => {
+    if (hasExternalPersonas) {
+      setPersonaOptions(personas);
+      setPersonasLoading(false);
+      setPersonaLoadError(null);
+      return;
+    }
+
+    let isActive = true;
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+
+    setPersonasLoading(true);
+    setPersonaLoadError(null);
+
+    listOnboardingPersonas({ signal: controller?.signal })
+      .then((fetched) => {
+        if (!isActive) {
+          return;
+        }
+        if (Array.isArray(fetched) && fetched.length) {
+          setPersonaOptions(fetched);
+        } else {
+          setPersonaOptions(DEFAULT_PERSONAS_FOR_SELECTION);
+        }
+      })
+      .catch((loadError) => {
+        if (!isActive || loadError?.name === 'AbortError') {
+          return;
+        }
+        setPersonaLoadError(loadError?.message || 'We could not load personas right now.');
+        setPersonaOptions((current) => (Array.isArray(current) && current.length ? current : DEFAULT_PERSONAS_FOR_SELECTION));
+      })
+      .finally(() => {
+        if (isActive) {
+          setPersonasLoading(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+      controller?.abort();
+    };
+  }, [hasExternalPersonas, personas]);
+
+  useEffect(() => {
+    if (initialPersonaId && personaOptions.some((persona) => persona.id === initialPersonaId)) {
+      setSelectedPersonaId((current) => current ?? initialPersonaId);
+      setCurrentStepIndex((index) => (index === 0 ? 1 : index));
+    }
+  }, [initialPersonaId, personaOptions]);
+
+  useEffect(() => {
+    if (selectedPersonaId && !personaOptions.some((persona) => persona.id === selectedPersonaId)) {
+      setSelectedPersonaId(null);
+      setCurrentStepIndex(0);
+    }
+  }, [personaOptions, selectedPersonaId]);
+
   const currentStep = STEP_SEQUENCE[currentStepIndex];
-  const selectedPersona = useMemo(() => personas.find((persona) => persona.id === selectedPersonaId), [personas, selectedPersonaId]);
+  const selectedPersona = useMemo(
+    () => personaOptions.find((persona) => persona.id === selectedPersonaId),
+    [personaOptions, selectedPersonaId],
+  );
   const progress = useMemo(
     () => Math.round(((currentStepIndex + 1) / STEP_SEQUENCE.length) * 100),
     [currentStepIndex],
@@ -105,8 +179,11 @@ export default function OnboardingWizard({
   }, [invites, preferences, profile, selectedPersona]);
 
   const canProceed = useMemo(() => {
+    if (!currentStep) {
+      return false;
+    }
     if (currentStep.id === 'persona') {
-      return Boolean(selectedPersonaId);
+      return Boolean(selectedPersonaId) && !personasLoading;
     }
     if (currentStep.id === 'profile') {
       return Boolean(profile.companyName.trim() && profile.role.trim() && profile.timezone.trim());
@@ -118,7 +195,7 @@ export default function OnboardingWizard({
       return Boolean(preferences.digestCadence);
     }
     return true;
-  }, [currentStep.id, invites, preferences.digestCadence, profile.companyName, profile.role, profile.timezone, selectedPersonaId]);
+  }, [currentStep, invites, personasLoading, preferences.digestCadence, profile.companyName, profile.role, profile.timezone, selectedPersonaId]);
 
   const handleNext = () => {
     if (!canProceed) {
@@ -224,17 +301,33 @@ export default function OnboardingWizard({
         },
       };
 
+      const journey = await createOnboardingJourney({
+        personaKey: selectedPersona?.id ?? selectedPersonaId,
+        profile: payload.profile,
+        invites: payload.invites,
+        preferences: {
+          updates: payload.preferences.updates,
+          digestCadence: payload.preferences.digestCadence,
+          focusSignals: payload.preferences.focusSignals,
+          storyThemes: payload.preferences.storyThemes,
+          enableAiDrafts: payload.preferences.enableAiDrafts,
+        },
+      });
+
       analytics?.track?.('web_onboarding_completed', {
-        personaId: payload.persona?.id,
+        personaId: payload.persona?.id ?? selectedPersonaId,
         inviteCount: payload.invites.length,
         digestCadence: payload.preferences.digestCadence,
         hasAiDrafts: payload.preferences.enableAiDrafts,
+        journeyId: journey?.id,
       });
 
-      await Promise.resolve();
-      onComplete?.(payload);
+      onComplete?.({ ...payload, journey });
+      setCurrentStepIndex(STEP_SEQUENCE.length - 1);
     } catch (launchError) {
-      setError(launchError.message || 'We could not launch your workspace right now.');
+      const fallbackMessage = 'We could not launch your workspace right now.';
+      const message = launchError?.body?.message ?? launchError?.message ?? fallbackMessage;
+      setError(message);
     } finally {
       setLaunching(false);
     }
@@ -242,7 +335,25 @@ export default function OnboardingWizard({
 
   const renderPersonaStep = () => {
     return (
-      <PersonaSelection personas={personas} value={selectedPersonaId} onChange={handlePersonaChange} disabled={launching} />
+      <div className="space-y-4">
+        {personaLoadError && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            {personaLoadError}
+          </div>
+        )}
+        <PersonaSelection
+          personas={personaOptions}
+          value={selectedPersonaId}
+          onChange={handlePersonaChange}
+          disabled={launching || personasLoading}
+        />
+        {personasLoading && (
+          <div className="flex items-center gap-2 text-sm text-slate-500">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-accent" aria-hidden="true" />
+            Loading personas…
+          </div>
+        )}
+      </div>
     );
   };
 
