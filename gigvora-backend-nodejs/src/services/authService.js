@@ -5,7 +5,10 @@ import fetch from 'node-fetch';
 import jwkToPem from 'jwk-to-pem';
 import { OAuth2Client } from 'google-auth-library';
 import twoFactorService from './twoFactorService.js';
+import { recordUserConsentDecision } from './consentService.js';
 import { getAuthDomainService, getFeatureFlagService } from '../domains/serviceCatalog.js';
+import logger from '../utils/logger.js';
+import { NotFoundError } from '../utils/errors.js';
 import {
   getRefreshTokenInvalidation,
   getRefreshTokenRevocation,
@@ -40,6 +43,8 @@ const PASSWORD_RESET_MAX_COOLDOWN_SECONDS = 900;
 const linkedinClientId = process.env.LINKEDIN_CLIENT_ID;
 const linkedinClientSecret = process.env.LINKEDIN_CLIENT_SECRET;
 const defaultLinkedinRedirectUri = process.env.LINKEDIN_REDIRECT_URI;
+
+const MARKETING_CONSENT_POLICY_CODE = 'marketing_communications';
 
 const SOCIAL_LOGIN_CONFIG = {
   google: {
@@ -553,7 +558,7 @@ function ensurePasswordStrength(password) {
   }
 }
 
-async function register(data) {
+async function register(data, options = {}) {
   if (!data.email) {
     throw buildError('Email is required.', 422);
   }
@@ -563,6 +568,25 @@ async function register(data) {
   const featureFlags = await featureFlagService.evaluateForUser(sanitizedUser, {
     traits: { signupChannel: data.signupChannel || 'api', persona: sanitizedUser.userType },
   });
+  if (typeof data.marketingOptIn === 'boolean') {
+    try {
+      await recordUserConsentDecision(sanitizedUser.id, MARKETING_CONSENT_POLICY_CODE, {
+        status: data.marketingOptIn ? 'granted' : 'withdrawn',
+        source: data.signupChannel ? `signup:${data.signupChannel}` : 'signup',
+        ipAddress: options.context?.ipAddress ?? null,
+        userAgent: options.context?.userAgent ?? null,
+      });
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        logger.warn(
+          { policyCode: MARKETING_CONSENT_POLICY_CODE, userId: sanitizedUser.id },
+          'Marketing communications consent policy missing during registration.',
+        );
+      } else {
+        throw error;
+      }
+    }
+  }
   return { ...sanitizedUser, featureFlags };
 }
 

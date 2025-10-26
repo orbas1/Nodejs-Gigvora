@@ -4,6 +4,7 @@ import {
   optionalGeoLocation,
   optionalLocationString,
   optionalNumber,
+  optionalStringArray,
   optionalTrimmedString,
   requiredEmail,
   requiredTrimmedString,
@@ -24,6 +25,23 @@ const optionalTwoFactorMethod = optionalTrimmedString({ max: 32 }).transform((va
 });
 const resetTokenSchema = requiredTrimmedString({ min: 32, max: 256 });
 
+const optionalDateOfBirth = z
+  .preprocess((value) => {
+    if (value == null) {
+      return undefined;
+    }
+    const text = `${value}`.trim();
+    return text.length ? text : undefined;
+  },
+  z
+    .string()
+    .min(4, { message: 'dateOfBirth must be a valid ISO date string.' })
+    .max(40, { message: 'dateOfBirth must be a valid ISO date string.' })
+    .refine((value) => !Number.isNaN(new Date(value).getTime()), {
+      message: 'dateOfBirth must be a valid ISO date string.',
+    }))
+  .optional();
+
 const baseRegistrationSchema = z
   .object({
     email: emailSchema,
@@ -37,6 +55,11 @@ const baseRegistrationSchema = z
     signupChannel: optionalSignupChannel,
     twoFactorEnabled: optionalBoolean(),
     twoFactorMethod: optionalTwoFactorMethod,
+    dateOfBirth: optionalDateOfBirth,
+    memberships: optionalStringArray({ maxItemLength: 80, maxLength: 12 }),
+    preferredRoles: optionalStringArray({ maxItemLength: 80, maxLength: 12 }),
+    marketingOptIn: optionalBoolean(),
+    primaryDashboard: optionalTrimmedString({ max: 60 }),
   })
   .strip();
 

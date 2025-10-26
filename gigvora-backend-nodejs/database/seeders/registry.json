@@ -20,6 +20,13 @@
     "domains": ["disputes", "trust", "support-operations"],
     "tags": ["disputes", "support", "demo-data"]
   },
+  "20250218100500-marketing-consent-policy": {
+    "title": "Marketing communications consent baseline",
+    "summary": "Registers the marketing communications consent policy and active version so signup opt-ins have audit coverage.",
+    "personas": ["growth", "marketing", "trust"],
+    "domains": ["consent", "communications", "governance"],
+    "tags": ["consent", "compliance", "onboarding"]
+  },
   "20250120091500-feature-flag-demo": {
     "title": "Feature flag and rollout governance",
     "summary": "Populates feature flag definitions and assignments for operations, AI pilots, and mentorship cohorts.",

@@ -161,6 +161,69 @@ function normalizeStatusValue(value) {
   return KNOWN_USER_STATUSES.includes(normalized) ? normalized : 'active';
 }
 
+function normalizeMemberships(values, fallbackMembership) {
+  const memberships = new Set();
+  const append = (value) => {
+    const normalized = normalizeRoleName(value);
+    if (normalized) {
+      memberships.add(normalized);
+    }
+  };
+
+  if (Array.isArray(values)) {
+    values.forEach(append);
+  } else if (typeof values === 'string') {
+    append(values);
+  }
+
+  append(fallbackMembership);
+  memberships.add('user');
+
+  return Array.from(memberships);
+}
+
+function resolvePrimaryDashboard(candidate, memberships, fallbackMembership) {
+  const normalizedCandidate = normalizeRoleName(candidate);
+  if (normalizedCandidate && memberships.includes(normalizedCandidate)) {
+    return normalizedCandidate;
+  }
+  const normalizedFallback = normalizeRoleName(fallbackMembership);
+  if (normalizedFallback && memberships.includes(normalizedFallback)) {
+    return normalizedFallback;
+  }
+  return memberships[0] ?? normalizedFallback ?? 'user';
+}
+
+function deriveAgeFromDate(dateLike) {
+  if (!dateLike) {
+    return null;
+  }
+  const date = new Date(dateLike);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  const now = new Date();
+  let age = now.getUTCFullYear() - date.getUTCFullYear();
+  const monthDelta = now.getUTCMonth() - date.getUTCMonth();
+  if (monthDelta < 0 || (monthDelta === 0 && now.getUTCDate() < date.getUTCDate())) {
+    age -= 1;
+  }
+  if (!Number.isFinite(age) || age < 0 || age > 120) {
+    return null;
+  }
+  return age;
+}
+
+function resolveUserAge(payload = {}) {
+  if (payload.age != null) {
+    const numeric = Number.parseInt(payload.age, 10);
+    if (Number.isFinite(numeric) && numeric >= 13 && numeric <= 120) {
+      return numeric;
+    }
+  }
+  return deriveAgeFromDate(payload.dateOfBirth);
+}
+
 function resolvePasswordResetExpiryMinutes() {
   const raw = Number.parseInt(
     process.env.PASSWORD_RESET_EXPIRY_MINUTES ?? `${PASSWORD_RESET_DEFAULT_EXPIRY_MINUTES}`,
@@ -274,6 +337,10 @@ export class AuthDomainService {
     const email = this.validateEmail(payload.email);
     const hashedPassword = await this.hashPassword(payload.password);
     const { twoFactorEnabled, twoFactorMethod } = this.normalizeTwoFactorPreference(payload);
+    const memberships = normalizeMemberships(payload.memberships, payload.userType);
+    const preferredRoles = this.normalizeRoles(payload.preferredRoles);
+    const primaryDashboard = resolvePrimaryDashboard(payload.primaryDashboard, memberships, payload.userType);
+    const resolvedAge = resolveUserAge(payload);
 
     const locationPayload = normalizeLocationPayload({
       location: payload.location ?? payload.address,
@@ -291,7 +358,7 @@ export class AuthDomainService {
           address: payload.address,
           location: locationPayload.location,
           geoLocation: locationPayload.geoLocation,
-          age: payload.age,
+          age: resolvedAge,
           phoneNumber: payload.phoneNumber ?? null,
           jobTitle: payload.jobTitle ?? null,
           avatarUrl: payload.avatarUrl ?? null,
@@ -303,9 +370,21 @@ export class AuthDomainService {
           googleId: payload.googleId || null,
           appleId: payload.appleId || null,
           linkedinId: payload.linkedinId || null,
+          memberships,
+          primaryDashboard,
         },
         { transaction },
       );
+      if (preferredRoles.length && this.UserRole) {
+        await this.replaceRoles(user.id, preferredRoles, {
+          transaction,
+          actorId: payload.actorId ?? user.id,
+        });
+        user.setDataValue(
+          'roleAssignments',
+          preferredRoles.map((role) => ({ role })),
+        );
+      }
       this.logger.info({ userId: user.id, email }, 'User registered through AuthDomainService.');
       return sanitizeUser(user);
     };

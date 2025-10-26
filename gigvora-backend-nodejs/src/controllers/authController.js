@@ -3,12 +3,14 @@ import authService from '../services/authService.js';
 import { normalizeLocationPayload } from '../utils/location.js';
 
 export async function registerUser(req, res) {
-  const user = await authService.register({ ...req.body, userType: 'user' });
+  const context = { ipAddress: req.ip, userAgent: req.get('user-agent'), requestUrl: req.originalUrl };
+  const user = await authService.register({ ...req.body, userType: 'user' }, { context });
   res.status(201).json(user);
 }
 
 export async function registerCompany(req, res) {
-  const user = await authService.register({ ...req.body, userType: 'company' });
+  const context = { ipAddress: req.ip, userAgent: req.get('user-agent'), requestUrl: req.originalUrl };
+  const user = await authService.register({ ...req.body, userType: 'company' }, { context });
   const locationPayload = normalizeLocationPayload({
     location: req.body.location,
     geoLocation: req.body.geoLocation,
@@ -25,7 +27,8 @@ export async function registerCompany(req, res) {
 }
 
 export async function registerAgency(req, res) {
-  const user = await authService.register({ ...req.body, userType: 'agency' });
+  const context = { ipAddress: req.ip, userAgent: req.get('user-agent'), requestUrl: req.originalUrl };
+  const user = await authService.register({ ...req.body, userType: 'agency' }, { context });
   const locationPayload = normalizeLocationPayload({
     location: req.body.location,
     geoLocation: req.body.geoLocation,

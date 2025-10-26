@@ -15,6 +15,7 @@ const updateLastLoginMock = jest.fn();
 const recordLoginAuditMock = jest.fn();
 const sanitizeUserMock = jest.fn();
 const evaluateForUserMock = jest.fn();
+const recordUserConsentDecisionMock = jest.fn();
 
 const sendTokenMock = jest.fn();
 const verifyTokenMock = jest.fn();
@@ -27,6 +28,7 @@ const OAuth2ClientMock = jest.fn(() => oauthClientInstance);
 const serviceCatalogModuleUrl = new URL('../../src/domains/serviceCatalog.js', import.meta.url);
 const twoFactorModuleUrl = new URL('../../src/services/twoFactorService.js', import.meta.url);
 const loggerModuleUrl = new URL('../../src/utils/logger.js', import.meta.url);
+const consentServiceModuleUrl = new URL('../../src/services/consentService.js', import.meta.url);
 
 jest.unstable_mockModule(loggerModuleUrl.pathname, () => ({
   default: {
@@ -62,6 +64,10 @@ jest.unstable_mockModule(twoFactorModuleUrl.pathname, () => ({
     verifyToken: verifyTokenMock,
     resendToken: resendTokenMock,
   },
+}));
+
+jest.unstable_mockModule(consentServiceModuleUrl.pathname, () => ({
+  recordUserConsentDecision: recordUserConsentDecisionMock,
 }));
 
 let authService;
@@ -105,6 +111,7 @@ beforeEach(() => {
   }));
   resendTokenMock.mockResolvedValue({ tokenId: 'retry-token', delivered: true });
   OAuth2ClientMock.mockImplementation(() => oauthClientInstance);
+  recordUserConsentDecisionMock.mockResolvedValue({ id: 1 });
 });
 
 describe('authService.register', () => {
@@ -148,9 +155,12 @@ describe('authService.register', () => {
       lastName: 'Lee',
       signupChannel: 'web',
       userType: 'admin',
+      marketingOptIn: true,
     };
 
-    const result = await authService.register(payload);
+    const result = await authService.register(payload, {
+      context: { ipAddress: '127.0.0.1', userAgent: 'jest' },
+    });
 
     expect(registerUserMock).toHaveBeenCalledWith(payload);
     expect(result).toEqual({
@@ -163,6 +173,12 @@ describe('authService.register', () => {
     expect(evaluateForUserMock).toHaveBeenCalledWith(sanitizedUser, {
       traits: { signupChannel: 'web', persona: 'admin' },
     });
+    expect(recordUserConsentDecisionMock).toHaveBeenCalledWith(sanitizedUser.id, 'marketing_communications', {
+      status: 'granted',
+      source: 'signup:web',
+      ipAddress: '127.0.0.1',
+      userAgent: 'jest',
+    });
   });
 
   it('rejects passwords that do not meet the minimum policy', async () => {
@@ -173,6 +189,42 @@ describe('authService.register', () => {
       status: 422,
     });
     expect(registerUserMock).not.toHaveBeenCalled();
+    expect(recordUserConsentDecisionMock).not.toHaveBeenCalled();
+  });
+
+  it('records withdrawn consent when marketing opt-in is false', async () => {
+    const sanitizedUser = {
+      id: 'user-002',
+      email: 'person@example.com',
+      userType: 'user',
+      twoFactorEnabled: false,
+      twoFactorMethod: 'email',
+      memberships: ['user'],
+      roles: [],
+      primaryDashboard: 'user',
+      timezone: null,
+      profile: null,
+    };
+    registerUserMock.mockResolvedValue(sanitizedUser);
+    evaluateForUserMock.mockResolvedValue({ rollout: {} });
+
+    await authService.register(
+      {
+        email: sanitizedUser.email,
+        password: 'secure-password',
+        firstName: 'Jordan',
+        lastName: 'Lee',
+        marketingOptIn: false,
+      },
+      { context: { ipAddress: '10.0.0.1', userAgent: 'jest' } },
+    );
+
+    expect(recordUserConsentDecisionMock).toHaveBeenCalledWith(sanitizedUser.id, 'marketing_communications', {
+      status: 'withdrawn',
+      source: 'signup',
+      ipAddress: '10.0.0.1',
+      userAgent: 'jest',
+    });
   });
 });
 
@@ -362,12 +414,13 @@ describe('authService.loginWithGoogle', () => {
       twoFactorEnabled: false,
       twoFactorMethod: 'app',
     };
+    const persistedUser = { ...createdUser, update: jest.fn().mockResolvedValue(createdUser) };
 
     verifyIdTokenMock.mockResolvedValue({ getPayload: () => payload });
     registerUserMock.mockResolvedValue(createdUser);
     findUserByEmailMock
       .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({ ...createdUser });
+      .mockResolvedValueOnce(persistedUser);
     evaluateForUserMock.mockResolvedValue({ runtime: ['google-oauth'] });
 
     const randomBytesSpy = jest.spyOn(crypto, 'randomBytes').mockReturnValue(Buffer.from('a'.repeat(64), 'hex'));
