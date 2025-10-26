@@ -10,14 +10,9 @@ import {
   UserGroupIcon,
 } from '@heroicons/react/24/outline';
 import CreateUserWizard from './CreateUserWizard.jsx';
+import UserManagementTable from '../admin-console/UserManagementTable.jsx';
+import RoleAssignmentModal from '../admin-console/RoleAssignmentModal.jsx';
 import * as adminUsers from '../../../services/adminUsers.js';
-
-const STATUS_BADGES = {
-  active: 'bg-emerald-100 text-emerald-700',
-  invited: 'bg-blue-100 text-blue-700',
-  suspended: 'bg-amber-100 text-amber-700',
-  archived: 'bg-slate-200 text-slate-600',
-};
 
 function SummaryTile({ label, value, caption, icon: Icon }) {
   return (
@@ -174,7 +169,13 @@ export default function AdminUserManagementSection() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardMetadata, setWizardMetadata] = useState(null);
   const [metadataStatus, setMetadataStatus] = useState('idle');
+  const [filters, setFilters] = useState({ search: '', status: 'all', role: 'all', risk: 'all' });
+  const [sort, setSort] = useState({ field: 'activity', direction: 'desc' });
+  const [pagination, setPagination] = useState({ offset: 0, limit: 25, total: 0 });
+  const [selectedUserIds, setSelectedUserIds] = useState([]);
+  const [roleModalState, setRoleModalState] = useState({ open: false, user: null, saving: false });
   const [confirmState, setConfirmState] = useState({ open: false, user: null, status: 'active', loading: false });
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (!feedback && !error) return undefined;
@@ -185,20 +186,45 @@ export default function AdminUserManagementSection() {
     return () => clearTimeout(timeout);
   }, [feedback, error]);
 
-  const loadDirectory = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await adminUsers.fetchDirectory({ limit: 5, offset: 0, sort: 'recent' });
-      const items = Array.isArray(response?.items) ? response.items : Array.isArray(response?.data) ? response.data : [];
-      setDirectory({ items, summary: response?.summary ?? null });
+  const loadDirectory = useCallback(
+    async (options = {}) => {
+      const limit = options.limit ?? pagination.limit ?? 25;
+      const offset = options.offset ?? (options.page != null ? (options.page - 1) * limit : 0);
+      const page = options.page ?? Math.floor(offset / limit) + 1;
+
+      setLoading(true);
       setError('');
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'Unable to load users.');
-      setDirectory({ items: [], summary: null });
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      try {
+        const response = await adminUsers.fetchDirectory(
+          {
+            status: filters.status !== 'all' ? filters.status : undefined,
+            role: filters.role !== 'all' ? filters.role : undefined,
+            risk: filters.risk !== 'all' ? filters.risk : undefined,
+            search: filters.search || undefined,
+            sort: `${sort.field}:${sort.direction}`,
+            page,
+            pageSize: limit,
+          },
+          { forceRefresh: options.forceRefresh ?? false },
+        );
+        const items = Array.isArray(response?.items)
+          ? response.items
+          : Array.isArray(response?.data)
+            ? response.data
+            : [];
+        const total = response?.summary?.total ?? response?.total ?? response?.count ?? items.length;
+        setDirectory({ items, summary: response?.summary ?? null });
+        setPagination({ offset, limit, total });
+      } catch (loadError) {
+        setError(loadError instanceof Error ? loadError.message : 'Unable to load users.');
+        setDirectory({ items: [], summary: null });
+        setPagination((current) => ({ ...current, total: 0 }));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [filters, sort, pagination.limit],
+  );
 
   const loadMetadata = useCallback(
     async (force = false) => {
@@ -237,7 +263,8 @@ export default function AdminUserManagementSection() {
   );
 
   useEffect(() => {
-    loadDirectory();
+    setSelectedUserIds([]);
+    loadDirectory({ offset: 0 });
   }, [loadDirectory]);
 
   useEffect(() => {
@@ -275,7 +302,7 @@ export default function AdminUserManagementSection() {
     await adminUsers.createUser(payload);
     setFeedback('User created and invited successfully.');
     setWizardOpen(false);
-    loadDirectory();
+    loadDirectory({ offset: 0, forceRefresh: true });
   };
 
   const handleWizardOpen = () => {
@@ -289,9 +316,176 @@ export default function AdminUserManagementSection() {
     setWizardOpen(false);
   };
 
+  const handleFiltersChange = useCallback((nextFilters) => {
+    setFilters((current) => ({ ...current, ...(nextFilters ?? {}) }));
+  }, []);
+
+  const handleSortChange = useCallback((nextSort) => {
+    if (!nextSort) return;
+    setSort((current) => ({
+      field: nextSort.field ?? current.field,
+      direction: nextSort.direction ?? current.direction,
+    }));
+  }, []);
+
+  const handleSelectionChange = useCallback((ids = []) => {
+    setSelectedUserIds(ids.map(String));
+  }, []);
+
+  const handlePageChange = useCallback(
+    ({ offset }) => {
+      if (typeof offset !== 'number') {
+        return;
+      }
+      loadDirectory({ offset });
+    },
+    [loadDirectory],
+  );
+
+  const handleApplySegment = useCallback(
+    (segment) => {
+      if (!segment) return;
+      setFeedback(`Applied segment: ${segment.label}`);
+    },
+    [],
+  );
+
+  const handleExport = useCallback(() => {
+    if (typeof window === 'undefined' || exporting) {
+      return;
+    }
+    try {
+      setExporting(true);
+      const headers = ['Name', 'Email', 'Status', 'Roles', 'Risk', 'Last seen'];
+      const rows = directory.items.map((user) => {
+        const name = user.name ?? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email;
+        const lastSeen = user.lastSeenAt ?? user.lastLoginAt ?? user.updatedAt ?? user.createdAt ?? '';
+        return [
+          name,
+          user.email ?? '',
+          user.status ?? '',
+          (user.roles ?? []).join('; '),
+          user.riskLevel ?? user.risk ?? '',
+          lastSeen ? new Date(lastSeen).toISOString() : '',
+        ]
+          .map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`)
+          .join(',');
+      });
+      const csv = [headers.join(','), ...rows].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'gigvora-admin-users.csv');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      setFeedback('Export generated successfully.');
+    } catch (exportError) {
+      setError(exportError instanceof Error ? exportError.message : 'Unable to export directory.');
+    } finally {
+      setExporting(false);
+    }
+  }, [directory.items, exporting]);
+
+  const handleBulkAction = useCallback(
+    async (action) => {
+      if (!selectedUserIds.length) {
+        return;
+      }
+      try {
+        const status =
+          action === 'activate' ? 'active' : action === 'suspend' ? 'suspended' : action === 'archive' ? 'archived' : null;
+        if (!status) {
+          return;
+        }
+        setLoading(true);
+        await Promise.all(
+          selectedUserIds.map((identifier) =>
+            adminUsers.updateStatus(identifier, {
+              status,
+              reason: `${action} from admin command center`,
+            }),
+          ),
+        );
+        setFeedback(`Updated ${selectedUserIds.length} users.`);
+        setSelectedUserIds([]);
+        await loadDirectory({ offset: pagination.offset, forceRefresh: true });
+      } catch (bulkError) {
+        setError(bulkError instanceof Error ? bulkError.message : 'Unable to apply bulk action.');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [selectedUserIds, loadDirectory, pagination.offset],
+  );
+
   const handleOpenStatus = (user, status) => {
     setConfirmState({ open: true, user, status, loading: false });
   };
+
+  const handleOpenRoleModal = useCallback(
+    (user) => {
+      if (!user) {
+        return;
+      }
+      setRoleModalState({ open: true, user, saving: false });
+      if (metadataStatus === 'idle') {
+        loadMetadata();
+      } else if (metadataStatus === 'error') {
+        loadMetadata(true);
+      }
+    },
+    [metadataStatus, loadMetadata],
+  );
+
+  const handleCloseRoleModal = useCallback(() => {
+    setRoleModalState({ open: false, user: null, saving: false });
+  }, []);
+
+  const handleRoleSubmit = useCallback(
+    async (payload) => {
+      if (!roleModalState.user?.id) {
+        return;
+      }
+      try {
+        setRoleModalState((current) => ({ ...current, saving: true }));
+        await adminUsers.updateRoles(roleModalState.user.id, payload.roles);
+        if (payload.notes) {
+          await adminUsers.createNote(roleModalState.user.id, {
+            body: payload.notes,
+            visibility: 'internal',
+            context: {
+              type: 'role-assignment',
+              primaryRole: payload.primaryRole,
+              expiresAt: payload.expiresAt,
+            },
+          });
+        }
+        setFeedback(`Updated roles for ${roleModalState.user.firstName ?? roleModalState.user.email}.`);
+        setRoleModalState({ open: false, user: null, saving: false });
+        await loadDirectory({ offset: pagination.offset, forceRefresh: true });
+      } catch (roleError) {
+        setError(roleError instanceof Error ? roleError.message : 'Unable to update roles.');
+        setRoleModalState({ open: false, user: null, saving: false });
+      }
+    },
+    [roleModalState.user, loadDirectory, pagination.offset],
+  );
+
+  const handleInspectUser = useCallback(async (user) => {
+    if (!user?.id) {
+      return;
+    }
+    try {
+      setFeedback(`Fetching details for ${user.firstName ?? user.email}…`);
+      await adminUsers.fetchUser(user.id, { forceRefresh: true });
+      setFeedback(`Detailed profile updated for ${user.firstName ?? user.email}.`);
+    } catch (detailError) {
+      setError(detailError instanceof Error ? detailError.message : 'Unable to load user detail.');
+    }
+  }, []);
 
   const handleConfirmStatus = async ({ status, reason }) => {
     const { user } = confirmState;
@@ -301,7 +495,7 @@ export default function AdminUserManagementSection() {
       await adminUsers.updateStatus(user.id, { status, reason });
       setFeedback(`Updated status for ${user.firstName ?? user.email}.`);
       setConfirmState({ open: false, user: null, status: 'active', loading: false });
-      loadDirectory();
+      loadDirectory({ offset: pagination.offset, forceRefresh: true });
     } catch (statusError) {
       setError(statusError instanceof Error ? statusError.message : 'Unable to update status.');
       setConfirmState({ open: false, user: null, status: 'active', loading: false });
@@ -309,7 +503,7 @@ export default function AdminUserManagementSection() {
   };
 
   const handleRefresh = () => {
-    loadDirectory();
+    loadDirectory({ offset: pagination.offset, forceRefresh: true });
   };
 
   return (
@@ -356,104 +550,42 @@ export default function AdminUserManagementSection() {
         ))}
       </div>
 
-      <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-lg shadow-blue-100/20">
-        <div className="border-b border-slate-200 bg-slate-50/80 px-6 py-4">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Recent users</h3>
-        </div>
-        <table className="min-w-full divide-y divide-slate-200">
-          <thead>
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">User</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Roles</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Joined</th>
-              <th className="px-6 py-3" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {loading ? (
-              <tr>
-                <td colSpan={5} className="px-6 py-10 text-center text-sm text-slate-500">
-                  Loading directory…
-                </td>
-              </tr>
-            ) : directory.items.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-6 py-10 text-center text-sm text-slate-500">
-                  No users found.
-                </td>
-              </tr>
-            ) : (
-              directory.items.map((user) => {
-                const status = user.status ?? 'active';
-                const badgeClass = STATUS_BADGES[status] ?? 'bg-slate-200 text-slate-600';
-                const joined = user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '—';
-                return (
-                  <tr key={user.id} className="hover:bg-blue-50/40">
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-semibold text-slate-900">
-                          {user.firstName} {user.lastName}
-                        </span>
-                        <span className="text-xs text-slate-500">{user.email}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-wrap gap-2">
-                        {(user.roles ?? []).slice(0, 4).map((role) => (
-                          <span key={role} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                            {role}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${badgeClass}`}>
-                        {status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-600">{joined}</td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {status !== 'active' ? (
-                          <button
-                            type="button"
-                            onClick={() => handleOpenStatus(user, 'active')}
-                            className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700 transition hover:border-emerald-300"
-                          >
-                            Reinstate
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleOpenStatus(user, 'suspended')}
-                            className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-700 transition hover:border-amber-300"
-                          >
-                            Suspend
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleOpenStatus(user, 'archived')}
-                          className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:border-slate-300"
-                        >
-                          Archive
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+      <UserManagementTable
+        items={directory.items}
+        loading={loading}
+        error={error}
+        filters={filters}
+        onFiltersChange={handleFiltersChange}
+        sort={sort}
+        onSortChange={handleSortChange}
+        selectedIds={selectedUserIds}
+        onSelectionChange={handleSelectionChange}
+        onOpenRoleModal={handleOpenRoleModal}
+        onInspectUser={handleInspectUser}
+        onChangeStatus={handleOpenStatus}
+        onExport={handleExport}
+        pagination={pagination}
+        onPageChange={handlePageChange}
+        roleOptions={wizardMetadata?.roles ?? wizardMetadata?.availableRoles ?? []}
+        segments={wizardMetadata?.segments ?? wizardMetadata?.savedSegments}
+        onApplySegment={handleApplySegment}
+        onBulkAction={handleBulkAction}
+      />
 
       <CreateUserWizard
         open={wizardOpen}
         onClose={handleWizardClose}
         metadata={wizardMetadata}
         onSubmit={handleCreateUser}
+      />
+
+      <RoleAssignmentModal
+        open={roleModalState.open}
+        user={roleModalState.user}
+        metadata={wizardMetadata}
+        saving={roleModalState.saving}
+        onClose={handleCloseRoleModal}
+        onSubmit={handleRoleSubmit}
       />
 
       <ConfirmStatusDialog
