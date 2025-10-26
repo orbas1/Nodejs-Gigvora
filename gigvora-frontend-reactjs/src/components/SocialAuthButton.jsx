@@ -36,6 +36,13 @@ export default function SocialAuthButton({ provider, label, onClick = () => {}, 
 
 export const SOCIAL_PROVIDERS = Object.keys(PROVIDER_STYLES);
 
+export const SOCIAL_PROVIDER_LABELS = Object.freeze(
+  SOCIAL_PROVIDERS.reduce((acc, key) => {
+    acc[key] = PROVIDER_STYLES[key]?.label ?? key;
+    return acc;
+  }, {}),
+);
+
 SocialAuthButton.propTypes = {
   provider: PropTypes.oneOf(SOCIAL_PROVIDERS).isRequired,
   label: PropTypes.string,
