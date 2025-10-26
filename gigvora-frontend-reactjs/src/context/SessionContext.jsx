@@ -359,6 +359,96 @@ function mergeTokenState(previous, updates) {
   };
 }
 
+function normalizeRiskSignals(signals) {
+  if (!Array.isArray(signals)) {
+    return [];
+  }
+  const seen = new Set();
+  return signals
+    .map((entry) => {
+      const code = typeof entry?.code === 'string' && entry.code.trim() ? entry.code.trim() : 'unspecified';
+      const severityCandidate = typeof entry?.severity === 'string' ? entry.severity.trim().toLowerCase() : '';
+      const severity = ['low', 'medium', 'high'].includes(severityCandidate) ? severityCandidate : 'medium';
+      const message = typeof entry?.message === 'string' ? entry.message.trim() : '';
+      const observedAt =
+        toIsoDate(entry?.observedAt ?? entry?.detectedAt ?? entry?.recordedAt ?? null) ?? new Date().toISOString();
+      const normalized = entry?.metadata && typeof entry.metadata === 'object'
+        ? { code, severity, message, observedAt, metadata: entry.metadata }
+        : { code, severity, message, observedAt };
+      return normalized;
+    })
+    .filter((entry) => {
+      const key = `${entry.code}:${entry.message}:${entry.severity}`;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+}
+
+function normalizeRefreshMeta(value) {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const riskLevelCandidate = typeof value.riskLevel === 'string'
+    ? value.riskLevel.trim().toLowerCase()
+    : typeof value.level === 'string'
+      ? value.level.trim().toLowerCase()
+      : null;
+  const riskLevel = ['low', 'medium', 'high'].includes(riskLevelCandidate) ? riskLevelCandidate : 'low';
+  const riskScoreCandidate = Number(value.riskScore ?? value.score);
+  const riskScore = Number.isFinite(riskScoreCandidate) ? riskScoreCandidate : 0;
+
+  return {
+    sessionId: value.sessionId ?? value.id ?? null,
+    deviceFingerprint: value.deviceFingerprint ?? value.fingerprint ?? null,
+    deviceLabel: value.deviceLabel ?? value.deviceName ?? value.deviceLabelText ?? null,
+    ipAddress: value.ipAddress ?? value.lastIp ?? null,
+    userAgent: value.userAgent ?? value.lastUserAgent ?? null,
+    riskLevel,
+    riskScore,
+    riskSignals: normalizeRiskSignals(value.riskSignals ?? value.signals ?? []),
+    expiresAt: toIsoDate(value.expiresAt ?? value.refreshExpiresAt ?? null),
+    evaluatedAt: toIsoDate(value.evaluatedAt ?? value.updatedAt ?? value.lastEvaluatedAt ?? null),
+    updatedAt: toIsoDate(value.updatedAt ?? value.lastSeenAt ?? null),
+    createdAt: toIsoDate(value.createdAt ?? null),
+  };
+}
+
+function deriveSessionRisk(meta, rawRisk) {
+  const base = meta ?? {};
+  const overlay = rawRisk && typeof rawRisk === 'object' ? rawRisk : {};
+  const levelCandidate =
+    typeof overlay.level === 'string'
+      ? overlay.level
+      : typeof overlay.riskLevel === 'string'
+        ? overlay.riskLevel
+        : base.riskLevel;
+  const normalizedLevel = typeof levelCandidate === 'string' ? levelCandidate.trim().toLowerCase() : 'low';
+  const level = ['low', 'medium', 'high'].includes(normalizedLevel) ? normalizedLevel : 'low';
+  const scoreCandidate = overlay.score ?? overlay.riskScore ?? base.riskScore;
+  const score = Number.isFinite(Number(scoreCandidate)) ? Number(scoreCandidate) : 0;
+  const signalsSource = overlay.signals ?? overlay.riskSignals ?? base.riskSignals;
+  const signals = normalizeRiskSignals(signalsSource ?? []);
+  const evaluatedAt =
+    toIsoDate(overlay.evaluatedAt ?? overlay.updatedAt ?? base.evaluatedAt ?? base.updatedAt) ?? null;
+  const lastSeenAt = evaluatedAt ?? base.updatedAt ?? base.evaluatedAt ?? null;
+
+  return {
+    level,
+    score,
+    signals,
+    evaluatedAt,
+    lastSeenAt,
+    deviceFingerprint: base.deviceFingerprint ?? null,
+    deviceLabel: base.deviceLabel ?? null,
+    ipAddress: base.ipAddress ?? null,
+    userAgent: base.userAgent ?? null,
+  };
+}
+
 function normalizeSessionValue(value) {
   if (!value || typeof value !== 'object') {
     return null;
@@ -468,6 +558,15 @@ function normalizeSessionValue(value) {
     normalized.memberships = [normalized.primaryDashboard, ...normalized.memberships];
   }
 
+  const refreshMeta = normalizeRefreshMeta(
+    value.refreshMeta ?? value.sessionRefresh ?? value.latestRefresh ?? null,
+  );
+  if (refreshMeta) {
+    normalized.refreshMeta = refreshMeta;
+  }
+  const sessionRisk = deriveSessionRisk(refreshMeta, value.sessionRisk ?? value.risk ?? null);
+  normalized.sessionRisk = sessionRisk;
+
   return normalized;
 }
 
@@ -530,6 +629,10 @@ function normalizeSessionPayload(payload) {
     sessionFetchedAt: payload.fetchedAt ?? null,
     isAuthenticated: true,
   };
+
+  session.refreshMeta =
+    payload.refreshMeta ?? user.refreshMeta ?? payload.sessionRefresh ?? payload.latestRefresh ?? null;
+  session.sessionRisk = payload.sessionRisk ?? payload.risk ?? user.sessionRisk ?? null;
 
   return normalizeSessionValue(session);
 }

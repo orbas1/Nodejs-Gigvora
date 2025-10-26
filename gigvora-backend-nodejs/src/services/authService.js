@@ -7,6 +7,7 @@ import { OAuth2Client } from 'google-auth-library';
 import twoFactorService from './twoFactorService.js';
 import { getAuthDomainService, getFeatureFlagService } from '../domains/serviceCatalog.js';
 import {
+  getLatestRefreshSessionForUser,
   getRefreshTokenInvalidation,
   getRefreshTokenRevocation,
   invalidateRefreshTokensForUser,
@@ -105,6 +106,113 @@ function maskEmail(email) {
     return `${local.slice(0, 1)}***@${domain}`;
   }
   return `${local.slice(0, 2)}***@${domain}`;
+}
+
+function toIsoDate(value) {
+  if (!value) {
+    return null;
+  }
+  const date = value instanceof Date ? value : new Date(value);
+  if (!Number.isFinite(date.getTime())) {
+    return null;
+  }
+  return date.toISOString();
+}
+
+function normaliseRiskSignals(signals = []) {
+  if (!Array.isArray(signals)) {
+    return [];
+  }
+  const seen = new Set();
+  return signals
+    .map((signal) => {
+      const code = typeof signal?.code === 'string' && signal.code.trim() ? signal.code.trim() : 'unspecified';
+      const severityCandidate = typeof signal?.severity === 'string' ? signal.severity.trim().toLowerCase() : '';
+      const severity = ['low', 'medium', 'high'].includes(severityCandidate) ? severityCandidate : 'medium';
+      const message = typeof signal?.message === 'string' ? signal.message.trim() : '';
+      const observedAt =
+        toIsoDate(signal?.observedAt ?? signal?.detectedAt ?? signal?.recordedAt ?? Date.now()) ??
+        new Date().toISOString();
+      const payload = signal?.metadata && typeof signal.metadata === 'object'
+        ? { code, severity, message, observedAt, metadata: signal.metadata }
+        : { code, severity, message, observedAt };
+      return payload;
+    })
+    .filter((entry) => {
+      const key = `${entry.code}:${entry.message}:${entry.severity}`;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+}
+
+function normaliseRefreshMeta(record) {
+  if (!record || typeof record !== 'object') {
+    return null;
+  }
+
+  const riskSignals = normaliseRiskSignals(record.riskSignals ?? record.signals ?? []);
+  const riskLevelCandidate = typeof record.riskLevel === 'string'
+    ? record.riskLevel.trim().toLowerCase()
+    : typeof record.level === 'string'
+      ? record.level.trim().toLowerCase()
+      : null;
+  const riskLevel = ['low', 'medium', 'high'].includes(riskLevelCandidate) ? riskLevelCandidate : 'low';
+  const riskScoreCandidate = Number(record.riskScore ?? record.score);
+  const riskScore = Number.isFinite(riskScoreCandidate) ? riskScoreCandidate : 0;
+  const createdAt = toIsoDate(record.createdAt);
+  const updatedAt = toIsoDate(record.updatedAt) ?? toIsoDate(record.lastSeenAt) ?? createdAt;
+  const evaluatedAt = toIsoDate(record.evaluatedAt) ?? updatedAt ?? createdAt;
+  const expiresAt = toIsoDate(record.expiresAt ?? record.refreshExpiresAt);
+
+  return {
+    sessionId: record.id ?? record.sessionId ?? null,
+    deviceFingerprint: record.deviceFingerprint ?? null,
+    deviceLabel: record.deviceLabel ?? null,
+    ipAddress: record.ipAddress ?? record.lastIp ?? null,
+    userAgent: record.userAgent ?? record.lastUserAgent ?? null,
+    riskLevel,
+    riskScore,
+    riskSignals,
+    expiresAt,
+    evaluatedAt,
+    updatedAt,
+    createdAt,
+  };
+}
+
+function normaliseSessionRisk(meta, overrides = null) {
+  const base = meta ?? {};
+  const overlay = overrides && typeof overrides === 'object' ? overrides : {};
+  const levelCandidate =
+    typeof overlay.level === 'string'
+      ? overlay.level
+      : typeof overlay.riskLevel === 'string'
+        ? overlay.riskLevel
+        : base.riskLevel;
+  const normalisedLevel = typeof levelCandidate === 'string' ? levelCandidate.trim().toLowerCase() : 'low';
+  const level = ['low', 'medium', 'high'].includes(normalisedLevel) ? normalisedLevel : 'low';
+  const scoreCandidate = Number(overlay.score ?? overlay.riskScore);
+  const score = Number.isFinite(scoreCandidate) ? scoreCandidate : base.riskScore ?? 0;
+  const signalsSource = overlay.signals ?? overlay.riskSignals;
+  const signals = signalsSource ? normaliseRiskSignals(signalsSource) : base.riskSignals ?? [];
+  const evaluatedAt =
+    toIsoDate(overlay.evaluatedAt ?? overlay.updatedAt ?? base.evaluatedAt ?? base.updatedAt) ?? null;
+  const lastSeenAt = evaluatedAt ?? base.updatedAt ?? base.evaluatedAt ?? null;
+
+  return {
+    level,
+    score,
+    signals,
+    evaluatedAt,
+    lastSeenAt,
+    deviceFingerprint: base.deviceFingerprint ?? null,
+    deviceLabel: base.deviceLabel ?? null,
+    ipAddress: base.ipAddress ?? null,
+    userAgent: base.userAgent ?? null,
+  };
 }
 
 async function refreshAppleKeys() {
@@ -468,18 +576,22 @@ async function issueSession(user, { context = null } = {}) {
   });
   const sanitized = sanitizeUser(user);
 
-  const refreshMeta = {
-    deviceFingerprint: refreshRecord?.deviceFingerprint ?? null,
-    deviceLabel: refreshRecord?.deviceLabel ?? null,
-    riskLevel: refreshRecord?.riskLevel ?? 'low',
-    riskScore: refreshRecord?.riskScore ?? 0,
-    riskSignals: Array.isArray(refreshRecord?.riskSignals) ? refreshRecord.riskSignals : [],
-    expiresAt: refreshRecord?.expiresAt instanceof Date
-      ? refreshRecord.expiresAt.toISOString()
-      : refreshRecord?.expiresAt
-        ? new Date(refreshRecord.expiresAt).toISOString()
-        : null,
-  };
+  const refreshMeta =
+    normaliseRefreshMeta(refreshRecord) ?? {
+      sessionId: null,
+      deviceFingerprint: null,
+      deviceLabel: null,
+      ipAddress: null,
+      userAgent: null,
+      riskLevel: 'low',
+      riskScore: 0,
+      riskSignals: [],
+      expiresAt: null,
+      evaluatedAt: null,
+      updatedAt: null,
+      createdAt: null,
+    };
+  const sessionRisk = normaliseSessionRisk(refreshMeta, refreshRecord);
 
   return {
     user: { ...sanitized, lastLoginAt: new Date().toISOString() },
@@ -487,7 +599,7 @@ async function issueSession(user, { context = null } = {}) {
     refreshToken,
     expiresAt: decodeExpiry(accessToken),
     refreshMeta,
-    sessionRisk: { level: refreshMeta.riskLevel, score: refreshMeta.riskScore },
+    sessionRisk,
   };
 }
 
@@ -797,6 +909,9 @@ async function describeSession(userId, options = {}) {
 
   const accessToken = options.accessToken ?? null;
   const expiresAt = accessToken ? decodeExpiry(accessToken) : null;
+  const latestRefresh = await getLatestRefreshSessionForUser(sanitizedUser.id);
+  const refreshMeta = normaliseRefreshMeta(latestRefresh);
+  const sessionRisk = normaliseSessionRisk(refreshMeta, latestRefresh);
 
   return {
     session: {
@@ -810,7 +925,8 @@ async function describeSession(userId, options = {}) {
       tokenExpiresAt: expiresAt ?? undefined,
       featureFlagsUpdatedAt: new Date().toISOString(),
       fetchedAt: new Date().toISOString(),
-      sessionRisk: { level: 'low', score: 0 },
+      sessionRisk,
+      refreshMeta: refreshMeta ?? undefined,
     },
   };
 }

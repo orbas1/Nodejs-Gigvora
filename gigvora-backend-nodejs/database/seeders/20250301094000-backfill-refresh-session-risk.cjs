@@ -40,6 +40,7 @@ export async function up(queryInterface) {
         riskLevel: 'low',
         riskScore: 0,
         riskSignals: JSON.stringify([]),
+        evaluatedAt: session.updatedAt ?? session.createdAt ?? new Date().toISOString(),
       },
       { id: session.id },
     );

@@ -11071,6 +11071,7 @@ export const UserRefreshSession = sequelize.define(
     riskLevel: { type: DataTypes.ENUM('low', 'medium', 'high'), allowNull: false, defaultValue: 'low' },
     riskScore: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     riskSignals: { type: jsonType, allowNull: true },
+    evaluatedAt: { type: DataTypes.DATE, allowNull: true },
     context: { type: jsonType, allowNull: true },
     expiresAt: { type: DataTypes.DATE, allowNull: true },
     revokedAt: { type: DataTypes.DATE, allowNull: true },

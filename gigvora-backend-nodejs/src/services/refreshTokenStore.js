@@ -7,6 +7,7 @@ import { appCache } from '../utils/cache.js';
 const REVOCATION_CACHE_PREFIX = 'auth:refresh:revoked:';
 const INVALIDATION_CACHE_PREFIX = 'auth:refresh:invalidated:';
 const SESSION_CACHE_PREFIX = 'auth:refresh:session:';
+const SESSION_USER_CACHE_PREFIX = `${SESSION_CACHE_PREFIX}user:`;
 const DEFAULT_REFRESH_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
 const MIN_REVOCATION_TTL_SECONDS = 60;
 
@@ -23,7 +24,6 @@ const UserRefreshInvalidation = authModels.UserRefreshInvalidation ?? null;
 const supportsPersistence = Boolean(UserRefreshSession && UserRefreshInvalidation);
 const isProduction = process.env.NODE_ENV === 'production';
 
-const RISK_SEVERITY_ORDER = { low: 1, medium: 2, high: 3 };
 const RISK_SEVERITY_SCORE = { low: 20, medium: 60, high: 90 };
 
 if (!supportsPersistence && isProduction) {
@@ -66,6 +66,10 @@ function buildInvalidationKey(userId) {
 
 function buildSessionKey(refreshToken) {
   return `${SESSION_CACHE_PREFIX}${hashToken(refreshToken)}`;
+}
+
+function buildLatestSessionKey(userId) {
+  return `${SESSION_USER_CACHE_PREFIX}${userId}`;
 }
 
 function sanitiseContext(context) {
@@ -206,6 +210,49 @@ function normaliseRiskSignals(signals = []) {
     });
 }
 
+function serialiseSessionRecord(record, fallback = {}) {
+  if (!record) {
+    return null;
+  }
+
+  const plain = typeof record.get === 'function' ? record.get({ plain: true }) : record;
+  const createdAt = plain.createdAt ? new Date(plain.createdAt).toISOString() : fallback.createdAt ?? null;
+  const updatedAt = plain.updatedAt ? new Date(plain.updatedAt).toISOString() : fallback.updatedAt ?? createdAt;
+  const expiresAt = plain.expiresAt
+    ? new Date(plain.expiresAt).toISOString()
+    : fallback.expiresAt
+      ? new Date(fallback.expiresAt).toISOString()
+      : null;
+  const evaluatedAt = plain.evaluatedAt
+    ? new Date(plain.evaluatedAt).toISOString()
+    : fallback.evaluatedAt
+      ? new Date(fallback.evaluatedAt).toISOString()
+      : updatedAt;
+  const scoreCandidate = Number.isFinite(Number(plain.riskScore))
+    ? Number(plain.riskScore)
+    : Number.isFinite(Number(fallback.riskScore))
+      ? Number(fallback.riskScore)
+      : 0;
+
+  return {
+    id: plain.id ?? fallback.id ?? null,
+    userId: plain.userId ?? fallback.userId ?? null,
+    tokenHash: plain.tokenHash ?? fallback.tokenHash ?? null,
+    ipAddress: plain.ipAddress ?? fallback.ipAddress ?? null,
+    userAgent: plain.userAgent ?? fallback.userAgent ?? null,
+    deviceFingerprint: plain.deviceFingerprint ?? fallback.deviceFingerprint ?? null,
+    deviceLabel: plain.deviceLabel ?? fallback.deviceLabel ?? null,
+    riskLevel: plain.riskLevel ?? fallback.riskLevel ?? 'low',
+    riskScore: scoreCandidate,
+    riskSignals: normaliseRiskSignals(plain.riskSignals ?? fallback.riskSignals ?? []),
+    context: plain.context ?? fallback.context ?? null,
+    expiresAt,
+    createdAt: createdAt ?? new Date().toISOString(),
+    updatedAt: updatedAt ?? new Date().toISOString(),
+    evaluatedAt: evaluatedAt ?? updatedAt ?? createdAt ?? new Date().toISOString(),
+  };
+}
+
 function extractContextMetadata(rawContext) {
   let context = rawContext;
   if (typeof context === 'string') {
@@ -252,7 +299,8 @@ async function evaluateSessionRisk({
   userAgent = null,
 }) {
   const signals = [];
-  const now = new Date().toISOString();
+  const evaluatedAt = new Date().toISOString();
+  const now = evaluatedAt;
   const resolvedIp = truncateString(ipAddress ?? context.ipAddress, 128);
   const resolvedUserAgent = truncateString(userAgent ?? context.userAgent, 1024);
   const { location, timezone, riskHints } = extractContextMetadata(context);
@@ -407,6 +455,7 @@ async function evaluateSessionRisk({
     level: riskLevel,
     score: riskScore,
     signals: normalisedSignals,
+    evaluatedAt,
   };
 }
 
@@ -448,10 +497,13 @@ async function persistRefreshSession(refreshToken, { userId, context = null } = 
     userAgent,
   });
   const riskSignals = Array.isArray(risk.signals) ? risk.signals : [];
+  const evaluatedAt = risk.evaluatedAt ? new Date(risk.evaluatedAt).toISOString() : new Date().toISOString();
   const sanitisedContext = sanitiseContext(rawContext);
 
   const payload = {
     userId: numericUserId,
+    ipAddress,
+    userAgent,
     expiresAt: expiresAt ? expiresAt.toISOString() : null,
     context: sanitisedContext,
     deviceFingerprint,
@@ -459,11 +511,25 @@ async function persistRefreshSession(refreshToken, { userId, context = null } = 
     riskLevel: risk.level,
     riskScore: risk.score,
     riskSignals,
+    evaluatedAt,
   };
   appCache.set(cacheKey, payload, ttlSeconds);
 
   if (!supportsPersistence) {
-    return payload;
+    const snapshot = serialiseSessionRecord(payload, {
+      userId: numericUserId,
+      ipAddress,
+      userAgent,
+      createdAt: evaluatedAt,
+      updatedAt: evaluatedAt,
+      evaluatedAt,
+      expiresAt: payload.expiresAt,
+    });
+    if (snapshot) {
+      const snapshotTtl = computeTtlSeconds(snapshot.expiresAt ? new Date(snapshot.expiresAt) : undefined);
+      appCache.set(buildLatestSessionKey(numericUserId), snapshot, snapshotTtl);
+    }
+    return snapshot;
   }
 
   const tokenHash = hashToken(refreshToken);
@@ -479,6 +545,7 @@ async function persistRefreshSession(refreshToken, { userId, context = null } = 
     riskLevel: risk.level,
     riskScore: risk.score,
     riskSignals,
+    evaluatedAt: new Date(evaluatedAt),
   };
 
   let session = await UserRefreshSession.findOne({ where: { tokenHash } });
@@ -489,6 +556,18 @@ async function persistRefreshSession(refreshToken, { userId, context = null } = 
     session = await UserRefreshSession.create(attributes);
   }
 
+  const snapshot = serialiseSessionRecord(session, {
+    ...attributes,
+    createdAt: session?.createdAt ?? new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    evaluatedAt,
+  });
+
+  if (snapshot) {
+    const snapshotTtl = computeTtlSeconds(snapshot.expiresAt ? new Date(snapshot.expiresAt) : undefined);
+    appCache.set(buildLatestSessionKey(numericUserId), snapshot, snapshotTtl);
+  }
+
   if (session && session.revokedAt) {
     const revocation = serialiseRevocationRecord(session);
     if (revocation) {
@@ -496,7 +575,7 @@ async function persistRefreshSession(refreshToken, { userId, context = null } = 
     }
   }
 
-  return attributes;
+  return snapshot;
 }
 
 async function markRefreshTokenRevoked(
@@ -517,6 +596,10 @@ async function markRefreshTokenRevoked(
     expiresAt: expiresAt ? expiresAt.toISOString() : null,
     replacedByTokenHash: replacedByToken ? hashToken(replacedByToken) : null,
   };
+
+  if (payload.userId != null) {
+    appCache.delete(buildLatestSessionKey(payload.userId));
+  }
 
   if (!supportsPersistence) {
     appCache.set(cacheKey, payload, ttlSeconds);
@@ -626,6 +709,7 @@ async function invalidateRefreshTokensForUser(
     invalidatedAt: now.toISOString(),
   };
 
+  appCache.delete(buildLatestSessionKey(numericId));
   appCache.set(buildInvalidationKey(numericId), payload, DEFAULT_REFRESH_TTL_SECONDS);
 
   if (!supportsPersistence) {
@@ -661,6 +745,7 @@ async function invalidateRefreshTokensForUser(
     invalidatedAt: new Date(serialised.invalidatedAt).toISOString(),
   };
 
+  appCache.delete(buildLatestSessionKey(numericId));
   appCache.set(buildInvalidationKey(numericId), normalised, DEFAULT_REFRESH_TTL_SECONDS);
   return normalised;
 }
@@ -707,6 +792,42 @@ async function __dangerouslyResetRefreshTokenStore() {
   }
 }
 
+async function getLatestRefreshSessionForUser(userId, { bypassCache = false } = {}) {
+  if (!Number.isFinite(Number(userId))) {
+    return null;
+  }
+
+  const numericId = Number(userId);
+  const cacheKey = buildLatestSessionKey(numericId);
+
+  if (!bypassCache) {
+    const cached = appCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+  }
+
+  if (!supportsPersistence) {
+    return null;
+  }
+
+  const session = await UserRefreshSession.findOne({
+    where: { userId: numericId, revokedAt: null },
+    order: [['updatedAt', 'DESC']],
+  });
+
+  if (!session) {
+    return null;
+  }
+
+  const snapshot = serialiseSessionRecord(session);
+  if (snapshot) {
+    const ttlSeconds = computeTtlSeconds(snapshot.expiresAt ? new Date(snapshot.expiresAt) : undefined);
+    appCache.set(cacheKey, snapshot, ttlSeconds);
+  }
+  return snapshot;
+}
+
 export {
   persistRefreshSession,
   markRefreshTokenRevoked,
@@ -714,5 +835,6 @@ export {
   getRefreshTokenRevocation,
   invalidateRefreshTokensForUser,
   getRefreshTokenInvalidation,
+  getLatestRefreshSessionForUser,
   __dangerouslyResetRefreshTokenStore,
 };

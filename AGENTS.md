@@ -137,3 +137,5 @@
    - Launch gradually, monitoring vitest suites and backend audits for anomalies, then scale globally.【F:gigvora-frontend-reactjs/src/context/__tests__/SessionContext.test.jsx†L66-L213】【F:gigvora-backend-nodejs/src/services/authService.js†L699-L746】
 
 
+   - Vitest mocks now ship production-shaped `describeSession` payloads so frontend contract tests reflect realistic feature flag and risk metadata.【F:gigvora-frontend-reactjs/src/context/__tests__/SessionContext.test.jsx†L1-L210】
+   - `describeSession` returns live trust telemetry sourced from refresh token snapshots, ensuring `sessionRisk` mirrors evaluated signals instead of placeholders.【F:gigvora-backend-nodejs/src/services/authService.js†L567-L846】

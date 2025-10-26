@@ -17,6 +17,7 @@ export async function up(queryInterface) {
     userAgent: { type: DataTypes.STRING(1024), allowNull: true },
     context: { type: jsonType, allowNull: true },
     expiresAt: { type: DataTypes.DATE, allowNull: true },
+    evaluatedAt: { type: DataTypes.DATE, allowNull: true },
     revokedAt: { type: DataTypes.DATE, allowNull: true },
     revokedReason: { type: DataTypes.STRING(120), allowNull: true },
     revokedById: { type: DataTypes.INTEGER, allowNull: true },

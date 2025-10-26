@@ -4,6 +4,100 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const storedTokens = { accessToken: null, refreshToken: null, expiresAt: null };
 
+const baseSessionPayload = {
+  user: {
+    id: 'user-201',
+    firstName: 'Jordan',
+    lastName: 'Avery',
+    email: 'jordan@example.com',
+    memberships: ['Admin'],
+    permissions: ['calendar:view'],
+    capabilities: ['calendar:manage'],
+    grants: ['projects:read'],
+    tokens: {
+      accessToken: 'access-token-201',
+      refreshToken: 'refresh-token-201',
+      expiresAt: '2024-10-01T00:00:00Z',
+    },
+    featureFlags: {
+      'beta-dashboard': { enabled: true, metadata: { cohort: 'admins' } },
+    },
+  },
+  featureFlags: {
+    'beta-dashboard': { enabled: true, metadata: { cohort: 'admins' } },
+  },
+  refreshMeta: {
+    sessionId: 987,
+    deviceLabel: 'MacBook Pro 16',
+    deviceFingerprint: 'fingerprint-xyz',
+    ipAddress: '198.51.100.10',
+    userAgent: 'Mozilla/5.0 (Macintosh)',
+    riskLevel: 'low',
+    riskScore: 10,
+    riskSignals: [
+      {
+        code: 'first_session',
+        severity: 'low',
+        message: 'First refresh session recorded for this account.',
+        observedAt: '2024-10-01T00:00:00Z',
+      },
+    ],
+    evaluatedAt: '2024-10-01T00:05:00Z',
+    expiresAt: '2024-11-01T00:00:00Z',
+    updatedAt: '2024-10-01T00:05:00Z',
+    createdAt: '2024-10-01T00:04:00Z',
+  },
+  sessionRisk: {
+    level: 'low',
+    score: 10,
+    signals: [
+      {
+        code: 'first_session',
+        severity: 'low',
+        message: 'First refresh session recorded for this account.',
+        observedAt: '2024-10-01T00:00:00Z',
+      },
+    ],
+    evaluatedAt: '2024-10-01T00:05:00Z',
+    deviceLabel: 'MacBook Pro 16',
+    deviceFingerprint: 'fingerprint-xyz',
+    ipAddress: '198.51.100.10',
+    userAgent: 'Mozilla/5.0 (Macintosh)',
+  },
+};
+
+function createMockSessionResponse(overrides = {}) {
+  const baseClone = JSON.parse(JSON.stringify(baseSessionPayload));
+  const overrideClone = JSON.parse(JSON.stringify(overrides ?? {}));
+  const userOverride = overrideClone.user ?? {};
+  const featureFlagsOverride =
+    overrideClone.featureFlags !== undefined ? overrideClone.featureFlags : undefined;
+  const refreshMetaOverride =
+    overrideClone.refreshMeta !== undefined ? overrideClone.refreshMeta : undefined;
+  const sessionRiskOverride =
+    overrideClone.sessionRisk !== undefined ? overrideClone.sessionRisk : undefined;
+
+  const session = {
+    ...baseClone,
+    ...overrideClone,
+    user: { ...baseClone.user, ...userOverride },
+    featureFlags:
+      featureFlagsOverride !== undefined ? featureFlagsOverride : JSON.parse(JSON.stringify(baseClone.featureFlags)),
+    refreshMeta:
+      refreshMetaOverride !== undefined ? refreshMetaOverride : JSON.parse(JSON.stringify(baseClone.refreshMeta)),
+    sessionRisk:
+      sessionRiskOverride !== undefined ? sessionRiskOverride : JSON.parse(JSON.stringify(baseClone.sessionRisk)),
+  };
+
+  if (userOverride.featureFlags) {
+    session.user.featureFlags = userOverride.featureFlags;
+  } else {
+    session.user.featureFlags = JSON.parse(JSON.stringify(session.featureFlags));
+  }
+
+  return { session };
+}
+
 vi.mock('../../services/apiClient.js', () => {
   const mock = {
     setAuthTokens: vi.fn((next) => {
@@ -28,8 +122,8 @@ vi.mock('../../services/apiClient.js', () => {
 });
 
 vi.mock('../../services/auth.js', () => {
-  const fetchCurrentSession = vi.fn(() => Promise.resolve({}));
-  const refreshSession = vi.fn(() => Promise.resolve({}));
+  const fetchCurrentSession = vi.fn(() => Promise.resolve(createMockSessionResponse()));
+  const refreshSession = vi.fn(() => Promise.resolve(createMockSessionResponse()));
   return {
     __esModule: true,
     fetchCurrentSession,
@@ -59,11 +153,13 @@ describe('SessionContext', () => {
     storedTokens.accessToken = null;
     storedTokens.refreshToken = null;
     storedTokens.expiresAt = null;
-    fetchCurrentSessionMock.mockResolvedValue({});
-    refreshSessionMock.mockResolvedValue({});
+    fetchCurrentSessionMock.mockResolvedValue(createMockSessionResponse());
+    refreshSessionMock.mockResolvedValue(createMockSessionResponse());
   });
 
   it('normalises session payloads and exposes RBAC helpers', async () => {
+    fetchCurrentSessionMock.mockResolvedValue({ session: {} });
+    refreshSessionMock.mockResolvedValue({ session: {} });
     const payload = {
       user: {
         id: 'user-123',
@@ -85,6 +181,20 @@ describe('SessionContext', () => {
         },
       },
       features: ['reports:generate'],
+      refreshMeta: {
+        deviceLabel: 'Surface Laptop',
+        deviceFingerprint: 'fingerprint-1',
+        ipAddress: '203.0.113.10',
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0)',
+        riskLevel: 'Medium',
+        riskScore: '60',
+        riskSignals: [
+          { code: 'anonymous_network', severity: 'high', message: 'Proxy detected', observedAt: '2024-09-01T10:00:00Z' },
+          { code: 'anonymous_network', severity: 'high', message: 'Proxy detected', observedAt: '2024-09-01T10:00:00Z' },
+        ],
+        expiresAt: '2024-09-01T12:00:00Z',
+      },
+      sessionRisk: { level: 'medium', score: 60 },
     };
 
     const { result } = renderHook(() => useSession(), { wrapper });
@@ -128,9 +238,23 @@ describe('SessionContext', () => {
       enabled: true,
       metadata: { cohort: 'mentors' },
     });
+    expect(result.current.session.refreshMeta).toMatchObject({
+      deviceLabel: 'Surface Laptop',
+      deviceFingerprint: 'fingerprint-1',
+      riskLevel: 'medium',
+      riskScore: 60,
+    });
+    expect(result.current.session.refreshMeta.riskSignals).toHaveLength(1);
+    expect(result.current.session.sessionRisk).toMatchObject({
+      level: 'medium',
+      score: 60,
+      deviceLabel: 'Surface Laptop',
+    });
   });
 
   it('ignores empty session payloads during reload and refresh', async () => {
+    fetchCurrentSessionMock.mockResolvedValue({ session: {} });
+    refreshSessionMock.mockResolvedValue({ session: {} });
     const { result } = renderHook(() => useSession(), { wrapper });
 
     act(() => {
@@ -145,6 +269,8 @@ describe('SessionContext', () => {
           expiresAt: '2024-11-01T00:00:00Z',
         },
         featureFlags: { premium: { enabled: true } },
+        refreshMeta: { riskLevel: 'low', riskScore: 0 },
+        sessionRisk: { level: 'low', score: 0 },
       });
     });
 
@@ -173,6 +299,7 @@ describe('SessionContext', () => {
     const storedSession = JSON.parse(window.localStorage.getItem('gigvora:web:session'));
     expect(storedSession.email).toBe('persisted@example.com');
     expect(result.current.isFeatureEnabled('premium')).toBe(true);
+    expect(result.current.session.sessionRisk).toMatchObject({ level: 'low', score: 0 });
   });
 
   it('updates and clears session state', () => {

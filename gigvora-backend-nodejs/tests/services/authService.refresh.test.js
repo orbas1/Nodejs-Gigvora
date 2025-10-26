@@ -76,7 +76,7 @@ beforeEach(async () => {
 
 describe('authService.refreshSession', () => {
   const user = {
-    id: 'user-42',
+    id: 42,
     email: 'member@example.com',
     userType: 'member',
     twoFactorEnabled: false,
@@ -148,6 +148,11 @@ describe('authService.refreshSession', () => {
     expect(result.session.refreshMeta.riskSignals).toEqual(
       expect.arrayContaining([expect.objectContaining({ code: 'anonymous_network' })]),
     );
+    expect(result.session.refreshMeta.evaluatedAt).toEqual(expect.any(String));
+    expect(new Date(result.session.refreshMeta.evaluatedAt).toISOString()).toBe(
+      result.session.refreshMeta.evaluatedAt,
+    );
+    expect(result.session.sessionRisk.evaluatedAt).toBe(result.session.refreshMeta.evaluatedAt);
   });
 
   it('clears tokens when the refresh token is expired', async () => {
@@ -213,7 +218,7 @@ describe('authService.refreshSession', () => {
 
 describe('authService.revokeRefreshToken', () => {
   const user = {
-    id: 'user-55',
+    id: 55,
     email: 'observer@example.com',
     userType: 'member',
   };
