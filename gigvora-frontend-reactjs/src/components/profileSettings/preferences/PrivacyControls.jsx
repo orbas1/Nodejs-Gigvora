@@ -79,6 +79,8 @@ function ConsentRow({ entry, pending, expanded, onToggle, onToggleHistory }) {
                 : 'border-slate-300 bg-slate-50 text-slate-600 hover:border-emerald-200 hover:text-emerald-600',
               pending || policy.required ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
             )}
+            aria-pressed={enabled}
+            aria-label={enabled ? 'ON' : 'OFF'}
           >
             {enabled ? 'Granted' : 'Withdrawn'}
           </button>

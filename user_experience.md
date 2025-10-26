@@ -214,3 +214,22 @@
    - Stage launches through mentor beta → agency rollout → global enablement.
    - Capture learnings via retrospectives for subsequent iterations.
    - Analytics gates, staged cohorts, and enablement materials structure the phased launch.
+### 2.A Authentication Surfaces
+#### SignInForm.jsx
+- Premium glassmorphism cards, executive typography, and trust badges stage the sign-in hero so mentors, recruiters, and admins feel immediately aligned with LinkedIn-tier polish when authenticating.
+- Credential inputs pair remembered email hints, password visibility toggles, and inline 2FA summaries to keep high-velocity professionals moving without sacrificing security reassurance.
+- Error, success, and info messaging narrate cooldowns, password resets, and device approvals in the same editorial cadence as the wider onboarding content to maintain confidence during escalations.
+- LinkedIn and Google entry points sit beside manual login with balanced hierarchy, ensuring social fast-tracks remain obvious while preserving compliant fallbacks for enterprise users.
+#### SignUpForm.jsx
+- Persona chips, onboarding highlights, and membership badges welcome founders, agencies, and mentors with targeted value statements instead of generic registration copy.
+- Password meters, rule lists, and recommendation tooltips visualise strength expectations so users reach elite security thresholds before continuing.
+- Journey selection trays, marketing opt-ins, and compliance copy keep legal agreements transparent while reinforcing the professional positioning of the network.
+- Success confirmations and navigation prompts celebrate account creation while pointing to next actions, mirroring the aspirational momentum captured in growth experiments.
+#### PasswordReset.jsx
+- Warm reassurance copy, gradient-backed panels, and status badges guide users through recovery in a tone that balances urgency with calm confidence.
+- Cooldown timers, resend locks, and inline telemetry keep expectations clear across email delivery, preventing users from feeling stuck or re-triggering unnecessary requests.
+- Secondary guidance surfaces password best practices, escalation options, and security reminders to demonstrate Gigvora’s diligence during sensitive workflows.
+#### SocialAuthButtons.jsx
+- LinkedIn-first CTAs with Google support align with the professional network strategy while keeping provider parity visible at a glance.
+- Button copy, iconography, and hover treatments mirror the platform’s design tokens so social entry points feel native rather than bolted on.
+- Helper text frames the value of connecting an existing network profile, reinforcing trust while setting expectations about redirect behaviour and compliance.
