@@ -9,6 +9,10 @@ export const DASHBOARD_ROUTES = Object.freeze({
 });
 
 const REMEMBERED_LOGIN_STORAGE_KEY = 'gigvora:web:auth:remembered-login';
+const SOCIAL_OAUTH_STATE_STORAGE_KEY = 'gigvora:web:auth:oauth-state';
+const LINKEDIN_AUTH_URL = 'https://www.linkedin.com/oauth/v2/authorization';
+const LINKEDIN_SCOPES = ['openid', 'profile', 'email'];
+const SOCIAL_STATE_TTL_MS = 1000 * 60 * 10; // 10 minutes
 
 export function resolveLanding(session, fallback = '/feed') {
   if (!session) {
@@ -31,6 +35,13 @@ function getStorage() {
     return null;
   }
   return window.localStorage;
+}
+
+function getSessionStorage() {
+  if (typeof window === 'undefined' || !window?.sessionStorage) {
+    return null;
+  }
+  return window.sessionStorage;
 }
 
 export function loadRememberedLogin() {
@@ -94,37 +105,111 @@ function getAuthBaseUrl() {
   return apiBase.replace(/\/api$/, '');
 }
 
-const SOCIAL_AUTH_ENDPOINTS = Object.freeze({
-  login: Object.freeze({
-    x: '/auth/x/login',
-    linkedin: '/auth/linkedin/login',
-    facebook: '/auth/facebook/login',
-  }),
-  register: Object.freeze({
-    x: '/auth/x/register',
-    linkedin: '/auth/linkedin/register',
-    facebook: '/auth/facebook/register',
-  }),
-});
-
-export function resolveSocialAuthPath(provider, intent = 'login') {
-  const scope = intent === 'register' ? 'register' : 'login';
-  return SOCIAL_AUTH_ENDPOINTS[scope]?.[provider] ?? null;
+function generateOAuthState(provider, intent) {
+  const randomBytes = typeof window !== 'undefined' && window.crypto?.getRandomValues
+    ? window.crypto.getRandomValues(new Uint8Array(16))
+    : Array.from({ length: 16 }, () => Math.floor(Math.random() * 256));
+  const token = Array.from(randomBytes, (value) => value.toString(16).padStart(2, '0')).join('');
+  return `${provider}:${intent}:${token}`;
 }
 
-export function buildSocialAuthUrl(provider, intent = 'login') {
-  const path = resolveSocialAuthPath(provider, intent);
-  if (!path) {
+function resolveLinkedInRedirectUri() {
+  if (typeof window === 'undefined') {
+    return import.meta.env.VITE_LINKEDIN_REDIRECT_URI || 'https://app.gigvora.com/auth/callback';
+  }
+  const configured = import.meta.env.VITE_LINKEDIN_REDIRECT_URI;
+  if (configured) {
+    return configured;
+  }
+  const origin = window.location?.origin ?? 'https://app.gigvora.com';
+  return `${origin.replace(/\/$/, '')}/auth/callback`;
+}
+
+function buildLinkedInAuthorizeUrl({ state, redirectUri }) {
+  const clientId = import.meta.env.VITE_LINKEDIN_CLIENT_ID;
+  if (!clientId) {
+    throw new Error('LinkedIn client id is not configured.');
+  }
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    state,
+    scope: LINKEDIN_SCOPES.join(' '),
+  });
+  return `${LINKEDIN_AUTH_URL}?${params.toString()}`;
+}
+
+function persistOAuthState(record) {
+  const storage = getSessionStorage();
+  if (!storage) {
+    return;
+  }
+  try {
+    storage.setItem(SOCIAL_OAUTH_STATE_STORAGE_KEY, JSON.stringify(record));
+  } catch (error) {
+    console.warn('Unable to persist social OAuth state', error);
+  }
+}
+
+export function consumeOAuthState(expectedState) {
+  const storage = getSessionStorage();
+  if (!storage) {
     return null;
   }
-  return `${getAuthBaseUrl()}${path}`;
+  let record = null;
+  try {
+    const raw = storage.getItem(SOCIAL_OAUTH_STATE_STORAGE_KEY);
+    if (raw) {
+      record = JSON.parse(raw);
+    }
+  } catch (error) {
+    console.warn('Unable to parse social OAuth state', error);
+  }
+  try {
+    storage.removeItem(SOCIAL_OAUTH_STATE_STORAGE_KEY);
+  } catch (error) {
+    console.warn('Unable to clear social OAuth state', error);
+  }
+
+  if (!record || record.state !== expectedState) {
+    return null;
+  }
+
+  if (record.createdAt && Date.now() - Number(record.createdAt) > SOCIAL_STATE_TTL_MS) {
+    return null;
+  }
+
+  return record;
 }
 
 export function redirectToSocialAuth(provider, intent = 'login') {
-  const url = buildSocialAuthUrl(provider, intent);
-  if (!url) {
+  const normalizedIntent = intent === 'register' ? 'register' : 'login';
+  let url = null;
+  let redirectUri = null;
+  const state = generateOAuthState(provider, normalizedIntent);
+
+  try {
+    if (provider === 'linkedin') {
+      redirectUri = resolveLinkedInRedirectUri();
+      url = buildLinkedInAuthorizeUrl({ state, redirectUri });
+    } else {
+      return null;
+    }
+  } catch (error) {
+    console.warn('Unable to prepare social auth redirect', error);
     return null;
   }
+
+  persistOAuthState({
+    provider,
+    intent: normalizedIntent,
+    state,
+    redirectUri,
+    createdAt: Date.now(),
+    baseUrl: getAuthBaseUrl(),
+  });
+
   if (typeof window !== 'undefined') {
     window.location.href = url;
   }

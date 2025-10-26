@@ -30,9 +30,7 @@ function resolveLanding(session) {
 }
 
 const PROVIDER_LABELS = {
-  x: 'X',
   linkedin: 'LinkedIn',
-  facebook: 'Facebook',
 };
 
 const ROLE_OPTIONS = [

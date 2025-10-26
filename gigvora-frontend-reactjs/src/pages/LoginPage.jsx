@@ -35,9 +35,7 @@ export function resolveLanding(session) {
 }
 
 const SOCIAL_LABELS = {
-  x: 'X',
   linkedin: 'LinkedIn',
-  facebook: 'Facebook',
 };
 
 export function formatExpiry(timestamp) {

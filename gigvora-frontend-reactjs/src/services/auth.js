@@ -98,6 +98,18 @@ export async function loginWithGoogle(idToken) {
   return apiClient.post('/auth/login/google', { idToken });
 }
 
+export async function loginWithLinkedIn(payload = {}) {
+  const { accessToken, authorizationCode, redirectUri } = payload;
+  if (!accessToken && !authorizationCode) {
+    throw new Error('LinkedIn requires an access token or authorization code.');
+  }
+  return apiClient.post('/auth/login/linkedin', {
+    accessToken,
+    authorizationCode,
+    redirectUri,
+  });
+}
+
 const authService = {
   requestAdminTwoFactor,
   verifyTwoFactorCode,
@@ -109,6 +121,7 @@ const authService = {
   verifyTwoFactor,
   resendTwoFactor,
   loginWithGoogle,
+  loginWithLinkedIn,
   requestPasswordReset,
   verifyPasswordResetToken,
   resetPassword,
