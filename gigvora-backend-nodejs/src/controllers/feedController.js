@@ -1,5 +1,5 @@
 import { Op, fn, col } from 'sequelize';
-import { FeedPost, FeedComment, FeedReaction, User, Profile } from '../models/index.js';
+import { FeedPost, FeedComment, FeedReaction, FeedShare, User, Profile } from '../models/index.js';
 import { enforceFeedCommentPolicies, enforceFeedPostPolicies } from '../services/contentModerationService.js';
 import { ValidationError, AuthorizationError, AuthenticationError } from '../utils/errors.js';
 import {
@@ -31,6 +31,8 @@ const AUTHORIZED_ROLES = new Set([
 ]);
 
 const SELF_ONLY_ROLES = new Set(['member', 'user', 'freelancer', 'agency', 'company', 'headhunter', 'mentor']);
+const ALLOWED_SHARE_AUDIENCES = new Set(['internal', 'external']);
+const ALLOWED_SHARE_CHANNELS = new Set(['copy', 'email', 'secure']);
 const DEFAULT_PAGE_SIZE = 12;
 const MAX_PAGE_SIZE = 50;
 const DEFAULT_COMMENT_LIMIT = 20;
@@ -240,6 +242,28 @@ async function computeCommentCounts(postIds) {
   return map;
 }
 
+async function computeShareCounts(postIds) {
+  if (!postIds.length) {
+    return new Map();
+  }
+  const rows = await FeedShare.findAll({
+    attributes: ['postId', [fn('COUNT', col('id')), 'count']],
+    where: { postId: { [Op.in]: postIds } },
+    group: ['postId'],
+    raw: true,
+  });
+  const map = new Map();
+  rows.forEach((row) => {
+    map.set(row.postId, Number(row.count));
+  });
+  postIds.forEach((id) => {
+    if (!map.has(id)) {
+      map.set(id, 0);
+    }
+  });
+  return map;
+}
+
 export async function listFeed(req, res) {
   const limit = Math.min(
     Math.max(Number.parseInt(req.query.limit, 10) || DEFAULT_PAGE_SIZE, 1),
@@ -272,9 +296,10 @@ export async function listFeed(req, res) {
   const hasMore = records.length > limit;
   const trimmed = hasMore ? records.slice(0, limit) : records;
   const postIds = trimmed.map((post) => post.id).filter(Boolean);
-  const [reactionMap, commentMap, total] = await Promise.all([
+  const [reactionMap, commentMap, shareMap, total] = await Promise.all([
     computeReactionSummary(postIds),
     computeCommentCounts(postIds),
+    computeShareCounts(postIds),
     FeedPost.count(),
   ]);
 
@@ -282,6 +307,7 @@ export async function listFeed(req, res) {
     serialiseFeedPost(post, {
       reactionSummary: reactionMap.get(post.id) ?? { likes: 0 },
       commentCount: commentMap.get(post.id) ?? 0,
+      shareCount: shareMap.get(post.id) ?? 0,
     }),
   );
 
@@ -351,7 +377,11 @@ export async function createPost(req, res) {
 
   const created = await FeedPost.create(payload);
   const hydrated = await FeedPost.findByPk(created.id, { include: [{ model: User, include: [Profile] }] });
-  const responsePayload = serialiseFeedPost(hydrated, { reactionSummary: { likes: 0 }, commentCount: 0 });
+  const responsePayload = serialiseFeedPost(hydrated, {
+    reactionSummary: { likes: 0 },
+    commentCount: 0,
+    shareCount: 0,
+  });
   if (moderated.signals.length) {
     responsePayload.moderation = { signals: moderated.signals };
   }
@@ -431,12 +461,22 @@ export async function updatePost(req, res) {
   }
 
   if (!Object.keys(updates).length) {
-    return res.json(serialiseFeedPost(existing));
+    const shareCount = await FeedShare.count({ where: { postId: existing.id } });
+    return res.json(
+      serialiseFeedPost(existing, {
+        shareCount,
+      }),
+    );
   }
 
   await existing.update(updates);
   const reloaded = await FeedPost.findByPk(existing.id, { include: [{ model: User, include: [Profile] }] });
-  res.json(serialiseFeedPost(reloaded));
+  const shareCount = await FeedShare.count({ where: { postId: reloaded.id } });
+  res.json(
+    serialiseFeedPost(reloaded, {
+      shareCount,
+    }),
+  );
 }
 
 export async function deletePost(req, res) {
@@ -620,6 +660,83 @@ export async function createReply(req, res) {
   }
 
   res.status(201).json(payload);
+}
+
+export async function sharePost(req, res) {
+  const { postId } = req.params;
+  const actor = resolveActor(req);
+  const role = resolveRole(req);
+
+  const numericId = Number.parseInt(postId, 10);
+  if (!Number.isFinite(numericId) || numericId <= 0) {
+    throw new ValidationError('A valid post identifier is required.');
+  }
+
+  assertInteractionPermissions(actor, role);
+
+  const post = await FeedPost.findByPk(numericId, { attributes: ['id'] });
+  if (!post) {
+    throw new ValidationError('Feed post not found.');
+  }
+
+  const { audience, channel, message, link } = req.body ?? {};
+  const normalisedAudience = (audience ?? 'internal').toString().toLowerCase().trim();
+  if (!ALLOWED_SHARE_AUDIENCES.has(normalisedAudience)) {
+    throw new ValidationError('Unsupported share audience provided.');
+  }
+
+  const normalisedChannel = (channel ?? 'copy').toString().toLowerCase().trim();
+  if (!ALLOWED_SHARE_CHANNELS.has(normalisedChannel)) {
+    throw new ValidationError('Unsupported share channel provided.');
+  }
+
+  const sanitisedMessage = sanitizeString(message, { maxLength: 900, fallback: '' }) ?? '';
+  if (!sanitisedMessage.trim()) {
+    throw new ValidationError('A message is required to share this post.');
+  }
+
+  const sanitisedLink = sanitizeUrl(link);
+  const snapshot = await resolveUserSnapshot(actor.id);
+  const metadata = {
+    actor: {
+      id: snapshot.user?.id ?? actor.id ?? null,
+      name: snapshot.name,
+      headline: snapshot.headline,
+    },
+    compliance: {
+      audience: normalisedAudience,
+      channel: normalisedChannel,
+      recordedAt: new Date().toISOString(),
+    },
+  };
+
+  const record = await FeedShare.create({
+    postId: numericId,
+    userId: actor.id,
+    audience: normalisedAudience,
+    channel: normalisedChannel,
+    message: sanitisedMessage.trim(),
+    link: sanitisedLink,
+    metadata,
+  });
+
+  const shareCount = await FeedShare.count({ where: { postId: numericId } });
+
+  res.status(201).json({
+    postId: numericId,
+    share: {
+      id: record.id,
+      postId: record.postId,
+      userId: record.userId,
+      audience: record.audience,
+      channel: record.channel,
+      message: record.message,
+      link: record.link,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+    },
+    metrics: { shares: shareCount },
+  });
 }
 
 async function summariseReactionsForPost(postId) {

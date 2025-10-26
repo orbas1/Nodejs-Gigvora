@@ -3625,6 +3625,35 @@ export const FeedReaction = sequelize.define(
   },
 );
 
+export const FeedShare = sequelize.define(
+  'FeedShare',
+  {
+    postId: { type: DataTypes.INTEGER, allowNull: false },
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    audience: {
+      type: DataTypes.ENUM('internal', 'external'),
+      allowNull: false,
+      defaultValue: 'internal',
+    },
+    channel: {
+      type: DataTypes.ENUM('copy', 'email', 'secure'),
+      allowNull: false,
+      defaultValue: 'copy',
+    },
+    message: { type: DataTypes.TEXT, allowNull: false },
+    link: { type: DataTypes.STRING(2048), allowNull: true },
+    metadata: { type: jsonType, allowNull: true },
+  },
+  {
+    tableName: 'feed_shares',
+    indexes: [
+      { fields: ['postId'] },
+      { fields: ['userId'] },
+      { fields: ['channel'] },
+    ],
+  },
+);
+
 export const FreelancerTimelineWorkspace = sequelize.define(
   'FreelancerTimelineWorkspace',
   {
@@ -22940,6 +22969,10 @@ FeedComment.belongsTo(FeedComment, { foreignKey: 'parentId', as: 'parent' });
 FeedPost.hasMany(FeedReaction, { foreignKey: 'postId', as: 'reactions' });
 FeedReaction.belongsTo(FeedPost, { foreignKey: 'postId', as: 'post' });
 FeedReaction.belongsTo(User, { foreignKey: 'userId', as: 'actor' });
+FeedPost.hasMany(FeedShare, { foreignKey: 'postId', as: 'shares' });
+FeedShare.belongsTo(FeedPost, { foreignKey: 'postId', as: 'post' });
+FeedShare.belongsTo(User, { foreignKey: 'userId', as: 'actor' });
+User.hasMany(FeedShare, { foreignKey: 'userId', as: 'feedShares' });
 
 User.hasOne(FreelancerTimelineWorkspace, { foreignKey: 'freelancerId', as: 'timelineWorkspace' });
 FreelancerTimelineWorkspace.belongsTo(User, { foreignKey: 'freelancerId', as: 'freelancer' });
@@ -25207,6 +25240,7 @@ export default {
   FeedPost,
   FeedComment,
   FeedReaction,
+  FeedShare,
   FreelancerTimelineWorkspace,
   FreelancerTimelinePost,
   FreelancerTimelineEntry,

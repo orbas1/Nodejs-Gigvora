@@ -143,6 +143,22 @@ export async function reactToFeedPost(postId, reaction, { active = true, signal 
   return apiClient.post(`/feed/${postId}/reactions`, payload, { signal });
 }
 
+export async function shareFeedPost(postId, payload = {}, { signal } = {}) {
+  if (!postId) {
+    throw new Error('A post identifier is required to share the feed entry.');
+  }
+  if (!payload || typeof payload !== 'object') {
+    throw new Error('A payload is required to share the feed entry.');
+  }
+  const body = {
+    audience: payload.audience ?? 'internal',
+    channel: payload.channel ?? 'copy',
+    message: payload.message,
+    link: payload.link ?? null,
+  };
+  return apiClient.post(`/feed/${postId}/shares`, body, { signal });
+}
+
 export default {
   listFeedPosts,
   createFeedPost,
@@ -152,4 +168,5 @@ export default {
   listFeedComments,
   createFeedComment,
   createFeedReply,
+  shareFeedPost,
 };

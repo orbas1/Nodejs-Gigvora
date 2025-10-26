@@ -84,7 +84,7 @@ function resolveAuthorSnapshot(rawUser, rawProfile, fallbackType = 'Gigvora memb
   };
 }
 
-function serialiseFeedPost(instance, { reactionSummary = {}, commentCount = 0 } = {}) {
+function serialiseFeedPost(instance, { reactionSummary = {}, commentCount = 0, shareCount = 0 } = {}) {
   const raw = instance?.toJSON ? instance.toJSON() : instance;
   const user = raw?.User || raw?.user || null;
   const profile = user?.Profile || user?.profile || null;
@@ -99,6 +99,12 @@ function serialiseFeedPost(instance, { reactionSummary = {}, commentCount = 0 } 
     parseCount(metricsSource.comments) ??
     (Array.isArray(raw?.comments) ? raw.comments.length : null) ??
     parseCount(raw?.commentCount) ??
+    0;
+  const derivedShareCount =
+    parseCount(shareCount) ??
+    parseCount(metricsSource.shares) ??
+    parseCount(raw?.shareCount) ??
+    parseCount(raw?.shares) ??
     0;
 
   let publishedAt = null;
@@ -135,6 +141,7 @@ function serialiseFeedPost(instance, { reactionSummary = {}, commentCount = 0 } 
     metrics: {
       ...metricsSource,
       comments: derivedCommentCount,
+      shares: derivedShareCount,
     },
     User: raw?.User,
   };

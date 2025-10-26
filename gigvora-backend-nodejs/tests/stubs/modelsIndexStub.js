@@ -278,6 +278,7 @@ export const ExplorerRecord = createModelBinding('ExplorerRecord');
 export const FeedComment = createModelBinding('FeedComment');
 export const FeedPost = createModelBinding('FeedPost');
 export const FeedReaction = createModelBinding('FeedReaction');
+export const FeedShare = createModelBinding('FeedShare');
 export const FinanceExpenseEntry = createModelBinding('FinanceExpenseEntry');
 export const FinanceForecastScenario = createModelBinding('FinanceForecastScenario');
 export const FinancePayoutBatch = createModelBinding('FinancePayoutBatch');
