@@ -420,17 +420,32 @@ export function MessagingProvider({ children }) {
   );
 
   const sendMessage = useCallback(
-    async (threadId, body) => {
-      if (!threadId || !body || !actorId || !hasMessagingAccess || !isAuthenticated) {
+    async (threadId, payload) => {
+      if (!threadId || !actorId || !hasMessagingAccess || !isAuthenticated) {
         return null;
       }
+      const composerPayload =
+        typeof payload === 'string'
+          ? { body: payload }
+          : payload && typeof payload === 'object'
+            ? payload
+            : {};
+      const text = typeof composerPayload.body === 'string' ? composerPayload.body.trim() : '';
+      const attachments = Array.isArray(composerPayload.attachments) ? composerPayload.attachments : [];
+      if (!text && attachments.length === 0) {
+        return null;
+      }
+      const messageType = composerPayload.messageType ?? 'text';
+      const metadata = composerPayload.metadata ?? {};
       dispatch({ type: 'setSending', sending: true });
       dispatch({ type: 'setMessagesError', error: null });
       try {
         const message = await sendMessageRequest(threadId, {
           userId: actorId,
-          messageType: 'text',
-          body: body.trim(),
+          messageType,
+          body: text,
+          attachments,
+          metadata,
         });
         dispatch({ type: 'appendMessage', threadId, message });
         dispatch({ type: 'clearComposer', threadId });

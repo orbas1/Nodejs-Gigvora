@@ -1,9 +1,12 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useState } from 'react';
 import MessagingDock from '../MessagingDock.jsx';
 import ConversationMessage from '../ConversationMessage.jsx';
 import AgoraCallPanel from '../AgoraCallPanel.jsx';
+import MessagesInbox from '../MessagesInbox.jsx';
+import MessageComposerBar from '../MessageComposerBar.jsx';
 import useSession from '../../../hooks/useSession.js';
 import { LanguageProvider } from '../../../context/LanguageContext.jsx';
 import {
@@ -100,6 +103,20 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+function ControlledComposer({ initialValue = '', ...props }) {
+  const [value, setValue] = useState(initialValue);
+  return (
+    <MessageComposerBar
+      {...props}
+      value={value}
+      onChange={(next) => {
+        setValue(next);
+        props.onChange?.(next);
+      }}
+    />
+  );
+}
+
 describe('ConversationMessage', () => {
   it('renders standard message bubbles with sender context', () => {
     const message = {
@@ -115,6 +132,26 @@ describe('ConversationMessage', () => {
 
     expect(screen.getByText(/Sky Rivera/)).toBeInTheDocument();
     expect(screen.getByText('Thanks for sharing the deck! 🚀')).toBeInTheDocument();
+  });
+
+  it('renders metadata links beneath the message body when provided', () => {
+    const message = {
+      id: 'msg-2',
+      createdAt: '2024-06-11T10:00:00Z',
+      senderId: 3,
+      sender: { id: 3, firstName: 'Mira', lastName: 'Stone' },
+      body: 'Sharing the case study here.',
+      messageType: 'text',
+      metadata: {
+        links: [{ title: 'Case study', url: 'https://gigvora.com/case-study' }],
+      },
+    };
+
+    render(<ConversationMessage message={message} actorId={1} />);
+
+    const link = screen.getByRole('link', { name: /Case study/i });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', 'https://gigvora.com/case-study');
   });
 
   it('renders call events and disables join button when call ended', () => {
@@ -140,6 +177,139 @@ describe('ConversationMessage', () => {
     const joinButton = screen.getByRole('button', { name: /call ended/i });
     expect(joinButton).toBeDisabled();
     expect(screen.getByText('Participants: You, User 2')).toBeInTheDocument();
+  });
+});
+
+describe('MessagesInbox', () => {
+  it('filters threads with search and unread toggle', async () => {
+    const user = userEvent.setup();
+    const threads = [
+      {
+        id: 'thread-1',
+        subject: 'Product kickoff',
+        pinned: true,
+        unreadCount: 0,
+        channelType: 'direct',
+        lastMessageAt: '2024-06-09T10:00:00Z',
+        participants: [{ userId: 2, user: { firstName: 'Sky', lastName: 'Rivera' } }],
+      },
+      {
+        id: 'thread-2',
+        subject: 'Growth sync',
+        unreadCount: 2,
+        channelType: 'support',
+        lastMessageAt: '2024-06-11T10:00:00Z',
+        participants: [{ userId: 3, user: { firstName: 'Mira', lastName: 'Stone' } }],
+      },
+      {
+        id: 'thread-3',
+        subject: 'Design QA',
+        unreadCount: 1,
+        channelType: 'product',
+        lastMessageAt: '2024-06-12T10:00:00Z',
+        participants: [{ userId: 4, user: { firstName: 'Leo', lastName: 'Park' } }],
+      },
+    ];
+
+    const onSelectThread = vi.fn();
+
+    render(
+      <MessagesInbox
+        actorId={1}
+        threads={threads}
+        loading={false}
+        onSelectThread={onSelectThread}
+        selectedThreadId="thread-1"
+        onTogglePin={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Product kickoff')).toBeInTheDocument();
+    const search = screen.getByPlaceholderText(/search by name/i);
+    await act(async () => {
+      await user.type(search, 'growth');
+    });
+    expect(screen.getByText('Growth sync')).toBeInTheDocument();
+    expect(screen.queryByText('Product kickoff')).not.toBeInTheDocument();
+
+    await act(async () => {
+      await user.clear(search);
+    });
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /Unread/i }));
+    });
+    expect(screen.queryByText('Product kickoff')).not.toBeInTheDocument();
+    expect(screen.getByText('Design QA')).toBeInTheDocument();
+
+    await act(async () => {
+      await user.click(screen.getByLabelText('Open conversation Design QA'));
+    });
+    expect(onSelectThread).toHaveBeenCalledWith('thread-3');
+  });
+});
+
+describe('MessageComposerBar', () => {
+  it('sends message payload with links metadata', async () => {
+    const user = userEvent.setup();
+    const onSend = vi.fn().mockResolvedValue();
+
+    render(
+      <ControlledComposer
+        threadId="thread-1"
+        initialValue="Let’s align"
+        onSend={onSend}
+        savedReplies={[]}
+      />,
+    );
+
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /Add link/i }));
+    });
+    await act(async () => {
+      await user.type(screen.getByPlaceholderText(/Link title/i), 'Roadmap');
+    });
+    await act(async () => {
+      await user.type(screen.getByPlaceholderText(/https:\/\//i), 'https://gigvora.com/roadmap');
+    });
+    const attachButton = screen.getByRole('button', { name: /^Attach$/i });
+    await act(async () => {
+      await user.click(attachButton);
+    });
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /Send message/i }));
+    });
+
+    await waitFor(() => expect(onSend).toHaveBeenCalled());
+    expect(onSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: 'Let’s align',
+        metadata: {
+          links: [expect.objectContaining({ url: 'https://gigvora.com/roadmap', title: 'Roadmap' })],
+        },
+      }),
+    );
+  });
+
+  it('inserts saved reply content into composer', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+
+    render(
+      <ControlledComposer
+        threadId="thread-1"
+        savedReplies={[{ id: 'reply-1', title: 'Welcome note', body: 'Hello there!' }]}
+        onChange={onChange}
+      />,
+    );
+
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /Saved replies/i }));
+    });
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /Welcome note/i }));
+    });
+
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith('Hello there!'));
   });
 });
 
