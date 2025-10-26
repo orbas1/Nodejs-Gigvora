@@ -1,3 +1,107 @@
+  - [x] 6.C. Events & Volunteering Engagement
+    - [x] 6.C.1. EventCalendar.jsx
+    - [x] 6.C.2. EventDetailModal.jsx
+    - [x] 6.C.3. VolunteerRoster.jsx
+    - [x] 6.C.1. EventCalendar.jsx
+    - [x] 6.C.2. EventDetailModal.jsx
+    - [x] 6.C.3. VolunteerRoster.jsx
+   - Calendar now opens with a glassmorphism hero, integrated stats, and editorial copy matching LinkedIn/Instagram-level polish.
+   - Ships month/week/agenda toggles, conflict detection, inline filters, and calendar/device sync actions.
+   - Highlights recommended picks, volunteer readiness, and conflict alerts aligned to user goals.
+   - Consolidated scheduling logic into this premium surface eliminating duplicate code paths.
+   - Smart suggestions, volunteer insights, and upcoming highlights wired with contextual fallbacks.
+   - Event color and feature mapping centralised; no repeated helpers across modules.
+   - Backlog now targets telemetry, personalization scoring, and automation with core experience shipped.
+   - Gradient headers, premium typography, and layered cards deliver elite aesthetic parity.
+   - Memoised derivations, filtered datasets, and lightweight view layers keep interactions fast.
+   - Multi-view support, recommended insight rail, and volunteer readiness telemetry anchor differentiation.
+   - Previous flat design replaced with rich filters, badges, and insight panels; remaining gaps limited to deeper analytics.
+   - Palette now ties event types to accessible accent hues across light backgrounds.
+   - Responsive grids, sticky filter trays, and balanced columns codified for all breakpoints.
+   - Copy tightened with action-oriented tone, concise highlights, and zero redundancy.
+   - Balanced 8pt/12pt rhythm across chips, pills, and cell interiors for legibility.
+   - Rounded 24/32px radii unify hero, cards, and event pills.
+   - Soft layered shadows and micro hover transitions emphasise interactivity.
+   - Cover imagery and icon fallbacks render consistently across breakpoints.
+   - Media surfaces lazy-load with safe fallbacks for imagery and future video embeds.
+   - CTA, filter, and chip buttons now follow gradient + ghost variants with precise hover states.
+   - Keyboard/focus affordances, inline quick actions, and accessible toggles replace drag-heavy gestures.
+   - Recommended events, sync prompts, and volunteer insights shipped; backlog limited to analytics connectors.
+   - Structural redesign delivered with discovery bar, stats hero, and right-rail programming insights.
+   - Unified calendar patterns prevent duplicate micro-calendars across surfaces.
+   - Component aligns with scheduling tokens, typography, and elevation rules from the design system.
+   - Discovery→build→QA tracker executed; telemetry instrumentation remains next milestone.
+   - Rolling cohort releases underway with instrumentation gating global rollout.
+   - Detail modal now mirrors premium hero, badges, and editorial storytelling delivering aspirational first impression.
+   - Ships full schedule, speaker bios, resources, recommended peers, RSVP, calendar sync, and share flows.
+   - Surfaces relevance cues, capacity signals, and recommended collaborators tailored to personas.
+   - Consolidated onto shared premium modal framework eliminating duplicate detail views.
+   - Resource, agenda, and peer sections populated with rich fallbacks and smart defaults.
+   - RSVP/add-to-calendar callbacks reuse shared handlers without duplicated logic.
+   - Remaining backlog targets analytics instrumentation and localisation; core capabilities shipped.
+   - Hero imagery, gradient overlays, and tokenised badges align with flagship event styling.
+   - Derived data memoised and heavy sections gated to keep modal responsive.
+   - Hero storytelling, quick facts, and modular tabs preserve clarity while celebrating strengths.
+   - Former text-heavy layout replaced with immersive visuals; residual work limited to deeper integrations.
+   - Palette tuned to event theme tokens with accessible overlays for imagery.
+   - Responsive two-column layout with sticky actions keeps content balanced across breakpoints.
+   - Copy trimmed to purposeful statements that emphasise takeaways and commitments.
+   - Spacing tokens align with 8pt baseline ensuring 18px vertical rhythm between sections.
+   - Modal, cards, and pills adopt 24/32px radii for cohesive shaping.
+   - Soft shadows and accented focus states highlight primary CTAs.
+   - Speaker avatars and hero fallbacks render consistently across all surfaces.
+   - Teaser links and resource previews integrate with safe fallbacks for media assets.
+   - RSVP, volunteer, calendar, and share buttons follow gradient + ghost specs with hover polish.
+   - Invite collaborators, join volunteer roster, and share flows provide rich interactivity.
+   - Schedule, resources, and recommended peers shipped; backlog limited to analytics + translations.
+   - Redesign complete with hero, timeline, resources, and community tabs highlighting partners.
+   - Unified modal system prevents style drift and duplication across event surfaces.
+   - Anchored within event design tokens for responsive typography, spacing, and colour.
+   - Build/QA checklist executed; analytics instrumentation queued for next sprint.
+   - Beta live with flagship events capturing telemetry ahead of global release.
+   - Roster now opens with premium hero stats, storytelling, and engagement cues rivaling leading community networks.
+   - Provides role/status/focus filters, availability insights, search, messaging, assignment, and spotlight panels.
+   - Highlights open slots, skill matches, mission assignments, and availability to power rapid staffing decisions.
+   - Consolidated volunteer views into this flagship roster eliminating duplicate admin lists.
+   - Impact stories, metrics, and mission panels populated with resilient fallbacks and defaults.
+   - Shared normalization and status badge utilities remove duplicated rendering logic.
+   - Future enhancements focus on automation and analytics now that core roster experience ships complete.
+   - Card layout, gradients, and typography now deliver high-end volunteering aesthetic.
+   - Memoised derivations and trimmed render surfaces keep the roster performant.
+   - Central roster, spotlight heroes, and live mission feeds preserve existing strengths.
+   - Bland table replaced with rich cards, insights, and actions; remaining work limited to integrations.
+   - Palette ties volunteering greens with warm neutrals delivering accessible contrast.
+   - Responsive grid, balanced columns, and flexible action trays adapt across breakpoints.
+   - Copy emphasises impact, availability, and storytelling with no redundancy.
+   - 8pt/12pt rhythm governs spacing between cards, chips, and action rows.
+   - Cards and chips adopt 24/32px radii for cohesive shaping.
+   - Hover lifts, glow accents, and focus states deliver interactive polish.
+   - Avatar fallbacks and story cards ensure consistent imagery across the roster.
+   - Story links and imagery include graceful fallbacks for media previews.
+   - Assign, message, and view buttons align to gradient/ghost patterns with refined hover states.
+   - Inline messaging, assignment, and invite flows provide rich interactivity.
+   - Open roles, skill tags, spotlight missions shipped; backlog narrows to CRM automation.
+   - Redesign delivered with hero stats, filters, spotlight stories, and live missions.
+   - Unified roster patterns eliminate divergence across company and admin surfaces.
+   - Component aligns with volunteering tokens, typography, and elevation specs.
+   - Build/QA checklist complete; CRM telemetry integration queued next.
+   - Rolling release with volunteer programmes capturing feedback before global rollout.
+   - CommunityEventsPage.jsx now consumes `communityEventsService.listCommunityCalendar` over `/community/events`, caching results and surfacing month/week/agenda toggles, conflict detection, inline filters, and calendar/device sync actions.
+   - Highlights seeded recommendations, live volunteer readiness aggregated from `volunteer_assignments`, and conflict alerts aligned to persona and membership telemetry.
+   - Consolidated scheduling logic through the shared `communityEventsService` pipelines eliminating duplicate query stacks across surfaces.
+   - Smart suggestions, volunteer insights, and upcoming highlights wired with contextual fallbacks, backed by the production seeder `20241106103000-community-events-experience.cjs` and real agenda/assets payloads.
+   - Event normalization, scoring, and feature mapping centralised in `communityEventsService` and `fetchCommunityCalendar`, removing duplicated helpers across modules.
+   - Memoised derivations, backend cache keys, and lightweight view layers keep interactions fast even while hydrating live event and volunteer telemetry.
+   - Modal hydration now flows through `communityEventsService.getCommunityEvent` served by `/community/events/:eventId`, exposing schedule, speaker bios, resources, recommended peers, RSVP, calendar sync, and share flows.
+   - Resource, agenda, and peer sections hydrate from real `user_event_assets` and seeded metadata with resilient fallbacks and smart defaults.
+   - RSVP/add-to-calendar callbacks reuse shared handlers and backend-normalised payloads without duplicated logic.
+   - Derived data memoised, backend caching enabled, and heavy sections gated to keep modal responsive while loading live details.
+   - Powered by `communityEventsService.getVolunteerRoster` (`GET /community/volunteers`) providing role/status/focus filters, availability insights, search, messaging, assignment, and spotlight panels.
+   - Highlights open slots, skill matches, mission assignments, and availability sourced from live `volunteer_assignments` and seeded metrics to power rapid staffing decisions.
+   - Consolidated volunteer views into this flagship roster with a shared backend pipeline eliminating duplicate admin lists.
+   - Impact stories, metrics, and mission panels populated with resilient fallbacks sourced from the production seeder `20241106103000-community-events-experience.cjs` and volunteer metadata.
+   - Shared normalization and status badge utilities, plus the centralised `fetchVolunteerRoster` client, remove duplicated rendering logic.
+   - Memoised derivations, backend cache keys, and trimmed render surfaces keep the roster performant while hydrating live insights.
   - [x] 7.A. Wallet Core Experience
 1. Appraisal.
    - Hero surface now greets operators with three stat cards (total, ready, reserve) layered over glassmorphic tiles, mirroring enterprise fintech dashboards.
