@@ -9,6 +9,7 @@ import RoleSwitcher from './RoleSwitcher.jsx';
 import LanguageSelector from '../LanguageSelector.jsx';
 import HeaderMegaMenu from './HeaderMegaMenu.jsx';
 import PrimaryNavItem from './PrimaryNavItem.jsx';
+import NotificationBell from '../notifications/NotificationBell.jsx';
 import { LOGO_SRCSET, LOGO_URL } from '../../constants/branding.js';
 import { classNames } from '../../utils/classNames.js';
 import { resolveInitials } from '../../utils/user.js';
@@ -383,16 +384,19 @@ export default function AppTopBar({
             </form>
           ) : null}
           {isAuthenticated ? (
-            <InboxPreview
-              threads={inboxPreview.threads}
-              loading={inboxPreview.loading}
-              error={inboxPreview.error}
-              lastFetchedAt={inboxPreview.lastFetchedAt}
-              onRefresh={onRefreshInbox}
-              onOpen={onInboxMenuOpen}
-              onThreadClick={onInboxThreadClick}
-              status={connectionState}
-            />
+            <>
+              <InboxPreview
+                threads={inboxPreview.threads}
+                loading={inboxPreview.loading}
+                error={inboxPreview.error}
+                lastFetchedAt={inboxPreview.lastFetchedAt}
+                onRefresh={onRefreshInbox}
+                onOpen={onInboxMenuOpen}
+                onThreadClick={onInboxThreadClick}
+                status={connectionState}
+              />
+              <NotificationBell session={session} />
+            </>
           ) : null}
           <LanguageSelector className="hidden flex-none sm:inline-flex" />
           {isAuthenticated ? (
