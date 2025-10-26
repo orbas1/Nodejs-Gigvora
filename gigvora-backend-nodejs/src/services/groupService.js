@@ -69,6 +69,62 @@ function asBoolean(value, fallback = false) {
   return fallback;
 }
 
+function normalizeJoinPolicy(...candidates) {
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    const value = `${candidate}`.toLowerCase();
+    if (['open', 'public'].includes(value)) {
+      return 'open';
+    }
+    if (['request', 'moderated', 'approval', 'review'].includes(value)) {
+      return 'moderated';
+    }
+    if (['invite', 'invite_only', 'invitation', 'restricted'].includes(value)) {
+      return 'invite_only';
+    }
+  }
+  return 'moderated';
+}
+
+function mapJoinPolicyToMemberPolicy(joinPolicy) {
+  const normalized = normalizeJoinPolicy(joinPolicy);
+  if (normalized === 'open') {
+    return 'open';
+  }
+  if (normalized === 'invite_only') {
+    return 'invite';
+  }
+  return 'request';
+}
+
+function mergeUniqueBy(primary = [], secondary = [], keyFn = (item) => item?.id ?? item) {
+  const map = new Map();
+  const result = [];
+  const add = (item) => {
+    if (!item) return;
+    const key = keyFn(item);
+    if (key == null || !map.has(key)) {
+      map.set(key, item);
+      result.push(item);
+    }
+  };
+  primary.forEach(add);
+  secondary.forEach(add);
+  return result;
+}
+
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function toIsoString(value) {
+  if (!value) {
+    return null;
+  }
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toISOString() : null;
+}
+
 const GROUP_BLUEPRINTS = [
   {
     key: 'future-of-work-collective',
@@ -780,15 +836,129 @@ function resolveBlueprint(group) {
 
 async function ensureBlueprintGroups(transaction) {
   for (const blueprint of GROUP_BLUEPRINTS) {
-    const [record, created] = await Group.findOrCreate({
+    const normalizedJoinPolicy = normalizeJoinPolicy(blueprint.joinPolicy, blueprint.memberPolicy);
+    const memberPolicy = mapJoinPolicyToMemberPolicy(normalizedJoinPolicy);
+    const normalizedBoard = normalizeDiscussionBoard(blueprint.discussionBoard ?? {});
+    const normalizedLibrary = normalizeResourceLibrary(blueprint.resourceLibrary ?? {}, blueprint.resources ?? []);
+    const normalizedEvents = (blueprint.upcomingEvents ?? []).map((event) => ({
+      ...event,
+      startAt: normalizeTemporalValue(event.startAt),
+    }));
+    const normalizedTimeline = (blueprint.timeline ?? []).map((entry) => ({
+      ...entry,
+      occursAt: normalizeTemporalValue(entry.occursAt),
+    }));
+
+    const [record] = await Group.findOrCreate({
       where: { name: blueprint.name },
       defaults: {
         description: blueprint.summary,
+        memberPolicy,
+        avatarColor: blueprint.accentColor ?? '#2563eb',
+        visibility: 'public',
+        settings: {
+          allowedUserTypes: blueprint.allowedUserTypes ?? DEFAULT_ALLOWED_USER_TYPES,
+          joinPolicy: normalizedJoinPolicy,
+        },
+        metadata: {
+          summary: blueprint.summary,
+          focusAreas: blueprint.focusAreas ?? [],
+          accentColor: blueprint.accentColor ?? '#2563EB',
+          metrics: blueprint.metrics ?? {},
+          insights: blueprint.insights ?? {},
+          baselineMembers: blueprint.baselineMembers ?? 0,
+          upcomingEvents: normalizedEvents,
+          leadership: blueprint.leadership ?? [],
+          guidelines: blueprint.guidelines ?? [],
+          timeline: normalizedTimeline,
+          resources: blueprint.resources ?? [],
+          discussionBoard: normalizedBoard,
+          resourceLibrary: normalizedLibrary,
+        },
       },
       transaction,
     });
-    if (!created && !record.description) {
+
+    let changed = false;
+
+    if (!record.description) {
       record.description = blueprint.summary;
+      changed = true;
+    }
+
+    const nextSettings = {
+      ...(record.settings || {}),
+      allowedUserTypes:
+        (record.settings?.allowedUserTypes && record.settings.allowedUserTypes.length)
+          ? record.settings.allowedUserTypes
+          : blueprint.allowedUserTypes ?? DEFAULT_ALLOWED_USER_TYPES,
+      joinPolicy: record.settings?.joinPolicy ?? normalizedJoinPolicy,
+    };
+
+    const existingMetadata = isPlainObject(record.metadata) ? record.metadata : {};
+    const nextMetadata = {
+      ...existingMetadata,
+      summary: existingMetadata.summary ?? blueprint.summary,
+      focusAreas: unique([...(existingMetadata.focusAreas ?? []), ...(blueprint.focusAreas ?? [])]),
+      accentColor: existingMetadata.accentColor ?? blueprint.accentColor ?? '#2563EB',
+      metrics: { ...(blueprint.metrics ?? {}), ...(existingMetadata.metrics ?? {}) },
+      insights: { ...(blueprint.insights ?? {}), ...(existingMetadata.insights ?? {}) },
+      baselineMembers: existingMetadata.baselineMembers ?? blueprint.baselineMembers ?? 0,
+      upcomingEvents:
+        Array.isArray(existingMetadata.upcomingEvents) && existingMetadata.upcomingEvents.length
+          ? existingMetadata.upcomingEvents
+          : normalizedEvents,
+      leadership:
+        Array.isArray(existingMetadata.leadership) && existingMetadata.leadership.length
+          ? existingMetadata.leadership
+          : blueprint.leadership ?? [],
+      guidelines:
+        Array.isArray(existingMetadata.guidelines) && existingMetadata.guidelines.length
+          ? existingMetadata.guidelines
+          : blueprint.guidelines ?? [],
+      timeline:
+        Array.isArray(existingMetadata.timeline) && existingMetadata.timeline.length
+          ? existingMetadata.timeline
+          : normalizedTimeline,
+      resources:
+        Array.isArray(existingMetadata.resources) && existingMetadata.resources.length
+          ? existingMetadata.resources
+          : blueprint.resources ?? [],
+      discussionBoard:
+        existingMetadata.discussionBoard &&
+        (existingMetadata.discussionBoard.threads?.length || existingMetadata.discussionBoard.pinned?.length)
+          ? existingMetadata.discussionBoard
+          : normalizedBoard,
+      resourceLibrary:
+        existingMetadata.resourceLibrary &&
+        ((existingMetadata.resourceLibrary.items && existingMetadata.resourceLibrary.items.length) ||
+          (existingMetadata.resourceLibrary.featured && existingMetadata.resourceLibrary.featured.length))
+          ? existingMetadata.resourceLibrary
+          : normalizedLibrary,
+      blueprintKey: blueprint.key,
+    };
+
+    if (record.memberPolicy !== memberPolicy) {
+      record.memberPolicy = memberPolicy;
+      changed = true;
+    }
+
+    if (!record.avatarColor || record.avatarColor === '#2563eb') {
+      record.avatarColor = blueprint.accentColor ?? record.avatarColor;
+      changed = true;
+    }
+
+    if (JSON.stringify(record.settings ?? {}) !== JSON.stringify(nextSettings)) {
+      record.settings = nextSettings;
+      changed = true;
+    }
+
+    if (JSON.stringify(existingMetadata) !== JSON.stringify(nextMetadata)) {
+      record.metadata = nextMetadata;
+      changed = true;
+    }
+
+    if (changed) {
       await record.save({ transaction });
     }
   }
@@ -823,7 +993,8 @@ async function fetchActorMemberships(actorId, groupIds) {
   rows.forEach((row) => {
     map.set(Number(row.groupId), {
       role: row.role,
-      joinedAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
+      status: row.status ?? 'pending',
+      joinedAt: row.joinedAt ? new Date(row.joinedAt).toISOString() : row.createdAt ? new Date(row.createdAt).toISOString() : null,
       metadata: row.metadata ?? {},
     });
   });
@@ -861,8 +1032,11 @@ function buildMembershipState({ membership, joinPolicy }) {
   }
   const metadata = membership.metadata ?? {};
   const notifications = metadata.notifications ?? { digest: true, newThread: true, upcomingEvent: true };
+  const rawStatus = membership.status ?? 'active';
+  const isMember = rawStatus === 'active';
   return {
-    status: 'member',
+    status: isMember ? 'member' : rawStatus,
+    state: rawStatus,
     role: membership.role,
     joinedAt: membership.joinedAt,
     preferences: { notifications },
@@ -905,6 +1079,7 @@ function normalizeThread(thread, index) {
     tags: Array.isArray(thread.tags) ? thread.tags : [],
     lastActivityAt: normalizeTemporalValue(thread.lastActivityAt ?? thread.lastReplyAt),
     lastReplyAt: normalizeTemporalValue(thread.lastReplyAt),
+    publishedAt: normalizeTemporalValue(thread.publishedAt),
     isAnswered: Boolean(thread.isAnswered),
     isUnresolved: thread.isUnresolved ?? !thread.isAnswered,
     unread: Boolean(thread.unread),
@@ -1018,32 +1193,73 @@ function normalizeResourceLibrary(blueprint = {}, fallbackItems = []) {
 }
 
 function mapGroupRecord(group, { memberCount, membership, blueprint }) {
-  const summary = blueprint.summary || group.description || 'A Gigvora community group.';
-  const joinPolicy = blueprint.joinPolicy || DEFAULT_JOIN_POLICY;
-  const focusAreas = unique(blueprint.focusAreas || []);
-  const metrics = blueprint.metrics || {};
-  const insights = blueprint.insights || {};
-  const events = (blueprint.upcomingEvents || []).map((event) => ({
-    ...event,
-    startAt: typeof event.startAt === 'function' ? event.startAt() : event.startAt,
-  }));
-  const timeline = (blueprint.timeline || []).map((entry) => ({
-    ...entry,
-    occursAt: typeof entry.occursAt === 'function' ? entry.occursAt() : entry.occursAt,
-  }));
-  const discussionBoard = normalizeDiscussionBoard(blueprint.discussionBoard);
-  const resourceLibrary = normalizeResourceLibrary(blueprint.resourceLibrary, blueprint.resources || []);
+  const settings = group.settings ?? {};
+  const metadata = isPlainObject(group.metadata) ? group.metadata : {};
 
-  const legacyResources = Array.isArray(blueprint.resources) && blueprint.resources.length
-    ? blueprint.resources
-    : resourceLibrary.items.map((item) => ({
+  const summary =
+    metadata.summary || blueprint.summary || group.description || 'A Gigvora community group.';
+  const joinPolicy = normalizeJoinPolicy(
+    metadata.joinPolicy,
+    settings.joinPolicy,
+    blueprint.joinPolicy,
+    group.memberPolicy,
+  );
+  const focusAreas = unique([...(metadata.focusAreas ?? []), ...(blueprint.focusAreas ?? [])]);
+  const metrics = { ...(blueprint.metrics ?? {}), ...(metadata.metrics ?? {}) };
+  const insights = { ...(blueprint.insights ?? {}), ...(metadata.insights ?? {}) };
+  const events = mergeUniqueBy(
+    (metadata.upcomingEvents ?? []).map((event) => ({
+      ...event,
+      startAt: normalizeTemporalValue(event.startAt),
+    })),
+    (blueprint.upcomingEvents ?? []).map((event) => ({
+      ...event,
+      startAt: normalizeTemporalValue(event.startAt),
+    })),
+    (event) => event?.id ?? `${event?.title}-${event?.startAt}`,
+  );
+  const timeline = mergeUniqueBy(
+    (metadata.timeline ?? []).map((entry) => ({
+      ...entry,
+      occursAt: normalizeTemporalValue(entry.occursAt),
+    })),
+    (blueprint.timeline ?? []).map((entry) => ({
+      ...entry,
+      occursAt: normalizeTemporalValue(entry.occursAt),
+    })),
+    (entry) => entry?.id ?? `${entry?.label}-${entry?.occursAt}`,
+  );
+  const leadership = mergeUniqueBy(metadata.leadership ?? [], blueprint.leadership ?? [], (leader) => leader?.name ?? leader?.title);
+  const guidelines = unique([...(metadata.guidelines ?? []), ...(blueprint.guidelines ?? [])]);
+  const allowedUserTypesSource = [
+    ...(Array.isArray(metadata.allowedUserTypes) ? metadata.allowedUserTypes : []),
+    ...(Array.isArray(settings.allowedUserTypes) ? settings.allowedUserTypes : []),
+    ...(Array.isArray(blueprint.allowedUserTypes) ? blueprint.allowedUserTypes : []),
+  ];
+  const allowedUserTypes =
+    allowedUserTypesSource.length > 0 ? unique(allowedUserTypesSource) : [...DEFAULT_ALLOWED_USER_TYPES];
+
+  const resourceSources = mergeUniqueBy(
+    metadata.resources ?? [],
+    blueprint.resources ?? [],
+    (resource) => resource?.id ?? resource?.url ?? resource?.title,
+  );
+  const discussionBoardSource = metadata.discussionBoard ?? blueprint.discussionBoard ?? {};
+  const resourceLibrarySource = metadata.resourceLibrary ?? blueprint.resourceLibrary ?? {};
+  const discussionBoard = normalizeDiscussionBoard(discussionBoardSource);
+  const resourceLibrary = normalizeResourceLibrary(resourceLibrarySource, resourceSources);
+
+  const legacyResources = resourceLibrary.items.length
+    ? resourceLibrary.items.map((item) => ({
         id: item.id,
         title: item.title,
         type: item.type ?? item.format,
         url: item.url,
-      }));
+      }))
+    : resourceSources;
 
-  const effectiveMemberCount = memberCount ?? blueprint.baselineMembers ?? 0;
+  const baselineMembers = metadata.baselineMembers ?? blueprint.baselineMembers ?? 0;
+  const effectiveMemberCount = memberCount ?? baselineMembers;
   const engagementScore = computeEngagementScore({
     memberCount: effectiveMemberCount,
     metrics,
@@ -1051,18 +1267,21 @@ function mapGroupRecord(group, { memberCount, membership, blueprint }) {
 
   return {
     id: group.id,
-    slug: blueprint.key || slugify(group.name || `group-${group.id}`),
+    slug: blueprint.key || group.slug || slugify(group.name || `group-${group.id}`),
     name: group.name,
     summary,
     description: group.description || summary,
-    accentColor: blueprint.accentColor || '#2563EB',
+    accentColor: metadata.accentColor || blueprint.accentColor || group.avatarColor || '#2563EB',
     focusAreas,
     joinPolicy,
-    allowedUserTypes: unique(blueprint.allowedUserTypes || DEFAULT_ALLOWED_USER_TYPES),
+    allowedUserTypes,
     membership: buildMembershipState({ membership, joinPolicy }),
     stats: {
       memberCount: effectiveMemberCount,
-      weeklyActiveMembers: toNumber(metrics.weeklyActiveMembers, Math.round(effectiveMemberCount * 0.25)),
+      weeklyActiveMembers: toNumber(
+        metrics.weeklyActiveMembers,
+        Math.round(effectiveMemberCount * 0.25),
+      ),
       opportunitiesSharedThisWeek: toNumber(metrics.opportunitiesSharedThisWeek, 0),
       retentionRate: Number(toNumber(metrics.retentionRate, 0.9).toFixed(2)),
       engagementScore,
@@ -1072,15 +1291,287 @@ function mapGroupRecord(group, { memberCount, membership, blueprint }) {
       trendingTopics: insights.trendingTopics || [],
     },
     upcomingEvents: events,
-    leadership: blueprint.leadership || [],
+    leadership,
     resources: legacyResources,
-    guidelines: blueprint.guidelines || [],
+    guidelines,
     timeline,
     metadata: {
-      baselineMembers: blueprint.baselineMembers ?? 0,
+      baselineMembers,
     },
     discussionBoard,
     resourceLibrary,
+  };
+}
+
+function formatResponseDuration(minutes, fallback = '4h') {
+  const value = Number(minutes);
+  if (!Number.isFinite(value) || value <= 0) {
+    return fallback;
+  }
+  if (value < 90) {
+    return `${Math.max(1, Math.round(value))}m`;
+  }
+  if (value < 60 * 24) {
+    return `${Math.max(1, Math.round(value / 60))}h`;
+  }
+  return `${Math.max(1, Math.round(value / (60 * 24)))}d`;
+}
+
+function mapPostToThread(post, slug, metrics) {
+  if (!post) {
+    return null;
+  }
+  const plain = post.get ? post.get({ plain: true }) : post;
+  const metadata = isPlainObject(plain.metadata) ? plain.metadata : {};
+  const author = sanitizeUser(post.createdBy ?? plain.createdBy);
+  const title = plain.title ?? 'Community thread';
+  const excerptSource = plain.summary || (typeof plain.content === 'string' ? plain.content : '');
+  const excerpt = excerptSource
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 220);
+  const tags = Array.isArray(metadata.tags)
+    ? metadata.tags
+    : Array.isArray(metadata.topics)
+    ? metadata.topics
+    : [];
+  const participantIds = Array.isArray(metadata.participantIds)
+    ? metadata.participantIds
+        .map((value) => Number(value))
+        .filter((value) => Number.isInteger(value) && value > 0)
+    : [];
+  const replies = toNumber(metadata.replyCount ?? metadata.commentCount, 0);
+  const participantCount = toNumber(
+    metadata.participantCount,
+    participantIds.length || toNumber(metadata.participants?.length, 0),
+  );
+  const upvotes = toNumber(metadata.appreciations ?? metadata.upvotes ?? metadata.likes, 0);
+  const lastActivityAt =
+    toIsoString(metadata.lastActivityAt) ||
+    toIsoString(plain.updatedAt) ||
+    toIsoString(plain.publishedAt) ||
+    toIsoString(plain.createdAt);
+  const lastReplyAt = toIsoString(metadata.lastReplyAt);
+  const publishedAt = toIsoString(plain.publishedAt) || toIsoString(plain.createdAt);
+  const responseMinutes = toNumber(
+    metadata.medianReplyMinutes ?? metadata.firstResponseMinutes,
+    Number.NaN,
+  );
+  const isAnswered = Boolean(metadata.isAnswered ?? metadata.resolution === 'answered');
+  const isUnresolved = metadata.isUnresolved ?? (!isAnswered && metadata.status !== 'resolved');
+
+  if (metrics) {
+    const now = Date.now();
+    const lastActivityTime = lastActivityAt ? Date.parse(lastActivityAt) : Number.NaN;
+    if (Number.isFinite(lastActivityTime)) {
+      const seventyTwoHoursAgo = now - 72 * 60 * 60 * 1000;
+      const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+      if (lastActivityTime >= seventyTwoHoursAgo) {
+        if (plain.createdById) {
+          metrics.activeContributors.add(Number(plain.createdById));
+        }
+        participantIds.forEach((id) => metrics.activeContributors.add(id));
+      }
+      if (lastActivityTime >= sevenDaysAgo) {
+        metrics.newThreads += 1;
+      }
+    }
+    if (!isAnswered && isUnresolved !== false) {
+      metrics.unresolved += 1;
+    }
+    if (Number.isFinite(responseMinutes) && responseMinutes > 0) {
+      metrics.responseMinutes.push(responseMinutes);
+    }
+    tags.forEach((tag) => metrics.tags.add(tag));
+  }
+
+  const authorName =
+    (author?.name && author.name.trim()) ||
+    [author?.firstName, author?.lastName].filter(Boolean).join(' ').trim() ||
+    null;
+
+  return {
+    id: plain.id,
+    title,
+    excerpt,
+    category: metadata.category ?? metadata.type ?? 'Discussion',
+    author: authorName ? { name: authorName } : null,
+    replies,
+    participants: participantCount,
+    upvotes,
+    tags,
+    lastActivityAt,
+    lastReplyAt,
+    publishedAt,
+    isAnswered,
+    isUnresolved,
+    unread: Boolean(metadata.unread),
+    pinned: Boolean(metadata.pinned),
+    url: metadata.url ?? `/groups/${slug}/posts/${plain.slug}`,
+  };
+}
+
+async function composeDiscussionBoard({ group, record, baseBoard }) {
+  if (!group?.id) {
+    return baseBoard;
+  }
+
+  const posts = await GroupPost.findAll({
+    where: { groupId: group.id, status: 'published' },
+    order: [
+      ['publishedAt', 'DESC'],
+      ['createdAt', 'DESC'],
+    ],
+    limit: 60,
+    include: [
+      {
+        model: User,
+        as: 'createdBy',
+        attributes: ['id', 'firstName', 'lastName', 'title'],
+      },
+    ],
+  });
+
+  if (!posts.length) {
+    return baseBoard;
+  }
+
+  const metrics = {
+    activeContributors: new Set(),
+    unresolved: 0,
+    newThreads: 0,
+    responseMinutes: [],
+    tags: new Set(baseBoard.tags ?? []),
+  };
+
+  const dbThreads = posts
+    .map((post) => mapPostToThread(post, record.slug, metrics))
+    .filter(Boolean);
+
+  if (!dbThreads.length) {
+    return baseBoard;
+  }
+
+  const pinnedFromDb = dbThreads.filter((thread) => thread.pinned);
+  const regularThreads = dbThreads.filter((thread) => !thread.pinned);
+
+  const mergedPinned = mergeUniqueBy(pinnedFromDb, baseBoard.pinned ?? [], (thread) => thread.id);
+  const mergedThreads = mergeUniqueBy(regularThreads, baseBoard.threads ?? [], (thread) => thread.id);
+
+  const activeCount = Math.max(baseBoard.stats?.activeContributors ?? 0, metrics.activeContributors.size);
+  const unresolvedCount = Math.max(baseBoard.stats?.unresolvedCount ?? 0, metrics.unresolved);
+  const newThreads = Math.max(baseBoard.stats?.newThreads ?? 0, metrics.newThreads);
+  const averageResponseMinutes = metrics.responseMinutes.length
+    ? metrics.responseMinutes.reduce((total, value) => total + value, 0) / metrics.responseMinutes.length
+    : null;
+
+  const participationRatio = record.stats?.memberCount
+    ? Math.min(1, activeCount / Math.max(record.stats.memberCount, 1))
+    : null;
+
+  const tags = unique([
+    ...metrics.tags,
+    ...(baseBoard.tags ?? []),
+    ...dbThreads.flatMap((thread) => thread.tags ?? []),
+  ]);
+
+  const trendingTags = unique([
+    ...(baseBoard.trendingTags ?? []),
+    ...tags,
+  ]);
+
+  return {
+    ...baseBoard,
+    stats: {
+      activeContributors: activeCount,
+      unresolvedCount,
+      newThreads,
+    },
+    tags,
+    trendingTags,
+    pinned: mergedPinned,
+    threads: mergedThreads,
+    health: {
+      responseTime: formatResponseDuration(averageResponseMinutes, baseBoard.health?.responseTime ?? '4h'),
+      participation:
+        participationRatio != null
+          ? `${Math.max(1, Math.round(participationRatio * 100))}%`
+          : baseBoard.health?.participation ?? '65%',
+    },
+  };
+}
+
+function composeResourceLibrary({ group, baseLibrary }) {
+  const metadata = isPlainObject(group.metadata) ? group.metadata : {};
+  const metadataLibrary = normalizeResourceLibrary(metadata.resourceLibrary ?? {}, metadata.resources ?? []);
+
+  const items = mergeUniqueBy(
+    metadataLibrary.items ?? [],
+    baseLibrary?.items ?? [],
+    (item) => item?.id ?? item?.url ?? item?.title,
+  );
+
+  const featured = mergeUniqueBy(
+    metadataLibrary.featured ?? [],
+    baseLibrary?.featured ?? [],
+    (item) => item?.id ?? item?.url ?? item?.title,
+  );
+
+  const finalFeatured = featured.length ? featured : items.slice(0, 2);
+  const savedCount = items.reduce((total, item) => total + toNumber(item.metrics?.saves, 0), 0);
+  const downloads24h = items.reduce((total, item) => total + toNumber(item.metrics?.downloads24h, 0), 0);
+
+  const tags = unique([
+    ...(baseLibrary?.filters?.tags ?? []),
+    ...(metadataLibrary.filters?.tags ?? []),
+    ...items.flatMap((item) => item.tags ?? []),
+    ...finalFeatured.flatMap((item) => item.tags ?? []),
+  ]);
+
+  const formats = unique([
+    ...(baseLibrary?.filters?.formats ?? []),
+    ...(metadataLibrary.filters?.formats ?? []),
+    ...items.map((item) => item.format ?? item.type).filter(Boolean),
+  ]);
+
+  return {
+    items,
+    featured: finalFeatured,
+    stats: {
+      totalItems: items.length,
+      savedCount: Math.max(savedCount, baseLibrary?.stats?.savedCount ?? 0, metadataLibrary.stats?.savedCount ?? 0),
+      downloads24h: Math.max(
+        downloads24h,
+        baseLibrary?.stats?.downloads24h ?? 0,
+        metadataLibrary.stats?.downloads24h ?? 0,
+      ),
+    },
+    filters: {
+      tags,
+      formats,
+    },
+  };
+}
+
+async function hydrateGroupProfile(record, group, { blueprint }) {
+  const baseBoard = record.discussionBoard ?? normalizeDiscussionBoard(blueprint.discussionBoard ?? {});
+  const baseLibrary =
+    record.resourceLibrary ?? normalizeResourceLibrary(blueprint.resourceLibrary ?? {}, blueprint.resources ?? []);
+
+  const discussionBoard = await composeDiscussionBoard({ group, record, baseBoard });
+  const resourceLibrary = composeResourceLibrary({ group, baseLibrary });
+
+  return {
+    ...record,
+    discussionBoard,
+    resourceLibrary,
+    resources: resourceLibrary.items.map((item) => ({
+      id: item.id,
+      title: item.title,
+      type: item.type ?? item.format,
+      url: item.url,
+    })),
   };
 }
 
@@ -1149,7 +1640,7 @@ export async function getGroupProfile(groupIdOrSlug, { actorId } = {}) {
     throw new AuthorizationError('Your role does not have access to this group.');
   }
 
-  return record;
+  return hydrateGroupProfile(record, group, { blueprint });
 }
 
 export async function joinGroup(groupIdOrSlug, { actorId, role = 'member' } = {}) {
@@ -1176,10 +1667,44 @@ export async function joinGroup(groupIdOrSlug, { actorId, role = 'member' } = {}
     throw new NotFoundError('Group not found.');
   }
 
-  await GroupMembership.findOrCreate({
+  const [membershipRecord, membershipCreated] = await GroupMembership.findOrCreate({
     where: { groupId: group.id, userId: user.id },
-    defaults: { role },
+    defaults: {
+      role,
+      status: 'active',
+      joinedAt: new Date(),
+      metadata: {
+        notifications: { digest: true, newThread: true, upcomingEvent: true },
+      },
+    },
   });
+
+  if (!membershipCreated) {
+    let changed = false;
+    if (membershipRecord.role !== role) {
+      membershipRecord.role = role;
+      changed = true;
+    }
+    if (membershipRecord.status !== 'active') {
+      membershipRecord.status = 'active';
+      changed = true;
+    }
+    if (!membershipRecord.joinedAt) {
+      membershipRecord.joinedAt = new Date();
+      changed = true;
+    }
+    const metadata = isPlainObject(membershipRecord.metadata) ? membershipRecord.metadata : {};
+    if (!metadata.notifications) {
+      membershipRecord.metadata = {
+        ...metadata,
+        notifications: { digest: true, newThread: true, upcomingEvent: true },
+      };
+      changed = true;
+    }
+    if (changed) {
+      await membershipRecord.save();
+    }
+  }
 
   return getGroupProfile(profile.slug, { actorId: user.id });
 }

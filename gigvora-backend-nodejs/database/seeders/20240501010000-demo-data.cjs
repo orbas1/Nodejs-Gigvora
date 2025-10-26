@@ -2,6 +2,53 @@
 
 const { QueryTypes, Op } = require('sequelize');
 
+const MINUTE = 60 * 1000;
+const DEFAULT_NOTIFICATION_PREFS = { digest: true, newThread: true, upcomingEvent: true };
+const DEFAULT_ALLOWED_USER_TYPES = ['user', 'freelancer', 'agency', 'company', 'mentor', 'headhunter', 'admin'];
+
+function minutesFromNow(minutes) {
+  return new Date(Date.now() + minutes * MINUTE).toISOString();
+}
+
+function slugify(value, fallback = 'item') {
+  if (!value) {
+    return fallback;
+  }
+  return value
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/--+/g, '-')
+    .slice(0, 80) || fallback;
+}
+
+function normalizeJoinPolicy(value) {
+  if (!value) {
+    return 'moderated';
+  }
+  const candidate = String(value).toLowerCase();
+  if (['open', 'public'].includes(candidate)) {
+    return 'open';
+  }
+  if (['invite', 'invite_only', 'invitation', 'restricted'].includes(candidate)) {
+    return 'invite_only';
+  }
+  return 'moderated';
+}
+
+function mapJoinPolicyToMemberPolicy(joinPolicy) {
+  const normalized = normalizeJoinPolicy(joinPolicy);
+  if (normalized === 'open') {
+    return 'open';
+  }
+  if (normalized === 'invite_only') {
+    return 'invite';
+  }
+  return 'request';
+}
+
 const baseUsers = [
   {
     firstName: 'Ava',
@@ -359,10 +406,762 @@ const volunteeringSeeds = [
 ];
 
 const groupSeeds = [
-  {
-    name: '[demo] Marketplace founders circle',
-    description: 'Weekly async briefings for founders sharing acquisition, retention, and compliance playbooks.',
-  },
+  (() => {
+    const metadata = {
+      summary:
+        'Weekly salons on marketplaces, distributed teams, and community building with operators from 40+ countries.',
+      focusAreas: ['Future of work', 'Product strategy', 'Marketplace design'],
+      accentColor: '#2563EB',
+      metrics: {
+        weeklyActiveMembers: 427,
+        opportunitiesSharedThisWeek: 38,
+        retentionRate: 0.93,
+        conversationVelocity: 0.82,
+      },
+      insights: {
+        signalStrength: 'surging',
+        trendingTopics: [
+          'Compensation systems for global-first teams',
+          'AI copilots for discovery sprints',
+          'Community-to-commerce case studies',
+        ],
+      },
+      baselineMembers: 2140,
+      upcomingEvents: [
+        {
+          id: 'fowc-ops-guild',
+          title: 'Ops Guild: Autonomous pods in enterprise marketplaces',
+          startAt: minutesFromNow(3 * 24 * 60),
+          timezone: 'UTC',
+          format: 'Roundtable',
+          host: {
+            name: 'Sophie Mayer',
+            title: 'Chief Storyteller · Momentum Collective',
+          },
+          registrationRequired: true,
+        },
+        {
+          id: 'fowc-office-hours',
+          title: 'Office hours: Launching async-first onboarding',
+          startAt: minutesFromNow(7 * 24 * 60 + 180),
+          timezone: 'UTC',
+          format: 'Office hours',
+          host: {
+            name: 'Dario Fernández',
+            title: 'Head of Product · Signal Eight',
+          },
+          registrationRequired: false,
+        },
+      ],
+      leadership: [
+        {
+          name: 'Leila Odum',
+          title: 'Talent Partner · Northwind Ventures',
+          role: 'Community Chair',
+          avatarSeed: 'Leila Odum',
+        },
+        {
+          name: 'Mateo Ruiz',
+          title: 'Innovation Lead · Aurora Labs',
+          role: 'Program Curator',
+          avatarSeed: 'Mateo Ruiz',
+        },
+      ],
+      resources: [
+        {
+          id: 'fowc-playbook',
+          title: 'Distributed Team Activation Playbook',
+          type: 'Playbook',
+          url: 'https://guides.gigvora.com/future-of-work-playbook',
+        },
+        {
+          id: 'fowc-signal-digest',
+          title: 'Signal digest · Week 42',
+          type: 'Digest',
+          url: 'https://signals.gigvora.com/fowc-weekly',
+        },
+        {
+          id: 'fowc-template',
+          title: 'Async Stand-up Template (Notion)',
+          type: 'Template',
+          url: 'https://templates.gigvora.com/fowc-async-standup',
+        },
+      ],
+      guidelines: [
+        'Confidential pilots require consent before sharing outside the circle.',
+        'Bring a case study or open question to every salon.',
+        'Peer coaching happens in public threads before DMs.',
+      ],
+      timeline: [
+        {
+          label: 'Launch pilot cohorts',
+          occursAt: minutesFromNow(-30 * 24 * 60),
+          description: 'First cohort of 50 members shaped the governance model and cadence.',
+        },
+        {
+          label: 'Marketplace benchmark release',
+          occursAt: minutesFromNow(-12 * 24 * 60),
+          description: 'Annual report shared with 18 partner companies and agencies.',
+        },
+        {
+          label: 'Circle expansion vote',
+          occursAt: minutesFromNow(14 * 24 * 60),
+          description: 'Community vote on opening two sub-circles for talent leads and product ops.',
+        },
+      ],
+      discussionBoard: {
+        stats: { activeContributors: 182, unresolvedCount: 6, newThreads: 14 },
+        tags: ['Announcements', 'Product ops', 'Marketplace design', 'AI'],
+        pinned: [
+          {
+            id: 'fowc-manifesto',
+            title: 'Community manifesto refresh',
+            category: 'Announcement',
+            excerpt:
+              'We are revisiting our collaboration principles ahead of the upcoming cohort expansion.',
+            author: { name: 'Leila Odum' },
+            replies: 42,
+            participants: 31,
+            upvotes: 88,
+            tags: ['Announcement', 'Governance'],
+            lastActivityAt: minutesFromNow(-6 * 60),
+            isAnswered: true,
+            url: 'https://community.gigvora.com/future-of-work-collective/manifesto',
+          },
+          {
+            id: 'fowc-trend-report',
+            title: 'Signal digest · Week 42',
+            category: 'Digest',
+            excerpt:
+              'Highlights from the latest market intelligence drop covering new monetisation experiments.',
+            author: { name: 'Mateo Ruiz' },
+            replies: 18,
+            participants: 14,
+            upvotes: 57,
+            tags: ['Digest', 'Monetisation'],
+            lastActivityAt: minutesFromNow(-12 * 60),
+            isAnswered: true,
+            url: 'https://signals.gigvora.com/fowc-weekly',
+          },
+        ],
+        threads: [
+          {
+            id: 'fowc-growth-loops',
+            title: 'Growth loops for B2B marketplaces',
+            category: 'Growth',
+            excerpt: 'Exploring experiments that expanded supply + demand without paid spend.',
+            author: { name: 'Leila Odum' },
+            replies: 23,
+            participants: 19,
+            upvotes: 61,
+            tags: ['Growth', 'Product ops'],
+            lastActivityAt: minutesFromNow(-90),
+            lastReplyAt: minutesFromNow(-40),
+            isAnswered: false,
+            url: 'https://community.gigvora.com/future-of-work-collective/growth-loops',
+          },
+          {
+            id: 'fowc-ai-cohorts',
+            title: 'AI copilots for member onboarding',
+            category: 'AI',
+            excerpt: 'Share prompts and workflows that helped new members contribute within their first week.',
+            author: { name: 'Mateo Ruiz' },
+            replies: 17,
+            participants: 16,
+            upvotes: 54,
+            tags: ['AI', 'Onboarding'],
+            lastActivityAt: minutesFromNow(-4 * 60),
+            lastReplyAt: minutesFromNow(-2 * 60),
+            isAnswered: true,
+            url: 'https://community.gigvora.com/future-of-work-collective/ai-onboarding',
+          },
+        ],
+        moderators: [
+          { name: 'Leila Odum', title: 'Talent Partner · Northwind Ventures', focus: 'Governance' },
+          { name: 'Mateo Ruiz', title: 'Innovation Lead · Aurora Labs', focus: 'Product ops' },
+        ],
+        health: { responseTime: '4h', participation: '72%' },
+      },
+      resourceLibrary: {
+        stats: { totalItems: 36, downloads24h: 82, savedCount: 712 },
+        filters: {
+          tags: ['Marketplace design', 'Product ops', 'AI', 'Community'],
+          formats: ['Playbook', 'Template', 'Digest', 'Toolkit'],
+        },
+        featured: [
+          {
+            id: 'fowc-desk-briefing',
+            title: 'Marketplace metrics deep dive',
+            summary: 'Recording + worksheet from the latest roundtable on liquidity instrumentation.',
+            type: 'Playbook',
+            format: 'Playbook',
+            tags: ['Analytics', 'Marketplace'],
+            url: 'https://guides.gigvora.com/fowc-metrics-deep-dive',
+            updatedAt: minutesFromNow(-11 * 60),
+            duration: '35 min masterclass',
+            metrics: { saves: 264, downloads24h: 41, durationMinutes: 35 },
+          },
+          {
+            id: 'fowc-ops-kit',
+            title: 'Marketplace Ops Metrics Toolkit',
+            summary: 'Dashboards and spreadsheet templates for tracking liquidity and retention.',
+            type: 'Toolkit',
+            format: 'Toolkit',
+            tags: ['Marketplace design', 'Analytics'],
+            url: 'https://guides.gigvora.com/fowc-ops-metrics',
+            updatedAt: minutesFromNow(-2 * 24 * 60 - 120),
+            duration: '20 min implementation',
+            metrics: { saves: 189, downloads24h: 28, durationMinutes: 20 },
+          },
+        ],
+        items: [
+          {
+            id: 'fowc-salon-recap',
+            title: 'Salon recap: Designing async leadership rituals',
+            summary: 'Key takeaways + implementation checklist from the latest leadership salon.',
+            type: 'Recap',
+            format: 'Recap',
+            tags: ['Leadership', 'Async'],
+            url: 'https://community.gigvora.com/future-of-work-collective/salon-recap',
+            updatedAt: minutesFromNow(-3 * 24 * 60),
+            readingTime: '12 min read',
+            metrics: { saves: 176, downloads24h: 24, durationMinutes: 12 },
+          },
+          {
+            id: 'fowc-template',
+            title: 'Async Stand-up Template (Notion)',
+            summary: 'Ready-to-use template for global-first teams keeping rituals lightweight.',
+            type: 'Template',
+            format: 'Template',
+            tags: ['Async', 'Templates'],
+            url: 'https://templates.gigvora.com/fowc-async-standup',
+            updatedAt: minutesFromNow(-7 * 24 * 60),
+            readingTime: '5 min setup',
+            metrics: { saves: 221, downloads24h: 39, durationMinutes: 5 },
+          },
+          {
+            id: 'fowc-ops-kit',
+            title: 'Marketplace Ops Metrics Toolkit',
+            summary: 'Dashboards and spreadsheet templates for tracking liquidity and retention.',
+            type: 'Toolkit',
+            format: 'Toolkit',
+            tags: ['Marketplace design', 'Analytics'],
+            url: 'https://guides.gigvora.com/fowc-ops-metrics',
+            updatedAt: minutesFromNow(-2 * 24 * 60 - 120),
+            readingTime: '20 min implementation',
+            metrics: { saves: 189, downloads24h: 28, durationMinutes: 20 },
+          },
+        ],
+      },
+    };
+
+    return {
+      name: 'Future of Work Collective',
+      slug: slugify('future-of-work-collective'),
+      description: metadata.summary,
+      avatarColor: '#2563EB',
+      visibility: 'public',
+      memberPolicy: mapJoinPolicyToMemberPolicy('moderated'),
+      settings: {
+        allowedUserTypes: ['freelancer', 'agency', 'company', 'user'],
+        joinPolicy: 'moderated',
+      },
+      metadata,
+    };
+  })(),
+  (() => {
+    const metadata = {
+      summary:
+        'Alumni-only working groups sharing frameworks, retros, and partner leads to accelerate Launchpad missions.',
+      focusAreas: ['Experience launchpad', 'Community', 'Career acceleration'],
+      accentColor: '#7C3AED',
+      metrics: {
+        weeklyActiveMembers: 268,
+        opportunitiesSharedThisWeek: 24,
+        retentionRate: 0.97,
+        conversationVelocity: 0.88,
+      },
+      insights: {
+        signalStrength: 'steady',
+        trendingTopics: [
+          'Fellowship hiring pods',
+          'Mentor sprint retrospectives',
+          'Partner readiness scorecards',
+        ],
+      },
+      baselineMembers: 860,
+      upcomingEvents: [
+        {
+          id: 'launchpad-mastermind',
+          title: 'Mastermind: Post-cohort monetisation systems',
+          startAt: minutesFromNow(5 * 24 * 60 + 90),
+          timezone: 'UTC',
+          format: 'Workshop',
+          host: {
+            name: 'Ava Chen',
+            title: 'Product Marketing Lead · Nova Labs',
+          },
+          registrationRequired: true,
+        },
+      ],
+      leadership: [
+        {
+          name: 'Nikhil Shah',
+          title: 'Director of Ecosystem · Atlas Studio',
+          role: 'Guild Host',
+          avatarSeed: 'Nikhil Shah',
+        },
+      ],
+      resources: [
+        {
+          id: 'launchpad-checklist',
+          title: 'Post-cohort transition checklist',
+          type: 'Checklist',
+          url: 'https://guides.gigvora.com/launchpad-transition',
+        },
+        {
+          id: 'launchpad-intros',
+          title: 'Partner intro tracker',
+          type: 'Tracker',
+          url: 'https://workspace.gigvora.com/launchpad-intros',
+        },
+      ],
+      guidelines: [
+        'Confidential partner data must stay inside guild workspaces.',
+        'Celebrate wins weekly to unlock referral boosts.',
+        'Mentor office hours are recorded and archived for 30 days.',
+      ],
+      timeline: [
+        {
+          label: 'Guild launch',
+          occursAt: minutesFromNow(-45 * 24 * 60),
+          description: 'Formed after the inaugural Launchpad cohort to keep mission velocity.',
+        },
+        {
+          label: 'Mentor pairing programme',
+          occursAt: minutesFromNow(-10 * 24 * 60),
+          description: 'Rolled out structured mentor loops with 92% satisfaction.',
+        },
+      ],
+      discussionBoard: {
+        stats: { activeContributors: 128, unresolvedCount: 4, newThreads: 9 },
+        tags: ['Mentorship', 'Growth loops', 'Referrals', 'Playbooks'],
+        pinned: [
+          {
+            id: 'launchpad-mastermind',
+            title: 'Mastermind replay + action plan',
+            category: 'Replay',
+            excerpt:
+              'Catch the highlights from our monetisation mastermind and download the companion worksheets.',
+            author: { name: 'Ava Chen' },
+            replies: 19,
+            participants: 17,
+            upvotes: 48,
+            tags: ['Monetisation', 'Replay'],
+            lastActivityAt: minutesFromNow(-5 * 60),
+            isAnswered: true,
+            url: 'https://community.gigvora.com/launchpad/mastermind-replay',
+          },
+        ],
+        threads: [
+          {
+            id: 'launchpad-referrals',
+            title: 'Structuring partner referral loops post-cohort',
+            category: 'Growth',
+            excerpt: 'Looking for templates to keep referral loops alive after the programme wraps.',
+            author: { name: 'Nikhil Shah' },
+            replies: 15,
+            participants: 12,
+            upvotes: 41,
+            tags: ['Referrals', 'Growth loops'],
+            lastActivityAt: minutesFromNow(-7 * 60),
+            lastReplyAt: minutesFromNow(-3 * 60),
+            isUnresolved: true,
+            unread: true,
+            url: 'https://community.gigvora.com/launchpad/referral-loops',
+          },
+          {
+            id: 'launchpad-coaching',
+            title: 'Mentor office hours expectations',
+            category: 'Mentorship',
+            excerpt: 'How do you prepare founders for the first office hour so sessions stay actionable?',
+            author: { name: 'Ava Chen' },
+            replies: 9,
+            participants: 10,
+            upvotes: 28,
+            tags: ['Mentorship', 'Office hours'],
+            lastActivityAt: minutesFromNow(-180),
+            lastReplyAt: minutesFromNow(-140),
+            isAnswered: true,
+            url: 'https://community.gigvora.com/launchpad/mentor-office-hours',
+          },
+        ],
+        moderators: [
+          { name: 'Ava Chen', title: 'Product Marketing Lead · Nova Labs', focus: 'Monetisation & positioning' },
+          { name: 'Nikhil Shah', title: 'Director of Ecosystem · Atlas Studio', focus: 'Partnerships & growth' },
+        ],
+        health: { responseTime: '5h', participation: '68%' },
+      },
+      resourceLibrary: {
+        stats: { totalItems: 24, downloads24h: 76, savedCount: 604 },
+        filters: {
+          tags: ['Mentorship', 'Referrals', 'Product marketing', 'Templates'],
+          formats: ['Checklist', 'Tracker', 'Recording', 'Worksheet'],
+        },
+        featured: [
+          {
+            id: 'launchpad-monetisation',
+            title: 'Monetisation sprint retro pack',
+            summary: 'Slides, templates, and scoring models from the monetisation masterclass.',
+            type: 'Worksheet',
+            format: 'Worksheet',
+            tags: ['Monetisation', 'Templates'],
+            url: 'https://guides.gigvora.com/launchpad-monetisation-retro',
+            updatedAt: minutesFromNow(-18 * 60),
+            duration: '45 min workshop',
+            metrics: { saves: 174, downloads24h: 34, durationMinutes: 45 },
+          },
+        ],
+        items: [
+          {
+            id: 'launchpad-checklist',
+            title: 'Post-cohort transition checklist',
+            summary: 'Ensure alumni graduate with clarity on monetisation, partner handovers, and goal setting.',
+            type: 'Checklist',
+            format: 'Checklist',
+            tags: ['Operations', 'Alumni'],
+            url: 'https://guides.gigvora.com/launchpad-transition',
+            updatedAt: minutesFromNow(-9 * 24 * 60),
+            readingTime: '10 min read',
+            metrics: { saves: 142, downloads24h: 18, durationMinutes: 10 },
+          },
+          {
+            id: 'launchpad-intros',
+            title: 'Partner intro tracker',
+            summary: 'Shared tracker for logging partner intros, feedback loops, and follow-up cadences.',
+            type: 'Tracker',
+            format: 'Tracker',
+            tags: ['Referrals', 'Operations'],
+            url: 'https://workspace.gigvora.com/launchpad-intros',
+            updatedAt: minutesFromNow(-4 * 24 * 60),
+            readingTime: '7 min setup',
+            metrics: { saves: 133, downloads24h: 22, durationMinutes: 7 },
+          },
+          {
+            id: 'launchpad-office-hours',
+            title: 'Mentor office hour agenda template',
+            summary: 'Agenda and prep checklist mentors use to keep sessions focused and accountable.',
+            type: 'Template',
+            format: 'Template',
+            tags: ['Mentorship', 'Templates'],
+            url: 'https://templates.gigvora.com/launchpad-office-hours',
+            updatedAt: minutesFromNow(-6 * 24 * 60),
+            readingTime: '5 min setup',
+            metrics: { saves: 121, downloads24h: 16, durationMinutes: 5 },
+          },
+        ],
+      },
+    };
+
+    return {
+      name: 'Launchpad Alumni Guild',
+      slug: slugify('launchpad-alumni-guild'),
+      description: metadata.summary,
+      avatarColor: '#7C3AED',
+      visibility: 'public',
+      memberPolicy: mapJoinPolicyToMemberPolicy('invite_only'),
+      settings: {
+        allowedUserTypes: ['freelancer', 'user', 'mentor'],
+        joinPolicy: 'invite_only',
+      },
+      metadata,
+    };
+  })(),
+  (() => {
+    const metadata = {
+      summary:
+        'Cross-functional volunteers mobilising for climate-positive missions with enterprise partners.',
+      focusAreas: ['Sustainability', 'Volunteering', 'Social impact'],
+      accentColor: '#10B981',
+      metrics: {
+        weeklyActiveMembers: 189,
+        opportunitiesSharedThisWeek: 17,
+        retentionRate: 0.9,
+        conversationVelocity: 0.71,
+      },
+      insights: {
+        signalStrength: 'emerging',
+        trendingTopics: [
+          'Climate hackathons',
+          'Pro-bono discovery sprints',
+          'Impact measurement frameworks',
+        ],
+      },
+      baselineMembers: 530,
+      upcomingEvents: [
+        {
+          id: 'purpose-lab-briefing',
+          title: 'Briefing: Circular retail pilots Q1',
+          startAt: minutesFromNow(2 * 24 * 60 + 120),
+          timezone: 'UTC',
+          format: 'Briefing',
+          host: {
+            name: 'Leila Odum',
+            title: 'Talent Partner · Northwind Ventures',
+          },
+          registrationRequired: true,
+        },
+        {
+          id: 'purpose-lab-demo-day',
+          title: 'Demo day: Impact sprint outcomes',
+          startAt: minutesFromNow(12 * 24 * 60),
+          timezone: 'UTC',
+          format: 'Showcase',
+          host: {
+            name: 'Gigvora Impact Office',
+            title: 'Impact Programmes Team',
+          },
+          registrationRequired: false,
+        },
+      ],
+      leadership: [
+        {
+          name: 'Gigvora Impact Office',
+          title: 'Programme Managers',
+          role: 'Coordinators',
+          avatarSeed: 'Purpose Lab',
+        },
+      ],
+      resources: [
+        {
+          id: 'purpose-sprint-kit',
+          title: 'Impact sprint facilitation kit',
+          type: 'Kit',
+          url: 'https://impact.gigvora.com/sprint-kit',
+        },
+        {
+          id: 'purpose-insights',
+          title: 'Climate venture partner map',
+          type: 'Intelligence',
+          url: 'https://impact.gigvora.com/partner-map',
+        },
+      ],
+      guidelines: [
+        'Volunteer commitments require weekly stand-ups during active sprints.',
+        'Share field photos only with consent from on-site partners.',
+        'Escalate safety concerns within 24 hours using the trust desk.',
+      ],
+      timeline: [
+        {
+          label: 'Enterprise cohort onboarding',
+          occursAt: minutesFromNow(-20 * 24 * 60),
+          description: 'Three enterprise partners onboarded with 120 volunteers activated.',
+        },
+        {
+          label: 'Impact measurement release',
+          occursAt: minutesFromNow(20 * 24 * 60),
+          description: 'Publishing the first shared impact measurement dashboard.',
+        },
+      ],
+      discussionBoard: {
+        stats: { activeContributors: 94, unresolvedCount: 5, newThreads: 11 },
+        tags: ['Volunteer ops', 'Impact measurement', 'Field updates', 'Partnerships'],
+        pinned: [
+          {
+            id: 'purpose-briefing',
+            title: 'Circular retail pilots briefing pack',
+            category: 'Briefing',
+            excerpt:
+              'Download the partner briefing, asset checklist, and safety protocols before the next sprint.',
+            author: { name: 'Gigvora Impact Office' },
+            replies: 14,
+            participants: 21,
+            upvotes: 39,
+            tags: ['Briefing', 'Safety'],
+            lastActivityAt: minutesFromNow(-3 * 60),
+            isAnswered: true,
+            url: 'https://impact.gigvora.com/sprint-kit',
+          },
+        ],
+        threads: [
+          {
+            id: 'purpose-safety',
+            title: 'On-site safety escalation flow',
+            category: 'Operations',
+            excerpt: 'Clarifying who to contact for rapid escalation during field deployments.',
+            author: { name: 'Leila Odum' },
+            replies: 12,
+            participants: 15,
+            upvotes: 33,
+            tags: ['Safety', 'Volunteer ops'],
+            lastActivityAt: minutesFromNow(-160),
+            lastReplyAt: minutesFromNow(-120),
+            isUnresolved: false,
+            url: 'https://community.gigvora.com/purpose-lab/safety-escalation',
+          },
+          {
+            id: 'purpose-impact-metrics',
+            title: 'Capturing impact metrics in low-connectivity areas',
+            category: 'Impact measurement',
+            excerpt: 'Seeking lightweight data capture ideas when teams operate offline.',
+            author: { name: 'Impact Programmes Team' },
+            replies: 17,
+            participants: 14,
+            upvotes: 41,
+            tags: ['Impact measurement', 'Field ops'],
+            lastActivityAt: minutesFromNow(-9 * 60),
+            lastReplyAt: minutesFromNow(-4 * 60),
+            isUnresolved: true,
+            unread: true,
+            url: 'https://community.gigvora.com/purpose-lab/impact-metrics',
+          },
+        ],
+        moderators: [
+          { name: 'Gigvora Impact Office', title: 'Programme Managers', focus: 'Volunteer enablement' },
+        ],
+        health: { responseTime: '6h', participation: '61%' },
+      },
+      resourceLibrary: {
+        stats: { totalItems: 28, downloads24h: 54, savedCount: 478 },
+        filters: {
+          tags: ['Sustainability', 'Volunteer ops', 'Safety', 'Impact measurement'],
+          formats: ['Kit', 'Intelligence', 'Checklist', 'Report'],
+        },
+        featured: [
+          {
+            id: 'purpose-activation-pack',
+            title: 'Volunteer activation starter pack',
+            summary: 'Training deck, onboarding scripts, and follow-up checklist for new missions.',
+            type: 'Kit',
+            format: 'Kit',
+            tags: ['Volunteer ops', 'Training'],
+            url: 'https://impact.gigvora.com/activation-pack',
+            updatedAt: minutesFromNow(-15 * 60),
+            duration: '30 min orientation',
+            metrics: { saves: 166, downloads24h: 29, durationMinutes: 30 },
+          },
+        ],
+        items: [
+          {
+            id: 'purpose-sprint-kit',
+            title: 'Impact sprint facilitation kit',
+            summary: 'Templates, safety protocols, and reporting frameworks for volunteer sprints.',
+            type: 'Kit',
+            format: 'Kit',
+            tags: ['Volunteer ops', 'Safety'],
+            url: 'https://impact.gigvora.com/sprint-kit',
+            updatedAt: minutesFromNow(-8 * 24 * 60),
+            readingTime: '25 min setup',
+            metrics: { saves: 138, downloads24h: 21, durationMinutes: 25 },
+          },
+          {
+            id: 'purpose-insights',
+            title: 'Climate venture partner map',
+            summary: 'Directory of partners, readiness signals, and collaboration history.',
+            type: 'Intelligence',
+            format: 'Report',
+            tags: ['Partnerships', 'Research'],
+            url: 'https://impact.gigvora.com/partner-map',
+            updatedAt: minutesFromNow(-6 * 24 * 60),
+            readingTime: '15 min review',
+            metrics: { saves: 128, downloads24h: 19, durationMinutes: 15 },
+          },
+        ],
+      },
+    };
+
+    return {
+      name: 'Purpose Lab',
+      slug: slugify('purpose-lab'),
+      description: metadata.summary,
+      avatarColor: '#10B981',
+      visibility: 'public',
+      memberPolicy: mapJoinPolicyToMemberPolicy('open'),
+      settings: {
+        allowedUserTypes: ['user', 'freelancer', 'agency', 'company'],
+        joinPolicy: 'open',
+      },
+      metadata,
+    };
+  })(),
+  (() => {
+    const metadata = {
+      summary:
+        'Weekly async briefings for founders sharing acquisition, retention, and compliance playbooks.',
+      focusAreas: ['Marketplace growth', 'Founder community'],
+      accentColor: '#2563EB',
+      metrics: {
+        weeklyActiveMembers: 48,
+        opportunitiesSharedThisWeek: 6,
+        retentionRate: 0.85,
+        conversationVelocity: 0.52,
+      },
+      insights: {
+        signalStrength: 'steady',
+        trendingTopics: ['Founder pipelines', 'Go-to-market experiments'],
+      },
+      baselineMembers: 120,
+      guidelines: [
+        'Keep growth experiments anonymised unless founders opt-in to share attribution.',
+        'Flag compliance questions to Gigvora support within 12 hours.',
+      ],
+      discussionBoard: {
+        stats: { activeContributors: 22, unresolvedCount: 1, newThreads: 2 },
+        tags: ['Growth', 'Retention'],
+        threads: [
+          {
+            id: 'demo-growth',
+            title: 'Sequencing marketplace liquidity bets',
+            category: 'Growth',
+            excerpt: 'How are you prioritising supply vs demand activation this quarter?',
+            author: { name: 'Ava Founder' },
+            replies: 4,
+            participants: 5,
+            upvotes: 9,
+            tags: ['Growth'],
+            lastActivityAt: minutesFromNow(-180),
+            isUnresolved: true,
+          },
+        ],
+        moderators: [
+          { name: 'Ava Founder', title: 'Founder · Demo Marketplace', focus: 'Growth ops' },
+        ],
+        health: { responseTime: '8h', participation: '45%' },
+      },
+      resourceLibrary: {
+        stats: { totalItems: 6, downloads24h: 9, savedCount: 54 },
+        filters: { tags: ['Growth', 'Retention'], formats: ['Playbook', 'Template'] },
+        items: [
+          {
+            id: 'demo-growth-briefing',
+            title: 'Marketplace growth dashboard starter',
+            summary: 'Notion dashboard template aligning acquisition, activation, and retention metrics.',
+            type: 'Template',
+            format: 'Template',
+            tags: ['Growth'],
+            url: 'https://demo.gigvora.com/growth-dashboard',
+            updatedAt: minutesFromNow(-5 * 24 * 60),
+            readingTime: '10 min setup',
+            metrics: { saves: 32, downloads24h: 5, durationMinutes: 10 },
+          },
+        ],
+      },
+    };
+
+    return {
+      name: '[demo] Marketplace founders circle',
+      slug: slugify('marketplace-founders-circle-demo'),
+      description: metadata.summary,
+      avatarColor: '#2563EB',
+      visibility: 'public',
+      memberPolicy: mapJoinPolicyToMemberPolicy('moderated'),
+      settings: {
+        allowedUserTypes: DEFAULT_ALLOWED_USER_TYPES,
+        joinPolicy: 'moderated',
+      },
+      metadata,
+    };
+  })(),
 ];
 
 const connectionSeeds = [
@@ -370,6 +1169,203 @@ const connectionSeeds = [
     requesterEmail: 'leo@gigvora.com',
     addresseeEmail: 'noah@gigvora.com',
     status: 'accepted',
+  },
+];
+
+const groupPostSeeds = [
+  {
+    groupName: 'Future of Work Collective',
+    slug: 'future-of-work-manifesto-refresh',
+    title: 'Community manifesto refresh',
+    summary:
+      "Opening comments on the proposed manifesto updates ahead of next month's membership expansion vote.",
+    content:
+      'Leila recapped the core chapters we plan to refresh, focusing on how we frame experimentation ethics, data sharing boundaries, and the mentoring pledge. Please review the inline comments before next Wednesday so we can finalise the vote package.',
+    authorEmail: 'ava@gigvora.com',
+    publishedAt: minutesFromNow(-6 * 60),
+    metadata: {
+      category: 'Announcement',
+      tags: ['Announcement', 'Governance'],
+      replyCount: 42,
+      participantCount: 31,
+      appreciations: 88,
+      pinned: true,
+      isAnswered: true,
+      lastActivityAt: minutesFromNow(-6 * 60),
+      lastReplyAt: minutesFromNow(-40),
+      url: 'https://community.gigvora.com/future-of-work-collective/manifesto',
+    },
+  },
+  {
+    groupName: 'Future of Work Collective',
+    slug: 'future-of-work-growth-loops',
+    title: 'Growth loops for B2B marketplaces',
+    summary: 'Thread collecting benchmarks for self-serve and assisted supply acquisition experiments.',
+    content:
+      'Sharing our latest numbers on the talent pods experiment, plus a few prompts to unpack how others are balancing SEO, outbound, and paid referrals. Drop your dashboards and leading indicators—especially if you are tracking net activation inside the first two weeks.',
+    authorEmail: 'leo@gigvora.com',
+    publishedAt: minutesFromNow(-90),
+    metadata: {
+      category: 'Growth',
+      tags: ['Growth', 'Product ops'],
+      replyCount: 23,
+      participantCount: 19,
+      appreciations: 61,
+      isUnresolved: true,
+      lastActivityAt: minutesFromNow(-90),
+      lastReplyAt: minutesFromNow(-40),
+      url: 'https://community.gigvora.com/future-of-work-collective/growth-loops',
+    },
+  },
+  {
+    groupName: 'Future of Work Collective',
+    slug: 'future-of-work-ai-onboarding',
+    title: 'AI copilots for member onboarding',
+    summary: 'Collecting prompts, workflows, and retention metrics for AI-assisted onboarding flows.',
+    content:
+      'Mateo outlined the three experiments currently running with AI copilots guiding members through their first week. We have baseline data on completion rates and sentiment—curious to hear how others are operationalising follow-up when the copilot flags a risk.',
+    authorEmail: 'ava@gigvora.com',
+    publishedAt: minutesFromNow(-4 * 60),
+    metadata: {
+      category: 'AI',
+      tags: ['AI', 'Onboarding'],
+      replyCount: 17,
+      participantCount: 16,
+      appreciations: 54,
+      isAnswered: true,
+      lastActivityAt: minutesFromNow(-4 * 60),
+      lastReplyAt: minutesFromNow(-2 * 60),
+      url: 'https://community.gigvora.com/future-of-work-collective/ai-onboarding',
+    },
+  },
+  {
+    groupName: 'Launchpad Alumni Guild',
+    slug: 'launchpad-mastermind-replay',
+    title: 'Mastermind replay + action plan',
+    summary:
+      'Replay link and workbook for the monetisation mastermind—add your experiments so we can track deltas next sprint.',
+    content:
+      'Ava bundled the replay, transcript, and editable action worksheet so every pod can commit to a monetisation experiment before Friday. Please duplicate the sheet, note your baselines, and add blockers so we can coordinate mentor support.',
+    authorEmail: 'mia@gigvora.com',
+    publishedAt: minutesFromNow(-5 * 60),
+    metadata: {
+      category: 'Replay',
+      tags: ['Monetisation', 'Replay'],
+      replyCount: 19,
+      participantCount: 17,
+      appreciations: 48,
+      pinned: true,
+      isAnswered: true,
+      lastActivityAt: minutesFromNow(-5 * 60),
+      url: 'https://community.gigvora.com/launchpad/mastermind-replay',
+    },
+  },
+  {
+    groupName: 'Launchpad Alumni Guild',
+    slug: 'launchpad-referral-loops',
+    title: 'Structuring partner referral loops post-cohort',
+    summary: 'Gathering templates and CRM automations to keep referrals compounding after graduation.',
+    content:
+      'Nikhil described their “graduation pipeline” and how they are scoring partner readiness. Looking for examples of weekly rituals that keep alumni accountable once the programme ends—especially tactics for handoffs between mentors and partner managers.',
+    authorEmail: 'noah@gigvora.com',
+    publishedAt: minutesFromNow(-7 * 60),
+    metadata: {
+      category: 'Growth',
+      tags: ['Referrals', 'Growth loops'],
+      replyCount: 15,
+      participantCount: 12,
+      appreciations: 41,
+      isUnresolved: true,
+      unread: true,
+      lastActivityAt: minutesFromNow(-7 * 60),
+      lastReplyAt: minutesFromNow(-3 * 60),
+      url: 'https://community.gigvora.com/launchpad/referral-loops',
+    },
+  },
+  {
+    groupName: 'Launchpad Alumni Guild',
+    slug: 'launchpad-office-hours-expectations',
+    title: 'Mentor office hours expectations',
+    summary: 'Helping mentors and founders prep so sessions stay actionable and concise.',
+    content:
+      "Shared our latest run of agendas, plus a quick checklist mentors are using before each call. Would love your scripts for keeping founders accountable and for logging follow-ups—especially if you're using automation to nudge teams afterward.",
+    authorEmail: 'mia@gigvora.com',
+    publishedAt: minutesFromNow(-180),
+    metadata: {
+      category: 'Mentorship',
+      tags: ['Mentorship', 'Office hours'],
+      replyCount: 9,
+      participantCount: 10,
+      appreciations: 28,
+      isAnswered: true,
+      lastActivityAt: minutesFromNow(-180),
+      lastReplyAt: minutesFromNow(-140),
+      url: 'https://community.gigvora.com/launchpad/mentor-office-hours',
+    },
+  },
+  {
+    groupName: 'Purpose Lab',
+    slug: 'purpose-lab-briefing-pack',
+    title: 'Circular retail pilots briefing pack',
+    summary:
+      'Safety protocols, asset checklist, and partner briefing doc for volunteers joining the new circular retail pilot.',
+    content:
+      'Impact Office centralised all assets for the Q1 pilots, including updated field safety notes. Please confirm you have completed the compliance acknowledgement before registering for on-site rotations next week.',
+    authorEmail: 'mentor@gigvora.com',
+    publishedAt: minutesFromNow(-3 * 60),
+    metadata: {
+      category: 'Briefing',
+      tags: ['Briefing', 'Safety'],
+      replyCount: 14,
+      participantCount: 21,
+      appreciations: 39,
+      pinned: true,
+      isAnswered: true,
+      lastActivityAt: minutesFromNow(-3 * 60),
+      url: 'https://impact.gigvora.com/sprint-kit',
+    },
+  },
+  {
+    groupName: 'Purpose Lab',
+    slug: 'purpose-impact-metrics-thread',
+    title: 'Capturing impact metrics in low-connectivity areas',
+    summary:
+      'Looking for lightweight offline data capture flows to quantify outcomes before syncing back to headquarters.',
+    content:
+      'We are testing paper-to-mobile workflows and voice notes but need more ideas. How are you batching uploads, and who on your team reviews data quality before it hits the dashboard? Any tooling recommendations welcome.',
+    authorEmail: 'mentor@gigvora.com',
+    publishedAt: minutesFromNow(-9 * 60),
+    metadata: {
+      category: 'Impact measurement',
+      tags: ['Impact measurement', 'Field ops'],
+      replyCount: 17,
+      participantCount: 14,
+      appreciations: 41,
+      isUnresolved: true,
+      unread: true,
+      lastActivityAt: minutesFromNow(-9 * 60),
+      lastReplyAt: minutesFromNow(-4 * 60),
+      url: 'https://community.gigvora.com/purpose-lab/impact-metrics',
+    },
+  },
+  {
+    groupName: '[demo] Marketplace founders circle',
+    slug: 'demo-marketplace-growth-dashboard',
+    title: 'Marketplace growth dashboard starter',
+    summary:
+      'Sharing screenshots of the dashboard template and a quick loom walking through each metric block.',
+    content:
+      "Posting the latest revision of the dashboard we mentioned during last Friday's sync. It now includes a cohort view for buyer retention and a lightweight pipeline tracker. Drop questions or snippets if you adapt it to your own stack.",
+    authorEmail: 'ava@gigvora.com',
+    publishedAt: minutesFromNow(-5 * 24 * 60),
+    metadata: {
+      category: 'Growth',
+      tags: ['Growth', 'Analytics'],
+      replyCount: 4,
+      participantCount: 5,
+      appreciations: 12,
+      lastActivityAt: minutesFromNow(-5 * 24 * 60),
+    },
   },
 ];
 
@@ -712,6 +1708,7 @@ module.exports = {
           for (const email of ['ava@gigvora.com', 'leo@gigvora.com']) {
             const userId = userIds.get(email);
             if (!userId) continue;
+            const role = email === 'ava@gigvora.com' ? 'owner' : 'member';
             const [membership] = await queryInterface.sequelize.query(
               'SELECT id FROM group_memberships WHERE groupId = :groupId AND userId = :userId LIMIT 1',
               {
@@ -727,7 +1724,10 @@ module.exports = {
                 {
                   groupId,
                   userId,
-                  role: email === 'ava@gigvora.com' ? 'owner' : 'member',
+                  role,
+                  status: 'active',
+                  joinedAt: now,
+                  metadata: { notifications: DEFAULT_NOTIFICATION_PREFS },
                   createdAt: now,
                   updatedAt: now,
                 },
@@ -735,6 +1735,52 @@ module.exports = {
               { transaction },
             );
           }
+        }
+      }
+
+      if (groupIdByName.size && groupPostSeeds.length) {
+        for (const post of groupPostSeeds) {
+          const groupId = groupIdByName.get(post.groupName);
+          const authorId = userIds.get(post.authorEmail);
+          if (!groupId || !authorId) continue;
+          const slug = slugify(post.slug || post.title, `group-post-${groupId}`);
+          const [existingPost] = await queryInterface.sequelize.query(
+            'SELECT id FROM group_posts WHERE slug = :slug LIMIT 1',
+            {
+              type: QueryTypes.SELECT,
+              transaction,
+              replacements: { slug },
+            },
+          );
+          if (existingPost?.id) continue;
+
+          const publishedAt = post.publishedAt ? new Date(post.publishedAt) : now;
+          const createdAt = post.createdAt ? new Date(post.createdAt) : publishedAt;
+          const updatedAt = post.updatedAt ? new Date(post.updatedAt) : publishedAt;
+
+          await queryInterface.bulkInsert(
+            'group_posts',
+            [
+              {
+                groupId,
+                title: post.title,
+                slug,
+                summary: post.summary ?? null,
+                content: post.content,
+                status: post.status ?? 'published',
+                visibility: post.visibility ?? 'members',
+                attachments: post.attachments ?? null,
+                scheduledAt: post.scheduledAt ?? null,
+                publishedAt,
+                createdById: authorId,
+                updatedById: authorId,
+                metadata: post.metadata ?? {},
+                createdAt,
+                updatedAt,
+              },
+            ],
+            { transaction },
+          );
         }
       }
 
@@ -817,6 +1863,11 @@ module.exports = {
       await queryInterface.bulkDelete(
         'volunteering_roles',
         { title: volunteeringSeeds.map((volunteering) => volunteering.title) },
+        { transaction },
+      );
+      await queryInterface.bulkDelete(
+        'group_posts',
+        { slug: groupPostSeeds.map((post) => slugify(post.slug || post.title)) },
         { transaction },
       );
       await queryInterface.bulkDelete(

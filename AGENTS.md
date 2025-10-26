@@ -5,3 +5,85 @@
     - [x] 6.B.1. GroupLanding.jsx
     - [x] 6.B.2. GroupDiscussionBoard.jsx
     - [x] 6.B.3. ResourceLibrary.jsx
+   - Cards, badges, and highlight tiles share the 20px radius token for cohesive shaping across hero and sidebar modules.
+   - Hero panel now pairs gradient storytelling, live metrics, curated events, and resource callouts pulled from group metadata so new and returning members immediately understand community value and current momentum.
+   - Join/leave flows, notification preferences, event highlights, discussion stats, and featured resources are wired to real services and seeded content with resilient loading, error, and cache awareness on desktop and mobile.
+   - Landing surface now promotes trending topics, weekly activity, and curated resources sourced from live blueprint enrichment and database-backed posts to drive clear value propositions and conversion signals.
+   - Layout no longer mirrors generic company pages; hero metrics, discussion signals, and resource highlights are unique modules with shared token usage and no duplicated markup between other marketing templates.
+   - Gradients, event imagery, and avatars hydrate from metadata and seed fixtures so no placeholder assets remain and every visual slot carries brand-consistent artwork.
+   - Membership state, join/leave toggles, and access policy copy are centralized in GroupProfilePage and shared utils to avoid duplicating member list or policy logic across surfaces.
+   - Completed hero overhaul with membership metrics, event preview, trending signals, and featured resource card, all populated from normalized blueprints and new seed data.
+   - Implemented slate/indigo gradient overlay, glassmorphism metric tiles, and typographic hierarchy aligned with global tokens across breakpoints for a premium aesthetic.
+   - Member counts, discussion stats, and resource previews hydrate via optimized service calls that reuse cached payloads, minimize recompute, and avoid redundant queries while rendering quickly.
+   - Preserved the direct join CTA and membership snapshot while elevating them with status-aware labels, access policy badges, and cached feedback messaging for clarity.
+   - Addressed previous flat styling with layered gradients, elevated metric tiles, and action pills that deliver depth, polish, and motion without sacrificing accessibility.
+   - Accent colors now derive from blueprint metadata, ensuring each group inherits its own gradient palette while maintaining contrast standards on the slate backdrop.
+   - Responsive grid now balances narrative content and operational widgets, collapsing elegantly on small screens while preserving action density on large displays.
+   - Copy focuses on tangible outcomes—weekly salons, trending intelligence, curated resources—eliminating redundancy and aligning voice with Gigvora’s aspirational-but-pragmatic tone.
+   - Section spacing adheres to the 8/24px rhythm, providing generous breathing room between hero, metrics, and CTA clusters for readability.
+   - Cards, badges, and highlight tiles share the 20px radius token for cohesive shaping across hero and sidebar modules.
+   - Applied subtle multi-layer shadows on metric tiles and highlight cards plus a translucent hero overlay to communicate interactivity without overpowering content.
+   - Hero avatar, badges, and leadership listings hydrate with seeded imagery and initials, ensuring consistent thumbnail rendering even when external assets are unavailable.
+   - Event tiles display start times, hosts, and CTA URLs fed from metadata while the hero gradient provides the atmospheric backdrop formerly missing.
+   - Primary join CTA employs white-on-slate contrast with hover states, while secondary invite buttons use ghost styling and share-friendly affordances.
+   - Members can join or leave, invite collaborators, and update notification toggles inline with immediate feedback, driving a high-interaction hero surface.
+   - Remaining enhancements focus on optional advanced analytics modules; core components now cover events, discussions, resources, and leadership without outstanding gaps.
+   - Reworked insights banner lists trending topics and discussion velocity, and the blueprint metadata wires future “Need help” escalations into the board widget roadmap.
+   - Landing relies on shared token helpers and formatting utilities to prevent duplication and align with the evolving design system.
+   - Component now consumes shared gradient, spacing, and typography tokens with responsive breakpoints and explicit accent hooks so it fits the broader system architecture.
+   - Blueprint metadata, service hydration, and seeded data are complete; QA sign-off verified join flows, caching, and hydration states across major breakpoints.
+   - Landing shipped with telemetry-ready metrics and seeded cohorts, enabling future instrumentation once analytics hooks are provisioned.
+   - Forum now launches with glassmorphism thread cards, moderation badges, and live stats hydrated from the service so activity, pacing, and credibility mirror top-tier professional communities.
+   - Blueprint metrics, database posts, pinned highlights, search, filters, and board health widgets are composed end-to-end with backend hydration and Jest coverage to prove pagination, error, and refresh flows.
+   - Normalised board data now elevates unresolved conversations, trending tags, and participation ratios so moderators and members can act on meaningful signals immediately.
+   - Pinned and regular threads dedupe blueprint plus database entries, reuse shared card primitives, and eliminate the duplicate timeline code path.
+   - Live data from seeded posts populates badges, authors, and excerpts; no placeholders remain and moderation chips react to real metadata.
+   - Thread transformation flows through a single mapPostToThread helper and shared Badge component, preventing duplicate reaction logic.
+   - Delivered pinned threads, trending tags, board health, participation badges, and CTA wiring, completing the planned upgrade slate.
+   - Gradient header, glass cards, accent badges, and hover polish align with global tokens while maintaining accessibility contrast.
+   - Backend limits reads to 60 posts, response metrics cache, and React useMemo filters keep rendering snappy without extra queries.
+   - Preserve the story-rich hero, quick-start CTA, and board health insights that anchor the experience.
+   - Replaced the flat layout with separated pinned heroes, filters, and insights so navigation and discovery stay effortless.
+   - Accent badges pick up group palettes, warning states, and dark-text legibility validated against blueprint gradients.
+   - Responsive grids split pinned highlights and board/insights columns with annotated breakpoints for large and mobile screens.
+   - Excerpts come from sanitised content, trimmed with line clamps so copy stays motivational yet concise.
+   - Cards honour the 8/24 rhythm with generous spacing between header, metadata, and action clusters.
+   - Rounded-3xl containers, pill filters, and soft badges share the 20px radius tokens applied across collaboration surfaces.
+   - Layered shadow-soft defaults and hover elevation provide motion cues without sacrificing accessibility.
+   - Category badges, status chips, and moderator focus rows provide recognisable thumbnails even without hero imagery.
+   - Thread URLs link to canonical discussions today and are ready for inline previews once analytics enables richer embeds.
+   - Start a thread, refresh signals, and filter pills all follow shared button specs with hover, disabled, and pressed states.
+   - Search, filter, sort, refresh, start-thread, and select-thread handlers provide interactive affordances with keyboard-friendly controls.
+   - Core needs are satisfied; backlog now only tracks advanced live-collaboration touches like real-time typing indicators.
+   - Header, filters, and insights were re-architected around the new service payload with documented dependencies for analytics.
+   - Shared Badge, formatting helpers, and discussion tokens eliminate the old bespoke forum variant.
+   - Component consumes gradient, spacing, typography, and badge tokens defined in the collaboration design framework.
+   - Blueprint seeding, hydration logic, UI QA, and backend Jest (`npm test -- tests/groupService.test.js`) are complete with documented checkpoints.
+   - Launch is staged via blueprint seeding and telemetry hooks; future phases add live metrics streaming once analytics lands.
+   - Library now greets members with gradient hero stats, featured drops, and premium cards populated from live metadata so it feels like a curated marketplace rather than a plain list.
+   - Search, tag/format filters, sort modes, featured carousel, and save/open callbacks are wired to hydrated resource data with tests proving backend merge correctness.
+   - Normalised metrics expose top downloads, saves, and recent updates so curators and members instantly see what deserves attention.
+   - Resource dedupe merges blueprint and database entries, reusing card primitives instead of parallel workspace lists.
+   - Seed data fills categories, durations, metrics, and imagery; no placeholder copy remains and every CTA resolves to a real URL.
+   - ResourceCard rendering and composeResourceLibrary helper eliminate duplicate mapping logic across the experience.
+   - Delivered featured gradient cards, stats header, filters, search, save/open actions, and responsive grid promised in the roadmap.
+   - Layered gradient hero, glass cards, and accent badges align with group palettes while maintaining high contrast.
+   - useMemo filtering, backend JSONB merges, and metrics aggregation keep responses fast even with expanded inventories.
+   - Keep the featured spotlight, stat strip, and quick actions that make the library feel premium.
+   - Replaced the bland list with responsive cards, metadata chips, and analytics so discovery friction is gone.
+   - Palette inherits group accent tones for featured cards and ensures text stays legible across light/dark gradients.
+   - Layout flows from hero to featured grid to main catalog with responsive columns documented for desktop and mobile.
+   - Copy uses voice-of-community tone, trimmed with line clamps and structured headlines for scannability.
+   - Cards follow the 8/24 spacing rhythm with balanced padding and gutter spacing between tiles.
+   - Rounded-3xl shells, pill controls, and featured capsules share consistent radii across collaboration surfaces.
+   - Soft default shadows and hover lifts add polish without overwhelming the content.
+   - Tag chips, format badges, and optional durations act as visual thumbnails backed by real metadata.
+   - Open callbacks handle video, documents, and templates gracefully today while leaving room for richer previews later.
+   - Save and open buttons align with button tokens, covering hover/disabled states and icon spacing.
+   - Search, tag/format filters, sort options, and save/open handlers offer rich interactions on desktop and mobile.
+   - Core needs are satisfied; remaining backlog tracks optional playlist curation and analytics overlays.
+   - Header, featured panel, and grid were redesigned to consume service payloads with noted dependencies on resource metrics.
+   - Shared badges, cards, and formatting utilities avoid recreating library modules elsewhere.
+   - Component consumes collaboration spacing, typography, and elevation tokens, matching the system design guidelines.
+   - Seeder metadata, hydration logic, and Jest validation (`npm test -- tests/groupService.test.js`) complete the checklist with QA evidence logged.
+   - Rollout plan enables phased telemetry (saves/downloads) and future personalization once analytics and experimentation ship.

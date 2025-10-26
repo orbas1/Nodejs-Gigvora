@@ -1,3 +1,6 @@
+const useActualModels = process.env.JEST_DISABLE_MODEL_STUBS === 'true';
+const actualModule = useActualModels ? await import('../src/models/index.js') : null;
+
 const stubModel = new Proxy(
   {},
   {
@@ -6,7 +9,7 @@ const stubModel = new Proxy(
   },
 );
 
-export const sequelize = {
+let sequelize = {
   define: () => stubModel,
   models: {},
   authenticate: async () => {},
@@ -42,8 +45,27 @@ let AgencyRetainerNegotiation = stubModel;
 let AgencyRetainerEvent = stubModel;
 let ClientSuccessAffiliateLink = stubModel;
 let ClientSuccessAffiliateMetric = stubModel;
+let Group = stubModel;
+let GroupMembership = stubModel;
+let GroupInvite = stubModel;
+let GroupPost = stubModel;
 
-export const __setModelStubs = (overrides = {}) => {
+let domainRegistry = {
+  registerContext: () => {},
+  getContext: () => ({}),
+  listContexts: () => [],
+  getUnassignedModelNames: () => [],
+};
+
+let COMMUNITY_INVITE_STATUSES = [];
+let GROUP_VISIBILITIES = [];
+let GROUP_MEMBER_POLICIES = [];
+let GROUP_MEMBERSHIP_STATUSES = [];
+let GROUP_MEMBERSHIP_ROLES = [];
+let GROUP_POST_STATUSES = [];
+let GROUP_POST_VISIBILITIES = [];
+
+let __setModelStubs = (overrides = {}) => {
   const assignIfPresent = (key, setter) => {
     if (Object.prototype.hasOwnProperty.call(overrides, key) && overrides[key]) {
       setter(overrides[key]);
@@ -134,16 +156,68 @@ export const __setModelStubs = (overrides = {}) => {
   assignIfPresent('ClientSuccessAffiliateMetric', (value) => {
     ClientSuccessAffiliateMetric = value;
   });
+  assignIfPresent('Group', (value) => {
+    Group = value;
+  });
+  assignIfPresent('GroupMembership', (value) => {
+    GroupMembership = value;
+  });
+  assignIfPresent('GroupInvite', (value) => {
+    GroupInvite = value;
+  });
+  assignIfPresent('GroupPost', (value) => {
+    GroupPost = value;
+  });
 };
 
-export const domainRegistry = {
-  registerContext: () => {},
-  getContext: () => ({}),
-  listContexts: () => [],
-  getUnassignedModelNames: () => [],
-};
-
+if (useActualModels && actualModule) {
+  sequelize = actualModule.sequelize ?? sequelize;
+  domainRegistry = actualModule.domainRegistry ?? domainRegistry;
+  __setModelStubs = typeof actualModule.__setModelStubs === 'function' ? actualModule.__setModelStubs : () => {};
+  FeedPost = actualModule.FeedPost ?? FeedPost;
+  FeedComment = actualModule.FeedComment ?? FeedComment;
+  FeedReaction = actualModule.FeedReaction ?? FeedReaction;
+  User = actualModule.User ?? User;
+  Profile = actualModule.Profile ?? Profile;
+  Connection = actualModule.Connection ?? Connection;
+  RuntimeSecurityAuditEvent = actualModule.RuntimeSecurityAuditEvent ?? RuntimeSecurityAuditEvent;
+  MentorAdCampaign = actualModule.MentorAdCampaign ?? MentorAdCampaign;
+  MentorProfile = actualModule.MentorProfile ?? MentorProfile;
+  MentorAvailabilitySlot = actualModule.MentorAvailabilitySlot ?? MentorAvailabilitySlot;
+  MentorBooking = actualModule.MentorBooking ?? MentorBooking;
+  MentorClient = actualModule.MentorClient ?? MentorClient;
+  MentorSettings = actualModule.MentorSettings ?? MentorSettings;
+  MentorRecommendation = actualModule.MentorRecommendation ?? MentorRecommendation;
+  VolunteerApplication = actualModule.VolunteerApplication ?? VolunteerApplication;
+  VolunteerResponse = actualModule.VolunteerResponse ?? VolunteerResponse;
+  VolunteerContract = actualModule.VolunteerContract ?? VolunteerContract;
+  SpeedNetworkingParticipant = actualModule.SpeedNetworkingParticipant ?? SpeedNetworkingParticipant;
+  SpeedNetworkingSession = actualModule.SpeedNetworkingSession ?? SpeedNetworkingSession;
+  SpeedNetworkingRoom = actualModule.SpeedNetworkingRoom ?? SpeedNetworkingRoom;
+  AgencyCollaboration = actualModule.AgencyCollaboration ?? AgencyCollaboration;
+  AgencyCollaborationInvitation = actualModule.AgencyCollaborationInvitation ?? AgencyCollaborationInvitation;
+  AgencyRateCard = actualModule.AgencyRateCard ?? AgencyRateCard;
+  AgencyRateCardItem = actualModule.AgencyRateCardItem ?? AgencyRateCardItem;
+  AgencyRetainerNegotiation = actualModule.AgencyRetainerNegotiation ?? AgencyRetainerNegotiation;
+  AgencyRetainerEvent = actualModule.AgencyRetainerEvent ?? AgencyRetainerEvent;
+  ClientSuccessAffiliateLink = actualModule.ClientSuccessAffiliateLink ?? ClientSuccessAffiliateLink;
+  ClientSuccessAffiliateMetric = actualModule.ClientSuccessAffiliateMetric ?? ClientSuccessAffiliateMetric;
+  Group = actualModule.Group ?? Group;
+  GroupMembership = actualModule.GroupMembership ?? GroupMembership;
+  GroupInvite = actualModule.GroupInvite ?? GroupInvite;
+  GroupPost = actualModule.GroupPost ?? GroupPost;
+  COMMUNITY_INVITE_STATUSES = actualModule.COMMUNITY_INVITE_STATUSES ?? COMMUNITY_INVITE_STATUSES;
+  GROUP_VISIBILITIES = actualModule.GROUP_VISIBILITIES ?? GROUP_VISIBILITIES;
+  GROUP_MEMBER_POLICIES = actualModule.GROUP_MEMBER_POLICIES ?? GROUP_MEMBER_POLICIES;
+  GROUP_MEMBERSHIP_STATUSES = actualModule.GROUP_MEMBERSHIP_STATUSES ?? GROUP_MEMBERSHIP_STATUSES;
+  GROUP_MEMBERSHIP_ROLES = actualModule.GROUP_MEMBERSHIP_ROLES ?? GROUP_MEMBERSHIP_ROLES;
+  GROUP_POST_STATUSES = actualModule.GROUP_POST_STATUSES ?? GROUP_POST_STATUSES;
+  GROUP_POST_VISIBILITIES = actualModule.GROUP_POST_VISIBILITIES ?? GROUP_POST_VISIBILITIES;
+}
 export {
+  sequelize,
+  __setModelStubs,
+  domainRegistry,
   FeedPost,
   FeedComment,
   FeedReaction,
@@ -172,6 +246,17 @@ export {
   AgencyRetainerEvent,
   ClientSuccessAffiliateLink,
   ClientSuccessAffiliateMetric,
+  Group,
+  GroupMembership,
+  GroupInvite,
+  GroupPost,
+  COMMUNITY_INVITE_STATUSES,
+  GROUP_VISIBILITIES,
+  GROUP_MEMBER_POLICIES,
+  GROUP_MEMBERSHIP_STATUSES,
+  GROUP_MEMBERSHIP_ROLES,
+  GROUP_POST_STATUSES,
+  GROUP_POST_VISIBILITIES,
 };
 
 export default stubModel;
