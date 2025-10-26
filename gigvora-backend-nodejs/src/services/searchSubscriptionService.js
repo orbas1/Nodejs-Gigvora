@@ -138,10 +138,13 @@ export function getNextRunTimestamp(frequency) {
   return computeNextRunAt(frequency);
 }
 
-function serialiseQueueMetadata() {
-  const snapshot = getSearchSubscriptionQueueSnapshot();
+async function serialiseQueueMetadata() {
+  const snapshot = await getSearchSubscriptionQueueSnapshot();
   return {
     pendingJobs: snapshot.pending,
+    processingJobs: snapshot.processing,
+    failedJobs: snapshot.failed,
+    completedJobs: snapshot.completed,
     maxSize: snapshot.maxSize,
     oldestJobAt: snapshot.oldestEnqueuedAt,
     newestJobAt: snapshot.newestEnqueuedAt,
@@ -268,7 +271,7 @@ export async function runSubscription(id, userId) {
   }
 
   const frequency = subscription.frequency ?? 'daily';
-  const enqueued = enqueueSearchSubscriptionJob({
+  const enqueued = await enqueueSearchSubscriptionJob({
     subscriptionId: subscription.id,
     userId: subscription.userId,
     reason: 'manual_run',
@@ -290,7 +293,8 @@ export async function runSubscription(id, userId) {
     queue: {
       enqueued: enqueued.queued,
       jobId: enqueued.job.id,
-      snapshot: serialiseQueueMetadata(),
+      created: enqueued.created,
+      snapshot: await serialiseQueueMetadata(),
     },
   };
 }

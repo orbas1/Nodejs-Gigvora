@@ -112,6 +112,75 @@ await jest.unstable_mockModule(modelModuleUrl.pathname, () => ({
   SearchSubscription,
 }));
 
+const queueState = {
+  maxSize: 1000,
+  jobs: [],
+};
+
+await jest.unstable_mockModule(queueModuleUrl.pathname, () => ({
+  __esModule: true,
+  configureSearchSubscriptionQueue: ({ sizeCap } = {}) => {
+    if (sizeCap == null) {
+      return Promise.resolve({ maxSize: queueState.maxSize });
+    }
+    const numeric = Number.parseInt(sizeCap, 10);
+    if (!Number.isInteger(numeric) || numeric <= 0) {
+      throw new ValidationError('sizeCap must be a positive integer.');
+    }
+    queueState.maxSize = numeric;
+    if (queueState.jobs.length > queueState.maxSize) {
+      queueState.jobs.splice(queueState.maxSize);
+    }
+    return Promise.resolve({ maxSize: queueState.maxSize });
+  },
+  enqueueSearchSubscriptionJob: ({ subscriptionId, userId, reason = 'manual_run', priority = 5 } = {}) => {
+    const now = new Date();
+    const job = {
+      id: `${subscriptionId}:${now.getTime()}`,
+      subscriptionId,
+      userId,
+      status: 'pending',
+      reason,
+      priority,
+      attempts: 0,
+      queuedAt: now,
+      availableAt: now,
+    };
+    const existingIndex = queueState.jobs.findIndex((entry) => entry.subscriptionId === subscriptionId);
+    if (existingIndex >= 0) {
+      queueState.jobs[existingIndex] = job;
+    } else {
+      if (queueState.jobs.length >= queueState.maxSize) {
+        throw new ValidationError('Search subscription queue is at capacity.');
+      }
+      queueState.jobs.push(job);
+    }
+    return Promise.resolve({ job, queued: true, created: existingIndex === -1 });
+  },
+  drainSearchSubscriptionJobs: ({ limit = 10 } = {}) => {
+    const taken = queueState.jobs.splice(0, limit);
+    return Promise.resolve(taken.map((job) => ({ ...job })));
+  },
+  getSearchSubscriptionQueueSnapshot: () => {
+    const oldest = queueState.jobs[0]?.queuedAt ?? null;
+    const newest = queueState.jobs[queueState.jobs.length - 1]?.queuedAt ?? null;
+    return Promise.resolve({
+      pending: queueState.jobs.length,
+      processing: 0,
+      failed: 0,
+      completed: 0,
+      maxSize: queueState.maxSize,
+      oldestEnqueuedAt: oldest ? oldest.toISOString() : null,
+      newestEnqueuedAt: newest ? newest.toISOString() : null,
+    });
+  },
+  resetSearchSubscriptionQueue: () => {
+    queueState.jobs = [];
+    queueState.maxSize = 1000;
+    return Promise.resolve();
+  },
+}));
+
 const queueModule = await import(queueModuleUrl.pathname);
 const { resetSearchSubscriptionQueue, drainSearchSubscriptionJobs, getSearchSubscriptionQueueSnapshot } = queueModule;
 const { resetSearchMetrics } = await import(metricsModuleUrl.pathname);
@@ -124,9 +193,9 @@ let userCounter = 1;
 describe('searchSubscriptionService', () => {
   let user;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     resetSubscriptionStore();
-    resetSearchSubscriptionQueue();
+    await resetSearchSubscriptionQueue();
     resetSearchMetrics();
     user = {
       id: userCounter++,
@@ -203,10 +272,11 @@ describe('searchSubscriptionService', () => {
     expect(run.queue.jobId).toBeTruthy();
     expect(run.queue.snapshot.pendingJobs).toBeGreaterThanOrEqual(1);
 
-    const drained = drainSearchSubscriptionJobs({ limit: 5 });
+    const drained = await drainSearchSubscriptionJobs({ limit: 5 });
     expect(drained).toHaveLength(1);
     expect(drained[0].subscriptionId).toBe(created.id);
-    expect(getSearchSubscriptionQueueSnapshot().pending).toBe(0);
+    const snapshot = await getSearchSubscriptionQueueSnapshot();
+    expect(snapshot.pending).toBe(0);
     expect(new Date(run.nextRunAt).getTime()).toBeGreaterThan(Date.now());
   });
 

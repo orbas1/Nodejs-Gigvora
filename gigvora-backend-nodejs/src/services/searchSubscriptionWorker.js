@@ -1,5 +1,5 @@
 import { Op } from 'sequelize';
-import { SearchSubscription, User } from '../models/index.js';
+import { SearchSubscription, SearchSubscriptionJob, User } from '../models/index.js';
 import logger from '../utils/logger.js';
 import { ApplicationError } from '../utils/errors.js';
 import {
@@ -13,6 +13,7 @@ import { recordSearchExecution } from '../observability/searchMetrics.js';
 
 const DEFAULT_INTERVAL_MS = 60_000;
 const MAX_BATCH_SIZE = 10;
+const MAX_ATTEMPTS = 5;
 
 let workerTimer = null;
 let workerRunning = false;
@@ -39,17 +40,18 @@ async function enqueueDueSubscriptions({ logger: providedLogger } = {}) {
   const log = toLogger(providedLogger);
   try {
     const due = await fetchDueSubscriptions(MAX_BATCH_SIZE);
-    due.forEach((subscription) => {
+    for (const subscription of due) {
       try {
-        enqueueSearchSubscriptionJob({
+        await enqueueSearchSubscriptionJob({
           subscriptionId: subscription.id,
           userId: subscription.userId,
           reason: 'scheduled_run',
+          priority: 5,
         });
       } catch (error) {
         log.warn?.({ err: error, subscriptionId: subscription.id }, 'Failed to enqueue scheduled search subscription job');
       }
-    });
+    }
   } catch (error) {
     log.error?.({ err: error }, 'Failed to fetch due search subscriptions');
   }
@@ -70,6 +72,14 @@ async function executeSubscriptionJob(job, { logger: providedLogger } = {}) {
 
   if (!subscription) {
     log.warn?.({ jobId: job.id, subscriptionId: job.subscriptionId }, 'Search subscription not found for queued job');
+    await SearchSubscriptionJob.update(
+      {
+        status: 'cancelled',
+        processingFinishedAt: new Date(),
+        lastError: 'Subscription not found.',
+      },
+      { where: { id: job.id } },
+    );
     return null;
   }
 
@@ -134,9 +144,56 @@ async function executeSubscriptionJob(job, { logger: providedLogger } = {}) {
   };
 }
 
+function computeBackoffDelayMs(attempts) {
+  const safeAttempts = Math.min(Math.max(attempts, 1), 6);
+  const minutes = Math.min(60, 2 ** (safeAttempts - 1));
+  return minutes * 60 * 1000;
+}
+
+async function markJobSuccess(job, { durationMs, resultCount }) {
+  await SearchSubscriptionJob.update(
+    {
+      status: 'completed',
+      processingFinishedAt: new Date(),
+      durationMs: durationMs ?? null,
+      resultCount: resultCount ?? null,
+      lastError: null,
+    },
+    { where: { id: job.id } },
+  );
+}
+
+async function markJobFailure(job, error) {
+  const attempts = job.attempts ?? 0;
+  const message = error?.message ?? 'Search subscription execution failed.';
+  if (attempts >= MAX_ATTEMPTS) {
+    await SearchSubscriptionJob.update(
+      {
+        status: 'failed',
+        processingFinishedAt: new Date(),
+        lastError: message,
+      },
+      { where: { id: job.id } },
+    );
+    return;
+  }
+
+  const retryAt = new Date(Date.now() + computeBackoffDelayMs(attempts));
+  await SearchSubscriptionJob.update(
+    {
+      status: 'pending',
+      availableAt: retryAt,
+      processingStartedAt: null,
+      processingFinishedAt: null,
+      lastError: message,
+    },
+    { where: { id: job.id } },
+  );
+}
+
 export async function processPendingSearchSubscriptions({ logger: providedLogger, limit = MAX_BATCH_SIZE } = {}) {
   const log = toLogger(providedLogger);
-  const jobs = drainSearchSubscriptionJobs({ limit });
+  const jobs = await drainSearchSubscriptionJobs({ limit });
   if (!jobs.length) {
     return [];
   }
@@ -146,10 +203,12 @@ export async function processPendingSearchSubscriptions({ logger: providedLogger
     try {
       const result = await executeSubscriptionJob(job, { logger: log });
       if (result) {
+        await markJobSuccess(job, result);
         results.push(result);
       }
     } catch (error) {
       log.error?.({ err: error, jobId: job.id, subscriptionId: job.subscriptionId }, 'Failed to process search subscription job');
+      await markJobFailure(job, error);
     }
   }
 
@@ -195,15 +254,13 @@ export async function stopSearchSubscriptionWorker({ logger: providedLogger } = 
   return { stopped: true };
 }
 
-export function getSearchSubscriptionWorkerStatus() {
-  const snapshot = getSearchSubscriptionQueueSnapshot();
+export async function getSearchSubscriptionWorkerStatus() {
+  const snapshot = await getSearchSubscriptionQueueSnapshot();
   return {
     running: workerRunning,
-    pendingJobs: snapshot.pending,
-    maxQueueSize: snapshot.maxSize,
-    oldestJobAt: snapshot.oldestEnqueuedAt,
-    newestJobAt: snapshot.newestEnqueuedAt,
+    intervalMs: workerTimer ? workerTimer._repeat : null,
     lastRunAt: lastRunAt ? lastRunAt.toISOString() : null,
+    queue: snapshot,
   };
 }
 

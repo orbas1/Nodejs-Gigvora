@@ -16965,6 +16965,75 @@ export const SearchSubscription = sequelize.define(
   },
 );
 
+export const SEARCH_SUBSCRIPTION_JOB_STATUSES = ['pending', 'processing', 'completed', 'failed', 'cancelled'];
+
+export const SearchSubscriptionJob = sequelize.define(
+  'SearchSubscriptionJob',
+  {
+    subscriptionId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: { model: 'search_subscriptions', key: 'id' },
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE',
+    },
+    userId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: { model: 'users', key: 'id' },
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE',
+    },
+    status: {
+      type: DataTypes.ENUM(...SEARCH_SUBSCRIPTION_JOB_STATUSES),
+      allowNull: false,
+      defaultValue: 'pending',
+    },
+    reason: { type: DataTypes.STRING(120), allowNull: false, defaultValue: 'manual' },
+    priority: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 5 },
+    payload: { type: jsonType, allowNull: false, defaultValue: {} },
+    attempts: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    lastError: { type: DataTypes.TEXT, allowNull: true },
+    queuedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    availableAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    processingStartedAt: { type: DataTypes.DATE, allowNull: true },
+    processingFinishedAt: { type: DataTypes.DATE, allowNull: true },
+    durationMs: { type: DataTypes.INTEGER, allowNull: true },
+    resultCount: { type: DataTypes.INTEGER, allowNull: true },
+  },
+  {
+    tableName: 'search_subscription_jobs',
+    indexes: [
+      { fields: ['status', 'availableAt'] },
+      { fields: ['subscriptionId'] },
+      { fields: ['userId'] },
+    ],
+  },
+);
+
+SearchSubscriptionJob.prototype.toPublicObject = function toPublicObject() {
+  const plain = this.get({ plain: true });
+  return {
+    id: plain.id,
+    subscriptionId: plain.subscriptionId,
+    userId: plain.userId,
+    status: plain.status,
+    reason: plain.reason,
+    priority: plain.priority,
+    payload: plain.payload ?? {},
+    attempts: plain.attempts ?? 0,
+    lastError: plain.lastError ?? null,
+    queuedAt: plain.queuedAt,
+    availableAt: plain.availableAt,
+    processingStartedAt: plain.processingStartedAt,
+    processingFinishedAt: plain.processingFinishedAt,
+    durationMs: plain.durationMs ?? null,
+    resultCount: plain.resultCount ?? null,
+    createdAt: plain.createdAt,
+    updatedAt: plain.updatedAt,
+  };
+};
+
 export const FreelancerAssignmentMetric = sequelize.define(
   'FreelancerAssignmentMetric',
   {
@@ -23191,6 +23260,10 @@ Job.hasMany(JobStage, { foreignKey: 'jobId', as: 'stages' });
 JobStage.belongsTo(Job, { foreignKey: 'jobId', as: 'job' });
 User.hasMany(SearchSubscription, { foreignKey: 'userId', as: 'searchSubscriptions' });
 SearchSubscription.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(SearchSubscriptionJob, { foreignKey: 'userId', as: 'searchSubscriptionJobs' });
+SearchSubscriptionJob.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+SearchSubscription.hasMany(SearchSubscriptionJob, { foreignKey: 'subscriptionId', as: 'jobs' });
+SearchSubscriptionJob.belongsTo(SearchSubscription, { foreignKey: 'subscriptionId', as: 'subscription' });
 
 AnalyticsEvent.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
@@ -24723,6 +24796,8 @@ export default {
   DisputeWorkflowSetting,
   DisputeTemplate,
   SearchSubscription,
+  SearchSubscriptionJob,
+  SEARCH_SUBSCRIPTION_JOB_STATUSES,
   FreelancerAssignmentMetric,
   FreelancerFinanceMetric,
   FreelancerRevenueMonthly,
