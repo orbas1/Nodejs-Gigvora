@@ -8,6 +8,13 @@ import apiClient from '../services/apiClient.js';
 import SocialAuthButton, { SOCIAL_PROVIDERS } from '../components/SocialAuthButton.jsx';
 import useFormState from '../hooks/useFormState.js';
 import FormStatusMessage from '../components/forms/FormStatusMessage.jsx';
+import {
+  clearRememberedLogin,
+  loadRememberedLogin,
+  normaliseEmail,
+  redirectToSocialAuth,
+  saveRememberedLogin,
+} from '../utils/authHelpers.js';
 
 export const DASHBOARD_ROUTES = {
   admin: '/dashboard/admin',
@@ -27,6 +34,12 @@ export function resolveLanding(session) {
   return DASHBOARD_ROUTES[key] ?? '/feed';
 }
 
+const SOCIAL_LABELS = {
+  x: 'X',
+  linkedin: 'LinkedIn',
+  facebook: 'Facebook',
+};
+
 export function formatExpiry(timestamp) {
   if (!timestamp) return null;
   try {
@@ -42,10 +55,13 @@ export function formatExpiry(timestamp) {
 }
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
+  const [rememberedMeta] = useState(() => loadRememberedLogin());
+  const [email, setEmail] = useState(() => rememberedMeta?.email ?? '');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [challenge, setChallenge] = useState(null);
+  const [rememberMe, setRememberMe] = useState(() => Boolean(rememberedMeta?.email));
+  const [showPassword, setShowPassword] = useState(false);
   const { status, setStatus, setError, setInfo, setSuccess, clearMessage, message, messageType, feedbackProps } =
     useFormState();
 
@@ -55,6 +71,18 @@ export default function LoginPage() {
   const awaitingTwoFactor = Boolean(challenge?.tokenId);
   const codeExpiresAt = useMemo(() => formatExpiry(challenge?.expiresAt), [challenge?.expiresAt]);
   const googleEnabled = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
+  const rememberedSavedAt = Number.isFinite(rememberedMeta?.savedAt) ? rememberedMeta.savedAt : null;
+  const rememberedSavedAtLabel = useMemo(() => {
+    if (!rememberedSavedAt) {
+      return null;
+    }
+    try {
+      return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(rememberedSavedAt));
+    } catch (error) {
+      console.warn('Unable to format remembered login timestamp', error);
+      return null;
+    }
+  }, [rememberedSavedAt]);
 
   const handleCredentialsSubmit = async (event) => {
     event.preventDefault();
@@ -63,15 +91,24 @@ export default function LoginPage() {
     setStatus('submitting');
     clearMessage();
     try {
-      const response = await loginWithPassword({ email, password });
+      const emailValue = normaliseEmail(email);
+      const response = await loginWithPassword({ email: emailValue, password });
       if (response.requiresTwoFactor) {
         setChallenge(response.challenge);
         setCode('');
         setInfo('Check your email for the verification code to finish signing in.');
+        if (rememberMe) {
+          saveRememberedLogin(emailValue);
+        }
       } else if (response.session) {
         const sessionState = login(response.session);
         setSuccess('Signed in successfully. Redirecting you now.');
         navigate(resolveLanding(sessionState), { replace: true });
+        if (rememberMe) {
+          saveRememberedLogin(emailValue);
+        } else {
+          clearRememberedLogin();
+        }
       } else {
         throw new Error('Unexpected authentication response.');
       }
@@ -93,12 +130,18 @@ export default function LoginPage() {
     setStatus('verifying');
     clearMessage();
     try {
-      const response = await verifyTwoFactor({ email, code, tokenId: challenge.tokenId });
+      const emailValue = normaliseEmail(email);
+      const response = await verifyTwoFactor({ email: emailValue, code, tokenId: challenge.tokenId });
       const sessionState = login(response.session);
       setChallenge(null);
       setCode('');
       setSuccess('Verification complete. Redirecting you to your dashboard.');
       navigate(resolveLanding(sessionState), { replace: true });
+      if (rememberMe) {
+        saveRememberedLogin(emailValue);
+      } else {
+        clearRememberedLogin();
+      }
     } catch (verificationError) {
       if (verificationError instanceof apiClient.ApiError) {
         setError(verificationError.body?.message || verificationError.message);
@@ -164,23 +207,22 @@ export default function LoginPage() {
     }
 
     clearMessage();
-    setInfo(`Redirecting to ${provider === 'x' ? 'X' : provider.charAt(0).toUpperCase() + provider.slice(1)} to continue.`);
+    const providerLabel = SOCIAL_LABELS[provider] ?? provider.charAt(0).toUpperCase() + provider.slice(1);
+    setInfo(`Redirecting to ${providerLabel} to continue.`);
     setStatus('redirecting');
-    const apiBase = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api').replace(/\/$/, '');
-    const authBase = apiBase.replace(/\/api$/, '');
-    const routes = {
-      x: '/auth/x/login',
-      linkedin: '/auth/linkedin/login',
-      facebook: '/auth/facebook/login',
-    };
-
-    const next = routes[provider];
-    if (next) {
-      window.location.href = `${authBase}${next}`;
-    } else {
+    const url = redirectToSocialAuth(provider, 'login');
+    if (!url) {
       setStatus('idle');
       clearMessage();
       setError('Social sign-in is not available right now. Please try another option.');
+    }
+  };
+
+  const handleRememberChange = (event) => {
+    const nextValue = event.target.checked;
+    setRememberMe(nextValue);
+    if (!nextValue) {
+      clearRememberedLogin();
     }
   };
 
@@ -223,17 +265,46 @@ export default function LoginPage() {
                     <label htmlFor="password" className="text-sm font-medium text-slate-700">
                       Password
                     </label>
-                    <input
-                      id="password"
-                      type="password"
-                      autoComplete="current-password"
-                      value={password}
-                      onChange={(event) => setPassword(event.target.value)}
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-                      placeholder="••••••••"
-                      required
-                      minLength={8}
-                    />
+                    <div className="relative">
+                      <input
+                        id="password"
+                        type={showPassword ? 'text' : 'password'}
+                        autoComplete="current-password"
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 pr-24 text-sm text-slate-900 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                        placeholder="••••••••"
+                        required
+                        minLength={8}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((previous) => !previous)}
+                        className="absolute inset-y-0 right-4 flex items-center text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 transition hover:text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                        aria-pressed={showPassword}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? 'Hide' : 'Show'}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <label className="flex items-center gap-2 text-xs text-slate-600">
+                      <input
+                        type="checkbox"
+                        checked={rememberMe}
+                        onChange={handleRememberChange}
+                        className="h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent/30"
+                      />
+                      <span>Remember this device for 30 days</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/forgot-password')}
+                      className="text-xs font-semibold text-accent transition hover:text-accentDark"
+                    >
+                      Forgot password?
+                    </button>
                   </div>
                   <button
                     type="submit"
@@ -287,7 +358,15 @@ export default function LoginPage() {
                     <p className="text-center text-xs text-slate-500">
                       Prefer to use a social account? Choose your network above and we&apos;ll guide you through a secure sign-in.
                     </p>
+                    {rememberMe && rememberedSavedAtLabel ? (
+                      <p className="text-center text-[11px] text-slate-400">
+                        Last remembered on {rememberedSavedAtLabel}.
+                      </p>
+                    ) : null}
                   </div>
+                  <p className="text-center text-xs text-slate-500">
+                    Your credentials are encrypted in transit and protected with two-factor verification. We never share login details with third parties.
+                  </p>
                 </form>
               ) : (
                 <form onSubmit={handleVerify} className="space-y-6" noValidate>

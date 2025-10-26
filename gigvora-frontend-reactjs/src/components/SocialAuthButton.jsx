@@ -33,7 +33,7 @@ const PROVIDER_STYLES = {
   },
 };
 
-export default function SocialAuthButton({ provider, label, onClick, disabled = false }) {
+export default function SocialAuthButton({ provider, label, onClick = () => {}, disabled = false }) {
   const style = PROVIDER_STYLES[provider];
 
   if (!style) {
@@ -46,6 +46,7 @@ export default function SocialAuthButton({ provider, label, onClick, disabled = 
       onClick={onClick}
       disabled={disabled}
       className={`flex w-full items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold shadow-soft transition focus-visible:outline focus-visible:outline-2 focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 ${style.baseClass}`}
+      aria-label={label || style.label}
     >
       {style.icon}
       <span>{label || style.label}</span>

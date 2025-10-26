@@ -8,6 +8,8 @@ export const DASHBOARD_ROUTES = Object.freeze({
   user: '/feed',
 });
 
+const REMEMBERED_LOGIN_STORAGE_KEY = 'gigvora:web:auth:remembered-login';
+
 export function resolveLanding(session, fallback = '/feed') {
   if (!session) {
     return fallback;
@@ -22,6 +24,69 @@ export function normaliseEmail(value) {
     return '';
   }
   return String(value).trim().toLowerCase();
+}
+
+function getStorage() {
+  if (typeof window === 'undefined' || !window?.localStorage) {
+    return null;
+  }
+  return window.localStorage;
+}
+
+export function loadRememberedLogin() {
+  const storage = getStorage();
+  if (!storage) {
+    return null;
+  }
+  try {
+    const raw = storage.getItem(REMEMBERED_LOGIN_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || !parsed.email) {
+      return null;
+    }
+    return {
+      email: normaliseEmail(parsed.email),
+      savedAt: parsed.savedAt ? Number(parsed.savedAt) : null,
+    };
+  } catch (error) {
+    console.warn('Unable to read remembered login details', error);
+    return null;
+  }
+}
+
+export function saveRememberedLogin(email) {
+  const storage = getStorage();
+  if (!storage) {
+    return;
+  }
+  const value = normaliseEmail(email);
+  if (!value) {
+    storage.removeItem(REMEMBERED_LOGIN_STORAGE_KEY);
+    return;
+  }
+  try {
+    storage.setItem(
+      REMEMBERED_LOGIN_STORAGE_KEY,
+      JSON.stringify({ email: value, savedAt: Date.now() }),
+    );
+  } catch (error) {
+    console.warn('Unable to persist remembered login details', error);
+  }
+}
+
+export function clearRememberedLogin() {
+  const storage = getStorage();
+  if (!storage) {
+    return;
+  }
+  try {
+    storage.removeItem(REMEMBERED_LOGIN_STORAGE_KEY);
+  } catch (error) {
+    console.warn('Unable to clear remembered login details', error);
+  }
 }
 
 function getAuthBaseUrl() {
