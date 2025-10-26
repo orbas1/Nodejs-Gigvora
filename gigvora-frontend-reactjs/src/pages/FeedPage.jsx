@@ -97,6 +97,10 @@ const DEFAULT_VIEWPORT_HEIGHT = 900;
 const FEED_VIRTUAL_THRESHOLD = 14;
 const DEFAULT_CHUNK_ESTIMATE = 420;
 const OPPORTUNITY_POST_TYPES = new Set(['job', 'gig', 'project', 'launchpad', 'volunteering', 'mentorship']);
+const COMPACT_NUMBER_FORMATTER = new Intl.NumberFormat('en', {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+});
 
 const REACTION_OPTIONS = [
   {
@@ -1749,74 +1753,175 @@ function FeedIdentityRail({ session, interests = [] }) {
   );
 }
 
-function FeedInsightsRail({ connectionSuggestions = [], groupSuggestions = [] }) {
+function FeedInsightsRail({
+  connectionSuggestions = [],
+  groupSuggestions = [],
+  liveMoments = [],
+  generatedAt = null,
+}) {
   const hasSuggestions = connectionSuggestions.length || groupSuggestions.length;
+  const hasLiveMoments = liveMoments.length > 0;
+
+  const formatMemberCount = (value) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+      return null;
+    }
+    return COMPACT_NUMBER_FORMATTER.format(numeric);
+  };
 
   return (
     <aside className="space-y-6">
+      {hasLiveMoments ? (
+        <div className="rounded-[28px] bg-gradient-to-br from-indigo-500 via-purple-500 to-sky-500 p-[1px] shadow-lg shadow-indigo-500/30">
+          <div className="rounded-[26px] bg-white/95 p-6">
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-sm font-semibold text-slate-900">Live signals</p>
+              {generatedAt ? (
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                  Updated {formatRelativeTime(generatedAt)}
+                </span>
+              ) : null}
+            </div>
+            <ul className="mt-4 space-y-3">
+              {liveMoments.slice(0, 4).map((moment) => (
+                <li
+                  key={moment.id}
+                  className="flex items-start gap-3 rounded-2xl bg-white/85 p-3 shadow-sm ring-1 ring-white/60 backdrop-blur transition hover:-translate-y-0.5 hover:shadow-md"
+                >
+                  <span className="text-xl" aria-hidden="true">
+                    {moment.icon ?? '⚡️'}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-slate-900">{moment.title}</p>
+                    {moment.preview ? (
+                      <p className="mt-1 text-xs text-slate-600 line-clamp-2">{moment.preview}</p>
+                    ) : null}
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-indigo-500">
+                      {moment.tag ? <span>{moment.tag}</span> : null}
+                      {moment.timestamp ? (
+                        <span className="text-slate-400">{formatRelativeTime(moment.timestamp)}</span>
+                      ) : null}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      ) : null}
       {connectionSuggestions.length ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-[28px] border border-slate-100 bg-gradient-to-br from-white via-slate-50 to-white p-6 shadow-lg shadow-slate-200/40">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-slate-900">Suggested connections</p>
             <Link to="/connections" className="text-xs font-semibold text-accent transition hover:text-accentDark">
               View all
             </Link>
           </div>
-          <ul className="mt-4 space-y-3 text-sm">
-            {connectionSuggestions.slice(0, 4).map((connection) => (
-              <li key={connection.id} className="rounded-lg border border-slate-200 px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <UserAvatar name={connection.name} seed={connection.name} size="xs" showGlow={false} />
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-slate-900">{connection.name}</p>
-                    <p className="text-xs text-slate-500">{connection.headline}</p>
-                  </div>
-                </div>
-                <p className="mt-3 text-xs text-slate-500">{connection.reason}</p>
-                <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
-                  <span>{connection.location}</span>
-                  <span>{connection.mutualConnections} mutual</span>
-                </div>
-                <Link
-                  to={`/connections?suggested=${encodeURIComponent(connection.id)}`}
-                  className="mt-3 inline-flex items-center gap-2 rounded-full border border-accent/40 px-4 py-2 text-xs font-semibold text-accent transition hover:border-accent hover:bg-accentSoft"
+          <ul className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
+            {connectionSuggestions.slice(0, 4).map((connection) => {
+              const mutualLabel = connection.mutualConnections === 1
+                ? '1 mutual'
+                : `${connection.mutualConnections ?? 0} mutual`;
+              return (
+                <li
+                  key={connection.id}
+                  className="group flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm transition hover:-translate-y-1 hover:border-accent/30 hover:shadow-lg"
                 >
-                  Start introduction
-                </Link>
-              </li>
-            ))}
+                  <div className="flex items-start gap-3">
+                    <div className="relative">
+                      <span
+                        className="pointer-events-none absolute -inset-1 rounded-full bg-gradient-to-br from-accent/30 via-transparent to-violet-400/40 opacity-0 blur-md transition group-hover:opacity-100"
+                        aria-hidden="true"
+                      />
+                      <UserAvatar
+                        name={connection.name}
+                        seed={connection.avatarSeed ?? connection.name}
+                        size="xs"
+                        className="relative ring-2 ring-white"
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-slate-900 line-clamp-1">{connection.name}</p>
+                      {connection.headline ? (
+                        <p className="mt-1 text-xs text-slate-500 line-clamp-2">{connection.headline}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                  {connection.reason ? (
+                    <p className="mt-3 text-xs text-slate-500 line-clamp-2">{connection.reason}</p>
+                  ) : null}
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                    {connection.location ? <span>{connection.location}</span> : null}
+                    <span>{mutualLabel}</span>
+                  </div>
+                  <Link
+                    to={`/connections?suggested=${encodeURIComponent(connection.id)}`}
+                    className="mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-accent to-accentDark px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition hover:shadow"
+                  >
+                    Start introduction
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </div>
       ) : null}
       {groupSuggestions.length ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-[28px] border border-slate-100 bg-white/95 p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-slate-900">Groups to join</p>
             <Link to="/groups" className="text-xs font-semibold text-accent transition hover:text-accentDark">
               Explore groups
             </Link>
           </div>
-          <ul className="mt-4 space-y-3 text-sm">
-            {groupSuggestions.slice(0, 4).map((group) => (
-              <li key={group.id} className="rounded-lg border border-slate-200 px-4 py-3">
-                <p className="text-sm font-semibold text-slate-900">{group.name}</p>
-                <p className="mt-1 text-xs text-slate-500">{group.description}</p>
-                <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
-                  <span>{group.members} members</span>
-                  <span>{group.focus.slice(0, 2).join(' • ')}</span>
-                </div>
-                <Link
-                  to={`/groups/${encodeURIComponent(group.id)}?ref=feed-suggestion`}
-                  className="mt-3 inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-accent hover:text-accent"
+          <ul className="mt-4 grid gap-4 text-sm">
+            {groupSuggestions.slice(0, 4).map((group) => {
+              const membersLabel = formatMemberCount(group.members);
+              return (
+                <li
+                  key={group.id}
+                  className="flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm transition hover:-translate-y-1 hover:border-accent/30 hover:shadow"
                 >
-                  Request invite
-                </Link>
-              </li>
-            ))}
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-sm font-semibold text-slate-900 line-clamp-1">{group.name}</p>
+                    {membersLabel ? (
+                      <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-500">
+                        {membersLabel} members
+                      </span>
+                    ) : null}
+                  </div>
+                  {group.description ? (
+                    <p className="mt-2 text-xs text-slate-500 line-clamp-3">{group.description}</p>
+                  ) : null}
+                  {group.focus?.length ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {group.focus.slice(0, 3).map((focus) => (
+                        <span
+                          key={focus}
+                          className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600"
+                        >
+                          {focus}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                  {group.reason ? (
+                    <p className="mt-3 text-xs font-semibold text-slate-400 line-clamp-2">{group.reason}</p>
+                  ) : null}
+                  <Link
+                    to={`/groups/${encodeURIComponent(group.id)}?ref=feed-suggestion`}
+                    className="mt-4 inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:border-accent hover:text-accent"
+                  >
+                    Request invite
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </div>
       ) : null}
-      <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-700 shadow-sm">
+      <div className="rounded-[28px] border border-slate-200 bg-white p-6 text-sm text-slate-700 shadow-sm">
         <p className="text-sm font-semibold text-slate-900">Explorer consolidation</p>
         <p className="mt-2 text-sm text-slate-600">
           Jobs, gigs, projects, Experience Launchpad cohorts, volunteer opportunities, and talent discovery now live inside the Explorer. Use filters to pivot between freelancers, companies, people, groups, headhunters, and agencies without leaving your flow.
@@ -1829,7 +1934,7 @@ function FeedInsightsRail({ connectionSuggestions = [], groupSuggestions = [] })
         </Link>
       </div>
       {!hasSuggestions ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
+        <div className="rounded-[28px] border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
           <p className="text-sm font-semibold text-slate-900">No new suggestions just yet</p>
           <p className="mt-2 text-sm">As soon as the community shifts, you’ll see fresh connections and groups to explore.</p>
         </div>
@@ -1844,6 +1949,7 @@ export default function FeedPage() {
   const { session, isAuthenticated } = useSession();
   const [localPosts, setLocalPosts] = useState([]);
   const [remotePosts, setRemotePosts] = useState([]);
+  const [remoteSuggestions, setRemoteSuggestions] = useState(null);
   const [editingPostId, setEditingPostId] = useState(null);
   const [editingDraft, setEditingDraft] = useState(DEFAULT_EDIT_DRAFT);
   const [editSaving, setEditSaving] = useState(false);
@@ -1870,6 +1976,7 @@ export default function FeedPage() {
     if (!data) {
       if (!loading) {
         setRemotePosts([]);
+        setRemoteSuggestions(null);
         setPagination((previous) => ({ ...previous, nextCursor: null, nextPage: null, hasMore: false }));
       }
       return;
@@ -1889,6 +1996,7 @@ export default function FeedPage() {
 
     const normalisedFetched = items.map((post) => normaliseFeedPost(post, session)).filter(Boolean);
     setRemotePosts(normalisedFetched);
+    setRemoteSuggestions(data.suggestions ?? null);
     setPagination({
       nextCursor: data.nextCursor ?? null,
       nextPage: data.nextPage ?? null,
@@ -2077,6 +2185,9 @@ export default function FeedPage() {
         });
         return deduped;
       });
+      if (response?.suggestions) {
+        setRemoteSuggestions(response.suggestions);
+      }
       setPagination({
         nextCursor: response.nextCursor ?? null,
         nextPage: response.nextPage ?? null,
@@ -2108,11 +2219,13 @@ export default function FeedPage() {
     return () => observer.disconnect();
   }, [fetchNextPage, pagination.hasMore]);
 
-  const engagementSignals = useEngagementSignals({ session, feedPosts: posts });
+  const engagementSignals = useEngagementSignals({ session, feedPosts: posts, suggestions: remoteSuggestions });
   const {
     interests = [],
     connectionSuggestions = [],
     groupSuggestions = [],
+    liveMoments = [],
+    generatedAt: suggestionsGeneratedAt = null,
   } = engagementSignals ?? {};
 
   const membershipList = useMemo(() => {
@@ -2698,6 +2811,8 @@ export default function FeedPage() {
             <FeedInsightsRail
               connectionSuggestions={connectionSuggestions}
               groupSuggestions={groupSuggestions}
+              liveMoments={liveMoments}
+              generatedAt={suggestionsGeneratedAt}
             />
           </div>
         </div>
